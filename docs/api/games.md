@@ -95,16 +95,20 @@ Rules that live in the code:
 
 ## Refresh behavior
 
-Per ADR 0007: the schedule and stars once a day in the morning US
-Eastern time; every minute from a game's scheduled start until it is live;
+Per ADR 0007: the schedule and stars refreshed once a day in the morning US
+Eastern time; the day change of
+[ADR 0013](../adr/0013-day-change.md); every minute from a game's scheduled start until it is live;
 every 30 seconds while it is live; highlights one attempt 1, 2 and 3 hours
 after the final time; a final game's detail when it becomes final and, after
 a failure, 2, 4 and 6 hours after the final time.
 
 - The morning fetch runs at `DAILY_FETCH_TIME` (US Eastern, `HH:MM`, default
   06:00).
-- Between US Eastern midnight and that fetch, the feed still holds the
-  previous day's 7 days.
+- The middle day of the feed changes at US Eastern midnight. While any game
+  of the previous day is live, the previous day stays the middle day; the
+  first run after none is live moves the window to the new day, fetching the
+  days not held yet. The morning fetch refreshes the 7 days shown and never
+  moves the window.
 - A game's final time is stored when the job sees it become final. A game
   already final the first time the job sees it takes that moment as its final
   time, and its highlight attempts run right away, 1 and 2 hours later. A

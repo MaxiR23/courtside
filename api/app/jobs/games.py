@@ -1,7 +1,10 @@
 # api/app/jobs/games.py
 #
 # Games job: fetches the days shown on the cadences of ADR 0007 and
-# publishes the games feed. Stars, highlights and the highlights search URL
+# publishes the games feed. The feed's today is the US Eastern date; after
+# midnight the previous day stays today while any of its games is live, then
+# the window moves. The morning run refreshes the days shown and runs the
+# cleanup. Stars, highlights and the highlights search URL
 # are inputs, supplied by other jobs.
 #
 # A final game's detail is fetched when it becomes final and, after a failure,
@@ -12,7 +15,8 @@
 # are kept.
 #
 # SEE: docs/adr/0007-backend-runtime-and-data-pipeline.md, docs/api/games.md,
-# docs/adr/0010-final-game-attempts.md, docs/adr/0011-state-retention.md
+# docs/adr/0010-final-game-attempts.md, docs/adr/0011-state-retention.md,
+# docs/adr/0013-day-change.md
 
 import datetime as dt
 from collections.abc import Awaitable, Callable, Mapping, Sequence
@@ -193,6 +197,7 @@ class GamesJob:
         self._details: dict[str, GameDetail] = {}
         self._daily_fetched_at: dt.datetime | None = None
         self._catch_up: set[str] = set()
+        self._today: dt.date | None = None
 
     def final_games(self) -> list[ScoreboardGame]:
         return [
@@ -215,6 +220,9 @@ class GamesJob:
             for day in sorted(self._games)
             for game in self._games[day]
         }
+
+    def _has_live(self, day: dt.date) -> bool:
+        return any(g.status is GameStatus.LIVE for g in self._games.get(day, []))
 
     def _daily_due(self, now: dt.datetime, today: dt.date) -> bool:
         if self._daily_fetched_at is None:
@@ -273,27 +281,44 @@ class GamesJob:
 
     async def run(self, now: dt.datetime) -> None:
         today = eastern_date(now)
+        if self._today is None:
+            self._today = today
         daily = self._daily_due(now, today)
-        due = days_shown(today) if daily else self._days_due(now)
+        due = self._days_due(now)
+        refreshed: list[dt.date] = []
+        moved = False
         calls = 0
         try:
             for day in due:
                 calls += 1
                 await self._refresh_day(day, now)
+                refreshed.append(day)
+            if self._today < today and not self._has_live(self._today):
+                self._today = today
+                moved = True
+            shown = days_shown(self._today)
             if daily:
-                shown = set(days_shown(today))
-                self._games = {d: g for d, g in self._games.items() if d in shown}
-                self._fetched_at = {
-                    d: t for d, t in self._fetched_at.items() if d in shown
-                }
-                kept = {g.id for games in self._games.values() for g in games}
-                self._details = {i: d for i, d in self._details.items() if i in kept}
-                self._catch_up &= kept
+                rest = [d for d in shown if d not in refreshed]
+            else:
+                rest = [d for d in shown if d not in self._games]
+            for day in rest:
+                calls += 1
+                await self._refresh_day(day, now)
+                refreshed.append(day)
+            kept_days = set(shown)
+            self._games = {d: g for d, g in self._games.items() if d in kept_days}
+            self._fetched_at = {
+                d: t for d, t in self._fetched_at.items() if d in kept_days
+            }
+            kept = {g.id for games in self._games.values() for g in games}
+            self._details = {i: d for i, d in self._details.items() if i in kept}
+            self._catch_up &= kept
+            if daily:
                 self._store.prune_final_times(today - STATE_RETENTION)
                 self._daily_fetched_at = now
             for day in sorted(self._games):
                 for game in self._games[day]:
-                    if game.status is GameStatus.LIVE and day in due:
+                    if game.status is GameStatus.LIVE and day in refreshed:
                         calls += 1
                         self._details[game.id] = await self._fetch_game_detail(
                             self._client, game.id, self._settings
@@ -322,6 +347,7 @@ class GamesJob:
             return
         if (
             calls == 0
+            and not moved
             and self._current_highlights() == self._published_highlights
             and self._current_stars() == self._published_stars
         ):
