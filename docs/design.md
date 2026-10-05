@@ -122,6 +122,7 @@ Lucide at `stroke-width: 1.5`: `chevron-down` (expand), `play` (filled, highligh
 
 - **Header:** the kicker "SCHEDULE" in accent-light, with the selected day as the h2 ("Sunday, October 4"). On the right, the game count ("5 games") in ink, and below it a freshness label in muted ("Updated 3 min ago").
 - **Day strip:** 7 equal columns, from today minus 3 days to today plus 3 days. Each cell shows the weekday (or "Today" in accent-light), the date number in Barlow Condensed `clamp(22px, 3vw, 32px)`, and the game count ("5 games" on desktop, "5" on mobile). The selected cell has an accent border and the selected-day fill. Hover: accent border.
+- **Day with no games:** the header still shows the selected day and "0 games". In place of the game list, a single blueprint row reads "No games scheduled for this day." in muted. This is not the state for missing or unavailable data, which is still undecided.
 - **Game card,** a blueprint frame:
   - **Desktop row, width 680px and up:** grid `minmax(0,1fr) auto minmax(0,1fr) 24px`.
     - Away team: a 46px monogram box with the team's three-letter code, the team name and the city in muted.

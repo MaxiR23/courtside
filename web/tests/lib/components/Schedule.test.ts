@@ -4,13 +4,13 @@
 //
 // Tested:
 // - Header: kicker, selected day, game count, freshness; today selected by default
-// - Selecting a day changes the heading, count and games; zero games shows no cards
+// - Selecting a day changes the heading, count and games; a day with no games shows the day, 0 games and the no-games message
 // - Desktop row and full counts on a wide viewport; mobile row and numbers below it
 // - The staggered list entrance on first view and on a day change, not on the same day
 // - Only one game card is open at a time; clicking an open card closes it
 // - The playing highlight stops when its card closes, another opens or the day changes
 // - Spoiler-free mode hides final scores until a card opens
-// - Spanish copy with a Spanish browser preference
+// - Spanish copy, including the no-games message, with a Spanish browser preference
 //
 // What is covered:
 // - Each state, including a day with no games, plus interaction
@@ -109,10 +109,34 @@ describe('Schedule', () => {
 		expect(container.querySelector('.meta .count')?.textContent).toBe('2 games');
 	});
 
-	it('shows 0 games and no cards on a day with no games', () => {
+	it('shows the day, 0 games and the no-games message instead of cards on a day with no games', () => {
 		const { container } = render(Schedule, { props: { ...props, selected: 1 } });
+		expect(screen.getByRole('heading', { level: 2 }).textContent?.trim()).toBe('Friday, October 2');
 		expect(container.querySelector('.meta .count')?.textContent).toBe('0 games');
+		const message = screen.getByText('No games scheduled for this day.');
+		expect(message.closest('.blueprint-frame')).not.toBeNull();
 		expect(container.querySelectorAll('li')).toHaveLength(0);
+		expect(container.querySelector('ul.games')).toBeNull();
+	});
+
+	it('does not show the no-games message on a day with games', () => {
+		render(Schedule, { props });
+		expect(screen.queryByText('No games scheduled for this day.')).toBeNull();
+	});
+
+	it('swaps the no-games message for the game cards when a day with games is selected', async () => {
+		const { container } = render(Schedule, { props: { ...props, selected: 1 } });
+		expect(screen.getByText('No games scheduled for this day.')).toBeTruthy();
+		await fireEvent.click(cells(container)[2]);
+		expect(screen.queryByText('No games scheduled for this day.')).toBeNull();
+		expect(container.querySelectorAll('li')).toHaveLength(2);
+	});
+
+	it('shows the no-games message in Spanish with a Spanish preference', () => {
+		preferLanguages(['es-ES']);
+		const { container } = render(Schedule, { props: { ...props, selected: 1 } });
+		expect(screen.getByText('No hay partidos programados para este día.')).toBeTruthy();
+		expect(container.querySelector('.meta .count')?.textContent).toBe('0 partidos');
 	});
 
 	it('uses the desktop row and full day counts on a wide viewport', () => {

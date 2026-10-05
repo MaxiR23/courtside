@@ -26,6 +26,7 @@
 	],
 	"schedule_updated": "Updated {minutes} min ago",
 	"schedule_tap_to_reveal": "Tap to reveal",
+	"schedule_no_games": "No games scheduled for this day.",
 	"panel_line_score_team": "Team",
 	"panel_line_score_total": "T",
 	"panel_line_score_overtime": "OT",
