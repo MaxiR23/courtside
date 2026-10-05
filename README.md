@@ -52,6 +52,38 @@ Planned structure. Folders appear as the project is built.
 
 How issues, branches, reviews and merges work in this repo is described in [`docs/workflow.md`](docs/workflow.md). Testing conventions are in [`docs/testing.md`](docs/testing.md).
 
+### Web (/web)
+
+Setup, from the repository root. Requires Node 22 and pnpm:
+
+```
+cd web && pnpm install
+```
+
+Run the app:
+
+```
+cd web && pnpm run dev
+```
+
+Run all tests:
+
+```
+cd web && pnpm run test
+```
+
+Run one test file:
+
+```
+cd web && pnpm exec vitest run tests/routes/+page.test.ts
+```
+
+Run the gate:
+
+```
+scripts/gate.sh web
+```
+
 ### API (/api)
 
 Setup, from the repository root. Always use `python3.12`, never `python3`:

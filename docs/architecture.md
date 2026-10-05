@@ -20,6 +20,7 @@ How Courtside is built and why. This document records decisions that are in forc
 | Testing | Vitest with Testing Library for `/web`, pytest for `/api`. Conventions in [`testing.md`](testing.md) |
 | Package managers | pnpm for `/web`, pip in a virtual environment for `/api`. Every dependency pinned to an exact version |
 | API tooling | ruff for lint and format, mypy in strict mode, pydantic-settings for configuration |
+| Web tooling | TypeScript in strict mode, svelte-check, ESLint and Prettier with their Svelte plugins, Vitest with Testing Library in jsdom, adapter-static, Node 22 |
 
 Exact versions of every dependency are pinned when the project is scaffolded.
 
@@ -62,6 +63,7 @@ data sources  ->  source adapters  ->  jobs  ->  feeds (JSON)  ->  front end
 - Svelte 5 runes only. Syntax from earlier Svelte versions is not used.
 - The front end fetches feeds and polls them while the page is open. Polling pauses while the tab is hidden.
 - Motion uses Svelte's built-in transitions and the Web Animations API. No animation library.
+- Recorded in [`adr/0004-web-tooling.md`](adr/0004-web-tooling.md).
 
 ## Performance
 
@@ -105,7 +107,21 @@ api/requirements-dev.txt   Development dependencies, pinned
 api/.env.example           Every variable Settings reads
 ```
 
-The internal structure of `/web` is defined when it is scaffolded and documented here at that point.
+Structure of `/web`:
+
+```
+web/src/routes/            Routes; +layout.ts prerenders everything
+web/src/lib/               Shared code, imported as #lib
+web/src/app.html           HTML shell
+web/static/                Static assets
+web/tests/                 Tests, mirroring src/
+web/package.json           Dependencies pinned, Node 22, the scripts the gate runs
+web/pnpm-lock.yaml         Lockfile
+web/vite.config.ts         SvelteKit, adapter-static and Vitest
+web/eslint.config.js       ESLint
+web/prettier.config.js     Prettier
+web/tsconfig.json          TypeScript, strict
+```
 
 ## Open decisions
 

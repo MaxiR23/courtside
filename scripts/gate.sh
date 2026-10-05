@@ -5,7 +5,14 @@
 #           so it must not use bash 4 features or GNU-only flags.
 # STEPS:
 #   web
-#     1. Run the gate of /web from the repository root.
+#     1. Require pnpm and web/node_modules.
+#     2. Lint.
+#     3. Format check.
+#     4. svelte-check.
+#     5. Tests.
+#     6. Production build.
+#     Every step runs from web/ through the scripts in web/package.json
+#     and stops at the first failure.
 #   api
 #     1. Require api/.venv and Python 3.12 in it.
 #     2. ruff check.
@@ -13,9 +20,6 @@
 #     4. mypy strict.
 #     5. pytest.
 #     Every step runs from api/ and stops at the first failure.
-#
-# The web gate is pending until /web is scaffolded: until then it reports
-# that it is pending and exits successfully.
 
 set -eu
 
@@ -33,8 +37,22 @@ usage() {
 }
 
 gate_web() {
-  # PENDING: the /web gate commands are written here when /web is scaffolded.
-  info "web: pending, /web is not scaffolded yet; no checks run"
+  command -v pnpm >/dev/null 2>&1 \
+    || die "web: pnpm not found; install pnpm and run 'pnpm install' in web/"
+  [ -d web/node_modules ] \
+    || die "web: web/node_modules not found; run 'cd web && pnpm install'"
+  cd web || die "cannot change to web"
+  info "web: lint"
+  pnpm run lint || die "web: lint failed"
+  info "web: format check"
+  pnpm run format:check || die "web: format check failed"
+  info "web: svelte-check"
+  pnpm run check || die "web: svelte-check failed"
+  info "web: tests"
+  pnpm run test || die "web: tests failed"
+  info "web: build"
+  pnpm run build || die "web: build failed"
+  info "web: passed"
 }
 
 gate_api() {

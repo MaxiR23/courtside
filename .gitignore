@@ -14,4 +14,4 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 
-# PENDING: /web ignores are added when /web is scaffolded.
+# /web: ignores live in web/.gitignore, written by the Svelte CLI and read by web/eslint.config.js

@@ -72,6 +72,6 @@ the plan is implemented, from the repository root:
 `scripts/gate.sh` is the only place the gate commands are written.
 `scripts/ship.sh` and CI call it and never repeat its commands.
 `scripts/gate.sh api` is in force: it runs ruff check, ruff format check,
-mypy strict and pytest. `scripts/gate.sh web` is pending until `/web` is
-scaffolded: until then it reports that its gate is pending and exits
-successfully.
+mypy strict and pytest. `scripts/gate.sh web` is in force: it requires
+`web/node_modules` and runs lint, format check, svelte-check, Vitest
+and the production build through the scripts in `web/package.json`.
