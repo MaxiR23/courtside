@@ -18,6 +18,7 @@ How Courtside is built and why. This document records decisions that are in forc
 | Back end | Python 3.12 with FastAPI, with scheduled jobs running in the same process |
 | Data contract | Pydantic models, exported as JSON Schema, with TypeScript types generated from it |
 | Testing | Vitest with Testing Library for `/web`, pytest for `/api`. Conventions in [`testing.md`](testing.md) |
+| Package managers | pnpm for `/web`, pip in a virtual environment for `/api`. Every dependency pinned to an exact version |
 
 Exact versions of every dependency are pinned when the project is scaffolded.
 
