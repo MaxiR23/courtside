@@ -9,9 +9,11 @@
 # - Reads the environment from a .env file
 # - Reads its .env file from api/.env
 # - Returns the same Settings instance on every call
+# - Leaves the scoreboard URL unset by default
+# - Reads the scoreboard URL from an environment variable
 #
 # What is covered:
-# - Happy path, value from the environment, value from a .env file, .env file location, invalid value, shared instance
+# - Happy path, value from the environment, value from a .env file, .env file location, invalid value, shared instance, optional scoreboard URL
 #
 # Run with: cd api && .venv/bin/python -m pytest tests/test_settings.py
 #
@@ -36,7 +38,7 @@ class SettingsWithoutEnvFile(Settings):
 def clear_environment_variable(monkeypatch: pytest.MonkeyPatch) -> None:
     # Settings matches variable names case-insensitively: clear every casing.
     for name in list(os.environ):
-        if name.lower() == "environment":
+        if name.lower() in {"environment", "scoreboard_url"}:
             monkeypatch.delenv(name)
 
 
@@ -90,3 +92,18 @@ def test_get_settings_returns_the_same_instance_on_every_call(
     monkeypatch.setattr("app.settings.Settings", SettingsWithoutEnvFile)
 
     assert get_settings() is get_settings()
+
+
+def test_scoreboard_url_is_unset_when_no_variable_is_set() -> None:
+    assert SettingsWithoutEnvFile().scoreboard_url is None
+
+
+def test_reads_the_scoreboard_url_from_the_environment_variable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("SCOREBOARD_URL", "https://example.com/scoreboard/{date}")
+
+    assert (
+        SettingsWithoutEnvFile().scoreboard_url
+        == "https://example.com/scoreboard/{date}"
+    )
