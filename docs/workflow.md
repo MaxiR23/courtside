@@ -28,8 +28,15 @@ included.
 
 ## 2. Branch
 
-- Do not create it by hand. `scripts/ship.sh prepare` creates it from an
-  up-to-date `main`.
+- Do not create it by hand. `scripts/ship.sh prepare` creates it, from
+  `main` or from a session branch that is not `type/short-description`,
+  after fetching `origin`. It creates the branch at `origin/main`,
+  carries the uncommitted changes into it, and fast-forwards local `main`
+  to `origin/main`. It never forces, resets or rewrites history.
+- If local `main` has diverged from `origin/main`, the session branch has
+  commits that are not on `origin/main`, or the uncommitted changes touch
+  files that changed on `origin/main`, `prepare` stops with a `prepare:`
+  message and changes nothing.
 - Naming: `type/short-description`, lowercase, hyphens, built from the
   first words of the issue title.
 - Never commit to `main` directly.
