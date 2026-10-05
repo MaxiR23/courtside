@@ -5,5 +5,13 @@
 # Environment files
 .env
 .env.*
+!.env.example
 
-# PENDING: /web and /api ignores are added when each app is scaffolded.
+# /api
+api/.venv/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# PENDING: /web ignores are added when /web is scaffolded.

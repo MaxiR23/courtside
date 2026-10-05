@@ -52,6 +52,40 @@ Planned structure. Folders appear as the project is built.
 
 How issues, branches, reviews and merges work in this repo is described in [`docs/workflow.md`](docs/workflow.md). Testing conventions are in [`docs/testing.md`](docs/testing.md).
 
+### API (/api)
+
+Setup, from the repository root. Always use `python3.12`, never `python3`:
+
+```
+python3.12 -m venv api/.venv
+api/.venv/bin/python -m pip install -r api/requirements-dev.txt
+cp api/.env.example api/.env
+```
+
+Run the app:
+
+```
+cd api && .venv/bin/python -m uvicorn app.main:app --reload
+```
+
+Run all tests:
+
+```
+cd api && .venv/bin/python -m pytest
+```
+
+Run one test file:
+
+```
+cd api && .venv/bin/python -m pytest tests/test_settings.py
+```
+
+Run the gate:
+
+```
+scripts/gate.sh api
+```
+
 ## Status
 
 In development.

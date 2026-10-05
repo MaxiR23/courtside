@@ -19,6 +19,7 @@ How Courtside is built and why. This document records decisions that are in forc
 | Data contract | Pydantic models, exported as JSON Schema, with TypeScript types generated from it |
 | Testing | Vitest with Testing Library for `/web`, pytest for `/api`. Conventions in [`testing.md`](testing.md) |
 | Package managers | pnpm for `/web`, pip in a virtual environment for `/api`. Every dependency pinned to an exact version |
+| API tooling | ruff for lint and format, mypy in strict mode, pydantic-settings for configuration |
 
 Exact versions of every dependency are pinned when the project is scaffolded.
 
@@ -76,6 +77,13 @@ The site has to load and respond fast on a phone. These rules apply to every cha
 
 Sections such as All-Star or the Finals are temporary. Each one is self-contained: its own route or component, its own feed and its own job. Removing a section removes those pieces and touches nothing in the core.
 
+## Configuration
+
+- Configuration is read only through `Settings` in `api/app/settings.py`, from the environment and from `api/.env`.
+- `.env` is never committed. `api/.env.example` lists every variable `Settings` reads.
+- Data source URLs and keys live only in configuration, never in code or documentation.
+- Recorded in [`adr/0003-api-tooling-and-configuration.md`](adr/0003-api-tooling-and-configuration.md).
+
 ## Repository layout
 
 ```
@@ -84,7 +92,20 @@ Sections such as All-Star or the Finals are temporary. Each one is self-containe
 /docs   Architecture, workflow and data documentation
 ```
 
-The internal structure of `/web` and `/api` is defined when each is scaffolded and documented here at that point.
+Structure of `/api`:
+
+```
+api/app/main.py            FastAPI app, includes the routers
+api/app/settings.py        Settings class and get_settings()
+api/app/routers/           One APIRouter per module
+api/tests/                 Tests, mirroring app/
+api/pyproject.toml         Tool configuration only (ruff, mypy, pytest)
+api/requirements.txt       Runtime dependencies, pinned
+api/requirements-dev.txt   Development dependencies, pinned
+api/.env.example           Every variable Settings reads
+```
+
+The internal structure of `/web` is defined when it is scaffolded and documented here at that point.
 
 ## Open decisions
 
