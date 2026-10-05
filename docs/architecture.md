@@ -103,8 +103,11 @@ Sections such as All-Star or the Finals are temporary. Each one is self-containe
 Structure of `/api`:
 
 ```
-api/app/main.py            FastAPI app, includes the routers
+api/app/main.py            FastAPI app factory, lifespan, CORS and routers
 api/app/settings.py        Settings class and get_settings()
+api/app/log.py             Logging, configured once at startup
+api/app/storage/           Job state (SQLite) and feed publication
+api/data/                  Data directory (default), never committed
 api/app/routers/           One APIRouter per module
 api/app/feeds/             One module per feed model, plus schema.py, which exports the schemas
 api/app/sources/           One module per data source adapter, plus http.py (shared client and SourceError) and teams.py (team codes)
