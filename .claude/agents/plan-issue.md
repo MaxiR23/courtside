@@ -70,7 +70,7 @@ Count before proposing:
 
 - The smallest change that satisfies the acceptance criteria. No
   opportunistic refactors or unrequested improvements.
-- Follow `CLAUDE.md`, `CODING_STANDARDS.md`, `docs/architecture.md` and
+- Follow `CLAUDE.md`, `docs/architecture.md` and
   `docs/testing.md`, and the conventions that already exist, surveyed per
   the rule above.
 - Every acceptance criterion is covered by some step.

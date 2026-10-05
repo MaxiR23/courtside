@@ -18,7 +18,7 @@ one that wrote them and you have no commitment to their being right.
   `git status --short`.
 - As context for severity and scope: the plan and its addenda, the issue
   (`gh api repos/{owner}/{repo}/issues/<number>`, REST only),
-  `CODING_STANDARDS.md`, `CLAUDE.md`, `docs/architecture.md`,
+  `CLAUDE.md`, `docs/architecture.md`,
   `docs/testing.md` and the ADRs in `docs/adr/`.
 
 ## Scope
@@ -40,7 +40,7 @@ what you read.
 Watch findings that claim something "is not handled": the handling often
 exists elsewhere in the path. Follow it before confirming. Watch findings
 against a deliberate decision: look for it in `CLAUDE.md`,
-`CODING_STANDARDS.md`, `docs/architecture.md`, the ADRs, the plan or the
+`docs/architecture.md`, the ADRs, the plan or the
 issue before confirming.
 
 ## Verdicts
