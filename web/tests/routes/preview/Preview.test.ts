@@ -5,7 +5,7 @@
 // Tested:
 // - Shows every base component in each of its variants
 // - Shows the hero in its three states and the footer
-// - Shows the day strip, every game card state on both rows, and the schedule
+// - Shows the day strip, every game card state on both rows, and the schedule on a day with no games showing its message
 // - Shows an expanded card for a scheduled, a live, a final and an overtime game
 // - Shows a final game with highlights and one with highlights pending, and plays a placeholder
 // - Shows final cards with spoiler-free mode on next to the rows with it off
@@ -77,6 +77,8 @@ describe('component preview', () => {
 		const empty = sectionOf('Schedule: day with no games');
 		expect(within(empty).getAllByText('0 games').length).toBeGreaterThanOrEqual(1);
 		expect(empty.querySelectorAll('.games > li')).toHaveLength(0);
+		expect(within(empty).getByText('No games scheduled for this day.')).toBeTruthy();
+		expect(within(schedule).queryByText('No games scheduled for this day.')).toBeNull();
 	});
 
 	it('shows an expanded card for a scheduled, a live, a final and an overtime game', () => {

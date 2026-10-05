@@ -1,4 +1,5 @@
 <script lang="ts">
+	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
 	import DayStrip from '#lib/components/DayStrip.svelte';
 	import GameCard from '#lib/components/GameCard.svelte';
 	import Kicker from '#lib/components/Kicker.svelte';
@@ -67,21 +68,27 @@
 	<DayStrip days={strip} {selected} compact={!wide.current} onSelect={select} />
 	<div class="list" bind:this={list}>
 		{#key entrance.run}
-			<ul class="games">
-				{#each games as game, i (game.id)}
-					<li use:cardEntrance={{ index: i, run: entrance.run }}>
-						<GameCard
-							{game}
-							{spoilerFree}
-							layout={wide.current ? 'desktop' : 'mobile'}
-							open={openId === game.id}
-							onToggle={() => toggle(game.id)}
-							playingVideoId={openId === game.id ? playingId : null}
-							onPlay={(videoId) => (playingId = videoId)}
-						/>
-					</li>
-				{/each}
-			</ul>
+			{#if games.length > 0}
+				<ul class="games">
+					{#each games as game, i (game.id)}
+						<li use:cardEntrance={{ index: i, run: entrance.run }}>
+							<GameCard
+								{game}
+								{spoilerFree}
+								layout={wide.current ? 'desktop' : 'mobile'}
+								open={openId === game.id}
+								onToggle={() => toggle(game.id)}
+								playingVideoId={openId === game.id ? playingId : null}
+								onPlay={(videoId) => (playingId = videoId)}
+							/>
+						</li>
+					{/each}
+				</ul>
+			{:else}
+				<BlueprintFrame>
+					<p class="empty">{m.schedule_no_games()}</p>
+				</BlueprintFrame>
+			{/if}
 		{/key}
 	</div>
 </section>
@@ -131,5 +138,12 @@
 		list-style: none;
 		padding: 0;
 		margin: 0;
+	}
+
+	.empty {
+		margin: 0;
+		padding: var(--game-list-gap);
+		font-size: var(--body-size);
+		color: var(--color-muted);
 	}
 </style>

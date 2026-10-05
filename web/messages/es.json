@@ -26,6 +26,7 @@
 	],
 	"schedule_updated": "Actualizado hace {minutes} min",
 	"schedule_tap_to_reveal": "Toca para ver",
+	"schedule_no_games": "No hay partidos programados para este día.",
 	"panel_line_score_team": "Equipo",
 	"panel_line_score_total": "T",
 	"panel_line_score_overtime": "PR",
