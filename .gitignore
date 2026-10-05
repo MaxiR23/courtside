@@ -1,0 +1,9 @@
+# Loop working files and local settings
+.claude/loop/
+.claude/settings.local.json
+
+# Environment files
+.env
+.env.*
+
+# PENDING: /web and /api ignores are added when each app is scaffolded.
