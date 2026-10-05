@@ -74,8 +74,10 @@ The other statuses add nothing.
 
 Rules that live in the code:
 
-- When two players tie on points, the leader is the first in the provider's
-  order.
+- The leader is the team's top scorer by points. A tie on points goes to
+  the tied player with the most rebounds plus assists, and a tie on both
+  to the first of them in the provider's order
+  ([ADR 0009](../adr/0009-game-leader-selection.md)).
 - `TeamStats.turnovers` counts the players' turnovers. Turnovers charged to
   the team are not included.
 - Stars: the current season's averages are used when any player on the
