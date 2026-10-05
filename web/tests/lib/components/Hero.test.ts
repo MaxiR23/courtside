@@ -6,6 +6,7 @@
 // - Shows the status, kicker, heading, blurb and both actions
 // - Calls the match details action; links All games to the schedule
 // - Slide indicator: starts on the away star, jumps on click, advances with autoplay
+// - Spoiler-free toggle in the nav row: pressed state and callback
 // - Parallax follows a mouse and is skipped on touch and with reduced motion
 // - Shows the copy in Spanish with a Spanish browser preference
 //
@@ -45,6 +46,8 @@ const baseProps = {
 	today: new Date(2026, 9, 4, 12),
 	scheduleHref: '/' as ResolvedPathname,
 	onMatchDetails: () => {},
+	spoilerFree: false,
+	onSpoilerFreeToggle: () => {},
 	autoplay: false
 };
 
@@ -203,5 +206,19 @@ describe('Hero', () => {
 		).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Detalles del partido' })).toBeTruthy();
 		expect(screen.getByRole('link', { name: 'Todos los partidos' })).toBeTruthy();
+	});
+
+	it('shows the spoiler-free toggle in the nav row, pressed when the mode is on', () => {
+		render(Hero, { props: { ...baseProps, spoilerFree: true } });
+		expect(screen.getByRole('button', { name: 'Spoiler-free' }).getAttribute('aria-pressed')).toBe(
+			'true'
+		);
+	});
+
+	it('calls onSpoilerFreeToggle when the nav row toggle is clicked', async () => {
+		const onSpoilerFreeToggle = vi.fn();
+		render(Hero, { props: { ...baseProps, onSpoilerFreeToggle } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Spoiler-free' }));
+		expect(onSpoilerFreeToggle).toHaveBeenCalledTimes(1);
 	});
 });

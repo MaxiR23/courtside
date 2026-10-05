@@ -13,9 +13,10 @@
 		days: ScheduleDay[]; // seven days, today in the middle
 		updatedMinutesAgo: number; // freshness, computed by the props layer
 		selected?: number; // $bindable, default 3 (today)
+		spoilerFree?: boolean; // hides final scores until a card is opened
 	};
 
-	let { days, updatedMinutesAgo, selected = $bindable(3) }: Props = $props();
+	let { days, updatedMinutesAgo, selected = $bindable(3), spoilerFree = false }: Props = $props();
 
 	const wide = wideViewport();
 	const entrance = new ListEntrance();
@@ -71,6 +72,7 @@
 					<li use:cardEntrance={{ index: i, run: entrance.run }}>
 						<GameCard
 							{game}
+							{spoilerFree}
 							layout={wide.current ? 'desktop' : 'mobile'}
 							open={openId === game.id}
 							onToggle={() => toggle(game.id)}

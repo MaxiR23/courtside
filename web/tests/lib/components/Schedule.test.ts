@@ -9,6 +9,7 @@
 // - The staggered list entrance on first view and on a day change, not on the same day
 // - Only one game card is open at a time; clicking an open card closes it
 // - The playing highlight stops when its card closes, another opens or the day changes
+// - Spoiler-free mode hides final scores until a card opens
 // - Spanish copy with a Spanish browser preference
 //
 // What is covered:
@@ -248,6 +249,22 @@ describe('Schedule', () => {
 			await fireEvent.click(toggles(container)[1]);
 			expect(expanded(container)).toHaveLength(1);
 			expect(toggles(container)[1].getAttribute('aria-expanded')).toBe('true');
+		});
+
+		it('hides final scores behind Tap to reveal in spoiler-free mode and reveals them when the card opens', async () => {
+			const { container } = render(Schedule, { props: { ...detailedProps, spoilerFree: true } });
+			expect(container.querySelectorAll('button.toggle .score')).toHaveLength(0);
+			expect(screen.getAllByText('Tap to reveal')).toHaveLength(2);
+			await fireEvent.click(toggles(container)[0]);
+			expect(toggles(container)[0].querySelectorAll('.score')).toHaveLength(2);
+			expect(toggles(container)[1].querySelectorAll('.score')).toHaveLength(0);
+			expect(screen.getAllByText('Tap to reveal')).toHaveLength(1);
+		});
+
+		it('shows the scores when spoiler-free mode is off', () => {
+			const { container } = render(Schedule, { props: detailedProps });
+			expect(container.querySelectorAll('button.toggle .score')).toHaveLength(4);
+			expect(screen.queryByText('Tap to reveal')).toBeNull();
 		});
 
 		it('closes the open card when its row is clicked again', async () => {

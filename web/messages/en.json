@@ -7,6 +7,7 @@
 	"status_live": "Live now",
 	"status_final": "Final",
 	"nav_games": "Games",
+	"nav_spoiler_free": "Spoiler-free",
 	"hero_at": "at",
 	"hero_blurb": "{awayStar} and {homeStar} meet at {arena}.",
 	"hero_match_details": "Match details",
@@ -24,6 +25,7 @@
 		}
 	],
 	"schedule_updated": "Updated {minutes} min ago",
+	"schedule_tap_to_reveal": "Tap to reveal",
 	"panel_line_score_team": "Team",
 	"panel_line_score_total": "T",
 	"panel_line_score_overtime": "OT",

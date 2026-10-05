@@ -19,14 +19,27 @@
 		onToggle?: () => void;
 		playingVideoId?: string | null;
 		onPlay?: (videoId: string) => void;
+		spoilerFree?: boolean;
 	};
 
-	let { game, layout, open = false, onToggle, playingVideoId = null, onPlay }: Props = $props();
+	let {
+		game,
+		layout,
+		open = false,
+		onToggle,
+		playingVideoId = null,
+		onPlay,
+		spoilerFree = false
+	}: Props = $props();
 
 	const panelId = $props.id();
 
+	// Spoiler-free mode: a final card that can expand hides its score until it is open.
+	const hidden = $derived(spoilerFree && game.status.state === 'final' && !!game.details && !open);
+
 	// Display choice: dims the lower score of a final game. Not a game rule.
 	const loser = $derived.by(() => {
+		if (hidden) return null;
 		const status = game.status;
 		if (status.state !== 'final') return null;
 		if (status.awayScore < status.homeScore) return 'away';
@@ -38,7 +51,7 @@
 		{ team: game.home, side: 'home' as const }
 	]);
 	const scores = $derived(
-		game.status.state === 'scheduled'
+		hidden || game.status.state === 'scheduled'
 			? null
 			: { away: game.status.awayScore, home: game.status.homeScore }
 	);
@@ -84,6 +97,8 @@
 					<span class="tip-time">
 						{game.status.tipTime}<span class="suffix">{game.status.tipSuffix}</span>
 					</span>
+				{:else if hidden}
+					<span class="reveal">{m.schedule_tap_to_reveal()}</span>
 				{/if}
 			</span>
 			<span class="team home" class:dimmed={loser === 'home'}>
@@ -98,7 +113,10 @@
 	{:else}
 		<span class="row mobile">
 			<span class="mobile-head">
-				{@render statusLine()}
+				<span class="mobile-status">
+					{@render statusLine()}
+					{#if hidden}<span class="reveal">{m.schedule_tap_to_reveal()}</span>{/if}
+				</span>
 				{@render chevron()}
 			</span>
 			{#each entries as entry (entry.side)}
@@ -280,6 +298,20 @@
 
 	.dimmed {
 		opacity: var(--dimmed-opacity);
+	}
+
+	.reveal {
+		font-size: var(--label-size);
+		letter-spacing: var(--label-letter-spacing);
+		text-transform: uppercase;
+		color: var(--color-accent-light);
+	}
+
+	.mobile-status {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--game-list-gap);
 	}
 
 	.mobile-head {

@@ -11,6 +11,7 @@
 	import SiteFooter from '#lib/components/SiteFooter.svelte';
 	import StatusTag from '#lib/components/StatusTag.svelte';
 	import TeamMonogram from '#lib/components/TeamMonogram.svelte';
+	import { SpoilerFree } from '#lib/schedule/spoiler-free.svelte.ts';
 	import type { HeroPlayer } from '#lib/hero/types.ts';
 	import type {
 		GameDetails,
@@ -188,6 +189,10 @@
 	let desktopSelected = $state(3);
 	let compactSelected = $state(3);
 	let previewPlaying = $state<string | null>(null);
+	let spoilerOpen = $state<string | null>(null);
+	const spoilerFree = new SpoilerFree();
+
+	$effect(() => spoilerFree.load());
 </script>
 
 <main>
@@ -247,6 +252,8 @@
 				{today}
 				scheduleHref={resolve('/')}
 				onMatchDetails={() => {}}
+				spoilerFree={spoilerFree.on}
+				onSpoilerFreeToggle={() => spoilerFree.toggle()}
 			/>
 		</section>
 	{/each}
@@ -287,6 +294,28 @@
 		</div>
 	</section>
 
+	<section>
+		<h2>GameCard: spoiler-free</h2>
+		<div class="stack">
+			<GameCard
+				game={sampleGames[2]}
+				layout="desktop"
+				spoilerFree
+				open={spoilerOpen === 'desktop'}
+				onToggle={() => (spoilerOpen = spoilerOpen === 'desktop' ? null : 'desktop')}
+			/>
+		</div>
+		<div class="stack phone">
+			<GameCard
+				game={sampleGames[2]}
+				layout="mobile"
+				spoilerFree
+				open={spoilerOpen === 'mobile'}
+				onToggle={() => (spoilerOpen = spoilerOpen === 'mobile' ? null : 'mobile')}
+			/>
+		</div>
+	</section>
+
 	{#each expandedGames as expanded (expanded.title)}
 		<section>
 			<h2>{expanded.title}</h2>
@@ -302,7 +331,7 @@
 
 	<section>
 		<h2>Schedule</h2>
-		<Schedule days={sampleDays} updatedMinutesAgo={3} />
+		<Schedule days={sampleDays} updatedMinutesAgo={3} spoilerFree={spoilerFree.on} />
 	</section>
 
 	<section>

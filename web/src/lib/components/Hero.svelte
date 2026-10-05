@@ -28,6 +28,8 @@
 		today: Date;
 		scheduleHref: ResolvedPathname;
 		onMatchDetails: () => void;
+		spoilerFree: boolean;
+		onSpoilerFreeToggle: () => void;
 		autoplay?: boolean;
 	};
 
@@ -40,6 +42,8 @@
 		today,
 		scheduleHref,
 		onMatchDetails,
+		spoilerFree,
+		onSpoilerFreeToggle,
 		autoplay = true
 	}: Props = $props();
 
@@ -112,7 +116,7 @@
 	</div>
 
 	<div class="content">
-		<NavRow {today} {scheduleHref} />
+		<NavRow {today} {scheduleHref} {spoilerFree} {onSpoilerFreeToggle} />
 
 		<div class="columns">
 			<div class="copy">

@@ -8,6 +8,8 @@
 // - Shows the day strip, every game card state on both rows, and the schedule
 // - Shows an expanded card for a scheduled, a live, a final and an overtime game
 // - Shows a final game with highlights and one with highlights pending, and plays a placeholder
+// - Shows final cards with spoiler-free mode on next to the rows with it off
+// - The hero toggle turns the mode on for the schedule
 // - Uses no external URL for images, players or links
 //
 // What is covered:
@@ -17,9 +19,11 @@
 //
 // SEE: web/src/routes/preview/Preview.svelte
 import { fireEvent, render, screen, within } from '@testing-library/svelte';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import Preview from '../../../src/routes/preview/Preview.svelte';
+
+afterEach(() => localStorage.clear());
 
 function sectionOf(name: string): HTMLElement {
 	const section = screen.getByRole('heading', { level: 2, name }).closest('section');
@@ -162,5 +166,32 @@ describe('component preview', () => {
 				/^(https?:)?\/\//
 			);
 		}
+	});
+
+	it('shows final cards with spoiler-free mode on, next to the rows with it off', () => {
+		render(Preview);
+		const on = sectionOf('GameCard: spoiler-free');
+		expect(within(on).getAllByText('Tap to reveal')).toHaveLength(2);
+		expect(on.querySelector('button.toggle')?.textContent).not.toContain('112');
+		expect(sectionOf('GameCard: desktop row').textContent).toContain('112');
+	});
+
+	it('reveals a spoiler-free preview card when it is clicked', async () => {
+		render(Preview);
+		const on = sectionOf('GameCard: spoiler-free');
+		await fireEvent.click(on.querySelector('button.toggle') as HTMLElement);
+		expect(on.querySelector('button.toggle')?.textContent).toContain('112');
+		expect(within(on).getAllByText('Tap to reveal')).toHaveLength(1);
+	});
+
+	it('turns spoiler-free mode on for the schedule from the hero toggle', async () => {
+		render(Preview);
+		const toggles = screen.getAllByRole('button', { name: 'Spoiler-free' });
+		expect(toggles).toHaveLength(3);
+		await fireEvent.click(toggles[0]);
+		for (const t of screen.getAllByRole('button', { name: 'Spoiler-free' })) {
+			expect(t.getAttribute('aria-pressed')).toBe('true');
+		}
+		expect(within(sectionOf('Schedule')).getAllByText('Tap to reveal').length).toBeGreaterThan(0);
 	});
 });
