@@ -182,6 +182,10 @@ Recorded in [`adr/0010-final-game-attempts.md`](adr/0010-final-game-attempts.md)
 
 - **Final game attempts**: detail at the final time and 2, 4 and 6 hours after it, then `unavailable`; a game first seen final takes that moment as its final time, never overwritten, with highlight attempts right away, 1 and 2 hours later.
 
+Recorded in [`adr/0011-state-retention.md`](adr/0011-state-retention.md):
+
+- **State retention**: each game's US Eastern date is stored with its job state; with the games job's daily fetch, the final time and stats attempts of games dated more than 30 days ago are deleted. Highlights and highlight attempts are never deleted; stars and job health keep one row per team and per job.
+
 ## Future
 
 - A notification panel for job failures.

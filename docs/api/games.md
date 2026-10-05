@@ -112,6 +112,10 @@ a failure, 2, 4 and 6 hours after the final time.
 - The stats attempts of a final game are at its final time and 2, 4 and 6
   hours after it. Failed attempts are stored, so they survive a restart. After
   the fourth failure the game is `unavailable` and never fetched again.
+- With the morning fetch (and on the first run after a start), the stored
+  final time and stats attempts of every game dated more than 30 days before
+  the current US Eastern date are deleted
+  ([ADR 0011](../adr/0011-state-retention.md)). Highlights are kept.
 
 ## Endpoint
 

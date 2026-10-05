@@ -23,6 +23,9 @@
 # - A successful run publishes a valid feed and records success
 # - A failing final game detail never blocks live details: the last live detail is published, and a final game with no detail is published as pending
 # - A failing final detail is fetched again only 2, 4 and 6 hours after the final time, then the game is unavailable; failed attempts survive a restart
+# - Stores the US Eastern date of each game seen final
+# - The daily run deletes the final time and stats attempts of a game 31 days old, keeps one 30 days old, and never touches highlights
+# - The cleanup runs only with the daily fetch
 # - A failed scoreboard fetch, live detail fetch or invalid feed keeps the last valid feed and records the reason
 #
 # What is covered:
@@ -642,7 +645,7 @@ async def test_never_overwrites_a_stored_final_time(
     settings: Settings, store: StateStore, sources: FakeSources
 ) -> None:
     earlier = NOON - dt.timedelta(hours=1)
-    store.set_final_time("1", earlier, first_seen=True)
+    store.set_final_time("1", TODAY, earlier, first_seen=True)
     sources.games[TODAY] = [game("1", GameStatus.FINAL)]
 
     await make_job(settings, store, sources).run(NOON)
@@ -1074,3 +1077,81 @@ async def test_a_game_that_turns_final_with_a_failing_last_fetch_is_published_wi
     assert feed.days[3].games[0].stats_availability is StatsAvailability.AVAILABLE
     assert store.job_states()[0].last_success == later
     assert reason(store) == "game detail: request timed out"
+
+
+@pytest.mark.anyio
+async def test_stores_the_us_eastern_date_of_a_game_seen_final(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    late = dt.datetime(2026, 10, 6, 2, 0, tzinfo=dt.UTC)
+    sources.games[TODAY] = [
+        game("1", GameStatus.FINAL),
+        game("2", GameStatus.FINAL, start=late),
+    ]
+
+    await make_job(settings, store, sources).run(NOON)
+
+    assert store.game_date("1") == TODAY
+    assert store.game_date("2") == TODAY
+
+
+def seed_old_game(store: StateStore, days: int) -> None:
+    day = TODAY - dt.timedelta(days=days)
+    store.set_final_time("old", day, NOON, first_seen=True)
+    store.record_failed_stats_attempt("old", day)
+
+
+@pytest.mark.anyio
+async def test_the_morning_run_deletes_the_final_time_and_stats_attempts_of_a_game_31_days_old(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    seed_old_game(store, 31)
+
+    await make_job(settings, store, sources).run(NOON)
+
+    assert store.final_time("old") is None
+    assert store.first_seen_final("old") is False
+    assert store.failed_stats_attempts("old") == 0
+
+
+@pytest.mark.anyio
+async def test_the_morning_run_keeps_a_game_30_days_old(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    seed_old_game(store, 30)
+
+    await make_job(settings, store, sources).run(NOON)
+
+    assert store.final_time("old") == NOON
+    assert store.first_seen_final("old") is True
+    assert store.failed_stats_attempts("old") == 1
+
+
+@pytest.mark.anyio
+async def test_the_cleanup_runs_only_with_the_daily_fetch(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    job = make_job(settings, store, sources)
+    await job.run(NOON)
+    seed_old_game(store, 31)
+
+    await job.run(NOON + dt.timedelta(seconds=30))
+    await job.run(NOON + dt.timedelta(hours=10))
+    assert store.final_time("old") == NOON
+
+    await job.run(dt.datetime(2026, 10, 6, 10, 0, tzinfo=dt.UTC))
+    assert store.final_time("old") is None
+
+
+@pytest.mark.anyio
+async def test_the_morning_run_never_deletes_highlights_or_highlight_attempts(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    seed_old_game(store, 31)
+    store.record_highlight_attempt("old", TODAY - dt.timedelta(days=31))
+    store.set_highlight("old", HIGHLIGHT)
+
+    await make_job(settings, store, sources).run(NOON)
+
+    assert store.highlight_attempts("old") == 1
+    assert store.highlights() == {"old": HIGHLIGHT}

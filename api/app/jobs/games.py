@@ -7,8 +7,12 @@
 # A final game's detail is fetched when it becomes final and, after a failure,
 # 2, 4 and 6 hours after its final time; the failed attempts are stored.
 #
+# Once a day, with the daily fetch, the final times and failed stats attempts of
+# games dated more than 30 days ago are deleted from the job state; highlights
+# are kept.
+#
 # SEE: docs/adr/0007-backend-runtime-and-data-pipeline.md, docs/api/games.md,
-# docs/adr/0010-final-game-attempts.md
+# docs/adr/0010-final-game-attempts.md, docs/adr/0011-state-retention.md
 
 import datetime as dt
 from collections.abc import Awaitable, Callable, Mapping, Sequence
@@ -47,6 +51,7 @@ STATS_ATTEMPT_DELAYS = (
     dt.timedelta(hours=6),
 )
 MAX_STATS_ATTEMPTS = len(STATS_ATTEMPT_DELAYS)
+STATE_RETENTION = dt.timedelta(days=30)
 
 StarsProvider = Callable[[ScoreboardGame], Stars | None]
 SearchUrlProvider = Callable[[ScoreboardGame], str | None]
@@ -241,7 +246,12 @@ class GamesJob:
             before = previous.get(game.id)
             if game.status is GameStatus.FINAL and before is not GameStatus.FINAL:
                 going_final = before in _UNFINISHED
-                self._store.set_final_time(game.id, now, first_seen=not going_final)
+                self._store.set_final_time(
+                    game.id,
+                    eastern_date(game.start_time),
+                    now,
+                    first_seen=not going_final,
+                )
                 if going_final:
                     self._catch_up.add(game.id)
         self._games[day] = games
@@ -279,6 +289,7 @@ class GamesJob:
                 kept = {g.id for games in self._games.values() for g in games}
                 self._details = {i: d for i, d in self._details.items() if i in kept}
                 self._catch_up &= kept
+                self._store.prune_final_times(today - STATE_RETENTION)
                 self._daily_fetched_at = now
             for day in sorted(self._games):
                 for game in self._games[day]:
@@ -298,7 +309,9 @@ class GamesJob:
                             self._client, game.id, self._settings
                         )
                     except SourceError as error:
-                        self._store.record_failed_stats_attempt(game.id)
+                        self._store.record_failed_stats_attempt(
+                            game.id, eastern_date(game.start_time)
+                        )
                         final_failure = str(error)
                     else:
                         self._catch_up.discard(game.id)
