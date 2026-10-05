@@ -112,6 +112,18 @@
           ],
           "default": null
         },
+        "winner": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Z]{3}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "leaders": {
           "anyOf": [
             {
@@ -163,6 +175,7 @@
         "clock",
         "lineScore",
         "score",
+        "winner",
         "leaders",
         "teamStats",
         "highlightsSearchUrl"

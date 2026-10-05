@@ -17,6 +17,7 @@
 # - Lists only the final games of the days held, in day order
 # - Republishes the feed with no source call when a final game's highlights change, and not when they are unchanged
 # - Republishes the feed with no source call when a game's stars change, publishes as soon as the last missing star arrives, and does not republish when stars are unchanged
+# - The winner of each final game comes from its final score: home, away, none on a tie or before the final; a tied final game makes the feed invalid
 # - A successful run publishes a valid feed and records success
 # - A failing final game detail never blocks live details: the last live detail is published, and a final game with no detail is retried every 5 minutes at most
 # - A failed scoreboard fetch, live detail fetch or invalid feed keeps the last valid feed and records the reason
@@ -62,6 +63,7 @@ from app.jobs.games import (
     build_games_feed,
     days_shown,
     eastern_date,
+    final_winner,
 )
 from app.settings import Settings
 from app.sources.game_detail import GameDetail
@@ -122,6 +124,7 @@ def game(
     game_id: str,
     status: GameStatus,
     start: dt.datetime = NOON - dt.timedelta(hours=3),
+    score: Score | None = None,
 ) -> ScoreboardGame:
     data: dict[str, Any] = {
         "id": game_id,
@@ -134,8 +137,8 @@ def game(
     if status is GameStatus.LIVE:
         data.update(period=2, clock="5:00")
     if status in (GameStatus.LIVE, GameStatus.FINAL):
-        data["line_score"] = LineScore(away=[20, 20], home=[18, 22])
-        data["score"] = Score(away=40, home=40)
+        data["line_score"] = LineScore(away=[20, 20], home=[18, 20])
+        data["score"] = score or Score(away=40, home=38)
     return ScoreboardGame.model_validate(data)
 
 
@@ -335,6 +338,47 @@ def test_reports_the_reason_when_a_final_game_has_no_search_url() -> None:
 
     assert raised.value.reason.startswith("invalid feed:")
     assert raised.value.reason.endswith("games.0")
+
+
+def test_the_winner_is_the_home_team_when_it_has_more_points() -> None:
+    final = game("1", GameStatus.FINAL, score=Score(away=98, home=104))
+
+    assert final_winner(final) == "NYK"
+
+
+def test_the_winner_is_the_away_team_when_it_has_more_points() -> None:
+    assert final_winner(game("1", GameStatus.FINAL)) == "BOS"
+
+
+def test_a_tied_final_score_has_no_winner() -> None:
+    final = game("1", GameStatus.FINAL, score=Score(away=100, home=100))
+
+    assert final_winner(final) is None
+
+
+def test_a_game_that_is_not_final_has_no_winner() -> None:
+    assert final_winner(game("1", GameStatus.LIVE)) is None
+
+
+def test_builder_sets_the_winner_of_each_final_game_and_none_otherwise() -> None:
+    feed = build(
+        game("1", GameStatus.SCHEDULED, NOON + dt.timedelta(hours=3)),
+        game("2", GameStatus.LIVE),
+        game("3", GameStatus.FINAL, score=Score(away=90, home=95)),
+        details={"2": DETAIL, "3": DETAIL},
+    )
+
+    assert [g.winner for g in feed.days[0].games] == [None, None, "NYK"]
+
+
+def test_reports_the_reason_when_a_final_game_is_tied() -> None:
+    with pytest.raises(FeedBuildError) as raised:
+        build(
+            game("1", GameStatus.FINAL, score=Score(away=100, home=100)),
+            details={"1": DETAIL},
+        )
+
+    assert raised.value.reason.startswith("invalid feed:")
 
 
 def test_reports_the_reason_when_a_live_game_has_no_detail() -> None:
@@ -720,6 +764,8 @@ async def test_a_successful_run_publishes_a_valid_feed_and_records_success(
     assert published is not None
     feed = GamesFeed.model_validate_json(published)
     assert len(feed.days) == 7
+    published_game = next(g for d in feed.days for g in d.games if g.id == "2")
+    assert published_game.winner == "BOS"
     state = store.job_states()[0]
     assert state.name == JOB
     assert state.last_success == NOON

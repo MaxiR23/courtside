@@ -154,7 +154,7 @@
 			id: 'final',
 			away: nuggets,
 			home: suns,
-			status: { state: 'final', awayScore: 112, homeScore: 104 },
+			status: { state: 'final', awayScore: 112, homeScore: 104, winner: 'DEN' },
 			details: played(
 				{ away: [30, 28, 26, 28], home: [24, 27, 25, 28] },
 				'DEN',
@@ -171,14 +171,14 @@
 		id: 'overtime',
 		away: celtics,
 		home: knicks,
-		status: { state: 'final', awayScore: 132, homeScore: 130 },
+		status: { state: 'final', awayScore: 132, homeScore: 130, winner: 'BOS' },
 		details: played({ away: [28, 25, 30, 27, 12, 10], home: [30, 26, 24, 30, 12, 8] }, 'BOS', 'NYK')
 	};
 	const pendingGame: ScheduleGame = {
 		id: 'pending',
 		away: nuggets,
 		home: suns,
-		status: { state: 'final', awayScore: 112, homeScore: 104 },
+		status: { state: 'final', awayScore: 112, homeScore: 104, winner: 'DEN' },
 		details: played(
 			{ away: [30, 28, 26, 28], home: [24, 27, 25, 28] },
 			'DEN',

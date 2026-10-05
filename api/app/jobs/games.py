@@ -64,6 +64,17 @@ def eastern_date(now: dt.datetime) -> dt.date:
     return now.astimezone(EASTERN).date()
 
 
+def final_winner(game: ScoreboardGame) -> str | None:
+    """The code of the team with more points in a final game; None on a tie or before the final."""
+    if game.status is not GameStatus.FINAL or game.score is None:
+        return None
+    if game.score.home > game.score.away:
+        return game.home.code
+    if game.score.away > game.score.home:
+        return game.away.code
+    return None
+
+
 def days_shown(today: dt.date) -> list[dt.date]:
     return [
         today + dt.timedelta(days=offset)
@@ -95,6 +106,7 @@ def build_games_feed(
             data["stars"] = stars(game)
             data["highlights_search_url"] = highlights_search_url(game)
             data["highlights"] = highlights(game)
+            data["winner"] = final_winner(game)
             detail = details.get(game.id)
             if detail is not None:
                 data["leaders"] = detail.leaders
