@@ -1,0 +1,170 @@
+// web/tests/lib/components/Schedule.test.ts
+//
+// Tests for the Schedule component.
+//
+// Tested:
+// - Header: kicker, selected day, game count, freshness; today selected by default
+// - Selecting a day changes the heading, count and games; zero games shows no cards
+// - Desktop row and full counts on a wide viewport; mobile row and numbers below it
+// - The staggered list entrance on first view and on a day change, not on the same day
+// - Spanish copy with a Spanish browser preference
+//
+// What is covered:
+// - Each state, including a day with no games, plus interaction
+//
+// Run with: cd web && pnpm exec vitest run tests/lib/components/Schedule.test.ts
+//
+// SEE: web/src/lib/components/Schedule.svelte
+import { fireEvent, render, screen } from '@testing-library/svelte';
+import { tick } from 'svelte';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import type { ScheduleDay, ScheduleGame } from '../../../src/lib/schedule/types';
+import { preferLanguages } from '../../prefer-languages';
+
+import Schedule from '../../../src/lib/components/Schedule.svelte';
+
+const team = (code: string, name: string, city: string) => ({ code, name, city });
+const game = (id: string, awayScore: number): ScheduleGame => ({
+	id,
+	away: team('GSW', 'Warriors', 'Golden State'),
+	home: team('LAL', 'Lakers', 'Los Angeles'),
+	status: { state: 'final', awayScore, homeScore: 100 }
+});
+const counts = [1, 0, 2, 3, 1, 1, 1];
+const days: ScheduleDay[] = counts.map((n, i) => ({
+	date: new Date(2026, 9, 1 + i, 12),
+	games: Array.from({ length: n }, (_, k) => game(`${i}-${k}`, 90 + k))
+}));
+const props = { days, updatedMinutesAgo: 3 };
+
+function wideViewport(wide: boolean) {
+	vi.stubGlobal('matchMedia', (query: string) => ({
+		matches: query.includes('min-width') ? wide : false,
+		addEventListener: () => {},
+		removeEventListener: () => {}
+	}));
+}
+
+const cells = (container: HTMLElement) =>
+	container.querySelectorAll<HTMLButtonElement>('button.day');
+
+let callbacks: ((entries: { isIntersecting: boolean }[]) => void)[] = [];
+let animate: ReturnType<typeof vi.fn>;
+
+beforeEach(() => {
+	callbacks = [];
+	animate = vi.fn(() => ({ cancel: vi.fn() }));
+	const root = document.documentElement.style;
+	root.setProperty('--list-entrance-offset', '18px');
+	root.setProperty('--list-entrance-duration', '600ms');
+	root.setProperty('--list-entrance-stagger', '70ms');
+	root.setProperty('--ease', 'linear');
+});
+
+afterEach(() => {
+	vi.restoreAllMocks();
+	vi.unstubAllGlobals();
+	Reflect.deleteProperty(HTMLElement.prototype, 'animate');
+});
+
+function stubEntrance() {
+	wideViewport(true);
+	class FakeObserver {
+		constructor(callback: (typeof callbacks)[number]) {
+			callbacks.push(callback);
+		}
+		observe() {}
+		disconnect() {}
+	}
+	vi.stubGlobal('IntersectionObserver', FakeObserver);
+	Object.assign(HTMLElement.prototype, { animate });
+}
+
+describe('Schedule', () => {
+	it('shows the SCHEDULE kicker, the selected day, the game count and the freshness label', () => {
+		render(Schedule, { props });
+		expect(screen.getByText('Schedule')).toBeTruthy();
+		expect(screen.getByRole('heading', { level: 2 }).textContent?.trim()).toBe('Sunday, October 4');
+		expect(screen.getAllByText('3 games').length).toBeGreaterThanOrEqual(1);
+		expect(screen.getByText('Updated 3 min ago')).toBeTruthy();
+	});
+
+	it('selects today by default', () => {
+		const { container } = render(Schedule, { props });
+		expect(cells(container)[3].getAttribute('aria-current')).toBe('true');
+		expect(container.querySelectorAll('li')).toHaveLength(3);
+	});
+
+	it('changes the heading, the count and the games when another day is selected', async () => {
+		const { container } = render(Schedule, { props });
+		await fireEvent.click(cells(container)[2]);
+		expect(screen.getByRole('heading', { level: 2 }).textContent?.trim()).toBe(
+			'Saturday, October 3'
+		);
+		expect(container.querySelectorAll('li')).toHaveLength(2);
+		expect(container.querySelector('.meta .count')?.textContent).toBe('2 games');
+	});
+
+	it('shows 0 games and no cards on a day with no games', () => {
+		const { container } = render(Schedule, { props: { ...props, selected: 1 } });
+		expect(container.querySelector('.meta .count')?.textContent).toBe('0 games');
+		expect(container.querySelectorAll('li')).toHaveLength(0);
+	});
+
+	it('uses the desktop row and full day counts on a wide viewport', () => {
+		wideViewport(true);
+		const { container } = render(Schedule, { props });
+		expect(container.querySelectorAll('.row.desktop')).toHaveLength(3);
+		expect(container.querySelector('button.day .count')?.textContent?.trim()).toBe('1 game');
+	});
+
+	it('uses the mobile row and numeric day counts below 680px', () => {
+		wideViewport(false);
+		const { container } = render(Schedule, { props });
+		expect(container.querySelectorAll('.row.mobile')).toHaveLength(3);
+		expect(container.querySelector('button.day .count')?.textContent?.trim()).toBe('1');
+	});
+
+	it('plays the staggered entrance when the list first scrolls into view', async () => {
+		stubEntrance();
+		render(Schedule, { props });
+		expect(animate).not.toHaveBeenCalled();
+		callbacks[0]([{ isIntersecting: true }]);
+		await tick();
+		expect(animate).toHaveBeenCalledTimes(3);
+	});
+
+	it('replays the list entrance when the day changes', async () => {
+		stubEntrance();
+		const { container } = render(Schedule, { props });
+		callbacks[0]([{ isIntersecting: true }]);
+		await tick();
+		animate.mockClear();
+		await fireEvent.click(cells(container)[2]);
+		await tick();
+		expect(animate).toHaveBeenCalledTimes(2);
+	});
+
+	it('does not replay when the selected day is clicked again', async () => {
+		stubEntrance();
+		const { container } = render(Schedule, { props });
+		callbacks[0]([{ isIntersecting: true }]);
+		await tick();
+		animate.mockClear();
+		await fireEvent.click(cells(container)[3]);
+		await tick();
+		expect(animate).not.toHaveBeenCalled();
+	});
+
+	it('shows the header in Spanish with a Spanish preference', () => {
+		preferLanguages(['es-ES']);
+		render(Schedule, { props });
+		expect(screen.getByText('Calendario')).toBeTruthy();
+		expect(screen.getByRole('heading', { level: 2 }).textContent?.trim()).toBe(
+			'domingo, 4 de octubre'
+		);
+		expect(screen.getAllByText('3 partidos').length).toBeGreaterThanOrEqual(1);
+		expect(screen.getByText('Actualizado hace 3 min')).toBeTruthy();
+	});
+});

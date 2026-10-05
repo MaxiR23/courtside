@@ -7,6 +7,7 @@ export type PlayParams = {
 	keyframes: (read: TokenReader) => Keyframe[];
 	durationToken: string;
 	delayToken?: string;
+	delaySteps?: number; // multiplies the delay token, for staggers
 	easing?: string; // a token name when it starts with "--", else a CSS easing
 	iterations?: number;
 	fill?: FillMode;
@@ -46,7 +47,7 @@ export function play(node: HTMLElement, params: PlayParams) {
 	const read = reader(node);
 	const animation = node.animate(params.keyframes(read), {
 		duration: parseMs(read(params.durationToken)),
-		delay: params.delayToken ? parseMs(read(params.delayToken)) : 0,
+		delay: params.delayToken ? parseMs(read(params.delayToken)) * (params.delaySteps ?? 1) : 0,
 		easing: easingOf(read, params.easing ?? '--ease'),
 		iterations: params.iterations ?? 1,
 		fill: params.fill ?? 'both'

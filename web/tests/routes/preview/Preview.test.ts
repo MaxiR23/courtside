@@ -5,6 +5,7 @@
 // Tested:
 // - Shows every base component in each of its variants
 // - Shows the hero in its three states and the footer
+// - Shows the day strip, every game card state on both rows, and the schedule
 // - Uses no external image URL
 //
 // What is covered:
@@ -13,14 +14,20 @@
 // Run with: cd web && pnpm exec vitest run tests/routes/preview/Preview.test.ts
 //
 // SEE: web/src/routes/preview/Preview.svelte
-import { render, screen } from '@testing-library/svelte';
+import { render, screen, within } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
 
 import Preview from '../../../src/routes/preview/Preview.svelte';
 
+function sectionOf(name: string): HTMLElement {
+	const section = screen.getByRole('heading', { level: 2, name }).closest('section');
+	if (!section) throw new Error(`No section for ${name}`);
+	return section;
+}
+
 describe('component preview', () => {
 	it('shows every base component in each of its variants', () => {
-		const { container } = render(Preview);
+		render(Preview);
 		for (const name of [
 			'BlueprintFrame',
 			'Button',
@@ -33,13 +40,45 @@ describe('component preview', () => {
 		}
 		expect(screen.getByRole('button', { name: 'Primary action' })).toBeTruthy();
 		expect(screen.getByRole('link', { name: 'Secondary link' })).toBeTruthy();
-		expect(screen.getByText('LIVE')).toBeTruthy();
+		expect(within(sectionOf('LiveBadge')).getByText('LIVE')).toBeTruthy();
 		for (const label of ['Tonight', 'Live now', 'Final']) {
 			expect(screen.getAllByText(label).length).toBeGreaterThanOrEqual(1);
 		}
 		expect(screen.getAllByText('10:30 PM ET · Chase Center').length).toBeTruthy();
-		expect(container.querySelectorAll('.team-monogram.large')).toHaveLength(1);
-		expect(container.querySelectorAll('.team-monogram.small')).toHaveLength(1);
+		const monograms = sectionOf('TeamMonogram');
+		expect(monograms.querySelectorAll('.team-monogram.large')).toHaveLength(1);
+		expect(monograms.querySelectorAll('.team-monogram.small')).toHaveLength(1);
+	});
+
+	it('shows every game card state on the desktop and mobile rows', () => {
+		render(Preview);
+		for (const [name, row] of [
+			['GameCard: desktop row', '.row.desktop'],
+			['GameCard: mobile row', '.row.mobile']
+		] as const) {
+			const section = sectionOf(name);
+			expect(section.querySelectorAll(row)).toHaveLength(3);
+			expect(within(section).getByText('LIVE')).toBeTruthy();
+			expect(within(section).getByText('Final')).toBeTruthy();
+			expect(section.textContent).toContain('9:00');
+		}
+	});
+
+	it('shows the schedule and a day with no games', () => {
+		render(Preview);
+		const schedule = sectionOf('Schedule');
+		expect(schedule.querySelectorAll('.games li')).toHaveLength(3);
+		const empty = sectionOf('Schedule: day with no games');
+		expect(within(empty).getAllByText('0 games').length).toBeGreaterThanOrEqual(1);
+		expect(empty.querySelectorAll('.games li')).toHaveLength(0);
+	});
+
+	it('shows the day strip on desktop and compact', () => {
+		render(Preview);
+		const strips = sectionOf('DayStrip').querySelectorAll('.day-strip');
+		expect(strips).toHaveLength(2);
+		expect(strips[0].querySelector('.count')?.textContent?.trim()).toBe('1 game');
+		expect(strips[1].querySelector('.count')?.textContent?.trim()).toBe('1');
 	});
 
 	it('shows the hero in its Tonight, Live now and Final states', () => {

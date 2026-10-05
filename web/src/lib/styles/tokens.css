@@ -50,6 +50,7 @@
 	--caption-size: 12px;
 	--chip-code-size: 34px;
 	--chip-last-name-size: 22px;
+	--day-number-size: clamp(22px, 3vw, 32px);
 
 	/* Shape and elevation */
 	--radius: 0;
@@ -80,6 +81,9 @@
 	--progress-track-height: 2px;
 	--floor-shadow-width: 80%;
 	--floor-shadow-height: 40px;
+	--chevron-size: 24px;
+	--icon-stroke-width: 1.5;
+	--dimmed-opacity: 0.42;
 
 	/* Spacing */
 	--content-max-width: 1320px;
@@ -93,6 +97,7 @@
 	--hero-min-height: min(820px, 88vh);
 	--chip-left: clamp(-28px, -2vw, -10px);
 	--chip-bottom: 36px;
+	--game-row-breakpoint: 680px;
 
 	/* Motion */
 	--ease: cubic-bezier(0.2, 0.7, 0.1, 1);
@@ -123,6 +128,9 @@
 	--hero-watermark-shift-x: -30px;
 	--hero-watermark-shift-y: -18px;
 	--hero-watermark-shift-duration: 0.6s;
+	--list-entrance-offset: 18px;
+	--list-entrance-duration: 600ms;
+	--list-entrance-stagger: 70ms;
 
 	/* Focus */
 	--focus-ring-width: 2px;
