@@ -3,9 +3,14 @@
 	import { formatDate } from '#lib/format/locale.ts';
 	import { m } from '#lib/paraglide/messages.js';
 
-	type Props = { today: Date; scheduleHref: ResolvedPathname };
+	type Props = {
+		today: Date;
+		scheduleHref: ResolvedPathname;
+		spoilerFree: boolean;
+		onSpoilerFreeToggle: () => void;
+	};
 
-	let { today, scheduleHref }: Props = $props();
+	let { today, scheduleHref, spoilerFree, onSpoilerFreeToggle }: Props = $props();
 
 	const dateOptions: Intl.DateTimeFormatOptions = {
 		weekday: 'short',
@@ -26,6 +31,14 @@
 	</span>
 	<time class="date" datetime={iso}>{formatDate(today, dateOptions)}</time>
 	<a class="games" href={scheduleHref}>{m.nav_games()}</a>
+	<button
+		type="button"
+		class="spoiler-free"
+		aria-pressed={spoilerFree}
+		onclick={onSpoilerFreeToggle}
+	>
+		{m.nav_spoiler_free()}
+	</button>
 </nav>
 
 <style>
@@ -81,5 +94,24 @@
 		text-transform: uppercase;
 		color: var(--color-ink);
 		text-decoration: none;
+	}
+
+	.spoiler-free {
+		display: inline-flex;
+		align-items: center;
+		min-height: var(--hit-target-size);
+		padding: 0;
+		background: none;
+		border: 0;
+		font: inherit;
+		font-size: var(--label-size);
+		letter-spacing: var(--label-letter-spacing);
+		text-transform: uppercase;
+		color: var(--color-ink);
+		cursor: pointer;
+	}
+
+	.spoiler-free[aria-pressed='true'] {
+		color: var(--color-accent-light);
 	}
 </style>

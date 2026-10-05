@@ -10,6 +10,7 @@
 // - A card without details stays a plain row; with details it toggles an inert panel
 // - The panel per state: live, final, overtime and scheduled, its motion and Spanish labels
 // - Highlights on final games only: videos, pending, play callback, player removed on close
+// - Spoiler-free mode: final cards that can expand hide the score and the dimming until open
 //
 // What is covered:
 // - Each card state on each row layout
@@ -372,5 +373,70 @@ describe('GameCard', () => {
 		expect(container.querySelector('iframe')?.getAttribute('src')).toBe('/embed/v1');
 		await rerender({ ...props, open: false });
 		expect(container.querySelector('iframe')).toBeNull();
+	});
+
+	describe('spoiler-free mode', () => {
+		const row = (container: HTMLElement) => container.querySelector('button.toggle') as HTMLElement;
+
+		it.each(['desktop', 'mobile'] as const)(
+			'hides final scores until the card is expanded in spoiler-free mode (%s)',
+			async (layout) => {
+				const props = { game: finalWithDetails, layout, spoilerFree: true };
+				const { container, rerender } = render(GameCard, { props });
+				expect(row(container).querySelector('.score')).toBeNull();
+				expect(row(container).textContent).toContain('Tap to reveal');
+				await rerender({ ...props, open: true });
+				expect(row(container).textContent).toContain('112');
+				expect(row(container).textContent).toContain('104');
+				expect(row(container).textContent).not.toContain('Tap to reveal');
+			}
+		);
+
+		it('does not dim the losing team while the score is hidden', async () => {
+			const game = withDetails(final(98, 104), played([30, 28, 20, 20], [24, 27, 25, 28]));
+			const props = { game, layout: 'desktop' as const, spoilerFree: true };
+			const { container, rerender } = render(GameCard, { props });
+			expect(container.querySelectorAll('.dimmed')).toHaveLength(0);
+			await rerender({ ...props, open: true });
+			expect(dimmedText(container)).toContain('98');
+		});
+
+		it('hides the score again when the expanded card is collapsed', async () => {
+			const props = { game: finalWithDetails, layout: 'desktop' as const, spoilerFree: true };
+			const { container, rerender } = render(GameCard, { props: { ...props, open: true } });
+			expect(row(container).querySelector('.score')).not.toBeNull();
+			await rerender({ ...props, open: false });
+			expect(row(container).querySelector('.score')).toBeNull();
+		});
+
+		it('leaves live and scheduled cards unchanged in spoiler-free mode', () => {
+			const liveCard = render(GameCard, {
+				props: { game: liveWithDetails, layout: 'desktop', spoilerFree: true }
+			});
+			expect(row(liveCard.container).textContent).toContain('78');
+			expect(row(liveCard.container).textContent).not.toContain('Tap to reveal');
+			liveCard.unmount();
+			const next = render(GameCard, {
+				props: { game: scheduledWithDetails, layout: 'desktop', spoilerFree: true }
+			});
+			expect(next.container.querySelector('.tip-time')?.textContent).toBe('9:00PM ET');
+			expect(next.container.textContent).not.toContain('Tap to reveal');
+		});
+
+		it('keeps the score on a final card that cannot expand', () => {
+			const { container } = render(GameCard, {
+				props: { game: final(112, 104), layout: 'desktop', spoilerFree: true }
+			});
+			expect(container.querySelectorAll('.score')).toHaveLength(2);
+			expect(container.textContent).not.toContain('Tap to reveal');
+		});
+
+		it('shows Toca para ver with a Spanish preference', () => {
+			preferLanguages(['es-ES']);
+			const { container } = render(GameCard, {
+				props: { game: finalWithDetails, layout: 'desktop', spoilerFree: true }
+			});
+			expect(row(container).textContent).toContain('Toca para ver');
+		});
 	});
 });
