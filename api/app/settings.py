@@ -8,10 +8,14 @@ ENV_FILE = Path(__file__).resolve().parent.parent / ".env"
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=ENV_FILE, env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(
+        env_file=ENV_FILE, env_file_encoding="utf-8", hide_input_in_errors=True
+    )
 
     environment: Literal["development", "production"] = "development"
     scoreboard_url: str | None = None
+    game_detail_url: str | None = None
+    player_photo_url: str | None = None
 
 
 @lru_cache

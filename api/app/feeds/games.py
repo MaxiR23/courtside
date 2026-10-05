@@ -72,7 +72,11 @@ class Player(FeedModel):
     photo_url: HttpUrl
 
 
-class Leader(Player):
+class Leader(FeedModel):
+    player_id: NonEmptyStr
+    display_name: NonEmptyStr
+    team_code: TeamCode
+    photo_url: HttpUrl
     points: NonNegativeInt
     rebounds: NonNegativeInt
     assists: NonNegativeInt

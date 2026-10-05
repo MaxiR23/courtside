@@ -57,18 +57,18 @@ and `teamStats`. A `final` game requires `lineScore`, `score`, `leaders`,
 
 ## Nested objects
 
-| Object      | Fields                                                                       |
-| ----------- | ---------------------------------------------------------------------------- |
-| `Team`      | `code` (three capital letters), `name`, `city`                               |
-| `Player`    | `playerId`, `firstName`, `lastName`, `teamCode`, `photoUrl`                  |
-| `Leader`    | `Player` fields plus `points`, `rebounds`, `assists`                         |
-| `Star`      | `Player` fields plus `shortName`                                             |
-| `TeamStats` | `fieldGoalPct`, `threePointPct` (0 to 1), `rebounds`, `assists`, `turnovers` |
-| `Highlight` | `title`, `channel`, `thumbnailUrl`, `embedUrl`                               |
-| `LineScore` | `away`, `home`: points per period, at least one, overtimes appended          |
-| `Score`     | `away`, `home`: points                                                       |
-| `Leaders`   | `away`, `home`: `Leader`                                                     |
-| `Stars`     | `away`, `home`: `Star`                                                       |
+| Object      | Fields                                                                                                      |
+| ----------- | ----------------------------------------------------------------------------------------------------------- |
+| `Team`      | `code` (three capital letters), `name`, `city`                                                              |
+| `Player`    | `playerId`, `firstName`, `lastName`, `teamCode`, `photoUrl`                                                 |
+| `Leader`    | `playerId`, `displayName` (as the source gives it), `teamCode`, `photoUrl`, `points`, `rebounds`, `assists` |
+| `Star`      | `Player` fields plus `shortName`                                                                            |
+| `TeamStats` | `fieldGoalPct`, `threePointPct` (0 to 1), `rebounds`, `assists`, `turnovers`                                |
+| `Highlight` | `title`, `channel`, `thumbnailUrl`, `embedUrl`                                                              |
+| `LineScore` | `away`, `home`: points per period, at least one, overtimes appended                                         |
+| `Score`     | `away`, `home`: points                                                                                      |
+| `Leaders`   | `away`, `home`: `Leader`                                                                                    |
+| `Stars`     | `away`, `home`: `Star`                                                                                      |
 
 ## Refresh behavior
 

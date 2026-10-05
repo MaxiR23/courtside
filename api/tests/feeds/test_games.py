@@ -7,6 +7,7 @@
 # - A game missing a field its status requires is rejected
 # - Invalid times, codes, numbers and URLs are rejected
 # - Unknown fields are rejected
+# - A leader carries one display name; stars keep first and last name
 # - Serialization uses camelCase keys and carries unknown values as null
 #
 # What is covered:
@@ -45,7 +46,15 @@ def player(code: str) -> Payload:
 
 
 def leader(code: str) -> Payload:
-    return {**player(code), "points": 20, "rebounds": 5, "assists": 7}
+    return {
+        "playerId": "p1",
+        "displayName": "First Last Jr.",
+        "teamCode": code,
+        "photoUrl": "https://example.com/photo.png",
+        "points": 20,
+        "rebounds": 5,
+        "assists": 7,
+    }
 
 
 def star(code: str) -> Payload:
@@ -263,3 +272,19 @@ def test_accepts_overtime_periods_in_the_line_score() -> None:
     away_line = feed.days[0].games[0].line_score
     assert away_line is not None
     assert len(away_line.away) == 6
+
+
+def test_rejects_a_leader_with_an_empty_display_name() -> None:
+    bad = {**leader("AAA"), "displayName": ""}
+    game = valid_game("live", leaders=pair(bad, leader("HHH")))
+
+    with pytest.raises(ValidationError, match="displayName"):
+        GamesFeed.model_validate(valid_feed(game))
+
+
+def test_rejects_a_leader_with_first_and_last_name() -> None:
+    bad = {**leader("AAA"), "firstName": "First", "lastName": "Last"}
+    game = valid_game("live", leaders=pair(bad, leader("HHH")))
+
+    with pytest.raises(ValidationError, match="firstName"):
+        GamesFeed.model_validate(valid_feed(game))

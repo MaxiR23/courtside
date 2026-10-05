@@ -239,11 +239,7 @@
           "minLength": 1,
           "type": "string"
         },
-        "firstName": {
-          "minLength": 1,
-          "type": "string"
-        },
-        "lastName": {
+        "displayName": {
           "minLength": 1,
           "type": "string"
         },
@@ -272,8 +268,7 @@
       },
       "required": [
         "playerId",
-        "firstName",
-        "lastName",
+        "displayName",
         "teamCode",
         "photoUrl",
         "points",

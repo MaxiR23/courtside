@@ -1,0 +1,930 @@
+{
+  "boxscore": {
+    "teams": [
+      {
+        "homeAway": "away",
+        "team": {
+          "abbreviation": "GS"
+        },
+        "statistics": [
+          {
+            "name": "fieldGoalPct",
+            "displayValue": "39"
+          },
+          {
+            "name": "threePointFieldGoalPct",
+            "displayValue": "18"
+          },
+          {
+            "name": "totalRebounds",
+            "displayValue": "49"
+          },
+          {
+            "name": "assists",
+            "displayValue": "23"
+          },
+          {
+            "name": "turnovers",
+            "displayValue": "16"
+          },
+          {
+            "name": "totalTurnovers",
+            "displayValue": "16"
+          }
+        ]
+      },
+      {
+        "homeAway": "home",
+        "team": {
+          "abbreviation": "LAC"
+        },
+        "statistics": [
+          {
+            "name": "fieldGoalPct",
+            "displayValue": "40"
+          },
+          {
+            "name": "threePointFieldGoalPct",
+            "displayValue": "31"
+          },
+          {
+            "name": "totalRebounds",
+            "displayValue": "52"
+          },
+          {
+            "name": "assists",
+            "displayValue": "18"
+          },
+          {
+            "name": "turnovers",
+            "displayValue": "21"
+          },
+          {
+            "name": "totalTurnovers",
+            "displayValue": "22"
+          }
+        ]
+      }
+    ],
+    "players": [
+      {
+        "team": {
+          "abbreviation": "GS"
+        },
+        "statistics": [
+          {
+            "keys": [
+              "minutes",
+              "points",
+              "fieldGoalsMade-fieldGoalsAttempted",
+              "threePointFieldGoalsMade-threePointFieldGoalsAttempted",
+              "freeThrowsMade-freeThrowsAttempted",
+              "rebounds",
+              "assists",
+              "turnovers",
+              "steals",
+              "blocks",
+              "offensiveRebounds",
+              "defensiveRebounds",
+              "fouls",
+              "plusMinus"
+            ],
+            "athletes": [
+              {
+                "athlete": {
+                  "id": "6589",
+                  "displayName": "Draymond Green"
+                },
+                "stats": [
+                  "14",
+                  "2",
+                  "0-1",
+                  "0-1",
+                  "2-2",
+                  "2",
+                  "2",
+                  "0",
+                  "3",
+                  "0",
+                  "0",
+                  "2",
+                  "1",
+                  "-6"
+                ]
+              },
+              {
+                "athlete": {
+                  "id": "5175737",
+                  "displayName": "Yaxel Lendeborg"
+                },
+                "stats": [
+                  "19",
+                  "4",
+                  "1-6",
+                  "1-3",
+                  "1-2",
+                  "9",
+                  "3",
+                  "0",
+                  "0",
+                  "1",
+                  "1",
+                  "8",
+                  "3",
+                  "+3"
+                ]
+              },
+              {
+                "athlete": {
+                  "id": "3213",
+                  "displayName": "Al Horford"
+                },
+                "stats": [
+                  "16",
+                  "3",
+                  "1-5",
+                  "1-4",
+                  "0-0",
+                  "3",
+                  "1",
+                  "2",
+                  "1",
+                  "0",
+                  "0",
+                  "3",
+                  "1",
+                  "+2"
+                ]
+              },
+              {
+                "athlete": {
+                  "id": "3975",
+                  "displayName": "Stephen Curry"
+                },
+                "stats": [
+                  "13",
+                  "10",
+                  "3-4",
+                  "2-3",
+                  "2-2",
+                  "2",
+                  "2",
+                  "2",
+                  "1",
+                  "0",
+                  "1",
+                  "1",
+                  "1",
+                  "-14"
+                ]
+              },
+              {
+                "athlete": {
+                  "id": "4709138",
+                  "displayName": "Brandin Podziemski"
+                },
+                "stats": [
+                  "18",
+                  "7",
+                  "2-10",
+                  "1-4",
+                  "2-4",
+                  "2",
+                  "2",
+                  "1",
+                  "1",
+                  "0",
+                  "0",
+                  "2",
+                  "1",
+                  "+7"
+                ]
+              },
+              {
+                "athlete": {
+                  "id": "2990969",
+                  "displayName": "Georges Niang"
+                },
+                "stats": [
+                  "12",
+                  "4",
+                  "2-6",
+                  "0-3",
+                  "0-0",
+                  "2",
+                  "0",
+                  "0",
+                  "0",
+                  "0",
+                  "0",
+                  "2",
+                  "3",
+                  "+2"
+                ]
+              },
+              {
+                "athlete": {
+                  "id": "4703396",
+                  "displayName": "Graham Ike"
+                },
+                "stats": [
+                  "16",
+                  "11",
+                  "3-7",
+                  "0-2",
+                  "5-5",
+                  "5",
+                  "1",
+                  "2",
+                  "2",
+                  "1",
+                  "1",
+                  "4",
+                  "3",
+                  "+1"
+                ]
+              },
+              {
+                "athlete": {
+                  "id": "4897449",
+                  "displayName": "Malevy Leons"
+                },
+                "stats": [
+                  "10",
+                  "8",
+                  "3-5",
+                  "0-1",
+                  "2-3",
+                  "2",
+                  "1",
+                  "1",
+                  "1",
+                  "0",
+                  "2",
+                  "0",
+                  "1",
+                  "-2"
+                ]
+              },
+              {
+                "athlete": {
+                  "id": "4997536",
+                  "displayName": "Gui Santos"
+                },
+                "stats": [
+                  "17",
+                  "9",
+                  "3-7",
+                  "1-2",
+                  "2-2",
+                  "4",
+                  "0",
+                  "2",
+                  "0",
+                  "0",
+                  "1",
+                  "3",
+                  "2",
+                  "-11"
+                ]
+              },
+              {
+                "athlete": {
+                  "id": "5170949",
+                  "displayName": "Alex Toohey"
+                },
+                "stats": [
+                  "8",
+                  "2",
+                  "1-2",
+                  "0-0",
+                  "0-0",
+                  "0",
+                  "1",
+                  "0",
+                  "1",
+                  "2",
+                  "0",
+                  "0",
+                  "0",
+                  "-1"
+                ]
+              },
+              {
+                "athlete": {
+                  "id": "4397886",
+                  "displayName": "Charles Bassey"
+                },
+                "stats": [
+                  "16",
+                  "12",
+                  "6-10",
+                  "0-0",
+                  "0-2",
+                  "8",
+                  "1",
+                  "3",
+                  "2",
+                  "0",
+                  "6",
+                  "2",
+                  "3",
+                  "-6"
+                ]
+              },
+              {
+                "athlete": {
+                  "id": "3134903",
+                  "displayName": "Gary Payton II"
+                },
+                "stats": [
+                  "12",
+                  "6",
+                  "3-5",
+                  "0-1",
+                  "0-2",
+                  "0",
+                  "1",
+                  "0",
+                  "2",
+                  "0",
+                  "0",
+                  "0",
+                  "1",
+                  "+14"
+                ]
+              },
+              {
+                "athlete": {
+                  "id": "4066436",
+                  "displayName": "De'Anthony Melton"
+                },
+                "stats": [
+                  "16",
+                  "2",
+                  "1-4",
+                  "0-2",
+                  "0-0",
+                  "1",
+                  "2",
+                  "1",
+                  "0",
+                  "0",
+                  "0",
+                  "1",
+                  "2",
+                  "-1"
+                ]
+              },
+              {
+                "athlete": {
+                  "id": "4397040",
+                  "displayName": "Brandon Williams"
+                },
+                "stats": [
+                  "16",
+                  "11",
+                  "4-9",
+                  "0-2",
+                  "3-3",
+                  "2",
+                  "3",
+                  "1",
+                  "1",
+                  "0",
+                  "0",
+                  "2",
+                  "1",
+                  "+16"
+                ]
+              },
+              {
+                "athlete": {
+                  "id": "4433149",
+                  "displayName": "LJ Cryer"
+                },
+                "stats": [
+                  "3",
+                  "1",
+                  "0-3",
+                  "0-1",
+                  "1-2",
+                  "0",
+                  "0",
+                  "0",
+                  "0",
+                  "0",
+                  "0",
+                  "0",
+                  "0",
+                  "-1"
+                ]
+              },
+              {
+                "athlete": {
+                  "id": "4433159",
+                  "displayName": "Dalen Terry"
+                },
+                "stats": [
+                  "11",
+                  "5",
+                  "2-4",
+                  "0-1",
+                  "1-2",
+                  "5",
+                  "2",
+                  "0",
+                  "0",
+                  "0",
+                  "1",
+                  "4",
+                  "2",
+                  "-9"
+                ]
+              },
+              {
+                "athlete": {
+                  "id": "4696317",
+                  "displayName": "Miles Kelly"
+                },
+                "stats": [
+                  "7",
+                  "2",
+                  "1-4",
+                  "0-2",
+                  "0-0",
+                  "0",
+                  "1",
+                  "1",
+                  "0",
+                  "0",
+                  "0",
+                  "0",
+                  "2",
+                  "-9"
+                ]
+              },
+              {
+                "athlete": {
+                  "id": "4897262",
+                  "displayName": "Will Richard"
+                },
+                "stats": [
+                  "17",
+                  "2",
+                  "1-3",
+                  "0-1",
+                  "0-0",
+                  "2",
+                  "0",
+                  "0",
+                  "0",
+                  "0",
+                  "0",
+                  "2",
+                  "3",
+                  "0"
+                ]
+              },
+              {
+                "athlete": {
+                  "id": "6430",
+                  "displayName": "Jimmy Butler III"
+                },
+                "stats": []
+              },
+              {
+                "athlete": {
+                  "id": "3102531",
+                  "displayName": "Kristaps Porzingis"
+                },
+                "stats": []
+              },
+              {
+                "athlete": {
+                  "id": "4432171",
+                  "displayName": "Moses Moody"
+                },
+                "stats": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "team": {
+          "abbreviation": "LAC"
+        },
+        "statistics": [
+          {
+            "keys": [
+              "minutes",
+              "points",
+              "fieldGoalsMade-fieldGoalsAttempted",
+              "threePointFieldGoalsMade-threePointFieldGoalsAttempted",
+              "freeThrowsMade-freeThrowsAttempted",
+              "rebounds",
+              "assists",
+              "turnovers",
+              "steals",
+              "blocks",
+              "offensiveRebounds",
+              "defensiveRebounds",
+              "fouls",
+              "plusMinus"
+            ],
+            "athletes": [
+              {
+                "athlete": {
+                  "id": "3936099",
+                  "displayName": "Derrick Jones Jr."
+                },
+                "stats": [
+                  "15",
+                  "6",
+                  "2-6",
+                  "1-4",
+                  "1-3",
+                  "1",
+                  "0",
+                  "0",
+                  "0",
+                  "1",
+                  "0",
+                  "1",
+                  "2",
+                  "+5"
+                ]
+              },
+              {
+                "athlete": {
+                  "id": "4066648",
+                  "displayName": "Rui Hachimura"
+                },
+                "stats": [
+                  "15",
+                  "21",
+                  "8-11",
+                  "4-5",
+                  "1-2",
+                  "5",
+                  "0",
+                  "2",
+                  "0",
+                  "1",
+                  "0",
+                  "5",
+                  "2",
+                  "+7"
+                ]
+              },
+              {
+                "athlete": {
+                  "id": "4432170",
+                  "displayName": "Isaiah Jackson"
+                },
+                "stats": [
+                  "17",
+                  "4",
+                  "2-3",
+                  "0-0",
+                  "0-0",
+                  "4",
+                  "3",
+                  "3",
+                  "1",
+                  "2",
+                  "0",
+                  "4",
+                  "0",
+                  "+7"
+                ]
+              },
+              {
+                "athlete": {
+                  "id": "4065778",
+                  "displayName": "Max Strus"
+                },
+                "stats": [
+                  "5",
+                  "0",
+                  "0-1",
+                  "0-1",
+                  "0-0",
+                  "1",
+                  "0",
+                  "0",
+                  "0",
+                  "0",
+                  "0",
+                  "1",
+                  "0",
+                  "-2"
+                ]
+              },
+              {
+                "athlete": {
+                  "id": "4396907",
+                  "displayName": "Darius Garland"
+                },
+                "stats": [
+                  "15",
+                  "15",
+                  "4-4",
+                  "3-3",
+                  "4-5",
+                  "3",
+                  "6",
+                  "1",
+                  "0",
+                  "0",
+                  "1",
+                  "2",
+                  "0",
+                  "+9"
+                ]
+              },
+              {
+                "athlete": {
+                  "id": "5075626",
+                  "displayName": "Baba Miller"
+                },
+                "stats": [
+                  "20",
+                  "9",
+                  "2-5",
+                  "0-1",
+                  "5-6",
+                  "6",
+                  "0",
+                  "1",
+                  "0",
+                  "0",
+                  "2",
+                  "4",
+                  "5",
+                  "-4"
+                ]
+              },
+              {
+                "athlete": {
+                  "id": "5105832",
+                  "displayName": "Nick Martinelli"
+                },
+                "stats": [
+                  "24",
+                  "5",
+                  "2-6",
+                  "1-3",
+                  "0-0",
+                  "2",
+                  "1",
+                  "2",
+                  "0",
+                  "0",
+                  "2",
+                  "0",
+                  "1",
+                  "-3"
+                ]
+              },
+              {
+                "athlete": {
+                  "id": "3448",
+                  "displayName": "Brook Lopez"
+                },
+                "stats": [
+                  "7",
+                  "1",
+                  "0-4",
+                  "0-1",
+                  "1-2",
+                  "3",
+                  "0",
+                  "1",
+                  "0",
+                  "0",
+                  "1",
+                  "2",
+                  "2",
+                  "+5"
+                ]
+              },
+              {
+                "athlete": {
+                  "id": "2991139",
+                  "displayName": "Kris Dunn"
+                },
+                "stats": [
+                  "6",
+                  "3",
+                  "1-2",
+                  "1-2",
+                  "0-0",
+                  "1",
+                  "0",
+                  "0",
+                  "0",
+                  "1",
+                  "0",
+                  "1",
+                  "1",
+                  "+2"
+                ]
+              },
+              {
+                "athlete": {
+                  "id": "4398390",
+                  "displayName": "Jalen Pickett"
+                },
+                "stats": [
+                  "14",
+                  "4",
+                  "2-4",
+                  "0-0",
+                  "0-0",
+                  "2",
+                  "0",
+                  "2",
+                  "0",
+                  "0",
+                  "0",
+                  "2",
+                  "2",
+                  "-8"
+                ]
+              },
+              {
+                "athlete": {
+                  "id": "4683935",
+                  "displayName": "Blake Wesley"
+                },
+                "stats": [
+                  "18",
+                  "8",
+                  "3-5",
+                  "0-0",
+                  "2-3",
+                  "3",
+                  "1",
+                  "1",
+                  "1",
+                  "1",
+                  "0",
+                  "3",
+                  "1",
+                  "+1"
+                ]
+              },
+              {
+                "athlete": {
+                  "id": "4845363",
+                  "displayName": "Cam Christie"
+                },
+                "stats": [
+                  "28",
+                  "8",
+                  "2-8",
+                  "0-3",
+                  "4-4",
+                  "8",
+                  "3",
+                  "5",
+                  "0",
+                  "0",
+                  "1",
+                  "7",
+                  "1",
+                  "+7"
+                ]
+              },
+              {
+                "athlete": {
+                  "id": "5105853",
+                  "displayName": "Fletcher Loyer"
+                },
+                "stats": [
+                  "7",
+                  "0",
+                  "0-1",
+                  "0-1",
+                  "0-0",
+                  "1",
+                  "0",
+                  "0",
+                  "0",
+                  "0",
+                  "0",
+                  "1",
+                  "1",
+                  "-10"
+                ]
+              },
+              {
+                "athlete": {
+                  "id": "5106258",
+                  "displayName": "Gradey Dick"
+                },
+                "stats": [
+                  "16",
+                  "4",
+                  "1-5",
+                  "0-1",
+                  "2-2",
+                  "6",
+                  "1",
+                  "1",
+                  "0",
+                  "0",
+                  "2",
+                  "4",
+                  "3",
+                  "0"
+                ]
+              },
+              {
+                "athlete": {
+                  "id": "5159895",
+                  "displayName": "Yuki Kawamura"
+                },
+                "stats": [
+                  "4",
+                  "1",
+                  "0-0",
+                  "0-0",
+                  "1-2",
+                  "0",
+                  "0",
+                  "2",
+                  "0",
+                  "0",
+                  "0",
+                  "0",
+                  "1",
+                  "-3"
+                ]
+              },
+              {
+                "athlete": {
+                  "id": "5254165",
+                  "displayName": "Keaton Wagler"
+                },
+                "stats": [
+                  "30",
+                  "15",
+                  "3-15",
+                  "1-11",
+                  "8-9",
+                  "6",
+                  "3",
+                  "0",
+                  "2",
+                  "1",
+                  "1",
+                  "5",
+                  "2",
+                  "+2"
+                ]
+              },
+              {
+                "athlete": {
+                  "id": "3913176",
+                  "displayName": "Brandon Ingram"
+                },
+                "stats": []
+              },
+              {
+                "athlete": {
+                  "id": "5108024",
+                  "displayName": "Yanic Konan Niederhauser"
+                },
+                "stats": []
+              },
+              {
+                "athlete": {
+                  "id": "6580",
+                  "displayName": "Bradley Beal"
+                },
+                "stats": []
+              },
+              {
+                "athlete": {
+                  "id": "4396818",
+                  "displayName": "Jordan Miller"
+                },
+                "stats": []
+              },
+              {
+                "athlete": {
+                  "id": "4702352",
+                  "displayName": "Kobe Sanders"
+                },
+                "stats": []
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
