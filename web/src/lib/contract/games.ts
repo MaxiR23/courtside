@@ -27,6 +27,7 @@ export interface Game {
 	clock: string | null;
 	lineScore: LineScore | null;
 	score: Score | null;
+	winner: string | null;
 	leaders: Leaders | null;
 	teamStats: GameTeamStats | null;
 	highlightsSearchUrl: string | null;

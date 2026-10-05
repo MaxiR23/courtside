@@ -5,10 +5,11 @@
 // Tested:
 // - Seven days with today in the middle; today's games as hero games in feed order
 // - Tip time as "9:00 PM ET"; scheduled, live (Q3, OT, 2OT), final, delayed, postponed and canceled games
+// - The winner of a final game, passed through
 // - Leaders (display name split), stats, highlights with autoplay, the hero chip's full team name
 // - Minutes since the feed was generated, never negative
 // - Null network, no video platform name, no videos, a one-word display name
-// - A feed without seven days, and a live game without its fields, cannot be shown
+// - A feed without seven days, and a live game without its fields or a final game without its winner, cannot be shown
 //
 // What is covered:
 // - Pure logic on a recorded feed (tests/lib/feed/fixtures/games.json); no clock, no network
@@ -120,7 +121,12 @@ describe('toHomeView', () => {
 
 	it('maps a final game with leaders, stats and highlights', () => {
 		const game = todayGame(view(), 'g-final');
-		expect(game.status).toEqual({ state: 'final', awayScore: 112, homeScore: 104 });
+		expect(game.status).toEqual({
+			state: 'final',
+			awayScore: 112,
+			homeScore: 104,
+			winner: 'DEN'
+		});
 		if (game.details?.kind !== 'played') throw new Error('Expected played details');
 		expect(game.details.periods).toEqual({ away: [30, 28, 26, 28], home: [24, 27, 25, 28] });
 		expect(game.details.leaders.away).toEqual({
@@ -210,6 +216,17 @@ describe('toHomeView', () => {
 		const game = todayGame(view(feed(), {} as typeof options), 'g-final');
 		if (game.details?.kind !== 'played') throw new Error('Expected played details');
 		expect(game.details.highlights).toBeUndefined();
+	});
+
+	it('passes the winner through on a final game won by the home team', () => {
+		const game = view().days[2].games.find((g) => g.id === 'g-final2');
+		expect(game?.status).toMatchObject({ state: 'final', winner: 'UTA' });
+	});
+
+	it('returns null for a final game without its winner', () => {
+		const source = feed();
+		source.days[3].games[2].winner = null;
+		expect(toHomeView(source, received, options)).toBeNull();
 	});
 
 	it('maps a final game with no videos to the pending highlights', () => {

@@ -138,6 +138,7 @@ REQUIRED_BY_STATUS: dict[GameStatus, tuple[str, ...]] = {
     GameStatus.FINAL: (
         "line_score",
         "score",
+        "winner",
         "leaders",
         "team_stats",
         "highlights_search_url",
@@ -159,6 +160,7 @@ class Game(FeedModel):
     clock: NonEmptyStr | None = None
     line_score: LineScore | None = None
     score: Score | None = None
+    winner: TeamCode | None = None
     leaders: Leaders | None = None
     team_stats: GameTeamStats | None = None
     highlights_search_url: HttpUrl | None = None
@@ -170,6 +172,16 @@ class Game(FeedModel):
         if missing:
             aliases = ", ".join(to_camel(name) for name in missing)
             raise ValueError(f"a {self.status} game requires {aliases}")
+        return self
+
+    @model_validator(mode="after")
+    def _require_a_winner_of_the_game(self) -> "Game":
+        if self.winner is None:
+            return self
+        if self.status is not GameStatus.FINAL:
+            raise ValueError(f"a {self.status} game has no winner")
+        if self.winner not in (self.away.code, self.home.code):
+            raise ValueError("winner must be the away or the home team code")
         return self
 
 

@@ -37,13 +37,13 @@
 	// Spoiler-free mode: a final card that can expand hides its score until it is open.
 	const hidden = $derived(spoilerFree && game.status.state === 'final' && !!game.details && !open);
 
-	// Display choice: dims the lower score of a final game. Not a game rule.
+	// The team that is not the winner of a final game is dimmed; the winner comes from the feed.
 	const loser = $derived.by(() => {
 		if (hidden) return null;
 		const status = game.status;
 		if (status.state !== 'final') return null;
-		if (status.awayScore < status.homeScore) return 'away';
-		if (status.awayScore > status.homeScore) return 'home';
+		if (status.winner === game.home.code) return 'away';
+		if (status.winner === game.away.code) return 'home';
 		return null;
 	});
 	const entries = $derived([

@@ -8,6 +8,7 @@
 # - Invalid times, codes, numbers and URLs are rejected
 # - Unknown fields are rejected
 # - A leader carries one display name; stars keep first and last name
+# - A final game requires a winner, which must be one of its teams; any other status rejects one
 # - Serialization uses camelCase keys and carries unknown values as null
 #
 # What is covered:
@@ -95,6 +96,7 @@ def valid_game(status: str, **overrides: object) -> Payload:
         game["clock"] = "2:10"
     if status == "final":
         game["highlightsSearchUrl"] = "https://example.com/search"
+        game["winner"] = "HHH"
     game.update(overrides)
     return game
 
@@ -132,7 +134,7 @@ def test_rejects_a_live_game_without_a_required_field(field: str) -> None:
 
 @pytest.mark.parametrize(
     "field",
-    ["lineScore", "score", "leaders", "teamStats", "highlightsSearchUrl"],
+    ["lineScore", "score", "winner", "leaders", "teamStats", "highlightsSearchUrl"],
 )
 def test_rejects_a_final_game_without_a_required_field(field: str) -> None:
     game = valid_game("final")
@@ -140,6 +142,31 @@ def test_rejects_a_final_game_without_a_required_field(field: str) -> None:
 
     with pytest.raises(ValidationError, match=field):
         GamesFeed.model_validate(valid_feed(game))
+
+
+def test_accepts_a_final_game_won_by_the_away_team() -> None:
+    GamesFeed.model_validate(valid_feed(valid_game("final", winner="AAA")))
+
+
+@pytest.mark.parametrize(
+    "status", ["scheduled", "live", "delayed", "postponed", "canceled"]
+)
+def test_rejects_a_winner_on_a_game_that_is_not_final(status: str) -> None:
+    with pytest.raises(ValidationError, match="winner"):
+        GamesFeed.model_validate(valid_feed(valid_game(status, winner="HHH")))
+
+
+def test_rejects_a_winner_that_is_neither_team() -> None:
+    with pytest.raises(ValidationError, match="winner"):
+        GamesFeed.model_validate(valid_feed(valid_game("final", winner="ZZZ")))
+
+
+def test_serializes_no_winner_as_null_on_a_game_that_is_not_final() -> None:
+    feed = GamesFeed.model_validate(valid_feed(valid_game("scheduled")))
+
+    dumped = feed.model_dump(mode="json", by_alias=True)
+
+    assert dumped["days"][0]["games"][0]["winner"] is None
 
 
 def test_accepts_a_scheduled_game_without_scores_or_clock() -> None:

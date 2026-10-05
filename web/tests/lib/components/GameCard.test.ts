@@ -4,7 +4,7 @@
 //
 // Tested:
 // - Scheduled, live and final games on the desktop and the mobile row
-// - The losing team's name and score of a final game are dimmed, never its monogram; ties and live games dim no one
+// - The name and score of the team that is not the winner are dimmed, never its monogram, for home and away winners, following the winner field and not the scores; live games dim no one
 // - Monogram sizes per row layout, decorative chevron
 // - Spanish live badge with a Spanish browser preference
 // - A card without details stays a plain row; with details it toggles an inert panel
@@ -42,11 +42,11 @@ const live: ScheduleGame = {
 	home,
 	status: { state: 'live', period: 'Q3', clock: '4:12', awayScore: 78, homeScore: 74 }
 };
-const final = (awayScore: number, homeScore: number): ScheduleGame => ({
+const final = (awayScore: number, homeScore: number, winner: string): ScheduleGame => ({
 	id: 'f',
 	away,
 	home,
-	status: { state: 'final', awayScore, homeScore }
+	status: { state: 'final', awayScore, homeScore, winner }
 });
 
 afterEach(() => {
@@ -74,9 +74,12 @@ const withDetails = (game: ScheduleGame, details: GameDetails): ScheduleGame => 
 	details
 });
 const liveWithDetails = withDetails(live, played([28, 26, 24], [25, 27, 22]));
-const finalWithDetails = withDetails(final(112, 104), played([30, 28, 26, 28], [24, 27, 25, 28]));
+const finalWithDetails = withDetails(
+	final(112, 104, 'GSW'),
+	played([30, 28, 26, 28], [24, 27, 25, 28])
+);
 const overtimeWithDetails = withDetails(
-	final(132, 130),
+	final(132, 130, 'GSW'),
 	played([28, 25, 30, 27, 12, 10], [30, 26, 24, 30, 12, 8])
 );
 const scheduledWithDetails = withDetails(scheduled, {
@@ -100,8 +103,8 @@ const withHighlights = (game: ScheduleGame, videos: { id: string }[]): ScheduleG
 		...played([30, 28, 26, 28], [24, 27, 25, 28]),
 		highlights: highlightsData(videos)
 	} as GameDetails);
-const finalWithHighlights = withHighlights(final(112, 104), [{ id: 'v1' }, { id: 'v2' }]);
-const finalPending = withHighlights(final(112, 104), []);
+const finalWithHighlights = withHighlights(final(112, 104, 'GSW'), [{ id: 'v1' }, { id: 'v2' }]);
+const finalPending = withHighlights(final(112, 104, 'GSW'), []);
 const HIGHLIGHTS = 'Highlights will appear here after the final buzzer.';
 
 const dimmedText = (container: HTMLElement) =>
@@ -140,7 +143,7 @@ describe('GameCard', () => {
 	it.each(['desktop', 'mobile'] as const)(
 		'shows FINAL and both scores on a final game (%s)',
 		(layout) => {
-			const { container } = render(GameCard, { props: { game: final(112, 104), layout } });
+			const { container } = render(GameCard, { props: { game: final(112, 104, 'GSW'), layout } });
 			expect(container.querySelector('.status-line')?.textContent?.trim()).toBe('Final');
 			expect([...container.querySelectorAll('.score')].map((e) => e.textContent)).toEqual([
 				'112',
@@ -149,8 +152,8 @@ describe('GameCard', () => {
 		}
 	);
 
-	it('dims the losing team on a final game', () => {
-		const desktop = render(GameCard, { props: { game: final(98, 104), layout: 'desktop' } });
+	it('dims the team that is not the winner on a final game, home and away winners', () => {
+		const desktop = render(GameCard, { props: { game: final(98, 104, 'LAL'), layout: 'desktop' } });
 		const text = dimmedText(desktop.container);
 		expect(text.some((t) => t?.includes('Warriors'))).toBe(true);
 		expect(text).toContain('98');
@@ -158,7 +161,9 @@ describe('GameCard', () => {
 		expect(text).not.toContain('104');
 		desktop.unmount();
 
-		const { container } = render(GameCard, { props: { game: final(112, 104), layout: 'mobile' } });
+		const { container } = render(GameCard, {
+			props: { game: final(112, 104, 'GSW'), layout: 'mobile' }
+		});
 		const mobile = dimmedText(container);
 		expect(mobile.some((t) => t?.includes('Lakers'))).toBe(true);
 		expect(mobile).toContain('104');
@@ -167,8 +172,8 @@ describe('GameCard', () => {
 	});
 
 	it.each([
-		['desktop', final(98, 104)],
-		['mobile', final(112, 104)]
+		['desktop', final(98, 104, 'LAL')],
+		['mobile', final(112, 104, 'GSW')]
 	] as const)("does not dim the losing team's monogram on the %s row", (layout, game) => {
 		const { container } = render(GameCard, { props: { game, layout } });
 		expect(container.querySelectorAll('.team-monogram').length).toBeGreaterThan(0);
@@ -178,12 +183,16 @@ describe('GameCard', () => {
 		expect(text.some((t) => t?.includes(layout === 'desktop' ? 'Warriors' : 'Lakers'))).toBe(true);
 	});
 
-	it('dims neither team when a final game is tied', () => {
+	it('dims the team that is not the winner even when its score is higher', () => {
 		for (const layout of ['desktop', 'mobile'] as const) {
 			const { container, unmount } = render(GameCard, {
-				props: { game: final(100, 100), layout }
+				props: { game: final(98, 104, 'GSW'), layout }
 			});
-			expect(container.querySelectorAll('.dimmed')).toHaveLength(0);
+			const text = dimmedText(container);
+			expect(text.some((t) => t?.includes('Lakers'))).toBe(true);
+			expect(text).toContain('104');
+			expect(text.some((t) => t?.includes('Warriors'))).toBe(false);
+			expect(text).not.toContain('98');
 			unmount();
 		}
 	});
@@ -407,7 +416,7 @@ describe('GameCard', () => {
 		);
 
 		it('does not dim the losing team while the score is hidden', async () => {
-			const game = withDetails(final(98, 104), played([30, 28, 20, 20], [24, 27, 25, 28]));
+			const game = withDetails(final(98, 104, 'LAL'), played([30, 28, 20, 20], [24, 27, 25, 28]));
 			const props = { game, layout: 'desktop' as const, spoilerFree: true };
 			const { container, rerender } = render(GameCard, { props });
 			expect(container.querySelectorAll('.dimmed')).toHaveLength(0);
@@ -439,7 +448,7 @@ describe('GameCard', () => {
 
 		it('keeps the score on a final card that cannot expand', () => {
 			const { container } = render(GameCard, {
-				props: { game: final(112, 104), layout: 'desktop', spoilerFree: true }
+				props: { game: final(112, 104, 'GSW'), layout: 'desktop', spoilerFree: true }
 			});
 			expect(container.querySelectorAll('.score')).toHaveLength(2);
 			expect(container.textContent).not.toContain('Tap to reveal');

@@ -47,13 +47,15 @@ Conventions:
 | `clock`               | string / null          | Game clock                                                       | required when `live`            |
 | `lineScore`           | `LineScore` / null     | Points per period for each team                                  | required when `live` or `final` |
 | `score`               | `Score` / null         | Current or final points                                          | required when `live` or `final` |
+| `winner`              | team code / null       | Code of the winning team: the away or the home team              | required when `final`, null otherwise |
 | `leaders`             | `Leaders` / null       | Top scorer of each team                                          | required when `live` or `final` |
 | `teamStats`           | `GameTeamStats` / null | Team statistics                                                  | required when `live` or `final` |
 | `highlightsSearchUrl` | URL / null             | Link to search for highlights                                    | required when `final`           |
 
 A `live` game requires `period`, `clock`, `lineScore`, `score`, `leaders`
-and `teamStats`. A `final` game requires `lineScore`, `score`, `leaders`,
-`teamStats` and `highlightsSearchUrl`. The other statuses add nothing.
+and `teamStats`. A `final` game requires `lineScore`, `score`, `winner`, `leaders`,
+`teamStats` and `highlightsSearchUrl`; any other status has `winner` null.
+The other statuses add nothing.
 
 ## Nested objects
 
@@ -79,6 +81,9 @@ Rules that live in the code:
 - Stars: the current season's averages are used when any player on the
   current roster has them; otherwise the previous season's are used. A 404
   from the averages source means that season has no statistics yet.
+- `winner` is set by the games job from the final score: the team with more
+  points. A final game whose score is tied has no winner, so the feed is
+  invalid and the previous one stays published.
 
 ## Refresh behavior
 

@@ -34,7 +34,7 @@ const game = (id: string, awayScore: number): ScheduleGame => ({
 	id,
 	away: team('GSW', 'Warriors', 'Golden State'),
 	home: team('LAL', 'Lakers', 'Los Angeles'),
-	status: { state: 'final', awayScore, homeScore: 100 }
+	status: { state: 'final', awayScore, homeScore: 100, winner: 'LAL' }
 });
 const counts = [1, 0, 2, 3, 1, 1, 1];
 const days: ScheduleDay[] = counts.map((n, i) => ({

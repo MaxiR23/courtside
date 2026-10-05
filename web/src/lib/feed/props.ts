@@ -189,7 +189,12 @@ function scheduleGame(game: Game, options: Options): ScheduleGame {
 				: undefined;
 			return {
 				...base,
-				status: { state: 'final', awayScore: score.away, homeScore: score.home },
+				status: {
+					state: 'final',
+					awayScore: score.away,
+					homeScore: score.home,
+					winner: required(game.winner)
+				},
 				details: playedDetails(game, highlights)
 			};
 		}
