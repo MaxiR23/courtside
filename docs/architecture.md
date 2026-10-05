@@ -142,9 +142,20 @@ These are not decided. A change that depends on one of them stops and asks.
 When one is closed, it gets an ADR in [`adr/`](adr/README.md) and this
 document is updated in the same change.
 
-- **Hosting** for the front end and for the backend process. The backend must stay running for its jobs, so platforms that sleep on inactivity do not fit.
-- **Storage** for job state between runs: a local database or files on disk.
-- **Refresh cadences** for each job.
-- **Star player selection**: the rule that picks each team's star shown in the hero.
-- **Highlight matching**: how a final game is matched to its official highlight video.
 - **Missing data**: what the page shows when a feed has no data for a day. Sample data is not an option in production.
+
+## Closed decisions
+
+Recorded in [`adr/0007-backend-runtime-and-data-pipeline.md`](adr/0007-backend-runtime-and-data-pipeline.md):
+
+- **Hosting**: one always-free virtual machine running Docker Compose, with a reverse proxy for HTTPS.
+- **Storage**: job state in one SQLite file on the data volume; feeds as JSON files.
+- **Refresh cadences**: per job, as listed in the ADR.
+- **Star player selection**: the highest points plus rebounds plus assists per game on the current roster.
+- **Highlight matching**: the league's official video channel, matched by both teams, the highlights label and the date.
+
+The hero has no single featured game: it rotates through every game of the day.
+
+## Future
+
+- A notification panel for job failures.
