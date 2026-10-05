@@ -5,7 +5,7 @@
 # Tested:
 # - Maps a recorded final game to leaders and team stats
 # - Requests the URL built from the template and the game id
-# - Picks the top scorer of each team, the first in provider order on a tie, skipping players without a stat line
+# - Picks the top scorer of each team, breaking a tie on points by rebounds plus assists and then by provider order, skipping players without a stat line
 # - Builds photo URLs from the template and keeps the display name exactly as the provider gives it
 # - Converts shooting percentages to fractions and takes team turnovers from the box score
 # - Maps the provider team codes that differ from the standard ones
@@ -176,15 +176,33 @@ async def test_picks_the_top_scorer_of_each_team_as_its_leader(
 
 
 @pytest.mark.anyio
-async def test_keeps_the_first_player_in_provider_order_on_a_tie_in_points(
+async def test_breaks_a_tie_in_points_by_rebounds_plus_assists(
     mock: respx.MockRouter, settings: Settings
 ) -> None:
     payload = load("final.json")
     group = team_players(payload, "LAC")
-    set_stat(athlete(payload, "LAC", "Keaton Wagler"), group, "points", "21")
-    set_stat(athlete(payload, "LAC", "Darius Garland"), group, "points", "21")
     names = [a["athlete"]["displayName"] for a in group["athletes"]]
-    first = min(("Rui Hachimura", "Keaton Wagler", "Darius Garland"), key=names.index)
+    assert names.index("Rui Hachimura") < names.index("Darius Garland")
+    set_stat(athlete(payload, "LAC", "Darius Garland"), group, "points", "21")
+    mock.get(URL).respond(json=payload)
+
+    detail = await fetch(settings)
+
+    assert detail.leaders.home.display_name == "Darius Garland"
+
+
+@pytest.mark.anyio
+async def test_keeps_the_first_player_in_provider_order_on_a_tie_in_points_and_rebounds_plus_assists(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("final.json")
+    group = team_players(payload, "LAC")
+    garland = athlete(payload, "LAC", "Darius Garland")
+    set_stat(garland, group, "points", "21")
+    set_stat(garland, group, "rebounds", "2")
+    set_stat(garland, group, "assists", "3")
+    names = [a["athlete"]["displayName"] for a in group["athletes"]]
+    first = min(("Rui Hachimura", "Darius Garland"), key=names.index)
     mock.get(URL).respond(json=payload)
 
     detail = await fetch(settings)

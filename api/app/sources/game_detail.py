@@ -118,7 +118,14 @@ def _leader(
         raise SourceError(
             SOURCE, f"game {game_id} has a stat line shorter than its columns"
         ) from None
-    top = max(range(len(played)), key=lambda i: values[i]["points"])
+    # Rule: docs/adr/0009-game-leader-selection.md. max keeps the first on a full tie.
+    top = max(
+        range(len(played)),
+        key=lambda i: (
+            values[i]["points"],
+            values[i]["rebounds"] + values[i]["assists"],
+        ),
+    )
     athlete = played[top].athlete
     return {
         "player_id": athlete.id,

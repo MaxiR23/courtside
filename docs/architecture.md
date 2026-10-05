@@ -174,6 +174,10 @@ Recorded in [`adr/0007-backend-runtime-and-data-pipeline.md`](adr/0007-backend-r
 
 The hero rotates through every game of the day.
 
+Recorded in [`adr/0009-game-leader-selection.md`](adr/0009-game-leader-selection.md):
+
+- **Game leader**: each team's top scorer by points; a tie on points goes to the most rebounds plus assists, and a tie on both to the first in the provider's order.
+
 ## Future
 
 - A notification panel for job failures.
