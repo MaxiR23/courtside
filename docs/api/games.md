@@ -75,4 +75,11 @@ and `teamStats`. A `final` game requires `lineScore`, `score`, `leaders`,
 Per ADR 0007: the schedule and stars once a day in the morning US
 Eastern time; every minute from a game's scheduled start until it is live;
 every 30 seconds while it is live; highlights one attempt 1, 2 and 3 hours
-after the final time. Serving the feed is not built yet.
+after the final time.
+
+## Endpoint
+
+- `GET /feeds/games.json` serves the last published feed with
+  `Cache-Control: public, max-age=10` and an `ETag`.
+- It responds 503 with `{"detail": ...}` before the first publication.
+- An invalid feed is never published: the previous valid one stays served.

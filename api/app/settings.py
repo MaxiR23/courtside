@@ -1,10 +1,12 @@
 from functools import lru_cache
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal, Self
 
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-ENV_FILE = Path(__file__).resolve().parent.parent / ".env"
+API_DIR = Path(__file__).resolve().parent.parent
+ENV_FILE = API_DIR / ".env"
 
 
 class Settings(BaseSettings):
@@ -16,6 +18,21 @@ class Settings(BaseSettings):
     scoreboard_url: str | None = None
     game_detail_url: str | None = None
     player_photo_url: str | None = None
+    data_dir: Path = API_DIR / "data"
+    cors_origins: list[str] = []
+
+    @field_validator("data_dir", mode="before")
+    @classmethod
+    def _reject_empty_data_dir(cls, value: Any) -> Any:
+        if isinstance(value, str) and not value.strip():
+            raise ValueError("must not be empty")
+        return value
+
+    @model_validator(mode="after")
+    def _resolve_data_dir(self) -> Self:
+        if not self.data_dir.is_absolute():
+            self.data_dir = (API_DIR / self.data_dir).resolve()
+        return self
 
 
 @lru_cache

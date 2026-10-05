@@ -16,9 +16,15 @@
 # - Leaves the player photo URL unset by default
 # - Reads the player photo URL from an environment variable
 # - Validation errors do not include the input value
+# - Defaults the data directory to api/data
+# - Reads the data directory from an environment variable
+# - Resolves a relative data directory against the api folder
+# - Rejects an empty data directory
+# - Allows no CORS origins by default
+# - Reads the CORS origins as a JSON list
 #
 # What is covered:
-# - Happy path, value from the environment, value from a .env file, .env file location, invalid value, shared instance, optional scoreboard URL, optional game detail URL, optional player photo URL, input hidden from errors
+# - Happy path, value from the environment, value from a .env file, .env file location, invalid value, shared instance, optional scoreboard URL, optional game detail URL, optional player photo URL, input hidden from errors, data directory (default, environment, relative, empty), CORS origins (default, JSON list)
 #
 # Run with: cd api && .venv/bin/python -m pytest tests/test_settings.py
 #
@@ -48,6 +54,8 @@ def clear_environment_variable(monkeypatch: pytest.MonkeyPatch) -> None:
             "scoreboard_url",
             "game_detail_url",
             "player_photo_url",
+            "data_dir",
+            "cors_origins",
         }:
             monkeypatch.delenv(name)
 
@@ -160,3 +168,48 @@ def test_validation_errors_do_not_include_the_input_value(
         SettingsWithoutEnvFile()
 
     assert "example.com/hidden" not in str(raised.value)
+
+
+def test_data_dir_defaults_to_the_data_folder_in_api() -> None:
+    api_dir = Path(__file__).resolve().parent.parent
+
+    assert SettingsWithoutEnvFile().data_dir == api_dir / "data"
+
+
+def test_reads_the_data_dir_from_the_environment_variable(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+
+    assert SettingsWithoutEnvFile().data_dir == tmp_path
+
+
+def test_resolves_a_relative_data_dir_against_the_api_folder(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    api_dir = Path(__file__).resolve().parent.parent
+    monkeypatch.setenv("DATA_DIR", "state")
+
+    assert SettingsWithoutEnvFile().data_dir == api_dir / "state"
+
+
+def test_rejects_an_empty_data_dir(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DATA_DIR", "")
+
+    with pytest.raises(ValidationError):
+        SettingsWithoutEnvFile()
+
+
+def test_cors_origins_are_empty_when_no_variable_is_set() -> None:
+    assert SettingsWithoutEnvFile().cors_origins == []
+
+
+def test_reads_the_cors_origins_as_a_json_list(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("CORS_ORIGINS", '["https://a.example","https://b.example"]')
+
+    assert SettingsWithoutEnvFile().cors_origins == [
+        "https://a.example",
+        "https://b.example",
+    ]
