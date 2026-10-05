@@ -91,6 +91,7 @@ Sections such as All-Star or the Finals are temporary. Each one is self-containe
 - `.env` is never committed. `api/.env.example` lists every variable `Settings` reads.
 - Data source URLs and keys live only in configuration, never in code or documentation.
 - Recorded in [`adr/0003-api-tooling-and-configuration.md`](adr/0003-api-tooling-and-configuration.md).
+- The front end's build-time settings are declared in `web/src/env.ts` and listed in `web/.env.example`: the games feed URL and the video platform's name.
 
 ## Repository layout
 
@@ -126,6 +127,9 @@ Structure of `/web`:
 web/src/routes/            Routes; +layout.ts prerenders everything
 web/src/lib/               Shared code, imported as #lib
 web/src/lib/contract/      Generated feed types, never edited
+web/src/lib/feed/          Feed loading, polling and the props layer
+web/src/env.ts             Build-time settings
+web/.env.example           Every variable web/src/env.ts reads
 web/scripts/               Contract type generation
 web/src/app.html           HTML shell
 web/static/                Static assets

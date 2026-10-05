@@ -4,7 +4,8 @@
 //
 // Tested:
 // - Shows every base component in each of its variants
-// - Shows the hero in its three states and the footer
+// - Shows the hero in its three states, with three games and its position, and the footer
+// - Shows the delayed, postponed and canceled statuses on both rows and in the tag
 // - Shows the day strip, every game card state on both rows, and the schedule on a day with no games showing its message
 // - Shows an expanded card for a scheduled, a live, a final and an overtime game
 // - Shows a final game with highlights and one with highlights pending, and plays a placeholder
@@ -63,7 +64,7 @@ describe('component preview', () => {
 			['GameCard: mobile row', '.row.mobile']
 		] as const) {
 			const section = sectionOf(name);
-			expect(section.querySelectorAll(row)).toHaveLength(3);
+			expect(section.querySelectorAll(row)).toHaveLength(6);
 			expect(within(section).getByText('LIVE')).toBeTruthy();
 			expect(within(section).getByText('Final')).toBeTruthy();
 			expect(section.textContent).toContain('9:00');
@@ -117,7 +118,29 @@ describe('component preview', () => {
 		for (const name of ['Hero: Tonight', 'Hero: Live now', 'Hero: Final']) {
 			expect(screen.getByRole('heading', { level: 2, name })).toBeTruthy();
 		}
-		expect(container.querySelectorAll('.hero')).toHaveLength(3);
+		expect(container.querySelectorAll('.hero')).toHaveLength(4);
+	});
+
+	it('shows the hero with several games and its position', () => {
+		render(Preview);
+		const hero = sectionOf('Hero: three games');
+		expect(hero.querySelector('.position')?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
+			'01 / 03'
+		);
+	});
+
+	it('shows the three new statuses on both rows', () => {
+		render(Preview);
+		for (const name of ['GameCard: desktop row', 'GameCard: mobile row']) {
+			const section = sectionOf(name);
+			for (const label of ['Delayed', 'Postponed', 'Canceled']) {
+				expect(within(section).getByText(label)).toBeTruthy();
+			}
+		}
+		const tags = sectionOf('StatusTag');
+		for (const label of ['Delayed', 'Postponed', 'Canceled']) {
+			expect(within(tags).getByText(label)).toBeTruthy();
+		}
 	});
 
 	it('shows the footer', () => {
@@ -189,7 +212,7 @@ describe('component preview', () => {
 	it('turns spoiler-free mode on for the schedule from the hero toggle', async () => {
 		render(Preview);
 		const toggles = screen.getAllByRole('button', { name: 'Spoiler-free' });
-		expect(toggles).toHaveLength(3);
+		expect(toggles).toHaveLength(4);
 		await fireEvent.click(toggles[0]);
 		for (const t of screen.getAllByRole('button', { name: 'Spoiler-free' })) {
 			expect(t.getAttribute('aria-pressed')).toBe('true');

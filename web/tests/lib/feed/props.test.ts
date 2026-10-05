@@ -1,0 +1,255 @@
+// web/tests/lib/feed/props.test.ts
+//
+// Tests for the props layer that turns the games feed into the home page props.
+//
+// Tested:
+// - Seven days with today in the middle; today's games as hero games in feed order
+// - Tip time as "9:00 PM ET"; scheduled, live (Q3, OT, 2OT), final, delayed, postponed and canceled games
+// - Leaders (display name split), stats, highlights with autoplay, the hero chip's full team name
+// - Minutes since the feed was generated, never negative
+// - Null network, no video platform name, no videos, a one-word display name
+// - A feed without seven days, and a live game without its fields, cannot be shown
+//
+// What is covered:
+// - Pure logic on a recorded feed (tests/lib/feed/fixtures/games.json); no clock, no network
+//
+// Run with: cd web && pnpm exec vitest run tests/lib/feed/props.test.ts
+//
+// SEE: web/src/lib/feed/props.ts
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { describe, expect, it } from 'vitest';
+
+import type { GamesFeed } from '../../../src/lib/contract/games';
+import { toHomeView, type HomeView } from '../../../src/lib/feed/props';
+import type { ScheduleGame } from '../../../src/lib/schedule/types';
+
+const feed = (): GamesFeed =>
+	JSON.parse(readFileSync(join(__dirname, 'fixtures', 'games.json'), 'utf8')) as GamesFeed;
+// 23:05 UTC on the day the feed was generated: 5 minutes after generatedAt.
+const received = new Date('2026-10-04T23:05:00Z');
+const options = { videoPlatformName: 'Video platform' };
+
+function view(source: GamesFeed = feed(), opts = options): HomeView {
+	const result = toHomeView(source, received, opts);
+	if (!result) throw new Error('The fixture feed must be showable');
+	return result;
+}
+const todayGame = (v: HomeView, id: string): ScheduleGame => {
+	const found = v.days[3].games.find((g) => g.id === id);
+	if (!found) throw new Error(`No game ${id}`);
+	return found;
+};
+
+describe('toHomeView', () => {
+	it('maps the seven days with today in the middle', () => {
+		const v = view();
+		expect(v.days).toHaveLength(7);
+		expect(v.days[0].date).toEqual(new Date(2026, 9, 1));
+		expect(v.today).toEqual(new Date(2026, 9, 4));
+		expect(v.days[3].date).toEqual(v.today);
+		expect(v.days.map((d) => d.games.length)).toEqual([1, 0, 1, 6, 2, 0, 0]);
+	});
+
+	it("maps today's games to hero games in feed order", () => {
+		const v = view();
+		expect(v.heroGames.map((g) => [g.id, g.status])).toEqual([
+			['g-sched', 'tonight'],
+			['g-live', 'live'],
+			['g-final', 'final'],
+			['g-delayed', 'delayed'],
+			['g-postponed', 'postponed'],
+			['g-canceled', 'canceled']
+		]);
+		expect(v.heroGames[0].arena).toBe('Los Angeles Arena');
+		expect(v.heroGames[0].away.name).toBe('Warriors');
+		expect(v.heroGames[0].home.name).toBe('Lakers');
+	});
+
+	it('formats the tip time as 9:00 PM ET', () => {
+		const v = view();
+		expect(todayGame(v, 'g-sched').status).toMatchObject({
+			state: 'scheduled',
+			tipTime: '9:00',
+			tipSuffix: 'PM ET'
+		});
+		expect(v.heroGames[0].tipTime).toBe('9:00 PM ET');
+	});
+
+	it('maps a scheduled game with its venue and players to watch', () => {
+		const game = todayGame(view(), 'g-sched');
+		expect(game.status).toMatchObject({ network: 'Prime Video' });
+		expect(game.details).toEqual({
+			kind: 'scheduled',
+			venue: 'Los Angeles Arena',
+			playersToWatch: {
+				away: {
+					firstName: 'Stephen',
+					lastName: 'Curry',
+					teamCode: 'GSW',
+					photo: 'https://example.com/photos/GSW.png'
+				},
+				home: {
+					firstName: 'LeBron',
+					lastName: 'James',
+					teamCode: 'LAL',
+					photo: 'https://example.com/photos/LAL.png'
+				}
+			}
+		});
+	});
+
+	it('maps a live game with Q3 and its clock', () => {
+		const game = view().days[4].games[0];
+		expect(game.status).toEqual({
+			state: 'live',
+			period: 'Q3',
+			clock: '4:12',
+			awayScore: 78,
+			homeScore: 74
+		});
+		expect(game.details?.kind).toBe('played');
+	});
+
+	it('labels period 5 OT and period 6 2OT', () => {
+		expect(todayGame(view(), 'g-live').status).toMatchObject({ period: 'OT' });
+		const source = feed();
+		source.days[3].games[1].period = 6;
+		expect(todayGame(view(source), 'g-live').status).toMatchObject({ period: '2OT' });
+	});
+
+	it('maps a final game with leaders, stats and highlights', () => {
+		const game = todayGame(view(), 'g-final');
+		expect(game.status).toEqual({ state: 'final', awayScore: 112, homeScore: 104 });
+		if (game.details?.kind !== 'played') throw new Error('Expected played details');
+		expect(game.details.periods).toEqual({ away: [30, 28, 26, 28], home: [24, 27, 25, 28] });
+		expect(game.details.leaders.away).toEqual({
+			firstName: 'Nikola',
+			lastName: 'Jokic',
+			teamCode: 'DEN',
+			photo: 'https://example.com/photos/DEN.png',
+			points: 31,
+			rebounds: 7,
+			assists: 6
+		});
+		expect(game.details.stats.home).toEqual({
+			fieldGoalPct: 0.452,
+			threePointPct: 0.375,
+			rebounds: 42,
+			assists: 25,
+			turnovers: 12
+		});
+		expect(game.details.highlights).toMatchObject({
+			platform: 'Video platform',
+			searchUrl: 'https://example.com/search?q=highlights'
+		});
+		expect(game.details.highlights?.videos).toHaveLength(2);
+		expect(game.details.highlights?.videos[0]).toMatchObject({
+			title: 'Full game highlights',
+			channel: 'League Channel',
+			thumbnail: 'https://example.com/thumbs/1.jpg'
+		});
+	});
+
+	it("splits the leader's display name", () => {
+		const game = todayGame(view(), 'g-live');
+		if (game.details?.kind !== 'played') throw new Error('Expected played details');
+		expect(game.details.leaders.home).toMatchObject({ firstName: 'Jalen', lastName: 'Brunson' });
+	});
+
+	it('keeps the rest of a longer display name as the last name', () => {
+		const source = feed();
+		const leaders = source.days[3].games[2].leaders;
+		if (!leaders) throw new Error('fixture');
+		leaders.away.displayName = 'Karl-Anthony Towns Jr.';
+		const game = todayGame(view(source), 'g-final');
+		if (game.details?.kind !== 'played') throw new Error('Expected played details');
+		expect(game.details.leaders.away).toMatchObject({
+			firstName: 'Karl-Anthony',
+			lastName: 'Towns Jr.'
+		});
+	});
+
+	it('builds the full team name for the hero chip', () => {
+		const v = view();
+		expect(v.heroGames[0].away.star).toEqual({
+			firstName: 'Stephen',
+			lastName: 'Curry',
+			shortName: 'Curry',
+			teamCode: 'GSW',
+			teamName: 'Golden State Warriors',
+			photo: 'https://example.com/photos/GSW.png'
+		});
+		expect(v.heroGames[0].home.star.teamName).toBe('Los Angeles Lakers');
+	});
+
+	it('sets autoplay on the embed URL', () => {
+		const game = todayGame(view(), 'g-final');
+		if (game.details?.kind !== 'played') throw new Error('Expected played details');
+		const [first, second] = game.details.highlights?.videos ?? [];
+		expect(first.embedUrl).toBe('https://example.com/embed/1?autoplay=1');
+		expect(second.embedUrl).toBe('https://example.com/embed/2?rel=0&autoplay=1');
+		expect(first.id).not.toBe(second.id);
+	});
+
+	it('computes the minutes since the feed was generated', () => {
+		expect(view().updatedMinutesAgo).toBe(5);
+	});
+
+	it('never reports negative minutes', () => {
+		const result = toHomeView(feed(), new Date('2026-10-04T22:00:00Z'), options);
+		expect(result?.updatedMinutesAgo).toBe(0);
+	});
+
+	it('keeps a null network', () => {
+		const game = view().days[4].games[1];
+		expect(game.status).toMatchObject({ state: 'scheduled', network: null });
+	});
+
+	it('leaves highlights out without a video platform name', () => {
+		const game = todayGame(view(feed(), {} as typeof options), 'g-final');
+		if (game.details?.kind !== 'played') throw new Error('Expected played details');
+		expect(game.details.highlights).toBeUndefined();
+	});
+
+	it('maps a final game with no videos to the pending highlights', () => {
+		const game = view().days[2].games[0];
+		if (game.details?.kind !== 'played') throw new Error('Expected played details');
+		expect(game.details.highlights).toEqual({
+			platform: 'Video platform',
+			searchUrl: 'https://example.com/search?q=highlights',
+			videos: []
+		});
+	});
+
+	it('maps delayed, postponed and canceled with no score and no details', () => {
+		const v = view();
+		for (const state of ['delayed', 'postponed', 'canceled'] as const) {
+			const game = todayGame(v, `g-${state}`);
+			expect(game.status).toEqual({ state });
+			expect(game.details).toBeUndefined();
+		}
+	});
+
+	it('a one-word display name', () => {
+		const source = feed();
+		const leaders = source.days[3].games[2].leaders;
+		if (!leaders) throw new Error('fixture');
+		leaders.home.displayName = 'Nene';
+		const game = todayGame(view(source), 'g-final');
+		if (game.details?.kind !== 'played') throw new Error('Expected played details');
+		expect(game.details.leaders.home).toMatchObject({ firstName: 'Nene', lastName: '' });
+	});
+
+	it('returns null for a feed without seven days', () => {
+		const source = feed();
+		source.days.pop();
+		expect(toHomeView(source, received, options)).toBeNull();
+	});
+
+	it('returns null for a live game without the fields its status requires', () => {
+		const source = feed();
+		source.days[3].games[1].score = null;
+		expect(toHomeView(source, received, options)).toBeNull();
+	});
+});

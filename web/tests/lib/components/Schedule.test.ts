@@ -8,6 +8,7 @@
 // - Desktop row and full counts on a wide viewport; mobile row and numbers below it
 // - The staggered list entrance on first view and on a day change, not on the same day
 // - Only one game card is open at a time; clicking an open card closes it
+// - The open card can be bound from outside; each card has an anchor id; the section has the schedule anchor
 // - The playing highlight stops when its card closes, another opens or the day changes
 // - Spoiler-free mode hides final scores until a card opens
 // - Spanish copy, including the no-games message, with a Spanish browser preference
@@ -139,6 +140,11 @@ describe('Schedule', () => {
 		expect(container.querySelector('.meta .count')?.textContent).toBe('0 partidos');
 	});
 
+	it('has the schedule anchor', () => {
+		const { container } = render(Schedule, { props });
+		expect(container.querySelector('section.schedule')?.id).toBe('schedule');
+	});
+
 	it('uses the desktop row and full day counts on a wide viewport', () => {
 		wideViewport(true);
 		const { container } = render(Schedule, { props });
@@ -265,6 +271,38 @@ describe('Schedule', () => {
 			expect(expanded(container)).toHaveLength(0);
 			await fireEvent.click(toggles(container)[0]);
 			expect(toggles(container)[0].getAttribute('aria-expanded')).toBe('true');
+		});
+
+		it('opens the card whose id is bound to openId', () => {
+			const { container } = render(Schedule, { props: { ...detailedProps, openId: 'y' } });
+			expect(toggles(container)[0].getAttribute('aria-expanded')).toBe('false');
+			expect(toggles(container)[1].getAttribute('aria-expanded')).toBe('true');
+		});
+
+		it('writes the opened card back to the bound openId', async () => {
+			let bound: string | null = null;
+			const bindable = {
+				...detailedProps,
+				get openId() {
+					return bound;
+				},
+				set openId(value: string | null) {
+					bound = value;
+				}
+			};
+			const { container } = render(Schedule, { props: bindable });
+			await fireEvent.click(toggles(container)[1]);
+			expect(bound).toBe('y');
+			await fireEvent.click(toggles(container)[1]);
+			expect(bound).toBeNull();
+		});
+
+		it('gives each card an anchor id', () => {
+			const { container } = render(Schedule, { props: detailedProps });
+			expect([...container.querySelectorAll('ul.games > li')].map((li) => li.id)).toEqual([
+				'game-x',
+				'game-y'
+			]);
 		});
 
 		it('closes the open card when another card is opened', async () => {

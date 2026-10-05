@@ -11,3 +11,8 @@ export function wideViewport(): { readonly current: boolean } {
 	}
 	return new MediaQuery(WIDE_QUERY);
 }
+
+/** The element id of a game's card, the target of Match details. */
+export function cardAnchor(id: string): string {
+	return `game-${id}`;
+}

@@ -31,6 +31,7 @@ A dark-mode, single-page site with two parts:
 | `Leaders` | Top performer per team |
 | `TeamStats` | Team stat comparison with bars |
 | `Highlights` | The video cards of a final game |
+| `MessageRow` | A single blueprint row holding one muted message |
 
 ## Design tokens
 
@@ -107,7 +108,7 @@ Lucide at `stroke-width: 1.5`: `chevron-down` (expand), `play` (filled, highligh
 - **Layout:** a two-column grid, `repeat(auto-fit, minmax(min(100%, 440px), 1fr))`, that stacks on mobile. Gap `clamp(40px, 6vw, 96px)`, min-height `min(820px, 88vh)`.
 - **Background:** an 88px square grid of faint lines. A huge outlined watermark of the current star's short name sits behind the content on the right.
 - **Left column, top to bottom:**
-  1. A status tag, "Tonight", "Live now" or "Final", 11px in a 1px divider box. Next to it the kicker with the tip time and arena, such as "10:30 PM ET · Chase Center".
+  1. A status tag, "Tonight", "Live now", "Final", "Delayed", "Postponed" or "Canceled", 11px in a 1px divider box. Next to it the kicker with the tip time and arena, such as "10:30 PM ET · Chase Center".
   2. The h1: the away team name, a line break, then "at" and the home team name.
   3. A blurb: "{Away star} and {Home star} meet at {Arena}."
   4. Buttons. **Match details** is the primary button (solid accent, dark text, blueprint marks): it selects today, expands the game on screen and smooth-scrolls to it. **All games** is a secondary outlined button linking to the schedule.
@@ -126,11 +127,12 @@ Lucide at `stroke-width: 1.5`: `chevron-down` (expand), `play` (filled, highligh
 
 - **Header:** the kicker "SCHEDULE" in accent-light, with the selected day as the h2 ("Sunday, October 4"). On the right, the game count ("5 games") in ink, and below it a freshness label in muted ("Updated 3 min ago").
 - **Day strip:** 7 equal columns, from today minus 3 days to today plus 3 days. Each cell shows the weekday (or "Today" in accent-light), the date number in Barlow Condensed `clamp(22px, 3vw, 32px)`, and the game count ("5 games" on desktop, "5" on mobile). The selected cell has an accent border and the selected-day fill. Hover: accent border.
-- **Day with no games:** the header still shows the selected day and "0 games". In place of the game list, a single blueprint row reads "No games scheduled for this day." in muted. This is not the state for missing or unavailable data, which is still undecided.
+- **Day with no games:** the header still shows the selected day and "0 games". In place of the game list, a single blueprint row reads "No games scheduled for this day." in muted.
+- **Data unavailable (temporary):** when the games feed cannot be loaded, a single blueprint row in place of the schedule, styled like the day with no games, reads "Data isn't available right now. Check back later.". It stays until the missing data design is decided (see "Open decisions" in `docs/architecture.md`). A day with no data in a loaded feed is still undecided.
 - **Game card,** a blueprint frame:
   - **Desktop row, width 680px and up:** grid `minmax(0,1fr) auto minmax(0,1fr) 24px`.
     - Away team: a 46px monogram box with the team's three-letter code, the team name and the city in muted.
-    - Center: a status line, then the score or the tip time. The status line is "FINAL", or the live badge plus the period and clock ("Q3 · 4:12"), or the TV network.
+    - Center: a status line, then the score or the tip time. The status line is "FINAL", or the live badge plus the period and clock ("Q3 · 4:12"), or "DELAYED", "POSTPONED" or "CANCELED" for those games, with no score and no tip time (those cards do not expand), or the TV network. The TV network is omitted when it is unknown.
     - Home team: mirrored and right-aligned.
     - A chevron that rotates 180 degrees when the card is open.
   - **Mobile row, under 680px:**

@@ -5,9 +5,13 @@
 // Tested:
 // - Shows the status, kicker, heading, blurb and both actions
 // - Calls the match details action; links All games to the schedule
+// - Rotation through every game of the day, two stars each; the position "03 / 10" with several games
+// - One game shows no position; no games shows the nav row only, with no timer
+// - Delayed status in the status tag; Match details receives the game on screen
 // - Slide indicator: starts on the away star, jumps on click, advances with autoplay
 // - Spoiler-free toggle in the nav row: pressed state and callback
 // - Parallax follows a mouse and is skipped on touch and with reduced motion
+// - A games prop of the same length keeps the rotation position and the star timer
 // - Shows the copy in Spanish with a Spanish browser preference
 //
 // What is covered:
@@ -22,7 +26,7 @@ import { fireEvent, render, screen } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { HeroPlayer } from '../../../src/lib/hero/types';
+import type { HeroGame, HeroPlayer } from '../../../src/lib/hero/types';
 import { preferLanguages } from '../../prefer-languages';
 
 import Hero from '../../../src/lib/components/Hero.svelte';
@@ -37,12 +41,28 @@ const star = (firstName: string, lastName: string, teamCode: string, teamName: s
 		photo: `/${lastName}.svg`
 	}) satisfies HeroPlayer;
 
-const baseProps = {
-	status: 'tonight' as const,
+const oneGame: HeroGame = {
+	id: 'g1',
+	status: 'tonight',
 	tipTime: '10:30 PM ET',
 	arena: 'Chase Center',
 	away: { name: 'Warriors', star: star('Stephen', 'Curry', 'GSW', 'Golden State Warriors') },
-	home: { name: 'Lakers', star: star('LeBron', 'James', 'LAL', 'Los Angeles Lakers') },
+	home: { name: 'Lakers', star: star('LeBron', 'James', 'LAL', 'Los Angeles Lakers') }
+};
+
+// A game numbered n, whose stars are "AwayN" and "HomeN".
+const numbered = (n: number): HeroGame => ({
+	id: `g${n}`,
+	status: 'tonight',
+	tipTime: '7:00 PM ET',
+	arena: `Arena ${n}`,
+	away: { name: `Away Team ${n}`, star: star('A', `Away${n}`, 'AAA', `City Away ${n}`) },
+	home: { name: `Home Team ${n}`, star: star('H', `Home${n}`, 'HHH', `City Home ${n}`) }
+});
+const games = (count: number) => Array.from({ length: count }, (_, i) => numbered(i + 1));
+
+const baseProps = {
+	games: [oneGame],
 	today: new Date(2026, 9, 4, 12),
 	scheduleHref: '/' as ResolvedPathname,
 	onMatchDetails: () => {},
@@ -75,12 +95,12 @@ describe('Hero', () => {
 	});
 
 	it('shows Live now for a live game', () => {
-		render(Hero, { props: { ...baseProps, status: 'live' } });
+		render(Hero, { props: { ...baseProps, games: [{ ...oneGame, status: 'live' as const }] } });
 		expect(screen.getByText('Live now')).toBeTruthy();
 	});
 
 	it('shows Final for a finished game', () => {
-		render(Hero, { props: { ...baseProps, status: 'final' } });
+		render(Hero, { props: { ...baseProps, games: [{ ...oneGame, status: 'final' as const }] } });
 		expect(screen.getByText('Final')).toBeTruthy();
 	});
 
@@ -100,11 +120,12 @@ describe('Hero', () => {
 		expect(screen.getByText('Stephen Curry and LeBron James meet at Chase Center.')).toBeTruthy();
 	});
 
-	it('calls the match details action when Match details is clicked', async () => {
+	it('calls the match details action with the game on screen when Match details is clicked', async () => {
 		const onMatchDetails = vi.fn();
 		render(Hero, { props: { ...baseProps, onMatchDetails } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Match details' }));
 		expect(onMatchDetails).toHaveBeenCalledTimes(1);
+		expect(onMatchDetails).toHaveBeenCalledWith('g1');
 	});
 
 	it('links All games to the schedule', () => {
@@ -220,5 +241,132 @@ describe('Hero', () => {
 		render(Hero, { props: { ...baseProps, onSpoilerFreeToggle } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Spoiler-free' }));
 		expect(onSpoilerFreeToggle).toHaveBeenCalledTimes(1);
+	});
+});
+
+describe('Hero with several games', () => {
+	const activeWatermark = (container: HTMLElement) =>
+		container.querySelector('.watermark.active')?.textContent;
+	const position = (container: HTMLElement) =>
+		container.querySelector('.position')?.textContent?.replace(/\s+/g, ' ').trim();
+
+	it('rotates to the next game after both stars (14 seconds)', async () => {
+		vi.useFakeTimers();
+		const { container } = render(Hero, {
+			props: { ...baseProps, games: games(3), autoplay: true }
+		});
+		await tick();
+		expect(activeWatermark(container)).toBe('Away1');
+		vi.advanceTimersByTime(7000);
+		await tick();
+		expect(activeWatermark(container)).toBe('Home1');
+		expect(screen.getByRole('heading', { level: 1 }).textContent).toContain('Away Team 1');
+		vi.advanceTimersByTime(7000);
+		await tick();
+		expect(activeWatermark(container)).toBe('Away2');
+		expect(screen.getByRole('heading', { level: 1 }).textContent).toContain('Away Team 2');
+		expect(position(container)).toBe('02 / 03');
+	});
+
+	it('returns to the first game after the last', async () => {
+		vi.useFakeTimers();
+		const { container } = render(Hero, {
+			props: { ...baseProps, games: games(2), autoplay: true }
+		});
+		await tick();
+		vi.advanceTimersByTime(7000 * 4);
+		await tick();
+		expect(activeWatermark(container)).toBe('Away1');
+		expect(position(container)).toBe('01 / 02');
+	});
+
+	it('shows the position 03 / 10 on the third of ten games', async () => {
+		vi.useFakeTimers();
+		const { container } = render(Hero, {
+			props: { ...baseProps, games: games(10), autoplay: true }
+		});
+		await tick();
+		vi.advanceTimersByTime(7000 * 4);
+		await tick();
+		expect(position(container)).toBe('03 / 10');
+	});
+
+	it('shows the two stars of the game on screen in the indicator', async () => {
+		vi.useFakeTimers();
+		const { container } = render(Hero, {
+			props: { ...baseProps, games: games(3), autoplay: true }
+		});
+		await tick();
+		vi.advanceTimersByTime(7000 * 2);
+		await tick();
+		const items = indicatorItems(container);
+		expect(items).toHaveLength(2);
+		expect(items[0].textContent).toContain('Away2');
+		expect(items[1].textContent).toContain('Home2');
+		await fireEvent.click(items[1]);
+		expect(activeWatermark(container)).toBe('Home2');
+	});
+
+	it('passes the game on screen to Match details', async () => {
+		vi.useFakeTimers();
+		const onMatchDetails = vi.fn();
+		render(Hero, {
+			props: { ...baseProps, games: games(3), onMatchDetails, autoplay: true }
+		});
+		await tick();
+		vi.advanceTimersByTime(7000 * 2);
+		await tick();
+		await fireEvent.click(screen.getByRole('button', { name: 'Match details' }));
+		expect(onMatchDetails).toHaveBeenCalledWith('g2');
+	});
+
+	it('keeps the rotation when the games prop is replaced by one of the same length', async () => {
+		vi.useFakeTimers();
+		const { container, rerender } = render(Hero, {
+			props: { ...baseProps, games: games(3), autoplay: true }
+		});
+		await tick();
+		vi.advanceTimersByTime(7000 * 2);
+		await tick();
+		await rerender({ games: games(3) });
+		expect(activeWatermark(container)).toBe('Away2');
+		expect(position(container)).toBe('02 / 03');
+	});
+
+	it('does not restart the star timer when the games prop is replaced by one of the same length', async () => {
+		vi.useFakeTimers();
+		const { container, rerender } = render(Hero, {
+			props: { ...baseProps, games: games(2), autoplay: true }
+		});
+		await tick();
+		vi.advanceTimersByTime(5000);
+		await tick();
+		await rerender({ games: games(2) });
+		vi.advanceTimersByTime(2500);
+		await tick();
+		expect(activeWatermark(container)).toBe('Home1');
+	});
+});
+
+describe('Hero with one game or none', () => {
+	it('does not show the position with one game', () => {
+		const { container } = render(Hero, { props: baseProps });
+		expect(container.querySelector('.position')).toBeNull();
+	});
+
+	it('shows Delayed in the status tag for a delayed game', () => {
+		render(Hero, { props: { ...baseProps, games: [{ ...oneGame, status: 'delayed' }] } });
+		expect(screen.getByText('Delayed')).toBeTruthy();
+	});
+
+	it('shows only the nav row and no timer with no games', async () => {
+		vi.useFakeTimers();
+		const { container } = render(Hero, { props: { ...baseProps, games: [], autoplay: true } });
+		await tick();
+		expect(vi.getTimerCount()).toBe(0);
+		expect(container.querySelector('.columns')).toBeNull();
+		expect(container.querySelector('.watermark')).toBeNull();
+		expect(screen.queryByRole('heading', { level: 1 })).toBeNull();
+		expect(screen.getByRole('button', { name: 'Spoiler-free' })).toBeTruthy();
 	});
 });

@@ -4,6 +4,7 @@
 //
 // Tested:
 // - Desktop row without matchMedia, at 680px and wider; mobile row below
+// - The card anchor id is built from the game id
 // - The breakpoint constant matches the --game-row-breakpoint token
 //
 // What is covered:
@@ -16,7 +17,12 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { GAME_ROW_BREAKPOINT_PX, WIDE_QUERY, wideViewport } from '../../../src/lib/schedule/layout';
+import {
+	cardAnchor,
+	GAME_ROW_BREAKPOINT_PX,
+	WIDE_QUERY,
+	wideViewport
+} from '../../../src/lib/schedule/layout';
 
 function viewport(wide: boolean) {
 	vi.stubGlobal('matchMedia', (query: string) => ({
@@ -53,5 +59,11 @@ describe('wideViewport', () => {
 		);
 		const match = css.match(/--game-row-breakpoint:\s*(\d+)px;/);
 		expect(Number(match?.[1])).toBe(GAME_ROW_BREAKPOINT_PX);
+	});
+});
+
+describe('cardAnchor', () => {
+	it('builds the element id of a game card', () => {
+		expect(cardAnchor('0022500001')).toBe('game-0022500001');
 	});
 });
