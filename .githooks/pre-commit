@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# INFO: Runs the fast gate for each app with staged changes. Does nothing when no app has staged changes.
+# REQUIRES: bash 3.2 or newer and BSD or GNU tools. It runs on macOS, so it must not use
+#           bash 4 features or GNU-only flags.
+# STEPS:
+#   1. List the staged files.
+#   2. For web, then api: if any staged path starts with the app directory,
+#      run scripts/gate.sh <app> fast. Stop at the first failure.
+#   The fast gate checks the working tree, not only the staged content.
+
+set -eu
+
+die() {
+  printf 'pre-commit: %s\n' "$*" >&2
+  exit 1
+}
+
+info() {
+  printf 'pre-commit: %s\n' "$*"
+}
+
+main() {
+  root="$(git rev-parse --show-toplevel)" || die "not inside a git repository"
+  cd "$root" || die "cannot change to $root"
+  staged="$(git diff --cached --name-only)" || die "cannot list the staged files"
+  for app in web api; do
+    if printf '%s\n' "$staged" | grep -q "^$app/"; then
+      info "$app has staged changes: running scripts/gate.sh $app fast"
+      scripts/gate.sh "$app" fast || die "the fast gate failed for $app"
+    fi
+  done
+}
+
+main "$@"

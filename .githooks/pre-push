@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# INFO: Runs the full gate for each app changed in the commits being pushed. Does nothing when no app changed.
+# REQUIRES: bash 3.2 or newer and BSD or GNU tools. It runs on macOS, so it must not use
+#           bash 4 features or GNU-only flags.
+# STEPS:
+#   1. Read the refs being pushed from stdin. Skip branch deletions.
+#   2. For each ref, list the changed files: against the remote tip when it is present
+#      locally, otherwise the commits not yet on any ref of that remote.
+#   3. Run scripts/gate.sh api, then scripts/gate.sh web, for each app with a changed
+#      path under its directory. Stop at the first failure.
+
+set -eu
+
+die() {
+  printf 'pre-push: %s\n' "$*" >&2
+  exit 1
+}
+
+info() {
+  printf 'pre-push: %s\n' "$*"
+}
+
+is_zero() {
+  case "$1" in
+    *[!0]*) return 1 ;;
+    *) return 0 ;;
+  esac
+}
+
+main() {
+  root="$(git rev-parse --show-toplevel)" || die "not inside a git repository"
+  cd "$root" || die "cannot change to $root"
+  remote="${1:-}"
+  web=0
+  api=0
+  while read -r local_ref local_sha remote_ref remote_sha; do
+    if is_zero "$local_sha"; then
+      continue
+    fi
+    if ! is_zero "$remote_sha" && git cat-file -e "$remote_sha^{commit}" 2>/dev/null; then
+      files="$(git diff --name-only "$remote_sha" "$local_sha")" \
+        || die "cannot list the changed files"
+    else
+      files="$(git log --format= --name-only "$local_sha" --not --remotes="$remote")" \
+        || die "cannot list the changed files"
+    fi
+    if printf '%s\n' "$files" | grep -q '^web/'; then
+      web=1
+    fi
+    if printf '%s\n' "$files" | grep -q '^api/'; then
+      api=1
+    fi
+  done
+  if [ "$api" -eq 1 ]; then
+    info "api changed: running scripts/gate.sh api"
+    scripts/gate.sh api || die "the gate failed for api"
+  fi
+  if [ "$web" -eq 1 ]; then
+    info "web changed: running scripts/gate.sh web"
+    scripts/gate.sh web || die "the gate failed for web"
+  fi
+}
+
+main "$@"

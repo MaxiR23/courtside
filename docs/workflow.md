@@ -103,8 +103,9 @@ issue bodies, and re-adds it when the body is edited through `gh` or
 - After `publish` and the footer removal step, the `ship` skill merges with
   `scripts/merge.sh <pr>` only. Never merge any other way.
 - The script requires the PR open, based on `main`, mergeable and with no
-  failing checks, and waits until every required CI check
-  (`REQUIRED_STATUS` in the script) is reported and succeeded. It
+  failing checks, and waits until every required CI check is reported and
+  succeeded. The required checks are `api` and `web`, the two jobs of
+  `.github/workflows/ci.yml`, listed in `REQUIRED_STATUS` in the script. It
   squash-merges through the REST API with `<PR title> (#<N>)` as the title
   (squash is the only method enabled in the repository settings), and
   prints `verified` and `reason` of the merge commit, which the session
