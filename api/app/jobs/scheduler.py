@@ -8,10 +8,13 @@
 import asyncio
 import contextlib
 import datetime as dt
+import logging
 from collections.abc import Awaitable, Callable, Sequence
 from typing import Protocol
 
 from app.storage.state import StateStore
+
+logger = logging.getLogger(__name__)
 
 TICK_SECONDS = 30.0
 
@@ -72,6 +75,13 @@ class Scheduler:
         try:
             await job.run(now)
         except Exception as error:  # noqa: BLE001 - a job must never stop the loop
-            self._store.record_failure(
-                job.name, now, f"unexpected error: {type(error).__name__}"
-            )
+            try:
+                self._store.record_failure(
+                    job.name, now, f"unexpected error: {type(error).__name__}"
+                )
+            except Exception as store_error:  # noqa: BLE001 - the state must never stop the loop
+                logger.error(
+                    "job %s: state not recorded: %s",
+                    job.name,
+                    type(store_error).__name__,
+                )

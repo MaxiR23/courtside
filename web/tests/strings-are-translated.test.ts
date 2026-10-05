@@ -5,11 +5,14 @@
 // Tested:
 // - The shipped .svelte files are found (the dev-only preview route is excluded)
 // - No markup holds a letter outside a { } expression
+// - No quoted alt, aria-label, title or placeholder value holds a letter outside a { } expression
+// - The attribute scan flags a literal value, so it cannot pass vacuously
 //
 // What is covered:
 // - Happy path (every markup is text-free)
 // - Edge cases (the scan cannot pass by finding no files)
-// - Known limit: string literals inside <script> are not scanned; component tests cover those
+// - Known limit: string literals inside <script> and attributes other than alt, aria-label, title and
+//   placeholder are not scanned; component tests cover those
 //
 // Run with: cd web && pnpm exec vitest run tests/strings-are-translated.test.ts
 //
@@ -43,6 +46,17 @@ function markupText(source: string): string {
 		.replace(/<[^>]*>/g, '');
 }
 
+function attributeText(source: string): string {
+	const markup = source
+		.replace(/<script[\s\S]*?<\/script>/g, '')
+		.replace(/<style[\s\S]*?<\/style>/g, '')
+		.replace(/<!--[\s\S]*?-->/g, '');
+	const values = [
+		...markup.matchAll(/\b(?:alt|aria-label|title|placeholder)=(?:"([^"]*)"|'([^']*)')/g)
+	];
+	return values.map((m) => (m[1] ?? m[2]).replace(/\{[^{}]*\}/g, '')).join(' ');
+}
+
 describe('shipped markup holds no literal text', () => {
 	it('finds the base components, the page and the layout', () => {
 		const names = files.map((f) => relative(srcDir, f).split(sep).join('/'));
@@ -59,5 +73,21 @@ describe('shipped markup holds no literal text', () => {
 				`${relative(srcDir, file)} has literal text: ${text}`
 			).toBeNull();
 		}
+	});
+
+	it('has no letter in a quoted alt, aria-label, title or placeholder value', () => {
+		for (const file of files) {
+			const text = attributeText(readFileSync(file, 'utf8')).trim();
+			expect(
+				text.match(/\p{L}+/u),
+				`${relative(srcDir, file)} has a literal attribute value: ${text}`
+			).toBeNull();
+		}
+	});
+
+	it('flags a literal attribute value', () => {
+		expect(attributeText('<button aria-label="Close">')).toMatch(/\p{L}/u);
+		expect(attributeText("<img alt='Logo {x}'>")).toMatch(/\p{L}/u);
+		expect(attributeText('<img alt="{label}" title={other}>')).not.toMatch(/\p{L}/u);
 	});
 });

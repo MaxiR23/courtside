@@ -10,6 +10,8 @@
 # - Allows no origin when none is configured
 # - Starts the scheduler with the app and stops it on shutdown, with the games and stars jobs each failing on its unconfigured source and the highlights job recording nothing without due games
 # - Does not start the scheduler when jobs are off
+# - Wires the stars and highlights providers into the games job
+# - Closes the HTTP client when the scheduler fails to stop
 #
 # What is covered:
 # - Success response, refused cases, scheduler start and stop
@@ -19,12 +21,21 @@
 # SEE: api/app/main.py
 
 from pathlib import Path
+from typing import Any
 
+import httpx
+import pytest
 import respx
 from fastapi.testclient import TestClient
 
+from app import main
+from app.jobs.games import GamesJob
+from app.jobs.highlights import HighlightsJob
+from app.jobs.scheduler import Scheduler
+from app.jobs.stars import StarsJob
 from app.main import create_app
 from app.settings import Settings
+from app.sources.http import create_client
 from app.storage.state import STATE_FILE, StateStore
 
 ALLOWED = "https://allowed.example"
@@ -108,3 +119,61 @@ def test_does_not_start_the_scheduler_when_jobs_are_off(tmp_path: Path) -> None:
         assert not app.state.scheduler.running
 
     assert StateStore(tmp_path).job_states() == []
+
+
+def test_wires_the_stars_and_highlights_providers_into_the_games_job(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    built: dict[str, Any] = {}
+
+    class RecordingStars(StarsJob):
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            super().__init__(*args, **kwargs)
+            built["stars"] = self
+
+    class RecordingHighlights(HighlightsJob):
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            super().__init__(*args, **kwargs)
+            built["highlights"] = self
+
+    class RecordingGames(GamesJob):
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            super().__init__(*args, **kwargs)
+            built["games_kwargs"] = kwargs
+
+    monkeypatch.setattr(main, "StarsJob", RecordingStars)
+    monkeypatch.setattr(main, "HighlightsJob", RecordingHighlights)
+    monkeypatch.setattr(main, "GamesJob", RecordingGames)
+
+    with make_client(tmp_path, []):
+        pass
+
+    kwargs = built["games_kwargs"]
+    assert kwargs["stars"] == built["stars"].stars_of
+    assert kwargs["highlights"] == built["highlights"].highlights_of
+    assert kwargs["highlights_search_url"] == built["highlights"].search_url_of
+
+
+def test_closes_the_http_client_when_the_scheduler_fails_to_stop(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client = create_client()
+    closed: list[bool] = []
+    close = client.aclose
+
+    async def recording_close() -> None:
+        closed.append(True)
+        await close()
+
+    async def failing_stop(self: Scheduler) -> None:
+        raise RuntimeError("stop failed")
+
+    monkeypatch.setattr(client, "aclose", recording_close)
+    monkeypatch.setattr(main, "create_client", lambda: client)
+    monkeypatch.setattr(Scheduler, "stop", failing_stop)
+
+    with pytest.raises(RuntimeError, match="stop failed"), make_client(tmp_path, []):
+        pass
+
+    assert closed == [True]
+    assert isinstance(client, httpx.AsyncClient)

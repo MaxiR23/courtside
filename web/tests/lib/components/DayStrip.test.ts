@@ -13,7 +13,7 @@
 //
 // Run with: cd web && pnpm exec vitest run tests/lib/components/DayStrip.test.ts
 //
-// SEE: web/src/components/DayStrip.svelte
+// SEE: web/src/lib/components/DayStrip.svelte
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 

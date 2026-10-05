@@ -6,6 +6,7 @@
 // - Runs once when the list first scrolls into view; replays on a day change
 // - Ignores non-intersecting entries; does nothing without IntersectionObserver
 // - Disconnects on cleanup
+// - Waits for the first view while it observes, stops once seen, never waits without the API
 //
 // What is covered:
 // - Happy path, edge cases and the missing-API case
@@ -66,6 +67,29 @@ describe('ListEntrance', () => {
 		observer.callbacks[0]([{ isIntersecting: true }]);
 		entrance.observe(document.createElement('div'));
 		expect(observer.observe).toHaveBeenCalledTimes(1);
+	});
+
+	it('waits for the first view while it observes the list', () => {
+		stubObserver();
+		const entrance = new ListEntrance();
+		expect(entrance.waiting).toBe(false);
+		entrance.observe(document.createElement('div'));
+		expect(entrance.waiting).toBe(true);
+	});
+
+	it('stops waiting once the list is seen', () => {
+		const observer = stubObserver();
+		const entrance = new ListEntrance();
+		entrance.observe(document.createElement('div'));
+		observer.callbacks[0]([{ isIntersecting: true }]);
+		expect(entrance.waiting).toBe(false);
+	});
+
+	it('does not wait without IntersectionObserver', () => {
+		vi.stubGlobal('IntersectionObserver', undefined);
+		const entrance = new ListEntrance();
+		entrance.observe(document.createElement('div'));
+		expect(entrance.waiting).toBe(false);
 	});
 
 	it('replays the entrance on a day change', () => {

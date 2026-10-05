@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     )
 
     environment: Literal["development", "production"] = "development"
+    # Template with {date}, the US Eastern date as YYYYMMDD.
     scoreboard_url: str | None = None
     game_detail_url: str | None = None
     player_photo_url: str | None = None

@@ -9,6 +9,7 @@
 // - One game shows no position; no games shows the nav row only, with no timer
 // - Delayed status in the status tag; Match details receives the game on screen
 // - Slide indicator: starts on the away star, jumps on click, advances with autoplay
+// - Progress fill: none with autoplay off, on the active item with autoplay
 // - Spoiler-free toggle in the nav row: pressed state and callback
 // - Parallax follows a mouse and is skipped on touch and with reduced motion
 // - A games prop of the same length keeps the rotation position and the star timer
@@ -156,6 +157,21 @@ describe('Hero', () => {
 		vi.advanceTimersByTime(7000);
 		await tick();
 		expect(indicatorItems(container)[1].getAttribute('aria-current')).toBe('true');
+	});
+
+	it('shows no progress fill when autoplay is off', async () => {
+		const { container } = render(Hero, { props: baseProps });
+		await tick();
+		expect(container.querySelector('.fill')).toBeNull();
+	});
+
+	it("fills the active item's track with autoplay", async () => {
+		vi.useFakeTimers();
+		const { container } = render(Hero, { props: { ...baseProps, autoplay: true } });
+		await tick();
+		const fills = container.querySelectorAll('.fill');
+		expect(fills).toHaveLength(1);
+		expect(indicatorItems(container)[0].contains(fills[0])).toBe(true);
 	});
 
 	it('stays on the first slide when autoplay is off', async () => {

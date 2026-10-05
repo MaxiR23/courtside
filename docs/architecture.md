@@ -38,7 +38,7 @@ data sources  ->  source adapters  ->  jobs  ->  feeds (JSON)  ->  front end
 
 ### Jobs
 
-- Jobs run on a schedule inside the backend process. Each job owns one kind of data and has its own refresh cadence, as set in [`adr/0007-backend-runtime-and-data-pipeline.md`](adr/0007-backend-runtime-and-data-pipeline.md): live games are checked every 30 seconds, the daily schedule once a day, standings do not change that often.
+- Jobs run on a schedule inside the backend process. Each job owns one kind of data and has its own refresh cadence, as set in [`adr/0007-backend-runtime-and-data-pipeline.md`](adr/0007-backend-runtime-and-data-pipeline.md): live games are checked every 30 seconds and the daily schedule once a day. Standings have no job yet, and no cadence is set for them.
 - A job that fails keeps the last valid feed published. A partial or invalid feed is never written.
 - Each job records its last successful run, so the backend can report its own health.
 
@@ -59,7 +59,7 @@ data sources  ->  source adapters  ->  jobs  ->  feeds (JSON)  ->  front end
 - The exported schema of each feed is committed at `api/schemas/<feed>.schema.json`.
 - The generated types are committed at `web/src/lib/contract/<feed>.ts`.
 - `scripts/contract.sh` regenerates both.
-- Both gates fail when a committed schema or types file is out of date.
+- The api gate fails when the committed schema differs from the models; the web gate fails when the committed types differ from what the committed schema generates.
 - Recorded in [`adr/0008-contract-generation.md`](adr/0008-contract-generation.md).
 
 ## Front end
@@ -108,11 +108,11 @@ api/app/main.py            FastAPI app factory, lifespan, CORS and routers
 api/app/settings.py        Settings class and get_settings()
 api/app/log.py             Logging, configured once at startup
 api/app/storage/           Job state (SQLite) and feed publication
-api/data/                  Data directory (default), never committed
 api/app/routers/           One APIRouter per module
 api/app/feeds/             One module per feed model, plus schema.py, which exports the schemas
 api/app/sources/           One module per data source adapter, plus http.py (shared client and SourceError) and teams.py (team codes)
 api/app/jobs/              One module per job, plus scheduler.py (the in-process scheduler)
+api/data/                  Data directory (default), never committed
 api/schemas/               Exported JSON Schemas, generated
 api/tests/                 Tests, mirroring app/
 api/pyproject.toml         Tool configuration only (ruff, mypy, pytest)

@@ -11,6 +11,7 @@
 # - Takes the player id from the athlete link, with or without a query
 # - Requests the averages URL built from the template, the team id and the season
 # - Returns no averages when the provider has none for the team and season
+# - Returns no averages when the provider lists no categories
 # - Counts a category the player is missing from as zero
 # - Raises the source error on an invalid roster payload, an invalid averages payload, an empty roster, an empty name, a stat that is not a number, a negative stat, an unknown team code, a timeout, an error status, a missing roster URL, a missing averages URL and a missing photo URL
 #

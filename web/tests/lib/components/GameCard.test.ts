@@ -4,7 +4,7 @@
 //
 // Tested:
 // - Scheduled, live and final games on the desktop and the mobile row
-// - The losing team of a final game is dimmed; ties and live games dim no one
+// - The losing team's name and score of a final game are dimmed, never its monogram; ties and live games dim no one
 // - Monogram sizes per row layout, decorative chevron
 // - Spanish live badge with a Spanish browser preference
 // - A card without details stays a plain row; with details it toggles an inert panel
@@ -19,7 +19,7 @@
 //
 // Run with: cd web && pnpm exec vitest run tests/lib/components/GameCard.test.ts
 //
-// SEE: web/src/components/GameCard.svelte
+// SEE: web/src/lib/components/GameCard.svelte
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -164,6 +164,18 @@ describe('GameCard', () => {
 		expect(mobile).toContain('104');
 		expect(mobile.some((t) => t?.includes('Warriors'))).toBe(false);
 		expect(mobile).not.toContain('112');
+	});
+
+	it.each([
+		['desktop', final(98, 104)],
+		['mobile', final(112, 104)]
+	] as const)("does not dim the losing team's monogram on the %s row", (layout, game) => {
+		const { container } = render(GameCard, { props: { game, layout } });
+		expect(container.querySelectorAll('.team-monogram').length).toBeGreaterThan(0);
+		expect(container.querySelectorAll('.dimmed .team-monogram')).toHaveLength(0);
+		const text = dimmedText(container);
+		expect(text.length).toBeGreaterThan(0);
+		expect(text.some((t) => t?.includes(layout === 'desktop' ? 'Warriors' : 'Lakers'))).toBe(true);
 	});
 
 	it('dims neither team when a final game is tied', () => {

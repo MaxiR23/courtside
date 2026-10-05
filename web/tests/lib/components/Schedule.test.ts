@@ -7,6 +7,7 @@
 // - Selecting a day changes the heading, count and games; a day with no games shows the day, 0 games and the no-games message
 // - Desktop row and full counts on a wide viewport; mobile row and numbers below it
 // - The staggered list entrance on first view and on a day change, not on the same day
+// - The list is hidden until it first scrolls into view
 // - Only one game card is open at a time; clicking an open card closes it
 // - The open card can be bound from outside; each card has an anchor id; the section has the schedule anchor
 // - The playing highlight stops when its card closes, another opens or the day changes
@@ -166,6 +167,17 @@ describe('Schedule', () => {
 		callbacks[0]([{ isIntersecting: true }]);
 		await tick();
 		expect(animate).toHaveBeenCalledTimes(3);
+	});
+
+	it('hides the list until it first scrolls into view', async () => {
+		stubEntrance();
+		const { container } = render(Schedule, { props });
+		await tick();
+		const list = container.querySelector('.list')!;
+		expect(list.classList.contains('waiting')).toBe(true);
+		callbacks[0]([{ isIntersecting: true }]);
+		await tick();
+		expect(list.classList.contains('waiting')).toBe(false);
 	});
 
 	it('replays the list entrance when the day changes', async () => {

@@ -19,10 +19,10 @@ Conventions:
 
 ## Feed
 
-| Field         | Type  | Meaning                         | Present |
-| ------------- | ----- | ------------------------------- | ------- |
-| `generatedAt` | time  | When the feed was generated     | always  |
-| `days`        | `Day` | The days shown, may be an empty | always  |
+| Field         | Type    | Meaning                               | Present |
+| ------------- | ------- | ------------------------------------- | ------- |
+| `generatedAt` | time    | When the feed was generated           | always  |
+| `days`        | `Day[]` | The days shown; the list may be empty | always  |
 
 ## Day
 
@@ -70,6 +70,16 @@ and `teamStats`. A `final` game requires `lineScore`, `score`, `leaders`,
 | `Leaders`   | `away`, `home`: `Leader`                                                                                    |
 | `Stars`     | `away`, `home`: `Star`                                                                                      |
 
+Rules that live in the code:
+
+- When two players tie on points, the leader is the first in the provider's
+  order.
+- `TeamStats.turnovers` counts the players' turnovers. Turnovers charged to
+  the team are not included.
+- Stars: the current season's averages are used when any player on the
+  current roster has them; otherwise the previous season's are used. A 404
+  from the averages source means that season has no statistics yet.
+
 ## Refresh behavior
 
 Per ADR 0007: the schedule and stars once a day in the morning US
@@ -77,9 +87,20 @@ Eastern time; every minute from a game's scheduled start until it is live;
 every 30 seconds while it is live; highlights one attempt 1, 2 and 3 hours
 after the final time.
 
+- The morning fetch runs at `DAILY_FETCH_TIME` (US Eastern, `HH:MM`, default
+  06:00).
+- Between US Eastern midnight and that fetch, the feed still holds the
+  previous day's 7 days.
+- A game's final time is stored when the job sees it go from scheduled, live
+  or delayed to final. A game already final the first time the job sees it has
+  no final time, so it gets no highlight attempts and shows only the search
+  link.
+
 ## Endpoint
 
 - `GET /feeds/games.json` serves the last published feed with
   `Cache-Control: public, max-age=10` and an `ETag`.
+- It responds 304 with no body when `If-None-Match` matches the current
+  `ETag`.
 - It responds 503 with `{"detail": ...}` before the first publication.
 - An invalid feed is never published: the previous valid one stays served.

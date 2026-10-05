@@ -14,7 +14,8 @@
 // - Uses no external URL for images, players or links
 //
 // What is covered:
-// - The only state it has (static sample content)
+// - Static sample content, plus interaction: playing a placeholder highlight,
+//   revealing a spoiler-free card and the hero toggle
 //
 // Run with: cd web && pnpm exec vitest run tests/routes/preview/Preview.test.ts
 //

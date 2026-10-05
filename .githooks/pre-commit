@@ -22,7 +22,7 @@ info() {
 main() {
   root="$(git rev-parse --show-toplevel)" || die "not inside a git repository"
   cd "$root" || die "cannot change to $root"
-  staged="$(git diff --cached --name-only)" || die "cannot list the staged files"
+  staged="$(git diff --cached --name-only --no-renames)" || die "cannot list the staged files"
   for app in web api; do
     if printf '%s\n' "$staged" | grep -q "^$app/"; then
       info "$app has staged changes: running scripts/gate.sh $app fast"

@@ -8,6 +8,7 @@
 #      locally, otherwise the commits not yet on any ref of that remote.
 #   3. Run scripts/gate.sh api, then scripts/gate.sh web, for each app with a changed
 #      path under its directory. Stop at the first failure.
+#   The gate checks the working tree, not the pushed commits.
 
 set -eu
 
@@ -38,10 +39,10 @@ main() {
       continue
     fi
     if ! is_zero "$remote_sha" && git cat-file -e "$remote_sha^{commit}" 2>/dev/null; then
-      files="$(git diff --name-only "$remote_sha" "$local_sha")" \
+      files="$(git diff --name-only --no-renames "$remote_sha" "$local_sha")" \
         || die "cannot list the changed files"
     else
-      files="$(git log --format= --name-only "$local_sha" --not --remotes="$remote")" \
+      files="$(git log --format= --name-only --no-renames "$local_sha" --not --remotes="$remote")" \
         || die "cannot list the changed files"
     fi
     if printf '%s\n' "$files" | grep -q '^web/'; then
