@@ -26,6 +26,9 @@ decisions in force and the open ones.
   question until the decision is recorded.
 - Svelte 5 runes only in `/web`. Syntax from earlier Svelte versions is
   not used.
+- Every user interface change in `/web` follows `docs/design.md`: its
+  tokens, components, motion and copy. Styles use the tokens in
+  `web/src/lib/styles/tokens.css` and never repeat raw values.
 - The Pydantic models in `/api` are the single source of truth for every
   feed. Generated TypeScript types are never edited by hand. A change to a
   feed model regenerates them in the same change.
