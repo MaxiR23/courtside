@@ -17,6 +17,7 @@ How Courtside is built and why. This document records decisions that are in forc
 | Front end | SvelteKit with Svelte 5, built as static files |
 | Back end | Python 3.12 with FastAPI, with scheduled jobs running in the same process |
 | Data contract | Pydantic models, exported as JSON Schema, with TypeScript types generated from it |
+| Testing | Vitest with Testing Library for `/web`, pytest for `/api`. Conventions in [`testing.md`](testing.md) |
 
 Exact versions of every dependency are pinned when the project is scaffolded.
 
@@ -94,4 +95,3 @@ These are not decided. A change that depends on one of them stops and asks.
 - **Star player selection**: the rule that picks each team's star shown in the hero.
 - **Highlight matching**: how a final game is matched to its official highlight video.
 - **Missing data**: what the page shows when a feed has no data for a day. Sample data is not an option in production.
-- **Testing tools** for the front end and the backend.
