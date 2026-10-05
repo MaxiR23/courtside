@@ -72,7 +72,7 @@
 		</div>
 	</header>
 	<DayStrip days={strip} {selected} compact={!wide.current} onSelect={select} />
-	<div class="list" bind:this={list}>
+	<div class="list" class:waiting={entrance.waiting} bind:this={list}>
 		{#key entrance.run}
 			{#if games.length > 0}
 				<ul class="games">
@@ -104,6 +104,10 @@
 		max-width: var(--content-max-width);
 		margin: 0 auto;
 		padding: var(--side-padding);
+	}
+
+	.waiting {
+		opacity: 0;
 	}
 
 	header {

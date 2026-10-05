@@ -148,7 +148,9 @@ git config core.hooksPath .githooks
 Before a commit, the hooks run the fast gate (lint and format check) for
 each app with staged changes (`scripts/gate.sh web fast`,
 `scripts/gate.sh api fast`). Before a push, they run the full gate for
-each app changed in the pushed commits.
+each app changed in the pushed commits. Both hooks run the gate on the
+working tree, so pushing a branch other than the one checked out checks the
+checked-out files.
 
 ## Status
 

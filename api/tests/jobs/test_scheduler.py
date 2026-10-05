@@ -6,6 +6,7 @@
 # - Runs each job at once with the time of the clock
 # - Runs the jobs again after each tick of thirty seconds
 # - Records an unexpected error and keeps running
+# - Logs a state store error and keeps running
 # - Stops the loop on stop
 # - Does nothing when stopped before it started, and when started twice
 #
@@ -18,6 +19,8 @@
 
 import asyncio
 import datetime as dt
+import logging
+import sqlite3
 from pathlib import Path
 
 import pytest
@@ -104,6 +107,32 @@ async def test_records_an_unexpected_error_and_keeps_running(tmp_path: Path) -> 
     assert len(job.runs) == 2
     state = store.job_states()[0]
     assert state.last_failure_reason == "unexpected error: RuntimeError"
+
+
+@pytest.mark.anyio
+async def test_logs_a_state_store_error_and_keeps_running(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    job, ticks = FakeJob(RuntimeError("job detail")), Ticks(2)
+    scheduler, store = make(tmp_path, job, ticks)
+
+    def broken(*args: object, **kwargs: object) -> None:
+        raise sqlite3.OperationalError("store detail")
+
+    monkeypatch.setattr(store, "record_failure", broken)
+
+    with caplog.at_level(logging.ERROR, logger="app.jobs.scheduler"):
+        scheduler.start()
+        await ticks.reached.wait()
+        await scheduler.stop()
+
+    assert len(job.runs) == 2
+    records = [r for r in caplog.records if r.name == "app.jobs.scheduler"]
+    assert records
+    message = records[0].getMessage()
+    assert "fake" in message
+    assert "OperationalError" in message
+    assert "store detail" not in message
 
 
 @pytest.mark.anyio

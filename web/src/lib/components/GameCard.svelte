@@ -87,9 +87,9 @@
 {#snippet row()}
 	{#if layout === 'desktop'}
 		<span class="row desktop">
-			<span class="team away" class:dimmed={loser === 'away'}>
+			<span class="team away">
 				<TeamMonogram code={game.away.code} size="large" />
-				<span class="names">
+				<span class="names" class:dimmed={loser === 'away'}>
 					<span class="name">{game.away.name}</span>
 					<span class="city">{game.away.city}</span>
 				</span>
@@ -109,8 +109,8 @@
 					<span class="reveal">{m.schedule_tap_to_reveal()}</span>
 				{/if}
 			</span>
-			<span class="team home" class:dimmed={loser === 'home'}>
-				<span class="names">
+			<span class="team home">
+				<span class="names" class:dimmed={loser === 'home'}>
 					<span class="name">{game.home.name}</span>
 					<span class="city">{game.home.city}</span>
 				</span>

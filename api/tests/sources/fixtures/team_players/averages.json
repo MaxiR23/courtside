@@ -2,7 +2,6 @@
   "categories": [
     {
       "name": "pointsPerGame",
-      "abbreviation": "PTS",
       "leaders": [
         {
           "value": 13.817072868347168,
@@ -140,7 +139,6 @@
     },
     {
       "name": "assistsPerGame",
-      "abbreviation": "AST",
       "leaders": [
         {
           "value": 5.529411792755127,
@@ -278,7 +276,6 @@
     },
     {
       "name": "reboundsPerGame",
-      "abbreviation": "REB",
       "leaders": [
         {
           "value": 5.514705657958984,

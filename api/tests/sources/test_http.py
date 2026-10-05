@@ -7,6 +7,7 @@
 # - Raises the source error on a timeout, a transport failure, an error status and a body that is not JSON
 # - Returns the body text of a successful response
 # - Raises the source error on a timeout, a transport failure and an error status when reading text
+# - Keeps the status code of an error status on the error, and none for the other failures
 # - Keeps the request URL out of the error
 # - Creates a client with fixed timeouts
 #
@@ -16,6 +17,8 @@
 # Run with: cd api && .venv/bin/python -m pytest tests/sources/test_http.py
 #
 # SEE: api/app/sources/http.py
+
+from collections.abc import Awaitable, Callable
 
 import httpx
 import pytest
@@ -98,6 +101,45 @@ async def test_raises_the_source_error_when_reading_text_fails(
 
     assert raised.value.reason == reason
     assert "secret-value" not in str(raised.value)
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("read", [get_json, get_text])
+async def test_keeps_the_status_code_of_an_error_status(
+    read: Callable[..., Awaitable[object]],
+) -> None:
+    with respx.mock:
+        respx.get(URL).mock(return_value=httpx.Response(503))
+        async with create_client() as client:
+            with pytest.raises(SourceError) as raised:
+                await read(client, URL, source="test")
+
+    assert raised.value.status_code == 503
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "effect",
+    [
+        httpx.ReadTimeout("slow"),
+        httpx.ConnectError("down"),
+        httpx.Response(200, text="<html>"),
+    ],
+)
+async def test_carries_no_status_code_when_no_error_status_came_back(
+    effect: httpx.Response | Exception,
+) -> None:
+    with respx.mock:
+        route = respx.get(URL)
+        if isinstance(effect, Exception):
+            route.mock(side_effect=effect)
+        else:
+            route.mock(return_value=effect)
+        async with create_client() as client:
+            with pytest.raises(SourceError) as raised:
+                await get_json(client, URL, source="test")
+
+    assert raised.value.status_code is None
 
 
 @pytest.mark.anyio

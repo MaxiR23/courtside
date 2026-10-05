@@ -14,6 +14,17 @@
 
 	let { platform, searchUrl, videos, playingId = null, onPlay }: Props = $props();
 	const searchLabel = $derived(m.panel_highlights_search({ platform }));
+
+	// The video the user just started: its player takes focus once, so the
+	// focus does not stay on the thumbnail that is replaced.
+	let startedId = $state<string | null>(null);
+
+	function focusIfStarted(node: HTMLIFrameElement, id: string) {
+		if (startedId === id) {
+			node.focus();
+			startedId = null;
+		}
+	}
 </script>
 
 <div class="highlights">
@@ -30,6 +41,7 @@
 							<div class="media">
 								{#if playingId === video.id}
 									<iframe
+										use:focusIfStarted={video.id}
 										src={video.embedUrl}
 										title={video.title}
 										allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
@@ -40,7 +52,10 @@
 										type="button"
 										class="thumb"
 										aria-label={m.panel_highlights_play({ title: video.title })}
-										onclick={() => onPlay?.(video.id)}
+										onclick={() => {
+											startedId = video.id;
+											onPlay?.(video.id);
+										}}
 									>
 										<img src={video.thumbnail} alt="" loading="lazy" />
 										<span class="play" aria-hidden="true">

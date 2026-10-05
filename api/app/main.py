@@ -45,8 +45,10 @@ def create_app(settings: Settings | None = None, *, run_jobs: bool = True) -> Fa
                 scheduler.start()
             yield
         finally:
-            await scheduler.stop()
-            await client.aclose()
+            try:
+                await scheduler.stop()
+            finally:
+                await client.aclose()
 
     app = FastAPI(lifespan=lifespan)
     app.state.settings = settings

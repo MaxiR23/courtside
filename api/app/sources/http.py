@@ -15,10 +15,13 @@ TIMEOUT = httpx.Timeout(10.0, connect=5.0)
 class SourceError(Exception):
     """A data source failed or sent data the adapter cannot map."""
 
-    def __init__(self, source: str, reason: str) -> None:
+    def __init__(
+        self, source: str, reason: str, *, status_code: int | None = None
+    ) -> None:
         super().__init__(f"{source}: {reason}")
         self.source = source
         self.reason = reason
+        self.status_code = status_code
 
 
 def create_client() -> httpx.AsyncClient:
@@ -34,7 +37,11 @@ async def _get(client: httpx.AsyncClient, url: str, *, source: str) -> httpx.Res
     except httpx.TransportError:
         raise SourceError(source, "request failed") from None
     if not response.is_success:
-        raise SourceError(source, f"responded with status {response.status_code}")
+        raise SourceError(
+            source,
+            f"responded with status {response.status_code}",
+            status_code=response.status_code,
+        )
     return response
 
 

@@ -160,7 +160,7 @@
 								onclick={() => slideshow.goTo(i)}
 							>
 								<span class="track">
-									{#if isActive}
+									{#if isActive && running}
 										{#key slideshow.cycle}
 											<span class="fill" use:play={progressFill}></span>
 										{/key}
@@ -214,7 +214,7 @@
 		inset: 0;
 		display: flex;
 		align-items: center;
-		justify-content: center;
+		justify-content: flex-end;
 		transform: translate(
 			calc(var(--pointer-x) * var(--hero-watermark-shift-x)),
 			calc(var(--pointer-y) * var(--hero-watermark-shift-y))

@@ -10,7 +10,7 @@
 // - Shows the toggle in Spanish
 //
 // What is covered:
-// - Its only state, in English and in Spanish
+// - The spoiler-free toggle off and on, plus its click, in English and in Spanish
 // - A fixed date, no real clock
 //
 // Run with: cd web && pnpm exec vitest run tests/lib/components/NavRow.test.ts

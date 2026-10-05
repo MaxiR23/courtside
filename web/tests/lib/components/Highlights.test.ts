@@ -5,6 +5,7 @@
 // Tested:
 // - The kicker with the platform name, one card per video, the pending state
 // - Play buttons, the in-place autoplaying player and its removal
+// - Focus moves to the player when a thumbnail starts it, and is not taken on a playing render
 // - The pending message and the external search link
 // - Spanish copy with a Spanish browser preference
 // - Only the URLs and platform name received as props are rendered
@@ -16,6 +17,7 @@
 //
 // SEE: web/src/lib/components/Highlights.svelte
 import { fireEvent, render, screen } from '@testing-library/svelte';
+import { tick } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { preferLanguages } from '../../prefer-languages';
@@ -92,6 +94,24 @@ describe('Highlights', () => {
 		expect(first.querySelector('img')).toBeNull();
 		expect(first.querySelector('button')).toBeNull();
 		expect(second.querySelector('img')?.getAttribute('src')).toBe('/thumb-2.svg');
+	});
+
+	it('moves focus to the player when a thumbnail starts it', async () => {
+		const { container, rerender } = render(Highlights, { props });
+		const button = screen.getByRole('button', { name: 'Play First clip' });
+		button.focus();
+		await rerender({ ...props, onPlay: () => rerender({ ...props, playingId: 'v1' }) });
+		await fireEvent.click(screen.getByRole('button', { name: 'Play First clip' }));
+		await tick();
+		const frame = container.querySelector('iframe');
+		expect(frame).not.toBeNull();
+		expect(document.activeElement).toBe(frame);
+	});
+
+	it('does not take focus when rendered already playing', async () => {
+		render(Highlights, { props: { ...props, playingId: 'v1' } });
+		await tick();
+		expect(document.activeElement).toBe(document.body);
 	});
 
 	it('removes the player when playingId goes back to null', async () => {

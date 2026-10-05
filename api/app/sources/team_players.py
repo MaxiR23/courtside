@@ -24,7 +24,6 @@ from app.sources.http import SourceError, get_json
 from app.sources.teams import TEAM_CODES
 
 SOURCE = "team_players"
-NOT_FOUND = "responded with status 404"
 PROVIDER_CODES: dict[str, str] = {
     code: provider for provider, code in TEAM_CODES.items()
 }
@@ -185,7 +184,7 @@ async def fetch_season_averages(
     try:
         body = await get_json(client, url, source=SOURCE)
     except SourceError as error:
-        if error.reason == NOT_FOUND:
+        if error.status_code == 404:
             return []
         raise
     try:

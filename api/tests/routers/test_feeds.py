@@ -5,7 +5,9 @@
 # Tested:
 # - Serves the published games feed with Cache-Control and ETag
 # - Changes the ETag when the feed changes
-# - Responds 503 with a JSON error before the first publication
+# - Responds 304 with no body when the ETag matches, listed, weak or `*`
+# - Serves the feed when the ETag does not match
+# - Responds 503 with a JSON error before the first publication, even with an ETag
 # - Keeps serving the last valid feed after an invalid publish
 #
 # What is covered:
@@ -93,3 +95,51 @@ def test_keeps_serving_the_last_valid_feed_after_an_invalid_publish(
 
     assert response.status_code == 200
     assert response.content == feed(10).model_dump_json().encode("utf-8")
+
+
+def test_responds_304_when_the_etag_matches(tmp_path: Path) -> None:
+    with make_client(tmp_path) as client:
+        publish_feed(tmp_path, "games", feed(10))
+        first = client.get("/feeds/games.json")
+
+        response = client.get(
+            "/feeds/games.json", headers={"If-None-Match": first.headers["etag"]}
+        )
+
+    assert response.status_code == 304
+    assert response.content == b""
+    assert response.headers["etag"] == first.headers["etag"]
+    assert response.headers["cache-control"] == CACHE_CONTROL
+
+
+def test_responds_304_when_a_listed_or_weak_etag_matches(tmp_path: Path) -> None:
+    with make_client(tmp_path) as client:
+        publish_feed(tmp_path, "games", feed(10))
+        etag = client.get("/feeds/games.json").headers["etag"]
+
+        listed = client.get(
+            "/feeds/games.json", headers={"If-None-Match": f'"other", {etag}'}
+        )
+        weak = client.get("/feeds/games.json", headers={"If-None-Match": f"W/{etag}"})
+        star = client.get("/feeds/games.json", headers={"If-None-Match": "*"})
+
+    assert listed.status_code == weak.status_code == star.status_code == 304
+
+
+def test_serves_the_feed_when_the_etag_does_not_match(tmp_path: Path) -> None:
+    with make_client(tmp_path) as client:
+        publish_feed(tmp_path, "games", feed(10))
+
+        response = client.get("/feeds/games.json", headers={"If-None-Match": '"stale"'})
+
+    assert response.status_code == 200
+    assert response.content == feed(10).model_dump_json().encode("utf-8")
+
+
+def test_responds_503_before_the_first_publication_even_with_an_etag(
+    tmp_path: Path,
+) -> None:
+    with make_client(tmp_path) as client:
+        response = client.get("/feeds/games.json", headers={"If-None-Match": "*"})
+
+    assert response.status_code == 503

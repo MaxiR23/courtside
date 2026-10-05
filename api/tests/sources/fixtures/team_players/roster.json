@@ -1,163 +1,136 @@
 {
   "season": {
-    "year": 2027,
-    "displayName": "2026-27",
-    "type": 1,
-    "name": "Preseason"
+    "year": 2027
   },
   "team": {
-    "id": "9",
-    "abbreviation": "GS",
-    "location": "Golden State",
-    "name": "Warriors"
+    "id": "9"
   },
   "athletes": [
     {
       "id": "4397886",
       "firstName": "Charles",
       "lastName": "Bassey",
-      "shortName": "C. Bassey",
-      "displayName": "Charles Bassey"
+      "shortName": "C. Bassey"
     },
     {
       "id": "6430",
       "firstName": "Jimmy",
       "lastName": "Butler III",
-      "shortName": "J. Butler III",
-      "displayName": "Jimmy Butler III"
+      "shortName": "J. Butler III"
     },
     {
       "id": "4433149",
       "firstName": "LJ",
       "lastName": "Cryer",
-      "shortName": "L. Cryer",
-      "displayName": "LJ Cryer"
+      "shortName": "L. Cryer"
     },
     {
       "id": "3975",
       "firstName": "Stephen",
       "lastName": "Curry",
-      "shortName": "S. Curry",
-      "displayName": "Stephen Curry"
+      "shortName": "S. Curry"
     },
     {
       "id": "6589",
       "firstName": "Draymond",
       "lastName": "Green",
-      "shortName": "D. Green",
-      "displayName": "Draymond Green"
+      "shortName": "D. Green"
     },
     {
       "id": "3213",
       "firstName": "Al",
       "lastName": "Horford",
-      "shortName": "A. Horford",
-      "displayName": "Al Horford"
+      "shortName": "A. Horford"
     },
     {
       "id": "4703396",
       "firstName": "Graham",
       "lastName": "Ike",
-      "shortName": "G. Ike",
-      "displayName": "Graham Ike"
+      "shortName": "G. Ike"
     },
     {
       "id": "4696317",
       "firstName": "Miles",
       "lastName": "Kelly",
-      "shortName": "M. Kelly",
-      "displayName": "Miles Kelly"
+      "shortName": "M. Kelly"
     },
     {
       "id": "5175737",
       "firstName": "Yaxel",
       "lastName": "Lendeborg",
-      "shortName": "Y. Lendeborg",
-      "displayName": "Yaxel Lendeborg"
+      "shortName": "Y. Lendeborg"
     },
     {
       "id": "4897449",
       "firstName": "Malevy",
       "lastName": "Leons",
-      "shortName": "M. Leons",
-      "displayName": "Malevy Leons"
+      "shortName": "M. Leons"
     },
     {
       "id": "4066436",
       "firstName": "De'Anthony",
       "lastName": "Melton",
-      "shortName": "D. Melton",
-      "displayName": "De'Anthony Melton"
+      "shortName": "D. Melton"
     },
     {
       "id": "4432171",
       "firstName": "Moses",
       "lastName": "Moody",
-      "shortName": "M. Moody",
-      "displayName": "Moses Moody"
+      "shortName": "M. Moody"
     },
     {
       "id": "2990969",
       "firstName": "Georges",
       "lastName": "Niang",
-      "shortName": "G. Niang",
-      "displayName": "Georges Niang"
+      "shortName": "G. Niang"
     },
     {
       "id": "3134903",
       "firstName": "Gary",
       "lastName": "Payton II",
-      "shortName": "G. Payton II",
-      "displayName": "Gary Payton II"
+      "shortName": "G. Payton II"
     },
     {
       "id": "4709138",
       "firstName": "Brandin",
       "lastName": "Podziemski",
-      "shortName": "B. Podziemski",
-      "displayName": "Brandin Podziemski"
+      "shortName": "B. Podziemski"
     },
     {
       "id": "3102531",
       "firstName": "Kristaps",
       "lastName": "Porzingis",
-      "shortName": "K. Porzingis",
-      "displayName": "Kristaps Porzingis"
+      "shortName": "K. Porzingis"
     },
     {
       "id": "4897262",
       "firstName": "Will",
       "lastName": "Richard",
-      "shortName": "W. Richard",
-      "displayName": "Will Richard"
+      "shortName": "W. Richard"
     },
     {
       "id": "4997536",
       "firstName": "Gui",
       "lastName": "Santos",
-      "shortName": "G. Santos",
-      "displayName": "Gui Santos"
+      "shortName": "G. Santos"
     },
     {
       "id": "4433159",
       "firstName": "Dalen",
       "lastName": "Terry",
-      "shortName": "D. Terry",
-      "displayName": "Dalen Terry"
+      "shortName": "D. Terry"
     },
     {
       "id": "5170949",
       "firstName": "Alex",
       "lastName": "Toohey",
-      "shortName": "A. Toohey",
-      "displayName": "Alex Toohey"
+      "shortName": "A. Toohey"
     },
     {
       "id": "4397040",
       "firstName": "Brandon",
       "lastName": "Williams",
-      "shortName": "B. Williams",
-      "displayName": "Brandon Williams"
+      "shortName": "B. Williams"
     }
   ]
 }
