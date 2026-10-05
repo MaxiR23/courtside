@@ -1,10 +1,15 @@
 <script lang="ts">
+	import { getLocale } from '#lib/paraglide/runtime.js';
 	import favicon from '#lib/assets/favicon.svg';
 	import '#lib/styles/tokens.css';
 	import '#lib/styles/base.css';
 	import type { LayoutProps } from './$types';
 
 	let { children }: LayoutProps = $props();
+
+	$effect(() => {
+		document.documentElement.lang = getLocale();
+	});
 </script>
 
 <svelte:head>

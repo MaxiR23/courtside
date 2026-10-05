@@ -1,3 +1,4 @@
+import { paraglideVitePlugin } from '@inlang/paraglide-js';
 import adapter from '@sveltejs/adapter-static';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { svelteTesting } from '@testing-library/svelte/vite';
@@ -20,7 +21,13 @@ export default defineConfig({
 				}
 			}
 		}),
-		svelteTesting()
+		svelteTesting(),
+		paraglideVitePlugin({
+			project: './project.inlang',
+			outdir: './src/lib/paraglide',
+			emitTsDeclarations: true,
+			strategy: ['preferredLanguage', 'baseLocale']
+		})
 	],
 	test: {
 		environment: 'jsdom',
