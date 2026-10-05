@@ -4,6 +4,7 @@
 	import Hero from '#lib/components/Hero.svelte';
 	import MessageRow from '#lib/components/MessageRow.svelte';
 	import Schedule from '#lib/components/Schedule.svelte';
+	import ScheduleSkeleton from '#lib/components/ScheduleSkeleton.svelte';
 	import SiteFooter from '#lib/components/SiteFooter.svelte';
 	import { gamesFeedUrl, videoPlatformName } from '#lib/feed/config.ts';
 	import { loadGamesFeed } from '#lib/feed/load.ts';
@@ -26,10 +27,13 @@
 			: null
 	);
 	// No URL, a failed first load, or a feed the props layer rejects. While the first load is
-	// pending the page is neither available nor unavailable.
+	// pending the page is neither available nor unavailable: see `loading`.
 	const unavailable = $derived(
 		!url || (view === null && (poller?.failed === true || poller?.feed != null))
 	);
+
+	// The first load is pending: the hero and the schedule show their skeletons.
+	const loading = $derived(!unavailable && view === null);
 
 	// The nav row date until a feed is in. Set in the browser only, so no build-time date is
 	// baked into the prerendered page.
@@ -57,6 +61,7 @@
 	<Hero
 		games={view?.heroGames ?? []}
 		{today}
+		{loading}
 		scheduleHref={resolve('/#schedule')}
 		onMatchDetails={matchDetails}
 		spoilerFree={spoilerFree.on}
@@ -76,6 +81,8 @@
 	<section class="unavailable" id="schedule">
 		<MessageRow text={m.feed_unavailable()} />
 	</section>
+{:else if loading}
+	<ScheduleSkeleton />
 {/if}
 
 <SiteFooter />

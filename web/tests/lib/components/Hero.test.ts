@@ -13,6 +13,8 @@
 // - Spoiler-free toggle in the nav row: pressed state and callback
 // - Parallax follows a mouse and is skipped on touch and with reduced motion
 // - A games prop of the same length keeps the rotation position and the star timer
+// - A delayed game reads "Scheduled" with the tip time and arena in the kicker, in English and Spanish
+// - While the first feed loads: the skeleton of both columns, busy and hidden from assistive tech, gone once there is a game, shimmering unless motion is reduced
 // - Shows the copy in Spanish with a Spanish browser preference
 //
 // What is covered:
@@ -83,6 +85,7 @@ afterEach(() => {
 	vi.restoreAllMocks();
 	vi.unstubAllGlobals();
 	vi.useRealTimers();
+	Reflect.deleteProperty(HTMLElement.prototype, 'animate');
 });
 
 function indicatorItems(container: HTMLElement) {
@@ -375,6 +378,19 @@ describe('Hero with one game or none', () => {
 		expect(screen.getByText('Delayed')).toBeTruthy();
 	});
 
+	it('shows Delayed in the tag and Scheduled with the tip time and arena in the kicker for a delayed game', () => {
+		render(Hero, { props: { ...baseProps, games: [{ ...oneGame, status: 'delayed' }] } });
+		expect(screen.getByText('Delayed')).toBeTruthy();
+		expect(screen.getByText('Scheduled 10:30 PM ET · Chase Center')).toBeTruthy();
+	});
+
+	it('shows the delayed kicker in Spanish with a Spanish preference', () => {
+		preferLanguages(['es-ES']);
+		render(Hero, { props: { ...baseProps, games: [{ ...oneGame, status: 'delayed' }] } });
+		expect(screen.getByText('Retrasado')).toBeTruthy();
+		expect(screen.getByText('Programado 10:30 PM ET · Chase Center')).toBeTruthy();
+	});
+
 	it('shows only the nav row and no timer with no games', async () => {
 		vi.useFakeTimers();
 		const { container } = render(Hero, { props: { ...baseProps, games: [], autoplay: true } });
@@ -384,5 +400,65 @@ describe('Hero with one game or none', () => {
 		expect(container.querySelector('.watermark')).toBeNull();
 		expect(screen.queryByRole('heading', { level: 1 })).toBeNull();
 		expect(screen.getByRole('button', { name: 'Spoiler-free' })).toBeTruthy();
+	});
+});
+
+describe('Hero while the first feed loads', () => {
+	const loadingProps = { ...baseProps, games: [], loading: true };
+	const count = (container: HTMLElement, selector: string) =>
+		container.querySelectorAll(selector).length;
+
+	it('shows the skeleton of both columns while loading', () => {
+		const { container } = render(Hero, { props: loadingProps });
+		expect(container.querySelector('.hero-skeleton')).not.toBeNull();
+		expect(count(container, '.tag-bone')).toBe(1);
+		expect(count(container, '.kicker-bone')).toBe(1);
+		expect(count(container, '.headline-bone')).toBe(2);
+		expect(count(container, '.blurb-bone')).toBe(1);
+		expect(count(container, '.button-bone')).toBe(2);
+		expect(count(container, '.indicator-bone')).toBe(2);
+		expect(count(container, '.frame-bone')).toBe(1);
+		expect(screen.queryByRole('heading', { level: 1 })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Match details' })).toBeNull();
+		expect(screen.getByRole('button', { name: 'Spoiler-free' })).toBeTruthy();
+	});
+
+	it('marks the hero busy and hides the skeleton from assistive tech', () => {
+		const { container } = render(Hero, { props: loadingProps });
+		expect(container.querySelector('section.hero')?.getAttribute('aria-busy')).toBe('true');
+		expect(container.querySelector('.hero-skeleton')?.getAttribute('aria-hidden')).toBe('true');
+	});
+
+	it('shows the game, not the skeleton, once there is a game', () => {
+		const { container } = render(Hero, { props: { ...baseProps, loading: true } });
+		expect(container.querySelector('.hero-skeleton')).toBeNull();
+		expect(container.querySelector('section.hero')?.getAttribute('aria-busy')).toBeNull();
+		expect(screen.getByRole('heading', { level: 1 })).toBeTruthy();
+	});
+
+	it('shows no skeleton when not loading', () => {
+		const { container } = render(Hero, { props: { ...baseProps, games: [] } });
+		expect(container.querySelector('.hero-skeleton')).toBeNull();
+		expect(container.querySelector('section.hero')?.getAttribute('aria-busy')).toBeNull();
+	});
+
+	it('shimmers the skeleton, and not with reduced motion', () => {
+		const animate = vi.fn<(keyframes: unknown, options: unknown) => { cancel: () => void }>(() => ({
+			cancel: vi.fn()
+		}));
+		Object.assign(HTMLElement.prototype, { animate });
+		const looped = () =>
+			animate.mock.calls.some(
+				(call) => (call[1] as { iterations?: number } | undefined)?.iterations === Infinity
+			);
+		mediaWith([]);
+		const first = render(Hero, { props: loadingProps });
+		expect(looped()).toBe(true);
+		first.unmount();
+		animate.mockClear();
+		mediaWith([REDUCED]);
+		render(Hero, { props: loadingProps });
+		expect(looped()).toBe(false);
+		expect(animate).not.toHaveBeenCalled();
 	});
 });

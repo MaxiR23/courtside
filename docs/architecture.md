@@ -172,8 +172,6 @@ Recorded in [`adr/0007-backend-runtime-and-data-pipeline.md`](adr/0007-backend-r
 - **Star player selection**: the highest points plus rebounds plus assists per game on the current roster.
 - **Highlight matching**: the league's official video channel, matched by both teams, the highlights label and the date.
 
-The hero rotates through every game of the day.
-
 Recorded in [`adr/0009-game-leader-selection.md`](adr/0009-game-leader-selection.md):
 
 - **Game leader**: each team's top scorer by points; a tie on points goes to the most rebounds plus assists, and a tie on both to the first in the provider's order.
@@ -185,6 +183,10 @@ Recorded in [`adr/0010-final-game-attempts.md`](adr/0010-final-game-attempts.md)
 Recorded in [`adr/0011-state-retention.md`](adr/0011-state-retention.md):
 
 - **State retention**: each game's US Eastern date is stored with its job state; with the games job's daily fetch, the final time and stats attempts of games dated more than 30 days ago are deleted. Highlights and highlight attempts are never deleted; stars and job health keep one row per team and per job.
+
+Recorded in [`adr/0012-hero-rotation.md`](adr/0012-hero-rotation.md):
+
+- **Hero rotation**: the hero rotates through the games of the day that are not postponed or canceled; with none, it shows no game. Delayed games stay in the rotation.
 
 ## Future
 

@@ -8,6 +8,8 @@
 // - Toggles spoiler-free mode from the nav row
 // - Opens the hero's game in the schedule from Match details, on today
 // - Polls again after 30 s while a game is live; pauses while the tab is hidden and loads on return
+// - Shows the hero and schedule skeletons until the first feed loads, then the content or the unavailable row
+// - Keeps postponed and canceled games out of the hero and in the schedule; with only those, no hero game
 // - Shows the data unavailable row when the feed cannot be loaded or no feed URL is configured, in English and Spanish
 // - Keeps the last feed on screen when a later poll fails
 // - Shows the not-affiliated line in Spanish for es-ES and es-419 and in English for fr-FR
@@ -125,6 +127,15 @@ describe('home page with a feed', () => {
 			)
 		).toBeTruthy();
 		expect(fetchMock).toHaveBeenCalledTimes(1);
+	});
+
+	it('keeps postponed and canceled games out of the hero and in the schedule', async () => {
+		stubFetch(answerWith(recorded()));
+		const { container } = await renderPage();
+		expect(container.querySelector('.hero .position')?.textContent).toBe('01 / 04');
+		expect(container.querySelectorAll('ul.games > li')).toHaveLength(6);
+		expect(card(container, 'g-postponed')).not.toBeNull();
+		expect(card(container, 'g-canceled')).not.toBeNull();
 	});
 
 	it("expands a played game's panel with its line score, leaders, stats and highlights", async () => {
@@ -288,12 +299,53 @@ describe('home page without data', () => {
 		expect(fetchMock).not.toHaveBeenCalled();
 	});
 
-	it('shows only the footer while the first load is pending', async () => {
+	it('shows the hero and schedule skeletons while the first load is pending', async () => {
 		stubFetch(() => new Promise(() => {}));
 		const { container } = await renderPage();
-		expect(screen.queryByText("Data isn't available right now. Check back later.")).toBeNull();
+		expect(container.querySelector('.hero-skeleton')).not.toBeNull();
+		expect(container.querySelector('section#schedule.schedule-skeleton')).not.toBeNull();
 		expect(container.querySelector('ul.games')).toBeNull();
+		expect(screen.queryByText("Data isn't available right now. Check back later.")).toBeNull();
 		expect(screen.getByRole('contentinfo')).toBeTruthy();
+	});
+
+	it('replaces the skeletons with the content once the first feed loads', async () => {
+		let resolveFetch!: (value: unknown) => void;
+		stubFetch(() => new Promise((r) => (resolveFetch = r)));
+		const { container } = await renderPage();
+		expect(container.querySelector('.hero-skeleton')).not.toBeNull();
+		expect(container.querySelector('.schedule-skeleton')).not.toBeNull();
+		resolveFetch({ ok: true, status: 200, json: () => Promise.resolve(recorded()) });
+		await settle();
+		expect(container.querySelector('.hero-skeleton')).toBeNull();
+		expect(container.querySelector('.schedule-skeleton')).toBeNull();
+		expect(screen.getByRole('heading', { level: 1 }).textContent).toMatch(/Warriors\s*at\s+Lakers/);
+		expect(container.querySelectorAll('ul.games > li')).toHaveLength(6);
+	});
+
+	it('replaces the skeletons with the unavailable row when the first load fails', async () => {
+		let rejectFetch!: (reason: unknown) => void;
+		stubFetch(() => new Promise((_, r) => (rejectFetch = r)));
+		const { container } = await renderPage();
+		expect(container.querySelector('.hero-skeleton')).not.toBeNull();
+		rejectFetch(new TypeError('Failed to fetch'));
+		await settle();
+		expect(screen.getByText("Data isn't available right now. Check back later.")).toBeTruthy();
+		expect(container.querySelector('.hero-skeleton')).toBeNull();
+		expect(container.querySelector('.schedule-skeleton')).toBeNull();
+	});
+
+	it('shows no hero game when every game of today is postponed or canceled', async () => {
+		const feed = recorded();
+		feed.days[3].games = feed.days[3].games.filter(
+			(g) => g.id === 'g-postponed' || g.id === 'g-canceled'
+		);
+		stubFetch(answerWith(feed));
+		const { container } = await renderPage();
+		expect(screen.queryByRole('heading', { level: 1 })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Match details' })).toBeNull();
+		expect(container.querySelector('.hero-skeleton')).toBeNull();
+		expect(container.querySelectorAll('ul.games > li')).toHaveLength(2);
 	});
 });
 

@@ -118,6 +118,10 @@ const expected: Record<string, string> = {
 	'--play-button-size': '56px',
 	'--play-icon-size': '24px',
 	'--highlight-hover-opacity': '0.92',
+	'--skeleton-tag-width': '72px',
+	'--skeleton-button-width': '160px',
+	'--skeleton-short-width': '40%',
+	'--skeleton-long-width': '80%',
 	'--content-max-width': '1320px',
 	'--side-padding': 'clamp(20px, 4vw, 48px)',
 	'--game-list-gap': '14px',
@@ -170,6 +174,8 @@ const expected: Record<string, string> = {
 	'--panel-tint-duration': '0.35s',
 	'--stat-bar-duration': '0.9s',
 	'--stat-bar-delay': '0.2s',
+	'--skeleton-shimmer-duration': '1.6s',
+	'--skeleton-shimmer-opacity': '0.5',
 	'--focus-ring-width': '2px',
 	'--focus-ring-offset': '2px'
 };
