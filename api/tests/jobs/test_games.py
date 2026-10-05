@@ -13,6 +13,9 @@
 # - Final time and one more detail when a game becomes final, no more checks afterwards
 # - Postponed and canceled games are never checked
 # - A run with nothing due makes no request and records nothing
+# - The builder puts each game's highlights from the provider in the feed, and none without a provider
+# - Lists only the final games of the days held, in day order
+# - Republishes the feed with no source call when a final game's highlights change, and not when they are unchanged
 # - A successful run publishes a valid feed and records success
 # - A failing final game detail never blocks live details: the last live detail is published, and a final game with no detail is retried every 5 minutes at most
 # - A failed scoreboard fetch, live detail fetch or invalid feed keeps the last valid feed and records the reason
@@ -41,6 +44,7 @@ from pydantic import HttpUrl
 from app.feeds.games import (
     GamesFeed,
     GameStatus,
+    Highlight,
     Leader,
     Leaders,
     LineScore,
@@ -188,6 +192,7 @@ def make_job(
     sources: FakeSources,
     *,
     with_inputs: bool = True,
+    highlights: Any = None,
 ) -> GamesJob:
     extra: dict[str, Any] = {}
     if with_inputs:
@@ -195,6 +200,8 @@ def make_job(
             "stars": lambda _: STARS,
             "highlights_search_url": lambda _: SEARCH_URL,
         }
+    if highlights is not None:
+        extra["highlights"] = highlights
     return GamesJob(
         settings,
         store,
@@ -243,14 +250,46 @@ def test_days_shown_are_today_and_three_days_on_each_side_in_order() -> None:
 # Group 2: builder
 
 
-def build(*games: ScoreboardGame, details: dict[str, GameDetail] | None = None):  # type: ignore[no-untyped-def]
+def build(  # type: ignore[no-untyped-def]
+    *games: ScoreboardGame,
+    details: dict[str, GameDetail] | None = None,
+    **extra: Any,
+):
     return build_games_feed(
         NOON,
         [(TODAY, list(games)), (TODAY + dt.timedelta(days=1), [])],
         details or {},
         lambda _: STARS,
         lambda _: SEARCH_URL,
+        **extra,
     )
+
+
+HIGHLIGHT = Highlight(
+    title="Full game",
+    channel="Channel",
+    thumbnail_url=HttpUrl("https://example.com/t.jpg"),
+    embed_url=HttpUrl("https://example.com/e"),
+)
+
+
+def test_builder_puts_each_games_highlights_from_the_provider_in_the_feed() -> None:
+    feed = build(
+        game("1", GameStatus.FINAL),
+        game("2", GameStatus.FINAL),
+        details={"1": DETAIL, "2": DETAIL},
+        highlights=lambda g: [HIGHLIGHT] if g.id == "1" else [],
+    )
+
+    first, second = feed.days[0].games
+    assert first.highlights == [HIGHLIGHT]
+    assert second.highlights == []
+
+
+def test_builder_gives_no_highlights_without_a_provider() -> None:
+    feed = build(game("1", GameStatus.FINAL), details={"1": DETAIL})
+
+    assert feed.days[0].games[0].highlights == []
 
 
 def test_builds_a_valid_feed_from_games_details_stars_and_search_urls() -> None:
@@ -534,6 +573,61 @@ async def test_a_run_with_nothing_due_makes_no_request_and_records_nothing(
     assert respx.mock.calls.call_count == 0
     assert store.job_states() == states
     assert read_feed(settings.data_dir, "games") == published
+
+
+@pytest.mark.anyio
+async def test_lists_only_the_final_games_of_the_days_held_in_day_order(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    sources.games[TODAY] = [game("2", GameStatus.FINAL), game("3", GameStatus.LIVE)]
+    sources.games[TODAY - dt.timedelta(days=1)] = [game("1", GameStatus.FINAL)]
+    job = make_job(settings, store, sources)
+
+    assert job.final_games() == []
+    await job.run(NOON)
+
+    assert [g.id for g in job.final_games()] == ["1", "2"]
+
+
+@pytest.mark.anyio
+async def test_republishes_with_no_source_call_when_a_final_games_highlights_change(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    sources.games[TODAY] = [game("1", GameStatus.FINAL)]
+    found: dict[str, list[Highlight]] = {}
+    job = make_job(settings, store, sources, highlights=lambda g: found.get(g.id, []))
+    await job.run(NOON)
+    sources.game_calls.clear()
+    sources.detail_calls.clear()
+    found["1"] = [HIGHLIGHT]
+    later = NOON + dt.timedelta(minutes=5)
+
+    await job.run(later)
+
+    assert sources.game_calls == []
+    assert sources.detail_calls == []
+    published = read_feed(settings.data_dir, "games")
+    assert published is not None
+    feed = GamesFeed.model_validate_json(published)
+    assert feed.days[3].games[0].highlights == [HIGHLIGHT]
+    assert store.job_states()[0].last_success == later
+
+
+@pytest.mark.anyio
+async def test_does_not_republish_when_nothing_is_due_and_highlights_are_unchanged(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    sources.games[TODAY] = [game("1", GameStatus.FINAL)]
+    found = {"1": [HIGHLIGHT]}
+    job = make_job(settings, store, sources, highlights=lambda g: found[g.id])
+    await job.run(NOON)
+    published = read_feed(settings.data_dir, "games")
+    states = store.job_states()
+
+    await job.run(NOON + dt.timedelta(minutes=5))
+
+    assert read_feed(settings.data_dir, "games") == published
+    assert store.job_states() == states
 
 
 # Group 8: publication and failures

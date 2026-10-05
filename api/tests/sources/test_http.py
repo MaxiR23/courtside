@@ -5,6 +5,8 @@
 # Tested:
 # - Returns the decoded JSON body of a successful response
 # - Raises the source error on a timeout, a transport failure, an error status and a body that is not JSON
+# - Returns the body text of a successful response
+# - Raises the source error on a timeout, a transport failure and an error status when reading text
 # - Keeps the request URL out of the error
 # - Creates a client with fixed timeouts
 #
@@ -19,7 +21,7 @@ import httpx
 import pytest
 import respx
 
-from app.sources.http import TIMEOUT, SourceError, create_client, get_json
+from app.sources.http import TIMEOUT, SourceError, create_client, get_json, get_text
 
 URL = "https://example.com/data?key=secret-value"
 
@@ -60,6 +62,42 @@ async def test_raises_the_source_error_on_an_upstream_failure(
     assert raised.value.source == "test"
     assert raised.value.reason == reason
     assert str(raised.value) == f"test: {reason}"
+
+
+@pytest.mark.anyio
+async def test_returns_the_body_text() -> None:
+    with respx.mock:
+        respx.get(URL).respond(text="<feed></feed>")
+        async with create_client() as client:
+            body = await get_text(client, URL, source="test")
+
+    assert body == "<feed></feed>"
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("effect", "reason"),
+    [
+        (httpx.ReadTimeout("slow"), "request timed out"),
+        (httpx.ConnectError("down"), "request failed"),
+        (httpx.Response(503), "responded with status 503"),
+    ],
+)
+async def test_raises_the_source_error_when_reading_text_fails(
+    effect: httpx.Response | Exception, reason: str
+) -> None:
+    with respx.mock:
+        route = respx.get(URL)
+        if isinstance(effect, Exception):
+            route.mock(side_effect=effect)
+        else:
+            route.mock(return_value=effect)
+        async with create_client() as client:
+            with pytest.raises(SourceError) as raised:
+                await get_text(client, URL, source="test")
+
+    assert raised.value.reason == reason
+    assert "secret-value" not in str(raised.value)
 
 
 @pytest.mark.anyio

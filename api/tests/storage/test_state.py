@@ -18,6 +18,9 @@
 # - Reports no stars when none is stored
 # - Deletes a team's star
 # - Keeps stars across store instances over the same data directory
+# - Stores a game's highlight and replaces it on the next store
+# - Reports no highlights when none is stored
+# - Keeps highlights across store instances over the same data directory
 #
 # What is covered:
 # - Happy path, edge cases (unknown game, repeat table creation, restart, no jobs, no stars), error case (naive time)
@@ -33,7 +36,7 @@ from pathlib import Path
 import pytest
 from pydantic import HttpUrl
 
-from app.feeds.games import Star
+from app.feeds.games import Highlight, Star
 from app.storage.state import NO_REASON, StateStore
 
 NOON = dt.datetime(2026, 1, 10, 12, 0, tzinfo=dt.UTC)
@@ -217,3 +220,39 @@ def test_keeps_stars_across_store_instances_over_the_same_directory(
     make_store(tmp_path).set_star(make_star("BOS", "1"))
 
     assert make_store(tmp_path).stars() == {"BOS": make_star("BOS", "1")}
+
+
+def make_highlight(title: str) -> Highlight:
+    return Highlight(
+        title=title,
+        channel="Channel",
+        thumbnail_url=HttpUrl("https://example.com/t.jpg"),
+        embed_url=HttpUrl("https://example.com/e"),
+    )
+
+
+def test_stores_a_game_highlight_and_replaces_it_on_the_next_store(
+    tmp_path: Path,
+) -> None:
+    store = make_store(tmp_path)
+
+    store.set_highlight("g1", make_highlight("one"))
+    store.set_highlight("g2", make_highlight("two"))
+    store.set_highlight("g1", make_highlight("three"))
+
+    assert store.highlights() == {
+        "g1": make_highlight("three"),
+        "g2": make_highlight("two"),
+    }
+
+
+def test_reports_no_highlights_when_none_is_stored(tmp_path: Path) -> None:
+    assert make_store(tmp_path).highlights() == {}
+
+
+def test_keeps_highlights_across_store_instances_over_the_same_directory(
+    tmp_path: Path,
+) -> None:
+    make_store(tmp_path).set_highlight("g1", make_highlight("one"))
+
+    assert make_store(tmp_path).highlights() == {"g1": make_highlight("one")}

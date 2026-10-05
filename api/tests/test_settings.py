@@ -19,6 +19,14 @@
 # - Reads the team roster URL from an environment variable
 # - Leaves the team averages URL unset by default
 # - Reads the team averages URL from an environment variable
+# - Leaves the video channel feed URL unset by default
+# - Reads the video channel feed URL from an environment variable
+# - Leaves the video thumbnail URL unset by default
+# - Reads the video thumbnail URL from an environment variable
+# - Leaves the video embed URL unset by default
+# - Reads the video embed URL from an environment variable
+# - Leaves the highlights search URL unset by default
+# - Reads the highlights search URL from an environment variable
 # - Defaults the daily fetch time to six in the morning
 # - Reads the daily fetch time from an environment variable
 # - Rejects an invalid daily fetch time
@@ -31,7 +39,7 @@
 # - Reads the CORS origins as a JSON list
 #
 # What is covered:
-# - Happy path, value from the environment, value from a .env file, .env file location, invalid value, shared instance, optional scoreboard URL, optional game detail URL, optional player photo URL, optional team roster URL, optional team averages URL, daily fetch time (default, environment, invalid), input hidden from errors, data directory (default, environment, relative, empty), CORS origins (default, JSON list)
+# - Happy path, value from the environment, value from a .env file, .env file location, invalid value, shared instance, optional scoreboard URL, optional game detail URL, optional player photo URL, optional team roster URL, optional team averages URL, optional video channel feed URL, video thumbnail URL, video embed URL and highlights search URL, daily fetch time (default, environment, invalid), input hidden from errors, data directory (default, environment, relative, empty), CORS origins (default, JSON list)
 #
 # Run with: cd api && .venv/bin/python -m pytest tests/test_settings.py
 #
@@ -64,6 +72,10 @@ def clear_environment_variable(monkeypatch: pytest.MonkeyPatch) -> None:
             "player_photo_url",
             "team_roster_url",
             "team_averages_url",
+            "video_channel_feed_url",
+            "video_thumbnail_url",
+            "video_embed_url",
+            "highlights_search_url",
             "daily_fetch_time",
             "data_dir",
             "cors_origins",
@@ -199,6 +211,62 @@ def test_reads_the_team_averages_url_from_the_environment_variable(
     assert (
         SettingsWithoutEnvFile().team_averages_url
         == "https://example.com/{season}/teams/{team}/leaders"
+    )
+
+
+def test_video_channel_feed_url_is_unset_when_no_variable_is_set() -> None:
+    assert SettingsWithoutEnvFile().video_channel_feed_url is None
+
+
+def test_reads_the_video_channel_feed_url_from_the_environment_variable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("VIDEO_CHANNEL_FEED_URL", "https://example.com/feed")
+
+    assert SettingsWithoutEnvFile().video_channel_feed_url == "https://example.com/feed"
+
+
+def test_video_thumbnail_url_is_unset_when_no_variable_is_set() -> None:
+    assert SettingsWithoutEnvFile().video_thumbnail_url is None
+
+
+def test_reads_the_video_thumbnail_url_from_the_environment_variable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("VIDEO_THUMBNAIL_URL", "https://example.com/t/{video_id}")
+
+    assert (
+        SettingsWithoutEnvFile().video_thumbnail_url
+        == "https://example.com/t/{video_id}"
+    )
+
+
+def test_video_embed_url_is_unset_when_no_variable_is_set() -> None:
+    assert SettingsWithoutEnvFile().video_embed_url is None
+
+
+def test_reads_the_video_embed_url_from_the_environment_variable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("VIDEO_EMBED_URL", "https://example.com/e/{video_id}")
+
+    assert (
+        SettingsWithoutEnvFile().video_embed_url == "https://example.com/e/{video_id}"
+    )
+
+
+def test_highlights_search_url_is_unset_when_no_variable_is_set() -> None:
+    assert SettingsWithoutEnvFile().highlights_search_url is None
+
+
+def test_reads_the_highlights_search_url_from_the_environment_variable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("HIGHLIGHTS_SEARCH_URL", "https://example.com/s?q={query}")
+
+    assert (
+        SettingsWithoutEnvFile().highlights_search_url
+        == "https://example.com/s?q={query}"
     )
 
 

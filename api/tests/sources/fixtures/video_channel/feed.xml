@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns:v="urn:example:video" xmlns="urn:example:atom">
+ <id>urn:example:channel</id>
+ <title>Example Channel</title>
+ <author>
+  <name>Example Channel</name>
+ </author>
+ <entry>
+  <id>urn:example:entry:1</id>
+  <v:videoId>vid-clip</v:videoId>
+  <title>Player One Scores 21 Points For The Clippers Against The Warriors | Highlights | October 4, 2026</title>
+  <author>
+   <name>Example Channel</name>
+  </author>
+ </entry>
+ <entry>
+  <id>urn:example:entry:2</id>
+  <v:videoId>vid-full</v:videoId>
+  <title>WARRIORS at CLIPPERS | PRESEASON FULL GAME HIGHLIGHTS | October 4, 2026</title>
+  <author>
+   <name>Example Channel</name>
+  </author>
+ </entry>
+ <entry>
+  <id>urn:example:entry:3</id>
+  <v:videoId>vid-other-game</v:videoId>
+  <title>JAZZ at NUGGETS | PRESEASON FULL GAME HIGHLIGHTS | October 4, 2026</title>
+ </entry>
+ <entry>
+  <id>urn:example:entry:4</id>
+  <v:videoId>vid-other-date</v:videoId>
+  <title>WARRIORS at CLIPPERS | FULL GAME HIGHLIGHTS | October 3, 2026</title>
+  <author>
+   <name>Example Channel</name>
+  </author>
+ </entry>
+ <entry>
+  <id>urn:example:entry:5</id>
+  <v:videoId>vid-hornets</v:videoId>
+  <title>HORNETS at CLIPPERS | FULL GAME HIGHLIGHTS | October 4, 2026</title>
+  <author>
+   <name>Example Channel</name>
+  </author>
+ </entry>
+</feed>
