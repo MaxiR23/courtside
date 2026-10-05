@@ -136,6 +136,7 @@ class GamesJob:
         self._highlights_search_url = highlights_search_url
         self._highlights = highlights
         self._published_highlights: dict[str, list[Highlight]] = {}
+        self._published_stars: dict[str, Stars | None] = {}
         self._games: dict[dt.date, list[ScoreboardGame]] = {}
         self._fetched_at: dict[dt.date, dt.datetime] = {}
         self._details: dict[str, GameDetail] = {}
@@ -150,6 +151,13 @@ class GamesJob:
             for game in self._games[day]
             if game.status is GameStatus.FINAL
         ]
+
+    def _current_stars(self) -> dict[str, Stars | None]:
+        return {
+            game.id: self._stars(game)
+            for day in sorted(self._games)
+            for game in self._games[day]
+        }
 
     def _current_highlights(self) -> dict[str, list[Highlight]]:
         return {
@@ -249,7 +257,11 @@ class GamesJob:
         except SourceError as error:
             self._store.record_failure(JOB, now, str(error))
             return
-        if calls == 0 and self._current_highlights() == self._published_highlights:
+        if (
+            calls == 0
+            and self._current_highlights() == self._published_highlights
+            and self._current_stars() == self._published_stars
+        ):
             return
         try:
             feed = build_games_feed(
@@ -265,6 +277,7 @@ class GamesJob:
             return
         if publish_feed(self._settings.data_dir, FEED, feed):
             self._published_highlights = self._current_highlights()
+            self._published_stars = self._current_stars()
             self._store.record_success(JOB, now)
         else:
             self._store.record_failure(JOB, now, "feed not written")

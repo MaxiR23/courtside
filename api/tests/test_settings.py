@@ -13,6 +13,11 @@
 # - Reads the scoreboard URL from an environment variable
 # - Leaves the game detail URL unset by default
 # - Reads the game detail URL from an environment variable
+# - Rejects a scoreboard URL without its {date} placeholder
+# - Rejects a game detail URL without its {game_id} placeholder
+# - Does not count an escaped placeholder
+# - Rejects a malformed template without showing it
+# - Accepts an empty template as unset
 # - Leaves the player photo URL unset by default
 # - Reads the player photo URL from an environment variable
 # - Leaves the team roster URL unset by default
@@ -39,7 +44,7 @@
 # - Reads the CORS origins as a JSON list
 #
 # What is covered:
-# - Happy path, value from the environment, value from a .env file, .env file location, invalid value, shared instance, optional scoreboard URL, optional game detail URL, optional player photo URL, optional team roster URL, optional team averages URL, optional video channel feed URL, video thumbnail URL, video embed URL and highlights search URL, daily fetch time (default, environment, invalid), input hidden from errors, data directory (default, environment, relative, empty), CORS origins (default, JSON list)
+# - Happy path, value from the environment, value from a .env file, .env file location, invalid value, shared instance, optional scoreboard URL, optional game detail URL, required URL placeholders (missing, escaped, malformed, empty), optional player photo URL, optional team roster URL, optional team averages URL, optional video channel feed URL, video thumbnail URL, video embed URL and highlights search URL, daily fetch time (default, environment, invalid), input hidden from errors, data directory (default, environment, relative, empty), CORS origins (default, JSON list)
 #
 # Run with: cd api && .venv/bin/python -m pytest tests/test_settings.py
 #
@@ -163,6 +168,62 @@ def test_reads_the_game_detail_url_from_the_environment_variable(
         SettingsWithoutEnvFile().game_detail_url
         == "https://example.com/games/{game_id}"
     )
+
+
+def test_rejects_a_scoreboard_url_without_its_date_placeholder(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("SCOREBOARD_URL", "https://example.com/hidden/scoreboard")
+
+    with pytest.raises(ValidationError) as raised:
+        SettingsWithoutEnvFile()
+
+    assert "{date}" in str(raised.value)
+    assert "example.com/hidden" not in str(raised.value)
+
+
+def test_rejects_a_game_detail_url_without_its_game_id_placeholder(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("GAME_DETAIL_URL", "https://example.com/hidden/game")
+
+    with pytest.raises(ValidationError) as raised:
+        SettingsWithoutEnvFile()
+
+    assert "{game_id}" in str(raised.value)
+    assert "example.com/hidden" not in str(raised.value)
+
+
+def test_does_not_count_an_escaped_placeholder(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("SCOREBOARD_URL", "https://example.com/hidden/{{date}}")
+
+    with pytest.raises(ValidationError) as raised:
+        SettingsWithoutEnvFile()
+
+    assert "example.com/hidden" not in str(raised.value)
+
+
+def test_rejects_a_malformed_template_without_showing_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("SCOREBOARD_URL", "https://example.com/hidden/{date")
+
+    with pytest.raises(ValidationError) as raised:
+        SettingsWithoutEnvFile()
+
+    assert "example.com/hidden" not in str(raised.value)
+
+
+def test_accepts_an_empty_template_as_unset(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SCOREBOARD_URL", "")
+    monkeypatch.setenv("GAME_DETAIL_URL", "")
+
+    settings = SettingsWithoutEnvFile()
+
+    assert settings.scoreboard_url == ""
+    assert settings.game_detail_url == ""
 
 
 def test_player_photo_url_is_unset_when_no_variable_is_set() -> None:
