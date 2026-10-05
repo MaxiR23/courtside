@@ -7,7 +7,9 @@
 #     2. Read the issue labels and require exactly one type label.
 #     3. Read the issue title and require its type to match the label.
 #     4. Fetch origin.
-#     5. On main: require main to match origin/main, then create the type/short-description branch.
+#     5. On main or on a branch that is not type/short-description: require local main and HEAD to
+#        be ancestors of origin/main, create the type/short-description branch from origin/main
+#        carrying the uncommitted changes, then fast-forward local main to origin/main.
 #     6. Require a valid type/short-description branch.
 #     7. Fail if the branch is pushed but has no open PR.
 #     8. Fail if the branch has more than one open PR.
@@ -155,6 +157,25 @@ run_gate() {
   done
 }
 
+# Creates the branch from origin/main, carrying the uncommitted changes, then fast-forwards
+# local main to origin/main. Every check runs before the first change; nothing is forced.
+create_branch_from_base() {
+  local current="$1" branch="$2"
+  if ! git merge-base --is-ancestor "$BASE" "origin/$BASE"; then
+    die "prepare: local $BASE has diverged from origin/$BASE; nothing was changed. Reconciling it is the owner's decision"
+  fi
+  if ! git merge-base --is-ancestor HEAD "origin/$BASE"; then
+    die "prepare: $current has commits that are not on origin/$BASE; nothing was changed"
+  fi
+  git switch --no-track -c "$branch" "origin/$BASE" \
+    || die "prepare: cannot create $branch from origin/$BASE (see git's message above); nothing was changed"
+  if [[ "$(git rev-parse "$BASE")" != "$(git rev-parse "origin/$BASE")" ]]; then
+    git fetch . "refs/remotes/origin/$BASE:refs/heads/$BASE" \
+      || die "prepare: $branch was created, but $BASE could not be fast-forwarded to origin/$BASE"
+    info "prepare: fast-forwarded $BASE to origin/$BASE"
+  fi
+}
+
 cmd_prepare() {
   [[ $# -ge 1 ]] || usage
   local issue="$1"
@@ -195,13 +216,11 @@ cmd_prepare() {
   # 4. Fetch.
   git fetch --prune origin || die "git fetch origin failed"
 
-  # 5. Create the branch when on main.
-  local branch
-  branch="$(git symbolic-ref --short -q HEAD)" || die "HEAD is detached; switch to a branch"
-  if [[ "$branch" == "$BASE" ]]; then
-    if [[ "$(git rev-parse "$BASE")" != "$(git rev-parse "origin/$BASE")" ]]; then
-      die "$BASE is not up to date with origin/$BASE"
-    fi
+  # 5. Create the branch when on main or on a branch that is not a type/short-description branch.
+  local branch current
+  current="$(git symbolic-ref --short -q HEAD)" || die "HEAD is detached; switch to a branch"
+  branch="$current"
+  if [[ "$current" == "$BASE" || ! "$current" =~ ^($TYPE_RE)/[a-z0-9]+(-[a-z0-9]+)*$ ]]; then
     local slug
     slug="$(printf '%s' "$description" | tr '[:upper:]' '[:lower:]' \
       | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//' | cut -d- -f1-5)"
@@ -210,7 +229,7 @@ cmd_prepare() {
     if git rev-parse --verify -q "refs/heads/$branch" >/dev/null; then
       die "branch $branch already exists; switch to it and run prepare again"
     fi
-    git switch -c "$branch" || die "cannot create branch $branch"
+    create_branch_from_base "$current" "$branch"
   fi
 
   # 6. Valid branch name.
