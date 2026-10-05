@@ -8,7 +8,7 @@ listed in `README.md` once that app is scaffolded.
 | App | Runner | Notes |
 |---|---|---|
 | `/web` | Vitest | Components are tested with `@testing-library/svelte` |
-| `/api` | pytest | The HTTP mocking tool is chosen with the HTTP client when `/api` is scaffolded |
+| `/api` | pytest | The HTTP mocking tool is chosen with the HTTP client when the first source adapter is built |
 
 ## File location
 
