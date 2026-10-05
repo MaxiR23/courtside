@@ -38,7 +38,7 @@ data sources  ->  source adapters  ->  jobs  ->  feeds (JSON)  ->  front end
 
 ### Jobs
 
-- Jobs run on a schedule inside the backend process. Each job owns one kind of data and has its own refresh cadence: a live game changes every minute, standings do not.
+- Jobs run on a schedule inside the backend process. Each job owns one kind of data and has its own refresh cadence, as set in [`adr/0007-backend-runtime-and-data-pipeline.md`](adr/0007-backend-runtime-and-data-pipeline.md): live games are checked every 30 seconds, the daily schedule once a day, standings do not change that often.
 - A job that fails keeps the last valid feed published. A partial or invalid feed is never written.
 - Each job records its last successful run, so the backend can report its own health.
 
@@ -49,7 +49,7 @@ data sources  ->  source adapters  ->  jobs  ->  feeds (JSON)  ->  front end
   - `standings.json`: standings tables.
   - Seasonal feeds, such as playoffs or All-Star, added only while their section exists.
 - Each feed is validated against its model before publishing and written atomically, so a reader never sees a half-written file.
-- Feeds are served with cache headers and sit behind a CDN.
+- Feeds are served by the backend with cache headers. Only the front end's static files are served from a CDN.
 
 ## Data contract
 
@@ -70,7 +70,7 @@ data sources  ->  source adapters  ->  jobs  ->  feeds (JSON)  ->  front end
 
 The site has to load and respond fast on a phone. These rules apply to every change:
 
-- The site is served as static files from a CDN.
+- The front end's static files are served from a CDN.
 - Feeds stay small and contain only what the page draws.
 - Images are served at the size they are displayed and load only when they are about to be shown.
 - Fonts load only the weights in use.
@@ -154,7 +154,7 @@ Recorded in [`adr/0007-backend-runtime-and-data-pipeline.md`](adr/0007-backend-r
 - **Star player selection**: the highest points plus rebounds plus assists per game on the current roster.
 - **Highlight matching**: the league's official video channel, matched by both teams, the highlights label and the date.
 
-The hero has no single featured game: it rotates through every game of the day.
+The hero rotates through every game of the day.
 
 ## Future
 

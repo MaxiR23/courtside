@@ -6,7 +6,7 @@ The visual and interaction specification for the Courtside site. It is the refer
 
 A dark-mode, single-page site with two parts:
 
-1. **Hero.** Tonight's featured game, with the star player of each team shown as a transparent cutout. The two players alternate every 7 seconds.
+1. **Hero.** A rotating hero that goes through every game of the day. Each game shows the star player of each team as a transparent cutout, 7 seconds each, then the next game starts.
 2. **Schedule.** A 7-day strip with today in the middle and the list of games for the selected day. Clicking a game expands its details: line score, top performers, team stats and, once the game is final, official highlights embedded inline.
 
 ## Implementation rules
@@ -23,7 +23,7 @@ A dark-mode, single-page site with two parts:
 | Component | What it is |
 |---|---|
 | `BlueprintFrame` | The framed box with corner registration marks, used across the site |
-| `Hero` | The top section with the featured game |
+| `Hero` | The top section, rotating through every game of the day |
 | `PlayerCutout` | A player's transparent photo, framed and lit |
 | `DayStrip` | The 7-day selector |
 | `GameCard` | One game, with its desktop and mobile rows and its expanded panel |
@@ -110,8 +110,12 @@ Lucide at `stroke-width: 1.5`: `chevron-down` (expand), `play` (filled, highligh
   1. A status tag, "Tonight", "Live now" or "Final", 11px in a 1px divider box. Next to it the kicker with the tip time and arena, such as "10:30 PM ET · Chase Center".
   2. The h1: the away team name, a line break, then "at" and the home team name.
   3. A blurb: "{Away star} and {Home star} meet at {Arena}."
-  4. Buttons. **Match details** is the primary button (solid accent, dark text, blueprint marks): it selects today, expands the featured game and smooth-scrolls to it. **All games** is a secondary outlined button linking to the schedule.
-  5. A slide indicator with two items. Each has a 2px progress track whose fill (`#94bce3`) grows linearly over 7s on the active item. Under it, "01" or "02" and the player's short name: the active one in ink, the inactive in muted. Clicking an item jumps to that slide.
+  4. Buttons. **Match details** is the primary button (solid accent, dark text, blueprint marks): it selects today, expands the game on screen and smooth-scrolls to it. **All games** is a secondary outlined button linking to the schedule.
+  5. A slide indicator with two items. Each has a 2px progress track whose fill (`#94bce3`) grows linearly over 7s on the active item, so it shows the progress of the current star. Under it, "01" or "02" and the player's short name: the active one in ink, the inactive in muted. Clicking an item jumps to that star. Next to the items, the current game's position among the games of the day, such as "03 / 10".
+
+  The status tag, kicker, h1 and blurb always follow the game on screen.
+
+  **Rotation.** The hero goes through every game of the day. Each game shows its two stars, 7 seconds each, then the next game starts. After the last game it returns to the first. With one game, the hero behaves as a single game: its two stars alternate and the position is not shown. With no games, the hero shows no game.
 - **Right column:** the image frame, max-width 500px, aspect ratio 4:5. A blueprint frame filled with frame-fill, a 44px grid and the accent glow.
   - The star's cutout is a transparent player photo in full color, anchored to the bottom center at **172% of the frame width**, so the head pops out above the frame's top edge. The bottom is clipped with `clip-path: inset(-30% 0 0 0)`.
   - Image filter: `drop-shadow(0 0 1px rgba(148,188,227,.35)) drop-shadow(0 30px 30px rgba(0,0,0,.7)) contrast(1.05)`.
@@ -169,8 +173,7 @@ Lucide at `stroke-width: 1.5`: `chevron-down` (expand), `play` (filled, highligh
 - The selected day: an index from 0 to 6, default 3 (today).
 - The open game: one game or none.
 - The playing video: one video of one game, or none.
-- The hero slide: 0 or 1, plus its autoplay timer.
-- The featured game is the one marked as featured. If none is marked: the first live game, else the first scheduled game, else the first game.
+- The hero game: an index into the games of the day, and the hero slide: 0 or 1 (the star on screen), plus the autoplay timer.
 
 ## Responsive
 
