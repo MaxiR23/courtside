@@ -88,6 +88,8 @@ The internal structure of `/web` and `/api` is defined when each is scaffolded a
 ## Open decisions
 
 These are not decided. A change that depends on one of them stops and asks.
+When one is closed, it gets an ADR in [`adr/`](adr/README.md) and this
+document is updated in the same change.
 
 - **Hosting** for the front end and for the backend process. The backend must stay running for its jobs, so platforms that sleep on inactivity do not fit.
 - **Storage** for job state between runs: a local database or files on disk.

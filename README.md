@@ -21,10 +21,10 @@ Scheduled games show tip-off time, venue, broadcast and the players to watch. Li
 
 ## How it works
 
-Everything is automated. A backend process collects the game data on a schedule, validates it and publishes a single JSON feed. The front end only reads that feed and draws it.
+Everything is automated. A backend process collects the data on a schedule, validates it and publishes one JSON feed per domain: games, standings, and seasonal sections while they run. The front end only reads those feeds and draws them.
 
 ```
-data sources  ->  backend jobs  ->  games.json  ->  front end
+data sources  ->  backend jobs  ->  feeds (JSON)  ->  front end
 ```
 
 ## Stack
@@ -34,8 +34,9 @@ data sources  ->  backend jobs  ->  games.json  ->  front end
 | Front end | SvelteKit (Svelte 5), static build |
 | Back end | Python 3.12, FastAPI, scheduled jobs in the same process |
 | Data contract | Pydantic models as the source of truth, TypeScript types generated from them |
+| Testing | Vitest with Testing Library for the front end, pytest for the back end |
 
-Details and the reasoning behind each choice are in [`docs/architecture.md`](docs/architecture.md).
+Details are in [`docs/architecture.md`](docs/architecture.md), and the reasoning behind each decision is recorded in [`docs/adr/`](docs/adr/README.md).
 
 ## Repository layout
 
@@ -44,12 +45,12 @@ Planned structure. Folders appear as the project is built.
 ```
 /web    SvelteKit app
 /api    FastAPI app and data jobs
-/docs   Architecture, workflow and data documentation
+/docs   Architecture, workflow, testing and decision records
 ```
 
 ## Development
 
-How issues, branches, reviews and merges work in this repo is described in [`docs/workflow.md`](docs/workflow.md).
+How issues, branches, reviews and merges work in this repo is described in [`docs/workflow.md`](docs/workflow.md). Testing conventions are in [`docs/testing.md`](docs/testing.md).
 
 ## Status
 

@@ -16,9 +16,11 @@ Each app keeps its tests in its own `tests/` folder, mirroring that app's
 source structure. Example paths below are illustrative: the real structure
 is defined when each app is scaffolded.
 
-    web/src/lib/format/clock.ts           -> web/tests/lib/format/clock.test.ts
-    web/src/lib/components/GameCard.svelte -> web/tests/lib/components/GameCard.test.ts
-    api/<package>/sources/<adapter>.py    -> api/tests/sources/test_<adapter>.py
+```text
+web/src/lib/format/clock.ts           -> web/tests/lib/format/clock.test.ts
+web/src/lib/components/GameCard.svelte -> web/tests/lib/components/GameCard.test.ts
+api/<package>/sources/<adapter>.py    -> api/tests/sources/test_<adapter>.py
+```
 
 Cross-cutting tests that do not map to a single module live at the root of
 the app's `tests/` folder.
@@ -28,11 +30,15 @@ the app's `tests/` folder.
 Test names describe the behavior being verified, not a category. The name
 should be enough to know what broke when it fails.
 
-    it('shows the losing team dimmed on a final game')
-    it('hides final scores until the card is expanded in spoiler-free mode')
+```ts
+it('shows the losing team dimmed on a final game')
+it('hides final scores until the card is expanded in spoiler-free mode')
+```
 
-    def test_keeps_last_valid_feed_when_the_source_fails():
-    def test_rejects_a_game_without_a_home_team():
+```python
+def test_keeps_last_valid_feed_when_the_source_fails():
+def test_rejects_a_game_without_a_home_team():
+```
 
 ## Coverage minimums
 
@@ -82,39 +88,43 @@ Each test file MUST start with this header. Keywords stay in English.
 
 TypeScript:
 
-    // web/tests/lib/components/GameCard.test.ts
-    //
-    // Tests for the GameCard component.
-    //
-    // Tested:
-    // - Renders the score and status of a final game
-    // - Dims the losing team on a final game
-    // - Expands and collapses when the row is clicked
-    //
-    // What is covered:
-    // - Happy paths, final and live states, user interaction
-    //
-    // Run with: <single-file command listed in README.md>
-    //
-    // SEE: web/src/lib/components/GameCard.svelte
+```ts
+// web/tests/lib/components/GameCard.test.ts
+//
+// Tests for the GameCard component.
+//
+// Tested:
+// - Renders the score and status of a final game
+// - Dims the losing team on a final game
+// - Expands and collapses when the row is clicked
+//
+// What is covered:
+// - Happy paths, final and live states, user interaction
+//
+// Run with: <single-file command listed in README.md>
+//
+// SEE: web/src/lib/components/GameCard.svelte
+```
 
 Python:
 
-    # api/tests/sources/test_<adapter>.py
-    #
-    # Tests for the <adapter> source adapter.
-    #
-    # Tested:
-    # - Maps a valid response to the feed models
-    # - Rejects a response with an unexpected shape
-    # - Raises the adapter error on a timeout
-    #
-    # What is covered:
-    # - Happy path, invalid payload, upstream failure
-    #
-    # Run with: <single-file command listed in README.md>
-    #
-    # SEE: api/<package>/sources/<adapter>.py
+```python
+# api/tests/sources/test_<adapter>.py
+#
+# Tests for the <adapter> source adapter.
+#
+# Tested:
+# - Maps a valid response to the feed models
+# - Rejects a response with an unexpected shape
+# - Raises the adapter error on a timeout
+#
+# What is covered:
+# - Happy path, invalid payload, upstream failure
+#
+# Run with: <single-file command listed in README.md>
+#
+# SEE: api/<package>/sources/<adapter>.py
+```
 
 ## TDD workflow
 
