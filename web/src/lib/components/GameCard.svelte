@@ -1,5 +1,6 @@
 <script lang="ts">
 	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
+	import Highlights from '#lib/components/Highlights.svelte';
 	import Leaders from '#lib/components/Leaders.svelte';
 	import LineScore from '#lib/components/LineScore.svelte';
 	import LiveBadge from '#lib/components/LiveBadge.svelte';
@@ -11,9 +12,16 @@
 	import { panelContent, panelExpand, panelTint } from '#lib/schedule/motion.ts';
 	import type { RowLayout, ScheduleGame } from '#lib/schedule/types.ts';
 
-	type Props = { game: ScheduleGame; layout: RowLayout; open?: boolean; onToggle?: () => void };
+	type Props = {
+		game: ScheduleGame;
+		layout: RowLayout;
+		open?: boolean;
+		onToggle?: () => void;
+		playingVideoId?: string | null;
+		onPlay?: (videoId: string) => void;
+	};
 
-	let { game, layout, open = false, onToggle }: Props = $props();
+	let { game, layout, open = false, onToggle, playingVideoId = null, onPlay }: Props = $props();
 
 	const panelId = $props.id();
 
@@ -123,6 +131,17 @@
 		</div>
 		{#if status.state === 'live'}
 			<p class="notice">{m.panel_live_highlights()}</p>
+		{/if}
+		{#if status.state === 'final' && details.highlights}
+			<div class="panel-highlights">
+				<Highlights
+					platform={details.highlights.platform}
+					searchUrl={details.highlights.searchUrl}
+					videos={details.highlights.videos}
+					playingId={open ? playingVideoId : null}
+					onPlay={(id) => onPlay?.(id)}
+				/>
+			</div>
 		{/if}
 	{:else if details?.kind === 'scheduled' && status.state === 'scheduled'}
 		<dl class="facts">
@@ -348,6 +367,10 @@
 		display: grid;
 		grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--panel-column-min)), 1fr));
 		gap: var(--panel-section-gap);
+	}
+
+	.panel-highlights {
+		margin-top: var(--panel-section-gap);
 	}
 
 	.notice {

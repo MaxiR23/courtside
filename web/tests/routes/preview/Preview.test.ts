@@ -7,7 +7,8 @@
 // - Shows the hero in its three states and the footer
 // - Shows the day strip, every game card state on both rows, and the schedule
 // - Shows an expanded card for a scheduled, a live, a final and an overtime game
-// - Uses no external image URL
+// - Shows a final game with highlights and one with highlights pending, and plays a placeholder
+// - Uses no external URL for images, players or links
 //
 // What is covered:
 // - The only state it has (static sample content)
@@ -15,7 +16,7 @@
 // Run with: cd web && pnpm exec vitest run tests/routes/preview/Preview.test.ts
 //
 // SEE: web/src/routes/preview/Preview.svelte
-import { render, screen, within } from '@testing-library/svelte';
+import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
 
 import Preview from '../../../src/routes/preview/Preview.svelte';
@@ -68,10 +69,10 @@ describe('component preview', () => {
 	it('shows the schedule and a day with no games', () => {
 		render(Preview);
 		const schedule = sectionOf('Schedule');
-		expect(schedule.querySelectorAll('.games li')).toHaveLength(3);
+		expect(schedule.querySelectorAll('.games > li')).toHaveLength(3);
 		const empty = sectionOf('Schedule: day with no games');
 		expect(within(empty).getAllByText('0 games').length).toBeGreaterThanOrEqual(1);
-		expect(empty.querySelectorAll('.games li')).toHaveLength(0);
+		expect(empty.querySelectorAll('.games > li')).toHaveLength(0);
 	});
 
 	it('shows an expanded card for a scheduled, a live, a final and an overtime game', () => {
@@ -119,12 +120,47 @@ describe('component preview', () => {
 		expect(screen.getByText('Personal project. Not affiliated with the NBA.')).toBeTruthy();
 	});
 
-	it('uses no external image URL', () => {
+	it('shows a final game with highlights and one with highlights pending', () => {
+		render(Preview);
+		const final = sectionOf('GameCard: expanded final');
+		expect(within(final).getByText('Highlights')).toBeTruthy();
+		expect(within(final).getByText('Video platform')).toBeTruthy();
+		expect(within(final).getByText('Nuggets at Suns: full game highlights')).toBeTruthy();
+		expect(within(final).getByText('Every three from the fourth quarter')).toBeTruthy();
+		const pending = sectionOf('GameCard: expanded final, highlights pending');
+		expect(
+			within(pending).getByText("Highlights aren't in yet. They'll appear here automatically.")
+		).toBeTruthy();
+		expect(
+			within(pending).getByRole('link', { name: 'Search highlights on Video platform' })
+		).toBeTruthy();
+	});
+
+	it('plays the placeholder player in place when a preview highlight is clicked', async () => {
+		render(Preview);
+		const final = sectionOf('GameCard: expanded final');
+		expect(final.querySelector('iframe')).toBeNull();
+		await fireEvent.click(
+			within(final).getByRole('button', { name: 'Play Nuggets at Suns: full game highlights' })
+		);
+		expect(final.querySelectorAll('iframe')).toHaveLength(1);
+	});
+
+	it('uses no external URL for images, players or links', async () => {
 		const { container } = render(Preview);
+		await fireEvent.click(
+			within(sectionOf('GameCard: expanded final')).getByRole('button', {
+				name: 'Play Nuggets at Suns: full game highlights'
+			})
+		);
 		const images = container.querySelectorAll('img');
+		const frames = container.querySelectorAll('iframe');
 		expect(images.length).toBeGreaterThan(0);
-		for (const img of images) {
-			expect(img.getAttribute('src') ?? '').not.toMatch(/^(https?:)?\/\//);
+		expect(frames.length).toBeGreaterThan(0);
+		for (const el of container.querySelectorAll('img[src], iframe[src], a[href]')) {
+			expect(el.getAttribute('src') ?? el.getAttribute('href') ?? '').not.toMatch(
+				/^(https?:)?\/\//
+			);
 		}
 	});
 });

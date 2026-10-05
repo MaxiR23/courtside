@@ -9,6 +9,7 @@
 // - Spanish live badge with a Spanish browser preference
 // - A card without details stays a plain row; with details it toggles an inert panel
 // - The panel per state: live, final, overtime and scheduled, its motion and Spanish labels
+// - Highlights on final games only: videos, pending, play callback, player removed on close
 //
 // What is covered:
 // - Each card state on each row layout
@@ -80,6 +81,24 @@ const scheduledWithDetails = withDetails(scheduled, {
 	venue: 'Crypto.com Arena',
 	playersToWatch: { away: awayPlayer, home: homePlayer }
 });
+const highlightsData = (videos: { id: string }[]) => ({
+	platform: 'Test platform',
+	searchUrl: '/search?q=x',
+	videos: videos.map(({ id }) => ({
+		id,
+		title: `Clip ${id}`,
+		channel: 'Channel',
+		thumbnail: `/thumb-${id}.svg`,
+		embedUrl: `/embed/${id}`
+	}))
+});
+const withHighlights = (game: ScheduleGame, videos: { id: string }[]): ScheduleGame =>
+	withDetails(game, {
+		...played([30, 28, 26, 28], [24, 27, 25, 28]),
+		highlights: highlightsData(videos)
+	} as GameDetails);
+const finalWithHighlights = withHighlights(final(112, 104), [{ id: 'v1' }, { id: 'v2' }]);
+const finalPending = withHighlights(final(112, 104), []);
 const HIGHLIGHTS = 'Highlights will appear here after the final buzzer.';
 
 const dimmedText = (container: HTMLElement) =>
@@ -297,5 +316,61 @@ describe('GameCard', () => {
 		expect(screen.getByText('Transmisión')).toBeTruthy();
 		expect(screen.getByText('Jugadores a seguir')).toBeTruthy();
 		expect(container.querySelector('.fact dd')?.textContent).toBe('9:00 PM ET');
+	});
+
+	it('shows the highlights after the stats on an open final game with highlights', () => {
+		const { container } = render(GameCard, {
+			props: { game: finalWithHighlights, layout: 'desktop', open: true }
+		});
+		const section = container.querySelector('.panel-highlights');
+		expect(section).not.toBeNull();
+		expect(section?.querySelectorAll('li')).toHaveLength(2);
+		expect(screen.getByText('Clip v1')).toBeTruthy();
+		const grid = container.querySelector('.panel-grid');
+		expect(grid?.compareDocumentPosition(section as Node)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+	});
+
+	it('shows the pending highlights state on a final game whose highlights are not in yet', () => {
+		const { container } = render(GameCard, {
+			props: { game: finalPending, layout: 'desktop', open: true }
+		});
+		expect(
+			screen.getByText("Highlights aren't in yet. They'll appear here automatically.")
+		).toBeTruthy();
+		expect(screen.getByRole('link', { name: 'Search highlights on Test platform' })).toBeTruthy();
+		expect(container.querySelector('.panel-highlights img')).toBeNull();
+	});
+
+	it('shows no highlights section on a final game without highlights', () => {
+		const { container } = render(GameCard, {
+			props: { game: finalWithDetails, layout: 'desktop', open: true }
+		});
+		expect(container.querySelector('.highlights')).toBeNull();
+	});
+
+	it('shows no highlights section on a live game, only the notice', () => {
+		const liveWithHighlights = withHighlights(live, [{ id: 'v1' }]);
+		const { container } = render(GameCard, {
+			props: { game: liveWithHighlights, layout: 'desktop', open: true }
+		});
+		expect(container.querySelector('.highlights')).toBeNull();
+		expect(screen.getByText(HIGHLIGHTS)).toBeTruthy();
+	});
+
+	it('calls onPlay with the video id when a highlight thumbnail is clicked', async () => {
+		const onPlay = vi.fn();
+		render(GameCard, {
+			props: { game: finalWithHighlights, layout: 'desktop', open: true, onPlay }
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Play Clip v2' }));
+		expect(onPlay).toHaveBeenCalledWith('v2');
+	});
+
+	it('shows the player for playingVideoId while open and removes it when the card closes', async () => {
+		const props = { game: finalWithHighlights, layout: 'desktop' as const, playingVideoId: 'v1' };
+		const { container, rerender } = render(GameCard, { props: { ...props, open: true } });
+		expect(container.querySelector('iframe')?.getAttribute('src')).toBe('/embed/v1');
+		await rerender({ ...props, open: false });
+		expect(container.querySelector('iframe')).toBeNull();
 	});
 });

@@ -38,5 +38,9 @@
 	"panel_tip_off": "Tip-off",
 	"panel_venue": "Venue",
 	"panel_broadcast": "Broadcast",
-	"panel_players_to_watch": "Players to watch"
+	"panel_players_to_watch": "Players to watch",
+	"panel_highlights_kicker": "Highlights",
+	"panel_highlights_pending": "Highlights aren't in yet. They'll appear here automatically.",
+	"panel_highlights_search": "Search highlights on {platform}",
+	"panel_highlights_play": "Play {title}"
 }

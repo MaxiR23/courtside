@@ -8,6 +8,7 @@
 // - Desktop row and full counts on a wide viewport; mobile row and numbers below it
 // - The staggered list entrance on first view and on a day change, not on the same day
 // - Only one game card is open at a time; clicking an open card closes it
+// - The playing highlight stops when its card closes, another opens or the day changes
 // - Spanish copy with a Spanish browser preference
 //
 // What is covered:
@@ -195,6 +196,19 @@ describe('Schedule', () => {
 						assists: 3
 					}
 				},
+				highlights: {
+					platform: 'Test platform',
+					searchUrl: '/search?q=x',
+					videos: [
+						{
+							id: 'v1',
+							title: `Clip ${id}`,
+							channel: 'Channel',
+							thumbnail: '/thumb.svg',
+							embedUrl: '/embed/1'
+						}
+					]
+				},
 				stats: {
 					away: { fieldGoalPct: 0.5, threePointPct: 0.4, rebounds: 40, assists: 20, turnovers: 10 },
 					home: {
@@ -241,6 +255,46 @@ describe('Schedule', () => {
 			await fireEvent.click(toggles(container)[0]);
 			await fireEvent.click(toggles(container)[0]);
 			expect(expanded(container)).toHaveLength(0);
+		});
+
+		const play = (container: HTMLElement) =>
+			fireEvent.click(container.querySelector('li button.thumb') as HTMLButtonElement);
+
+		it('plays a highlight in place when its thumbnail is clicked on the open card', async () => {
+			const { container } = render(Schedule, { props: detailedProps });
+			await fireEvent.click(toggles(container)[0]);
+			await play(container);
+			expect(container.querySelectorAll('iframe')).toHaveLength(1);
+			expect(container.querySelector('iframe')?.getAttribute('src')).toBe('/embed/1');
+		});
+
+		it('stops the playing highlight when its card is closed', async () => {
+			const { container } = render(Schedule, { props: detailedProps });
+			await fireEvent.click(toggles(container)[0]);
+			await play(container);
+			await fireEvent.click(toggles(container)[0]);
+			expect(container.querySelector('iframe')).toBeNull();
+			await fireEvent.click(toggles(container)[0]);
+			expect(container.querySelector('iframe')).toBeNull();
+			expect(container.querySelector('li button.thumb')).not.toBeNull();
+		});
+
+		it('stops the playing highlight when another card is opened', async () => {
+			const { container } = render(Schedule, { props: detailedProps });
+			await fireEvent.click(toggles(container)[0]);
+			await play(container);
+			await fireEvent.click(toggles(container)[1]);
+			expect(container.querySelector('iframe')).toBeNull();
+		});
+
+		it('stops the playing highlight when the day changes', async () => {
+			const { container } = render(Schedule, { props: detailedProps });
+			await fireEvent.click(toggles(container)[0]);
+			await play(container);
+			await fireEvent.click(cells(container)[4]);
+			await fireEvent.click(cells(container)[3]);
+			expect(toggles(container)[0].getAttribute('aria-expanded')).toBe('true');
+			expect(container.querySelector('iframe')).toBeNull();
 		});
 	});
 });
