@@ -74,8 +74,7 @@ export interface Leaders {
 }
 export interface Leader {
 	playerId: string;
-	firstName: string;
-	lastName: string;
+	displayName: string;
 	teamCode: string;
 	photoUrl: string;
 	points: number;
