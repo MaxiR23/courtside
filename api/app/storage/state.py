@@ -1,6 +1,6 @@
 # api/app/storage/state.py
 #
-# Job state in SQLite: final times, highlight attempts and per-job outcomes.
+# Job state in SQLite: final times, highlight attempts, team stars and per-job outcomes.
 # One connection per operation, so sync endpoints can use it from the threadpool.
 #
 # SEE: docs/adr/0007-backend-runtime-and-data-pipeline.md
@@ -11,7 +11,7 @@ import sqlite3
 from contextlib import closing
 from pathlib import Path
 
-from app.feeds.games import FeedModel, NonEmptyStr, UtcDatetime
+from app.feeds.games import FeedModel, NonEmptyStr, Star, UtcDatetime
 
 logger = logging.getLogger(__name__)
 
@@ -58,10 +58,31 @@ class StateStore:
                 "highlight_attempts INTEGER NOT NULL DEFAULT 0)"
             )
             connection.execute(
+                "CREATE TABLE IF NOT EXISTS stars ("
+                "team_code TEXT PRIMARY KEY, star TEXT NOT NULL)"
+            )
+            connection.execute(
                 "CREATE TABLE IF NOT EXISTS jobs ("
                 "name TEXT PRIMARY KEY, last_success TEXT, "
                 "last_failure TEXT, last_failure_reason TEXT)"
             )
+
+    def set_star(self, star: Star) -> None:
+        with self._connect() as connection, connection:
+            connection.execute(
+                "INSERT INTO stars (team_code, star) VALUES (?, ?) "
+                "ON CONFLICT(team_code) DO UPDATE SET star = excluded.star",
+                (star.team_code, star.model_dump_json()),
+            )
+
+    def delete_star(self, team_code: str) -> None:
+        with self._connect() as connection, connection:
+            connection.execute("DELETE FROM stars WHERE team_code = ?", (team_code,))
+
+    def stars(self) -> dict[str, Star]:
+        with self._connect() as connection:
+            rows = connection.execute("SELECT team_code, star FROM stars").fetchall()
+        return {code: Star.model_validate_json(text) for code, text in rows}
 
     def set_final_time(self, game_id: str, final_time: dt.datetime) -> None:
         text = _to_text(final_time)

@@ -43,7 +43,7 @@ _UNFINISHED = (GameStatus.SCHEDULED, GameStatus.LIVE, GameStatus.DELAYED)
 
 
 def no_stars(game: ScoreboardGame) -> Stars | None:
-    """Stand-in until issue 51 supplies the stars of each game."""
+    """Default when no stars provider is given: every game then lacks its stars."""
     return None
 
 

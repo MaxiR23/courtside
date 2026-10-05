@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.jobs.games import GamesJob
 from app.jobs.scheduler import Scheduler
+from app.jobs.stars import StarsJob
 from app.log import configure_logging
 from app.routers import feeds, health
 from app.settings import Settings, get_settings
@@ -23,7 +24,9 @@ def create_app(settings: Settings | None = None, *, run_jobs: bool = True) -> Fa
         store = StateStore(settings.data_dir)
         store.create_tables()
         client = create_client()
-        scheduler = Scheduler([GamesJob(settings, store, client)], store)
+        stars_job = StarsJob(settings, store, client)
+        games_job = GamesJob(settings, store, client, stars=stars_job.stars_of)
+        scheduler = Scheduler([stars_job, games_job], store)
         app.state.scheduler = scheduler
         try:
             if run_jobs:

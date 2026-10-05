@@ -8,7 +8,7 @@
 # - Does not allow an origin outside the configuration
 # - Refuses a preflight from an origin outside the configuration
 # - Allows no origin when none is configured
-# - Starts the scheduler with the app and stops it on shutdown
+# - Starts the scheduler with the app and stops it on shutdown, with the games and stars jobs each failing on its unconfigured source
 # - Does not start the scheduler when jobs are off
 #
 # What is covered:
@@ -94,9 +94,10 @@ def test_starts_the_scheduler_with_the_app_and_stops_it_on_shutdown(
 
     assert not app.state.scheduler.running
     states = StateStore(tmp_path).job_states()
-    assert [state.name for state in states] == ["games"]
-    reason = states[0].last_failure_reason
-    assert reason is not None and reason.startswith("scoreboard:")
+    assert [state.name for state in states] == ["games", "stars"]
+    games, stars = (state.last_failure_reason for state in states)
+    assert games is not None and games.startswith("scoreboard:")
+    assert stars is not None and stars.startswith("team_players:")
 
 
 def test_does_not_start_the_scheduler_when_jobs_are_off(tmp_path: Path) -> None:

@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     scoreboard_url: str | None = None
     game_detail_url: str | None = None
     player_photo_url: str | None = None
+    # Template with {team}, the provider's team code.
+    team_roster_url: str | None = None
+    # Template with {team}, the provider's team id from the roster, and {season}.
+    team_averages_url: str | None = None
     # US Eastern time of the daily schedule fetch.
     daily_fetch_time: dt.time = dt.time(6, 0)
     data_dir: Path = API_DIR / "data"

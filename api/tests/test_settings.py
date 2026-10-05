@@ -15,6 +15,10 @@
 # - Reads the game detail URL from an environment variable
 # - Leaves the player photo URL unset by default
 # - Reads the player photo URL from an environment variable
+# - Leaves the team roster URL unset by default
+# - Reads the team roster URL from an environment variable
+# - Leaves the team averages URL unset by default
+# - Reads the team averages URL from an environment variable
 # - Defaults the daily fetch time to six in the morning
 # - Reads the daily fetch time from an environment variable
 # - Rejects an invalid daily fetch time
@@ -27,7 +31,7 @@
 # - Reads the CORS origins as a JSON list
 #
 # What is covered:
-# - Happy path, value from the environment, value from a .env file, .env file location, invalid value, shared instance, optional scoreboard URL, optional game detail URL, optional player photo URL, daily fetch time (default, environment, invalid), input hidden from errors, data directory (default, environment, relative, empty), CORS origins (default, JSON list)
+# - Happy path, value from the environment, value from a .env file, .env file location, invalid value, shared instance, optional scoreboard URL, optional game detail URL, optional player photo URL, optional team roster URL, optional team averages URL, daily fetch time (default, environment, invalid), input hidden from errors, data directory (default, environment, relative, empty), CORS origins (default, JSON list)
 #
 # Run with: cd api && .venv/bin/python -m pytest tests/test_settings.py
 #
@@ -58,6 +62,8 @@ def clear_environment_variable(monkeypatch: pytest.MonkeyPatch) -> None:
             "scoreboard_url",
             "game_detail_url",
             "player_photo_url",
+            "team_roster_url",
+            "team_averages_url",
             "daily_fetch_time",
             "data_dir",
             "cors_origins",
@@ -161,6 +167,38 @@ def test_reads_the_player_photo_url_from_the_environment_variable(
     assert (
         SettingsWithoutEnvFile().player_photo_url
         == "https://example.com/players/{player_id}.png"
+    )
+
+
+def test_team_roster_url_is_unset_when_no_variable_is_set() -> None:
+    assert SettingsWithoutEnvFile().team_roster_url is None
+
+
+def test_reads_the_team_roster_url_from_the_environment_variable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("TEAM_ROSTER_URL", "https://example.com/teams/{team}/roster")
+
+    assert (
+        SettingsWithoutEnvFile().team_roster_url
+        == "https://example.com/teams/{team}/roster"
+    )
+
+
+def test_team_averages_url_is_unset_when_no_variable_is_set() -> None:
+    assert SettingsWithoutEnvFile().team_averages_url is None
+
+
+def test_reads_the_team_averages_url_from_the_environment_variable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        "TEAM_AVERAGES_URL", "https://example.com/{season}/teams/{team}/leaders"
+    )
+
+    assert (
+        SettingsWithoutEnvFile().team_averages_url
+        == "https://example.com/{season}/teams/{team}/leaders"
     )
 
 
