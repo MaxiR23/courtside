@@ -123,6 +123,18 @@ web/prettier.config.js     Prettier
 web/tsconfig.json          TypeScript, strict
 ```
 
+## Continuous integration
+
+- CI runs on every pull request to `main` and every push to `main`, with
+  one job per app, `api` and `web`, each running `scripts/gate.sh` for
+  its app. Those two jobs are the checks `scripts/merge.sh` requires.
+- Every action is pinned to a full commit SHA, and the workflow can only
+  read the repository contents.
+- Local git hooks in `.githooks/` run the fast gate (lint and format
+  check) before a commit and the full gate before a push, only for the
+  apps that changed.
+- Recorded in [`adr/0005-ci-and-git-hooks.md`](adr/0005-ci-and-git-hooks.md).
+
 ## Open decisions
 
 These are not decided. A change that depends on one of them stops and asks.

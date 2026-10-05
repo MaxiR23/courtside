@@ -118,6 +118,25 @@ Run the gate:
 scripts/gate.sh api
 ```
 
+### Continuous integration
+
+Every pull request to `main` and every push to `main` runs two jobs,
+`api` and `web`. Each one installs its app and runs `scripts/gate.sh`
+for it. Both must pass before a pull request merges.
+
+### Git hooks
+
+Enable the local hooks once per clone, from the repository root:
+
+```
+git config core.hooksPath .githooks
+```
+
+Before a commit, the hooks run the fast gate (lint and format check) for
+each app with staged changes (`scripts/gate.sh web fast`,
+`scripts/gate.sh api fast`). Before a push, they run the full gate for
+each app changed in the pushed commits.
+
 ## Status
 
 In development.

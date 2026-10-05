@@ -16,9 +16,9 @@
 
 set -euo pipefail
 
-# Names of the CI check runs that must succeed before merging, one per element.
-# PENDING: the names are set when the CI workflow is added. While the list is empty, nothing merges.
-readonly -a REQUIRED_STATUS=()
+# Names of the CI check runs that must succeed before merging, one per element:
+# the jobs of .github/workflows/ci.yml.
+readonly -a REQUIRED_STATUS=(api web)
 readonly BASE="main"
 readonly REPO_API="repos/{owner}/{repo}"
 readonly CHECKS_INTERVAL=15  # seconds between polls
