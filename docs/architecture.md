@@ -107,6 +107,7 @@ api/app/main.py            FastAPI app, includes the routers
 api/app/settings.py        Settings class and get_settings()
 api/app/routers/           One APIRouter per module
 api/app/feeds/             One module per feed model, plus schema.py, which exports the schemas
+api/app/sources/           One module per data source adapter, plus http.py (shared client and SourceError) and teams.py (team codes)
 api/schemas/               Exported JSON Schemas, generated
 api/tests/                 Tests, mirroring app/
 api/pyproject.toml         Tool configuration only (ruff, mypy, pytest)

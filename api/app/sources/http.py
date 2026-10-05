@@ -1,0 +1,43 @@
+# api/app/sources/http.py
+#
+# Shared HTTP client for the source adapters, and the single error they raise.
+# The error reason never carries the request URL: it comes from configuration.
+#
+# SEE: docs/architecture.md (Source adapters), docs/adr/0007-backend-runtime-and-data-pipeline.md
+
+import json
+
+import httpx
+
+TIMEOUT = httpx.Timeout(10.0, connect=5.0)
+
+
+class SourceError(Exception):
+    """A data source failed or sent data the adapter cannot map."""
+
+    def __init__(self, source: str, reason: str) -> None:
+        super().__init__(f"{source}: {reason}")
+        self.source = source
+        self.reason = reason
+
+
+def create_client() -> httpx.AsyncClient:
+    """Return a client with fixed timeouts. The caller owns its lifetime."""
+    return httpx.AsyncClient(timeout=TIMEOUT)
+
+
+async def get_json(client: httpx.AsyncClient, url: str, *, source: str) -> object:
+    """GET a URL and return its decoded JSON body, or raise SourceError."""
+    try:
+        response = await client.get(url)
+    except httpx.TimeoutException:
+        raise SourceError(source, "request timed out") from None
+    except httpx.TransportError:
+        raise SourceError(source, "request failed") from None
+    if not response.is_success:
+        raise SourceError(source, f"responded with status {response.status_code}")
+    try:
+        body: object = response.json()
+    except json.JSONDecodeError:
+        raise SourceError(source, "response is not JSON") from None
+    return body

@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=ENV_FILE, env_file_encoding="utf-8")
 
     environment: Literal["development", "production"] = "development"
+    scoreboard_url: str | None = None
 
 
 @lru_cache

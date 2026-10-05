@@ -1,0 +1,382 @@
+{
+  "events": [
+    {
+      "id": "401898388",
+      "date": "2026-10-05T23:00Z",
+      "status": {
+        "period": 0,
+        "displayClock": "0.0",
+        "type": {
+          "name": "STATUS_SCHEDULED"
+        }
+      },
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "State Farm Arena"
+          },
+          "broadcast": "",
+          "competitors": [
+            {
+              "homeAway": "home",
+              "score": "0",
+              "team": {
+                "abbreviation": "ATL",
+                "name": "Hawks",
+                "location": "Atlanta"
+              }
+            },
+            {
+              "homeAway": "away",
+              "score": "0",
+              "team": {
+                "abbreviation": "MEM",
+                "name": "Grizzlies",
+                "location": "Memphis"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "401908947",
+      "date": "2026-10-05T23:00Z",
+      "status": {
+        "period": 0,
+        "displayClock": "0.0",
+        "type": {
+          "name": "STATUS_SCHEDULED"
+        }
+      },
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "Little Caesars Arena"
+          },
+          "broadcast": "",
+          "competitors": [
+            {
+              "homeAway": "home",
+              "score": "0",
+              "team": {
+                "abbreviation": "DET",
+                "name": "Pistons",
+                "location": "Detroit"
+              }
+            },
+            {
+              "homeAway": "away",
+              "score": "0",
+              "team": {
+                "abbreviation": "PHX",
+                "name": "Suns",
+                "location": "Phoenix"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "401811026",
+      "date": "2026-04-10T23:00Z",
+      "status": {
+        "period": 4,
+        "displayClock": "12:00",
+        "type": {
+          "name": "STATUS_FINAL"
+        }
+      },
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "Spectrum Center"
+          },
+          "broadcast": "",
+          "competitors": [
+            {
+              "homeAway": "home",
+              "score": "100",
+              "team": {
+                "abbreviation": "CHA",
+                "name": "Hornets",
+                "location": "Charlotte"
+              },
+              "linescores": [
+                {
+                  "period": 1,
+                  "value": 30.0
+                },
+                {
+                  "period": 2,
+                  "value": 35.0
+                },
+                {
+                  "period": 3,
+                  "value": 25.0
+                },
+                {
+                  "period": 4,
+                  "value": 10.0
+                }
+              ]
+            },
+            {
+              "homeAway": "away",
+              "score": "118",
+              "team": {
+                "abbreviation": "DET",
+                "name": "Pistons",
+                "location": "Detroit"
+              },
+              "linescores": [
+                {
+                  "period": 1,
+                  "value": 36.0
+                },
+                {
+                  "period": 2,
+                  "value": 32.0
+                },
+                {
+                  "period": 3,
+                  "value": 25.0
+                },
+                {
+                  "period": 4,
+                  "value": 25.0
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "401811029",
+      "date": "2026-04-10T23:30Z",
+      "status": {
+        "period": 4,
+        "displayClock": "12:00",
+        "type": {
+          "name": "STATUS_FINAL"
+        }
+      },
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "TD Garden"
+          },
+          "broadcast": "",
+          "competitors": [
+            {
+              "homeAway": "home",
+              "score": "144",
+              "team": {
+                "abbreviation": "BOS",
+                "name": "Celtics",
+                "location": "Boston"
+              },
+              "linescores": [
+                {
+                  "period": 1,
+                  "value": 44.0
+                },
+                {
+                  "period": 2,
+                  "value": 38.0
+                },
+                {
+                  "period": 3,
+                  "value": 34.0
+                },
+                {
+                  "period": 4,
+                  "value": 28.0
+                }
+              ]
+            },
+            {
+              "homeAway": "away",
+              "score": "118",
+              "team": {
+                "abbreviation": "NO",
+                "name": "Pelicans",
+                "location": "New Orleans"
+              },
+              "linescores": [
+                {
+                  "period": 1,
+                  "value": 25.0
+                },
+                {
+                  "period": 2,
+                  "value": 26.0
+                },
+                {
+                  "period": 3,
+                  "value": 31.0
+                },
+                {
+                  "period": 4,
+                  "value": 36.0
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "401811031",
+      "date": "2026-04-10T23:30Z",
+      "status": {
+        "period": 4,
+        "displayClock": "12:00",
+        "type": {
+          "name": "STATUS_FINAL"
+        }
+      },
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "Madison Square Garden"
+          },
+          "broadcast": "",
+          "competitors": [
+            {
+              "homeAway": "home",
+              "score": "112",
+              "team": {
+                "abbreviation": "NY",
+                "name": "Knicks",
+                "location": "New York"
+              },
+              "linescores": [
+                {
+                  "period": 1,
+                  "value": 22.0
+                },
+                {
+                  "period": 2,
+                  "value": 29.0
+                },
+                {
+                  "period": 3,
+                  "value": 28.0
+                },
+                {
+                  "period": 4,
+                  "value": 33.0
+                }
+              ]
+            },
+            {
+              "homeAway": "away",
+              "score": "95",
+              "team": {
+                "abbreviation": "TOR",
+                "name": "Raptors",
+                "location": "Toronto"
+              },
+              "linescores": [
+                {
+                  "period": 1,
+                  "value": 21.0
+                },
+                {
+                  "period": 2,
+                  "value": 15.0
+                },
+                {
+                  "period": 3,
+                  "value": 28.0
+                },
+                {
+                  "period": 4,
+                  "value": 31.0
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "401811028",
+      "date": "2026-04-10T23:00Z",
+      "status": {
+        "period": 4,
+        "displayClock": "12:00",
+        "type": {
+          "name": "STATUS_FINAL"
+        }
+      },
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "State Farm Arena"
+          },
+          "broadcast": "Prime Video",
+          "competitors": [
+            {
+              "homeAway": "home",
+              "score": "124",
+              "team": {
+                "abbreviation": "ATL",
+                "name": "Hawks",
+                "location": "Atlanta"
+              },
+              "linescores": [
+                {
+                  "period": 1,
+                  "value": 27.0
+                },
+                {
+                  "period": 2,
+                  "value": 34.0
+                },
+                {
+                  "period": 3,
+                  "value": 35.0
+                },
+                {
+                  "period": 4,
+                  "value": 28.0
+                }
+              ]
+            },
+            {
+              "homeAway": "away",
+              "score": "102",
+              "team": {
+                "abbreviation": "CLE",
+                "name": "Cavaliers",
+                "location": "Cleveland"
+              },
+              "linescores": [
+                {
+                  "period": 1,
+                  "value": 22.0
+                },
+                {
+                  "period": 2,
+                  "value": 26.0
+                },
+                {
+                  "period": 3,
+                  "value": 17.0
+                },
+                {
+                  "period": 4,
+                  "value": 37.0
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
