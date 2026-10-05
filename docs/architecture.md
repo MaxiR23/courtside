@@ -56,6 +56,11 @@ data sources  ->  source adapters  ->  jobs  ->  feeds (JSON)  ->  front end
 - The Pydantic models in the backend are the single source of truth for every feed.
 - A JSON Schema is exported from those models, and the front end's TypeScript types are generated from that schema.
 - Generated types are never edited by hand. A contract change starts in the models and is regenerated.
+- The exported schema of each feed is committed at `api/schemas/<feed>.schema.json`.
+- The generated types are committed at `web/src/lib/contract/<feed>.ts`.
+- `scripts/contract.sh` regenerates both.
+- Both gates fail when a committed schema or types file is out of date.
+- Recorded in [`adr/0008-contract-generation.md`](adr/0008-contract-generation.md).
 
 ## Front end
 
@@ -101,6 +106,8 @@ Structure of `/api`:
 api/app/main.py            FastAPI app, includes the routers
 api/app/settings.py        Settings class and get_settings()
 api/app/routers/           One APIRouter per module
+api/app/feeds/             One module per feed model, plus schema.py, which exports the schemas
+api/schemas/               Exported JSON Schemas, generated
 api/tests/                 Tests, mirroring app/
 api/pyproject.toml         Tool configuration only (ruff, mypy, pytest)
 api/requirements.txt       Runtime dependencies, pinned
@@ -113,6 +120,8 @@ Structure of `/web`:
 ```
 web/src/routes/            Routes; +layout.ts prerenders everything
 web/src/lib/               Shared code, imported as #lib
+web/src/lib/contract/      Generated feed types, never edited
+web/scripts/               Contract type generation
 web/src/app.html           HTML shell
 web/static/                Static assets
 web/tests/                 Tests, mirroring src/

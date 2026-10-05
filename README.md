@@ -118,6 +118,17 @@ Run the gate:
 scripts/gate.sh api
 ```
 
+### Feed contract
+
+Regenerating the contract requires the setup of both apps above. From the
+repository root:
+
+```
+scripts/contract.sh
+```
+
+The gate fails while the committed schema or types are out of date.
+
 ### Continuous integration
 
 Every pull request to `main` and every push to `main` runs two jobs,
