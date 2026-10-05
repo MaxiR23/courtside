@@ -14,12 +14,16 @@
 	import type { HeroPlayer } from '#lib/hero/types.ts';
 	import type {
 		GameDetails,
+		GameHighlights,
 		Leader,
 		PanelPlayer,
 		ScheduleDay,
 		ScheduleGame
 	} from '#lib/schedule/types.ts';
 	import awayPhoto from './player-away.svg';
+	import highlight1 from './highlight-1.svg';
+	import highlight2 from './highlight-2.svg';
+	import highlightPlayer from './highlight-player.svg';
 	import homePhoto from './player-home.svg';
 
 	const away: HeroPlayer = {
@@ -74,10 +78,32 @@
 		rebounds,
 		assists
 	});
+	const sampleHighlights: GameHighlights = {
+		platform: 'Video platform',
+		searchUrl: resolve('/preview'),
+		videos: [
+			{
+				id: 'v1',
+				title: 'Nuggets at Suns: full game highlights',
+				channel: 'Placeholder channel',
+				thumbnail: highlight1,
+				embedUrl: highlightPlayer
+			},
+			{
+				id: 'v2',
+				title: 'Every three from the fourth quarter',
+				channel: 'Placeholder channel',
+				thumbnail: highlight2,
+				embedUrl: highlightPlayer
+			}
+		]
+	};
+	const pendingHighlights: GameHighlights = { ...sampleHighlights, videos: [] };
 	const played = (
 		periods: { away: number[]; home: number[] },
 		awayTeamCode: string,
-		homeTeamCode: string
+		homeTeamCode: string,
+		highlights?: GameHighlights
 	): GameDetails => ({
 		kind: 'played',
 		periods,
@@ -88,7 +114,8 @@
 		stats: {
 			away: { fieldGoalPct: 0.478, threePointPct: 0.391, rebounds: 44, assists: 27, turnovers: 9 },
 			home: { fieldGoalPct: 0.452, threePointPct: 0.417, rebounds: 41, assists: 27, turnovers: 14 }
-		}
+		},
+		...(highlights ? { highlights } : {})
 	});
 	const sampleGames: ScheduleGame[] = [
 		{
@@ -114,7 +141,12 @@
 			away: nuggets,
 			home: suns,
 			status: { state: 'final', awayScore: 112, homeScore: 104 },
-			details: played({ away: [30, 28, 26, 28], home: [24, 27, 25, 28] }, 'DEN', 'PHX')
+			details: played(
+				{ away: [30, 28, 26, 28], home: [24, 27, 25, 28] },
+				'DEN',
+				'PHX',
+				sampleHighlights
+			)
 		}
 	];
 	const overtimeGame: ScheduleGame = {
@@ -124,11 +156,24 @@
 		status: { state: 'final', awayScore: 132, homeScore: 130 },
 		details: played({ away: [28, 25, 30, 27, 12, 10], home: [30, 26, 24, 30, 12, 8] }, 'BOS', 'NYK')
 	};
+	const pendingGame: ScheduleGame = {
+		id: 'pending',
+		away: nuggets,
+		home: suns,
+		status: { state: 'final', awayScore: 112, homeScore: 104 },
+		details: played(
+			{ away: [30, 28, 26, 28], home: [24, 27, 25, 28] },
+			'DEN',
+			'PHX',
+			pendingHighlights
+		)
+	};
 	const expandedGames = [
 		{ title: 'GameCard: expanded scheduled', game: sampleGames[0] },
 		{ title: 'GameCard: expanded live', game: sampleGames[1] },
 		{ title: 'GameCard: expanded final', game: sampleGames[2] },
-		{ title: 'GameCard: expanded overtime', game: overtimeGame }
+		{ title: 'GameCard: expanded overtime', game: overtimeGame },
+		{ title: 'GameCard: expanded final, highlights pending', game: pendingGame }
 	];
 	const sampleDays: ScheduleDay[] = [
 		{ date: new Date(2026, 9, 1), games: [sampleGames[2]] },
@@ -142,6 +187,7 @@
 	const stripDays = sampleDays.map((d) => ({ date: d.date, gameCount: d.games.length }));
 	let desktopSelected = $state(3);
 	let compactSelected = $state(3);
+	let previewPlaying = $state<string | null>(null);
 </script>
 
 <main>
@@ -244,7 +290,13 @@
 	{#each expandedGames as expanded (expanded.title)}
 		<section>
 			<h2>{expanded.title}</h2>
-			<GameCard game={expanded.game} layout="desktop" open />
+			<GameCard
+				game={expanded.game}
+				layout="desktop"
+				open
+				playingVideoId={previewPlaying}
+				onPlay={(id) => (previewPlaying = id)}
+			/>
 		</section>
 	{/each}
 

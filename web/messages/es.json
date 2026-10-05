@@ -38,5 +38,9 @@
 	"panel_tip_off": "Inicio",
 	"panel_venue": "Estadio",
 	"panel_broadcast": "Transmisión",
-	"panel_players_to_watch": "Jugadores a seguir"
+	"panel_players_to_watch": "Jugadores a seguir",
+	"panel_highlights_kicker": "Resúmenes",
+	"panel_highlights_pending": "Los resúmenes todavía no están. Aparecerán aquí automáticamente.",
+	"panel_highlights_search": "Buscar resúmenes en {platform}",
+	"panel_highlights_play": "Reproducir {title}"
 }

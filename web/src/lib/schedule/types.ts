@@ -23,6 +23,20 @@ export type TeamStatLine = {
 	turnovers: number;
 };
 
+export type HighlightVideo = {
+	id: string; // unique within its game
+	title: string;
+	channel: string;
+	thumbnail: string; // image URL, provided with each highlight
+	embedUrl: string; // embedded player URL, already set to autoplay by the props layer
+};
+
+export type GameHighlights = {
+	platform: string; // the video platform's name, shown next to the kicker
+	searchUrl: string; // where the pending state's link searches for the highlights
+	videos: HighlightVideo[]; // empty until the highlights are in
+};
+
 export type GameDetails =
 	| { kind: 'scheduled'; venue: string; playersToWatch: { away: PanelPlayer; home: PanelPlayer } }
 	| {
@@ -30,6 +44,7 @@ export type GameDetails =
 			periods: { away: number[]; home: number[] }; // points per period played so far, overtime included
 			leaders: { away: Leader; home: Leader };
 			stats: { away: TeamStatLine; home: TeamStatLine };
+			highlights?: GameHighlights; // shown on final games only
 	  };
 
 export type ScheduleGame = {

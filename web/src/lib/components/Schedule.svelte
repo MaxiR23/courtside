@@ -29,6 +29,7 @@
 	const strip = $derived(days.map((d) => ({ date: d.date, gameCount: d.games.length })));
 	let list: HTMLElement | undefined = $state();
 	let openId = $state<string | null>(null);
+	let playingId = $state<string | null>(null);
 
 	$effect(() => {
 		if (list) return entrance.observe(list);
@@ -36,10 +37,12 @@
 
 	function toggle(id: string) {
 		openId = openId === id ? null : id;
+		playingId = null;
 	}
 
 	function select(i: number) {
 		if (i === selected) return;
+		playingId = null;
 		selected = i;
 		entrance.replay();
 	}
@@ -71,6 +74,8 @@
 							layout={wide.current ? 'desktop' : 'mobile'}
 							open={openId === game.id}
 							onToggle={() => toggle(game.id)}
+							playingVideoId={openId === game.id ? playingId : null}
+							onPlay={(videoId) => (playingId = videoId)}
 						/>
 					</li>
 				{/each}
