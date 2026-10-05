@@ -3,7 +3,7 @@
 # REQUIRES: bash 4 or newer and GNU tools, as in the cloud session.
 #
 #   short   every changed file is a .md, and none is CLAUDE.md,
-#           CODING_STANDARDS.md, docs/architecture.md or docs/workflow.md,
+#           docs/architecture.md or docs/workflow.md,
 #           or lives under .claude/ or .github/
 #   full    anything else, including a change with no files
 #
@@ -34,7 +34,7 @@ while IFS= read -r file; do
   count=$((count + 1))
   case "$file" in
     CLAUDE.md | .claude/* | .github/*) reason="is loop configuration" ;;
-    CODING_STANDARDS.md | docs/architecture.md | docs/workflow.md) reason="is a rules document" ;;
+    docs/architecture.md | docs/workflow.md) reason="is a rules document" ;;
     *.md) continue ;;
     *) reason="is not a .md file" ;;
   esac

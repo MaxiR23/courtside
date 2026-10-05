@@ -24,7 +24,6 @@ decisions in force and the open ones.
 - A change that depends on an item under "Open decisions" in
   `docs/architecture.md` stops: the item goes in the issue as a BLOCKING
   question until the decision is recorded.
-- Follow `CODING_STANDARDS.md`.
 - Svelte 5 runes only in `/web`. Syntax from earlier Svelte versions is
   not used.
 - The Pydantic models in `/api` are the single source of truth for every

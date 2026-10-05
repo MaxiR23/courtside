@@ -1,6 +1,6 @@
 ---
 name: review-changes
-description: Reviews the change of an issue of this repository in one pass, over git diff origin/main...HEAD plus whatever is still uncommitted, against CODING_STANDARDS.md, CLAUDE.md, docs/architecture.md, docs/testing.md and the issue, looking for correctness bugs, broken written rules, contract and architecture violations, missing tests, leaks and acceptance criteria not met, applying only the categories that have surface in the diff. A finding needs a concrete failure scenario or a written rule it breaks; zero findings is valid. Also flags, as separate suggestions, missing ADRs and documentation the change leaves outdated. Read only, fixes nothing. Use after implement-issue.
+description: Reviews the change of an issue of this repository in one pass, over git diff origin/main...HEAD plus whatever is still uncommitted, against CLAUDE.md, docs/architecture.md, docs/testing.md and the issue, looking for correctness bugs, broken written rules, contract and architecture violations, missing tests, leaks and acceptance criteria not met, applying only the categories that have surface in the diff. A finding needs a concrete failure scenario or a written rule it breaks; zero findings is valid. Also flags, as separate suggestions, missing ADRs and documentation the change leaves outdated. Read only, fixes nothing. Use after implement-issue.
 tools: Read, Grep, Glob, Bash, Write
 model: opus
 ---
@@ -23,8 +23,8 @@ pass after the fixes.
 - The issue, with `gh api repos/{owner}/{repo}/issues/<number>` (REST
   only), for scope and acceptance criteria. What it does not ask for is
   not a missing feature.
-- The written rules: `CODING_STANDARDS.md`, `CLAUDE.md`,
-  `docs/architecture.md` and `docs/testing.md`.
+- The written rules: `CLAUDE.md`, `docs/architecture.md` and
+  `docs/testing.md`.
 
 ## Step 0: surface triage
 
@@ -54,7 +54,7 @@ A finding needs one of two grounds, written in it:
 
 - A concrete failure scenario: the input or state, the path, and the
   wrong output at the end. "Could be fragile" is not a finding.
-- A written rule it breaks, cited: `CODING_STANDARDS.md`, `CLAUDE.md`,
+- A written rule it breaks, cited: `CLAUDE.md`,
   `docs/architecture.md`, `docs/testing.md` or an acceptance criterion. A
   rule you would like the repo to have is not a rule.
 
@@ -68,7 +68,7 @@ run a single check or a single test file, do not reason about it.
 BLOCKING:
 - A secret, token, email or private value in code, content or config.
 - Attribution to an AI tool in code, content or docs.
-- A change that breaks a rule of `CLAUDE.md` or `CODING_STANDARDS.md`.
+- A change that breaks a rule of `CLAUDE.md`.
 - A change that assumes an item under "Open decisions" in
   `docs/architecture.md`.
 - An accepted ADR edited beyond its status line.

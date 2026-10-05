@@ -53,8 +53,8 @@ you are stuck, and then say in the hand-back what you read and why.
 - Touch only the files the plan or the fix list names. If you need an
   unplanned file, say so before touching it.
 - No opportunistic refactors, renames or "while I'm here" fixes.
-- Follow `CODING_STANDARDS.md` and the conventions that already exist in
-  the files you touch.
+- Follow `CLAUDE.md` and the conventions that already exist in the files
+  you touch.
 
 ## Rules of the change
 
@@ -86,7 +86,7 @@ mode, hand back to the owner with the output.
   `scripts/ship.sh` handles that, per `CLAUDE.md`.
 - Do NOT start a dev server or open a browser. What can only be judged
   by eye goes under "What is left to check by eye".
-- Do NOT modify `CLAUDE.md`, `CODING_STANDARDS.md`, `.claude/`,
+- Do NOT modify `CLAUDE.md`, `.claude/`,
   `.github/`, `scripts/`, any dependency manifest or an accepted ADR in
   `docs/adr/` unless the issue's scope names the file. An accepted ADR
   only ever gets its status line changed.

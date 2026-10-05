@@ -66,8 +66,8 @@ included.
   (see "Short path").
 - Short: goes straight to `ship`.
 - Full: `review-changes` once, over the diff against `origin/main` plus
-  what is uncommitted, checked against `CODING_STANDARDS.md` and the
-  issue. Then `verify-findings`, only if the review reports BLOCKING or
+  what is uncommitted, checked against `CLAUDE.md`,
+  `docs/architecture.md`, `docs/testing.md` and the issue. Then `verify-findings`, only if the review reports BLOCKING or
   IMPORTANT findings.
 - `implement-issue` in fix mode fixes what `verify-findings` confirmed, in
   one cycle. There is no second review: open minors are listed in the PR
@@ -136,7 +136,7 @@ issue bodies, and re-adds it when the body is edited through `gh` or
 ## Short path
 
 `scripts/loop-path.sh` prints `short` only when every changed file is a
-`.md` and none is `CLAUDE.md`, `CODING_STANDARDS.md`,
+`.md` and none is `CLAUDE.md`,
 `docs/architecture.md`, `docs/workflow.md`, or under `.claude/` or
 `.github/`. Anything else is `full`. There is no partial path: the script
 decides, not judgment.
