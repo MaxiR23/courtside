@@ -70,6 +70,8 @@ the plan is implemented, from the repository root:
     scripts/gate.sh api
 
 `scripts/gate.sh` is the only place the gate commands are written.
-`scripts/ship.sh` and CI call it and never repeat its commands. Both
-subcommands are pending until `/web` and `/api` are scaffolded: until
-then each one reports that its gate is pending and exits successfully.
+`scripts/ship.sh` and CI call it and never repeat its commands.
+`scripts/gate.sh api` is in force: it runs ruff check, ruff format check,
+mypy strict and pytest. `scripts/gate.sh web` is pending until `/web` is
+scaffolded: until then it reports that its gate is pending and exits
+successfully.
