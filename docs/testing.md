@@ -8,7 +8,7 @@ listed in `README.md` once that app is scaffolded.
 | App | Runner | Notes |
 |---|---|---|
 | `/web` | Vitest | Components are tested with `@testing-library/svelte` |
-| `/api` | pytest | The HTTP mocking tool is chosen with the HTTP client when the first source adapter is built |
+| `/api` | pytest | HTTP calls are mocked with respx (httpx client) |
 
 ## File location
 
@@ -77,7 +77,7 @@ All network calls are mocked. Tests never reach a real data source or a
 real service, not even a sandbox.
 
 - `/web`: feed requests are mocked with Vitest's `vi.fn()` and `vi.mock()`.
-- `/api`: HTTP calls are mocked at the HTTP client level.
+- `/api`: HTTP calls are mocked at the HTTP client level with respx.
 
 In both apps, mocks are configured so an unmatched call fails instead of
 passing through. Otherwise a test can silently reach a real service.
