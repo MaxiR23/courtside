@@ -21,6 +21,8 @@
 # - A run stops starting teams once its ten second budget is spent and leaves the rest due for the next tick
 # - A team that fails is retried five minutes after the moment it failed, not after the start of the run
 # - With a roster fetch that takes the full timeout and always fails, the games job still runs every tick within the budget plus one team, for hours, and on the restart run too
+# - A run cut short by its budget records no success, and the run that stores the last team records it
+# - Records no success while a failed team waits for its retry, and records it once the team is stored
 # - A successful run records success; a run with nothing due makes no request and records nothing
 #
 # What is covered:
@@ -487,6 +489,54 @@ async def test_a_run_stops_starting_teams_once_its_budget_is_spent(
     assert len(sources.roster_calls) == 4
     await job.run(clock.now)
     assert len(sources.roster_calls) == 8
+
+
+@pytest.mark.anyio
+async def test_a_run_cut_short_by_its_budget_records_no_success(
+    settings: Settings, store: StateStore
+) -> None:
+    clock = Clock(NOON)
+    sources = SlowSources(clock, 3, fails=False)
+    job = make_slow_job(settings, store, sources, clock)
+
+    await job.run(NOON)
+    assert store.job_states() == []
+
+    last = clock.now
+    for _ in range(len(CODES)):
+        if len(store.stars()) >= len(set(CODES)):
+            break
+        assert store.job_states() == []
+        last = clock.now
+        await job.run(last)
+
+    assert len(store.stars()) == len(set(CODES))
+    state = store.job_states()[0]
+    assert state.last_success == last
+    assert state.last_failure is None
+
+
+@pytest.mark.anyio
+async def test_records_no_success_while_a_failed_team_waits_for_its_retry(
+    settings: Settings, store: StateStore
+) -> None:
+    clock = Clock(NOON)
+    sources = SlowSources(clock, 1, fails=False)
+    sources.roster_errors[CODES[0]] = SourceError("team_players", "request failed")
+    job = make_slow_job(settings, store, sources, clock)
+
+    for _ in range(5):
+        await job.run(clock.now)
+
+    assert len(store.stars()) == len(set(CODES)) - 1
+    state = store.job_states()[0]
+    assert state.last_success is None
+    assert state.last_failure_reason == "team_players: request failed"
+
+    del sources.roster_errors[CODES[0]]
+    later = NOON + RETRY + dt.timedelta(minutes=1)
+    await job.run(later)
+    assert store.job_states()[0].last_success == later
 
 
 @pytest.mark.anyio

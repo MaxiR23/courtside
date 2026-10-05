@@ -16,6 +16,7 @@
 # - The builder puts each game's highlights from the provider in the feed, and none without a provider
 # - Lists only the final games of the days held, in day order
 # - Republishes the feed with no source call when a final game's highlights change, and not when they are unchanged
+# - Republishes the feed with no source call when a game's stars change, publishes as soon as the last missing star arrives, and does not republish when stars are unchanged
 # - A successful run publishes a valid feed and records success
 # - A failing final game detail never blocks live details: the last live detail is published, and a final game with no detail is retried every 5 minutes at most
 # - A failed scoreboard fetch, live detail fetch or invalid feed keeps the last valid feed and records the reason
@@ -193,6 +194,7 @@ def make_job(
     *,
     with_inputs: bool = True,
     highlights: Any = None,
+    stars: Any = None,
 ) -> GamesJob:
     extra: dict[str, Any] = {}
     if with_inputs:
@@ -202,6 +204,8 @@ def make_job(
         }
     if highlights is not None:
         extra["highlights"] = highlights
+    if stars is not None:
+        extra["stars"] = stars
     return GamesJob(
         settings,
         store,
@@ -620,6 +624,77 @@ async def test_does_not_republish_when_nothing_is_due_and_highlights_are_unchang
     sources.games[TODAY] = [game("1", GameStatus.FINAL)]
     found = {"1": [HIGHLIGHT]}
     job = make_job(settings, store, sources, highlights=lambda g: found[g.id])
+    await job.run(NOON)
+    published = read_feed(settings.data_dir, "games")
+    states = store.job_states()
+
+    await job.run(NOON + dt.timedelta(minutes=5))
+
+    assert read_feed(settings.data_dir, "games") == published
+    assert store.job_states() == states
+
+
+@pytest.mark.anyio
+async def test_republishes_with_no_source_call_when_a_games_stars_change(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    sources.games[TODAY] = [game("1", GameStatus.FINAL)]
+    current = {"stars": STARS}
+    job = make_job(settings, store, sources, stars=lambda _: current["stars"])
+    await job.run(NOON)
+    sources.game_calls.clear()
+    sources.detail_calls.clear()
+    other = Stars(
+        away=star("BOS").model_copy(update={"player_id": "other"}), home=star("NYK")
+    )
+    current["stars"] = other
+    later = NOON + dt.timedelta(minutes=5)
+
+    await job.run(later)
+
+    assert sources.game_calls == []
+    assert sources.detail_calls == []
+    published = read_feed(settings.data_dir, "games")
+    assert published is not None
+    feed = GamesFeed.model_validate_json(published)
+    assert feed.days[3].games[0].stars == other
+    assert store.job_states()[0].last_success == later
+
+
+@pytest.mark.anyio
+async def test_publishes_the_feed_as_soon_as_the_last_missing_star_arrives(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    sources.games[TODAY] = [game("1", GameStatus.FINAL)]
+    current: dict[str, Stars | None] = {"stars": None}
+    job = make_job(settings, store, sources, stars=lambda _: current["stars"])
+    await job.run(NOON)
+    assert read_feed(settings.data_dir, "games") is None
+    reason = store.job_states()[0].last_failure_reason
+    assert reason is not None
+    assert reason.startswith("invalid feed:")
+    sources.game_calls.clear()
+    sources.detail_calls.clear()
+    current["stars"] = STARS
+    later = NOON + dt.timedelta(seconds=30)
+
+    await job.run(later)
+
+    assert sources.game_calls == []
+    assert sources.detail_calls == []
+    published = read_feed(settings.data_dir, "games")
+    assert published is not None
+    feed = GamesFeed.model_validate_json(published)
+    assert feed.days[3].games[0].stars == STARS
+    assert store.job_states()[0].last_success == later
+
+
+@pytest.mark.anyio
+async def test_does_not_republish_when_nothing_is_due_and_stars_are_unchanged(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    sources.games[TODAY] = [game("1", GameStatus.FINAL)]
+    job = make_job(settings, store, sources, stars=lambda _: STARS)
     await job.run(NOON)
     published = read_feed(settings.data_dir, "games")
     states = store.job_states()

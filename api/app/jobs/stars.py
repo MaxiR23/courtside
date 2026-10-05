@@ -140,7 +140,9 @@ class StarsJob:
                 self._failed_at.pop(code, None)
         if failure is not None:
             self._store.record_failure(JOB, now, failure)
-        else:
+        # A run that leaves teams pending (cut by the budget, or a team waiting for
+        # its retry) records no success: health must not report the stars as done.
+        elif not self._pending:
             self._store.record_success(JOB, now)
 
     def stars_of(self, game: ScoreboardGame) -> Stars | None:

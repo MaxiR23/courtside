@@ -1,13 +1,17 @@
 import datetime as dt
+import string
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal, Self
 
-from pydantic import field_validator, model_validator
+from pydantic import ValidationInfo, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 API_DIR = Path(__file__).resolve().parent.parent
 ENV_FILE = API_DIR / ".env"
+
+# Placeholder each URL template must contain.
+PLACEHOLDERS = {"scoreboard_url": "date", "game_detail_url": "game_id"}
 
 
 class Settings(BaseSettings):
@@ -18,6 +22,7 @@ class Settings(BaseSettings):
     environment: Literal["development", "production"] = "development"
     # Template with {date}, the US Eastern date as YYYYMMDD.
     scoreboard_url: str | None = None
+    # Template with {game_id}, the provider's game id.
     game_detail_url: str | None = None
     player_photo_url: str | None = None
     # Template with {team}, the provider's team code.
@@ -41,6 +46,20 @@ class Settings(BaseSettings):
     def _reject_empty_data_dir(cls, value: Any) -> Any:
         if isinstance(value, str) and not value.strip():
             raise ValueError("must not be empty")
+        return value
+
+    @field_validator("scoreboard_url", "game_detail_url")
+    @classmethod
+    def _require_placeholder(
+        cls, value: str | None, info: ValidationInfo
+    ) -> str | None:
+        # An empty value, as listed in .env.example, counts as unset here.
+        if not value:
+            return value
+        placeholder = PLACEHOLDERS.get(info.field_name or "", "")
+        fields = {name for _, name, _, _ in string.Formatter().parse(value)}
+        if placeholder not in fields:
+            raise ValueError(f"must contain the {{{placeholder}}} placeholder")
         return value
 
     @model_validator(mode="after")
