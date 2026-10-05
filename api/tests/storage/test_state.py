@@ -24,6 +24,11 @@
 # - Stores a game's highlight and replaces it on the next store
 # - Reports no highlights when none is stored
 # - Keeps highlights across store instances over the same data directory
+# - Stores the game date on the first write of each writer and keeps it on later writes
+# - Reports no game date for an unknown game
+# - Prunes the final time, first-seen flag and stats attempts of games before the cutoff, and keeps the cutoff day
+# - Pruning never deletes highlights, highlight attempts or the game date, and does nothing on an empty table
+# - Setting a star twice, and recording a job success or failure twice, leaves one row
 #
 # What is covered:
 # - Happy path, edge cases (unknown game, repeat table creation, restart, no jobs, no stars), error case (naive time)
@@ -34,16 +39,19 @@
 
 import datetime as dt
 import logging
+import sqlite3
+from contextlib import closing
 from pathlib import Path
 
 import pytest
 from pydantic import HttpUrl
 
 from app.feeds.games import Highlight, Star
-from app.storage.state import NO_REASON, StateStore
+from app.storage.state import NO_REASON, STATE_FILE, StateStore
 
 NOON = dt.datetime(2026, 1, 10, 12, 0, tzinfo=dt.UTC)
 LATER = dt.datetime(2026, 1, 10, 13, 0, tzinfo=dt.UTC)
+DAY = dt.date(2026, 1, 9)
 
 
 def make_star(code: str, player_id: str) -> Star:
@@ -75,7 +83,7 @@ def test_stores_a_final_time_in_utc(tmp_path: Path) -> None:
     store = make_store(tmp_path)
     plus_two = dt.timezone(dt.timedelta(hours=2))
 
-    store.set_final_time("g1", dt.datetime(2026, 1, 10, 14, 0, tzinfo=plus_two))
+    store.set_final_time("g1", DAY, dt.datetime(2026, 1, 10, 14, 0, tzinfo=plus_two))
 
     assert store.final_time("g1") == NOON
     assert store.final_time("g1") is not None
@@ -96,8 +104,8 @@ def test_reports_no_final_time_and_no_attempts_for_an_unknown_game(
 def test_keeps_the_first_final_time_and_never_overwrites_it(tmp_path: Path) -> None:
     store = make_store(tmp_path)
 
-    store.set_final_time("g1", NOON)
-    store.set_final_time("g1", LATER)
+    store.set_final_time("g1", DAY, NOON)
+    store.set_final_time("g1", DAY, LATER)
 
     assert store.final_time("g1") == NOON
 
@@ -105,9 +113,9 @@ def test_keeps_the_first_final_time_and_never_overwrites_it(tmp_path: Path) -> N
 def test_stores_whether_the_final_time_was_first_seen(tmp_path: Path) -> None:
     store = make_store(tmp_path)
 
-    store.set_final_time("g1", NOON)
-    store.set_final_time("g2", NOON, first_seen=True)
-    store.set_final_time("g2", LATER, first_seen=False)
+    store.set_final_time("g1", DAY, NOON)
+    store.set_final_time("g2", DAY, NOON, first_seen=True)
+    store.set_final_time("g2", DAY, LATER, first_seen=False)
 
     assert store.first_seen_final("g1") is False
     assert store.first_seen_final("g2") is True
@@ -115,9 +123,9 @@ def test_stores_whether_the_final_time_was_first_seen(tmp_path: Path) -> None:
 
 def test_stores_a_final_time_on_a_game_row_that_has_none(tmp_path: Path) -> None:
     store = make_store(tmp_path)
-    store.record_highlight_attempt("g1")
+    store.record_highlight_attempt("g1", DAY)
 
-    store.set_final_time("g1", NOON, first_seen=True)
+    store.set_final_time("g1", DAY, NOON, first_seen=True)
 
     assert store.final_time("g1") == NOON
     assert store.first_seen_final("g1") is True
@@ -126,18 +134,18 @@ def test_stores_a_final_time_on_a_game_row_that_has_none(tmp_path: Path) -> None
 def test_counts_failed_stats_attempts_per_game(tmp_path: Path) -> None:
     store = make_store(tmp_path)
 
-    assert store.record_failed_stats_attempt("g1") == 1
-    assert store.record_failed_stats_attempt("g1") == 2
-    assert store.record_failed_stats_attempt("g2") == 1
+    assert store.record_failed_stats_attempt("g1", DAY) == 1
+    assert store.record_failed_stats_attempt("g1", DAY) == 2
+    assert store.record_failed_stats_attempt("g2", DAY) == 1
     assert store.failed_stats_attempts("g1") == 2
 
 
 def test_counts_highlight_attempts_per_game(tmp_path: Path) -> None:
     store = make_store(tmp_path)
 
-    assert store.record_highlight_attempt("g1") == 1
-    assert store.record_highlight_attempt("g1") == 2
-    assert store.record_highlight_attempt("g2") == 1
+    assert store.record_highlight_attempt("g1", DAY) == 1
+    assert store.record_highlight_attempt("g1", DAY) == 2
+    assert store.record_highlight_attempt("g2", DAY) == 1
     assert store.highlight_attempts("g1") == 2
 
 
@@ -176,7 +184,7 @@ def test_rejects_a_naive_time(tmp_path: Path) -> None:
     naive = NOON.replace(tzinfo=None)
 
     with pytest.raises(ValueError):
-        store.set_final_time("g1", naive)
+        store.set_final_time("g1", DAY, naive)
     with pytest.raises(ValueError):
         store.record_success("games", naive)
     with pytest.raises(ValueError):
@@ -187,9 +195,9 @@ def test_keeps_state_across_store_instances_over_the_same_directory(
     tmp_path: Path,
 ) -> None:
     first = make_store(tmp_path)
-    first.set_final_time("g1", NOON, first_seen=True)
-    first.record_highlight_attempt("g1")
-    first.record_failed_stats_attempt("g1")
+    first.set_final_time("g1", DAY, NOON, first_seen=True)
+    first.record_highlight_attempt("g1", DAY)
+    first.record_failed_stats_attempt("g1", DAY)
     first.record_failure("games", LATER, "source down")
 
     second = make_store(tmp_path)
@@ -198,6 +206,7 @@ def test_keeps_state_across_store_instances_over_the_same_directory(
     assert second.highlight_attempts("g1") == 1
     assert second.failed_stats_attempts("g1") == 1
     assert second.first_seen_final("g1") is True
+    assert second.game_date("g1") == DAY
     assert second.job_states()[0].last_failure_reason == "source down"
 
 
@@ -303,3 +312,118 @@ def test_keeps_highlights_across_store_instances_over_the_same_directory(
     make_store(tmp_path).set_highlight("g1", make_highlight("one"))
 
     assert make_store(tmp_path).highlights() == {"g1": make_highlight("one")}
+
+
+def test_stores_the_game_date_on_the_first_write_of_each_writer(
+    tmp_path: Path,
+) -> None:
+    store = make_store(tmp_path)
+
+    store.set_final_time("a", dt.date(2026, 1, 1), NOON)
+    store.record_highlight_attempt("b", dt.date(2026, 1, 2))
+    store.record_failed_stats_attempt("c", dt.date(2026, 1, 3))
+
+    assert store.game_date("a") == dt.date(2026, 1, 1)
+    assert store.game_date("b") == dt.date(2026, 1, 2)
+    assert store.game_date("c") == dt.date(2026, 1, 3)
+
+
+def test_keeps_the_game_date_of_the_first_write(tmp_path: Path) -> None:
+    store = make_store(tmp_path)
+    other = dt.date(2026, 2, 2)
+    store.set_final_time("a", DAY, NOON)
+    store.record_highlight_attempt("b", DAY)
+    store.record_failed_stats_attempt("c", DAY)
+
+    store.set_final_time("a", other, LATER)
+    store.record_highlight_attempt("a", other)
+    store.record_highlight_attempt("b", other)
+    store.record_failed_stats_attempt("b", other)
+    store.record_failed_stats_attempt("c", other)
+    store.set_final_time("c", other, LATER)
+
+    assert [store.game_date(g) for g in "abc"] == [DAY, DAY, DAY]
+
+
+def test_reports_no_game_date_for_an_unknown_game(tmp_path: Path) -> None:
+    assert make_store(tmp_path).game_date("nope") is None
+
+
+def test_prunes_the_final_time_and_stats_attempts_of_games_before_the_cutoff(
+    tmp_path: Path,
+) -> None:
+    store = make_store(tmp_path)
+    cutoff = dt.date(2026, 1, 10)
+    for game_id, day in [("old", dt.date(2026, 1, 9)), ("edge", cutoff)]:
+        store.set_final_time(game_id, day, NOON, first_seen=True)
+        store.record_failed_stats_attempt(game_id, day)
+
+    store.prune_final_times(cutoff)
+
+    assert store.final_time("old") is None
+    assert store.first_seen_final("old") is False
+    assert store.failed_stats_attempts("old") == 0
+    assert store.final_time("edge") == NOON
+    assert store.first_seen_final("edge") is True
+    assert store.failed_stats_attempts("edge") == 1
+
+
+def test_pruning_never_deletes_highlights_or_highlight_attempts(
+    tmp_path: Path,
+) -> None:
+    store = make_store(tmp_path)
+    highlight = Highlight(
+        title="Full game",
+        channel="Channel",
+        thumbnail_url=HttpUrl("https://example.com/t.jpg"),
+        embed_url=HttpUrl("https://example.com/e"),
+    )
+    store.set_final_time("old", DAY, NOON)
+    store.record_highlight_attempt("old", DAY)
+    store.record_highlight_attempt("old", DAY)
+    store.set_highlight("old", highlight)
+
+    store.prune_final_times(dt.date(2026, 3, 1))
+
+    assert store.highlight_attempts("old") == 2
+    assert store.highlights() == {"old": highlight}
+    assert store.game_date("old") == DAY
+
+
+def test_pruning_with_no_games_does_nothing(tmp_path: Path) -> None:
+    store = make_store(tmp_path)
+
+    store.prune_final_times(dt.date(2026, 3, 1))
+
+    assert store.game_date("any") is None
+
+
+def test_setting_a_team_star_twice_leaves_one_row(tmp_path: Path) -> None:
+    store = make_store(tmp_path)
+    store.set_star(make_star("BOS", "p1"))
+    store.set_star(make_star("BOS", "p2"))
+
+    with closing(sqlite3.connect(tmp_path / STATE_FILE)) as connection:
+        row = connection.execute(
+            "SELECT COUNT(*) FROM stars WHERE team_code = 'BOS'"
+        ).fetchone()
+
+    assert row[0] == 1
+
+
+def test_recording_a_job_success_twice_leaves_one_row(tmp_path: Path) -> None:
+    store = make_store(tmp_path)
+
+    store.record_success("games", NOON)
+    store.record_success("games", LATER)
+
+    assert len(store.job_states()) == 1
+
+
+def test_recording_a_job_failure_twice_leaves_one_row(tmp_path: Path) -> None:
+    store = make_store(tmp_path)
+
+    store.record_failure("games", NOON, "x")
+    store.record_failure("games", LATER, "y")
+
+    assert len(store.job_states()) == 1

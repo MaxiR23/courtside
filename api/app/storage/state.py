@@ -1,9 +1,9 @@
 # api/app/storage/state.py
 #
-# Job state in SQLite: final times and whether they were first seen, highlight attempts, failed stats attempts, matched highlights, team stars and per-job outcomes.
+# Job state in SQLite: game dates, final times and whether they were first seen, highlight attempts, failed stats attempts, matched highlights, team stars and per-job outcomes.
 # One connection per operation, so sync endpoints can use it from the threadpool.
 #
-# SEE: docs/adr/0007-backend-runtime-and-data-pipeline.md
+# SEE: docs/adr/0007-backend-runtime-and-data-pipeline.md, docs/adr/0011-state-retention.md
 
 import datetime as dt
 import logging
@@ -54,7 +54,7 @@ class StateStore:
         with self._connect() as connection, connection:
             connection.execute(
                 "CREATE TABLE IF NOT EXISTS games ("
-                "game_id TEXT PRIMARY KEY, final_time TEXT, "
+                "game_id TEXT PRIMARY KEY, game_date TEXT NOT NULL, final_time TEXT, "
                 "highlight_attempts INTEGER NOT NULL DEFAULT 0, "
                 "first_seen_final INTEGER NOT NULL DEFAULT 0, "
                 "failed_stats_attempts INTEGER NOT NULL DEFAULT 0)"
@@ -106,17 +106,39 @@ class StateStore:
         return {gid: Highlight.model_validate_json(text) for gid, text in rows}
 
     def set_final_time(
-        self, game_id: str, final_time: dt.datetime, *, first_seen: bool = False
+        self,
+        game_id: str,
+        game_date: dt.date,
+        final_time: dt.datetime,
+        *,
+        first_seen: bool = False,
     ) -> None:
         text = _to_text(final_time)
         with self._connect() as connection, connection:
             connection.execute(
-                "INSERT INTO games (game_id, final_time, first_seen_final) "
-                "VALUES (?, ?, ?) ON CONFLICT(game_id) DO UPDATE SET "
+                "INSERT INTO games (game_id, game_date, final_time, first_seen_final) "
+                "VALUES (?, ?, ?, ?) ON CONFLICT(game_id) DO UPDATE SET "
                 "final_time = excluded.final_time, "
                 "first_seen_final = excluded.first_seen_final "
                 "WHERE games.final_time IS NULL",
-                (game_id, text, int(first_seen)),
+                (game_id, game_date.isoformat(), text, int(first_seen)),
+            )
+
+    def game_date(self, game_id: str) -> dt.date | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT game_date FROM games WHERE game_id = ?", (game_id,)
+            ).fetchone()
+        return dt.date.fromisoformat(row[0]) if row else None
+
+    def prune_final_times(self, before: dt.date) -> None:
+        """Deletes the final time, first-seen flag and failed stats attempts
+        of every game dated before `before`; highlights are kept."""
+        with self._connect() as connection, connection:
+            connection.execute(
+                "UPDATE games SET final_time = NULL, first_seen_final = 0, "
+                "failed_stats_attempts = 0 WHERE game_date < ?",
+                (before.isoformat(),),
             )
 
     def first_seen_final(self, game_id: str) -> bool:
@@ -133,13 +155,14 @@ class StateStore:
             ).fetchone()
         return _from_text(row[0]) if row else None
 
-    def record_highlight_attempt(self, game_id: str) -> int:
+    def record_highlight_attempt(self, game_id: str, game_date: dt.date) -> int:
         with self._connect() as connection, connection:
             connection.execute(
-                "INSERT INTO games (game_id, highlight_attempts) VALUES (?, 1) "
+                "INSERT INTO games (game_id, game_date, highlight_attempts) "
+                "VALUES (?, ?, 1) "
                 "ON CONFLICT(game_id) DO UPDATE SET "
                 "highlight_attempts = highlight_attempts + 1",
-                (game_id,),
+                (game_id, game_date.isoformat()),
             )
         return self.highlight_attempts(game_id)
 
@@ -150,13 +173,14 @@ class StateStore:
             ).fetchone()
         return int(row[0]) if row else 0
 
-    def record_failed_stats_attempt(self, game_id: str) -> int:
+    def record_failed_stats_attempt(self, game_id: str, game_date: dt.date) -> int:
         with self._connect() as connection, connection:
             connection.execute(
-                "INSERT INTO games (game_id, failed_stats_attempts) VALUES (?, 1) "
+                "INSERT INTO games (game_id, game_date, failed_stats_attempts) "
+                "VALUES (?, ?, 1) "
                 "ON CONFLICT(game_id) DO UPDATE SET "
                 "failed_stats_attempts = failed_stats_attempts + 1",
-                (game_id,),
+                (game_id, game_date.isoformat()),
             )
         return self.failed_stats_attempts(game_id)
 

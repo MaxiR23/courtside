@@ -89,7 +89,10 @@ class HighlightsJob:
         due = [game for game in self._final_games() if self._due(game, now)]
         if not due:
             return
-        numbers = {g.id: self._store.record_highlight_attempt(g.id) for g in due}
+        numbers = {
+            g.id: self._store.record_highlight_attempt(g.id, eastern_date(g.start_time))
+            for g in due
+        }
         try:
             videos = await self._fetch_videos(self._client, self._settings)
         except SourceError as error:

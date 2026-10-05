@@ -18,6 +18,7 @@
 # - Fetches the channel feed once per run for several due games
 # - Gives every game a search URL from the template, and none without it
 # - A run with no due game makes no request and records nothing
+# - An attempt keeps the game date of the row
 #
 # What is covered:
 # - Job: a successful run gives the games job its data, a failed run keeps the last valid state
@@ -51,6 +52,8 @@ from app.storage.state import StateStore
 # 21:00 US Eastern (EDT) on 2026-10-04.
 FINAL_TIME = dt.datetime(2026, 10, 5, 1, 0, tzinfo=dt.UTC)
 START = dt.datetime(2026, 10, 4, 23, 0, tzinfo=dt.UTC)
+# The US Eastern date of START.
+GAME_DATE = dt.date(2026, 10, 4)
 HOUR = dt.timedelta(hours=1)
 TITLE = "WARRIORS at CLIPPERS | FULL GAME HIGHLIGHTS | October 4, 2026"
 MATCH = ChannelVideo(video_id="vid1", title=TITLE, channel="Channel")
@@ -132,7 +135,7 @@ def make_job(
 async def test_makes_no_attempt_before_one_hour_after_the_final_time(
     tmp_path: Path, store: StateStore, videos: FakeVideos
 ) -> None:
-    store.set_final_time("g1", FINAL_TIME)
+    store.set_final_time("g1", GAME_DATE, FINAL_TIME)
     job = make_job(tmp_path, store, videos, [make_game()])
 
     await job.run(FINAL_TIME + HOUR - dt.timedelta(seconds=1))
@@ -146,7 +149,7 @@ async def test_makes_no_attempt_before_one_hour_after_the_final_time(
 async def test_attempts_at_one_two_and_three_hours_one_attempt_per_slot(
     tmp_path: Path, store: StateStore, videos: FakeVideos
 ) -> None:
-    store.set_final_time("g1", FINAL_TIME)
+    store.set_final_time("g1", GAME_DATE, FINAL_TIME)
     job = make_job(tmp_path, store, videos, [make_game()])
 
     for hours, expected in [(1, 1), (2, 2), (3, 3)]:
@@ -164,7 +167,7 @@ async def test_attempts_at_one_two_and_three_hours_one_attempt_per_slot(
 async def test_never_attempts_after_the_third_failed_attempt(
     tmp_path: Path, store: StateStore, videos: FakeVideos
 ) -> None:
-    store.set_final_time("g1", FINAL_TIME)
+    store.set_final_time("g1", GAME_DATE, FINAL_TIME)
     job = make_job(tmp_path, store, videos, [make_game()])
     for hours in (1, 2, 3):
         await job.run(FINAL_TIME + hours * HOUR)
@@ -181,7 +184,7 @@ async def test_never_attempts_after_the_third_failed_attempt(
 async def test_attempts_right_away_then_one_and_two_hours_later_for_a_game_first_seen_final(
     tmp_path: Path, store: StateStore, videos: FakeVideos
 ) -> None:
-    store.set_final_time("g1", FINAL_TIME, first_seen=True)
+    store.set_final_time("g1", GAME_DATE, FINAL_TIME, first_seen=True)
     job = make_job(tmp_path, store, videos, [make_game()])
 
     for hours, expected in [(0, 1), (1, 2), (2, 3)]:
@@ -200,7 +203,7 @@ async def test_attempts_right_away_then_one_and_two_hours_later_for_a_game_first
 async def test_never_attempts_after_the_third_failed_attempt_for_a_game_first_seen_final(
     tmp_path: Path, store: StateStore, videos: FakeVideos
 ) -> None:
-    store.set_final_time("g1", FINAL_TIME, first_seen=True)
+    store.set_final_time("g1", GAME_DATE, FINAL_TIME, first_seen=True)
     job = make_job(tmp_path, store, videos, [make_game()])
     for hours in (0, 1, 2):
         await job.run(FINAL_TIME + hours * HOUR)
@@ -227,7 +230,7 @@ async def test_makes_no_attempt_for_a_final_game_without_a_stored_final_time(
 async def test_on_a_match_stores_the_highlight_serves_it_and_stops_attempting(
     tmp_path: Path, store: StateStore, videos: FakeVideos
 ) -> None:
-    store.set_final_time("g1", FINAL_TIME)
+    store.set_final_time("g1", GAME_DATE, FINAL_TIME)
     videos.videos = [OTHER, MATCH]
     job = make_job(tmp_path, store, videos, [make_game()])
     now = FINAL_TIME + HOUR
@@ -250,7 +253,7 @@ async def test_on_a_match_stores_the_highlight_serves_it_and_stops_attempting(
 async def test_serves_no_highlights_for_an_unmatched_final_game(
     tmp_path: Path, store: StateStore, videos: FakeVideos
 ) -> None:
-    store.set_final_time("g1", FINAL_TIME)
+    store.set_final_time("g1", GAME_DATE, FINAL_TIME)
     videos.videos = [OTHER]
     job = make_job(tmp_path, store, videos, [make_game()])
 
@@ -264,7 +267,7 @@ async def test_serves_no_highlights_for_an_unmatched_final_game(
 async def test_loads_the_stored_highlights_on_start_before_any_fetch(
     tmp_path: Path, store: StateStore, videos: FakeVideos
 ) -> None:
-    store.set_final_time("g1", FINAL_TIME)
+    store.set_final_time("g1", GAME_DATE, FINAL_TIME)
     videos.videos = [MATCH]
     await make_job(tmp_path, store, videos, [make_game()]).run(FINAL_TIME + HOUR)
     videos.calls = 0
@@ -280,7 +283,7 @@ async def test_loads_the_stored_highlights_on_start_before_any_fetch(
 async def test_keeps_the_attempt_count_across_a_new_job_over_the_same_store(
     tmp_path: Path, store: StateStore, videos: FakeVideos
 ) -> None:
-    store.set_final_time("g1", FINAL_TIME)
+    store.set_final_time("g1", GAME_DATE, FINAL_TIME)
     await make_job(tmp_path, store, videos, [make_game()]).run(FINAL_TIME + HOUR)
 
     restarted = make_job(tmp_path, store, videos, [make_game()])
@@ -298,7 +301,7 @@ async def test_logs_every_failed_attempt_with_the_game_its_number_and_its_reason
     videos: FakeVideos,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    store.set_final_time("g1", FINAL_TIME)
+    store.set_final_time("g1", GAME_DATE, FINAL_TIME)
     videos.videos = [OTHER]
     job = make_job(tmp_path, store, videos, [make_game()])
 
@@ -318,8 +321,8 @@ async def test_logs_every_failed_attempt_with_the_game_its_number_and_its_reason
 async def test_a_failed_fetch_spends_the_attempt_and_keeps_the_stored_highlights(
     tmp_path: Path, store: StateStore, videos: FakeVideos
 ) -> None:
-    store.set_final_time("g1", FINAL_TIME)
-    store.set_final_time("g2", FINAL_TIME)
+    store.set_final_time("g1", GAME_DATE, FINAL_TIME)
+    store.set_final_time("g2", GAME_DATE, FINAL_TIME)
     videos.videos = [MATCH]
     job = make_job(tmp_path, store, videos, [make_game("g1")])
     await job.run(FINAL_TIME + HOUR)
@@ -347,7 +350,7 @@ async def test_a_failed_fetch_spends_the_attempt_and_keeps_the_stored_highlights
 async def test_a_missing_template_records_the_failure(
     tmp_path: Path, store: StateStore, videos: FakeVideos, missing: str, reason: str
 ) -> None:
-    store.set_final_time("g1", FINAL_TIME)
+    store.set_final_time("g1", GAME_DATE, FINAL_TIME)
     videos.videos = [MATCH]
     templates: dict[str, Any] = {
         "video_thumbnail_url": "https://example.com/t/{video_id}",
@@ -374,7 +377,7 @@ async def test_fetches_the_channel_feed_once_per_run_for_several_due_games(
     tmp_path: Path, store: StateStore, videos: FakeVideos
 ) -> None:
     for game_id in ("g1", "g2", "g3"):
-        store.set_final_time(game_id, FINAL_TIME)
+        store.set_final_time(game_id, GAME_DATE, FINAL_TIME)
     games = [make_game("g1"), make_game("g2"), make_game("g3")]
     job = make_job(tmp_path, store, videos, games)
 
@@ -410,3 +413,16 @@ def test_gives_no_search_url_without_the_template(
     )
 
     assert job.search_url_of(make_game()) is None
+
+
+@pytest.mark.anyio
+async def test_an_attempt_keeps_the_game_date_of_the_row(
+    tmp_path: Path, store: StateStore, videos: FakeVideos
+) -> None:
+    store.set_final_time("g1", GAME_DATE, FINAL_TIME)
+    job = make_job(tmp_path, store, videos, [make_game()])
+
+    await job.run(FINAL_TIME + HOUR)
+
+    assert store.game_date("g1") == GAME_DATE
+    assert store.highlight_attempts("g1") == 1
