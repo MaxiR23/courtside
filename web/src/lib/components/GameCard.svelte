@@ -146,14 +146,22 @@
 {#snippet panelBody()}
 	{@const status = game.status}
 	{@const details = game.details}
-	{#if details?.kind === 'played' && (status.state === 'live' || status.state === 'final')}
+	{#if (details?.kind === 'played' || details?.kind === 'final-without-stats') && (status.state === 'live' || status.state === 'final')}
 		<div class="panel-grid">
 			<LineScore
 				away={{ code: game.away.code, periods: details.periods.away, total: status.awayScore }}
 				home={{ code: game.home.code, periods: details.periods.home, total: status.homeScore }}
 			/>
-			<Leaders away={details.leaders.away} home={details.leaders.home} />
-			<TeamStats away={details.stats.away} home={details.stats.home} {open} />
+			{#if details.kind === 'played'}
+				<Leaders away={details.leaders.away} home={details.leaders.home} />
+				<TeamStats away={details.stats.away} home={details.stats.home} {open} />
+			{:else}
+				<p class="stats-notice">
+					{details.statsAvailability === 'pending'
+						? m.panel_stats_pending()
+						: m.panel_stats_unavailable()}
+				</p>
+			{/if}
 		</div>
 		{#if status.state === 'live'}
 			<p class="notice">{m.panel_live_highlights()}</p>
@@ -417,6 +425,12 @@
 
 	.notice {
 		margin: var(--game-list-gap) 0 0;
+		font-size: var(--body-size-small);
+		color: var(--color-muted);
+	}
+
+	.stats-notice {
+		margin: 0;
 		font-size: var(--body-size-small);
 		color: var(--color-muted);
 	}

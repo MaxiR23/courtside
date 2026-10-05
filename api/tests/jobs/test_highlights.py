@@ -6,6 +6,7 @@
 # - Makes no attempt, and no request, before one hour after the final time
 # - Attempts at 1, 2 and 3 hours after the final time, one attempt per slot, counting 1, 2, 3
 # - Never attempts after the third failed attempt
+# - For a game first seen final, attempts right away, 1 and 2 hours later, and never after the third
 # - Makes no attempt for a final game without a stored final time
 # - On a match stores the highlight, serves it, makes no further attempt and records success
 # - Serves no highlights for an unmatched final game
@@ -174,6 +175,40 @@ async def test_never_attempts_after_the_third_failed_attempt(
     assert videos.calls == 3
     assert store.highlight_attempts("g1") == 3
     assert job.highlights_of(make_game()) == []
+
+
+@pytest.mark.anyio
+async def test_attempts_right_away_then_one_and_two_hours_later_for_a_game_first_seen_final(
+    tmp_path: Path, store: StateStore, videos: FakeVideos
+) -> None:
+    store.set_final_time("g1", FINAL_TIME, first_seen=True)
+    job = make_job(tmp_path, store, videos, [make_game()])
+
+    for hours, expected in [(0, 1), (1, 2), (2, 3)]:
+        slot = FINAL_TIME + hours * HOUR
+        if hours:
+            await job.run(slot - dt.timedelta(minutes=1))
+            assert videos.calls == expected - 1
+        await job.run(slot)
+        assert videos.calls == expected
+        await job.run(slot + dt.timedelta(minutes=30))
+        assert videos.calls == expected
+        assert store.highlight_attempts("g1") == expected
+
+
+@pytest.mark.anyio
+async def test_never_attempts_after_the_third_failed_attempt_for_a_game_first_seen_final(
+    tmp_path: Path, store: StateStore, videos: FakeVideos
+) -> None:
+    store.set_final_time("g1", FINAL_TIME, first_seen=True)
+    job = make_job(tmp_path, store, videos, [make_game()])
+    for hours in (0, 1, 2):
+        await job.run(FINAL_TIME + hours * HOUR)
+
+    await job.run(FINAL_TIME + 3 * HOUR)
+    await job.run(FINAL_TIME + 24 * HOUR)
+
+    assert videos.calls == 3
 
 
 @pytest.mark.anyio

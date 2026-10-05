@@ -11,6 +11,8 @@
 # - Start checks every minute from the start time, also while delayed
 # - Live refresh every thirty seconds, with each live game's detail
 # - Final time and one more detail when a game becomes final, no more checks afterwards
+# - A game first seen final takes that moment as its final time; a stored final time is never overwritten
+# - Stats availability: available with a detail, pending without one, unavailable out of attempts, none before the final
 # - Postponed and canceled games are never checked
 # - A run with nothing due makes no request and records nothing
 # - The builder puts each game's highlights from the provider in the feed, and none without a provider
@@ -19,7 +21,8 @@
 # - Republishes the feed with no source call when a game's stars change, publishes as soon as the last missing star arrives, and does not republish when stars are unchanged
 # - The winner of each final game comes from its final score: home, away, none on a tie or before the final; a tied final game makes the feed invalid
 # - A successful run publishes a valid feed and records success
-# - A failing final game detail never blocks live details: the last live detail is published, and a final game with no detail is retried every 5 minutes at most
+# - A failing final game detail never blocks live details: the last live detail is published, and a final game with no detail is published as pending
+# - A failing final detail is fetched again only 2, 4 and 6 hours after the final time, then the game is unavailable; failed attempts survive a restart
 # - A failed scoreboard fetch, live detail fetch or invalid feed keeps the last valid feed and records the reason
 #
 # What is covered:
@@ -53,17 +56,20 @@ from app.feeds.games import (
     Score,
     Star,
     Stars,
+    StatsAvailability,
     Team,
     TeamStats,
 )
 from app.jobs.games import (
     JOB,
+    STATS_ATTEMPT_DELAYS,
     FeedBuildError,
     GamesJob,
     build_games_feed,
     days_shown,
     eastern_date,
     final_winner,
+    stats_availability,
 )
 from app.settings import Settings
 from app.sources.game_detail import GameDetail
@@ -371,6 +377,38 @@ def test_builder_sets_the_winner_of_each_final_game_and_none_otherwise() -> None
     assert [g.winner for g in feed.days[0].games] == [None, None, "NYK"]
 
 
+def test_stats_availability_is_available_with_a_detail_pending_without_one_and_unavailable_out_of_attempts() -> (
+    None
+):
+    final = game("1", GameStatus.FINAL)
+
+    assert stats_availability(final, True, False) is StatsAvailability.AVAILABLE
+    assert stats_availability(final, True, True) is StatsAvailability.AVAILABLE
+    assert stats_availability(final, False, False) is StatsAvailability.PENDING
+    assert stats_availability(final, False, True) is StatsAvailability.UNAVAILABLE
+
+
+def test_a_game_that_is_not_final_has_no_stats_availability() -> None:
+    assert stats_availability(game("1", GameStatus.LIVE), True, False) is None
+
+
+def test_builder_publishes_a_final_game_without_a_detail_as_pending_with_no_leaders_or_team_stats() -> (
+    None
+):
+    feed = build(game("1", GameStatus.FINAL))
+
+    published = feed.days[0].games[0]
+    assert published.stats_availability is StatsAvailability.PENDING
+    assert published.leaders is None
+    assert published.team_stats is None
+
+
+def test_builder_marks_a_final_game_out_of_attempts_as_unavailable() -> None:
+    feed = build(game("1", GameStatus.FINAL), out_of_stats_attempts={"1"})
+
+    assert feed.days[0].games[0].stats_availability is StatsAvailability.UNAVAILABLE
+
+
 def test_reports_the_reason_when_a_final_game_is_tied() -> None:
     with pytest.raises(FeedBuildError) as raised:
         build(
@@ -588,14 +626,182 @@ async def test_fetches_the_detail_once_for_a_final_game_without_one(
 
 
 @pytest.mark.anyio
-async def test_stores_no_final_time_for_a_game_already_final_when_first_seen(
+async def test_stores_the_first_time_a_game_is_seen_final_as_its_final_time(
     settings: Settings, store: StateStore, sources: FakeSources
 ) -> None:
     sources.games[TODAY] = [game("1", GameStatus.FINAL)]
 
     await make_job(settings, store, sources).run(NOON)
 
-    assert store.final_time("1") is None
+    assert store.final_time("1") == NOON
+    assert store.first_seen_final("1") is True
+
+
+@pytest.mark.anyio
+async def test_never_overwrites_a_stored_final_time(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    earlier = NOON - dt.timedelta(hours=1)
+    store.set_final_time("1", earlier, first_seen=True)
+    sources.games[TODAY] = [game("1", GameStatus.FINAL)]
+
+    await make_job(settings, store, sources).run(NOON)
+    assert store.final_time("1") == earlier
+
+    await make_job(settings, store, sources).run(NOON + dt.timedelta(hours=1))
+    assert store.final_time("1") == earlier
+
+
+@pytest.mark.anyio
+async def test_a_game_seen_going_final_has_a_final_time_that_was_not_first_seen(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    sources.games[TODAY] = [game("1", GameStatus.LIVE)]
+    job = make_job(settings, store, sources)
+    await job.run(NOON)
+    sources.games[TODAY] = [game("1", GameStatus.FINAL)]
+
+    await job.run(NOON + dt.timedelta(seconds=30))
+
+    assert store.first_seen_final("1") is False
+
+
+def published_game(settings: Settings, index: int = 0) -> Any:
+    published = read_feed(settings.data_dir, "games")
+    assert published is not None
+    return GamesFeed.model_validate_json(published).days[3].games[index]
+
+
+def hours(count: float) -> dt.timedelta:
+    return dt.timedelta(hours=count)
+
+
+@pytest.mark.anyio
+async def test_a_final_game_without_a_detail_is_published_as_pending(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    sources.games[TODAY] = [game("1", GameStatus.FINAL)]
+    sources.detail_errors["1"] = SourceError("game detail", "unexpected payload")
+
+    await make_job(settings, store, sources).run(NOON)
+
+    published = published_game(settings)
+    assert published.score is not None
+    assert published.stats_availability is StatsAvailability.PENDING
+    assert published.leaders is None
+    assert published.team_stats is None
+    assert store.job_states()[0].last_success == NOON
+    assert reason(store) == "game detail: unexpected payload"
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("slot", [2, 4, 6])
+async def test_fetches_a_failing_final_detail_again_only_at_two_four_and_six_hours(
+    settings: Settings, store: StateStore, sources: FakeSources, slot: int
+) -> None:
+    sources.games[TODAY] = [game("1", GameStatus.FINAL)]
+    sources.detail_errors["1"] = SourceError("game detail", "unexpected payload")
+    job = make_job(settings, store, sources)
+    for earlier in range(0, slot, 2):
+        await job.run(NOON + hours(earlier))
+    calls = len(sources.detail_calls)
+    assert calls == slot // 2
+
+    await job.run(NOON + hours(slot) - dt.timedelta(minutes=1))
+    assert len(sources.detail_calls) == calls
+    await job.run(NOON + hours(slot))
+    assert len(sources.detail_calls) == calls + 1
+    await job.run(NOON + hours(slot) + dt.timedelta(minutes=30))
+    assert len(sources.detail_calls) == calls + 1
+
+
+@pytest.mark.anyio
+async def test_after_the_six_hour_attempt_fails_the_game_is_unavailable_and_never_fetched_again(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    sources.games[TODAY] = [game("1", GameStatus.FINAL)]
+    sources.detail_errors["1"] = SourceError("game detail", "unexpected payload")
+    job = make_job(settings, store, sources)
+    for slot in (0, 2, 4, 6):
+        await job.run(NOON + hours(slot))
+
+    await job.run(NOON + hours(7))
+    await job.run(NOON + hours(12))
+
+    assert sources.detail_calls == ["1"] * 4
+    published = published_game(settings)
+    assert published.stats_availability is StatsAvailability.UNAVAILABLE
+    assert published.leaders is None
+    assert published.team_stats is None
+    assert store.failed_stats_attempts("1") == 4
+
+
+@pytest.mark.anyio
+async def test_a_successful_retry_publishes_the_game_as_available_with_its_stats(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    sources.games[TODAY] = [game("1", GameStatus.FINAL)]
+    sources.detail_errors["1"] = SourceError("game detail", "unexpected payload")
+    job = make_job(settings, store, sources)
+    await job.run(NOON)
+    sources.detail_errors.clear()
+
+    await job.run(NOON + hours(2))
+    await job.run(NOON + hours(4))
+
+    published = published_game(settings)
+    assert published.stats_availability is StatsAvailability.AVAILABLE
+    assert published.leaders == DETAIL.leaders
+    assert published.team_stats is not None
+    assert sources.detail_calls == ["1", "1"]
+
+
+@pytest.mark.anyio
+async def test_failed_stats_attempts_survive_a_restart(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    sources.games[TODAY] = [game("1", GameStatus.FINAL)]
+    sources.detail_errors["1"] = SourceError("game detail", "unexpected payload")
+    first = make_job(settings, store, sources)
+    await first.run(NOON)
+    await first.run(NOON + hours(2))
+    sources.detail_calls.clear()
+
+    second = make_job(settings, store, sources)
+    await second.run(NOON + hours(2) + dt.timedelta(minutes=1))
+    assert sources.detail_calls == []
+    await second.run(NOON + hours(4))
+
+    assert sources.detail_calls == ["1"]
+    assert store.final_time("1") == NOON
+    assert store.failed_stats_attempts("1") == 3
+
+
+@pytest.mark.anyio
+async def test_a_game_seen_going_final_whose_last_fetch_fails_is_fetched_again_at_two_hours(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    sources.games[TODAY] = [game("1", GameStatus.LIVE)]
+    job = make_job(settings, store, sources)
+    await job.run(NOON)
+    sources.games[TODAY] = [game("1", GameStatus.FINAL)]
+    sources.detail_errors["1"] = SourceError("game detail", "request timed out")
+    final = NOON + dt.timedelta(seconds=30)
+    await job.run(final)
+    sources.detail_calls.clear()
+
+    await job.run(final + hours(2) - dt.timedelta(minutes=1))
+    assert sources.detail_calls == []
+    await job.run(final + hours(2))
+
+    assert sources.detail_calls == ["1"]
+    assert published_game(settings).stats_availability is StatsAvailability.AVAILABLE
+
+
+def test_stats_attempts_are_at_the_final_time_and_two_four_and_six_hours_after() -> (
+    None
+):
+    assert STATS_ATTEMPT_DELAYS == (dt.timedelta(0), hours(2), hours(4), hours(6))
 
 
 # Group 7: nothing due
@@ -843,25 +1049,8 @@ async def test_a_failing_final_detail_never_blocks_the_live_detail_or_requests_e
 
     assert sources.detail_calls.count("live") == 5
     assert sources.detail_calls.count("old") == 1
-    failure = reason(store)
-    assert failure is not None and failure.startswith("invalid feed:")
-
-
-@pytest.mark.anyio
-async def test_a_final_game_with_no_detail_is_requested_once_every_five_minutes_and_records_the_reason(
-    settings: Settings, store: StateStore, sources: FakeSources
-) -> None:
-    final_with_live(sources)
-    job = make_job(settings, store, sources)
-    await job.run(NOON)
-
-    await job.run(NOON + dt.timedelta(minutes=4, seconds=30))
-    assert sources.detail_calls.count("old") == 1
-    await job.run(NOON + dt.timedelta(minutes=5))
-
-    assert sources.detail_calls.count("old") == 2
-    assert read_feed(settings.data_dir, "games") is None
-    assert store.job_states()[0].last_success is None
+    assert reason(store) == "game detail: unexpected payload"
+    assert read_feed(settings.data_dir, "games") is not None
 
 
 @pytest.mark.anyio
@@ -882,5 +1071,6 @@ async def test_a_game_that_turns_final_with_a_failing_last_fetch_is_published_wi
     feed = GamesFeed.model_validate_json(published)
     assert feed.generated_at == later
     assert feed.days[3].games[0].leaders == DETAIL.leaders
+    assert feed.days[3].games[0].stats_availability is StatsAvailability.AVAILABLE
     assert store.job_states()[0].last_success == later
     assert reason(store) == "game detail: request timed out"

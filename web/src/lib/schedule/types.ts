@@ -46,6 +46,12 @@ export type GameDetails =
 			leaders: { away: Leader; home: Leader };
 			stats: { away: TeamStatLine; home: TeamStatLine };
 			highlights?: GameHighlights; // shown on final games only
+	  }
+	| {
+			kind: 'final-without-stats'; // a final game whose top performers and team stats are not in
+			periods: { away: number[]; home: number[] };
+			statsAvailability: 'pending' | 'unavailable';
+			highlights?: GameHighlights;
 	  };
 
 export type ScheduleGame = {

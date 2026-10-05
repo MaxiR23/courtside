@@ -4,17 +4,28 @@
 # publishes the games feed. Stars, highlights and the highlights search URL
 # are inputs, supplied by other jobs.
 #
-# SEE: docs/adr/0007-backend-runtime-and-data-pipeline.md, docs/api/games.md
+# A final game's detail is fetched when it becomes final and, after a failure,
+# 2, 4 and 6 hours after its final time; the failed attempts are stored.
+#
+# SEE: docs/adr/0007-backend-runtime-and-data-pipeline.md, docs/api/games.md,
+# docs/adr/0010-final-game-attempts.md
 
 import datetime as dt
 from collections.abc import Awaitable, Callable, Mapping, Sequence
+from collections.abc import Set as AbstractSet
 from typing import Any
 from zoneinfo import ZoneInfo
 
 import httpx
 from pydantic import ValidationError
 
-from app.feeds.games import GamesFeed, GameStatus, Highlight, Stars
+from app.feeds.games import (
+    GamesFeed,
+    GameStatus,
+    Highlight,
+    Stars,
+    StatsAvailability,
+)
 from app.settings import Settings
 from app.sources import game_detail, scoreboard
 from app.sources.game_detail import GameDetail
@@ -29,7 +40,13 @@ EASTERN = ZoneInfo("America/New_York")
 DAYS_AROUND = 3
 LIVE_INTERVAL = dt.timedelta(seconds=30)
 START_CHECK_INTERVAL = dt.timedelta(minutes=1)
-FINAL_DETAIL_RETRY = dt.timedelta(minutes=5)
+STATS_ATTEMPT_DELAYS = (
+    dt.timedelta(0),
+    dt.timedelta(hours=2),
+    dt.timedelta(hours=4),
+    dt.timedelta(hours=6),
+)
+MAX_STATS_ATTEMPTS = len(STATS_ATTEMPT_DELAYS)
 
 StarsProvider = Callable[[ScoreboardGame], Stars | None]
 SearchUrlProvider = Callable[[ScoreboardGame], str | None]
@@ -75,6 +92,19 @@ def final_winner(game: ScoreboardGame) -> str | None:
     return None
 
 
+def stats_availability(
+    game: ScoreboardGame, has_detail: bool, out_of_attempts: bool
+) -> StatsAvailability | None:
+    """Whether a final game's stats are in the feed; None before the final."""
+    if game.status is not GameStatus.FINAL:
+        return None
+    if has_detail:
+        return StatsAvailability.AVAILABLE
+    if out_of_attempts:
+        return StatsAvailability.UNAVAILABLE
+    return StatsAvailability.PENDING
+
+
 def days_shown(today: dt.date) -> list[dt.date]:
     return [
         today + dt.timedelta(days=offset)
@@ -97,6 +127,7 @@ def build_games_feed(
     stars: StarsProvider,
     highlights_search_url: SearchUrlProvider,
     highlights: HighlightsProvider = no_highlights,
+    out_of_stats_attempts: AbstractSet[str] = frozenset(),
 ) -> GamesFeed:
     built_days: list[dict[str, Any]] = []
     for day, games in days:
@@ -108,6 +139,9 @@ def build_games_feed(
             data["highlights"] = highlights(game)
             data["winner"] = final_winner(game)
             detail = details.get(game.id)
+            data["stats_availability"] = stats_availability(
+                game, detail is not None, game.id in out_of_stats_attempts
+            )
             if detail is not None:
                 data["leaders"] = detail.leaders
                 data["team_stats"] = detail.team_stats
@@ -154,7 +188,6 @@ class GamesJob:
         self._details: dict[str, GameDetail] = {}
         self._daily_fetched_at: dt.datetime | None = None
         self._catch_up: set[str] = set()
-        self._final_attempts: dict[str, dt.datetime] = {}
 
     def final_games(self) -> list[ScoreboardGame]:
         return [
@@ -205,9 +238,12 @@ class GamesJob:
         games = await self._fetch_games(self._client, day, self._settings)
         previous = {g.id: g.status for g in self._games.get(day, [])}
         for game in games:
-            if previous.get(game.id) in _UNFINISHED and game.status is GameStatus.FINAL:
-                self._store.set_final_time(game.id, now)
-                self._catch_up.add(game.id)
+            before = previous.get(game.id)
+            if game.status is GameStatus.FINAL and before is not GameStatus.FINAL:
+                going_final = before in _UNFINISHED
+                self._store.set_final_time(game.id, now, first_seen=not going_final)
+                if going_final:
+                    self._catch_up.add(game.id)
         self._games[day] = games
         self._fetched_at[day] = now
 
@@ -216,8 +252,14 @@ class GamesJob:
             return False
         if game.id in self._details and game.id not in self._catch_up:
             return False
-        attempted = self._final_attempts.get(game.id)
-        return attempted is None or now - attempted >= FINAL_DETAIL_RETRY
+        final_time = self._store.final_time(game.id)
+        if final_time is None:
+            return False
+        failed = self._store.failed_stats_attempts(game.id)
+        return (
+            failed < MAX_STATS_ATTEMPTS
+            and now >= final_time + STATS_ATTEMPT_DELAYS[failed]
+        )
 
     async def run(self, now: dt.datetime) -> None:
         today = eastern_date(now)
@@ -237,9 +279,6 @@ class GamesJob:
                 kept = {g.id for games in self._games.values() for g in games}
                 self._details = {i: d for i, d in self._details.items() if i in kept}
                 self._catch_up &= kept
-                self._final_attempts = {
-                    i: t for i, t in self._final_attempts.items() if i in kept
-                }
                 self._daily_fetched_at = now
             for day in sorted(self._games):
                 for game in self._games[day]:
@@ -259,11 +298,10 @@ class GamesJob:
                             self._client, game.id, self._settings
                         )
                     except SourceError as error:
-                        self._final_attempts[game.id] = now
+                        self._store.record_failed_stats_attempt(game.id)
                         final_failure = str(error)
                     else:
                         self._catch_up.discard(game.id)
-                        self._final_attempts.pop(game.id, None)
             if final_failure is not None:
                 self._store.record_failure(JOB, now, final_failure)
         except SourceError as error:
@@ -275,6 +313,12 @@ class GamesJob:
             and self._current_stars() == self._published_stars
         ):
             return
+        out = {
+            g.id
+            for g in self.final_games()
+            if g.id not in self._details
+            and self._store.failed_stats_attempts(g.id) >= MAX_STATS_ATTEMPTS
+        }
         try:
             feed = build_games_feed(
                 now,
@@ -283,6 +327,7 @@ class GamesJob:
                 self._stars,
                 self._highlights_search_url,
                 highlights=self._highlights,
+                out_of_stats_attempts=out,
             )
         except FeedBuildError as error:
             self._store.record_failure(JOB, now, error.reason)

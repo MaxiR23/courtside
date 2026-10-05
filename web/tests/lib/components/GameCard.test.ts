@@ -9,6 +9,7 @@
 // - Spanish live badge with a Spanish browser preference
 // - A card without details stays a plain row; with details it toggles an inert panel
 // - The panel per state: live, final, overtime and scheduled, its motion and Spanish labels
+// - A final game without stats: the line score and highlights stay, one muted line replaces the leaders and team stats, in English and Spanish
 // - Highlights on final games only: videos, pending, play callback, player removed on close
 // - Delayed, postponed and canceled games: status line only, no score, no tip time, no toggle
 // - A scheduled game with no known network
@@ -105,6 +106,13 @@ const withHighlights = (game: ScheduleGame, videos: { id: string }[]): ScheduleG
 	} as GameDetails);
 const finalWithHighlights = withHighlights(final(112, 104, 'GSW'), [{ id: 'v1' }, { id: 'v2' }]);
 const finalPending = withHighlights(final(112, 104, 'GSW'), []);
+const withoutStats = (availability: 'pending' | 'unavailable'): ScheduleGame =>
+	withDetails(final(112, 104, 'GSW'), {
+		kind: 'final-without-stats',
+		periods: { away: [30, 28, 26, 28], home: [24, 27, 25, 28] },
+		statsAvailability: availability,
+		highlights: highlightsData([])
+	});
 const HIGHLIGHTS = 'Highlights will appear here after the final buzzer.';
 
 const dimmedText = (container: HTMLElement) =>
@@ -352,6 +360,54 @@ describe('GameCard', () => {
 		expect(screen.getByText('Clip v1')).toBeTruthy();
 		const grid = container.querySelector('.panel-grid');
 		expect(grid?.compareDocumentPosition(section as Node)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+	});
+
+	it('shows "Stats will be available soon." in place of the leaders and team stats on a final game with pending stats', () => {
+		const { container } = render(GameCard, {
+			props: { game: withoutStats('pending'), layout: 'desktop', open: true }
+		});
+		expect(screen.getByText('Stats will be available soon.')).toBeTruthy();
+		expect(screen.queryByText("Stats aren't available for this game.")).toBeNull();
+		expect(container.querySelector('.line-score')).not.toBeNull();
+		expect(container.querySelector('.leaders')).toBeNull();
+		expect(container.querySelector('.team-stats')).toBeNull();
+		expect(container.querySelector('.panel-highlights')).not.toBeNull();
+	});
+
+	it('shows "Stats aren\'t available for this game." on a final game with unavailable stats', () => {
+		const { container } = render(GameCard, {
+			props: { game: withoutStats('unavailable'), layout: 'desktop', open: true }
+		});
+		expect(screen.getByText("Stats aren't available for this game.")).toBeTruthy();
+		expect(screen.queryByText('Stats will be available soon.')).toBeNull();
+		expect(container.querySelector('.leaders')).toBeNull();
+	});
+
+	it('shows both stats messages in Spanish with a Spanish preference', () => {
+		preferLanguages(['es-ES']);
+		render(GameCard, { props: { game: withoutStats('pending'), layout: 'desktop', open: true } });
+		expect(screen.getByText('Las estadísticas estarán disponibles pronto.')).toBeTruthy();
+		render(GameCard, {
+			props: { game: withoutStats('unavailable'), layout: 'desktop', open: true }
+		});
+		expect(
+			screen.getByText('Las estadísticas no están disponibles para este partido.')
+		).toBeTruthy();
+	});
+
+	it('keeps the score and the toggle of a final game without stats', async () => {
+		const onToggle = vi.fn();
+		const { container } = render(GameCard, {
+			props: { game: withoutStats('pending'), layout: 'desktop', onToggle }
+		});
+		expect([...container.querySelectorAll('.score')].map((e) => e.textContent)).toEqual([
+			'112',
+			'104'
+		]);
+		const toggle = container.querySelector('button.toggle');
+		expect(toggle?.getAttribute('aria-expanded')).toBe('false');
+		await fireEvent.click(toggle as HTMLButtonElement);
+		expect(onToggle).toHaveBeenCalledTimes(1);
 	});
 
 	it('shows the pending highlights state on a final game whose highlights are not in yet', () => {
