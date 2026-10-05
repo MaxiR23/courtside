@@ -23,6 +23,13 @@ class Settings(BaseSettings):
     team_roster_url: str | None = None
     # Template with {team}, the provider's team id from the roster, and {season}.
     team_averages_url: str | None = None
+    video_channel_feed_url: str | None = None
+    # Template with {video_id}, the channel's video id.
+    video_thumbnail_url: str | None = None
+    # Template with {video_id}, the channel's video id.
+    video_embed_url: str | None = None
+    # Template with {query}, the search words, already URL-encoded.
+    highlights_search_url: str | None = None
     # US Eastern time of the daily schedule fetch.
     daily_fetch_time: dt.time = dt.time(6, 0)
     data_dir: Path = API_DIR / "data"

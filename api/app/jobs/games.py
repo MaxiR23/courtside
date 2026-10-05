@@ -1,8 +1,8 @@
 # api/app/jobs/games.py
 #
 # Games job: fetches the days shown on the cadences of ADR 0007 and
-# publishes the games feed. Stars and the highlights search URL are
-# inputs, supplied by later jobs.
+# publishes the games feed. Stars, highlights and the highlights search URL
+# are inputs, supplied by other jobs.
 #
 # SEE: docs/adr/0007-backend-runtime-and-data-pipeline.md, docs/api/games.md
 
@@ -14,7 +14,7 @@ from zoneinfo import ZoneInfo
 import httpx
 from pydantic import ValidationError
 
-from app.feeds.games import GamesFeed, GameStatus, Stars
+from app.feeds.games import GamesFeed, GameStatus, Highlight, Stars
 from app.settings import Settings
 from app.sources import game_detail, scoreboard
 from app.sources.game_detail import GameDetail
@@ -33,6 +33,7 @@ FINAL_DETAIL_RETRY = dt.timedelta(minutes=5)
 
 StarsProvider = Callable[[ScoreboardGame], Stars | None]
 SearchUrlProvider = Callable[[ScoreboardGame], str | None]
+HighlightsProvider = Callable[[ScoreboardGame], list[Highlight]]
 FetchGames = Callable[
     [httpx.AsyncClient, dt.date, Settings], Awaitable[list[ScoreboardGame]]
 ]
@@ -48,8 +49,13 @@ def no_stars(game: ScoreboardGame) -> Stars | None:
 
 
 def no_highlights_search_url(game: ScoreboardGame) -> str | None:
-    """Stand-in until issue 52 supplies the highlights search URL."""
+    """Default when no search URL provider is given: every final game then lacks it."""
     return None
+
+
+def no_highlights(game: ScoreboardGame) -> list[Highlight]:
+    """Default when no highlights provider is given."""
+    return []
 
 
 def eastern_date(now: dt.datetime) -> dt.date:
@@ -79,6 +85,7 @@ def build_games_feed(
     details: Mapping[str, GameDetail],
     stars: StarsProvider,
     highlights_search_url: SearchUrlProvider,
+    highlights: HighlightsProvider = no_highlights,
 ) -> GamesFeed:
     built_days: list[dict[str, Any]] = []
     for day, games in days:
@@ -87,6 +94,7 @@ def build_games_feed(
             data = game.model_dump(by_alias=False)
             data["stars"] = stars(game)
             data["highlights_search_url"] = highlights_search_url(game)
+            data["highlights"] = highlights(game)
             detail = details.get(game.id)
             if detail is not None:
                 data["leaders"] = detail.leaders
@@ -117,6 +125,7 @@ class GamesJob:
         fetch_game_detail: FetchGameDetail = game_detail.fetch_game_detail,
         stars: StarsProvider = no_stars,
         highlights_search_url: SearchUrlProvider = no_highlights_search_url,
+        highlights: HighlightsProvider = no_highlights,
     ) -> None:
         self._settings = settings
         self._store = store
@@ -125,12 +134,29 @@ class GamesJob:
         self._fetch_game_detail = fetch_game_detail
         self._stars = stars
         self._highlights_search_url = highlights_search_url
+        self._highlights = highlights
+        self._published_highlights: dict[str, list[Highlight]] = {}
         self._games: dict[dt.date, list[ScoreboardGame]] = {}
         self._fetched_at: dict[dt.date, dt.datetime] = {}
         self._details: dict[str, GameDetail] = {}
         self._daily_fetched_at: dt.datetime | None = None
         self._catch_up: set[str] = set()
         self._final_attempts: dict[str, dt.datetime] = {}
+
+    def final_games(self) -> list[ScoreboardGame]:
+        return [
+            game
+            for day in sorted(self._games)
+            for game in self._games[day]
+            if game.status is GameStatus.FINAL
+        ]
+
+    def _current_highlights(self) -> dict[str, list[Highlight]]:
+        return {
+            game.id: self._highlights(game)
+            for day in sorted(self._games)
+            for game in self._games[day]
+        }
 
     def _daily_due(self, now: dt.datetime, today: dt.date) -> bool:
         if self._daily_fetched_at is None:
@@ -223,7 +249,7 @@ class GamesJob:
         except SourceError as error:
             self._store.record_failure(JOB, now, str(error))
             return
-        if calls == 0:
+        if calls == 0 and self._current_highlights() == self._published_highlights:
             return
         try:
             feed = build_games_feed(
@@ -232,11 +258,13 @@ class GamesJob:
                 self._details,
                 self._stars,
                 self._highlights_search_url,
+                highlights=self._highlights,
             )
         except FeedBuildError as error:
             self._store.record_failure(JOB, now, error.reason)
             return
         if publish_feed(self._settings.data_dir, FEED, feed):
+            self._published_highlights = self._current_highlights()
             self._store.record_success(JOB, now)
         else:
             self._store.record_failure(JOB, now, "feed not written")

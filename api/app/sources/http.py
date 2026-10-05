@@ -26,8 +26,7 @@ def create_client() -> httpx.AsyncClient:
     return httpx.AsyncClient(timeout=TIMEOUT)
 
 
-async def get_json(client: httpx.AsyncClient, url: str, *, source: str) -> object:
-    """GET a URL and return its decoded JSON body, or raise SourceError."""
+async def _get(client: httpx.AsyncClient, url: str, *, source: str) -> httpx.Response:
     try:
         response = await client.get(url)
     except httpx.TimeoutException:
@@ -36,6 +35,18 @@ async def get_json(client: httpx.AsyncClient, url: str, *, source: str) -> objec
         raise SourceError(source, "request failed") from None
     if not response.is_success:
         raise SourceError(source, f"responded with status {response.status_code}")
+    return response
+
+
+async def get_text(client: httpx.AsyncClient, url: str, *, source: str) -> str:
+    """GET a URL and return its body as text, or raise SourceError."""
+    response = await _get(client, url, source=source)
+    return response.text
+
+
+async def get_json(client: httpx.AsyncClient, url: str, *, source: str) -> object:
+    """GET a URL and return its decoded JSON body, or raise SourceError."""
+    response = await _get(client, url, source=source)
     try:
         body: object = response.json()
     except json.JSONDecodeError:

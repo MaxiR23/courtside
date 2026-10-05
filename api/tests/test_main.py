@@ -8,7 +8,7 @@
 # - Does not allow an origin outside the configuration
 # - Refuses a preflight from an origin outside the configuration
 # - Allows no origin when none is configured
-# - Starts the scheduler with the app and stops it on shutdown, with the games and stars jobs each failing on its unconfigured source
+# - Starts the scheduler with the app and stops it on shutdown, with the games and stars jobs each failing on its unconfigured source and the highlights job recording nothing without due games
 # - Does not start the scheduler when jobs are off
 #
 # What is covered:
