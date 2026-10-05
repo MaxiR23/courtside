@@ -1,3 +1,4 @@
+import datetime as dt
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal, Self
@@ -18,6 +19,8 @@ class Settings(BaseSettings):
     scoreboard_url: str | None = None
     game_detail_url: str | None = None
     player_photo_url: str | None = None
+    # US Eastern time of the daily schedule fetch.
+    daily_fetch_time: dt.time = dt.time(6, 0)
     data_dir: Path = API_DIR / "data"
     cors_origins: list[str] = []
 
