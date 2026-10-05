@@ -1,16 +1,18 @@
 <script lang="ts">
+	import { m } from '#lib/paraglide/messages.js';
+
 	type Props = { status: 'tonight' | 'live' | 'final' };
 
 	let { status }: Props = $props();
 
-	const labels: Record<Props['status'], string> = {
-		tonight: 'Tonight',
-		live: 'Live now',
-		final: 'Final'
+	const labels: Record<Props['status'], () => string> = {
+		tonight: m.status_tonight,
+		live: m.status_live,
+		final: m.status_final
 	};
 </script>
 
-<span class="status-tag">{labels[status]}</span>
+<span class="status-tag">{labels[status]()}</span>
 
 <style>
 	.status-tag {

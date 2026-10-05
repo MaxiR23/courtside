@@ -5,6 +5,7 @@
 // Tested:
 // - Renders the page content
 // - Loads only the font weights the design spec names
+// - Sets the document language to es with a Spanish browser preference, en otherwise
 //
 // What is covered:
 // - The only state the layout has (renders its children, no interaction)
@@ -13,8 +14,10 @@
 //
 // SEE: web/src/routes/+layout.svelte
 import { render, screen } from '@testing-library/svelte';
-import { createRawSnippet } from 'svelte';
-import { describe, expect, it } from 'vitest';
+import { createRawSnippet, tick } from 'svelte';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+import { preferLanguages } from '../prefer-languages';
 
 import Layout from '../../src/routes/+layout.svelte';
 
@@ -27,6 +30,11 @@ function renderLayout() {
 		}
 	});
 }
+
+afterEach(() => {
+	vi.restoreAllMocks();
+	document.documentElement.lang = '';
+});
 
 describe('root layout', () => {
 	it('renders the page content inside the layout', () => {
@@ -44,5 +52,19 @@ describe('root layout', () => {
 			'Barlow:wght@400;500',
 			'Barlow Condensed:wght@400;600'
 		]);
+	});
+
+	it('sets the document language to es with a Spanish browser preference', async () => {
+		preferLanguages(['es-ES']);
+		renderLayout();
+		await tick();
+		expect(document.documentElement.lang).toBe('es');
+	});
+
+	it('sets the document language to en otherwise', async () => {
+		preferLanguages(['fr-FR']);
+		renderLayout();
+		await tick();
+		expect(document.documentElement.lang).toBe('en');
 	});
 });

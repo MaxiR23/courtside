@@ -1,4 +1,8 @@
-<span class="live-badge">LIVE</span>
+<script lang="ts">
+	import { m } from '#lib/paraglide/messages.js';
+</script>
+
+<span class="live-badge">{m.live_badge()}</span>
 
 <style>
 	.live-badge {

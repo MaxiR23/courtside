@@ -1,3 +1,7 @@
-<h1>Courtside</h1>
+<script lang="ts">
+	import { m } from '#lib/paraglide/messages.js';
+</script>
 
-<footer>Personal project. Not affiliated with the NBA.</footer>
+<h1>{m.site_name()}</h1>
+
+<footer>{m.footer_disclaimer()}</footer>

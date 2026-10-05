@@ -1,0 +1,9 @@
+{
+	"$schema": "https://inlang.com/schema/inlang-message-format",
+	"site_name": "Courtside",
+	"footer_disclaimer": "Proyecto personal. Sin afiliación con la NBA.",
+	"live_badge": "EN VIVO",
+	"status_tonight": "Esta noche",
+	"status_live": "En vivo",
+	"status_final": "Final"
+}
