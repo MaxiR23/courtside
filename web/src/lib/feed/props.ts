@@ -28,10 +28,13 @@ const TIME_ZONE = 'America/New_York';
 
 export type HomeView = {
 	today: Date; // days[3], the middle day
-	heroGames: HeroGame[]; // the games of today, in feed order
+	heroGames: HeroGame[]; // the games of today in feed order, without postponed and canceled ones
 	days: ScheduleDay[]; // seven days
 	updatedMinutesAgo: number;
 };
+
+// Games that will not be played today are not in the hero rotation (ADR 0012).
+const OFF_HERO: ReadonlySet<Game['status']> = new Set(['postponed', 'canceled']);
 
 type Options = { videoPlatformName?: string };
 
@@ -247,7 +250,7 @@ export function toHomeView(feed: GamesFeed, receivedAt: Date, options: Options):
 		const generatedAt = new Date(feed.generatedAt).getTime();
 		return {
 			today: days[TODAY_INDEX].date,
-			heroGames: today.games.map(heroGame),
+			heroGames: today.games.filter((game) => !OFF_HERO.has(game.status)).map(heroGame),
 			days,
 			updatedMinutesAgo: Math.max(0, Math.floor((receivedAt.getTime() - generatedAt) / 60_000))
 		};

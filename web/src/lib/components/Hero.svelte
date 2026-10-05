@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { ResolvedPathname } from '$app/types';
+	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
 	import Button from '#lib/components/Button.svelte';
 	import Kicker from '#lib/components/Kicker.svelte';
 	import NavRow from '#lib/components/NavRow.svelte';
@@ -18,15 +19,17 @@
 	import { Slideshow } from '#lib/hero/slideshow.svelte.ts';
 	import type { HeroGame, HeroPlayer } from '#lib/hero/types.ts';
 	import { m } from '#lib/paraglide/messages.js';
+	import { shimmer } from '#lib/skeleton/motion.ts';
 
 	type Props = {
-		games: HeroGame[]; // the games of the day; two stars each rotate on the slideshow
+		games: HeroGame[]; // the games in the rotation; two stars each rotate on the slideshow
 		today: Date;
 		scheduleHref: ResolvedPathname;
 		onMatchDetails: (gameId: string) => void;
 		spoilerFree: boolean;
 		onSpoilerFreeToggle: () => void;
 		autoplay?: boolean;
+		loading?: boolean; // the first feed has not loaded yet: show the skeleton
 	};
 
 	let {
@@ -36,7 +39,8 @@
 		onMatchDetails,
 		spoilerFree,
 		onSpoilerFreeToggle,
-		autoplay = true
+		autoplay = true,
+		loading = false
 	}: Props = $props();
 
 	const watermarkFade = (active: boolean): CrossfadeParams => ({
@@ -91,6 +95,12 @@
 		return `${p.firstName} ${p.lastName}`;
 	}
 
+	const kicker = $derived(
+		game
+			? `${game.status === 'delayed' ? m.hero_kicker_scheduled({ tipTime: game.tipTime }) : game.tipTime} · ${game.arena}`
+			: ''
+	);
+
 	const blurb = $derived(
 		game
 			? m.hero_blurb({
@@ -109,6 +119,7 @@
 	bind:this={section}
 	{onmousemove}
 	{onmouseleave}
+	aria-busy={loading && !game ? 'true' : undefined}
 	style:--pointer-x={pointer.x}
 	style:--pointer-y={pointer.y}
 >
@@ -131,7 +142,7 @@
 				<div class="copy">
 					<div class="entrance tag" use:play={entrance('--hero-delay-tag')}>
 						<StatusTag status={game.status} />
-						<Kicker text={`${game.tipTime} · ${game.arena}`} />
+						<Kicker text={kicker} />
 					</div>
 					<h1 class="entrance headline" use:play={entrance('--hero-delay-h1')}>
 						{game.away.name}<br /><span class="at">{m.hero_at()}</span>
@@ -183,6 +194,31 @@
 						<div class="frame-entrance" use:play={frameEntrance}>
 							<PlayerCutout players={stars} active={slideshow.current} />
 						</div>
+					</div>
+				</div>
+			</div>
+		{:else if loading}
+			<div class="columns hero-skeleton" aria-hidden="true" use:play={shimmer}>
+				<div class="copy">
+					<div class="tag">
+						<span class="bone tag-bone"></span>
+						<span class="bone kicker-bone"></span>
+					</div>
+					<span class="bone headline-bone"></span>
+					<span class="bone headline-bone short"></span>
+					<span class="bone blurb-bone"></span>
+					<div class="buttons">
+						<span class="bone button-bone"></span>
+						<span class="bone button-bone"></span>
+					</div>
+					<div class="indicator">
+						<span class="bone indicator-bone"></span>
+						<span class="bone indicator-bone"></span>
+					</div>
+				</div>
+				<div class="visual">
+					<div class="frame-bone-wrap">
+						<BlueprintFrame><span class="bone frame-bone"></span></BlueprintFrame>
 					</div>
 				</div>
 			</div>
@@ -346,6 +382,57 @@
 	.visual {
 		display: flex;
 		justify-content: center;
+	}
+
+	.bone {
+		display: block;
+		background: var(--color-surface);
+		border-radius: var(--radius);
+	}
+
+	.tag-bone {
+		width: var(--skeleton-tag-width);
+		height: var(--label-size);
+	}
+
+	.kicker-bone {
+		width: var(--skeleton-button-width);
+		height: var(--label-size);
+	}
+
+	.headline-bone {
+		align-self: stretch;
+		max-width: var(--skeleton-long-width);
+		height: calc(var(--hero-h1-size) * var(--hero-h1-line-height));
+	}
+
+	.headline-bone.short {
+		max-width: var(--skeleton-short-width);
+	}
+
+	.blurb-bone {
+		align-self: stretch;
+		max-width: var(--skeleton-long-width);
+		height: var(--body-size-hero);
+	}
+
+	.button-bone {
+		width: var(--skeleton-button-width);
+		height: var(--hit-target-size);
+	}
+
+	.indicator-bone {
+		width: var(--skeleton-tag-width);
+		height: var(--hit-target-size);
+	}
+
+	.frame-bone-wrap {
+		width: 100%;
+		max-width: var(--hero-frame-max-width);
+	}
+
+	.frame-bone {
+		aspect-ratio: var(--hero-frame-aspect);
 	}
 
 	.parallax {

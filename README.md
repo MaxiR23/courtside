@@ -6,7 +6,7 @@ A dark-mode NBA daily scoreboard. One page, built to check tonight's games at a 
 
 ## What it does
 
-**Hero.** A rotating hero that goes through every game of the day. Each game shows its two stars as cutouts, 7 seconds each, then the next game starts.
+**Hero.** A rotating hero that goes through the games of the day, leaving out postponed and canceled games. Each game shows its two stars as cutouts, 7 seconds each, then the next game starts.
 
 **Schedule.** A 7-day strip with today in the middle and the list of games for the selected day. Each game card expands in place to show:
 

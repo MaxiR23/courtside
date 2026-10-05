@@ -3,7 +3,8 @@
 // Tests for the props layer that turns the games feed into the home page props.
 //
 // Tested:
-// - Seven days with today in the middle; today's games as hero games in feed order
+// - Seven days with today in the middle; today's games as hero games in feed order, without postponed and canceled games
+// - Postponed and canceled games stay in the schedule; with only those, no hero games; a delayed game stays with its tip time
 // - Tip time as "9:00 PM ET"; scheduled, live (Q3, OT, 2OT), final, delayed, postponed and canceled games
 // - The winner of a final game, passed through
 // - Leaders (display name split), stats, highlights with autoplay, the hero chip's full team name
@@ -53,19 +54,43 @@ describe('toHomeView', () => {
 		expect(v.days.map((d) => d.games.length)).toEqual([1, 0, 1, 6, 2, 0, 0]);
 	});
 
-	it("maps today's games to hero games in feed order", () => {
+	it("maps today's games to hero games in feed order, without postponed and canceled games", () => {
 		const v = view();
 		expect(v.heroGames.map((g) => [g.id, g.status])).toEqual([
 			['g-sched', 'tonight'],
 			['g-live', 'live'],
 			['g-final', 'final'],
-			['g-delayed', 'delayed'],
-			['g-postponed', 'postponed'],
-			['g-canceled', 'canceled']
+			['g-delayed', 'delayed']
 		]);
 		expect(v.heroGames[0].arena).toBe('Los Angeles Arena');
 		expect(v.heroGames[0].away.name).toBe('Warriors');
 		expect(v.heroGames[0].home.name).toBe('Lakers');
+	});
+
+	it("keeps postponed and canceled games in today's schedule", () => {
+		const v = view();
+		expect(v.days[3].games).toHaveLength(6);
+		expect(todayGame(v, 'g-postponed').status.state).toBe('postponed');
+		expect(todayGame(v, 'g-canceled').status.state).toBe('canceled');
+	});
+
+	it('has no hero games when every game of the day is postponed or canceled', () => {
+		const source = feed();
+		source.days[3].games = source.days[3].games.filter(
+			(g) => g.id === 'g-postponed' || g.id === 'g-canceled'
+		);
+		const v = view(source);
+		expect(v.heroGames).toEqual([]);
+		expect(v.days[3].games).toHaveLength(2);
+	});
+
+	it('keeps a delayed game in the hero with its original tip time', () => {
+		const delayed = view().heroGames.find((g) => g.id === 'g-delayed');
+		expect(delayed).toMatchObject({
+			status: 'delayed',
+			tipTime: '8:00 PM ET',
+			arena: 'Chicago Arena'
+		});
 	});
 
 	it('formats the tip time as 9:00 PM ET', () => {

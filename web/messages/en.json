@@ -17,6 +17,7 @@
 	"hero_blurb": "{awayStar} and {homeStar} meet at {arena}.",
 	"hero_match_details": "Match details",
 	"hero_all_games": "All games",
+	"hero_kicker_scheduled": "Scheduled {tipTime}",
 	"schedule_kicker": "Schedule",
 	"schedule_today": "Today",
 	"schedule_game_count": [

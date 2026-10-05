@@ -17,6 +17,7 @@
 	"hero_blurb": "{awayStar} y {homeStar} se enfrentan en {arena}.",
 	"hero_match_details": "Detalles del partido",
 	"hero_all_games": "Todos los partidos",
+	"hero_kicker_scheduled": "Programado {tipTime}",
 	"schedule_kicker": "Calendario",
 	"schedule_today": "Hoy",
 	"schedule_game_count": [

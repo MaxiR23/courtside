@@ -6,7 +6,7 @@ The visual and interaction specification for the Courtside site. It is the refer
 
 A dark-mode, single-page site with two parts:
 
-1. **Hero.** A rotating hero that goes through every game of the day. Each game shows the star player of each team as a transparent cutout, 7 seconds each, then the next game starts.
+1. **Hero.** A rotating hero that goes through the games of the day, leaving out postponed and canceled games. Each game shows the star player of each team as a transparent cutout, 7 seconds each, then the next game starts.
 2. **Schedule.** A 7-day strip with today in the middle and the list of games for the selected day. Clicking a game expands its details: line score, top performers, team stats and, once the game is final, official highlights embedded inline.
 
 ## Implementation rules
@@ -16,16 +16,17 @@ A dark-mode, single-page site with two parts:
 - **Components receive data through props**, with their own types. No component reads a feed directly. A separate layer turns feed data into props.
 - **Reusable primitives first.** Shared pieces, such as the blueprint frame, are built once and reused everywhere they appear.
 - **Every user-facing string is translatable**, in English and Spanish. The copy in this document is the English text.
-- **Reduced motion.** When the system asks for reduced motion, entrance animations, the idle float and the parallax are disabled, and transitions become instant or simple fades.
+- **Reduced motion.** When the system asks for reduced motion, entrance animations, the idle float, the parallax and the skeleton shimmer are disabled, and transitions become instant or simple fades.
 
 ### Components
 
 | Component | What it is |
 |---|---|
 | `BlueprintFrame` | The framed box with corner registration marks, used across the site |
-| `Hero` | The top section, rotating through every game of the day |
+| `Hero` | The top section, rotating through the games of the day |
 | `PlayerCutout` | A player's transparent photo, framed and lit |
 | `DayStrip` | The 7-day selector |
+| `ScheduleSkeleton` | The schedule's placeholder while the first feed loads: the day strip and game cards |
 | `GameCard` | One game, with its desktop and mobile rows and its expanded panel |
 | `LineScore` | Points per quarter |
 | `Leaders` | Top performer per team |
@@ -42,7 +43,7 @@ Dark only. There is no light mode.
 | Token | Value | Use |
 |---|---|---|
 | bg | `#0c0e10` | Page ground |
-| surface | `#14171a` | Rarely used |
+| surface | `#14171a` | Rarely used: skeleton blocks |
 | frame-fill | `#11161b` | Inside image frames and video thumbnails |
 | ink | `#ebe8e3` | Primary text, a warm off-white |
 | muted | `#a19d96` | Secondary text |
@@ -84,6 +85,7 @@ The only color besides the neutrals is the steel accent. No team colors.
 - **Blueprint frame:** a 1px divider border plus four "+" registration marks, 11 by 11px, made of 1px lines in `color-mix(in srgb, ink 55%, transparent)`, centered on each corner (offset -6px). Used on game cards, the hero image frame, the player chip, highlight cards and the primary button.
 - **Hero frame shadow:** `0 50px 100px -24px rgba(0,0,0,.9), 0 20px 40px -20px rgba(0,0,0,.7)`.
 - **Floor shadow** under the hero frame: an ellipse, `radial-gradient(rgba(0,0,0,.9), transparent 70%)`, blur 10px, 56px below the frame.
+- **Skeleton widths:** tag and indicator 72px, kicker and buttons 160px, short lines 40% and long lines 80% of the column.
 - **Accent glow** behind the hero frame: `radial-gradient(circle at 50% 45%, rgba(116,157,196,.24), transparent 62%)`, extending 18% past the frame on every side.
 
 ### Spacing
@@ -95,6 +97,7 @@ The only color besides the neutrals is the steel accent. No team colors.
 ### Motion
 
 - Default easing: `cubic-bezier(.2,.7,.1,1)`, unless a section says otherwise.
+- **Skeleton shimmer:** opacity from 1 to .5 and back over 1.6s, ease-in-out, looping. None under reduced motion.
 
 ### Icons
 
@@ -108,7 +111,7 @@ Lucide at `stroke-width: 1.5`: `chevron-down` (expand), `play` (filled, highligh
 - **Layout:** a two-column grid, `repeat(auto-fit, minmax(min(100%, 440px), 1fr))`, that stacks on mobile. Gap `clamp(40px, 6vw, 96px)`, min-height `min(820px, 88vh)`.
 - **Background:** an 88px square grid of faint lines. A huge outlined watermark of the current star's short name sits behind the content on the right.
 - **Left column, top to bottom:**
-  1. A status tag, "Tonight", "Live now", "Final", "Delayed", "Postponed" or "Canceled", 11px in a 1px divider box. Next to it the kicker with the tip time and arena, such as "10:30 PM ET · Chase Center".
+  1. A status tag, "Tonight", "Live now", "Final", "Delayed", "Postponed" or "Canceled", 11px in a 1px divider box. Next to it the kicker with the tip time and arena, such as "10:30 PM ET · Chase Center". For a delayed game the kicker reads "Scheduled" and the original tip time and arena, such as "Scheduled 7:30 PM ET · Chase Center".
   2. The h1: the away team name, a line break, then "at" and the home team name.
   3. A blurb: "{Away star} and {Home star} meet at {Arena}."
   4. Buttons. **Match details** is the primary button (solid accent, dark text, blueprint marks): it selects today, expands the game on screen and smooth-scrolls to it. **All games** is a secondary outlined button linking to the schedule.
@@ -116,7 +119,7 @@ Lucide at `stroke-width: 1.5`: `chevron-down` (expand), `play` (filled, highligh
 
   The status tag, kicker, h1 and blurb always follow the game on screen.
 
-  **Rotation.** The hero goes through every game of the day. Each game shows its two stars, 7 seconds each, then the next game starts. After the last game it returns to the first. With one game, the hero behaves as a single game: its two stars alternate and the position is not shown. With no games, the hero shows no game.
+  **Rotation.** The hero goes through the games of the day in feed order, leaving out postponed and canceled games, which stay in the schedule list. Delayed games stay in the rotation. Each game shows its two stars, 7 seconds each, then the next game starts. After the last game it returns to the first. With one game, the hero behaves as a single game: its two stars alternate and the position is not shown. With no games, or when every game of the day is postponed or canceled, the hero shows no game.
 - **Right column:** the image frame, max-width 500px, aspect ratio 4:5. A blueprint frame filled with frame-fill, a 44px grid and the accent glow.
   - The star's cutout is a transparent player photo in full color, anchored to the bottom center at **172% of the frame width**, so the head pops out above the frame's top edge. The bottom is clipped with `clip-path: inset(-30% 0 0 0)`.
   - Image filter: `drop-shadow(0 0 1px rgba(148,188,227,.35)) drop-shadow(0 30px 30px rgba(0,0,0,.7)) contrast(1.05)`.
@@ -153,6 +156,10 @@ Lucide at `stroke-width: 1.5`: `chevron-down` (expand), `play` (filled, highligh
   - **Live games** also show "Highlights will appear here after the final buzzer."
   - **Scheduled games:** three info cells (Tip-off, Venue, Broadcast), then "Players to watch", with each team's star as a photo frame and name.
 
+### Before the first feed loads
+
+Until the first feed loads, the hero and the schedule show skeletons shaped like their content: blocks in `surface`, square corners, with no text. The hero keeps its nav row and shows its two columns, in order: a tag block and a kicker block, two h1 lines (the second shorter), a blurb line, two button blocks, two indicator blocks, and, in the right column, a blueprint image frame at 4:5, max-width 500px. The schedule shows a 7-cell day strip (each cell with weekday, number and count blocks) and three blueprint game cards, each holding one block the height of a monogram (46px). The skeletons shimmer (see Motion). When the feed loads, the content replaces them. If the first load fails, the hero shows no game and the schedule shows the "Data isn't available right now. Check back later." row.
+
 ### 3. Footer
 
 "COURTSIDE" on the left. "Personal project. Not affiliated with the NBA." on the right, 12px, muted.
@@ -169,6 +176,7 @@ Lucide at `stroke-width: 1.5`: `chevron-down` (expand), `play` (filled, highligh
 | List entrance | When the list first scrolls into view, and on every day change, the cards stagger in: from opacity 0 and translateY(18px), 600ms each, 70ms apart |
 | Highlight card | Hover drops opacity to .92. Clicking replaces the thumbnail with the autoplaying player. Closing the card stops playback |
 | Spoiler-free mode | Optional setting. Final scores stay hidden and the card shows "Tap to reveal" until it is expanded |
+| Skeleton shimmer | Opacity 1 to .5 and back over 1.6s, ease-in-out, looping, while the first feed loads. Off under reduced motion |
 | Focus | `:focus-visible` gets a 2px accent outline with a 2px offset. Never the browser default |
 
 ## Page state
