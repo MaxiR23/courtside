@@ -93,7 +93,7 @@ validate_path() {
   esac
   name="${path##*/}"
   case "$name" in
-      .env.example) ;;
+    .env.example) ;;
     .env | .env.*) die "refusing environment file: $path" ;;
   esac
   case "$path" in
