@@ -16,29 +16,21 @@
 	} from '#lib/hero/motion.ts';
 	import { parallaxAllowed, pointerPosition } from '#lib/hero/parallax.ts';
 	import { Slideshow } from '#lib/hero/slideshow.svelte.ts';
-	import type { HeroPlayer } from '#lib/hero/types.ts';
+	import type { HeroGame, HeroPlayer } from '#lib/hero/types.ts';
 	import { m } from '#lib/paraglide/messages.js';
 
 	type Props = {
-		status: 'tonight' | 'live' | 'final';
-		tipTime: string; // already formatted by the props layer, e.g. "10:30 PM ET"
-		arena: string;
-		away: { name: string; star: HeroPlayer };
-		home: { name: string; star: HeroPlayer };
+		games: HeroGame[]; // the games of the day; two stars each rotate on the slideshow
 		today: Date;
 		scheduleHref: ResolvedPathname;
-		onMatchDetails: () => void;
+		onMatchDetails: (gameId: string) => void;
 		spoilerFree: boolean;
 		onSpoilerFreeToggle: () => void;
 		autoplay?: boolean;
 	};
 
 	let {
-		status,
-		tipTime,
-		arena,
-		away,
-		home,
+		games,
 		today,
 		scheduleHref,
 		onMatchDetails,
@@ -54,16 +46,26 @@
 		durationToken: '--hero-watermark-fade-duration'
 	});
 
-	const slides = $derived([away.star, home.star]);
-	const slideshow = new Slideshow(2);
+	// Two slides per game: the away star, then the home star. The count is a primitive, so a
+	// new games array of the same length keeps the slideshow and its position.
+	const slideCount = $derived(Math.max(1, games.length * 2));
+	const slideshow = $derived(new Slideshow(slideCount));
+	const gameIndex = $derived(Math.floor(slideshow.current / 2));
+	const game = $derived(games[gameIndex]);
+	const stars = $derived(games.flatMap((g) => [g.away.star, g.home.star]));
+	const indicatorSlides = $derived([gameIndex * 2, gameIndex * 2 + 1]);
+
+	const running = $derived(autoplay && games.length > 0);
 
 	$effect(() => {
-		if (autoplay) return slideshow.start();
+		if (running) return slideshow.start();
 	});
+
+	const pad = (n: number) => String(n).padStart(2, '0');
 
 	let pointer = $state({ x: 0, y: 0 });
 	let section: HTMLElement | undefined;
-	let parallax: HTMLElement | undefined;
+	let parallax: HTMLElement | undefined = $state();
 	let watermarks: HTMLElement | undefined;
 	const tilt = new Glide();
 	const shift = new Glide();
@@ -90,7 +92,13 @@
 	}
 
 	const blurb = $derived(
-		m.hero_blurb({ awayStar: fullName(away.star), homeStar: fullName(home.star), arena })
+		game
+			? m.hero_blurb({
+					awayStar: fullName(game.away.star),
+					homeStar: fullName(game.home.star),
+					arena: game.arena
+				})
+			: ''
 	);
 </script>
 
@@ -106,7 +114,7 @@
 >
 	<div class="grid-bg" aria-hidden="true"></div>
 	<div class="watermark-layer" aria-hidden="true" bind:this={watermarks}>
-		{#each slides as slide, i (i)}
+		{#each stars as slide, i (i)}
 			<span
 				class="watermark"
 				class:active={i === slideshow.current}
@@ -118,57 +126,67 @@
 	<div class="content">
 		<NavRow {today} {scheduleHref} {spoilerFree} {onSpoilerFreeToggle} />
 
-		<div class="columns">
-			<div class="copy">
-				<div class="entrance tag" use:play={entrance('--hero-delay-tag')}>
-					<StatusTag {status} />
-					<Kicker text={`${tipTime} · ${arena}`} />
+		{#if game}
+			<div class="columns">
+				<div class="copy">
+					<div class="entrance tag" use:play={entrance('--hero-delay-tag')}>
+						<StatusTag status={game.status} />
+						<Kicker text={`${game.tipTime} · ${game.arena}`} />
+					</div>
+					<h1 class="entrance headline" use:play={entrance('--hero-delay-h1')}>
+						{game.away.name}<br /><span class="at">{m.hero_at()}</span>
+						{game.home.name}
+					</h1>
+					<p class="entrance blurb" use:play={entrance('--hero-delay-blurb')}>
+						{blurb}
+					</p>
+					<div class="entrance buttons" use:play={entrance('--hero-delay-buttons')}>
+						<Button
+							variant="primary"
+							label={m.hero_match_details()}
+							onclick={() => onMatchDetails(game.id)}
+						/>
+						<Button variant="secondary" label={m.hero_all_games()} href={scheduleHref} />
+					</div>
+					<div class="entrance indicator" use:play={entrance('--hero-delay-indicator')}>
+						{#each indicatorSlides as i (i)}
+							{@const slide = stars[i]}
+							{@const isActive = i === slideshow.current}
+							<button
+								type="button"
+								class="indicator-item"
+								class:active={isActive}
+								aria-current={isActive ? 'true' : undefined}
+								onclick={() => slideshow.goTo(i)}
+							>
+								<span class="track">
+									{#if isActive}
+										{#key slideshow.cycle}
+											<span class="fill" use:play={progressFill}></span>
+										{/key}
+									{/if}
+								</span>
+								<span class="indicator-label">
+									<span class="number">{pad((i % 2) + 1)}</span>
+									<span>{slide.shortName}</span>
+								</span>
+							</button>
+						{/each}
+						{#if games.length > 1}
+							<span class="position">{pad(gameIndex + 1)} / {pad(games.length)}</span>
+						{/if}
+					</div>
 				</div>
-				<h1 class="entrance headline" use:play={entrance('--hero-delay-h1')}>
-					{away.name}<br /><span class="at">{m.hero_at()}</span>
-					{home.name}
-				</h1>
-				<p class="entrance blurb" use:play={entrance('--hero-delay-blurb')}>
-					{blurb}
-				</p>
-				<div class="entrance buttons" use:play={entrance('--hero-delay-buttons')}>
-					<Button variant="primary" label={m.hero_match_details()} onclick={onMatchDetails} />
-					<Button variant="secondary" label={m.hero_all_games()} href={scheduleHref} />
-				</div>
-				<div class="entrance indicator" use:play={entrance('--hero-delay-indicator')}>
-					{#each slides as slide, i (i)}
-						{@const isActive = i === slideshow.current}
-						<button
-							type="button"
-							class="indicator-item"
-							class:active={isActive}
-							aria-current={isActive ? 'true' : undefined}
-							onclick={() => slideshow.goTo(i)}
-						>
-							<span class="track">
-								{#if isActive}
-									{#key slideshow.cycle}
-										<span class="fill" use:play={progressFill}></span>
-									{/key}
-								{/if}
-							</span>
-							<span class="indicator-label">
-								<span class="number">{String(i + 1).padStart(2, '0')}</span>
-								<span>{slide.shortName}</span>
-							</span>
-						</button>
-					{/each}
-				</div>
-			</div>
 
-			<div class="visual">
-				<div class="parallax" bind:this={parallax}>
-					<div class="frame-entrance" use:play={frameEntrance}>
-						<PlayerCutout players={slides} active={slideshow.current} />
+				<div class="visual">
+					<div class="parallax" bind:this={parallax}>
+						<div class="frame-entrance" use:play={frameEntrance}>
+							<PlayerCutout players={stars} active={slideshow.current} />
+						</div>
 					</div>
 				</div>
 			</div>
-		</div>
+		{/if}
 	</div>
 </section>
 
@@ -308,6 +326,13 @@
 		height: 100%;
 		background: var(--color-accent-light);
 		transform-origin: left;
+	}
+
+	.position {
+		align-self: flex-end;
+		font-size: var(--label-size);
+		letter-spacing: var(--label-letter-spacing);
+		color: var(--color-muted);
 	}
 
 	.indicator-label {

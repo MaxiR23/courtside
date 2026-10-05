@@ -60,6 +60,8 @@ Setup, from the repository root. Requires Node 22 and pnpm:
 cd web && pnpm install
 ```
 
+Configure: `cp web/.env.example web/.env` and set `GAMES_FEED_URL`. Without it, the page shows the data unavailable row.
+
 Run the app:
 
 ```

@@ -7,9 +7,10 @@ export type ScheduleTeam = {
 };
 
 export type GameStatus =
-	| { state: 'scheduled'; tipTime: string; tipSuffix: string; network: string } // "9:00", "PM ET", already formatted
+	| { state: 'scheduled'; tipTime: string; tipSuffix: string; network: string | null } // "9:00", "PM ET", already formatted; no network when unknown
 	| { state: 'live'; period: string; clock: string; awayScore: number; homeScore: number } // "Q3", "4:12", already formatted
-	| { state: 'final'; awayScore: number; homeScore: number };
+	| { state: 'final'; awayScore: number; homeScore: number }
+	| { state: 'delayed' | 'postponed' | 'canceled' }; // no score, no tip time
 
 export type PanelPlayer = Pick<HeroPlayer, 'firstName' | 'lastName' | 'teamCode' | 'photo'>;
 

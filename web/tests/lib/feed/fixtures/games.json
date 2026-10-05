@@ -1,0 +1,680 @@
+{
+	"generatedAt": "2026-10-04T23:00:00Z",
+	"days": [
+		{
+			"date": "2026-10-01",
+			"games": [
+				{
+					"id": "g-old",
+					"away": {
+						"code": "ATL",
+						"name": "Hawks",
+						"city": "Atlanta"
+					},
+					"home": {
+						"code": "POR",
+						"name": "Blazers",
+						"city": "Portland"
+					},
+					"status": "final",
+					"startTime": "2026-10-01T23:00:00Z",
+					"venue": "Portland Arena",
+					"stars": {
+						"away": {
+							"playerId": "p-ATL",
+							"firstName": "Trae",
+							"lastName": "Young",
+							"teamCode": "ATL",
+							"photoUrl": "https://example.com/photos/ATL.png",
+							"shortName": "Young"
+						},
+						"home": {
+							"playerId": "p-POR",
+							"firstName": "Scoot",
+							"lastName": "Henderson",
+							"teamCode": "POR",
+							"photoUrl": "https://example.com/photos/POR.png",
+							"shortName": "Henderson"
+						}
+					},
+					"highlights": [],
+					"broadcast": null,
+					"period": null,
+					"clock": null,
+					"lineScore": {
+						"away": [25, 25, 25, 25],
+						"home": [20, 20, 20, 20]
+					},
+					"score": {
+						"away": 100,
+						"home": 80
+					},
+					"leaders": {
+						"away": {
+							"playerId": "p-ATL",
+							"displayName": "Trae Young",
+							"teamCode": "ATL",
+							"photoUrl": "https://example.com/photos/ATL.png",
+							"points": 31,
+							"rebounds": 7,
+							"assists": 6
+						},
+						"home": {
+							"playerId": "p-POR",
+							"displayName": "Scoot Henderson",
+							"teamCode": "POR",
+							"photoUrl": "https://example.com/photos/POR.png",
+							"points": 27,
+							"rebounds": 7,
+							"assists": 6
+						}
+					},
+					"teamStats": {
+						"away": {
+							"fieldGoalPct": 0.478,
+							"threePointPct": 0.375,
+							"rebounds": 42,
+							"assists": 25,
+							"turnovers": 12
+						},
+						"home": {
+							"fieldGoalPct": 0.452,
+							"threePointPct": 0.375,
+							"rebounds": 42,
+							"assists": 25,
+							"turnovers": 12
+						}
+					},
+					"highlightsSearchUrl": "https://example.com/search?q=highlights"
+				}
+			]
+		},
+		{
+			"date": "2026-10-02",
+			"games": []
+		},
+		{
+			"date": "2026-10-03",
+			"games": [
+				{
+					"id": "g-final2",
+					"away": {
+						"code": "POR",
+						"name": "Blazers",
+						"city": "Portland"
+					},
+					"home": {
+						"code": "UTA",
+						"name": "Jazz",
+						"city": "Utah"
+					},
+					"status": "final",
+					"startTime": "2026-10-03T22:00:00Z",
+					"venue": "Utah Arena",
+					"stars": {
+						"away": {
+							"playerId": "p-POR",
+							"firstName": "Scoot",
+							"lastName": "Henderson",
+							"teamCode": "POR",
+							"photoUrl": "https://example.com/photos/POR.png",
+							"shortName": "Henderson"
+						},
+						"home": {
+							"playerId": "p-UTA",
+							"firstName": "Lauri",
+							"lastName": "Markkanen",
+							"teamCode": "UTA",
+							"photoUrl": "https://example.com/photos/UTA.png",
+							"shortName": "Markkanen"
+						}
+					},
+					"highlights": [],
+					"broadcast": null,
+					"period": null,
+					"clock": null,
+					"lineScore": {
+						"away": [20, 25, 22, 30],
+						"home": [25, 22, 30, 26]
+					},
+					"score": {
+						"away": 97,
+						"home": 103
+					},
+					"leaders": {
+						"away": {
+							"playerId": "p-POR",
+							"displayName": "Scoot Henderson",
+							"teamCode": "POR",
+							"photoUrl": "https://example.com/photos/POR.png",
+							"points": 31,
+							"rebounds": 7,
+							"assists": 6
+						},
+						"home": {
+							"playerId": "p-UTA",
+							"displayName": "Lauri Markkanen",
+							"teamCode": "UTA",
+							"photoUrl": "https://example.com/photos/UTA.png",
+							"points": 27,
+							"rebounds": 7,
+							"assists": 6
+						}
+					},
+					"teamStats": {
+						"away": {
+							"fieldGoalPct": 0.478,
+							"threePointPct": 0.375,
+							"rebounds": 42,
+							"assists": 25,
+							"turnovers": 12
+						},
+						"home": {
+							"fieldGoalPct": 0.452,
+							"threePointPct": 0.375,
+							"rebounds": 42,
+							"assists": 25,
+							"turnovers": 12
+						}
+					},
+					"highlightsSearchUrl": "https://example.com/search?q=highlights"
+				}
+			]
+		},
+		{
+			"date": "2026-10-04",
+			"games": [
+				{
+					"id": "g-sched",
+					"away": {
+						"code": "GSW",
+						"name": "Warriors",
+						"city": "Golden State"
+					},
+					"home": {
+						"code": "LAL",
+						"name": "Lakers",
+						"city": "Los Angeles"
+					},
+					"status": "scheduled",
+					"startTime": "2026-10-05T01:00:00Z",
+					"venue": "Los Angeles Arena",
+					"stars": {
+						"away": {
+							"playerId": "p-GSW",
+							"firstName": "Stephen",
+							"lastName": "Curry",
+							"teamCode": "GSW",
+							"photoUrl": "https://example.com/photos/GSW.png",
+							"shortName": "Curry"
+						},
+						"home": {
+							"playerId": "p-LAL",
+							"firstName": "LeBron",
+							"lastName": "James",
+							"teamCode": "LAL",
+							"photoUrl": "https://example.com/photos/LAL.png",
+							"shortName": "James"
+						}
+					},
+					"highlights": [],
+					"broadcast": "Prime Video",
+					"period": null,
+					"clock": null,
+					"lineScore": null,
+					"score": null,
+					"leaders": null,
+					"teamStats": null,
+					"highlightsSearchUrl": null
+				},
+				{
+					"id": "g-live",
+					"away": {
+						"code": "BOS",
+						"name": "Celtics",
+						"city": "Boston"
+					},
+					"home": {
+						"code": "NYK",
+						"name": "Knicks",
+						"city": "New York"
+					},
+					"status": "live",
+					"startTime": "2026-10-04T23:30:00Z",
+					"venue": "New York Arena",
+					"stars": {
+						"away": {
+							"playerId": "p-BOS",
+							"firstName": "Jayson",
+							"lastName": "Tatum",
+							"teamCode": "BOS",
+							"photoUrl": "https://example.com/photos/BOS.png",
+							"shortName": "Tatum"
+						},
+						"home": {
+							"playerId": "p-NYK",
+							"firstName": "Jalen",
+							"lastName": "Brunson",
+							"teamCode": "NYK",
+							"photoUrl": "https://example.com/photos/NYK.png",
+							"shortName": "Brunson"
+						}
+					},
+					"highlights": [],
+					"broadcast": null,
+					"period": 5,
+					"clock": "2:31",
+					"lineScore": {
+						"away": [28, 26, 24, 20, 5],
+						"home": [25, 27, 22, 26, 4]
+					},
+					"score": {
+						"away": 103,
+						"home": 104
+					},
+					"leaders": {
+						"away": {
+							"playerId": "p-BOS",
+							"displayName": "Jayson Tatum",
+							"teamCode": "BOS",
+							"photoUrl": "https://example.com/photos/BOS.png",
+							"points": 31,
+							"rebounds": 7,
+							"assists": 6
+						},
+						"home": {
+							"playerId": "p-NYK",
+							"displayName": "Jalen Brunson",
+							"teamCode": "NYK",
+							"photoUrl": "https://example.com/photos/NYK.png",
+							"points": 27,
+							"rebounds": 7,
+							"assists": 6
+						}
+					},
+					"teamStats": {
+						"away": {
+							"fieldGoalPct": 0.478,
+							"threePointPct": 0.375,
+							"rebounds": 42,
+							"assists": 25,
+							"turnovers": 12
+						},
+						"home": {
+							"fieldGoalPct": 0.452,
+							"threePointPct": 0.375,
+							"rebounds": 42,
+							"assists": 25,
+							"turnovers": 12
+						}
+					},
+					"highlightsSearchUrl": null
+				},
+				{
+					"id": "g-final",
+					"away": {
+						"code": "DEN",
+						"name": "Nuggets",
+						"city": "Denver"
+					},
+					"home": {
+						"code": "PHX",
+						"name": "Suns",
+						"city": "Phoenix"
+					},
+					"status": "final",
+					"startTime": "2026-10-04T20:00:00Z",
+					"venue": "Phoenix Arena",
+					"stars": {
+						"away": {
+							"playerId": "p-DEN",
+							"firstName": "Nikola",
+							"lastName": "Jokic",
+							"teamCode": "DEN",
+							"photoUrl": "https://example.com/photos/DEN.png",
+							"shortName": "Jokic"
+						},
+						"home": {
+							"playerId": "p-PHX",
+							"firstName": "Devin",
+							"lastName": "Booker",
+							"teamCode": "PHX",
+							"photoUrl": "https://example.com/photos/PHX.png",
+							"shortName": "Booker"
+						}
+					},
+					"highlights": [
+						{
+							"title": "Full game highlights",
+							"channel": "League Channel",
+							"thumbnailUrl": "https://example.com/thumbs/1.jpg",
+							"embedUrl": "https://example.com/embed/1"
+						},
+						{
+							"title": "Top plays",
+							"channel": "League Channel",
+							"thumbnailUrl": "https://example.com/thumbs/2.jpg",
+							"embedUrl": "https://example.com/embed/2?rel=0"
+						}
+					],
+					"broadcast": null,
+					"period": null,
+					"clock": null,
+					"lineScore": {
+						"away": [30, 28, 26, 28],
+						"home": [24, 27, 25, 28]
+					},
+					"score": {
+						"away": 112,
+						"home": 104
+					},
+					"leaders": {
+						"away": {
+							"playerId": "p-DEN",
+							"displayName": "Nikola Jokic",
+							"teamCode": "DEN",
+							"photoUrl": "https://example.com/photos/DEN.png",
+							"points": 31,
+							"rebounds": 7,
+							"assists": 6
+						},
+						"home": {
+							"playerId": "p-PHX",
+							"displayName": "Devin Booker",
+							"teamCode": "PHX",
+							"photoUrl": "https://example.com/photos/PHX.png",
+							"points": 27,
+							"rebounds": 7,
+							"assists": 6
+						}
+					},
+					"teamStats": {
+						"away": {
+							"fieldGoalPct": 0.478,
+							"threePointPct": 0.375,
+							"rebounds": 42,
+							"assists": 25,
+							"turnovers": 12
+						},
+						"home": {
+							"fieldGoalPct": 0.452,
+							"threePointPct": 0.375,
+							"rebounds": 42,
+							"assists": 25,
+							"turnovers": 12
+						}
+					},
+					"highlightsSearchUrl": "https://example.com/search?q=highlights"
+				},
+				{
+					"id": "g-delayed",
+					"away": {
+						"code": "MIA",
+						"name": "Heat",
+						"city": "Miami"
+					},
+					"home": {
+						"code": "CHI",
+						"name": "Bulls",
+						"city": "Chicago"
+					},
+					"status": "delayed",
+					"startTime": "2026-10-05T00:00:00Z",
+					"venue": "Chicago Arena",
+					"stars": {
+						"away": {
+							"playerId": "p-MIA",
+							"firstName": "Jimmy",
+							"lastName": "Butler",
+							"teamCode": "MIA",
+							"photoUrl": "https://example.com/photos/MIA.png",
+							"shortName": "Butler"
+						},
+						"home": {
+							"playerId": "p-CHI",
+							"firstName": "Zach",
+							"lastName": "LaVine",
+							"teamCode": "CHI",
+							"photoUrl": "https://example.com/photos/CHI.png",
+							"shortName": "LaVine"
+						}
+					},
+					"highlights": [],
+					"broadcast": "TNT",
+					"period": null,
+					"clock": null,
+					"lineScore": null,
+					"score": null,
+					"leaders": null,
+					"teamStats": null,
+					"highlightsSearchUrl": null
+				},
+				{
+					"id": "g-postponed",
+					"away": {
+						"code": "DAL",
+						"name": "Mavericks",
+						"city": "Dallas"
+					},
+					"home": {
+						"code": "SEA",
+						"name": "Storm",
+						"city": "Seattle"
+					},
+					"status": "postponed",
+					"startTime": "2026-10-05T02:00:00Z",
+					"venue": "Seattle Arena",
+					"stars": {
+						"away": {
+							"playerId": "p-DAL",
+							"firstName": "Luka",
+							"lastName": "Doncic",
+							"teamCode": "DAL",
+							"photoUrl": "https://example.com/photos/DAL.png",
+							"shortName": "Doncic"
+						},
+						"home": {
+							"playerId": "p-SEA",
+							"firstName": "Kevin",
+							"lastName": "Durant",
+							"teamCode": "SEA",
+							"photoUrl": "https://example.com/photos/SEA.png",
+							"shortName": "Durant"
+						}
+					},
+					"highlights": [],
+					"broadcast": null,
+					"period": null,
+					"clock": null,
+					"lineScore": null,
+					"score": null,
+					"leaders": null,
+					"teamStats": null,
+					"highlightsSearchUrl": null
+				},
+				{
+					"id": "g-canceled",
+					"away": {
+						"code": "MIL",
+						"name": "Bucks",
+						"city": "Milwaukee"
+					},
+					"home": {
+						"code": "ATL",
+						"name": "Hawks",
+						"city": "Atlanta"
+					},
+					"status": "canceled",
+					"startTime": "2026-10-05T02:30:00Z",
+					"venue": "Atlanta Arena",
+					"stars": {
+						"away": {
+							"playerId": "p-MIL",
+							"firstName": "Giannis",
+							"lastName": "Antetokounmpo",
+							"teamCode": "MIL",
+							"photoUrl": "https://example.com/photos/MIL.png",
+							"shortName": "Giannis"
+						},
+						"home": {
+							"playerId": "p-ATL",
+							"firstName": "Trae",
+							"lastName": "Young",
+							"teamCode": "ATL",
+							"photoUrl": "https://example.com/photos/ATL.png",
+							"shortName": "Young"
+						}
+					},
+					"highlights": [],
+					"broadcast": null,
+					"period": null,
+					"clock": null,
+					"lineScore": null,
+					"score": null,
+					"leaders": null,
+					"teamStats": null,
+					"highlightsSearchUrl": null
+				}
+			]
+		},
+		{
+			"date": "2026-10-05",
+			"games": [
+				{
+					"id": "g-q3",
+					"away": {
+						"code": "MIA",
+						"name": "Heat",
+						"city": "Miami"
+					},
+					"home": {
+						"code": "DAL",
+						"name": "Mavericks",
+						"city": "Dallas"
+					},
+					"status": "live",
+					"startTime": "2026-10-05T23:00:00Z",
+					"venue": "Dallas Arena",
+					"stars": {
+						"away": {
+							"playerId": "p-MIA",
+							"firstName": "Jimmy",
+							"lastName": "Butler",
+							"teamCode": "MIA",
+							"photoUrl": "https://example.com/photos/MIA.png",
+							"shortName": "Butler"
+						},
+						"home": {
+							"playerId": "p-DAL",
+							"firstName": "Luka",
+							"lastName": "Doncic",
+							"teamCode": "DAL",
+							"photoUrl": "https://example.com/photos/DAL.png",
+							"shortName": "Doncic"
+						}
+					},
+					"highlights": [],
+					"broadcast": null,
+					"period": 3,
+					"clock": "4:12",
+					"lineScore": {
+						"away": [28, 26, 24],
+						"home": [25, 27, 22]
+					},
+					"score": {
+						"away": 78,
+						"home": 74
+					},
+					"leaders": {
+						"away": {
+							"playerId": "p-MIA",
+							"displayName": "Jimmy Butler",
+							"teamCode": "MIA",
+							"photoUrl": "https://example.com/photos/MIA.png",
+							"points": 31,
+							"rebounds": 7,
+							"assists": 6
+						},
+						"home": {
+							"playerId": "p-DAL",
+							"displayName": "Luka Doncic",
+							"teamCode": "DAL",
+							"photoUrl": "https://example.com/photos/DAL.png",
+							"points": 27,
+							"rebounds": 7,
+							"assists": 6
+						}
+					},
+					"teamStats": {
+						"away": {
+							"fieldGoalPct": 0.478,
+							"threePointPct": 0.375,
+							"rebounds": 42,
+							"assists": 25,
+							"turnovers": 12
+						},
+						"home": {
+							"fieldGoalPct": 0.452,
+							"threePointPct": 0.375,
+							"rebounds": 42,
+							"assists": 25,
+							"turnovers": 12
+						}
+					},
+					"highlightsSearchUrl": null
+				},
+				{
+					"id": "g-nonet",
+					"away": {
+						"code": "CHI",
+						"name": "Bulls",
+						"city": "Chicago"
+					},
+					"home": {
+						"code": "SEA",
+						"name": "Storm",
+						"city": "Seattle"
+					},
+					"status": "scheduled",
+					"startTime": "2026-10-06T00:30:00Z",
+					"venue": "Seattle Arena",
+					"stars": {
+						"away": {
+							"playerId": "p-CHI",
+							"firstName": "Zach",
+							"lastName": "LaVine",
+							"teamCode": "CHI",
+							"photoUrl": "https://example.com/photos/CHI.png",
+							"shortName": "LaVine"
+						},
+						"home": {
+							"playerId": "p-SEA",
+							"firstName": "Kevin",
+							"lastName": "Durant",
+							"teamCode": "SEA",
+							"photoUrl": "https://example.com/photos/SEA.png",
+							"shortName": "Durant"
+						}
+					},
+					"highlights": [],
+					"broadcast": null,
+					"period": null,
+					"clock": null,
+					"lineScore": null,
+					"score": null,
+					"leaders": null,
+					"teamStats": null,
+					"highlightsSearchUrl": null
+				}
+			]
+		},
+		{
+			"date": "2026-10-06",
+			"games": []
+		},
+		{
+			"date": "2026-10-07",
+			"games": []
+		}
+	]
+}

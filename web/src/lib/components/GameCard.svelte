@@ -50,11 +50,11 @@
 		{ team: game.away, side: 'away' as const },
 		{ team: game.home, side: 'home' as const }
 	]);
-	const scores = $derived(
-		hidden || game.status.state === 'scheduled'
-			? null
-			: { away: game.status.awayScore, home: game.status.homeScore }
-	);
+	const scores = $derived.by(() => {
+		const status = game.status;
+		if (hidden || (status.state !== 'live' && status.state !== 'final')) return null;
+		return { away: status.awayScore, home: status.homeScore };
+	});
 </script>
 
 {#snippet statusLine()}
@@ -64,10 +64,18 @@
 			{m.status_final()}
 		{:else if status.state === 'live'}
 			<LiveBadge /> {status.period} · {status.clock}
-		{:else if layout === 'desktop'}
-			{status.network}
+		{:else if status.state === 'scheduled'}
+			{#if layout === 'desktop'}
+				{status.network ?? ''}
+			{:else}
+				{status.tipTime + ' ' + status.tipSuffix + (status.network ? ' · ' + status.network : '')}
+			{/if}
+		{:else if status.state === 'delayed'}
+			{m.status_delayed()}
+		{:else if status.state === 'postponed'}
+			{m.status_postponed()}
 		{:else}
-			{status.tipTime} {status.tipSuffix} · {status.network}
+			{m.status_canceled()}
 		{/if}
 	</span>
 {/snippet}
@@ -171,10 +179,12 @@
 				<dt>{m.panel_venue()}</dt>
 				<dd>{details.venue}</dd>
 			</div>
-			<div class="fact">
-				<dt>{m.panel_broadcast()}</dt>
-				<dd>{status.network}</dd>
-			</div>
+			{#if status.network}
+				<div class="fact">
+					<dt>{m.panel_broadcast()}</dt>
+					<dd>{status.network}</dd>
+				</div>
+			{/if}
 		</dl>
 		<p class="watch-title">{m.panel_players_to_watch()}</p>
 		<div class="watch">

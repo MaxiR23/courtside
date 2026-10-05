@@ -12,7 +12,7 @@
 	import StatusTag from '#lib/components/StatusTag.svelte';
 	import TeamMonogram from '#lib/components/TeamMonogram.svelte';
 	import { SpoilerFree } from '#lib/schedule/spoiler-free.svelte.ts';
-	import type { HeroPlayer } from '#lib/hero/types.ts';
+	import type { HeroGame, HeroPlayer } from '#lib/hero/types.ts';
 	import type {
 		GameDetails,
 		GameHighlights,
@@ -49,6 +49,19 @@
 		{ title: 'Hero: Live now', status: 'live' },
 		{ title: 'Hero: Final', status: 'final' }
 	] as const;
+	const heroGame = (id: string, status: HeroGame['status']): HeroGame => ({
+		id,
+		status,
+		tipTime: '10:30 PM ET',
+		arena: 'Chase Center',
+		away: { name: 'Warriors', star: away },
+		home: { name: 'Lakers', star: home }
+	});
+	const heroGames: HeroGame[] = [
+		heroGame('one', 'tonight'),
+		heroGame('two', 'live'),
+		heroGame('three', 'final')
+	];
 
 	const warriors = { code: 'GSW', name: 'Warriors', city: 'Golden State' };
 	const lakers = { code: 'LAL', name: 'Lakers', city: 'Los Angeles' };
@@ -150,6 +163,10 @@
 			)
 		}
 	];
+	// Games with no score and no tip time. They have no details, so they do not expand.
+	const statusGames: ScheduleGame[] = (['delayed', 'postponed', 'canceled'] as const).map(
+		(state) => ({ id: state, away: celtics, home: knicks, status: { state } })
+	);
 	const overtimeGame: ScheduleGame = {
 		id: 'overtime',
 		away: celtics,
@@ -224,6 +241,9 @@
 			<StatusTag status="tonight" />
 			<StatusTag status="live" />
 			<StatusTag status="final" />
+			<StatusTag status="delayed" />
+			<StatusTag status="postponed" />
+			<StatusTag status="canceled" />
 		</div>
 	</section>
 
@@ -244,11 +264,7 @@
 		<section>
 			<h2>{state.title}</h2>
 			<Hero
-				status={state.status}
-				tipTime="10:30 PM ET"
-				arena="Chase Center"
-				away={{ name: 'Warriors', star: away }}
-				home={{ name: 'Lakers', star: home }}
+				games={[heroGame(state.status, state.status)]}
 				{today}
 				scheduleHref={resolve('/')}
 				onMatchDetails={() => {}}
@@ -257,6 +273,18 @@
 			/>
 		</section>
 	{/each}
+
+	<section>
+		<h2>Hero: three games</h2>
+		<Hero
+			games={heroGames}
+			{today}
+			scheduleHref={resolve('/')}
+			onMatchDetails={() => {}}
+			spoilerFree={spoilerFree.on}
+			onSpoilerFreeToggle={() => spoilerFree.toggle()}
+		/>
+	</section>
 
 	<section>
 		<h2>DayStrip</h2>
@@ -282,6 +310,9 @@
 			{#each sampleGames as game (game.id)}
 				<GameCard {game} layout="desktop" />
 			{/each}
+			{#each statusGames as game (game.id)}
+				<GameCard {game} layout="desktop" />
+			{/each}
 		</div>
 	</section>
 
@@ -289,6 +320,9 @@
 		<h2>GameCard: mobile row</h2>
 		<div class="stack phone">
 			{#each sampleGames as game (game.id)}
+				<GameCard {game} layout="mobile" />
+			{/each}
+			{#each statusGames as game (game.id)}
 				<GameCard {game} layout="mobile" />
 			{/each}
 		</div>

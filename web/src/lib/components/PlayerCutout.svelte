@@ -21,6 +21,18 @@
 
 	const player = $derived(players[active]);
 
+	// Only the active slide and the next one load their photo; a slide keeps it once shown, so the
+	// crossfade out still has its image.
+	const next = $derived((active + 1) % Math.max(1, players.length));
+	let shown = $state<Record<number, boolean>>({});
+
+	$effect(() => {
+		shown[active] = true;
+		shown[next] = true;
+	});
+
+	const loads = (index: number) => index === active || index === next || shown[index] === true;
+
 	function fullName(p: HeroPlayer): string {
 		return `${p.firstName} ${p.lastName}`;
 	}
@@ -46,7 +58,7 @@
 							<div class="cutout-placeholder" role="img" aria-label={fullName(p)}>
 								{initials(p)}
 							</div>
-						{:else}
+						{:else if loads(index)}
 							<img
 								src={p.photo}
 								alt={fullName(p)}

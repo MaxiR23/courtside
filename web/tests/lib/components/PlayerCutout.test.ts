@@ -6,6 +6,7 @@
 // - Shows the active player's photo and chip, and hides the other cutout from assistive technology
 // - Switches the chip when the active player changes
 // - Shows a placeholder when a photo fails to load
+// - Renders photos only for the active and the next slide, and keeps shown ones
 // - Shows a replacement player's photo after the previous photo in that slot failed
 //
 // What is covered:
@@ -84,6 +85,21 @@ describe('PlayerCutout', () => {
 		render(PlayerCutout, { props: { players, active: 0 } });
 		await fireEvent.error(screen.getByAltText('Stephen Curry'));
 		expect(screen.getByAltText('LeBron James')).toBeTruthy();
+	});
+
+	it('renders only the active and the next photo, and the next one after advancing', async () => {
+		const six = Array.from({ length: 6 }, (_, i) => ({
+			...away,
+			lastName: `P${i}`,
+			photo: `/p${i}.svg`
+		}));
+		const { container, rerender } = render(PlayerCutout, { props: { players: six, active: 0 } });
+		const srcs = () =>
+			Array.from(container.querySelectorAll('img')).map((img) => img.getAttribute('src'));
+		expect(srcs()).toEqual(['/p0.svg', '/p1.svg']);
+		await rerender({ players: six, active: 1 });
+		expect(srcs()).toEqual(['/p0.svg', '/p1.svg', '/p2.svg']);
+		expect(container.querySelectorAll('.cutout')).toHaveLength(6);
 	});
 
 	it("shows the new player's photo after a failed photo is replaced", async () => {

@@ -1,12 +1,12 @@
 <script lang="ts">
-	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
 	import DayStrip from '#lib/components/DayStrip.svelte';
 	import GameCard from '#lib/components/GameCard.svelte';
 	import Kicker from '#lib/components/Kicker.svelte';
+	import MessageRow from '#lib/components/MessageRow.svelte';
 	import { formatDate, formatNumber } from '#lib/format/locale.ts';
 	import { m } from '#lib/paraglide/messages.js';
 	import { ListEntrance } from '#lib/schedule/entrance.svelte.ts';
-	import { wideViewport } from '#lib/schedule/layout.ts';
+	import { cardAnchor, wideViewport } from '#lib/schedule/layout.ts';
 	import { cardEntrance } from '#lib/schedule/motion.ts';
 	import type { ScheduleDay } from '#lib/schedule/types.ts';
 
@@ -14,10 +14,17 @@
 		days: ScheduleDay[]; // seven days, today in the middle
 		updatedMinutesAgo: number; // freshness, computed by the props layer
 		selected?: number; // $bindable, default 3 (today)
+		openId?: string | null; // $bindable, the id of the open card, so the page can open one
 		spoilerFree?: boolean; // hides final scores until a card is opened
 	};
 
-	let { days, updatedMinutesAgo, selected = $bindable(3), spoilerFree = false }: Props = $props();
+	let {
+		days,
+		updatedMinutesAgo,
+		selected = $bindable(3),
+		openId = $bindable(null),
+		spoilerFree = false
+	}: Props = $props();
 
 	const wide = wideViewport();
 	const entrance = new ListEntrance();
@@ -30,7 +37,6 @@
 	const updated = $derived(m.schedule_updated({ minutes: formatNumber(updatedMinutesAgo) }));
 	const strip = $derived(days.map((d) => ({ date: d.date, gameCount: d.games.length })));
 	let list: HTMLElement | undefined = $state();
-	let openId = $state<string | null>(null);
 	let playingId = $state<string | null>(null);
 
 	$effect(() => {
@@ -50,7 +56,7 @@
 	}
 </script>
 
-<section class="schedule">
+<section class="schedule" id="schedule">
 	<header>
 		<div class="heading">
 			<Kicker text={m.schedule_kicker()} />
@@ -71,7 +77,7 @@
 			{#if games.length > 0}
 				<ul class="games">
 					{#each games as game, i (game.id)}
-						<li use:cardEntrance={{ index: i, run: entrance.run }}>
+						<li id={cardAnchor(game.id)} use:cardEntrance={{ index: i, run: entrance.run }}>
 							<GameCard
 								{game}
 								{spoilerFree}
@@ -85,9 +91,7 @@
 					{/each}
 				</ul>
 			{:else}
-				<BlueprintFrame>
-					<p class="empty">{m.schedule_no_games()}</p>
-				</BlueprintFrame>
+				<MessageRow text={m.schedule_no_games()} />
 			{/if}
 		{/key}
 	</div>
@@ -138,12 +142,5 @@
 		list-style: none;
 		padding: 0;
 		margin: 0;
-	}
-
-	.empty {
-		margin: 0;
-		padding: var(--game-list-gap);
-		font-size: var(--body-size);
-		color: var(--color-muted);
 	}
 </style>

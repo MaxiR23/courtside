@@ -3,7 +3,7 @@
 // Tests for the StatusTag component.
 //
 // Tested:
-// - Shows Tonight, Live now or Final for each status
+// - Shows Tonight, Live now, Final, Delayed, Postponed or Canceled for each status
 // - Shows Esta noche, En vivo or Final with a Spanish browser preference
 //
 // What is covered:
@@ -40,6 +40,17 @@ describe('StatusTag', () => {
 	});
 });
 
+describe('StatusTag with a delayed, postponed or canceled game', () => {
+	it.each([
+		['delayed', 'Delayed'],
+		['postponed', 'Postponed'],
+		['canceled', 'Canceled']
+	] as const)('shows %s as %s', (status, label) => {
+		render(StatusTag, { props: { status } });
+		expect(screen.getByText(label)).toBeTruthy();
+	});
+});
+
 describe('StatusTag with a Spanish browser preference', () => {
 	it('shows Esta noche for a scheduled game tonight', () => {
 		preferLanguages(['es-ES']);
@@ -57,5 +68,15 @@ describe('StatusTag with a Spanish browser preference', () => {
 		preferLanguages(['es-ES']);
 		render(StatusTag, { props: { status: 'final' } });
 		expect(screen.getByText('Final')).toBeTruthy();
+	});
+
+	it.each([
+		['delayed', 'Retrasado'],
+		['postponed', 'Aplazado'],
+		['canceled', 'Cancelado']
+	] as const)('shows %s as %s', (status, label) => {
+		preferLanguages(['es-ES']);
+		render(StatusTag, { props: { status } });
+		expect(screen.getByText(label)).toBeTruthy();
 	});
 });

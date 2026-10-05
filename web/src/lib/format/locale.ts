@@ -7,3 +7,10 @@ export function formatDate(date: Date, options: Intl.DateTimeFormatOptions): str
 export function formatNumber(value: number, options?: Intl.NumberFormatOptions): string {
 	return new Intl.NumberFormat(getLocale(), options).format(value);
 }
+
+export function formatDateParts(
+	date: Date,
+	options: Intl.DateTimeFormatOptions
+): Intl.DateTimeFormatPart[] {
+	return new Intl.DateTimeFormat(getLocale(), options).formatToParts(date);
+}

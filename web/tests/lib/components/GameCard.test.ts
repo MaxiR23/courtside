@@ -10,6 +10,8 @@
 // - A card without details stays a plain row; with details it toggles an inert panel
 // - The panel per state: live, final, overtime and scheduled, its motion and Spanish labels
 // - Highlights on final games only: videos, pending, play callback, player removed on close
+// - Delayed, postponed and canceled games: status line only, no score, no tip time, no toggle
+// - A scheduled game with no known network
 // - Spoiler-free mode: final cards that can expand hide the score and the dimming until open
 //
 // What is covered:
@@ -438,5 +440,70 @@ describe('GameCard', () => {
 			});
 			expect(row(container).textContent).toContain('Toca para ver');
 		});
+	});
+});
+
+describe('GameCard with a delayed, postponed or canceled game', () => {
+	const inState = (state: 'delayed' | 'postponed' | 'canceled'): ScheduleGame => ({
+		id: state,
+		away,
+		home,
+		status: { state }
+	});
+	const labels = [
+		['delayed', 'Delayed', 'Retrasado'],
+		['postponed', 'Postponed', 'Aplazado'],
+		['canceled', 'Canceled', 'Cancelado']
+	] as const;
+
+	it.each(labels)('shows %s on the status line with no score and no tip time', (state, english) => {
+		for (const layout of ['desktop', 'mobile'] as const) {
+			const { container, unmount } = render(GameCard, {
+				props: { game: inState(state), layout }
+			});
+			expect(container.querySelector('.status-line')?.textContent?.trim()).toBe(english);
+			expect(container.querySelector('.score')).toBeNull();
+			expect(container.querySelector('.tip-time')).toBeNull();
+			unmount();
+		}
+	});
+
+	it.each(labels)('shows %s in Spanish', (state, _label, spanish) => {
+		preferLanguages(['es-ES']);
+		const { container } = render(GameCard, { props: { game: inState(state), layout: 'desktop' } });
+		expect(container.querySelector('.status-line')?.textContent?.trim()).toBe(spanish);
+	});
+
+	it.each(labels)('keeps %s as a plain row with no toggle', (state) => {
+		const { container } = render(GameCard, { props: { game: inState(state), layout: 'desktop' } });
+		expect(container.querySelector('button.toggle')).toBeNull();
+	});
+});
+
+describe('GameCard with an unknown network', () => {
+	const noNetwork: ScheduleGame = {
+		...scheduled,
+		status: { state: 'scheduled', tipTime: '9:00', tipSuffix: 'PM ET', network: null }
+	};
+
+	it('shows only the tip time on the mobile status line', () => {
+		const { container } = render(GameCard, { props: { game: noNetwork, layout: 'mobile' } });
+		expect(container.querySelector('.status-line')?.textContent?.trim()).toBe('9:00 PM ET');
+	});
+
+	it('hides the Broadcast fact', () => {
+		const { container } = render(GameCard, {
+			props: {
+				game: withDetails(noNetwork, {
+					kind: 'scheduled',
+					venue: 'Crypto.com Arena',
+					playersToWatch: { away: awayPlayer, home: homePlayer }
+				}),
+				layout: 'desktop',
+				open: true
+			}
+		});
+		expect(screen.queryByText('Broadcast')).toBeNull();
+		expect(container.querySelectorAll('.fact').length).toBe(2);
 	});
 });
