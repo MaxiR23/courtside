@@ -23,6 +23,8 @@
 	--font-weight-semibold: 600;
 	--label-size: 11px;
 	--label-letter-spacing: 0.16em;
+	--live-badge-size: 9.5px;
+	--tag-padding: 1px 5px;
 	--hero-h1-size: clamp(54px, 9.5vw, 148px);
 	--hero-h1-line-height: 0.86;
 	--hero-h1-letter-spacing: -0.02em;
@@ -35,6 +37,8 @@
 	--team-name-size-mobile: 20px;
 	--score-size: clamp(32px, 4vw, 46px);
 	--score-size-mobile: 30px;
+	--monogram-size: 46px;
+	--monogram-size-mobile: 38px;
 	--tip-time-size: clamp(28px, 3.4vw, 38px);
 	--tip-time-suffix-size: 0.45em;
 	--player-name-size: 19px;
@@ -61,6 +65,7 @@
 	--game-list-gap: 14px;
 	--day-strip-gap: clamp(4px, 1vw, 8px);
 	--panel-section-gap: 36px;
+	--hit-target-size: 44px;
 
 	/* Motion */
 	--ease: cubic-bezier(0.2, 0.7, 0.1, 1);

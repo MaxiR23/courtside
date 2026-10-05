@@ -11,7 +11,14 @@ export default defineConfig({
 				runes: ({ filename }) =>
 					filename.split(/[/\\]/).includes('node_modules') ? undefined : true
 			},
-			adapter: adapter()
+			adapter: adapter(),
+			prerender: {
+				handleHttpError: ({ path, status, message }) => {
+					// The component preview route exists only in development and answers 404 in the build.
+					if (path === '/preview' && status === 404) return;
+					throw new Error(message);
+				}
+			}
 		}),
 		svelteTesting()
 	],
