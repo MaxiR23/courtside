@@ -30,7 +30,7 @@ FAILURE = dt.datetime(2026, 1, 10, 13, 0, tzinfo=dt.UTC)
 
 def make_client(path: Path) -> TestClient:
     settings = Settings(_env_file=None, data_dir=path)  # type: ignore[call-arg]
-    return TestClient(create_app(settings))
+    return TestClient(create_app(settings, run_jobs=False))
 
 
 def test_reports_ok_with_no_jobs_before_any_run(tmp_path: Path) -> None:

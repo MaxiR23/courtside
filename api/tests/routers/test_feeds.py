@@ -29,7 +29,7 @@ from app.storage.feeds import publish_feed
 
 def make_client(path: Path) -> TestClient:
     settings = Settings(_env_file=None, data_dir=path)  # type: ignore[call-arg]
-    return TestClient(create_app(settings))
+    return TestClient(create_app(settings, run_jobs=False))
 
 
 def feed(day: int) -> GamesFeed:

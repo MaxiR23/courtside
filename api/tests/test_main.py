@@ -8,9 +8,11 @@
 # - Does not allow an origin outside the configuration
 # - Refuses a preflight from an origin outside the configuration
 # - Allows no origin when none is configured
+# - Starts the scheduler with the app and stops it on shutdown
+# - Does not start the scheduler when jobs are off
 #
 # What is covered:
-# - Success response, refused cases
+# - Success response, refused cases, scheduler start and stop
 #
 # Run with: cd api && .venv/bin/python -m pytest tests/test_main.py
 #
@@ -18,11 +20,12 @@
 
 from pathlib import Path
 
+import respx
 from fastapi.testclient import TestClient
 
 from app.main import create_app
 from app.settings import Settings
-from app.storage.state import STATE_FILE
+from app.storage.state import STATE_FILE, StateStore
 
 ALLOWED = "https://allowed.example"
 OTHER = "https://other.example"
@@ -32,7 +35,7 @@ def make_client(path: Path, origins: list[str]) -> TestClient:
     settings = Settings(  # type: ignore[call-arg]
         _env_file=None, data_dir=path, cors_origins=origins
     )
-    return TestClient(create_app(settings))
+    return TestClient(create_app(settings, run_jobs=False))
 
 
 def test_creates_the_data_directory_and_state_file_on_startup(
@@ -78,3 +81,29 @@ def test_allows_no_origin_when_none_is_configured(tmp_path: Path) -> None:
         response = client.get("/health", headers={"Origin": ALLOWED})
 
     assert "access-control-allow-origin" not in response.headers
+
+
+def test_starts_the_scheduler_with_the_app_and_stops_it_on_shutdown(
+    tmp_path: Path,
+) -> None:
+    settings = Settings(_env_file=None, data_dir=tmp_path)  # type: ignore[call-arg]
+    app = create_app(settings)
+
+    with respx.mock, TestClient(app):
+        assert app.state.scheduler.running
+
+    assert not app.state.scheduler.running
+    states = StateStore(tmp_path).job_states()
+    assert [state.name for state in states] == ["games"]
+    reason = states[0].last_failure_reason
+    assert reason is not None and reason.startswith("scoreboard:")
+
+
+def test_does_not_start_the_scheduler_when_jobs_are_off(tmp_path: Path) -> None:
+    settings = Settings(_env_file=None, data_dir=tmp_path)  # type: ignore[call-arg]
+    app = create_app(settings, run_jobs=False)
+
+    with TestClient(app):
+        assert not app.state.scheduler.running
+
+    assert StateStore(tmp_path).job_states() == []

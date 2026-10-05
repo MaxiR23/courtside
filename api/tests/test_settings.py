@@ -15,6 +15,9 @@
 # - Reads the game detail URL from an environment variable
 # - Leaves the player photo URL unset by default
 # - Reads the player photo URL from an environment variable
+# - Defaults the daily fetch time to six in the morning
+# - Reads the daily fetch time from an environment variable
+# - Rejects an invalid daily fetch time
 # - Validation errors do not include the input value
 # - Defaults the data directory to api/data
 # - Reads the data directory from an environment variable
@@ -24,12 +27,13 @@
 # - Reads the CORS origins as a JSON list
 #
 # What is covered:
-# - Happy path, value from the environment, value from a .env file, .env file location, invalid value, shared instance, optional scoreboard URL, optional game detail URL, optional player photo URL, input hidden from errors, data directory (default, environment, relative, empty), CORS origins (default, JSON list)
+# - Happy path, value from the environment, value from a .env file, .env file location, invalid value, shared instance, optional scoreboard URL, optional game detail URL, optional player photo URL, daily fetch time (default, environment, invalid), input hidden from errors, data directory (default, environment, relative, empty), CORS origins (default, JSON list)
 #
 # Run with: cd api && .venv/bin/python -m pytest tests/test_settings.py
 #
 # SEE: api/app/settings.py
 
+import datetime as dt
 import os
 from collections.abc import Iterator
 from pathlib import Path
@@ -54,6 +58,7 @@ def clear_environment_variable(monkeypatch: pytest.MonkeyPatch) -> None:
             "scoreboard_url",
             "game_detail_url",
             "player_photo_url",
+            "daily_fetch_time",
             "data_dir",
             "cors_origins",
         }:
@@ -157,6 +162,27 @@ def test_reads_the_player_photo_url_from_the_environment_variable(
         SettingsWithoutEnvFile().player_photo_url
         == "https://example.com/players/{player_id}.png"
     )
+
+
+def test_defaults_the_daily_fetch_time_to_six_in_the_morning() -> None:
+    assert SettingsWithoutEnvFile().daily_fetch_time == dt.time(6, 0)
+
+
+def test_reads_the_daily_fetch_time_from_an_environment_variable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DAILY_FETCH_TIME", "07:30")
+
+    assert SettingsWithoutEnvFile().daily_fetch_time == dt.time(7, 30)
+
+
+def test_rejects_an_invalid_daily_fetch_time(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DAILY_FETCH_TIME", "25:00")
+
+    with pytest.raises(ValidationError):
+        SettingsWithoutEnvFile()
 
 
 def test_validation_errors_do_not_include_the_input_value(
