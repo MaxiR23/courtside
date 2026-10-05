@@ -15,7 +15,7 @@
 // Run with: cd web && pnpm exec vitest run tests/routes/+page.test.ts
 //
 // SEE: web/src/routes/+page.svelte
-import { render, screen } from '@testing-library/svelte';
+import { render, screen, within } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { preferLanguages } from '../prefer-languages';
@@ -34,41 +34,51 @@ describe('home page', () => {
 
 	it('shows the not-affiliated line in the footer', () => {
 		render(Page);
-		expect(screen.getByRole('contentinfo').textContent?.trim()).toBe(
-			'Personal project. Not affiliated with the NBA.'
-		);
+		expect(
+			within(screen.getByRole('contentinfo')).getByText(
+				'Personal project. Not affiliated with the NBA.'
+			)
+		).toBeTruthy();
 	});
 
 	it('shows the page in Spanish with an es-ES preference', () => {
 		preferLanguages(['es-ES']);
 		render(Page);
 		expect(screen.getByRole('heading', { level: 1, name: 'Courtside' })).toBeTruthy();
-		expect(screen.getByRole('contentinfo').textContent?.trim()).toBe(
-			'Proyecto personal. Sin afiliación con la NBA.'
-		);
+		expect(
+			within(screen.getByRole('contentinfo')).getByText(
+				'Proyecto personal. Sin afiliación con la NBA.'
+			)
+		).toBeTruthy();
 	});
 
 	it('shows Spanish for a regional tag such as es-419', () => {
 		preferLanguages(['es-419']);
 		render(Page);
-		expect(screen.getByRole('contentinfo').textContent?.trim()).toBe(
-			'Proyecto personal. Sin afiliación con la NBA.'
-		);
+		expect(
+			within(screen.getByRole('contentinfo')).getByText(
+				'Proyecto personal. Sin afiliación con la NBA.'
+			)
+		).toBeTruthy();
 	});
 
 	it('shows English for an unsupported language', () => {
 		preferLanguages(['fr-FR']);
 		render(Page);
-		expect(screen.getByRole('contentinfo').textContent?.trim()).toBe(
-			'Personal project. Not affiliated with the NBA.'
-		);
+		expect(
+			within(screen.getByRole('contentinfo')).getByText(
+				'Personal project. Not affiliated with the NBA.'
+			)
+		).toBeTruthy();
 	});
 
 	it('shows English when English is preferred over Spanish', () => {
 		preferLanguages(['en-US', 'es']);
 		render(Page);
-		expect(screen.getByRole('contentinfo').textContent?.trim()).toBe(
-			'Personal project. Not affiliated with the NBA.'
-		);
+		expect(
+			within(screen.getByRole('contentinfo')).getByText(
+				'Personal project. Not affiliated with the NBA.'
+			)
+		).toBeTruthy();
 	});
 });

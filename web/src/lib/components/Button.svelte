@@ -18,7 +18,7 @@
 {/snippet}
 
 {#if variant === 'primary'}
-	<BlueprintFrame>{@render control()}</BlueprintFrame>
+	<BlueprintFrame inline>{@render control()}</BlueprintFrame>
 {:else}
 	{@render control()}
 {/if}

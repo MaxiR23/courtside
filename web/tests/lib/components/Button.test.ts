@@ -51,4 +51,15 @@ describe('Button', () => {
 		expect(container.querySelector('.blueprint-frame')).toBeNull();
 		expect(container.querySelectorAll('.blueprint-mark')).toHaveLength(0);
 	});
+
+	it('frames the primary button inline so the frame wraps the button itself', () => {
+		const { container } = render(Button, { props: { variant: 'primary', label: 'Go', href } });
+		const frame = container.querySelector('.blueprint-frame.inline');
+		expect(frame).not.toBeNull();
+		const content = [...(frame?.children ?? [])].filter(
+			(child) => !child.classList.contains('blueprint-mark')
+		);
+		expect(content).toHaveLength(1);
+		expect(content[0].classList.contains('button')).toBe(true);
+	});
 });

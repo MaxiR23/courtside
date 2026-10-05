@@ -5,5 +5,10 @@
 	"live_badge": "EN VIVO",
 	"status_tonight": "Esta noche",
 	"status_live": "En vivo",
-	"status_final": "Final"
+	"status_final": "Final",
+	"nav_games": "Partidos",
+	"hero_at": "en",
+	"hero_blurb": "{awayStar} y {homeStar} se enfrentan en {arena}.",
+	"hero_match_details": "Detalles del partido",
+	"hero_all_games": "Todos los partidos"
 }

@@ -5,6 +5,7 @@
 // Tested:
 // - Renders its content inside the frame
 // - Draws four registration marks, hidden from assistive technology
+// - Is a block frame by default and shrink-wraps its content when inline
 //
 // What is covered:
 // - Its only state
@@ -18,9 +19,9 @@ import { describe, expect, it } from 'vitest';
 
 import BlueprintFrame from '../../../src/lib/components/BlueprintFrame.svelte';
 
-function renderFrame() {
+function renderFrame(inline?: boolean) {
 	return render(BlueprintFrame, {
-		props: { children: createRawSnippet(() => ({ render: () => '<p>Inside</p>' })) }
+		props: { inline, children: createRawSnippet(() => ({ render: () => '<p>Inside</p>' })) }
 	});
 }
 
@@ -44,5 +45,15 @@ describe('BlueprintFrame', () => {
 		for (const mark of container.querySelectorAll('.blueprint-mark')) {
 			expect(mark.getAttribute('aria-hidden')).toBe('true');
 		}
+	});
+
+	it('is a block frame by default', () => {
+		const { container } = renderFrame();
+		expect(container.querySelector('.blueprint-frame')?.classList.contains('inline')).toBe(false);
+	});
+
+	it('shrink-wraps its content when inline', () => {
+		const { container } = renderFrame(true);
+		expect(container.querySelector('.blueprint-frame')?.classList.contains('inline')).toBe(true);
 	});
 });
