@@ -3,7 +3,7 @@
 # Tests for the game detail adapter.
 #
 # Tested:
-# - Maps a recorded final game to leaders and team stats
+# - Maps a recorded final game and a recorded live game to leaders and team stats
 # - Requests the URL built from the template and the game id
 # - Picks the top scorer of each team, breaking a tie on points by rebounds plus assists and then by provider order, skipping players without a stat line
 # - Builds photo URLs from the template and keeps the display name exactly as the provider gives it
@@ -16,10 +16,9 @@
 # - A valid response mapped, an invalid payload rejected, upstream failures handled
 # - Happy path, edge cases and error cases of the leader and team stat mapping
 #
-# The recorded final fixture is a real box score trimmed to the fields the
-# adapter reads: every URL-valued key is removed and the players keep their
-# stat lines. A live fixture and its test come in a later change: no game is
-# live when this one is written.
+# The recorded final and live fixtures are real box scores trimmed to the
+# fields the adapter reads: every URL-valued key is removed and the players
+# keep their stat lines. The live one was recorded early in the first quarter.
 #
 # Run with: cd api && .venv/bin/python -m pytest tests/sources/test_game_detail.py
 #
@@ -143,6 +142,36 @@ async def test_maps_a_recorded_final_game_to_leaders_and_team_stats(
         18,
         21,
     )
+
+
+@pytest.mark.anyio
+async def test_maps_a_recorded_live_game_to_leaders_and_team_stats(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    mock.get(URL).respond(json=load("live.json"))
+
+    detail = await fetch(settings)
+
+    away, home = detail.leaders.away, detail.leaders.home
+    assert (away.team_code, away.player_id, away.display_name) == (
+        "MEM",
+        "5112087",
+        "Jaylen Wells",
+    )
+    assert (away.points, away.rebounds, away.assists) == (3, 0, 0)
+    assert (home.team_code, home.player_id, home.display_name) == (
+        "ATL",
+        "4278039",
+        "Nickeil Alexander-Walker",
+    )
+    assert (home.points, home.rebounds, home.assists) == (10, 1, 0)
+    stats = detail.team_stats
+    assert stats.away.field_goal_pct == pytest.approx(0.36)
+    assert stats.away.three_point_pct == pytest.approx(0.14)
+    assert (stats.away.rebounds, stats.away.assists, stats.away.turnovers) == (3, 3, 2)
+    assert stats.home.field_goal_pct == pytest.approx(0.80)
+    assert stats.home.three_point_pct == pytest.approx(0.75)
+    assert (stats.home.rebounds, stats.home.assists, stats.home.turnovers) == (5, 5, 0)
 
 
 @pytest.mark.anyio

@@ -1,0 +1,514 @@
+{
+  "boxscore": {
+    "teams": [
+      {
+        "homeAway": "away",
+        "team": {
+          "abbreviation": "MEM"
+        },
+        "statistics": [
+          {
+            "name": "fieldGoalPct",
+            "displayValue": "36"
+          },
+          {
+            "name": "threePointFieldGoalPct",
+            "displayValue": "14"
+          },
+          {
+            "name": "totalRebounds",
+            "displayValue": "3"
+          },
+          {
+            "name": "assists",
+            "displayValue": "3"
+          },
+          {
+            "name": "turnovers",
+            "displayValue": "2"
+          },
+          {
+            "name": "totalTurnovers",
+            "displayValue": "2"
+          }
+        ]
+      },
+      {
+        "homeAway": "home",
+        "team": {
+          "abbreviation": "ATL"
+        },
+        "statistics": [
+          {
+            "name": "fieldGoalPct",
+            "displayValue": "80"
+          },
+          {
+            "name": "threePointFieldGoalPct",
+            "displayValue": "75"
+          },
+          {
+            "name": "totalRebounds",
+            "displayValue": "5"
+          },
+          {
+            "name": "assists",
+            "displayValue": "5"
+          },
+          {
+            "name": "turnovers",
+            "displayValue": "0"
+          },
+          {
+            "name": "totalTurnovers",
+            "displayValue": "0"
+          }
+        ]
+      }
+    ],
+    "players": [
+      {
+        "team": {
+          "abbreviation": "MEM"
+        },
+        "statistics": [
+          {
+            "keys": [
+              "minutes",
+              "points",
+              "fieldGoalsMade-fieldGoalsAttempted",
+              "threePointFieldGoalsMade-threePointFieldGoalsAttempted",
+              "freeThrowsMade-freeThrowsAttempted",
+              "rebounds",
+              "assists",
+              "turnovers",
+              "steals",
+              "blocks",
+              "offensiveRebounds",
+              "defensiveRebounds",
+              "fouls",
+              "plusMinus"
+            ],
+            "athletes": [
+              {
+                "athlete": {
+                  "id": "4903027",
+                  "displayName": "Cedric Coward"
+                },
+                "stats": [
+                  "5",
+                  "0",
+                  "0-1",
+                  "0-1",
+                  "0-0",
+                  "0",
+                  "1",
+                  "0",
+                  "0",
+                  "0",
+                  "0",
+                  "0",
+                  "0",
+                  "-11"
+                ]
+              },
+              {
+                "athlete": {
+                  "id": "5041935",
+                  "displayName": "Cameron Boozer"
+                },
+                "stats": [
+                  "5",
+                  "2",
+                  "1-3",
+                  "0-2",
+                  "0-0",
+                  "1",
+                  "1",
+                  "0",
+                  "0",
+                  "0",
+                  "1",
+                  "0",
+                  "1",
+                  "-11"
+                ]
+              },
+              {
+                "athlete": {
+                  "id": "5112087",
+                  "displayName": "Jaylen Wells"
+                },
+                "stats": [
+                  "5",
+                  "3",
+                  "1-2",
+                  "1-2",
+                  "0-0",
+                  "0",
+                  "0",
+                  "0",
+                  "0",
+                  "0",
+                  "0",
+                  "0",
+                  "0",
+                  "-11"
+                ]
+              },
+              {
+                "athlete": {
+                  "id": "4593016",
+                  "displayName": "Quinten Post"
+                },
+                "stats": [
+                  "5",
+                  "2",
+                  "1-3",
+                  "0-1",
+                  "0-0",
+                  "2",
+                  "0",
+                  "0",
+                  "0",
+                  "0",
+                  "1",
+                  "1",
+                  "0",
+                  "-11"
+                ]
+              },
+              {
+                "athlete": {
+                  "id": "4065733",
+                  "displayName": "Ty Jerome"
+                },
+                "stats": [
+                  "5",
+                  "2",
+                  "1-2",
+                  "0-1",
+                  "0-0",
+                  "0",
+                  "1",
+                  "2",
+                  "0",
+                  "0",
+                  "0",
+                  "0",
+                  "1",
+                  "-11"
+                ]
+              },
+              {
+                "athlete": {
+                  "id": "2991070",
+                  "displayName": "Jerami Grant"
+                },
+                "stats": []
+              },
+              {
+                "athlete": {
+                  "id": "4594326",
+                  "displayName": "Kris Murray"
+                },
+                "stats": []
+              },
+              {
+                "athlete": {
+                  "id": "4595400",
+                  "displayName": "Olivier-Maxence Prosper"
+                },
+                "stats": []
+              },
+              {
+                "athlete": {
+                  "id": "4684806",
+                  "displayName": "Taylor Hendricks"
+                },
+                "stats": []
+              },
+              {
+                "athlete": {
+                  "id": "5105550",
+                  "displayName": "GG Jackson"
+                },
+                "stats": []
+              },
+              {
+                "athlete": {
+                  "id": "5231919",
+                  "displayName": "Karim Lopez"
+                },
+                "stats": []
+              },
+              {
+                "athlete": {
+                  "id": "4432810",
+                  "displayName": "Isaiah Stewart"
+                },
+                "stats": []
+              },
+              {
+                "athlete": {
+                  "id": "5105817",
+                  "displayName": "Carson Cooper"
+                },
+                "stats": []
+              },
+              {
+                "athlete": {
+                  "id": "4431785",
+                  "displayName": "Scotty Pippen Jr."
+                },
+                "stats": []
+              },
+              {
+                "athlete": {
+                  "id": "4433083",
+                  "displayName": "Cam Spencer"
+                },
+                "stats": []
+              },
+              {
+                "athlete": {
+                  "id": "4683934",
+                  "displayName": "Jahmai Mashack"
+                },
+                "stats": []
+              },
+              {
+                "athlete": {
+                  "id": "4781746",
+                  "displayName": "Javon Small"
+                },
+                "stats": []
+              },
+              {
+                "athlete": {
+                  "id": "4896372",
+                  "displayName": "Walter Clayton Jr."
+                },
+                "stats": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "team": {
+          "abbreviation": "ATL"
+        },
+        "statistics": [
+          {
+            "keys": [
+              "minutes",
+              "points",
+              "fieldGoalsMade-fieldGoalsAttempted",
+              "threePointFieldGoalsMade-threePointFieldGoalsAttempted",
+              "freeThrowsMade-freeThrowsAttempted",
+              "rebounds",
+              "assists",
+              "turnovers",
+              "steals",
+              "blocks",
+              "offensiveRebounds",
+              "defensiveRebounds",
+              "fouls",
+              "plusMinus"
+            ],
+            "athletes": [
+              {
+                "athlete": {
+                  "id": "4431680",
+                  "displayName": "Onyeka Okongwu"
+                },
+                "stats": [
+                  "5",
+                  "3",
+                  "1-1",
+                  "1-1",
+                  "0-0",
+                  "3",
+                  "2",
+                  "0",
+                  "0",
+                  "1",
+                  "0",
+                  "3",
+                  "0",
+                  "+11"
+                ]
+              },
+              {
+                "athlete": {
+                  "id": "4701230",
+                  "displayName": "Jalen Johnson"
+                },
+                "stats": [
+                  "5",
+                  "2",
+                  "1-2",
+                  "0-0",
+                  "0-0",
+                  "0",
+                  "2",
+                  "0",
+                  "0",
+                  "0",
+                  "0",
+                  "0",
+                  "0",
+                  "+11"
+                ]
+              },
+              {
+                "athlete": {
+                  "id": "4278039",
+                  "displayName": "Nickeil Alexander-Walker"
+                },
+                "stats": [
+                  "5",
+                  "10",
+                  "4-4",
+                  "1-1",
+                  "1-1",
+                  "1",
+                  "0",
+                  "0",
+                  "1",
+                  "0",
+                  "0",
+                  "1",
+                  "0",
+                  "+11"
+                ]
+              },
+              {
+                "athlete": {
+                  "id": "4869342",
+                  "displayName": "Dyson Daniels"
+                },
+                "stats": [
+                  "5",
+                  "2",
+                  "1-2",
+                  "0-1",
+                  "0-0",
+                  "1",
+                  "1",
+                  "0",
+                  "0",
+                  "0",
+                  "0",
+                  "1",
+                  "0",
+                  "+11"
+                ]
+              },
+              {
+                "athlete": {
+                  "id": "5149077",
+                  "displayName": "Kingston Flemings"
+                },
+                "stats": [
+                  "5",
+                  "3",
+                  "1-1",
+                  "1-1",
+                  "0-0",
+                  "0",
+                  "0",
+                  "0",
+                  "0",
+                  "0",
+                  "0",
+                  "0",
+                  "0",
+                  "+11"
+                ]
+              },
+              {
+                "athlete": {
+                  "id": "2578185",
+                  "displayName": "Dorian Finney-Smith"
+                },
+                "stats": []
+              },
+              {
+                "athlete": {
+                  "id": "4280151",
+                  "displayName": "Corey Kispert"
+                },
+                "stats": []
+              },
+              {
+                "athlete": {
+                  "id": "4431714",
+                  "displayName": "Jalen Wilson"
+                },
+                "stats": []
+              },
+              {
+                "athlete": {
+                  "id": "4712902",
+                  "displayName": "Cameron Corhen"
+                },
+                "stats": []
+              },
+              {
+                "athlete": {
+                  "id": "4873201",
+                  "displayName": "Asa Newell"
+                },
+                "stats": []
+              },
+              {
+                "athlete": {
+                  "id": "5106262",
+                  "displayName": "Zuby Ejiofor"
+                },
+                "stats": []
+              },
+              {
+                "athlete": {
+                  "id": "3146557",
+                  "displayName": "Jock Landale"
+                },
+                "stats": []
+              },
+              {
+                "athlete": {
+                  "id": "4397183",
+                  "displayName": "Aaron Wiggins"
+                },
+                "stats": []
+              },
+              {
+                "athlete": {
+                  "id": "4431941",
+                  "displayName": "RayJ Dennis"
+                },
+                "stats": []
+              },
+              {
+                "athlete": {
+                  "id": "4585618",
+                  "displayName": "Keshon Gilbert"
+                },
+                "stats": []
+              },
+              {
+                "athlete": {
+                  "id": "4683857",
+                  "displayName": "Kobe Johnson"
+                },
+                "stats": []
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
