@@ -51,6 +51,7 @@
 	--chip-code-size: 34px;
 	--chip-last-name-size: 22px;
 	--day-number-size: clamp(22px, 3vw, 32px);
+	--line-score-total-size: 17px;
 
 	/* Shape and elevation */
 	--radius: 0;
@@ -84,6 +85,14 @@
 	--chevron-size: 24px;
 	--icon-stroke-width: 1.5;
 	--dimmed-opacity: 0.42;
+	--chevron-open-rotation: 180deg;
+	--stat-bar-height: 3px;
+	--line-score-period-width: 34px;
+	--line-score-total-width: 46px;
+	--leader-photo-width: 72px;
+	--leader-photo-height: 56px;
+	--leader-photo-scale: 120%;
+	--leader-photo-filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.6));
 
 	/* Spacing */
 	--content-max-width: 1320px;
@@ -98,6 +107,7 @@
 	--chip-left: clamp(-28px, -2vw, -10px);
 	--chip-bottom: 36px;
 	--game-row-breakpoint: 680px;
+	--panel-column-min: 280px;
 
 	/* Motion */
 	--ease: cubic-bezier(0.2, 0.7, 0.1, 1);
@@ -131,6 +141,13 @@
 	--list-entrance-offset: 18px;
 	--list-entrance-duration: 600ms;
 	--list-entrance-stagger: 70ms;
+	--panel-expand-duration: 0.55s;
+	--panel-content-duration: 0.45s;
+	--panel-content-delay: 0.12s;
+	--panel-content-offset: -10px;
+	--panel-tint-duration: 0.35s;
+	--stat-bar-duration: 0.9s;
+	--stat-bar-delay: 0.2s;
 
 	/* Focus */
 	--focus-ring-width: 2px;

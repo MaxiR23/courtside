@@ -7,6 +7,7 @@
 // - Selecting a day changes the heading, count and games; zero games shows no cards
 // - Desktop row and full counts on a wide viewport; mobile row and numbers below it
 // - The staggered list entrance on first view and on a day change, not on the same day
+// - Only one game card is open at a time; clicking an open card closes it
 // - Spanish copy with a Spanish browser preference
 //
 // What is covered:
@@ -166,5 +167,80 @@ describe('Schedule', () => {
 		);
 		expect(screen.getAllByText('3 partidos').length).toBeGreaterThanOrEqual(1);
 		expect(screen.getByText('Actualizado hace 3 min')).toBeTruthy();
+	});
+
+	describe('open cards', () => {
+		const detailed = (id: string): ScheduleGame => ({
+			...game(id, 90),
+			details: {
+				kind: 'played',
+				periods: { away: [20, 20, 20, 30], home: [25, 25, 25, 25] },
+				leaders: {
+					away: {
+						firstName: 'A',
+						lastName: 'One',
+						teamCode: 'GSW',
+						photo: '/a.svg',
+						points: 1,
+						rebounds: 2,
+						assists: 3
+					},
+					home: {
+						firstName: 'B',
+						lastName: 'Two',
+						teamCode: 'LAL',
+						photo: '/b.svg',
+						points: 1,
+						rebounds: 2,
+						assists: 3
+					}
+				},
+				stats: {
+					away: { fieldGoalPct: 0.5, threePointPct: 0.4, rebounds: 40, assists: 20, turnovers: 10 },
+					home: {
+						fieldGoalPct: 0.45,
+						threePointPct: 0.35,
+						rebounds: 42,
+						assists: 22,
+						turnovers: 12
+					}
+				}
+			}
+		});
+		const detailedProps = {
+			updatedMinutesAgo: 3,
+			selected: 3,
+			days: [
+				...days.slice(0, 3),
+				{ date: days[3].date, games: [detailed('x'), detailed('y')] },
+				...days.slice(4)
+			]
+		};
+		const toggles = (container: HTMLElement) =>
+			container.querySelectorAll<HTMLButtonElement>('button.toggle');
+		const expanded = (container: HTMLElement) =>
+			container.querySelectorAll('[aria-expanded="true"]');
+
+		it('opens a game card when its row is clicked', async () => {
+			const { container } = render(Schedule, { props: detailedProps });
+			expect(expanded(container)).toHaveLength(0);
+			await fireEvent.click(toggles(container)[0]);
+			expect(toggles(container)[0].getAttribute('aria-expanded')).toBe('true');
+		});
+
+		it('closes the open card when another card is opened', async () => {
+			const { container } = render(Schedule, { props: detailedProps });
+			await fireEvent.click(toggles(container)[0]);
+			await fireEvent.click(toggles(container)[1]);
+			expect(expanded(container)).toHaveLength(1);
+			expect(toggles(container)[1].getAttribute('aria-expanded')).toBe('true');
+		});
+
+		it('closes the open card when its row is clicked again', async () => {
+			const { container } = render(Schedule, { props: detailedProps });
+			await fireEvent.click(toggles(container)[0]);
+			await fireEvent.click(toggles(container)[0]);
+			expect(expanded(container)).toHaveLength(0);
+		});
 	});
 });

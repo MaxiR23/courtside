@@ -18,6 +18,7 @@ export type CrossfadeParams = {
 	hidden: (read: TokenReader) => Keyframe;
 	shown: Keyframe;
 	durationToken: string;
+	delayToken?: string; // when set, the hidden look also holds during the delay
 };
 
 /** Converts a CSS time such as "1s", "0.5s" or "500ms" to milliseconds. */
@@ -69,7 +70,10 @@ export function crossfade(node: HTMLElement, initial: CrossfadeParams) {
 			running?.cancel();
 			running = node.animate(active ? [hidden, next.shown] : [next.shown, hidden], {
 				duration: parseMs(read(next.durationToken)),
-				easing: read('--ease')
+				easing: read('--ease'),
+				...(next.delayToken
+					? { delay: parseMs(read(next.delayToken)), fill: 'backwards' as const }
+					: {})
 			});
 		},
 		destroy: () => running?.cancel()

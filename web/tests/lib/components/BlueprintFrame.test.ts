@@ -6,6 +6,7 @@
 // - Renders its content inside the frame
 // - Draws four registration marks, hidden from assistive technology
 // - Is a block frame by default and shrink-wraps its content when inline
+// - Has the active border when active, and not by default
 //
 // What is covered:
 // - Its only state
@@ -19,9 +20,9 @@ import { describe, expect, it } from 'vitest';
 
 import BlueprintFrame from '../../../src/lib/components/BlueprintFrame.svelte';
 
-function renderFrame(inline?: boolean) {
+function renderFrame(inline?: boolean, active?: boolean) {
 	return render(BlueprintFrame, {
-		props: { inline, children: createRawSnippet(() => ({ render: () => '<p>Inside</p>' })) }
+		props: { inline, active, children: createRawSnippet(() => ({ render: () => '<p>Inside</p>' })) }
 	});
 }
 
@@ -55,5 +56,15 @@ describe('BlueprintFrame', () => {
 	it('shrink-wraps its content when inline', () => {
 		const { container } = renderFrame(true);
 		expect(container.querySelector('.blueprint-frame')?.classList.contains('inline')).toBe(true);
+	});
+
+	it('is not active by default', () => {
+		const { container } = renderFrame();
+		expect(container.querySelector('.blueprint-frame')?.classList.contains('active')).toBe(false);
+	});
+
+	it('has the active border when active', () => {
+		const { container } = renderFrame(false, true);
+		expect(container.querySelector('.blueprint-frame')?.classList.contains('active')).toBe(true);
 	});
 });
