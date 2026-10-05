@@ -7,7 +7,11 @@
 # - Rejects a naive time
 # - The days shown are today and three days on each side, in order
 # - Builds a valid feed, and reports the reason when stars, a search URL or a live detail is missing
-# - Daily fetch of the seven days, no refetch before the next morning, retry after a failure
+# - Daily fetch of the seven days, no refetch before midnight, retry after a failure
+# - The day changes at US Eastern midnight: the window moves on the first run after it with no live game of the previous day, fetching only the new day
+# - While a game of the previous day is live, that day stays today with its live cadence; the run that sees its last live game end moves the window
+# - The morning run refreshes the days shown without moving the window and keeps the cleanup
+# - A failed fetch of the new day keeps the last valid feed and the move completes on the next run
 # - Start checks every minute from the start time, also while delayed
 # - Live refresh every thirty seconds, with each live game's detail
 # - Final time and one more detail when a game becomes final, no more checks afterwards
@@ -84,6 +88,11 @@ from app.storage.state import StateStore
 TODAY = dt.date(2026, 10, 5)
 # 12:00 US Eastern (EDT) on TODAY.
 NOON = dt.datetime(2026, 10, 5, 16, 0, tzinfo=dt.UTC)
+NEXT_DAY = TODAY + dt.timedelta(days=1)
+# 00:10 US Eastern (EDT) on NEXT_DAY.
+AFTER_MIDNIGHT = dt.datetime(2026, 10, 6, 4, 10, tzinfo=dt.UTC)
+# 06:00 US Eastern (EDT) on NEXT_DAY.
+NEXT_MORNING = dt.datetime(2026, 10, 6, 10, 0, tzinfo=dt.UTC)
 SEARCH_URL = "https://example.com/search?q=game"
 PHOTO = HttpUrl("https://example.com/p.png")
 
@@ -226,6 +235,12 @@ def make_job(
         fetch_game_detail=sources.fetch_game_detail,
         **extra,
     )
+
+
+def published_days(settings: Settings) -> list[dt.date]:
+    published = read_feed(settings.data_dir, "games")
+    assert published is not None
+    return [d.date for d in GamesFeed.model_validate_json(published).days]
 
 
 def reason(store: StateStore) -> str | None:
@@ -455,20 +470,150 @@ async def test_does_not_fetch_the_days_again_before_the_next_morning(
 
 
 @pytest.mark.anyio
-async def test_fetches_the_days_again_at_the_morning_time_the_next_day(
+async def test_moves_the_window_after_midnight_and_refreshes_the_seven_days_at_the_morning_time(
     settings: Settings, store: StateStore, sources: FakeSources
 ) -> None:
     job = make_job(settings, store, sources)
     await job.run(NOON)
     sources.game_calls.clear()
-    next_day = TODAY + dt.timedelta(days=1)
     # 05:59 US Eastern (EDT) is 09:59 UTC.
     await job.run(dt.datetime(2026, 10, 6, 9, 59, tzinfo=dt.UTC))
+    assert sources.game_calls == [TODAY + dt.timedelta(days=4)]
+    sources.game_calls.clear()
+
+    await job.run(NEXT_MORNING)
+
+    assert sources.game_calls == days_shown(NEXT_DAY)
+
+
+@pytest.mark.anyio
+async def test_does_not_move_the_window_before_midnight(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    job = make_job(settings, store, sources)
+    await job.run(NOON)
+    sources.game_calls.clear()
+
+    await job.run(NOON + dt.timedelta(hours=10))
+
     assert sources.game_calls == []
+    assert published_days(settings) == days_shown(TODAY)
 
-    await job.run(dt.datetime(2026, 10, 6, 10, 0, tzinfo=dt.UTC))
 
-    assert sources.game_calls == days_shown(next_day)
+@pytest.mark.anyio
+async def test_moves_the_window_after_midnight_when_no_game_of_the_previous_day_is_live(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    sources.games[TODAY] = [game("1", GameStatus.FINAL)]
+    job = make_job(settings, store, sources)
+    await job.run(NOON)
+    sources.game_calls.clear()
+
+    await job.run(AFTER_MIDNIGHT)
+
+    assert sources.game_calls == [TODAY + dt.timedelta(days=4)]
+    assert published_days(settings) == days_shown(NEXT_DAY)
+
+
+@pytest.mark.anyio
+async def test_keeps_the_previous_day_as_today_and_its_live_cadence_while_one_of_its_games_is_live(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    start = dt.datetime(2026, 10, 6, 2, 0, tzinfo=dt.UTC)
+    sources.games[TODAY] = [game("1", GameStatus.LIVE, start=start)]
+    job = make_job(settings, store, sources)
+    await job.run(NOON)
+    sources.game_calls.clear()
+    sources.detail_calls.clear()
+
+    await job.run(AFTER_MIDNIGHT)
+
+    assert sources.game_calls == [TODAY]
+    assert sources.detail_calls == ["1"]
+    assert published_days(settings) == days_shown(TODAY)
+
+    await job.run(AFTER_MIDNIGHT + dt.timedelta(seconds=30))
+
+    assert sources.game_calls == [TODAY, TODAY]
+    assert published_days(settings) == days_shown(TODAY)
+
+
+@pytest.mark.anyio
+async def test_moves_the_window_on_the_run_that_sees_the_last_live_game_of_the_previous_day_end(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    sources.games[TODAY] = [
+        game("1", GameStatus.LIVE),
+        game("2", GameStatus.LIVE),
+    ]
+    job = make_job(settings, store, sources)
+    await job.run(NOON)
+    sources.games[TODAY] = [game("1", GameStatus.FINAL), game("2", GameStatus.LIVE)]
+    await job.run(AFTER_MIDNIGHT)
+    assert published_days(settings) == days_shown(TODAY)
+    sources.games[TODAY] = [game("1", GameStatus.FINAL), game("2", GameStatus.FINAL)]
+    sources.game_calls.clear()
+
+    await job.run(AFTER_MIDNIGHT + dt.timedelta(seconds=30))
+
+    assert sources.game_calls == [TODAY, TODAY + dt.timedelta(days=4)]
+    assert published_days(settings) == days_shown(NEXT_DAY)
+    assert store.final_time("2") == AFTER_MIDNIGHT + dt.timedelta(seconds=30)
+
+
+@pytest.mark.anyio
+async def test_the_morning_run_refreshes_the_days_shown_without_moving_the_window(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    start = dt.datetime(2026, 10, 6, 2, 0, tzinfo=dt.UTC)
+    sources.games[TODAY] = [game("1", GameStatus.LIVE, start=start)]
+    job = make_job(settings, store, sources)
+    await job.run(NOON)
+    await job.run(AFTER_MIDNIGHT)
+    sources.game_calls.clear()
+
+    await job.run(NEXT_MORNING)
+
+    assert sorted(sources.game_calls) == days_shown(TODAY)
+    assert published_days(settings) == days_shown(TODAY)
+
+
+@pytest.mark.anyio
+async def test_the_cleanup_still_runs_with_the_morning_run_after_the_window_moved(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    job = make_job(settings, store, sources)
+    await job.run(NOON)
+    seed_old_game(store, 32)
+
+    await job.run(AFTER_MIDNIGHT)
+    assert store.final_time("old") == NOON
+
+    await job.run(NEXT_MORNING)
+    assert store.final_time("old") is None
+
+
+@pytest.mark.anyio
+async def test_a_failed_fetch_of_the_new_day_keeps_the_last_valid_feed_and_moves_on_the_next_run(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    sources.day_errors[TODAY + dt.timedelta(days=4)] = SourceError(
+        "scoreboard", "request failed"
+    )
+    job = make_job(settings, store, sources)
+    await job.run(NOON)
+    before = read_feed(settings.data_dir, "games")
+
+    await job.run(AFTER_MIDNIGHT)
+
+    assert before is not None
+    assert read_feed(settings.data_dir, "games") == before
+    assert reason(store) == "scoreboard: request failed"
+    del sources.day_errors[TODAY + dt.timedelta(days=4)]
+
+    await job.run(AFTER_MIDNIGHT + dt.timedelta(seconds=30))
+
+    assert published_days(settings) == days_shown(NEXT_DAY)
 
 
 @pytest.mark.anyio
@@ -729,7 +874,7 @@ async def test_after_the_six_hour_attempt_fails_the_game_is_unavailable_and_neve
         await job.run(NOON + hours(slot))
 
     await job.run(NOON + hours(7))
-    await job.run(NOON + hours(12))
+    await job.run(NOON + hours(9))
 
     assert sources.detail_calls == ["1"] * 4
     published = published_game(settings)
