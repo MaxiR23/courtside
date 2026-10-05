@@ -28,10 +28,15 @@
 	const updated = $derived(m.schedule_updated({ minutes: formatNumber(updatedMinutesAgo) }));
 	const strip = $derived(days.map((d) => ({ date: d.date, gameCount: d.games.length })));
 	let list: HTMLElement | undefined = $state();
+	let openId = $state<string | null>(null);
 
 	$effect(() => {
 		if (list) return entrance.observe(list);
 	});
+
+	function toggle(id: string) {
+		openId = openId === id ? null : id;
+	}
 
 	function select(i: number) {
 		if (i === selected) return;
@@ -61,7 +66,12 @@
 			<ul class="games">
 				{#each games as game, i (game.id)}
 					<li use:cardEntrance={{ index: i, run: entrance.run }}>
-						<GameCard {game} layout={wide.current ? 'desktop' : 'mobile'} />
+						<GameCard
+							{game}
+							layout={wide.current ? 'desktop' : 'mobile'}
+							open={openId === game.id}
+							onToggle={() => toggle(game.id)}
+						/>
 					</li>
 				{/each}
 			</ul>

@@ -6,6 +6,7 @@
 // - parseMs converts seconds and milliseconds and ignores anything else
 // - play animates with token values, and does nothing with reduced motion
 // - crossfade animates only when the active state changes
+// - crossfade delays by its delay token and holds the hidden look during the delay
 //
 // What is covered:
 // - Happy path, reduced motion, missing animation support
@@ -117,6 +118,26 @@ describe('crossfade', () => {
 		const action = crossfade(node, params(true));
 		action.update(params(true));
 		expect(animate).not.toHaveBeenCalled();
+	});
+
+	it('delays a crossfade by its delay token and holds the hidden look during the delay', () => {
+		reducedMotion(false);
+		const { node, animate } = fakeNode();
+		const delayed = (active: boolean) => ({ ...params(active), delayToken: '--hero-delay-tag' });
+		const action = crossfade(node, delayed(false));
+		action.update(delayed(true));
+		const [, options] = animate.mock.calls[0] as unknown as [Keyframe[], KeyframeAnimationOptions];
+		expect(options.delay).toBe(100);
+		expect(options.fill).toBe('backwards');
+	});
+
+	it('adds no delay or fill when no delay token is given', () => {
+		reducedMotion(false);
+		const { node, animate } = fakeNode();
+		const action = crossfade(node, params(true));
+		action.update(params(false));
+		const [, options] = animate.mock.calls[0] as unknown as [Keyframe[], KeyframeAnimationOptions];
+		expect(options).toEqual({ duration: 500, easing: 'linear' });
 	});
 
 	it('does not animate with reduced motion', () => {

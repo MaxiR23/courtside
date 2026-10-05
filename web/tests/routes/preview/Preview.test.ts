@@ -6,6 +6,7 @@
 // - Shows every base component in each of its variants
 // - Shows the hero in its three states and the footer
 // - Shows the day strip, every game card state on both rows, and the schedule
+// - Shows an expanded card for a scheduled, a live, a final and an overtime game
 // - Uses no external image URL
 //
 // What is covered:
@@ -71,6 +72,29 @@ describe('component preview', () => {
 		const empty = sectionOf('Schedule: day with no games');
 		expect(within(empty).getAllByText('0 games').length).toBeGreaterThanOrEqual(1);
 		expect(empty.querySelectorAll('.games li')).toHaveLength(0);
+	});
+
+	it('shows an expanded card for a scheduled, a live, a final and an overtime game', () => {
+		render(Preview);
+		const sections = [
+			'GameCard: expanded scheduled',
+			'GameCard: expanded live',
+			'GameCard: expanded final',
+			'GameCard: expanded overtime'
+		].map(sectionOf);
+		for (const section of sections) {
+			expect(section.querySelector('[aria-expanded="true"]')).not.toBeNull();
+		}
+		const [scheduled, live, final, overtime] = sections;
+		expect(within(scheduled).getByText('Players to watch')).toBeTruthy();
+		expect(
+			within(live).getByText('Highlights will appear here after the final buzzer.')
+		).toBeTruthy();
+		expect(
+			within(final).queryByText('Highlights will appear here after the final buzzer.')
+		).toBeNull();
+		expect(within(overtime).getByText('OT')).toBeTruthy();
+		expect(within(overtime).getByText('2OT')).toBeTruthy();
 	});
 
 	it('shows the day strip on desktop and compact', () => {

@@ -1,13 +1,21 @@
 <script lang="ts">
 	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
+	import Leaders from '#lib/components/Leaders.svelte';
+	import LineScore from '#lib/components/LineScore.svelte';
 	import LiveBadge from '#lib/components/LiveBadge.svelte';
+	import PlayerPhoto from '#lib/components/PlayerPhoto.svelte';
 	import TeamMonogram from '#lib/components/TeamMonogram.svelte';
+	import TeamStats from '#lib/components/TeamStats.svelte';
+	import { crossfade } from '#lib/hero/motion.ts';
 	import { m } from '#lib/paraglide/messages.js';
+	import { panelContent, panelExpand, panelTint } from '#lib/schedule/motion.ts';
 	import type { RowLayout, ScheduleGame } from '#lib/schedule/types.ts';
 
-	type Props = { game: ScheduleGame; layout: RowLayout };
+	type Props = { game: ScheduleGame; layout: RowLayout; open?: boolean; onToggle?: () => void };
 
-	let { game, layout }: Props = $props();
+	let { game, layout, open = false, onToggle }: Props = $props();
+
+	const panelId = $props.id();
 
 	// Display choice: dims the lower score of a final game. Not a game rule.
 	const loser = $derived.by(() => {
@@ -47,17 +55,17 @@
 	<svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
 {/snippet}
 
-<BlueprintFrame>
+{#snippet row()}
 	{#if layout === 'desktop'}
-		<div class="row desktop">
-			<div class="team away" class:dimmed={loser === 'away'}>
+		<span class="row desktop">
+			<span class="team away" class:dimmed={loser === 'away'}>
 				<TeamMonogram code={game.away.code} size="large" />
 				<span class="names">
 					<span class="name">{game.away.name}</span>
 					<span class="city">{game.away.city}</span>
 				</span>
-			</div>
-			<div class="center">
+			</span>
+			<span class="center">
 				{@render statusLine()}
 				{#if scores}
 					<span class="scores">
@@ -69,24 +77,24 @@
 						{game.status.tipTime}<span class="suffix">{game.status.tipSuffix}</span>
 					</span>
 				{/if}
-			</div>
-			<div class="team home" class:dimmed={loser === 'home'}>
+			</span>
+			<span class="team home" class:dimmed={loser === 'home'}>
 				<span class="names">
 					<span class="name">{game.home.name}</span>
 					<span class="city">{game.home.city}</span>
 				</span>
 				<TeamMonogram code={game.home.code} size="large" />
-			</div>
+			</span>
 			{@render chevron()}
-		</div>
+		</span>
 	{:else}
-		<div class="row mobile">
-			<div class="mobile-head">
+		<span class="row mobile">
+			<span class="mobile-head">
 				{@render statusLine()}
 				{@render chevron()}
-			</div>
+			</span>
 			{#each entries as entry (entry.side)}
-				<div class="mobile-team">
+				<span class="mobile-team">
 					<TeamMonogram code={entry.team.code} size="small" />
 					<span class="names" class:dimmed={loser === entry.side}>
 						<span class="name">{entry.team.name}</span>
@@ -95,10 +103,78 @@
 					{#if scores}
 						<span class="score" class:dimmed={loser === entry.side}>{scores[entry.side]}</span>
 					{/if}
+				</span>
+			{/each}
+		</span>
+	{/if}
+{/snippet}
+
+{#snippet panelBody()}
+	{@const status = game.status}
+	{@const details = game.details}
+	{#if details?.kind === 'played' && (status.state === 'live' || status.state === 'final')}
+		<div class="panel-grid">
+			<LineScore
+				away={{ code: game.away.code, periods: details.periods.away, total: status.awayScore }}
+				home={{ code: game.home.code, periods: details.periods.home, total: status.homeScore }}
+			/>
+			<Leaders away={details.leaders.away} home={details.leaders.home} />
+			<TeamStats away={details.stats.away} home={details.stats.home} {open} />
+		</div>
+		{#if status.state === 'live'}
+			<p class="notice">{m.panel_live_highlights()}</p>
+		{/if}
+	{:else if details?.kind === 'scheduled' && status.state === 'scheduled'}
+		<dl class="facts">
+			<div class="fact">
+				<dt>{m.panel_tip_off()}</dt>
+				<dd>{status.tipTime} {status.tipSuffix}</dd>
+			</div>
+			<div class="fact">
+				<dt>{m.panel_venue()}</dt>
+				<dd>{details.venue}</dd>
+			</div>
+			<div class="fact">
+				<dt>{m.panel_broadcast()}</dt>
+				<dd>{status.network}</dd>
+			</div>
+		</dl>
+		<p class="watch-title">{m.panel_players_to_watch()}</p>
+		<div class="watch">
+			{#each [details.playersToWatch.away, details.playersToWatch.home] as player (player.teamCode)}
+				<div class="watch-player">
+					<PlayerPhoto {player} />
+					<span class="watch-name">{player.firstName} {player.lastName}</span>
 				</div>
 			{/each}
 		</div>
 	{/if}
+{/snippet}
+
+<BlueprintFrame active={open && !!game.details}>
+	<div class="card" class:open>
+		<span class="tint" aria-hidden="true" use:crossfade={panelTint(open)}></span>
+		{#if game.details}
+			<button
+				type="button"
+				class="toggle"
+				aria-expanded={open}
+				aria-controls={panelId}
+				onclick={() => onToggle?.()}
+			>
+				{@render row()}
+			</button>
+			<div class="panel" id={panelId} inert={!open} use:crossfade={panelExpand(open)}>
+				<div class="panel-inner">
+					<div class="panel-content" use:crossfade={panelContent(open)}>
+						{@render panelBody()}
+					</div>
+				</div>
+			</div>
+		{:else}
+			{@render row()}
+		{/if}
+	</div>
 </BlueprintFrame>
 
 <style>
@@ -210,6 +286,123 @@
 	.mobile-team .score {
 		font-size: var(--score-size-mobile);
 		text-align: right;
+	}
+
+	.toggle {
+		display: block;
+		width: 100%;
+		padding: 0;
+		background: none;
+		border: 0;
+		font: inherit;
+		color: inherit;
+		text-align: inherit;
+		cursor: pointer;
+	}
+
+	.card {
+		position: relative;
+		isolation: isolate;
+	}
+
+	.tint {
+		position: absolute;
+		inset: 0;
+		z-index: -1;
+		background: var(--color-open-tint);
+		opacity: 0;
+		pointer-events: none;
+	}
+
+	.open .tint {
+		opacity: 1;
+	}
+
+	.panel {
+		display: grid;
+		grid-template-rows: 0fr;
+	}
+
+	.open .panel {
+		grid-template-rows: 1fr;
+	}
+
+	.panel-inner {
+		min-height: 0;
+		overflow: hidden;
+	}
+
+	.panel-content {
+		padding: var(--game-list-gap);
+		border-top: var(--hairline) solid var(--color-divider);
+		opacity: 0;
+		transform: translateY(var(--panel-content-offset));
+	}
+
+	.open .panel-content {
+		opacity: 1;
+		transform: none;
+	}
+
+	.panel-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--panel-column-min)), 1fr));
+		gap: var(--panel-section-gap);
+	}
+
+	.notice {
+		margin: var(--game-list-gap) 0 0;
+		font-size: var(--body-size-small);
+		color: var(--color-muted);
+	}
+
+	.facts {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--panel-column-min)), 1fr));
+		gap: var(--game-list-gap);
+		margin: 0;
+	}
+
+	.fact dt {
+		font-size: var(--label-size);
+		letter-spacing: var(--label-letter-spacing);
+		text-transform: uppercase;
+		color: var(--color-muted);
+	}
+
+	.fact dd {
+		margin: 0;
+		font-size: var(--body-size);
+	}
+
+	.watch-title {
+		margin: var(--panel-section-gap) 0 var(--game-list-gap);
+		font-size: var(--label-size);
+		letter-spacing: var(--label-letter-spacing);
+		text-transform: uppercase;
+		color: var(--color-muted);
+	}
+
+	.watch {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--panel-column-min)), 1fr));
+		gap: var(--game-list-gap);
+	}
+
+	.watch-player {
+		display: flex;
+		align-items: center;
+		gap: var(--game-list-gap);
+	}
+
+	.watch-name {
+		font-family: var(--font-heading);
+		font-size: var(--player-name-size);
+		text-transform: uppercase;
+	}
+
+	.open .chevron {
+		rotate: var(--chevron-open-rotation);
 	}
 
 	.chevron {

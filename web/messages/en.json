@@ -23,5 +23,20 @@
 			}
 		}
 	],
-	"schedule_updated": "Updated {minutes} min ago"
+	"schedule_updated": "Updated {minutes} min ago",
+	"panel_line_score_team": "Team",
+	"panel_line_score_total": "T",
+	"panel_line_score_overtime": "OT",
+	"panel_line_score_overtime_n": "{number}OT",
+	"panel_leader_line": "{points} PTS · {rebounds} REB · {assists} AST",
+	"panel_stat_field_goals": "FG%",
+	"panel_stat_three_points": "3P%",
+	"panel_stat_rebounds": "Rebounds",
+	"panel_stat_assists": "Assists",
+	"panel_stat_turnovers": "Turnovers",
+	"panel_live_highlights": "Highlights will appear here after the final buzzer.",
+	"panel_tip_off": "Tip-off",
+	"panel_venue": "Venue",
+	"panel_broadcast": "Broadcast",
+	"panel_players_to_watch": "Players to watch"
 }

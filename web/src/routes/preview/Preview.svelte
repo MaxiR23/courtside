@@ -12,7 +12,13 @@
 	import StatusTag from '#lib/components/StatusTag.svelte';
 	import TeamMonogram from '#lib/components/TeamMonogram.svelte';
 	import type { HeroPlayer } from '#lib/hero/types.ts';
-	import type { ScheduleDay, ScheduleGame } from '#lib/schedule/types.ts';
+	import type {
+		GameDetails,
+		Leader,
+		PanelPlayer,
+		ScheduleDay,
+		ScheduleGame
+	} from '#lib/schedule/types.ts';
 	import awayPhoto from './player-away.svg';
 	import homePhoto from './player-home.svg';
 
@@ -45,25 +51,84 @@
 	const knicks = { code: 'NYK', name: 'Knicks', city: 'New York' };
 	const nuggets = { code: 'DEN', name: 'Nuggets', city: 'Denver' };
 	const suns = { code: 'PHX', name: 'Suns', city: 'Phoenix' };
+	const awayPlayer: PanelPlayer = {
+		firstName: away.firstName,
+		lastName: away.lastName,
+		teamCode: away.teamCode,
+		photo: awayPhoto
+	};
+	const homePlayer: PanelPlayer = {
+		firstName: home.firstName,
+		lastName: home.lastName,
+		teamCode: home.teamCode,
+		photo: homePhoto
+	};
+	const leader = (
+		player: PanelPlayer,
+		points: number,
+		rebounds: number,
+		assists: number
+	): Leader => ({
+		...player,
+		points,
+		rebounds,
+		assists
+	});
+	const played = (
+		periods: { away: number[]; home: number[] },
+		awayTeamCode: string,
+		homeTeamCode: string
+	): GameDetails => ({
+		kind: 'played',
+		periods,
+		leaders: {
+			away: leader({ ...awayPlayer, teamCode: awayTeamCode }, 34, 3, 8),
+			home: leader({ ...homePlayer, teamCode: homeTeamCode }, 29, 9, 7)
+		},
+		stats: {
+			away: { fieldGoalPct: 0.478, threePointPct: 0.391, rebounds: 44, assists: 27, turnovers: 9 },
+			home: { fieldGoalPct: 0.452, threePointPct: 0.417, rebounds: 41, assists: 27, turnovers: 14 }
+		}
+	});
 	const sampleGames: ScheduleGame[] = [
 		{
 			id: 'scheduled',
 			away: warriors,
 			home: lakers,
-			status: { state: 'scheduled', tipTime: '9:00', tipSuffix: 'PM ET', network: 'Prime Video' }
+			status: { state: 'scheduled', tipTime: '9:00', tipSuffix: 'PM ET', network: 'Prime Video' },
+			details: {
+				kind: 'scheduled',
+				venue: 'Crypto.com Arena',
+				playersToWatch: { away: awayPlayer, home: homePlayer }
+			}
 		},
 		{
 			id: 'live',
 			away: celtics,
 			home: knicks,
-			status: { state: 'live', period: 'Q3', clock: '4:12', awayScore: 78, homeScore: 74 }
+			status: { state: 'live', period: 'Q3', clock: '4:12', awayScore: 78, homeScore: 74 },
+			details: played({ away: [28, 26, 24], home: [25, 27, 22] }, 'BOS', 'NYK')
 		},
 		{
 			id: 'final',
 			away: nuggets,
 			home: suns,
-			status: { state: 'final', awayScore: 112, homeScore: 104 }
+			status: { state: 'final', awayScore: 112, homeScore: 104 },
+			details: played({ away: [30, 28, 26, 28], home: [24, 27, 25, 28] }, 'DEN', 'PHX')
 		}
+	];
+	const overtimeGame: ScheduleGame = {
+		id: 'overtime',
+		away: celtics,
+		home: knicks,
+		status: { state: 'final', awayScore: 132, homeScore: 130 },
+		details: played({ away: [28, 25, 30, 27, 12, 10], home: [30, 26, 24, 30, 12, 8] }, 'BOS', 'NYK')
+	};
+	const expandedGames = [
+		{ title: 'GameCard: expanded scheduled', game: sampleGames[0] },
+		{ title: 'GameCard: expanded live', game: sampleGames[1] },
+		{ title: 'GameCard: expanded final', game: sampleGames[2] },
+		{ title: 'GameCard: expanded overtime', game: overtimeGame }
 	];
 	const sampleDays: ScheduleDay[] = [
 		{ date: new Date(2026, 9, 1), games: [sampleGames[2]] },
@@ -175,6 +240,13 @@
 			{/each}
 		</div>
 	</section>
+
+	{#each expandedGames as expanded (expanded.title)}
+		<section>
+			<h2>{expanded.title}</h2>
+			<GameCard game={expanded.game} layout="desktop" open />
+		</section>
+	{/each}
 
 	<section>
 		<h2>Schedule</h2>

@@ -7,6 +7,8 @@
 // - The losing team of a final game is dimmed; ties and live games dim no one
 // - Monogram sizes per row layout, decorative chevron
 // - Spanish live badge with a Spanish browser preference
+// - A card without details stays a plain row; with details it toggles an inert panel
+// - The panel per state: live, final, overtime and scheduled, its motion and Spanish labels
 //
 // What is covered:
 // - Each card state on each row layout
@@ -14,10 +16,10 @@
 // Run with: cd web && pnpm exec vitest run tests/lib/components/GameCard.test.ts
 //
 // SEE: web/src/components/GameCard.svelte
-import { render, screen } from '@testing-library/svelte';
+import { fireEvent, render, screen } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { ScheduleGame } from '../../../src/lib/schedule/types';
+import type { GameDetails, ScheduleGame } from '../../../src/lib/schedule/types';
 import { preferLanguages } from '../../prefer-languages';
 
 import GameCard from '../../../src/lib/components/GameCard.svelte';
@@ -45,7 +47,40 @@ const final = (awayScore: number, homeScore: number): ScheduleGame => ({
 
 afterEach(() => {
 	vi.restoreAllMocks();
+	vi.unstubAllGlobals();
+	Reflect.deleteProperty(HTMLElement.prototype, 'animate');
 });
+
+const awayPlayer = { firstName: 'Stephen', lastName: 'Curry', teamCode: 'GSW', photo: '/away.svg' };
+const homePlayer = { firstName: 'LeBron', lastName: 'James', teamCode: 'LAL', photo: '/home.svg' };
+const played = (periodsAway: number[], periodsHome: number[]): GameDetails => ({
+	kind: 'played',
+	periods: { away: periodsAway, home: periodsHome },
+	leaders: {
+		away: { ...awayPlayer, points: 34, rebounds: 3, assists: 8 },
+		home: { ...homePlayer, points: 29, rebounds: 9, assists: 7 }
+	},
+	stats: {
+		away: { fieldGoalPct: 0.478, threePointPct: 0.391, rebounds: 44, assists: 27, turnovers: 9 },
+		home: { fieldGoalPct: 0.452, threePointPct: 0.417, rebounds: 41, assists: 27, turnovers: 14 }
+	}
+});
+const withDetails = (game: ScheduleGame, details: GameDetails): ScheduleGame => ({
+	...game,
+	details
+});
+const liveWithDetails = withDetails(live, played([28, 26, 24], [25, 27, 22]));
+const finalWithDetails = withDetails(final(112, 104), played([30, 28, 26, 28], [24, 27, 25, 28]));
+const overtimeWithDetails = withDetails(
+	final(132, 130),
+	played([28, 25, 30, 27, 12, 10], [30, 26, 24, 30, 12, 8])
+);
+const scheduledWithDetails = withDetails(scheduled, {
+	kind: 'scheduled',
+	venue: 'Crypto.com Arena',
+	playersToWatch: { away: awayPlayer, home: homePlayer }
+});
+const HIGHLIGHTS = 'Highlights will appear here after the final buzzer.';
 
 const dimmedText = (container: HTMLElement) =>
 	[...container.querySelectorAll('.dimmed')].map((e) => e.textContent?.replace(/\s+/g, ' ').trim());
@@ -146,5 +181,121 @@ describe('GameCard', () => {
 		preferLanguages(['es-ES']);
 		render(GameCard, { props: { game: live, layout: 'desktop' } });
 		expect(screen.getByText('EN VIVO')).toBeTruthy();
+	});
+
+	it('keeps a plain row with no toggle when the game has no details', () => {
+		const { container } = render(GameCard, { props: { game: scheduled, layout: 'desktop' } });
+		expect(container.querySelector('button')).toBeNull();
+		expect(container.querySelector('.panel')).toBeNull();
+	});
+
+	it('renders the row as a collapsed toggle with its panel inert when closed', () => {
+		const { container } = render(GameCard, {
+			props: { game: liveWithDetails, layout: 'desktop' }
+		});
+		const toggle = container.querySelector('button.toggle');
+		const panel = container.querySelector('.panel');
+		expect(toggle?.getAttribute('aria-expanded')).toBe('false');
+		expect(panel?.id).toBeTruthy();
+		expect(toggle?.getAttribute('aria-controls')).toBe(panel?.id);
+		expect((panel as HTMLElement).inert).toBe(true);
+	});
+
+	it('calls onToggle when the row is clicked', async () => {
+		const onToggle = vi.fn();
+		const { container } = render(GameCard, {
+			props: { game: liveWithDetails, layout: 'desktop', onToggle }
+		});
+		await fireEvent.click(container.querySelector('button.toggle') as HTMLElement);
+		expect(onToggle).toHaveBeenCalledTimes(1);
+	});
+
+	it('shows the accent border, the open class and an active panel when open', () => {
+		const { container } = render(GameCard, {
+			props: { game: liveWithDetails, layout: 'desktop', open: true }
+		});
+		expect(container.querySelector('.blueprint-frame.active')).not.toBeNull();
+		expect(container.querySelector('.card.open')).not.toBeNull();
+		expect((container.querySelector('.panel') as HTMLElement).inert).toBe(false);
+		expect(container.querySelector('button.toggle')?.getAttribute('aria-expanded')).toBe('true');
+	});
+
+	it('shows the line score, leaders and team stats on a live game, plus the highlights notice', () => {
+		const { container } = render(GameCard, {
+			props: { game: liveWithDetails, layout: 'desktop', open: true }
+		});
+		expect(container.querySelector('.line-score')).not.toBeNull();
+		expect(container.querySelector('.leaders')).not.toBeNull();
+		expect(container.querySelector('.team-stats')).not.toBeNull();
+		expect(screen.getByText(HIGHLIGHTS)).toBeTruthy();
+		const totals = [...container.querySelectorAll('.line-score .total')].map((e) => e.textContent);
+		expect(totals).toEqual(['78', '74']);
+	});
+
+	it('shows the line score, leaders and team stats on a final game without the highlights notice', () => {
+		const { container } = render(GameCard, {
+			props: { game: finalWithDetails, layout: 'desktop', open: true }
+		});
+		expect(container.querySelector('.line-score')).not.toBeNull();
+		expect(container.querySelector('.leaders')).not.toBeNull();
+		expect(container.querySelector('.team-stats')).not.toBeNull();
+		expect(screen.queryByText(HIGHLIGHTS)).toBeNull();
+	});
+
+	it('shows the overtime columns on a final game that went to overtime', () => {
+		const { container } = render(GameCard, {
+			props: { game: overtimeWithDetails, layout: 'desktop', open: true }
+		});
+		const header = [...container.querySelectorAll('.line-score .head .cell')].map(
+			(e) => e.textContent
+		);
+		expect(header).toEqual(['1', '2', '3', '4', 'OT', '2OT', 'T']);
+	});
+
+	it('shows Tip-off, Venue, Broadcast and the players to watch on a scheduled game', () => {
+		const { container } = render(GameCard, {
+			props: { game: scheduledWithDetails, layout: 'desktop', open: true }
+		});
+		const facts = [...container.querySelectorAll('.fact')].map((e) =>
+			[...e.children].map((c) => c.textContent)
+		);
+		expect(facts).toEqual([
+			['Tip-off', '9:00 PM ET'],
+			['Venue', 'Crypto.com Arena'],
+			['Broadcast', 'Prime Video']
+		]);
+		expect(screen.getByText('Players to watch')).toBeTruthy();
+		expect(screen.getByText('Stephen Curry')).toBeTruthy();
+		expect(screen.getByText('LeBron James')).toBeTruthy();
+	});
+
+	it('animates the panel when it opens and not with reduced motion', async () => {
+		const animate = vi.fn(() => ({ cancel: vi.fn() }));
+		Object.assign(HTMLElement.prototype, { animate });
+		vi.stubGlobal('matchMedia', () => ({ matches: false }));
+		const props = { game: liveWithDetails, layout: 'desktop' as const };
+		const motion = render(GameCard, { props: { ...props, open: false } });
+		expect(animate).not.toHaveBeenCalled();
+		await motion.rerender({ ...props, open: true });
+		expect(animate).toHaveBeenCalled();
+		motion.unmount();
+
+		animate.mockClear();
+		vi.stubGlobal('matchMedia', () => ({ matches: true }));
+		const reduced = render(GameCard, { props: { ...props, open: false } });
+		await reduced.rerender({ ...props, open: true });
+		expect(animate).not.toHaveBeenCalled();
+	});
+
+	it('shows the panel labels in Spanish with a Spanish preference', () => {
+		preferLanguages(['es-ES']);
+		const { container } = render(GameCard, {
+			props: { game: scheduledWithDetails, layout: 'desktop', open: true }
+		});
+		expect(screen.getByText('Inicio')).toBeTruthy();
+		expect(screen.getByText('Estadio')).toBeTruthy();
+		expect(screen.getByText('Transmisión')).toBeTruthy();
+		expect(screen.getByText('Jugadores a seguir')).toBeTruthy();
+		expect(container.querySelector('.fact dd')?.textContent).toBe('9:00 PM ET');
 	});
 });

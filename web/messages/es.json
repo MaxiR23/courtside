@@ -23,5 +23,20 @@
 			}
 		}
 	],
-	"schedule_updated": "Actualizado hace {minutes} min"
+	"schedule_updated": "Actualizado hace {minutes} min",
+	"panel_line_score_team": "Equipo",
+	"panel_line_score_total": "T",
+	"panel_line_score_overtime": "PR",
+	"panel_line_score_overtime_n": "{number}PR",
+	"panel_leader_line": "{points} PTS · {rebounds} REB · {assists} AST",
+	"panel_stat_field_goals": "TC%",
+	"panel_stat_three_points": "T3%",
+	"panel_stat_rebounds": "Rebotes",
+	"panel_stat_assists": "Asistencias",
+	"panel_stat_turnovers": "Pérdidas",
+	"panel_live_highlights": "Los resúmenes aparecerán aquí después de la bocina final.",
+	"panel_tip_off": "Inicio",
+	"panel_venue": "Estadio",
+	"panel_broadcast": "Transmisión",
+	"panel_players_to_watch": "Jugadores a seguir"
 }
