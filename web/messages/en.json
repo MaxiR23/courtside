@@ -5,5 +5,10 @@
 	"live_badge": "LIVE",
 	"status_tonight": "Tonight",
 	"status_live": "Live now",
-	"status_final": "Final"
+	"status_final": "Final",
+	"nav_games": "Games",
+	"hero_at": "at",
+	"hero_blurb": "{awayStar} and {homeStar} meet at {arena}.",
+	"hero_match_details": "Match details",
+	"hero_all_games": "All games"
 }
