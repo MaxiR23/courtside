@@ -1,0 +1,418 @@
+{
+  "categories": [
+    {
+      "name": "pointsPerGame",
+      "abbreviation": "PTS",
+      "leaders": [
+        {
+          "value": 13.817072868347168,
+          "athlete": {
+            "$ref": "https://example.com/athletes/4709138"
+          }
+        },
+        {
+          "value": 12.133333206176758,
+          "athlete": {
+            "$ref": "https://example.com/athletes/4432171"
+          }
+        },
+        {
+          "value": 9.191176414489746,
+          "athlete": {
+            "$ref": "https://example.com/athletes/4997536"
+          }
+        },
+        {
+          "value": 8.382352828979492,
+          "athlete": {
+            "$ref": "https://example.com/athletes/6589"
+          }
+        },
+        {
+          "value": 7.656716346740723,
+          "athlete": {
+            "$ref": "https://example.com/athletes/4593016"
+          }
+        },
+        {
+          "value": 7.49315071105957,
+          "athlete": {
+            "$ref": "https://example.com/athletes/3134903"
+          }
+        },
+        {
+          "value": 7.21212100982666,
+          "athlete": {
+            "$ref": "https://example.com/athletes/4592714"
+          }
+        },
+        {
+          "value": 6.3913044929504395,
+          "athlete": {
+            "$ref": "https://example.com/athletes/4897262"
+          }
+        },
+        {
+          "value": 26.55813980102539,
+          "athlete": {
+            "$ref": "https://example.com/athletes/3975"
+          }
+        },
+        {
+          "value": 20.0,
+          "athlete": {
+            "$ref": "https://example.com/athletes/6430"
+          }
+        },
+        {
+          "value": 16.133333206176758,
+          "athlete": {
+            "$ref": "https://example.com/athletes/3102531"
+          }
+        },
+        {
+          "value": 12.285714149475098,
+          "athlete": {
+            "$ref": "https://example.com/athletes/4066436"
+          }
+        },
+        {
+          "value": 12.100000381469727,
+          "athlete": {
+            "$ref": "https://example.com/athletes/4433247"
+          }
+        },
+        {
+          "value": 10.600000381469727,
+          "athlete": {
+            "$ref": "https://example.com/athletes/4397886"
+          }
+        },
+        {
+          "value": 8.266666412353516,
+          "athlete": {
+            "$ref": "https://example.com/athletes/3213"
+          }
+        },
+        {
+          "value": 8.222222328186035,
+          "athlete": {
+            "$ref": "https://example.com/athletes/4433149"
+          }
+        },
+        {
+          "value": 8.045454978942871,
+          "athlete": {
+            "$ref": "https://example.com/athletes/2990984"
+          }
+        },
+        {
+          "value": 8.0,
+          "athlete": {
+            "$ref": "https://example.com/athletes/4397821"
+          }
+        },
+        {
+          "value": 7.099999904632568,
+          "athlete": {
+            "$ref": "https://example.com/athletes/2326307"
+          }
+        },
+        {
+          "value": 4.166666507720947,
+          "athlete": {
+            "$ref": "https://example.com/athletes/4431684"
+          }
+        },
+        {
+          "value": 3.777777671813965,
+          "athlete": {
+            "$ref": "https://example.com/athletes/3074213"
+          }
+        },
+        {
+          "value": 3.319999933242798,
+          "athlete": {
+            "$ref": "https://example.com/athletes/4897449"
+          }
+        }
+      ]
+    },
+    {
+      "name": "assistsPerGame",
+      "abbreviation": "AST",
+      "leaders": [
+        {
+          "value": 5.529411792755127,
+          "athlete": {
+            "$ref": "https://example.com/athletes/6589"
+          }
+        },
+        {
+          "value": 3.7073171138763428,
+          "athlete": {
+            "$ref": "https://example.com/athletes/4709138"
+          }
+        },
+        {
+          "value": 3.5151515007019043,
+          "athlete": {
+            "$ref": "https://example.com/athletes/4592714"
+          }
+        },
+        {
+          "value": 2.338235378265381,
+          "athlete": {
+            "$ref": "https://example.com/athletes/4997536"
+          }
+        },
+        {
+          "value": 1.6849315166473389,
+          "athlete": {
+            "$ref": "https://example.com/athletes/3134903"
+          }
+        },
+        {
+          "value": 1.6333333253860474,
+          "athlete": {
+            "$ref": "https://example.com/athletes/4432171"
+          }
+        },
+        {
+          "value": 1.4029850959777832,
+          "athlete": {
+            "$ref": "https://example.com/athletes/4593016"
+          }
+        },
+        {
+          "value": 1.3478261232376099,
+          "athlete": {
+            "$ref": "https://example.com/athletes/4897262"
+          }
+        },
+        {
+          "value": 4.8684210777282715,
+          "athlete": {
+            "$ref": "https://example.com/athletes/6430"
+          }
+        },
+        {
+          "value": 4.720930099487305,
+          "athlete": {
+            "$ref": "https://example.com/athletes/3975"
+          }
+        },
+        {
+          "value": 2.577777862548828,
+          "athlete": {
+            "$ref": "https://example.com/athletes/3213"
+          }
+        },
+        {
+          "value": 2.551020383834839,
+          "athlete": {
+            "$ref": "https://example.com/athletes/4066436"
+          }
+        },
+        {
+          "value": 2.5,
+          "athlete": {
+            "$ref": "https://example.com/athletes/4433247"
+          }
+        },
+        {
+          "value": 2.3333332538604736,
+          "athlete": {
+            "$ref": "https://example.com/athletes/3102531"
+          }
+        },
+        {
+          "value": 1.5,
+          "athlete": {
+            "$ref": "https://example.com/athletes/2990984"
+          }
+        },
+        {
+          "value": 1.0,
+          "athlete": {
+            "$ref": "https://example.com/athletes/2326307"
+          }
+        },
+        {
+          "value": 1.0,
+          "athlete": {
+            "$ref": "https://example.com/athletes/4397821"
+          }
+        },
+        {
+          "value": 1.0,
+          "athlete": {
+            "$ref": "https://example.com/athletes/4397886"
+          }
+        },
+        {
+          "value": 1.0,
+          "athlete": {
+            "$ref": "https://example.com/athletes/4433149"
+          }
+        },
+        {
+          "value": 0.9200000166893005,
+          "athlete": {
+            "$ref": "https://example.com/athletes/4897449"
+          }
+        },
+        {
+          "value": 0.8888888955116272,
+          "athlete": {
+            "$ref": "https://example.com/athletes/3074213"
+          }
+        },
+        {
+          "value": 0.8888888955116272,
+          "athlete": {
+            "$ref": "https://example.com/athletes/4431684"
+          }
+        }
+      ]
+    },
+    {
+      "name": "reboundsPerGame",
+      "abbreviation": "REB",
+      "leaders": [
+        {
+          "value": 5.514705657958984,
+          "athlete": {
+            "$ref": "https://example.com/athletes/6589"
+          }
+        },
+        {
+          "value": 5.109755992889404,
+          "athlete": {
+            "$ref": "https://example.com/athletes/4709138"
+          }
+        },
+        {
+          "value": 4.014925479888916,
+          "athlete": {
+            "$ref": "https://example.com/athletes/4593016"
+          }
+        },
+        {
+          "value": 3.911764621734619,
+          "athlete": {
+            "$ref": "https://example.com/athletes/4997536"
+          }
+        },
+        {
+          "value": 3.6301369667053223,
+          "athlete": {
+            "$ref": "https://example.com/athletes/3134903"
+          }
+        },
+        {
+          "value": 3.3333332538604736,
+          "athlete": {
+            "$ref": "https://example.com/athletes/4432171"
+          }
+        },
+        {
+          "value": 2.492753505706787,
+          "athlete": {
+            "$ref": "https://example.com/athletes/4897262"
+          }
+        },
+        {
+          "value": 2.39393949508667,
+          "athlete": {
+            "$ref": "https://example.com/athletes/4592714"
+          }
+        },
+        {
+          "value": 7.199999809265137,
+          "athlete": {
+            "$ref": "https://example.com/athletes/4397886"
+          }
+        },
+        {
+          "value": 5.849999904632568,
+          "athlete": {
+            "$ref": "https://example.com/athletes/4433247"
+          }
+        },
+        {
+          "value": 5.552631378173828,
+          "athlete": {
+            "$ref": "https://example.com/athletes/6430"
+          }
+        },
+        {
+          "value": 5.333333492279053,
+          "athlete": {
+            "$ref": "https://example.com/athletes/3102531"
+          }
+        },
+        {
+          "value": 4.866666793823242,
+          "athlete": {
+            "$ref": "https://example.com/athletes/3213"
+          }
+        },
+        {
+          "value": 3.581395387649536,
+          "athlete": {
+            "$ref": "https://example.com/athletes/3975"
+          }
+        },
+        {
+          "value": 3.3333332538604736,
+          "athlete": {
+            "$ref": "https://example.com/athletes/3074213"
+          }
+        },
+        {
+          "value": 3.224489688873291,
+          "athlete": {
+            "$ref": "https://example.com/athletes/4066436"
+          }
+        },
+        {
+          "value": 3.1111111640930176,
+          "athlete": {
+            "$ref": "https://example.com/athletes/4431684"
+          }
+        },
+        {
+          "value": 2.454545497894287,
+          "athlete": {
+            "$ref": "https://example.com/athletes/2990984"
+          }
+        },
+        {
+          "value": 2.142857074737549,
+          "athlete": {
+            "$ref": "https://example.com/athletes/4397821"
+          }
+        },
+        {
+          "value": 2.119999885559082,
+          "athlete": {
+            "$ref": "https://example.com/athletes/4897449"
+          }
+        },
+        {
+          "value": 1.5555555820465088,
+          "athlete": {
+            "$ref": "https://example.com/athletes/4433149"
+          }
+        },
+        {
+          "value": 1.2000000476837158,
+          "athlete": {
+            "$ref": "https://example.com/athletes/2326307"
+          }
+        }
+      ]
+    }
+  ]
+}

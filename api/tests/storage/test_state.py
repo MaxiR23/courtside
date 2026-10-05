@@ -14,9 +14,13 @@
 # - Rejects an empty job name
 # - Keeps job state across store instances over the same data directory
 # - Lists job states by name
+# - Stores a team's star and replaces it on the next store
+# - Reports no stars when none is stored
+# - Deletes a team's star
+# - Keeps stars across store instances over the same data directory
 #
 # What is covered:
-# - Happy path, edge cases (unknown game, repeat table creation, restart, no jobs), error case (naive time)
+# - Happy path, edge cases (unknown game, repeat table creation, restart, no jobs, no stars), error case (naive time)
 #
 # Run with: cd api && .venv/bin/python -m pytest tests/storage/test_state.py
 #
@@ -27,11 +31,24 @@ import logging
 from pathlib import Path
 
 import pytest
+from pydantic import HttpUrl
 
+from app.feeds.games import Star
 from app.storage.state import NO_REASON, StateStore
 
 NOON = dt.datetime(2026, 1, 10, 12, 0, tzinfo=dt.UTC)
 LATER = dt.datetime(2026, 1, 10, 13, 0, tzinfo=dt.UTC)
+
+
+def make_star(code: str, player_id: str) -> Star:
+    return Star(
+        player_id=player_id,
+        first_name="Ann",
+        last_name="Bee",
+        team_code=code,
+        photo_url=HttpUrl("https://example.com/p.png"),
+        short_name="A. Bee",
+    )
 
 
 def make_store(path: Path) -> StateStore:
@@ -164,3 +181,39 @@ def test_rejects_an_empty_job_name(tmp_path: Path) -> None:
         store.record_success("", NOON)
     with pytest.raises(ValueError):
         store.record_failure("", NOON, "x")
+
+
+def test_stores_a_team_star_and_replaces_it_on_the_next_store(tmp_path: Path) -> None:
+    store = make_store(tmp_path)
+
+    store.set_star(make_star("BOS", "1"))
+    store.set_star(make_star("NYK", "2"))
+    store.set_star(make_star("BOS", "3"))
+
+    stars = store.stars()
+    assert set(stars) == {"BOS", "NYK"}
+    assert stars["BOS"] == make_star("BOS", "3")
+    assert stars["NYK"] == make_star("NYK", "2")
+
+
+def test_reports_no_stars_when_none_is_stored(tmp_path: Path) -> None:
+    assert make_store(tmp_path).stars() == {}
+
+
+def test_deletes_a_team_star(tmp_path: Path) -> None:
+    store = make_store(tmp_path)
+    store.set_star(make_star("BOS", "1"))
+    store.set_star(make_star("NYK", "2"))
+
+    store.delete_star("BOS")
+    store.delete_star("LAL")
+
+    assert set(store.stars()) == {"NYK"}
+
+
+def test_keeps_stars_across_store_instances_over_the_same_directory(
+    tmp_path: Path,
+) -> None:
+    make_store(tmp_path).set_star(make_star("BOS", "1"))
+
+    assert make_store(tmp_path).stars() == {"BOS": make_star("BOS", "1")}
