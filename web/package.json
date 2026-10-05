@@ -13,7 +13,8 @@
 		"lint": "eslint .",
 		"format": "prettier --write .",
 		"format:check": "prettier --check .",
-		"test": "vitest run"
+		"test": "vitest run",
+		"contract": "node scripts/contract-types.js"
 	},
 	"devDependencies": {
 		"@eslint/js": "10.0.1",
@@ -30,6 +31,7 @@
 		"eslint-plugin-svelte": "3.23.0",
 		"globals": "17.13.0",
 		"jsdom": "29.1.1",
+		"json-schema-to-typescript": "16.0.0",
 		"prettier": "3.9.9",
 		"prettier-plugin-svelte": "4.1.1",
 		"svelte": "5.57.1",

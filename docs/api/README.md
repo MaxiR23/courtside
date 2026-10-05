@@ -8,5 +8,7 @@ The Pydantic models are the single source of truth. These pages never
 redefine the contract: when a page and a model disagree, the model wins and
 the page is fixed.
 
-The location of the exported JSON Schema is defined when the first feed is
-added (pending). There are no feed pages yet.
+Each feed's JSON Schema is exported to `api/schemas/<feed>.schema.json` and
+regenerated, with the TypeScript types, by `scripts/contract.sh`.
+
+- [`games.md`](games.md): the games feed.
