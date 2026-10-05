@@ -38,7 +38,7 @@ data sources  ->  source adapters  ->  jobs  ->  feeds (JSON)  ->  front end
 
 ### Jobs
 
-- Jobs run on a schedule inside the backend process. Each job owns one kind of data and has its own refresh cadence, as set in [`adr/0007-backend-runtime-and-data-pipeline.md`](adr/0007-backend-runtime-and-data-pipeline.md): live games are checked every 30 seconds and the daily schedule once a day. Standings have no job yet, and no cadence is set for them.
+- Jobs run on a schedule inside the backend process. Each job owns one kind of data and has its own refresh cadence, as set in [`adr/0007-backend-runtime-and-data-pipeline.md`](adr/0007-backend-runtime-and-data-pipeline.md): live games are checked every 30 seconds and the daily schedule once a day. The attempts for a final game's detail and highlights follow [`adr/0010-final-game-attempts.md`](adr/0010-final-game-attempts.md). Standings have no job yet, and no cadence is set for them.
 - A job that fails keeps the last valid feed published. A partial or invalid feed is never written.
 - Each job records its last successful run, so the backend can report its own health.
 
@@ -177,6 +177,10 @@ The hero rotates through every game of the day.
 Recorded in [`adr/0009-game-leader-selection.md`](adr/0009-game-leader-selection.md):
 
 - **Game leader**: each team's top scorer by points; a tie on points goes to the most rebounds plus assists, and a tie on both to the first in the provider's order.
+
+Recorded in [`adr/0010-final-game-attempts.md`](adr/0010-final-game-attempts.md):
+
+- **Final game attempts**: detail at the final time and 2, 4 and 6 hours after it, then `unavailable`; a game first seen final takes that moment as its final time, never overwritten, with highlight attempts right away, 1 and 2 hours later.
 
 ## Future
 

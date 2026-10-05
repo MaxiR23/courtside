@@ -6,6 +6,9 @@
 # - Creates the tables more than once without error
 # - Stores a game's final time in UTC
 # - Reports no final time and no attempts for an unknown game
+# - Keeps the first final time and never overwrites it, nor its first-seen flag
+# - Fills the final time of a game row that has none
+# - Counts failed stats attempts per game
 # - Counts highlight attempts per game
 # - Keeps a job's last success when it fails and its last failure when it succeeds
 # - Logs a recorded failure with its reason
@@ -86,6 +89,47 @@ def test_reports_no_final_time_and_no_attempts_for_an_unknown_game(
 
     assert store.final_time("nope") is None
     assert store.highlight_attempts("nope") == 0
+    assert store.failed_stats_attempts("nope") == 0
+    assert store.first_seen_final("nope") is False
+
+
+def test_keeps_the_first_final_time_and_never_overwrites_it(tmp_path: Path) -> None:
+    store = make_store(tmp_path)
+
+    store.set_final_time("g1", NOON)
+    store.set_final_time("g1", LATER)
+
+    assert store.final_time("g1") == NOON
+
+
+def test_stores_whether_the_final_time_was_first_seen(tmp_path: Path) -> None:
+    store = make_store(tmp_path)
+
+    store.set_final_time("g1", NOON)
+    store.set_final_time("g2", NOON, first_seen=True)
+    store.set_final_time("g2", LATER, first_seen=False)
+
+    assert store.first_seen_final("g1") is False
+    assert store.first_seen_final("g2") is True
+
+
+def test_stores_a_final_time_on_a_game_row_that_has_none(tmp_path: Path) -> None:
+    store = make_store(tmp_path)
+    store.record_highlight_attempt("g1")
+
+    store.set_final_time("g1", NOON, first_seen=True)
+
+    assert store.final_time("g1") == NOON
+    assert store.first_seen_final("g1") is True
+
+
+def test_counts_failed_stats_attempts_per_game(tmp_path: Path) -> None:
+    store = make_store(tmp_path)
+
+    assert store.record_failed_stats_attempt("g1") == 1
+    assert store.record_failed_stats_attempt("g1") == 2
+    assert store.record_failed_stats_attempt("g2") == 1
+    assert store.failed_stats_attempts("g1") == 2
 
 
 def test_counts_highlight_attempts_per_game(tmp_path: Path) -> None:
@@ -143,14 +187,17 @@ def test_keeps_state_across_store_instances_over_the_same_directory(
     tmp_path: Path,
 ) -> None:
     first = make_store(tmp_path)
-    first.set_final_time("g1", NOON)
+    first.set_final_time("g1", NOON, first_seen=True)
     first.record_highlight_attempt("g1")
+    first.record_failed_stats_attempt("g1")
     first.record_failure("games", LATER, "source down")
 
     second = make_store(tmp_path)
 
     assert second.final_time("g1") == NOON
     assert second.highlight_attempts("g1") == 1
+    assert second.failed_stats_attempts("g1") == 1
+    assert second.first_seen_final("g1") is True
     assert second.job_states()[0].last_failure_reason == "source down"
 
 

@@ -4,6 +4,7 @@
  */
 
 export type GameStatus = 'scheduled' | 'live' | 'final' | 'delayed' | 'postponed' | 'canceled';
+export type StatsAvailability = 'available' | 'pending' | 'unavailable';
 
 export interface GamesFeed {
 	generatedAt: string;
@@ -30,6 +31,7 @@ export interface Game {
 	winner: string | null;
 	leaders: Leaders | null;
 	teamStats: GameTeamStats | null;
+	statsAvailability: StatsAvailability | null;
 	highlightsSearchUrl: string | null;
 }
 export interface Team {

@@ -44,6 +44,8 @@
 	"panel_stat_assists": "Assists",
 	"panel_stat_turnovers": "Turnovers",
 	"panel_live_highlights": "Highlights will appear here after the final buzzer.",
+	"panel_stats_pending": "Stats will be available soon.",
+	"panel_stats_unavailable": "Stats aren't available for this game.",
 	"panel_tip_off": "Tip-off",
 	"panel_venue": "Venue",
 	"panel_broadcast": "Broadcast",

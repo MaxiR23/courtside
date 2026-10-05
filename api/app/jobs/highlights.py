@@ -1,11 +1,13 @@
 # api/app/jobs/highlights.py
 #
 # Highlights job: for each final game, looks for its full game highlights on
-# the video channel 1, 2 and 3 hours after the final time, never after the
-# third attempt. Matches are kept in the job state. The games job reads the
+# the video channel 1, 2 and 3 hours after the final time (right away, 1 and 2
+# hours later for a game first seen final), never after the third attempt.
+# Matches are kept in the job state. The games job reads the
 # highlights through highlights_of and the search URL through search_url_of.
 #
-# SEE: docs/adr/0007-backend-runtime-and-data-pipeline.md
+# SEE: docs/adr/0007-backend-runtime-and-data-pipeline.md,
+# docs/adr/0010-final-game-attempts.md
 
 import datetime as dt
 import logging
@@ -27,6 +29,11 @@ ATTEMPT_DELAYS = (
     dt.timedelta(hours=1),
     dt.timedelta(hours=2),
     dt.timedelta(hours=3),
+)
+FIRST_SEEN_ATTEMPT_DELAYS = (
+    dt.timedelta(0),
+    dt.timedelta(hours=1),
+    dt.timedelta(hours=2),
 )
 MAX_ATTEMPTS = len(ATTEMPT_DELAYS)
 
@@ -64,7 +71,9 @@ class HighlightsJob:
         attempts = self._store.highlight_attempts(game.id)
         if attempts >= MAX_ATTEMPTS:
             return False
-        return now >= final_time + ATTEMPT_DELAYS[attempts]
+        first_seen = self._store.first_seen_final(game.id)
+        delays = FIRST_SEEN_ATTEMPT_DELAYS if first_seen else ATTEMPT_DELAYS
+        return now >= final_time + delays[attempts]
 
     @staticmethod
     def _log_failed(game: ScoreboardGame, number: int, reason: str) -> None:

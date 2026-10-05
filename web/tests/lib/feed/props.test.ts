@@ -7,9 +7,10 @@
 // - Tip time as "9:00 PM ET"; scheduled, live (Q3, OT, 2OT), final, delayed, postponed and canceled games
 // - The winner of a final game, passed through
 // - Leaders (display name split), stats, highlights with autoplay, the hero chip's full team name
+// - A final game with pending or unavailable stats keeps its line score and highlights without leaders or stats
 // - Minutes since the feed was generated, never negative
 // - Null network, no video platform name, no videos, a one-word display name
-// - A feed without seven days, and a live game without its fields or a final game without its winner, cannot be shown
+// - A feed without seven days, and a live game without its fields or a final game without its winner or stats availability, cannot be shown
 //
 // What is covered:
 // - Pure logic on a recorded feed (tests/lib/feed/fixtures/games.json); no clock, no network
@@ -226,6 +227,36 @@ describe('toHomeView', () => {
 	it('returns null for a final game without its winner', () => {
 		const source = feed();
 		source.days[3].games[2].winner = null;
+		expect(toHomeView(source, received, options)).toBeNull();
+	});
+
+	it.each(['pending', 'unavailable'] as const)(
+		'maps a final game with %s stats to its line score and highlights without leaders or stats',
+		(availability) => {
+			const source = feed();
+			const final = source.days[3].games[2];
+			final.statsAvailability = availability;
+			final.leaders = null;
+			final.teamStats = null;
+			const game = todayGame(view(source), 'g-final');
+			if (game.details?.kind !== 'final-without-stats') throw new Error('Expected no stats');
+			expect(game.details.statsAvailability).toBe(availability);
+			expect(game.details.periods).toEqual({ away: [30, 28, 26, 28], home: [24, 27, 25, 28] });
+			expect(game.details.highlights?.videos).toHaveLength(2);
+			expect('leaders' in game.details).toBe(false);
+			expect('stats' in game.details).toBe(false);
+		}
+	);
+
+	it('returns null for a final game without its stats availability', () => {
+		const source = feed();
+		source.days[3].games[2].statsAvailability = null;
+		expect(toHomeView(source, received, options)).toBeNull();
+	});
+
+	it('returns null for a final game from an older feed with no stats availability key', () => {
+		const source = feed();
+		delete (source.days[3].games[2] as Partial<GamesFeed['days'][0]['games'][0]>).statsAvailability;
 		expect(toHomeView(source, received, options)).toBeNull();
 	});
 

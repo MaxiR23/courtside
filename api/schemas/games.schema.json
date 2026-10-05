@@ -146,6 +146,17 @@
           ],
           "default": null
         },
+        "statsAvailability": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StatsAvailability"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "highlightsSearchUrl": {
           "anyOf": [
             {
@@ -178,6 +189,7 @@
         "winner",
         "leaders",
         "teamStats",
+        "statsAvailability",
         "highlightsSearchUrl"
       ],
       "title": "Game",
@@ -411,6 +423,15 @@
       ],
       "title": "Stars",
       "type": "object"
+    },
+    "StatsAvailability": {
+      "enum": [
+        "available",
+        "pending",
+        "unavailable"
+      ],
+      "title": "StatsAvailability",
+      "type": "string"
     },
     "Team": {
       "additionalProperties": false,

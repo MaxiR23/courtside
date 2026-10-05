@@ -58,6 +58,12 @@ class GameStatus(StrEnum):
     CANCELED = "canceled"
 
 
+class StatsAvailability(StrEnum):
+    AVAILABLE = "available"
+    PENDING = "pending"
+    UNAVAILABLE = "unavailable"
+
+
 class Team(FeedModel):
     code: TeamCode
     name: NonEmptyStr
@@ -139,8 +145,7 @@ REQUIRED_BY_STATUS: dict[GameStatus, tuple[str, ...]] = {
         "line_score",
         "score",
         "winner",
-        "leaders",
-        "team_stats",
+        "stats_availability",
         "highlights_search_url",
     ),
 }
@@ -163,6 +168,7 @@ class Game(FeedModel):
     winner: TeamCode | None = None
     leaders: Leaders | None = None
     team_stats: GameTeamStats | None = None
+    stats_availability: StatsAvailability | None = None
     highlights_search_url: HttpUrl | None = None
 
     @model_validator(mode="after")
@@ -182,6 +188,22 @@ class Game(FeedModel):
             raise ValueError(f"a {self.status} game has no winner")
         if self.winner not in (self.away.code, self.home.code):
             raise ValueError("winner must be the away or the home team code")
+        return self
+
+    @model_validator(mode="after")
+    def _require_stats_of_their_availability(self) -> "Game":
+        availability = self.stats_availability
+        if availability is None:
+            return self
+        if self.status is not GameStatus.FINAL:
+            raise ValueError(f"a {self.status} game has no statsAvailability")
+        held = [n for n in ("leaders", "team_stats") if getattr(self, n) is not None]
+        if availability is StatsAvailability.AVAILABLE and len(held) < 2:
+            raise ValueError("statsAvailability available requires leaders, teamStats")
+        if availability is not StatsAvailability.AVAILABLE and held:
+            raise ValueError(
+                f"statsAvailability {availability} has no leaders or teamStats"
+            )
         return self
 
 

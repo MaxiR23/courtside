@@ -9,6 +9,7 @@
 # - Unknown fields are rejected
 # - A leader carries one display name; stars keep first and last name
 # - A final game requires a winner, which must be one of its teams; any other status rejects one
+# - A final game carries statsAvailability; leaders and teamStats are set only when it is available; any other status rejects it
 # - Serialization uses camelCase keys and carries unknown values as null
 #
 # What is covered:
@@ -97,6 +98,7 @@ def valid_game(status: str, **overrides: object) -> Payload:
     if status == "final":
         game["highlightsSearchUrl"] = "https://example.com/search"
         game["winner"] = "HHH"
+        game["statsAvailability"] = "available"
     game.update(overrides)
     return game
 
@@ -134,7 +136,7 @@ def test_rejects_a_live_game_without_a_required_field(field: str) -> None:
 
 @pytest.mark.parametrize(
     "field",
-    ["lineScore", "score", "winner", "leaders", "teamStats", "highlightsSearchUrl"],
+    ["lineScore", "score", "winner", "statsAvailability", "highlightsSearchUrl"],
 )
 def test_rejects_a_final_game_without_a_required_field(field: str) -> None:
     game = valid_game("final")
@@ -167,6 +169,69 @@ def test_serializes_no_winner_as_null_on_a_game_that_is_not_final() -> None:
     dumped = feed.model_dump(mode="json", by_alias=True)
 
     assert dumped["days"][0]["games"][0]["winner"] is None
+
+
+@pytest.mark.parametrize("availability", ["pending", "unavailable"])
+def test_accepts_a_final_game_pending_or_unavailable_without_leaders_or_team_stats(
+    availability: str,
+) -> None:
+    game = valid_game("final", statsAvailability=availability)
+    del game["leaders"]
+    del game["teamStats"]
+
+    feed = GamesFeed.model_validate(valid_feed(game))
+
+    assert feed.days[0].games[0].stats_availability == availability
+
+
+@pytest.mark.parametrize(
+    "status", ["scheduled", "live", "delayed", "postponed", "canceled"]
+)
+def test_rejects_stats_availability_on_a_game_that_is_not_final(status: str) -> None:
+    with pytest.raises(ValidationError, match="statsAvailability"):
+        GamesFeed.model_validate(
+            valid_feed(valid_game(status, statsAvailability="available"))
+        )
+
+
+@pytest.mark.parametrize("field", ["leaders", "teamStats"])
+def test_rejects_an_available_final_game_without_leaders_or_team_stats(
+    field: str,
+) -> None:
+    game = valid_game("final", **{field: None})
+
+    with pytest.raises(ValidationError, match=field):
+        GamesFeed.model_validate(valid_feed(game))
+
+
+@pytest.mark.parametrize("availability", ["pending", "unavailable"])
+@pytest.mark.parametrize("field", ["leaders", "teamStats"])
+def test_rejects_leaders_or_team_stats_on_a_pending_or_unavailable_final_game(
+    availability: str, field: str
+) -> None:
+    game = valid_game("final", statsAvailability=availability)
+    if field == "leaders":
+        del game["teamStats"]
+    else:
+        del game["leaders"]
+
+    with pytest.raises(ValidationError, match="statsAvailability"):
+        GamesFeed.model_validate(valid_feed(game))
+
+
+def test_rejects_an_unknown_stats_availability() -> None:
+    with pytest.raises(ValidationError, match="statsAvailability"):
+        GamesFeed.model_validate(
+            valid_feed(valid_game("final", statsAvailability="soon"))
+        )
+
+
+def test_serializes_no_stats_availability_as_null_on_a_game_that_is_not_final() -> None:
+    feed = GamesFeed.model_validate(valid_feed(valid_game("scheduled")))
+
+    dumped = feed.model_dump(mode="json", by_alias=True)
+
+    assert dumped["days"][0]["games"][0]["statsAvailability"] is None
 
 
 def test_accepts_a_scheduled_game_without_scores_or_clock() -> None:

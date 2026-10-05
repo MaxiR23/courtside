@@ -148,6 +148,25 @@ function playedDetails(game: Game, highlights?: GameHighlights): GameDetails {
 	};
 }
 
+function finalDetails(game: Game, highlights?: GameHighlights): GameDetails {
+	switch (game.statsAvailability) {
+		case 'available':
+			return playedDetails(game, highlights);
+		case 'pending':
+		case 'unavailable': {
+			const lineScore = required(game.lineScore);
+			return {
+				kind: 'final-without-stats',
+				periods: { away: [...lineScore.away], home: [...lineScore.home] },
+				statsAvailability: game.statsAvailability,
+				...(highlights ? { highlights } : {})
+			};
+		}
+		default:
+			throw new IncompleteGame('A final game lacks its stats availability');
+	}
+}
+
 function scheduleGame(game: Game, options: Options): ScheduleGame {
 	const base = { id: game.id, away: scheduleTeam(game.away), home: scheduleTeam(game.home) };
 	switch (game.status) {
@@ -195,7 +214,7 @@ function scheduleGame(game: Game, options: Options): ScheduleGame {
 					homeScore: score.home,
 					winner: required(game.winner)
 				},
-				details: playedDetails(game, highlights)
+				details: finalDetails(game, highlights)
 			};
 		}
 		default:
