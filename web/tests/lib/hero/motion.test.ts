@@ -67,6 +67,14 @@ describe('play', () => {
 		expect(options.delay).toBe(100);
 	});
 
+	it('multiplies the delay token by delaySteps for a stagger', () => {
+		reducedMotion(false);
+		const { node, animate } = fakeNode();
+		play(node, { ...entrance('--hero-delay-tag'), delaySteps: 3 });
+		const [, options] = animate.mock.calls[0] as unknown as [Keyframe[], KeyframeAnimationOptions];
+		expect(options.delay).toBe(300);
+	});
+
 	it('does not animate with reduced motion', () => {
 		reducedMotion(true);
 		const { node, animate } = fakeNode();

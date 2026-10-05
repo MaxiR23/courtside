@@ -10,5 +10,18 @@
 	"hero_at": "en",
 	"hero_blurb": "{awayStar} y {homeStar} se enfrentan en {arena}.",
 	"hero_match_details": "Detalles del partido",
-	"hero_all_games": "Todos los partidos"
+	"hero_all_games": "Todos los partidos",
+	"schedule_kicker": "Calendario",
+	"schedule_today": "Hoy",
+	"schedule_game_count": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} partido",
+				"countPlural=other": "{count} partidos"
+			}
+		}
+	],
+	"schedule_updated": "Actualizado hace {minutes} min"
 }
