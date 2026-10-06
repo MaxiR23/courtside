@@ -7,9 +7,9 @@
 #     2. Read the issue labels and require exactly one type label.
 #     3. Read the issue title and require its type to match the label.
 #     4. Fetch origin.
-#     5. On main or on a branch that is not type/short-description: require local main and HEAD to
-#        be ancestors of origin/main, create the type/short-description branch from origin/main
-#        carrying the uncommitted changes, then fast-forward local main to origin/main.
+#     5. On main or on a branch that is not type/short-description: require local main to exist and
+#        local main and HEAD to be ancestors of origin/main, create the type/short-description branch
+#        from origin/main carrying the uncommitted changes, then fast-forward local main to origin/main.
 #     6. Require a valid type/short-description branch.
 #     7. Fail if the branch is pushed but has no open PR.
 #     8. Fail if the branch has more than one open PR.
@@ -161,6 +161,9 @@ run_gate() {
 # local main to origin/main. Every check runs before the first change; nothing is forced.
 create_branch_from_base() {
   local current="$1" branch="$2"
+  if ! git rev-parse --verify -q "refs/heads/$BASE" >/dev/null; then
+    die "prepare: local $BASE does not exist; nothing was changed"
+  fi
   if ! git merge-base --is-ancestor "$BASE" "origin/$BASE"; then
     die "prepare: local $BASE has diverged from origin/$BASE; nothing was changed. Reconciling it is the owner's decision"
   fi
