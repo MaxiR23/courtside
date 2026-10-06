@@ -53,8 +53,7 @@ you are stuck, and then say in the hand-back what you read and why.
 - Touch only the files the plan or the fix list names. If you need an
   unplanned file, say so before touching it.
 - No opportunistic refactors, renames or "while I'm here" fixes.
-- Follow `CLAUDE.md` and the conventions that already exist in the files
-  you touch.
+- Follow the conventions that already exist in the files you touch.
 
 ## Rules of the change
 
