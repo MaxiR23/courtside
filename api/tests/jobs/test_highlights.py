@@ -113,7 +113,7 @@ def lookup() -> FakeLookup:
 @pytest.fixture
 def store(tmp_path: Path) -> StateStore:
     state = StateStore(tmp_path)
-    state.create_tables()
+    state.migrate()
     return state
 
 

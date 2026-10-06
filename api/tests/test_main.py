@@ -4,6 +4,7 @@
 #
 # Tested:
 # - Creates the data directory and state file on startup
+# - Stops startup with the migration error when a state migration fails, leaving the state database empty
 # - Allows a configured origin
 # - Does not allow an origin outside the configuration
 # - Refuses a preflight from an origin outside the configuration
@@ -16,13 +17,15 @@
 # - Closes the HTTP client when the scheduler fails to stop
 #
 # What is covered:
-# - Success response, refused cases, scheduler start and stop
+# - Success response, refused cases, scheduler start and stop, error case (failed migration)
 #
 # Run with: cd api && .venv/bin/python -m pytest tests/test_main.py
 #
 # SEE: api/app/main.py
 
 import asyncio
+import sqlite3
+from contextlib import closing
 from pathlib import Path
 from typing import Any
 
@@ -39,7 +42,8 @@ from app.jobs.stars import StarsJob
 from app.main import create_app
 from app.settings import Settings
 from app.sources.http import create_client
-from app.storage.state import STATE_FILE, StateStore
+from app.storage import state
+from app.storage.state import MIGRATIONS, STATE_FILE, StateMigrationError, StateStore
 
 ALLOWED = "https://allowed.example"
 OTHER = "https://other.example"
@@ -61,6 +65,24 @@ def test_creates_the_data_directory_and_state_file_on_startup(
         pass
 
     assert (data_dir / STATE_FILE).is_file()
+
+
+def test_stops_startup_when_a_state_migration_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        state, "MIGRATIONS", (*MIGRATIONS, ("INSERT INTO missing_table VALUES (1)",))
+    )
+
+    with (
+        pytest.raises(StateMigrationError, match="state migration 2 failed"),
+        make_client(tmp_path, []),
+    ):
+        pass
+
+    with closing(sqlite3.connect(tmp_path / STATE_FILE)) as connection:
+        assert connection.execute("PRAGMA user_version").fetchone() == (0,)
+        assert connection.execute("SELECT name FROM sqlite_master").fetchall() == []
 
 
 def test_allows_a_configured_origin(tmp_path: Path) -> None:
