@@ -24,6 +24,8 @@
 # - Republishes the feed with no source call when a final game's highlights change, and not when they are unchanged
 # - Republishes the feed with no source call when a game's stars change, publishes as soon as the last missing star arrives, and does not republish when stars are unchanged
 # - The winner of each final game comes from its final score: home, away, none on a tie or before the final; a tied final game makes the feed invalid
+# - Publishes no feed and records no success while a team has no star
+# - Publishes the first feed with every star on the first run after every team has one, even with nothing due and with no games in the window
 # - A successful run publishes a valid feed and records success
 # - A failing final game detail never blocks live details: the last live detail is published, and a final game with no detail is published as pending
 # - A failing final detail is fetched again only 2, 4 and 6 hours after the final time, then the game is unavailable; failed attempts survive a restart
@@ -216,6 +218,7 @@ def make_job(
     with_inputs: bool = True,
     highlights: Any = None,
     stars: Any = None,
+    stars_ready: Any = None,
 ) -> GamesJob:
     extra: dict[str, Any] = {}
     if with_inputs:
@@ -227,6 +230,8 @@ def make_job(
         extra["highlights"] = highlights
     if stars is not None:
         extra["stars"] = stars
+    if stars_ready is not None:
+        extra["stars_ready"] = stars_ready
     return GamesJob(
         settings,
         store,
@@ -1030,6 +1035,58 @@ async def test_does_not_republish_when_nothing_is_due_and_highlights_are_unchang
 
     assert read_feed(settings.data_dir, "games") == published
     assert store.job_states() == states
+
+
+@pytest.mark.anyio
+async def test_publishes_no_feed_while_a_team_has_no_star_and_records_no_success(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    sources.games[TODAY] = [game("1", GameStatus.SCHEDULED)]
+    job = make_job(settings, store, sources, stars_ready=lambda: False)
+
+    await job.run(NOON)
+
+    assert sources.game_calls
+    assert read_feed(settings.data_dir, "games") is None
+    assert store.job_states() == []
+
+
+@pytest.mark.anyio
+async def test_publishes_a_feed_with_every_star_on_the_first_run_after_every_team_has_one(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    sources.games[TODAY] = [game("1", GameStatus.SCHEDULED)]
+    ready = {"value": False}
+    job = make_job(settings, store, sources, stars_ready=lambda: ready["value"])
+    await job.run(NOON)
+    sources.game_calls.clear()
+    ready["value"] = True
+    later = NOON + dt.timedelta(seconds=30)
+
+    await job.run(later)
+
+    assert sources.game_calls == []
+    published = read_feed(settings.data_dir, "games")
+    assert published is not None
+    feed = GamesFeed.model_validate_json(published)
+    games = [g for day in feed.days for g in day.games]
+    assert games and all(g.stars == STARS for g in games)
+    assert store.job_states()[0].last_success == later
+
+
+@pytest.mark.anyio
+async def test_publishes_the_first_feed_once_ready_even_with_no_games_in_the_window(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    ready = {"value": False}
+    job = make_job(settings, store, sources, stars_ready=lambda: ready["value"])
+    await job.run(NOON)
+    assert read_feed(settings.data_dir, "games") is None
+    ready["value"] = True
+
+    await job.run(NOON + dt.timedelta(seconds=30))
+
+    assert read_feed(settings.data_dir, "games") is not None
 
 
 @pytest.mark.anyio

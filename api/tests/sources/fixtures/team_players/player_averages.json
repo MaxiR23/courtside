@@ -1,0 +1,32 @@
+{
+  "splits": {
+    "categories": [
+      {
+        "name": "general",
+        "stats": [
+          {
+            "name": "avgBlocks",
+            "value": 0.9
+          },
+          {
+            "name": "avgRebounds",
+            "value": 7.1
+          }
+        ]
+      },
+      {
+        "name": "offensive",
+        "stats": [
+          {
+            "name": "avgPoints",
+            "value": 21.4
+          },
+          {
+            "name": "avgAssists",
+            "value": 5.2
+          }
+        ]
+      }
+    ]
+  }
+}

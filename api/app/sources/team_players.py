@@ -1,8 +1,8 @@
 # api/app/sources/team_players.py
 #
 # Team players adapter: fetches one team's current roster, with the
-# provider's current season, and one team's per-game season averages, and
-# maps them to contract types. The provider URLs come from Settings.
+# provider's current season, one team's per-game season averages and one
+# player's per-game season averages, and maps them to contract types. The provider URLs come from Settings.
 # Provider data never leaves this module.
 #
 # SEE: docs/adr/0007-backend-runtime-and-data-pipeline.md, api/app/sources/game_detail.py
@@ -31,6 +31,11 @@ CATEGORIES = {
     "points": "pointsPerGame",
     "rebounds": "reboundsPerGame",
     "assists": "assistsPerGame",
+}
+PLAYER_STATS = {
+    "points": "avgPoints",
+    "rebounds": "avgRebounds",
+    "assists": "avgAssists",
 }
 
 
@@ -77,6 +82,24 @@ class _ProviderCategory(_ProviderModel):
 
 class _ProviderAverages(_ProviderModel):
     categories: list[_ProviderCategory]
+
+
+class _ProviderStat(_ProviderModel):
+    name: str
+    value: object
+
+
+class _ProviderStatCategory(_ProviderModel):
+    name: str
+    stats: list[_ProviderStat]
+
+
+class _ProviderSplits(_ProviderModel):
+    categories: list[_ProviderStatCategory]
+
+
+class _ProviderPlayerAverages(_ProviderModel):
+    splits: _ProviderSplits
 
 
 class Roster(FeedModel):
@@ -164,9 +187,9 @@ def _athlete_id(team_id: str, ref: str) -> str:
     return athlete_id
 
 
-def _number(team_id: str, value: object) -> float:
+def _number(owner_id: str, value: object, kind: str = "team") -> float:
     if isinstance(value, bool) or not isinstance(value, int | float):
-        raise SourceError(SOURCE, f"team {team_id} has a stat that is not a number")
+        raise SourceError(SOURCE, f"{kind} {owner_id} has a stat that is not a number")
     return float(value)
 
 
@@ -219,4 +242,48 @@ async def fetch_season_averages(
         raise SourceError(
             SOURCE,
             f"team {team_id} is invalid: {first['type']} at {_location(error)}",
+        ) from None
+
+
+async def fetch_player_averages(
+    client: httpx.AsyncClient, player_id: str, season: int, settings: Settings
+) -> PlayerAverages | None:
+    """Return one player's per-game averages for a season.
+
+    None when the provider has no statistics for that player and season.
+    """
+    if settings.player_averages_url is None:
+        raise SourceError(SOURCE, "player averages URL is not configured")
+    url = settings.player_averages_url.format(player_id=player_id, season=season)
+    try:
+        body = await get_json(client, url, source=SOURCE)
+    except SourceError as error:
+        if error.status_code == 404:
+            return None
+        raise
+    try:
+        provider = _ProviderPlayerAverages.model_validate(body)
+    except ValidationError as error:
+        raise _invalid_payload(error) from None
+
+    values: dict[str, float] = {}
+    for category in provider.splits.categories:
+        for stat in category.stats:
+            for field, name in PLAYER_STATS.items():
+                if stat.name == name:
+                    values[field] = _number(player_id, stat.value, "player")
+    try:
+        return PlayerAverages.model_validate(
+            {
+                "player_id": player_id,
+                "points": values.get("points", 0.0),
+                "rebounds": values.get("rebounds", 0.0),
+                "assists": values.get("assists", 0.0),
+            }
+        )
+    except ValidationError as error:
+        first = error.errors()[0]
+        raise SourceError(
+            SOURCE,
+            f"player {player_id} is invalid: {first['type']} at {_location(error)}",
         ) from None

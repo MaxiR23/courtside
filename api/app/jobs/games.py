@@ -5,7 +5,8 @@
 # midnight the previous day stays today while any of its games is live, then
 # the window moves. The morning run refreshes the days shown and runs the
 # cleanup. Stars, highlights and the highlights search URL
-# are inputs, supplied by other jobs.
+# are inputs, supplied by other jobs. The first feed after a start waits until
+# every team has a star, so no published game ever lacks one.
 #
 # A final game's detail is fetched when it becomes final and, after a failure,
 # 2, 4 and 6 hours after its final time; the failed attempts are stored.
@@ -16,7 +17,7 @@
 #
 # SEE: docs/adr/0007-backend-runtime-and-data-pipeline.md, docs/api/games.md,
 # docs/adr/0010-final-game-attempts.md, docs/adr/0011-state-retention.md,
-# docs/adr/0013-day-change.md
+# docs/adr/0013-day-change.md, docs/adr/0014-star-guarantees.md
 
 import datetime as dt
 from collections.abc import Awaitable, Callable, Mapping, Sequence
@@ -58,6 +59,7 @@ MAX_STATS_ATTEMPTS = len(STATS_ATTEMPT_DELAYS)
 STATE_RETENTION = dt.timedelta(days=30)
 
 StarsProvider = Callable[[ScoreboardGame], Stars | None]
+StarsReady = Callable[[], bool]
 SearchUrlProvider = Callable[[ScoreboardGame], str | None]
 HighlightsProvider = Callable[[ScoreboardGame], list[Highlight]]
 FetchGames = Callable[
@@ -72,6 +74,11 @@ _UNFINISHED = (GameStatus.SCHEDULED, GameStatus.LIVE, GameStatus.DELAYED)
 def no_stars(game: ScoreboardGame) -> Stars | None:
     """Default when no stars provider is given: every game then lacks its stars."""
     return None
+
+
+def stars_always_ready() -> bool:
+    """Default when no readiness check is given: publication is never held."""
+    return True
 
 
 def no_highlights_search_url(game: ScoreboardGame) -> str | None:
@@ -179,6 +186,7 @@ class GamesJob:
         fetch_games: FetchGames = scoreboard.fetch_games,
         fetch_game_detail: FetchGameDetail = game_detail.fetch_game_detail,
         stars: StarsProvider = no_stars,
+        stars_ready: StarsReady = stars_always_ready,
         highlights_search_url: SearchUrlProvider = no_highlights_search_url,
         highlights: HighlightsProvider = no_highlights,
     ) -> None:
@@ -188,6 +196,8 @@ class GamesJob:
         self._fetch_games = fetch_games
         self._fetch_game_detail = fetch_game_detail
         self._stars = stars
+        self._stars_ready = stars_ready
+        self._has_published = False
         self._highlights_search_url = highlights_search_url
         self._highlights = highlights
         self._published_highlights: dict[str, list[Highlight]] = {}
@@ -345,8 +355,11 @@ class GamesJob:
         except SourceError as error:
             self._store.record_failure(JOB, now, str(error))
             return
+        if not self._stars_ready():
+            return
         if (
-            calls == 0
+            self._has_published
+            and calls == 0
             and not moved
             and self._current_highlights() == self._published_highlights
             and self._current_stars() == self._published_stars
@@ -374,6 +387,7 @@ class GamesJob:
         if publish_feed(self._settings.data_dir, FEED, feed):
             self._published_highlights = self._current_highlights()
             self._published_stars = self._current_stars()
+            self._has_published = True
             self._store.record_success(JOB, now)
         else:
             self._store.record_failure(JOB, now, "feed not written")

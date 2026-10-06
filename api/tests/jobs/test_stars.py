@@ -15,13 +15,20 @@
 # - Serves no stars for a game whose team has no star yet
 # - Loads the stored stars on start, before any fetch
 # - Fetches every team on the first run and not again before the next morning, then again at the morning time the next day
-# - Drops a stored star who is no longer on the roster
+# - Picks the star from the roster players' individual averages when no roster player is among the season leaders, for the season in use
+# - Asks for the individual averages of the previous season when it is the season in use
+# - Makes no individual request when a roster player is among the leaders
+# - Skips a roster player who has no individual averages
+# - A failed individual fetch keeps the last known star and records the reason
+# - A failed individual fetch moves on to the previous season's leaders
+# - A failed individual fetch with no star from the previous season either records its reason and keeps the stored star
+# - Keeps the last known star when no star can be picked
+# - Replaces a stored star who left the roster only once a new one is picked
+# - Fetches every due team concurrently
+# - Has every star only once every team has one, and from the start when the store holds every team
 # - A failed team keeps its stored star, records the reason, does not stop the other teams, and is retried no sooner than five minutes later
 # - Records failure when a team has no averages in either season
-# - A run stops starting teams once its ten second budget is spent and leaves the rest due for the next tick
 # - A team that fails is retried five minutes after the moment it failed, not after the start of the run
-# - With a roster fetch that takes the full timeout and always fails, the games job still runs every tick within the budget plus one team, for hours, and on the restart run too
-# - A run cut short by its budget records no success, and the run that stores the last team records it
 # - Records no success while a failed team waits for its retry, and records it once the team is stored
 # - A successful run records success; a run with nothing due makes no request and records nothing
 #
@@ -48,8 +55,7 @@ import respx
 from pydantic import HttpUrl
 
 from app.feeds.games import GameStatus, Star
-from app.jobs.scheduler import TICK_SECONDS, Scheduler
-from app.jobs.stars import JOB, RETRY, RUN_BUDGET, StarsJob, pick_star
+from app.jobs.stars import JOB, RETRY, StarsJob, pick_star
 from app.settings import Settings
 from app.sources.http import SourceError, create_client
 from app.sources.scoreboard import ScoreboardGame
@@ -96,6 +102,9 @@ class FakeSources:
                 averages(f"{code}1", 10),
                 averages(f"{code}2", 20),
             ]
+        self.player_averages: dict[tuple[str, int], PlayerAverages] = {}
+        self.player_errors: dict[str, SourceError] = {}
+        self.player_calls: list[tuple[str, int]] = []
         self.roster_errors: dict[str, SourceError] = {}
         self.roster_calls: list[str] = []
         self.averages_calls: list[tuple[str, int]] = []
@@ -113,6 +122,14 @@ class FakeSources:
     ) -> list[PlayerAverages]:
         self.averages_calls.append((team_id, season))
         return list(self.averages.get((team_id, season), []))
+
+    async def fetch_player_averages(
+        self, client: httpx.AsyncClient, player_id: str, season: int, settings: Settings
+    ) -> PlayerAverages | None:
+        self.player_calls.append((player_id, season))
+        if player_id in self.player_errors:
+            raise self.player_errors[player_id]
+        return self.player_averages.get((player_id, season))
 
 
 @pytest.fixture(autouse=True)
@@ -145,6 +162,7 @@ def make_job(settings: Settings, store: StateStore, sources: FakeSources) -> Sta
         create_client(),
         fetch_roster=sources.fetch_roster,
         fetch_season_averages=sources.fetch_season_averages,
+        fetch_player_averages=sources.fetch_player_averages,
         clock=lambda: NOON,
     )
 
@@ -241,6 +259,7 @@ async def test_falls_back_when_the_current_season_has_averages_only_for_players_
     await job.run(NOON)
 
     assert store.stars()["BOS"].player_id == "BOS2"
+    assert ("BOS1", SEASON) in sources.player_calls
 
 
 @pytest.mark.anyio
@@ -321,7 +340,7 @@ async def test_fetches_every_team_once_a_day_in_the_morning(
 
 
 @pytest.mark.anyio
-async def test_drops_a_stored_star_who_is_no_longer_on_the_roster(
+async def test_keeps_the_last_known_star_when_no_star_can_be_picked(
     settings: Settings, store: StateStore, sources: FakeSources
 ) -> None:
     store.set_star(player("BOS", 9))
@@ -331,8 +350,187 @@ async def test_drops_a_stored_star_who_is_no_longer_on_the_roster(
 
     await job.run(NOON)
 
-    assert "BOS" not in store.stars()
-    assert job.stars_of(a_game("BOS", "NYK")) is None
+    assert store.stars()["BOS"].player_id == "BOS9"
+    stars = job.stars_of(a_game("BOS", "NYK"))
+    assert stars is not None and stars.away.player_id == "BOS9"
+    assert store.job_states()[0].last_failure is not None
+
+
+@pytest.mark.anyio
+async def test_replaces_a_stored_star_who_left_the_roster_once_a_new_one_is_picked(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    store.set_star(player("BOS", 9))
+    job = make_job(settings, store, sources)
+
+    await job.run(NOON)
+
+    assert store.stars()["BOS"].player_id == "BOS2"
+    stars = job.stars_of(a_game("BOS", "NYK"))
+    assert stars is not None and stars.away.player_id == "BOS2"
+
+
+@pytest.mark.anyio
+async def test_picks_the_star_from_individual_averages_when_no_roster_player_is_among_the_leaders(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    sources.averages[("id-BOS", SEASON)] = [averages("gone", 99)]
+    sources.player_averages[("BOS1", SEASON)] = averages("BOS1", 10)
+    sources.player_averages[("BOS2", SEASON)] = averages("BOS2", 30)
+    job = make_job(settings, store, sources)
+
+    await job.run(NOON)
+
+    assert store.stars()["BOS"].player_id == "BOS2"
+    boston = [call for call in sources.player_calls if call[0].startswith("BOS")]
+    assert boston == [("BOS1", SEASON), ("BOS2", SEASON)]
+
+
+@pytest.mark.anyio
+async def test_asks_individual_averages_for_the_previous_season_when_it_is_the_season_in_use(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    sources.averages[("id-BOS", SEASON)] = []
+    sources.averages[("id-BOS", SEASON - 1)] = [averages("gone", 99)]
+    sources.player_averages[("BOS1", SEASON - 1)] = averages("BOS1", 10)
+    job = make_job(settings, store, sources)
+
+    await job.run(NOON)
+
+    assert store.stars()["BOS"].player_id == "BOS1"
+    boston = [call for call in sources.player_calls if call[0].startswith("BOS")]
+    assert all(season == SEASON - 1 for _, season in boston)
+    assert boston
+
+
+@pytest.mark.anyio
+async def test_does_not_fetch_individual_averages_when_a_roster_player_is_among_the_leaders(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    job = make_job(settings, store, sources)
+
+    await job.run(NOON)
+
+    assert sources.player_calls == []
+
+
+@pytest.mark.anyio
+async def test_skips_a_roster_player_without_individual_averages(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    sources.averages[("id-BOS", SEASON)] = [averages("gone", 99)]
+    sources.player_averages[("BOS2", SEASON)] = averages("BOS2", 5)
+    job = make_job(settings, store, sources)
+
+    await job.run(NOON)
+
+    assert store.stars()["BOS"].player_id == "BOS2"
+
+
+@pytest.mark.anyio
+async def test_a_failed_individual_fetch_keeps_the_last_known_star_and_records_the_reason(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    store.set_star(player("BOS", 9))
+    sources.averages[("id-BOS", SEASON)] = [averages("gone", 99)]
+    sources.player_errors["BOS1"] = SourceError("team_players", "request failed")
+    job = make_job(settings, store, sources)
+
+    await job.run(NOON)
+
+    assert store.stars()["BOS"].player_id == "BOS9"
+    assert store.job_states()[0].last_failure_reason == ("team_players: request failed")
+
+
+@pytest.mark.anyio
+async def test_a_failed_individual_fetch_moves_on_to_the_previous_season(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    sources.averages[("id-BOS", SEASON)] = [averages("gone", 99)]
+    sources.averages[("id-BOS", SEASON - 1)] = [averages("BOS2", 11)]
+    sources.player_errors["BOS1"] = SourceError("team_players", "request failed")
+    job = make_job(settings, store, sources)
+
+    await job.run(NOON)
+
+    assert store.stars()["BOS"].player_id == "BOS2"
+    assert ("id-BOS", SEASON - 1) in sources.averages_calls
+
+
+@pytest.mark.anyio
+async def test_a_failed_individual_fetch_is_recorded_when_the_previous_season_gives_no_star(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    store.set_star(player("BOS", 9))
+    sources.averages[("id-BOS", SEASON)] = [averages("gone", 99)]
+    sources.averages[("id-BOS", SEASON - 1)] = [averages("gone", 99)]
+    sources.player_errors["BOS1"] = SourceError("team_players", "request failed")
+    job = make_job(settings, store, sources)
+
+    await job.run(NOON)
+
+    assert store.stars()["BOS"].player_id == "BOS9"
+    assert store.job_states()[0].last_failure_reason == ("team_players: request failed")
+
+
+@pytest.mark.anyio
+async def test_fetches_every_due_team_concurrently(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    in_flight = 0
+    most = 0
+    original = sources.fetch_roster
+
+    async def roster(
+        client: httpx.AsyncClient, code: str, settings: Settings
+    ) -> Roster:
+        nonlocal in_flight, most
+        in_flight += 1
+        most = max(most, in_flight)
+        for _ in range(3):
+            await asyncio.sleep(0)
+        in_flight -= 1
+        return await original(client, code, settings)
+
+    job = StarsJob(
+        settings,
+        store,
+        create_client(),
+        fetch_roster=roster,
+        fetch_season_averages=sources.fetch_season_averages,
+        fetch_player_averages=sources.fetch_player_averages,
+        clock=lambda: NOON,
+    )
+
+    await job.run(NOON)
+
+    assert most == len(set(CODES))
+
+
+@pytest.mark.anyio
+async def test_has_every_star_only_once_every_team_has_one(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    sources.roster_errors["BOS"] = SourceError("team_players", "down")
+    job = make_job(settings, store, sources)
+    assert not job.has_every_star()
+
+    await job.run(NOON)
+    assert not job.has_every_star()
+
+    del sources.roster_errors["BOS"]
+    await job.run(NOON + RETRY)
+    assert job.has_every_star()
+
+
+@pytest.mark.anyio
+async def test_has_every_star_on_start_when_the_store_holds_every_team(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    for code in set(CODES):
+        store.set_star(player(code, 1))
+
+    assert make_job(settings, store, sources).has_every_star()
 
 
 @pytest.mark.anyio
@@ -393,7 +591,7 @@ async def test_a_successful_run_records_success_and_a_run_with_nothing_due_recor
     assert store.job_states() == first
 
 
-# Group 3: the run budget
+# Group 3: timing, with a clock the fakes move
 
 
 class Clock:
@@ -426,42 +624,6 @@ class SlowSources(FakeSources):
         return await super().fetch_roster(client, code, settings)
 
 
-class GamesStub:
-    name = "games"
-
-    def __init__(self) -> None:
-        self.runs: list[dt.datetime] = []
-
-    async def run(self, now: dt.datetime) -> None:
-        self.runs.append(now)
-
-
-class Driver:
-    """Runs a scheduler for a number of ticks on a clock that only the fakes move."""
-
-    def __init__(self, clock: Clock, ticks: int) -> None:
-        self.clock = clock
-        self.left = ticks
-        self.done = asyncio.Event()
-
-    async def sleep(self, seconds: float) -> None:
-        self.left -= 1
-        if self.left <= 0:
-            self.done.set()
-            await asyncio.Event().wait()
-        self.clock.advance(seconds)
-
-
-async def drive(
-    job: StarsJob, games: GamesStub, store: StateStore, clock: Clock, ticks: int
-) -> None:
-    driver = Driver(clock, ticks)
-    scheduler = Scheduler([job, games], store, clock=clock, sleep=driver.sleep)
-    scheduler.start()
-    await driver.done.wait()
-    await scheduler.stop()
-
-
 def make_slow_job(
     settings: Settings, store: StateStore, sources: SlowSources, clock: Clock
 ) -> StarsJob:
@@ -471,49 +633,9 @@ def make_slow_job(
         create_client(),
         fetch_roster=sources.fetch_roster,
         fetch_season_averages=sources.fetch_season_averages,
+        fetch_player_averages=sources.fetch_player_averages,
         clock=clock,
     )
-
-
-@pytest.mark.anyio
-async def test_a_run_stops_starting_teams_once_its_budget_is_spent(
-    settings: Settings, store: StateStore
-) -> None:
-    clock = Clock(NOON)
-    sources = SlowSources(clock, 3, fails=False)
-    job = make_slow_job(settings, store, sources, clock)
-
-    await job.run(NOON)
-
-    # Teams start at 0, 3, 6 and 9 seconds; the one at 12 seconds does not.
-    assert len(sources.roster_calls) == 4
-    await job.run(clock.now)
-    assert len(sources.roster_calls) == 8
-
-
-@pytest.mark.anyio
-async def test_a_run_cut_short_by_its_budget_records_no_success(
-    settings: Settings, store: StateStore
-) -> None:
-    clock = Clock(NOON)
-    sources = SlowSources(clock, 3, fails=False)
-    job = make_slow_job(settings, store, sources, clock)
-
-    await job.run(NOON)
-    assert store.job_states() == []
-
-    last = clock.now
-    for _ in range(len(CODES)):
-        if len(store.stars()) >= len(set(CODES)):
-            break
-        assert store.job_states() == []
-        last = clock.now
-        await job.run(last)
-
-    assert len(store.stars()) == len(set(CODES))
-    state = store.job_states()[0]
-    assert state.last_success == last
-    assert state.last_failure is None
 
 
 @pytest.mark.anyio
@@ -549,7 +671,7 @@ async def test_a_failed_team_is_retried_five_minutes_after_it_failed(
 
     await job.run(NOON)
     first = sources.roster_calls[0]
-    assert sources.roster_calls == [first]
+    assert len(sources.roster_calls) == len(set(CODES))
 
     # The team failed at NOON + 10 s: not due yet one second before RETRY later.
     sources.roster_calls.clear()
@@ -558,40 +680,3 @@ async def test_a_failed_team_is_retried_five_minutes_after_it_failed(
     sources.roster_calls.clear()
     await job.run(NOON + RETRY + dt.timedelta(seconds=10))
     assert first in sources.roster_calls
-
-
-@pytest.mark.anyio
-async def test_a_total_outage_never_delays_the_games_job_by_more_than_the_budget_and_a_team(
-    settings: Settings, store: StateStore
-) -> None:
-    clock = Clock(NOON)
-    sources = SlowSources(clock, 10, fails=True)
-    job = make_slow_job(settings, store, sources, clock)
-    games = GamesStub()
-    ticks = 2 * 60 * 2  # two hours of 30 second ticks, from the restart run
-
-    await drive(job, games, store, clock, ticks)
-
-    assert len(games.runs) == ticks
-    bound = dt.timedelta(seconds=TICK_SECONDS) + RUN_BUDGET + dt.timedelta(seconds=10)
-    gaps = [b - a for a, b in zip(games.runs, games.runs[1:], strict=False)]
-    assert max(gaps) <= bound
-    assert dt.timedelta(seconds=TICK_SECONDS) <= min(gaps)
-
-
-@pytest.mark.anyio
-async def test_the_restart_run_is_bounded_and_the_other_teams_are_done_on_later_ticks(
-    settings: Settings, store: StateStore
-) -> None:
-    clock = Clock(NOON)
-    sources = SlowSources(clock, 3, fails=False)
-    job = make_slow_job(settings, store, sources, clock)
-    games = GamesStub()
-
-    await drive(job, games, store, clock, 10)
-
-    assert len(store.stars()) == len(CODES)
-    gaps = [b - a for a, b in zip(games.runs, games.runs[1:], strict=False)]
-    assert max(gaps) <= dt.timedelta(seconds=TICK_SECONDS) + RUN_BUDGET + dt.timedelta(
-        seconds=3
-    )

@@ -38,7 +38,7 @@ data sources  ->  source adapters  ->  jobs  ->  feeds (JSON)  ->  front end
 
 ### Jobs
 
-- Jobs run on a schedule inside the backend process. Each job owns one kind of data and has its own refresh cadence, as set in [`adr/0007-backend-runtime-and-data-pipeline.md`](adr/0007-backend-runtime-and-data-pipeline.md): live games are checked every 30 seconds and the daily schedule once a day. The feed's today changes at US Eastern midnight once no game of the previous day is live, as set in [`adr/0013-day-change.md`](adr/0013-day-change.md). The attempts for a final game's detail and highlights follow [`adr/0010-final-game-attempts.md`](adr/0010-final-game-attempts.md). Standings have no job yet, and no cadence is set for them.
+- Jobs run on a schedule inside the backend process. Each job owns one kind of data and has its own refresh cadence, as set in [`adr/0007-backend-runtime-and-data-pipeline.md`](adr/0007-backend-runtime-and-data-pipeline.md): live games are checked every 30 seconds and the daily schedule once a day. The feed's today changes at US Eastern midnight once no game of the previous day is live, as set in [`adr/0013-day-change.md`](adr/0013-day-change.md). The attempts for a final game's detail and highlights follow [`adr/0010-final-game-attempts.md`](adr/0010-final-game-attempts.md). The stars job runs in its own task, as set in [`adr/0014-star-guarantees.md`](adr/0014-star-guarantees.md). Standings have no job yet, and no cadence is set for them.
 - A job that fails keeps the last valid feed published. A partial or invalid feed is never written.
 - Each job records its last successful run, so the backend can report its own health.
 
@@ -191,6 +191,10 @@ Recorded in [`adr/0012-hero-rotation.md`](adr/0012-hero-rotation.md):
 Recorded in [`adr/0013-day-change.md`](adr/0013-day-change.md):
 
 - **Day change**: the feed's today changes at US Eastern midnight; while any game of the previous day is live, the previous day stays today. The morning run refreshes the 7 days shown and never moves the window.
+
+Recorded in [`adr/0014-star-guarantees.md`](adr/0014-star-guarantees.md):
+
+- **Star guarantees**: every game shows both stars. The stars job runs in its own task and fetches all teams concurrently; the first games feed waits until every team has a star; a team with no roster player among its season leaders gets its star from individual averages; a failed team keeps its last known star.
 
 ## Future
 
