@@ -13,6 +13,10 @@
 # - Keeps header values out of the error
 # - Tells with a HEAD request whether a URL is served: yes on success, no on an error status
 # - Raises the source error on a timeout and a transport failure when checking a URL, keeping the URL out of it
+# - Marks a timeout, a transport failure and an error status as a failed request, for JSON and text
+# - Does not mark a body that is not JSON as a failed request
+# - Marks a timeout and a transport failure when checking a URL as a failed request
+# - A source error is not a failed request by default
 # - Creates a client with fixed timeouts
 #
 # What is covered:
@@ -248,3 +252,60 @@ async def test_raises_the_source_error_when_checking_a_url_fails(
 
     assert raised.value.reason == reason
     assert "secret-value" not in str(raised.value)
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("read", [get_json, get_text])
+@pytest.mark.parametrize(
+    "effect",
+    [
+        httpx.ReadTimeout("slow"),
+        httpx.ConnectError("down"),
+        httpx.Response(503),
+    ],
+)
+async def test_marks_a_timeout_a_transport_failure_and_an_error_status_as_a_failed_request(
+    read: Callable[..., Awaitable[object]], effect: httpx.Response | Exception
+) -> None:
+    with respx.mock:
+        route = respx.get(URL)
+        if isinstance(effect, Exception):
+            route.mock(side_effect=effect)
+        else:
+            route.mock(return_value=effect)
+        async with create_client() as client:
+            with pytest.raises(SourceError) as raised:
+                await read(client, URL, source="test")
+
+    assert raised.value.request_failed is True
+
+
+@pytest.mark.anyio
+async def test_does_not_mark_a_body_that_is_not_json_as_a_failed_request() -> None:
+    with respx.mock:
+        respx.get(URL).mock(return_value=httpx.Response(200, text="<html>"))
+        async with create_client() as client:
+            with pytest.raises(SourceError) as raised:
+                await get_json(client, URL, source="test")
+
+    assert raised.value.request_failed is False
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "effect", [httpx.ReadTimeout("slow"), httpx.ConnectError("down")]
+)
+async def test_marks_a_timeout_and_a_transport_failure_when_checking_a_url_as_a_failed_request(
+    effect: Exception,
+) -> None:
+    with respx.mock:
+        respx.head(URL).mock(side_effect=effect)
+        async with create_client() as client:
+            with pytest.raises(SourceError) as raised:
+                await is_served(client, URL, source="test")
+
+    assert raised.value.request_failed is True
+
+
+def test_a_source_error_is_not_a_failed_request_by_default() -> None:
+    assert SourceError("test", "x").request_failed is False

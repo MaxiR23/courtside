@@ -12,11 +12,16 @@
 # - Serves no highlights for an unmatched final game
 # - Loads the stored highlights on start, before any lookup
 # - Keeps the attempt count across a new job over the same store
-# - Logs every failed attempt with the game, its number and its reason, for a no-match and a source error
-# - A failed lookup spends the attempt, records the failure and keeps the stored highlights
+# - Logs every failed attempt with the game, its number and its reason, for a no-match, and a failed request as not counted
+# - A failed request leaves the attempt count unchanged, records the failure and keeps the stored highlights
 # - A matched video without a thumbnail, or a missing embed template, records the failure
 # - Looks up each due game once per run with its US Eastern date
-# - A lookup error for one game spends its attempt and still looks up the others
+# - A failed request for one game leaves its attempt and still looks up the others
+# - Retries the same attempt no sooner than ten minutes after a failed request
+# - Measures the ten minutes from the failed request, not from the start of the run
+# - A failed request does not move the attempt schedule
+# - A lookup that answers with no match still uses up an attempt
+# - Any other source error still uses up an attempt
 # - A game first seen final after a restart gets its highlight, with the largest 16:9 thumbnail, from an older page on the first run, through the real adapter
 # - Gives every game a search URL from the template, and none without it
 # - A run with no due game makes no request and records nothing
@@ -25,8 +30,8 @@
 # What is covered:
 # - Job: a successful run gives the games job its data, a failed run keeps the last valid state
 #
-# The lookup is a fake passed to the job, except in the restart test, which uses the adapter over respx, and times are passed to run(), so no test
-# uses the real clock. Every test runs in an empty respx mock: a real request fails.
+# The lookup is a fake passed to the job, except in the restart test, which uses the adapter over respx, and times are passed to run(). Every job gets
+# a frozen or test-driven clock, so no test uses the real clock. Every test runs in an empty respx mock: a real request fails.
 # The data has one source, so there is no fallback source to test.
 #
 # Run with: cd api && .venv/bin/python -m pytest tests/jobs/test_highlights.py
@@ -35,7 +40,7 @@
 
 import datetime as dt
 import logging
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
 
@@ -44,7 +49,7 @@ import pytest
 import respx
 
 from app.feeds.games import GameStatus, Team
-from app.jobs.highlights import JOB, HighlightsJob
+from app.jobs.highlights import JOB, RETRY, HighlightsJob
 from app.settings import Settings
 from app.sources.http import SourceError, create_client
 from app.sources.scoreboard import ScoreboardGame
@@ -65,6 +70,7 @@ MATCH = ChannelVideo(
     channel="Channel",
     thumbnail_url="https://example.com/t/vid1.jpg",
 )
+REQUEST_FAILED = SourceError("video_channel", "request timed out", request_failed=True)
 OTHER = ChannelVideo(
     video_id="vid2",
     title="Something else",
@@ -140,6 +146,7 @@ def make_job(
     store: StateStore,
     lookup: FakeLookup,
     games: list[ScoreboardGame],
+    clock: Callable[[], dt.datetime] = lambda: FINAL_TIME,
     **values: Any,
 ) -> HighlightsJob:
     return HighlightsJob(
@@ -148,6 +155,7 @@ def make_job(
         create_client(),
         final_games=lambda: games,
         lookup_video=lookup.lookup_video,
+        clock=clock,
     )
 
 
@@ -327,18 +335,20 @@ async def test_logs_every_failed_attempt_with_the_game_its_number_and_its_reason
 
     with caplog.at_level(logging.WARNING):
         await job.run(FINAL_TIME + HOUR)
-        lookup.error = SourceError("video_channel", "request failed")
+        lookup.error = SourceError(
+            "video_channel", "request failed", request_failed=True
+        )
         await job.run(FINAL_TIME + 2 * HOUR)
 
     messages = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
     assert messages == [
         "highlights for game g1: attempt 1 of 3 failed: no video matched",
-        "highlights for game g1: attempt 2 of 3 failed: video_channel: request failed",
+        "highlights for game g1: attempt 2 of 3 not counted, retrying in 10 minutes: video_channel: request failed",
     ]
 
 
 @pytest.mark.anyio
-async def test_a_failed_lookup_spends_the_attempt_and_keeps_the_stored_highlights(
+async def test_a_failed_request_leaves_the_attempt_count_unchanged_records_the_failure_and_keeps_the_stored_highlights(
     tmp_path: Path, store: StateStore, lookup: FakeLookup
 ) -> None:
     store.set_final_time("g1", GAME_DATE, FINAL_TIME)
@@ -347,12 +357,12 @@ async def test_a_failed_lookup_spends_the_attempt_and_keeps_the_stored_highlight
     job = make_job(tmp_path, store, lookup, [make_game("g1")])
     await job.run(FINAL_TIME + HOUR)
     job = make_job(tmp_path, store, lookup, [make_game("g1"), make_game("g2")])
-    lookup.error = SourceError("video_channel", "request timed out")
+    lookup.error = REQUEST_FAILED
     now = FINAL_TIME + HOUR
 
     await job.run(now)
 
-    assert store.highlight_attempts("g2") == 1
+    assert store.highlight_attempts("g2") == 0
     state = store.job_states()[0]
     assert state.last_failure == now
     assert state.last_failure_reason == "video_channel: request timed out"
@@ -412,7 +422,7 @@ async def test_looks_up_each_due_game_once_per_run_with_its_eastern_date(
 
 
 @pytest.mark.anyio
-async def test_a_lookup_error_for_one_game_spends_its_attempt_and_still_looks_up_the_others(
+async def test_a_failed_request_for_one_game_leaves_its_attempt_and_still_looks_up_the_others(
     tmp_path: Path,
     store: StateStore,
     lookup: FakeLookup,
@@ -420,7 +430,9 @@ async def test_a_lookup_error_for_one_game_spends_its_attempt_and_still_looks_up
 ) -> None:
     store.set_final_time("g1", GAME_DATE, FINAL_TIME)
     store.set_final_time("g2", GAME_DATE, FINAL_TIME)
-    lookup.errors["g1"] = SourceError("video_channel", "request failed")
+    lookup.errors["g1"] = SourceError(
+        "video_channel", "request failed", request_failed=True
+    )
     lookup.videos["g2"] = MATCH
     games = [make_game("g1"), make_game("g2")]
     job = make_job(tmp_path, store, lookup, games)
@@ -431,11 +443,12 @@ async def test_a_lookup_error_for_one_game_spends_its_attempt_and_still_looks_up
 
     messages = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
     assert messages == [
-        "highlights for game g1: attempt 1 of 3 failed: video_channel: request failed"
+        "highlights for game g1: attempt 1 of 3 not counted, retrying in 10 minutes: video_channel: request failed"
     ]
     assert [h.title for h in job.highlights_of(make_game("g2"))] == [TITLE]
     assert job.highlights_of(make_game("g1")) == []
-    assert store.highlight_attempts("g1") == 1
+    assert store.highlight_attempts("g1") == 0
+    assert store.highlight_attempts("g2") == 1
     state = store.job_states()[0]
     assert state.last_failure == now
     assert state.last_failure_reason == "video_channel: request failed"
@@ -522,3 +535,113 @@ async def test_an_attempt_keeps_the_game_date_of_the_row(
 
     assert store.game_date("g1") == GAME_DATE
     assert store.highlight_attempts("g1") == 1
+
+
+@pytest.mark.anyio
+async def test_retries_the_same_attempt_no_sooner_than_ten_minutes_after_a_failed_request(
+    tmp_path: Path, store: StateStore, lookup: FakeLookup
+) -> None:
+    store.set_final_time("g1", GAME_DATE, FINAL_TIME)
+    now = FINAL_TIME + HOUR
+    job = make_job(tmp_path, store, lookup, [make_game()], clock=lambda: now)
+    lookup.error = REQUEST_FAILED
+    await job.run(now)
+    lookup.error = None
+    lookup.default = None
+
+    await job.run(now + RETRY - dt.timedelta(seconds=1))
+    assert len(lookup.calls) == 1
+    await job.run(now + RETRY)
+
+    assert RETRY == dt.timedelta(minutes=10)
+    assert len(lookup.calls) == 2
+    assert store.highlight_attempts("g1") == 1
+
+
+@pytest.mark.anyio
+async def test_measures_the_ten_minutes_from_the_failed_request_not_from_the_start_of_the_run(
+    tmp_path: Path, store: StateStore, lookup: FakeLookup
+) -> None:
+    store.set_final_time("g1", GAME_DATE, FINAL_TIME)
+    start = FINAL_TIME + HOUR
+    slow = dt.timedelta(seconds=30)
+    clock = [start]
+    job = make_job(tmp_path, store, lookup, [make_game()], clock=lambda: clock[0])
+
+    async def slow_failure(
+        client: httpx.AsyncClient,
+        game: ScoreboardGame,
+        day: dt.date,
+        settings: Settings,
+    ) -> ChannelVideo | None:
+        lookup.calls.append((game.id, day))
+        clock[0] = clock[0] + slow
+        raise REQUEST_FAILED
+
+    job._lookup_video = slow_failure
+    await job.run(start)
+    job._lookup_video = lookup.lookup_video
+
+    await job.run(start + RETRY)
+    assert len(lookup.calls) == 1
+    await job.run(start + RETRY + slow)
+    assert len(lookup.calls) == 2
+
+
+@pytest.mark.anyio
+async def test_a_failed_request_does_not_move_the_attempt_schedule(
+    tmp_path: Path, store: StateStore, lookup: FakeLookup
+) -> None:
+    store.set_final_time("g1", GAME_DATE, FINAL_TIME)
+    first = FINAL_TIME + HOUR
+    job = make_job(tmp_path, store, lookup, [make_game()], clock=lambda: first)
+    lookup.error = REQUEST_FAILED
+    await job.run(first)
+    lookup.error = None
+
+    await job.run(first + RETRY)
+    assert store.highlight_attempts("g1") == 1
+    await job.run(FINAL_TIME + 2 * HOUR - dt.timedelta(minutes=1))
+    assert store.highlight_attempts("g1") == 1
+    await job.run(FINAL_TIME + 2 * HOUR)
+    assert store.highlight_attempts("g1") == 2
+    await job.run(FINAL_TIME + 3 * HOUR)
+    await job.run(FINAL_TIME + 4 * HOUR)
+    await job.run(FINAL_TIME + 24 * HOUR)
+
+    assert store.highlight_attempts("g1") == 3
+    assert len(lookup.calls) == 4
+
+
+@pytest.mark.anyio
+async def test_a_lookup_that_answers_with_no_match_still_uses_up_an_attempt(
+    tmp_path: Path, store: StateStore, lookup: FakeLookup
+) -> None:
+    store.set_final_time("g1", GAME_DATE, FINAL_TIME)
+    lookup.default = None
+    job = make_job(tmp_path, store, lookup, [make_game()])
+    now = FINAL_TIME + HOUR
+
+    await job.run(now)
+    await job.run(now + dt.timedelta(minutes=30))
+
+    assert store.highlight_attempts("g1") == 1
+    assert len(lookup.calls) == 1
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("case", ["invalid payload", "no thumbnail"])
+async def test_any_other_source_error_still_uses_up_an_attempt(
+    tmp_path: Path, store: StateStore, lookup: FakeLookup, case: str
+) -> None:
+    store.set_final_time("g1", GAME_DATE, FINAL_TIME)
+    if case == "invalid payload":
+        lookup.error = SourceError("video_channel", "invalid payload: items")
+    else:
+        lookup.default = MATCH.model_copy(update={"thumbnail_url": None})
+    job = make_job(tmp_path, store, lookup, [make_game()])
+
+    await job.run(FINAL_TIME + HOUR)
+
+    assert store.highlight_attempts("g1") == 1
+    assert store.job_states()[0].last_failure is not None

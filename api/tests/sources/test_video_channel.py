@@ -9,11 +9,12 @@
 # - Takes the largest 16:9 thumbnail, even over a larger 4:3 one; falls back to the largest one when none is 16:9, ranks a thumbnail without a size last, skips one without a URL, and has none when the API lists none with a URL
 # - Skips a listed thumbnail the image host does not serve and takes the next one, and has none when the host serves none
 # - Checks only the matched video's thumbnails, best first, with HEAD requests, stopping at the first served one and never sending the key
-# - Raises the source error when the image host times out
+# - Raises the source error when the image host times out, marked as a failed request
 # - Stops paging at the page with a video older than the game, and at the first page when the game started after its oldest video
 # - Returns none when the uploads run out
 # - Raises the source error on a body that is not JSON, a missing items list, a missing video id, a missing title, a missing or bad published time and an empty title
 # - Raises the source error on a timeout, an error status, a missing URL and a missing or empty key, never with the key or the URL in the reason
+# - Marks a timeout and an error status as a failed request; an invalid payload, a missing URL and a missing key are not
 # - Never writes the key to any log record
 # - Matches a title with both teams, the label and the date, in any letter case
 # - Does not match a title missing the label, a team or the date, nor a player clip that says only highlights
@@ -235,6 +236,7 @@ async def test_raises_the_source_error_when_the_image_host_times_out(
         await lookup(make_game(), DAY)
 
     assert raised.value.reason == "request timed out"
+    assert raised.value.request_failed is True
 
 
 @pytest.mark.anyio
@@ -465,6 +467,7 @@ async def test_raises_the_source_error_on_an_invalid_payload(
 
     assert error.source == "video_channel"
     assert error.reason == reason
+    assert error.request_failed is False
 
 
 @pytest.mark.anyio
@@ -481,6 +484,7 @@ async def test_raises_the_source_error_on_an_upstream_failure(
     error = await lookup_error(effect)
 
     assert error.reason == reason
+    assert error.request_failed is True
     assert KEY not in str(error)
     assert SOURCE_URL not in str(error)
 
@@ -491,6 +495,7 @@ async def test_raises_the_source_error_when_the_source_url_is_missing() -> None:
         await lookup(make_game(), DAY, make_settings(highlights_source_key=KEY))
 
     assert raised.value.reason == "highlights source URL is not configured"
+    assert raised.value.request_failed is False
 
 
 @pytest.mark.anyio
@@ -507,6 +512,7 @@ async def test_raises_the_source_error_when_the_key_is_missing_or_empty(
         await lookup(make_game(), DAY, settings)
 
     assert raised.value.reason == "highlights source key is not configured"
+    assert raised.value.request_failed is False
     assert route.call_count == 0
 
 
