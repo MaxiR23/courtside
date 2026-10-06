@@ -62,7 +62,7 @@ class Ticks:
 def make(tmp_path: Path, job: FakeJob, ticks: Ticks) -> tuple[Scheduler, StateStore]:
     tmp_path.mkdir(parents=True, exist_ok=True)
     store = StateStore(tmp_path)
-    store.create_tables()
+    store.migrate()
     return Scheduler([job], store, clock=lambda: NOW, sleep=ticks), store
 
 

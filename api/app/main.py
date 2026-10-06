@@ -23,7 +23,7 @@ def create_app(settings: Settings | None = None, *, run_jobs: bool = True) -> Fa
         configure_logging()
         settings.data_dir.mkdir(parents=True, exist_ok=True)
         store = StateStore(settings.data_dir)
-        store.create_tables()
+        store.migrate()
         client = create_client()
         stars_job = StarsJob(settings, store, client)
         # The highlights job reads the final games of the games job, built below.

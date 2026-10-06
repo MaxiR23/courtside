@@ -1,6 +1,7 @@
 # api/app/storage/state.py
 #
 # Job state in SQLite: game dates, final times and whether they were first seen, highlight attempts, failed stats attempts, matched highlights, team stars and per-job outcomes.
+# Schema versioned with PRAGMA user_version; MIGRATIONS run once each on startup.
 # One connection per operation, so sync endpoints can use it from the threadpool.
 #
 # SEE: docs/adr/0007-backend-runtime-and-data-pipeline.md, docs/adr/0011-state-retention.md
@@ -17,6 +18,39 @@ logger = logging.getLogger(__name__)
 
 STATE_FILE = "state.sqlite3"
 NO_REASON = "no reason given"
+
+# One migration is a tuple of SQL statements. Append new ones; never edit,
+# reorder or remove one that has shipped. SEE: docs/architecture.md
+type Migration = tuple[str, ...]
+
+MIGRATIONS: tuple[Migration, ...] = (
+    (
+        (
+            "CREATE TABLE IF NOT EXISTS games ("
+            "game_id TEXT PRIMARY KEY, game_date TEXT NOT NULL, final_time TEXT, "
+            "highlight_attempts INTEGER NOT NULL DEFAULT 0, "
+            "first_seen_final INTEGER NOT NULL DEFAULT 0, "
+            "failed_stats_attempts INTEGER NOT NULL DEFAULT 0)"
+        ),
+        (
+            "CREATE TABLE IF NOT EXISTS stars ("
+            "team_code TEXT PRIMARY KEY, star TEXT NOT NULL)"
+        ),
+        (
+            "CREATE TABLE IF NOT EXISTS highlights ("
+            "game_id TEXT PRIMARY KEY, highlight TEXT NOT NULL)"
+        ),
+        (
+            "CREATE TABLE IF NOT EXISTS jobs ("
+            "name TEXT PRIMARY KEY, last_success TEXT, "
+            "last_failure TEXT, last_failure_reason TEXT)"
+        ),
+    ),
+)
+
+
+class StateMigrationError(Exception):
+    """A state database migration failed and was rolled back."""
 
 
 class JobState(FeedModel):
@@ -50,28 +84,28 @@ class StateStore:
     def _connect(self) -> closing[sqlite3.Connection]:
         return closing(sqlite3.connect(self._path))
 
-    def create_tables(self) -> None:
-        with self._connect() as connection, connection:
-            connection.execute(
-                "CREATE TABLE IF NOT EXISTS games ("
-                "game_id TEXT PRIMARY KEY, game_date TEXT NOT NULL, final_time TEXT, "
-                "highlight_attempts INTEGER NOT NULL DEFAULT 0, "
-                "first_seen_final INTEGER NOT NULL DEFAULT 0, "
-                "failed_stats_attempts INTEGER NOT NULL DEFAULT 0)"
-            )
-            connection.execute(
-                "CREATE TABLE IF NOT EXISTS stars ("
-                "team_code TEXT PRIMARY KEY, star TEXT NOT NULL)"
-            )
-            connection.execute(
-                "CREATE TABLE IF NOT EXISTS highlights ("
-                "game_id TEXT PRIMARY KEY, highlight TEXT NOT NULL)"
-            )
-            connection.execute(
-                "CREATE TABLE IF NOT EXISTS jobs ("
-                "name TEXT PRIMARY KEY, last_success TEXT, "
-                "last_failure TEXT, last_failure_reason TEXT)"
-            )
+    def migrate(self) -> None:
+        """Runs every pending migration in order, all in one transaction;
+        on failure rolls back and raises StateMigrationError."""
+        with closing(sqlite3.connect(self._path, isolation_level=None)) as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            try:
+                version = int(connection.execute("PRAGMA user_version").fetchone()[0])
+                for number, statements in enumerate(
+                    MIGRATIONS[version:], start=version + 1
+                ):
+                    try:
+                        for statement in statements:
+                            connection.execute(statement)
+                    except sqlite3.Error as error:
+                        raise StateMigrationError(
+                            f"state migration {number} failed: {error}"
+                        ) from error
+                    connection.execute(f"PRAGMA user_version = {number}")
+                connection.execute("COMMIT")
+            except BaseException:
+                connection.execute("ROLLBACK")
+                raise
 
     def set_star(self, star: Star) -> None:
         with self._connect() as connection, connection:

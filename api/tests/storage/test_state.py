@@ -3,7 +3,13 @@
 # Tests for the SQLite job state.
 #
 # Tested:
-# - Creates the tables more than once without error
+# - Migrates a new database to the latest version
+# - Brings a database created before migrations to the latest version and keeps its rows
+# - Migrating twice runs nothing the second time
+# - Runs each migration once across restarts
+# - Runs only the pending migrations, in order
+# - A failed migration leaves the database unchanged
+# - A failed first migration leaves a new database empty
 # - Stores a game's final time in UTC
 # - Reports no final time and no attempts for an unknown game
 # - Keeps the first final time and never overwrites it, nor its first-seen flag
@@ -31,7 +37,7 @@
 # - Setting a star twice, and recording a job success or failure twice, leaves one row
 #
 # What is covered:
-# - Happy path, edge cases (unknown game, repeat table creation, restart, no jobs, no stars), error case (naive time)
+# - Happy path, edge cases (unknown game, repeat migration, restart, no jobs, no stars, pre-migration database), error case (naive time, failed migration)
 #
 # Run with: cd api && .venv/bin/python -m pytest tests/storage/test_state.py
 #
@@ -47,11 +53,40 @@ import pytest
 from pydantic import HttpUrl
 
 from app.feeds.games import Highlight, Star
-from app.storage.state import NO_REASON, STATE_FILE, StateStore
+from app.storage import state
+from app.storage.state import (
+    MIGRATIONS,
+    NO_REASON,
+    STATE_FILE,
+    StateMigrationError,
+    StateStore,
+)
 
 NOON = dt.datetime(2026, 1, 10, 12, 0, tzinfo=dt.UTC)
 LATER = dt.datetime(2026, 1, 10, 13, 0, tzinfo=dt.UTC)
 DAY = dt.date(2026, 1, 9)
+
+LEGACY_SCHEMA = (
+    (
+        "CREATE TABLE IF NOT EXISTS games ("
+        "game_id TEXT PRIMARY KEY, game_date TEXT NOT NULL, final_time TEXT, "
+        "highlight_attempts INTEGER NOT NULL DEFAULT 0, "
+        "first_seen_final INTEGER NOT NULL DEFAULT 0, "
+        "failed_stats_attempts INTEGER NOT NULL DEFAULT 0)"
+    ),
+    (
+        "CREATE TABLE IF NOT EXISTS stars (team_code TEXT PRIMARY KEY, star TEXT NOT NULL)"
+    ),
+    (
+        "CREATE TABLE IF NOT EXISTS highlights ("
+        "game_id TEXT PRIMARY KEY, highlight TEXT NOT NULL)"
+    ),
+    (
+        "CREATE TABLE IF NOT EXISTS jobs ("
+        "name TEXT PRIMARY KEY, last_success TEXT, "
+        "last_failure TEXT, last_failure_reason TEXT)"
+    ),
+)
 
 
 def make_star(code: str, player_id: str) -> Star:
@@ -67,16 +102,158 @@ def make_star(code: str, player_id: str) -> Star:
 
 def make_store(path: Path) -> StateStore:
     store = StateStore(path)
-    store.create_tables()
+    store.migrate()
     return store
 
 
-def test_creates_the_tables_more_than_once_without_error(tmp_path: Path) -> None:
+def user_version(path: Path) -> int:
+    with closing(sqlite3.connect(path / STATE_FILE)) as connection:
+        return int(connection.execute("PRAGMA user_version").fetchone()[0])
+
+
+def query(path: Path, sql: str) -> list[tuple[object, ...]]:
+    with closing(sqlite3.connect(path / STATE_FILE)) as connection:
+        return connection.execute(sql).fetchall()
+
+
+def table_names(path: Path) -> set[str]:
+    return {str(row[0]) for row in query(path, "SELECT name FROM sqlite_master")}
+
+
+def test_migrates_a_new_database_to_the_latest_version(tmp_path: Path) -> None:
+    make_store(tmp_path)
+
+    assert user_version(tmp_path) == len(MIGRATIONS)
+    assert {"games", "highlights", "jobs", "stars"} <= table_names(tmp_path)
+
+
+def test_brings_a_database_created_before_migrations_to_the_latest_version_and_keeps_its_rows(
+    tmp_path: Path,
+) -> None:
+    star = make_star("AAA", "p1")
+    highlight = Highlight(
+        title="Recap",
+        channel="NBA",
+        thumbnail_url=HttpUrl("https://example.com/t.png"),
+        embed_url=HttpUrl("https://example.com/e"),
+    )
+    with closing(sqlite3.connect(tmp_path / STATE_FILE)) as connection, connection:
+        for statement in LEGACY_SCHEMA:
+            connection.execute(statement)
+        connection.execute(
+            "INSERT INTO games (game_id, game_date, final_time) VALUES (?, ?, ?)",
+            ("g1", DAY.isoformat(), NOON.isoformat()),
+        )
+        connection.execute(
+            "INSERT INTO stars (team_code, star) VALUES (?, ?)",
+            ("AAA", star.model_dump_json()),
+        )
+        connection.execute(
+            "INSERT INTO highlights (game_id, highlight) VALUES (?, ?)",
+            ("g1", highlight.model_dump_json()),
+        )
+        connection.execute(
+            "INSERT INTO jobs (name, last_success) VALUES (?, ?)",
+            ("games", NOON.isoformat()),
+        )
+    assert user_version(tmp_path) == 0
+
+    store = StateStore(tmp_path)
+    store.migrate()
+
+    assert user_version(tmp_path) == len(MIGRATIONS)
+    assert store.final_time("g1") == NOON
+    assert store.game_date("g1") == DAY
+    assert store.stars() == {"AAA": star}
+    assert store.highlights() == {"g1": highlight}
+    assert [(j.name, j.last_success) for j in store.job_states()] == [("games", NOON)]
+
+
+def test_migrating_twice_runs_nothing_the_second_time(tmp_path: Path) -> None:
     store = make_store(tmp_path)
 
-    store.create_tables()
+    store.migrate()
 
     assert store.job_states() == []
+    assert user_version(tmp_path) == len(MIGRATIONS)
+
+
+def test_runs_each_migration_once_across_restarts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    migrations = (
+        *MIGRATIONS,
+        ("CREATE TABLE counter (n INTEGER)",),
+        ("INSERT INTO counter VALUES (1)",),
+    )
+    monkeypatch.setattr(state, "MIGRATIONS", migrations)
+
+    StateStore(tmp_path).migrate()
+    StateStore(tmp_path).migrate()
+
+    assert query(tmp_path, "SELECT COUNT(*) FROM counter") == [(1,)]
+    assert user_version(tmp_path) == len(migrations)
+
+
+def test_runs_only_the_pending_migrations_in_order(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store = make_store(tmp_path)
+    store.record_success("games", NOON)
+    monkeypatch.setattr(
+        state,
+        "MIGRATIONS",
+        (
+            *MIGRATIONS,
+            ("CREATE TABLE seq (n INTEGER)",),
+            ("INSERT INTO seq VALUES (2)",),
+        ),
+    )
+
+    store.migrate()
+
+    assert user_version(tmp_path) == len(MIGRATIONS) + 2
+    assert query(tmp_path, "SELECT n FROM seq") == [(2,)]
+    assert [job.name for job in store.job_states()] == ["games"]
+
+
+def test_a_failed_migration_leaves_the_database_unchanged(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store = make_store(tmp_path)
+    store.record_success("games", NOON)
+    monkeypatch.setattr(
+        state,
+        "MIGRATIONS",
+        (
+            *MIGRATIONS,
+            ("CREATE TABLE extra (a)",),
+            ("INSERT INTO missing_table VALUES (1)",),
+        ),
+    )
+
+    with pytest.raises(StateMigrationError, match="state migration 3 failed"):
+        store.migrate()
+
+    assert user_version(tmp_path) == 1
+    assert "extra" not in table_names(tmp_path)
+    assert [job.name for job in store.job_states()] == ["games"]
+
+
+def test_a_failed_first_migration_leaves_a_new_database_empty(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        state,
+        "MIGRATIONS",
+        ((MIGRATIONS[0][0], "INSERT INTO missing_table VALUES (1)"),),
+    )
+
+    with pytest.raises(StateMigrationError, match="state migration 1 failed"):
+        StateStore(tmp_path).migrate()
+
+    assert user_version(tmp_path) == 0
+    assert query(tmp_path, "SELECT name FROM sqlite_master") == []
 
 
 def test_stores_a_final_time_in_utc(tmp_path: Path) -> None:

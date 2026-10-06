@@ -51,6 +51,22 @@ data sources  ->  source adapters  ->  jobs  ->  feeds (JSON)  ->  front end
 - Each feed is validated against its model before publishing and written atomically, so a reader never sees a half-written file.
 - Feeds are served by the backend with cache headers. Only the front end's static files are served from a CDN.
 
+### State database
+
+The job state's schema version is SQLite's `PRAGMA user_version`. `MIGRATIONS`
+in `api/app/storage/state.py` is the ordered list of migrations, and migration
+N sets the version to N. Migration 1 is the schema as it stood before
+versioning, so an unversioned database is brought up to it with its rows kept.
+
+On startup, every migration above the stored version runs in order, all in one
+transaction. A failure rolls the whole transaction back, leaving the database
+as it was, and stops startup with `StateMigrationError` naming the migration.
+
+To add a migration, append a tuple of SQL statements to `MIGRATIONS`. Never
+edit, reorder or remove one that has shipped. Statements must not commit (no
+`COMMIT`, no `executescript`). Add a test in `api/tests/storage/test_state.py`
+that migrates a database at the previous version with rows in it.
+
 ## Data contract
 
 - The Pydantic models in the backend are the single source of truth for every feed.
@@ -107,7 +123,7 @@ Structure of `/api`:
 api/app/main.py            FastAPI app factory, lifespan, CORS and routers
 api/app/settings.py        Settings class and get_settings()
 api/app/log.py             Logging, configured once at startup
-api/app/storage/           Job state (SQLite) and feed publication
+api/app/storage/           Job state (SQLite, with its migrations) and feed publication
 api/app/routers/           One APIRouter per module
 api/app/feeds/             One module per feed model, plus schema.py, which exports the schemas
 api/app/sources/           One module per data source adapter, plus http.py (shared client and SourceError) and teams.py (team codes)
