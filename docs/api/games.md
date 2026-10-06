@@ -82,9 +82,14 @@ Rules that live in the code:
   ([ADR 0009](../adr/0009-game-leader-selection.md)).
 - `TeamStats.turnovers` counts the players' turnovers. Turnovers charged to
   the team are not included.
-- Stars: the current season's averages are used when any player on the
-  current roster has them; otherwise the previous season's are used. A 404
-  from the averages source means that season has no statistics yet.
+- Stars: the order is the current season's leaders, then the current
+  roster players' individual averages for the current season, then the
+  previous season's leaders, then the individual averages for the previous
+  season. The first step that picks a roster player wins. A 404 from the
+  averages source means that season has no statistics yet. A failed
+  individual request moves on to the next step. A team that no step picks
+  keeps its last known star
+  ([ADR 0014](../adr/0014-star-guarantees.md)).
 - `winner` is set by the games job from the final score: the team with more
   points. A final game whose score is tied has no winner, so the feed is
   invalid and the previous one stays published.
@@ -101,6 +106,10 @@ Eastern time; the day change of
 every 30 seconds while it is live; highlights one attempt 1, 2 and 3 hours
 after the final time; a final game's detail when it becomes final and, after
 a failure, 2, 4 and 6 hours after the final time.
+
+- The stars of all teams are fetched concurrently in their own task and never
+  delay the live refresh. After a start, no games feed is published until
+  every team has a star ([ADR 0014](../adr/0014-star-guarantees.md)).
 
 - The morning fetch runs at `DAILY_FETCH_TIME` (US Eastern, `HH:MM`, default
   06:00).

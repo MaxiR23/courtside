@@ -13,6 +13,11 @@
 # - Returns no averages when the provider has none for the team and season
 # - Returns no averages when the provider lists no categories
 # - Counts a category the player is missing from as zero
+# - Maps recorded player averages to points, rebounds and assists, picking stats by name
+# - Requests the player averages URL built from the template, the player id and the season
+# - Returns no player averages when the provider has none for the player and season
+# - Counts a player stat that is missing as zero
+# - Raises the source error on an invalid player averages payload, a player stat that is not a number, a negative player stat, a timeout, an error status and a missing player averages URL
 # - Raises the source error on an invalid roster payload, an invalid averages payload, an empty roster, an empty name, a stat that is not a number, a negative stat, an unknown team code, a timeout, an error status, a missing roster URL, a missing averages URL and a missing photo URL
 #
 # What is covered:
@@ -42,6 +47,7 @@ from app.sources.http import SourceError, create_client
 from app.sources.team_players import (
     PlayerAverages,
     Roster,
+    fetch_player_averages,
     fetch_roster,
     fetch_season_averages,
 )
@@ -49,9 +55,11 @@ from app.sources.team_players import (
 FIXTURES = Path(__file__).parent / "fixtures" / "team_players"
 ROSTER_TEMPLATE = "https://example.com/teams/{team}/roster"
 AVERAGES_TEMPLATE = "https://example.com/seasons/{season}/teams/{team}/leaders"
+PLAYER_TEMPLATE = "https://example.com/seasons/{season}/athletes/{player_id}/statistics"
 PHOTO_TEMPLATE = "https://example.com/players/{player_id}.png"
 ROSTER_URL = "https://example.com/teams/GS/roster"
 AVERAGES_URL = "https://example.com/seasons/2026/teams/9/leaders"
+PLAYER_URL = "https://example.com/seasons/2026/athletes/6430/statistics"
 
 Payload = dict[str, Any]
 
@@ -67,6 +75,7 @@ def settings() -> Settings:
         _env_file=None,
         team_roster_url=ROSTER_TEMPLATE,
         team_averages_url=AVERAGES_TEMPLATE,
+        player_averages_url=PLAYER_TEMPLATE,
         player_photo_url=PHOTO_TEMPLATE,
     )
 
@@ -87,6 +96,19 @@ async def averages_of(
 ) -> list[PlayerAverages]:
     async with create_client() as client:
         return await fetch_season_averages(client, team_id, season, settings)
+
+
+async def player_of(
+    settings: Settings, player_id: str = "6430", season: int = 2026
+) -> PlayerAverages | None:
+    async with create_client() as client:
+        return await fetch_player_averages(client, player_id, season, settings)
+
+
+async def player_error(settings: Settings) -> SourceError:
+    with pytest.raises(SourceError) as raised:
+        await player_of(settings)
+    return raised.value
 
 
 async def roster_error(settings: Settings, code: str = "GSW") -> SourceError:
@@ -375,4 +397,115 @@ async def test_raises_the_source_error_when_a_url_is_not_configured(
     )
     assert (await averages_error(settings)).reason == (
         "team averages URL is not configured"
+    )
+
+
+@pytest.mark.anyio
+async def test_maps_recorded_player_averages_to_points_rebounds_and_assists(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    mock.get(PLAYER_URL).respond(json=load("player_averages.json"))
+
+    found = await player_of(settings)
+
+    assert found == PlayerAverages(
+        player_id="6430", points=21.4, rebounds=7.1, assists=5.2
+    )
+
+
+@pytest.mark.anyio
+async def test_requests_the_player_averages_url_built_from_the_player_id_and_the_season(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    route = mock.get("https://example.com/seasons/2025/athletes/77/statistics").respond(
+        json=load("player_averages.json")
+    )
+
+    found = await player_of(settings, "77", 2025)
+
+    assert route.called
+    assert found is not None
+    assert found.player_id == "77"
+
+
+@pytest.mark.anyio
+async def test_returns_no_player_averages_when_the_provider_has_none_for_the_season(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    mock.get(PLAYER_URL).respond(404)
+
+    assert await player_of(settings) is None
+
+
+@pytest.mark.anyio
+async def test_counts_a_stat_the_player_is_missing_as_zero(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("player_averages.json")
+    payload["splits"]["categories"][1]["stats"] = [{"name": "avgPoints", "value": 21.4}]
+    mock.get(PLAYER_URL).respond(json=payload)
+
+    found = await player_of(settings)
+
+    assert found == PlayerAverages(
+        player_id="6430", points=21.4, rebounds=7.1, assists=0.0
+    )
+
+
+@pytest.mark.anyio
+async def test_raises_the_source_error_on_an_invalid_player_averages_payload(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    mock.get(PLAYER_URL).respond(json={"splits": "none"})
+
+    error = await player_error(settings)
+
+    assert error.reason == "invalid payload: 1 errors, first at splits"
+
+
+@pytest.mark.anyio
+async def test_raises_the_source_error_on_a_player_stat_that_is_not_a_number(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("player_averages.json")
+    payload["splits"]["categories"][1]["stats"][0]["value"] = "lots"
+    mock.get(PLAYER_URL).respond(json=payload)
+
+    error = await player_error(settings)
+
+    assert error.reason == "player 6430 has a stat that is not a number"
+
+
+@pytest.mark.anyio
+async def test_raises_the_source_error_on_a_negative_player_stat(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("player_averages.json")
+    payload["splits"]["categories"][1]["stats"][0]["value"] = -1.0
+    mock.get(PLAYER_URL).respond(json=payload)
+
+    error = await player_error(settings)
+
+    assert error.reason.startswith("player 6430 is invalid:")
+
+
+@pytest.mark.anyio
+async def test_raises_the_source_error_on_a_player_averages_timeout_and_error_status(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    mock.get(PLAYER_URL).mock(side_effect=httpx.ReadTimeout("slow"))
+    assert (await player_error(settings)).reason == "request timed out"
+
+    mock.get(PLAYER_URL).respond(500)
+    assert (await player_error(settings)).reason == "responded with status 500"
+
+
+@pytest.mark.anyio
+async def test_raises_the_source_error_when_the_player_averages_url_is_not_configured(
+    mock: respx.MockRouter,
+) -> None:
+    settings = Settings(_env_file=None, player_averages_url=None)  # type: ignore[call-arg]
+
+    assert (await player_error(settings)).reason == (
+        "player averages URL is not configured"
     )

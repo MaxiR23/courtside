@@ -77,6 +77,7 @@ def clear_environment_variable(monkeypatch: pytest.MonkeyPatch) -> None:
             "player_photo_url",
             "team_roster_url",
             "team_averages_url",
+            "player_averages_url",
             "video_channel_feed_url",
             "video_thumbnail_url",
             "video_embed_url",
@@ -272,6 +273,24 @@ def test_reads_the_team_averages_url_from_the_environment_variable(
     assert (
         SettingsWithoutEnvFile().team_averages_url
         == "https://example.com/{season}/teams/{team}/leaders"
+    )
+
+
+def test_player_averages_url_is_unset_when_no_variable_is_set() -> None:
+    assert SettingsWithoutEnvFile().player_averages_url is None
+
+
+def test_reads_the_player_averages_url_from_the_environment_variable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        "PLAYER_AVERAGES_URL",
+        "https://example.com/{season}/athletes/{player_id}/statistics",
+    )
+
+    assert (
+        SettingsWithoutEnvFile().player_averages_url
+        == "https://example.com/{season}/athletes/{player_id}/statistics"
     )
 
 

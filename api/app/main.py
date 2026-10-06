@@ -35,20 +35,28 @@ def create_app(settings: Settings | None = None, *, run_jobs: bool = True) -> Fa
             store,
             client,
             stars=stars_job.stars_of,
+            stars_ready=stars_job.has_every_star,
             highlights=highlights_job.highlights_of,
             highlights_search_url=highlights_job.search_url_of,
         )
-        scheduler = Scheduler([stars_job, games_job, highlights_job], store)
+        # The stars job runs in its own task so its fetches never delay the live refresh.
+        stars_scheduler = Scheduler([stars_job], store)
+        scheduler = Scheduler([games_job, highlights_job], store)
         app.state.scheduler = scheduler
+        app.state.stars_scheduler = stars_scheduler
         try:
             if run_jobs:
+                stars_scheduler.start()
                 scheduler.start()
             yield
         finally:
             try:
                 await scheduler.stop()
             finally:
-                await client.aclose()
+                try:
+                    await stars_scheduler.stop()
+                finally:
+                    await client.aclose()
 
     app = FastAPI(lifespan=lifespan)
     app.state.settings = settings

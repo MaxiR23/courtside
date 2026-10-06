@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     team_roster_url: str | None = None
     # Template with {team}, the provider's team id from the roster, and {season}.
     team_averages_url: str | None = None
+    # Template with {player_id}, the provider's player id, and {season}.
+    player_averages_url: str | None = None
     video_channel_feed_url: str | None = None
     # Template with {video_id}, the channel's video id.
     video_thumbnail_url: str | None = None
