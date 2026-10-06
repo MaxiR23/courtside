@@ -1,0 +1,25 @@
+{
+  "nextPageToken": "page-2",
+  "items": [
+    {
+      "snippet": {
+        "publishedAt": "2026-10-05T07:00:00Z",
+        "channelTitle": "Example Channel",
+        "title": "Player Scores 21 For The Clippers Against The Warriors | Highlights | October 4, 2026",
+        "resourceId": {
+          "videoId": "vid-clip"
+        }
+      }
+    },
+    {
+      "snippet": {
+        "publishedAt": "2026-10-05T06:00:00Z",
+        "channelTitle": "Example Channel",
+        "title": "JAZZ at NUGGETS | PRESEASON FULL GAME HIGHLIGHTS | October 4, 2026",
+        "resourceId": {
+          "videoId": "vid-other-game"
+        }
+      }
+    }
+  ]
+}

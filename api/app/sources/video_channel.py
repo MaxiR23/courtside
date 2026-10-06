@@ -1,27 +1,31 @@
 # api/app/sources/video_channel.py
 #
-# Video channel adapter: reads the channel's public feed, finds the full game
-# highlights of a game by its title and builds the highlight and the search
-# link from templates. The URLs come from Settings. Provider data never leaves
-# this module.
+# Video channel adapter: lists the official channel's uploads through the
+# official API, 50 per request, paging back per game until it finds the game's
+# full game highlights by title, builds the highlight and the search link from
+# templates. The URLs and the key come from Settings; the key goes only in a
+# request header. Provider data never leaves this module.
 #
-# SEE: docs/adr/0007-backend-runtime-and-data-pipeline.md, api/app/sources/team_players.py
+# SEE: docs/adr/0007-backend-runtime-and-data-pipeline.md,
+# docs/adr/0015-highlights-source.md, api/app/sources/team_players.py
 
 import datetime as dt
 import re
 from urllib.parse import quote_plus
-from xml.etree import ElementTree
 
 import httpx
-from pydantic import ValidationError
+from pydantic import AwareDatetime, BaseModel, ConfigDict, ValidationError
+from pydantic.alias_generators import to_camel
 
 from app.feeds.games import FeedModel, Highlight, NonEmptyStr
 from app.settings import Settings
-from app.sources.http import SourceError, get_text
+from app.sources.http import SourceError, get_json
 from app.sources.scoreboard import ScoreboardGame
 
 SOURCE = "video_channel"
 LABEL = "full game highlights"
+PAGE_SIZE = 50
+KEY_HEADER = "X-Goog-Api-Key"
 
 
 class ChannelVideo(FeedModel):
@@ -36,63 +40,89 @@ def _title_date(day: dt.date) -> str:
     return f"{day:%B} {day.day}, {day.year}"
 
 
-def _local(tag: str) -> str:
-    return tag.rsplit("}", 1)[-1]
-
-
-def _child_text(element: ElementTree.Element, name: str) -> str | None:
-    for child in element:
-        if _local(child.tag) == name:
-            return child.text
-    return None
-
-
-def _author(element: ElementTree.Element) -> str | None:
-    for child in element:
-        if _local(child.tag) == "author":
-            return _child_text(child, "name")
-    return None
-
-
 def _location(error: ValidationError) -> str:
     return ".".join(str(part) for part in error.errors()[0]["loc"])
 
 
-async def fetch_videos(
-    client: httpx.AsyncClient, settings: Settings
-) -> list[ChannelVideo]:
-    """Return the videos of the channel feed in feed order, or raise SourceError."""
-    if settings.video_channel_feed_url is None:
-        raise SourceError(SOURCE, "video channel feed URL is not configured")
-    text = await get_text(client, settings.video_channel_feed_url, source=SOURCE)
-    try:
-        root = ElementTree.fromstring(text)
-    except ElementTree.ParseError:
-        raise SourceError(SOURCE, "response is not valid XML") from None
-    if _local(root.tag) != "feed":
-        raise SourceError(SOURCE, "invalid payload: not a feed")
-    feed_author = _author(root)
-    videos: list[ChannelVideo] = []
-    for entry in root:
-        if _local(entry.tag) != "entry":
-            continue
+class _ProviderModel(BaseModel):
+    model_config = ConfigDict(
+        extra="ignore", alias_generator=to_camel, validate_by_name=True
+    )
+
+
+class _ProviderResource(_ProviderModel):
+    video_id: str
+
+
+class _ProviderSnippet(_ProviderModel):
+    published_at: AwareDatetime
+    channel_title: str
+    title: str
+    resource_id: _ProviderResource
+
+
+class _ProviderItem(_ProviderModel):
+    snippet: _ProviderSnippet
+
+
+class _ProviderPage(_ProviderModel):
+    items: list[_ProviderItem]
+    next_page_token: str | None = None
+
+
+def _invalid(error: ValidationError) -> SourceError:
+    return SourceError(
+        SOURCE,
+        f"invalid payload: {error.error_count()} errors, first at {_location(error)}",
+    )
+
+
+async def lookup_video(
+    client: httpx.AsyncClient,
+    game: ScoreboardGame,
+    day: dt.date,
+    settings: Settings,
+) -> ChannelVideo | None:
+    """Page back through the channel's uploads, newest first, 50 per request,
+    and return the first video whose title matches the game. None once a
+    page holds a video published before the game's start or the uploads
+    run out. Raises SourceError."""
+    if settings.highlights_source_url is None:
+        raise SourceError(SOURCE, "highlights source URL is not configured")
+    key = settings.highlights_source_key
+    if key is None or not key.get_secret_value():
+        raise SourceError(SOURCE, "highlights source key is not configured")
+    token: str | None = None
+    while True:
+        params: dict[str, str | int] = {"maxResults": PAGE_SIZE}
+        if token is not None:
+            params["pageToken"] = token
+        body = await get_json(
+            client,
+            settings.highlights_source_url,
+            source=SOURCE,
+            params=params,
+            headers={KEY_HEADER: key.get_secret_value()},
+        )
         try:
-            videos.append(
-                ChannelVideo.model_validate(
-                    {
-                        "video_id": _child_text(entry, "videoId"),
-                        "title": _child_text(entry, "title"),
-                        "channel": _author(entry) or feed_author,
-                    }
+            page = _ProviderPage.model_validate(body)
+            videos = [
+                ChannelVideo(
+                    video_id=item.snippet.resource_id.video_id,
+                    title=item.snippet.title,
+                    channel=item.snippet.channel_title,
                 )
-            )
+                for item in page.items
+            ]
         except ValidationError as error:
-            raise SourceError(
-                SOURCE,
-                f"invalid payload: {error.error_count()} errors, "
-                f"first at {_location(error)}",
-            ) from None
-    return videos
+            raise _invalid(error) from None
+        found = find_video(videos, game, day)
+        if found is not None:
+            return found
+        older = any(item.snippet.published_at < game.start_time for item in page.items)
+        if page.next_page_token is None or older:
+            return None
+        token = page.next_page_token
 
 
 def _has_word(title: str, words: str) -> bool:

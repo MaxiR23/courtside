@@ -10,12 +10,14 @@
 # - Makes no attempt for a final game without a stored final time
 # - On a match stores the highlight, serves it, makes no further attempt and records success
 # - Serves no highlights for an unmatched final game
-# - Loads the stored highlights on start, before any fetch
+# - Loads the stored highlights on start, before any lookup
 # - Keeps the attempt count across a new job over the same store
 # - Logs every failed attempt with the game, its number and its reason, for a no-match and a source error
-# - A failed feed fetch spends the attempt, records the failure and keeps the stored highlights
+# - A failed lookup spends the attempt, records the failure and keeps the stored highlights
 # - A missing thumbnail or embed template records the failure
-# - Fetches the channel feed once per run for several due games
+# - Looks up each due game once per run with its US Eastern date
+# - A lookup error for one game spends its attempt and still looks up the others
+# - A game first seen final after a restart gets its highlight from an older page on the first run, through the real adapter
 # - Gives every game a search URL from the template, and none without it
 # - A run with no due game makes no request and records nothing
 # - An attempt keeps the game date of the row
@@ -23,7 +25,7 @@
 # What is covered:
 # - Job: a successful run gives the games job its data, a failed run keeps the last valid state
 #
-# The fetch is a fake passed to the job and times are passed to run(), so no test
+# The lookup is a fake passed to the job, except in the restart test, which uses the adapter over respx, and times are passed to run(), so no test
 # uses the real clock. Every test runs in an empty respx mock: a real request fails.
 # The data has one source, so there is no fallback source to test.
 #
@@ -56,6 +58,7 @@ START = dt.datetime(2026, 10, 4, 23, 0, tzinfo=dt.UTC)
 GAME_DATE = dt.date(2026, 10, 4)
 HOUR = dt.timedelta(hours=1)
 TITLE = "WARRIORS at CLIPPERS | FULL GAME HIGHLIGHTS | October 4, 2026"
+FIXTURES = Path(__file__).parent / "fixtures" / "highlights"
 MATCH = ChannelVideo(video_id="vid1", title=TITLE, channel="Channel")
 OTHER = ChannelVideo(video_id="vid2", title="Something else", channel="Channel")
 
@@ -73,19 +76,27 @@ def make_game(game_id: str = "g1") -> ScoreboardGame:
     )
 
 
-class FakeVideos:
+class FakeLookup:
     def __init__(self) -> None:
-        self.videos: list[ChannelVideo] = []
+        self.videos: dict[str, ChannelVideo] = {}
+        self.default: ChannelVideo | None = None
         self.error: SourceError | None = None
-        self.calls = 0
+        self.errors: dict[str, SourceError] = {}
+        self.calls: list[tuple[str, dt.date]] = []
 
-    async def fetch_videos(
-        self, client: httpx.AsyncClient, settings: Settings
-    ) -> list[ChannelVideo]:
-        self.calls += 1
+    async def lookup_video(
+        self,
+        client: httpx.AsyncClient,
+        game: ScoreboardGame,
+        day: dt.date,
+        settings: Settings,
+    ) -> ChannelVideo | None:
+        self.calls.append((game.id, day))
+        if game.id in self.errors:
+            raise self.errors[game.id]
         if self.error is not None:
             raise self.error
-        return list(self.videos)
+        return self.videos.get(game.id, self.default)
 
 
 @pytest.fixture(autouse=True)
@@ -95,8 +106,8 @@ def no_network() -> Iterator[None]:
 
 
 @pytest.fixture
-def videos() -> FakeVideos:
-    return FakeVideos()
+def lookup() -> FakeLookup:
+    return FakeLookup()
 
 
 @pytest.fixture
@@ -118,7 +129,7 @@ def make_settings(tmp_path: Path, **values: Any) -> Settings:
 def make_job(
     tmp_path: Path,
     store: StateStore,
-    videos: FakeVideos,
+    lookup: FakeLookup,
     games: list[ScoreboardGame],
     **values: Any,
 ) -> HighlightsJob:
@@ -127,112 +138,112 @@ def make_job(
         store,
         create_client(),
         final_games=lambda: games,
-        fetch_videos=videos.fetch_videos,
+        lookup_video=lookup.lookup_video,
     )
 
 
 @pytest.mark.anyio
 async def test_makes_no_attempt_before_one_hour_after_the_final_time(
-    tmp_path: Path, store: StateStore, videos: FakeVideos
+    tmp_path: Path, store: StateStore, lookup: FakeLookup
 ) -> None:
     store.set_final_time("g1", GAME_DATE, FINAL_TIME)
-    job = make_job(tmp_path, store, videos, [make_game()])
+    job = make_job(tmp_path, store, lookup, [make_game()])
 
     await job.run(FINAL_TIME + HOUR - dt.timedelta(seconds=1))
 
-    assert videos.calls == 0
+    assert len(lookup.calls) == 0
     assert store.highlight_attempts("g1") == 0
     assert store.job_states() == []
 
 
 @pytest.mark.anyio
 async def test_attempts_at_one_two_and_three_hours_one_attempt_per_slot(
-    tmp_path: Path, store: StateStore, videos: FakeVideos
+    tmp_path: Path, store: StateStore, lookup: FakeLookup
 ) -> None:
     store.set_final_time("g1", GAME_DATE, FINAL_TIME)
-    job = make_job(tmp_path, store, videos, [make_game()])
+    job = make_job(tmp_path, store, lookup, [make_game()])
 
     for hours, expected in [(1, 1), (2, 2), (3, 3)]:
         slot = FINAL_TIME + hours * HOUR
         await job.run(slot - dt.timedelta(minutes=1))
-        assert videos.calls == expected - 1
+        assert len(lookup.calls) == expected - 1
         await job.run(slot)
-        assert videos.calls == expected
+        assert len(lookup.calls) == expected
         await job.run(slot + dt.timedelta(minutes=30))
-        assert videos.calls == expected
+        assert len(lookup.calls) == expected
         assert store.highlight_attempts("g1") == expected
 
 
 @pytest.mark.anyio
 async def test_never_attempts_after_the_third_failed_attempt(
-    tmp_path: Path, store: StateStore, videos: FakeVideos
+    tmp_path: Path, store: StateStore, lookup: FakeLookup
 ) -> None:
     store.set_final_time("g1", GAME_DATE, FINAL_TIME)
-    job = make_job(tmp_path, store, videos, [make_game()])
+    job = make_job(tmp_path, store, lookup, [make_game()])
     for hours in (1, 2, 3):
         await job.run(FINAL_TIME + hours * HOUR)
 
     await job.run(FINAL_TIME + 4 * HOUR)
     await job.run(FINAL_TIME + 24 * HOUR)
 
-    assert videos.calls == 3
+    assert len(lookup.calls) == 3
     assert store.highlight_attempts("g1") == 3
     assert job.highlights_of(make_game()) == []
 
 
 @pytest.mark.anyio
 async def test_attempts_right_away_then_one_and_two_hours_later_for_a_game_first_seen_final(
-    tmp_path: Path, store: StateStore, videos: FakeVideos
+    tmp_path: Path, store: StateStore, lookup: FakeLookup
 ) -> None:
     store.set_final_time("g1", GAME_DATE, FINAL_TIME, first_seen=True)
-    job = make_job(tmp_path, store, videos, [make_game()])
+    job = make_job(tmp_path, store, lookup, [make_game()])
 
     for hours, expected in [(0, 1), (1, 2), (2, 3)]:
         slot = FINAL_TIME + hours * HOUR
         if hours:
             await job.run(slot - dt.timedelta(minutes=1))
-            assert videos.calls == expected - 1
+            assert len(lookup.calls) == expected - 1
         await job.run(slot)
-        assert videos.calls == expected
+        assert len(lookup.calls) == expected
         await job.run(slot + dt.timedelta(minutes=30))
-        assert videos.calls == expected
+        assert len(lookup.calls) == expected
         assert store.highlight_attempts("g1") == expected
 
 
 @pytest.mark.anyio
 async def test_never_attempts_after_the_third_failed_attempt_for_a_game_first_seen_final(
-    tmp_path: Path, store: StateStore, videos: FakeVideos
+    tmp_path: Path, store: StateStore, lookup: FakeLookup
 ) -> None:
     store.set_final_time("g1", GAME_DATE, FINAL_TIME, first_seen=True)
-    job = make_job(tmp_path, store, videos, [make_game()])
+    job = make_job(tmp_path, store, lookup, [make_game()])
     for hours in (0, 1, 2):
         await job.run(FINAL_TIME + hours * HOUR)
 
     await job.run(FINAL_TIME + 3 * HOUR)
     await job.run(FINAL_TIME + 24 * HOUR)
 
-    assert videos.calls == 3
+    assert len(lookup.calls) == 3
 
 
 @pytest.mark.anyio
 async def test_makes_no_attempt_for_a_final_game_without_a_stored_final_time(
-    tmp_path: Path, store: StateStore, videos: FakeVideos
+    tmp_path: Path, store: StateStore, lookup: FakeLookup
 ) -> None:
-    job = make_job(tmp_path, store, videos, [make_game()])
+    job = make_job(tmp_path, store, lookup, [make_game()])
 
     await job.run(FINAL_TIME + 5 * HOUR)
 
-    assert videos.calls == 0
+    assert len(lookup.calls) == 0
     assert store.highlight_attempts("g1") == 0
 
 
 @pytest.mark.anyio
 async def test_on_a_match_stores_the_highlight_serves_it_and_stops_attempting(
-    tmp_path: Path, store: StateStore, videos: FakeVideos
+    tmp_path: Path, store: StateStore, lookup: FakeLookup
 ) -> None:
     store.set_final_time("g1", GAME_DATE, FINAL_TIME)
-    videos.videos = [OTHER, MATCH]
-    job = make_job(tmp_path, store, videos, [make_game()])
+    lookup.default = MATCH
+    job = make_job(tmp_path, store, lookup, [make_game()])
     now = FINAL_TIME + HOUR
 
     await job.run(now)
@@ -244,18 +255,18 @@ async def test_on_a_match_stores_the_highlight_serves_it_and_stops_attempting(
     assert str(highlight.thumbnail_url) == "https://example.com/t/vid1.jpg"
     assert str(highlight.embed_url) == "https://example.com/e/vid1"
     assert store.highlights() == {"g1": highlight}
-    assert videos.calls == 1
+    assert len(lookup.calls) == 1
     assert store.job_states()[0].name == JOB
     assert store.job_states()[0].last_success == now
 
 
 @pytest.mark.anyio
 async def test_serves_no_highlights_for_an_unmatched_final_game(
-    tmp_path: Path, store: StateStore, videos: FakeVideos
+    tmp_path: Path, store: StateStore, lookup: FakeLookup
 ) -> None:
     store.set_final_time("g1", GAME_DATE, FINAL_TIME)
-    videos.videos = [OTHER]
-    job = make_job(tmp_path, store, videos, [make_game()])
+    lookup.default = None
+    job = make_job(tmp_path, store, lookup, [make_game()])
 
     await job.run(FINAL_TIME + HOUR)
 
@@ -265,32 +276,32 @@ async def test_serves_no_highlights_for_an_unmatched_final_game(
 
 @pytest.mark.anyio
 async def test_loads_the_stored_highlights_on_start_before_any_fetch(
-    tmp_path: Path, store: StateStore, videos: FakeVideos
+    tmp_path: Path, store: StateStore, lookup: FakeLookup
 ) -> None:
     store.set_final_time("g1", GAME_DATE, FINAL_TIME)
-    videos.videos = [MATCH]
-    await make_job(tmp_path, store, videos, [make_game()]).run(FINAL_TIME + HOUR)
-    videos.calls = 0
+    lookup.default = MATCH
+    await make_job(tmp_path, store, lookup, [make_game()]).run(FINAL_TIME + HOUR)
+    lookup.calls.clear()
 
-    restarted = make_job(tmp_path, store, videos, [make_game()])
+    restarted = make_job(tmp_path, store, lookup, [make_game()])
 
     assert [h.title for h in restarted.highlights_of(make_game())] == [TITLE]
     await restarted.run(FINAL_TIME + 2 * HOUR)
-    assert videos.calls == 0
+    assert len(lookup.calls) == 0
 
 
 @pytest.mark.anyio
 async def test_keeps_the_attempt_count_across_a_new_job_over_the_same_store(
-    tmp_path: Path, store: StateStore, videos: FakeVideos
+    tmp_path: Path, store: StateStore, lookup: FakeLookup
 ) -> None:
     store.set_final_time("g1", GAME_DATE, FINAL_TIME)
-    await make_job(tmp_path, store, videos, [make_game()]).run(FINAL_TIME + HOUR)
+    await make_job(tmp_path, store, lookup, [make_game()]).run(FINAL_TIME + HOUR)
 
-    restarted = make_job(tmp_path, store, videos, [make_game()])
+    restarted = make_job(tmp_path, store, lookup, [make_game()])
     await restarted.run(FINAL_TIME + HOUR)
     await restarted.run(FINAL_TIME + 2 * HOUR)
 
-    assert videos.calls == 2
+    assert len(lookup.calls) == 2
     assert store.highlight_attempts("g1") == 2
 
 
@@ -298,16 +309,16 @@ async def test_keeps_the_attempt_count_across_a_new_job_over_the_same_store(
 async def test_logs_every_failed_attempt_with_the_game_its_number_and_its_reason(
     tmp_path: Path,
     store: StateStore,
-    videos: FakeVideos,
+    lookup: FakeLookup,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     store.set_final_time("g1", GAME_DATE, FINAL_TIME)
-    videos.videos = [OTHER]
-    job = make_job(tmp_path, store, videos, [make_game()])
+    lookup.default = None
+    job = make_job(tmp_path, store, lookup, [make_game()])
 
     with caplog.at_level(logging.WARNING):
         await job.run(FINAL_TIME + HOUR)
-        videos.error = SourceError("video_channel", "request failed")
+        lookup.error = SourceError("video_channel", "request failed")
         await job.run(FINAL_TIME + 2 * HOUR)
 
     messages = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
@@ -318,16 +329,16 @@ async def test_logs_every_failed_attempt_with_the_game_its_number_and_its_reason
 
 
 @pytest.mark.anyio
-async def test_a_failed_fetch_spends_the_attempt_and_keeps_the_stored_highlights(
-    tmp_path: Path, store: StateStore, videos: FakeVideos
+async def test_a_failed_lookup_spends_the_attempt_and_keeps_the_stored_highlights(
+    tmp_path: Path, store: StateStore, lookup: FakeLookup
 ) -> None:
     store.set_final_time("g1", GAME_DATE, FINAL_TIME)
     store.set_final_time("g2", GAME_DATE, FINAL_TIME)
-    videos.videos = [MATCH]
-    job = make_job(tmp_path, store, videos, [make_game("g1")])
+    lookup.default = MATCH
+    job = make_job(tmp_path, store, lookup, [make_game("g1")])
     await job.run(FINAL_TIME + HOUR)
-    job = make_job(tmp_path, store, videos, [make_game("g1"), make_game("g2")])
-    videos.error = SourceError("video_channel", "request timed out")
+    job = make_job(tmp_path, store, lookup, [make_game("g1"), make_game("g2")])
+    lookup.error = SourceError("video_channel", "request timed out")
     now = FINAL_TIME + HOUR
 
     await job.run(now)
@@ -348,10 +359,10 @@ async def test_a_failed_fetch_spends_the_attempt_and_keeps_the_stored_highlights
     ],
 )
 async def test_a_missing_template_records_the_failure(
-    tmp_path: Path, store: StateStore, videos: FakeVideos, missing: str, reason: str
+    tmp_path: Path, store: StateStore, lookup: FakeLookup, missing: str, reason: str
 ) -> None:
     store.set_final_time("g1", GAME_DATE, FINAL_TIME)
-    videos.videos = [MATCH]
+    lookup.default = MATCH
     templates: dict[str, Any] = {
         "video_thumbnail_url": "https://example.com/t/{video_id}",
         "video_embed_url": "https://example.com/e/{video_id}",
@@ -363,7 +374,7 @@ async def test_a_missing_template_records_the_failure(
         store,
         create_client(),
         final_games=lambda: [make_game()],
-        fetch_videos=videos.fetch_videos,
+        lookup_video=lookup.lookup_video,
     )
 
     await job.run(FINAL_TIME + HOUR)
@@ -373,24 +384,91 @@ async def test_a_missing_template_records_the_failure(
 
 
 @pytest.mark.anyio
-async def test_fetches_the_channel_feed_once_per_run_for_several_due_games(
-    tmp_path: Path, store: StateStore, videos: FakeVideos
+async def test_looks_up_each_due_game_once_per_run_with_its_eastern_date(
+    tmp_path: Path, store: StateStore, lookup: FakeLookup
 ) -> None:
     for game_id in ("g1", "g2", "g3"):
         store.set_final_time(game_id, GAME_DATE, FINAL_TIME)
     games = [make_game("g1"), make_game("g2"), make_game("g3")]
-    job = make_job(tmp_path, store, videos, games)
+    job = make_job(tmp_path, store, lookup, games)
 
     await job.run(FINAL_TIME + HOUR)
 
-    assert videos.calls == 1
+    assert lookup.calls == [("g1", GAME_DATE), ("g2", GAME_DATE), ("g3", GAME_DATE)]
     assert [store.highlight_attempts(g.id) for g in games] == [1, 1, 1]
 
 
-def test_gives_every_game_a_search_url_from_the_template(
-    tmp_path: Path, store: StateStore, videos: FakeVideos
+@pytest.mark.anyio
+async def test_a_lookup_error_for_one_game_spends_its_attempt_and_still_looks_up_the_others(
+    tmp_path: Path,
+    store: StateStore,
+    lookup: FakeLookup,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
-    job = make_job(tmp_path, store, videos, [])
+    store.set_final_time("g1", GAME_DATE, FINAL_TIME)
+    store.set_final_time("g2", GAME_DATE, FINAL_TIME)
+    lookup.errors["g1"] = SourceError("video_channel", "request failed")
+    lookup.videos["g2"] = MATCH
+    games = [make_game("g1"), make_game("g2")]
+    job = make_job(tmp_path, store, lookup, games)
+    now = FINAL_TIME + HOUR
+
+    with caplog.at_level(logging.WARNING):
+        await job.run(now)
+
+    messages = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
+    assert messages == [
+        "highlights for game g1: attempt 1 of 3 failed: video_channel: request failed"
+    ]
+    assert [h.title for h in job.highlights_of(make_game("g2"))] == [TITLE]
+    assert job.highlights_of(make_game("g1")) == []
+    assert store.highlight_attempts("g1") == 1
+    state = store.job_states()[0]
+    assert state.last_failure == now
+    assert state.last_failure_reason == "video_channel: request failed"
+
+
+@pytest.mark.anyio
+async def test_a_game_first_seen_final_after_a_restart_gets_its_highlight_from_an_older_page_on_the_first_run(
+    tmp_path: Path, store: StateStore
+) -> None:
+    store.set_final_time("g1", GAME_DATE, FINAL_TIME, first_seen=True)
+    requests: list[httpx.Request] = []
+
+    def serve(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        name = "page-2" if request.url.params.get("pageToken") == "page-2" else "page-1"
+        return httpx.Response(
+            200, text=(FIXTURES / f"uploads-{name}.json").read_text(encoding="utf-8")
+        )
+
+    respx.get("https://example.com/uploads").mock(side_effect=serve)
+    settings = make_settings(
+        tmp_path,
+        highlights_source_url="https://example.com/uploads",
+        highlights_source_key="test-key-value",
+    )
+    job = HighlightsJob(
+        settings, store, create_client(), final_games=lambda: [make_game()]
+    )
+
+    await job.run(FINAL_TIME)
+
+    assert [h.title for h in job.highlights_of(make_game())] == [TITLE]
+    assert [
+        h.title
+        for h in HighlightsJob(
+            settings, store, create_client(), final_games=lambda: [make_game()]
+        ).highlights_of(make_game())
+    ] == [TITLE]
+    assert len(requests) == 2
+    assert store.job_states()[0].last_success == FINAL_TIME
+
+
+def test_gives_every_game_a_search_url_from_the_template(
+    tmp_path: Path, store: StateStore, lookup: FakeLookup
+) -> None:
+    job = make_job(tmp_path, store, lookup, [])
 
     url = job.search_url_of(make_game())
 
@@ -401,7 +479,7 @@ def test_gives_every_game_a_search_url_from_the_template(
 
 
 def test_gives_no_search_url_without_the_template(
-    tmp_path: Path, store: StateStore, videos: FakeVideos
+    tmp_path: Path, store: StateStore, lookup: FakeLookup
 ) -> None:
     settings = Settings(_env_file=None, data_dir=tmp_path)  # type: ignore[call-arg]
     job = HighlightsJob(
@@ -409,7 +487,7 @@ def test_gives_no_search_url_without_the_template(
         store,
         create_client(),
         final_games=list,
-        fetch_videos=videos.fetch_videos,
+        lookup_video=lookup.lookup_video,
     )
 
     assert job.search_url_of(make_game()) is None
@@ -417,10 +495,10 @@ def test_gives_no_search_url_without_the_template(
 
 @pytest.mark.anyio
 async def test_an_attempt_keeps_the_game_date_of_the_row(
-    tmp_path: Path, store: StateStore, videos: FakeVideos
+    tmp_path: Path, store: StateStore, lookup: FakeLookup
 ) -> None:
     store.set_final_time("g1", GAME_DATE, FINAL_TIME)
-    job = make_job(tmp_path, store, videos, [make_game()])
+    job = make_job(tmp_path, store, lookup, [make_game()])
 
     await job.run(FINAL_TIME + HOUR)
 
