@@ -6,6 +6,10 @@
 # - Returns the matching video from the first page with one request, with the channel from the item
 # - Asks for fifty videos per request, with the key in a header and never in the URL
 # - Pages back with the next page token until it finds the video
+# - Takes the largest 16:9 thumbnail, even over a larger 4:3 one; falls back to the largest one when none is 16:9, ranks a thumbnail without a size last, skips one without a URL, and has none when the API lists none with a URL
+# - Skips a listed thumbnail the image host does not serve and takes the next one, and has none when the host serves none
+# - Checks only the matched video's thumbnails, best first, with HEAD requests, stopping at the first served one and never sending the key
+# - Raises the source error when the image host times out
 # - Stops paging at the page with a video older than the game, and at the first page when the game started after its oldest video
 # - Returns none when the uploads run out
 # - Raises the source error on a body that is not JSON, a missing items list, a missing video id, a missing title, a missing or bad published time and an empty title
@@ -15,13 +19,14 @@
 # - Does not match a title missing the label, a team or the date, nor a player clip that says only highlights
 # - Does not take a team name inside a longer word
 # - Finds the first matching video in order, and none when no title matches
-# - Builds the highlight from the templates and keeps the title and channel, and raises the source error when a template is missing or the result is invalid
+# - Builds the highlight with the video's thumbnail and the embed template, keeping the title and channel, and raises the source error when the video has no thumbnail, the template is missing or the result is invalid
 # - Builds the search URL from the template with the encoded teams, label and date, and none when the template is missing
 #
 # What is covered:
 # - A valid response mapped, an invalid payload rejected, upstream failures handled
 # - Paging (page size, token, both stops), key handling (header, error, log)
-# - Pure logic: matching (happy path, each missing part, word boundary), URL building
+# - Thumbnail check against the image host (served, not served, timeout)
+# - Pure logic: matching (happy path, each missing part, word boundary), thumbnail choice, URL building
 #
 # The fixtures are minimal pages of the official uploads listing. No test makes a real request.
 #
@@ -64,6 +69,31 @@ TITLE = "WARRIORS at CLIPPERS | PRESEASON FULL GAME HIGHLIGHTS | October 4, 2026
 def no_network() -> Iterator[None]:
     with respx.mock:
         yield
+
+
+@pytest.fixture(autouse=True)
+def image_host(no_network: None) -> ImageHost:
+    return ImageHost()
+
+
+class ImageHost:
+    """Serves every thumbnail under example.com/thumbs except the missing ones,
+    which get a 404, as the real host does, and times out when told to.
+    Records the requests."""
+
+    def __init__(self) -> None:
+        self.missing: set[str] = set()
+        self.timeout = False
+        self.requests: list[httpx.Request] = []
+        respx.head(url__startswith="https://example.com/thumbs/").mock(
+            side_effect=self._serve
+        )
+
+    def _serve(self, request: httpx.Request) -> httpx.Response:
+        self.requests.append(request)
+        if self.timeout:
+            raise httpx.ReadTimeout("slow")
+        return httpx.Response(404 if str(request.url) in self.missing else 200)
 
 
 def make_game(away: str = "Warriors", home: str = "Clippers") -> ScoreboardGame:
@@ -170,9 +200,41 @@ async def test_pages_back_with_the_next_page_token_until_it_finds_the_video() ->
     assert found is not None
     assert found.video_id == "vid-full"
     assert found.title == TITLE
+    assert found.thumbnail_url == "https://example.com/thumbs/vid-full/maxres.jpg"
     assert len(seen) == 2
     assert "pageToken" not in seen[0].url.params
     assert seen[1].url.params["pageToken"] == "page-2"
+
+
+@pytest.mark.anyio
+async def test_checks_only_the_matched_video_thumbnails_best_first_and_stops_at_the_first_served(
+    image_host: ImageHost,
+) -> None:
+    serve_pages()
+    image_host.missing.add("https://example.com/thumbs/vid-full/maxres.jpg")
+
+    found = await lookup(make_game(), DAY)
+
+    assert found is not None
+    assert found.thumbnail_url == "https://example.com/thumbs/vid-full/medium.jpg"
+    assert [(r.method, str(r.url)) for r in image_host.requests] == [
+        ("HEAD", "https://example.com/thumbs/vid-full/maxres.jpg"),
+        ("HEAD", "https://example.com/thumbs/vid-full/medium.jpg"),
+    ]
+    assert all("x-goog-api-key" not in r.headers for r in image_host.requests)
+
+
+@pytest.mark.anyio
+async def test_raises_the_source_error_when_the_image_host_times_out(
+    image_host: ImageHost,
+) -> None:
+    serve_pages()
+    image_host.timeout = True
+
+    with pytest.raises(SourceError) as raised:
+        await lookup(make_game(), DAY)
+
+    assert raised.value.reason == "request timed out"
 
 
 @pytest.mark.anyio
@@ -218,6 +280,143 @@ async def test_returns_none_when_the_uploads_run_out() -> None:
 
     assert await lookup(make_game(), DAY) is None
     assert route.call_count == 1
+
+
+def thumbnail(name: str, width: int | None, height: int | None) -> dict[str, Any]:
+    size = {"width": width, "height": height}
+    return {
+        "url": f"https://example.com/thumbs/{name}.jpg",
+        **{k: v for k, v in size.items() if v is not None},
+    }
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("missing", "expected"),
+    [
+        ({"fhd"}, "https://example.com/thumbs/maxres.jpg"),
+        ({"fhd", "maxres", "standard"}, "https://example.com/thumbs/high.jpg"),
+        ({"fhd", "maxres", "standard", "high"}, None),
+    ],
+)
+async def test_skips_a_thumbnail_the_image_host_does_not_serve(
+    image_host: ImageHost, missing: set[str], expected: str | None
+) -> None:
+    image_host.missing.update(f"https://example.com/thumbs/{n}.jpg" for n in missing)
+    thumbnails = {
+        "fhd": thumbnail("fhd", 1920, 1080),
+        "maxres": thumbnail("maxres", 1280, 720),
+        "standard": thumbnail("standard", 640, 480),
+        "high": thumbnail("high", 480, 360),
+    }
+
+    assert await thumbnail_of(thumbnails) == expected
+
+
+async def thumbnail_of(thumbnails: dict[str, Any] | None) -> str | None:
+    """Look up a page with one matching video listing these thumbnails."""
+    respx.get("https://example.com/uploads").respond(
+        json={"items": [item(title=TITLE, thumbnails=thumbnails)]}
+    )
+    found = await lookup(make_game(), DAY)
+    assert found is not None
+    return found.thumbnail_url
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("thumbnails", "expected"),
+    [
+        (
+            {
+                "default": thumbnail("default", 120, 90),
+                "medium": thumbnail("medium", 320, 180),
+                "high": thumbnail("high", 480, 360),
+                "standard": thumbnail("standard", 640, 480),
+                "maxres": thumbnail("maxres", 1280, 720),
+            },
+            "https://example.com/thumbs/maxres.jpg",
+        ),
+        (
+            {
+                "medium": thumbnail("medium", 320, 180),
+                "standard": thumbnail("standard", 640, 480),
+            },
+            "https://example.com/thumbs/medium.jpg",
+        ),
+        (
+            {
+                "default": thumbnail("default", 120, 90),
+                "standard": thumbnail("standard", 640, 480),
+                "high": thumbnail("high", 480, 360),
+            },
+            "https://example.com/thumbs/standard.jpg",
+        ),
+        (
+            {
+                "unsized": thumbnail("unsized", None, None),
+                "default": thumbnail("default", 120, 90),
+            },
+            "https://example.com/thumbs/default.jpg",
+        ),
+        (
+            {"unsized": thumbnail("unsized", None, None)},
+            "https://example.com/thumbs/unsized.jpg",
+        ),
+        (
+            {
+                "maxres": {"width": 1280, "height": 720},
+                "high": thumbnail("high", 480, 360),
+            },
+            "https://example.com/thumbs/high.jpg",
+        ),
+        ({"maxres": {"url": "", "width": 1280, "height": 720}}, None),
+        (
+            {
+                "standard": thumbnail("standard", 640, 480),
+                "zero": thumbnail("zero", 0, 0),
+            },
+            "https://example.com/thumbs/standard.jpg",
+        ),
+        (
+            {
+                "standard": thumbnail("standard", 640, 480),
+                "neg": thumbnail("neg", -16, -9),
+            },
+            "https://example.com/thumbs/standard.jpg",
+        ),
+        ({}, None),
+        (None, None),
+    ],
+)
+async def test_takes_the_largest_wide_thumbnail_and_falls_back_to_the_largest(
+    thumbnails: dict[str, Any] | None, expected: str | None
+) -> None:
+    assert await thumbnail_of(thumbnails) == expected
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("invalid", "expected"),
+    [
+        (["not a url", "//host/x.jpg"], "https://example.com/thumbs/high.jpg"),
+        (["not a url", "//host/x.jpg"], None),
+    ],
+)
+async def test_skips_a_listed_thumbnail_url_that_is_not_valid(
+    image_host: ImageHost, invalid: list[str], expected: str | None
+) -> None:
+    thumbnails: dict[str, Any] = {
+        f"bad{i}": {"url": url, "width": 1920, "height": 1080}
+        for i, url in enumerate(invalid)
+    }
+    if expected is not None:
+        thumbnails["high"] = thumbnail("high", 480, 360)
+
+    assert await thumbnail_of(thumbnails) == expected
+    assert [str(r.url) for r in image_host.requests] == (
+        [] if expected is None else [expected]
+    )
 
 
 def item(**snippet: Any) -> dict[str, Any]:
@@ -359,9 +558,11 @@ def test_does_not_take_a_team_name_inside_a_longer_word() -> None:
 
 def test_finds_the_first_matching_video_in_order_and_none_otherwise() -> None:
     videos = [
-        ChannelVideo(video_id="a", title="Something else", channel="C"),
-        ChannelVideo(video_id="b", title=TITLE, channel="C"),
-        ChannelVideo(video_id="c", title=TITLE, channel="C"),
+        ChannelVideo(
+            video_id="a", title="Something else", channel="C", thumbnail_url=None
+        ),
+        ChannelVideo(video_id="b", title=TITLE, channel="C", thumbnail_url=None),
+        ChannelVideo(video_id="c", title=TITLE, channel="C", thumbnail_url=None),
     ]
 
     found = find_video(videos, make_game(), DAY)
@@ -370,14 +571,17 @@ def test_finds_the_first_matching_video_in_order_and_none_otherwise() -> None:
     assert find_video([], make_game(), DAY) is None
 
 
-def test_builds_the_highlight_from_the_templates() -> None:
-    settings = make_settings(
-        video_thumbnail_url="https://example.com/t/{video_id}.jpg",
-        video_embed_url="https://example.com/e/{video_id}",
+def video_with(thumbnail_url: str | None) -> ChannelVideo:
+    return ChannelVideo(
+        video_id="abc", title="T", channel="C", thumbnail_url=thumbnail_url
     )
-    video = ChannelVideo(video_id="abc", title="T", channel="C")
 
-    highlight = to_highlight(video, settings)
+
+EMBED = make_settings(video_embed_url="https://example.com/e/{video_id}")
+
+
+def test_builds_the_highlight_with_the_video_thumbnail_and_the_embed_template() -> None:
+    highlight = to_highlight(video_with("https://example.com/t/abc.jpg"), EMBED)
 
     assert highlight.title == "T"
     assert highlight.channel == "C"
@@ -386,38 +590,28 @@ def test_builds_the_highlight_from_the_templates() -> None:
 
 
 @pytest.mark.parametrize(
-    ("values", "reason"),
+    ("video", "settings", "reason"),
     [
+        (video_with(None), EMBED, "video abc has no thumbnail"),
         (
-            {"video_embed_url": "https://example.com/e/{video_id}"},
-            "video thumbnail URL is not configured",
-        ),
-        (
-            {"video_thumbnail_url": "https://example.com/t/{video_id}"},
+            video_with("https://example.com/t/abc.jpg"),
+            make_settings(),
             "video embed URL is not configured",
         ),
     ],
 )
-def test_raises_the_source_error_when_a_highlight_template_is_missing(
-    values: dict[str, Any], reason: str
+def test_raises_the_source_error_without_a_thumbnail_or_the_embed_template(
+    video: ChannelVideo, settings: Settings, reason: str
 ) -> None:
-    video = ChannelVideo(video_id="abc", title="T", channel="C")
-
     with pytest.raises(SourceError) as raised:
-        to_highlight(video, make_settings(**values))
+        to_highlight(video, settings)
 
     assert raised.value.reason == reason
 
 
-def test_raises_the_source_error_when_a_template_builds_an_invalid_url() -> None:
-    settings = make_settings(
-        video_thumbnail_url="not a url {video_id}",
-        video_embed_url="https://example.com/e/{video_id}",
-    )
-    video = ChannelVideo(video_id="abc", title="T", channel="C")
-
+def test_raises_the_source_error_when_the_highlight_is_invalid() -> None:
     with pytest.raises(SourceError) as raised:
-        to_highlight(video, settings)
+        to_highlight(video_with("not a url"), EMBED)
 
     assert raised.value.reason.startswith("video abc is invalid:")
 

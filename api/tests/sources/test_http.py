@@ -11,6 +11,8 @@
 # - Keeps the request URL out of the error
 # - Sends the given query parameters and headers, keeping the query of the URL
 # - Keeps header values out of the error
+# - Tells with a HEAD request whether a URL is served: yes on success, no on an error status
+# - Raises the source error on a timeout and a transport failure when checking a URL, keeping the URL out of it
 # - Creates a client with fixed timeouts
 #
 # What is covered:
@@ -26,7 +28,14 @@ import httpx
 import pytest
 import respx
 
-from app.sources.http import TIMEOUT, SourceError, create_client, get_json, get_text
+from app.sources.http import (
+    TIMEOUT,
+    SourceError,
+    create_client,
+    get_json,
+    get_text,
+    is_served,
+)
 
 URL = "https://example.com/data?key=secret-value"
 
@@ -202,4 +211,40 @@ async def test_does_not_leak_header_values_into_the_error() -> None:
                     headers={"X-Test-Key": "secret-value"},
                 )
 
+    assert "secret-value" not in str(raised.value)
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("status", "served"), [(200, True), (404, False), (503, False)]
+)
+async def test_tells_with_a_head_request_whether_a_url_is_served(
+    status: int, served: bool
+) -> None:
+    with respx.mock:
+        route = respx.head(URL).respond(status)
+        async with create_client() as client:
+            assert await is_served(client, URL, source="test") is served
+
+    assert route.call_count == 1
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("effect", "reason"),
+    [
+        (httpx.ReadTimeout("slow"), "request timed out"),
+        (httpx.ConnectError(f"failed for {URL}"), "request failed"),
+    ],
+)
+async def test_raises_the_source_error_when_checking_a_url_fails(
+    effect: Exception, reason: str
+) -> None:
+    with respx.mock:
+        respx.head(URL).mock(side_effect=effect)
+        async with create_client() as client:
+            with pytest.raises(SourceError) as raised:
+                await is_served(client, URL, source="test")
+
+    assert raised.value.reason == reason
     assert "secret-value" not in str(raised.value)
