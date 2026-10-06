@@ -110,6 +110,10 @@ a failure, 2, 4 and 6 hours after the final time.
 - The stars of all teams are fetched concurrently in their own task and never
   delay the live refresh. After a start, no games feed is published until
   every team has a star ([ADR 0014](../adr/0014-star-guarantees.md)).
+  The stars job records a success only on the run that stores the star of
+  the last team still pending that day; a run that leaves a team waiting for
+  its retry records none, so the health report does not show the stars as
+  done.
 
 - The morning fetch runs at `DAILY_FETCH_TIME` (US Eastern, `HH:MM`, default
   06:00).

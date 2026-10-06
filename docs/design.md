@@ -184,7 +184,7 @@ Until the first feed loads, the hero and the schedule show skeletons shaped like
 - The selected day: an index from 0 to 6, default 3 (today).
 - The open game: one game or none.
 - The playing video: one video of one game, or none.
-- The hero game: an index into the games of the day, and the hero slide: 0 or 1 (the star on screen), plus the autoplay timer.
+- The hero game: an index into the games in the rotation, and the hero slide: 0 or 1 (the star on screen), plus the autoplay timer.
 
 ## Responsive
 
