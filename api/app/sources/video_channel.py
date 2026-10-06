@@ -29,7 +29,7 @@ KEY_HEADER = "X-Goog-Api-Key"
 
 
 class ChannelVideo(FeedModel):
-    """A video of the channel feed. Never reaches the feed."""
+    """An upload of the official channel, as listed by the official video API. Never reaches the feed."""
 
     video_id: NonEmptyStr
     title: NonEmptyStr
