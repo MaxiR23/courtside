@@ -3,13 +3,16 @@
 # Highlights job: for each final game, looks up its full game highlights on
 # the video channel, one lookup per due game, 1, 2 and 3 hours after the final
 # time (right away, 1 and 2 hours later for a game first seen final), never
-# after the third attempt.
+# after the third attempt. A failed request (timeout, transport failure or
+# error status) uses up no attempt; the same attempt is retried no sooner than
+# 10 minutes later.
 # Matches are kept in the job state. The games job reads the
 # highlights through highlights_of and the search URL through search_url_of.
 #
 # SEE: docs/adr/0007-backend-runtime-and-data-pipeline.md,
 # docs/adr/0010-final-game-attempts.md,
-# docs/adr/0015-highlights-source.md
+# docs/adr/0015-highlights-source.md,
+# docs/adr/0018-highlight-request-failures.md
 
 import datetime as dt
 import logging
@@ -19,6 +22,7 @@ import httpx
 
 from app.feeds.games import Highlight
 from app.jobs.games import eastern_date
+from app.jobs.scheduler import utc_now
 from app.settings import Settings
 from app.sources import video_channel
 from app.sources.http import SourceError
@@ -38,6 +42,7 @@ FIRST_SEEN_ATTEMPT_DELAYS = (
     dt.timedelta(hours=2),
 )
 MAX_ATTEMPTS = len(ATTEMPT_DELAYS)
+RETRY = dt.timedelta(minutes=10)
 
 FinalGames = Callable[[], Sequence[ScoreboardGame]]
 LookupVideo = Callable[
@@ -59,12 +64,15 @@ class HighlightsJob:
         *,
         final_games: FinalGames,
         lookup_video: LookupVideo = video_channel.lookup_video,
+        clock: Callable[[], dt.datetime] = utc_now,
     ) -> None:
         self._settings = settings
         self._store = store
         self._client = client
         self._final_games = final_games
         self._lookup_video = lookup_video
+        self._clock = clock
+        self._failed_at: dict[str, dt.datetime] = {}
         self._highlights: dict[str, Highlight] = store.highlights()
 
     def _due(self, game: ScoreboardGame, now: dt.datetime) -> bool:
@@ -75,6 +83,9 @@ class HighlightsJob:
             return False
         attempts = self._store.highlight_attempts(game.id)
         if attempts >= MAX_ATTEMPTS:
+            return False
+        failed_at = self._failed_at.get(game.id)
+        if failed_at is not None and now - failed_at < RETRY:
             return False
         first_seen = self._store.first_seen_final(game.id)
         delays = FIRST_SEEN_ATTEMPT_DELAYS if first_seen else ATTEMPT_DELAYS
@@ -90,14 +101,15 @@ class HighlightsJob:
             reason,
         )
 
+    def _spend_attempt(self, game: ScoreboardGame, day: dt.date) -> int:
+        self._failed_at.pop(game.id, None)
+        return self._store.record_highlight_attempt(game.id, day)
+
     async def run(self, now: dt.datetime) -> None:
         due = [game for game in self._final_games() if self._due(game, now)]
         if not due:
             return
-        numbers = {
-            g.id: self._store.record_highlight_attempt(g.id, eastern_date(g.start_time))
-            for g in due
-        }
+        started = self._clock()
         failure: str | None = None
         for game in due:
             day = eastern_date(game.start_time)
@@ -106,16 +118,31 @@ class HighlightsJob:
                     self._client, game, day, self._settings
                 )
             except SourceError as error:
-                self._log_failed(game, numbers[game.id], str(error))
+                if error.request_failed:
+                    logger.warning(
+                        "highlights for game %s: attempt %d of %d not counted, "
+                        "retrying in %d minutes: %s",
+                        game.id,
+                        self._store.highlight_attempts(game.id) + 1,
+                        MAX_ATTEMPTS,
+                        RETRY // dt.timedelta(minutes=1),
+                        str(error),
+                    )
+                    self._failed_at[game.id] = now + (self._clock() - started)
+                    failure = str(error)
+                    continue
+                number = self._spend_attempt(game, day)
+                self._log_failed(game, number, str(error))
                 failure = str(error)
                 continue
+            number = self._spend_attempt(game, day)
             if video is None:
-                self._log_failed(game, numbers[game.id], "no video matched")
+                self._log_failed(game, number, "no video matched")
                 continue
             try:
                 highlight = video_channel.to_highlight(video, self._settings)
             except SourceError as error:
-                self._log_failed(game, numbers[game.id], error.reason)
+                self._log_failed(game, number, error.reason)
                 failure = str(error)
                 continue
             self._store.set_highlight(game.id, highlight)

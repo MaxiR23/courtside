@@ -126,6 +126,11 @@ a failure, 2, 4 and 6 hours after the final time.
   already final the first time the job sees it takes that moment as its final
   time, and its highlight attempts run right away, 1 and 2 hours later. A
   stored final time is never overwritten.
+- A highlight attempt is used up when the lookup answers, with or without a
+  match. A failed request (timeout, connection error or error status) uses up
+  no attempt: it is logged and recorded in the job's health, and the same
+  attempt is retried no sooner than 10 minutes later
+  ([ADR 0018](../adr/0018-highlight-request-failures.md)).
 - The stats attempts of a final game are at its final time and 2, 4 and 6
   hours after it. Failed attempts are stored, so they survive a restart. After
   the fourth failure the game is `unavailable` and never fetched again.

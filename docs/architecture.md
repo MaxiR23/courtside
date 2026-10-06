@@ -39,7 +39,7 @@ data sources  ->  source adapters  ->  jobs  ->  feeds (JSON)  ->  front end
 
 ### Jobs
 
-- Jobs run on a schedule inside the backend process. Each job owns one kind of data and has its own refresh cadence, as set in [`adr/0007-backend-runtime-and-data-pipeline.md`](adr/0007-backend-runtime-and-data-pipeline.md): live games are checked every 30 seconds and the daily schedule once a day. The feed's today changes at US Eastern midnight once no game of the previous day is live, as set in [`adr/0013-day-change.md`](adr/0013-day-change.md). The attempts for a final game's detail and highlights follow [`adr/0010-final-game-attempts.md`](adr/0010-final-game-attempts.md). The highlights lookup reads the channel's uploads through the official video API, as set in [`adr/0015-highlights-source.md`](adr/0015-highlights-source.md). The stars job runs in its own task, as set in [`adr/0014-star-guarantees.md`](adr/0014-star-guarantees.md). Standings have no job yet, and no cadence is set for them.
+- Jobs run on a schedule inside the backend process. Each job owns one kind of data and has its own refresh cadence, as set in [`adr/0007-backend-runtime-and-data-pipeline.md`](adr/0007-backend-runtime-and-data-pipeline.md): live games are checked every 30 seconds and the daily schedule once a day. The feed's today changes at US Eastern midnight once no game of the previous day is live, as set in [`adr/0013-day-change.md`](adr/0013-day-change.md). The attempts for a final game's detail and highlights follow [`adr/0010-final-game-attempts.md`](adr/0010-final-game-attempts.md). A failed request does not use up a highlight attempt; the same attempt is retried no sooner than 10 minutes later, as set in [`adr/0018-highlight-request-failures.md`](adr/0018-highlight-request-failures.md). The highlights lookup reads the channel's uploads through the official video API, as set in [`adr/0015-highlights-source.md`](adr/0015-highlights-source.md). The stars job runs in its own task, as set in [`adr/0014-star-guarantees.md`](adr/0014-star-guarantees.md). Standings have no job yet, and no cadence is set for them.
 - A job that fails keeps the last valid feed published. A partial or invalid feed is never written.
 - Each job records its last successful run, so the backend can report its own health.
 
@@ -226,6 +226,10 @@ Recorded in [`adr/0015-highlights-source.md`](adr/0015-highlights-source.md):
 Recorded in [`adr/0016-production-hosting.md`](adr/0016-production-hosting.md):
 
 - **Production hosting**: Docker Compose runs the API image, non-root with one process and a health check, behind Caddy, which serves HTTPS for `API_DOMAIN`; state and feeds live on the named volume `data`; both services restart unless stopped. The front end is uploaded as static files to a CDN. Steps in [`deploy.md`](deploy.md).
+
+Recorded in [`adr/0018-highlight-request-failures.md`](adr/0018-highlight-request-failures.md):
+
+- **Highlight request failures**: a timeout, transport failure or error status uses up no highlight attempt; it is logged and recorded in the job's health, and the same attempt is retried no sooner than 10 minutes later. Any other outcome uses up the attempt.
 
 ## Future
 

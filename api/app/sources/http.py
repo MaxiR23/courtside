@@ -2,6 +2,7 @@
 #
 # Shared HTTP client for the source adapters, and the single error they raise.
 # The error reason never carries the request URL: it comes from configuration.
+# A timeout, a transport failure or an error status is marked as a failed request.
 #
 # SEE: docs/architecture.md (Source adapters), docs/adr/0007-backend-runtime-and-data-pipeline.md
 
@@ -17,12 +18,18 @@ class SourceError(Exception):
     """A data source failed or sent data the adapter cannot map."""
 
     def __init__(
-        self, source: str, reason: str, *, status_code: int | None = None
+        self,
+        source: str,
+        reason: str,
+        *,
+        status_code: int | None = None,
+        request_failed: bool = False,
     ) -> None:
         super().__init__(f"{source}: {reason}")
         self.source = source
         self.reason = reason
         self.status_code = status_code
+        self.request_failed = request_failed
 
 
 def create_client() -> httpx.AsyncClient:
@@ -42,14 +49,15 @@ async def _get(
         target = httpx.URL(url).copy_merge_params(params) if params else url
         response = await client.get(target, headers=headers)
     except httpx.TimeoutException:
-        raise SourceError(source, "request timed out") from None
+        raise SourceError(source, "request timed out", request_failed=True) from None
     except httpx.TransportError:
-        raise SourceError(source, "request failed") from None
+        raise SourceError(source, "request failed", request_failed=True) from None
     if not response.is_success:
         raise SourceError(
             source,
             f"responded with status {response.status_code}",
             status_code=response.status_code,
+            request_failed=True,
         )
     return response
 
@@ -60,9 +68,9 @@ async def is_served(client: httpx.AsyncClient, url: str, *, source: str) -> bool
     try:
         response = await client.head(url)
     except httpx.TimeoutException:
-        raise SourceError(source, "request timed out") from None
+        raise SourceError(source, "request timed out", request_failed=True) from None
     except httpx.TransportError:
-        raise SourceError(source, "request failed") from None
+        raise SourceError(source, "request failed", request_failed=True) from None
     return response.is_success
 
 
