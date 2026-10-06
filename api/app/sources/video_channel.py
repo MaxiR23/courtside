@@ -2,9 +2,10 @@
 #
 # Video channel adapter: lists the official channel's uploads through the
 # official API, 50 per request, paging back per game until it finds the game's
-# full game highlights by title, builds the highlight and the search link from
-# templates. The URLs and the key come from Settings; the key goes only in a
-# request header. Provider data never leaves this module.
+# full game highlights by title, and takes the largest 16:9 thumbnail the API
+# lists for it that the image host serves, or the largest served one when none
+# is 16:9. Builds the embed and the search link from templates. The URLs and the key come from Settings; the key
+# goes only in a request header. Provider data never leaves this module.
 #
 # SEE: docs/adr/0007-backend-runtime-and-data-pipeline.md,
 # docs/adr/0015-highlights-source.md, api/app/sources/team_players.py
@@ -14,18 +15,26 @@ import re
 from urllib.parse import quote_plus
 
 import httpx
-from pydantic import AwareDatetime, BaseModel, ConfigDict, ValidationError
+from pydantic import (
+    AwareDatetime,
+    BaseModel,
+    ConfigDict,
+    HttpUrl,
+    TypeAdapter,
+    ValidationError,
+)
 from pydantic.alias_generators import to_camel
 
 from app.feeds.games import FeedModel, Highlight, NonEmptyStr
 from app.settings import Settings
-from app.sources.http import SourceError, get_json
+from app.sources.http import SourceError, get_json, is_served
 from app.sources.scoreboard import ScoreboardGame
 
 SOURCE = "video_channel"
 LABEL = "full game highlights"
 PAGE_SIZE = 50
 KEY_HEADER = "X-Goog-Api-Key"
+_HTTP_URL = TypeAdapter(HttpUrl)
 
 
 class ChannelVideo(FeedModel):
@@ -34,6 +43,8 @@ class ChannelVideo(FeedModel):
     video_id: NonEmptyStr
     title: NonEmptyStr
     channel: NonEmptyStr
+    # The best thumbnail the image host serves, or None when it serves none.
+    thumbnail_url: str | None
 
 
 def _title_date(day: dt.date) -> str:
@@ -54,11 +65,20 @@ class _ProviderResource(_ProviderModel):
     video_id: str
 
 
+class _ProviderThumbnail(_ProviderModel):
+    # Optional so one bad thumbnail never rejects the whole page.
+    url: str | None = None
+    width: int | None = None
+    height: int | None = None
+
+
 class _ProviderSnippet(_ProviderModel):
     published_at: AwareDatetime
     channel_title: str
     title: str
     resource_id: _ProviderResource
+    # Keyed by size name; a removed or private video lists none.
+    thumbnails: dict[str, _ProviderThumbnail] = {}
 
 
 class _ProviderItem(_ProviderModel):
@@ -68,6 +88,50 @@ class _ProviderItem(_ProviderModel):
 class _ProviderPage(_ProviderModel):
     items: list[_ProviderItem]
     next_page_token: str | None = None
+
+
+def _is_sized(thumbnail: _ProviderThumbnail) -> bool:
+    return (thumbnail.width or 0) > 0 and (thumbnail.height or 0) > 0
+
+
+def _is_http_url(url: str | None) -> bool:
+    if not url:
+        return False
+    try:
+        _HTTP_URL.validate_python(url)
+    except ValidationError:
+        return False
+    return True
+
+
+def _is_wide(thumbnail: _ProviderThumbnail) -> bool:
+    if not _is_sized(thumbnail) or thumbnail.width is None or thumbnail.height is None:
+        return False
+    return thumbnail.width * 9 == thumbnail.height * 16
+
+
+def _area(thumbnail: _ProviderThumbnail) -> int:
+    if not _is_sized(thumbnail):
+        return 0
+    return (thumbnail.width or 0) * (thumbnail.height or 0)
+
+
+def _ranked_thumbnails(thumbnails: dict[str, _ProviderThumbnail]) -> list[str]:
+    """Return the thumbnail URLs best first: 16:9 before any other shape,
+    then larger first. A thumbnail without a size ranks last and one without
+    a URL that is not a valid HTTP URL is skipped."""
+    usable = [t for t in thumbnails.values() if _is_http_url(t.url)]
+    usable.sort(key=lambda t: (_is_wide(t), _area(t)), reverse=True)
+    return [t.url for t in usable if t.url]
+
+
+async def _first_served(client: httpx.AsyncClient, urls: list[str]) -> str | None:
+    """Return the first URL the image host serves. The API lists sizes the
+    host answers with a placeholder and a 404, so each one is checked."""
+    for url in urls:
+        if await is_served(client, url, source=SOURCE):
+            return url
+    return None
 
 
 def _invalid(error: ValidationError) -> SourceError:
@@ -86,7 +150,8 @@ async def lookup_video(
     """Page back through the channel's uploads, newest first, 50 per request,
     and return the first video whose title matches the game. None once a
     page holds a video published before the game's start or the uploads
-    run out. Raises SourceError."""
+    run out. Only the matched video's thumbnails are checked against the
+    image host, best first. Raises SourceError."""
     if settings.highlights_source_url is None:
         raise SourceError(SOURCE, "highlights source URL is not configured")
     key = settings.highlights_source_key
@@ -111,6 +176,7 @@ async def lookup_video(
                     video_id=item.snippet.resource_id.video_id,
                     title=item.snippet.title,
                     channel=item.snippet.channel_title,
+                    thumbnail_url=None,
                 )
                 for item in page.items
             ]
@@ -118,7 +184,11 @@ async def lookup_video(
             raise _invalid(error) from None
         found = find_video(videos, game, day)
         if found is not None:
-            return found
+            item = page.items[videos.index(found)]
+            served = await _first_served(
+                client, _ranked_thumbnails(item.snippet.thumbnails)
+            )
+            return found.model_copy(update={"thumbnail_url": served})
         older = any(item.snippet.published_at < game.start_time for item in page.items)
         if page.next_page_token is None or older:
             return None
@@ -152,8 +222,8 @@ def find_video(
 
 def to_highlight(video: ChannelVideo, settings: Settings) -> Highlight:
     """Build the feed's highlight from a video, or raise SourceError."""
-    if settings.video_thumbnail_url is None:
-        raise SourceError(SOURCE, "video thumbnail URL is not configured")
+    if video.thumbnail_url is None:
+        raise SourceError(SOURCE, f"video {video.video_id} has no thumbnail")
     if settings.video_embed_url is None:
         raise SourceError(SOURCE, "video embed URL is not configured")
     try:
@@ -161,9 +231,7 @@ def to_highlight(video: ChannelVideo, settings: Settings) -> Highlight:
             {
                 "title": video.title,
                 "channel": video.channel,
-                "thumbnail_url": settings.video_thumbnail_url.format(
-                    video_id=video.video_id
-                ),
+                "thumbnail_url": video.thumbnail_url,
                 "embed_url": settings.video_embed_url.format(video_id=video.video_id),
             }
         )

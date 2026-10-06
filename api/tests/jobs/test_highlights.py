@@ -14,10 +14,10 @@
 # - Keeps the attempt count across a new job over the same store
 # - Logs every failed attempt with the game, its number and its reason, for a no-match and a source error
 # - A failed lookup spends the attempt, records the failure and keeps the stored highlights
-# - A missing thumbnail or embed template records the failure
+# - A matched video without a thumbnail, or a missing embed template, records the failure
 # - Looks up each due game once per run with its US Eastern date
 # - A lookup error for one game spends its attempt and still looks up the others
-# - A game first seen final after a restart gets its highlight from an older page on the first run, through the real adapter
+# - A game first seen final after a restart gets its highlight, with the largest 16:9 thumbnail, from an older page on the first run, through the real adapter
 # - Gives every game a search URL from the template, and none without it
 # - A run with no due game makes no request and records nothing
 # - An attempt keeps the game date of the row
@@ -59,8 +59,18 @@ GAME_DATE = dt.date(2026, 10, 4)
 HOUR = dt.timedelta(hours=1)
 TITLE = "WARRIORS at CLIPPERS | FULL GAME HIGHLIGHTS | October 4, 2026"
 FIXTURES = Path(__file__).parent / "fixtures" / "highlights"
-MATCH = ChannelVideo(video_id="vid1", title=TITLE, channel="Channel")
-OTHER = ChannelVideo(video_id="vid2", title="Something else", channel="Channel")
+MATCH = ChannelVideo(
+    video_id="vid1",
+    title=TITLE,
+    channel="Channel",
+    thumbnail_url="https://example.com/t/vid1.jpg",
+)
+OTHER = ChannelVideo(
+    video_id="vid2",
+    title="Something else",
+    channel="Channel",
+    thumbnail_url="https://example.com/t/vid2.jpg",
+)
 
 
 def make_game(game_id: str = "g1") -> ScoreboardGame:
@@ -119,7 +129,6 @@ def store(tmp_path: Path) -> StateStore:
 
 def make_settings(tmp_path: Path, **values: Any) -> Settings:
     defaults = {
-        "video_thumbnail_url": "https://example.com/t/{video_id}.jpg",
         "video_embed_url": "https://example.com/e/{video_id}",
         "highlights_search_url": "https://example.com/s?q={query}",
     }
@@ -352,23 +361,27 @@ async def test_a_failed_lookup_spends_the_attempt_and_keeps_the_stored_highlight
 
 @pytest.mark.anyio
 @pytest.mark.parametrize(
-    ("missing", "reason"),
+    ("video", "embed_url", "reason"),
     [
-        ("video_thumbnail_url", "video_channel: video thumbnail URL is not configured"),
-        ("video_embed_url", "video_channel: video embed URL is not configured"),
+        (
+            MATCH.model_copy(update={"thumbnail_url": None}),
+            "https://example.com/e/{video_id}",
+            "video_channel: video vid1 has no thumbnail",
+        ),
+        (MATCH, None, "video_channel: video embed URL is not configured"),
     ],
 )
-async def test_a_missing_template_records_the_failure(
-    tmp_path: Path, store: StateStore, lookup: FakeLookup, missing: str, reason: str
+async def test_a_video_without_a_thumbnail_or_a_missing_template_records_the_failure(
+    tmp_path: Path,
+    store: StateStore,
+    lookup: FakeLookup,
+    video: ChannelVideo,
+    embed_url: str | None,
+    reason: str,
 ) -> None:
     store.set_final_time("g1", GAME_DATE, FINAL_TIME)
-    lookup.default = MATCH
-    templates: dict[str, Any] = {
-        "video_thumbnail_url": "https://example.com/t/{video_id}",
-        "video_embed_url": "https://example.com/e/{video_id}",
-        missing: None,
-    }
-    settings = Settings(_env_file=None, data_dir=tmp_path, **templates)  # type: ignore[call-arg]
+    lookup.default = video
+    settings = Settings(_env_file=None, data_dir=tmp_path, video_embed_url=embed_url)  # type: ignore[call-arg]
     job = HighlightsJob(
         settings,
         store,
@@ -443,6 +456,7 @@ async def test_a_game_first_seen_final_after_a_restart_gets_its_highlight_from_a
         )
 
     respx.get("https://example.com/uploads").mock(side_effect=serve)
+    respx.head(url__startswith="https://example.com/thumbs/").respond(200)
     settings = make_settings(
         tmp_path,
         highlights_source_url="https://example.com/uploads",
@@ -454,7 +468,11 @@ async def test_a_game_first_seen_final_after_a_restart_gets_its_highlight_from_a
 
     await job.run(FINAL_TIME)
 
-    assert [h.title for h in job.highlights_of(make_game())] == [TITLE]
+    [highlight] = job.highlights_of(make_game())
+    assert highlight.title == TITLE
+    assert (
+        str(highlight.thumbnail_url) == "https://example.com/thumbs/vid-full/maxres.jpg"
+    )
     assert [
         h.title
         for h in HighlightsJob(

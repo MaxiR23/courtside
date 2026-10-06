@@ -29,8 +29,6 @@
 # - Leaves the highlights source key unset by default
 # - Reads the highlights source key from exactly HIGHLIGHTS_SOURCE_KEY
 # - Never shows the highlights source key when printed
-# - Leaves the video thumbnail URL unset by default
-# - Reads the video thumbnail URL from an environment variable
 # - Leaves the video embed URL unset by default
 # - Reads the video embed URL from an environment variable
 # - Leaves the highlights search URL unset by default
@@ -45,15 +43,18 @@
 # - Rejects an empty data directory
 # - Allows no CORS origins by default
 # - Reads the CORS origins as a JSON list
+# - Ignores a retired setting in a .env file and warns without its value
+# - Rejects an unknown key in a .env file that is not retired
 #
 # What is covered:
-# - Happy path, value from the environment, value from a .env file, .env file location, invalid value, shared instance, optional scoreboard URL, optional game detail URL, required URL placeholders (missing, escaped, malformed, empty), optional player photo URL, optional team roster URL, optional team averages URL, optional highlights source URL and key (unset, environment, hidden when printed), video thumbnail URL, video embed URL and highlights search URL, daily fetch time (default, environment, invalid), input hidden from errors, data directory (default, environment, relative, empty), CORS origins (default, JSON list)
+# - Happy path, value from the environment, value from a .env file, .env file location, invalid value, shared instance, optional scoreboard URL, optional game detail URL, required URL placeholders (missing, escaped, malformed, empty), optional player photo URL, optional team roster URL, optional team averages URL, optional highlights source URL and key (unset, environment, hidden when printed), video embed URL and highlights search URL, daily fetch time (default, environment, invalid), input hidden from errors, data directory (default, environment, relative, empty), CORS origins (default, JSON list), retired setting (dropped with a warning), unknown key (rejected)
 #
 # Run with: cd api && .venv/bin/python -m pytest tests/test_settings.py
 #
 # SEE: api/app/settings.py
 
 import datetime as dt
+import logging
 import os
 from collections.abc import Iterator
 from pathlib import Path
@@ -83,7 +84,6 @@ def clear_environment_variable(monkeypatch: pytest.MonkeyPatch) -> None:
             "player_averages_url",
             "highlights_source_url",
             "highlights_source_key",
-            "video_thumbnail_url",
             "video_embed_url",
             "highlights_search_url",
             "daily_fetch_time",
@@ -338,21 +338,6 @@ def test_never_shows_the_highlights_source_key_when_printed(
     assert "test-key-value" not in settings.model_dump_json()
 
 
-def test_video_thumbnail_url_is_unset_when_no_variable_is_set() -> None:
-    assert SettingsWithoutEnvFile().video_thumbnail_url is None
-
-
-def test_reads_the_video_thumbnail_url_from_the_environment_variable(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setenv("VIDEO_THUMBNAIL_URL", "https://example.com/t/{video_id}")
-
-    assert (
-        SettingsWithoutEnvFile().video_thumbnail_url
-        == "https://example.com/t/{video_id}"
-    )
-
-
 def test_video_embed_url_is_unset_when_no_variable_is_set() -> None:
     assert SettingsWithoutEnvFile().video_embed_url is None
 
@@ -457,3 +442,38 @@ def test_reads_the_cors_origins_as_a_json_list(
         "https://a.example",
         "https://b.example",
     ]
+
+
+def test_ignores_a_retired_setting_in_a_dotenv_file_and_warns_without_its_value(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        "VIDEO_THUMBNAIL_URL=https://example.com/hidden\n", encoding="utf-8"
+    )
+
+    class SettingsWithTemporaryEnvFile(Settings):
+        model_config = SettingsConfigDict(env_file=env_file)
+
+    with caplog.at_level(logging.WARNING, logger="app.settings"):
+        settings = SettingsWithTemporaryEnvFile()
+
+    assert not hasattr(settings, "video_thumbnail_url")
+    assert len(caplog.records) == 1
+    assert "VIDEO_THUMBNAIL_URL" in caplog.text
+    assert "example.com/hidden" not in caplog.text
+
+
+def test_rejects_an_unknown_key_in_a_dotenv_file_that_is_not_retired(
+    tmp_path: Path,
+) -> None:
+    env_file = tmp_path / ".env"
+    env_file.write_text("NOT_A_SETTING=value\n", encoding="utf-8")
+
+    class SettingsWithTemporaryEnvFile(Settings):
+        model_config = SettingsConfigDict(env_file=env_file)
+
+    with pytest.raises(ValidationError) as raised:
+        SettingsWithTemporaryEnvFile()
+
+    assert raised.value.errors()[0]["type"] == "extra_forbidden"

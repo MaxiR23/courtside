@@ -6,6 +6,33 @@
         "publishedAt": "2026-10-05T07:00:00Z",
         "channelTitle": "Example Channel",
         "title": "Player Scores 21 For The Clippers Against The Warriors | Highlights | October 4, 2026",
+        "thumbnails": {
+          "default": {
+            "url": "https://example.com/thumbs/vid-clip/default.jpg",
+            "width": 120,
+            "height": 90
+          },
+          "medium": {
+            "url": "https://example.com/thumbs/vid-clip/medium.jpg",
+            "width": 320,
+            "height": 180
+          },
+          "high": {
+            "url": "https://example.com/thumbs/vid-clip/high.jpg",
+            "width": 480,
+            "height": 360
+          },
+          "standard": {
+            "url": "https://example.com/thumbs/vid-clip/standard.jpg",
+            "width": 640,
+            "height": 480
+          },
+          "maxres": {
+            "url": "https://example.com/thumbs/vid-clip/maxres.jpg",
+            "width": 1280,
+            "height": 720
+          }
+        },
         "resourceId": {
           "videoId": "vid-clip"
         }
@@ -16,6 +43,33 @@
         "publishedAt": "2026-10-05T06:00:00Z",
         "channelTitle": "Example Channel",
         "title": "JAZZ at NUGGETS | PRESEASON FULL GAME HIGHLIGHTS | October 4, 2026",
+        "thumbnails": {
+          "default": {
+            "url": "https://example.com/thumbs/vid-other-game/default.jpg",
+            "width": 120,
+            "height": 90
+          },
+          "medium": {
+            "url": "https://example.com/thumbs/vid-other-game/medium.jpg",
+            "width": 320,
+            "height": 180
+          },
+          "high": {
+            "url": "https://example.com/thumbs/vid-other-game/high.jpg",
+            "width": 480,
+            "height": 360
+          },
+          "standard": {
+            "url": "https://example.com/thumbs/vid-other-game/standard.jpg",
+            "width": 640,
+            "height": 480
+          },
+          "maxres": {
+            "url": "https://example.com/thumbs/vid-other-game/maxres.jpg",
+            "width": 1280,
+            "height": 720
+          }
+        },
         "resourceId": {
           "videoId": "vid-other-game"
         }

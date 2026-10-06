@@ -54,6 +54,18 @@ async def _get(
     return response
 
 
+async def is_served(client: httpx.AsyncClient, url: str, *, source: str) -> bool:
+    """HEAD a URL: True when it answers with success, False on an error
+    status. Raises SourceError on a timeout or a transport failure."""
+    try:
+        response = await client.head(url)
+    except httpx.TimeoutException:
+        raise SourceError(source, "request timed out") from None
+    except httpx.TransportError:
+        raise SourceError(source, "request failed") from None
+    return response.is_success
+
+
 async def get_text(client: httpx.AsyncClient, url: str, *, source: str) -> str:
     """GET a URL and return its body as text, or raise SourceError."""
     response = await _get(client, url, source=source)

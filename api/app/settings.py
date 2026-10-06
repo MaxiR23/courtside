@@ -1,4 +1,5 @@
 import datetime as dt
+import logging
 import string
 from functools import lru_cache
 from pathlib import Path
@@ -12,6 +13,13 @@ ENV_FILE = API_DIR / ".env"
 
 # Placeholder each URL template must contain.
 PLACEHOLDERS = {"scoreboard_url": "date", "game_detail_url": "game_id"}
+
+# Names of settings that no longer exist. A stale .env may still carry them,
+# so they are dropped with a warning instead of stopping the backend. When a
+# setting is removed, add its name here. Any other unknown key still fails.
+RETIRED_SETTINGS = {"video_thumbnail_url"}
+
+logger = logging.getLogger(__name__)
 
 
 class Settings(BaseSettings):
@@ -37,8 +45,6 @@ class Settings(BaseSettings):
     # Key of the video source. Never logged or printed.
     highlights_source_key: SecretStr | None = None
     # Template with {video_id}, the channel's video id.
-    video_thumbnail_url: str | None = None
-    # Template with {video_id}, the channel's video id.
     video_embed_url: str | None = None
     # Template with {query}, the search words, already URL-encoded.
     highlights_search_url: str | None = None
@@ -46,6 +52,23 @@ class Settings(BaseSettings):
     daily_fetch_time: dt.time = dt.time(6, 0)
     data_dir: Path = API_DIR / "data"
     cors_origins: list[str] = []
+
+    @model_validator(mode="before")
+    @classmethod
+    def _drop_retired_settings(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        kept = {}
+        for key, value in data.items():
+            if isinstance(key, str) and key.lower() in RETIRED_SETTINGS:
+                # Name only: the value is never logged.
+                logger.warning(
+                    "Ignoring the retired setting %s: delete it from .env.",
+                    key.upper(),
+                )
+            else:
+                kept[key] = value
+        return kept
 
     @field_validator("data_dir", mode="before")
     @classmethod

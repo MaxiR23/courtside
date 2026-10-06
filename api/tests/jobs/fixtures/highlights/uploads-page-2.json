@@ -5,6 +5,33 @@
         "publishedAt": "2026-10-05T05:30:00Z",
         "channelTitle": "Example Channel",
         "title": "WARRIORS at CLIPPERS | FULL GAME HIGHLIGHTS | October 4, 2026",
+        "thumbnails": {
+          "default": {
+            "url": "https://example.com/thumbs/vid-full/default.jpg",
+            "width": 120,
+            "height": 90
+          },
+          "medium": {
+            "url": "https://example.com/thumbs/vid-full/medium.jpg",
+            "width": 320,
+            "height": 180
+          },
+          "high": {
+            "url": "https://example.com/thumbs/vid-full/high.jpg",
+            "width": 480,
+            "height": 360
+          },
+          "standard": {
+            "url": "https://example.com/thumbs/vid-full/standard.jpg",
+            "width": 640,
+            "height": 480
+          },
+          "maxres": {
+            "url": "https://example.com/thumbs/vid-full/maxres.jpg",
+            "width": 1280,
+            "height": 720
+          }
+        },
         "resourceId": {
           "videoId": "vid-full"
         }
@@ -15,6 +42,33 @@
         "publishedAt": "2026-10-04T20:00:00Z",
         "channelTitle": "Example Channel",
         "title": "SPURS at SUNS | FULL GAME HIGHLIGHTS | October 3, 2026",
+        "thumbnails": {
+          "default": {
+            "url": "https://example.com/thumbs/vid-older/default.jpg",
+            "width": 120,
+            "height": 90
+          },
+          "medium": {
+            "url": "https://example.com/thumbs/vid-older/medium.jpg",
+            "width": 320,
+            "height": 180
+          },
+          "high": {
+            "url": "https://example.com/thumbs/vid-older/high.jpg",
+            "width": 480,
+            "height": 360
+          },
+          "standard": {
+            "url": "https://example.com/thumbs/vid-older/standard.jpg",
+            "width": 640,
+            "height": 480
+          },
+          "maxres": {
+            "url": "https://example.com/thumbs/vid-older/maxres.jpg",
+            "width": 1280,
+            "height": 720
+          }
+        },
         "resourceId": {
           "videoId": "vid-older"
         }
