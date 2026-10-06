@@ -124,7 +124,7 @@ class ScoreboardGame(FeedModel):
     score: Score | None = None
 
     @model_validator(mode="after")
-    def _require_fields_of_status(self) -> "ScoreboardGame":
+    def _require_fields_of_status(self) -> ScoreboardGame:
         required = REQUIRED_BY_STATUS.get(self.status, ())
         missing = [
             to_camel(name)

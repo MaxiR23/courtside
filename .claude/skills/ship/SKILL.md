@@ -20,9 +20,9 @@ to the new `type/short-description` branch created at `origin/main` and
 fast-forwards local `main` to `origin/main` (never forcing, resetting or
 rewriting history). When it already runs on a `type/short-description`
 branch, it neither switches branches nor fast-forwards local `main`. It
-commits on the working branch and writes to `.claude/loop/`. Publish pushes and opens or updates
-one PR, then removes the attribution footer. Then merges only through
-`scripts/merge.sh`.
+commits on the working branch and writes to `.claude/loop/`. Publish
+pushes and opens or updates one PR, then removes the attribution footer.
+Then merges only through `scripts/merge.sh`.
 
 ## Prepare
 

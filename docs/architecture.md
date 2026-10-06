@@ -15,14 +15,15 @@ How Courtside is built and why. This document records decisions that are in forc
 | Part | Technology |
 |---|---|
 | Front end | SvelteKit with Svelte 5, built as static files |
-| Back end | Python 3.12 with FastAPI, with scheduled jobs running in the same process |
+| Back end | Python 3.14 with FastAPI, with scheduled jobs running in the same process |
 | Data contract | Pydantic models, exported as JSON Schema, with TypeScript types generated from it |
 | Testing | Vitest with Testing Library for `/web`, pytest for `/api`. Conventions in [`testing.md`](testing.md) |
 | Package managers | pnpm for `/web`, pip in a virtual environment for `/api`. Every dependency pinned to an exact version |
 | API tooling | ruff for lint and format, mypy in strict mode, pydantic-settings for configuration |
-| Web tooling | TypeScript in strict mode, svelte-check, ESLint and Prettier with their Svelte plugins, Vitest with Testing Library in jsdom, adapter-static, Node 22 |
+| Web tooling | TypeScript in strict mode, svelte-check, ESLint and Prettier with their Svelte plugins, Vitest with Testing Library in jsdom, adapter-static, Node 24 |
 
 Exact versions of every dependency are pinned when the project is scaffolded.
+Runtime versions are recorded in [`adr/0017-runtime-versions.md`](adr/0017-runtime-versions.md).
 
 ## Data flow
 
@@ -156,7 +157,7 @@ web/scripts/               Contract type generation
 web/src/app.html           HTML shell
 web/static/                Static assets
 web/tests/                 Tests, mirroring src/
-web/package.json           Dependencies pinned, Node 22, the scripts the gate runs
+web/package.json           Dependencies pinned, Node 24, the scripts the gate runs
 web/pnpm-lock.yaml         Lockfile
 web/vite.config.ts         SvelteKit, adapter-static and Vitest
 web/eslint.config.js       ESLint

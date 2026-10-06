@@ -15,7 +15,7 @@
 #     Every step runs from web/ through the scripts in web/package.json
 #     and stops at the first failure.
 #   api [fast]
-#     1. Require api/.venv and Python 3.12 in it.
+#     1. Require api/.venv and Python 3.14 in it.
 #     2. ruff check.
 #     3. ruff format check.
 #     4. mypy strict.
@@ -72,11 +72,11 @@ gate_web() {
 require_api() {
   venv_python="api/.venv/bin/python"
   [ -x "$venv_python" ] \
-    || die "api: api/.venv not found; create it with 'python3.12 -m venv api/.venv' and install api/requirements-dev.txt"
+    || die "api: api/.venv not found; create it with 'python3.14 -m venv api/.venv' and install api/requirements-dev.txt"
   version="$("$venv_python" -c 'import sys; print("%d.%d" % sys.version_info[:2])')" \
     || die "api: cannot run $venv_python"
-  [ "$version" = "3.12" ] \
-    || die "api: api/.venv uses Python $version, 3.12 is required; recreate it with 'python3.12 -m venv api/.venv'"
+  [ "$version" = "3.14" ] \
+    || die "api: api/.venv uses Python $version, 3.14 is required; recreate it with 'python3.14 -m venv api/.venv'"
   cd api || die "cannot change to api"
 }
 

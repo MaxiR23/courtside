@@ -22,7 +22,7 @@ main() {
   root="$(git rev-parse --show-toplevel)" || die "not inside a git repository"
   cd "$root" || die "cannot change to $root"
   [ -x api/.venv/bin/python ] \
-    || die "api: api/.venv not found; create it with 'python3.12 -m venv api/.venv' and install api/requirements-dev.txt"
+    || die "api: api/.venv not found; create it with 'python3.14 -m venv api/.venv' and install api/requirements-dev.txt"
   command -v pnpm >/dev/null 2>&1 \
     || die "web: pnpm not found; install pnpm and run 'pnpm install' in web/"
   [ -d web/node_modules ] \

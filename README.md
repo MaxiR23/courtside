@@ -32,7 +32,7 @@ data sources  ->  backend jobs  ->  feeds (JSON)  ->  front end
 | Part | Technology |
 |---|---|
 | Front end | SvelteKit (Svelte 5), static build |
-| Back end | Python 3.12, FastAPI, scheduled jobs in the same process |
+| Back end | Python 3.14, FastAPI, scheduled jobs in the same process |
 | Data contract | Pydantic models as the source of truth, TypeScript types generated from them |
 | Testing | Vitest with Testing Library for the front end, pytest for the back end |
 
@@ -54,7 +54,7 @@ How issues, branches, reviews and merges work in this repo is described in [`doc
 
 ### Web (/web)
 
-Setup, from the repository root. Requires Node 22 and pnpm:
+Setup, from the repository root. Requires Node 24 and pnpm 12:
 
 ```
 cd web && pnpm install
@@ -88,10 +88,10 @@ scripts/gate.sh web
 
 ### API (/api)
 
-Setup, from the repository root. Always use `python3.12`, never `python3`:
+Setup, from the repository root. Always use `python3.14`, never `python3`:
 
 ```
-python3.12 -m venv api/.venv
+python3.14 -m venv api/.venv
 api/.venv/bin/python -m pip install -r api/requirements-dev.txt
 cp api/.env.example api/.env
 ```
