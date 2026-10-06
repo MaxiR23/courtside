@@ -172,7 +172,7 @@ class Game(FeedModel):
     highlights_search_url: HttpUrl | None = None
 
     @model_validator(mode="after")
-    def _require_fields_of_status(self) -> "Game":
+    def _require_fields_of_status(self) -> Game:
         required = REQUIRED_BY_STATUS.get(self.status, ())
         missing = [name for name in required if getattr(self, name) is None]
         if missing:
@@ -181,7 +181,7 @@ class Game(FeedModel):
         return self
 
     @model_validator(mode="after")
-    def _require_a_winner_of_the_game(self) -> "Game":
+    def _require_a_winner_of_the_game(self) -> Game:
         if self.winner is None:
             return self
         if self.status is not GameStatus.FINAL:
@@ -191,7 +191,7 @@ class Game(FeedModel):
         return self
 
     @model_validator(mode="after")
-    def _require_stats_of_their_availability(self) -> "Game":
+    def _require_stats_of_their_availability(self) -> Game:
         availability = self.stats_availability
         if availability is None:
             return self

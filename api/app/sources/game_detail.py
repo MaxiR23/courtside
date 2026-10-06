@@ -86,7 +86,7 @@ class GameDetail(FeedModel):
     team_stats: GameTeamStats
 
 
-def _number(game_id: str, value: str, kind: type[int] | type[float]) -> Any:
+def _number(game_id: str, value: str, kind: type[int | float]) -> Any:
     try:
         return kind(value)
     except ValueError:

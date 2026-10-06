@@ -13,7 +13,7 @@ domains below are placeholders.
 - A DNS record of the API domain pointing to the machine. It must resolve
   before the first start, or the certificate request fails.
 - Git.
-- Node 22 and pnpm where the front end is built.
+- Node 24 and pnpm 12 where the front end is built.
 
 ## Deploy the backend
 
@@ -53,7 +53,7 @@ uploading again.
 2. Back up the volume:
 
    ```
-   docker run --rm -v courtside_data:/data:ro -v "$PWD":/backup python:3.12.15-slim-bookworm tar czf /backup/courtside-data.tgz -C /data .
+   docker run --rm -v courtside_data:/data:ro -v "$PWD":/backup python:3.14.8-slim-bookworm tar czf /backup/courtside-data.tgz -C /data .
    ```
 
 3. Copy `courtside-data.tgz`, `api/.env` and `.env` to the new machine, which
@@ -62,7 +62,7 @@ uploading again.
 
    ```
    docker volume create courtside_data
-   docker run --rm -v courtside_data:/data -v "$PWD":/backup python:3.12.15-slim-bookworm sh -c "tar xzf /backup/courtside-data.tgz -C /data && chown -R 10001:10001 /data"
+   docker run --rm -v courtside_data:/data -v "$PWD":/backup python:3.14.8-slim-bookworm sh -c "tar xzf /backup/courtside-data.tgz -C /data && chown -R 10001:10001 /data"
    ```
 
 5. `docker compose up -d --build`

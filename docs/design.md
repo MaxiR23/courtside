@@ -115,7 +115,7 @@ Lucide at `stroke-width: 1.5`: `chevron-down` (expand), `play` (filled, highligh
   2. The h1: the away team name, a line break, then "at" and the home team name.
   3. A blurb: "{Away star} and {Home star} meet at {Arena}."
   4. Buttons. **Match details** is the primary button (solid accent, dark text, blueprint marks): it selects today, expands the game on screen and smooth-scrolls to it. **All games** is a secondary outlined button linking to the schedule.
-  5. A slide indicator with two items. Each has a 2px progress track whose fill (`#94bce3`) grows linearly over 7s on the active item, so it shows the progress of the current star. Under it, "01" or "02" and the player's short name: the active one in ink, the inactive in muted. Clicking an item jumps to that star. Next to the items, the current game's position among the games of the day, such as "03 / 10".
+  5. A slide indicator with two items. Each has a 2px progress track whose fill (`#94bce3`) grows linearly over 7s on the active item, so it shows the progress of the current star. Under it, "01" or "02" and the player's short name: the active one in ink, the inactive in muted. Clicking an item jumps to that star. Next to the items, the current game's position among the games in the rotation, such as "03 / 10".
 
   The status tag, kicker, h1 and blurb always follow the game on screen.
 
