@@ -108,6 +108,7 @@ Sections such as All-Star or the Finals are temporary. Each one is self-containe
 - Data source URLs and keys live only in configuration, never in code or documentation.
 - Recorded in [`adr/0003-api-tooling-and-configuration.md`](adr/0003-api-tooling-and-configuration.md).
 - The front end's build-time settings are declared in `web/src/env.ts` and listed in `web/.env.example`: the games feed URL and the video platform's name.
+- The deployment's domain, `API_DOMAIN`, is read by Docker Compose from the root `.env` and listed in the root `.env.example`; it is not a `Settings` variable, because `api/.env` holds only those.
 
 ## Repository layout
 
@@ -115,6 +116,9 @@ Sections such as All-Star or the Finals are temporary. Each one is self-containe
 /web    SvelteKit app
 /api    FastAPI app, source adapters, jobs and feed models
 /docs   Architecture, workflow and data documentation
+compose.yaml   Production services: the API and the reverse proxy
+Caddyfile      Reverse proxy configuration
+.env.example   Every variable compose.yaml reads
 ```
 
 Structure of `/api`:
@@ -135,6 +139,8 @@ api/pyproject.toml         Tool configuration only (ruff, mypy, pytest)
 api/requirements.txt       Runtime dependencies, pinned
 api/requirements-dev.txt   Development dependencies, pinned
 api/.env.example           Every variable Settings reads
+api/Dockerfile             Production image
+api/.dockerignore          Keeps .env, local data and tests out of the image
 ```
 
 Structure of `/web`:
@@ -215,6 +221,10 @@ Recorded in [`adr/0014-star-guarantees.md`](adr/0014-star-guarantees.md):
 Recorded in [`adr/0015-highlights-source.md`](adr/0015-highlights-source.md):
 
 - **Highlights source**: the official channel's uploads, listed through the official video API 50 per request and paged back per game until a video older than the game; the key comes from `Settings` and is never logged.
+
+Recorded in [`adr/0016-production-hosting.md`](adr/0016-production-hosting.md):
+
+- **Production hosting**: Docker Compose runs the API image, non-root with one process and a health check, behind Caddy, which serves HTTPS for `API_DOMAIN`; state and feeds live on the named volume `data`; both services restart unless stopped. The front end is uploaded as static files to a CDN. Steps in [`deploy.md`](deploy.md).
 
 ## Future
 
