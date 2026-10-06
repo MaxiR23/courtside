@@ -4,7 +4,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal, Self
 
-from pydantic import ValidationInfo, field_validator, model_validator
+from pydantic import SecretStr, ValidationInfo, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 API_DIR = Path(__file__).resolve().parent.parent
@@ -31,7 +31,11 @@ class Settings(BaseSettings):
     team_averages_url: str | None = None
     # Template with {player_id}, the provider's player id, and {season}.
     player_averages_url: str | None = None
-    video_channel_feed_url: str | None = None
+    # Listing of the official channel's uploads, without the key. The adapter
+    # adds the page size and the page token.
+    highlights_source_url: str | None = None
+    # Key of the video source. Never logged or printed.
+    highlights_source_key: SecretStr | None = None
     # Template with {video_id}, the channel's video id.
     video_thumbnail_url: str | None = None
     # Template with {video_id}, the channel's video id.

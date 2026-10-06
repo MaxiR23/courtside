@@ -6,6 +6,7 @@
 # SEE: docs/architecture.md (Source adapters), docs/adr/0007-backend-runtime-and-data-pipeline.md
 
 import json
+from collections.abc import Mapping
 
 import httpx
 
@@ -29,9 +30,17 @@ def create_client() -> httpx.AsyncClient:
     return httpx.AsyncClient(timeout=TIMEOUT)
 
 
-async def _get(client: httpx.AsyncClient, url: str, *, source: str) -> httpx.Response:
+async def _get(
+    client: httpx.AsyncClient,
+    url: str,
+    *,
+    source: str,
+    params: Mapping[str, str | int] | None = None,
+    headers: Mapping[str, str] | None = None,
+) -> httpx.Response:
     try:
-        response = await client.get(url)
+        target = httpx.URL(url).copy_merge_params(params) if params else url
+        response = await client.get(target, headers=headers)
     except httpx.TimeoutException:
         raise SourceError(source, "request timed out") from None
     except httpx.TransportError:
@@ -51,9 +60,16 @@ async def get_text(client: httpx.AsyncClient, url: str, *, source: str) -> str:
     return response.text
 
 
-async def get_json(client: httpx.AsyncClient, url: str, *, source: str) -> object:
+async def get_json(
+    client: httpx.AsyncClient,
+    url: str,
+    *,
+    source: str,
+    params: Mapping[str, str | int] | None = None,
+    headers: Mapping[str, str] | None = None,
+) -> object:
     """GET a URL and return its decoded JSON body, or raise SourceError."""
-    response = await _get(client, url, source=source)
+    response = await _get(client, url, source=source, params=params, headers=headers)
     try:
         body: object = response.json()
     except json.JSONDecodeError:

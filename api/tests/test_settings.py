@@ -24,8 +24,11 @@
 # - Reads the team roster URL from an environment variable
 # - Leaves the team averages URL unset by default
 # - Reads the team averages URL from an environment variable
-# - Leaves the video channel feed URL unset by default
-# - Reads the video channel feed URL from an environment variable
+# - Leaves the highlights source URL unset by default
+# - Reads the highlights source URL from an environment variable
+# - Leaves the highlights source key unset by default
+# - Reads the highlights source key from exactly HIGHLIGHTS_SOURCE_KEY
+# - Never shows the highlights source key when printed
 # - Leaves the video thumbnail URL unset by default
 # - Reads the video thumbnail URL from an environment variable
 # - Leaves the video embed URL unset by default
@@ -44,7 +47,7 @@
 # - Reads the CORS origins as a JSON list
 #
 # What is covered:
-# - Happy path, value from the environment, value from a .env file, .env file location, invalid value, shared instance, optional scoreboard URL, optional game detail URL, required URL placeholders (missing, escaped, malformed, empty), optional player photo URL, optional team roster URL, optional team averages URL, optional video channel feed URL, video thumbnail URL, video embed URL and highlights search URL, daily fetch time (default, environment, invalid), input hidden from errors, data directory (default, environment, relative, empty), CORS origins (default, JSON list)
+# - Happy path, value from the environment, value from a .env file, .env file location, invalid value, shared instance, optional scoreboard URL, optional game detail URL, required URL placeholders (missing, escaped, malformed, empty), optional player photo URL, optional team roster URL, optional team averages URL, optional highlights source URL and key (unset, environment, hidden when printed), video thumbnail URL, video embed URL and highlights search URL, daily fetch time (default, environment, invalid), input hidden from errors, data directory (default, environment, relative, empty), CORS origins (default, JSON list)
 #
 # Run with: cd api && .venv/bin/python -m pytest tests/test_settings.py
 #
@@ -78,7 +81,8 @@ def clear_environment_variable(monkeypatch: pytest.MonkeyPatch) -> None:
             "team_roster_url",
             "team_averages_url",
             "player_averages_url",
-            "video_channel_feed_url",
+            "highlights_source_url",
+            "highlights_source_key",
             "video_thumbnail_url",
             "video_embed_url",
             "highlights_search_url",
@@ -294,16 +298,44 @@ def test_reads_the_player_averages_url_from_the_environment_variable(
     )
 
 
-def test_video_channel_feed_url_is_unset_when_no_variable_is_set() -> None:
-    assert SettingsWithoutEnvFile().video_channel_feed_url is None
+def test_highlights_source_url_is_unset_when_no_variable_is_set() -> None:
+    assert SettingsWithoutEnvFile().highlights_source_url is None
 
 
-def test_reads_the_video_channel_feed_url_from_the_environment_variable(
+def test_reads_the_highlights_source_url_from_the_environment_variable(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("VIDEO_CHANNEL_FEED_URL", "https://example.com/feed")
+    monkeypatch.setenv("HIGHLIGHTS_SOURCE_URL", "https://example.com/uploads")
 
-    assert SettingsWithoutEnvFile().video_channel_feed_url == "https://example.com/feed"
+    assert (
+        SettingsWithoutEnvFile().highlights_source_url == "https://example.com/uploads"
+    )
+
+
+def test_highlights_source_key_is_unset_when_no_variable_is_set() -> None:
+    assert SettingsWithoutEnvFile().highlights_source_key is None
+
+
+def test_reads_the_highlights_source_key_from_exactly_highlights_source_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("HIGHLIGHTS_SOURCE_KEY", "test-key-value")
+
+    key = SettingsWithoutEnvFile().highlights_source_key
+
+    assert key is not None
+    assert key.get_secret_value() == "test-key-value"
+
+
+def test_never_shows_the_highlights_source_key_when_printed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("HIGHLIGHTS_SOURCE_KEY", "test-key-value")
+    settings = SettingsWithoutEnvFile()
+
+    assert "test-key-value" not in repr(settings)
+    assert "test-key-value" not in str(settings)
+    assert "test-key-value" not in settings.model_dump_json()
 
 
 def test_video_thumbnail_url_is_unset_when_no_variable_is_set() -> None:

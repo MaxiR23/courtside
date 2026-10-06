@@ -1,0 +1,15 @@
+{
+  "nextPageToken": "page-2",
+  "items": [
+    {
+      "snippet": {
+        "publishedAt": "2026-10-05T06:00:00Z",
+        "channelTitle": "Example Channel",
+        "title": "JAZZ at NUGGETS | FULL GAME HIGHLIGHTS | October 4, 2026",
+        "resourceId": {
+          "videoId": "vid-other-game"
+        }
+      }
+    }
+  ]
+}

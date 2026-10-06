@@ -1,13 +1,15 @@
 # api/app/jobs/highlights.py
 #
-# Highlights job: for each final game, looks for its full game highlights on
-# the video channel 1, 2 and 3 hours after the final time (right away, 1 and 2
-# hours later for a game first seen final), never after the third attempt.
+# Highlights job: for each final game, looks up its full game highlights on
+# the video channel, one lookup per due game, 1, 2 and 3 hours after the final
+# time (right away, 1 and 2 hours later for a game first seen final), never
+# after the third attempt.
 # Matches are kept in the job state. The games job reads the
 # highlights through highlights_of and the search URL through search_url_of.
 #
 # SEE: docs/adr/0007-backend-runtime-and-data-pipeline.md,
-# docs/adr/0010-final-game-attempts.md
+# docs/adr/0010-final-game-attempts.md,
+# docs/adr/0015-highlights-source.md
 
 import datetime as dt
 import logging
@@ -38,7 +40,10 @@ FIRST_SEEN_ATTEMPT_DELAYS = (
 MAX_ATTEMPTS = len(ATTEMPT_DELAYS)
 
 FinalGames = Callable[[], Sequence[ScoreboardGame]]
-FetchVideos = Callable[[httpx.AsyncClient, Settings], Awaitable[list[ChannelVideo]]]
+LookupVideo = Callable[
+    [httpx.AsyncClient, ScoreboardGame, dt.date, Settings],
+    Awaitable[ChannelVideo | None],
+]
 
 logger = logging.getLogger(__name__)
 
@@ -53,13 +58,13 @@ class HighlightsJob:
         client: httpx.AsyncClient,
         *,
         final_games: FinalGames,
-        fetch_videos: FetchVideos = video_channel.fetch_videos,
+        lookup_video: LookupVideo = video_channel.lookup_video,
     ) -> None:
         self._settings = settings
         self._store = store
         self._client = client
         self._final_games = final_games
-        self._fetch_videos = fetch_videos
+        self._lookup_video = lookup_video
         self._highlights: dict[str, Highlight] = store.highlights()
 
     def _due(self, game: ScoreboardGame, now: dt.datetime) -> bool:
@@ -93,17 +98,17 @@ class HighlightsJob:
             g.id: self._store.record_highlight_attempt(g.id, eastern_date(g.start_time))
             for g in due
         }
-        try:
-            videos = await self._fetch_videos(self._client, self._settings)
-        except SourceError as error:
-            for game in due:
-                self._log_failed(game, numbers[game.id], str(error))
-            self._store.record_failure(JOB, now, str(error))
-            return
         failure: str | None = None
         for game in due:
             day = eastern_date(game.start_time)
-            video = video_channel.find_video(videos, game, day)
+            try:
+                video = await self._lookup_video(
+                    self._client, game, day, self._settings
+                )
+            except SourceError as error:
+                self._log_failed(game, numbers[game.id], str(error))
+                failure = str(error)
+                continue
             if video is None:
                 self._log_failed(game, numbers[game.id], "no video matched")
                 continue

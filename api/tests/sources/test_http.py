@@ -9,6 +9,8 @@
 # - Raises the source error on a timeout, a transport failure and an error status when reading text
 # - Keeps the status code of an error status on the error, and none for the other failures
 # - Keeps the request URL out of the error
+# - Sends the given query parameters and headers, keeping the query of the URL
+# - Keeps header values out of the error
 # - Creates a client with fixed timeouts
 #
 # What is covered:
@@ -159,3 +161,45 @@ async def test_does_not_leak_the_url_into_the_error() -> None:
 async def test_creates_a_client_with_fixed_timeouts() -> None:
     async with create_client() as client:
         assert client.timeout == TIMEOUT
+
+
+@pytest.mark.anyio
+async def test_sends_the_given_query_parameters_and_headers() -> None:
+    seen: list[httpx.Request] = []
+
+    def capture(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json={})
+
+    with respx.mock:
+        respx.get("https://example.com/list").mock(side_effect=capture)
+        async with create_client() as client:
+            await get_json(
+                client,
+                "https://example.com/list?a=1",
+                source="test",
+                params={"maxResults": 50},
+                headers={"X-Test-Key": "secret-value"},
+            )
+
+    assert seen[0].url.params["maxResults"] == "50"
+    assert seen[0].url.params["a"] == "1"
+    assert seen[0].headers["x-test-key"] == "secret-value"
+
+
+@pytest.mark.anyio
+async def test_does_not_leak_header_values_into_the_error() -> None:
+    with respx.mock:
+        respx.get("https://example.com/list").respond(
+            503, headers={"X-Test-Key": "secret-value"}
+        )
+        async with create_client() as client:
+            with pytest.raises(SourceError) as raised:
+                await get_json(
+                    client,
+                    "https://example.com/list",
+                    source="test",
+                    headers={"X-Test-Key": "secret-value"},
+                )
+
+    assert "secret-value" not in str(raised.value)
