@@ -14,11 +14,13 @@ description: >-
 PR). This skill does the two parts that need judgment: which files belong
 to the change, and the PR body.
 
-**Mutation posture.** Prepare fetches `origin`, switches from the session
-branch to the new `type/short-description` branch created at
-`origin/main`, fast-forwards local `main` to `origin/main` (never forcing,
-resetting or rewriting history), commits on the new branch and writes to
-`.claude/loop/`. Publish pushes and opens or updates
+**Mutation posture.** Prepare fetches `origin`. From `main` or from a
+session branch that is not a `type/short-description` branch, it switches
+to the new `type/short-description` branch created at `origin/main` and
+fast-forwards local `main` to `origin/main` (never forcing, resetting or
+rewriting history). When it already runs on a `type/short-description`
+branch, it neither switches branches nor fast-forwards local `main`. It
+commits on the working branch and writes to `.claude/loop/`. Publish pushes and opens or updates
 one PR, then removes the attribution footer. Then merges only through
 `scripts/merge.sh`.
 
