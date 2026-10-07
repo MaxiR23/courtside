@@ -13,6 +13,7 @@
 // - Shows final cards with spoiler-free mode on next to the rows with it off
 // - The hero toggle turns the mode on for the schedule
 // - Shows the game header in every status on both rows, the section tabs for each layout and every game page state
+// - Shows every live and final section for a live, a final and an overtime game
 // - Uses no external URL for images, players or links
 //
 // What is covered:
@@ -238,6 +239,32 @@ describe('component preview', () => {
 		const postponed = sectionOf('GamePage: postponed');
 		expect(postponed.querySelector('.status-tag')?.textContent).toBe('Postponed');
 		expect(postponed.querySelector('.tip-time')).toBeNull();
+	});
+
+	it('shows every live and final section for a live, a final and an overtime game', () => {
+		render(Preview);
+		const ids = (title: string) =>
+			[...sectionOf(title).querySelectorAll('.sections > section')].map((s) => s.id);
+		expect(ids('GamePage: live sections')).toEqual(['score', 'win-probability', 'box-score']);
+		expect(ids('GamePage: final sections')).toEqual([
+			'highlights',
+			'score',
+			'win-probability',
+			'box-score'
+		]);
+		expect(ids('GamePage: overtime sections')).toEqual(['score', 'win-probability', 'box-score']);
+		const overtime = sectionOf('GamePage: overtime sections');
+		const header = [...(overtime.querySelector('.line.head')?.children ?? [])].map(
+			(c) => c.textContent
+		);
+		expect(header).toContain('OT1');
+		expect(header).toContain('OT2');
+		expect(overtime.querySelector('.win-probability svg')?.getAttribute('viewBox')).toBe(
+			'0 0 1000 200'
+		);
+		expect(sectionOf('GamePage: final sections').querySelector('.meta.emphasis')?.textContent).toBe(
+			'GSW win'
+		);
 	});
 
 	it('uses no external URL for images, players or links', async () => {

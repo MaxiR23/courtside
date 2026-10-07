@@ -7,6 +7,7 @@
 // - A dash for quarters not played yet in a live game
 // - An OT column for one overtime, and 2OT for a second
 // - The header in Spanish with a Spanish browser preference
+// - Detail mode: OT1 and OT2 labels, and the team name next to the code
 //
 // What is covered:
 // - Regulation, live and overtime games, plus Spanish
@@ -82,5 +83,29 @@ describe('LineScore', () => {
 			}
 		});
 		expect(rows(container)[0]).toEqual(['Equipo', '1', '2', '3', '4', 'PR', 'T']);
+	});
+
+	it('labels overtime columns OT1 and OT2 on the detail page', () => {
+		const { container } = render(LineScore, {
+			props: {
+				detail: true,
+				away: { code: 'GSW', periods: [1, 2, 3, 4, 5, 6], total: 21 },
+				home: { code: 'LAL', periods: [1, 2, 3, 4, 6, 7], total: 23 }
+			}
+		});
+		expect(rows(container)[0]).toEqual(['Team', '1', '2', '3', '4', 'OT1', 'OT2', 'T']);
+	});
+
+	it('shows the team name next to the code on the detail page', () => {
+		const { container } = render(LineScore, {
+			props: {
+				detail: true,
+				away: { code: 'GSW', name: 'Warriors', periods: [28], total: 28 },
+				home: { code: 'LAL', name: 'Lakers', periods: [25], total: 25 }
+			}
+		});
+		const names = [...container.querySelectorAll('.team-name')].map((e) => e.textContent);
+		expect(names).toEqual(['Warriors', 'Lakers']);
+		expect(container.querySelector('.line-score')?.classList.contains('detail')).toBe(true);
 	});
 });

@@ -11,6 +11,7 @@
 // - A single video renders one card
 // - The grid uses at most two auto-fill columns of the column minimum
 // - Only the URLs and platform name received as props are rendered
+// - Detail mode: no kicker of its own, and videos play in place as on the home
 //
 // What is covered:
 // - All states (one video, several videos, pending), playing and not playing,
@@ -194,5 +195,25 @@ describe('Highlights grid', () => {
 		expect(block).toContain('var(--highlight-column-min)');
 		expect(block).toContain('(100% - var(--game-list-gap)) / 2');
 		expect(block).not.toContain('auto-fit');
+	});
+});
+
+describe('Highlights detail mode', () => {
+	it('does not show its own kicker on the detail page', () => {
+		const { container } = render(Highlights, { props: { ...props, detail: true } });
+		expect(container.querySelector('.kicker')).toBeNull();
+		expect(container.querySelector('.platform')).toBeNull();
+		expect(container.querySelectorAll('ul.grid > li')).toHaveLength(2);
+	});
+
+	it('plays a video in place on the detail page as on the home', async () => {
+		const onPlay = vi.fn();
+		const { container, rerender } = render(Highlights, {
+			props: { ...props, detail: true, onPlay }
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Play First clip' }));
+		expect(onPlay).toHaveBeenCalledWith('v1');
+		await rerender({ ...props, detail: true, onPlay, playingId: 'v1' });
+		expect(container.querySelector('iframe')?.getAttribute('src')).toBe('/embed/1');
 	});
 });
