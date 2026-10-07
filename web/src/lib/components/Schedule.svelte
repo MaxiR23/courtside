@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { ResolvedPathname } from '$app/types';
 	import DayStrip from '#lib/components/DayStrip.svelte';
 	import GameCard from '#lib/components/GameCard.svelte';
 	import Kicker from '#lib/components/Kicker.svelte';
@@ -16,6 +17,7 @@
 		selected?: number; // $bindable, default 3 (today)
 		openId?: string | null; // $bindable, the id of the open card, so the page can open one
 		spoilerFree?: boolean; // hides final scores until a card is opened
+		gameHref: (id: string) => ResolvedPathname; // the detail page of a game
 	};
 
 	let {
@@ -23,7 +25,8 @@
 		updatedMinutesAgo,
 		selected = $bindable(3),
 		openId = $bindable(null),
-		spoilerFree = false
+		spoilerFree = false,
+		gameHref
 	}: Props = $props();
 
 	const wide = wideViewport();
@@ -86,6 +89,7 @@
 								onToggle={() => toggle(game.id)}
 								playingVideoId={openId === game.id ? playingId : null}
 								onPlay={(videoId) => (playingId = videoId)}
+								detailHref={gameHref(game.id)}
 							/>
 						</li>
 					{/each}

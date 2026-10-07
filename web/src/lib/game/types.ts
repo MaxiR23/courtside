@@ -1,6 +1,6 @@
 // Props of the game detail page. Components get pre-formatted strings and never a contract type.
 import type { Side } from '#lib/schedule/stats.ts';
-import type { GameHighlights, TeamStatLine } from '#lib/schedule/types.ts';
+import type { GameHighlights, PanelPlayer, TeamStatLine } from '#lib/schedule/types.ts';
 
 export type GameLayout = 'pre-game' | 'live' | 'final';
 
@@ -123,11 +123,68 @@ export type BoxScoreTeam = {
 };
 export type BoxScoreSection = { away: BoxScoreTeam; home: BoxScoreTeam };
 
+export type StarCard = PanelPlayer & { teamName: string }; // teamName: "Golden State Warriors"
+export type PlayersSection = { away: StarCard; home: StarCard };
+
+export type InjuryTagStatus = 'out' | 'doubtful' | 'questionable' | 'probable' | 'day-to-day';
+export type InjuryRow = { name: string; status: InjuryTagStatus; comment: string | null }; // comment as given
+export type InjuryTeam = { code: string; name: string; injuries: InjuryRow[] }; // empty: none reported
+export type InjuriesSection = { away: InjuryTeam; home: InjuryTeam };
+
+export type LastGameRow = {
+	result: 'win' | 'loss';
+	resultLabel: string; // "W", translated
+	date: string; // "Oct 5"
+	opponent: string; // "vs DEN" or "@ DEN"
+	score: string; // "118–104", the team's points first
+};
+export type LastGamesTeam = {
+	code: string;
+	name: string;
+	strip: { result: 'win' | 'loss'; label: string }[]; // oldest to newest
+	rows: LastGameRow[]; // newest first, as the feed sends them
+};
+export type LastGamesSection = { away: LastGamesTeam; home: LastGamesTeam };
+
+export type StandingRow = {
+	code: string;
+	name: string;
+	conference: string; // "3rd West"
+	record: string; // "12–5"
+	home: string;
+	away: string;
+	lastTen: string;
+};
+export type StandingsSection = { away: StandingRow; home: StandingRow };
+
+export type SeriesRow = {
+	date: string; // "Jan 10"
+	awayCode: string;
+	awayPoints: number;
+	homePoints: number;
+	homeCode: string;
+	arena: string;
+};
+export type SeasonSeriesSection = {
+	summary: string; // "OKC lead 2–1", "Series tied 1–1" or "First meeting"
+	meta: string; // "2 of 4 games played"
+	games: SeriesRow[]; // feed order
+};
+
+export type VideoLink = { title: string; duration: string; thumbnail: string | null; href: string };
+export type VideosSection = VideoLink[];
+
 export type GameSections = {
 	highlights: GameHighlights | null;
+	players: PlayersSection | null;
 	score: ScoreSection | null;
 	winProbability: WinProbabilitySection | null;
 	boxScore: BoxScoreSection | null;
+	injuries: InjuriesSection | null;
+	lastGames: LastGamesSection | null;
+	standings: StandingsSection | null;
+	seasonSeries: SeasonSeriesSection | null;
+	videos: VideosSection | null;
 };
 
 export type GameView = {

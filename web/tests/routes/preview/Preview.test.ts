@@ -13,7 +13,7 @@
 // - Shows final cards with spoiler-free mode on next to the rows with it off
 // - The hero toggle turns the mode on for the schedule
 // - Shows the game header in every status on both rows, the section tabs for each layout and every game page state
-// - Shows every live and final section for a live, a final and an overtime game
+// - Shows every pre-game, live and final section for a pre-game, a live, a final and an overtime game, and the standalone videos and first meeting samples
 // - Uses no external URL for images, players or links
 //
 // What is covered:
@@ -245,12 +245,27 @@ describe('component preview', () => {
 		render(Preview);
 		const ids = (title: string) =>
 			[...sectionOf(title).querySelectorAll('.sections > section')].map((s) => s.id);
-		expect(ids('GamePage: live sections')).toEqual(['score', 'win-probability', 'box-score']);
+		expect(ids('GamePage: pre-game sections')).toEqual([
+			'players',
+			'injuries',
+			'last-games',
+			'standings',
+			'season-series'
+		]);
+		expect(ids('GamePage: live sections')).toEqual([
+			'score',
+			'win-probability',
+			'box-score',
+			'injuries'
+		]);
 		expect(ids('GamePage: final sections')).toEqual([
 			'highlights',
 			'score',
 			'win-probability',
-			'box-score'
+			'box-score',
+			'injuries',
+			'season-series',
+			'videos'
 		]);
 		expect(ids('GamePage: overtime sections')).toEqual(['score', 'win-probability', 'box-score']);
 		const overtime = sectionOf('GamePage: overtime sections');
@@ -265,6 +280,14 @@ describe('component preview', () => {
 		expect(sectionOf('GamePage: final sections').querySelector('.meta.emphasis')?.textContent).toBe(
 			'GSW win'
 		);
+	});
+
+	it('shows the standalone mobile videos and the first meeting series', () => {
+		render(Preview);
+		expect(sectionOf('GameVideos: mobile').querySelector('ul.mobile')).not.toBeNull();
+		const first = sectionOf('SeasonSeries: first meeting');
+		expect(within(first).getByText('First meeting')).toBeTruthy();
+		expect(first.querySelectorAll('.game')).toHaveLength(0);
 	});
 
 	it('uses no external URL for images, players or links', async () => {

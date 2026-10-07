@@ -95,5 +95,49 @@
 	"box_blocks": "BLK",
 	"box_fouls": "PF",
 	"box_plus_minus": "+/-",
-	"box_team_toggle": "Team"
+	"box_team_toggle": "Team",
+	"game_center": "Game center",
+	"game_section_players_to_watch": "Players to watch",
+	"game_section_last_games": "Last 5 games",
+	"game_last_games_empty": "No games played yet.",
+	"injury_status_out": "Out",
+	"injury_status_doubtful": "Doubtful",
+	"injury_status_questionable": "Questionable",
+	"injury_status_probable": "Probable",
+	"injury_status_day_to_day": "Day-to-day",
+	"game_injuries_meta": "Injury report",
+	"game_injuries_none": "No injuries reported.",
+	"game_last_game_win": "W",
+	"game_last_game_loss": "L",
+	"game_last_game_home": "vs {team}",
+	"game_last_game_away": "@ {team}",
+	"game_standings_team": "Team",
+	"game_standings_conference": "Conference",
+	"game_standings_record": "Record",
+	"game_standings_home": "Home",
+	"game_standings_away": "Away",
+	"game_standings_last_ten": "Last 10",
+	"game_conference_east": "East",
+	"game_conference_west": "West",
+	"game_series_lead": "{team} lead {leading}–{trailing}",
+	"game_series_tied": "Series tied {wins}–{wins}",
+	"game_series_first_meeting": "First meeting",
+	"game_series_played": "{played} of {total} games played",
+	"game_videos_meta": "Opens in a new tab",
+	"game_standings_rank": [
+		{
+			"declarations": [
+				"input rank",
+				"input conference",
+				"local rankOrdinal = rank: plural type=ordinal"
+			],
+			"selectors": ["rankOrdinal"],
+			"match": {
+				"rankOrdinal=one": "{rank}st {conference}",
+				"rankOrdinal=two": "{rank}nd {conference}",
+				"rankOrdinal=few": "{rank}rd {conference}",
+				"rankOrdinal=other": "{rank}th {conference}"
+			}
+		}
+	]
 }

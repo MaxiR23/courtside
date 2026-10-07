@@ -5,6 +5,7 @@
 // Tested:
 // - Shows Tonight, Live now, Final, Delayed, Postponed or Canceled for each status
 // - Shows Esta noche, En vivo or Final with a Spanish browser preference
+// - The injury variant: five labels with a tone class, in English and Spanish
 //
 // What is covered:
 // - Every status, in English and in Spanish
@@ -78,5 +79,29 @@ describe('StatusTag with a Spanish browser preference', () => {
 		preferLanguages(['es-ES']);
 		render(StatusTag, { props: { status } });
 		expect(screen.getByText(label)).toBeTruthy();
+	});
+});
+
+describe('StatusTag injury variant', () => {
+	const statuses = [
+		['out', 'Out', 'Fuera'],
+		['doubtful', 'Doubtful', 'Dudoso'],
+		['questionable', 'Questionable', 'En duda'],
+		['probable', 'Probable', 'Probable'],
+		['day-to-day', 'Day-to-day', 'Día a día']
+	] as const;
+
+	it.each(statuses)('shows %s as %s with its tone class', (injury, label) => {
+		const { container } = render(StatusTag, { props: { injury } });
+		const tag = container.querySelector('.status-tag');
+		expect(tag?.textContent).toBe(label);
+		expect(tag?.classList.contains('injury')).toBe(true);
+		expect(tag?.classList.contains(injury)).toBe(true);
+	});
+
+	it.each(statuses)('shows %s in Spanish as %s', (injury, _label, spanish) => {
+		preferLanguages(['es-ES']);
+		render(StatusTag, { props: { injury } });
+		expect(screen.getByText(spanish)).toBeTruthy();
 	});
 });

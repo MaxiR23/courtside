@@ -7,6 +7,7 @@
 // - Draws four registration marks, hidden from assistive technology
 // - Is a block frame by default and shrink-wraps its content when inline
 // - Has the active border when active, and not by default
+// - Turns the border accent on hover only when hoverable
 //
 // What is covered:
 // - Its only state
@@ -20,9 +21,14 @@ import { describe, expect, it } from 'vitest';
 
 import BlueprintFrame from '../../../src/lib/components/BlueprintFrame.svelte';
 
-function renderFrame(inline?: boolean, active?: boolean) {
+function renderFrame(inline?: boolean, active?: boolean, hoverable?: boolean) {
 	return render(BlueprintFrame, {
-		props: { inline, active, children: createRawSnippet(() => ({ render: () => '<p>Inside</p>' })) }
+		props: {
+			inline,
+			active,
+			hoverable,
+			children: createRawSnippet(() => ({ render: () => '<p>Inside</p>' }))
+		}
 	});
 }
 
@@ -66,5 +72,17 @@ describe('BlueprintFrame', () => {
 	it('has the active border when active', () => {
 		const { container } = renderFrame(false, true);
 		expect(container.querySelector('.blueprint-frame')?.classList.contains('active')).toBe(true);
+	});
+
+	it('is not hoverable by default and is when asked', () => {
+		const { container, unmount } = renderFrame();
+		expect(container.querySelector('.blueprint-frame')?.classList.contains('hoverable')).toBe(
+			false
+		);
+		unmount();
+		const hover = renderFrame(false, false, true);
+		expect(hover.container.querySelector('.blueprint-frame')?.classList.contains('hoverable')).toBe(
+			true
+		);
 	});
 });

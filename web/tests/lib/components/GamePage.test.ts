@@ -7,8 +7,8 @@
 // - Feed unavailable: the nav row and the data unavailable row
 // - Unknown game: the nav row and "Game not found." with a link to all games
 // - Ready: the header and the tabs; a postponed game in the pre-game layout with its status tag
-// - Ready: each live and final section in the design order with its tab id as anchor, none when null
-// - The section metas: the platform for highlights, the leader for win probability
+// - Ready: each section in the design order with its tab id as anchor, none when null
+// - The section metas: the platform for highlights, the leader for win probability, the injury report, the series count, the new tab
 // - The footer in every state
 // - The not-found row in Spanish with a Spanish browser preference
 //
@@ -49,7 +49,18 @@ const view: GameView = {
 		{ id: 'injuries', label: 'Injuries' }
 	],
 	miniScore: { awayCode: 'LAL', away: 63, home: 62, homeCode: 'GSW' },
-	sections: { highlights: null, score: null, winProbability: null, boxScore: null }
+	sections: {
+		highlights: null,
+		players: null,
+		score: null,
+		winProbability: null,
+		boxScore: null,
+		injuries: null,
+		lastGames: null,
+		standings: null,
+		seasonSeries: null,
+		videos: null
+	}
 };
 
 const postponed: GameView = {
@@ -68,7 +79,18 @@ const postponed: GameView = {
 	},
 	tabs: [],
 	miniScore: null,
-	sections: { highlights: null, score: null, winProbability: null, boxScore: null }
+	sections: {
+		highlights: null,
+		players: null,
+		score: null,
+		winProbability: null,
+		boxScore: null,
+		injuries: null,
+		lastGames: null,
+		standings: null,
+		seasonSeries: null,
+		videos: null
+	}
 };
 
 const row: BoxRow = {
@@ -109,7 +131,61 @@ const totals = {
 };
 const stat = { fieldGoalPct: 0.5, threePointPct: 0.35, rebounds: 30, assists: 18, turnovers: 9 };
 const detailStat = { ...stat, freeThrowPct: 0.8, steals: 5, blocks: 3 };
+const awayStar = { firstName: 'Stephen', lastName: 'Curry', teamCode: 'LAL', photo: '/a.svg' };
+const homeStar = { firstName: 'Anthony', lastName: 'Davis', teamCode: 'GSW', photo: '/h.svg' };
+const lastTeam = (code: string, name: string) => ({
+	code,
+	name,
+	strip: [{ result: 'win' as const, label: 'W' }],
+	rows: [
+		{
+			result: 'win' as const,
+			resultLabel: 'W',
+			date: 'Oct 5',
+			opponent: 'vs DEN',
+			score: '118–104'
+		}
+	]
+});
+const standing = (code: string, name: string) => ({
+	code,
+	name,
+	conference: '3rd West',
+	record: '12–5',
+	home: '7–2',
+	away: '5–3',
+	lastTen: '7–3'
+});
 const full: GameSections = {
+	players: {
+		away: { ...awayStar, teamName: 'Los Angeles Lakers' },
+		home: { ...homeStar, teamName: 'Golden State Warriors' }
+	},
+	injuries: {
+		away: {
+			code: 'LAL',
+			name: 'Lakers',
+			injuries: [{ name: 'A B', status: 'out', comment: null }]
+		},
+		home: { code: 'GSW', name: 'Warriors', injuries: [] }
+	},
+	lastGames: { away: lastTeam('LAL', 'Lakers'), home: lastTeam('GSW', 'Warriors') },
+	standings: { away: standing('LAL', 'Lakers'), home: standing('GSW', 'Warriors') },
+	seasonSeries: {
+		summary: 'LAL lead 1–0',
+		meta: '1 of 3 games played',
+		games: [
+			{
+				date: 'Jan 10',
+				awayCode: 'LAL',
+				awayPoints: 110,
+				homePoints: 100,
+				homeCode: 'GSW',
+				arena: 'Arena'
+			}
+		]
+	},
+	videos: [{ title: 'Recap', duration: '2:14', thumbnail: null, href: '/video' }],
 	highlights: {
 		platform: 'Video platform',
 		searchUrl: '/search',
@@ -204,22 +280,44 @@ describe('GamePage', () => {
 		const sections = [...container.querySelectorAll('.sections > section')];
 		expect(sections.map((s) => s.id)).toEqual([
 			'highlights',
+			'players',
 			'score',
 			'win-probability',
-			'box-score'
+			'box-score',
+			'injuries',
+			'last-games',
+			'standings',
+			'season-series',
+			'videos'
 		]);
 		expect(sections.map((s) => s.querySelector('h2')?.textContent)).toEqual([
 			'Highlights',
+			'Players to watch',
 			'Score',
 			'Win probability',
-			'Box score'
+			'Box score',
+			'Injuries',
+			'Last 5 games',
+			'Standings',
+			'Season series',
+			'Videos'
 		]);
 	});
 
 	it('renders no section whose data is null', () => {
 		const { container } = show({
 			kind: 'ready',
-			view: withSections({ ...full, highlights: null, boxScore: null })
+			view: withSections({
+				...full,
+				highlights: null,
+				boxScore: null,
+				players: null,
+				injuries: null,
+				lastGames: null,
+				standings: null,
+				seasonSeries: null,
+				videos: null
+			})
 		});
 		expect([...container.querySelectorAll('.sections > section')].map((s) => s.id)).toEqual([
 			'score',
@@ -234,6 +332,17 @@ describe('GamePage', () => {
 		expect(container.querySelector('#highlights .meta')?.textContent).toBe('Video platform');
 		expect(container.querySelector('#win-probability .meta')?.textContent).toBe('GSW 68%');
 		expect(container.querySelector('#score .meta')).toBeNull();
+	});
+
+	it('shows the injury report, the series count and the new tab note as section metas', () => {
+		const { container } = show({ kind: 'ready', view: withSections(full) });
+		expect(container.querySelector('#injuries .meta')?.textContent).toBe('Injury report');
+		expect(container.querySelector('#season-series .meta')?.textContent).toBe(
+			'1 of 3 games played'
+		);
+		expect(container.querySelector('#videos .meta')?.textContent).toBe('Opens in a new tab');
+		expect(container.querySelector('#players .meta')).toBeNull();
+		expect(container.querySelector('#standings .meta')).toBeNull();
 	});
 
 	it('shows a postponed game in the pre-game layout with its status tag', () => {

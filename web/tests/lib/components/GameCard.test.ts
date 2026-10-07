@@ -14,6 +14,7 @@
 // - Delayed, postponed and canceled games: status line only, no score, no tip time, no toggle
 // - A scheduled game with no known network
 // - Spoiler-free mode: final cards that can expand hide the score and the dimming until open
+// - The Game center link on open live, final, final without stats and scheduled cards, after the stats, notice or players to watch; none without detailHref or on a card that cannot expand; Spanish copy
 //
 // What is covered:
 // - Each card state on each row layout
@@ -21,6 +22,7 @@
 // Run with: cd web && pnpm exec vitest run tests/lib/components/GameCard.test.ts
 //
 // SEE: web/src/lib/components/GameCard.svelte
+import type { ResolvedPathname } from '$app/types';
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -517,6 +519,57 @@ describe('GameCard', () => {
 			});
 			expect(row(container).textContent).toContain('Toca para ver');
 		});
+	});
+});
+
+describe('GameCard game center link', () => {
+	const href = '/game/abc' as ResolvedPathname;
+	const cases = [
+		['live', liveWithDetails, '.team-stats'],
+		['final', finalWithDetails, '.team-stats'],
+		['final without stats', withoutStats('pending'), '.stats-notice'],
+		['scheduled', scheduledWithDetails, '.watch']
+	] as const;
+
+	it.each(cases)(
+		'links an open %s card to its detail page, after its last block',
+		(_n, game, before) => {
+			const { container } = render(GameCard, {
+				props: { game, layout: 'desktop', open: true, detailHref: href }
+			});
+			const link = screen.getByRole('link', { name: 'Game center' });
+			expect(link.getAttribute('href')).toBe('/game/abc');
+			expect(link.getAttribute('target')).toBeNull();
+			const previous = container.querySelector(before) as Element;
+			expect(
+				previous.compareDocumentPosition(link) & Node.DOCUMENT_POSITION_FOLLOWING
+			).toBeTruthy();
+			expect(link.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true');
+		}
+	);
+
+	it('shows no link without a detailHref', () => {
+		render(GameCard, { props: { game: finalWithDetails, layout: 'desktop', open: true } });
+		expect(screen.queryByRole('link', { name: 'Game center' })).toBeNull();
+	});
+
+	it('shows no link on a delayed card, which does not expand', () => {
+		render(GameCard, {
+			props: {
+				game: { id: 'd', away, home, status: { state: 'delayed' } },
+				layout: 'desktop',
+				detailHref: href
+			}
+		});
+		expect(screen.queryByRole('link', { name: 'Game center' })).toBeNull();
+	});
+
+	it('shows the link in Spanish with a Spanish preference', () => {
+		preferLanguages(['es-ES']);
+		render(GameCard, {
+			props: { game: finalWithDetails, layout: 'desktop', open: true, detailHref: href }
+		});
+		expect(screen.getByRole('link', { name: 'Centro del partido' })).toBeTruthy();
 	});
 });
 

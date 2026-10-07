@@ -151,6 +151,16 @@ describe('home page with a feed', () => {
 		expect(within(final).getByText('Full game highlights')).toBeTruthy();
 	});
 
+	it('links an expanded played game to its detail page', async () => {
+		stubFetch(answerWith(recorded()));
+		const { container } = await renderPage();
+		const final = card(container, 'g-final');
+		await fireEvent.click(final.querySelector('button.toggle') as HTMLElement);
+		expect(within(final).getByRole('link', { name: 'Game center' }).getAttribute('href')).toBe(
+			'/game/g-final'
+		);
+	});
+
 	it('leaves the highlights out when no video platform is configured', async () => {
 		config.platform = undefined;
 		stubFetch(answerWith(recorded()));

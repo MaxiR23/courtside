@@ -2,8 +2,13 @@ import type {
 	BoxScore,
 	BoxScorePlayer,
 	BoxScoreTotals,
+	Conference,
 	DetailTeam,
-	GameDetailFeed
+	GameDetailFeed,
+	LastGame,
+	Record as FeedRecord,
+	SeriesGame,
+	Star
 } from '#lib/contract/game-detail.ts';
 import { formatDate, formatNumber } from '#lib/format/locale.ts';
 import { tipParts, video } from '#lib/feed/props.ts';
@@ -19,15 +24,27 @@ import type {
 	GameView,
 	HeaderTeam,
 	InfoCell,
+	InjuriesSection,
+	InjuryTeam,
+	LastGameRow,
+	LastGamesSection,
+	LastGamesTeam,
 	LineScoreTeam,
 	MiniScore,
+	PlayersSection,
 	ScoreSection,
 	ScoreboardCenter,
+	SeasonSeriesSection,
 	SectionId,
 	SectionTab,
+	SeriesRow,
+	StandingRow,
+	StandingsSection,
+	StarCard,
 	StatLeads,
 	StatusLine,
 	VenueStrip,
+	VideosSection,
 	WinProbabilitySection
 } from '#lib/game/types.ts';
 import { m } from '#lib/paraglide/messages.js';
@@ -88,12 +105,16 @@ function statusLine(feed: GameDetailFeed): StatusLine {
 	}
 }
 
+function record(r: FeedRecord): string {
+	return `${formatNumber(r.wins)}–${formatNumber(r.losses)}`;
+}
+
 function headerTeam(team: DetailTeam): HeaderTeam {
 	return {
 		code: team.code,
 		name: team.name,
 		city: team.city,
-		record: `${formatNumber(team.record.wins)}–${formatNumber(team.record.losses)}`
+		record: record(team.record)
 	};
 }
 
@@ -188,7 +209,10 @@ function hasData(feed: GameDetailFeed, id: SectionId, options: Options): boolean
 		case 'injuries':
 			return feed.injuries !== null;
 		case 'last-games':
-			return feed.lastGames !== null;
+			return (
+				feed.lastGames !== null &&
+				(feed.lastGames.away.length > 0 || feed.lastGames.home.length > 0)
+			);
 		case 'standings':
 			return feed.standings !== null;
 		case 'season-series':
@@ -332,6 +356,149 @@ function boxScoreSection(feed: GameDetailFeed): BoxScoreSection {
 	return { away: boxTeam(feed.away, box.away), home: boxTeam(feed.home, box.home) };
 }
 
+// A contract date has no time: "2026-10-05" is UTC midnight, so it is formatted in UTC to keep the day.
+function feedDate(date: string, options: Intl.DateTimeFormatOptions): string {
+	return formatDate(new Date(date), { ...options, timeZone: 'UTC' });
+}
+
+const rowDate = (date: string) => feedDate(date, { month: 'short', day: 'numeric' });
+
+function starCard(star: Star, team: DetailTeam): StarCard {
+	return {
+		firstName: star.firstName,
+		lastName: star.lastName,
+		teamCode: star.teamCode,
+		photo: star.photoUrl,
+		teamName: `${team.city} ${team.name}`
+	};
+}
+
+function playersSection(feed: GameDetailFeed): PlayersSection {
+	const stars = required(feed.stars);
+	return { away: starCard(stars.away, feed.away), home: starCard(stars.home, feed.home) };
+}
+
+function injuryTeam(
+	team: DetailTeam,
+	list: NonNullable<GameDetailFeed['injuries']>['away']
+): InjuryTeam {
+	return {
+		code: team.code,
+		name: team.name,
+		injuries: list.map((i) => ({ name: i.displayName, status: i.status, comment: i.comment }))
+	};
+}
+
+function injuriesSection(feed: GameDetailFeed): InjuriesSection {
+	const injuries = required(feed.injuries);
+	return {
+		away: injuryTeam(feed.away, injuries.away),
+		home: injuryTeam(feed.home, injuries.home)
+	};
+}
+
+function lastGameRow(game: LastGame): LastGameRow {
+	const team = game.opponent;
+	return {
+		result: game.result,
+		resultLabel: game.result === 'win' ? m.game_last_game_win() : m.game_last_game_loss(),
+		date: rowDate(game.date),
+		opponent: game.isHome ? m.game_last_game_home({ team }) : m.game_last_game_away({ team }),
+		score: `${formatNumber(game.teamScore)}–${formatNumber(game.opponentScore)}`
+	};
+}
+
+function lastGamesTeam(team: DetailTeam, games: readonly LastGame[]): LastGamesTeam {
+	const rows = games.map(lastGameRow);
+	return {
+		code: team.code,
+		name: team.name,
+		strip: rows.map((row) => ({ result: row.result, label: row.resultLabel })).reverse(),
+		rows
+	};
+}
+
+function lastGamesSection(feed: GameDetailFeed): LastGamesSection {
+	const lastGames = required(feed.lastGames);
+	return {
+		away: lastGamesTeam(feed.away, lastGames.away),
+		home: lastGamesTeam(feed.home, lastGames.home)
+	};
+}
+
+const CONFERENCE_LABELS: Record<Conference, () => string> = {
+	east: m.game_conference_east,
+	west: m.game_conference_west
+};
+
+function standingRow(
+	team: DetailTeam,
+	standing: NonNullable<GameDetailFeed['standings']>['away']
+): StandingRow {
+	return {
+		code: team.code,
+		name: team.name,
+		conference: m.game_standings_rank({
+			rank: standing.conferenceRank,
+			conference: CONFERENCE_LABELS[standing.conference]()
+		}),
+		record: record(standing.record),
+		home: record(standing.homeRecord),
+		away: record(standing.awayRecord),
+		lastTen: record(standing.lastTen)
+	};
+}
+
+function standingsSection(feed: GameDetailFeed): StandingsSection {
+	const standings = required(feed.standings);
+	return {
+		away: standingRow(feed.away, standings.away),
+		home: standingRow(feed.home, standings.home)
+	};
+}
+
+function seriesRow(game: SeriesGame): SeriesRow {
+	return {
+		date: rowDate(game.date),
+		awayCode: game.away,
+		awayPoints: game.score.away,
+		homePoints: game.score.home,
+		homeCode: game.home,
+		arena: game.arena
+	};
+}
+
+// An empty list is a first meeting. The leader compares the two win counts the feed sends.
+function seriesSummary(feed: GameDetailFeed, awayWins: number, homeWins: number, played: number) {
+	if (played === 0) return m.game_series_first_meeting();
+	if (awayWins === homeWins) return m.game_series_tied({ wins: formatNumber(awayWins) });
+	const awayLeads = awayWins > homeWins;
+	return m.game_series_lead({
+		team: awayLeads ? feed.away.code : feed.home.code,
+		leading: formatNumber(Math.max(awayWins, homeWins)),
+		trailing: formatNumber(Math.min(awayWins, homeWins))
+	});
+}
+
+function seasonSeriesSection(feed: GameDetailFeed): SeasonSeriesSection {
+	const series = required(feed.seasonSeries);
+	const played = series.games.length;
+	return {
+		summary: seriesSummary(feed, series.awayWins, series.homeWins, played),
+		meta: m.game_series_played({ played, total: series.totalGames }),
+		games: series.games.map(seriesRow)
+	};
+}
+
+function videosSection(feed: GameDetailFeed): VideosSection {
+	return required(feed.videos).map((v) => ({
+		title: v.title,
+		duration: v.duration,
+		thumbnail: v.thumbnailUrl,
+		href: v.linkUrl
+	}));
+}
+
 // A section's props exist only when its tab is shown, so a section hides together with its tab.
 function sections(feed: GameDetailFeed, shown: SectionTab[], options: Options): GameSections {
 	const has = (id: SectionId) => shown.some((tab) => tab.id === id);
@@ -344,9 +511,15 @@ function sections(feed: GameDetailFeed, shown: SectionTab[], options: Options): 
 						videos: feed.highlights.map(video)
 					}
 				: null,
+		players: has('players') ? playersSection(feed) : null,
 		score: has('score') ? scoreSection(feed) : null,
 		winProbability: has('win-probability') ? winProbabilitySection(feed) : null,
-		boxScore: has('box-score') ? boxScoreSection(feed) : null
+		boxScore: has('box-score') ? boxScoreSection(feed) : null,
+		injuries: has('injuries') ? injuriesSection(feed) : null,
+		lastGames: has('last-games') ? lastGamesSection(feed) : null,
+		standings: has('standings') ? standingsSection(feed) : null,
+		seasonSeries: has('season-series') ? seasonSeriesSection(feed) : null,
+		videos: has('videos') ? videosSection(feed) : null
 	};
 }
 
