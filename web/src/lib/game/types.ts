@@ -36,7 +36,7 @@ export type InfoCell = {
 export type VenueStrip = {
 	arena: string;
 	city: string | null; // no city: the arena name alone
-	photo: string | null; // no photo: the bare grid
+	photo: string | null; // no photo: the grid with the arena name
 	cells: InfoCell[];
 };
 

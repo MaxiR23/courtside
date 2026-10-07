@@ -8,8 +8,8 @@
 // - The desktop row in every status: scheduled, delayed, postponed, canceled, live and final
 // - The loser dimmed on a final game, on the block and on the score
 // - The mobile rows: two team rows with "city · record" and the score; the time row before a game
-// - The venue strip: the arena photo with its name over it, the bare grid without a photo; without a city, the arena name
-//   alone in the caption and no sub-line under the Venue cell
+// - The venue strip in three states: the photo with its gradient, no photo, and a photo that fails to load (the grid with
+//   the arena name and city); without a city, the arena name alone in the caption and no sub-line under the Venue cell
 // - Each team name in full, in its own level 1 heading
 //
 // What is covered:
@@ -20,7 +20,7 @@
 //
 // SEE: web/src/lib/components/GameHeader.svelte
 import type { ResolvedPathname } from '$app/types';
-import { render, screen } from '@testing-library/svelte';
+import { fireEvent, render, screen } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
 
 import GameHeader from '../../../src/lib/components/GameHeader.svelte';
@@ -211,19 +211,57 @@ describe('GameHeader', () => {
 		expect(container.querySelector('.points')).toBeNull();
 	});
 
-	it('shows the arena photo with its name over it, and the bare grid without a photo', () => {
-		const { container, unmount } = show(scheduled);
+	it('shows the arena photo with the gradient and its name and city over it', () => {
+		const { container } = show(scheduled);
 		const img = container.querySelector('.photo-box img');
 		expect(img?.getAttribute('src')).toBe('/highlight-1.svg');
 		expect(img?.getAttribute('alt')).toBe('');
+		expect(container.querySelector('.photo-box .fade')).not.toBeNull();
 		expect(container.querySelector('.caption .arena')?.textContent).toBe('Chase Center');
 		expect(container.querySelector('.caption .arena-city')?.textContent).toBe('San Francisco');
 		expect(container.querySelector('.bare-grid')).toBeNull();
-		unmount();
-		const bare = show({ ...scheduled, venue: { ...venue, photo: null } });
-		expect(bare.container.querySelector('.photo-box img')).toBeNull();
-		expect(bare.container.querySelector('.caption')).toBeNull();
-		expect(bare.container.querySelector('.bare-grid')).not.toBeNull();
+	});
+
+	it('shows the grid with the arena name and city and no gradient without a photo', () => {
+		const { container } = show({ ...scheduled, venue: { ...venue, photo: null } });
+		expect(container.querySelector('.photo-box img')).toBeNull();
+		expect(container.querySelector('.photo-box .fade')).toBeNull();
+		expect(container.querySelector('.photo-box .bare-grid')).not.toBeNull();
+		expect(container.querySelector('.photo-box .caption .arena')?.textContent).toBe('Chase Center');
+		expect(container.querySelector('.photo-box .caption .arena-city')?.textContent).toBe(
+			'San Francisco'
+		);
+	});
+
+	it('shows the arena name alone over the grid without a photo or a city', () => {
+		const { container } = show({ ...scheduled, venue: { ...venue, photo: null, city: null } });
+		expect(container.querySelector('.caption .arena')?.textContent).toBe('Chase Center');
+		expect(container.querySelector('.caption .arena-city')).toBeNull();
+		expect(container.querySelector('.bare-grid')).not.toBeNull();
+	});
+
+	it('falls back to the grid with the arena name and city when the photo fails to load', async () => {
+		const { container } = show(scheduled);
+		const img = container.querySelector('.photo-box img');
+		expect(img).not.toBeNull();
+		await fireEvent.error(img as Element);
+		expect(container.querySelector('.photo-box img')).toBeNull();
+		expect(container.querySelector('.photo-box .fade')).toBeNull();
+		expect(container.querySelector('.bare-grid')).not.toBeNull();
+		expect(container.querySelector('.caption .arena')?.textContent).toBe('Chase Center');
+		expect(container.querySelector('.caption .arena-city')?.textContent).toBe('San Francisco');
+	});
+
+	it('tries the photo again when its URL changes after a failure', async () => {
+		const { container, rerender } = show(scheduled);
+		await fireEvent.error(container.querySelector('.photo-box img') as Element);
+		await rerender({
+			header: { ...scheduled, venue: { ...venue, photo: '/other.svg' } },
+			allGamesHref: HOME,
+			layout: 'desktop',
+			loading: false
+		});
+		expect(container.querySelector('.photo-box img')?.getAttribute('src')).toBe('/other.svg');
 	});
 
 	it('renders each team name in full in its own heading', () => {
