@@ -9,6 +9,7 @@
 // - A tied stat leads no side
 // - The bars grow when the panel opens
 // - The labels in Spanish with a Spanish browser preference
+// - Detail mode: eight stats in order, the leading side from the feed, Spanish labels
 //
 // What is covered:
 // - Each leading case, the tie, the open motion and Spanish
@@ -19,6 +20,7 @@
 import { render } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import type { DetailTeamStatLine, StatLeads } from '../../../src/lib/game/types';
 import type { TeamStatLine } from '../../../src/lib/schedule/types';
 import { preferLanguages } from '../../prefer-languages';
 
@@ -117,5 +119,86 @@ describe('TeamStats', () => {
 		const labels = [...container.querySelectorAll('.stat-label')].map((e) => e.textContent);
 		expect(labels).toEqual(['TC%', 'T3%', 'Rebotes', 'Asistencias', 'Pérdidas']);
 		expect(container.querySelector('.stat-value')?.textContent).toMatch(/^47,8\s%$/);
+	});
+
+	describe('detail mode', () => {
+		const detailAway: DetailTeamStatLine = {
+			...away,
+			freeThrowPct: 0.8,
+			steals: 5,
+			blocks: 3
+		};
+		const detailHome: DetailTeamStatLine = {
+			...home,
+			freeThrowPct: 0.75,
+			steals: 7,
+			blocks: 2
+		};
+		const noLeads: StatLeads = {
+			fieldGoalPct: null,
+			threePointPct: null,
+			freeThrowPct: null,
+			rebounds: null,
+			assists: null,
+			turnovers: null,
+			steals: null,
+			blocks: null
+		};
+		const detail = (leads: StatLeads) => ({
+			away: detailAway,
+			home: detailHome,
+			open: true,
+			leads
+		});
+
+		it('shows the eight detail stats in order with FT%, steals and blocks', () => {
+			const { container } = render(TeamStats, { props: detail(noLeads) });
+			const text = stats(container).map((s) =>
+				[...s.querySelectorAll('.stat-head > span')].map((e) => e.textContent)
+			);
+			expect(text).toEqual([
+				['47.8%', 'FG%', '45.2%'],
+				['39.1%', '3P%', '41.7%'],
+				['80.0%', 'FT%', '75.0%'],
+				['44', 'Rebounds', '41'],
+				['27', 'Assists', '30'],
+				['9', 'Turnovers', '14'],
+				['5', 'Steals', '7'],
+				['3', 'Blocks', '2']
+			]);
+		});
+
+		it('marks the leading side the feed sends, even when the values say otherwise', () => {
+			// Away has the higher FG% but the feed names home.
+			const { container } = render(TeamStats, {
+				props: detail({ ...noLeads, fieldGoalPct: 'home', turnovers: 'away' })
+			});
+			const [fg] = stats(container);
+			expect(leads(fg)).toEqual({ away: false, home: true, awayBar: false, homeBar: true });
+			expect(leads(stats(container)[5]).away).toBe(true);
+		});
+
+		it('marks no side when the feed sends no leader for a stat', () => {
+			const { container } = render(TeamStats, { props: detail(noLeads) });
+			for (const stat of stats(container)) {
+				expect(leads(stat)).toEqual({ away: false, home: false, awayBar: false, homeBar: false });
+			}
+		});
+
+		it('shows the detail labels in Spanish with a Spanish preference', () => {
+			preferLanguages(['es-ES']);
+			const { container } = render(TeamStats, { props: detail(noLeads) });
+			const labels = [...container.querySelectorAll('.stat-label')].map((e) => e.textContent);
+			expect(labels).toEqual([
+				'TC%',
+				'T3%',
+				'TL%',
+				'Rebotes',
+				'Asistencias',
+				'Pérdidas',
+				'Robos',
+				'Tapones'
+			]);
+		});
 	});
 });

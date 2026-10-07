@@ -11,6 +11,8 @@
 // - The record as wins–losses; no broadcast cell when the network is unknown
 // - The tabs: the design order per layout, hidden when their data is null, highlights only with
 //   a platform name and a search URL
+// - The sections: built from the feed, null with their tab, leaders from the feed, the win
+//   probability meta, box score split and formatting, highlights on a final game
 // - Spanish copy and dates for an es browser
 // - A live game without its score cannot be shown
 //
@@ -236,5 +238,144 @@ describe('toGameView', () => {
 	it('returns null when a live game lacks its score', () => {
 		expect(toGameView({ ...feed(), score: null } as unknown as GameDetailFeed, options)).toBeNull();
 		expect(toGameView({ ...feed(), clock: null } as unknown as GameDetailFeed, options)).toBeNull();
+	});
+});
+
+describe('toGameView sections', () => {
+	it('builds every live section from the feed, with no highlights on a live game', () => {
+		const { sections } = view(feed());
+		expect(sections.highlights).toBeNull();
+		expect(sections.score?.lineScore.away).toEqual({
+			code: 'LAL',
+			name: 'Lakers',
+			periods: [28, 25, 10],
+			total: 63
+		});
+		expect(sections.score?.lineScore.home.total).toBe(62);
+		expect(sections.score?.stats?.away.freeThrowPct).toBe(0.8);
+		expect(sections.winProbability?.awayCode).toBe('LAL');
+		expect(sections.winProbability?.homeCode).toBe('GSW');
+		expect(sections.winProbability?.middle).toBe('50%');
+		expect(sections.boxScore?.away.code).toBe('LAL');
+		expect(sections.boxScore?.home.name).toBe('Warriors');
+	});
+
+	it('gives each section a null when its tab is hidden', () => {
+		const hidden = view({
+			...feed(),
+			lineScore: null,
+			winProbability: null,
+			boxScore: null
+		});
+		expect(ids(hidden)).not.toContain('score');
+		expect(hidden.sections).toEqual({
+			highlights: null,
+			score: null,
+			winProbability: null,
+			boxScore: null
+		});
+		const noPlatform = view(asFinal(feed()), {});
+		expect(noPlatform.sections.highlights).toBeNull();
+		expect(ids(noPlatform)).not.toContain('highlights');
+	});
+
+	it("takes each team stat's leading side from the feed leaders", () => {
+		const leads = view(feed()).sections.score?.stats?.leads;
+		expect(leads).toEqual({
+			fieldGoalPct: 'away',
+			threePointPct: 'home',
+			freeThrowPct: null,
+			rebounds: 'away',
+			assists: 'home',
+			turnovers: null,
+			steals: 'home',
+			blocks: 'away'
+		});
+	});
+
+	it('leaves the stats out of the score section when the feed has no team stats', () => {
+		const { sections } = view({ ...feed(), teamStats: null });
+		expect(sections.score).not.toBeNull();
+		expect(sections.score?.stats).toBeNull();
+	});
+
+	it('reads the win probability meta off the latest point: the leader and its percentage', () => {
+		const withLatest = (p: number) =>
+			view({
+				...feed(),
+				winProbability: [
+					{ elapsedSeconds: 0, homeWinProbability: 0.5 },
+					{ elapsedSeconds: 60, homeWinProbability: p }
+				]
+			}).sections.winProbability?.meta;
+		expect(withLatest(0.68)).toBe('GSW 68%');
+		expect(withLatest(0.25)).toBe('LAL 75%');
+		expect(withLatest(0.5)).toBe('50%');
+	});
+
+	it("reads '{team} win' as the win probability meta on a final game", () => {
+		expect(view(asFinal(feed())).sections.winProbability?.meta).toBe('LAL win');
+	});
+
+	it('copies the win probability points in feed order without counting periods', () => {
+		const points = [
+			{ elapsedSeconds: 3000, homeWinProbability: 0.6 },
+			{ elapsedSeconds: 100, homeWinProbability: 0.4 }
+		] as GameDetailFeed['winProbability'];
+		const result = view({ ...feed(), winProbability: points }).sections.winProbability;
+		expect(result?.points).toEqual(points);
+		expect(Object.keys(result ?? {})).not.toContain('overtimes');
+	});
+
+	it('splits the box score into starters and bench in feed order and formats shooting as made-attempted', () => {
+		const source = feed();
+		const [first] = source.boxScore?.away.players ?? [];
+		if (!source.boxScore) throw new Error('The fixture has a box score');
+		source.boxScore.away.players = [
+			{ ...first, playerId: 'b1', displayName: 'Bench One', starter: false },
+			{ ...first, playerId: 's1', displayName: 'Starter One', starter: true },
+			{ ...first, playerId: 'b2', displayName: 'Bench Two', starter: false }
+		];
+		const away = view(source).sections.boxScore?.away;
+		expect(away?.starters.map((r) => r.name)).toEqual(['Starter One']);
+		expect(away?.bench.map((r) => r.name)).toEqual(['Bench One', 'Bench Two']);
+		expect(away?.starters[0]).toMatchObject({
+			id: 's1',
+			minutes: '24:10',
+			points: '20',
+			fieldGoals: '8-15',
+			threePoints: '2-6',
+			freeThrows: '2-2'
+		});
+		expect(away?.totals.fieldGoalPct).toMatch(/^\d+\.\d%$/);
+	});
+
+	it('formats the plus-minus with its sign', () => {
+		const source = feed();
+		const [first] = source.boxScore?.away.players ?? [];
+		if (!source.boxScore) throw new Error('The fixture has a box score');
+		source.boxScore.away.players = [4, 0, -3].map((plusMinus, i) => ({
+			...first,
+			playerId: `p${i}`,
+			starter: true,
+			plusMinus
+		}));
+		const rows = view(source).sections.boxScore?.away.starters ?? [];
+		expect(rows.map((r) => r.plusMinus)).toEqual(['+4', '0', '-3']);
+		expect(rows.map((r) => r.plusMinusPositive)).toEqual([true, false, false]);
+	});
+
+	it("maps highlights with the home's autoplay embed URLs on a final game", () => {
+		const highlights = view(asFinal(feed())).sections.highlights;
+		expect(highlights?.platform).toBe('Video platform');
+		expect(highlights?.searchUrl).toBe('https://example.com/search?q=lakers+warriors');
+		expect(highlights?.videos).toHaveLength(1);
+		expect(highlights?.videos[0]).toMatchObject({
+			id: 'https://example.com/embed/1',
+			title: 'Curry hits a deep three',
+			channel: 'Channel One',
+			thumbnail: 'https://example.com/thumbs/1.jpg'
+		});
+		expect(highlights?.videos[0].embedUrl).toContain('autoplay=1');
 	});
 });

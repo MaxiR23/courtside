@@ -14,7 +14,20 @@
 	import SiteFooter from '#lib/components/SiteFooter.svelte';
 	import StatusTag from '#lib/components/StatusTag.svelte';
 	import TeamMonogram from '#lib/components/TeamMonogram.svelte';
-	import type { GameHeaderView, GameView, HeaderTeam, SectionTab } from '#lib/game/types.ts';
+	import type {
+		BoxRow,
+		BoxScoreSection,
+		BoxScoreTeam,
+		GameHeaderView,
+		GameSections,
+		GameView,
+		HeaderTeam,
+		LineScoreTeam,
+		ScoreSection,
+		SectionTab,
+		StatLeads,
+		WinProbabilitySection
+	} from '#lib/game/types.ts';
 	import { SpoilerFree } from '#lib/schedule/spoiler-free.svelte.ts';
 	import type { HeroGame, HeroPlayer } from '#lib/hero/types.ts';
 	import type {
@@ -163,7 +176,18 @@
 			miniScore
 		}
 	];
-	const postponedView: GameView = { header: preGameHeader('postponed'), tabs: [], miniScore: null };
+	const noSections: GameSections = {
+		highlights: null,
+		score: null,
+		winProbability: null,
+		boxScore: null
+	};
+	const postponedView: GameView = {
+		header: preGameHeader('postponed'),
+		tabs: [],
+		miniScore: null,
+		sections: noSections
+	};
 	const today = new Date(2026, 9, 4);
 	const heroStates = [
 		{ title: 'Hero: Tonight', status: 'tonight' },
@@ -238,6 +262,187 @@
 		videos: [{ ...sampleHighlights.videos[0], id: 'v3' }]
 	};
 	const pendingHighlights: GameHighlights = { ...sampleHighlights, videos: [] };
+	const lineScoreTeam = (team: HeaderTeam, periods: number[], total: number): LineScoreTeam => ({
+		code: team.code,
+		name: team.name,
+		periods,
+		total
+	});
+	const detailScore = (away: LineScoreTeam, home: LineScoreTeam): ScoreSection => {
+		const leads: StatLeads = {
+			fieldGoalPct: 'away',
+			threePointPct: 'home',
+			freeThrowPct: null,
+			rebounds: 'away',
+			assists: 'home',
+			turnovers: 'home',
+			steals: 'away',
+			blocks: 'home'
+		};
+		return {
+			lineScore: { away, home },
+			stats: {
+				away: {
+					fieldGoalPct: 0.478,
+					threePointPct: 0.391,
+					freeThrowPct: 0.8,
+					rebounds: 44,
+					assists: 27,
+					turnovers: 9,
+					steals: 8,
+					blocks: 3
+				},
+				home: {
+					fieldGoalPct: 0.452,
+					threePointPct: 0.417,
+					freeThrowPct: 0.8,
+					rebounds: 41,
+					assists: 30,
+					turnovers: 14,
+					steals: 6,
+					blocks: 5
+				},
+				leads
+			}
+		};
+	};
+	const boxRow = (id: string, name: string, plusMinus: string): BoxRow => ({
+		id,
+		name,
+		minutes: '24:10',
+		points: '20',
+		fieldGoals: '8-15',
+		threePoints: '2-6',
+		freeThrows: '2-2',
+		offensiveRebounds: '1',
+		defensiveRebounds: '4',
+		rebounds: '5',
+		assists: '6',
+		turnovers: '2',
+		steals: '1',
+		blocks: '0',
+		fouls: '2',
+		plusMinus,
+		plusMinusPositive: plusMinus.startsWith('+')
+	});
+	const boxTeam = (team: HeaderTeam, names: string[]): BoxScoreTeam => ({
+		code: team.code,
+		name: team.name,
+		starters: names
+			.slice(0, 2)
+			.map((name, i) => boxRow(`${team.code}-s${i}`, name, i ? '-3' : '+4')),
+		bench: names.slice(2).map((name, i) => boxRow(`${team.code}-b${i}`, name, '0')),
+		totals: {
+			points: '112',
+			fieldGoals: '40-84',
+			threePoints: '12-31',
+			freeThrows: '20-24',
+			offensiveRebounds: '9',
+			defensiveRebounds: '35',
+			rebounds: '44',
+			assists: '27',
+			turnovers: '9',
+			steals: '8',
+			blocks: '3',
+			fouls: '18',
+			fieldGoalPct: '47.6%',
+			threePointPct: '38.7%',
+			freeThrowPct: '83.3%'
+		}
+	});
+	const sampleBox: BoxScoreSection = {
+		away: boxTeam(headerAway, ['Stephen Curry', 'Draymond Green', 'Jonathan Kuminga']),
+		home: boxTeam(headerHome, ['LeBron James', 'Anthony Davis', 'Austin Reaves'])
+	};
+	const curve = (seconds: number[]) =>
+		seconds.map((elapsedSeconds, i) => ({
+			elapsedSeconds,
+			homeWinProbability: 0.5 + 0.18 * Math.sin(i / 2)
+		}));
+	const sampleChart: WinProbabilitySection = {
+		awayCode: headerAway.code,
+		homeCode: headerHome.code,
+		middle: '50%',
+		meta: 'LAL 68%',
+		points: curve([300, 600, 900, 1200, 1500, 1800, 2100])
+	};
+	const liveSections: GameSections = {
+		highlights: null,
+		score: detailScore(
+			lineScoreTeam(headerAway, [28, 25, 10], 63),
+			lineScoreTeam(headerHome, [26, 24, 12], 62)
+		),
+		winProbability: sampleChart,
+		boxScore: sampleBox
+	};
+	const finalSections: GameSections = {
+		highlights: sampleHighlights,
+		score: detailScore(
+			lineScoreTeam(headerAway, [30, 28, 26, 28], 112),
+			lineScoreTeam(headerHome, [24, 27, 25, 28], 104)
+		),
+		winProbability: {
+			...sampleChart,
+			meta: 'GSW win',
+			points: curve([0, 480, 960, 1440, 1920, 2400, 2880])
+		},
+		boxScore: sampleBox
+	};
+	const overtimeSections: GameSections = {
+		...finalSections,
+		highlights: null,
+		score: detailScore(
+			lineScoreTeam(headerAway, [28, 25, 30, 27, 12, 10], 132),
+			lineScoreTeam(headerHome, [30, 26, 24, 30, 12, 8], 130)
+		),
+		winProbability: {
+			...sampleChart,
+			meta: 'GSW win',
+			points: curve([0, 720, 1440, 2160, 2880, 3180, 3480])
+		}
+	};
+	const sectionViews: { title: string; view: GameView }[] = [
+		{
+			title: 'GamePage: live sections',
+			view: {
+				header: liveHeader('Q3 · 4:12 · Chase Center'),
+				tabs: tabs(
+					['score', 'Score'],
+					['win-probability', 'Win prob.'],
+					['box-score', 'Box score']
+				),
+				miniScore,
+				sections: liveSections
+			}
+		},
+		{
+			title: 'GamePage: final sections',
+			view: {
+				header: finalHeader,
+				tabs: tabs(
+					['highlights', 'Highlights'],
+					['score', 'Score'],
+					['win-probability', 'Win prob.'],
+					['box-score', 'Box score']
+				),
+				miniScore,
+				sections: finalSections
+			}
+		},
+		{
+			title: 'GamePage: overtime sections',
+			view: {
+				header: finalHeader,
+				tabs: tabs(
+					['score', 'Score'],
+					['win-probability', 'Win prob.'],
+					['box-score', 'Box score']
+				),
+				miniScore,
+				sections: overtimeSections
+			}
+		}
+	];
 	const played = (
 		periods: { away: number[]; home: number[] },
 		awayTeamCode: string,
@@ -558,6 +763,13 @@
 		<h2>GamePage: postponed</h2>
 		<GamePage state={{ kind: 'ready', view: postponedView }} {allGamesHref} layout="desktop" />
 	</section>
+
+	{#each sectionViews as { title, view } (title)}
+		<section>
+			<h2>{title}</h2>
+			<GamePage state={{ kind: 'ready', view }} {allGamesHref} layout="desktop" />
+		</section>
+	{/each}
 
 	<section>
 		<h2>SiteFooter</h2>

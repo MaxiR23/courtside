@@ -7,6 +7,8 @@
 // - Feed unavailable: the nav row and the data unavailable row
 // - Unknown game: the nav row and "Game not found." with a link to all games
 // - Ready: the header and the tabs; a postponed game in the pre-game layout with its status tag
+// - Ready: each live and final section in the design order with its tab id as anchor, none when null
+// - The section metas: the platform for highlights, the leader for win probability
 // - The footer in every state
 // - The not-found row in Spanish with a Spanish browser preference
 //
@@ -21,7 +23,7 @@ import { render, screen } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import GamePage from '../../../src/lib/components/GamePage.svelte';
-import type { GamePageState, GameView } from '../../../src/lib/game/types';
+import type { BoxRow, GamePageState, GameSections, GameView } from '../../../src/lib/game/types';
 import { preferLanguages } from '../../prefer-languages';
 
 const HOME = '/' as ResolvedPathname;
@@ -46,7 +48,8 @@ const view: GameView = {
 		{ id: 'score', label: 'Score' },
 		{ id: 'injuries', label: 'Injuries' }
 	],
-	miniScore: { awayCode: 'LAL', away: 63, home: 62, homeCode: 'GSW' }
+	miniScore: { awayCode: 'LAL', away: 63, home: 62, homeCode: 'GSW' },
+	sections: { highlights: null, score: null, winProbability: null, boxScore: null }
 };
 
 const postponed: GameView = {
@@ -64,8 +67,90 @@ const postponed: GameView = {
 		}
 	},
 	tabs: [],
-	miniScore: null
+	miniScore: null,
+	sections: { highlights: null, score: null, winProbability: null, boxScore: null }
 };
+
+const row: BoxRow = {
+	id: 'p1',
+	name: 'LeBron James',
+	minutes: '24:10',
+	points: '20',
+	fieldGoals: '8-15',
+	threePoints: '2-6',
+	freeThrows: '2-2',
+	offensiveRebounds: '1',
+	defensiveRebounds: '4',
+	rebounds: '5',
+	assists: '6',
+	turnovers: '2',
+	steals: '1',
+	blocks: '0',
+	fouls: '2',
+	plusMinus: '+4',
+	plusMinusPositive: true
+};
+const totals = {
+	points: '63',
+	fieldGoals: '24-48',
+	threePoints: '8-20',
+	freeThrows: '7-9',
+	offensiveRebounds: '5',
+	defensiveRebounds: '25',
+	rebounds: '30',
+	assists: '18',
+	turnovers: '9',
+	steals: '5',
+	blocks: '3',
+	fouls: '12',
+	fieldGoalPct: '50.0%',
+	threePointPct: '40.0%',
+	freeThrowPct: '77.8%'
+};
+const stat = { fieldGoalPct: 0.5, threePointPct: 0.35, rebounds: 30, assists: 18, turnovers: 9 };
+const detailStat = { ...stat, freeThrowPct: 0.8, steals: 5, blocks: 3 };
+const full: GameSections = {
+	highlights: {
+		platform: 'Video platform',
+		searchUrl: '/search',
+		videos: [{ id: 'v1', title: 'Clip', channel: 'Channel', thumbnail: '/t.svg', embedUrl: '/e/1' }]
+	},
+	score: {
+		lineScore: {
+			away: { code: 'LAL', name: 'Lakers', periods: [28, 25, 10], total: 63 },
+			home: { code: 'GSW', name: 'Warriors', periods: [26, 24, 12], total: 62 }
+		},
+		stats: {
+			away: detailStat,
+			home: detailStat,
+			leads: {
+				fieldGoalPct: null,
+				threePointPct: null,
+				freeThrowPct: null,
+				rebounds: null,
+				assists: null,
+				turnovers: null,
+				steals: null,
+				blocks: null
+			}
+		}
+	},
+	winProbability: {
+		awayCode: 'LAL',
+		homeCode: 'GSW',
+		middle: '50%',
+		meta: 'GSW 68%',
+		points: [
+			{ elapsedSeconds: 0, homeWinProbability: 0.5 },
+			{ elapsedSeconds: 60, homeWinProbability: 0.68 }
+		]
+	},
+	boxScore: {
+		away: { code: 'LAL', name: 'Lakers', starters: [row], bench: [], totals },
+		home: { code: 'GSW', name: 'Warriors', starters: [row], bench: [], totals }
+	}
+};
+const withSections = (sections: GameSections): GameView => ({ ...view, sections });
 
 function show(state: GamePageState) {
 	return render(GamePage, { props: { state, allGamesHref: HOME, layout: 'desktop' } });
@@ -112,6 +197,43 @@ describe('GamePage', () => {
 		const nav = screen.getByRole('navigation', { name: 'Sections' });
 		expect(nav.querySelectorAll('a')).toHaveLength(2);
 		expect(container.querySelector('footer')).not.toBeNull();
+	});
+
+	it('renders each section with its tab id as anchor, in the design order', () => {
+		const { container } = show({ kind: 'ready', view: withSections(full) });
+		const sections = [...container.querySelectorAll('.sections > section')];
+		expect(sections.map((s) => s.id)).toEqual([
+			'highlights',
+			'score',
+			'win-probability',
+			'box-score'
+		]);
+		expect(sections.map((s) => s.querySelector('h2')?.textContent)).toEqual([
+			'Highlights',
+			'Score',
+			'Win probability',
+			'Box score'
+		]);
+	});
+
+	it('renders no section whose data is null', () => {
+		const { container } = show({
+			kind: 'ready',
+			view: withSections({ ...full, highlights: null, boxScore: null })
+		});
+		expect([...container.querySelectorAll('.sections > section')].map((s) => s.id)).toEqual([
+			'score',
+			'win-probability'
+		]);
+		const empty = show({ kind: 'ready', view });
+		expect(empty.container.querySelector('.sections > section')).toBeNull();
+	});
+
+	it('shows the platform as the highlights section meta and the leader as the win probability meta', () => {
+		const { container } = show({ kind: 'ready', view: withSections(full) });
+		expect(container.querySelector('#highlights .meta')?.textContent).toBe('Video platform');
+		expect(container.querySelector('#win-probability .meta')?.textContent).toBe('GSW 68%');
+		expect(container.querySelector('#score .meta')).toBeNull();
 	});
 
 	it('shows a postponed game in the pre-game layout with its status tag', () => {

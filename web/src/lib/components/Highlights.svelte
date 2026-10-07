@@ -10,9 +10,10 @@
 		videos: HighlightVideo[];
 		playingId?: string | null;
 		onPlay?: (videoId: string) => void;
+		detail?: boolean; // the game detail page: its section header carries the kicker and platform
 	};
 
-	let { platform, searchUrl, videos, playingId = null, onPlay }: Props = $props();
+	let { platform, searchUrl, videos, playingId = null, onPlay, detail = false }: Props = $props();
 	const searchLabel = $derived(m.panel_highlights_search({ platform }));
 
 	// The video the user just started: its player takes focus once, so the
@@ -27,11 +28,13 @@
 	}
 </script>
 
-<div class="highlights">
-	<div class="head">
-		<Kicker text={m.panel_highlights_kicker()} />
-		<span class="platform">{platform}</span>
-	</div>
+<div class="highlights" class:detail>
+	{#if !detail}
+		<div class="head">
+			<Kicker text={m.panel_highlights_kicker()} />
+			<span class="platform">{platform}</span>
+		</div>
+	{/if}
 	{#if videos.length > 0}
 		<ul class="grid">
 			{#each videos as video (video.id)}
@@ -170,6 +173,11 @@
 		height: var(--play-button-size);
 		background: var(--color-accent);
 		color: var(--color-bg);
+	}
+
+	.detail .play {
+		width: var(--detail-play-button-size);
+		height: var(--detail-play-button-size);
 	}
 
 	.play svg {

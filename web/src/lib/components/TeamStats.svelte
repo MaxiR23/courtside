@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { barWidth } from '#lib/game/motion.ts';
+	import type { DetailTeamStatLine, StatLeads } from '#lib/game/types.ts';
 	import { crossfade } from '#lib/hero/motion.ts';
 	import { formatNumber } from '#lib/format/locale.ts';
 	import { m } from '#lib/paraglide/messages.js';
@@ -6,59 +8,103 @@
 	import { barShares, leadingSide } from '#lib/schedule/stats.ts';
 	import type { TeamStatLine } from '#lib/schedule/types.ts';
 
-	type Props = { away: TeamStatLine; home: TeamStatLine; open: boolean };
+	// With `leads` (the game detail page) the feed names the leading side and eight stats show.
+	type Props =
+		| { away: TeamStatLine; home: TeamStatLine; open: boolean; leads?: undefined }
+		| { away: DetailTeamStatLine; home: DetailTeamStatLine; open: boolean; leads: StatLeads };
 
-	let { away, home, open }: Props = $props();
+	let { away, home, open, leads }: Props = $props();
 
 	const percent = (v: number) =>
 		formatNumber(v, { style: 'percent', minimumFractionDigits: 1, maximumFractionDigits: 1 });
 	const count = (v: number) => formatNumber(v);
 
+	type Row = {
+		key: string;
+		field: keyof DetailTeamStatLine;
+		label: string;
+		a: number;
+		h: number;
+		format: (v: number) => string;
+		lowerIsBetter: boolean;
+	};
+
+	const baseRows = $derived<Row[]>([
+		{
+			key: 'fg',
+			field: 'fieldGoalPct',
+			label: m.panel_stat_field_goals(),
+			a: away.fieldGoalPct,
+			h: home.fieldGoalPct,
+			format: percent,
+			lowerIsBetter: false
+		},
+		{
+			key: 'tp',
+			field: 'threePointPct',
+			label: m.panel_stat_three_points(),
+			a: away.threePointPct,
+			h: home.threePointPct,
+			format: percent,
+			lowerIsBetter: false
+		},
+		{
+			key: 'reb',
+			field: 'rebounds',
+			label: m.panel_stat_rebounds(),
+			a: away.rebounds,
+			h: home.rebounds,
+			format: count,
+			lowerIsBetter: false
+		},
+		{
+			key: 'ast',
+			field: 'assists',
+			label: m.panel_stat_assists(),
+			a: away.assists,
+			h: home.assists,
+			format: count,
+			lowerIsBetter: false
+		},
+		{
+			key: 'tov',
+			field: 'turnovers',
+			label: m.panel_stat_turnovers(),
+			a: away.turnovers,
+			h: home.turnovers,
+			format: count,
+			lowerIsBetter: true
+		}
+	]);
+
+	// The detail page's order: FG%, 3P%, FT%, Rebounds, Assists, Turnovers, Steals, Blocks.
+	const detailRows = $derived.by<Row[]>(() => {
+		const a = away as DetailTeamStatLine;
+		const h = home as DetailTeamStatLine;
+		const extra = (
+			key: string,
+			field: keyof DetailTeamStatLine,
+			label: string,
+			format: (v: number) => string,
+			lowerIsBetter = false
+		): Row => ({ key, field, label, a: a[field], h: h[field], format, lowerIsBetter });
+		const [fg, tp, reb, ast, tov] = baseRows;
+		return [
+			fg,
+			tp,
+			extra('ft', 'freeThrowPct', m.panel_stat_free_throws(), percent),
+			reb,
+			ast,
+			tov,
+			extra('stl', 'steals', m.panel_stat_steals(), count),
+			extra('blk', 'blocks', m.panel_stat_blocks(), count)
+		];
+	});
+
 	const rows = $derived(
-		[
-			{
-				key: 'fg',
-				label: m.panel_stat_field_goals(),
-				a: away.fieldGoalPct,
-				h: home.fieldGoalPct,
-				format: percent,
-				lowerIsBetter: false
-			},
-			{
-				key: 'tp',
-				label: m.panel_stat_three_points(),
-				a: away.threePointPct,
-				h: home.threePointPct,
-				format: percent,
-				lowerIsBetter: false
-			},
-			{
-				key: 'reb',
-				label: m.panel_stat_rebounds(),
-				a: away.rebounds,
-				h: home.rebounds,
-				format: count,
-				lowerIsBetter: false
-			},
-			{
-				key: 'ast',
-				label: m.panel_stat_assists(),
-				a: away.assists,
-				h: home.assists,
-				format: count,
-				lowerIsBetter: false
-			},
-			{
-				key: 'tov',
-				label: m.panel_stat_turnovers(),
-				a: away.turnovers,
-				h: home.turnovers,
-				format: count,
-				lowerIsBetter: true
-			}
-		].map((row) => ({
+		(leads ? detailRows : baseRows).map((row) => ({
 			...row,
-			lead: leadingSide(row.a, row.h, row.lowerIsBetter),
+			lead: leads ? leads[row.field] : leadingSide(row.a, row.h, row.lowerIsBetter),
 			shares: barShares(row.a, row.h)
 		}))
 	);
@@ -74,20 +120,38 @@
 			</div>
 			<div class="bars">
 				<span class="half away">
-					<span
-						class="bar"
-						class:lead={row.lead === 'away'}
-						style:--share={row.shares.away}
-						use:crossfade={statBar(open)}
-					></span>
+					{#if leads}
+						<span
+							class="bar"
+							class:lead={row.lead === 'away'}
+							style:--share={row.shares.away}
+							use:barWidth={row.shares.away}
+						></span>
+					{:else}
+						<span
+							class="bar"
+							class:lead={row.lead === 'away'}
+							style:--share={row.shares.away}
+							use:crossfade={statBar(open)}
+						></span>
+					{/if}
 				</span>
 				<span class="half home">
-					<span
-						class="bar"
-						class:lead={row.lead === 'home'}
-						style:--share={row.shares.home}
-						use:crossfade={statBar(open)}
-					></span>
+					{#if leads}
+						<span
+							class="bar"
+							class:lead={row.lead === 'home'}
+							style:--share={row.shares.home}
+							use:barWidth={row.shares.home}
+						></span>
+					{:else}
+						<span
+							class="bar"
+							class:lead={row.lead === 'home'}
+							style:--share={row.shares.home}
+							use:crossfade={statBar(open)}
+						></span>
+					{/if}
 				</span>
 			</div>
 		</div>

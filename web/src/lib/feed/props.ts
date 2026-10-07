@@ -128,7 +128,7 @@ function withAutoplay(embedUrl: string): string {
 	return url.toString();
 }
 
-function video(highlight: Highlight): HighlightVideo {
+export function video(highlight: Highlight): HighlightVideo {
 	return {
 		id: highlight.embedUrl,
 		title: highlight.title,

@@ -1,18 +1,34 @@
-import type { DetailTeam, GameDetailFeed } from '#lib/contract/game-detail.ts';
-import { formatDate, formatNumber } from '#lib/format/locale.ts';
-import { tipParts } from '#lib/feed/props.ts';
 import type {
+	BoxScore,
+	BoxScorePlayer,
+	BoxScoreTotals,
+	DetailTeam,
+	GameDetailFeed
+} from '#lib/contract/game-detail.ts';
+import { formatDate, formatNumber } from '#lib/format/locale.ts';
+import { tipParts, video } from '#lib/feed/props.ts';
+import type {
+	BoxRow,
+	BoxScoreSection,
+	BoxScoreTeam,
+	BoxTotals,
+	DetailTeamStatLine,
 	GameHeaderView,
 	GameLayout,
+	GameSections,
 	GameView,
 	HeaderTeam,
 	InfoCell,
+	LineScoreTeam,
 	MiniScore,
+	ScoreSection,
 	ScoreboardCenter,
 	SectionId,
 	SectionTab,
+	StatLeads,
 	StatusLine,
-	VenueStrip
+	VenueStrip,
+	WinProbabilitySection
 } from '#lib/game/types.ts';
 import { m } from '#lib/paraglide/messages.js';
 
@@ -197,6 +213,143 @@ function miniScore(feed: GameDetailFeed): MiniScore | null {
 	return { awayCode: feed.away.code, away: score.away, home: score.home, homeCode: feed.home.code };
 }
 
+const percent = (v: number) =>
+	formatNumber(v, { style: 'percent', minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const wholePercent = (v: number) => formatNumber(v, { style: 'percent', maximumFractionDigits: 0 });
+
+function lineScoreTeam(team: DetailTeam, periods: number[], total: number): LineScoreTeam {
+	return { code: team.code, name: team.name, periods: [...periods], total };
+}
+
+function leadSide(feed: GameDetailFeed, code: string | null): 'away' | 'home' | null {
+	if (code === feed.away.code) return 'away';
+	if (code === feed.home.code) return 'home';
+	return null;
+}
+
+function scoreSection(feed: GameDetailFeed): ScoreSection {
+	const lineScore = required(feed.lineScore);
+	const score = required(feed.score);
+	const stats = feed.teamStats;
+	return {
+		lineScore: {
+			away: lineScoreTeam(feed.away, lineScore.away, score.away),
+			home: lineScoreTeam(feed.home, lineScore.home, score.home)
+		},
+		stats: stats && {
+			away: { ...stats.away } satisfies DetailTeamStatLine,
+			home: { ...stats.home } satisfies DetailTeamStatLine,
+			leads: Object.fromEntries(
+				Object.entries(stats.leaders).map(([key, code]) => [key, leadSide(feed, code)])
+			) as StatLeads
+		}
+	};
+}
+
+function winProbabilitySection(feed: GameDetailFeed): WinProbabilitySection {
+	const points = required(feed.winProbability);
+	const latest = points[points.length - 1].homeWinProbability;
+	let meta: string;
+	if (feed.status === 'final') {
+		meta = m.game_win_probability_final({ team: required(feed.winner) });
+	} else if (latest > 0.5) {
+		meta = `${feed.home.code} ${wholePercent(latest)}`;
+	} else if (latest < 0.5) {
+		meta = `${feed.away.code} ${wholePercent(1 - latest)}`;
+	} else {
+		meta = wholePercent(0.5);
+	}
+	return {
+		awayCode: feed.away.code,
+		homeCode: feed.home.code,
+		middle: wholePercent(0.5),
+		meta,
+		points: points.map((p) => ({
+			elapsedSeconds: p.elapsedSeconds,
+			homeWinProbability: p.homeWinProbability
+		}))
+	};
+}
+
+type Shooting = { made: number; attempted: number };
+const shooting = ({ made, attempted }: Shooting) =>
+	`${formatNumber(made)}-${formatNumber(attempted)}`;
+
+function boxRow(player: BoxScorePlayer): BoxRow {
+	return {
+		id: player.playerId,
+		name: player.displayName,
+		minutes: player.minutes,
+		points: formatNumber(player.points),
+		fieldGoals: shooting({ made: player.fieldGoalsMade, attempted: player.fieldGoalsAttempted }),
+		threePoints: shooting({ made: player.threePointsMade, attempted: player.threePointsAttempted }),
+		freeThrows: shooting({ made: player.freeThrowsMade, attempted: player.freeThrowsAttempted }),
+		offensiveRebounds: formatNumber(player.offensiveRebounds),
+		defensiveRebounds: formatNumber(player.defensiveRebounds),
+		rebounds: formatNumber(player.rebounds),
+		assists: formatNumber(player.assists),
+		turnovers: formatNumber(player.turnovers),
+		steals: formatNumber(player.steals),
+		blocks: formatNumber(player.blocks),
+		fouls: formatNumber(player.fouls),
+		plusMinus: formatNumber(player.plusMinus, { signDisplay: 'exceptZero' }),
+		plusMinusPositive: player.plusMinus > 0
+	};
+}
+
+function boxTotals(totals: BoxScoreTotals): BoxTotals {
+	return {
+		points: formatNumber(totals.points),
+		fieldGoals: shooting({ made: totals.fieldGoalsMade, attempted: totals.fieldGoalsAttempted }),
+		threePoints: shooting({ made: totals.threePointsMade, attempted: totals.threePointsAttempted }),
+		freeThrows: shooting({ made: totals.freeThrowsMade, attempted: totals.freeThrowsAttempted }),
+		offensiveRebounds: formatNumber(totals.offensiveRebounds),
+		defensiveRebounds: formatNumber(totals.defensiveRebounds),
+		rebounds: formatNumber(totals.rebounds),
+		assists: formatNumber(totals.assists),
+		turnovers: formatNumber(totals.turnovers),
+		steals: formatNumber(totals.steals),
+		blocks: formatNumber(totals.blocks),
+		fouls: formatNumber(totals.fouls),
+		fieldGoalPct: percent(totals.fieldGoalPct),
+		threePointPct: percent(totals.threePointPct),
+		freeThrowPct: percent(totals.freeThrowPct)
+	};
+}
+
+function boxTeam(team: DetailTeam, box: BoxScore['away']): BoxScoreTeam {
+	return {
+		code: team.code,
+		name: team.name,
+		starters: box.players.filter((p) => p.starter).map(boxRow),
+		bench: box.players.filter((p) => !p.starter).map(boxRow),
+		totals: boxTotals(box.totals)
+	};
+}
+
+function boxScoreSection(feed: GameDetailFeed): BoxScoreSection {
+	const box = required(feed.boxScore);
+	return { away: boxTeam(feed.away, box.away), home: boxTeam(feed.home, box.home) };
+}
+
+// A section's props exist only when its tab is shown, so a section hides together with its tab.
+function sections(feed: GameDetailFeed, shown: SectionTab[], options: Options): GameSections {
+	const has = (id: SectionId) => shown.some((tab) => tab.id === id);
+	return {
+		highlights:
+			has('highlights') && feed.highlights !== null && feed.highlightsSearchUrl !== null
+				? {
+						platform: options.videoPlatformName ?? '',
+						searchUrl: feed.highlightsSearchUrl,
+						videos: feed.highlights.map(video)
+					}
+				: null,
+		score: has('score') ? scoreSection(feed) : null,
+		winProbability: has('win-probability') ? winProbabilitySection(feed) : null,
+		boxScore: has('box-score') ? boxScoreSection(feed) : null
+	};
+}
+
 function header(feed: GameDetailFeed, layout: GameLayout): GameHeaderView {
 	return {
 		layout,
@@ -212,10 +365,12 @@ function header(feed: GameDetailFeed, layout: GameLayout): GameHeaderView {
 export function toGameView(feed: GameDetailFeed, options: Options): GameView | null {
 	const layout = layoutOf(feed.status);
 	try {
+		const shown = tabs(feed, layout, options);
 		return {
 			header: header(feed, layout),
-			tabs: tabs(feed, layout, options),
-			miniScore: miniScore(feed)
+			tabs: shown,
+			miniScore: miniScore(feed),
+			sections: sections(feed, shown, options)
 		};
 	} catch (error) {
 		if (error instanceof IncompleteGame) return null;

@@ -187,6 +187,38 @@
 	--tab-letter-spacing: 0.12em;
 	--tab-padding-block: 16px;
 	--mini-score-size: 15px;
+	--detail-section-gap: clamp(64px, 8vw, 104px);
+	--detail-section-scroll-margin: 72px;
+	--detail-section-h2-size: clamp(28px, 3.4vw, 40px);
+	--detail-section-h2-line-height: 1;
+	--detail-highlights-max-width: 1040px;
+	--detail-play-button-size: 72px;
+	--detail-column-min: 440px;
+	--detail-line-score-period-min: 32px;
+	--detail-line-score-period-max: 52px;
+	--detail-line-score-total-min: 52px;
+	--detail-line-score-total-max: 68px;
+	--detail-line-score-code-size: 18px;
+	--detail-line-score-total-size: 24px;
+	--detail-stat-bar-duration: 0.6s;
+	--win-prob-axis-width: 40px;
+	--win-prob-height: clamp(180px, 24vw, 280px);
+	--win-prob-midline: rgba(235, 232, 227, 0.22);
+	--win-prob-fill: rgba(116, 157, 196, 0.12);
+	--win-prob-line-width: 2px;
+	--win-prob-marker-size: 9px;
+	--win-prob-marker-ring: 4px;
+	--win-prob-marker-ring-color: rgba(116, 157, 196, 0.25);
+	--win-prob-meta-size: 26px;
+	--win-prob-dash: 6 6;
+	--box-player-column-min: 150px;
+	--box-column-min: 52px;
+	--box-shooting-column-min: 64px;
+	--box-min-width: 1040px;
+	--box-name-size: 17px;
+	--box-points-size: 18px;
+	--box-row-hover: rgba(116, 157, 196, 0.06);
+	--toggle-active-fill: rgba(116, 157, 196, 0.14);
 
 	/* Focus */
 	--focus-ring-width: 2px;
