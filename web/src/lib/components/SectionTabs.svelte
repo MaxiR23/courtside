@@ -38,6 +38,7 @@
 	.section-tabs {
 		position: sticky;
 		top: 0;
+		z-index: var(--tabs-z-index);
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
