@@ -31,6 +31,7 @@
 		}
 	],
 	"schedule_updated": "Actualizado hace {minutes} min",
+	"schedule_updated_recently": "Actualizado recientemente",
 	"schedule_tap_to_reveal": "Toca para ver",
 	"schedule_no_games": "No hay partidos programados para este día.",
 	"feed_unavailable": "Los datos no están disponibles en este momento. Vuelve a consultar más tarde.",

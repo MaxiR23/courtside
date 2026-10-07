@@ -37,7 +37,11 @@
 		day ? formatDate(day.date, { weekday: 'long', month: 'long', day: 'numeric' }) : ''
 	);
 	const countLabel = $derived(m.schedule_game_count({ count: games.length }));
-	const updated = $derived(m.schedule_updated({ minutes: formatNumber(updatedMinutesAgo) }));
+	const updated = $derived(
+		updatedMinutesAgo < 1
+			? m.schedule_updated_recently()
+			: m.schedule_updated({ minutes: formatNumber(updatedMinutesAgo) })
+	);
 	const strip = $derived(days.map((d) => ({ date: d.date, gameCount: d.games.length })));
 	let list: HTMLElement | undefined = $state();
 	let playingId = $state<string | null>(null);

@@ -3,6 +3,7 @@
 // Tests for the Schedule component.
 //
 // Tested:
+// - Freshness label: "Recently updated" under 1 minute, the minutes from 1 minute on, in English and Spanish
 // - Header: kicker, selected day, game count, freshness; today selected by default
 // - Selecting a day changes the heading, count and games; a day with no games shows the day, 0 games and the no-games message
 // - Desktop row and full counts on a wide viewport; mobile row and numbers below it
@@ -96,6 +97,26 @@ describe('Schedule', () => {
 		expect(screen.getByRole('heading', { level: 2 }).textContent?.trim()).toBe('Sunday, October 4');
 		expect(screen.getAllByText('3 games').length).toBeGreaterThanOrEqual(1);
 		expect(screen.getByText('Updated 3 min ago')).toBeTruthy();
+	});
+
+	describe('freshness label', () => {
+		it.each([
+			[0, 'en', 'Recently updated'],
+			[0, 'es', 'Actualizado recientemente'],
+			[1, 'en', 'Updated 1 min ago'],
+			[1, 'es', 'Actualizado hace 1 min'],
+			[12, 'en', 'Updated 12 min ago'],
+			[12, 'es', 'Actualizado hace 12 min']
+		])('shows the label for %i minutes in %s', (minutes, language, text) => {
+			if (language === 'es') preferLanguages(['es-ES']);
+			const { container } = render(Schedule, { props: { ...props, updatedMinutesAgo: minutes } });
+			expect(container.querySelector('.meta .updated')?.textContent?.trim()).toBe(text);
+		});
+
+		it('does not show 0 minutes', () => {
+			render(Schedule, { props: { ...props, updatedMinutesAgo: 0 } });
+			expect(screen.queryByText('Updated 0 min ago')).toBeNull();
+		});
 	});
 
 	it('selects today by default', () => {

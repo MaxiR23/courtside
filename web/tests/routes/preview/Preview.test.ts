@@ -6,7 +6,7 @@
 // - Shows every base component in each of its variants
 // - Shows the hero in its three states, with three games and its position, and the footer
 // - Shows the delayed, postponed and canceled statuses on both rows and in the tag
-// - Shows the day strip, every game card state on both rows, and the schedule on a day with no games showing its message
+// - Shows the day strip, every game card state on both rows, and the schedule on a day with no games showing its message and one recently updated
 // - Shows an expanded card for a scheduled, a live, a final and an overtime game
 // - Shows a final game with highlights, one with exactly one highlight video
 //   and one with highlights pending, and plays a placeholder
@@ -87,6 +87,13 @@ describe('component preview', () => {
 		expect(empty.querySelectorAll('.games > li')).toHaveLength(0);
 		expect(within(empty).getByText('No games scheduled for this day.')).toBeTruthy();
 		expect(within(schedule).queryByText('No games scheduled for this day.')).toBeNull();
+	});
+
+	it('shows the schedule recently updated', () => {
+		render(Preview);
+		expect(
+			within(sectionOf('Schedule: recently updated')).getByText('Recently updated')
+		).toBeTruthy();
 	});
 
 	it('shows an expanded card for a scheduled, a live, a final and an overtime game', () => {

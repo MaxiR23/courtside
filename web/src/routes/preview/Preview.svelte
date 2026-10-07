@@ -961,6 +961,11 @@
 		/>
 	</section>
 
+	<section>
+		<h2>Schedule: recently updated</h2>
+		<Schedule days={sampleDays} updatedMinutesAgo={0} gameHref={() => resolve('/preview')} />
+	</section>
+
 	{#each headerStates as { title, header } (title)}
 		<section>
 			<h2>{title}</h2>
