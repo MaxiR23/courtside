@@ -1,10 +1,12 @@
 // web/tests/lib/feed/load.test.ts
 //
-// Tests for loading the games feed.
+// Tests for loading the games feed and a game's detail feed.
 //
 // Tested:
 // - Returns the parsed feed on a 200, asking for JSON from the given URL
 // - Throws a FeedLoadError on a 503, a network error, a body that is not JSON and JSON without days
+// - gameFeedUrl puts the encoded game id in place of {id}
+// - loadGameDetailFeed returns the detail feed, reports a 404 as not-found and every other failure
 //
 // What is covered:
 // - Happy path and every failure the page treats as "data unavailable"
@@ -15,7 +17,12 @@
 // SEE: web/src/lib/feed/load.ts
 import { describe, expect, it, vi } from 'vitest';
 
-import { FeedLoadError, loadGamesFeed } from '../../../src/lib/feed/load';
+import {
+	FeedLoadError,
+	gameFeedUrl,
+	loadGameDetailFeed,
+	loadGamesFeed
+} from '../../../src/lib/feed/load';
 
 const URL_OK = 'https://feeds.example.com/games.json';
 
@@ -60,5 +67,67 @@ describe('loadGamesFeed', () => {
 	it('throws on JSON without days', async () => {
 		const fetchFn = fetchAnswering(() => json({ generatedAt: 'x' }));
 		await expect(loadGamesFeed(URL_OK, fetchFn)).rejects.toMatchObject({ reason: 'body' });
+	});
+});
+
+const DETAIL_TEMPLATE = 'https://feeds.example.com/games/{id}.json';
+const DETAIL_URL = 'https://feeds.example.com/games/401.json';
+
+function detailFetchAnswering(answer: () => Promise<Response>) {
+	return vi.fn((url: string | URL | Request) => {
+		if (url !== DETAIL_URL) throw new Error(`Unexpected URL ${String(url)}`);
+		return answer();
+	}) as unknown as typeof fetch & ReturnType<typeof vi.fn>;
+}
+
+describe('gameFeedUrl', () => {
+	it('builds the detail feed URL by putting the encoded id in place of {id}', () => {
+		expect(gameFeedUrl(DETAIL_TEMPLATE, '401')).toBe(DETAIL_URL);
+		expect(gameFeedUrl(DETAIL_TEMPLATE, 'a/b c')).toBe(
+			'https://feeds.example.com/games/a%2Fb%20c.json'
+		);
+	});
+});
+
+describe('loadGameDetailFeed', () => {
+	it('returns the parsed detail feed on a 200, asking for JSON from the given URL', async () => {
+		const feed = { id: '401', status: 'live' };
+		const fetchFn = detailFetchAnswering(() => json(feed));
+		await expect(loadGameDetailFeed(DETAIL_URL, fetchFn)).resolves.toEqual(feed);
+		expect(fetchFn).toHaveBeenCalledWith(DETAIL_URL, { headers: { accept: 'application/json' } });
+	});
+
+	it('throws a not-found FeedLoadError when the detail feed answers 404', async () => {
+		const fetchFn = detailFetchAnswering(() => json({ detail: 'no game' }, 404));
+		const error = await loadGameDetailFeed(DETAIL_URL, fetchFn).catch((e: unknown) => e);
+		expect(error).toBeInstanceOf(FeedLoadError);
+		expect((error as FeedLoadError).reason).toBe('not-found');
+	});
+
+	it('throws a FeedLoadError on a 503, a network error, a non-JSON body and JSON without an id', async () => {
+		await expect(
+			loadGameDetailFeed(
+				DETAIL_URL,
+				detailFetchAnswering(() => json({}, 503))
+			)
+		).rejects.toMatchObject({ reason: 'status' });
+		await expect(
+			loadGameDetailFeed(
+				DETAIL_URL,
+				detailFetchAnswering(() => Promise.reject(new TypeError('Failed to fetch')))
+			)
+		).rejects.toMatchObject({ reason: 'network' });
+		await expect(
+			loadGameDetailFeed(
+				DETAIL_URL,
+				detailFetchAnswering(() => Promise.resolve(new Response('<html>', { status: 200 })))
+			)
+		).rejects.toMatchObject({ reason: 'body' });
+		await expect(
+			loadGameDetailFeed(
+				DETAIL_URL,
+				detailFetchAnswering(() => json({ status: 'live' }))
+			)
+		).rejects.toMatchObject({ reason: 'body' });
 	});
 });

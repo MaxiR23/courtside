@@ -1,3 +1,4 @@
+import type { GameDetailFeed } from '#lib/contract/game-detail.ts';
 import type { GamesFeed } from '#lib/contract/games.ts';
 
 export const LIVE_POLL_MS = 30_000;
@@ -7,6 +8,14 @@ export const IDLE_POLL_MS = 60_000;
 export function pollInterval(feed: GamesFeed | null): number {
 	const live = feed?.days.some((day) => day.games.some((game) => game.status === 'live'));
 	return live ? LIVE_POLL_MS : IDLE_POLL_MS;
+}
+
+/**
+ * Same rules as the home (docs/design-game-detail.md, Polling): 30 s while the game is live,
+ * 60 s otherwise.
+ */
+export function gamePollInterval(feed: GameDetailFeed | null): number {
+	return feed?.status === 'live' ? LIVE_POLL_MS : IDLE_POLL_MS;
 }
 
 type Visibility = Pick<Document, 'visibilityState' | 'addEventListener' | 'removeEventListener'>;
@@ -20,12 +29,14 @@ type Options = {
 	visibility?: () => Visibility;
 };
 
-export class GamesFeedPoller {
-	feed = $state.raw<GamesFeed | null>(null); // last feed loaded, kept when a later load fails
+export class FeedPoller<T> {
+	feed = $state.raw<T | null>(null); // last feed loaded, kept when a later load fails
 	receivedAt = $state.raw<Date | null>(null); // when that feed was loaded
 	failed = $state(false); // the last load failed
+	error = $state.raw<unknown>(null); // what the last load threw, null after a success
 
-	readonly #load: () => Promise<GamesFeed>;
+	readonly #load: () => Promise<T>;
+	readonly #interval: (feed: T | null) => number;
 	readonly #now: () => Date;
 	// Getters, not values: the document does not exist during prerender.
 	readonly #visibility: () => Visibility;
@@ -33,8 +44,9 @@ export class GamesFeedPoller {
 	#loading = false;
 	#run = 0; // changes on every start and every cleanup, to drop the result of an old load
 
-	constructor(load: () => Promise<GamesFeed>, options: Options = {}) {
+	constructor(load: () => Promise<T>, interval: (feed: T | null) => number, options: Options = {}) {
 		this.#load = load;
+		this.#interval = interval;
 		this.#now = options.now ?? currentTime;
 		this.#visibility = options.visibility ?? (() => document);
 	}
@@ -69,11 +81,13 @@ export class GamesFeedPoller {
 		if (this.#loading) return;
 		this.#clear();
 		this.#loading = true;
-		let feed: GamesFeed | null = null;
+		let feed: T | null = null;
+		let error: unknown = null;
 		try {
 			feed = await this.#load();
-		} catch {
+		} catch (thrown) {
 			// Keep the last feed and report the failure.
+			error = thrown;
 		}
 		if (run !== this.#run) return;
 		this.#loading = false;
@@ -81,11 +95,19 @@ export class GamesFeedPoller {
 			this.feed = feed;
 			this.receivedAt = this.#now();
 			this.failed = false;
+			this.error = null;
 		} else {
 			this.failed = true;
+			this.error = error;
 		}
 		if (this.#visibility().visibilityState !== 'hidden') {
-			this.#timer = setTimeout(() => void this.#poll(run), pollInterval(this.feed));
+			this.#timer = setTimeout(() => void this.#poll(run), this.#interval(this.feed));
 		}
+	}
+}
+
+export class GamesFeedPoller extends FeedPoller<GamesFeed> {
+	constructor(load: () => Promise<GamesFeed>, options: Options = {}) {
+		super(load, pollInterval, options);
 	}
 }

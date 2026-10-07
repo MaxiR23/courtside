@@ -12,6 +12,7 @@
 //   and one with highlights pending, and plays a placeholder
 // - Shows final cards with spoiler-free mode on next to the rows with it off
 // - The hero toggle turns the mode on for the schedule
+// - Shows the game header in every status on both rows, the section tabs for each layout and every game page state
 // - Uses no external URL for images, players or links
 //
 // What is covered:
@@ -148,7 +149,9 @@ describe('component preview', () => {
 	it('shows the footer', () => {
 		render(Preview);
 		expect(screen.getByRole('heading', { level: 2, name: 'SiteFooter' })).toBeTruthy();
-		expect(screen.getByText('Personal project. Not affiliated with the NBA.')).toBeTruthy();
+		expect(
+			within(sectionOf('SiteFooter')).getByText('Personal project. Not affiliated with the NBA.')
+		).toBeTruthy();
 	});
 
 	it('shows a final game with highlights and one with highlights pending', () => {
@@ -184,6 +187,57 @@ describe('component preview', () => {
 			within(final).getByRole('button', { name: 'Play Nuggets at Suns: full game highlights' })
 		);
 		expect(final.querySelectorAll('iframe')).toHaveLength(1);
+	});
+
+	it('shows the game header in every status on both rows', () => {
+		render(Preview);
+		const status = (title: string) => within(sectionOf(title));
+		expect(sectionOf('GameHeader: scheduled').querySelector('.broadcast')?.textContent).toBe(
+			'Network One'
+		);
+		expect(status('GameHeader: delayed').getByText('Delayed')).toBeTruthy();
+		expect(status('GameHeader: delayed').getByText('Scheduled')).toBeTruthy();
+		expect(status('GameHeader: postponed').getByText('Postponed')).toBeTruthy();
+		expect(status('GameHeader: canceled').getByText('Canceled')).toBeTruthy();
+		expect(status('GameHeader: live').getByText('LIVE')).toBeTruthy();
+		expect(status('GameHeader: halftime').getByText('Halftime · Chase Center')).toBeTruthy();
+		expect(status('GameHeader: overtime').getByText('OT1 · 2:30 · Chase Center')).toBeTruthy();
+		const final = sectionOf('GameHeader: final');
+		expect(final.querySelectorAll('.dimmed').length).toBeGreaterThan(0);
+		const mobile = sectionOf('GameHeader: mobile');
+		expect(mobile.querySelectorAll('header')).toHaveLength(3);
+		expect(mobile.querySelectorAll('.row')).toHaveLength(6);
+		expect(mobile.querySelector('.scoreboard')).toBeNull();
+		const bare = sectionOf('GameHeader: no venue photo');
+		expect(bare.querySelector('.bare-grid')).not.toBeNull();
+		expect(bare.querySelector('.photo-box img')).toBeNull();
+	});
+
+	it('shows the section tabs for each layout', () => {
+		render(Preview);
+		const links = (title: string) =>
+			[...sectionOf(title).querySelectorAll('nav a')].map((a) => a.textContent);
+		expect(links('SectionTabs: pre-game')).toHaveLength(5);
+		expect(links('SectionTabs: live')).toEqual(['Score', 'Win prob.', 'Box score', 'Injuries']);
+		expect(links('SectionTabs: final')).toHaveLength(7);
+		expect(sectionOf('SectionTabs: pre-game').querySelector('.mini-score')).toBeNull();
+		expect(sectionOf('SectionTabs: live').querySelector('.mini-score')).not.toBeNull();
+	});
+
+	it('shows every game page state', () => {
+		render(Preview);
+		const loading = sectionOf('GamePage: loading');
+		expect(loading.querySelector('header')?.getAttribute('aria-busy')).toBe('true');
+		expect(loading.querySelector('.section-skeleton')).not.toBeNull();
+		expect(
+			within(sectionOf('GamePage: feed unavailable')).getByText(
+				"Data isn't available right now. Check back later."
+			)
+		).toBeTruthy();
+		expect(within(sectionOf('GamePage: unknown game')).getByText('Game not found.')).toBeTruthy();
+		const postponed = sectionOf('GamePage: postponed');
+		expect(postponed.querySelector('.status-tag')?.textContent).toBe('Postponed');
+		expect(postponed.querySelector('.tip-time')).toBeNull();
 	});
 
 	it('uses no external URL for images, players or links', async () => {

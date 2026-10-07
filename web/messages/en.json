@@ -54,5 +54,22 @@
 	"panel_highlights_kicker": "Highlights",
 	"panel_highlights_pending": "Highlights aren't in yet. They'll appear here automatically.",
 	"panel_highlights_search": "Search highlights on {platform}",
-	"panel_highlights_play": "Play {title}"
+	"panel_highlights_play": "Play {title}",
+	"game_scheduled": "Scheduled",
+	"game_halftime": "Halftime",
+	"game_end_of_period": "End of {period}",
+	"game_overtime": "OT{number}",
+	"game_not_found": "Game not found.",
+	"game_tabs_label": "Sections",
+	"game_tab_players": "Players",
+	"game_tab_injuries": "Injuries",
+	"game_tab_last_games": "Last 5",
+	"game_tab_standings": "Standings",
+	"game_tab_season_series": "Season series",
+	"game_tab_series": "Series",
+	"game_tab_score": "Score",
+	"game_tab_win_probability": "Win prob.",
+	"game_tab_box_score": "Box score",
+	"game_tab_highlights": "Highlights",
+	"game_tab_videos": "Videos"
 }

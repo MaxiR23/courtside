@@ -4,13 +4,17 @@
 	import Button from '#lib/components/Button.svelte';
 	import DayStrip from '#lib/components/DayStrip.svelte';
 	import GameCard from '#lib/components/GameCard.svelte';
+	import GameHeader from '#lib/components/GameHeader.svelte';
+	import GamePage from '#lib/components/GamePage.svelte';
 	import Hero from '#lib/components/Hero.svelte';
 	import Kicker from '#lib/components/Kicker.svelte';
 	import LiveBadge from '#lib/components/LiveBadge.svelte';
 	import Schedule from '#lib/components/Schedule.svelte';
+	import SectionTabs from '#lib/components/SectionTabs.svelte';
 	import SiteFooter from '#lib/components/SiteFooter.svelte';
 	import StatusTag from '#lib/components/StatusTag.svelte';
 	import TeamMonogram from '#lib/components/TeamMonogram.svelte';
+	import type { GameHeaderView, GameView, HeaderTeam, SectionTab } from '#lib/game/types.ts';
 	import { SpoilerFree } from '#lib/schedule/spoiler-free.svelte.ts';
 	import type { HeroGame, HeroPlayer } from '#lib/hero/types.ts';
 	import type {
@@ -43,6 +47,123 @@
 		teamName: 'Los Angeles Lakers',
 		photo: homePhoto
 	};
+	const allGamesHref = resolve('/');
+	const headerAway: HeaderTeam = {
+		code: 'GSW',
+		name: 'Warriors',
+		city: 'Golden State',
+		record: '12–5'
+	};
+	const headerHome: HeaderTeam = {
+		code: 'LAL',
+		name: 'Lakers',
+		city: 'Los Angeles',
+		record: '10–7'
+	};
+	const venueStrip = {
+		arena: 'Chase Center',
+		city: 'San Francisco',
+		photo: highlight1,
+		cells: [
+			{ label: 'Tip-off', value: '10:30 PM ET', sub: 'Sunday, October 4' },
+			{ label: 'Venue', value: 'Chase Center', sub: 'San Francisco' },
+			{ label: 'Broadcast', value: 'Network One', sub: null }
+		]
+	};
+	const preGameHeader = (
+		state: 'scheduled' | 'delayed' | 'postponed' | 'canceled'
+	): GameHeaderView => ({
+		layout: 'pre-game',
+		status: { state, text: 'Sunday, October 4 · Chase Center' },
+		away: headerAway,
+		home: headerHome,
+		center:
+			state === 'postponed' || state === 'canceled'
+				? { kind: 'none' }
+				: {
+						kind: 'tip-off',
+						tipTime: '10:30',
+						tipSuffix: 'PM ET',
+						broadcast: 'Network One',
+						delayed: state === 'delayed'
+					},
+		venue: venueStrip
+	});
+	const liveHeader = (text: string): GameHeaderView => ({
+		layout: 'live',
+		status: { state: 'live', text },
+		away: headerAway,
+		home: headerHome,
+		center: { kind: 'score', away: 63, home: 62, loser: null },
+		venue: null
+	});
+	const finalHeader: GameHeaderView = {
+		layout: 'final',
+		status: { state: 'final', text: 'Final · Sunday, October 4 · Chase Center' },
+		away: headerAway,
+		home: headerHome,
+		center: { kind: 'score', away: 112, home: 104, loser: 'home' },
+		venue: null
+	};
+	const headerStates: { title: string; header: GameHeaderView }[] = [
+		{ title: 'GameHeader: scheduled', header: preGameHeader('scheduled') },
+		{ title: 'GameHeader: delayed', header: preGameHeader('delayed') },
+		{ title: 'GameHeader: postponed', header: preGameHeader('postponed') },
+		{ title: 'GameHeader: canceled', header: preGameHeader('canceled') },
+		{ title: 'GameHeader: live', header: liveHeader('Q3 · 4:12 · Chase Center') },
+		{ title: 'GameHeader: halftime', header: liveHeader('Halftime · Chase Center') },
+		{ title: 'GameHeader: overtime', header: liveHeader('OT1 · 2:30 · Chase Center') },
+		{ title: 'GameHeader: final', header: finalHeader }
+	];
+	const mobileHeaders = [
+		preGameHeader('scheduled'),
+		liveHeader('Q3 · 4:12 · Chase Center'),
+		finalHeader
+	];
+	const noPhotoHeader: GameHeaderView = {
+		...preGameHeader('scheduled'),
+		venue: { ...venueStrip, photo: null }
+	};
+	const tabs = (...entries: [SectionTab['id'], string][]): SectionTab[] =>
+		entries.map(([id, label]) => ({ id, label }));
+	const miniScore = { awayCode: 'GSW', away: 63, home: 62, homeCode: 'LAL' };
+	const tabStates = [
+		{
+			title: 'SectionTabs: pre-game',
+			tabs: tabs(
+				['players', 'Players'],
+				['injuries', 'Injuries'],
+				['last-games', 'Last 5'],
+				['standings', 'Standings'],
+				['season-series', 'Season series']
+			),
+			miniScore: null
+		},
+		{
+			title: 'SectionTabs: live',
+			tabs: tabs(
+				['score', 'Score'],
+				['win-probability', 'Win prob.'],
+				['box-score', 'Box score'],
+				['injuries', 'Injuries']
+			),
+			miniScore
+		},
+		{
+			title: 'SectionTabs: final',
+			tabs: tabs(
+				['highlights', 'Highlights'],
+				['score', 'Score'],
+				['win-probability', 'Win prob.'],
+				['box-score', 'Box score'],
+				['injuries', 'Injuries'],
+				['season-series', 'Series'],
+				['videos', 'Videos']
+			),
+			miniScore
+		}
+	];
+	const postponedView: GameView = { header: preGameHeader('postponed'), tabs: [], miniScore: null };
 	const today = new Date(2026, 9, 4);
 	const heroStates = [
 		{ title: 'Hero: Tonight', status: 'tonight' },
@@ -388,6 +509,54 @@
 	<section>
 		<h2>Schedule: day with no games</h2>
 		<Schedule days={sampleDays} updatedMinutesAgo={3} selected={1} />
+	</section>
+
+	{#each headerStates as { title, header } (title)}
+		<section>
+			<h2>{title}</h2>
+			<GameHeader {header} {allGamesHref} layout="desktop" />
+		</section>
+	{/each}
+
+	<section>
+		<h2>GameHeader: mobile</h2>
+		<div class="stack phone">
+			{#each mobileHeaders as header (header.layout)}
+				<GameHeader {header} {allGamesHref} layout="mobile" />
+			{/each}
+		</div>
+	</section>
+
+	<section>
+		<h2>GameHeader: no venue photo</h2>
+		<GameHeader header={noPhotoHeader} {allGamesHref} layout="desktop" />
+	</section>
+
+	{#each tabStates as { title, tabs, miniScore } (title)}
+		<section>
+			<h2>{title}</h2>
+			<SectionTabs {tabs} {miniScore} />
+		</section>
+	{/each}
+
+	<section>
+		<h2>GamePage: loading</h2>
+		<GamePage state={{ kind: 'loading' }} {allGamesHref} layout="desktop" />
+	</section>
+
+	<section>
+		<h2>GamePage: feed unavailable</h2>
+		<GamePage state={{ kind: 'unavailable' }} {allGamesHref} layout="desktop" />
+	</section>
+
+	<section>
+		<h2>GamePage: unknown game</h2>
+		<GamePage state={{ kind: 'not-found' }} {allGamesHref} layout="desktop" />
+	</section>
+
+	<section>
+		<h2>GamePage: postponed</h2>
+		<GamePage state={{ kind: 'ready', view: postponedView }} {allGamesHref} layout="desktop" />
 	</section>
 
 	<section>

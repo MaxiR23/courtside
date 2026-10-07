@@ -1,5 +1,5 @@
 <script lang="ts">
-	type Props = { code: string; size: 'large' | 'small' };
+	type Props = { code: string; size: 'large' | 'small' | 'header' | 'header-mobile' };
 
 	let { code, size }: Props = $props();
 </script>
@@ -27,5 +27,15 @@
 	.small {
 		width: var(--monogram-size-mobile);
 		height: var(--monogram-size-mobile);
+	}
+
+	.header {
+		width: var(--detail-monogram-size);
+		height: var(--detail-monogram-size);
+	}
+
+	.header-mobile {
+		width: var(--detail-monogram-size-mobile);
+		height: var(--detail-monogram-size-mobile);
 	}
 </style>

@@ -5,6 +5,7 @@
 // Tested:
 // - Shows the three-letter code
 // - Uses the large or small box by size
+// - Uses the header and header-mobile boxes on the game detail page
 //
 // What is covered:
 // - Both sizes
@@ -35,5 +36,13 @@ describe('TeamMonogram', () => {
 		const el = screen.getByText('GSW');
 		expect(el.classList.contains('small')).toBe(true);
 		expect(el.classList.contains('large')).toBe(false);
+	});
+
+	it('renders the header and header-mobile sizes', () => {
+		const { unmount } = render(TeamMonogram, { props: { code: 'GSW', size: 'header' } });
+		expect(screen.getByText('GSW').classList.contains('header')).toBe(true);
+		unmount();
+		render(TeamMonogram, { props: { code: 'LAL', size: 'header-mobile' } });
+		expect(screen.getByText('LAL').classList.contains('header-mobile')).toBe(true);
 	});
 });

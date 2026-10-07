@@ -12,7 +12,8 @@ export default defineConfig({
 				runes: ({ filename }) =>
 					filename.split(/[/\\]/).includes('node_modules') ? undefined : true
 			},
-			adapter: adapter(),
+			// /game/[id] is rendered in the browser from this page (ADR 0019).
+			adapter: adapter({ fallback: '200.html' }),
 			prerender: {
 				handleHttpError: ({ path, status, message }) => {
 					// The component preview route exists only in development and answers 404 in the build.

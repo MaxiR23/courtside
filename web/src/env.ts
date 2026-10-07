@@ -13,6 +13,18 @@ export const variables = defineEnvVars({
 			return value;
 		}
 	},
+	GAME_DETAIL_FEED_URL: {
+		public: true,
+		static: true,
+		description:
+			"Absolute URL of a game's detail feed, with {id} where the game id goes, read at build time",
+		schema: (value) => {
+			if (!value) return undefined;
+			if (!URL.canParse(value)) throw new Error('GAME_DETAIL_FEED_URL must be an absolute URL');
+			if (!value.includes('{id}')) throw new Error('GAME_DETAIL_FEED_URL must contain {id}');
+			return value;
+		}
+	},
 	VIDEO_PLATFORM_NAME: {
 		public: true,
 		static: true,

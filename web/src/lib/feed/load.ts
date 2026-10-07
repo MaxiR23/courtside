@@ -1,6 +1,9 @@
+import type { GameDetailFeed } from '#lib/contract/game-detail.ts';
 import type { GamesFeed } from '#lib/contract/games.ts';
 
-export type FeedLoadReason = 'network' | 'status' | 'body';
+export type FeedLoadReason = 'network' | 'status' | 'not-found' | 'body';
+
+const GAMES_LABEL = 'The games feed';
 
 export class FeedLoadError extends Error {
 	readonly reason: FeedLoadReason;
@@ -12,6 +15,31 @@ export class FeedLoadError extends Error {
 	}
 }
 
+async function fetchFeedBody(
+	url: string,
+	label: string,
+	fetchFn: typeof fetch,
+	notFound = false // report a 404 as its own reason
+): Promise<unknown> {
+	let response: Response;
+	try {
+		response = await fetchFn(url, { headers: { accept: 'application/json' } });
+	} catch {
+		throw new FeedLoadError('network', `${label} could not be reached`);
+	}
+	if (notFound && response.status === 404) {
+		throw new FeedLoadError('not-found', `${label} answered 404`);
+	}
+	if (!response.ok) {
+		throw new FeedLoadError('status', `${label} answered ${response.status}`);
+	}
+	try {
+		return await response.json();
+	} catch {
+		throw new FeedLoadError('body', `${label} is not JSON`);
+	}
+}
+
 /**
  * Fetches the games feed. The API validates every feed before publishing it, so the body is
  * only checked for its shape: an object with a `days` array.
@@ -20,23 +48,33 @@ export async function loadGamesFeed(
 	url: string,
 	fetchFn: typeof fetch = fetch
 ): Promise<GamesFeed> {
-	let response: Response;
-	try {
-		response = await fetchFn(url, { headers: { accept: 'application/json' } });
-	} catch {
-		throw new FeedLoadError('network', 'The games feed could not be reached');
-	}
-	if (!response.ok) {
-		throw new FeedLoadError('status', `The games feed answered ${response.status}`);
-	}
-	let body: unknown;
-	try {
-		body = await response.json();
-	} catch {
-		throw new FeedLoadError('body', 'The games feed is not JSON');
-	}
+	const body = await fetchFeedBody(url, GAMES_LABEL, fetchFn);
 	if (typeof body !== 'object' || body === null || !Array.isArray((body as GamesFeed).days)) {
 		throw new FeedLoadError('body', 'The games feed has no days');
 	}
 	return body as GamesFeed;
+}
+
+/** The URL of one game's detail feed: the template with the encoded id in place of {id}. */
+export function gameFeedUrl(template: string, id: string): string {
+	return template.replaceAll('{id}', encodeURIComponent(id));
+}
+
+/**
+ * Fetches a game's detail feed. A 404 is its own reason: the game does not exist. The body is
+ * only checked for its shape: an object with a string `id`.
+ */
+export async function loadGameDetailFeed(
+	url: string,
+	fetchFn: typeof fetch = fetch
+): Promise<GameDetailFeed> {
+	const body = await fetchFeedBody(url, 'The game detail feed', fetchFn, true);
+	if (
+		typeof body !== 'object' ||
+		body === null ||
+		typeof (body as GameDetailFeed).id !== 'string'
+	) {
+		throw new FeedLoadError('body', 'The game detail feed has no id');
+	}
+	return body as GameDetailFeed;
 }
