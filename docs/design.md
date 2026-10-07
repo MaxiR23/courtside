@@ -130,7 +130,7 @@ Lucide at `stroke-width: 1.5`: `chevron-down` (expand), `play` (filled, highligh
 
 ### 2. Schedule
 
-- **Header:** the kicker "SCHEDULE" in accent-light, with the selected day as the h2 ("Sunday, October 4"). On the right, the game count ("5 games") in ink, and below it a freshness label in muted ("Updated 3 min ago").
+- **Header:** the kicker "SCHEDULE" in accent-light, with the selected day as the h2 ("Sunday, October 4"). On the right, the game count ("5 games") in ink, and below it a freshness label in muted: "Recently updated" when the feed is under a minute old, and "Updated 3 min ago" from 1 minute on.
 - **Day strip:** 7 equal columns, from today minus 3 days to today plus 3 days. Today is the feed's middle day: the US Eastern date, which the backend changes at midnight once no game of the previous day is live. Each cell shows the weekday (or "Today" in accent-light), the date number in Barlow Condensed `clamp(22px, 3vw, 32px)`, and the game count ("5 games" on desktop, "5" on mobile). The selected cell has an accent border and the selected-day fill. Hover: accent border.
 - **Day with no games:** the header still shows the selected day and "0 games". In place of the game list, a single blueprint row reads "No games scheduled for this day." in muted.
 - **Data unavailable (temporary):** when the games feed cannot be loaded, a single blueprint row in place of the schedule, styled like the day with no games, reads "Data isn't available right now. Check back later.". It stays until the missing data design is decided (see "Open decisions" in `docs/architecture.md`). A day with no data in a loaded feed is still undecided.
