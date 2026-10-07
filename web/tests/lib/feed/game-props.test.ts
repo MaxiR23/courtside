@@ -14,8 +14,9 @@
 // - The sections: built from the feed, null with their tab, leaders from the feed, the win
 //   probability meta, box score split and formatting, highlights on a final game
 // - The pre-game sections: players by side, injuries, last games (strip order, row format), standings,
-//   the season series summary (leader from the feed) and meta, the "Tonight" row and the dimmed
+//   the season series summary (leader from the feed) and meta, the "This game" row and the dimmed
 //   loser, videos; null with their tab; the date shown in UTC
+//   (the current series row comes from the feed marker, not from the date or the position)
 // - Spanish copy and dates for an es browser
 // - A live game without its score cannot be shown
 //
@@ -622,7 +623,7 @@ describe('toGameView pre-game sections', () => {
 		expect(view(pre()).sections.seasonSeries?.meta).toBe('1 of 3 games played');
 	});
 
-	it('marks the current game "Tonight" and dims the loser from the feed winner', () => {
+	it('marks the current game "This game" and dims the loser from the feed winner', () => {
 		const { seasonSeries } = view(pre()).sections;
 		expect(seasonSeries?.games).toEqual([
 			{
@@ -636,7 +637,7 @@ describe('toGameView pre-game sections', () => {
 				arena: 'Chase Center'
 			},
 			{
-				date: 'Tonight',
+				date: 'This game',
 				current: true,
 				awayCode: 'LAL',
 				awayPoints: null,
@@ -648,7 +649,7 @@ describe('toGameView pre-game sections', () => {
 		]);
 	});
 
-	it('shows the points and loser of a completed current game and keeps "Tonight"', () => {
+	it('shows the points and loser of a completed current game and keeps "This game"', () => {
 		const source = pre();
 		const [played, tonight] = source.seasonSeries!.games;
 		source.seasonSeries = {
@@ -656,12 +657,27 @@ describe('toGameView pre-game sections', () => {
 			games: [played, { ...tonight, score: { away: 100, home: 105 }, winner: 'GSW' }]
 		};
 		expect(view(source).sections.seasonSeries?.games[1]).toMatchObject({
-			date: 'Tonight',
+			date: 'This game',
 			current: true,
 			awayPoints: 100,
 			homePoints: 105,
 			loser: 'away'
 		});
+	});
+
+	it('labels the row the feed marks as current, whatever its date', () => {
+		const source = pre();
+		const [played, current] = source.seasonSeries!.games;
+		source.seasonSeries = {
+			...source.seasonSeries!,
+			games: [
+				{ ...played, isCurrent: true },
+				{ ...current, isCurrent: false }
+			]
+		};
+		const games = view(source).sections.seasonSeries!.games;
+		expect(games.map((g) => g.date)).toEqual(['This game', 'Oct 7']);
+		expect(games.map((g) => g.current)).toEqual([true, false]);
 	});
 
 	it('passes videos through with a null thumbnail kept null', () => {
@@ -709,6 +725,6 @@ describe('toGameView pre-game sections', () => {
 		expect(sections.lastGames?.away.rows[1].opponent).toBe('@ PHX');
 		expect(sections.seasonSeries?.summary).toBe('LAL lidera 1–0');
 		expect(sections.seasonSeries?.meta).toBe('1 de 3 partidos jugados');
-		expect(sections.seasonSeries?.games[1].date).toBe('Esta noche');
+		expect(sections.seasonSeries?.games[1].date).toBe('Este partido');
 	});
 });

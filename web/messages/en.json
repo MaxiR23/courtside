@@ -123,7 +123,7 @@
 	"game_series_tied": "Series tied {wins}–{wins}",
 	"game_series_first_meeting": "First meeting",
 	"game_series_played": "{played} of {total} games played",
-	"game_series_tonight": "Tonight",
+	"game_series_this_game": "This game",
 	"game_videos_meta": "Opens in a new tab",
 	"game_standings_rank": [
 		{

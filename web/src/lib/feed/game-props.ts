@@ -469,7 +469,7 @@ function standingsSection(feed: GameDetailFeed): StandingsSection {
 
 function seriesRow(game: SeriesGame): SeriesRow {
 	return {
-		date: game.isCurrent ? m.game_series_tonight() : rowDate(game.date),
+		date: game.isCurrent ? m.game_series_this_game() : rowDate(game.date),
 		current: game.isCurrent,
 		awayCode: game.away,
 		awayPoints: game.score?.away ?? null,

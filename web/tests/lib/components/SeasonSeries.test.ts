@@ -6,7 +6,7 @@
 // - The summary text
 // - One row per game with date, "AWAY pts – pts HOME" and arena, in the given order
 // - No rows on a first meeting
-// - The current game row: "Tonight" in the accent, no points before tip-off, no dimmed side
+// - The current game row: "This game" in the accent, no points before tip-off, no dimmed side
 // - The losing side of each completed game dimmed; a completed current game shows its points
 //
 // What is covered:
@@ -74,12 +74,12 @@ describe('SeasonSeries', () => {
 		expect(container.querySelectorAll('.game')).toHaveLength(0);
 	});
 
-	it('shows "Tonight" in the current game row with no points before tip-off', () => {
+	it('shows "This game" in the current game row with no points before tip-off', () => {
 		const tonight: SeasonSeriesSection = {
 			...series,
 			games: [
 				{
-					date: 'Tonight',
+					date: 'This game',
 					current: true,
 					awayCode: 'LAL',
 					awayPoints: null,
@@ -93,7 +93,7 @@ describe('SeasonSeries', () => {
 		const { container } = render(SeasonSeries, { props: { series: tonight } });
 		const row = container.querySelector('.game')!;
 		expect([...row.children].map((c) => c.textContent?.replace(/\s+/g, ' '))).toEqual([
-			'Tonight',
+			'This game',
 			'LAL – GSW',
 			'Chase Center'
 		]);
@@ -115,7 +115,7 @@ describe('SeasonSeries', () => {
 			...series,
 			games: [
 				{
-					date: 'Tonight',
+					date: 'This game',
 					current: true,
 					awayCode: 'LAL',
 					awayPoints: 100,
