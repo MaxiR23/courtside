@@ -4,7 +4,7 @@
 // committed JSON Schema, so they are never edited by hand and never stale.
 //
 // Tested:
-// - The committed types match the types generated from the committed schema
+// - For each feed: the committed types match the types generated from the committed schema
 // - The committed file starts with the generated-file banner
 // - A changed schema produces different types
 //
@@ -14,37 +14,40 @@
 //
 // Run with: cd web && pnpm exec vitest run tests/contract-types-are-generated.test.ts
 //
-// SEE: web/scripts/contract-types.js, web/src/lib/contract/games.ts, api/schemas/games.schema.json
+// SEE: web/scripts/contract-types.js, web/src/lib/contract/games.ts, api/schemas/games.schema.json,
+// web/src/lib/contract/game-detail.ts, api/schemas/game-detail.schema.json
 // @vitest-environment node
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { bannerComment, renderTypes, schemaPath, typesPath } from '../scripts/contract-types.js';
+import { bannerComment, feeds, renderTypes } from '../scripts/contract-types.js';
 
-const schema = JSON.parse(readFileSync(schemaPath, 'utf8')) as {
-	properties: Record<string, unknown>;
-};
-const committed = readFileSync(typesPath, 'utf8');
+describe.each(feeds)('contract types of $name', (feed) => {
+	const schema = JSON.parse(readFileSync(feed.schemaPath, 'utf8')) as {
+		properties: Record<string, unknown>;
+		required?: string[];
+	};
+	const committed = readFileSync(feed.typesPath, 'utf8');
 
-describe('contract types', () => {
 	it('matches the types generated from the committed schema', async () => {
-		const generated = await renderTypes(schema);
+		const generated = await renderTypes(schema, feed);
 
-		expect(committed, 'web/src/lib/contract/games.ts is stale: run scripts/contract.sh').toBe(
-			generated
-		);
+		expect(
+			committed,
+			`web/src/lib/contract/${feed.name}.ts is stale: run scripts/contract.sh`
+		).toBe(generated);
 	});
 
 	it('marks the file as generated and not to be edited by hand', () => {
-		expect(committed.startsWith(bannerComment)).toBe(true);
+		expect(committed.startsWith(bannerComment(feed))).toBe(true);
 	});
 
 	it('produces different types when the schema changes', async () => {
 		const changed = {
 			...schema,
 			properties: { ...schema.properties, extraField: { type: 'string' } },
-			required: [...(schema as { required?: string[] }).required!, 'extraField']
+			required: [...schema.required!, 'extraField']
 		};
 
-		expect(await renderTypes(changed)).not.toBe(committed);
+		expect(await renderTypes(changed, feed)).not.toBe(committed);
 	});
 });
