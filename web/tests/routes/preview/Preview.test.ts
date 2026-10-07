@@ -13,7 +13,7 @@
 // - Shows final cards with spoiler-free mode on next to the rows with it off
 // - The hero toggle turns the mode on for the schedule
 // - Shows the game header in every status on both rows, the section tabs for each layout and every game page state
-// - Shows every pre-game, live and final section for a pre-game, a live, a final and an overtime game, and the standalone videos and first meeting samples
+// - Shows every pre-game, live and final section for a pre-game, a live, a final and an overtime game, with the win probability gridlines and period labels, and the standalone videos and first meeting samples
 // - Uses no external URL for images, players or links
 //
 // What is covered:
@@ -280,6 +280,23 @@ describe('component preview', () => {
 		expect(sectionOf('GamePage: final sections').querySelector('.meta.emphasis')?.textContent).toBe(
 			'GSW win'
 		);
+		const chartOf = (title: string) => {
+			const section = sectionOf(title);
+			return {
+				lines: section.querySelectorAll('.win-probability line.gridline').length,
+				labels: [...section.querySelectorAll('.win-probability .periods span')].map(
+					(e) => e.textContent
+				)
+			};
+		};
+		expect(chartOf('GamePage: final sections')).toEqual({
+			lines: 3,
+			labels: ['Q1', 'Q2', 'Q3', 'Q4']
+		});
+		expect(chartOf('GamePage: overtime sections')).toEqual({
+			lines: 5,
+			labels: ['Q1', 'Q2', 'Q3', 'Q4', 'OT1', 'OT2']
+		});
 	});
 
 	it('shows the standalone mobile videos and the first meeting series', () => {

@@ -212,6 +212,15 @@
 			"homeWinProbability": 0.48
 		}
 	],
+	"winProbabilityPeriods": {
+		"periods": [
+			{ "number": 1, "startElapsedSeconds": 0 },
+			{ "number": 2, "startElapsedSeconds": 720 },
+			{ "number": 3, "startElapsedSeconds": 1440 },
+			{ "number": 4, "startElapsedSeconds": 2160 }
+		],
+		"endElapsedSeconds": 2880
+	},
 	"injuries": {
 		"away": [
 			{

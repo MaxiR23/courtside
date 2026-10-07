@@ -39,6 +39,8 @@ const feed = (): GameDetailFeed =>
 	) as GameDetailFeed;
 const options: { videoPlatformName?: string } = { videoPlatformName: 'Video platform' };
 
+type Periods = NonNullable<GameDetailFeed['winProbabilityPeriods']>['periods'];
+
 function view(source: GameDetailFeed, opts = options): GameView {
 	const result = toGameView(source, opts);
 	if (!result) throw new Error('The fixture feed must be showable');
@@ -332,6 +334,52 @@ describe('toGameView sections', () => {
 		const result = view({ ...feed(), winProbability: points }).sections.winProbability;
 		expect(result?.points).toEqual(points);
 		expect(Object.keys(result ?? {})).not.toContain('overtimes');
+	});
+
+	it('labels each period of the feed Q1 to Q4 and OT1, OT2, with its start and the game end', () => {
+		const starts = [0, 720, 1440, 2160, 2880, 3180];
+		const source: GameDetailFeed = {
+			...feed(),
+			winProbabilityPeriods: {
+				periods: starts.map((startElapsedSeconds, i) => ({
+					number: i + 1,
+					startElapsedSeconds
+				})) as Periods,
+				endElapsedSeconds: 3480
+			}
+		};
+		expect(view(source).sections.winProbability?.boundaries).toEqual({
+			periods: [
+				{ label: 'Q1', start: 0 },
+				{ label: 'Q2', start: 720 },
+				{ label: 'Q3', start: 1440 },
+				{ label: 'Q4', start: 2160 },
+				{ label: 'OT1', start: 2880 },
+				{ label: 'OT2', start: 3180 }
+			],
+			end: 3480
+		});
+	});
+
+	it('gives null boundaries when the feed has no period boundaries', () => {
+		const source: GameDetailFeed = { ...feed(), winProbabilityPeriods: null };
+		expect(view(source).sections.winProbability?.boundaries).toBeNull();
+	});
+
+	it('labels the periods in Spanish for an es browser', () => {
+		preferLanguages(['es-ES']);
+		const source: GameDetailFeed = {
+			...feed(),
+			winProbabilityPeriods: {
+				periods: [0, 720, 1440, 2160, 2880].map((startElapsedSeconds, i) => ({
+					number: i + 1,
+					startElapsedSeconds
+				})) as Periods,
+				endElapsedSeconds: 3180
+			}
+		};
+		const labels = view(source).sections.winProbability?.boundaries?.periods.map((p) => p.label);
+		expect(labels).toEqual(['C1', 'C2', 'C3', 'C4', 'PR1']);
 	});
 
 	it('splits the box score into starters and bench in feed order and formats shooting as made-attempted', () => {

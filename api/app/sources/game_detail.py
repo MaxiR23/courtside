@@ -2,8 +2,8 @@
 #
 # Game detail adapter: fetches one game's box score from the provider and
 # maps it to the contract's leaders and team stats. It also maps the full
-# game detail sections: venue, box score, team stats, win probability,
-# injuries, season series and videos. The provider URLs come from Settings.
+# game detail sections: venue, box score, team stats, win probability and
+# its period boundaries, injuries, season series and videos. The provider URLs come from Settings.
 # Provider data never leaves this module.
 #
 # SEE: docs/api/games.md, api/app/sources/scoreboard.py
@@ -31,6 +31,7 @@ from app.feeds.game_detail import (
     InjuryStatus,
     Venue,
     Video,
+    WinProbabilityPeriods,
     WinProbabilityPoint,
 )
 from app.feeds.games import (
@@ -404,6 +405,7 @@ class GameDetailSections(FeedModel):
     win_probability: (
         Annotated[list[WinProbabilityPoint], Field(min_length=1)] | None
     ) = None
+    win_probability_periods: WinProbabilityPeriods | None = None
     injuries: Injuries | None = None
     season_series: SeriesMeetings | None = None
     videos: list[Video] | None = None
@@ -425,13 +427,24 @@ def _stat_leader(
     return away_code if away_leads else home_code
 
 
+def _period_length(period: int, fmt: _SummaryFormat) -> float:
+    # Periods 1..regulation.periods last regulation.clock seconds, later ones
+    # overtime.clock.
+    regulation = fmt.regulation
+    return regulation.clock if period <= regulation.periods else fmt.overtime.clock
+
+
+def _period_start(period: int, fmt: _SummaryFormat) -> float:
+    # Elapsed game seconds at the start of the period.
+    return sum(_period_length(n, fmt) for n in range(1, period))
+
+
 def _elapsed_seconds(period: int, clock: str, fmt: _SummaryFormat) -> int | None:
     # clock is the time remaining, "MM:SS" or "S.s". Periods 1..regulation.periods
     # last regulation.clock seconds, later ones overtime.clock.
     if period < 1:
         return None
-    regulation = fmt.regulation
-    length = regulation.clock if period <= regulation.periods else fmt.overtime.clock
+    length = _period_length(period, fmt)
     try:
         if ":" in clock:
             minutes, seconds = clock.split(":")
@@ -442,11 +455,7 @@ def _elapsed_seconds(period: int, clock: str, fmt: _SummaryFormat) -> int | None
         return None
     if not 0 <= remaining <= length:
         return None
-    earlier = sum(
-        regulation.clock if n <= regulation.periods else fmt.overtime.clock
-        for n in range(1, period)
-    )
-    return int(earlier + length - remaining)
+    return int(_period_start(period, fmt) + length - remaining)
 
 
 def _made_attempted(game_id: str, value: str) -> tuple[int, int]:
@@ -587,6 +596,21 @@ def _win_probability(summary: _ProviderSummary) -> list[dict[str, Any]]:
             }
         )
     return points
+
+
+def _win_probability_periods(summary: _ProviderSummary) -> dict[str, Any]:
+    # Lengths come from the game format; the count comes from the plays' period
+    # numbers, with the regulation count as the minimum.
+    fmt = summary.format
+    played = max((play.period.number for play in summary.plays), default=0)
+    count = max(fmt.regulation.periods, played)
+    return {
+        "periods": [
+            {"number": n, "start_elapsed_seconds": int(_period_start(n, fmt))}
+            for n in range(1, count + 1)
+        ],
+        "end_elapsed_seconds": int(_period_start(count + 1, fmt)),
+    }
 
 
 def _injuries(
@@ -743,7 +767,11 @@ async def fetch_game_detail_sections(
         sections["box_score"] = box_score
         sections["team_stats"] = team_stats
 
-    sections["win_probability"] = _win_probability(summary) or None
+    points = _win_probability(summary)
+    sections["win_probability"] = points or None
+    sections["win_probability_periods"] = (
+        _win_probability_periods(summary) if points else None
+    )
     if summary.injuries:
         sections["injuries"] = _injuries(game_id, summary, abbreviations)
     sections["season_series"] = _season_series(game_id, summary, codes)

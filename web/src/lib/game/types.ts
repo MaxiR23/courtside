@@ -85,6 +85,7 @@ export type WinProbabilitySection = {
 	middle: string; // "50%", formatted
 	meta: string; // "GSW 68%" or "OKC win", formatted
 	points: { elapsedSeconds: number; homeWinProbability: number }[]; // at least one, feed order
+	boundaries: { periods: { label: string; start: number }[]; end: number } | null; // null: no period boundaries in the feed
 };
 
 export type BoxRow = {

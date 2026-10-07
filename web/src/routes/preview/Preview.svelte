@@ -373,12 +373,17 @@
 			elapsedSeconds,
 			homeWinProbability: 0.5 + 0.18 * Math.sin(i / 2)
 		}));
+	const quarterStarts = [0, 720, 1440, 2160];
 	const sampleChart: WinProbabilitySection = {
 		awayCode: headerAway.code,
 		homeCode: headerHome.code,
 		middle: '50%',
 		meta: 'LAL 68%',
-		points: curve([300, 600, 900, 1200, 1500, 1800, 2100])
+		points: curve([300, 600, 900, 1200, 1500, 1800, 2100]),
+		boundaries: {
+			periods: quarterStarts.map((start, i) => ({ label: `Q${i + 1}`, start })),
+			end: 2880
+		}
 	};
 	const samplePlayers: PlayersSection = {
 		away: { ...away, teamName: 'Golden State Warriors', photo: awayPhoto },
@@ -554,7 +559,15 @@
 		winProbability: {
 			...sampleChart,
 			meta: 'GSW win',
-			points: curve([0, 720, 1440, 2160, 2880, 3180, 3480])
+			points: curve([0, 720, 1440, 2160, 2880, 3180, 3480]),
+			boundaries: {
+				periods: [
+					...quarterStarts.map((start, i) => ({ label: `Q${i + 1}`, start })),
+					{ label: 'OT1', start: 2880 },
+					{ label: 'OT2', start: 3180 }
+				],
+				end: 3480
+			}
 		}
 	};
 	const sectionViews: { title: string; view: GameView }[] = [
