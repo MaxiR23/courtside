@@ -159,11 +159,13 @@ export type StandingRow = {
 export type StandingsSection = { away: StandingRow; home: StandingRow };
 
 export type SeriesRow = {
-	date: string; // "Jan 10"
+	date: string; // "Jan 10", or "Tonight" for the current game
+	current: boolean;
 	awayCode: string;
-	awayPoints: number;
-	homePoints: number;
+	awayPoints: number | null; // null when the game has no score yet
+	homePoints: number | null;
 	homeCode: string;
+	loser: 'away' | 'home' | null; // from the feed winner
 	arena: string;
 };
 export type SeasonSeriesSection = {

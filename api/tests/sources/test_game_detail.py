@@ -19,6 +19,9 @@
 # - Drops players without a stat line, splits made and attempted shots, reads plus-minus with its sign and builds photo URLs from the template
 # - Counts the series wins of the away and home team and dates series games on the US Eastern day
 # - Raises the source error on an unknown injury status, a series game of other teams, a summary missing a used field, a missing detail team stat, a box score stat that is not a number, a timeout, an error status and a missing URL
+# - Marks this game in the season series, before and after it is played, with its winner and score only once it is completed
+# - Gives each completed series game its winner and the series a leader, or none on a tie
+# - Raises the source error on a completed series game without exactly one winner
 # - SeriesMeeting uses the same field types as the contract SeriesGame, except the arena
 #
 # What is covered:
@@ -67,6 +70,11 @@ FIXTURES = Path(__file__).parent / "fixtures" / "game_detail"
 GAME_ID = "401918010"
 TEMPLATE = "https://example.com/games/{game_id}"
 URL = f"https://example.com/games/{GAME_ID}"
+# summary-final.json was recorded for this event: its box totals and venue match it.
+SERIES_GAME_ID = "401811041"
+# No recorded summary holds a pre-game current game, so that test calls
+# summary-scheduled.json with the id of one of its own pre events.
+PRE_GAME_SERIES_ID = "401910243"
 PHOTO_TEMPLATE = "https://example.com/players/{player_id}.png"
 
 Payload = dict[str, Any]
@@ -550,29 +558,37 @@ def test_game_detail_fields_match_the_contract_game() -> None:
 SECTIONS_PHOTO = "https://example.com/players/{player_id}.png"
 
 
-async def fetch_sections(settings: Settings) -> GameDetailSections:
+async def fetch_sections(
+    settings: Settings, game_id: str = GAME_ID
+) -> GameDetailSections:
     async with create_client() as client:
-        return await fetch_game_detail_sections(client, GAME_ID, settings)
+        return await fetch_game_detail_sections(client, game_id, settings)
 
 
-async def sections_error(settings: Settings) -> SourceError:
+async def sections_error(settings: Settings, game_id: str = GAME_ID) -> SourceError:
     with pytest.raises(SourceError) as raised:
-        await fetch_sections(settings)
+        await fetch_sections(settings, game_id)
     return raised.value
 
 
 async def sections_of(
-    mock: respx.MockRouter, settings: Settings, payload: Payload
+    mock: respx.MockRouter,
+    settings: Settings,
+    payload: Payload,
+    game_id: str = GAME_ID,
 ) -> GameDetailSections:
-    mock.get(URL).respond(json=payload)
-    return await fetch_sections(settings)
+    mock.get(TEMPLATE.format(game_id=game_id)).respond(json=payload)
+    return await fetch_sections(settings, game_id)
 
 
 async def sections_error_of(
-    mock: respx.MockRouter, settings: Settings, payload: Payload
+    mock: respx.MockRouter,
+    settings: Settings,
+    payload: Payload,
+    game_id: str = GAME_ID,
 ) -> SourceError:
-    mock.get(URL).respond(json=payload)
-    return await sections_error(settings)
+    mock.get(TEMPLATE.format(game_id=game_id)).respond(json=payload)
+    return await sections_error(settings, game_id)
 
 
 def stat_row(payload: Payload, side: str, name: str) -> Payload:
@@ -610,6 +626,7 @@ async def test_maps_a_recorded_scheduled_game_to_its_venue_injuries_and_series_w
     assert detail.season_series is not None
     assert detail.season_series.total_games == 2
     assert detail.season_series.games == []
+    assert detail.season_series.leader is None
     assert detail.videos is None
 
 
@@ -669,6 +686,7 @@ async def test_keeps_the_series_empty_when_no_game_was_played(
     assert detail.season_series is not None
     assert detail.season_series.total_games == 4
     assert detail.season_series.games == []
+    assert detail.season_series.leader is None
     assert (detail.season_series.away_wins, detail.season_series.home_wins) == (0, 0)
 
 
@@ -940,7 +958,116 @@ async def test_counts_series_wins_for_the_away_and_home_team(
     assert (detail.season_series.away_wins, detail.season_series.home_wins) == (4, 0)
     first = detail.season_series.games[0]
     assert (first.away, first.home) == ("BOS", "ORL")
+    assert first.score is not None
     assert (first.score.away, first.score.home) == (110, 123)
+
+
+@pytest.mark.anyio
+async def test_marks_the_current_pre_game_in_the_series_without_score_or_winner(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    detail = await sections_of(
+        mock, settings, load("summary-scheduled.json"), PRE_GAME_SERIES_ID
+    )
+
+    assert detail.season_series is not None
+    assert len(detail.season_series.games) == 1
+    game = detail.season_series.games[0]
+    assert game.game_id == PRE_GAME_SERIES_ID
+    assert game.is_current is True
+    assert game.score is None
+    assert game.winner is None
+    assert detail.season_series.leader is None
+    assert (detail.season_series.away_wins, detail.season_series.home_wins) == (0, 0)
+
+
+@pytest.mark.anyio
+async def test_marks_the_current_final_game_in_the_series_with_its_winner(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    detail = await sections_of(
+        mock, settings, load("summary-final.json"), SERIES_GAME_ID
+    )
+
+    assert detail.season_series is not None
+    games = detail.season_series.games
+    assert len(games) == 4
+    assert [g.is_current for g in games] == [False, False, False, True]
+    assert games[-1].winner == "BOS"
+    assert games[-1].score is not None
+    assert (games[-1].score.away, games[-1].score.home) == (108, 113)
+
+
+@pytest.mark.anyio
+async def test_gives_each_completed_series_game_its_winner(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    detail = await sections_of(mock, settings, load("summary-final.json"))
+
+    assert detail.season_series is not None
+    assert [g.winner for g in detail.season_series.games] == [
+        "ORL",
+        "BOS",
+        "BOS",
+        "BOS",
+    ]
+
+
+@pytest.mark.anyio
+async def test_leads_the_series_with_the_home_team(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    detail = await sections_of(mock, settings, load("summary-final.json"))
+
+    assert detail.season_series is not None
+    assert detail.season_series.leader == "BOS"
+
+
+@pytest.mark.anyio
+async def test_leads_the_series_with_the_away_team(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("summary-final.json")
+    for event in payload["seasonseries"][0]["events"]:
+        for competitor in event["competitors"]:
+            competitor["winner"] = competitor["team"]["abbreviation"] == "ORL"
+
+    detail = await sections_of(mock, settings, payload)
+
+    assert detail.season_series is not None
+    assert detail.season_series.leader == "ORL"
+
+
+@pytest.mark.anyio
+async def test_leaves_a_tied_series_without_a_leader(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("summary-final.json")
+    for index, event in enumerate(payload["seasonseries"][0]["events"]):
+        for competitor in event["competitors"]:
+            leader = "ORL" if index < 2 else "BOS"
+            competitor["winner"] = competitor["team"]["abbreviation"] == leader
+
+    detail = await sections_of(mock, settings, payload)
+
+    assert detail.season_series is not None
+    assert (detail.season_series.away_wins, detail.season_series.home_wins) == (2, 2)
+    assert detail.season_series.leader is None
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("flagged", [[False, False], [True, True]])
+async def test_raises_the_source_error_on_a_completed_series_game_without_one_winner(
+    mock: respx.MockRouter, settings: Settings, flagged: list[bool]
+) -> None:
+    payload = load("summary-final.json")
+    competitors = payload["seasonseries"][0]["events"][0]["competitors"]
+    for competitor, flag in zip(competitors, flagged, strict=True):
+        competitor["winner"] = flag
+
+    error = await sections_error_of(mock, settings, payload)
+
+    assert error.reason == f"game {GAME_ID} has a series game without one winner"
 
 
 @pytest.mark.anyio

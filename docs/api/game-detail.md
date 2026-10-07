@@ -81,8 +81,8 @@ code.
 | `LastGame`            | `date`, `opponent` (team code), `isHome`, `result` (`win`, `loss`), `teamScore`, `opponentScore`                                             |
 | `Standings`           | `away`, `home`: `TeamStanding`                                                                                                               |
 | `TeamStanding`        | `conference` (`east`, `west`), `conferenceRank`, `record`, `homeRecord`, `awayRecord`, `lastTen`: `Record`                                   |
-| `SeasonSeries`        | `totalGames`, `awayWins`, `homeWins`, `games`: `SeriesGame[]`                                                                                |
-| `SeriesGame`          | `date`, `away`, `home` (team codes), `score`: `Score`, `arena`                                                                               |
+| `SeasonSeries`        | `totalGames`, `awayWins`, `homeWins`, `leader` (team code, null on a tie or before any game), `games`: `SeriesGame[]`                    |
+| `SeriesGame`          | `date`, `away`, `home` (team codes), `isCurrent`, `score`: `Score` / null, `winner` (team code / null), `arena`                             |
 | `Video`               | `title`, `duration` (text), `thumbnailUrl` (null when none), `linkUrl`                                                                       |
 
 Rules that live in the code:
@@ -91,8 +91,13 @@ Rules that live in the code:
   `null` means no data.
 - `lastGames` lists at most five games per team, newest first; a list may be
   empty.
-- `seasonSeries.games` empty is a first meeting; on a final game the list
-  includes this game.
+- `seasonSeries.games` holds the completed games and this game, when the
+  source lists it, in the source's order.
+- A completed game has `score` and `winner`. This game is the one with
+  `isCurrent`, and has null `score` and `winner` until the source reports it
+  completed.
+- `seasonSeries.leader` is the team with more wins, null on equal wins.
+- No completed game is a first meeting.
 - `teamStats.leaders.<row>` is `null` on a tie; for `turnovers` the lower
   value leads.
 - `winProbability` has at least one point.

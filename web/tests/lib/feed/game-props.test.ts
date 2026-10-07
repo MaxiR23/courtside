@@ -14,7 +14,8 @@
 // - The sections: built from the feed, null with their tab, leaders from the feed, the win
 //   probability meta, box score split and formatting, highlights on a final game
 // - The pre-game sections: players by side, injuries, last games (strip order, row format), standings,
-//   the season series summary and meta, videos; null with their tab; the date shown in UTC
+//   the season series summary (leader from the feed) and meta, the "Tonight" row and the dimmed
+//   loser, videos; null with their tab; the date shown in UTC
 // - Spanish copy and dates for an es browser
 // - A live game without its score cannot be shown
 //
@@ -571,37 +572,96 @@ describe('toGameView pre-game sections', () => {
 		expect(standings?.home.record).toBe('10–7');
 	});
 
-	it('summarises the series as "LAL lead 1–0", "Series tied 1–1" and "First meeting"', () => {
+	it('summarises the series as "LAL lead 1–0", "GSW lead 2–1", "Series tied 1–1" and "First meeting"', () => {
 		expect(view(pre()).sections.seasonSeries?.summary).toBe('LAL lead 1–0');
-		const tied = pre();
-		tied.seasonSeries = { ...tied.seasonSeries!, awayWins: 1, homeWins: 1 };
-		expect(view(tied).sections.seasonSeries?.summary).toBe('Series tied 1–1');
 		const homeLeads = pre();
-		homeLeads.seasonSeries = { ...homeLeads.seasonSeries!, awayWins: 1, homeWins: 2 };
+		homeLeads.seasonSeries = {
+			...homeLeads.seasonSeries!,
+			awayWins: 1,
+			homeWins: 2,
+			leader: 'GSW'
+		};
 		expect(view(homeLeads).sections.seasonSeries?.summary).toBe('GSW lead 2–1');
+		const tied = pre();
+		const [played, tonight] = tied.seasonSeries!.games;
+		tied.seasonSeries = {
+			...tied.seasonSeries!,
+			awayWins: 1,
+			homeWins: 1,
+			leader: null,
+			games: [played, { ...played, winner: 'GSW' }, tonight]
+		};
+		expect(view(tied).sections.seasonSeries?.summary).toBe('Series tied 1–1');
 		const first = pre();
-		first.seasonSeries = { totalGames: 3, awayWins: 0, homeWins: 0, games: [] };
+		first.seasonSeries = {
+			totalGames: 3,
+			awayWins: 0,
+			homeWins: 0,
+			leader: null,
+			games: [first.seasonSeries!.games[1]]
+		};
+		expect(view(first).sections.seasonSeries?.summary).toBe('First meeting');
+		first.seasonSeries = { ...first.seasonSeries, games: [] };
 		const section = view(first).sections.seasonSeries;
 		expect(section?.summary).toBe('First meeting');
 		expect(section?.games).toEqual([]);
 	});
 
-	it('shows "1 of 3 games played" as the series meta', () => {
+	it('takes the series leader from the feed, not from the win counts', () => {
+		const source = pre();
+		source.seasonSeries = {
+			...source.seasonSeries!,
+			awayWins: 2,
+			homeWins: 1,
+			leader: 'GSW'
+		};
+		expect(view(source).sections.seasonSeries?.summary).toBe('GSW lead 1–2');
+	});
+
+	it('shows "1 of 3 games played" as the series meta, counting completed games only', () => {
 		expect(view(pre()).sections.seasonSeries?.meta).toBe('1 of 3 games played');
 	});
 
-	it('keeps series rows in feed order with their arena and no winner or current marker', () => {
+	it('marks the current game "Tonight" and dims the loser from the feed winner', () => {
 		const { seasonSeries } = view(pre()).sections;
 		expect(seasonSeries?.games).toEqual([
 			{
 				date: 'Jan 10',
+				current: false,
 				awayCode: 'LAL',
 				awayPoints: 118,
 				homePoints: 112,
 				homeCode: 'GSW',
+				loser: 'home',
+				arena: 'Chase Center'
+			},
+			{
+				date: 'Tonight',
+				current: true,
+				awayCode: 'LAL',
+				awayPoints: null,
+				homePoints: null,
+				homeCode: 'GSW',
+				loser: null,
 				arena: 'Chase Center'
 			}
 		]);
+	});
+
+	it('shows the points and loser of a completed current game and keeps "Tonight"', () => {
+		const source = pre();
+		const [played, tonight] = source.seasonSeries!.games;
+		source.seasonSeries = {
+			...source.seasonSeries!,
+			games: [played, { ...tonight, score: { away: 100, home: 105 }, winner: 'GSW' }]
+		};
+		expect(view(source).sections.seasonSeries?.games[1]).toMatchObject({
+			date: 'Tonight',
+			current: true,
+			awayPoints: 100,
+			homePoints: 105,
+			loser: 'away'
+		});
 	});
 
 	it('passes videos through with a null thumbnail kept null', () => {
@@ -649,5 +709,6 @@ describe('toGameView pre-game sections', () => {
 		expect(sections.lastGames?.away.rows[1].opponent).toBe('@ PHX');
 		expect(sections.seasonSeries?.summary).toBe('LAL lidera 1–0');
 		expect(sections.seasonSeries?.meta).toBe('1 de 3 partidos jugados');
+		expect(sections.seasonSeries?.games[1].date).toBe('Esta noche');
 	});
 });

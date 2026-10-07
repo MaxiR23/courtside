@@ -8,6 +8,10 @@
 # - A live or final game missing a field its status requires is rejected
 # - A winner must be one of the teams and only a final game has one
 # - A stat leader must be one of the teams; a tie is a null leader
+# - Series games: a score and a winner come together, the winner is one of the
+#   game's teams, and at most one game is the current game; the current game
+#   may have neither
+# - Series leader: one of the teams with more wins, or null on equal wins
 # - Last games: at most five, newest first, may be empty
 # - Win probability periods: numbered from 1, start at 0, increase, and
 #   bound every win probability point; they require win probability
@@ -167,7 +171,9 @@ def series_game() -> Payload:
         "date": "2025-12-01",
         "away": "AAA",
         "home": "HHH",
+        "isCurrent": False,
         "score": {"away": 99, "home": 101},
+        "winner": "HHH",
         "arena": "Arena",
     }
 
@@ -223,6 +229,7 @@ def full_game() -> Payload:
             "totalGames": 4,
             "awayWins": 1,
             "homeWins": 1,
+            "leader": None,
             "games": [series_game()],
         },
         highlights=[
@@ -336,6 +343,80 @@ def test_rejects_a_missing_stat_leader_row() -> None:
 
     with pytest.raises(ValidationError):
         GameDetailFeed.model_validate(game)
+
+
+def series_feed(**series: Any) -> Payload:
+    game = full_game()
+    game["seasonSeries"].update(series)
+    return game
+
+
+def test_accepts_a_current_series_game_without_score_or_winner() -> None:
+    current = {**series_game(), "isCurrent": True, "score": None, "winner": None}
+
+    feed = GameDetailFeed.model_validate(series_feed(games=[series_game(), current]))
+
+    assert feed.season_series is not None
+    assert feed.season_series.games[1].score is None
+    assert feed.season_series.games[1].winner is None
+
+
+def test_rejects_a_series_game_with_a_score_and_no_winner() -> None:
+    game = {**series_game(), "winner": None}
+
+    with pytest.raises(ValidationError, match="a score and a winner"):
+        GameDetailFeed.model_validate(series_feed(games=[game]))
+
+
+def test_rejects_a_series_game_with_a_winner_and_no_score() -> None:
+    game = {**series_game(), "score": None}
+
+    with pytest.raises(ValidationError, match="a score and a winner"):
+        GameDetailFeed.model_validate(series_feed(games=[game]))
+
+
+def test_rejects_a_series_game_winner_that_is_not_one_of_its_teams() -> None:
+    game = {**series_game(), "winner": "ZZZ"}
+
+    with pytest.raises(ValidationError, match="series game winner"):
+        GameDetailFeed.model_validate(series_feed(games=[game]))
+
+
+def test_rejects_more_than_one_current_series_game() -> None:
+    current = {**series_game(), "isCurrent": True}
+
+    with pytest.raises(ValidationError, match="at most one"):
+        GameDetailFeed.model_validate(series_feed(games=[current, current]))
+
+
+def test_rejects_a_series_leader_that_is_not_one_of_the_teams() -> None:
+    with pytest.raises(ValidationError, match="series leader must be the away"):
+        GameDetailFeed.model_validate(series_feed(awayWins=2, homeWins=1, leader="ZZZ"))
+
+
+@pytest.mark.parametrize(
+    ("away_wins", "home_wins", "leader"),
+    [(1, 1, "AAA"), (2, 1, "HHH"), (1, 2, "AAA")],
+)
+def test_rejects_a_series_leader_that_does_not_have_more_wins(
+    away_wins: int, home_wins: int, leader: str
+) -> None:
+    with pytest.raises(ValidationError, match="more wins"):
+        GameDetailFeed.model_validate(
+            series_feed(awayWins=away_wins, homeWins=home_wins, leader=leader)
+        )
+
+
+def test_accepts_a_tied_series_with_no_leader() -> None:
+    feed = GameDetailFeed.model_validate(series_feed())
+
+    assert feed.season_series is not None
+    assert feed.season_series.leader is None
+
+
+def test_rejects_a_series_with_no_leader_and_unequal_wins() -> None:
+    with pytest.raises(ValidationError, match="more wins"):
+        GameDetailFeed.model_validate(series_feed(awayWins=2, homeWins=1))
 
 
 def test_rejects_more_than_five_last_games() -> None:

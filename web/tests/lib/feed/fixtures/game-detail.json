@@ -307,15 +307,27 @@
 		"totalGames": 3,
 		"awayWins": 1,
 		"homeWins": 0,
+		"leader": "LAL",
 		"games": [
 			{
 				"date": "2026-01-10",
 				"away": "LAL",
 				"home": "GSW",
+				"isCurrent": false,
 				"score": {
 					"away": 118,
 					"home": 112
 				},
+				"winner": "LAL",
+				"arena": "Chase Center"
+			},
+			{
+				"date": "2026-10-07",
+				"away": "LAL",
+				"home": "GSW",
+				"isCurrent": true,
+				"score": null,
+				"winner": null,
 				"arena": "Chase Center"
 			}
 		]

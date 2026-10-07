@@ -221,13 +221,16 @@ export interface SeasonSeries {
 	totalGames: number;
 	awayWins: number;
 	homeWins: number;
+	leader: string | null;
 	games: SeriesGame[];
 }
 export interface SeriesGame {
 	date: string;
 	away: string;
 	home: string;
-	score: Score;
+	isCurrent: boolean;
+	score: Score | null;
+	winner: string | null;
 	arena: string;
 }
 export interface Highlight {

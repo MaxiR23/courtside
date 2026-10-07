@@ -14,6 +14,7 @@
 // - The hero toggle turns the mode on for the schedule
 // - Shows the game header in every status on both rows, the section tabs for each layout and every game page state
 // - Shows every pre-game, live and final section for a pre-game, a live, a final and an overtime game, with the win probability gridlines and period labels, and the standalone videos and first meeting samples
+// - Shows the season series with "Tonight" and the dimmed loser on the pre-game and final pages
 // - Uses no external URL for images, players or links
 //
 // What is covered:
@@ -305,6 +306,17 @@ describe('component preview', () => {
 		const first = sectionOf('SeasonSeries: first meeting');
 		expect(within(first).getByText('First meeting')).toBeTruthy();
 		expect(first.querySelectorAll('.game')).toHaveLength(0);
+	});
+
+	it('shows the season series with "Tonight" on the pre-game and final pages', () => {
+		render(Preview);
+		for (const title of ['GamePage: pre-game sections', 'GamePage: final sections']) {
+			const series = sectionOf(title).querySelector('#season-series')!;
+			expect(within(series as HTMLElement).getByText('Tonight')).toBeTruthy();
+			expect(series.querySelectorAll('.dimmed').length).toBeGreaterThan(0);
+		}
+		const tonight = sectionOf('GamePage: pre-game sections').querySelector('.date.current')!;
+		expect(tonight.closest('.game')?.querySelector('.dimmed')).toBeNull();
 	});
 
 	it('uses no external URL for images, players or links', async () => {

@@ -13,9 +13,16 @@
 		<ul>
 			{#each series.games as game, i (i)}
 				<li class="game">
-					<span class="date">{game.date}</span>
+					<span class="date" class:current={game.current}>{game.date}</span>
 					<span class="result"
-						>{game.awayCode} {game.awayPoints} – {game.homePoints} {game.homeCode}</span
+						>{#if game.awayPoints === null}{game.awayCode} – {game.homeCode}{:else}<span
+								class="side"
+								class:dimmed={game.loser === 'away'}>{game.awayCode} {game.awayPoints}</span
+							>
+							–
+							<span class="side" class:dimmed={game.loser === 'home'}
+								>{game.homePoints} {game.homeCode}</span
+							>{/if}</span
 					>
 					<span class="arena">{game.arena}</span>
 				</li>
@@ -59,6 +66,14 @@
 		letter-spacing: var(--label-letter-spacing);
 		text-transform: uppercase;
 		color: var(--color-muted);
+	}
+
+	.current {
+		color: var(--color-accent-light);
+	}
+
+	.dimmed {
+		opacity: var(--detail-dimmed-opacity);
 	}
 
 	.result {

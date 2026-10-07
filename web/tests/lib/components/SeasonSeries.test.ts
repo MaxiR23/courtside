@@ -6,7 +6,8 @@
 // - The summary text
 // - One row per game with date, "AWAY pts – pts HOME" and arena, in the given order
 // - No rows on a first meeting
-// - No "Tonight" row and no dimmed side
+// - The current game row: "Tonight" in the accent, no points before tip-off, no dimmed side
+// - The losing side of each completed game dimmed; a completed current game shows its points
 //
 // What is covered:
 // - Each state
@@ -27,18 +28,22 @@ const series: SeasonSeriesSection = {
 	games: [
 		{
 			date: 'Jan 10',
+			current: false,
 			awayCode: 'GSW',
 			awayPoints: 118,
 			homePoints: 112,
 			homeCode: 'LAL',
+			loser: 'home',
 			arena: 'Chase Center'
 		},
 		{
 			date: 'Dec 2',
+			current: false,
 			awayCode: 'LAL',
 			awayPoints: 121,
 			homePoints: 109,
 			homeCode: 'GSW',
+			loser: 'home',
 			arena: 'Crypto.com Arena'
 		}
 	]
@@ -69,9 +74,62 @@ describe('SeasonSeries', () => {
 		expect(container.querySelectorAll('.game')).toHaveLength(0);
 	});
 
-	it('draws no Tonight row and dims no side', () => {
-		const { container } = render(SeasonSeries, { props: { series } });
-		expect(screen.queryByText(/tonight/i)).toBeNull();
+	it('shows "Tonight" in the current game row with no points before tip-off', () => {
+		const tonight: SeasonSeriesSection = {
+			...series,
+			games: [
+				{
+					date: 'Tonight',
+					current: true,
+					awayCode: 'LAL',
+					awayPoints: null,
+					homePoints: null,
+					homeCode: 'GSW',
+					loser: null,
+					arena: 'Chase Center'
+				}
+			]
+		};
+		const { container } = render(SeasonSeries, { props: { series: tonight } });
+		const row = container.querySelector('.game')!;
+		expect([...row.children].map((c) => c.textContent?.replace(/\s+/g, ' '))).toEqual([
+			'Tonight',
+			'LAL – GSW',
+			'Chase Center'
+		]);
+		expect(row.querySelector('.date')?.classList.contains('current')).toBe(true);
 		expect(container.querySelector('.dimmed')).toBeNull();
+	});
+
+	it('dims the losing side of each completed game', () => {
+		const { container } = render(SeasonSeries, { props: { series } });
+		const dimmed = [...container.querySelectorAll('.dimmed')].map((d) =>
+			d.textContent?.replace(/\s+/g, ' ')
+		);
+		expect(dimmed).toEqual(['112 LAL', '109 GSW']);
+		expect(container.querySelector('.date.current')).toBeNull();
+	});
+
+	it('shows the points of a completed current game and dims its loser', () => {
+		const final: SeasonSeriesSection = {
+			...series,
+			games: [
+				{
+					date: 'Tonight',
+					current: true,
+					awayCode: 'LAL',
+					awayPoints: 100,
+					homePoints: 105,
+					homeCode: 'GSW',
+					loser: 'away',
+					arena: 'Chase Center'
+				}
+			]
+		};
+		const { container } = render(SeasonSeries, { props: { series: final } });
+		expect(container.querySelector('.result')?.textContent?.replace(/\s+/g, ' ')).toBe(
+			'LAL 100 – 105 GSW'
+		);
+		expect(container.querySelector('.dimmed')?.textContent).toBe('LAL 100');
 	});
 });
