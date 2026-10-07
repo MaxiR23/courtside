@@ -6,9 +6,11 @@
 	import GameCard from '#lib/components/GameCard.svelte';
 	import GameHeader from '#lib/components/GameHeader.svelte';
 	import GamePage from '#lib/components/GamePage.svelte';
+	import GameVideos from '#lib/components/GameVideos.svelte';
 	import Hero from '#lib/components/Hero.svelte';
 	import Kicker from '#lib/components/Kicker.svelte';
 	import LiveBadge from '#lib/components/LiveBadge.svelte';
+	import SeasonSeries from '#lib/components/SeasonSeries.svelte';
 	import Schedule from '#lib/components/Schedule.svelte';
 	import SectionTabs from '#lib/components/SectionTabs.svelte';
 	import SiteFooter from '#lib/components/SiteFooter.svelte';
@@ -22,10 +24,16 @@
 		GameSections,
 		GameView,
 		HeaderTeam,
+		InjuriesSection,
+		LastGamesSection,
 		LineScoreTeam,
+		PlayersSection,
 		ScoreSection,
+		SeasonSeriesSection,
 		SectionTab,
+		StandingsSection,
 		StatLeads,
+		VideosSection,
 		WinProbabilitySection
 	} from '#lib/game/types.ts';
 	import { SpoilerFree } from '#lib/schedule/spoiler-free.svelte.ts';
@@ -178,9 +186,15 @@
 	];
 	const noSections: GameSections = {
 		highlights: null,
+		players: null,
 		score: null,
 		winProbability: null,
-		boxScore: null
+		boxScore: null,
+		injuries: null,
+		lastGames: null,
+		standings: null,
+		seasonSeries: null,
+		videos: null
 	};
 	const postponedView: GameView = {
 		header: preGameHeader('postponed'),
@@ -366,16 +380,152 @@
 		meta: 'LAL 68%',
 		points: curve([300, 600, 900, 1200, 1500, 1800, 2100])
 	};
+	const samplePlayers: PlayersSection = {
+		away: { ...away, teamName: 'Golden State Warriors', photo: awayPhoto },
+		home: { ...home, teamName: 'Los Angeles Lakers', photo: homePhoto }
+	};
+	const sampleInjuries: InjuriesSection = {
+		away: {
+			code: headerAway.code,
+			name: headerAway.name,
+			injuries: [
+				{ name: 'Draymond Green', status: 'out', comment: 'Left knee soreness, out for the game.' },
+				{ name: 'Jonathan Kuminga', status: 'doubtful', comment: null },
+				{ name: 'Brandin Podziemski', status: 'questionable', comment: null }
+			]
+		},
+		home: {
+			code: headerHome.code,
+			name: headerHome.name,
+			injuries: []
+		}
+	};
+	const sampleInjuriesBoth: InjuriesSection = {
+		...sampleInjuries,
+		home: {
+			...sampleInjuries.home,
+			injuries: [
+				{ name: 'Gabe Vincent', status: 'probable', comment: null },
+				{ name: 'Rui Hachimura', status: 'day-to-day', comment: 'Ankle sprain.' }
+			]
+		}
+	};
+	const sampleLastGames: LastGamesSection = {
+		away: {
+			code: headerAway.code,
+			name: headerAway.name,
+			strip: [
+				{ result: 'loss', label: 'L' },
+				{ result: 'win', label: 'W' },
+				{ result: 'win', label: 'W' },
+				{ result: 'loss', label: 'L' },
+				{ result: 'win', label: 'W' }
+			],
+			rows: [
+				{ result: 'win', resultLabel: 'W', date: 'Oct 5', opponent: 'vs DEN', score: '118–104' },
+				{ result: 'loss', resultLabel: 'L', date: 'Oct 3', opponent: '@ PHX', score: '99–107' },
+				{ result: 'win', resultLabel: 'W', date: 'Oct 1', opponent: 'vs SAC', score: '121–110' },
+				{ result: 'win', resultLabel: 'W', date: 'Sep 29', opponent: '@ LAC', score: '112–109' },
+				{ result: 'loss', resultLabel: 'L', date: 'Sep 27', opponent: 'vs DAL', score: '101–113' }
+			]
+		},
+		home: {
+			code: headerHome.code,
+			name: headerHome.name,
+			strip: [
+				{ result: 'win', label: 'W' },
+				{ result: 'loss', label: 'L' }
+			],
+			rows: [
+				{ result: 'loss', resultLabel: 'L', date: 'Oct 4', opponent: '@ OKC', score: '98–110' },
+				{ result: 'win', resultLabel: 'W', date: 'Oct 2', opponent: 'vs MIA', score: '115–101' }
+			]
+		}
+	};
+	const sampleStandings: StandingsSection = {
+		away: {
+			code: headerAway.code,
+			name: headerAway.name,
+			conference: '3rd West',
+			record: '12–5',
+			home: '7–2',
+			away: '5–3',
+			lastTen: '7–3'
+		},
+		home: {
+			code: headerHome.code,
+			name: headerHome.name,
+			conference: '1st West',
+			record: '14–3',
+			home: '8–1',
+			away: '6–2',
+			lastTen: '8–2'
+		}
+	};
+	const sampleSeries: SeasonSeriesSection = {
+		summary: 'GSW lead 2–1',
+		meta: '3 of 4 games played',
+		games: [
+			{
+				date: 'Jan 10',
+				awayCode: 'GSW',
+				awayPoints: 118,
+				homePoints: 112,
+				homeCode: 'LAL',
+				arena: 'Chase Center'
+			},
+			{
+				date: 'Dec 2',
+				awayCode: 'LAL',
+				awayPoints: 121,
+				homePoints: 109,
+				homeCode: 'GSW',
+				arena: 'Crypto.com Arena'
+			},
+			{
+				date: 'Nov 14',
+				awayCode: 'GSW',
+				awayPoints: 104,
+				homePoints: 99,
+				homeCode: 'LAL',
+				arena: 'Chase Center'
+			}
+		]
+	};
+	const firstMeetingSeries: SeasonSeriesSection = {
+		summary: 'First meeting',
+		meta: '0 of 4 games played',
+		games: []
+	};
+	const sampleVideos: VideosSection = [
+		{
+			title: 'Curry hits seven threes',
+			duration: '2:14',
+			thumbnail: highlight2,
+			href: resolve('/preview')
+		},
+		{ title: 'Full game recap', duration: '5:30', thumbnail: null, href: resolve('/preview') }
+	];
+	const preGameSections: GameSections = {
+		...noSections,
+		players: samplePlayers,
+		injuries: sampleInjuriesBoth,
+		lastGames: sampleLastGames,
+		standings: sampleStandings,
+		seasonSeries: sampleSeries
+	};
 	const liveSections: GameSections = {
-		highlights: null,
+		...noSections,
 		score: detailScore(
 			lineScoreTeam(headerAway, [28, 25, 10], 63),
 			lineScoreTeam(headerHome, [26, 24, 12], 62)
 		),
 		winProbability: sampleChart,
-		boxScore: sampleBox
+		boxScore: sampleBox,
+		injuries: sampleInjuries
 	};
 	const finalSections: GameSections = {
+		...noSections,
 		highlights: sampleHighlights,
 		score: detailScore(
 			lineScoreTeam(headerAway, [30, 28, 26, 28], 112),
@@ -386,11 +536,17 @@
 			meta: 'GSW win',
 			points: curve([0, 480, 960, 1440, 1920, 2400, 2880])
 		},
-		boxScore: sampleBox
+		boxScore: sampleBox,
+		injuries: sampleInjuriesBoth,
+		seasonSeries: sampleSeries,
+		videos: sampleVideos
 	};
 	const overtimeSections: GameSections = {
 		...finalSections,
 		highlights: null,
+		injuries: null,
+		seasonSeries: null,
+		videos: null,
 		score: detailScore(
 			lineScoreTeam(headerAway, [28, 25, 30, 27, 12, 10], 132),
 			lineScoreTeam(headerHome, [30, 26, 24, 30, 12, 8], 130)
@@ -403,13 +559,29 @@
 	};
 	const sectionViews: { title: string; view: GameView }[] = [
 		{
+			title: 'GamePage: pre-game sections',
+			view: {
+				header: preGameHeader('scheduled'),
+				tabs: tabs(
+					['players', 'Players'],
+					['injuries', 'Injuries'],
+					['last-games', 'Last 5'],
+					['standings', 'Standings'],
+					['season-series', 'Season series']
+				),
+				miniScore: null,
+				sections: preGameSections
+			}
+		},
+		{
 			title: 'GamePage: live sections',
 			view: {
 				header: liveHeader('Q3 · 4:12 · Chase Center'),
 				tabs: tabs(
 					['score', 'Score'],
 					['win-probability', 'Win prob.'],
-					['box-score', 'Box score']
+					['box-score', 'Box score'],
+					['injuries', 'Injuries']
 				),
 				miniScore,
 				sections: liveSections
@@ -423,7 +595,10 @@
 					['highlights', 'Highlights'],
 					['score', 'Score'],
 					['win-probability', 'Win prob.'],
-					['box-score', 'Box score']
+					['box-score', 'Box score'],
+					['injuries', 'Injuries'],
+					['season-series', 'Series'],
+					['videos', 'Videos']
 				),
 				miniScore,
 				sections: finalSections
@@ -700,6 +875,7 @@
 				game={expanded.game}
 				layout="desktop"
 				open
+				detailHref={resolve('/preview')}
 				playingVideoId={previewPlaying}
 				onPlay={(id) => (previewPlaying = id)}
 			/>
@@ -708,12 +884,22 @@
 
 	<section>
 		<h2>Schedule</h2>
-		<Schedule days={sampleDays} updatedMinutesAgo={3} spoilerFree={spoilerFree.on} />
+		<Schedule
+			days={sampleDays}
+			updatedMinutesAgo={3}
+			spoilerFree={spoilerFree.on}
+			gameHref={() => resolve('/preview')}
+		/>
 	</section>
 
 	<section>
 		<h2>Schedule: day with no games</h2>
-		<Schedule days={sampleDays} updatedMinutesAgo={3} selected={1} />
+		<Schedule
+			days={sampleDays}
+			updatedMinutesAgo={3}
+			selected={1}
+			gameHref={() => resolve('/preview')}
+		/>
 	</section>
 
 	{#each headerStates as { title, header } (title)}
@@ -770,6 +956,18 @@
 			<GamePage state={{ kind: 'ready', view }} {allGamesHref} layout="desktop" />
 		</section>
 	{/each}
+
+	<section>
+		<h2>GameVideos: mobile</h2>
+		<div class="stack phone">
+			<GameVideos videos={sampleVideos} layout="mobile" />
+		</div>
+	</section>
+
+	<section>
+		<h2>SeasonSeries: first meeting</h2>
+		<SeasonSeries series={firstMeetingSeries} />
+	</section>
 
 	<section>
 		<h2>SiteFooter</h2>

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { ResolvedPathname } from '$app/types';
 	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
 	import Highlights from '#lib/components/Highlights.svelte';
 	import Leaders from '#lib/components/Leaders.svelte';
@@ -20,6 +21,7 @@
 		playingVideoId?: string | null;
 		onPlay?: (videoId: string) => void;
 		spoilerFree?: boolean;
+		detailHref?: ResolvedPathname;
 	};
 
 	let {
@@ -29,7 +31,8 @@
 		onToggle,
 		playingVideoId = null,
 		onPlay,
-		spoilerFree = false
+		spoilerFree = false,
+		detailHref
 	}: Props = $props();
 
 	const panelId = $props.id();
@@ -143,6 +146,17 @@
 	{/if}
 {/snippet}
 
+{#snippet gameCenter()}
+	{#if detailHref}
+		<a class="game-center" href={detailHref}>
+			{m.game_center()}
+			<svg viewBox="0 0 24 24" aria-hidden="true"
+				><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg
+			>
+		</a>
+	{/if}
+{/snippet}
+
 {#snippet panelBody()}
 	{@const status = game.status}
 	{@const details = game.details}
@@ -154,13 +168,19 @@
 			/>
 			{#if details.kind === 'played'}
 				<Leaders away={details.leaders.away} home={details.leaders.home} />
-				<TeamStats away={details.stats.away} home={details.stats.home} {open} />
+				<div class="stats-column">
+					<TeamStats away={details.stats.away} home={details.stats.home} {open} />
+					{@render gameCenter()}
+				</div>
 			{:else}
-				<p class="stats-notice">
-					{details.statsAvailability === 'pending'
-						? m.panel_stats_pending()
-						: m.panel_stats_unavailable()}
-				</p>
+				<div class="stats-column">
+					<p class="stats-notice">
+						{details.statsAvailability === 'pending'
+							? m.panel_stats_pending()
+							: m.panel_stats_unavailable()}
+					</p>
+					{@render gameCenter()}
+				</div>
 			{/if}
 		</div>
 		{#if status.state === 'live'}
@@ -203,6 +223,7 @@
 				</div>
 			{/each}
 		</div>
+		{@render gameCenter()}
 	{/if}
 {/snippet}
 
@@ -478,6 +499,42 @@
 		font-family: var(--font-heading);
 		font-size: var(--player-name-size);
 		text-transform: uppercase;
+	}
+
+	.stats-column {
+		display: grid;
+		align-content: start;
+	}
+
+	.game-center {
+		display: flex;
+		align-items: center;
+		justify-self: end;
+		width: fit-content;
+		gap: var(--game-center-gap);
+		min-height: var(--hit-target-size);
+		margin-left: auto;
+		font-family: var(--font-heading);
+		font-weight: var(--font-weight-semibold);
+		font-size: var(--game-center-size);
+		letter-spacing: var(--game-center-letter-spacing);
+		text-transform: uppercase;
+		text-decoration: none;
+		color: var(--color-accent-light);
+	}
+
+	.game-center:hover {
+		color: var(--color-ink);
+	}
+
+	.game-center svg {
+		width: var(--nav-icon-size);
+		height: var(--nav-icon-size);
+		fill: none;
+		stroke: currentColor;
+		stroke-width: var(--icon-stroke-width);
+		stroke-linecap: round;
+		stroke-linejoin: round;
 	}
 
 	.open .chevron {

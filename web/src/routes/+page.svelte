@@ -17,6 +17,7 @@
 	const url = gamesFeedUrl;
 	const poller = url ? new GamesFeedPoller(() => loadGamesFeed(url)) : undefined;
 	const spoilerFree = new SpoilerFree();
+	const gameHref = (id: string) => resolve('/game/[id]', { id });
 
 	$effect(() => poller?.start());
 	$effect(() => spoilerFree.load());
@@ -76,6 +77,7 @@
 		bind:selected
 		bind:openId
 		spoilerFree={spoilerFree.on}
+		{gameHref}
 	/>
 {:else if unavailable}
 	<section class="unavailable" id="schedule">

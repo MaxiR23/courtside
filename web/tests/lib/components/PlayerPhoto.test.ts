@@ -7,6 +7,7 @@
 // - Shows a placeholder with the initials and name when the photo fails to load
 // - Keeps the photo frame when the placeholder replaces the photo
 // - Tries again when the photo URL changes after a failure
+// - The star variant fills its parent and keeps the placeholder fallback
 //
 // What is covered:
 // - Each state and the error interaction
@@ -56,5 +57,25 @@ describe('PlayerPhoto', () => {
 		await fireEvent.error(screen.getByAltText('Stephen Curry'));
 		await rerender({ player: { ...player, photo: '/other.svg' } });
 		expect(screen.getByAltText('Stephen Curry').getAttribute('src')).toBe('/other.svg');
+	});
+});
+
+describe('PlayerPhoto star variant', () => {
+	it('is not a star frame by default', () => {
+		const { container } = render(PlayerPhoto, { props: { player } });
+		expect(container.querySelector('.photo-frame')?.classList.contains('star')).toBe(false);
+	});
+
+	it('marks the frame as a star and shows the photo', () => {
+		const { container } = render(PlayerPhoto, { props: { player, star: true } });
+		expect(container.querySelector('.photo-frame')?.classList.contains('star')).toBe(true);
+		expect(screen.getByAltText('Stephen Curry').getAttribute('src')).toBe('/away.svg');
+	});
+
+	it('falls back to the placeholder with initials when the star photo fails', async () => {
+		const { container } = render(PlayerPhoto, { props: { player, star: true } });
+		await fireEvent.error(screen.getByAltText('Stephen Curry'));
+		expect(screen.getByRole('img', { name: 'Stephen Curry' }).textContent).toBe('SC');
+		expect(container.querySelector('.photo-frame.star')).not.toBeNull();
 	});
 });

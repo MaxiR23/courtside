@@ -3,11 +3,17 @@
 	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
 	import BoxScore from '#lib/components/BoxScore.svelte';
 	import GameHeader from '#lib/components/GameHeader.svelte';
+	import GameVideos from '#lib/components/GameVideos.svelte';
 	import Highlights from '#lib/components/Highlights.svelte';
+	import Injuries from '#lib/components/Injuries.svelte';
+	import LastGames from '#lib/components/LastGames.svelte';
 	import LineScore from '#lib/components/LineScore.svelte';
 	import MessageRow from '#lib/components/MessageRow.svelte';
+	import PlayersToWatch from '#lib/components/PlayersToWatch.svelte';
+	import SeasonSeries from '#lib/components/SeasonSeries.svelte';
 	import SectionTabs from '#lib/components/SectionTabs.svelte';
 	import SiteFooter from '#lib/components/SiteFooter.svelte';
+	import StandingsRows from '#lib/components/StandingsRows.svelte';
 	import TeamStats from '#lib/components/TeamStats.svelte';
 	import WinProbability from '#lib/components/WinProbability.svelte';
 	import type { GamePageState } from '#lib/game/types.ts';
@@ -52,6 +58,12 @@
 				</div>
 			</section>
 		{/if}
+		{#if sections.players}
+			<section id="players">
+				{@render sectionHead(m.game_section_players_to_watch(), null, false)}
+				<PlayersToWatch players={sections.players} />
+			</section>
+		{/if}
 		{#if sections.score}
 			<section id="score">
 				{@render sectionHead(m.game_tab_score(), null, false)}
@@ -82,6 +94,36 @@
 			<section id="box-score">
 				{@render sectionHead(m.game_tab_box_score(), null, false)}
 				<BoxScore box={sections.boxScore} {layout} />
+			</section>
+		{/if}
+		{#if sections.injuries}
+			<section id="injuries">
+				{@render sectionHead(m.game_tab_injuries(), m.game_injuries_meta(), false)}
+				<Injuries injuries={sections.injuries} />
+			</section>
+		{/if}
+		{#if sections.lastGames}
+			<section id="last-games">
+				{@render sectionHead(m.game_section_last_games(), null, false)}
+				<LastGames lastGames={sections.lastGames} />
+			</section>
+		{/if}
+		{#if sections.standings}
+			<section id="standings">
+				{@render sectionHead(m.game_tab_standings(), null, false)}
+				<StandingsRows standings={sections.standings} />
+			</section>
+		{/if}
+		{#if sections.seasonSeries}
+			<section id="season-series">
+				{@render sectionHead(m.game_tab_season_series(), sections.seasonSeries.meta, false)}
+				<SeasonSeries series={sections.seasonSeries} />
+			</section>
+		{/if}
+		{#if sections.videos}
+			<section id="videos">
+				{@render sectionHead(m.game_tab_videos(), m.game_videos_meta(), false)}
+				<GameVideos videos={sections.videos} {layout} />
 			</section>
 		{/if}
 	</div>

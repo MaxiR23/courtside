@@ -8,6 +8,7 @@
 // - Desktop row and full counts on a wide viewport; mobile row and numbers below it
 // - The staggered list entrance on first view and on a day change, not on the same day
 // - The list is hidden until it first scrolls into view
+// - Each expandable card links to the detail page given by gameHref
 // - Only one game card is open at a time; clicking an open card closes it
 // - The open card can be bound from outside; each card has an anchor id; the section has the schedule anchor
 // - The playing highlight stops when its card closes, another opens or the day changes
@@ -20,6 +21,7 @@
 // Run with: cd web && pnpm exec vitest run tests/lib/components/Schedule.test.ts
 //
 // SEE: web/src/lib/components/Schedule.svelte
+import type { ResolvedPathname } from '$app/types';
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -41,7 +43,8 @@ const days: ScheduleDay[] = counts.map((n, i) => ({
 	date: new Date(2026, 9, 1 + i, 12),
 	games: Array.from({ length: n }, (_, k) => game(`${i}-${k}`, 90 + k))
 }));
-const props = { days, updatedMinutesAgo: 3 };
+const gameHref = (id: string) => `/game/${id}` as ResolvedPathname;
+const props = { days, updatedMinutesAgo: 3, gameHref };
 
 function wideViewport(wide: boolean) {
 	vi.stubGlobal('matchMedia', (query: string) => ({
@@ -266,6 +269,7 @@ describe('Schedule', () => {
 		});
 		const detailedProps = {
 			updatedMinutesAgo: 3,
+			gameHref,
 			selected: 3,
 			days: [
 				...days.slice(0, 3),
@@ -283,6 +287,12 @@ describe('Schedule', () => {
 			expect(expanded(container)).toHaveLength(0);
 			await fireEvent.click(toggles(container)[0]);
 			expect(toggles(container)[0].getAttribute('aria-expanded')).toBe('true');
+		});
+
+		it('links each open card to the detail page of its game', () => {
+			const { container } = render(Schedule, { props: detailedProps });
+			const links = [...container.querySelectorAll<HTMLAnchorElement>('a.game-center')];
+			expect(links.map((a) => a.getAttribute('href'))).toEqual(['/game/x', '/game/y']);
 		});
 
 		it('opens the card whose id is bound to openId', () => {

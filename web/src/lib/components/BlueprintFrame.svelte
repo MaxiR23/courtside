@@ -1,12 +1,12 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 
-	type Props = { children: Snippet; inline?: boolean; active?: boolean };
+	type Props = { children: Snippet; inline?: boolean; active?: boolean; hoverable?: boolean };
 
-	let { children, inline = false, active = false }: Props = $props();
+	let { children, inline = false, active = false, hoverable = false }: Props = $props();
 </script>
 
-<div class="blueprint-frame" class:inline class:active>
+<div class="blueprint-frame" class:inline class:active class:hoverable>
 	<span class="blueprint-mark blueprint-mark-tl" aria-hidden="true"></span>
 	<span class="blueprint-mark blueprint-mark-tr" aria-hidden="true"></span>
 	<span class="blueprint-mark blueprint-mark-bl" aria-hidden="true"></span>
@@ -22,6 +22,10 @@
 	}
 
 	.active {
+		border-color: var(--color-accent);
+	}
+
+	.hoverable:hover {
 		border-color: var(--color-accent);
 	}
 
