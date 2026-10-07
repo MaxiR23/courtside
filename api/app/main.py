@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.jobs.game_detail import GameDetailJob
 from app.jobs.games import GamesJob
 from app.jobs.highlights import HighlightsJob
 from app.jobs.scheduler import Scheduler
@@ -41,12 +42,25 @@ def create_app(settings: Settings | None = None, *, run_jobs: bool = True) -> Fa
         )
         # The stars job runs in its own task so its fetches never delay the live refresh.
         stars_scheduler = Scheduler([stars_job], store)
+        detail_job = GameDetailJob(
+            settings,
+            store,
+            client,
+            games=lambda: games_job.shown_games(),
+            stars=stars_job.stars_of,
+            highlights=highlights_job.highlights_of,
+            highlights_search_url=highlights_job.search_url_of,
+        )
+        # The detail job runs in its own task so its fetches never delay the live refresh.
+        detail_scheduler = Scheduler([detail_job], store)
         scheduler = Scheduler([games_job, highlights_job], store)
         app.state.scheduler = scheduler
         app.state.stars_scheduler = stars_scheduler
+        app.state.detail_scheduler = detail_scheduler
         try:
             if run_jobs:
                 stars_scheduler.start()
+                detail_scheduler.start()
                 scheduler.start()
             yield
         finally:
@@ -54,9 +68,12 @@ def create_app(settings: Settings | None = None, *, run_jobs: bool = True) -> Fa
                 await scheduler.stop()
             finally:
                 try:
-                    await stars_scheduler.stop()
+                    await detail_scheduler.stop()
                 finally:
-                    await client.aclose()
+                    try:
+                        await stars_scheduler.stop()
+                    finally:
+                        await client.aclose()
 
     app = FastAPI(lifespan=lifespan)
     app.state.settings = settings

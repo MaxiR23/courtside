@@ -9,9 +9,12 @@
 # - Serves the feed when the ETag does not match
 # - Responds 503 with a JSON error before the first publication, even with an ETag
 # - Keeps serving the last valid feed after an invalid publish
+# - Serves a published game detail feed with Cache-Control and ETag
+# - Responds 304 when the game detail ETag matches
+# - Responds 404 with a JSON error for an unknown game and for an id that is not a game id
 #
 # What is covered:
-# - Success response, documented failure (503), edge case of an invalid publish
+# - Success response, documented failures (503, 404), edge case of an invalid publish
 #
 # Run with: cd api && .venv/bin/python -m pytest tests/routers/test_feeds.py
 #
@@ -22,11 +25,12 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from app.feeds.games import GamesFeed
+from app.feeds.game_detail import GameDetailFeed
+from app.feeds.games import GamesFeed, GameStatus
 from app.main import create_app
 from app.routers.feeds import CACHE_CONTROL
 from app.settings import Settings
-from app.storage.feeds import publish_feed
+from app.storage.feeds import publish_feed, publish_game_detail
 
 
 def make_client(path: Path) -> TestClient:
@@ -143,3 +147,76 @@ def test_responds_503_before_the_first_publication_even_with_an_etag(
         response = client.get("/feeds/games.json", headers={"If-None-Match": "*"})
 
     assert response.status_code == 503
+
+
+def detail_feed(game_id: str = "401") -> GameDetailFeed:
+    record = {"wins": 1, "losses": 1}
+    return GameDetailFeed.model_validate(
+        {
+            "id": game_id,
+            "status": "scheduled",
+            "start_time": dt.datetime(2026, 1, 10, 12, 0, tzinfo=dt.UTC),
+            "venue": {"name": "Garden", "city": "New York"},
+            "away": {
+                "code": "BOS",
+                "name": "Celtics",
+                "city": "Boston",
+                "record": record,
+            },
+            "home": {
+                "code": "NYK",
+                "name": "Knicks",
+                "city": "New York",
+                "record": record,
+            },
+        }
+    )
+
+
+def invalid_detail_feed() -> GameDetailFeed:
+    return detail_feed().model_copy(update={"status": GameStatus.FINAL})
+
+
+def test_serves_a_published_game_detail_feed_with_cache_control_and_etag(
+    tmp_path: Path,
+) -> None:
+    with make_client(tmp_path) as client:
+        publish_game_detail(tmp_path, detail_feed("401"))
+
+        response = client.get("/feeds/games/401.json")
+
+    assert response.status_code == 200
+    assert response.content == detail_feed("401").model_dump_json().encode("utf-8")
+    assert response.headers["content-type"] == "application/json"
+    assert response.headers["cache-control"] == CACHE_CONTROL
+    etag = response.headers["etag"]
+    assert etag.startswith('"') and etag.endswith('"')
+
+
+def test_responds_304_when_the_game_detail_etag_matches(tmp_path: Path) -> None:
+    with make_client(tmp_path) as client:
+        publish_game_detail(tmp_path, detail_feed("401"))
+        first = client.get("/feeds/games/401.json")
+
+        response = client.get(
+            "/feeds/games/401.json", headers={"If-None-Match": first.headers["etag"]}
+        )
+
+    assert response.status_code == 304
+    assert response.content == b""
+    assert response.headers["cache-control"] == CACHE_CONTROL
+
+
+def test_responds_404_with_a_json_error_for_an_unknown_game(tmp_path: Path) -> None:
+    with make_client(tmp_path) as client:
+        response = client.get("/feeds/games/999.json")
+
+    assert response.status_code == 404
+    assert isinstance(response.json()["detail"], str)
+
+
+def test_responds_404_for_an_id_that_is_not_a_game_id(tmp_path: Path) -> None:
+    with make_client(tmp_path) as client:
+        response = client.get("/feeds/games/a.b.json")
+
+    assert response.status_code == 404

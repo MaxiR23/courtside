@@ -12,8 +12,10 @@
 # - Starts the scheduler with the app and stops it on shutdown, with the games and stars jobs each failing on its unconfigured source and the highlights job recording nothing without due games
 # - Starts and stops the stars scheduler with the games scheduler
 # - A stars run that never ends does not stop the games job
+# - Starts and stops the detail scheduler with the others, and does not start it when jobs are off
 # - Does not start the schedulers when jobs are off
 # - Wires the stars and highlights providers and the stars readiness check into the games job
+# - Wires the games, stars and highlights providers into the detail job
 # - Closes the HTTP client when the scheduler fails to stop
 #
 # What is covered:
@@ -35,6 +37,7 @@ import respx
 from fastapi.testclient import TestClient
 
 from app import main
+from app.jobs.game_detail import GameDetailJob
 from app.jobs.games import GamesJob
 from app.jobs.highlights import HighlightsJob
 from app.jobs.scheduler import Scheduler
@@ -128,9 +131,11 @@ def test_starts_the_scheduler_with_the_app_and_stops_it_on_shutdown(
     with respx.mock, TestClient(app):
         assert app.state.scheduler.running
         assert app.state.stars_scheduler.running
+        assert app.state.detail_scheduler.running
 
     assert not app.state.scheduler.running
     assert not app.state.stars_scheduler.running
+    assert not app.state.detail_scheduler.running
     states = StateStore(tmp_path).job_states()
     assert [state.name for state in states] == ["games", "stars"]
     games, stars = (state.last_failure_reason for state in states)
@@ -165,6 +170,7 @@ def test_does_not_start_the_scheduler_when_jobs_are_off(tmp_path: Path) -> None:
     with TestClient(app):
         assert not app.state.scheduler.running
         assert not app.state.stars_scheduler.running
+        assert not app.state.detail_scheduler.running
 
     assert StateStore(tmp_path).job_states() == []
 
@@ -199,6 +205,46 @@ def test_wires_the_stars_and_highlights_providers_into_the_games_job(
     kwargs = built["games_kwargs"]
     assert kwargs["stars"] == built["stars"].stars_of
     assert kwargs["stars_ready"] == built["stars"].has_every_star
+    assert kwargs["highlights"] == built["highlights"].highlights_of
+    assert kwargs["highlights_search_url"] == built["highlights"].search_url_of
+
+
+def test_wires_the_games_stars_and_highlights_providers_into_the_detail_job(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    built: dict[str, Any] = {}
+
+    class RecordingStars(StarsJob):
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            super().__init__(*args, **kwargs)
+            built["stars"] = self
+
+    class RecordingHighlights(HighlightsJob):
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            super().__init__(*args, **kwargs)
+            built["highlights"] = self
+
+    class RecordingGames(GamesJob):
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            super().__init__(*args, **kwargs)
+            built["games"] = self
+
+    class RecordingDetail(GameDetailJob):
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            super().__init__(*args, **kwargs)
+            built["detail_kwargs"] = kwargs
+
+    monkeypatch.setattr(main, "StarsJob", RecordingStars)
+    monkeypatch.setattr(main, "HighlightsJob", RecordingHighlights)
+    monkeypatch.setattr(main, "GamesJob", RecordingGames)
+    monkeypatch.setattr(main, "GameDetailJob", RecordingDetail)
+
+    with make_client(tmp_path, []):
+        pass
+
+    kwargs = built["detail_kwargs"]
+    assert kwargs["games"]() == built["games"].shown_games()
+    assert kwargs["stars"] == built["stars"].stars_of
     assert kwargs["highlights"] == built["highlights"].highlights_of
     assert kwargs["highlights_search_url"] == built["highlights"].search_url_of
 
