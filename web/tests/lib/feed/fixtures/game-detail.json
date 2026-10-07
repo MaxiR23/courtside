@@ -212,6 +212,7 @@
 			"homeWinProbability": 0.48
 		}
 	],
+	"winProbabilityLeader": { "teamCode": "LAL", "winProbability": 0.52 },
 	"winProbabilityPeriods": {
 		"periods": [
 			{ "number": 1, "startElapsedSeconds": 0 },

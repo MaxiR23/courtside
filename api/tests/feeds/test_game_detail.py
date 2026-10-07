@@ -15,6 +15,8 @@
 # - Last games: at most five, newest first, may be empty
 # - Win probability periods: numbered from 1, start at 0, increase, and
 #   bound every win probability point; they require win probability
+# - Win probability leader: the side ahead at the last point and its probability,
+#   null when even or without win probability
 # - Injury status, win probability, UTC time and unknown fields are validated
 # - Serialization uses camelCase keys
 #
@@ -41,6 +43,7 @@ OPTIONAL_SECTIONS = [
     "stars",
     "boxScore",
     "winProbability",
+    "winProbabilityLeader",
     "winProbabilityPeriods",
     "injuries",
     "lastGames",
@@ -212,6 +215,7 @@ def full_game() -> Payload:
         stars=pair(star("AAA"), star("HHH")),
         boxScore=pair(box_team(), box_team()),
         winProbability=[{"elapsedSeconds": 0, "homeWinProbability": 0.5}],
+        winProbabilityLeader=None,
         winProbabilityPeriods={
             "periods": [
                 {"number": 1, "startElapsedSeconds": 0},
@@ -480,6 +484,7 @@ def periods_game(**periods: Any) -> Payload:
 def test_accepts_win_probability_periods_with_points_inside_the_game() -> None:
     game = full_game()
     game["winProbability"].append({"elapsedSeconds": 20, "homeWinProbability": 0.6})
+    game["winProbabilityLeader"] = {"teamCode": "HHH", "winProbability": 0.6}
 
     feed = GameDetailFeed.model_validate(game)
 
@@ -549,6 +554,98 @@ def test_serializes_win_probability_periods_with_camel_case_keys() -> None:
         ],
         "endElapsedSeconds": 20,
     }
+
+
+def leader_game(points: list[float], leader: Payload | None) -> Payload:
+    game = full_game()
+    game["winProbability"] = [
+        {"elapsedSeconds": i * 10, "homeWinProbability": p}
+        for i, p in enumerate(points)
+    ]
+    game["winProbabilityLeader"] = leader
+    game["winProbabilityPeriods"]["endElapsedSeconds"] = 10 * len(points) + 10
+    return game
+
+
+def test_accepts_the_home_team_as_the_leader_of_a_latest_point_above_even() -> None:
+    leader = {"teamCode": "HHH", "winProbability": 0.68}
+
+    feed = GameDetailFeed.model_validate(leader_game([0.68], leader))
+
+    assert feed.win_probability_leader is not None
+    assert feed.win_probability_leader.team_code == "HHH"
+
+
+def test_accepts_the_away_team_as_the_leader_of_a_latest_point_below_even() -> None:
+    leader = {"teamCode": "AAA", "winProbability": 1 - 0.25}
+
+    feed = GameDetailFeed.model_validate(leader_game([0.25], leader))
+
+    assert feed.win_probability_leader is not None
+    assert feed.win_probability_leader.team_code == "AAA"
+    assert feed.win_probability_leader.win_probability == 0.75
+
+
+def test_accepts_no_leader_on_an_exactly_even_latest_point() -> None:
+    feed = GameDetailFeed.model_validate(leader_game([0.7, 0.5], None))
+
+    assert feed.win_probability_leader is None
+
+
+def test_reads_the_leader_off_the_last_point_in_feed_order() -> None:
+    leader = {"teamCode": "HHH", "winProbability": 0.7}
+    game = leader_game([0.3, 0.7], leader)
+    game["winProbability"][0]["elapsedSeconds"] = 20
+    game["winProbability"][1]["elapsedSeconds"] = 10
+
+    feed = GameDetailFeed.model_validate(game)
+
+    assert feed.win_probability_leader is not None
+    assert feed.win_probability_leader.team_code == "HHH"
+
+
+def test_rejects_a_leader_on_an_exactly_even_latest_point() -> None:
+    leader = {"teamCode": "HHH", "winProbability": 0.5}
+
+    with pytest.raises(ValidationError, match="win probability leader"):
+        GameDetailFeed.model_validate(leader_game([0.5], leader))
+
+
+def test_rejects_no_leader_when_the_latest_point_is_not_even() -> None:
+    with pytest.raises(ValidationError, match="win probability leader"):
+        GameDetailFeed.model_validate(leader_game([0.68], None))
+
+
+def test_rejects_a_leader_that_is_not_the_side_ahead() -> None:
+    leader = {"teamCode": "AAA", "winProbability": 0.68}
+
+    with pytest.raises(ValidationError, match="win probability leader"):
+        GameDetailFeed.model_validate(leader_game([0.68], leader))
+
+
+def test_rejects_a_leader_probability_that_does_not_match_the_latest_point() -> None:
+    leader = {"teamCode": "HHH", "winProbability": 0.7}
+
+    with pytest.raises(ValidationError, match="win probability leader"):
+        GameDetailFeed.model_validate(leader_game([0.68], leader))
+
+
+def test_rejects_a_leader_without_win_probability() -> None:
+    game = without(full_game(), "winProbability")
+    game["winProbabilityLeader"] = {"teamCode": "HHH", "winProbability": 0.6}
+
+    with pytest.raises(ValidationError, match="win probability leader"):
+        GameDetailFeed.model_validate(game)
+
+
+def test_serializes_the_win_probability_leader_with_camel_case_keys() -> None:
+    leader = {"teamCode": "HHH", "winProbability": 0.68}
+
+    dumped = GameDetailFeed.model_validate(leader_game([0.68], leader)).model_dump(
+        mode="json", by_alias=True
+    )
+
+    assert dumped["winProbabilityLeader"] == leader
 
 
 def test_rejects_a_start_time_not_in_utc() -> None:

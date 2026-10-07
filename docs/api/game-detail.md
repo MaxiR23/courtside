@@ -38,6 +38,7 @@ The root is one game.
 | `stars`               | `Stars` / null            | The star of each team                                            | null when no data                     |
 | `boxScore`            | `BoxScore` / null         | Player lines and totals for each team                            | null when no data                     |
 | `winProbability`      | `WinProbabilityPoint[]` / null | Home win probability over the game, at least one point      | null when no data                     |
+| `winProbabilityLeader` | `WinProbabilityLeader` / null | The team ahead at the latest win probability point and its win probability | null when even or no win probability |
 | `winProbabilityPeriods` | `WinProbabilityPeriods` / null | Each period's start and the game's end, in elapsed seconds | null when no win probability |
 | `injuries`            | `Injuries` / null         | Injury reports of each team                                      | null when no data                     |
 | `lastGames`           | `LastGames` / null        | Latest games of each team                                        | null when no data                     |
@@ -73,6 +74,7 @@ code.
 | `BoxScorePlayer`      | `playerId`, `displayName`, `starter`, `minutes` (text), `plusMinus`, `photoUrl` plus the counting stats of `BoxScoreTotals`                   |
 | `BoxScoreTotals`      | `points`, `fieldGoalsMade`, `fieldGoalsAttempted`, `threePointsMade`, `threePointsAttempted`, `freeThrowsMade`, `freeThrowsAttempted`, `offensiveRebounds`, `defensiveRebounds`, `rebounds`, `assists`, `turnovers`, `steals`, `blocks`, `fouls`, plus `fieldGoalPct`, `threePointPct`, `freeThrowPct` (0 to 1) |
 | `WinProbabilityPoint` | `elapsedSeconds`, `homeWinProbability` (0 to 1)                                                                                              |
+| `WinProbabilityLeader` | `teamCode` (the away or the home code), `winProbability` (0 to 1, above 0.5) |
 | `GamePeriod`          | `number`, `startElapsedSeconds`                                                                                                              |
 | `WinProbabilityPeriods` | `periods`: `GamePeriod[]`, `endElapsedSeconds`                                                                                             |
 | `Injuries`            | `away`, `home`: `Injury[]`                                                                                                                   |
@@ -110,6 +112,10 @@ builds the feed.
   game is not rebuilt after a successful build (except once after a
   restart, see "Refresh behavior"), so they stay null.
 - `winProbability` has at least one point.
+- `winProbabilityLeader` is read off the last point of `winProbability` in feed
+  order: the home team with that point's `homeWinProbability` above 0.5, the
+  away team with 1 minus it below 0.5, null on exactly 0.5 and null without
+  `winProbability`. The feed's validator checks it.
 - `winProbabilityPeriods` exists only with `winProbability`. Periods are
   numbered from 1, the first starts at 0, and starts increase. Every point
   is at or before `endElapsedSeconds`. Period lengths come from the

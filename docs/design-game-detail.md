@@ -119,7 +119,7 @@ Two columns, `repeat(auto-fit, minmax(min(100%, 440px), 1fr))`.
   - A 9px square marks the latest point, with a 4px ring in `rgba(116,157,196,.25)`.
 - Y is the home team's win probability (top is 100% home). X is elapsed game time.
 - One label per period runs under the chart, centered under its period: Q1 to Q4, then OT1, OT2 when present. Without period boundaries in the feed, the chart draws no gridlines and no labels, and its x axis spans the points.
-- The section meta, 26px, accent-light, shows the leading team and its percentage, such as `GSW 68%`. On a final game it reads `OKC win`.
+- The section meta, 26px, accent-light, shows the leading team and its percentage from the feed, such as `GSW 68%`. With no leader, on an exactly even latest point, it reads `Even` (Spanish `Parejo`). On a final game it reads `OKC win`.
 
 ### 7. Box score (live, final)
 

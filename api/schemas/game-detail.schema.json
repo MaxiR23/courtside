@@ -1014,6 +1014,26 @@
       "title": "Video",
       "type": "object"
     },
+    "WinProbabilityLeader": {
+      "additionalProperties": false,
+      "properties": {
+        "teamCode": {
+          "pattern": "^[A-Z]{3}$",
+          "type": "string"
+        },
+        "winProbability": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "teamCode",
+        "winProbability"
+      ],
+      "title": "WinProbabilityLeader",
+      "type": "object"
+    },
     "WinProbabilityPeriods": {
       "additionalProperties": false,
       "properties": {
@@ -1197,6 +1217,17 @@
       ],
       "default": null
     },
+    "winProbabilityLeader": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/WinProbabilityLeader"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
     "winProbabilityPeriods": {
       "anyOf": [
         {
@@ -1312,6 +1343,7 @@
     "stars",
     "boxScore",
     "winProbability",
+    "winProbabilityLeader",
     "winProbabilityPeriods",
     "injuries",
     "lastGames",

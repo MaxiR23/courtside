@@ -116,6 +116,11 @@ class WinProbabilityPoint(FeedModel):
     home_win_probability: Percentage
 
 
+class WinProbabilityLeader(FeedModel):
+    team_code: TeamCode
+    win_probability: Percentage
+
+
 class GamePeriod(FeedModel):
     number: PositiveInt
     start_elapsed_seconds: NonNegativeInt
@@ -272,6 +277,7 @@ class GameDetailFeed(FeedModel):
     win_probability: (
         Annotated[list[WinProbabilityPoint], Field(min_length=1)] | None
     ) = None
+    win_probability_leader: WinProbabilityLeader | None = None
     win_probability_periods: WinProbabilityPeriods | None = None
     injuries: Injuries | None = None
     last_games: LastGames | None = None
@@ -309,6 +315,24 @@ class GameDetailFeed(FeedModel):
         end = self.win_probability_periods.end_elapsed_seconds
         if any(point.elapsed_seconds > end for point in self.win_probability):
             raise ValueError("a win probability point must not be after the game end")
+        return self
+
+    @model_validator(mode="after")
+    def _require_the_leader_of_the_latest_point(self) -> GameDetailFeed:
+        expected: tuple[str, float] | None = None
+        if self.win_probability is not None:
+            latest = self.win_probability[-1].home_win_probability
+            if latest > 0.5:
+                expected = (self.home.code, latest)
+            elif latest < 0.5:
+                expected = (self.away.code, 1 - latest)
+        leader = self.win_probability_leader
+        found = None if leader is None else (leader.team_code, leader.win_probability)
+        if found != expected:
+            raise ValueError(
+                "win probability leader must be the side ahead at the latest"
+                " point, null when even or without win probability"
+            )
         return self
 
     @model_validator(mode="after")

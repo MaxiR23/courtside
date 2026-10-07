@@ -31,6 +31,7 @@ from app.feeds.game_detail import (
     InjuryStatus,
     Venue,
     Video,
+    WinProbabilityLeader,
     WinProbabilityPeriods,
     WinProbabilityPoint,
 )
@@ -409,6 +410,7 @@ class GameDetailSections(FeedModel):
     win_probability: (
         Annotated[list[WinProbabilityPoint], Field(min_length=1)] | None
     ) = None
+    win_probability_leader: WinProbabilityLeader | None = None
     win_probability_periods: WinProbabilityPeriods | None = None
     injuries: Injuries | None = None
     season_series: SeriesMeetings | None = None
@@ -600,6 +602,21 @@ def _win_probability(summary: _ProviderSummary) -> list[dict[str, Any]]:
             }
         )
     return points
+
+
+def _win_probability_leader(
+    points: list[dict[str, Any]], codes: dict[str, str]
+) -> dict[str, Any] | None:
+    # Rule: docs/api/game-detail.md. The side ahead at the last published
+    # point; none when it is exactly even.
+    if not points:
+        return None
+    latest = points[-1]["home_win_probability"]
+    if latest > 0.5:
+        return {"team_code": codes["home"], "win_probability": latest}
+    if latest < 0.5:
+        return {"team_code": codes["away"], "win_probability": 1 - latest}
+    return None
 
 
 def _win_probability_periods(summary: _ProviderSummary) -> dict[str, Any]:
@@ -798,6 +815,7 @@ async def fetch_game_detail_sections(
 
     points = _win_probability(summary)
     sections["win_probability"] = points or None
+    sections["win_probability_leader"] = _win_probability_leader(points, codes)
     sections["win_probability_periods"] = (
         _win_probability_periods(summary) if points else None
     )

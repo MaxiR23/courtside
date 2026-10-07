@@ -272,16 +272,15 @@ function scoreSection(feed: GameDetailFeed): ScoreSection {
 
 function winProbabilitySection(feed: GameDetailFeed): WinProbabilitySection {
 	const points = required(feed.winProbability);
-	const latest = points[points.length - 1].homeWinProbability;
+	// A feed built before the leader field has no key: it has no leader.
+	const leader = feed.winProbabilityLeader ?? null;
 	let meta: string;
 	if (feed.status === 'final') {
 		meta = m.game_win_probability_final({ team: required(feed.winner) });
-	} else if (latest > 0.5) {
-		meta = `${feed.home.code} ${wholePercent(latest)}`;
-	} else if (latest < 0.5) {
-		meta = `${feed.away.code} ${wholePercent(1 - latest)}`;
+	} else if (leader !== null) {
+		meta = `${leader.teamCode} ${wholePercent(leader.winProbability)}`;
 	} else {
-		meta = wholePercent(0.5);
+		meta = m.game_win_probability_even();
 	}
 	return {
 		awayCode: feed.away.code,

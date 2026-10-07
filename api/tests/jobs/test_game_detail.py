@@ -6,6 +6,7 @@
 # - Builds a scheduled game with records, standings, injuries and last games
 # - Builds a final game with its winner, box score and season series
 # - Carries the win probability periods of the sections into the feed, or null
+# - Carries the win probability leader of the sections into the feed and fails the build when it does not match the latest point
 # - Takes each series arena from the team schedules and this game's venue
 # - Passes the series leader, each game's winner and the current game into the feed
 # - Lists no injuries for a team absent from the league injuries
@@ -282,6 +283,41 @@ def test_builds_a_final_game_with_its_win_probability_periods() -> None:
         0,
         10,
     ]
+
+
+def leader_sections(team_code: str) -> GameDetailSections:
+    return GameDetailSections.model_validate(
+        {
+            "venue": VENUE,
+            "win_probability": [{"elapsed_seconds": 5, "home_win_probability": 0.3}],
+            "win_probability_leader": {"team_code": team_code, "win_probability": 0.7},
+            "win_probability_periods": {
+                "periods": [{"number": 1, "start_elapsed_seconds": 0}],
+                "end_elapsed_seconds": 20,
+            },
+        }
+    )
+
+
+def test_builds_a_game_with_its_win_probability_leader() -> None:
+    feed = build(
+        game("1", GameStatus.FINAL),
+        leader_sections("BOS"),
+        away_schedule=schedule(),
+    )
+
+    assert feed.win_probability_leader is not None
+    assert feed.win_probability_leader.team_code == "BOS"
+    assert feed.win_probability_leader.win_probability == 0.7
+
+
+def test_fails_the_build_when_the_win_probability_leader_does_not_match() -> None:
+    with pytest.raises(DetailBuildError):
+        build(
+            game("1", GameStatus.FINAL),
+            leader_sections("NYK"),
+            away_schedule=schedule(),
+        )
 
 
 def test_takes_each_series_arena_from_the_team_schedules_and_this_games_venue() -> None:
