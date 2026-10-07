@@ -41,7 +41,7 @@ class DetailTeam(Team):
 
 class Venue(FeedModel):
     name: NonEmptyStr
-    city: NonEmptyStr
+    city: NonEmptyStr | None = None
     photo_url: HttpUrl | None = None
 
 

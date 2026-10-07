@@ -132,7 +132,9 @@
 								<div class="fade" aria-hidden="true"></div>
 								<div class="caption">
 									<span class="arena">{venue.arena}</span>
-									<span class="arena-city">{venue.city}</span>
+									{#if venue.city}
+										<span class="arena-city">{venue.city}</span>
+									{/if}
 								</div>
 							{:else}
 								<div class="bare-grid" aria-hidden="true"></div>

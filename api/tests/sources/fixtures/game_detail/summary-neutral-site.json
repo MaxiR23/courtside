@@ -1,0 +1,157 @@
+{
+  "format": {
+    "regulation": {
+      "periods": 4,
+      "clock": 720.0
+    },
+    "overtime": {
+      "clock": 300.0
+    }
+  },
+  "gameInfo": {
+    "venue": {
+      "id": "1",
+      "guid": "00000000-0000-0000-0000-000000000000",
+      "fullName": "Neutral Site Arena",
+      "grass": false,
+      "images": []
+    }
+  },
+  "boxscore": {
+    "teams": [
+      {
+        "homeAway": "away",
+        "team": {
+          "abbreviation": "MIN"
+        },
+        "statistics": [
+          {
+            "name": "streak",
+            "displayValue": "W1"
+          },
+          {
+            "name": "avgPointsAgainst",
+            "displayValue": "97.0"
+          },
+          {
+            "name": "Last Ten Games",
+            "displayValue": "1-0"
+          }
+        ]
+      },
+      {
+        "homeAway": "home",
+        "team": {
+          "abbreviation": "IND"
+        },
+        "statistics": [
+          {
+            "name": "streak",
+            "displayValue": "-"
+          },
+          {
+            "name": "avgPointsAgainst",
+            "displayValue": "0.0"
+          }
+        ]
+      }
+    ]
+  },
+  "injuries": [
+    {
+      "team": {
+        "abbreviation": "IND"
+      },
+      "injuries": [
+        {
+          "status": "Day-To-Day",
+          "athlete": {
+            "displayName": "Quenton Jackson"
+          }
+        },
+        {
+          "status": "Day-To-Day",
+          "athlete": {
+            "displayName": "T.J. McConnell"
+          }
+        },
+        {
+          "status": "Day-To-Day",
+          "athlete": {
+            "displayName": "Larry Nance Jr."
+          }
+        },
+        {
+          "status": "Out",
+          "athlete": {
+            "displayName": "Johnny Furphy"
+          }
+        }
+      ]
+    },
+    {
+      "team": {
+        "abbreviation": "MIN"
+      },
+      "injuries": [
+        {
+          "status": "Out",
+          "athlete": {
+            "displayName": "Donte DiVincenzo"
+          }
+        }
+      ]
+    }
+  ],
+  "seasonseries": [
+    {
+      "type": "season",
+      "totalCompetitions": 2,
+      "events": [
+        {
+          "id": "401910243",
+          "date": "2027-01-03T00:00:00Z",
+          "status": "pre",
+          "competitors": [
+            {
+              "homeAway": "home",
+              "score": "0",
+              "team": {
+                "abbreviation": "IND"
+              }
+            },
+            {
+              "homeAway": "away",
+              "score": "0",
+              "team": {
+                "abbreviation": "MIN"
+              }
+            }
+          ]
+        },
+        {
+          "id": "401910612",
+          "date": "2027-02-27T01:00:00Z",
+          "status": "pre",
+          "competitors": [
+            {
+              "homeAway": "home",
+              "score": "0",
+              "team": {
+                "abbreviation": "MIN"
+              }
+            },
+            {
+              "homeAway": "away",
+              "score": "0",
+              "team": {
+                "abbreviation": "IND"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "videos": []
+}

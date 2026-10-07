@@ -65,7 +65,7 @@ code.
 | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Record`              | `wins`, `losses`                                                                                                                             |
 | `DetailTeam`          | `Team` fields (`code`, `name`, `city`) plus `record`                                                                                         |
-| `Venue`               | `name`, `city`, `photoUrl` (null when unknown)                                                                                               |
+| `Venue`               | `name`, `city` (null when the source has no city), `photoUrl` (null when unknown)                                                                                        |
 | `DetailTeamStats`     | `TeamStats` fields (`fieldGoalPct`, `threePointPct`, `rebounds`, `assists`, `turnovers`) plus `freeThrowPct` (0 to 1), `steals`, `blocks`    |
 | `TeamStatLeaders`     | one team code or null per row: `fieldGoalPct`, `threePointPct`, `freeThrowPct`, `rebounds`, `assists`, `turnovers`, `steals`, `blocks`       |
 | `DetailGameTeamStats` | `away`, `home`: `DetailTeamStats`; `leaders`: `TeamStatLeaders`                                                                              |

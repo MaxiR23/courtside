@@ -261,7 +261,7 @@ class _SummaryFormat(_ProviderModel):
 
 
 class _SummaryAddress(_ProviderModel):
-    city: str
+    city: str | None = None
 
 
 class _SummaryImage(_ProviderModel):
@@ -270,7 +270,7 @@ class _SummaryImage(_ProviderModel):
 
 class _SummaryVenue(_ProviderModel):
     full_name: str
-    address: _SummaryAddress
+    address: _SummaryAddress | None = None
     images: list[_SummaryImage] = []
 
 
@@ -778,7 +778,7 @@ async def fetch_game_detail_sections(
     sections: dict[str, Any] = {
         "venue": {
             "name": venue.full_name,
-            "city": venue.address.city,
+            "city": venue.address.city if venue.address else None,
             "photo_url": venue.images[0].href if venue.images else None,
         }
     }

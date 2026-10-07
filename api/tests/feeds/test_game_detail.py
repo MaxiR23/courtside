@@ -19,6 +19,7 @@
 #   null when even or without win probability
 # - Injury status, win probability, UTC time and unknown fields are validated
 # - Serialization uses camelCase keys
+# - Venue city: null or absent is accepted and serialized as null; an empty city is rejected
 #
 # What is covered:
 # - A valid feed is accepted and an invalid one is rejected
@@ -258,8 +259,8 @@ def full_game() -> Payload:
 
 def without(payload: Payload, key: str) -> Payload:
     result = copy.deepcopy(payload)
-    if key == "venue.photoUrl":
-        del result["venue"]["photoUrl"]
+    if key.startswith("venue."):
+        del result["venue"][key.removeprefix("venue.")]
     else:
         del result[key]
     if key == "winProbability":
@@ -282,15 +283,31 @@ def test_accepts_a_final_game_with_every_section() -> None:
     assert feed.venue.photo_url is not None
 
 
-@pytest.mark.parametrize("key", [*OPTIONAL_SECTIONS, "venue.photoUrl"])
+@pytest.mark.parametrize("key", [*OPTIONAL_SECTIONS, "venue.photoUrl", "venue.city"])
 def test_accepts_any_optional_section_being_absent(key: str) -> None:
     feed = GameDetailFeed.model_validate(without(full_game(), key))
     dumped = feed.model_dump(mode="json")
 
-    if key == "venue.photoUrl":
-        assert dumped["venue"]["photoUrl"] is None
+    if key.startswith("venue."):
+        assert dumped["venue"][key.removeprefix("venue.")] is None
     else:
         assert dumped[key] is None
+
+
+def test_accepts_a_venue_with_a_null_city() -> None:
+    feed = GameDetailFeed.model_validate(
+        valid_game("scheduled", venue={"name": "Arena", "city": None})
+    )
+
+    assert feed.venue.city is None
+    assert feed.model_dump(mode="json", by_alias=True)["venue"]["city"] is None
+
+
+def test_rejects_a_venue_with_an_empty_city() -> None:
+    with pytest.raises(ValidationError):
+        GameDetailFeed.model_validate(
+            valid_game("scheduled", venue={"name": "Arena", "city": ""})
+        )
 
 
 @pytest.mark.parametrize(

@@ -8,7 +8,8 @@
 // - The desktop row in every status: scheduled, delayed, postponed, canceled, live and final
 // - The loser dimmed on a final game, on the block and on the score
 // - The mobile rows: two team rows with "city · record" and the score; the time row before a game
-// - The venue strip: the arena photo with its name over it, the bare grid without a photo
+// - The venue strip: the arena photo with its name over it, the bare grid without a photo; without a city, the arena name
+//   alone in the caption and no sub-line under the Venue cell
 // - Each team name in full, in its own level 1 heading
 //
 // What is covered:
@@ -113,6 +114,25 @@ describe('GameHeader', () => {
 		expect(screen.getByText('12–5')).toBeTruthy();
 		expect(container.querySelector('.status-tag')).toBeNull();
 		expect(container.querySelector('.live-badge')).toBeNull();
+	});
+
+	it('shows the arena name alone in the caption and no sub-line under the Venue cell when the city is null', () => {
+		const { container } = show({
+			...scheduled,
+			venue: {
+				...venue,
+				city: null,
+				cells: venue.cells.map((cell) => (cell.label === 'Venue' ? { ...cell, sub: null } : cell))
+			}
+		});
+		expect(container.querySelector('.caption .arena')?.textContent).toBe('Chase Center');
+		expect(container.querySelector('.caption .arena-city')).toBeNull();
+		const cell = [...container.querySelectorAll('.cell')].find(
+			(c) => c.querySelector('.cell-label')?.textContent === 'Venue'
+		);
+		expect(cell?.querySelector('.cell-value')?.textContent).toBe('Chase Center');
+		expect(cell?.querySelector('.cell-sub')).toBeNull();
+		expect(cell?.textContent).not.toContain('·');
 	});
 
 	it('shows a delayed game with its tag and "Scheduled" before the time', () => {

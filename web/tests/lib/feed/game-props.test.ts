@@ -8,6 +8,7 @@
 // - A final game: "Final · {date} · {arena}", the loser from the feed winner
 // - A scheduled game: pre-game layout, tip time, broadcast and venue strip; delayed, postponed
 //   and canceled variants
+// - A venue without a city: no city in the strip and no sub-line under the Venue cell
 // - The record as wins–losses; no broadcast cell when the network is unknown
 // - The tabs: the design order per layout, hidden when their data is null, highlights only with
 //   a platform name and a search URL
@@ -145,6 +146,16 @@ describe('toGameView', () => {
 		const v = view(asStatus('delayed'));
 		expect(v.header.status.state).toBe('delayed');
 		expect(v.header.center).toMatchObject({ kind: 'tip-off', tipTime: '7:00', delayed: true });
+	});
+
+	it('builds the venue strip with no city and a Venue cell with no sub-line when the city is null', () => {
+		const v = view({ ...asStatus('scheduled'), venue: { ...feed().venue, city: null } });
+		expect(v.header.venue?.city).toBeNull();
+		expect(v.header.venue?.cells.find((cell) => cell.label === 'Venue')).toEqual({
+			label: 'Venue',
+			value: 'Chase Center',
+			sub: null
+		});
 	});
 
 	it('shows no time for postponed and canceled games and keeps their venue strip without a tip-off cell', () => {

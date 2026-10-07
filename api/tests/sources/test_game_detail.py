@@ -12,6 +12,7 @@
 # - Raises the source error on an invalid payload, an unknown team, a missing home or away team, a team without player stats, a missing team stat, a stat that is not a number, an empty display name, a timeout, an error status and a missing URL
 # - GameDetail uses the same field types as the contract Game
 # - Maps a recorded scheduled game and a recorded final game to their detail sections: venue, box score, team stats, win probability, injuries, season series and videos
+# - Maps a venue without an address, or an address without a city, to a null city
 # - Maps recorded videos with their duration as text
 # - Places each win probability point at its elapsed game seconds, in regulation and overtime, and drops a point that cannot be placed
 # - Takes the win probability leader from the last published point: the side ahead and its probability, none when even or without points
@@ -41,6 +42,10 @@
 # win probability entry of summary-final.json was given a play id that matches
 # no play, to cover the dropped point. No overtime summary was recorded: the
 # overtime cases edit summary-final.json in the test.
+#
+# summary-neutral-site.json is not recorded: it is summary-scheduled.json
+# with its venue replaced by the verified neutral-site shape, which has no
+# address.
 #
 # Run with: cd api && .venv/bin/python -m pytest tests/sources/test_game_detail.py
 #
@@ -630,6 +635,28 @@ async def test_maps_a_recorded_scheduled_game_to_its_venue_injuries_and_series_w
     assert detail.season_series.games == []
     assert detail.season_series.leader is None
     assert detail.videos is None
+
+
+@pytest.mark.anyio
+async def test_maps_a_neutral_site_venue_without_an_address_to_a_null_city(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    detail = await sections_of(mock, settings, load("summary-neutral-site.json"))
+
+    assert (detail.venue.name, detail.venue.city) == ("Neutral Site Arena", None)
+    assert detail.venue.photo_url is None
+
+
+@pytest.mark.anyio
+async def test_maps_a_venue_address_without_a_city_to_a_null_city(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("summary-scheduled.json")
+    payload["gameInfo"]["venue"]["address"] = {}
+
+    detail = await sections_of(mock, settings, payload)
+
+    assert (detail.venue.name, detail.venue.city) == ("Hilton Coliseum", None)
 
 
 @pytest.mark.anyio
