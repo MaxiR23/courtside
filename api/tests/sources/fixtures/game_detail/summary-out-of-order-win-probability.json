@@ -1,0 +1,52 @@
+{
+  "format": {
+    "regulation": {
+      "periods": 4,
+      "clock": 720.0
+    },
+    "overtime": {
+      "clock": 300.0
+    }
+  },
+  "gameInfo": {
+    "venue": {
+      "fullName": "Example Arena"
+    }
+  },
+  "boxscore": {
+    "teams": [
+      {
+        "homeAway": "away",
+        "team": {
+          "abbreviation": "ORL"
+        },
+        "statistics": []
+      },
+      {
+        "homeAway": "home",
+        "team": {
+          "abbreviation": "BOS"
+        },
+        "statistics": []
+      }
+    ]
+  },
+  "plays": [
+    {"id": "1", "period": {"number": 1}, "clock": {"displayValue": "12:00"}},
+    {"id": "2", "period": {"number": 2}, "clock": {"displayValue": "6:00"}},
+    {"id": "3", "period": {"number": 2}, "clock": {"displayValue": "10:00"}},
+    {"id": "4", "period": {"number": 3}, "clock": {"displayValue": "11:00"}},
+    {"id": "5", "period": {"number": 3}, "clock": {"displayValue": "8:00"}},
+    {"id": "6", "period": {"number": 3}, "clock": {"displayValue": "11:00"}},
+    {"id": "7", "period": {"number": 4}, "clock": {"displayValue": "0.0"}}
+  ],
+  "winprobability": [
+    {"playId": "1", "homeWinPercentage": 0.5},
+    {"playId": "2", "homeWinPercentage": 0.55},
+    {"playId": "3", "homeWinPercentage": 0.6},
+    {"playId": "4", "homeWinPercentage": 0.42},
+    {"playId": "5", "homeWinPercentage": 0.45},
+    {"playId": "6", "homeWinPercentage": 0.4},
+    {"playId": "7", "homeWinPercentage": 0.7}
+  ]
+}

@@ -15,6 +15,7 @@
 # - Maps a venue without an address, or an address without a city, to a null city
 # - Maps recorded videos with their duration as text
 # - Places each win probability point at its elapsed game seconds, in regulation and overtime, and drops a point that cannot be placed
+# - Orders win probability points by elapsed game seconds, keeping the source order of points at the same second, and keeps the recorded points unchanged
 # - Takes the win probability leader from the last published point: the side ahead and its probability, none when even or without points
 # - Publishes each period's start and the game end from the game format and the plays' period numbers, and none without win probability
 # - Marks the leading side of each team stat row: the lower value leads turnovers and a tie has no leader
@@ -46,6 +47,10 @@
 # summary-neutral-site.json is not recorded: it is summary-scheduled.json
 # with its venue replaced by the verified neutral-site shape, which has no
 # address.
+#
+# summary-out-of-order-win-probability.json is not recorded. It is built with
+# example data only. Its win probability entries go back in game time in the
+# second and third quarters, and two entries share a second.
 #
 # Run with: cd api && .venv/bin/python -m pytest tests/sources/test_game_detail.py
 #
@@ -741,9 +746,77 @@ async def test_places_each_win_probability_point_at_its_elapsed_game_seconds(
     assert detail.win_probability is not None
     seconds = [p.elapsed_seconds for p in detail.win_probability]
     assert seconds[0] == 0
-    assert seconds[1] == 2880 + 60
-    assert seconds[-1] == 2880
+    assert seconds[-1] == 2880 + 60
+    assert seconds[-2] == 2880
     assert detail.win_probability[0].home_win_probability == 0.671
+    assert detail.win_probability[-1].home_win_probability == 0.688
+
+
+@pytest.mark.anyio
+async def test_orders_win_probability_points_by_elapsed_game_seconds(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    detail = await sections_of(
+        mock, settings, load("summary-out-of-order-win-probability.json")
+    )
+
+    assert detail.win_probability is not None
+    assert [
+        (p.elapsed_seconds, p.home_win_probability) for p in detail.win_probability
+    ] == [
+        (0, 0.5),
+        (840, 0.6),
+        (1080, 0.55),
+        (1500, 0.42),
+        (1500, 0.4),
+        (1680, 0.45),
+        (2880, 0.7),
+    ]
+
+
+@pytest.mark.anyio
+async def test_keeps_the_source_order_of_win_probability_points_at_the_same_second(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    detail = await sections_of(
+        mock, settings, load("summary-out-of-order-win-probability.json")
+    )
+
+    assert detail.win_probability is not None
+    assert [
+        p.home_win_probability
+        for p in detail.win_probability
+        if p.elapsed_seconds == 1500
+    ] == [0.42, 0.4]
+
+
+RECORDED_POINT_SECONDS = [
+    (
+        "summary-final.json",
+        [0, 8, 8, 720, 720, 737, 1440, 1440, 1461, 2160, 2176, 2177, 2880],
+    ),
+    (
+        "summary-preseason-final.json",
+        [0, 23, 23, 720, 720, 720, 1440, 1440, 1440, 2160, 2160, 2160, 2880],
+    ),
+]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(("name", "seconds"), RECORDED_POINT_SECONDS)
+async def test_keeps_the_recorded_win_probability_points_unchanged(
+    mock: respx.MockRouter, settings: Settings, name: str, seconds: list[int]
+) -> None:
+    detail = await sections_of(mock, settings, load(name))
+
+    assert detail.win_probability is not None
+    assert [p.elapsed_seconds for p in detail.win_probability] == seconds
+    if name == "summary-preseason-final.json":
+        assert [
+            p.home_win_probability
+            for p in detail.win_probability
+            if p.elapsed_seconds == 23
+        ] == [0.505, 0.51]
 
 
 @pytest.mark.anyio
