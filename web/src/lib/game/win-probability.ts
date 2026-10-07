@@ -43,6 +43,15 @@ export function segments(points: readonly ChartPoint[]): Segment[] {
 	return mapped.slice(1).map((to, i) => ({ x0: mapped[i].x, y0: mapped[i].y, x1: to.x, y1: to.y }));
 }
 
+/** The area between the line and 50% as one closed path: from 50% at the first point, through every point in feed order, back to 50% at the last. */
+export function areaPath(points: readonly ChartPoint[]): string {
+	if (points.length === 0) throw new RangeError('A chart needs at least one point');
+	const mapped = points.map(toPoint);
+	const middle = CHART_HEIGHT / 2;
+	const along = mapped.map((p) => `L ${p.x} ${p.y}`).join(' ');
+	return `M ${mapped[0].x} ${middle} ${along} L ${mapped[mapped.length - 1].x} ${middle} Z`;
+}
+
 /** The x domain: the game end when the feed has boundaries, else the span of the points. */
 export function domain(points: readonly ChartPoint[], boundaries: ChartBoundaries | null): number {
 	const covered = span(points);
