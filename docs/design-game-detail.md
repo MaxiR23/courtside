@@ -80,7 +80,7 @@ The h2 is Barlow Condensed, `clamp(28px, 3.4vw, 40px)`, line-height 1, uppercase
 
 ### 2. Section tabs
 
-Sticky at the top of the viewport. Background `rgba(12,14,16,.9)` with a 12px backdrop blur and a bottom divider. Anchor links in Barlow Condensed 600, 14px, .12em, uppercase, muted, hover ink, 16px vertical padding. On mobile the row scrolls horizontally. Live and final games add the mini score on the right, such as `OKC 78 – 74 GSW` (15px).
+Sticky at the top of the viewport. Background `rgba(12,14,16,.9)` with a 12px backdrop blur and a bottom divider. Anchor links in Barlow Condensed 600, 14px, .12em, uppercase, muted, hover ink, 16px vertical padding. On mobile the row scrolls horizontally. Live and final games add the mini score on the right, such as `OKC 78 – 74 GSW` (15px). The bar stacks above the page content at `z-index` 1, through the `--tabs-z-index` token; nothing else on the page sets a `z-index` at or above it, so the tabs stay clickable while scrolling.
 
 | Layout | Tabs, in order |
 |---|---|

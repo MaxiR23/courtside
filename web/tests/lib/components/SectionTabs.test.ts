@@ -7,14 +7,21 @@
 // - The mini score when given, none without it
 // - Nothing with no tabs and no mini score
 // - A click scrolls smoothly to the section, instantly under reduced motion
+// - The nav stays above the page content: sticky with z-index from --tabs-z-index
 //
 // What is covered:
 // - Each state the tabs show, plus the click
 // - A stub section element and a mocked scrollIntoView; no layout in jsdom
+// - The stacking rule is read from the component source and tokens.css, since
+//   jsdom does not apply scoped styles
 //
 // Run with: cd web && pnpm exec vitest run tests/lib/components/SectionTabs.test.ts
 //
 // SEE: web/src/lib/components/SectionTabs.svelte
+// SEE: web/src/lib/styles/tokens.css
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -91,5 +98,22 @@ describe('SectionTabs', () => {
 	it('does nothing when the section is not on the page yet', async () => {
 		render(SectionTabs, { props: { tabs, miniScore: null } });
 		await expect(fireEvent.click(screen.getByRole('link', { name: 'Score' }))).resolves.toBe(false);
+	});
+
+	it('stacks the nav above the page content through the tabs layer token', () => {
+		const source = readFileSync(
+			join(import.meta.dirname, '../../../src/lib/components/SectionTabs.svelte'),
+			'utf8'
+		);
+		const block = /\.section-tabs\s*\{([^}]*)\}/.exec(source)?.[1] ?? '';
+		expect(block).toMatch(/position:\s*sticky;/);
+		expect(block).toMatch(/z-index:\s*var\(--tabs-z-index\);/);
+
+		const tokens = readFileSync(
+			join(import.meta.dirname, '../../../src/lib/styles/tokens.css'),
+			'utf8'
+		);
+		const level = Number(/--tabs-z-index:\s*(-?\d+);/.exec(tokens)?.[1]);
+		expect(level).toBeGreaterThanOrEqual(1);
 	});
 });
