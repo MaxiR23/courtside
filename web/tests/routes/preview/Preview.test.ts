@@ -8,7 +8,8 @@
 // - Shows the delayed, postponed and canceled statuses on both rows and in the tag
 // - Shows the day strip, every game card state on both rows, and the schedule on a day with no games showing its message
 // - Shows an expanded card for a scheduled, a live, a final and an overtime game
-// - Shows a final game with highlights and one with highlights pending, and plays a placeholder
+// - Shows a final game with highlights, one with exactly one highlight video
+//   and one with highlights pending, and plays a placeholder
 // - Shows final cards with spoiler-free mode on next to the rows with it off
 // - The hero toggle turns the mode on for the schedule
 // - Uses no external URL for images, players or links
@@ -164,6 +165,15 @@ describe('component preview', () => {
 		expect(
 			within(pending).getByRole('link', { name: 'Search highlights on Video platform' })
 		).toBeTruthy();
+	});
+
+	it('shows a final game with exactly one highlight video', () => {
+		render(Preview);
+		const section = sectionOf('GameCard: expanded final, one highlight');
+		expect(section.querySelector('[aria-expanded="true"]')).not.toBeNull();
+		expect(section.querySelectorAll('.highlights .grid > li')).toHaveLength(1);
+		expect(within(section).getAllByRole('button', { name: /^Play / })).toHaveLength(1);
+		expect(within(section).getByText('Nuggets at Suns: full game highlights')).toBeTruthy();
 	});
 
 	it('plays the placeholder player in place when a preview highlight is clicked', async () => {

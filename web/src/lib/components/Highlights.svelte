@@ -113,7 +113,10 @@
 
 	.grid {
 		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--highlight-column-min)), 1fr));
+		grid-template-columns: repeat(
+			auto-fill,
+			minmax(min(100%, max(var(--highlight-column-min), (100% - var(--game-list-gap)) / 2)), 1fr)
+		);
 		gap: var(--game-list-gap);
 		list-style: none;
 		padding: 0;

@@ -150,7 +150,7 @@ Lucide at `stroke-width: 1.5`: `chevron-down` (expand), `play` (filled, highligh
     - **Top performers:** one per team. Each has a 72 by 56px frame holding the full-color player photo (bottom-anchored, 120% width, `drop-shadow(0 6px 8px rgba(0,0,0,.6))`), the team code, the name, and the line "34 PTS · 3 REB · 8 AST".
     - **Team stats:** FG%, 3P%, Rebounds, Assists and Turnovers. Each row shows the away value, the label and the home value, above two 3px bars that grow out from the center. The leading side is in accent and ink; the other side in bar-neutral and muted. For turnovers, lower is better.
   - **Final games without stats:** in place of top performers and team stats, one muted line in body-small reading "Stats will be available soon." while they are pending, or "Stats aren't available for this game." once they will not come. The line score and the highlights stay.
-  - **Final games, highlights:** the kicker "HIGHLIGHTS" with the video platform's name on the right, and a grid of video cards, min 320px per column.
+  - **Final games, highlights:** the kicker "HIGHLIGHTS" with the video platform's name on the right, and a grid of video cards, min 320px per column and at most two per row; a lone video keeps the width of one column.
     - Each card: a 16:9 thumbnail with a 56px solid-accent play square. Clicking it replaces the thumbnail in place with the embedded player, autoplaying. Below the thumbnail, the title in Barlow Condensed 18px and the channel in muted.
     - **No videos yet:** a single blueprint row reading "Highlights aren't in yet. They'll appear here automatically.", with a ghost link to search for the highlights.
   - **Live games** also show "Highlights will appear here after the final buzzer."

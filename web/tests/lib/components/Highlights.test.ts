@@ -8,14 +8,20 @@
 // - Focus moves to the player when a thumbnail starts it, and is not taken on a playing render
 // - The pending message and the external search link
 // - Spanish copy with a Spanish browser preference
+// - A single video renders one card
+// - The grid uses at most two auto-fill columns of the column minimum
 // - Only the URLs and platform name received as props are rendered
 //
 // What is covered:
-// - Both states (videos, pending), playing and not playing, plus interaction
+// - All states (one video, several videos, pending), playing and not playing,
+//   plus interaction, and the grid rule's source
 //
 // Run with: cd web && pnpm exec vitest run tests/lib/components/Highlights.test.ts
 //
 // SEE: web/src/lib/components/Highlights.svelte
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -162,5 +168,31 @@ describe('Highlights', () => {
 		for (const el of empty.container.querySelectorAll('[src], [href]')) {
 			expect(given.has(el.getAttribute('src') ?? el.getAttribute('href') ?? '')).toBe(true);
 		}
+	});
+});
+
+describe('Highlights grid', () => {
+	it('shows a single video as one card in the grid', () => {
+		const { container } = render(Highlights, {
+			props: { ...props, videos: [videos[0]] }
+		});
+		expect(container.querySelectorAll('ul.grid > li')).toHaveLength(1);
+		expect(container.querySelectorAll('.blueprint-frame')).toHaveLength(1);
+		expect(screen.getByRole('button', { name: 'Play First clip' })).toBeTruthy();
+	});
+
+	it('lays out at most two auto-fill columns of at least the highlight column minimum', () => {
+		const source = readFileSync(
+			join(import.meta.dirname, '../../../src/lib/components/Highlights.svelte'),
+			'utf8'
+		);
+		const block = (/\.grid\s*\{([^}]*)\}/.exec(source)?.[1] ?? '')
+			.replace(/\s+/g, ' ')
+			.replace('( ', '(');
+		expect(block).toContain('repeat(auto-fill,');
+		expect(block).toContain('min(100%,');
+		expect(block).toContain('var(--highlight-column-min)');
+		expect(block).toContain('(100% - var(--game-list-gap)) / 2');
+		expect(block).not.toContain('auto-fit');
 	});
 });
