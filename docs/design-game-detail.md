@@ -115,7 +115,7 @@ Two columns, `repeat(auto-fit, minmax(min(100%, 440px), 1fr))`.
 - A `BlueprintFrame` with a 40px y-axis column: the home team code at the top, "50%" in the middle and the away team code at the bottom.
 - The chart is an SVG, `viewBox 0 0 1000 200`, height `clamp(180px, 24vw, 280px)`:
   - A dashed 50% line in `rgba(235,232,227,.22)`, and a gridline in row-rule at the start of every period after the first, with none at the left edge. The x axis runs from 0 to the game's end as the feed sends it, so a regulation game has its gridlines at 250, 500 and 750, and overtime periods narrow every period inside the same chart width.
-  - The area between the line and 50% filled with `rgba(116,157,196,.12)`, and the line itself 2px in accent-light, with a non-scaling stroke.
+  - The area between the line and 50% as one shape under the whole line, filled with `rgba(116,157,196,.12)`, and the line itself 2px in accent-light, with a non-scaling stroke.
   - A 9px square marks the latest point, with a 4px ring in `rgba(116,157,196,.25)`.
 - Y is the home team's win probability (top is 100% home). X is elapsed game time.
 - One label per period runs under the chart, centered under its period: Q1 to Q4, then OT1, OT2 when present. Without period boundaries in the feed, the chart draws no gridlines and no labels, and its x axis spans the points.

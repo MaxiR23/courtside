@@ -12,6 +12,7 @@
 // - Pauses while the tab is hidden and loads at once when it is visible again
 // - Keeps the last feed on screen when a later poll fails
 // - Renders the win probability chart with "Even" for a feed built before the leader field
+// - The chart check targets the chart by role and name: absent without win probability points while the header svg remains
 //
 // What is covered:
 // - The page wired end to end: config, fetch, polling, props layer, header, tabs, footer
@@ -222,10 +223,17 @@ describe('game detail page', () => {
 		const old: Partial<GameDetailFeed> = { ...recorded() };
 		delete old.winProbabilityLeader;
 		stubFetch(answerWith(old as unknown as GameDetailFeed));
-		const { container } = await renderPage();
+		await renderPage();
 		expect(screen.getByRole('heading', { name: 'Win probability' })).toBeTruthy();
 		expect(screen.getByText('Even')).toBeTruthy();
-		expect(container.querySelector('svg')).not.toBeNull();
+		expect(screen.getByRole('img', { name: 'Win probability' })).toBeTruthy();
 		expect(screen.queryByText("Data isn't available right now. Check back later.")).toBeNull();
+	});
+
+	it('draws no win probability chart for a feed without win probability points, though the header still has an svg', async () => {
+		stubFetch(answerWith({ ...recorded(), winProbability: null }));
+		const { container } = await renderPage();
+		expect(screen.queryByRole('img', { name: 'Win probability' })).toBeNull();
+		expect(container.querySelector('svg')).not.toBeNull();
 	});
 });

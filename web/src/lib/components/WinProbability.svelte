@@ -4,6 +4,7 @@
 	import {
 		CHART_HEIGHT,
 		CHART_WIDTH,
+		areaPath,
 		domain,
 		gridlines,
 		markerPosition,
@@ -19,6 +20,7 @@
 	let { chart }: Props = $props();
 
 	const segs = $derived(segments(chart.points));
+	const area = $derived(areaPath(chart.points));
 	const domainSeconds = $derived(domain(chart.points, chart.boundaries));
 	const scale = $derived(xScale(domainSeconds));
 	const marker = $derived(markerPosition(chart.points, domainSeconds));
@@ -46,11 +48,8 @@
 				{/each}
 				<line class="midline" x1="0" y1={middle} x2={CHART_WIDTH} y2={middle} />
 				<g class="series" transform="scale({scale} 1)">
+					<path class="area" d={area} />
 					{#each segs as s, i (i)}
-						<path
-							class="area"
-							d="M {s.x0} {middle} L {s.x0} {s.y0} L {s.x1} {s.y1} L {s.x1} {middle} Z"
-						/>
 						<path
 							class="line"
 							d="M {s.x0} {s.y0} L {s.x1} {s.y1}"

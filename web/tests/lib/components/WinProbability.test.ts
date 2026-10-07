@@ -4,14 +4,14 @@
 //
 // Tested:
 // - The y-axis column: home code on top, 50% in the middle, away code at the bottom
-// - One line segment and one area segment per pair of points
-// - A new point extends the line: earlier segment nodes stay the same objects with the same path
+// - One line segment per pair of points and a single area path through every point
+// - A new point extends the line: earlier line nodes stay the same objects with the same path; the one area path is kept and reaches the new point
 // - The 1000 by 200 viewBox for a game with points past regulation
 // - No gridline and no period label without boundaries
 // - With boundaries: a gridline at each period start after the first, a label for every period,
 //   overtime periods added, the viewBox kept, and a live point extends the line on the same scale
 // - The period labels are not inside the plot; the marker is
-// - A single point draws no segment, only the latest point marker
+// - A single point draws no line, one zero-area fill and the latest point marker
 //
 // What is covered:
 // - Live, final, single point and past-regulation states; no layout is asserted
@@ -58,10 +58,15 @@ describe('WinProbability', () => {
 		expect(axis).toEqual(['GSW', '50%', 'LAL']);
 	});
 
-	it('draws one line segment and one area segment per pair of points', () => {
-		const { container } = render(WinProbability, { props: { chart: chart(live) } });
+	it('draws one line segment per pair of points and one area path through every point', () => {
+		const { container } = render(WinProbability, {
+			props: { chart: chart([point(0, 0.5), point(600, 0.75), point(1200, 0.25)]) }
+		});
 		expect(container.querySelectorAll('path.line')).toHaveLength(2);
-		expect(container.querySelectorAll('path.area')).toHaveLength(2);
+		expect(container.querySelectorAll('path.area')).toHaveLength(1);
+		expect(container.querySelector('path.area')?.getAttribute('d')).toBe(
+			'M 0 100 L 0 100 L 600 50 L 1200 150 L 1200 100 Z'
+		);
 		expect(container.querySelector('path.line')?.getAttribute('vector-effect')).toBe(
 			'non-scaling-stroke'
 		);
@@ -69,18 +74,22 @@ describe('WinProbability', () => {
 
 	it('extends the line without replacing or changing the existing segments when a point is added', async () => {
 		const { container, rerender } = render(WinProbability, { props: { chart: chart(live) } });
-		const before = [...container.querySelectorAll('path')];
+		const before = [...container.querySelectorAll('path.line')];
 		const dBefore = before.map((p) => p.getAttribute('d'));
+		const areaBefore = container.querySelector('path.area');
 		const groupBefore = container.querySelector('g')?.getAttribute('transform');
 
 		await rerender({ chart: chart([...live, point(1800, 0.7)]) });
 
-		const after = [...container.querySelectorAll('path')];
-		expect(after).toHaveLength(before.length + 2);
+		const after = [...container.querySelectorAll('path.line')];
+		expect(after).toHaveLength(before.length + 1);
 		before.forEach((node, i) => {
 			expect(after[i]).toBe(node);
 			expect(node.getAttribute('d')).toBe(dBefore[i]);
 		});
+		expect(container.querySelectorAll('path.area')).toHaveLength(1);
+		expect(container.querySelector('path.area')).toBe(areaBefore);
+		expect(areaBefore?.getAttribute('d')).toMatch(/ L 1800 100 Z$/);
 		expect(container.querySelector('g')?.getAttribute('transform')).not.toBe(groupBefore);
 	});
 
@@ -97,11 +106,15 @@ describe('WinProbability', () => {
 		expect(container.textContent).not.toMatch(/Q\d|OT\d?/);
 	});
 
-	it('draws only the latest point marker for a single point', () => {
+	it('draws no line and a zero-area fill for a single point, with the latest point marker', () => {
 		const { container } = render(WinProbability, {
 			props: { chart: chart([point(0, 0.75)]) }
 		});
-		expect(container.querySelectorAll('path')).toHaveLength(0);
+		expect(container.querySelectorAll('path.line')).toHaveLength(0);
+		expect(container.querySelectorAll('path.area')).toHaveLength(1);
+		expect(container.querySelector('path.area')?.getAttribute('d')).toBe(
+			'M 0 100 L 0 50 L 0 100 Z'
+		);
 		const markers = container.querySelectorAll('.marker');
 		expect(markers).toHaveLength(1);
 		expect((markers[0] as HTMLElement).style.left).toBe('0%');
@@ -140,14 +153,15 @@ describe('WinProbability', () => {
 		const { container, rerender } = render(WinProbability, {
 			props: { chart: chart(live, regulation) }
 		});
-		const before = [...container.querySelectorAll('path')];
+		const before = [...container.querySelectorAll('path.line')];
 		const groupBefore = container.querySelector('g')?.getAttribute('transform');
 
 		await rerender({ chart: chart([...live, point(1800, 0.7)], regulation) });
 
-		const after = [...container.querySelectorAll('path')];
-		expect(after).toHaveLength(before.length + 2);
+		const after = [...container.querySelectorAll('path.line')];
+		expect(after).toHaveLength(before.length + 1);
 		before.forEach((node, i) => expect(after[i]).toBe(node));
+		expect(container.querySelectorAll('path.area')).toHaveLength(1);
 		expect(container.querySelector('g')?.getAttribute('transform')).toBe(groupBefore);
 	});
 });

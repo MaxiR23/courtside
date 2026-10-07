@@ -7,6 +7,7 @@
 // - A single point at zero still has a span of one second
 // - The home probability maps to y, top being 100% home; x stays in seconds
 // - One segment per pair of points, none for a single point
+// - One closed area path from 50% through every point in feed order back to 50%; zero area for one point
 // - The marker sits on the latest point, as a fraction of the given domain
 // - The domain is the period boundaries' end when present, else the span
 // - Gridlines sit at each period start after the first; labels are centered on their period
@@ -22,6 +23,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
 	CHART_WIDTH,
+	areaPath,
 	domain,
 	gridlines,
 	markerPosition,
@@ -66,6 +68,23 @@ describe('segments', () => {
 			{ x0: 0, y0: 100, x1: 60, y1: 50 },
 			{ x0: 60, y0: 50, x1: 120, y1: 150 }
 		]);
+	});
+});
+
+describe('areaPath', () => {
+	it('closes one shape from the 50% line at the first point, through every point in order, back to the 50% line at the last point', () => {
+		expect(areaPath([point(0, 0.5), point(60, 0.75), point(120, 0.25)])).toBe(
+			'M 0 100 L 0 100 L 60 50 L 120 150 L 120 100 Z'
+		);
+	});
+
+	it('draws a zero-area shape for a single point', () => {
+		expect(areaPath([point(0, 0.75)])).toBe('M 0 100 L 0 50 L 0 100 Z');
+	});
+
+	it('rejects an empty list and an invalid point', () => {
+		expect(() => areaPath([])).toThrow(RangeError);
+		expect(() => areaPath([point(0, 1.5)])).toThrow(RangeError);
 	});
 });
 
