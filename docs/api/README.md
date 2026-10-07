@@ -12,3 +12,4 @@ Each feed's JSON Schema is exported to `api/schemas/<feed>.schema.json` and
 regenerated, with the TypeScript types, by `scripts/contract.sh`.
 
 - [`games.md`](games.md): the games feed.
+- [`game-detail.md`](game-detail.md): the game detail feed.

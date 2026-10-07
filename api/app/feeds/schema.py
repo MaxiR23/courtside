@@ -12,11 +12,15 @@ from typing import Any
 from pydantic import BaseModel
 from pydantic.json_schema import GenerateJsonSchema
 
+from app.feeds.game_detail import GameDetailFeed
 from app.feeds.games import GamesFeed
 
 SCHEMA_DIR = Path(__file__).resolve().parent.parent.parent / "schemas"
 
-FEEDS: dict[str, type[BaseModel]] = {"games": GamesFeed}
+FEEDS: dict[str, type[BaseModel]] = {
+    "games": GamesFeed,
+    "game-detail": GameDetailFeed,
+}
 
 
 class ContractJsonSchema(GenerateJsonSchema):
