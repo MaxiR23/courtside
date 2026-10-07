@@ -14,6 +14,7 @@
 # - Maps a recorded scheduled game and a recorded final game to their detail sections: venue, box score, team stats, win probability, injuries, season series and videos
 # - Maps recorded videos with their duration as text
 # - Places each win probability point at its elapsed game seconds, in regulation and overtime, and drops a point that cannot be placed
+# - Takes the win probability leader from the last published point: the side ahead and its probability, none when even or without points
 # - Publishes each period's start and the game end from the game format and the plays' period numbers, and none without win probability
 # - Marks the leading side of each team stat row: the lower value leads turnovers and a tie has no leader
 # - Drops players without a stat line, splits made and attempted shots, reads plus-minus with its sign and builds photo URLs from the template
@@ -613,6 +614,7 @@ async def test_maps_a_recorded_scheduled_game_to_its_venue_injuries_and_series_w
     assert detail.box_score is None
     assert detail.team_stats is None
     assert detail.win_probability is None
+    assert detail.win_probability_leader is None
     assert detail.win_probability_periods is None
     assert detail.injuries is not None
     assert [i.display_name for i in detail.injuries.away] == ["Donte DiVincenzo"]
@@ -639,6 +641,9 @@ async def test_maps_a_recorded_final_game_to_its_detail_sections(
     assert (detail.venue.name, detail.venue.city) == ("TD Garden", "Boston")
     assert str(detail.venue.photo_url) == "https://example.com/61"
     assert detail.win_probability_periods is not None
+    assert detail.win_probability_leader is not None
+    assert detail.win_probability_leader.team_code == "BOS"
+    assert detail.win_probability_leader.win_probability == 1.0
     assert detail.box_score is not None
     home, away = detail.box_score.home.totals, detail.box_score.away.totals
     assert (home.points, home.field_goals_made, home.field_goals_attempted) == (
@@ -740,7 +745,56 @@ async def test_returns_no_win_probability_when_no_point_can_be_placed(
     detail = await sections_of(mock, settings, payload)
 
     assert detail.win_probability is None
+    assert detail.win_probability_leader is None
     assert detail.win_probability_periods is None
+
+
+def placed_entries(payload: Payload) -> list[Payload]:
+    play_ids = {p["id"] for p in payload["plays"]}
+    return [w for w in payload["winprobability"] if w["playId"] in play_ids]
+
+
+@pytest.mark.anyio
+async def test_takes_the_away_team_as_the_win_probability_leader_below_even(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("summary-final.json")
+    placed_entries(payload)[-1]["homeWinPercentage"] = 0.25
+
+    detail = await sections_of(mock, settings, payload)
+
+    assert detail.win_probability_leader is not None
+    assert detail.win_probability_leader.team_code == "ORL"
+    assert detail.win_probability_leader.win_probability == 0.75
+
+
+@pytest.mark.anyio
+async def test_gives_no_win_probability_leader_on_an_even_latest_point(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("summary-final.json")
+    placed_entries(payload)[-1]["homeWinPercentage"] = 0.5
+
+    detail = await sections_of(mock, settings, payload)
+
+    assert detail.win_probability_leader is None
+
+
+@pytest.mark.anyio
+async def test_takes_the_win_probability_leader_from_the_last_published_point(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("summary-final.json")
+    entries = placed_entries(payload)
+    entries[-2]["homeWinPercentage"] = 0.25
+    last_play = next(p for p in payload["plays"] if p["id"] == entries[-1]["playId"])
+    last_play["clock"]["displayValue"] = "soon"
+
+    detail = await sections_of(mock, settings, payload)
+
+    assert detail.win_probability_leader is not None
+    assert detail.win_probability_leader.team_code == "ORL"
+    assert detail.win_probability_leader.win_probability == 0.75
 
 
 def starts_of(detail: GameDetailSections) -> list[tuple[int, int]]:

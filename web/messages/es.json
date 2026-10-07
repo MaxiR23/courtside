@@ -77,6 +77,7 @@
 	"panel_stat_blocks": "Tapones",
 	"game_section_win_probability": "Probabilidad de victoria",
 	"game_win_probability_final": "Gana {team}",
+	"game_win_probability_even": "Parejo",
 	"box_player": "Jugador",
 	"box_starters": "Titulares",
 	"box_bench": "Suplentes",

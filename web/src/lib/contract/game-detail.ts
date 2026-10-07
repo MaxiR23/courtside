@@ -25,6 +25,7 @@ export interface GameDetailFeed {
 	stars: Stars | null;
 	boxScore: BoxScore | null;
 	winProbability: [WinProbabilityPoint, ...WinProbabilityPoint[]] | null;
+	winProbabilityLeader: WinProbabilityLeader | null;
 	winProbabilityPeriods: WinProbabilityPeriods | null;
 	injuries: Injuries | null;
 	lastGames: LastGames | null;
@@ -154,6 +155,10 @@ export interface BoxScoreTotals {
 export interface WinProbabilityPoint {
 	elapsedSeconds: number;
 	homeWinProbability: number;
+}
+export interface WinProbabilityLeader {
+	teamCode: string;
+	winProbability: number;
 }
 export interface WinProbabilityPeriods {
 	/**

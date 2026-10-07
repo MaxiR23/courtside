@@ -11,6 +11,7 @@
 // - Polls again after 30 s while the game is live and after 60 s once it is not
 // - Pauses while the tab is hidden and loads at once when it is visible again
 // - Keeps the last feed on screen when a later poll fails
+// - Renders the win probability chart with "Even" for a feed built before the leader field
 //
 // What is covered:
 // - The page wired end to end: config, fetch, polling, props layer, header, tabs, footer
@@ -214,6 +215,17 @@ describe('game detail page', () => {
 		await tick();
 		expect(fetchMock).toHaveBeenCalledTimes(2);
 		expect(screen.getByText('Q3 · 4:12 · Chase Center')).toBeTruthy();
+		expect(screen.queryByText("Data isn't available right now. Check back later.")).toBeNull();
+	});
+
+	it('renders the win probability chart with "Even" for a feed built before the leader field', async () => {
+		const old: Partial<GameDetailFeed> = { ...recorded() };
+		delete old.winProbabilityLeader;
+		stubFetch(answerWith(old as unknown as GameDetailFeed));
+		const { container } = await renderPage();
+		expect(screen.getByRole('heading', { name: 'Win probability' })).toBeTruthy();
+		expect(screen.getByText('Even')).toBeTruthy();
+		expect(container.querySelector('svg')).not.toBeNull();
 		expect(screen.queryByText("Data isn't available right now. Check back later.")).toBeNull();
 	});
 });

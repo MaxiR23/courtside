@@ -12,7 +12,8 @@
 // - The tabs: the design order per layout, hidden when their data is null, highlights only with
 //   a platform name and a search URL
 // - The sections: built from the feed, null with their tab, leaders from the feed, the win
-//   probability meta, box score split and formatting, highlights on a final game
+//   probability meta from the feed leader, 'Even' with none or with a feed built before the
+//   field, box score split and formatting, highlights on a final game
 // - The pre-game sections: players by side, injuries, last games (strip order, row format), standings,
 //   the season series summary (leader from the feed) and meta, the "This game" row and the dimmed
 //   loser, videos; null with their tab; the date shown in UTC
@@ -310,18 +311,35 @@ describe('toGameView sections', () => {
 		expect(sections.score?.stats).toBeNull();
 	});
 
-	it('reads the win probability meta off the latest point: the leader and its percentage', () => {
-		const withLatest = (p: number) =>
+	it('reads the win probability meta from the feed leader: its code and percentage', () => {
+		const withLeader = (teamCode: string, winProbability: number) =>
 			view({
 				...feed(),
-				winProbability: [
-					{ elapsedSeconds: 0, homeWinProbability: 0.5 },
-					{ elapsedSeconds: 60, homeWinProbability: p }
-				]
+				winProbability: [{ elapsedSeconds: 60, homeWinProbability: 0.1 }],
+				winProbabilityLeader: { teamCode, winProbability }
 			}).sections.winProbability?.meta;
-		expect(withLatest(0.68)).toBe('GSW 68%');
-		expect(withLatest(0.25)).toBe('LAL 75%');
-		expect(withLatest(0.5)).toBe('50%');
+		expect(withLeader('GSW', 0.68)).toBe('GSW 68%');
+		expect(withLeader('LAL', 0.75)).toBe('LAL 75%');
+	});
+
+	it('reads "Even" as the win probability meta with no leader', () => {
+		const source = { ...feed(), winProbabilityLeader: null };
+		expect(view(source).sections.winProbability?.meta).toBe('Even');
+	});
+
+	it('treats a feed without the leader field as having no leader', () => {
+		const old: Partial<GameDetailFeed> = { ...feed() };
+		delete old.winProbabilityLeader;
+		const result = view(old as unknown as GameDetailFeed);
+		expect(result.sections.winProbability).not.toBeNull();
+		expect(result.sections.winProbability?.meta).toBe('Even');
+		expect(result.sections.winProbability?.points).toEqual(feed().winProbability);
+	});
+
+	it('reads "Parejo" as the win probability meta with no leader for an es browser', () => {
+		preferLanguages(['es-ES']);
+		const source = { ...feed(), winProbabilityLeader: null };
+		expect(view(source).sections.winProbability?.meta).toBe('Parejo');
 	});
 
 	it("reads '{team} win' as the win probability meta on a final game", () => {
