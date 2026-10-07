@@ -1,0 +1,66 @@
+{
+  "events": [
+    {
+      "id": "401898392",
+      "date": "2026-10-08T23:00Z",
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "Rocket Arena"
+          },
+          "status": {
+            "type": {
+              "state": "pre",
+              "completed": false
+            }
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "team": {
+                "abbreviation": "CLE"
+              }
+            },
+            {
+              "homeAway": "away",
+              "team": {
+                "abbreviation": "BOS"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "401898398",
+      "date": "2026-10-11T00:00Z",
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "TD Garden"
+          },
+          "status": {
+            "type": {
+              "state": "pre",
+              "completed": false
+            }
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "team": {
+                "abbreviation": "BOS"
+              }
+            },
+            {
+              "homeAway": "away",
+              "team": {
+                "abbreviation": "PHI"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

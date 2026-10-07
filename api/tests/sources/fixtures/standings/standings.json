@@ -1,0 +1,210 @@
+{
+  "children": [
+    {
+      "abbreviation": "East",
+      "standings": {
+        "entries": [
+          {
+            "team": {
+              "abbreviation": "ATL"
+            },
+            "stats": [
+              {
+                "type": "playoffseed",
+                "value": 11.0,
+                "displayValue": "11"
+              },
+              {
+                "type": "total",
+                "displayValue": "0-1"
+              },
+              {
+                "type": "home",
+                "displayValue": "0-1"
+              },
+              {
+                "type": "road",
+                "displayValue": "0-0"
+              },
+              {
+                "type": "lasttengames",
+                "displayValue": "0-1"
+              }
+            ]
+          },
+          {
+            "team": {
+              "abbreviation": "MIL"
+            },
+            "stats": [
+              {
+                "type": "playoffseed",
+                "value": 12.0,
+                "displayValue": "12"
+              },
+              {
+                "type": "total",
+                "displayValue": "0-1"
+              },
+              {
+                "type": "home",
+                "displayValue": "0-1"
+              },
+              {
+                "type": "road",
+                "displayValue": "0-0"
+              },
+              {
+                "type": "lasttengames",
+                "displayValue": "0-1"
+              }
+            ]
+          },
+          {
+            "team": {
+              "abbreviation": "NY"
+            },
+            "stats": [
+              {
+                "type": "playoffseed",
+                "value": 13.0,
+                "displayValue": "13"
+              },
+              {
+                "type": "total",
+                "displayValue": "0-1"
+              },
+              {
+                "type": "home",
+                "displayValue": "0-0"
+              },
+              {
+                "type": "road",
+                "displayValue": "0-1"
+              },
+              {
+                "type": "lasttengames",
+                "displayValue": "0-1"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "abbreviation": "West",
+      "standings": {
+        "entries": [
+          {
+            "team": {
+              "abbreviation": "PHX"
+            },
+            "stats": [
+              {
+                "type": "playoffseed",
+                "value": 13.0,
+                "displayValue": "13"
+              },
+              {
+                "type": "total",
+                "displayValue": "0-1"
+              },
+              {
+                "type": "home",
+                "displayValue": "0-0"
+              },
+              {
+                "type": "road",
+                "displayValue": "0-1"
+              },
+              {
+                "type": "lasttengames",
+                "displayValue": "0-1"
+              }
+            ]
+          },
+          {
+            "team": {
+              "abbreviation": "GS"
+            },
+            "stats": [
+              {
+                "type": "playoffseed",
+                "value": 5.0,
+                "displayValue": "5"
+              },
+              {
+                "type": "total",
+                "displayValue": "1-1"
+              },
+              {
+                "type": "home",
+                "displayValue": "1-0"
+              },
+              {
+                "type": "road",
+                "displayValue": "0-0"
+              },
+              {
+                "type": "lasttengames",
+                "displayValue": "1-1"
+              }
+            ]
+          },
+          {
+            "team": {
+              "abbreviation": "NO"
+            },
+            "stats": [
+              {
+                "type": "playoffseed",
+                "value": 4.0,
+                "displayValue": "4"
+              },
+              {
+                "type": "total",
+                "displayValue": "1-0"
+              },
+              {
+                "type": "home",
+                "displayValue": "0-0"
+              },
+              {
+                "type": "road",
+                "displayValue": "0-0"
+              },
+              {
+                "type": "lasttengames",
+                "displayValue": "1-0"
+              }
+            ]
+          },
+          {
+            "team": {
+              "abbreviation": "SA"
+            },
+            "stats": [
+              {
+                "type": "playoffseed",
+                "value": 9.0,
+                "displayValue": "9"
+              },
+              {
+                "type": "total",
+                "displayValue": "0-0"
+              },
+              {
+                "type": "home",
+                "displayValue": "0-0"
+              },
+              {
+                "type": "road",
+                "displayValue": "0-0"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}
