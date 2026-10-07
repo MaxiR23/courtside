@@ -11,6 +11,8 @@
 # A final game's detail is fetched when it becomes final and, after a failure,
 # 2, 4 and 6 hours after its final time; the failed attempts are stored.
 #
+# The detail job reads the games of the days shown through shown_games.
+#
 # Once a day, with the daily fetch, the final times and failed stats attempts of
 # games dated more than 30 days ago are deleted from the job state; highlights
 # are kept.
@@ -216,6 +218,15 @@ class GamesJob:
             for game in self._games[day]
             if game.status is GameStatus.FINAL
         ]
+
+    def shown_games(self) -> list[ScoreboardGame] | None:
+        """The games of every day shown, in day order; None until each day shown has been fetched."""
+        if self._today is None:
+            return None
+        shown = days_shown(self._today)
+        if any(day not in self._games for day in shown):
+            return None
+        return [game for day in shown for game in self._games[day]]
 
     def _current_stars(self) -> dict[str, Stars | None]:
         return {

@@ -2,13 +2,13 @@
 #
 # Serves the published feeds.
 #
-# SEE: docs/api/games.md
+# SEE: docs/api/games.md, docs/api/game-detail.md
 
 import hashlib
 
 from fastapi import APIRouter, HTTPException, Request, Response
 
-from app.storage.feeds import read_feed
+from app.storage.feeds import read_feed, read_game_detail
 
 router = APIRouter()
 
@@ -24,13 +24,25 @@ def matches(if_none_match: str | None, etag: str) -> bool:
     return "*" in candidates or etag in candidates
 
 
-@router.get("/feeds/games.json")
-def read_games_feed(request: Request) -> Response:
-    body = read_feed(request.app.state.settings.data_dir, "games")
-    if body is None:
-        raise HTTPException(status_code=503, detail="games feed is not published yet")
+def _serve(body: bytes, request: Request) -> Response:
     etag = f'"{hashlib.sha256(body).hexdigest()}"'
     headers = {"Cache-Control": CACHE_CONTROL, "ETag": etag}
     if matches(request.headers.get("if-none-match"), etag):
         return Response(status_code=304, headers=headers)
     return Response(content=body, media_type="application/json", headers=headers)
+
+
+@router.get("/feeds/games.json")
+def read_games_feed(request: Request) -> Response:
+    body = read_feed(request.app.state.settings.data_dir, "games")
+    if body is None:
+        raise HTTPException(status_code=503, detail="games feed is not published yet")
+    return _serve(body, request)
+
+
+@router.get("/feeds/games/{game_id}.json")
+def read_game_detail_feed(game_id: str, request: Request) -> Response:
+    body = read_game_detail(request.app.state.settings.data_dir, game_id)
+    if body is None:
+        raise HTTPException(status_code=404, detail="game not found")
+    return _serve(body, request)

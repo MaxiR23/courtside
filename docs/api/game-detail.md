@@ -93,3 +93,31 @@ Rules that live in the code:
 - `teamStats.leaders.<row>` is `null` on a tie; for `turnovers` the lower
   value leads.
 - `winProbability` has at least one point.
+
+## Refresh behavior
+
+- A live game is rebuilt every 30 seconds.
+- A final game is built at its final time and, after a failure, 2, 4 and 6
+  hours after it, never after a success
+  ([ADR 0010](../adr/0010-final-game-attempts.md)). The attempts are kept in
+  memory, so after a restart a final game is built once more.
+- Any other status (scheduled, delayed, postponed, canceled) is rebuilt every
+  hour.
+- Standings and league injuries are fetched once per run, and a team schedule
+  at most once per run, only when a game is due.
+- A feed is republished with no source call when its stars, highlights or
+  highlights search URL change.
+- A failed build keeps that game's last valid feed and never blocks the other
+  games.
+- The feed of a game that leaves the days shown is deleted.
+- The job runs in its own task, apart from the games job
+  ([ADR 0019](../adr/0019-game-detail-route-and-feed.md)).
+
+## Endpoint
+
+- `GET /feeds/games/{id}.json` serves the last published feed of the game with
+  `Cache-Control: public, max-age=10` and an `ETag`.
+- It responds 304 with no body when `If-None-Match` matches the current
+  `ETag`.
+- It responds 404 with `{"detail": ...}` when no feed is published for that id.
+- An invalid feed is never published: the previous valid one stays served.

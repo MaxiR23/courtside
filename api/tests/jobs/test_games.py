@@ -21,6 +21,7 @@
 # - A run with nothing due makes no request and records nothing
 # - The builder puts each game's highlights from the provider in the feed, and none without a provider
 # - Lists only the final games of the days held, in day order
+# - Lists no shown games before the first run or while a day shown failed to fetch, and the games of every day shown in day order
 # - Republishes the feed with no source call when a final game's highlights change, and not when they are unchanged
 # - Republishes the feed with no source call when a game's stars change, publishes as soon as the last missing star arrives, and does not republish when stars are unchanged
 # - The winner of each final game comes from its final score: home, away, none on a tie or before the final; a tied final game makes the feed invalid
@@ -994,6 +995,41 @@ async def test_lists_only_the_final_games_of_the_days_held_in_day_order(
     await job.run(NOON)
 
     assert [g.id for g in job.final_games()] == ["1", "2"]
+
+
+@pytest.mark.anyio
+async def test_lists_no_shown_games_before_the_first_run(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    job = make_job(settings, store, sources)
+
+    assert job.shown_games() is None
+
+
+@pytest.mark.anyio
+async def test_lists_no_shown_games_while_a_day_shown_failed_to_fetch(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    sources.day_errors[NEXT_DAY] = SourceError("scoreboard", "down")
+    job = make_job(settings, store, sources)
+
+    await job.run(NOON)
+
+    assert job.shown_games() is None
+
+
+@pytest.mark.anyio
+async def test_lists_the_games_of_every_day_shown_in_day_order(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    sources.games[TODAY] = [game("2", GameStatus.FINAL), game("3", GameStatus.LIVE)]
+    sources.games[TODAY - dt.timedelta(days=1)] = [game("1", GameStatus.FINAL)]
+    job = make_job(settings, store, sources)
+
+    await job.run(NOON)
+
+    shown = job.shown_games()
+    assert shown is not None and [g.id for g in shown] == ["1", "2", "3"]
 
 
 @pytest.mark.anyio
