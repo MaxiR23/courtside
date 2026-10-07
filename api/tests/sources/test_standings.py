@@ -13,7 +13,8 @@
 # - A valid response mapped, an invalid payload rejected, upstream failures handled
 #
 # The fixture is the recorded standings trimmed to the fields the adapter
-# reads: three teams per conference and only the stat types the adapter reads.
+# reads: three teams in the East
+# and four in the West, and only the stat types the adapter reads.
 # One team, SA, has played no game: as recorded, it has no last ten stat.
 #
 # Run with: cd api && .venv/bin/python -m pytest tests/sources/test_standings.py

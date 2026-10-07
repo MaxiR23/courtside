@@ -15,6 +15,8 @@
 // - Shows the game header in every status on both rows, the section tabs for each layout and every game page state
 // - Shows every pre-game, live and final section for a pre-game, a live, a final and an overtime game, with the win probability gridlines and period labels, and the standalone videos and first meeting samples
 // - Shows the season series with "Tonight" and the dimmed loser on the pre-game and final pages
+// - Keeps each game page sample consistent: header score, mini score, line score totals, box
+//   score totals, the win probability meta and the end of its curve, and the Tonight arena
 // - Uses no external URL for images, players or links
 //
 // What is covered:
@@ -317,6 +319,42 @@ describe('component preview', () => {
 		}
 		const tonight = sectionOf('GamePage: pre-game sections').querySelector('.date.current')!;
 		expect(tonight.closest('.game')?.querySelector('.dimmed')).toBeNull();
+	});
+
+	it('keeps each game page sample consistent with its score and its curve', async () => {
+		render(Preview);
+		const samples = [
+			['GamePage: live sections', [63, 62], 'LAL 68%'],
+			['GamePage: final sections', [112, 104], 'GSW win'],
+			['GamePage: overtime sections', [132, 130], 'GSW win']
+		] as const;
+		for (const [title, [away, home], meta] of samples) {
+			const section = sectionOf(title);
+			const points = [...section.querySelectorAll('.points')]
+				.filter((e) => e.closest('header'))
+				.map((e) => e.textContent);
+			expect(points).toEqual([String(away), String(home)]);
+			const totals = [...section.querySelectorAll('.cell.total')].map((e) => e.textContent);
+			expect(totals).toEqual([String(away), String(home)]);
+			const mini = section.querySelector('.mini-score')?.textContent?.replace(/\s+/g, ' ');
+			expect(mini).toContain(`${away} – ${home}`);
+			const boxPoints = () => {
+				const rows = section.querySelectorAll('.box-score .row.group');
+				return rows[rows.length - 1].querySelector('.cell.points')?.textContent;
+			};
+			expect(boxPoints()).toBe(String(away));
+			const sides = section.querySelectorAll<HTMLElement>('.box-score .toggle .side');
+			await fireEvent.click(sides[1]);
+			expect(boxPoints()).toBe(String(home));
+			expect(section.querySelector('.meta.emphasis')?.textContent).toBe(meta);
+			const top = section.querySelector<HTMLElement>('.win-probability .marker')?.style.top;
+			if (meta === 'GSW win') expect(top).toBe('100%');
+			else expect(parseFloat(top ?? '100')).toBeLessThan(50);
+		}
+		for (const title of ['GamePage: pre-game sections', 'GamePage: final sections']) {
+			const current = sectionOf(title).querySelector('.date.current')!;
+			expect(current.closest('.game')?.querySelector('.arena')?.textContent).toBe('Chase Center');
+		}
 	});
 
 	it('uses no external URL for images, players or links', async () => {

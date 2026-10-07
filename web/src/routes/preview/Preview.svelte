@@ -126,6 +126,10 @@
 		center: { kind: 'score', away: 112, home: 104, loser: 'home' },
 		venue: null
 	};
+	const overtimeHeader: GameHeaderView = {
+		...finalHeader,
+		center: { kind: 'score', away: 132, home: 130, loser: 'home' }
+	};
 	const headerStates: { title: string; header: GameHeaderView }[] = [
 		{ title: 'GameHeader: scheduled', header: preGameHeader('scheduled') },
 		{ title: 'GameHeader: delayed', header: preGameHeader('delayed') },
@@ -148,6 +152,8 @@
 	const tabs = (...entries: [SectionTab['id'], string][]): SectionTab[] =>
 		entries.map(([id, label]) => ({ id, label }));
 	const miniScore = { awayCode: 'GSW', away: 63, home: 62, homeCode: 'LAL' };
+	const finalMiniScore = { ...miniScore, away: 112, home: 104 };
+	const overtimeMiniScore = { ...miniScore, away: 132, home: 130 };
 	const tabStates = [
 		{
 			title: 'SectionTabs: pre-game',
@@ -181,7 +187,7 @@
 				['season-series', 'Series'],
 				['videos', 'Videos']
 			),
-			miniScore
+			miniScore: finalMiniScore
 		}
 	];
 	const noSections: GameSections = {
@@ -339,7 +345,7 @@
 		plusMinus,
 		plusMinusPositive: plusMinus.startsWith('+')
 	});
-	const boxTeam = (team: HeaderTeam, names: string[]): BoxScoreTeam => ({
+	const boxTeam = (team: HeaderTeam, names: string[], points: number): BoxScoreTeam => ({
 		code: team.code,
 		name: team.name,
 		starters: names
@@ -347,7 +353,7 @@
 			.map((name, i) => boxRow(`${team.code}-s${i}`, name, i ? '-3' : '+4')),
 		bench: names.slice(2).map((name, i) => boxRow(`${team.code}-b${i}`, name, '0')),
 		totals: {
-			points: '112',
+			points: String(points),
 			fieldGoals: '40-84',
 			threePoints: '12-31',
 			freeThrows: '20-24',
@@ -364,14 +370,17 @@
 			freeThrowPct: '83.3%'
 		}
 	});
-	const sampleBox: BoxScoreSection = {
-		away: boxTeam(headerAway, ['Stephen Curry', 'Draymond Green', 'Jonathan Kuminga']),
-		home: boxTeam(headerHome, ['LeBron James', 'Anthony Davis', 'Austin Reaves'])
-	};
-	const curve = (seconds: number[]) =>
+	const sampleBox = (away: number, home: number): BoxScoreSection => ({
+		away: boxTeam(headerAway, ['Stephen Curry', 'Draymond Green', 'Jonathan Kuminga'], away),
+		home: boxTeam(headerHome, ['LeBron James', 'Anthony Davis', 'Austin Reaves'], home)
+	});
+	const liveBox = sampleBox(63, 62);
+	const finalBox = sampleBox(112, 104);
+	const overtimeBox = sampleBox(132, 130);
+	const curve = (seconds: number[], last: number) =>
 		seconds.map((elapsedSeconds, i) => ({
 			elapsedSeconds,
-			homeWinProbability: 0.5 + 0.18 * Math.sin(i / 2)
+			homeWinProbability: i === seconds.length - 1 ? last : 0.5 + 0.18 * Math.sin(i / 2)
 		}));
 	const quarterStarts = [0, 720, 1440, 2160];
 	const sampleChart: WinProbabilitySection = {
@@ -379,7 +388,7 @@
 		homeCode: headerHome.code,
 		middle: '50%',
 		meta: 'LAL 68%',
-		points: curve([300, 600, 900, 1200, 1500, 1800, 2100]),
+		points: curve([300, 600, 900, 1200, 1500, 1800, 1908], 0.68),
 		boundaries: {
 			periods: quarterStarts.map((start, i) => ({ label: `Q${i + 1}`, start })),
 			end: 2880
@@ -511,7 +520,7 @@
 				homePoints: null,
 				homeCode: 'LAL',
 				loser: null,
-				arena: 'Crypto.com Arena'
+				arena: 'Chase Center'
 			},
 			...playedSeries
 		]
@@ -528,7 +537,7 @@
 				homePoints: 104,
 				homeCode: 'LAL',
 				loser: 'home',
-				arena: 'Crypto.com Arena'
+				arena: 'Chase Center'
 			},
 			...playedSeries
 		]
@@ -562,7 +571,7 @@
 			lineScoreTeam(headerHome, [26, 24, 12], 62)
 		),
 		winProbability: sampleChart,
-		boxScore: sampleBox,
+		boxScore: liveBox,
 		injuries: sampleInjuries
 	};
 	const finalSections: GameSections = {
@@ -575,15 +584,16 @@
 		winProbability: {
 			...sampleChart,
 			meta: 'GSW win',
-			points: curve([0, 480, 960, 1440, 1920, 2400, 2880])
+			points: curve([0, 480, 960, 1440, 1920, 2400, 2880], 0)
 		},
-		boxScore: sampleBox,
+		boxScore: finalBox,
 		injuries: sampleInjuriesBoth,
 		seasonSeries: finalSeries,
 		videos: sampleVideos
 	};
 	const overtimeSections: GameSections = {
 		...finalSections,
+		boxScore: overtimeBox,
 		highlights: null,
 		injuries: null,
 		seasonSeries: null,
@@ -595,7 +605,7 @@
 		winProbability: {
 			...sampleChart,
 			meta: 'GSW win',
-			points: curve([0, 720, 1440, 2160, 2880, 3180, 3480]),
+			points: curve([0, 720, 1440, 2160, 2880, 3180, 3480], 0),
 			boundaries: {
 				periods: [
 					...quarterStarts.map((start, i) => ({ label: `Q${i + 1}`, start })),
@@ -649,20 +659,20 @@
 					['season-series', 'Series'],
 					['videos', 'Videos']
 				),
-				miniScore,
+				miniScore: finalMiniScore,
 				sections: finalSections
 			}
 		},
 		{
 			title: 'GamePage: overtime sections',
 			view: {
-				header: finalHeader,
+				header: overtimeHeader,
 				tabs: tabs(
 					['score', 'Score'],
 					['win-probability', 'Win prob.'],
 					['box-score', 'Box score']
 				),
-				miniScore,
+				miniScore: overtimeMiniScore,
 				sections: overtimeSections
 			}
 		}
