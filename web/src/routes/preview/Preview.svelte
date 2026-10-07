@@ -513,7 +513,7 @@
 		meta: '3 of 4 games played',
 		games: [
 			{
-				date: 'Tonight',
+				date: 'This game',
 				current: true,
 				awayCode: 'GSW',
 				awayPoints: null,
@@ -530,7 +530,7 @@
 		meta: '4 of 4 games played',
 		games: [
 			{
-				date: 'Tonight',
+				date: 'This game',
 				current: true,
 				awayCode: 'GSW',
 				awayPoints: 112,

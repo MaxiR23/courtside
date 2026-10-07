@@ -159,7 +159,7 @@ A grid `minmax(150px, 2fr) repeat(5, minmax(76px, 1fr))`, min width 560px, scrol
 ### 11. Season series (pre-game, final)
 
 - Two columns. On the left, the summary in large type, `clamp(40px, 5vw, 64px)`: `OKC lead 2–1`, `Series tied 1–1` or `First meeting`. The meta reads `2 of 4 games played`.
-- On the right, one row per game: the date, or "Tonight" in accent-light for the current game; then `AWAY pts – pts HOME` with the losing side at .45 opacity; and the arena under the score, wrapping on mobile.
+- On the right, one row per game: the date, or "This game" in accent-light for the current game; then `AWAY pts – pts HOME` with the losing side at .45 opacity; and the arena under the score, wrapping on mobile.
 - Before tip-off, the current game's row shows the team codes with no points.
 - The feed also marks the current game on a live page, where this section is not shown.
 - On a final game, the current game is part of the series the feed sends.
