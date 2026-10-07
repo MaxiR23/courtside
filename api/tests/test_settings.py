@@ -24,6 +24,12 @@
 # - Reads the team roster URL from an environment variable
 # - Leaves the team averages URL unset by default
 # - Reads the team averages URL from an environment variable
+# - Leaves the standings URL unset by default
+# - Reads the standings URL from an environment variable
+# - Leaves the team schedule URL unset by default
+# - Reads the team schedule URL from an environment variable
+# - Leaves the league injuries URL unset by default
+# - Reads the league injuries URL from an environment variable
 # - Leaves the highlights source URL unset by default
 # - Reads the highlights source URL from an environment variable
 # - Leaves the highlights source key unset by default
@@ -47,7 +53,7 @@
 # - Rejects an unknown key in a .env file that is not retired
 #
 # What is covered:
-# - Happy path, value from the environment, value from a .env file, .env file location, invalid value, shared instance, optional scoreboard URL, optional game detail URL, required URL placeholders (missing, escaped, malformed, empty), optional player photo URL, optional team roster URL, optional team averages URL, optional highlights source URL and key (unset, environment, hidden when printed), video embed URL and highlights search URL, daily fetch time (default, environment, invalid), input hidden from errors, data directory (default, environment, relative, empty), CORS origins (default, JSON list), retired setting (dropped with a warning), unknown key (rejected)
+# - Happy path, value from the environment, value from a .env file, .env file location, invalid value, shared instance, optional scoreboard URL, optional game detail URL, required URL placeholders (missing, escaped, malformed, empty), optional player photo URL, optional team roster URL, optional team averages URL, optional standings, team schedule and league injuries URLs, optional highlights source URL and key (unset, environment, hidden when printed), video embed URL and highlights search URL, daily fetch time (default, environment, invalid), input hidden from errors, data directory (default, environment, relative, empty), CORS origins (default, JSON list), retired setting (dropped with a warning), unknown key (rejected)
 #
 # Run with: cd api && .venv/bin/python -m pytest tests/test_settings.py
 #
@@ -82,6 +88,9 @@ def clear_environment_variable(monkeypatch: pytest.MonkeyPatch) -> None:
             "team_roster_url",
             "team_averages_url",
             "player_averages_url",
+            "standings_url",
+            "team_schedule_url",
+            "league_injuries_url",
             "highlights_source_url",
             "highlights_source_key",
             "video_embed_url",
@@ -295,6 +304,47 @@ def test_reads_the_player_averages_url_from_the_environment_variable(
     assert (
         SettingsWithoutEnvFile().player_averages_url
         == "https://example.com/{season}/athletes/{player_id}/statistics"
+    )
+
+
+def test_standings_url_is_unset_when_no_variable_is_set() -> None:
+    assert SettingsWithoutEnvFile().standings_url is None
+
+
+def test_reads_the_standings_url_from_the_environment_variable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("STANDINGS_URL", "https://example.com/standings")
+
+    assert SettingsWithoutEnvFile().standings_url == "https://example.com/standings"
+
+
+def test_team_schedule_url_is_unset_when_no_variable_is_set() -> None:
+    assert SettingsWithoutEnvFile().team_schedule_url is None
+
+
+def test_reads_the_team_schedule_url_from_the_environment_variable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("TEAM_SCHEDULE_URL", "https://example.com/teams/{team}/schedule")
+
+    assert (
+        SettingsWithoutEnvFile().team_schedule_url
+        == "https://example.com/teams/{team}/schedule"
+    )
+
+
+def test_league_injuries_url_is_unset_when_no_variable_is_set() -> None:
+    assert SettingsWithoutEnvFile().league_injuries_url is None
+
+
+def test_reads_the_league_injuries_url_from_the_environment_variable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("LEAGUE_INJURIES_URL", "https://example.com/injuries")
+
+    assert (
+        SettingsWithoutEnvFile().league_injuries_url == "https://example.com/injuries"
     )
 
 

@@ -1,23 +1,52 @@
 # api/app/sources/game_detail.py
 #
 # Game detail adapter: fetches one game's box score from the provider and
-# maps it to the contract's leaders and team stats. The provider URLs come
-# from Settings. Provider data never leaves this module.
+# maps it to the contract's leaders and team stats. It also maps the full
+# game detail sections: venue, box score, team stats, win probability,
+# injuries, season series and videos. The provider URLs come from Settings.
+# Provider data never leaves this module.
 #
 # SEE: docs/api/games.md, api/app/sources/scoreboard.py
 
-from typing import Any
+import datetime as dt
+from typing import Annotated, Any
+from zoneinfo import ZoneInfo
 
 import httpx
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import (
+    AwareDatetime,
+    BaseModel,
+    ConfigDict,
+    Field,
+    NonNegativeInt,
+    PositiveInt,
+    ValidationError,
+)
 from pydantic.alias_generators import to_camel
 
-from app.feeds.games import FeedModel, GameTeamStats, Leaders
+from app.feeds.game_detail import (
+    BoxScore,
+    DetailGameTeamStats,
+    Injuries,
+    InjuryStatus,
+    Venue,
+    Video,
+    WinProbabilityPoint,
+)
+from app.feeds.games import (
+    FeedModel,
+    GameTeamStats,
+    Leaders,
+    NonEmptyStr,
+    Score,
+    TeamCode,
+)
 from app.settings import Settings
 from app.sources.http import SourceError, get_json
 from app.sources.teams import to_team_code
 
 SOURCE = "game_detail"
+EASTERN = ZoneInfo("America/New_York")
 PERCENT_STATS = {
     "field_goal_pct": "fieldGoalPct",
     "three_point_pct": "threePointFieldGoalPct",
@@ -27,6 +56,19 @@ COUNT_STATS = {
     "assists": "assists",
     "turnovers": "turnovers",
 }
+# Team stat rows of the detail feed, by provider stat name. The first three
+# are percentages, which the contract holds as fractions.
+STAT_ROWS = {
+    "field_goal_pct": "fieldGoalPct",
+    "three_point_pct": "threePointFieldGoalPct",
+    "free_throw_pct": "freeThrowPct",
+    "rebounds": "totalRebounds",
+    "assists": "assists",
+    "turnovers": "turnovers",
+    "steals": "steals",
+    "blocks": "blocks",
+}
+PERCENT_ROWS = {"field_goal_pct", "three_point_pct", "free_throw_pct"}
 
 
 class _ProviderModel(BaseModel):
@@ -194,6 +236,521 @@ async def fetch_game_detail(
 
     try:
         return GameDetail.model_validate({"leaders": leaders, "team_stats": team_stats})
+    except ValidationError as error:
+        first = error.errors()[0]
+        location = ".".join(str(part) for part in first["loc"])
+        raise SourceError(
+            SOURCE, f"game {game_id} is invalid: {first['type']} at {location}"
+        ) from None
+
+
+class _SummaryPeriods(_ProviderModel):
+    periods: PositiveInt
+    clock: float
+
+
+class _SummaryOvertime(_ProviderModel):
+    clock: float
+
+
+class _SummaryFormat(_ProviderModel):
+    regulation: _SummaryPeriods
+    overtime: _SummaryOvertime
+
+
+class _SummaryAddress(_ProviderModel):
+    city: str
+
+
+class _SummaryImage(_ProviderModel):
+    href: str
+
+
+class _SummaryVenue(_ProviderModel):
+    full_name: str
+    address: _SummaryAddress
+    images: list[_SummaryImage] = []
+
+
+class _SummaryGameInfo(_ProviderModel):
+    venue: _SummaryVenue
+
+
+class _SummaryAthleteLine(_ProviderModel):
+    athlete: _ProviderAthlete
+    starter: bool
+    stats: list[str]
+
+
+class _SummaryStatGroup(_ProviderModel):
+    keys: list[str]
+    totals: list[str]
+    athletes: list[_SummaryAthleteLine]
+
+
+class _SummaryBoxPlayers(_ProviderModel):
+    team: _ProviderTeamRef
+    statistics: list[_SummaryStatGroup]
+
+
+class _SummaryBoxscore(_ProviderModel):
+    teams: list[_ProviderBoxTeam]
+    players: list[_SummaryBoxPlayers] = []
+
+
+class _SummaryPlayPeriod(_ProviderModel):
+    number: int
+
+
+class _SummaryPlayClock(_ProviderModel):
+    display_value: str
+
+
+class _SummaryPlay(_ProviderModel):
+    id: str
+    period: _SummaryPlayPeriod
+    clock: _SummaryPlayClock
+
+
+class _SummaryWinProbability(_ProviderModel):
+    play_id: str
+    home_win_percentage: float
+
+
+class _SummaryInjuryAthlete(_ProviderModel):
+    display_name: str
+
+
+class _SummaryInjuryEntry(_ProviderModel):
+    status: str
+    athlete: _SummaryInjuryAthlete
+
+
+class _SummaryTeamInjuries(_ProviderModel):
+    team: _ProviderTeamRef
+    injuries: list[_SummaryInjuryEntry]
+
+
+class _SummaryCompetitor(_ProviderModel):
+    home_away: str
+    team: _ProviderTeamRef
+    score: str
+    winner: bool = False
+
+
+class _SummarySeriesEvent(_ProviderModel):
+    id: str
+    date: AwareDatetime
+    status: str
+    competitors: list[_SummaryCompetitor]
+
+
+class _SummarySeries(_ProviderModel):
+    type: str
+    total_competitions: PositiveInt
+    events: list[_SummarySeriesEvent] = []
+
+
+class _SummaryHref(_ProviderModel):
+    href: str
+
+
+class _SummaryVideoLinks(_ProviderModel):
+    web: _SummaryHref
+
+
+class _SummaryVideo(_ProviderModel):
+    headline: str
+    duration: NonNegativeInt
+    thumbnail: str | None = None
+    links: _SummaryVideoLinks
+
+
+class _ProviderSummary(_ProviderModel):
+    format: _SummaryFormat
+    game_info: _SummaryGameInfo
+    boxscore: _SummaryBoxscore
+    plays: list[_SummaryPlay] = []
+    winprobability: list[_SummaryWinProbability] = []
+    injuries: list[_SummaryTeamInjuries] = []
+    seasonseries: list[_SummarySeries] = []
+    videos: list[_SummaryVideo] = []
+
+
+class SeriesMeeting(FeedModel):
+    """A played game of the season series, without its arena: the provider
+    does not send it here. The job takes it from the team schedule by game id."""
+
+    game_id: NonEmptyStr
+    date: dt.date
+    away: TeamCode
+    home: TeamCode
+    score: Score
+
+
+class SeriesMeetings(FeedModel):
+    total_games: PositiveInt
+    away_wins: NonNegativeInt
+    home_wins: NonNegativeInt
+    games: list[SeriesMeeting]
+
+
+class GameDetailSections(FeedModel):
+    """A game's detail sections as the game summary knows them."""
+
+    venue: Venue
+    team_stats: DetailGameTeamStats | None = None
+    box_score: BoxScore | None = None
+    win_probability: (
+        Annotated[list[WinProbabilityPoint], Field(min_length=1)] | None
+    ) = None
+    injuries: Injuries | None = None
+    season_series: SeriesMeetings | None = None
+    videos: list[Video] | None = None
+
+
+def _stat_leader(
+    row: str,
+    away_value: float,
+    home_value: float,
+    away_code: str,
+    home_code: str,
+) -> str | None:
+    # Rule: docs/api/game-detail.md. A tie has no leader; turnovers go to the lower.
+    if away_value == home_value:
+        return None
+    away_leads = (
+        away_value < home_value if row == "turnovers" else away_value > home_value
+    )
+    return away_code if away_leads else home_code
+
+
+def _elapsed_seconds(period: int, clock: str, fmt: _SummaryFormat) -> int | None:
+    # clock is the time remaining, "MM:SS" or "S.s". Periods 1..regulation.periods
+    # last regulation.clock seconds, later ones overtime.clock.
+    if period < 1:
+        return None
+    regulation = fmt.regulation
+    length = regulation.clock if period <= regulation.periods else fmt.overtime.clock
+    try:
+        if ":" in clock:
+            minutes, seconds = clock.split(":")
+            remaining = int(minutes) * 60 + float(seconds)
+        else:
+            remaining = float(clock)
+    except ValueError:
+        return None
+    if not 0 <= remaining <= length:
+        return None
+    earlier = sum(
+        regulation.clock if n <= regulation.periods else fmt.overtime.clock
+        for n in range(1, period)
+    )
+    return int(earlier + length - remaining)
+
+
+def _made_attempted(game_id: str, value: str) -> tuple[int, int]:
+    parts = value.split("-")
+    if len(parts) != 2:
+        raise SourceError(SOURCE, f"game {game_id} has a stat that is not a number")
+    return _number(game_id, parts[0], int), _number(game_id, parts[1], int)
+
+
+BOX_COLUMNS = (
+    "points",
+    "rebounds",
+    "assists",
+    "turnovers",
+    "steals",
+    "blocks",
+    "offensiveRebounds",
+    "defensiveRebounds",
+    "fouls",
+)
+BOX_SHOTS = {
+    "field_goals": "fieldGoalsMade-fieldGoalsAttempted",
+    "three_points": "threePointFieldGoalsMade-threePointFieldGoalsAttempted",
+    "free_throws": "freeThrowsMade-freeThrowsAttempted",
+}
+BOX_FIELDS = {
+    "points": "points",
+    "rebounds": "rebounds",
+    "assists": "assists",
+    "turnovers": "turnovers",
+    "steals": "steals",
+    "blocks": "blocks",
+    "offensive_rebounds": "offensiveRebounds",
+    "defensive_rebounds": "defensiveRebounds",
+    "fouls": "fouls",
+}
+
+
+def _box_line(
+    game_id: str, keys: list[str], values: list[str], wanted: tuple[str, ...]
+) -> dict[str, Any]:
+    for key in wanted:
+        if key not in keys:
+            raise SourceError(SOURCE, f"game {game_id} has no {key} column")
+    try:
+        by_key = {key: values[keys.index(key)] for key in wanted}
+    except IndexError:
+        raise SourceError(
+            SOURCE, f"game {game_id} has a stat line shorter than its columns"
+        ) from None
+    line: dict[str, Any] = {}
+    for field, key in BOX_FIELDS.items():
+        line[field] = _number(game_id, by_key[key], int)
+    for field, key in BOX_SHOTS.items():
+        made, attempted = _made_attempted(game_id, by_key[key])
+        line[f"{field}_made"] = made
+        line[f"{field}_attempted"] = attempted
+    return line
+
+
+def _team_box_score(
+    game_id: str,
+    team: _ProviderBoxTeam,
+    players: _SummaryBoxPlayers,
+    photo_url: str,
+) -> dict[str, Any]:
+    if not players.statistics:
+        raise SourceError(
+            SOURCE, f"game {game_id} has no player stats for {team.team.abbreviation}"
+        )
+    group = players.statistics[0]
+    wanted = (*BOX_COLUMNS, *BOX_SHOTS.values())
+    lines = []
+    for line in group.athletes:
+        if not line.stats:
+            continue
+        values = _box_line(game_id, group.keys, line.stats, wanted)
+        for key in ("minutes", "plusMinus"):
+            if key not in group.keys:
+                raise SourceError(SOURCE, f"game {game_id} has no {key} column")
+        try:
+            minutes = line.stats[group.keys.index("minutes")]
+            plus_minus = line.stats[group.keys.index("plusMinus")]
+        except IndexError:
+            raise SourceError(
+                SOURCE, f"game {game_id} has a stat line shorter than its columns"
+            ) from None
+        lines.append(
+            {
+                "player_id": line.athlete.id,
+                "display_name": line.athlete.display_name,
+                "starter": line.starter,
+                "minutes": minutes,
+                "plus_minus": _number(game_id, plus_minus, int),
+                "photo_url": photo_url.format(player_id=line.athlete.id),
+                **values,
+            }
+        )
+    by_name = {stat.name: stat.display_value for stat in team.statistics}
+    totals = _box_line(game_id, group.keys, group.totals, wanted)
+    for field in ("field_goal_pct", "three_point_pct", "free_throw_pct"):
+        name = STAT_ROWS[field]
+        if name not in by_name:
+            raise SourceError(SOURCE, f"game {game_id} has no {name} stat")
+        totals[field] = _number(game_id, by_name[name], float) / 100
+    return {"players": lines, "totals": totals}
+
+
+def _detail_team_stats(game_id: str, team: _ProviderBoxTeam) -> dict[str, Any]:
+    by_name = {stat.name: stat.display_value for stat in team.statistics}
+    stats: dict[str, Any] = {}
+    for field, name in STAT_ROWS.items():
+        if name not in by_name:
+            raise SourceError(SOURCE, f"game {game_id} has no {name} stat")
+        if field in PERCENT_ROWS:
+            stats[field] = _number(game_id, by_name[name], float) / 100
+        else:
+            stats[field] = _number(game_id, by_name[name], int)
+    return stats
+
+
+def _win_probability(summary: _ProviderSummary) -> list[dict[str, Any]]:
+    plays = {play.id: play for play in summary.plays}
+    points = []
+    for entry in summary.winprobability:
+        play = plays.get(entry.play_id)
+        if play is None:
+            continue
+        elapsed = _elapsed_seconds(
+            play.period.number, play.clock.display_value, summary.format
+        )
+        if elapsed is None:
+            continue
+        points.append(
+            {
+                "elapsed_seconds": elapsed,
+                "home_win_probability": entry.home_win_percentage,
+            }
+        )
+    return points
+
+
+def _injuries(
+    game_id: str, summary: _ProviderSummary, abbreviations: dict[str, str]
+) -> dict[str, list[dict[str, Any]]]:
+    injuries: dict[str, list[dict[str, Any]]] = {}
+    for side, abbreviation in abbreviations.items():
+        listed: list[dict[str, Any]] = []
+        for entry in summary.injuries:
+            if entry.team.abbreviation != abbreviation:
+                continue
+            for injury in entry.injuries:
+                try:
+                    status = InjuryStatus(injury.status.lower())
+                except ValueError:
+                    raise SourceError(
+                        SOURCE, f"game {game_id} has an unknown injury status"
+                    ) from None
+                listed.append(
+                    {
+                        "display_name": injury.athlete.display_name,
+                        "status": status,
+                        "comment": None,
+                    }
+                )
+        injuries[side] = listed
+    return injuries
+
+
+def _season_series(
+    game_id: str, summary: _ProviderSummary, codes: dict[str, str]
+) -> dict[str, Any] | None:
+    series = next((s for s in summary.seasonseries if s.type == "season"), None)
+    if series is None:
+        return None
+    games: list[dict[str, Any]] = []
+    wins = {code: 0 for code in codes.values()}
+    for event in series.events:
+        if event.status != "post":
+            continue
+        sides = {c.home_away: c for c in event.competitors}
+        if set(sides) != {"home", "away"} or len(event.competitors) != 2:
+            raise SourceError(
+                SOURCE,
+                f"game {game_id} has a series game without one home and one away team",
+            )
+        away = to_team_code(sides["away"].team.abbreviation, source=SOURCE)
+        home = to_team_code(sides["home"].team.abbreviation, source=SOURCE)
+        if {away, home} != set(codes.values()):
+            raise SourceError(
+                SOURCE, f"game {game_id} has a series game of other teams"
+            )
+        for competitor, code in ((sides["away"], away), (sides["home"], home)):
+            if competitor.winner:
+                wins[code] += 1
+        games.append(
+            {
+                "game_id": event.id,
+                "date": event.date.astimezone(EASTERN).date(),
+                "away": away,
+                "home": home,
+                "score": {
+                    "away": _number(game_id, sides["away"].score, int),
+                    "home": _number(game_id, sides["home"].score, int),
+                },
+            }
+        )
+    return {
+        "total_games": series.total_competitions,
+        "away_wins": wins[codes["away"]],
+        "home_wins": wins[codes["home"]],
+        "games": games,
+    }
+
+
+def _videos(videos: list[_SummaryVideo]) -> list[dict[str, Any]]:
+    return [
+        {
+            "title": video.headline,
+            "duration": f"{video.duration // 60}:{video.duration % 60:02d}",
+            "thumbnail_url": video.thumbnail or None,
+            "link_url": video.links.web.href,
+        }
+        for video in videos
+    ]
+
+
+async def fetch_game_detail_sections(
+    client: httpx.AsyncClient, game_id: str, settings: Settings
+) -> GameDetailSections:
+    """Return the detail sections of one game, or raise SourceError."""
+    if settings.game_detail_url is None:
+        raise SourceError(SOURCE, "game detail URL is not configured")
+    if settings.player_photo_url is None:
+        raise SourceError(SOURCE, "player photo URL is not configured")
+    url = settings.game_detail_url.format(game_id=game_id)
+    body = await get_json(client, url, source=SOURCE)
+    try:
+        summary = _ProviderSummary.model_validate(body)
+    except ValidationError as error:
+        first = error.errors()[0]
+        location = ".".join(str(part) for part in first["loc"])
+        raise SourceError(
+            SOURCE,
+            f"invalid payload: {error.error_count()} errors, first at {location}",
+        ) from None
+
+    box = summary.boxscore
+    sides = {team.home_away: team for team in box.teams}
+    if set(sides) != {"home", "away"} or len(box.teams) != 2:
+        raise SourceError(SOURCE, f"game {game_id} needs one home and one away team")
+    abbreviations = {side: team.team.abbreviation for side, team in sides.items()}
+    codes = {
+        side: to_team_code(abbreviation, source=SOURCE)
+        for side, abbreviation in abbreviations.items()
+    }
+
+    venue = summary.game_info.venue
+    sections: dict[str, Any] = {
+        "venue": {
+            "name": venue.full_name,
+            "city": venue.address.city,
+            "photo_url": venue.images[0].href if venue.images else None,
+        }
+    }
+
+    if box.players:
+        box_score: dict[str, Any] = {}
+        team_stats: dict[str, Any] = {}
+        for side, team in sides.items():
+            players = next(
+                (p for p in box.players if p.team.abbreviation == abbreviations[side]),
+                None,
+            )
+            if players is None:
+                raise SourceError(
+                    SOURCE,
+                    f"game {game_id} has no players for {abbreviations[side]}",
+                )
+            box_score[side] = _team_box_score(
+                game_id, team, players, settings.player_photo_url
+            )
+            team_stats[side] = _detail_team_stats(game_id, team)
+        team_stats["leaders"] = {
+            row: _stat_leader(
+                row,
+                team_stats["away"][row],
+                team_stats["home"][row],
+                codes["away"],
+                codes["home"],
+            )
+            for row in STAT_ROWS
+        }
+        sections["box_score"] = box_score
+        sections["team_stats"] = team_stats
+
+    sections["win_probability"] = _win_probability(summary) or None
+    if summary.injuries:
+        sections["injuries"] = _injuries(game_id, summary, abbreviations)
+    sections["season_series"] = _season_series(game_id, summary, codes)
+    sections["videos"] = _videos(summary.videos) or None
+
+    try:
+        return GameDetailSections.model_validate(sections)
     except ValidationError as error:
         first = error.errors()[0]
         location = ".".join(str(part) for part in first["loc"])

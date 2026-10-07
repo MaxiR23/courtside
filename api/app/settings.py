@@ -39,6 +39,12 @@ class Settings(BaseSettings):
     team_averages_url: str | None = None
     # Template with {player_id}, the provider's player id, and {season}.
     player_averages_url: str | None = None
+    # Standings of both conferences.
+    standings_url: str | None = None
+    # Template with {team}, the provider's team code.
+    team_schedule_url: str | None = None
+    # Injuries of every team in the league.
+    league_injuries_url: str | None = None
     # Listing of the official channel's uploads, without the key. The adapter
     # adds the page size and the page token.
     highlights_source_url: str | None = None

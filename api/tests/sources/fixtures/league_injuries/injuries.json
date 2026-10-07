@@ -1,0 +1,69 @@
+{
+  "injuries": [
+    {
+      "id": "9",
+      "injuries": [
+        {
+          "status": "Day-To-Day",
+          "shortComment": "Curry will be limited to \"around 20 minutes\" in Tuesday's preseason game against the Lakers, Anthony Slater of Source reports.",
+          "athlete": {
+            "displayName": "Stephen Curry",
+            "team": {
+              "abbreviation": "GS"
+            }
+          }
+        },
+        {
+          "status": "Out",
+          "shortComment": "The Warriors hope to have Butler (knee) back early in 2027, per Keith Watkins of Yahoo Sports.",
+          "athlete": {
+            "displayName": "Jimmy Butler III",
+            "team": {
+              "abbreviation": "GS"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "6",
+      "injuries": [
+        {
+          "status": "Day-To-Day",
+          "shortComment": "Aldama (undisclosed) was limited during Saturday's practice, Noah Weber of example.com reported.",
+          "athlete": {
+            "displayName": "Santi Aldama",
+            "team": {
+              "abbreviation": "MEM"
+            }
+          }
+        },
+        {
+          "status": "Day-To-Day",
+          "shortComment": "Mavericks president Masai Ujiri said Friday that Lively (foot) is \"making good progress\" in his recovery, Mike Curtis of The Dallas Morning News reports.",
+          "athlete": {
+            "displayName": "Dereck Lively II",
+            "team": {
+              "abbreviation": "DAL"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "1",
+      "injuries": [
+        {
+          "status": "Day-To-Day",
+          "shortComment": "Wiggins won't return to Monday's preseason game against the Grizzlies due to a cut to his inner lip. He'll end with seven points (2-4 FG, 1-2 3Pt, 2-2 FT) in 11 minutes.",
+          "athlete": {
+            "displayName": "Aaron Wiggins",
+            "team": {
+              "abbreviation": "ATL"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
