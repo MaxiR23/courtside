@@ -112,6 +112,10 @@
 			}
 		]
 	};
+	const singleHighlights: GameHighlights = {
+		...sampleHighlights,
+		videos: [{ ...sampleHighlights.videos[0], id: 'v3' }]
+	};
 	const pendingHighlights: GameHighlights = { ...sampleHighlights, videos: [] };
 	const played = (
 		periods: { away: number[]; home: number[] },
@@ -174,6 +178,18 @@
 		status: { state: 'final', awayScore: 132, homeScore: 130, winner: 'BOS' },
 		details: played({ away: [28, 25, 30, 27, 12, 10], home: [30, 26, 24, 30, 12, 8] }, 'BOS', 'NYK')
 	};
+	const singleHighlightGame: ScheduleGame = {
+		id: 'single-highlight',
+		away: nuggets,
+		home: suns,
+		status: { state: 'final', awayScore: 112, homeScore: 104, winner: 'DEN' },
+		details: played(
+			{ away: [30, 28, 26, 28], home: [24, 27, 25, 28] },
+			'DEN',
+			'PHX',
+			singleHighlights
+		)
+	};
 	const pendingGame: ScheduleGame = {
 		id: 'pending',
 		away: nuggets,
@@ -191,6 +207,7 @@
 		{ title: 'GameCard: expanded live', game: sampleGames[1] },
 		{ title: 'GameCard: expanded final', game: sampleGames[2] },
 		{ title: 'GameCard: expanded overtime', game: overtimeGame },
+		{ title: 'GameCard: expanded final, one highlight', game: singleHighlightGame },
 		{ title: 'GameCard: expanded final, highlights pending', game: pendingGame }
 	];
 	const sampleDays: ScheduleDay[] = [
