@@ -45,7 +45,9 @@ Everything under "Implementation rules" in `docs/design.md` applies, plus:
 In the home page's expanded game card, a link reads **"Game center"** and leads to `/game/{id}`:
 
 - Live and final games: bottom right of the team stats column, under the last stat bar.
-- Scheduled, delayed, postponed and canceled games: bottom right, under "Players to watch".
+- Scheduled games: bottom right, under "Players to watch".
+
+The link appears only on the cards that expand on the home page: scheduled, live and final. Delayed, postponed and canceled cards do not expand (`docs/design.md`), so they carry no link. Their pages stay reachable at `/game/{id}`.
 
 Style: Barlow Condensed 600, 14px, letter-spacing .12em, uppercase, accent-light (hover ink), with a 10px gap to an 18px Lucide `arrow-right` at stroke 1.5.
 
