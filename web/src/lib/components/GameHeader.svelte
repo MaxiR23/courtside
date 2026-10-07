@@ -32,6 +32,9 @@
 
 	const isLoser = (side: 'away' | 'home') =>
 		header?.center.kind === 'score' && header.center.loser === side;
+
+	// Keyed by photo URL, so a new URL tries again after a failure.
+	let failedPhoto = $state<string | null>(null);
 </script>
 
 {#snippet tipOff(center: TipOff, mobile: boolean)}
@@ -127,18 +130,23 @@
 				<div class="venue">
 					<BlueprintFrame>
 						<div class="photo-box">
-							{#if venue.photo}
-								<img src={venue.photo} alt="" loading="lazy" />
+							{#if venue.photo && venue.photo !== failedPhoto}
+								<img
+									src={venue.photo}
+									alt=""
+									loading="lazy"
+									onerror={() => (failedPhoto = venue.photo)}
+								/>
 								<div class="fade" aria-hidden="true"></div>
-								<div class="caption">
-									<span class="arena">{venue.arena}</span>
-									{#if venue.city}
-										<span class="arena-city">{venue.city}</span>
-									{/if}
-								</div>
 							{:else}
 								<div class="bare-grid" aria-hidden="true"></div>
 							{/if}
+							<div class="caption">
+								<span class="arena">{venue.arena}</span>
+								{#if venue.city}
+									<span class="arena-city">{venue.city}</span>
+								{/if}
+							</div>
 						</div>
 					</BlueprintFrame>
 					{#each venue.cells as cell (cell.label)}
@@ -422,7 +430,6 @@
 		width: 100%;
 		height: 100%;
 		object-fit: cover;
-		filter: var(--venue-photo-filter);
 	}
 
 	.fade {
