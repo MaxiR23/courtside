@@ -48,6 +48,7 @@ data sources  ->  source adapters  ->  jobs  ->  feeds (JSON)  ->  front end
 - One feed per domain, each a JSON file:
   - `games.json`: games for the days shown on the site, with scores, status and game details.
   - `standings.json`: standings tables.
+  - `games/{id}.json`: one detail feed per game in the days shown, drawn by the front end's `/game/{id}` route. Refresh cadences, retries, shared league-wide data and deletion are set in [`adr/0019-game-detail-route-and-feed.md`](adr/0019-game-detail-route-and-feed.md).
   - Seasonal feeds, such as playoffs or All-Star, added only while their section exists.
 - Each feed is validated against its model before publishing and written atomically, so a reader never sees a half-written file.
 - Feeds are served by the backend with cache headers. Only the front end's static files are served from a CDN.
@@ -82,6 +83,7 @@ that migrates a database at the previous version with rows in it.
 ## Front end
 
 - A static SvelteKit build. No server-side rendering is required to view the site.
+- The game detail page lives at `/game/{id}` and is rendered in the browser from a fallback page, because game ids are not known at build time. Recorded in [`adr/0019-game-detail-route-and-feed.md`](adr/0019-game-detail-route-and-feed.md).
 - Svelte 5 runes only. Syntax from earlier Svelte versions is not used.
 - The front end fetches feeds and polls them while the page is open. Polling pauses while the tab is hidden.
 - Motion uses Svelte's built-in transitions and the Web Animations API. No animation library.
@@ -230,6 +232,10 @@ Recorded in [`adr/0016-production-hosting.md`](adr/0016-production-hosting.md):
 Recorded in [`adr/0018-highlight-request-failures.md`](adr/0018-highlight-request-failures.md):
 
 - **Highlight request failures**: a timeout, transport failure or error status uses up no highlight attempt; it is logged and recorded in the job's health, and the same attempt is retried no sooner than 10 minutes later. Any other outcome uses up the attempt.
+
+Recorded in [`adr/0019-game-detail-route-and-feed.md`](adr/0019-game-detail-route-and-feed.md):
+
+- **Game detail route and feed**: `/game/{id}` is rendered in the browser from a fallback page; one detail feed per game in the days shown at `/feeds/games/{id}.json`, refreshed every 30 seconds while live, built at the final time with retries at 2, 4 and 6 hours, refreshed hourly for other statuses, with standings and injuries fetched once per run and shared; feeds of games that leave the days shown are deleted.
 
 ## Future
 

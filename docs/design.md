@@ -2,6 +2,8 @@
 
 The visual and interaction specification for the Courtside site. It is the reference for every front end change. Colors, type, spacing, motion and copy are final: build pixel-close to this document.
 
+The game detail page is specified in [`design-game-detail.md`](design-game-detail.md).
+
 ## Overview
 
 A dark-mode, single-page site with two parts:
