@@ -37,7 +37,7 @@ export interface GameDetailFeed {
 }
 export interface Venue {
 	name: string;
-	city: string;
+	city: string | null;
 	photoUrl: string | null;
 }
 export interface DetailTeam {
