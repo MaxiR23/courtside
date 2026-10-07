@@ -17,6 +17,7 @@
 #   bound every win probability point; they require win probability
 # - Win probability leader: the side ahead at the last point and its probability,
 #   null when even or without win probability
+# - Win probability points: in non-decreasing elapsedSeconds order; equal consecutive seconds are accepted
 # - Injury status, win probability, UTC time and unknown fields are validated
 # - Serialization uses camelCase keys
 # - Venue city: null or absent is accepted and serialized as null; an empty city is rejected
@@ -612,13 +613,36 @@ def test_accepts_no_leader_on_an_exactly_even_latest_point() -> None:
 def test_reads_the_leader_off_the_last_point_in_feed_order() -> None:
     leader = {"teamCode": "HHH", "winProbability": 0.7}
     game = leader_game([0.3, 0.7], leader)
-    game["winProbability"][0]["elapsedSeconds"] = 20
+    game["winProbability"][0]["elapsedSeconds"] = 10
     game["winProbability"][1]["elapsedSeconds"] = 10
 
     feed = GameDetailFeed.model_validate(game)
 
     assert feed.win_probability_leader is not None
     assert feed.win_probability_leader.team_code == "HHH"
+
+
+def test_rejects_win_probability_points_that_go_back_in_game_time() -> None:
+    game = full_game()
+    game["winProbability"] = [
+        {"elapsedSeconds": 10, "homeWinProbability": 0.6},
+        {"elapsedSeconds": 5, "homeWinProbability": 0.6},
+    ]
+    game["winProbabilityLeader"] = {"teamCode": "HHH", "winProbability": 0.6}
+
+    with pytest.raises(ValidationError, match="game time order"):
+        GameDetailFeed.model_validate(game)
+
+
+def test_accepts_win_probability_points_at_the_same_second() -> None:
+    game = leader_game([0.4, 0.6], {"teamCode": "HHH", "winProbability": 0.6})
+    game["winProbability"][0]["elapsedSeconds"] = 10
+    game["winProbability"][1]["elapsedSeconds"] = 10
+
+    feed = GameDetailFeed.model_validate(game)
+
+    assert feed.win_probability is not None
+    assert [p.elapsed_seconds for p in feed.win_probability] == [10, 10]
 
 
 def test_rejects_a_leader_on_an_exactly_even_latest_point() -> None:

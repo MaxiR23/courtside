@@ -318,6 +318,15 @@ class GameDetailFeed(FeedModel):
         return self
 
     @model_validator(mode="after")
+    def _require_points_in_game_time_order(self) -> GameDetailFeed:
+        if self.win_probability is None:
+            return self
+        seconds = [point.elapsed_seconds for point in self.win_probability]
+        if any(later < earlier for earlier, later in pairwise(seconds)):
+            raise ValueError("win probability points must be in game time order")
+        return self
+
+    @model_validator(mode="after")
     def _require_the_leader_of_the_latest_point(self) -> GameDetailFeed:
         expected: tuple[str, float] | None = None
         if self.win_probability is not None:

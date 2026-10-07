@@ -111,7 +111,8 @@ builds the feed.
   the source had no player statistics when the feed was built. A final
   game is not rebuilt after a successful build (except once after a
   restart, see "Refresh behavior"), so they stay null.
-- `winProbability` has at least one point.
+- `winProbability` has at least one point, in non-decreasing
+  `elapsedSeconds` order. The feed's validator checks it.
 - `winProbabilityLeader` is read off the last point of `winProbability` in feed
   order: the home team with that point's `homeWinProbability` above 0.5, the
   away team with 1 minus it below 0.5, null on exactly 0.5 and null without

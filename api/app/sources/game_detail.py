@@ -601,7 +601,9 @@ def _win_probability(summary: _ProviderSummary) -> list[dict[str, Any]]:
                 "home_win_probability": entry.home_win_percentage,
             }
         )
-    return points
+    # Game time order; sorted is stable, so points at the same second keep the
+    # source order. Rule: docs/api/game-detail.md.
+    return sorted(points, key=lambda point: point["elapsed_seconds"])
 
 
 def _win_probability_leader(
