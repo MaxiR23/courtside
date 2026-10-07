@@ -116,6 +116,12 @@ builds the feed.
   provider's game format. The number of periods is the regulation count or
   the highest period played, whichever is higher.
 
+## Known cases
+
+A completed series event without a winner flag fails that game's build, and
+that game's last valid feed stays served. This is revisited only with a
+recorded response that shows it.
+
 ## Refresh behavior
 
 - A live game is rebuilt every 30 seconds.

@@ -50,6 +50,12 @@ uploading again.
 - Images: change the pinned tag in `api/Dockerfile` or `compose.yaml` through
   a pull request.
 
+## Change to a feed's shape
+
+When a change alters the shape of a feed, deploy first the side that accepts
+both the old and the new shape, then the other one right after. Each pull
+request that changes a feed's shape names which side goes first.
+
 ## Move to another machine
 
 1. On the old machine: `docker compose stop`.
