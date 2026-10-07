@@ -87,6 +87,11 @@ code.
 
 Rules that live in the code:
 
+The feed's validators do not check two of these rules: the tie and
+turnover direction of `teamStats.leaders`, and which games
+`seasonSeries.games` holds. The source adapter applies them when it
+builds the feed.
+
 - `injuries.away` or `home` empty means no injuries reported; `injuries`
   `null` means no data.
 - `lastGames` lists at most five games per team, newest first; a list may be
@@ -100,6 +105,10 @@ Rules that live in the code:
 - No completed game is a first meeting.
 - `teamStats.leaders.<row>` is `null` on a tie; for `turnovers` the lower
   value leads.
+- On a `final` game, `teamStats` and `boxScore` are null together when
+  the source had no player statistics when the feed was built. A final
+  game is not rebuilt after a successful build (except once after a
+  restart, see "Refresh behavior"), so they stay null.
 - `winProbability` has at least one point.
 - `winProbabilityPeriods` exists only with `winProbability`. Periods are
   numbered from 1, the first starts at 0, and starts increase. Every point
@@ -123,8 +132,8 @@ Rules that live in the code:
 - A failed build keeps that game's last valid feed and never blocks the other
   games.
 - The feed of a game that leaves the days shown is deleted.
-- The job runs in its own task, apart from the games job
-  ([ADR 0019](../adr/0019-game-detail-route-and-feed.md)).
+- The job runs in its own task, apart from the games job, as the stars
+  job does ([ADR 0014](../adr/0014-star-guarantees.md)).
 
 ## Endpoint
 
