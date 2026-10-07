@@ -379,20 +379,24 @@ class _ProviderSummary(_ProviderModel):
 
 
 class SeriesMeeting(FeedModel):
-    """A played game of the season series, without its arena: the provider
-    does not send it here. The job takes it from the team schedule by game id."""
+    """A game of the season series: a completed game, or this game whatever
+    its status. Without its arena: the provider does not send it here. The job
+    takes it from the team schedule by game id."""
 
     game_id: NonEmptyStr
     date: dt.date
     away: TeamCode
     home: TeamCode
-    score: Score
+    is_current: bool
+    score: Score | None
+    winner: TeamCode | None
 
 
 class SeriesMeetings(FeedModel):
     total_games: PositiveInt
     away_wins: NonNegativeInt
     home_wins: NonNegativeInt
+    leader: TeamCode | None
     games: list[SeriesMeeting]
 
 
@@ -649,7 +653,9 @@ def _season_series(
     games: list[dict[str, Any]] = []
     wins = {code: 0 for code in codes.values()}
     for event in series.events:
-        if event.status != "post":
+        is_current = event.id == game_id
+        completed = event.status == "post"
+        if not completed and not is_current:
             continue
         sides = {c.home_away: c for c in event.competitors}
         if set(sides) != {"home", "away"} or len(event.competitors) != 2:
@@ -663,25 +669,48 @@ def _season_series(
             raise SourceError(
                 SOURCE, f"game {game_id} has a series game of other teams"
             )
-        for competitor, code in ((sides["away"], away), (sides["home"], home)):
-            if competitor.winner:
-                wins[code] += 1
+        winner: str | None = None
+        score: dict[str, int] | None = None
+        if completed:
+            winners = [
+                code
+                for competitor, code in ((sides["away"], away), (sides["home"], home))
+                if competitor.winner
+            ]
+            if len(winners) != 1:
+                raise SourceError(
+                    SOURCE, f"game {game_id} has a series game without one winner"
+                )
+            winner = winners[0]
+            wins[winner] += 1
+            score = {
+                "away": _number(game_id, sides["away"].score, int),
+                "home": _number(game_id, sides["home"].score, int),
+            }
         games.append(
             {
                 "game_id": event.id,
                 "date": event.date.astimezone(EASTERN).date(),
                 "away": away,
                 "home": home,
-                "score": {
-                    "away": _number(game_id, sides["away"].score, int),
-                    "home": _number(game_id, sides["home"].score, int),
-                },
+                "is_current": is_current,
+                "score": score,
+                "winner": winner,
             }
         )
+    away_wins, home_wins = wins[codes["away"]], wins[codes["home"]]
+    leader = (
+        codes["away"]
+        if away_wins > home_wins
+        else codes["home"]
+        if home_wins > away_wins
+        else None
+    )
     return {
         "total_games": series.total_competitions,
-        "away_wins": wins[codes["away"]],
-        "home_wins": wins[codes["home"]],
+        "away_wins": away_wins,
+        "home_wins": home_wins,
+        "leader": leader,
         "games": games,
     }
 

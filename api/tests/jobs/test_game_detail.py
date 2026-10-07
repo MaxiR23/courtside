@@ -7,6 +7,7 @@
 # - Builds a final game with its winner, box score and season series
 # - Carries the win probability periods of the sections into the feed, or null
 # - Takes each series arena from the team schedules and this game's venue
+# - Passes the series leader, each game's winner and the current game into the feed
 # - Lists no injuries for a team absent from the league injuries
 # - Puts null highlights when the game has none
 # - Rejects a game whose team has no standing, a series game with no arena and a live game without team stats
@@ -183,13 +184,16 @@ def series(*game_ids: str) -> dict[str, Any]:
         "total_games": len(game_ids),
         "away_wins": 1,
         "home_wins": 0,
+        "leader": "BOS",
         "games": [
             {
                 "game_id": game_id,
                 "date": dt.date(2026, 1, 1),
                 "away": "BOS",
                 "home": "NYK",
+                "is_current": False,
                 "score": {"away": 100, "home": 90},
+                "winner": "BOS",
             }
             for game_id in game_ids
         ],
@@ -294,6 +298,26 @@ def test_takes_each_series_arena_from_the_team_schedules_and_this_games_venue() 
         "Home Arena",
         "Garden",
     ]
+
+
+def test_passes_the_series_leader_winners_and_current_game_into_the_feed() -> None:
+    found = series("1", "9")
+    found["games"][1].update(is_current=True, score=None, winner=None)
+
+    feed = build(
+        game("9", GameStatus.SCHEDULED),
+        sections(series=found),
+        away_schedule=schedule({"1": "Away Arena"}),
+    )
+
+    assert feed.season_series is not None
+    assert feed.season_series.leader == found["leader"]
+    completed, current = feed.season_series.games
+    assert (completed.is_current, completed.winner) == (False, "BOS")
+    assert current.is_current is True
+    assert current.score is None
+    assert current.winner is None
+    assert current.arena == "Garden"
 
 
 def test_lists_no_injuries_for_a_team_absent_from_the_league_injuries() -> None:

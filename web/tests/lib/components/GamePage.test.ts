@@ -177,10 +177,12 @@ const full: GameSections = {
 		games: [
 			{
 				date: 'Jan 10',
+				current: false,
 				awayCode: 'LAL',
 				awayPoints: 110,
 				homePoints: 100,
 				homeCode: 'GSW',
+				loser: 'home',
 				arena: 'Arena'
 			}
 		]

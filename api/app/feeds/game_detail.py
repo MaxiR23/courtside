@@ -212,15 +212,32 @@ class SeriesGame(FeedModel):
     date: dt.date
     away: TeamCode
     home: TeamCode
-    score: Score
+    is_current: bool
+    score: Score | None
+    winner: TeamCode | None
     arena: NonEmptyStr
+
+    @model_validator(mode="after")
+    def _require_a_winner_of_a_played_game(self) -> SeriesGame:
+        if (self.score is None) != (self.winner is None):
+            raise ValueError("a series game has a score and a winner, or neither")
+        if self.winner is not None and self.winner not in (self.away, self.home):
+            raise ValueError("series game winner must be its away or home team code")
+        return self
 
 
 class SeasonSeries(FeedModel):
     total_games: PositiveInt
     away_wins: NonNegativeInt
     home_wins: NonNegativeInt
+    leader: TeamCode | None
     games: list[SeriesGame]
+
+    @model_validator(mode="after")
+    def _require_one_current_game(self) -> SeasonSeries:
+        if sum(game.is_current for game in self.games) > 1:
+            raise ValueError("at most one series game is the current game")
+        return self
 
 
 class Video(FeedModel):
@@ -302,4 +319,25 @@ class GameDetailFeed(FeedModel):
         for leader in self.team_stats.leaders.model_dump().values():
             if leader is not None and leader not in codes:
                 raise ValueError("a stat leader must be the away or the home team code")
+        return self
+
+    @model_validator(mode="after")
+    def _require_a_series_leader_of_the_game(self) -> GameDetailFeed:
+        if self.season_series is None:
+            return self
+        series = self.season_series
+        if series.leader is not None and series.leader not in (
+            self.away.code,
+            self.home.code,
+        ):
+            raise ValueError("series leader must be the away or the home team code")
+        expected = (
+            self.away.code
+            if series.away_wins > series.home_wins
+            else self.home.code
+            if series.home_wins > series.away_wins
+            else None
+        )
+        if series.leader != expected:
+            raise ValueError("series leader must be the team with more wins")
         return self

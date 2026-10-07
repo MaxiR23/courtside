@@ -621,6 +621,17 @@
           "minimum": 0,
           "type": "integer"
         },
+        "leader": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Z]{3}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "games": {
           "items": {
             "$ref": "#/$defs/SeriesGame"
@@ -632,6 +643,7 @@
         "totalGames",
         "awayWins",
         "homeWins",
+        "leader",
         "games"
       ],
       "title": "SeasonSeries",
@@ -652,8 +664,29 @@
           "pattern": "^[A-Z]{3}$",
           "type": "string"
         },
+        "isCurrent": {
+          "type": "boolean"
+        },
         "score": {
-          "$ref": "#/$defs/Score"
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Score"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "winner": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Z]{3}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "arena": {
           "minLength": 1,
@@ -664,7 +697,9 @@
         "date",
         "away",
         "home",
+        "isCurrent",
         "score",
+        "winner",
         "arena"
       ],
       "title": "SeriesGame",

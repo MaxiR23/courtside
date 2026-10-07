@@ -469,32 +469,38 @@ function standingsSection(feed: GameDetailFeed): StandingsSection {
 
 function seriesRow(game: SeriesGame): SeriesRow {
 	return {
-		date: rowDate(game.date),
+		date: game.isCurrent ? m.game_series_tonight() : rowDate(game.date),
+		current: game.isCurrent,
 		awayCode: game.away,
-		awayPoints: game.score.away,
-		homePoints: game.score.home,
+		awayPoints: game.score?.away ?? null,
+		homePoints: game.score?.home ?? null,
 		homeCode: game.home,
+		loser: game.winner === null ? null : game.winner === game.away ? 'home' : 'away',
 		arena: game.arena
 	};
 }
 
-// An empty list is a first meeting. The leader compares the two win counts the feed sends.
-function seriesSummary(feed: GameDetailFeed, awayWins: number, homeWins: number, played: number) {
+// No completed game is a first meeting. The leader comes from the feed.
+function seriesSummary(
+	feed: GameDetailFeed,
+	series: NonNullable<GameDetailFeed['seasonSeries']>,
+	played: number
+) {
 	if (played === 0) return m.game_series_first_meeting();
-	if (awayWins === homeWins) return m.game_series_tied({ wins: formatNumber(awayWins) });
-	const awayLeads = awayWins > homeWins;
+	if (series.leader === null) return m.game_series_tied({ wins: formatNumber(series.awayWins) });
+	const awayLeads = series.leader === feed.away.code;
 	return m.game_series_lead({
-		team: awayLeads ? feed.away.code : feed.home.code,
-		leading: formatNumber(Math.max(awayWins, homeWins)),
-		trailing: formatNumber(Math.min(awayWins, homeWins))
+		team: series.leader,
+		leading: formatNumber(awayLeads ? series.awayWins : series.homeWins),
+		trailing: formatNumber(awayLeads ? series.homeWins : series.awayWins)
 	});
 }
 
 function seasonSeriesSection(feed: GameDetailFeed): SeasonSeriesSection {
 	const series = required(feed.seasonSeries);
-	const played = series.games.length;
+	const played = series.games.filter((g) => g.winner !== null).length;
 	return {
-		summary: seriesSummary(feed, series.awayWins, series.homeWins, played),
+		summary: seriesSummary(feed, series, played),
 		meta: m.game_series_played({ played, total: series.totalGames }),
 		games: series.games.map(seriesRow)
 	};

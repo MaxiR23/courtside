@@ -467,34 +467,70 @@
 			lastTen: '8–2'
 		}
 	};
-	const sampleSeries: SeasonSeriesSection = {
+	const playedSeries: SeasonSeriesSection['games'] = [
+		{
+			date: 'Jan 10',
+			current: false,
+			awayCode: 'GSW',
+			awayPoints: 118,
+			homePoints: 112,
+			homeCode: 'LAL',
+			loser: 'home',
+			arena: 'Chase Center'
+		},
+		{
+			date: 'Dec 2',
+			current: false,
+			awayCode: 'LAL',
+			awayPoints: 121,
+			homePoints: 109,
+			homeCode: 'GSW',
+			loser: 'home',
+			arena: 'Crypto.com Arena'
+		},
+		{
+			date: 'Nov 14',
+			current: false,
+			awayCode: 'GSW',
+			awayPoints: 104,
+			homePoints: 99,
+			homeCode: 'LAL',
+			loser: 'home',
+			arena: 'Chase Center'
+		}
+	];
+	const preGameSeries: SeasonSeriesSection = {
 		summary: 'GSW lead 2–1',
 		meta: '3 of 4 games played',
 		games: [
 			{
-				date: 'Jan 10',
+				date: 'Tonight',
+				current: true,
 				awayCode: 'GSW',
-				awayPoints: 118,
-				homePoints: 112,
+				awayPoints: null,
+				homePoints: null,
 				homeCode: 'LAL',
-				arena: 'Chase Center'
-			},
-			{
-				date: 'Dec 2',
-				awayCode: 'LAL',
-				awayPoints: 121,
-				homePoints: 109,
-				homeCode: 'GSW',
+				loser: null,
 				arena: 'Crypto.com Arena'
 			},
+			...playedSeries
+		]
+	};
+	const finalSeries: SeasonSeriesSection = {
+		summary: 'GSW lead 3–1',
+		meta: '4 of 4 games played',
+		games: [
 			{
-				date: 'Nov 14',
+				date: 'Tonight',
+				current: true,
 				awayCode: 'GSW',
-				awayPoints: 104,
-				homePoints: 99,
+				awayPoints: 112,
+				homePoints: 104,
 				homeCode: 'LAL',
-				arena: 'Chase Center'
-			}
+				loser: 'home',
+				arena: 'Crypto.com Arena'
+			},
+			...playedSeries
 		]
 	};
 	const firstMeetingSeries: SeasonSeriesSection = {
@@ -517,7 +553,7 @@
 		injuries: sampleInjuriesBoth,
 		lastGames: sampleLastGames,
 		standings: sampleStandings,
-		seasonSeries: sampleSeries
+		seasonSeries: preGameSeries
 	};
 	const liveSections: GameSections = {
 		...noSections,
@@ -543,7 +579,7 @@
 		},
 		boxScore: sampleBox,
 		injuries: sampleInjuriesBoth,
-		seasonSeries: sampleSeries,
+		seasonSeries: finalSeries,
 		videos: sampleVideos
 	};
 	const overtimeSections: GameSections = {

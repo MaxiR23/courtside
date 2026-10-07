@@ -106,7 +106,9 @@ def build_game_detail_feed(
                     "date": meeting.date,
                     "away": meeting.away,
                     "home": meeting.home,
+                    "is_current": meeting.is_current,
                     "score": meeting.score,
+                    "winner": meeting.winner,
                     "arena": arena,
                 }
             )
@@ -114,6 +116,7 @@ def build_game_detail_feed(
             "total_games": sections.season_series.total_games,
             "away_wins": sections.season_series.away_wins,
             "home_wins": sections.season_series.home_wins,
+            "leader": sections.season_series.leader,
             "games": meetings,
         }
 

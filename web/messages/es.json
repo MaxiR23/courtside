@@ -123,6 +123,7 @@
 	"game_series_tied": "Serie empatada {wins}–{wins}",
 	"game_series_first_meeting": "Primer enfrentamiento",
 	"game_series_played": "{played} de {total} partidos jugados",
+	"game_series_tonight": "Esta noche",
 	"game_videos_meta": "Se abre en una pestaña nueva",
 	"game_standings_rank": "{rank}.º {conference}"
 }
