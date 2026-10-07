@@ -8,6 +8,8 @@
 // - Keeps the last feed and sets failed when a later load fails; records when a feed was received
 // - Pauses while the tab is hidden and loads at once when it is visible again
 // - Never runs two loads at once; stops and drops a pending result after cleanup
+// - gamePollInterval: 30 s while the game is live, 60 s otherwise and with no feed yet
+// - FeedPoller with gamePollInterval polls a detail feed; it exposes the error of the last load
 //
 // What is covered:
 // - The reactive module without mounting; fake timers, an injected clock and a fake document
@@ -18,9 +20,12 @@
 // SEE: web/src/lib/feed/poller.svelte.ts
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { GameDetailFeed } from '../../../src/lib/contract/game-detail';
 import type { GameStatus, GamesFeed } from '../../../src/lib/contract/games';
 import {
+	FeedPoller,
 	GamesFeedPoller,
+	gamePollInterval,
 	IDLE_POLL_MS,
 	LIVE_POLL_MS,
 	pollInterval
@@ -232,5 +237,52 @@ describe('GamesFeedPoller', () => {
 		stop();
 		await vi.advanceTimersByTimeAsync(5 * 60_000);
 		expect(load).toHaveBeenCalledTimes(1);
+	});
+});
+
+const detailWith = (status: GameStatus): GameDetailFeed =>
+	({ id: '401', status }) as GameDetailFeed;
+
+describe('gamePollInterval', () => {
+	it('is 30 s while the game is live and 60 s for every other status and with no feed', () => {
+		expect(gamePollInterval(detailWith('live'))).toBe(LIVE_POLL_MS);
+		for (const status of ['scheduled', 'final', 'delayed', 'postponed', 'canceled'] as const) {
+			expect(gamePollInterval(detailWith(status))).toBe(IDLE_POLL_MS);
+		}
+		expect(gamePollInterval(null)).toBe(IDLE_POLL_MS);
+	});
+});
+
+describe('FeedPoller', () => {
+	it('polls a detail feed every 30 s while the game is live and every 60 s once it is final', async () => {
+		const load = vi
+			.fn()
+			.mockResolvedValueOnce(detailWith('live'))
+			.mockResolvedValue(detailWith('final'));
+		new FeedPoller(load, gamePollInterval, {
+			visibility: () => fakePage() as unknown as Document
+		}).start();
+		await vi.advanceTimersByTimeAsync(0);
+		await vi.advanceTimersByTimeAsync(30_000);
+		expect(load).toHaveBeenCalledTimes(2);
+		await vi.advanceTimersByTimeAsync(59_999);
+		expect(load).toHaveBeenCalledTimes(2);
+		await vi.advanceTimersByTimeAsync(1);
+		expect(load).toHaveBeenCalledTimes(3);
+	});
+
+	it('exposes the error of the last failed load and clears it on the next success', async () => {
+		const failure = new Error('down');
+		const load = vi.fn().mockRejectedValueOnce(failure).mockResolvedValue(detailWith('scheduled'));
+		const p = new FeedPoller(load, gamePollInterval, {
+			visibility: () => fakePage() as unknown as Document
+		});
+		p.start();
+		await vi.advanceTimersByTimeAsync(0);
+		expect(p.failed).toBe(true);
+		expect(p.error).toBe(failure);
+		await vi.advanceTimersByTimeAsync(IDLE_POLL_MS);
+		expect(p.failed).toBe(false);
+		expect(p.error).toBeNull();
 	});
 });

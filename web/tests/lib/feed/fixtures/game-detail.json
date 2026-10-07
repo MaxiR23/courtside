@@ -1,0 +1,331 @@
+{
+	"id": "401",
+	"status": "live",
+	"startTime": "2026-10-07T23:00:00Z",
+	"venue": {
+		"name": "Chase Center",
+		"city": "San Francisco",
+		"photoUrl": "https://example.com/venues/chase.jpg"
+	},
+	"away": {
+		"code": "LAL",
+		"name": "Lakers",
+		"city": "Los Angeles",
+		"record": {
+			"wins": 12,
+			"losses": 5
+		}
+	},
+	"home": {
+		"code": "GSW",
+		"name": "Warriors",
+		"city": "Golden State",
+		"record": {
+			"wins": 10,
+			"losses": 7
+		}
+	},
+	"broadcast": "Network One",
+	"period": 3,
+	"clock": "4:12",
+	"lineScore": {
+		"away": [28, 25, 10],
+		"home": [26, 24, 12]
+	},
+	"score": {
+		"away": 63,
+		"home": 62
+	},
+	"winner": null,
+	"teamStats": {
+		"away": {
+			"fieldGoalPct": 0.5,
+			"threePointPct": 0.35,
+			"rebounds": 30,
+			"assists": 18,
+			"turnovers": 9,
+			"freeThrowPct": 0.8,
+			"steals": 5,
+			"blocks": 3
+		},
+		"home": {
+			"fieldGoalPct": 0.5,
+			"threePointPct": 0.35,
+			"rebounds": 30,
+			"assists": 18,
+			"turnovers": 9,
+			"freeThrowPct": 0.8,
+			"steals": 5,
+			"blocks": 3
+		},
+		"leaders": {
+			"fieldGoalPct": "LAL",
+			"threePointPct": "GSW",
+			"freeThrowPct": null,
+			"rebounds": "LAL",
+			"assists": "GSW",
+			"turnovers": null,
+			"steals": "GSW",
+			"blocks": "LAL"
+		}
+	},
+	"stars": {
+		"away": {
+			"playerId": "p-LAL",
+			"firstName": "LeBron",
+			"lastName": "James",
+			"teamCode": "LAL",
+			"photoUrl": "https://example.com/photos/LAL.png",
+			"shortName": "James"
+		},
+		"home": {
+			"playerId": "p-GSW",
+			"firstName": "Stephen",
+			"lastName": "Curry",
+			"teamCode": "GSW",
+			"photoUrl": "https://example.com/photos/GSW.png",
+			"shortName": "Curry"
+		}
+	},
+	"boxScore": {
+		"away": {
+			"players": [
+				{
+					"points": 20,
+					"fieldGoalsMade": 8,
+					"fieldGoalsAttempted": 15,
+					"threePointsMade": 2,
+					"threePointsAttempted": 6,
+					"freeThrowsMade": 2,
+					"freeThrowsAttempted": 2,
+					"offensiveRebounds": 1,
+					"defensiveRebounds": 4,
+					"rebounds": 5,
+					"assists": 6,
+					"turnovers": 2,
+					"steals": 1,
+					"blocks": 0,
+					"fouls": 2,
+					"playerId": "p-LAL",
+					"displayName": "LeBron James",
+					"starter": true,
+					"minutes": "24:10",
+					"plusMinus": 4,
+					"photoUrl": "https://example.com/photos/LAL.png"
+				}
+			],
+			"totals": {
+				"points": 70,
+				"fieldGoalsMade": 8,
+				"fieldGoalsAttempted": 15,
+				"threePointsMade": 2,
+				"threePointsAttempted": 6,
+				"freeThrowsMade": 2,
+				"freeThrowsAttempted": 2,
+				"offensiveRebounds": 1,
+				"defensiveRebounds": 4,
+				"rebounds": 5,
+				"assists": 6,
+				"turnovers": 2,
+				"steals": 1,
+				"blocks": 0,
+				"fouls": 2,
+				"fieldGoalPct": 0.5,
+				"threePointPct": 0.35,
+				"freeThrowPct": 0.8
+			}
+		},
+		"home": {
+			"players": [
+				{
+					"points": 20,
+					"fieldGoalsMade": 8,
+					"fieldGoalsAttempted": 15,
+					"threePointsMade": 2,
+					"threePointsAttempted": 6,
+					"freeThrowsMade": 2,
+					"freeThrowsAttempted": 2,
+					"offensiveRebounds": 1,
+					"defensiveRebounds": 4,
+					"rebounds": 5,
+					"assists": 6,
+					"turnovers": 2,
+					"steals": 1,
+					"blocks": 0,
+					"fouls": 2,
+					"playerId": "p-GSW",
+					"displayName": "Stephen Curry",
+					"starter": true,
+					"minutes": "24:10",
+					"plusMinus": 4,
+					"photoUrl": "https://example.com/photos/GSW.png"
+				},
+				{
+					"points": 20,
+					"fieldGoalsMade": 8,
+					"fieldGoalsAttempted": 15,
+					"threePointsMade": 2,
+					"threePointsAttempted": 6,
+					"freeThrowsMade": 2,
+					"freeThrowsAttempted": 2,
+					"offensiveRebounds": 1,
+					"defensiveRebounds": 4,
+					"rebounds": 5,
+					"assists": 6,
+					"turnovers": 2,
+					"steals": 1,
+					"blocks": 0,
+					"fouls": 2,
+					"playerId": "p-GSW",
+					"displayName": "Draymond Green",
+					"starter": true,
+					"minutes": "24:10",
+					"plusMinus": 4,
+					"photoUrl": "https://example.com/photos/GSW.png"
+				}
+			],
+			"totals": {
+				"points": 70,
+				"fieldGoalsMade": 8,
+				"fieldGoalsAttempted": 15,
+				"threePointsMade": 2,
+				"threePointsAttempted": 6,
+				"freeThrowsMade": 2,
+				"freeThrowsAttempted": 2,
+				"offensiveRebounds": 1,
+				"defensiveRebounds": 4,
+				"rebounds": 5,
+				"assists": 6,
+				"turnovers": 2,
+				"steals": 1,
+				"blocks": 0,
+				"fouls": 2,
+				"fieldGoalPct": 0.5,
+				"threePointPct": 0.35,
+				"freeThrowPct": 0.8
+			}
+		}
+	},
+	"winProbability": [
+		{
+			"elapsedSeconds": 1800,
+			"homeWinProbability": 0.48
+		}
+	],
+	"injuries": {
+		"away": [
+			{
+				"displayName": "Austin Reaves",
+				"status": "questionable",
+				"comment": null
+			}
+		],
+		"home": []
+	},
+	"lastGames": {
+		"away": [
+			{
+				"date": "2026-10-05",
+				"opponent": "DEN",
+				"isHome": true,
+				"result": "win",
+				"teamScore": 110,
+				"opponentScore": 102
+			},
+			{
+				"date": "2026-10-03",
+				"opponent": "PHX",
+				"isHome": false,
+				"result": "loss",
+				"teamScore": 99,
+				"opponentScore": 104
+			}
+		],
+		"home": [
+			{
+				"date": "2026-10-05",
+				"opponent": "SAC",
+				"isHome": false,
+				"result": "win",
+				"teamScore": 120,
+				"opponentScore": 115
+			}
+		]
+	},
+	"standings": {
+		"away": {
+			"conference": "west",
+			"conferenceRank": 3,
+			"record": {
+				"wins": 12,
+				"losses": 5
+			},
+			"homeRecord": {
+				"wins": 8,
+				"losses": 2
+			},
+			"awayRecord": {
+				"wins": 4,
+				"losses": 3
+			},
+			"lastTen": {
+				"wins": 6,
+				"losses": 4
+			}
+		},
+		"home": {
+			"conference": "west",
+			"conferenceRank": 8,
+			"record": {
+				"wins": 10,
+				"losses": 7
+			},
+			"homeRecord": {
+				"wins": 8,
+				"losses": 2
+			},
+			"awayRecord": {
+				"wins": 4,
+				"losses": 3
+			},
+			"lastTen": {
+				"wins": 6,
+				"losses": 4
+			}
+		}
+	},
+	"seasonSeries": {
+		"totalGames": 3,
+		"awayWins": 1,
+		"homeWins": 0,
+		"games": [
+			{
+				"date": "2026-01-10",
+				"away": "LAL",
+				"home": "GSW",
+				"score": {
+					"away": 118,
+					"home": 112
+				},
+				"arena": "Chase Center"
+			}
+		]
+	},
+	"highlights": [
+		{
+			"title": "Curry hits a deep three",
+			"channel": "Channel One",
+			"thumbnailUrl": "https://example.com/thumbs/1.jpg",
+			"embedUrl": "https://example.com/embed/1"
+		}
+	],
+	"highlightsSearchUrl": "https://example.com/search?q=lakers+warriors",
+	"videos": [
+		{
+			"title": "Game recap",
+			"duration": "2:10",
+			"thumbnailUrl": null,
+			"linkUrl": "https://example.com/videos/1"
+		}
+	]
+}

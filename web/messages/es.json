@@ -54,5 +54,22 @@
 	"panel_highlights_kicker": "Resúmenes",
 	"panel_highlights_pending": "Los resúmenes todavía no están. Aparecerán aquí automáticamente.",
 	"panel_highlights_search": "Buscar resúmenes en {platform}",
-	"panel_highlights_play": "Reproducir {title}"
+	"panel_highlights_play": "Reproducir {title}",
+	"game_scheduled": "Programado",
+	"game_halftime": "Descanso",
+	"game_end_of_period": "Fin del {period}",
+	"game_overtime": "PR{number}",
+	"game_not_found": "Partido no encontrado.",
+	"game_tabs_label": "Secciones",
+	"game_tab_players": "Jugadores",
+	"game_tab_injuries": "Lesiones",
+	"game_tab_last_games": "Últimos 5",
+	"game_tab_standings": "Clasificación",
+	"game_tab_season_series": "Serie de la temporada",
+	"game_tab_series": "Serie",
+	"game_tab_score": "Marcador",
+	"game_tab_win_probability": "Prob. de victoria",
+	"game_tab_box_score": "Estadísticas",
+	"game_tab_highlights": "Resúmenes",
+	"game_tab_videos": "Videos"
 }

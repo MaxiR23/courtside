@@ -51,7 +51,7 @@ function localDate(isoDate: string): Date {
 	return new Date(year, month - 1, day);
 }
 
-function tipParts(startTime: string): { tipTime: string; tipSuffix: string } {
+export function tipParts(startTime: string): { tipTime: string; tipSuffix: string } {
 	const parts = formatDateParts(new Date(startTime), {
 		timeZone: TIME_ZONE,
 		hour: 'numeric',

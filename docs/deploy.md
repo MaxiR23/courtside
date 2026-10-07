@@ -31,10 +31,13 @@ domains below are placeholders.
 ## Build and publish the front end
 
 1. `cp web/.env.example web/.env`
-2. Set `GAMES_FEED_URL=https://api.example.com/feeds/games.json` and
+2. Set `GAMES_FEED_URL=https://api.example.com/feeds/games.json`,
+   `GAME_DETAIL_FEED_URL=https://api.example.com/feeds/games/{id}.json` and
    `VIDEO_PLATFORM_NAME`.
 3. `cd web && pnpm install --frozen-lockfile && pnpm run build`
-4. Upload the contents of `web/build/` to the static host.
+4. Upload the contents of `web/build/` to the static host. Configure the static
+   host to serve `200.html` for every `/game/*` path that is not a file (the game
+   detail page is rendered in the browser from it, ADR 0019).
 
 The settings are read at build time: changing them means rebuilding and
 uploading again.
