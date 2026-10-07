@@ -1,0 +1,685 @@
+{
+ "format": {
+  "regulation": {
+   "periods": 4,
+   "clock": 720.0
+  },
+  "overtime": {
+   "clock": 300.0
+  }
+ },
+ "gameInfo": {
+  "venue": {
+   "fullName": "Hilton Coliseum",
+   "address": {
+    "city": "Ames"
+   },
+   "images": []
+  }
+ },
+ "boxscore": {
+  "teams": [
+   {
+    "homeAway": "away",
+    "team": {
+     "abbreviation": "MIN"
+    },
+    "statistics": [
+     {
+      "name": "fieldGoalPct",
+      "displayValue": "53"
+     },
+     {
+      "name": "threePointFieldGoalPct",
+      "displayValue": "57"
+     },
+     {
+      "name": "freeThrowPct",
+      "displayValue": "0"
+     },
+     {
+      "name": "totalRebounds",
+      "displayValue": "9"
+     },
+     {
+      "name": "assists",
+      "displayValue": "3"
+     },
+     {
+      "name": "steals",
+      "displayValue": "3"
+     },
+     {
+      "name": "blocks",
+      "displayValue": "0"
+     },
+     {
+      "name": "turnovers",
+      "displayValue": "5"
+     },
+     {
+      "name": "totalTurnovers",
+      "displayValue": "6"
+     }
+    ]
+   },
+   {
+    "homeAway": "home",
+    "team": {
+     "abbreviation": "IND"
+    },
+    "statistics": [
+     {
+      "name": "fieldGoalPct",
+      "displayValue": "57"
+     },
+     {
+      "name": "threePointFieldGoalPct",
+      "displayValue": "0"
+     },
+     {
+      "name": "freeThrowPct",
+      "displayValue": "100"
+     },
+     {
+      "name": "totalRebounds",
+      "displayValue": "4"
+     },
+     {
+      "name": "assists",
+      "displayValue": "6"
+     },
+     {
+      "name": "steals",
+      "displayValue": "3"
+     },
+     {
+      "name": "blocks",
+      "displayValue": "2"
+     },
+     {
+      "name": "turnovers",
+      "displayValue": "4"
+     },
+     {
+      "name": "totalTurnovers",
+      "displayValue": "4"
+     }
+    ]
+   }
+  ],
+  "players": [
+   {
+    "team": {
+     "abbreviation": "MIN"
+    },
+    "statistics": [
+     {
+      "keys": [
+       "minutes",
+       "points",
+       "fieldGoalsMade-fieldGoalsAttempted",
+       "threePointFieldGoalsMade-threePointFieldGoalsAttempted",
+       "freeThrowsMade-freeThrowsAttempted",
+       "rebounds",
+       "assists",
+       "turnovers",
+       "steals",
+       "blocks",
+       "offensiveRebounds",
+       "defensiveRebounds",
+       "fouls",
+       "plusMinus"
+      ],
+      "totals": [
+       "",
+       "20",
+       "8-15",
+       "4-7",
+       "0-0",
+       "9",
+       "3",
+       "5",
+       "3",
+       "0",
+       "4",
+       "5",
+       "1",
+       ""
+      ],
+      "athletes": [
+       {
+        "athlete": {
+         "id": "4431671",
+         "displayName": "Jaden McDaniels"
+        },
+        "starter": true,
+        "stats": [
+         "8",
+         "3",
+         "1-4",
+         "1-3",
+         "0-0",
+         "2",
+         "0",
+         "1",
+         "1",
+         "0",
+         "1",
+         "1",
+         "0",
+         "+5"
+        ]
+       },
+       {
+        "athlete": {
+         "id": "4433247",
+         "displayName": "Jonathan Kuminga"
+        },
+        "starter": true,
+        "stats": [
+         "5",
+         "0",
+         "0-2",
+         "0-0",
+         "0-0",
+         "0",
+         "0",
+         "0",
+         "0",
+         "0",
+         "0",
+         "0",
+         "0",
+         "+7"
+        ]
+       },
+       {
+        "athlete": {
+         "id": "3032976",
+         "displayName": "Rudy Gobert"
+        },
+        "starter": true,
+        "stats": [
+         "5",
+         "2",
+         "1-2",
+         "0-0",
+         "0-0",
+         "5",
+         "1",
+         "0",
+         "1",
+         "0",
+         "2",
+         "3",
+         "0",
+         "+7"
+        ]
+       },
+       {
+        "athlete": {
+         "id": "4432816",
+         "displayName": "LaMelo Ball"
+        },
+        "starter": true,
+        "stats": [
+         "7",
+         "5",
+         "2-2",
+         "1-1",
+         "0-0",
+         "1",
+         "0",
+         "2",
+         "0",
+         "0",
+         "0",
+         "1",
+         "0",
+         "+7"
+        ]
+       },
+       {
+        "athlete": {
+         "id": "4594268",
+         "displayName": "Anthony Edwards"
+        },
+        "starter": true,
+        "stats": [
+         "8",
+         "8",
+         "3-4",
+         "2-3",
+         "0-0",
+         "0",
+         "1",
+         "0",
+         "0",
+         "0",
+         "0",
+         "0",
+         "1",
+         "+3"
+        ]
+       },
+       {
+        "athlete": {
+         "id": "5279133",
+         "displayName": "Joan Beringer"
+        },
+        "starter": false,
+        "stats": [
+         "3",
+         "2",
+         "1-1",
+         "0-0",
+         "0-0",
+         "0",
+         "0",
+         "1",
+         "0",
+         "0",
+         "0",
+         "0",
+         "0",
+         "-4"
+        ]
+       },
+       {
+        "athlete": {
+         "id": "4397002",
+         "displayName": "Ayo Dosunmu"
+        },
+        "starter": false,
+        "stats": [
+         "3",
+         "0",
+         "0-0",
+         "0-0",
+         "0-0",
+         "0",
+         "0",
+         "1",
+         "0",
+         "0",
+         "0",
+         "0",
+         "0",
+         "-4"
+        ]
+       },
+       {
+        "athlete": {
+         "id": "3136196",
+         "displayName": "Trey Lyles"
+        },
+        "starter": false,
+        "stats": []
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "team": {
+     "abbreviation": "IND"
+    },
+    "statistics": [
+     {
+      "keys": [
+       "minutes",
+       "points",
+       "fieldGoalsMade-fieldGoalsAttempted",
+       "threePointFieldGoalsMade-threePointFieldGoalsAttempted",
+       "freeThrowsMade-freeThrowsAttempted",
+       "rebounds",
+       "assists",
+       "turnovers",
+       "steals",
+       "blocks",
+       "offensiveRebounds",
+       "defensiveRebounds",
+       "fouls",
+       "plusMinus"
+      ],
+      "totals": [
+       "",
+       "17",
+       "8-14",
+       "0-2",
+       "1-1",
+       "4",
+       "6",
+       "4",
+       "3",
+       "2",
+       "1",
+       "3",
+       "2",
+       ""
+      ],
+      "athletes": [
+       {
+        "athlete": {
+         "id": "3149673",
+         "displayName": "Pascal Siakam"
+        },
+        "starter": true,
+        "stats": [
+         "6",
+         "4",
+         "2-2",
+         "0-0",
+         "0-0",
+         "1",
+         "1",
+         "0",
+         "1",
+         "0",
+         "0",
+         "1",
+         "0",
+         "-5"
+        ]
+       },
+       {
+        "athlete": {
+         "id": "4017837",
+         "displayName": "Ivica Zubac"
+        },
+        "starter": true,
+        "stats": [
+         "8",
+         "4",
+         "2-4",
+         "0-0",
+         "0-0",
+         "2",
+         "0",
+         "1",
+         "0",
+         "0",
+         "0",
+         "2",
+         "0",
+         "-5"
+        ]
+       },
+       {
+        "athlete": {
+         "id": "4395712",
+         "displayName": "Andrew Nembhard"
+        },
+        "starter": true,
+        "stats": [
+         "6",
+         "0",
+         "0-1",
+         "0-1",
+         "0-0",
+         "0",
+         "0",
+         "1",
+         "0",
+         "0",
+         "0",
+         "0",
+         "2",
+         "-5"
+        ]
+       },
+       {
+        "athlete": {
+         "id": "4396909",
+         "displayName": "Aaron Nesmith"
+        },
+        "starter": true,
+        "stats": [
+         "5",
+         "2",
+         "1-1",
+         "0-0",
+         "0-0",
+         "0",
+         "0",
+         "0",
+         "0",
+         "0",
+         "0",
+         "0",
+         "0",
+         "-7"
+        ]
+       },
+       {
+        "athlete": {
+         "id": "4396993",
+         "displayName": "Tyrese Haliburton"
+        },
+        "starter": true,
+        "stats": [
+         "8",
+         "2",
+         "1-3",
+         "0-1",
+         "0-0",
+         "0",
+         "2",
+         "1",
+         "0",
+         "2",
+         "0",
+         "0",
+         "0",
+         "-5"
+        ]
+       },
+       {
+        "athlete": {
+         "id": "4278355",
+         "displayName": "Obi Toppin"
+        },
+        "starter": false,
+        "stats": [
+         "3",
+         "5",
+         "2-2",
+         "0-0",
+         "1-1",
+         "0",
+         "0",
+         "0",
+         "0",
+         "0",
+         "0",
+         "0",
+         "0",
+         "+4"
+        ]
+       },
+       {
+        "athlete": {
+         "id": "5106060",
+         "displayName": "Jarace Walker"
+        },
+        "starter": false,
+        "stats": [
+         "3",
+         "0",
+         "0-1",
+         "0-0",
+         "0-0",
+         "1",
+         "3",
+         "0",
+         "0",
+         "0",
+         "1",
+         "0",
+         "0",
+         "+4"
+        ]
+       },
+       {
+        "athlete": {
+         "id": "3999",
+         "displayName": "James Johnson"
+        },
+        "starter": false,
+        "stats": []
+       }
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "plays": [
+  {
+   "id": "4019141234",
+   "period": {
+    "number": 1
+   },
+   "clock": {
+    "displayValue": "12:00"
+   }
+  },
+  {
+   "id": "4019141237",
+   "period": {
+    "number": 1
+   },
+   "clock": {
+    "displayValue": "11:37"
+   }
+  },
+  {
+   "id": "4019141238",
+   "period": {
+    "number": 1
+   },
+   "clock": {
+    "displayValue": "11:14"
+   }
+  },
+  {
+   "id": "401914123105",
+   "period": {
+    "number": 1
+   },
+   "clock": {
+    "displayValue": "3:43"
+   }
+  }
+ ],
+ "winprobability": [
+  {
+   "playId": "4019141234",
+   "homeWinPercentage": 0.49
+  },
+  {
+   "playId": "4019141237",
+   "homeWinPercentage": 0.438
+  },
+  {
+   "playId": "4019141238",
+   "homeWinPercentage": 0.41
+  },
+  {
+   "playId": "401914123105",
+   "homeWinPercentage": 0.404
+  }
+ ],
+ "injuries": [
+  {
+   "team": {
+    "abbreviation": "IND"
+   },
+   "injuries": [
+    {
+     "status": "Day-To-Day",
+     "athlete": {
+      "displayName": "Larry Nance Jr."
+     }
+    },
+    {
+     "status": "Day-To-Day",
+     "athlete": {
+      "displayName": "T.J. McConnell"
+     }
+    },
+    {
+     "status": "Out",
+     "athlete": {
+      "displayName": "Johnny Furphy"
+     }
+    }
+   ]
+  },
+  {
+   "team": {
+    "abbreviation": "MIN"
+   },
+   "injuries": [
+    {
+     "status": "Out",
+     "athlete": {
+      "displayName": "Donte DiVincenzo"
+     }
+    }
+   ]
+  }
+ ],
+ "seasonseries": [
+  {
+   "type": "season",
+   "totalCompetitions": 2,
+   "events": [
+    {
+     "id": "401910243",
+     "date": "2027-01-03T00:00:00Z",
+     "status": "pre",
+     "competitors": [
+      {
+       "homeAway": "home",
+       "score": "0",
+       "team": {
+        "abbreviation": "IND"
+       }
+      },
+      {
+       "homeAway": "away",
+       "score": "0",
+       "team": {
+        "abbreviation": "MIN"
+       }
+      }
+     ]
+    },
+    {
+     "id": "401910612",
+     "date": "2027-02-27T01:00:00Z",
+     "status": "pre",
+     "competitors": [
+      {
+       "homeAway": "home",
+       "score": "0",
+       "team": {
+        "abbreviation": "MIN"
+       }
+      },
+      {
+       "homeAway": "away",
+       "score": "0",
+       "team": {
+        "abbreviation": "IND"
+       }
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "videos": []
+}

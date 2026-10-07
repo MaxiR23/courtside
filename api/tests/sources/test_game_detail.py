@@ -13,6 +13,7 @@
 # - GameDetail uses the same field types as the contract Game
 # - Maps a recorded scheduled game and a recorded final game to their detail sections: venue, box score, team stats, win probability, injuries, season series and videos
 # - Maps a venue without an address, or an address without a city, to a null city
+# - Maps a recorded live game to a box score for both teams, the team stats with their leading side and win probability points not past the recorded clock
 # - Maps recorded videos with their duration as text
 # - Places each win probability point at its elapsed game seconds, in regulation and overtime, and drops a point that cannot be placed
 # - Orders win probability points by elapsed game seconds, keeping the source order of points at the same second, and keeps the recorded points unchanged
@@ -39,14 +40,11 @@
 # fetch_game_detail_sections reads, with the same trimming. The players keep
 # the starters, two bench players and one player without a stat line, and the
 # plays keep the first three of each period and the last play of the game.
-# No live summary was recorded yet, so there is no live summary fixture. One
-# win probability entry of summary-final.json was given a play id that matches
-# no play, to cover the dropped point. No overtime summary was recorded: the
-# overtime cases edit summary-final.json in the test.
-#
-# summary-neutral-site.json is not recorded: it is summary-scheduled.json
-# with its venue replaced by the verified neutral-site shape, which has no
-# address.
+# summary-live.json was recorded in the first quarter with 3:42 left, so its
+# box score is partial and its last play is at 3:43. One win probability entry
+# of summary-final.json was given a play id that matches no play, to cover the
+# dropped point. No overtime summary was recorded: the overtime cases edit
+# summary-final.json in the test.
 #
 # summary-out-of-order-win-probability.json is not recorded. It is built with
 # example data only. Its win probability entries go back in game time in the
@@ -696,6 +694,38 @@ async def test_maps_a_recorded_final_game_to_its_detail_sections(
     assert len(detail.season_series.games) == 4
     assert detail.season_series.games[-1].game_id == "401811041"
     assert detail.videos is None
+
+
+@pytest.mark.anyio
+async def test_maps_a_recorded_live_game_to_its_detail_sections(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    detail = await sections_of(mock, settings, load("summary-live.json"))
+
+    assert detail.box_score is not None
+    away, home = detail.box_score.away, detail.box_score.home
+    assert (away.totals.points, home.totals.points) == (20, 17)
+    assert len(away.players) > 0
+    assert len(home.players) > 0
+    assert detail.team_stats is not None
+    leaders = detail.team_stats.leaders
+    assert leaders.field_goal_pct == "IND"
+    assert leaders.three_point_pct == "MIN"
+    assert leaders.free_throw_pct == "IND"
+    assert leaders.rebounds == "MIN"
+    assert leaders.assists == "IND"
+    assert leaders.turnovers == "IND"
+    assert leaders.steals is None
+    assert leaders.blocks == "IND"
+    assert detail.win_probability is not None
+    seconds = [p.elapsed_seconds for p in detail.win_probability]
+    assert len(seconds) == 4
+    assert seconds == sorted(seconds)
+    assert seconds[0] == 0
+    recorded_clock = 720 - (3 * 60 + 42)
+    assert max(seconds) <= recorded_clock
+    assert detail.season_series is not None
+    assert detail.season_series.games == []
 
 
 @pytest.mark.anyio
