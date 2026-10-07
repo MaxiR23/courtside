@@ -342,6 +342,25 @@
       "title": "DetailTeamStats",
       "type": "object"
     },
+    "GamePeriod": {
+      "additionalProperties": false,
+      "properties": {
+        "number": {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        "startElapsedSeconds": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "number",
+        "startElapsedSeconds"
+      ],
+      "title": "GamePeriod",
+      "type": "object"
+    },
     "GameResult": {
       "enum": [
         "win",
@@ -960,6 +979,28 @@
       "title": "Video",
       "type": "object"
     },
+    "WinProbabilityPeriods": {
+      "additionalProperties": false,
+      "properties": {
+        "periods": {
+          "items": {
+            "$ref": "#/$defs/GamePeriod"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "endElapsedSeconds": {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "periods",
+        "endElapsedSeconds"
+      ],
+      "title": "WinProbabilityPeriods",
+      "type": "object"
+    },
     "WinProbabilityPoint": {
       "additionalProperties": false,
       "properties": {
@@ -1121,6 +1162,17 @@
       ],
       "default": null
     },
+    "winProbabilityPeriods": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/WinProbabilityPeriods"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
     "injuries": {
       "anyOf": [
         {
@@ -1225,6 +1277,7 @@
     "stars",
     "boxScore",
     "winProbability",
+    "winProbabilityPeriods",
     "injuries",
     "lastGames",
     "standings",

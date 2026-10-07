@@ -291,7 +291,17 @@ function winProbabilitySection(feed: GameDetailFeed): WinProbabilitySection {
 		points: points.map((p) => ({
 			elapsedSeconds: p.elapsedSeconds,
 			homeWinProbability: p.homeWinProbability
-		}))
+		})),
+		boundaries:
+			feed.winProbabilityPeriods === null
+				? null
+				: {
+						periods: feed.winProbabilityPeriods.periods.map((p) => ({
+							label: periodLabel(p.number),
+							start: p.startElapsedSeconds
+						})),
+						end: feed.winProbabilityPeriods.endElapsedSeconds
+					}
 	};
 }
 

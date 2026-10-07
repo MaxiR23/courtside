@@ -4,9 +4,11 @@
 	import {
 		CHART_HEIGHT,
 		CHART_WIDTH,
+		domain,
+		gridlines,
 		markerPosition,
+		periodLabels,
 		segments,
-		span,
 		xScale
 	} from '#lib/game/win-probability.ts';
 	import { m } from '#lib/paraglide/messages.js';
@@ -17,8 +19,11 @@
 	let { chart }: Props = $props();
 
 	const segs = $derived(segments(chart.points));
-	const scale = $derived(xScale(span(chart.points)));
-	const marker = $derived(markerPosition(chart.points));
+	const domainSeconds = $derived(domain(chart.points, chart.boundaries));
+	const scale = $derived(xScale(domainSeconds));
+	const marker = $derived(markerPosition(chart.points, domainSeconds));
+	const lines = $derived(chart.boundaries ? gridlines(chart.boundaries) : []);
+	const labels = $derived(chart.boundaries ? periodLabels(chart.boundaries) : []);
 	const middle = CHART_HEIGHT / 2;
 </script>
 
@@ -36,6 +41,9 @@
 				role="img"
 				aria-label={m.game_section_win_probability()}
 			>
+				{#each lines as x (x)}
+					<line class="gridline" x1={x} y1="0" x2={x} y2={CHART_HEIGHT} />
+				{/each}
 				<line class="midline" x1="0" y1={middle} x2={CHART_WIDTH} y2={middle} />
 				<g class="series" transform="scale({scale} 1)">
 					{#each segs as s, i (i)}
@@ -58,6 +66,13 @@
 				aria-hidden="true"
 			></span>
 		</div>
+		{#if labels.length > 0}
+			<div class="periods">
+				{#each labels as l (l.label)}
+					<span style:left="{l.center * 100}%">{l.label}</span>
+				{/each}
+			</div>
+		{/if}
 	</div>
 </BlueprintFrame>
 
@@ -92,6 +107,25 @@
 		stroke: var(--win-prob-midline);
 		stroke-dasharray: var(--win-prob-dash);
 		vector-effect: non-scaling-stroke;
+	}
+
+	.gridline {
+		stroke: var(--color-row-rule);
+		vector-effect: non-scaling-stroke;
+	}
+
+	.periods {
+		grid-column: 2;
+		position: relative;
+		height: var(--game-list-gap);
+		font-size: var(--label-size);
+		letter-spacing: var(--label-letter-spacing);
+		color: var(--color-muted);
+	}
+
+	.periods span {
+		position: absolute;
+		translate: -50% 0;
 	}
 
 	.area {

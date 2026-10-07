@@ -116,6 +116,30 @@ class WinProbabilityPoint(FeedModel):
     home_win_probability: Percentage
 
 
+class GamePeriod(FeedModel):
+    number: PositiveInt
+    start_elapsed_seconds: NonNegativeInt
+
+
+class WinProbabilityPeriods(FeedModel):
+    periods: Annotated[list[GamePeriod], Field(min_length=1)]
+    end_elapsed_seconds: PositiveInt
+
+    @model_validator(mode="after")
+    def _require_consecutive_periods(self) -> WinProbabilityPeriods:
+        numbers = [period.number for period in self.periods]
+        if numbers != list(range(1, len(numbers) + 1)):
+            raise ValueError("periods must be numbered 1, 2, 3 and so on in order")
+        if self.periods[0].start_elapsed_seconds != 0:
+            raise ValueError("the first period must start at 0")
+        for earlier, later in pairwise(self.periods):
+            if later.start_elapsed_seconds <= earlier.start_elapsed_seconds:
+                raise ValueError("period starts must increase")
+        if self.end_elapsed_seconds <= self.periods[-1].start_elapsed_seconds:
+            raise ValueError("the game end must be after the last period start")
+        return self
+
+
 class InjuryStatus(StrEnum):
     OUT = "out"
     DOUBTFUL = "doubtful"
@@ -231,6 +255,7 @@ class GameDetailFeed(FeedModel):
     win_probability: (
         Annotated[list[WinProbabilityPoint], Field(min_length=1)] | None
     ) = None
+    win_probability_periods: WinProbabilityPeriods | None = None
     injuries: Injuries | None = None
     last_games: LastGames | None = None
     standings: Standings | None = None
@@ -256,6 +281,17 @@ class GameDetailFeed(FeedModel):
             raise ValueError(f"a {self.status} game has no winner")
         if self.winner not in (self.away.code, self.home.code):
             raise ValueError("winner must be the away or the home team code")
+        return self
+
+    @model_validator(mode="after")
+    def _require_points_within_the_periods(self) -> GameDetailFeed:
+        if self.win_probability_periods is None:
+            return self
+        if self.win_probability is None:
+            raise ValueError("win probability periods require win probability")
+        end = self.win_probability_periods.end_elapsed_seconds
+        if any(point.elapsed_seconds > end for point in self.win_probability):
+            raise ValueError("a win probability point must not be after the game end")
         return self
 
     @model_validator(mode="after")

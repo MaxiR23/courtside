@@ -14,6 +14,7 @@
 # - Maps a recorded scheduled game and a recorded final game to their detail sections: venue, box score, team stats, win probability, injuries, season series and videos
 # - Maps recorded videos with their duration as text
 # - Places each win probability point at its elapsed game seconds, in regulation and overtime, and drops a point that cannot be placed
+# - Publishes each period's start and the game end from the game format and the plays' period numbers, and none without win probability
 # - Marks the leading side of each team stat row: the lower value leads turnovers and a tie has no leader
 # - Drops players without a stat line, splits made and attempted shots, reads plus-minus with its sign and builds photo URLs from the template
 # - Counts the series wins of the away and home team and dates series games on the US Eastern day
@@ -34,7 +35,8 @@
 # plays keep the first three of each period and the last play of the game.
 # No live summary was recorded yet, so there is no live summary fixture. One
 # win probability entry of summary-final.json was given a play id that matches
-# no play, to cover the dropped point.
+# no play, to cover the dropped point. No overtime summary was recorded: the
+# overtime cases edit summary-final.json in the test.
 #
 # Run with: cd api && .venv/bin/python -m pytest tests/sources/test_game_detail.py
 #
@@ -595,6 +597,7 @@ async def test_maps_a_recorded_scheduled_game_to_its_venue_injuries_and_series_w
     assert detail.box_score is None
     assert detail.team_stats is None
     assert detail.win_probability is None
+    assert detail.win_probability_periods is None
     assert detail.injuries is not None
     assert [i.display_name for i in detail.injuries.away] == ["Donte DiVincenzo"]
     assert [i.status.value for i in detail.injuries.away] == ["out"]
@@ -618,6 +621,7 @@ async def test_maps_a_recorded_final_game_to_its_detail_sections(
 
     assert (detail.venue.name, detail.venue.city) == ("TD Garden", "Boston")
     assert str(detail.venue.photo_url) == "https://example.com/61"
+    assert detail.win_probability_periods is not None
     assert detail.box_score is not None
     home, away = detail.box_score.home.totals, detail.box_score.away.totals
     assert (home.points, home.field_goals_made, home.field_goals_attempted) == (
@@ -718,6 +722,109 @@ async def test_returns_no_win_probability_when_no_point_can_be_placed(
     detail = await sections_of(mock, settings, payload)
 
     assert detail.win_probability is None
+    assert detail.win_probability_periods is None
+
+
+def starts_of(detail: GameDetailSections) -> list[tuple[int, int]]:
+    assert detail.win_probability_periods is not None
+    return [
+        (p.number, p.start_elapsed_seconds)
+        for p in detail.win_probability_periods.periods
+    ]
+
+
+def play_overtimes(payload: Payload) -> None:
+    matched = [
+        w["playId"]
+        for w in payload["winprobability"]
+        if w["playId"] in {p["id"] for p in payload["plays"]}
+    ]
+    for play_id, period in ((matched[1], 5), (matched[2], 6)):
+        play = next(p for p in payload["plays"] if p["id"] == play_id)
+        play["period"]["number"] = period
+        play["clock"]["displayValue"] = "4:00"
+
+
+@pytest.mark.anyio
+async def test_publishes_every_regulation_period_start_and_the_game_end_from_the_format(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    detail = await sections_of(mock, settings, load("summary-final.json"))
+
+    assert starts_of(detail) == [(1, 0), (2, 720), (3, 1440), (4, 2160)]
+    assert detail.win_probability_periods is not None
+    assert detail.win_probability_periods.end_elapsed_seconds == 2880
+
+    payload = load("summary-final.json")
+    payload["format"]["regulation"]["clock"] = 600
+    mock.get(URL).respond(json=payload)
+    shorter = await fetch_sections(settings)
+
+    assert starts_of(shorter) == [(1, 0), (2, 600), (3, 1200), (4, 1800)]
+    assert shorter.win_probability_periods is not None
+    assert shorter.win_probability_periods.end_elapsed_seconds == 2400
+
+
+@pytest.mark.anyio
+async def test_adds_one_period_per_overtime_played_from_the_play_periods(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("summary-final.json")
+    play_overtimes(payload)
+
+    detail = await sections_of(mock, settings, payload)
+
+    assert starts_of(detail) == [
+        (1, 0),
+        (2, 720),
+        (3, 1440),
+        (4, 2160),
+        (5, 2880),
+        (6, 3180),
+    ]
+    assert detail.win_probability_periods is not None
+    assert detail.win_probability_periods.end_elapsed_seconds == 3480
+
+    payload["format"]["overtime"]["clock"] = 600
+    mock.get(URL).respond(json=payload)
+    longer = await fetch_sections(settings)
+
+    assert starts_of(longer)[4:] == [(5, 2880), (6, 3480)]
+    assert longer.win_probability_periods is not None
+    assert longer.win_probability_periods.end_elapsed_seconds == 4080
+
+
+@pytest.mark.anyio
+async def test_keeps_regulation_periods_when_no_play_reached_the_last_quarter(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("summary-final.json")
+    for index, play in enumerate(payload["plays"]):
+        play["period"]["number"] = 1 + index % 2
+
+    detail = await sections_of(mock, settings, payload)
+
+    assert starts_of(detail) == [(1, 0), (2, 720), (3, 1440), (4, 2160)]
+    assert detail.win_probability is not None
+    assert detail.win_probability_periods is not None
+    end = detail.win_probability_periods.end_elapsed_seconds
+    assert end == 2880
+    assert all(p.elapsed_seconds <= end for p in detail.win_probability)
+
+
+@pytest.mark.anyio
+async def test_publishes_no_periods_without_win_probability(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("summary-final.json")
+    payload["plays"] = []
+    detail = await sections_of(mock, settings, payload)
+
+    assert detail.win_probability_periods is None
+
+    scheduled = load("summary-scheduled.json")
+    mock.get(URL).respond(json=scheduled)
+    assert (await fetch_sections(settings)).win_probability_periods is None
 
 
 @pytest.mark.anyio

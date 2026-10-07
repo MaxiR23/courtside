@@ -9,6 +9,8 @@
 # - A winner must be one of the teams and only a final game has one
 # - A stat leader must be one of the teams; a tie is a null leader
 # - Last games: at most five, newest first, may be empty
+# - Win probability periods: numbered from 1, start at 0, increase, and
+#   bound every win probability point; they require win probability
 # - Injury status, win probability, UTC time and unknown fields are validated
 # - Serialization uses camelCase keys
 #
@@ -35,6 +37,7 @@ OPTIONAL_SECTIONS = [
     "stars",
     "boxScore",
     "winProbability",
+    "winProbabilityPeriods",
     "injuries",
     "lastGames",
     "standings",
@@ -203,6 +206,13 @@ def full_game() -> Payload:
         stars=pair(star("AAA"), star("HHH")),
         boxScore=pair(box_team(), box_team()),
         winProbability=[{"elapsedSeconds": 0, "homeWinProbability": 0.5}],
+        winProbabilityPeriods={
+            "periods": [
+                {"number": 1, "startElapsedSeconds": 0},
+                {"number": 2, "startElapsedSeconds": 10},
+            ],
+            "endElapsedSeconds": 20,
+        },
         injuries=pair(
             [{"displayName": "A B", "status": "out", "comment": "Knee"}],
             [],
@@ -241,6 +251,8 @@ def without(payload: Payload, key: str) -> Payload:
         del result["venue"]["photoUrl"]
     else:
         del result[key]
+    if key == "winProbability":
+        del result["winProbabilityPeriods"]  # periods require the points
     return result
 
 
@@ -376,6 +388,86 @@ def test_rejects_a_win_probability_above_one() -> None:
 
     with pytest.raises(ValidationError):
         GameDetailFeed.model_validate(valid_game("final", winProbability=[point]))
+
+
+def periods_game(**periods: Any) -> Payload:
+    game = full_game()
+    game["winProbabilityPeriods"].update(periods)
+    return game
+
+
+def test_accepts_win_probability_periods_with_points_inside_the_game() -> None:
+    game = full_game()
+    game["winProbability"].append({"elapsedSeconds": 20, "homeWinProbability": 0.6})
+
+    feed = GameDetailFeed.model_validate(game)
+
+    assert feed.win_probability_periods is not None
+    assert [p.number for p in feed.win_probability_periods.periods] == [1, 2]
+    assert feed.win_probability_periods.end_elapsed_seconds == 20
+
+
+def test_rejects_periods_not_numbered_one_by_one_from_one() -> None:
+    for numbers in ([2, 3], [1, 3], [2, 1]):
+        periods = [
+            {"number": n, "startElapsedSeconds": i * 10} for i, n in enumerate(numbers)
+        ]
+        with pytest.raises(ValidationError, match="numbered"):
+            GameDetailFeed.model_validate(periods_game(periods=periods))
+
+
+def test_rejects_a_first_period_that_does_not_start_at_zero() -> None:
+    periods = [
+        {"number": 1, "startElapsedSeconds": 5},
+        {"number": 2, "startElapsedSeconds": 10},
+    ]
+
+    with pytest.raises(ValidationError, match="start at 0"):
+        GameDetailFeed.model_validate(periods_game(periods=periods))
+
+
+def test_rejects_period_starts_that_do_not_increase() -> None:
+    periods = [
+        {"number": 1, "startElapsedSeconds": 0},
+        {"number": 2, "startElapsedSeconds": 10},
+        {"number": 3, "startElapsedSeconds": 10},
+    ]
+
+    with pytest.raises(ValidationError, match="increase"):
+        GameDetailFeed.model_validate(periods_game(periods=periods))
+
+
+def test_rejects_a_game_end_not_after_the_last_period_start() -> None:
+    with pytest.raises(ValidationError, match="after the last period start"):
+        GameDetailFeed.model_validate(periods_game(endElapsedSeconds=10))
+
+
+def test_rejects_win_probability_periods_without_win_probability() -> None:
+    game = full_game()
+    del game["winProbability"]
+
+    with pytest.raises(ValidationError, match="require win probability"):
+        GameDetailFeed.model_validate(game)
+
+
+def test_rejects_a_win_probability_point_after_the_game_end() -> None:
+    game = full_game()
+    game["winProbability"].append({"elapsedSeconds": 21, "homeWinProbability": 0.6})
+
+    with pytest.raises(ValidationError, match="after the game end"):
+        GameDetailFeed.model_validate(game)
+
+
+def test_serializes_win_probability_periods_with_camel_case_keys() -> None:
+    dumped = GameDetailFeed.model_validate(full_game()).model_dump(mode="json")
+
+    assert dumped["winProbabilityPeriods"] == {
+        "periods": [
+            {"number": 1, "startElapsedSeconds": 0},
+            {"number": 2, "startElapsedSeconds": 10},
+        ],
+        "endElapsedSeconds": 20,
+    }
 
 
 def test_rejects_a_start_time_not_in_utc() -> None:

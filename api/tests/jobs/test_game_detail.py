@@ -5,6 +5,7 @@
 # Tested:
 # - Builds a scheduled game with records, standings, injuries and last games
 # - Builds a final game with its winner, box score and season series
+# - Carries the win probability periods of the sections into the feed, or null
 # - Takes each series arena from the team schedules and this game's venue
 # - Lists no injuries for a team absent from the league injuries
 # - Puts null highlights when the game has none
@@ -251,6 +252,32 @@ def test_builds_a_final_game_with_its_winner_box_score_and_season_series() -> No
     assert feed.winner == "BOS"
     assert feed.season_series is not None
     assert feed.season_series.games[0].arena == "Garden"
+    assert feed.win_probability_periods is None
+
+
+def test_builds_a_final_game_with_its_win_probability_periods() -> None:
+    found = GameDetailSections.model_validate(
+        {
+            "venue": VENUE,
+            "win_probability": [{"elapsed_seconds": 5, "home_win_probability": 0.5}],
+            "win_probability_periods": {
+                "periods": [
+                    {"number": 1, "start_elapsed_seconds": 0},
+                    {"number": 2, "start_elapsed_seconds": 10},
+                ],
+                "end_elapsed_seconds": 20,
+            },
+        }
+    )
+
+    feed = build(game("1", GameStatus.FINAL), found, away_schedule=schedule())
+
+    assert feed.win_probability_periods is not None
+    assert feed.win_probability_periods.end_elapsed_seconds == 20
+    assert [p.start_elapsed_seconds for p in feed.win_probability_periods.periods] == [
+        0,
+        10,
+    ]
 
 
 def test_takes_each_series_arena_from_the_team_schedules_and_this_games_venue() -> None:

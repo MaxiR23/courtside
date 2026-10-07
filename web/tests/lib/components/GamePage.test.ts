@@ -219,7 +219,8 @@ const full: GameSections = {
 		points: [
 			{ elapsedSeconds: 0, homeWinProbability: 0.5 },
 			{ elapsedSeconds: 60, homeWinProbability: 0.68 }
-		]
+		],
+		boundaries: null
 	},
 	boxScore: {
 		away: { code: 'LAL', name: 'Lakers', starters: [row], bench: [], totals },

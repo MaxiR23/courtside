@@ -131,6 +131,7 @@ def build_game_detail_feed(
         "team_stats": sections.team_stats,
         "box_score": sections.box_score,
         "win_probability": sections.win_probability,
+        "win_probability_periods": sections.win_probability_periods,
         "videos": sections.videos,
         "away": {
             **game.away.model_dump(by_alias=False),
