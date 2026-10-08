@@ -17,6 +17,7 @@
 # - Wires the stars and highlights providers and the stars readiness check into the games job
 # - Wires the games job, the feed cache, stars and highlights into the game detail feeds
 # - Wires presence and the after-run hook into the games job
+# - Wires the team and player feed kinds into the feed cache, the player feeds into app.state, and the cleanup into the stars job's after-run hook
 # - Closes the HTTP client when the scheduler fails to stop
 #
 # What is covered:
@@ -41,6 +42,7 @@ from app import main
 from app.jobs.game_detail_feed import GameDetailFeeds
 from app.jobs.games import GamesJob
 from app.jobs.highlights import HighlightsJob
+from app.jobs.player_feed import PlayerFeeds
 from app.jobs.presence import Presence
 from app.jobs.scheduler import Scheduler
 from app.jobs.stars import StarsJob
@@ -315,6 +317,46 @@ def test_wires_presence_and_the_after_run_hook_into_the_games_job(
         kwargs["after_run"]()
 
     assert built["detail"].hook_calls == 1
+
+
+def test_wires_the_team_and_player_feed_kinds_and_the_cleanup_into_the_stars_job(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    built: dict[str, Any] = {}
+
+    class RecordingStars(StarsJob):
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            super().__init__(*args, **kwargs)
+            built["stars"] = self
+            built["stars_kwargs"] = kwargs
+
+    class RecordingPlayers(PlayerFeeds):
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            super().__init__(*args, **kwargs)
+            built["players"] = self
+            built["players_args"] = args
+            self.cleanups = 0
+
+        def after_stars_run(self) -> None:
+            self.cleanups += 1
+
+    monkeypatch.setattr(main, "StarsJob", RecordingStars)
+    monkeypatch.setattr(main, "PlayerFeeds", RecordingPlayers)
+    app = create_app(
+        Settings(_env_file=None, data_dir=tmp_path),  # type: ignore[call-arg]
+        run_jobs=False,
+    )
+
+    with TestClient(app):
+        assert {"teams", "players", "games"} <= set(app.state.feed_cache._kinds)
+        assert app.state.player_feeds is built["players"]
+        args = built["players_args"]
+        assert args[3] is app.state.feed_cache
+        assert args[4] is app.state.games_job
+        assert args[5] is built["stars"]
+        built["stars_kwargs"]["after_run"]()
+
+    assert built["players"].cleanups == 1
 
 
 def test_closes_the_http_client_when_the_scheduler_fails_to_stop(

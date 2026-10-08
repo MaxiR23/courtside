@@ -2,7 +2,8 @@
 #
 # On-demand feed cache: builds a feed when it is requested, serves the stored feed when it is fresh,
 # and rebuilds a stale one in the background. The clock and the wait are injected so tests run without real time.
-# It must only be used from async code in the event loop.
+# It must only be used from async code in the event loop. A kind may depend on another feed: that feed is
+# built first when missing or stale, before the build takes one of the build slots.
 #
 # SEE: docs/source-rules.md, docs/adr/0020-source-rules.md
 
@@ -60,6 +61,7 @@ class FeedKind[M: BaseModel]:
         keep: Callable[[str], bool],
         serve_with: Callable[[str, M], M] | None = None,
         wait_when_stale: Callable[[str], bool] | None = None,
+        depends_on: Callable[[str], tuple[str, str] | None] | None = None,
     ) -> None:
         self.name = name
         self.model = model
@@ -69,6 +71,7 @@ class FeedKind[M: BaseModel]:
         self.keep = keep
         self.serve_with = serve_with
         self.wait_when_stale = wait_when_stale
+        self.depends_on = depends_on
 
 
 class FeedCache:
@@ -209,7 +212,55 @@ class FeedCache:
         task.add_done_callback(done)
         return task
 
+    def _stored_model(self, kind: FeedKind[Any], feed_id: str) -> BaseModel | None:
+        body = read_by_id(self._data_dir, kind.name, feed_id)
+        if body is None:
+            return None
+        try:
+            return kind.model.model_validate_json(body)  # type: ignore[no-any-return]
+        except ValidationError:
+            return None
+
+    async def _ensure(self, kind_name: str, feed_id: str) -> None:
+        """Makes the feed fresh before a build that reads it; a failure leaves it as stored."""
+        kind = self._kinds[kind_name]
+        if kind.check(feed_id) is not IdStatus.KNOWN:
+            return
+        task = self.in_flight.get((kind_name, feed_id))
+        if task is None:
+            now = self._clock()
+            state = self._store.feed_build(kind_name, feed_id)
+            feed = self._stored_model(kind, feed_id)
+            last_build = state.last_build if state else None
+            if (
+                feed is not None
+                and last_build is not None
+                and kind.is_fresh(feed, last_build, now)
+            ):
+                return
+            if (
+                state is not None
+                and state.last_failure is not None
+                and now - state.last_failure < RETRY_AFTER
+            ):
+                return
+            task = self._start(kind, feed_id)
+        await asyncio.shield(task)
+
     async def _build(self, kind: FeedKind[Any], feed_id: str) -> bool:
+        if kind.depends_on is not None:
+            try:
+                pair = kind.depends_on(feed_id)
+                if pair is not None:
+                    await self._ensure(*pair)
+            except Exception as error:  # noqa: BLE001 - a failed build must never escape
+                self._store.record_build_failure(
+                    kind.name,
+                    feed_id,
+                    self._clock(),
+                    f"unexpected error: {type(error).__name__}",
+                )
+                return False
         async with self._builds:
             started = self._clock()
             reason: str

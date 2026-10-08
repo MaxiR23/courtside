@@ -19,12 +19,26 @@
 # - Gives null averages for a row with no games
 # - Builds the milestones from the newest season and the career
 # - Takes the injury from the league injuries by athlete id
-# - Gives the team's next game, or none when the season is over
+# - Takes the next game it is given, or none when the season is over
 # - Fails the build for a player not on the roster, without a position, or with a team without a standing
 # - Builds a valid player feed from the recorded payloads
+# - The live block is none with no live game or a game missing its period, clock or score, carries the game from the team's side and the player's box score line, and has a null line when the detail is missing, has no box score or does not list him
+# - Sets detailAvailable exactly for the ids given on the next game, last games and game log
+# - The kind: before every roster is fetched a request answers unavailable, after it an id in no roster answers unknown, with no source request
+# - The kind: no player or team feed is built, stored or fetched by stars runs, games runs and the cleanup without a request
+# - The kind: a request builds the team feed first when it is missing or stale, then the player, and stores both
+# - The kind: a fresh stored team feed is reused with no roster, schedule or team info request and its next game is the player's
+# - The kind: a stale team whose rebuild fails is used as stored, and a missing team whose build fails fails the player build
+# - The kind: a failed rebuild of a stale player feed keeps and serves the stored feed
+# - The kind: a player feed is fresh before a final game of its team plus 1 hour and before 7 days, and stale at either
+# - The kind: live is added when served from the team's live game, with the line from the stored detail feed, and is never stored
+# - The kind: a live player request refreshes the game and serves its detail feed within the wait, and makes no request for an unknown id
+# - The kind: detailAvailable is true exactly for the games inside the days shown when served
+# - The kind: after a stars run the cleanup deletes the feeds of players on no roster with no source request, and nothing while the rosters are not all fetched
 #
 # What is covered:
 # - Pure conversions: happy path, edges and errors; the built feed validates
+# - Feed kind: success publishes a valid feed, failure keeps the last valid feed, dependency, expiry and cleanup edges
 #
 # Run with: cd api && .venv/bin/python -m pytest tests/jobs/test_player_feed.py
 #
@@ -40,28 +54,50 @@ from typing import Any
 import pytest
 import respx
 
-from app.feeds.game_detail import Conference, GameResult, Injury, InjuryStatus
-from app.feeds.player import GameKind, PlayerFeed, TagKind
+from app.feeds.game_detail import (
+    Conference,
+    GameDetailFeed,
+    GameResult,
+    Injury,
+    InjuryStatus,
+)
+from app.feeds.games import GameStatus, Star
+from app.feeds.player import GameKind, NextGame, PlayerFeed, TagKind
+from app.jobs import game_detail_feed
+from app.jobs.on_demand import (
+    FeedKind,
+    FeedUnavailableError,
+    IdStatus,
+    UnknownFeedError,
+)
 from app.jobs.player_feed import (
+    KIND,
     PlayerBuildError,
+    PlayerFeeds,
     averages,
     awards,
     build_player_feed,
     game_log,
     height,
+    live_block,
     made_attempted,
     milestones,
     percentage,
     season_split,
     weight,
+    with_player_detail,
 )
+from app.jobs.stars import RETRY, StarsJob
+from app.jobs.team_feed import FEED_LIFETIME, next_game
+from app.jobs.team_feed import KIND as TEAM_KIND
 from app.settings import Settings
 from app.sources.division_standings import (
     DivisionEntry,
     DivisionStandings,
     fetch_division_standings,
 )
-from app.sources.http import create_client
+from app.sources.game_detail import GameDetailSections
+from app.sources.http import SourceClient, SourceError, create_client
 from app.sources.league_injuries import (
     InjuryReport,
     LeagueInjuries,
@@ -81,13 +117,34 @@ from app.sources.player_stats import (
     StatLine,
     fetch_player_stats,
 )
-from app.sources.team_players import Roster, RosterEntry, fetch_roster
+from app.sources.scoreboard import ScoreboardGame
+from app.sources.team_players import (
+    PlayerAverages,
+    Roster,
+    RosterEntry,
+    fetch_roster,
+)
 from app.sources.team_schedule import (
     ScheduledGame,
     SeasonSchedule,
     fetch_season_schedule,
 )
+from app.sources.teams import TEAM_CODES
+from app.storage.feeds import publish_by_id, read_by_id
 from app.storage.state import StateStore
+from tests.jobs.test_game_detail_feed import TEAM_STATS, VENUE
+from tests.jobs.test_game_detail_feed import build as build_detail
+from tests.jobs.test_game_detail_feed import standings as detail_standings
+from tests.jobs.test_team_feed import (
+    DAY,
+    HOUR,
+    SECOND,
+    TODAY,
+    TeamKit,
+    scoreboard,
+)
+from tests.jobs.test_team_feed import game as scheduled_game
+from tests.jobs.test_team_feed import season as schedule_of
 
 FIXTURES = Path(__file__).parent.parent / "sources" / "fixtures"
 NOW = dt.datetime(2026, 10, 8, 15, 0, tzinfo=dt.UTC)
@@ -312,7 +369,7 @@ def build(
     *,
     team_roster: Roster | None = None,
     league: LeagueInjuries | None = None,
-    regular: SeasonSchedule | None = None,
+    upcoming: NextGame | None = None,
     draft: DraftPick | None = None,
     summary: PlayerBio | None = None,
     provided_awards: list[ProviderAward] | None = None,
@@ -329,8 +386,7 @@ def build(
         team_roster or roster(),
         standings(),
         league or LeagueInjuries(teams={}),
-        regular or SeasonSchedule(games=[]),
-        SeasonSchedule(games=[]),
+        upcoming,
         summary,
         draft,
         provided_awards or [],
@@ -697,12 +753,14 @@ def test_gives_no_injury_for_a_report_without_a_date() -> None:
     assert build(league=league).injury is None
 
 
-def test_gives_the_teams_next_game_or_none_when_the_season_is_over() -> None:
-    upcoming = build(
-        regular=SeasonSchedule(games=[future("g9")]),
-        detail_ids=frozenset({"g9"}),
-    ).next_game
-    over = build(regular=SeasonSchedule(games=[])).next_game
+def test_takes_the_next_game_it_is_given_or_none_when_the_season_is_over() -> None:
+    given = next_game(
+        SeasonSchedule(games=[future("g9")]),
+        SeasonSchedule(games=[]),
+        frozenset({"g9"}),
+    )
+    upcoming = build(upcoming=given).next_game
+    over = build(upcoming=None).next_game
 
     assert upcoming is not None
     assert (upcoming.game_id, upcoming.opponent, upcoming.detail_available) == (
@@ -760,8 +818,7 @@ def test_fails_the_build_when_the_team_has_no_standing() -> None:
             roster(),
             standings(),
             LeagueInjuries(teams={}),
-            SeasonSchedule(games=[]),
-            SeasonSchedule(games=[]),
+            None,
             None,
             None,
             [],
@@ -869,8 +926,7 @@ async def test_builds_a_valid_player_feed_from_the_recorded_payloads(
         team_roster,
         division,
         league,
-        regular,
-        playoffs,
+        next_game(regular, playoffs, frozenset({"401809243"})),
         summary,
         draft,
         provided,
@@ -901,3 +957,634 @@ async def test_builds_a_valid_player_feed_from_the_recorded_payloads(
     assert [award.name for award in feed.awards][:2] == ["MVP", "All-NBA 1st Team"]
     assert feed.awards[0].count == 2
     assert feed.next_game is not None
+
+
+# The live block and the detail availability
+
+
+def box_line(player_id: str) -> dict[str, Any]:
+    zero = dict.fromkeys(
+        (
+            "points",
+            "field_goals_made",
+            "field_goals_attempted",
+            "three_points_made",
+            "three_points_attempted",
+            "free_throws_made",
+            "free_throws_attempted",
+            "offensive_rebounds",
+            "defensive_rebounds",
+            "rebounds",
+            "assists",
+            "turnovers",
+            "steals",
+            "blocks",
+            "fouls",
+        ),
+        0,
+    )
+    return {
+        **zero,
+        "player_id": player_id,
+        "display_name": "A B",
+        "starter": True,
+        "minutes": "12",
+        "plus_minus": 3,
+        "photo_url": "https://example.com/p.png",
+    }
+
+
+def box_side(*player_ids: str) -> dict[str, Any]:
+    totals = {**box_line("x"), "field_goal_pct": 0.5}
+    for key in (
+        "player_id",
+        "display_name",
+        "starter",
+        "minutes",
+        "plus_minus",
+        "photo_url",
+    ):
+        del totals[key]
+    totals.update(three_point_pct=0.4, free_throw_pct=0.8)
+    return {"players": [box_line(i) for i in player_ids], "totals": totals}
+
+
+def live_game(home: str = "OKC", away: str = "SAS") -> ScoreboardGame:
+    return scoreboard("L1", GameStatus.LIVE, NOW - HOUR, away=away, home=home)
+
+
+def detail_of(
+    game: ScoreboardGame, home_ids: tuple[str, ...], away_ids: tuple[str, ...] = ()
+) -> GameDetailFeed:
+    """A live game detail feed of the game with a box score listing the given players."""
+    detail = GameDetailSections.model_validate(
+        {
+            "venue": VENUE,
+            "team_stats": TEAM_STATS,
+            "box_score": {"away": box_side(*away_ids), "home": box_side(*home_ids)},
+        }
+    )
+    return build_detail(
+        game,
+        detail,
+        league_standings=detail_standings(game.away.code, game.home.code),
+    )
+
+
+def test_live_block_is_none_with_no_live_game_and_when_the_game_lacks_a_field() -> None:
+    game = live_game()
+
+    assert live_block("OKC", "1", None, None) is None
+    for field in ("period", "clock", "score"):
+        assert (
+            live_block("OKC", "1", game.model_copy(update={field: None}), None) is None
+        )
+
+
+def test_live_block_carries_the_game_from_the_teams_side_and_the_players_line() -> None:
+    game = live_game()
+    detail = detail_of(game, ("1",), ("9",))
+
+    home = live_block("OKC", "1", game, detail)
+    away = live_block("SAS", "9", game, detail)
+
+    assert home is not None and away is not None
+    assert (home.game_id, home.opponent, home.is_home) == ("L1", "SAS", True)
+    assert (home.period, home.clock) == (2, "5:00")
+    assert (home.team_score, home.opponent_score) == (38, 40)
+    assert home.line is not None and home.line.player_id == "1"
+    assert (away.opponent, away.is_home) == ("OKC", False)
+    assert (away.team_score, away.opponent_score) == (40, 38)
+    assert away.line is not None and away.line.player_id == "9"
+
+
+def test_live_block_has_a_null_line_when_the_detail_is_missing_has_no_box_score_or_does_not_list_him() -> (
+    None
+):
+    game = live_game()
+    without_box = detail_of(game, ("1",)).model_copy(update={"box_score": None})
+
+    assert live_block("OKC", "1", game, None) is not None
+    assert live_block("OKC", "1", game, None).line is None  # type: ignore[union-attr]
+    assert live_block("OKC", "1", game, without_box).line is None  # type: ignore[union-attr]
+    assert live_block("OKC", "1", game, detail_of(game, ("2",))).line is None  # type: ignore[union-attr]
+    assert live_block("OKC", "1", game, detail_of(game, (), ("1",))).line is None  # type: ignore[union-attr]
+
+
+def test_with_player_detail_sets_detail_availability_exactly_for_the_ids_given() -> (
+    None
+):
+    log = PlayerGameLog(
+        season="2025-26", games=[log_game("a", at_day(3)), log_game("b", at_day(2))]
+    )
+    next_up = next_game(
+        SeasonSchedule(games=[future("c")]), SeasonSchedule(games=[]), frozenset()
+    )
+    feed = build(log=log, upcoming=next_up)
+
+    served = with_player_detail(feed, frozenset({"a", "c"}))
+
+    assert served.next_game is not None and served.next_game.detail_available
+    assert {g.game_id: g.detail_available for g in served.last_games} == {
+        "a": True,
+        "b": False,
+    }
+    assert served.game_log is not None
+    assert {g.game_id: g.detail_available for g in served.game_log.entries} == {
+        "a": True,
+        "b": False,
+    }
+    assert with_player_detail(feed, frozenset()).next_game is not None
+
+
+# The kind
+
+
+class PlayerKit(TeamKit):
+    """The team kit plus the stars job, the player kind and a fake games kind."""
+
+    def __init__(self, path: Path) -> None:
+        super().__init__(path)
+        self.roster_errors: set[str] = set()
+        self.detail_builds = 0
+        self.detail_feeds: dict[str, GameDetailFeed] = {}
+        self.stars = StarsJob(
+            self.settings,
+            self.store,
+            self.client,
+            fetch_roster=self.stars_roster,
+            fetch_season_averages=self.stars_averages,
+            final_games=lambda: self.games.final_games(),
+            clock=lambda: self.clock[0],
+            after_run=lambda: self.players.after_stars_run(),
+        )
+        self.cache.register(
+            FeedKind(
+                game_detail_feed.KIND,
+                GameDetailFeed,
+                check=lambda _: IdStatus.KNOWN,
+                build=self.build_detail,
+                is_fresh=lambda feed, built_at, now: True,
+                keep=lambda _: True,
+            )
+        )
+        self.players = PlayerFeeds(
+            self.settings,
+            self.store,
+            self.client,
+            self.cache,
+            self.games,
+            self.stars,
+            self.teams,
+            fetch_roster=self.fetch_roster,
+            fetch_division_standings=self.fetch_division_standings,
+            fetch_league_injuries=self.fetch_league_injuries,
+            fetch_player_bio=self.fetch_bio,
+            fetch_player_draft=self.fetch_draft,
+            fetch_player_awards=self.fetch_awards,
+            fetch_player_gamelog=self.fetch_gamelog,
+            fetch_player_stats=self.fetch_stats,
+        )
+
+    async def build_detail(self, game_id: str) -> GameDetailFeed:
+        self.detail_builds += 1
+        if game_id not in self.detail_feeds:
+            raise SourceError("test", "no detail")
+        return self.detail_feeds[game_id]
+
+    def team_players(self, code: str) -> list[str]:
+        return ["1", "2"] if code == "OKC" else [f"{code}1", f"{code}2"]
+
+    async def stars_roster(
+        self, client: SourceClient, code: str, settings: Settings
+    ) -> Roster:
+        if code in self.roster_errors:
+            raise SourceError("test", f"roster {code} is down")
+        return Roster(
+            season=2027,
+            team_id=f"id-{code}",
+            players=[
+                Star.model_validate(
+                    {
+                        "player_id": player_id,
+                        "first_name": "A",
+                        "last_name": "B",
+                        "short_name": "A. B",
+                        "team_code": code,
+                        "photo_url": "https://example.com/p.png",
+                    }
+                )
+                for player_id in self.team_players(code)
+            ],
+        )
+
+    async def stars_averages(
+        self, client: SourceClient, team_id: str, season_year: int, settings: Settings
+    ) -> list[PlayerAverages]:
+        code = team_id.removeprefix("id-")
+        return [
+            PlayerAverages(player_id=i, points=10, rebounds=1, assists=1)
+            for i in self.team_players(code)
+        ]
+
+    async def fetch_roster(
+        self, client: SourceClient, team: str, settings: Settings
+    ) -> Roster:
+        await self.read(f"roster/{team}", dt.timedelta(hours=24))
+        return roster()
+
+    async def fetch_division_standings(
+        self, client: SourceClient, settings: Settings
+    ) -> DivisionStandings:
+        await self.read("standings", HOUR)
+        return standings()
+
+    async def fetch_bio(
+        self, client: SourceClient, player_id: str, settings: Settings
+    ) -> PlayerBio | None:
+        await self.read(f"bio/{player_id}", HOUR)
+        return bio()
+
+    async def fetch_draft(
+        self, client: SourceClient, player_id: str, settings: Settings
+    ) -> DraftPick | None:
+        await self.read(f"draft/{player_id}", HOUR)
+        return None
+
+    async def fetch_awards(
+        self, client: SourceClient, player_id: str, settings: Settings
+    ) -> list[ProviderAward]:
+        await self.read(f"awards/{player_id}", HOUR)
+        return []
+
+    async def fetch_gamelog(
+        self, client: SourceClient, player_id: str, settings: Settings
+    ) -> PlayerGameLog:
+        await self.read(f"gamelog/{player_id}", HOUR)
+        return PlayerGameLog(
+            season="2025-26",
+            games=[log_game("g1", at_day(2)), log_game("g9", at_day(1))],
+        )
+
+    async def fetch_stats(
+        self,
+        client: SourceClient,
+        player_id: str,
+        settings: Settings,
+        *,
+        playoffs: bool,
+    ) -> PlayerStats:
+        await self.read(f"stats/{player_id}/{playoffs}", HOUR)
+        return PlayerStats() if playoffs else stats()
+
+    async def run_stars(self, at: dt.datetime | None = None) -> None:
+        if at is not None:
+            self.clock[0] = at
+        await self.stars.run(self.clock[0])
+
+    async def serve_player(
+        self, player_id: str, at: dt.datetime | None = None
+    ) -> bytes:
+        if at is not None:
+            self.clock[0] = at
+        body = await self.cache.serve(KIND, player_id)
+        await self.settle()
+        return body
+
+    def stored_player(self, player_id: str) -> PlayerFeed | None:
+        body = read_by_id(self.path, KIND, player_id)
+        return None if body is None else PlayerFeed.model_validate_json(body)
+
+
+@pytest.fixture
+def kit(tmp_path: Path) -> Iterator[PlayerKit]:
+    with respx.mock:
+        yield PlayerKit(tmp_path)
+
+
+@pytest.mark.anyio
+async def test_before_every_roster_is_fetched_a_request_is_unavailable_and_after_it_an_unknown_id_is_unknown(
+    kit: PlayerKit,
+) -> None:
+    kit.roster_errors.add("BOS")
+    await kit.run_stars()
+
+    assert kit.players.check("1") is IdStatus.KNOWN
+    assert kit.players.check("nobody") is IdStatus.NOT_READY
+    with pytest.raises(FeedUnavailableError):
+        await kit.cache.serve(KIND, "nobody")
+    await kit.players.refresh_live("nobody", wait=1)
+    kit.roster_errors.clear()
+    await kit.run_stars(NOW + RETRY)
+    assert kit.players.check("nobody") is IdStatus.UNKNOWN
+    with pytest.raises(UnknownFeedError):
+        await kit.cache.serve(KIND, "nobody")
+    await kit.players.refresh_live("nobody", wait=1)
+
+    assert kit.requests == [] and kit.calls == []
+    assert kit.store.feed_build_ids(KIND) == set()
+
+
+@pytest.mark.anyio
+async def test_no_player_or_team_feed_is_built_stored_or_fetched_without_a_request(
+    kit: PlayerKit, tmp_path: Path
+) -> None:
+    kit.scoreboard[TODAY] = [live_game()]
+
+    await kit.run_stars()
+    await kit.run_games()
+    await kit.run_games(NOW + 31 * SECOND)
+    await kit.run_stars(NOW + DAY)
+    kit.cache.cleanup()
+    await kit.settle()
+
+    assert kit.requests == [] and kit.calls == []
+    assert not (tmp_path / "feeds" / KIND).exists()
+    assert not (tmp_path / "feeds" / TEAM_KIND).exists()
+    assert kit.store.feed_build_ids(KIND) == set()
+    assert kit.store.feed_build_ids(TEAM_KIND) == set()
+
+
+@pytest.mark.anyio
+async def test_a_request_with_no_stored_team_feed_builds_the_team_first_then_the_player(
+    kit: PlayerKit,
+) -> None:
+    await kit.run_stars()
+
+    body = await kit.serve_player("1")
+
+    assert PlayerFeed.model_validate_json(body).id == "1"
+    assert kit.calls.index("schedule/OKC/True") < kit.calls.index("bio/1")
+    assert kit.stored("okc") is not None
+    assert kit.stored_player("1") is not None
+    assert kit.last_build("okc") == kit.store.feed_build(KIND, "1").last_build  # type: ignore[union-attr]
+
+
+@pytest.mark.anyio
+async def test_a_fresh_stored_team_feed_is_reused_with_no_roster_schedule_or_info_request(
+    kit: PlayerKit,
+) -> None:
+    kit.regular = schedule_of(scheduled_game("g1"))
+    await kit.run_stars()
+    await kit.serve("okc")
+    kit.requests.clear()
+    kit.calls.clear()
+
+    body = await kit.serve_player("1", NOW + 30 * SECOND)
+
+    assert [
+        name for name in kit.requests if name.startswith(("roster", "schedule", "info"))
+    ] == []
+    assert not any(name.startswith(("schedule", "info")) for name in kit.calls)
+    team = kit.stored("okc")
+    assert team is not None and team.next_game is not None
+    served = PlayerFeed.model_validate_json(body)
+    assert served.next_game == team.next_game
+    assert kit.called("roster/OKC") == 1
+    assert kit.called("schedule/OKC/False") == 0
+
+
+@pytest.mark.anyio
+async def test_a_stale_team_feed_is_rebuilt_before_the_player(kit: PlayerKit) -> None:
+    await kit.run_stars()
+    await kit.serve("okc")
+    kit.calls.clear()
+
+    await kit.serve_player("1", NOW + FEED_LIFETIME)
+
+    assert kit.calls.index("info/OKC") < kit.calls.index("bio/1")
+    assert kit.last_build("okc") == NOW + FEED_LIFETIME
+
+
+@pytest.mark.anyio
+async def test_a_stale_team_whose_rebuild_fails_is_used_as_stored_by_the_player_build(
+    kit: PlayerKit,
+) -> None:
+    kit.regular = schedule_of(scheduled_game("g1"))
+    await kit.run_stars()
+    await kit.serve("okc")
+    kit.failing.add("info/OKC")
+
+    body = await kit.serve_player("1", NOW + FEED_LIFETIME)
+
+    assert PlayerFeed.model_validate_json(body).next_game is not None
+    assert kit.last_build("okc") == NOW
+    assert [f.feed_id for f in kit.store.failed_feed_builds()] == ["okc"]
+
+
+@pytest.mark.anyio
+async def test_a_failed_rebuild_of_a_stale_player_feed_keeps_and_serves_the_stored_feed(
+    kit: PlayerKit,
+) -> None:
+    await kit.run_stars()
+    first = await kit.serve_player("1")
+    stored = read_by_id(kit.path, KIND, "1")
+    kit.failing.add("bio/1")
+
+    body = await kit.serve_player("1", NOW + FEED_LIFETIME)
+
+    assert body == first
+    assert kit.called("bio/1") == 2
+    assert read_by_id(kit.path, KIND, "1") == stored
+    build = kit.store.feed_build(KIND, "1")
+    assert build is not None and build.last_build == NOW
+    assert [(f.kind, f.feed_id) for f in kit.store.failed_feed_builds()] == [
+        (KIND, "1")
+    ]
+
+
+@pytest.mark.anyio
+async def test_a_missing_team_whose_build_fails_fails_the_player_build(
+    kit: PlayerKit,
+) -> None:
+    await kit.run_stars()
+    kit.failing.add("info/OKC")
+
+    with pytest.raises(FeedUnavailableError):
+        await kit.serve_player("1")
+
+    failed = {(f.kind, f.feed_id) for f in kit.store.failed_feed_builds()}
+    assert failed == {(TEAM_KIND, "okc"), (KIND, "1")}
+    assert kit.called("bio/1") == 0
+    assert kit.stored_player("1") is None
+
+
+@pytest.mark.anyio
+async def test_a_player_feed_is_fresh_before_a_final_game_of_its_team_plus_1_hour_and_stale_at_it(
+    kit: PlayerKit,
+) -> None:
+    final = NOW + 2 * HOUR
+    kit.scoreboard[TODAY] = [scoreboard("f1", GameStatus.FINAL, NOW - HOUR)]
+    kit.store.set_final_time("f1", TODAY, final)
+    await kit.run_stars()
+    await kit.run_games()
+    await kit.serve_player("1")
+
+    await kit.serve_player("1", final + HOUR - SECOND)
+    assert kit.called("bio/1") == 1
+    await kit.serve_player("1", final + HOUR)
+
+    assert kit.called("bio/1") == 2
+    build = kit.store.feed_build(KIND, "1")
+    assert build is not None and build.last_build == final + HOUR
+
+
+@pytest.mark.anyio
+async def test_a_player_feed_is_fresh_before_7_days_and_stale_at_7_days(
+    kit: PlayerKit,
+) -> None:
+    await kit.run_stars()
+    await kit.serve_player("1")
+
+    await kit.serve_player("1", NOW + FEED_LIFETIME - SECOND)
+    assert kit.called("bio/1") == 1
+    await kit.serve_player("1", NOW + FEED_LIFETIME)
+
+    assert kit.called("bio/1") == 2
+
+
+def stored_live(kit: PlayerKit, home_ids: tuple[str, ...]) -> None:
+    game = live_game()
+    publish_by_id(
+        kit.path, game_detail_feed.KIND, GameDetailFeed, "L1", detail_of(game, home_ids)
+    )
+
+
+@pytest.mark.anyio
+async def test_live_is_null_with_no_live_game_of_the_team(kit: PlayerKit) -> None:
+    kit.scoreboard[TODAY] = [
+        scoreboard("L2", GameStatus.LIVE, NOW - HOUR, away="BOS", home="NYK")
+    ]
+    await kit.run_stars()
+    await kit.run_games()
+
+    body = await kit.serve_player("1")
+
+    assert PlayerFeed.model_validate_json(body).live is None
+
+
+@pytest.mark.anyio
+async def test_live_carries_the_game_and_the_players_line_and_is_never_stored(
+    kit: PlayerKit,
+) -> None:
+    kit.scoreboard[TODAY] = [live_game()]
+    await kit.run_stars()
+    await kit.run_games()
+    stored_live(kit, ("1",))
+
+    served = PlayerFeed.model_validate_json(await kit.serve_player("1"))
+
+    assert served.live is not None
+    assert (served.live.game_id, served.live.opponent, served.live.is_home) == (
+        "L1",
+        "SAS",
+        True,
+    )
+    assert (served.live.team_score, served.live.opponent_score) == (38, 40)
+    assert served.live.line is not None and served.live.line.player_id == "1"
+    stored = kit.stored_player("1")
+    assert stored is not None and stored.live is None
+
+
+@pytest.mark.anyio
+async def test_live_has_a_null_line_before_the_player_is_in_the_box_score(
+    kit: PlayerKit,
+) -> None:
+    kit.scoreboard[TODAY] = [live_game()]
+    await kit.run_stars()
+    await kit.run_games()
+    stored_live(kit, ("2",))
+
+    served = PlayerFeed.model_validate_json(await kit.serve_player("1"))
+
+    assert served.live is not None and served.live.line is None
+
+
+@pytest.mark.anyio
+async def test_a_live_player_request_refreshes_the_game_and_serves_its_detail_feed(
+    kit: PlayerKit,
+) -> None:
+    game = live_game()
+    kit.scoreboard[TODAY] = [game]
+    kit.detail_feeds["L1"] = detail_of(game, ("1",))
+    await kit.run_stars()
+    await kit.run_games()
+    kit.clock[0] = NOW + 31 * SECOND
+
+    await kit.players.refresh_live("1", wait=5)
+    await kit.settle()
+
+    assert kit.detail_builds == 1
+    assert read_by_id(kit.path, game_detail_feed.KIND, "L1") is not None
+    served = PlayerFeed.model_validate_json(await kit.serve_player("1"))
+    assert served.live is not None and served.live.line is not None
+
+
+@pytest.mark.anyio
+async def test_a_live_refresh_whose_detail_build_fails_never_raises(
+    kit: PlayerKit,
+) -> None:
+    kit.scoreboard[TODAY] = [live_game()]
+    await kit.run_stars()
+    await kit.run_games()
+
+    await kit.players.refresh_live("1", wait=5)
+    await kit.settle()
+
+    assert kit.detail_builds == 1
+    assert read_by_id(kit.path, game_detail_feed.KIND, "L1") is None
+
+
+@pytest.mark.anyio
+async def test_detail_availability_is_set_when_served_from_the_days_shown_and_not_stored(
+    kit: PlayerKit,
+) -> None:
+    kit.regular = schedule_of(scheduled_game("g1"))
+    await kit.run_stars()
+    await kit.serve_player("1")
+    kit.scoreboard[TODAY] = [scoreboard("g1", GameStatus.SCHEDULED, NOW + HOUR)]
+    await kit.run_games()
+
+    served = PlayerFeed.model_validate_json(
+        await kit.serve_player("1", NOW + 30 * SECOND)
+    )
+
+    assert served.next_game is not None and served.next_game.detail_available
+    assert served.game_log is not None
+    assert {g.game_id: g.detail_available for g in served.game_log.entries} == {
+        "g1": True,
+        "g9": False,
+    }
+    assert {g.game_id: g.detail_available for g in served.last_games} == {
+        "g1": True,
+        "g9": False,
+    }
+    stored = kit.stored_player("1")
+    assert stored is not None and stored.game_log is not None
+    assert not any(g.detail_available for g in stored.game_log.entries)
+    assert stored.next_game is not None and not stored.next_game.detail_available
+
+
+@pytest.mark.anyio
+async def test_the_cleanup_after_a_stars_run_deletes_players_on_no_roster_with_no_request(
+    kit: PlayerKit,
+) -> None:
+    feed = build()
+    for player_id in ("1", "gone"):
+        publish_by_id(kit.path, KIND, PlayerFeed, player_id, feed)
+        kit.store.record_build(KIND, player_id, NOW)
+    kit.roster_errors.add("BOS")
+
+    await kit.run_stars()
+
+    assert not kit.stars.rosters_ready()
+    assert kit.store.feed_build_ids(KIND) == {"1", "gone"}
+    kit.roster_errors.clear()
+    await kit.run_stars(NOW + RETRY)
+
+    assert kit.stars.rosters_ready()
+    assert kit.store.feed_build_ids(KIND) == {"1"}
+    assert read_by_id(kit.path, KIND, "gone") is None
+    assert read_by_id(kit.path, KIND, "1") is not None
+    assert kit.requests == [] and kit.calls == []
+    assert len(set(TEAM_CODES.values())) == 30

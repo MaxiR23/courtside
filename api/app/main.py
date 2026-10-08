@@ -8,9 +8,11 @@ from app.jobs.game_detail_feed import GameDetailFeeds
 from app.jobs.games import GamesJob
 from app.jobs.highlights import HighlightsJob
 from app.jobs.on_demand import FeedCache
+from app.jobs.player_feed import PlayerFeeds
 from app.jobs.presence import Presence
 from app.jobs.scheduler import Scheduler
 from app.jobs.stars import StarsJob
+from app.jobs.team_feed import TeamFeeds
 from app.log import configure_logging
 from app.routers import feeds, health
 from app.settings import Settings, get_settings
@@ -32,7 +34,11 @@ def create_app(settings: Settings | None = None, *, run_jobs: bool = True) -> Fa
         feed_cache = FeedCache(settings.data_dir, store)
         # The stars and highlights jobs read the final games of the games job, built below.
         stars_job = StarsJob(
-            settings, store, client, final_games=lambda: games_job.final_games()
+            settings,
+            store,
+            client,
+            final_games=lambda: games_job.final_games(),
+            after_run=lambda: player_feeds.after_stars_run(),
         )
         highlights_job = HighlightsJob(
             settings, store, client, final_games=lambda: games_job.final_games()
@@ -58,6 +64,10 @@ def create_app(settings: Settings | None = None, *, run_jobs: bool = True) -> Fa
             highlights=highlights_job.highlights_of,
             highlights_search_url=highlights_job.search_url_of,
         )
+        team_feeds = TeamFeeds(settings, store, client, feed_cache, games_job)
+        player_feeds = PlayerFeeds(
+            settings, store, client, feed_cache, games_job, stars_job, team_feeds
+        )
         # The stars job runs in its own task so its fetches never delay the live refresh.
         stars_scheduler = Scheduler([stars_job], store)
         scheduler = Scheduler([games_job, highlights_job], store)
@@ -66,6 +76,7 @@ def create_app(settings: Settings | None = None, *, run_jobs: bool = True) -> Fa
         app.state.presence = presence
         app.state.games_job = games_job
         app.state.feed_cache = feed_cache
+        app.state.player_feeds = player_feeds
         try:
             if run_jobs:
                 stars_scheduler.start()

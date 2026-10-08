@@ -7,14 +7,18 @@
 # status from the league injuries, the next game and the schedule grouped by
 # US Eastern month with the playoffs last. It reads no clock and no source: the
 # caller passes the time and the ids of the games that have a detail feed. The
-# shared conversions are used by the player feed builder too. The feed kind that
-# wires it to the cache is a later issue.
+# shared conversions are used by the player feed builder too. TeamFeeds is the
+# feed kind of the on-demand cache: the ids are the 30 lowercase standard codes,
+# the feed is stored at feeds/teams/{code}.json only when requested, it expires 1
+# hour after a final game of the team that follows the build and 7 days after the
+# build (rule G), and detailAvailable is set when it is served, from the games of
+# the days shown. Team feeds are never deleted.
 #
-# SEE: docs/api/team.md, docs/api/player.md, api/app/jobs/game_detail_feed.py
+# SEE: docs/api/team.md, docs/api/player.md, docs/source-rules.md, api/app/jobs/game_detail_feed.py
 
 import datetime as dt
 import re
-from collections.abc import Iterable
+from collections.abc import Awaitable, Callable, Iterable
 from collections.abc import Set as AbstractSet
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -31,7 +35,18 @@ from app.feeds.team import (
     Streak,
     TeamFeed,
 )
+from app.jobs.games import GamesJob
+from app.jobs.on_demand import FeedCache, FeedKind, IdStatus
+from app.settings import Settings
+from app.sources import (
+    division_standings,
+    league_injuries,
+    team_info,
+    team_players,
+    team_schedule,
+)
 from app.sources.division_standings import DivisionEntry, DivisionStandings
+from app.sources.http import SourceClient
 from app.sources.league_injuries import LeagueInjuries
 from app.sources.team_info import TeamInfo
 from app.sources.team_players import (
@@ -41,6 +56,24 @@ from app.sources.team_players import (
     SeasonLeaders,
 )
 from app.sources.team_schedule import ScheduledGame, SeasonSchedule
+from app.sources.teams import TEAM_CODES
+from app.storage.feeds import read_by_id
+from app.storage.state import StateStore
+
+KIND = "teams"
+FEED_LIFETIME = dt.timedelta(days=7)
+AFTER_FINAL = dt.timedelta(hours=1)
+START_MARGIN = dt.timedelta(days=1)
+TEAM_IDS = frozenset(code.lower() for code in TEAM_CODES.values())
+
+FetchRoster = Callable[[SourceClient, str, Settings], Awaitable[Roster]]
+FetchLeaders = Callable[[SourceClient, Roster, Settings], Awaitable[SeasonLeaders]]
+FetchInfo = Callable[[SourceClient, str, Settings], Awaitable[TeamInfo]]
+FetchDivisionStandings = Callable[
+    [SourceClient, Settings], Awaitable[DivisionStandings]
+]
+FetchInjuries = Callable[[SourceClient, Settings], Awaitable[LeagueInjuries]]
+FetchSeasonSchedule = Callable[..., Awaitable[SeasonSchedule]]
 
 EASTERN = ZoneInfo("America/New_York")
 KG_PER_LB = 0.45359237
@@ -465,3 +498,153 @@ def build_team_feed(
         raise TeamBuildError(
             f"invalid feed: {error.error_count()} errors, first at {location}"
         ) from None
+
+
+def feed_expired(
+    built_at: dt.datetime, now: dt.datetime, final_times: Iterable[dt.datetime]
+) -> bool:
+    """Whether a stored feed is expired (rule G): 7 days after the build, or 1
+    hour after a final game that follows the build."""
+    if now - built_at >= FEED_LIFETIME:
+        return True
+    return any(built_at < time + AFTER_FINAL <= now for time in final_times)
+
+
+def with_team_detail(feed: TeamFeed, ids: AbstractSet[str]) -> TeamFeed:
+    """The feed with detailAvailable true exactly for the games with an id given."""
+    data = feed.model_dump(by_alias=False)
+    if data["next_game"] is not None:
+        data["next_game"]["detail_available"] = data["next_game"]["game_id"] in ids
+    if data["schedule"] is not None:
+        for group in data["schedule"]["groups"]:
+            for game in group["games"]:
+                game["detail_available"] = game["game_id"] in ids
+    return TeamFeed.model_validate(data)
+
+
+class TeamFeeds:
+    def __init__(
+        self,
+        settings: Settings,
+        store: StateStore,
+        client: SourceClient,
+        cache: FeedCache,
+        games: GamesJob,
+        *,
+        fetch_roster: FetchRoster = team_players.fetch_roster,
+        fetch_team_leaders: FetchLeaders = team_players.fetch_team_leaders,
+        fetch_team_info: FetchInfo = team_info.fetch_team_info,
+        fetch_division_standings: FetchDivisionStandings = (
+            division_standings.fetch_division_standings
+        ),
+        fetch_league_injuries: FetchInjuries = league_injuries.fetch_league_injuries,
+        fetch_season_schedule: FetchSeasonSchedule = team_schedule.fetch_season_schedule,
+    ) -> None:
+        self._settings = settings
+        self._store = store
+        self._client = client
+        self._cache = cache
+        self._games = games
+        self._fetch_roster = fetch_roster
+        self._fetch_team_leaders = fetch_team_leaders
+        self._fetch_team_info = fetch_team_info
+        self._fetch_division_standings = fetch_division_standings
+        self._fetch_league_injuries = fetch_league_injuries
+        self._fetch_season_schedule = fetch_season_schedule
+        cache.register(self.kind())
+
+    def check(self, code: str) -> IdStatus:
+        return IdStatus.KNOWN if code in TEAM_IDS else IdStatus.UNKNOWN
+
+    async def build(self, code: str) -> TeamFeed:
+        team = code.upper()
+        roster = await self._fetch_roster(self._client, team, self._settings)
+        leaders = await self._fetch_team_leaders(self._client, roster, self._settings)
+        info = await self._fetch_team_info(self._client, team, self._settings)
+        standings = await self._fetch_division_standings(self._client, self._settings)
+        injuries = await self._fetch_league_injuries(self._client, self._settings)
+        regular = await self._fetch_season_schedule(
+            self._client, team, roster.season, self._settings, playoffs=False
+        )
+        playoffs = await self._fetch_season_schedule(
+            self._client, team, roster.season, self._settings, playoffs=True
+        )
+        return build_team_feed(
+            team,
+            info,
+            standings,
+            roster,
+            leaders,
+            injuries,
+            regular,
+            playoffs,
+            now=self._client.clock(),
+            detail_ids=self.detail_ids(),
+        )
+
+    def detail_ids(self) -> frozenset[str]:
+        """The ids of the games of the days shown now."""
+        return frozenset(game.id for game in self._games.loaded_games())
+
+    def stored(self, team: str) -> TeamFeed | None:
+        body = read_by_id(self._settings.data_dir, KIND, team.lower())
+        if body is None:
+            return None
+        try:
+            return TeamFeed.model_validate_json(body)
+        except ValidationError:
+            return None
+
+    def final_times(
+        self,
+        team: str,
+        schedule: Schedule | None,
+        built_at: dt.datetime,
+        now: dt.datetime,
+    ) -> list[dt.datetime]:
+        """The final times of the team's games that can expire a feed built at built_at."""
+        ids = {
+            game.id
+            for game in self._games.final_games()
+            if team in (game.away.code, game.home.code)
+        }
+        if schedule is not None:
+            ids |= {
+                game.game_id
+                for group in schedule.groups
+                for game in group.games
+                if built_at - START_MARGIN < game.start_time <= now
+            }
+        times = (self._store.final_time(game_id) for game_id in sorted(ids))
+        return [time for time in times if time is not None]
+
+    def expired(
+        self,
+        team: str,
+        schedule: Schedule | None,
+        built_at: dt.datetime,
+        now: dt.datetime,
+    ) -> bool:
+        return feed_expired(
+            built_at, now, self.final_times(team, schedule, built_at, now)
+        )
+
+    def is_fresh(self, feed: TeamFeed, built_at: dt.datetime, now: dt.datetime) -> bool:
+        return not self.expired(feed.code, feed.schedule, built_at, now)
+
+    def serve_with(self, code: str, feed: TeamFeed) -> TeamFeed:
+        return with_team_detail(feed, self.detail_ids())
+
+    def keep(self, code: str) -> bool:
+        return code in TEAM_IDS
+
+    def kind(self) -> FeedKind[TeamFeed]:
+        return FeedKind(
+            KIND,
+            TeamFeed,
+            check=self.check,
+            build=self.build,
+            is_fresh=self.is_fresh,
+            keep=self.keep,
+            serve_with=self.serve_with,
+        )

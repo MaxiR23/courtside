@@ -10,7 +10,9 @@
 # so such a team costs at most one request per player per game played. A star is
 # only replaced by a newly picked one: a failed team keeps its last known star.
 # The games job reads the stars through stars_of and waits for has_every_star
-# before its first feed.
+# before its first feed. It records the players of every roster it fetches, with
+# their team, for the player feed's ids (rule I), and calls after_run after a run
+# with due teams.
 #
 # SEE: docs/adr/0007-backend-runtime-and-data-pipeline.md, docs/adr/0014-star-guarantees.md, docs/source-rules.md, docs/adr/0020-source-rules.md
 
@@ -19,7 +21,7 @@ import datetime as dt
 from collections.abc import Awaitable, Callable, Sequence
 
 from app.feeds.games import Star, Stars
-from app.jobs.games import EASTERN, eastern_date
+from app.jobs.games import EASTERN, AfterRun, eastern_date, no_after_run
 from app.jobs.scheduler import utc_now
 from app.settings import Settings
 from app.sources import team_players
@@ -86,6 +88,7 @@ class StarsJob:
         fetch_player_averages: FetchPlayerAverages = team_players.fetch_player_averages,
         final_games: FinalGames = no_final_games,
         clock: Callable[[], dt.datetime] = utc_now,
+        after_run: AfterRun = no_after_run,
     ) -> None:
         self._settings = settings
         self._store = store
@@ -95,6 +98,9 @@ class StarsJob:
         self._fetch_player_averages = fetch_player_averages
         self._final_games = final_games
         self._clock = clock
+        self._after_run = after_run
+        self._player_teams: dict[str, str] = {}
+        self._roster_fetched: set[str] = set()
         self._stars: dict[str, Star] = store.stars()
         self._daily_fetched_at: dt.datetime | None = None
         self._pending: list[str] = []
@@ -120,6 +126,10 @@ class StarsJob:
 
     async def _update_team(self, code: str) -> None:
         roster = await self._fetch_roster(self._client, code, self._settings)
+        self._player_teams = {p: t for p, t in self._player_teams.items() if t != code}
+        for member in roster.players:
+            self._player_teams[member.player_id] = code
+        self._roster_fetched.add(code)
         star: Star | None = None
         individual_error: SourceError | None = None
         for season in (roster.season, roster.season - 1):
@@ -191,10 +201,19 @@ class StarsJob:
         # must not report the stars as done.
         elif not self._pending:
             self._store.record_success(JOB, now)
+        self._after_run()
 
     def has_every_star(self) -> bool:
         """True once every team has a star, stored or fetched."""
         return all(code in self._stars for code in TEAM_CODES.values())
+
+    def player_team(self, player_id: str) -> str | None:
+        """The standard code of the team whose latest fetched roster lists the player."""
+        return self._player_teams.get(player_id)
+
+    def rosters_ready(self) -> bool:
+        """True once every team's roster has been fetched."""
+        return all(code in self._roster_fetched for code in TEAM_CODES.values())
 
     def stars_of(self, game: ScoreboardGame) -> Stars | None:
         away = self._stars.get(game.away.code)

@@ -101,11 +101,44 @@ The root is one player.
 
 ## Refresh behavior
 
+- The id is a player of a roster the stars job fetched, with the team of the
+  latest roster that lists him. Nothing is built without a request: no job
+  and no startup builds a player feed. The feed is stored at
+  `feeds/players/{id}.json` when first requested.
 - Built on request under rule G of
   [`docs/source-rules.md`](../source-rules.md) and expiring as its table
-  says: when the team has a final game whose final time plus 1 hour is after
-  the build, and in any case 7 days after the build.
-- `live` is taken from the live game detail of the player's team at serve
-  time ([ADR 0021](../adr/0021-player-and-team-pages.md)).
-- The builder is `build_player_feed` in `api/app/jobs/player_feed.py`; the
-  endpoint is pending: added by a later issue.
+  says: when the player's team has a final game whose final time plus 1 hour
+  is after the build, and in any case 7 days after the build.
+- The team feed is built first when it is missing or stale. The next game is
+  the stored team feed's, so the team schedule is never fetched by a player
+  build; a stale team feed whose rebuild fails is used as stored, and a
+  missing one whose build fails fails the player build. The roster entry is
+  read from the roster response in the source cache.
+- `live` is taken from the live game of the player's team at serve time
+  ([ADR 0021](../adr/0021-player-and-team-pages.md)): the game as the
+  scoreboard knows it, and the player's line from that game's detail feed,
+  null until he is in the box score. It is added when served and never
+  stored. A live player request runs the 30-second refresh of the game and
+  serves its detail feed, and waits at most 20 seconds in total.
+- `detailAvailable` is set when the feed is served, true for the games the
+  games job holds in the days shown, and not stored.
+- A failed build keeps the stored feed and is listed under `feeds` in
+  `/health`; it is not retried for 10 minutes on request.
+- The feeds of players no longer on any roster are deleted after each run of
+  the stars job, with no source request. Nothing is deleted before every
+  roster has been fetched once.
+- The builder is `build_player_feed` and the feed kind is `PlayerFeeds`, both
+  in `api/app/jobs/player_feed.py`.
+
+## Endpoint
+
+- `GET /feeds/players/{id}.json` serves the feed through the on-demand cache
+  with `Cache-Control: public, max-age=10` and an `ETag`.
+- It responds 304 with no body when `If-None-Match` matches the current
+  `ETag`.
+- It responds 404 with `{"detail": ...}` for an id found in no roster once every roster has been fetched, with no source request.
+- It responds 503 with `{"detail": ...}` before every roster has been fetched once, when the request's 20 seconds end
+  before a missing feed is built and after a failed build.
+- A stale stored feed is served at once and rebuilt in the background. At
+  most 4 feeds are built at once and one per feed.
+- Every feed request records presence.
