@@ -36,8 +36,8 @@ domains below are placeholders.
    `VIDEO_PLATFORM_NAME`.
 3. `cd web && pnpm install --frozen-lockfile && pnpm run build`
 4. Upload the contents of `web/build/` to the static host. Configure the static
-   host to serve `200.html` for every `/game/*` path that is not a file (the game
-   detail page is rendered in the browser from it, ADR 0019).
+   host to serve `200.html` for every `/game/*`, `/player/*` and `/team/*` path that is not a file (those pages
+   are rendered in the browser from it, ADR 0020 and ADR 0021).
 
 The settings are read at build time: changing them means rebuilding and
 uploading again.
@@ -77,6 +77,16 @@ request that changes a feed's shape names which side goes first.
 5. `docker compose up -d --build`
 6. Point the DNS record to the new machine. Certificates are issued again
    there.
+
+## CDN in front of the API
+
+Rule K of [`source-rules.md`](source-rules.md), adopted by
+[`adr/0020-source-rules.md`](adr/0020-source-rules.md): feed responses keep
+`Cache-Control: public, max-age=10` and the ETag. The CDN in front of the API
+must honor the origin's Cache-Control, must not add `s-maxage` and must keep
+"Always Online" off. Reference: Cloudflare's Origin Cache Control
+documentation, where `s-maxage` disables `stale-while-revalidate` and "Always
+Online" ignores it.
 
 ## Logs
 

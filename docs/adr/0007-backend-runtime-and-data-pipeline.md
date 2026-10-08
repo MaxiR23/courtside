@@ -1,6 +1,6 @@
 # 0007. Backend runtime and data pipeline
 
-- Status: Accepted
+- Status: Superseded by 0020 for its refresh cadences only
 - Date: 2026-10-05
 
 ## Context

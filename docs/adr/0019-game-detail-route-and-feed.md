@@ -1,6 +1,6 @@
 # 0019. Game detail route and feed
 
-- Status: Accepted
+- Status: Superseded by 0020
 - Date: 2026-10-07
 
 ## Context
