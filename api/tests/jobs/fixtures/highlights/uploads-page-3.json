@@ -1,0 +1,22 @@
+{
+  "nextPageToken": "page-4",
+  "items": [
+    {
+      "snippet": {
+        "publishedAt": "2026-10-04T18:00:00Z",
+        "channelTitle": "Example Channel",
+        "title": "SPURS at SUNS | FULL GAME HIGHLIGHTS | October 2, 2026",
+        "thumbnails": {
+          "maxres": {
+            "url": "https://example.com/thumbs/vid-oldest/maxres.jpg",
+            "width": 1280,
+            "height": 720
+          }
+        },
+        "resourceId": {
+          "videoId": "vid-oldest"
+        }
+      }
+    }
+  ]
+}

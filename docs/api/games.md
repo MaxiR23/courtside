@@ -143,8 +143,12 @@ a failure, 2, 4 and 6 hours after the final time.
   already final the first time the job sees it takes that moment as its final
   time, and its highlight attempts run right away, 1 and 2 hours later. A
   stored final time is never overwritten.
-- A highlight attempt is used up whenever the lookup ends other than in a
-  failed request: with a match, with no match, on a body that is not JSON
+- Each highlights run lists the channel's uploads once, paged back until
+  every due game is matched or a video is older than the oldest due game, and
+  matches every due game against that list
+  ([source rules](../source-rules.md), rule E). A game matched on a page read
+  before an invalid page keeps its match. A highlight attempt is used up
+  whenever the lookup ends other than in a failed request: with a match, with no match, on a body that is not JSON
   or an invalid payload, on a missing highlights source setting (no request is sent), on a missing
   embed setting (found only after the uploads were paged and the thumbnails
   checked, so requests were sent), or with
@@ -152,7 +156,8 @@ a failure, 2, 4 and 6 hours after the final time.
   request is a timeout or a transport failure on any request, or an error
   status from the uploads listing. It uses up no attempt: it is logged and
   recorded in the job's health, and the same attempt is retried no sooner
-  than 10 minutes later
+  than 10 minutes later; a failed request on the listing does this for every
+  due game of the run, and one on a thumbnail check only for that game
   ([ADR 0018](../adr/0018-highlight-request-failures.md)). An error status
   on a thumbnail check means the thumbnail is not served, not a failed
   request.
