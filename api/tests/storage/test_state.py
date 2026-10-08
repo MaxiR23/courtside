@@ -40,6 +40,18 @@
 # - Reports no source entry for an unknown URL
 # - Keeps source entries across store instances over the same data directory
 # - Rejects a naive fetch time
+# - Migrates a database at the previous version with its rows to the feed builds version
+# - Records a feed's build time in UTC and replaces it on the next build
+# - Keeps a feed's last build when its build fails and its last failure when it builds
+# - Logs a recorded build failure with its kind, id and reason
+# - Stores the fallback reason for a build failure with an empty reason
+# - Rejects a naive build time and a naive failure time
+# - Reports no build state for an unknown feed
+# - Lists only feeds with a recorded failure, ordered by kind and id
+# - Lists the stored ids of one kind only
+# - Deletes a feed's build state and leaves the other kinds' rows alone
+# - Keeps feed build state across store instances over the same data directory
+# - Recording a build twice leaves one row
 #
 # What is covered:
 # - Happy path, edge cases (unknown game, repeat migration, restart, no jobs, no stars, pre-migration database), error case (naive time, failed migration)
@@ -129,9 +141,14 @@ def test_migrates_a_new_database_to_the_latest_version(tmp_path: Path) -> None:
     make_store(tmp_path)
 
     assert user_version(tmp_path) == len(MIGRATIONS)
-    assert {"games", "highlights", "jobs", "source_cache", "stars"} <= table_names(
-        tmp_path
-    )
+    assert {
+        "games",
+        "highlights",
+        "jobs",
+        "source_cache",
+        "stars",
+        "feed_builds",
+    } <= table_names(tmp_path)
 
 
 def test_brings_a_database_created_before_migrations_to_the_latest_version_and_keeps_its_rows(
@@ -688,3 +705,178 @@ def test_rejects_a_naive_fetch_time(tmp_path: Path) -> None:
         store.set_source_entry("https://example.com/a", "{}", NOON.replace(tzinfo=None))
 
     assert store.source_entry("https://example.com/a") is None
+
+
+def test_migrates_a_database_at_the_previous_version_with_its_rows_to_the_feed_builds_version(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    real = state.MIGRATIONS
+    monkeypatch.setattr(state, "MIGRATIONS", real[:2])
+    store = make_store(tmp_path)
+    star = make_star("AAA", "p1")
+    store.set_final_time("g1", DAY, NOON)
+    store.set_star(star)
+    highlight = make_highlight("Recap")
+    store.set_highlight("g1", highlight)
+    store.record_success("games", NOON)
+    store.set_source_entry("https://example.com/a", "{}", NOON)
+    assert user_version(tmp_path) == 2
+    assert "feed_builds" not in table_names(tmp_path)
+    monkeypatch.setattr(state, "MIGRATIONS", real)
+
+    store.migrate()
+
+    assert user_version(tmp_path) == len(real)
+    assert store.final_time("g1") == NOON
+    assert store.stars() == {"AAA": star}
+    assert store.highlights() == {"g1": highlight}
+    assert [(j.name, j.last_success) for j in store.job_states()] == [("games", NOON)]
+    entry = store.source_entry("https://example.com/a")
+    assert entry is not None
+    assert entry.body == "{}"
+    assert query(tmp_path, "SELECT COUNT(*) FROM feed_builds") == [(0,)]
+    store.record_build("players", "p1", NOON)
+    build = store.feed_build("players", "p1")
+    assert build is not None
+    assert build.last_build == NOON
+
+
+def test_records_a_feed_build_time_in_utc_and_replaces_it_on_the_next_build(
+    tmp_path: Path,
+) -> None:
+    store = make_store(tmp_path)
+
+    store.record_build("players", "p1", NOON)
+    first = store.feed_build("players", "p1")
+    store.record_build(
+        "players", "p1", LATER.astimezone(dt.timezone(dt.timedelta(hours=2)))
+    )
+    second = store.feed_build("players", "p1")
+
+    assert first is not None
+    assert first.last_build == NOON
+    assert first.last_failure is None
+    assert second is not None
+    assert second.last_build == LATER
+    assert second.last_build is not None
+    assert second.last_build.utcoffset() == dt.timedelta(0)
+
+
+def test_keeps_a_feeds_last_build_on_failure_and_its_last_failure_on_build(
+    tmp_path: Path,
+) -> None:
+    store = make_store(tmp_path)
+    store.record_build("players", "p1", NOON)
+
+    store.record_build_failure("players", "p1", LATER, "source down")
+    failed = store.feed_build("players", "p1")
+    store.record_build("players", "p1", LATER + dt.timedelta(hours=1))
+    built = store.feed_build("players", "p1")
+
+    assert failed is not None
+    assert (failed.last_build, failed.last_failure) == (NOON, LATER)
+    assert failed.last_failure_reason == "source down"
+    assert built is not None
+    assert built.last_build == LATER + dt.timedelta(hours=1)
+    assert (built.last_failure, built.last_failure_reason) == (LATER, "source down")
+
+
+def test_logs_a_recorded_build_failure_with_its_kind_id_and_reason(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    store = make_store(tmp_path)
+
+    with caplog.at_level(logging.ERROR):
+        store.record_build_failure("players", "p1", NOON, "source down")
+
+    assert "feed players p1 build failed: source down" in caplog.text
+
+
+def test_stores_the_fallback_reason_for_a_build_failure_with_an_empty_reason(
+    tmp_path: Path,
+) -> None:
+    store = make_store(tmp_path)
+
+    store.record_build_failure("players", "p1", NOON, "  ")
+
+    build = store.feed_build("players", "p1")
+    assert build is not None
+    assert build.last_failure_reason == NO_REASON
+
+
+def test_rejects_a_naive_build_time_and_a_naive_failure_time(tmp_path: Path) -> None:
+    store = make_store(tmp_path)
+    naive = NOON.replace(tzinfo=None)
+
+    with pytest.raises(ValueError, match="timezone aware"):
+        store.record_build("players", "p1", naive)
+    with pytest.raises(ValueError, match="timezone aware"):
+        store.record_build_failure("players", "p1", naive, "x")
+
+
+def test_reports_no_build_state_for_an_unknown_feed(tmp_path: Path) -> None:
+    assert make_store(tmp_path).feed_build("players", "none") is None
+
+
+def test_lists_only_feeds_with_a_recorded_failure_ordered_by_kind_and_id(
+    tmp_path: Path,
+) -> None:
+    store = make_store(tmp_path)
+    store.record_build("players", "ok", NOON)
+    store.record_build_failure("teams", "b", NOON, "x")
+    store.record_build_failure("players", "b", NOON, "x")
+    store.record_build_failure("players", "a", NOON, "x")
+
+    failed = store.failed_feed_builds()
+
+    assert [(f.kind, f.feed_id) for f in failed] == [
+        ("players", "a"),
+        ("players", "b"),
+        ("teams", "b"),
+    ]
+
+
+def test_lists_the_stored_ids_of_one_kind_only(tmp_path: Path) -> None:
+    store = make_store(tmp_path)
+    store.record_build("players", "a", NOON)
+    store.record_build_failure("players", "b", NOON, "x")
+    store.record_build("teams", "c", NOON)
+
+    assert store.feed_build_ids("players") == {"a", "b"}
+    assert store.feed_build_ids("none") == set()
+
+
+def test_deletes_a_feeds_build_state_and_leaves_the_other_kinds_rows_alone(
+    tmp_path: Path,
+) -> None:
+    store = make_store(tmp_path)
+    store.record_build("players", "a", NOON)
+    store.record_build("teams", "a", NOON)
+
+    store.delete_feed_build("players", "a")
+    store.delete_feed_build("players", "missing")
+
+    assert store.feed_build("players", "a") is None
+    assert store.feed_build("teams", "a") is not None
+
+
+def test_keeps_feed_build_state_across_store_instances_over_the_same_directory(
+    tmp_path: Path,
+) -> None:
+    make_store(tmp_path).record_build_failure("players", "a", NOON, "x")
+
+    build = StateStore(tmp_path).feed_build("players", "a")
+
+    assert build is not None
+    assert build.last_failure == NOON
+
+
+def test_recording_a_build_twice_leaves_one_row(tmp_path: Path) -> None:
+    store = make_store(tmp_path)
+
+    store.record_build("players", "a", NOON)
+    store.record_build("players", "a", LATER)
+    store.record_build_failure("players", "a", NOON, "x")
+    store.record_build_failure("players", "a", LATER, "y")
+
+    assert query(tmp_path, "SELECT COUNT(*) FROM feed_builds") == [(1,)]

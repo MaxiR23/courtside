@@ -137,7 +137,7 @@ api/app/storage/           Job state (SQLite, with its migrations) and feed publ
 api/app/routers/           One APIRouter per module
 api/app/feeds/             One module per feed model, plus schema.py, which exports the schemas
 api/app/sources/           One module per data source adapter, plus http.py (shared client and SourceError) and teams.py (team codes)
-api/app/jobs/              One module per job, plus scheduler.py (the in-process scheduler)
+api/app/jobs/              One module per job, plus scheduler.py (the in-process scheduler) and on_demand.py (the on-demand feed cache)
 api/data/                  Data directory (default), never committed
 api/schemas/               Exported JSON Schemas, generated
 api/tests/                 Tests, mirroring app/

@@ -8,6 +8,7 @@ import hashlib
 
 from fastapi import APIRouter, HTTPException, Request, Response
 
+from app.jobs.on_demand import FeedCache, FeedUnavailableError, UnknownFeedError
 from app.storage.feeds import read_feed, read_game_detail
 
 router = APIRouter()
@@ -45,4 +46,18 @@ def read_game_detail_feed(game_id: str, request: Request) -> Response:
     body = read_game_detail(request.app.state.settings.data_dir, game_id)
     if body is None:
         raise HTTPException(status_code=404, detail="game not found")
+    return _serve(body, request)
+
+
+async def serve_on_demand(
+    feeds: FeedCache, kind: str, feed_id: str, request: Request
+) -> Response:
+    try:
+        body = await feeds.serve(kind, feed_id)
+    except UnknownFeedError:
+        raise HTTPException(status_code=404, detail="feed not found") from None
+    except FeedUnavailableError:
+        raise HTTPException(
+            status_code=503, detail="feed is not available yet"
+        ) from None
     return _serve(body, request)

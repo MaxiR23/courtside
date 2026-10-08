@@ -1,6 +1,6 @@
 # api/app/storage/state.py
 #
-# Job state in SQLite: game dates, final times and whether they were first seen, highlight attempts, failed stats attempts, matched highlights, team stars, source cache entries and per-job outcomes.
+# Job state in SQLite: game dates, final times and whether they were first seen, highlight attempts, failed stats attempts, matched highlights, team stars, source cache entries, feed build times and failures and per-job outcomes.
 # Schema versioned with PRAGMA user_version; MIGRATIONS run once each on startup.
 # One connection per operation, so sync endpoints can use it from the threadpool.
 #
@@ -52,6 +52,14 @@ MIGRATIONS: tuple[Migration, ...] = (
             "url TEXT PRIMARY KEY, body TEXT NOT NULL, fetched_at TEXT NOT NULL)"
         ),
     ),
+    (
+        (
+            "CREATE TABLE feed_builds ("
+            "kind TEXT NOT NULL, feed_id TEXT NOT NULL, last_build TEXT, "
+            "last_failure TEXT, last_failure_reason TEXT, "
+            "PRIMARY KEY (kind, feed_id))"
+        ),
+    ),
 )
 
 
@@ -62,6 +70,14 @@ class StateMigrationError(Exception):
 class JobState(FeedModel):
     name: NonEmptyStr
     last_success: UtcDatetime | None
+    last_failure: UtcDatetime | None
+    last_failure_reason: NonEmptyStr | None
+
+
+class FeedBuildState(FeedModel):
+    kind: NonEmptyStr
+    feed_id: NonEmptyStr
+    last_build: UtcDatetime | None
     last_failure: UtcDatetime | None
     last_failure_reason: NonEmptyStr | None
 
@@ -87,6 +103,19 @@ def _from_text(value: str | None) -> dt.datetime | None:
     if value is None:
         return None
     return dt.datetime.fromisoformat(value).astimezone(dt.UTC)
+
+
+def _to_feed_build(
+    row: tuple[str, str, str | None, str | None, str | None],
+) -> FeedBuildState:
+    kind, feed_id, build, failure, reason = row
+    return FeedBuildState(
+        kind=kind,
+        feed_id=feed_id,
+        last_build=_from_text(build),
+        last_failure=_from_text(failure),
+        last_failure_reason=reason,
+    )
 
 
 class StateStore:
@@ -300,3 +329,63 @@ class StateStore:
         if fetched_at is None:
             raise ValueError("source cache entry has no fetch time")
         return SourceEntry(url=url, body=row[0], fetched_at=fetched_at)
+
+    def record_build(self, kind: str, feed_id: str, at: dt.datetime) -> None:
+        text = _to_text(at)
+        with self._connect() as connection, connection:
+            connection.execute(
+                "INSERT INTO feed_builds (kind, feed_id, last_build) VALUES (?, ?, ?) "
+                "ON CONFLICT(kind, feed_id) DO UPDATE SET "
+                "last_build = excluded.last_build",
+                (kind, feed_id, text),
+            )
+
+    def record_build_failure(
+        self, kind: str, feed_id: str, at: dt.datetime, reason: str
+    ) -> None:
+        text = _to_text(at)
+        if not reason.strip():
+            reason = NO_REASON
+        logger.error("feed %s %s build failed: %s", kind, feed_id, reason)
+        with self._connect() as connection, connection:
+            connection.execute(
+                "INSERT INTO feed_builds (kind, feed_id, last_failure, "
+                "last_failure_reason) VALUES (?, ?, ?, ?) "
+                "ON CONFLICT(kind, feed_id) DO UPDATE SET "
+                "last_failure = excluded.last_failure, "
+                "last_failure_reason = excluded.last_failure_reason",
+                (kind, feed_id, text, reason),
+            )
+
+    def feed_build(self, kind: str, feed_id: str) -> FeedBuildState | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT kind, feed_id, last_build, last_failure, "
+                "last_failure_reason FROM feed_builds "
+                "WHERE kind = ? AND feed_id = ?",
+                (kind, feed_id),
+            ).fetchone()
+        return _to_feed_build(row) if row else None
+
+    def failed_feed_builds(self) -> list[FeedBuildState]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT kind, feed_id, last_build, last_failure, "
+                "last_failure_reason FROM feed_builds "
+                "WHERE last_failure IS NOT NULL ORDER BY kind, feed_id"
+            ).fetchall()
+        return [_to_feed_build(row) for row in rows]
+
+    def feed_build_ids(self, kind: str) -> set[str]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT feed_id FROM feed_builds WHERE kind = ?", (kind,)
+            ).fetchall()
+        return {row[0] for row in rows}
+
+    def delete_feed_build(self, kind: str, feed_id: str) -> None:
+        with self._connect() as connection, connection:
+            connection.execute(
+                "DELETE FROM feed_builds WHERE kind = ? AND feed_id = ?",
+                (kind, feed_id),
+            )

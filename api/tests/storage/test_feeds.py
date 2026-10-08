@@ -16,6 +16,12 @@
 # - Reads no game detail for an unknown or unsafe id
 # - Lists the published game details without temporary files
 # - Deletes a game detail and ignores one that is missing
+# - Publishes a feed by id under its directory, validated and readable back
+# - Never writes an invalid feed by id and keeps the last valid one
+# - Refuses a feed id or a directory that is not a safe id
+# - Reads nothing for an unknown or unsafe id
+# - Lists the published ids of a directory without temporary files, and none for a missing directory
+# - Deletes a feed by id and ignores one that is missing
 #
 # What is covered:
 # - Happy path, error cases (invalid feed, write failure), edge cases (no temporary file, nothing published)
@@ -34,10 +40,14 @@ import pytest
 from app.feeds.game_detail import GameDetailFeed
 from app.feeds.games import GamesFeed, GameStatus
 from app.storage.feeds import (
+    delete_by_id,
     delete_game_detail,
+    publish_by_id,
     publish_feed,
     publish_game_detail,
     published_game_details,
+    published_ids,
+    read_by_id,
     read_feed,
     read_game_detail,
 )
@@ -211,3 +221,81 @@ def test_deletes_a_game_detail_and_ignores_one_that_is_missing(
     delete_game_detail(tmp_path, "../x")
 
     assert read_game_detail(tmp_path, "1") is None
+
+
+def test_publishes_a_feed_by_id_under_its_directory_validated_and_readable_back(
+    tmp_path: Path,
+) -> None:
+    feed = detail_feed("7")
+
+    assert publish_by_id(tmp_path, "players", GameDetailFeed, "7", feed) is True
+
+    assert (tmp_path / "feeds" / "players" / "7.json").is_file()
+    assert read_by_id(tmp_path, "players", "7") == feed.model_dump_json().encode(
+        "utf-8"
+    )
+
+
+def test_never_writes_an_invalid_feed_by_id_and_keeps_the_last_valid_one(
+    tmp_path: Path,
+) -> None:
+    assert (
+        publish_by_id(tmp_path, "players", GameDetailFeed, "7", invalid_detail_feed())
+        is False
+    )
+    assert read_by_id(tmp_path, "players", "7") is None
+    publish_by_id(tmp_path, "players", GameDetailFeed, "7", detail_feed("7"))
+    before = read_by_id(tmp_path, "players", "7")
+
+    assert (
+        publish_by_id(tmp_path, "players", GameDetailFeed, "7", invalid_detail_feed())
+        is False
+    )
+    assert read_by_id(tmp_path, "players", "7") == before
+
+
+def test_refuses_a_feed_id_or_a_directory_that_is_not_a_safe_id(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    with caplog.at_level(logging.ERROR):
+        assert (
+            publish_by_id(tmp_path, "players", GameDetailFeed, "../x", detail_feed())
+            is False
+        )
+        assert (
+            publish_by_id(tmp_path, "../x", GameDetailFeed, "7", detail_feed()) is False
+        )
+
+    assert "invalid id" in caplog.text
+    assert not (tmp_path / "feeds").exists()
+
+
+def test_reads_nothing_for_an_unknown_or_unsafe_id(tmp_path: Path) -> None:
+    publish_by_id(tmp_path, "players", GameDetailFeed, "7", detail_feed("7"))
+
+    assert read_by_id(tmp_path, "players", "8") is None
+    assert read_by_id(tmp_path, "players", "..") is None
+    assert read_by_id(tmp_path, "players", "a.b") is None
+    assert read_by_id(tmp_path, "..", "7") is None
+
+
+def test_lists_the_published_ids_of_a_directory_without_temporary_files(
+    tmp_path: Path,
+) -> None:
+    assert published_ids(tmp_path, "players") == set()
+    publish_by_id(tmp_path, "players", GameDetailFeed, "1", detail_feed("1"))
+    publish_by_id(tmp_path, "players", GameDetailFeed, "2", detail_feed("2"))
+    (tmp_path / "feeds" / "players" / ".3.abc.tmp").write_bytes(b"x")
+
+    assert published_ids(tmp_path, "players") == {"1", "2"}
+    assert published_ids(tmp_path, "..") == set()
+
+
+def test_deletes_a_feed_by_id_and_ignores_one_that_is_missing(tmp_path: Path) -> None:
+    publish_by_id(tmp_path, "players", GameDetailFeed, "1", detail_feed("1"))
+
+    delete_by_id(tmp_path, "players", "1")
+    delete_by_id(tmp_path, "players", "1")
+    delete_by_id(tmp_path, "players", "../x")
+
+    assert read_by_id(tmp_path, "players", "1") is None
