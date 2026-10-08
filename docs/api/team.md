@@ -66,6 +66,9 @@ The root is one team.
 - Win percentages are from 0 to 1; counts are not negative.
 - A playoff `seed` matches its `status`: `seed` 1 to 6, `playin` 7 to 10,
   `out` 11 to 15.
+- Before the first game, `conferenceRank` is the team's place in the
+  provider's list.
+- A leader with no position, like a leader no longer on the roster, is null.
 - `roster` is ordered by jersey number as an integer, equal numbers allowed
   (`0` and `00`), players with a null number last.
 - `schedule.defaultGroup` is the `key` of a group, and at most one game has
@@ -81,4 +84,5 @@ The root is one team.
   [`docs/source-rules.md`](../source-rules.md) and expiring as its table
   says: when the team has a final game whose final time plus 1 hour is after
   the build, and in any case 7 days after the build.
-- The endpoint and the builder are pending: added by a later issue.
+- The builder is `build_team_feed` in `api/app/jobs/team_feed.py`; the
+  endpoint is pending: added by a later issue.

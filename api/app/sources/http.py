@@ -4,7 +4,9 @@
 # The error reason never carries the request URL: it comes from configuration.
 # A timeout, a transport failure or an error status is marked as a failed request.
 #
-# get_json reads through the shared source cache (rule A).
+# get_json reads through the shared source cache (rule A). with_query adds
+# query values to a URL that may already have a query: adapters use it instead
+# of passing params.
 #
 # SEE: docs/architecture.md (Source adapters), docs/adr/0007-backend-runtime-and-data-pipeline.md, docs/source-rules.md, docs/adr/0020-source-rules.md
 
@@ -141,6 +143,14 @@ def _forget(
             finished.exception()  # consume it: callers that left never retrieve it
 
     return done
+
+
+def with_query(url: str, query: Mapping[str, str | int]) -> str:
+    """Return the URL with the values added to its own query.
+
+    A value the URL already has is replaced; the rest of its query is kept.
+    Adapters use this instead of passing `params`."""
+    return str(httpx.URL(url).copy_merge_params(query))
 
 
 async def get_json(

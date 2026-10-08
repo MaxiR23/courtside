@@ -1,0 +1,53 @@
+{
+  "injuries": [
+    {
+      "id": "25",
+      "injuries": [
+        {
+          "status": "Day-To-Day",
+          "shortComment": "Sorber (knee) won't play in Wednesday's preseason game against the Bucks.",
+          "date": "2026-10-07T22:26Z",
+          "athlete": {
+            "displayName": "Thomas Sorber",
+            "links": [
+              {
+                "href": "https://example.com/nba/player/_/id/5061603/thomas-sorber"
+              }
+            ]
+          }
+        },
+        {
+          "status": "Day-To-Day",
+          "shortComment": "Holmgren (quadriceps) won't play in Wednesday's preseason game against Milwaukee.",
+          "date": "2026-10-07T22:24Z",
+          "athlete": {
+            "displayName": "Chet Holmgren",
+            "links": [
+              {
+                "href": "https://example.com/nba/player/_/id/4433255/chet-holmgren"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "1",
+      "injuries": [
+        {
+          "status": "Day-To-Day",
+          "shortComment": "Wiggins won't return to Monday's preseason game against the Grizzlies due to a cut to his inner lip. He'll end with seven points (2-4 FG, 1-2 3Pt, 2-2 FT) in 11 minutes.",
+          "date": "2026-10-06T00:29Z",
+          "athlete": {
+            "displayName": "Aaron Wiggins",
+            "links": [
+              {
+                "href": "https://example.com/nba/player/_/id/4397183/aaron-wiggins"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

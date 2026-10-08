@@ -14,6 +14,17 @@ ENV_FILE = API_DIR / ".env"
 # Placeholder each URL template must contain.
 PLACEHOLDERS = {"scoreboard_url": "date", "game_detail_url": "game_id"}
 
+# Placeholders each of these URL templates must contain, and no other.
+EXACT_PLACEHOLDERS: dict[str, frozenset[str]] = {
+    "player_bio_url": frozenset({"player_id"}),
+    "player_draft_url": frozenset({"player_id"}),
+    "player_overview_url": frozenset({"player_id"}),
+    "player_gamelog_url": frozenset({"player_id"}),
+    "player_stats_url": frozenset({"player_id"}),
+    "team_info_url": frozenset({"team"}),
+    "division_standings_url": frozenset(),
+}
+
 # Names of settings that no longer exist. A stale .env may still carry them,
 # so they are dropped with a warning instead of stopping the backend. When a
 # setting is removed, add its name here. Any other unknown key still fails.
@@ -41,10 +52,27 @@ class Settings(BaseSettings):
     player_averages_url: str | None = None
     # Standings of both conferences.
     standings_url: str | None = None
-    # Template with {team}, the provider's team code.
+    # Template with {team}, the provider's team code. The adapter adds the
+    # season and the season type to its query.
     team_schedule_url: str | None = None
     # Injuries of every team in the league.
     league_injuries_url: str | None = None
+    # Template with {player_id}, the provider's player id: bio with the season summary.
+    player_bio_url: str | None = None
+    # Template with {player_id}: the player's draft.
+    player_draft_url: str | None = None
+    # Template with {player_id}: the player's overview with the awards.
+    player_overview_url: str | None = None
+    # Template with {player_id}: the player's game log of the current season.
+    player_gamelog_url: str | None = None
+    # Template with {player_id}: the player's season stats. The adapter adds the
+    # playoffs season type to its query.
+    player_stats_url: str | None = None
+    # Template with {team}, the provider's team code: colors, arena and images.
+    team_info_url: str | None = None
+    # Standings by division of the regular season, requested as is: its query
+    # must select the regular season.
+    division_standings_url: str | None = None
     # Listing of the official channel's uploads, without the key. The adapter
     # adds the page size and the page token.
     highlights_source_url: str | None = None
@@ -95,6 +123,23 @@ class Settings(BaseSettings):
         fields = {name for _, name, _, _ in string.Formatter().parse(value)}
         if placeholder not in fields:
             raise ValueError(f"must contain the {{{placeholder}}} placeholder")
+        return value
+
+    @field_validator(*EXACT_PLACEHOLDERS)
+    @classmethod
+    def _require_exact_placeholders(
+        cls, value: str | None, info: ValidationInfo
+    ) -> str | None:
+        # An empty value, as listed in .env.example, counts as unset here.
+        if not value:
+            return value
+        expected = EXACT_PLACEHOLDERS[info.field_name or ""]
+        found = {name for _, name, _, _ in string.Formatter().parse(value) if name}
+        if found != expected:
+            if not expected:
+                raise ValueError("must contain no placeholder")
+            names = ", ".join(f"{{{name}}}" for name in sorted(expected))
+            raise ValueError(f"must contain only the {names} placeholder")
         return value
 
     @model_validator(mode="after")

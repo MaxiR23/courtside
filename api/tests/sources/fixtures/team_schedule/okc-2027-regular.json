@@ -1,0 +1,236 @@
+{
+  "events": [
+    {
+      "id": "401909090",
+      "date": "2026-10-21T01:30Z",
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "Frost Bank Center",
+            "address": {
+              "city": "San Antonio"
+            }
+          },
+          "status": {
+            "type": {
+              "state": "pre",
+              "completed": false
+            }
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "team": {
+                "abbreviation": "SA"
+              }
+            },
+            {
+              "homeAway": "away",
+              "team": {
+                "abbreviation": "OKC"
+              }
+            }
+          ],
+          "notes": [],
+          "broadcasts": [
+            {
+              "media": {
+                "shortName": "NBC"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "401909865",
+      "date": "2026-10-25T23:00Z",
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "Paycom Center",
+            "address": {
+              "city": "Oklahoma City"
+            }
+          },
+          "status": {
+            "type": {
+              "state": "pre",
+              "completed": false
+            }
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "team": {
+                "abbreviation": "OKC"
+              }
+            },
+            {
+              "homeAway": "away",
+              "team": {
+                "abbreviation": "LAC"
+              }
+            }
+          ],
+          "notes": [],
+          "broadcasts": []
+        }
+      ]
+    },
+    {
+      "id": "401909094",
+      "date": "2026-10-23T01:30Z",
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "Paycom Center",
+            "address": {
+              "city": "Oklahoma City"
+            }
+          },
+          "status": {
+            "type": {
+              "state": "pre",
+              "completed": false
+            }
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "team": {
+                "abbreviation": "OKC"
+              }
+            },
+            {
+              "homeAway": "away",
+              "team": {
+                "abbreviation": "DEN"
+              }
+            }
+          ],
+          "notes": [],
+          "broadcasts": [
+            {
+              "media": {
+                "shortName": "Source"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "401909291",
+      "date": "2026-11-07T01:00Z",
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "FedExForum",
+            "address": {
+              "city": "Memphis"
+            }
+          },
+          "status": {
+            "type": {
+              "state": "pre",
+              "completed": false
+            }
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "team": {
+                "abbreviation": "MEM"
+              }
+            },
+            {
+              "homeAway": "away",
+              "team": {
+                "abbreviation": "OKC"
+              }
+            }
+          ],
+          "notes": [
+            {
+              "headline": "NBA Cup - Group Play"
+            }
+          ],
+          "broadcasts": []
+        }
+      ]
+    },
+    {
+      "id": "401910366",
+      "date": "2027-01-19T01:00Z",
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "American Airlines Center",
+            "address": {
+              "city": "Dallas"
+            }
+          },
+          "status": {
+            "type": {
+              "state": "pre",
+              "completed": false
+            }
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "team": {
+                "abbreviation": "DAL"
+              }
+            },
+            {
+              "homeAway": "away",
+              "team": {
+                "abbreviation": "OKC"
+              }
+            }
+          ],
+          "notes": [],
+          "broadcasts": []
+        }
+      ]
+    },
+    {
+      "id": "401910948",
+      "date": "2027-04-12T00:30Z",
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "Ball Arena",
+            "address": {
+              "city": "Denver"
+            }
+          },
+          "status": {
+            "type": {
+              "state": "pre",
+              "completed": false
+            }
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "team": {
+                "abbreviation": "DEN"
+              }
+            },
+            {
+              "homeAway": "away",
+              "team": {
+                "abbreviation": "OKC"
+              }
+            }
+          ],
+          "notes": [],
+          "broadcasts": []
+        }
+      ]
+    }
+  ]
+}

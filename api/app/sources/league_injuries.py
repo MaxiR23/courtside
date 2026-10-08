@@ -3,18 +3,20 @@
 # League injuries adapter: fetches the injuries of every team from the
 # provider and maps them to the contract's injuries by standard team code. Each
 # team entry is attributed by its provider team id, never by the athlete's
-# team, which is the athlete's current team. The provider URL comes from
-# Settings. Provider data never leaves this module.
+# team, which is the athlete's current team. Each report keeps the athlete id,
+# read from the athlete's links, and the date of the report. The provider URL
+# comes from Settings. Provider data never leaves this module.
 #
 # SEE: docs/api/game-detail.md, api/app/sources/standings.py
 
 import datetime as dt
 
-from pydantic import BaseModel, ConfigDict, ValidationError
+import httpx
+from pydantic import AwareDatetime, BaseModel, ConfigDict, ValidationError
 from pydantic.alias_generators import to_camel
 
 from app.feeds.game_detail import Injury, InjuryStatus
-from app.feeds.games import FeedModel, TeamCode
+from app.feeds.games import FeedModel, NonEmptyStr, TeamCode, UtcDatetime
 from app.settings import Settings
 from app.sources.http import SourceClient, SourceError, get_json
 from app.sources.teams import team_code_of_id
@@ -29,13 +31,19 @@ class _ProviderModel(BaseModel):
     )
 
 
+class _ProviderLink(_ProviderModel):
+    href: str
+
+
 class _ProviderAthlete(_ProviderModel):
     display_name: str
+    links: list[_ProviderLink] = []
 
 
 class _ProviderInjury(_ProviderModel):
     status: str
     short_comment: str | None = None
+    date: AwareDatetime | None = None
     athlete: _ProviderAthlete
 
 
@@ -48,14 +56,32 @@ class _ProviderLeagueInjuries(_ProviderModel):
     injuries: list[_ProviderTeamEntry]
 
 
-class LeagueInjuries(FeedModel):
-    """Injuries by team code. A team that is absent reported none."""
+class InjuryReport(FeedModel):
+    """One injury with the athlete's id and the report's date. Never reaches a feed."""
 
-    teams: dict[TeamCode, list[Injury]]
+    injury: Injury
+    player_id: NonEmptyStr | None = None
+    updated_at: UtcDatetime | None = None
+
+
+class LeagueInjuries(FeedModel):
+    """Injury reports by team code. A team that is absent reported none."""
+
+    teams: dict[TeamCode, list[InjuryReport]]
 
 
 def _location(error: ValidationError) -> str:
     return ".".join(str(part) for part in error.errors()[0]["loc"])
+
+
+def _athlete_id(athlete: _ProviderAthlete) -> str | None:
+    """The id that follows the `id` segment of the first link that has one."""
+    for link in athlete.links:
+        parts = httpx.URL(link.href).path.split("/")
+        for index, part in enumerate(parts[:-1]):
+            if part == "id" and parts[index + 1].isdigit():
+                return parts[index + 1]
+    return None
 
 
 def _injury(injury: _ProviderInjury) -> dict[str, object]:
@@ -64,9 +90,13 @@ def _injury(injury: _ProviderInjury) -> dict[str, object]:
     except ValueError:
         raise SourceError(SOURCE, "unknown injury status") from None
     return {
-        "display_name": injury.athlete.display_name,
-        "status": status,
-        "comment": injury.short_comment or None,
+        "injury": {
+            "display_name": injury.athlete.display_name,
+            "status": status,
+            "comment": injury.short_comment or None,
+        },
+        "player_id": _athlete_id(injury.athlete),
+        "updated_at": injury.date,
     }
 
 

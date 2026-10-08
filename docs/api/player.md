@@ -78,6 +78,8 @@ The root is one player.
   stat row and game log entry, made is not above attempted.
 - Season labels look like `2025-26`; jersey numbers are text of one or two
   digits.
+- `Draft.teamName` is the drafting franchise's current name.
+- An award with no season is left out.
 - `lastGames` lists at most five entries, newest first, with no All-Star
   game.
 - `gameLog.entries` are newest first. Only an All-Star entry has a null
@@ -105,4 +107,5 @@ The root is one player.
   the build, and in any case 7 days after the build.
 - `live` is taken from the live game detail of the player's team at serve
   time ([ADR 0021](../adr/0021-player-and-team-pages.md)).
-- The endpoint and the builder are pending: added by a later issue.
+- The builder is `build_player_feed` in `api/app/jobs/player_feed.py`; the
+  endpoint is pending: added by a later issue.

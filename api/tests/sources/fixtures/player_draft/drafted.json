@@ -1,0 +1,10 @@
+{
+  "draft": {
+    "year": 2018,
+    "round": 1,
+    "selection": 11,
+    "team": {
+      "$ref": "https://example.com/v2/sports/basketball/leagues/nba/seasons/2018/teams/30?lang=en&region=us"
+    }
+  }
+}

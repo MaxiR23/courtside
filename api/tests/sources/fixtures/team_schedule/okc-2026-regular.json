@@ -1,0 +1,431 @@
+{
+  "events": [
+    {
+      "id": "401809243",
+      "date": "2025-10-21T23:30Z",
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "Paycom Center",
+            "address": {
+              "city": "Oklahoma City"
+            }
+          },
+          "status": {
+            "type": {
+              "state": "post",
+              "completed": true
+            }
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "winner": true,
+              "score": {
+                "value": 125.0
+              },
+              "team": {
+                "abbreviation": "OKC"
+              }
+            },
+            {
+              "homeAway": "away",
+              "winner": false,
+              "score": {
+                "value": 124.0
+              },
+              "team": {
+                "abbreviation": "HOU"
+              }
+            }
+          ],
+          "notes": [],
+          "broadcasts": [
+            {
+              "media": {
+                "shortName": "NBC"
+              }
+            },
+            {
+              "media": {
+                "shortName": "Peacock"
+              }
+            },
+            {
+              "media": {
+                "shortName": "ERADM"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "401809236",
+      "date": "2025-10-23T23:30Z",
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "Gainbridge Fieldhouse",
+            "address": {
+              "city": "Indianapolis"
+            }
+          },
+          "status": {
+            "type": {
+              "state": "post",
+              "completed": true
+            }
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "winner": false,
+              "score": {
+                "value": 135.0
+              },
+              "team": {
+                "abbreviation": "IND"
+              }
+            },
+            {
+              "homeAway": "away",
+              "winner": true,
+              "score": {
+                "value": 141.0
+              },
+              "team": {
+                "abbreviation": "OKC"
+              }
+            }
+          ],
+          "notes": [],
+          "broadcasts": [
+            {
+              "media": {
+                "shortName": "Source"
+              }
+            },
+            {
+              "media": {
+                "shortName": "FanDuel SN IN"
+              }
+            },
+            {
+              "media": {
+                "shortName": "FanDuel SN OK"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "401809780",
+      "date": "2025-11-08T03:00Z",
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "Golden 1 Center",
+            "address": {
+              "city": "Sacramento"
+            }
+          },
+          "status": {
+            "type": {
+              "state": "post",
+              "completed": true
+            }
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "winner": false,
+              "score": {
+                "value": 101.0
+              },
+              "team": {
+                "abbreviation": "SAC"
+              }
+            },
+            {
+              "homeAway": "away",
+              "winner": true,
+              "score": {
+                "value": 132.0
+              },
+              "team": {
+                "abbreviation": "OKC"
+              }
+            }
+          ],
+          "notes": [
+            {
+              "headline": "NBA Cup - Group Play"
+            }
+          ],
+          "broadcasts": [
+            {
+              "media": {
+                "shortName": "NBC Sports CA"
+              }
+            },
+            {
+              "media": {
+                "shortName": "FanDuel SN OK"
+              }
+            },
+            {
+              "media": {
+                "shortName": "NBA League Pass"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "401809835",
+      "date": "2025-12-11T00:30Z",
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "Paycom Center",
+            "address": {
+              "city": "Oklahoma City"
+            }
+          },
+          "status": {
+            "type": {
+              "state": "post",
+              "completed": true
+            }
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "winner": true,
+              "score": {
+                "value": 138.0
+              },
+              "team": {
+                "abbreviation": "OKC"
+              }
+            },
+            {
+              "homeAway": "away",
+              "winner": false,
+              "score": {
+                "value": 89.0
+              },
+              "team": {
+                "abbreviation": "PHX"
+              }
+            }
+          ],
+          "notes": [
+            {
+              "headline": "NBA Cup - Quarterfinals"
+            }
+          ],
+          "broadcasts": [
+            {
+              "media": {
+                "shortName": "Prime Video"
+              }
+            },
+            {
+              "media": {
+                "shortName": "FanDuel SN OK"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "401809838",
+      "date": "2025-12-14T02:00Z",
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "T-Mobile Arena",
+            "address": {
+              "city": "Las Vegas"
+            }
+          },
+          "status": {
+            "type": {
+              "state": "post",
+              "completed": true
+            }
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "winner": false,
+              "score": {
+                "value": 109.0
+              },
+              "team": {
+                "abbreviation": "OKC"
+              }
+            },
+            {
+              "homeAway": "away",
+              "winner": true,
+              "score": {
+                "value": 111.0
+              },
+              "team": {
+                "abbreviation": "SA"
+              }
+            }
+          ],
+          "notes": [
+            {
+              "headline": "NBA Cup - Semifinals"
+            }
+          ],
+          "broadcasts": [
+            {
+              "media": {
+                "shortName": "Prime Video"
+              }
+            },
+            {
+              "media": {
+                "shortName": "ERADM"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "401811037",
+      "date": "2026-04-11T01:00Z",
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "Ball Arena",
+            "address": {
+              "city": "Denver"
+            }
+          },
+          "status": {
+            "type": {
+              "state": "post",
+              "completed": true
+            }
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "winner": true,
+              "score": {
+                "value": 127.0
+              },
+              "team": {
+                "abbreviation": "DEN"
+              }
+            },
+            {
+              "homeAway": "away",
+              "winner": false,
+              "score": {
+                "value": 107.0
+              },
+              "team": {
+                "abbreviation": "OKC"
+              }
+            }
+          ],
+          "notes": [],
+          "broadcasts": [
+            {
+              "media": {
+                "shortName": "Altitude Sports"
+              }
+            },
+            {
+              "media": {
+                "shortName": "FanDuel SN OK"
+              }
+            },
+            {
+              "media": {
+                "shortName": "NBA League Pass"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "401811051",
+      "date": "2026-04-13T00:30Z",
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "Paycom Center",
+            "address": {
+              "city": "Oklahoma City"
+            }
+          },
+          "status": {
+            "type": {
+              "state": "post",
+              "completed": true
+            }
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "winner": false,
+              "score": {
+                "value": 103.0
+              },
+              "team": {
+                "abbreviation": "OKC"
+              }
+            },
+            {
+              "homeAway": "away",
+              "winner": true,
+              "score": {
+                "value": 135.0
+              },
+              "team": {
+                "abbreviation": "PHX"
+              }
+            }
+          ],
+          "notes": [],
+          "broadcasts": [
+            {
+              "media": {
+                "shortName": "FanDuel SN OK"
+              }
+            },
+            {
+              "media": {
+                "shortName": "Arizona's Family 3TV"
+              }
+            },
+            {
+              "media": {
+                "shortName": "Suns Live"
+              }
+            },
+            {
+              "media": {
+                "shortName": "NBA League Pass"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

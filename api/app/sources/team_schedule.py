@@ -2,13 +2,16 @@
 #
 # Team schedule adapter: fetches one team's schedule from the provider and
 # maps its completed games to the contract's last games, newest first, and to
-# the arena of each completed game by game id. The provider URL comes from
-# Settings. Provider data never leaves this module.
+# the arena of each completed game by game id. It also fetches a team's whole
+# schedule of one season and season type (regular season or playoffs), with
+# each game's note, broadcast, arena and score, adding the season and the
+# season type to the URL's own query. The provider URL comes from Settings.
+# Provider data never leaves this module.
 #
 # SEE: docs/api/game-detail.md, api/app/sources/team_players.py
 
 import datetime as dt
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 from zoneinfo import ZoneInfo
 
 from pydantic import (
@@ -16,14 +19,15 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    NonNegativeInt,
     ValidationError,
 )
 from pydantic.alias_generators import to_camel
 
 from app.feeds.game_detail import GameResult, LastGame
-from app.feeds.games import FeedModel, NonEmptyStr
+from app.feeds.games import FeedModel, NonEmptyStr, TeamCode, UtcDatetime
 from app.settings import Settings
-from app.sources.http import SourceClient, SourceError, get_json
+from app.sources.http import SourceClient, SourceError, get_json, with_query
 from app.sources.teams import TEAM_CODES, to_team_code
 
 SOURCE = "team_schedule"
@@ -56,8 +60,25 @@ class _ProviderCompetitor(_ProviderModel):
     score: _ProviderScore | None = None
 
 
+class _ProviderAddress(_ProviderModel):
+    city: str | None = None
+
+
 class _ProviderVenue(_ProviderModel):
     full_name: str
+    address: _ProviderAddress | None = None
+
+
+class _ProviderNote(_ProviderModel):
+    headline: str | None = None
+
+
+class _ProviderMedia(_ProviderModel):
+    short_name: str | None = None
+
+
+class _ProviderBroadcast(_ProviderModel):
+    media: _ProviderMedia | None = None
 
 
 class _ProviderStatusType(_ProviderModel):
@@ -73,6 +94,8 @@ class _ProviderCompetition(_ProviderModel):
     venue: _ProviderVenue
     status: _ProviderStatus
     competitors: list[_ProviderCompetitor]
+    notes: list[_ProviderNote] = []
+    broadcasts: list[_ProviderBroadcast] = []
 
 
 class _ProviderEvent(_ProviderModel):
@@ -91,6 +114,33 @@ class TeamSchedule(FeedModel):
 
     last_games: Annotated[list[LastGame], Field(max_length=LAST_GAMES)]
     arenas: dict[NonEmptyStr, NonEmptyStr]
+
+
+class ScheduledGame(FeedModel):
+    """One game of a season schedule, from the requested team's side. Never
+    reaches a feed."""
+
+    game_id: NonEmptyStr
+    start_time: UtcDatetime
+    opponent: TeamCode
+    is_home: bool
+    state: Literal["pre", "in", "post"]
+    completed: bool
+    won: bool | None = None
+    team_score: NonNegativeInt | None = None
+    opponent_score: NonNegativeInt | None = None
+    note: NonEmptyStr | None = None
+    broadcast: NonEmptyStr | None = None
+    arena: NonEmptyStr
+    city: NonEmptyStr | None = None
+    playoffs: bool
+
+
+class SeasonSchedule(FeedModel):
+    """A team's games of one season and season type, in the provider's order.
+    Never reaches a feed."""
+
+    games: list[ScheduledGame]
 
 
 def _provider_code(team_code: str) -> str:
@@ -161,6 +211,94 @@ async def fetch_team_schedule(
                     event.id: event.competitions[0].venue.full_name
                     for event in completed
                 },
+            }
+        )
+    except ValidationError as error:
+        first = error.errors()[0]
+        raise SourceError(
+            SOURCE,
+            f"team schedule is invalid: {first['type']} at {_location(error)}",
+        ) from None
+
+
+def _scheduled_game(
+    team_code: str, event: _ProviderEvent, *, playoffs: bool
+) -> dict[str, Any]:
+    competition = event.competitions[0]
+    competitors = {
+        to_team_code(c.team.abbreviation, source=SOURCE): c
+        for c in competition.competitors
+    }
+    team = competitors.get(team_code)
+    if team is None or len(competitors) != 2:
+        raise SourceError(SOURCE, f"team {team_code} is missing from game {event.id}")
+    opponent_code, opponent = next(
+        (code, c) for code, c in competitors.items() if code != team_code
+    )
+    played = (
+        competition.status.type.completed and competition.status.type.state == "post"
+    )
+    if played and (team.score is None or opponent.score is None):
+        raise SourceError(SOURCE, f"game {event.id} has no score")
+    return {
+        "game_id": event.id,
+        "start_time": event.date,
+        "opponent": opponent_code,
+        "is_home": team.home_away == "home",
+        "state": competition.status.type.state,
+        "completed": competition.status.type.completed,
+        "won": team.winner if played else None,
+        "team_score": int(team.score.value) if played and team.score else None,
+        "opponent_score": (
+            int(opponent.score.value) if played and opponent.score else None
+        ),
+        "note": next((n.headline for n in competition.notes if n.headline), None),
+        "broadcast": next(
+            (
+                b.media.short_name
+                for b in competition.broadcasts
+                if b.media and b.media.short_name
+            ),
+            None,
+        ),
+        "arena": competition.venue.full_name,
+        "city": (competition.venue.address.city if competition.venue.address else None),
+        "playoffs": playoffs,
+    }
+
+
+async def fetch_season_schedule(
+    client: SourceClient,
+    team_code: str,
+    season: int,
+    settings: Settings,
+    *,
+    playoffs: bool,
+) -> SeasonSchedule:
+    """Return one team's games of a season (its end year) and season type, or
+    raise SourceError."""
+    if settings.team_schedule_url is None:
+        raise SourceError(SOURCE, "team schedule URL is not configured")
+    provider_code = _provider_code(team_code)
+    url = with_query(
+        settings.team_schedule_url.format(team=provider_code),
+        {"season": season, "seasontype": 3 if playoffs else 2},
+    )
+    body = await get_json(client, url, source=SOURCE, fresh=FRESH_FOR)
+    try:
+        schedule = _ProviderSchedule.model_validate(body)
+    except ValidationError as error:
+        raise SourceError(
+            SOURCE,
+            f"invalid payload: {error.error_count()} errors, first at {_location(error)}",
+        ) from None
+    try:
+        return SeasonSchedule.model_validate(
+            {
+                "games": [
+                    _scheduled_game(team_code, event, playoffs=playoffs)
+                    for event in schedule.events
+                ]
             }
         )
     except ValidationError as error:

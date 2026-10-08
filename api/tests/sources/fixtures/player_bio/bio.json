@@ -1,0 +1,29 @@
+{
+  "athlete": {
+    "statsSummary": {
+      "displayName": "2025-26 regular season stats",
+      "statistics": [
+        {
+          "name": "avgPoints",
+          "value": 31.132353,
+          "rank": 2
+        },
+        {
+          "name": "avgRebounds",
+          "value": 4.2941175,
+          "rank": 103
+        },
+        {
+          "name": "avgAssists",
+          "value": 6.5882354,
+          "rank": 14
+        },
+        {
+          "name": "fieldGoalPct",
+          "value": 55.33700180053711,
+          "rank": 12
+        }
+      ]
+    }
+  }
+}

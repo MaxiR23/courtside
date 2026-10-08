@@ -1,8 +1,10 @@
 # api/app/sources/team_players.py
 #
 # Team players adapter: fetches one team's current roster, with the
-# provider's current season, one team's per-game season averages and one
-# player's per-game season averages, and maps them to contract types. The provider URLs come from Settings.
+# provider's current season, its coach and each player's details, one team's
+# per-game season averages (the team leaders, with the previous season as a
+# fallback) and one player's per-game season averages, and maps them to
+# contract types. The provider URLs come from Settings.
 # Provider data never leaves this module. A roster and the team leaders are kept
 # for 24 hours; a player's averages are kept as long as the caller's freshness
 # allows (rule F of docs/source-rules.md).
@@ -12,6 +14,7 @@
 import datetime as dt
 
 from pydantic import (
+    AwareDatetime,
     BaseModel,
     ConfigDict,
     Field,
@@ -58,17 +61,58 @@ class _ProviderTeam(_ProviderModel):
     id: str
 
 
+class _ProviderBirthPlace(_ProviderModel):
+    city: str | None = None
+    state: str | None = None
+    country: str | None = None
+
+
+class _ProviderNamed(_ProviderModel):
+    name: str | None = None
+
+
+class _ProviderExperience(_ProviderModel):
+    years: int
+
+
+class _ProviderPosition(_ProviderModel):
+    name: str | None = None
+    abbreviation: str | None = None
+
+
+class _ProviderHref(_ProviderModel):
+    href: str
+
+
 class _ProviderAthlete(_ProviderModel):
     id: str
     first_name: str
     last_name: str
     short_name: str
+    display_name: str | None = None
+    jersey: str | None = None
+    height: float | None = None
+    display_height: str | None = None
+    weight: float | None = None
+    date_of_birth: AwareDatetime | None = None
+    birth_place: _ProviderBirthPlace | None = None
+    college: _ProviderNamed | None = None
+    experience: _ProviderExperience | None = None
+    position: _ProviderPosition | None = None
+    headshot: _ProviderHref | None = None
+
+
+class _ProviderCoach(_ProviderModel):
+    first_name: str
+    last_name: str
+    experience: int
 
 
 class _ProviderRoster(_ProviderModel):
     season: _ProviderSeason
     team: _ProviderTeam
     athletes: list[_ProviderAthlete]
+    coach: list[_ProviderCoach] = []
 
 
 class _ProviderAthleteRef(_ProviderModel):
@@ -107,12 +151,45 @@ class _ProviderPlayerAverages(_ProviderModel):
     splits: _ProviderSplits
 
 
+class RosterEntry(FeedModel):
+    """One roster player with the details of the provider, in its units: the
+    height in inches, the weight in pounds. Never reaches a feed."""
+
+    player_id: NonEmptyStr
+    first_name: NonEmptyStr
+    last_name: NonEmptyStr
+    display_name: NonEmptyStr | None = None
+    jersey: NonEmptyStr | None = None
+    position_name: NonEmptyStr | None = None
+    position_abbreviation: NonEmptyStr | None = None
+    height_inches: float | None = None
+    display_height: NonEmptyStr | None = None
+    weight_lb: float | None = None
+    birth_date: dt.date | None = None
+    birth_city: NonEmptyStr | None = None
+    birth_state: NonEmptyStr | None = None
+    birth_country: NonEmptyStr | None = None
+    college: NonEmptyStr | None = None
+    experience: int | None = None
+    headshot_url: NonEmptyStr | None = None
+
+
+class RosterCoach(FeedModel):
+    """A team's coach. Never reaches a feed."""
+
+    first_name: NonEmptyStr
+    last_name: NonEmptyStr
+    experience: int
+
+
 class Roster(FeedModel):
     """A team's current roster and the season the provider says is current."""
 
     season: PositiveInt
     team_id: NonEmptyStr
     players: list[Star] = Field(min_length=1)
+    entries: list[RosterEntry] = Field(default_factory=list)
+    coach: RosterCoach | None = None
 
 
 class PlayerAverages(FeedModel):
@@ -122,6 +199,13 @@ class PlayerAverages(FeedModel):
     points: NonNegativeFloat
     rebounds: NonNegativeFloat
     assists: NonNegativeFloat
+
+
+class SeasonLeaders(FeedModel):
+    """The players' per-game averages of the season the leaders were read for."""
+
+    season: PositiveInt
+    players: list[PlayerAverages]
 
 
 def _location(error: ValidationError) -> str:
@@ -140,6 +224,46 @@ def _provider_code(team_code: str) -> str:
         return PROVIDER_CODES[team_code]
     except KeyError:
         raise SourceError(SOURCE, f"unknown team code {team_code!r}") from None
+
+
+def _entry(athlete: _ProviderAthlete) -> dict[str, object]:
+    place = athlete.birth_place
+    return {
+        "player_id": athlete.id,
+        "first_name": athlete.first_name,
+        "last_name": athlete.last_name,
+        "display_name": athlete.display_name,
+        "jersey": athlete.jersey,
+        "position_name": athlete.position.name if athlete.position else None,
+        "position_abbreviation": (
+            athlete.position.abbreviation if athlete.position else None
+        ),
+        "height_inches": athlete.height,
+        "display_height": athlete.display_height,
+        "weight_lb": athlete.weight,
+        "birth_date": (
+            athlete.date_of_birth.astimezone(dt.UTC).date()
+            if athlete.date_of_birth
+            else None
+        ),
+        "birth_city": place.city if place else None,
+        "birth_state": place.state if place else None,
+        "birth_country": place.country if place else None,
+        "college": athlete.college.name if athlete.college else None,
+        "experience": athlete.experience.years if athlete.experience else None,
+        "headshot_url": athlete.headshot.href if athlete.headshot else None,
+    }
+
+
+def _coach(coaches: list[_ProviderCoach]) -> dict[str, object] | None:
+    if not coaches:
+        return None
+    first = coaches[0]
+    return {
+        "first_name": first.first_name,
+        "last_name": first.last_name,
+        "experience": first.experience,
+    }
 
 
 async def fetch_roster(
@@ -175,6 +299,8 @@ async def fetch_roster(
                     }
                     for athlete in provider.athletes
                 ],
+                "entries": [_entry(athlete) for athlete in provider.athletes],
+                "coach": _coach(provider.coach),
             }
         )
     except ValidationError as error:
@@ -248,6 +374,20 @@ async def fetch_season_averages(
             SOURCE,
             f"team {team_id} is invalid: {first['type']} at {_location(error)}",
         ) from None
+
+
+async def fetch_team_leaders(
+    client: SourceClient, roster: Roster, settings: Settings
+) -> SeasonLeaders:
+    """Return the players' averages of the roster's season, or of the previous
+    one when the provider has none, with the season used.
+
+    The current season with no players when neither has statistics."""
+    for season in (roster.season, roster.season - 1):
+        players = await fetch_season_averages(client, roster.team_id, season, settings)
+        if players:
+            return SeasonLeaders(season=season, players=players)
+    return SeasonLeaders(season=roster.season, players=[])
 
 
 async def fetch_player_averages(

@@ -28,6 +28,7 @@
 # - Request headers are neither in the key nor stored
 # - Keys an entry by the full URL with its parameters
 # - Rejects a naive fetched-at-or-after time
+# - Keeps the URL's own query when adding values, adds them to a URL without a query and replaces a value the URL already has
 #
 # What is covered:
 # - Happy path and every upstream failure, with no real network call
@@ -56,6 +57,7 @@ from app.sources.http import (
     get_json,
     get_text,
     is_served,
+    with_query,
 )
 from app.storage.state import STATE_FILE, StateStore
 
@@ -583,3 +585,22 @@ async def test_rejects_a_naive_fetched_at_or_after_time(tmp_path: Path) -> None:
                 await get_json(client, URL, source="test", fresh=fresh)
 
     assert route.call_count == 0
+
+
+def test_with_query_keeps_the_urls_own_query_when_adding_values() -> None:
+    url = with_query("https://example.com/a?lang=en", {"season": 2026})
+
+    assert httpx.URL(url) == httpx.URL("https://example.com/a?lang=en&season=2026")
+
+
+def test_with_query_adds_the_values_to_a_url_without_a_query() -> None:
+    url = with_query("https://example.com/a", {"season": 2026, "seasontype": 3})
+
+    assert httpx.URL(url) == httpx.URL("https://example.com/a?season=2026&seasontype=3")
+
+
+def test_with_query_replaces_a_value_the_url_already_has() -> None:
+    url = with_query("https://example.com/a?seasontype=2&lang=en", {"seasontype": 3})
+
+    assert httpx.URL(url).params["seasontype"] == "3"
+    assert httpx.URL(url).params["lang"] == "en"

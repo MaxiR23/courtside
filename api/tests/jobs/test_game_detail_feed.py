@@ -86,7 +86,7 @@ from app.sources.http import (
     create_client,
     get_json,
 )
-from app.sources.league_injuries import LeagueInjuries
+from app.sources.league_injuries import InjuryReport, LeagueInjuries
 from app.sources.scoreboard import ScoreboardGame
 from app.sources.standings import LeagueStandings
 from app.sources.team_schedule import TeamSchedule
@@ -197,7 +197,12 @@ def standings(*codes: str) -> LeagueStandings:
 
 
 def injuries(teams: dict[str, list[Injury]] | None = None) -> LeagueInjuries:
-    return LeagueInjuries(teams=teams or {})
+    return LeagueInjuries(
+        teams={
+            code: [InjuryReport(injury=injury) for injury in reports]
+            for code, reports in (teams or {}).items()
+        }
+    )
 
 
 def schedule(arenas: dict[str, str] | None = None) -> TeamSchedule:
