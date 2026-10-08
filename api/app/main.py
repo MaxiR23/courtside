@@ -4,9 +4,11 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.jobs.game_detail import GameDetailJob
+from app.jobs.game_detail_feed import GameDetailFeeds
 from app.jobs.games import GamesJob
 from app.jobs.highlights import HighlightsJob
+from app.jobs.on_demand import FeedCache
+from app.jobs.presence import Presence
 from app.jobs.scheduler import Scheduler
 from app.jobs.stars import StarsJob
 from app.log import configure_logging
@@ -26,6 +28,8 @@ def create_app(settings: Settings | None = None, *, run_jobs: bool = True) -> Fa
         store = StateStore(settings.data_dir)
         store.migrate()
         client = create_client(store)
+        presence = Presence()
+        feed_cache = FeedCache(settings.data_dir, store)
         stars_job = StarsJob(settings, store, client)
         # The highlights job reads the final games of the games job, built below.
         highlights_job = HighlightsJob(
@@ -39,28 +43,30 @@ def create_app(settings: Settings | None = None, *, run_jobs: bool = True) -> Fa
             stars_ready=stars_job.has_every_star,
             highlights=highlights_job.highlights_of,
             highlights_search_url=highlights_job.search_url_of,
+            present=presence.present,
+            after_run=lambda: detail_feeds.after_games_run(),
         )
-        # The stars job runs in its own task so its fetches never delay the live refresh.
-        stars_scheduler = Scheduler([stars_job], store)
-        detail_job = GameDetailJob(
+        detail_feeds = GameDetailFeeds(
             settings,
             store,
             client,
-            games=lambda: games_job.shown_games(),
+            feed_cache,
+            games_job,
             stars=stars_job.stars_of,
             highlights=highlights_job.highlights_of,
             highlights_search_url=highlights_job.search_url_of,
         )
-        # The detail job runs in its own task so its fetches never delay the live refresh.
-        detail_scheduler = Scheduler([detail_job], store)
+        # The stars job runs in its own task so its fetches never delay the live refresh.
+        stars_scheduler = Scheduler([stars_job], store)
         scheduler = Scheduler([games_job, highlights_job], store)
         app.state.scheduler = scheduler
         app.state.stars_scheduler = stars_scheduler
-        app.state.detail_scheduler = detail_scheduler
+        app.state.presence = presence
+        app.state.games_job = games_job
+        app.state.feed_cache = feed_cache
         try:
             if run_jobs:
                 stars_scheduler.start()
-                detail_scheduler.start()
                 scheduler.start()
             yield
         finally:
@@ -68,12 +74,9 @@ def create_app(settings: Settings | None = None, *, run_jobs: bool = True) -> Fa
                 await scheduler.stop()
             finally:
                 try:
-                    await detail_scheduler.stop()
+                    await stars_scheduler.stop()
                 finally:
-                    try:
-                        await stars_scheduler.stop()
-                    finally:
-                        await client.aclose()
+                    await client.aclose()
 
     app = FastAPI(lifespan=lifespan)
     app.state.settings = settings

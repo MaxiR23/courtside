@@ -7,8 +7,10 @@ statistics, box score, standings and more.
 
 [`api/schemas/game-detail.schema.json`](../../api/schemas/game-detail.schema.json),
 generated from the models in `api/app/feeds/game_detail.py`. When this page
-and the models disagree, the models win. The route and the feed are decided
-in [ADR 0019](../adr/0019-game-detail-route-and-feed.md).
+and the models disagree, the models win. The route is decided in
+[ADR 0019](../adr/0019-game-detail-route-and-feed.md) and kept by
+[ADR 0020](../adr/0020-source-rules.md); its refresh and serving follow
+[`docs/source-rules.md`](../source-rules.md).
 
 Conventions:
 
@@ -109,8 +111,8 @@ builds the feed.
   value leads.
 - On a `final` game, `teamStats` and `boxScore` are null together when
   the source had no player statistics when the feed was built. A final
-  game is not rebuilt after a successful build (except once after a
-  restart, see "Refresh behavior"), so they stay null.
+  game is never rebuilt after a successful build, also after a restart, so
+  they stay null.
 - `winProbability` has at least one point, in non-decreasing
   `elapsedSeconds` order. The feed's validator checks it.
 - `winProbabilityLeader` is read off the last point of `winProbability` in feed
@@ -131,28 +133,46 @@ recorded response that shows it.
 
 ## Refresh behavior
 
-- A live game is rebuilt every 30 seconds.
-- A final game is built at its final time and, after a failure, 2, 4 and 6
-  hours after it, never after a success
-  ([ADR 0010](../adr/0010-final-game-attempts.md)). The attempts are kept in
-  memory, so after a restart a final game is built once more.
-- Any other status (scheduled, delayed, postponed, canceled) is rebuilt every
-  hour.
-- Standings and league injuries are fetched once per run, and a team schedule
-  at most once per run, only when a game is due.
-- A feed is republished with no source call when its stars, highlights or
-  highlights search URL change.
-- A failed build keeps that game's last valid feed and never blocks the other
-  games.
-- The feed of a game that leaves the days shown is deleted.
-- The job runs in its own task, apart from the games job, as the stars
-  job does ([ADR 0014](../adr/0014-star-guarantees.md)).
+- Nothing is built without a request, except a final game's build.
+- A pre-game feed (scheduled, delayed, postponed, canceled) is built on
+  request. It expires 12 hours after its build with tip-off more than 48 hours
+  away, 6 hours with tip-off 12 to 48 hours away, and 3 hours with tip-off
+  less than 12 hours away or already passed. A stored feed whose game changed
+  status is stale.
+- A live feed is built on request from the summary the games job fetched, so
+  there is one source request per live game per interval. It is fresh until
+  the games job refreshes the day again. A request that finds it stale waits
+  for the rebuild, so the score is never older than 30 seconds. A detail
+  request waits at most 20 seconds in total, shared by the games refresh and
+  the rebuild; when they end, the stored feed is served.
+- A final feed is built once by the games job at the final time and, after a
+  failure, 2, 4 and 6 hours after it
+  ([ADR 0010](../adr/0010-final-game-attempts.md)). It is stored and never
+  built again. The last stored feed stays served until then, and a request
+  answers 503 when none is stored.
+- Standings, league injuries and team schedules are read through the source
+  cache with a 1-hour freshness.
+- Stars, highlights and the highlights search URL are added when the feed is
+  served, not stored.
+- A failed build keeps the stored feed and is listed under `feeds` in
+  `/health`; it is not retried for 10 minutes on request.
+- The stored feed of a game that leaves the days shown is deleted by the
+  cleanup, with no source request.
 
 ## Endpoint
 
-- `GET /feeds/games/{id}.json` serves the last published feed of the game with
-  `Cache-Control: public, max-age=10` and an `ETag`.
+- `GET /feeds/games/{id}.json` serves the feed through the on-demand cache
+  with `Cache-Control: public, max-age=10` and an `ETag`.
 - It responds 304 with no body when `If-None-Match` matches the current
   `ETag`.
-- It responds 404 with `{"detail": ...}` when no feed is published for that id.
+- It responds 404 with `{"detail": ...}` for an id outside the days shown,
+  with no source request.
+- It responds 503 with `{"detail": ...}` before the days shown are loaded,
+  when the request's 20 seconds end before a missing feed is built, after a
+  failed build, and for a final game with no stored feed.
+- After a day change whose new-day fetch fails, the games already loaded (the
+  previous days shown and any new day fetched) keep being served, stored
+  finals included. An id not loaded answers 503 until every day shown is
+  loaded, and 404 after that.
 - An invalid feed is never published: the previous valid one stays served.
+- Every feed request records presence.

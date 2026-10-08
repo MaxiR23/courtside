@@ -60,6 +60,8 @@ MIGRATIONS: tuple[Migration, ...] = (
             "PRIMARY KEY (kind, feed_id))"
         ),
     ),
+    # Removes the jobs row of the game detail job removed in issue 154.
+    (("DELETE FROM jobs WHERE name = 'game-detail'"),),
 )
 
 

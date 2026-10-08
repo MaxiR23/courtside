@@ -50,7 +50,7 @@ Feeds are produced either by scheduled jobs (live data and fixed-time work, rule
 - One feed per domain, each a JSON file:
   - `games.json`: games for the days shown on the site, with scores, status and game details.
   - `standings.json`: standings tables.
-  - `games/{id}.json`: one detail feed per game in the days shown, drawn by the front end's `/game/{id}` route. Its route is set in [`adr/0020-source-rules.md`](adr/0020-source-rules.md), first set by ADR 0019; its refresh, retries and deletion follow [`adr/0020-source-rules.md`](adr/0020-source-rules.md).
+  - `games/{id}.json`: one detail feed per game in the days shown, built on request (a final game's once, at its final time), drawn by the front end's `/game/{id}` route. Its route is set in [`adr/0020-source-rules.md`](adr/0020-source-rules.md), first set by ADR 0019; its refresh, retries and deletion follow [`adr/0020-source-rules.md`](adr/0020-source-rules.md).
   - `players/{id}.json` and `teams/{code}.json`: one feed per player and per team, built on demand and drawn by `/player/{id}` and `/team/{code}`, as set in [`adr/0021-player-and-team-pages.md`](adr/0021-player-and-team-pages.md).
   - Seasonal feeds, such as playoffs or All-Star, added only while their section exists.
 - Each feed is validated against its model before publishing and written atomically, so a reader never sees a half-written file.
@@ -137,7 +137,7 @@ api/app/storage/           Job state (SQLite, with its migrations) and feed publ
 api/app/routers/           One APIRouter per module
 api/app/feeds/             One module per feed model, plus schema.py, which exports the schemas
 api/app/sources/           One module per data source adapter, plus http.py (shared client and SourceError) and teams.py (team codes)
-api/app/jobs/              One module per job, plus scheduler.py (the in-process scheduler) and on_demand.py (the on-demand feed cache)
+api/app/jobs/              One module per job, plus scheduler.py (the in-process scheduler), on_demand.py (the on-demand feed cache), presence.py (rule B) and game_detail_feed.py (the game detail feed kind)
 api/data/                  Data directory (default), never committed
 api/schemas/               Exported JSON Schemas, generated
 api/tests/                 Tests, mirroring app/

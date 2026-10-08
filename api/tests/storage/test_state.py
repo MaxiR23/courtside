@@ -52,6 +52,7 @@
 # - Deletes a feed's build state and leaves the other kinds' rows alone
 # - Keeps feed build state across store instances over the same data directory
 # - Recording a build twice leaves one row
+# - Migrating a database at the previous version deletes the game-detail job row and keeps the others
 #
 # What is covered:
 # - Happy path, edge cases (unknown game, repeat migration, restart, no jobs, no stars, pre-migration database), error case (naive time, failed migration)
@@ -880,3 +881,20 @@ def test_recording_a_build_twice_leaves_one_row(tmp_path: Path) -> None:
     store.record_build_failure("players", "a", LATER, "y")
 
     assert query(tmp_path, "SELECT COUNT(*) FROM feed_builds") == [(1,)]
+
+
+def test_migrating_a_database_at_the_previous_version_deletes_the_game_detail_job_row_and_keeps_the_others(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    real = state.MIGRATIONS
+    monkeypatch.setattr(state, "MIGRATIONS", real[:-1])
+    store = make_store(tmp_path)
+    store.record_success("game-detail", NOON)
+    store.record_success("games", NOON)
+    assert user_version(tmp_path) == len(real) - 1
+    monkeypatch.setattr(state, "MIGRATIONS", real)
+
+    store.migrate()
+
+    assert user_version(tmp_path) == len(real)
+    assert [job.name for job in store.job_states()] == ["games"]

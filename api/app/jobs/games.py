@@ -1,7 +1,7 @@
 # api/app/jobs/games.py
 #
-# Games job: fetches the days shown on the cadences of ADR 0007 and
-# publishes the games feed. The feed's today is the US Eastern date; after
+# Games job: fetches the days shown on the cadences of rules C and E of
+# docs/source-rules.md and publishes the games feed. The feed's today is the US Eastern date; after
 # midnight the previous day stays today while any of its games is live, then
 # the window moves. The morning run refreshes the days shown and runs the
 # cleanup. Stars, highlights and the highlights search URL
@@ -17,16 +17,20 @@
 # due time, so a first attempt is never served a detail sent before the final
 # status was observed, such as a live snapshot fetched during the same run.
 #
-# The detail job reads the games of the days shown through shown_games.
+# The game detail feed kind reads the games of the days shown through
+# shown_games and refreshed_at; after_run lets it start the final builds and
+# the cleanup.
 #
 # Once a day, with the daily fetch, the final times and failed stats attempts of
 # games dated more than 30 days ago are deleted from the job state; highlights
 # are kept.
 #
-# SEE: docs/adr/0007-backend-runtime-and-data-pipeline.md, docs/api/games.md,
+# SEE: docs/source-rules.md, docs/adr/0007-backend-runtime-and-data-pipeline.md,
+# docs/api/games.md,
 # docs/adr/0010-final-game-attempts.md, docs/adr/0011-state-retention.md,
 # docs/adr/0013-day-change.md, docs/adr/0014-star-guarantees.md
 
+import asyncio
 import datetime as dt
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from collections.abc import Set as AbstractSet
@@ -42,6 +46,7 @@ from app.feeds.games import (
     Stars,
     StatsAvailability,
 )
+from app.jobs.on_demand import MISSING_WAIT_SECONDS
 from app.settings import Settings
 from app.sources import game_detail, scoreboard
 from app.sources.game_detail import GameDetail
@@ -55,6 +60,7 @@ FEED = "games"
 EASTERN = ZoneInfo("America/New_York")
 DAYS_AROUND = 3
 LIVE_INTERVAL = dt.timedelta(seconds=30)
+NOBODY_INTERVAL = dt.timedelta(minutes=2)
 START_CHECK_INTERVAL = dt.timedelta(minutes=1)
 STATS_ATTEMPT_DELAYS = (
     dt.timedelta(0),
@@ -69,6 +75,8 @@ StarsProvider = Callable[[ScoreboardGame], Stars | None]
 StarsReady = Callable[[], bool]
 SearchUrlProvider = Callable[[ScoreboardGame], str | None]
 HighlightsProvider = Callable[[ScoreboardGame], list[Highlight]]
+PresenceCheck = Callable[[dt.datetime], bool]
+AfterRun = Callable[[], None]
 FetchGames = Callable[
     [SourceClient, dt.date, Settings], Awaitable[list[ScoreboardGame]]
 ]
@@ -88,6 +96,15 @@ def no_stars(game: ScoreboardGame) -> Stars | None:
 def stars_always_ready() -> bool:
     """Default when no readiness check is given: publication is never held."""
     return True
+
+
+def always_present(now: dt.datetime) -> bool:
+    """Default when no presence check is given: the live cadence is always 30 seconds."""
+    return True
+
+
+def no_after_run() -> None:
+    """Default when no after-run hook is given."""
 
 
 def no_highlights_search_url(game: ScoreboardGame) -> str | None:
@@ -198,7 +215,14 @@ class GamesJob:
         stars_ready: StarsReady = stars_always_ready,
         highlights_search_url: SearchUrlProvider = no_highlights_search_url,
         highlights: HighlightsProvider = no_highlights,
+        present: PresenceCheck = always_present,
+        after_run: AfterRun = no_after_run,
     ) -> None:
+        self._present = present
+        self._after_run = after_run
+        self._lock = asyncio.Lock()
+        self._refresh: asyncio.Task[None] | None = None
+        self._requested = False
         self._settings = settings
         self._store = store
         self._client = client
@@ -235,6 +259,14 @@ class GamesJob:
             return None
         return [game for day in shown for game in self._games[day]]
 
+    def loaded_game(self, game_id: str) -> ScoreboardGame | None:
+        """The game with this id in any day held now, shown or not; None when no day holds it."""
+        for games in self._games.values():
+            for game in games:
+                if game.id == game_id:
+                    return game
+        return None
+
     def _current_stars(self) -> dict[str, Stars | None]:
         return {
             game.id: self._stars(game)
@@ -269,9 +301,12 @@ class GamesJob:
             started = any(
                 g.status in _NOT_STARTED and g.start_time <= now for g in games
             )
-            if (live and age >= LIVE_INTERVAL) or (
-                started and age >= START_CHECK_INTERVAL
-            ):
+            interval = (
+                LIVE_INTERVAL
+                if self._requested or self._present(now)
+                else NOBODY_INTERVAL
+            )
+            if (live and age >= interval) or (started and age >= START_CHECK_INTERVAL):
                 due.append(day)
         return due
 
@@ -309,7 +344,76 @@ class GamesJob:
         due_at = final_time + STATS_ATTEMPT_DELAYS[failed]
         return due_at if self._client.clock() >= due_at else None
 
+    def refreshed_at(self, game_id: str) -> dt.datetime | None:
+        """When the day that holds the game was last fetched; None for an unknown game."""
+        for day, games in self._games.items():
+            if any(game.id == game_id for game in games):
+                return self._fetched_at.get(day)
+        return None
+
+    async def refresh_live(
+        self, game_id: str | None = None, *, wait: float = MISSING_WAIT_SECONDS
+    ) -> None:
+        """Refreshes now when the live data is LIVE_INTERVAL old or more, once for all callers.
+
+        With a game id, only that game's day counts, and only when it is live.
+        Waits up to `wait` seconds; a failure or a timeout never raises.
+        """
+        now = self._client.clock()
+        stale = False
+        for day, games in self._games.items():
+            if game_id is None:
+                live = any(g.status is GameStatus.LIVE for g in games)
+            else:
+                live = any(
+                    g.id == game_id and g.status is GameStatus.LIVE for g in games
+                )
+            if live and now - self._fetched_at[day] >= LIVE_INTERVAL:
+                stale = True
+        if not stale:
+            return
+        task = self._refresh
+        if task is None:
+            task = asyncio.create_task(self._run_requested(now))
+            self._refresh = task
+
+            def done(finished: asyncio.Task[None]) -> None:
+                if self._refresh is finished:
+                    self._refresh = None
+                if finished.cancelled():
+                    return
+                error = finished.exception()
+                if error is not None:
+                    self._store.record_failure(
+                        JOB, now, f"unexpected error: {type(error).__name__}"
+                    )
+
+            task.add_done_callback(done)
+        try:
+            await asyncio.wait_for(asyncio.shield(task), wait)
+        except Exception:  # noqa: BLE001 - a request never fails because of the refresh
+            return
+
     async def run(self, now: dt.datetime) -> None:
+        async with self._lock:
+            await self._run_with_hook(now)
+
+    async def _run_requested(self, now: dt.datetime) -> None:
+        """A run started by a request: live days are due at the live cadence even with nobody present."""
+        async with self._lock:
+            self._requested = True
+            try:
+                await self._run_with_hook(now)
+            finally:
+                self._requested = False
+
+    async def _run_with_hook(self, now: dt.datetime) -> None:
+        try:
+            await self._run(now)
+        finally:
+            self._after_run()
+
+    async def _run(self, now: dt.datetime) -> None:
         today = eastern_date(now)
         if self._today is None:
             self._today = today
