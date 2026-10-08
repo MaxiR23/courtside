@@ -3,9 +3,11 @@
 # Team players adapter: fetches one team's current roster, with the
 # provider's current season, one team's per-game season averages and one
 # player's per-game season averages, and maps them to contract types. The provider URLs come from Settings.
-# Provider data never leaves this module.
+# Provider data never leaves this module. A roster and the team leaders are kept
+# for 24 hours; a player's averages are kept as long as the caller's freshness
+# allows (rule F of docs/source-rules.md).
 #
-# SEE: docs/adr/0007-backend-runtime-and-data-pipeline.md, api/app/sources/game_detail.py
+# SEE: docs/adr/0007-backend-runtime-and-data-pipeline.md, docs/source-rules.md, api/app/sources/game_detail.py
 
 import datetime as dt
 
@@ -21,14 +23,12 @@ from pydantic.alias_generators import to_camel
 
 from app.feeds.games import FeedModel, NonEmptyStr, Star
 from app.settings import Settings
-from app.sources.http import SourceClient, SourceError, get_json
+from app.sources.http import Freshness, SourceClient, SourceError, get_json
 from app.sources.teams import TEAM_CODES
 
 SOURCE = "team_players"
 ROSTER_FRESH_FOR = dt.timedelta(hours=24)
 LEADERS_FRESH_FOR = dt.timedelta(hours=24)
-# Until rule F expires individual averages by final game.
-PLAYER_AVERAGES_FRESH_FOR = dt.timedelta(hours=1)
 PROVIDER_CODES: dict[str, str] = {
     code: provider for provider, code in TEAM_CODES.items()
 }
@@ -251,19 +251,23 @@ async def fetch_season_averages(
 
 
 async def fetch_player_averages(
-    client: SourceClient, player_id: str, season: int, settings: Settings
+    client: SourceClient,
+    player_id: str,
+    season: int,
+    settings: Settings,
+    fresh: Freshness,
 ) -> PlayerAverages | None:
     """Return one player's per-game averages for a season.
 
-    None when the provider has no statistics for that player and season.
+    None when the provider has no statistics for that player and season. `fresh`
+    is the freshness the caller needs: the stars job passes the final time of the
+    team's latest final game.
     """
     if settings.player_averages_url is None:
         raise SourceError(SOURCE, "player averages URL is not configured")
     url = settings.player_averages_url.format(player_id=player_id, season=season)
     try:
-        body = await get_json(
-            client, url, source=SOURCE, fresh=PLAYER_AVERAGES_FRESH_FOR
-        )
+        body = await get_json(client, url, source=SOURCE, fresh=fresh)
     except SourceError as error:
         if error.status_code == 404:
             return None

@@ -1,0 +1,10 @@
+{
+  "categories": [
+    {
+      "name": "pointsPerGame",
+      "leaders": [
+        {"value": 20.0, "athlete": {"$ref": "https://example.com/athletes/P2"}}
+      ]
+    }
+  ]
+}

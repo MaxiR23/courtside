@@ -31,6 +31,13 @@
 # - A team that fails is retried five minutes after the moment it failed, not after the start of the run
 # - Records no success while a failed team waits for its retry, and records it once the team is stored
 # - A successful run records success; a run with nothing due makes no request and records nothing
+# - Passes the final time of the team's latest final game to individual requests
+# - Passes no final game when the team has no known final game
+# - A team without a leader on its roster costs one request per player and none the next day without a game
+# - Requests each player's individual averages once more after the team has a final game
+# - A team with a leader on its roster makes no individual request
+# - Requests each team's roster and leaders once, also when a team is retried the same day
+# - A run a few seconds earlier than the previous day's does not reuse the previous day's roster and leaders
 #
 # What is covered:
 # - Pure logic: happy path, edge cases, error case
@@ -46,8 +53,10 @@
 
 import asyncio
 import datetime as dt
+import json
 from collections.abc import Iterator
 from pathlib import Path
+from typing import Any
 
 import httpx
 import pytest
@@ -55,9 +64,10 @@ import respx
 from pydantic import HttpUrl
 
 from app.feeds.games import GameStatus, Star
-from app.jobs.stars import JOB, RETRY, StarsJob, pick_star
+from app.jobs.stars import JOB, NO_FINAL_GAME, RETRY, StarsJob, pick_star
 from app.settings import Settings
-from app.sources.http import SourceError, create_client
+from app.sources import team_players
+from app.sources.http import Freshness, SourceError, create_client
 from app.sources.scoreboard import ScoreboardGame
 from app.sources.team_players import PlayerAverages, Roster
 from app.sources.teams import TEAM_CODES
@@ -108,9 +118,13 @@ class FakeSources:
         self.roster_errors: dict[str, SourceError] = {}
         self.roster_calls: list[str] = []
         self.averages_calls: list[tuple[str, int]] = []
+        self.player_fresh: list[tuple[str, Freshness]] = []
 
     async def fetch_roster(
-        self, client: httpx.AsyncClient, code: str, settings: Settings
+        self,
+        client: httpx.AsyncClient,
+        code: str,
+        settings: Settings,
     ) -> Roster:
         self.roster_calls.append(code)
         if code in self.roster_errors:
@@ -118,14 +132,24 @@ class FakeSources:
         return self.rosters[code]
 
     async def fetch_season_averages(
-        self, client: httpx.AsyncClient, team_id: str, season: int, settings: Settings
+        self,
+        client: httpx.AsyncClient,
+        team_id: str,
+        season: int,
+        settings: Settings,
     ) -> list[PlayerAverages]:
         self.averages_calls.append((team_id, season))
         return list(self.averages.get((team_id, season), []))
 
     async def fetch_player_averages(
-        self, client: httpx.AsyncClient, player_id: str, season: int, settings: Settings
+        self,
+        client: httpx.AsyncClient,
+        player_id: str,
+        season: int,
+        settings: Settings,
+        fresh: Freshness,
     ) -> PlayerAverages | None:
+        self.player_fresh.append((player_id, fresh))
         self.player_calls.append((player_id, season))
         if player_id in self.player_errors:
             raise self.player_errors[player_id]
@@ -615,7 +639,10 @@ class SlowSources(FakeSources):
         self.fails = fails
 
     async def fetch_roster(
-        self, client: httpx.AsyncClient, code: str, settings: Settings
+        self,
+        client: httpx.AsyncClient,
+        code: str,
+        settings: Settings,
     ) -> Roster:
         self.clock.advance(self.cost)
         if self.fails:
@@ -680,3 +707,230 @@ async def test_a_failed_team_is_retried_five_minutes_after_it_failed(
     sources.roster_calls.clear()
     await job.run(NOON + RETRY + dt.timedelta(seconds=10))
     assert first in sources.roster_calls
+
+
+# Group 4: freshness passed to the source cache
+
+
+FIXTURES = Path(__file__).parent / "fixtures" / "stars"
+
+
+def final_game(game_id: str, away: str, home: str) -> ScoreboardGame:
+    return a_game(away, home).model_copy(update={"id": game_id})
+
+
+def make_job_with_games(
+    settings: Settings,
+    store: StateStore,
+    sources: FakeSources,
+    games: list[ScoreboardGame],
+) -> StarsJob:
+    return StarsJob(
+        settings,
+        store,
+        create_client(store),
+        fetch_roster=sources.fetch_roster,
+        fetch_season_averages=sources.fetch_season_averages,
+        fetch_player_averages=sources.fetch_player_averages,
+        final_games=lambda: games,
+        clock=lambda: NOON,
+    )
+
+
+@pytest.mark.anyio
+async def test_passes_the_final_time_of_the_teams_latest_final_game_to_individual_requests(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    sources.averages[("id-BOS", SEASON)] = [averages("gone", 5)]
+    earlier = NOON - dt.timedelta(days=2)
+    later = NOON - dt.timedelta(days=1)
+    other = NOON - dt.timedelta(hours=1)
+    games = [
+        final_game("g1", "BOS", "MIA"),
+        final_game("g2", "NYK", "BOS"),
+        final_game("g3", "NYK", "MIA"),
+    ]
+    store.set_final_time("g1", dt.date(2026, 10, 3), earlier)
+    store.set_final_time("g2", dt.date(2026, 10, 4), later)
+    store.set_final_time("g3", dt.date(2026, 10, 5), other)
+    job = make_job_with_games(settings, store, sources, games)
+
+    await job.run(NOON)
+
+    assert sources.player_fresh == [("BOS1", later), ("BOS2", later)]
+
+
+@pytest.mark.anyio
+async def test_passes_no_final_game_when_the_team_has_no_known_final_game(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    sources.averages[("id-BOS", SEASON)] = [averages("gone", 5)]
+    games = [final_game("g1", "NYK", "MIA"), final_game("g2", "BOS", "MIA")]
+    store.set_final_time("g1", dt.date(2026, 10, 5), NOON)
+    job = make_job_with_games(settings, store, sources, games)
+
+    await job.run(NOON)
+
+    assert sources.player_fresh == [("BOS1", NO_FINAL_GAME), ("BOS2", NO_FINAL_GAME)]
+
+
+# Group 5: source requests over the real team players adapters
+
+MORNING = dt.datetime(2026, 10, 5, 10, 0, tzinfo=dt.UTC)
+BASE = "https://example.com/"
+
+
+def read_fixture(name: str) -> dict[str, Any]:
+    payload: dict[str, Any] = json.loads((FIXTURES / name).read_text(encoding="utf-8"))
+    return payload
+
+
+class RequestsHarness:
+    """A stars job over the real adapters, one client and one counted respx route.
+
+    Route answers are source requests: the source cache decides which go out.
+    """
+
+    def __init__(self, path: Path) -> None:
+        self.clock = [MORNING]
+        self.store = StateStore(path)
+        self.store.migrate()
+        self.settings = Settings(  # type: ignore[call-arg]
+            _env_file=None,
+            data_dir=path,
+            team_roster_url=BASE + "teams/{team}/roster",
+            team_averages_url=BASE + "seasons/{season}/teams/{team}/leaders",
+            player_averages_url=BASE + "seasons/{season}/athletes/{player_id}/stats",
+            player_photo_url=BASE + "players/{player_id}.png",
+        )
+        self.paths: list[str] = []
+        self.games: list[ScoreboardGame] = []
+        self.failing_once: set[str] = set()
+        respx.get(url__startswith=BASE).mock(side_effect=self.answer)
+        self.job = StarsJob(
+            self.settings,
+            self.store,
+            create_client(self.store, clock=lambda: self.clock[0]),
+            final_games=lambda: self.games,
+            clock=lambda: self.clock[0],
+        )
+
+    def answer(self, request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        self.paths.append(path)
+        parts = path.strip("/").split("/")
+        if parts[0] == "teams":
+            code = TEAM_CODES[parts[1]]
+            roster = read_fixture("roster.json")
+            roster["team"]["id"] = f"id-{code}"
+            for athlete, number in zip(roster["athletes"], (1, 2), strict=True):
+                athlete["id"] = f"{code}{number}"
+            return httpx.Response(200, json=roster)
+        if parts[0] == "seasons" and parts[2] == "teams":
+            if parts[1] != str(SEASON):
+                return httpx.Response(404)
+            code = parts[3].removeprefix("id-")
+            leaders = read_fixture("leaders.json")
+            leader = leaders["categories"][0]["leaders"][0]["athlete"]
+            owner = "gone" if code == "BOS" else f"{code}2"
+            leader["$ref"] = f"https://example.com/athletes/{owner}"
+            return httpx.Response(200, json=leaders)
+        if parts[1] != str(SEASON):
+            return httpx.Response(404)
+        if parts[3] in self.failing_once:
+            self.failing_once.discard(parts[3])
+            return httpx.Response(503)
+        return httpx.Response(200, json=read_fixture("player_averages.json"))
+
+    async def run(self, now: dt.datetime) -> None:
+        self.clock[0] = now
+        await self.job.run(now)
+
+    def count(self, path: str) -> int:
+        return self.paths.count(path)
+
+    def individual(self, player_id: str) -> int:
+        return self.count(f"/seasons/{SEASON}/athletes/{player_id}/stats")
+
+    def roster_and_leaders(self, code: str) -> tuple[int, int]:
+        provider = team_players.PROVIDER_CODES[code]
+        return (
+            self.count(f"/teams/{provider}/roster"),
+            self.count(f"/seasons/{SEASON}/teams/id-{code}/leaders"),
+        )
+
+
+@pytest.fixture
+def requests(tmp_path: Path) -> RequestsHarness:
+    return RequestsHarness(tmp_path)
+
+
+@pytest.mark.anyio
+async def test_a_team_without_a_leader_on_its_roster_costs_one_request_per_player_and_none_the_next_day_without_a_game(
+    requests: RequestsHarness,
+) -> None:
+    requests.games = [final_game("g1", "NYK", "MIA"), final_game("g2", "BOS", "MIA")]
+    requests.store.set_final_time(
+        "g1", dt.date(2026, 10, 5), MORNING + dt.timedelta(hours=1)
+    )
+    requests.store.set_final_time(
+        "g2", dt.date(2026, 10, 4), MORNING - dt.timedelta(hours=1)
+    )
+
+    await requests.run(MORNING)
+    assert (requests.individual("BOS1"), requests.individual("BOS2")) == (1, 1)
+
+    await requests.run(NEXT_MORNING)
+    assert (requests.individual("BOS1"), requests.individual("BOS2")) == (1, 1)
+    assert requests.store.stars()["BOS"].player_id in {"BOS1", "BOS2"}
+
+
+@pytest.mark.anyio
+async def test_fetches_individual_averages_again_once_each_the_day_after_the_team_has_a_final_game(
+    requests: RequestsHarness,
+) -> None:
+    await requests.run(MORNING)
+    requests.games = [final_game("g1", "BOS", "MIA")]
+    requests.store.set_final_time(
+        "g1", dt.date(2026, 10, 5), MORNING + dt.timedelta(hours=5)
+    )
+
+    await requests.run(NEXT_MORNING)
+    assert (requests.individual("BOS1"), requests.individual("BOS2")) == (2, 2)
+
+    await requests.run(NEXT_MORNING + dt.timedelta(days=1))
+    assert (requests.individual("BOS1"), requests.individual("BOS2")) == (2, 2)
+
+
+@pytest.mark.anyio
+async def test_a_team_with_a_leader_on_its_roster_makes_no_individual_request(
+    requests: RequestsHarness,
+) -> None:
+    requests.games = [final_game("g1", "NYK", "BOS")]
+    requests.store.set_final_time(
+        "g1", dt.date(2026, 10, 5), MORNING + dt.timedelta(hours=5)
+    )
+
+    await requests.run(MORNING)
+    await requests.run(NEXT_MORNING)
+
+    athlete_paths = {path for path in requests.paths if "/athletes/" in path}
+    assert athlete_paths
+    assert all("/athletes/BOS" in path for path in athlete_paths)
+
+
+@pytest.mark.anyio
+async def test_requests_each_teams_roster_and_leaders_once_also_when_a_team_is_retried_the_same_day(
+    requests: RequestsHarness,
+) -> None:
+    requests.failing_once.add("BOS1")
+
+    await requests.run(MORNING)
+    assert "BOS" not in requests.store.stars()
+    await requests.run(MORNING + RETRY)
+    assert "BOS" in requests.store.stars()
+    await requests.run(MORNING + dt.timedelta(hours=5))
+
+    for code in set(CODES):
+        assert requests.roster_and_leaders(code) == (1, 1)
+    assert (requests.individual("BOS1"), requests.individual("BOS2")) == (2, 1)

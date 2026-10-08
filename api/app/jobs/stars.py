@@ -2,13 +2,17 @@
 #
 # Stars job: once a day, in the morning US Eastern time, picks each team's star
 # from its current roster and season averages and keeps it in the job state.
-# It runs in its own task and fetches the due teams concurrently. When no roster
-# player is among the season leaders, the roster players' individual averages
-# are used. A star is only replaced by a newly picked one: a failed team keeps
-# its last known star. The games job reads the stars through stars_of and waits
-# for has_every_star before its first feed.
+# It runs in its own task and fetches the due teams concurrently. A team's roster
+# and season leaders keep the adapters' 24-hour freshness (rule A of
+# docs/source-rules.md). When no roster player is among the season leaders, the roster players'
+# individual averages are used: each stays fresh until the team has a final
+# game, known through final_games, whose final time is after the fetch (rule F),
+# so such a team costs at most one request per player per game played. A star is
+# only replaced by a newly picked one: a failed team keeps its last known star.
+# The games job reads the stars through stars_of and waits for has_every_star
+# before its first feed.
 #
-# SEE: docs/adr/0007-backend-runtime-and-data-pipeline.md, docs/adr/0014-star-guarantees.md
+# SEE: docs/adr/0007-backend-runtime-and-data-pipeline.md, docs/adr/0014-star-guarantees.md, docs/source-rules.md, docs/adr/0020-source-rules.md
 
 import asyncio
 import datetime as dt
@@ -19,7 +23,7 @@ from app.jobs.games import EASTERN, eastern_date
 from app.jobs.scheduler import utc_now
 from app.settings import Settings
 from app.sources import team_players
-from app.sources.http import SourceClient, SourceError
+from app.sources.http import Freshness, SourceClient, SourceError
 from app.sources.scoreboard import ScoreboardGame
 from app.sources.team_players import PlayerAverages, Roster
 from app.sources.teams import TEAM_CODES
@@ -28,13 +32,23 @@ from app.storage.state import StateStore
 JOB = "stars"
 RETRY = dt.timedelta(minutes=5)
 
+# Passed as the freshness of a team with no known final game: every stored entry
+# was fetched after it, so it stays fresh.
+NO_FINAL_GAME = dt.datetime.min.replace(tzinfo=dt.UTC)
+
 FetchRoster = Callable[[SourceClient, str, Settings], Awaitable[Roster]]
 FetchSeasonAverages = Callable[
     [SourceClient, str, int, Settings], Awaitable[list[PlayerAverages]]
 ]
 FetchPlayerAverages = Callable[
-    [SourceClient, str, int, Settings], Awaitable[PlayerAverages | None]
+    [SourceClient, str, int, Settings, Freshness], Awaitable[PlayerAverages | None]
 ]
+FinalGames = Callable[[], Sequence[ScoreboardGame]]
+
+
+def no_final_games() -> list[ScoreboardGame]:
+    """Default when no final games provider is given: individual averages then never expire."""
+    return []
 
 
 def pick_star(
@@ -70,6 +84,7 @@ class StarsJob:
         fetch_roster: FetchRoster = team_players.fetch_roster,
         fetch_season_averages: FetchSeasonAverages = team_players.fetch_season_averages,
         fetch_player_averages: FetchPlayerAverages = team_players.fetch_player_averages,
+        final_games: FinalGames = no_final_games,
         clock: Callable[[], dt.datetime] = utc_now,
     ) -> None:
         self._settings = settings
@@ -78,6 +93,7 @@ class StarsJob:
         self._fetch_roster = fetch_roster
         self._fetch_season_averages = fetch_season_averages
         self._fetch_player_averages = fetch_player_averages
+        self._final_games = final_games
         self._clock = clock
         self._stars: dict[str, Star] = store.stars()
         self._daily_fetched_at: dt.datetime | None = None
@@ -92,6 +108,16 @@ class StarsJob:
         )
         return now >= morning > self._daily_fetched_at
 
+    def _latest_final_time(self, code: str) -> dt.datetime:
+        """The final time of the team's latest final game known to the games job."""
+        times = [
+            final_time
+            for game in self._final_games()
+            if code in (game.away.code, game.home.code)
+            and (final_time := self._store.final_time(game.id)) is not None
+        ]
+        return max(times, default=NO_FINAL_GAME)
+
     async def _update_team(self, code: str) -> None:
         roster = await self._fetch_roster(self._client, code, self._settings)
         star: Star | None = None
@@ -105,10 +131,15 @@ class StarsJob:
             star = pick_star(roster.players, leaders)
             if star is None:
                 individual: list[PlayerAverages] = []
+                fresh = self._latest_final_time(code)
                 try:
                     for member in roster.players:
                         found = await self._fetch_player_averages(
-                            self._client, member.player_id, season, self._settings
+                            self._client,
+                            member.player_id,
+                            season,
+                            self._settings,
+                            fresh,
                         )
                         if found is not None:
                             individual.append(found)

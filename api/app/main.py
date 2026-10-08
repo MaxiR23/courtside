@@ -30,8 +30,10 @@ def create_app(settings: Settings | None = None, *, run_jobs: bool = True) -> Fa
         client = create_client(store)
         presence = Presence()
         feed_cache = FeedCache(settings.data_dir, store)
-        stars_job = StarsJob(settings, store, client)
-        # The highlights job reads the final games of the games job, built below.
+        # The stars and highlights jobs read the final games of the games job, built below.
+        stars_job = StarsJob(
+            settings, store, client, final_games=lambda: games_job.final_games()
+        )
         highlights_job = HighlightsJob(
             settings, store, client, final_games=lambda: games_job.final_games()
         )
