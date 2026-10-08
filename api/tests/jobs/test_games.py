@@ -34,13 +34,14 @@
 # - The daily run deletes the final time and stats attempts of a game 31 days old, keeps one 30 days old, and never touches highlights
 # - The cleanup runs only with the daily fetch
 # - A failed scoreboard fetch, live detail fetch or invalid feed keeps the last valid feed and records the reason
+# - Asks a live game's detail with a thirty second maximum age, and a final game's detail attempt fetched at or after its due time, never with a maximum age
 #
 # What is covered:
 # - Pure logic: happy path, edge cases, error case
 # - Job: successful publication, failed run keeps the last valid feed
 #
-# Adapters are fakes passed to the job and times are passed to run(), so no test
-# uses the real clock. Every test runs in an empty respx mock: a real request fails.
+# Adapters are fakes passed to the job and times are passed to run(), which also
+# sets the client clock, so no test uses the real clock. Every test runs in an empty respx mock: a real request fails.
 #
 # Run with: cd api && .venv/bin/python -m pytest tests/jobs/test_games.py
 #
@@ -72,6 +73,7 @@ from app.feeds.games import (
 )
 from app.jobs.games import (
     JOB,
+    LIVE_INTERVAL,
     STATS_ATTEMPT_DELAYS,
     FeedBuildError,
     GamesJob,
@@ -83,7 +85,7 @@ from app.jobs.games import (
 )
 from app.settings import Settings
 from app.sources.game_detail import GameDetail
-from app.sources.http import SourceError, create_client
+from app.sources.http import Freshness, SourceError, create_client
 from app.sources.scoreboard import ScoreboardGame
 from app.storage.feeds import read_feed
 from app.storage.state import StateStore
@@ -170,6 +172,7 @@ class FakeSources:
         self.detail_errors: dict[str, SourceError] = {}
         self.game_calls: list[dt.date] = []
         self.detail_calls: list[str] = []
+        self.fresh_calls: list[tuple[str, Freshness]] = []
 
     async def fetch_games(
         self, client: httpx.AsyncClient, day: dt.date, settings: Settings
@@ -180,9 +183,14 @@ class FakeSources:
         return list(self.games.get(day, []))
 
     async def fetch_game_detail(
-        self, client: httpx.AsyncClient, game_id: str, settings: Settings
+        self,
+        client: httpx.AsyncClient,
+        game_id: str,
+        settings: Settings,
+        fresh: Freshness,
     ) -> GameDetail:
         self.detail_calls.append(game_id)
+        self.fresh_calls.append((game_id, fresh))
         if game_id in self.detail_errors:
             raise self.detail_errors[game_id]
         return DETAIL
@@ -211,6 +219,23 @@ def settings(tmp_path: Path) -> Settings:
     return Settings(_env_file=None, data_dir=tmp_path)  # type: ignore[call-arg]
 
 
+class ClockedGamesJob(GamesJob):
+    """A games job whose client clock reads the time passed to the run in progress."""
+
+    def __init__(self, settings: Settings, store: StateStore, **kwargs: Any) -> None:
+        self.clock_now = NOON
+        super().__init__(
+            settings,
+            store,
+            create_client(store, clock=lambda: self.clock_now),
+            **kwargs,
+        )
+
+    async def run(self, now: dt.datetime) -> None:
+        self.clock_now = now
+        await super().run(now)
+
+
 def make_job(
     settings: Settings,
     store: StateStore,
@@ -233,10 +258,9 @@ def make_job(
         extra["stars"] = stars
     if stars_ready is not None:
         extra["stars_ready"] = stars_ready
-    return GamesJob(
+    return ClockedGamesJob(
         settings,
         store,
-        create_client(),
         fetch_games=sources.fetch_games,
         fetch_game_detail=sources.fetch_game_detail,
         **extra,
@@ -1393,3 +1417,53 @@ async def test_the_morning_run_never_deletes_highlights_or_highlight_attempts(
 
     assert store.highlight_attempts("old") == 1
     assert store.highlights() == {"old": HIGHLIGHT}
+
+
+@pytest.mark.anyio
+async def test_asks_a_live_games_detail_with_a_thirty_second_maximum_age(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    sources.games[TODAY] = [game("1", GameStatus.LIVE)]
+
+    await make_job(settings, store, sources).run(NOON)
+
+    assert sources.fresh_calls == [("1", LIVE_INTERVAL)]
+    assert LIVE_INTERVAL == dt.timedelta(seconds=30)
+
+
+@pytest.mark.anyio
+async def test_asks_a_final_games_detail_attempt_fetched_at_or_after_its_due_time(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    sources.games[TODAY] = [game("1", GameStatus.FINAL)]
+    sources.detail_errors["1"] = SourceError("game detail", "unexpected payload")
+    job = make_job(settings, store, sources)
+
+    await job.run(NOON)
+    final_time = store.final_time("1")
+    assert final_time is not None
+    await job.run(NOON + hours(2))
+
+    assert sources.fresh_calls == [
+        ("1", final_time + STATS_ATTEMPT_DELAYS[0]),
+        ("1", final_time + STATS_ATTEMPT_DELAYS[1]),
+    ]
+    assert final_time + STATS_ATTEMPT_DELAYS[1] == final_time + hours(2)
+
+
+@pytest.mark.anyio
+async def test_never_asks_a_final_detail_with_a_maximum_age(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    sources.games[TODAY] = [game("1", GameStatus.LIVE)]
+    job = make_job(settings, store, sources)
+    await job.run(NOON)
+    sources.fresh_calls.clear()
+    sources.games[TODAY] = [game("1", GameStatus.FINAL)]
+
+    await job.run(NOON + LIVE_INTERVAL)
+
+    final_time = store.final_time("1")
+    assert final_time is not None
+    assert sources.fresh_calls == [("1", final_time)]
+    assert isinstance(sources.fresh_calls[0][1], dt.datetime)

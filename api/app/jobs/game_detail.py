@@ -9,7 +9,10 @@
 # never blocks the other games. A feed is republished with no source call when
 # its stars, highlights or highlights search URL change. The feeds of games
 # no longer in the days shown are deleted. Final attempts are kept in memory:
-# after a restart a final game is built once more.
+# after a restart a final game is built once more. A final attempt asks for a
+# detail fetched at or after its due time, which is the stored final time (the
+# client clock read when the scoreboard showed the game final) plus the delay,
+# so a live snapshot sent before that is never used to build a final feed.
 #
 # SEE: docs/adr/0019-game-detail-route-and-feed.md,
 # docs/adr/0010-final-game-attempts.md, docs/api/game-detail.md
@@ -18,7 +21,6 @@ import datetime as dt
 from collections.abc import Awaitable, Callable, Sequence
 from typing import Any
 
-import httpx
 from pydantic import ValidationError
 
 from app.feeds.game_detail import GameDetailFeed
@@ -37,7 +39,7 @@ from app.jobs.games import (
 from app.settings import Settings
 from app.sources import game_detail, league_injuries, standings, team_schedule
 from app.sources.game_detail import GameDetailSections
-from app.sources.http import SourceError
+from app.sources.http import Freshness, SourceClient, SourceError
 from app.sources.league_injuries import LeagueInjuries
 from app.sources.scoreboard import ScoreboardGame
 from app.sources.standings import LeagueStandings
@@ -56,13 +58,11 @@ MAX_FINAL_ATTEMPTS = len(STATS_ATTEMPT_DELAYS)
 
 GamesProvider = Callable[[], Sequence[ScoreboardGame] | None]
 FetchSections = Callable[
-    [httpx.AsyncClient, str, Settings], Awaitable[GameDetailSections]
+    [SourceClient, str, Settings, Freshness], Awaitable[GameDetailSections]
 ]
-FetchStandings = Callable[[httpx.AsyncClient, Settings], Awaitable[LeagueStandings]]
-FetchInjuries = Callable[[httpx.AsyncClient, Settings], Awaitable[LeagueInjuries]]
-FetchTeamSchedule = Callable[
-    [httpx.AsyncClient, str, Settings], Awaitable[TeamSchedule]
-]
+FetchStandings = Callable[[SourceClient, Settings], Awaitable[LeagueStandings]]
+FetchInjuries = Callable[[SourceClient, Settings], Awaitable[LeagueInjuries]]
+FetchTeamSchedule = Callable[[SourceClient, str, Settings], Awaitable[TeamSchedule]]
 
 
 class DetailBuildError(Exception):
@@ -175,7 +175,7 @@ class GameDetailJob:
         self,
         settings: Settings,
         store: StateStore,
-        client: httpx.AsyncClient,
+        client: SourceClient,
         *,
         games: GamesProvider,
         fetch_sections: FetchSections = game_detail.fetch_game_detail_sections,
@@ -210,14 +210,27 @@ class GameDetailJob:
         if game.status is GameStatus.FINAL:
             if game.id in self._final_built:
                 return False
-            final_time = self._store.final_time(game.id)
-            failed = self._final_failures.get(game.id, 0)
-            return (
-                final_time is not None
-                and failed < MAX_FINAL_ATTEMPTS
-                and now >= final_time + STATS_ATTEMPT_DELAYS[failed]
-            )
+            due_at = self._final_due_at(game)
+            return due_at is not None and now >= due_at
         return last is None or now - last >= OTHER_INTERVAL
+
+    def _final_due_at(self, game: ScoreboardGame) -> dt.datetime | None:
+        """When this final game's next detail attempt is due, or None."""
+        final_time = self._store.final_time(game.id)
+        failed = self._final_failures.get(game.id, 0)
+        if final_time is None or failed >= MAX_FINAL_ATTEMPTS:
+            return None
+        return final_time + STATS_ATTEMPT_DELAYS[failed]
+
+    def _freshness(self, game: ScoreboardGame) -> Freshness:
+        if game.status is GameStatus.LIVE:
+            return LIVE_INTERVAL
+        if game.status is GameStatus.FINAL:
+            due_at = self._final_due_at(game)
+            if due_at is None:
+                raise DetailBuildError(f"game {game.id} has no final attempt due")
+            return due_at
+        return OTHER_INTERVAL
 
     def _forget(self, game_id: str) -> None:
         self._attempted_at.pop(game_id, None)
@@ -279,7 +292,10 @@ class GameDetailJob:
                     self._attempted_at[game.id] = now
                     try:
                         sections = await self._fetch_sections(
-                            self._client, game.id, self._settings
+                            self._client,
+                            game.id,
+                            self._settings,
+                            self._freshness(game),
                         )
                         away_schedule = await schedule_of(game.away.code)
                         home_schedule = await schedule_of(game.home.code)

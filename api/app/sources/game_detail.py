@@ -12,7 +12,6 @@ import datetime as dt
 from typing import Annotated, Any
 from zoneinfo import ZoneInfo
 
-import httpx
 from pydantic import (
     AwareDatetime,
     BaseModel,
@@ -44,7 +43,7 @@ from app.feeds.games import (
     TeamCode,
 )
 from app.settings import Settings
-from app.sources.http import SourceError, get_json
+from app.sources.http import Freshness, SourceClient, SourceError, get_json
 from app.sources.teams import to_team_code
 
 SOURCE = "game_detail"
@@ -197,15 +196,18 @@ def _team_stats(game_id: str, team: _ProviderBoxTeam) -> dict[str, Any]:
 
 
 async def fetch_game_detail(
-    client: httpx.AsyncClient, game_id: str, settings: Settings
+    client: SourceClient, game_id: str, settings: Settings, fresh: Freshness
 ) -> GameDetail:
-    """Return the leaders and team stats of one game, or raise SourceError."""
+    """Return the leaders and team stats of one game, or raise SourceError.
+
+    `fresh` is the freshness of the game's state: 30 seconds live, the
+    attempt's due time final, 1 hour otherwise."""
     if settings.game_detail_url is None:
         raise SourceError(SOURCE, "game detail URL is not configured")
     if settings.player_photo_url is None:
         raise SourceError(SOURCE, "player photo URL is not configured")
     url = settings.game_detail_url.format(game_id=game_id)
-    body = await get_json(client, url, source=SOURCE)
+    body = await get_json(client, url, source=SOURCE, fresh=fresh)
     try:
         detail = _ProviderGameDetail.model_validate(body)
     except ValidationError as error:
@@ -747,15 +749,18 @@ def _videos(videos: list[_SummaryVideo]) -> list[dict[str, Any]]:
 
 
 async def fetch_game_detail_sections(
-    client: httpx.AsyncClient, game_id: str, settings: Settings
+    client: SourceClient, game_id: str, settings: Settings, fresh: Freshness
 ) -> GameDetailSections:
-    """Return the detail sections of one game, or raise SourceError."""
+    """Return the detail sections of one game, or raise SourceError.
+
+    `fresh` is the freshness of the game's state: 30 seconds live, the
+    attempt's due time final, 1 hour otherwise."""
     if settings.game_detail_url is None:
         raise SourceError(SOURCE, "game detail URL is not configured")
     if settings.player_photo_url is None:
         raise SourceError(SOURCE, "player photo URL is not configured")
     url = settings.game_detail_url.format(game_id=game_id)
-    body = await get_json(client, url, source=SOURCE)
+    body = await get_json(client, url, source=SOURCE, fresh=fresh)
     try:
         summary = _ProviderSummary.model_validate(body)
     except ValidationError as error:

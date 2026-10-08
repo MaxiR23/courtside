@@ -8,17 +8,19 @@
 #
 # SEE: docs/api/game-detail.md, api/app/sources/standings.py
 
-import httpx
+import datetime as dt
+
 from pydantic import BaseModel, ConfigDict, ValidationError
 from pydantic.alias_generators import to_camel
 
 from app.feeds.game_detail import Injury, InjuryStatus
 from app.feeds.games import FeedModel, TeamCode
 from app.settings import Settings
-from app.sources.http import SourceError, get_json
+from app.sources.http import SourceClient, SourceError, get_json
 from app.sources.teams import team_code_of_id
 
 SOURCE = "league_injuries"
+FRESH_FOR = dt.timedelta(hours=1)
 
 
 class _ProviderModel(BaseModel):
@@ -69,12 +71,14 @@ def _injury(injury: _ProviderInjury) -> dict[str, object]:
 
 
 async def fetch_league_injuries(
-    client: httpx.AsyncClient, settings: Settings
+    client: SourceClient, settings: Settings
 ) -> LeagueInjuries:
     """Return the injuries of every team, or raise SourceError."""
     if settings.league_injuries_url is None:
         raise SourceError(SOURCE, "league injuries URL is not configured")
-    body = await get_json(client, settings.league_injuries_url, source=SOURCE)
+    body = await get_json(
+        client, settings.league_injuries_url, source=SOURCE, fresh=FRESH_FOR
+    )
     try:
         provider = _ProviderLeagueInjuries.model_validate(body)
     except ValidationError as error:

@@ -7,7 +7,8 @@
 #
 # SEE: docs/adr/0007-backend-runtime-and-data-pipeline.md, api/app/sources/game_detail.py
 
-import httpx
+import datetime as dt
+
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -20,10 +21,14 @@ from pydantic.alias_generators import to_camel
 
 from app.feeds.games import FeedModel, NonEmptyStr, Star
 from app.settings import Settings
-from app.sources.http import SourceError, get_json
+from app.sources.http import SourceClient, SourceError, get_json
 from app.sources.teams import TEAM_CODES
 
 SOURCE = "team_players"
+ROSTER_FRESH_FOR = dt.timedelta(hours=24)
+LEADERS_FRESH_FOR = dt.timedelta(hours=24)
+# Until rule F expires individual averages by final game.
+PLAYER_AVERAGES_FRESH_FOR = dt.timedelta(hours=1)
 PROVIDER_CODES: dict[str, str] = {
     code: provider for provider, code in TEAM_CODES.items()
 }
@@ -138,7 +143,7 @@ def _provider_code(team_code: str) -> str:
 
 
 async def fetch_roster(
-    client: httpx.AsyncClient, team_code: str, settings: Settings
+    client: SourceClient, team_code: str, settings: Settings
 ) -> Roster:
     """Return the current roster of one team, or raise SourceError."""
     if settings.team_roster_url is None:
@@ -147,7 +152,7 @@ async def fetch_roster(
         raise SourceError(SOURCE, "player photo URL is not configured")
     provider_code = _provider_code(team_code)
     url = settings.team_roster_url.format(team=provider_code)
-    body = await get_json(client, url, source=SOURCE)
+    body = await get_json(client, url, source=SOURCE, fresh=ROSTER_FRESH_FOR)
     try:
         provider = _ProviderRoster.model_validate(body)
     except ValidationError as error:
@@ -194,7 +199,7 @@ def _number(owner_id: str, value: object, kind: str = "team") -> float:
 
 
 async def fetch_season_averages(
-    client: httpx.AsyncClient, team_id: str, season: int, settings: Settings
+    client: SourceClient, team_id: str, season: int, settings: Settings
 ) -> list[PlayerAverages]:
     """Return the per-game averages of a team's players for a season.
 
@@ -205,7 +210,7 @@ async def fetch_season_averages(
         raise SourceError(SOURCE, "team averages URL is not configured")
     url = settings.team_averages_url.format(team=team_id, season=season)
     try:
-        body = await get_json(client, url, source=SOURCE)
+        body = await get_json(client, url, source=SOURCE, fresh=LEADERS_FRESH_FOR)
     except SourceError as error:
         if error.status_code == 404:
             return []
@@ -246,7 +251,7 @@ async def fetch_season_averages(
 
 
 async def fetch_player_averages(
-    client: httpx.AsyncClient, player_id: str, season: int, settings: Settings
+    client: SourceClient, player_id: str, season: int, settings: Settings
 ) -> PlayerAverages | None:
     """Return one player's per-game averages for a season.
 
@@ -256,7 +261,9 @@ async def fetch_player_averages(
         raise SourceError(SOURCE, "player averages URL is not configured")
     url = settings.player_averages_url.format(player_id=player_id, season=season)
     try:
-        body = await get_json(client, url, source=SOURCE)
+        body = await get_json(
+            client, url, source=SOURCE, fresh=PLAYER_AVERAGES_FRESH_FOR
+        )
     except SourceError as error:
         if error.status_code == 404:
             return None

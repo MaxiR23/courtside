@@ -78,7 +78,9 @@ def test_stops_startup_when_a_state_migration_fails(
     )
 
     with (
-        pytest.raises(StateMigrationError, match="state migration 2 failed"),
+        pytest.raises(
+            StateMigrationError, match=f"state migration {len(MIGRATIONS) + 1} failed"
+        ),
         make_client(tmp_path, []),
     ):
         pass
@@ -252,7 +254,7 @@ def test_wires_the_games_stars_and_highlights_providers_into_the_detail_job(
 def test_closes_the_http_client_when_the_scheduler_fails_to_stop(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    client = create_client()
+    client = create_client(StateStore(tmp_path))
     closed: list[bool] = []
     close = client.aclose
 
@@ -264,7 +266,7 @@ def test_closes_the_http_client_when_the_scheduler_fails_to_stop(
         raise RuntimeError("stop failed")
 
     monkeypatch.setattr(client, "aclose", recording_close)
-    monkeypatch.setattr(main, "create_client", lambda: client)
+    monkeypatch.setattr(main, "create_client", lambda store: client)
     monkeypatch.setattr(Scheduler, "stop", failing_stop)
 
     with pytest.raises(RuntimeError, match="stop failed"), make_client(tmp_path, []):

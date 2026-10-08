@@ -10,6 +10,7 @@
 # - Maps the arena of each completed game by game id
 # - Requests the schedule URL built from the template and the provider team code, including a code that differs from the standard one
 # - Raises the source error when the team is missing from a game, on a game without a score, an unknown team code, an invalid payload, a timeout, an error status and a missing URL
+# - Reuses a team's schedule for one hour
 #
 # What is covered:
 # - A valid response mapped, an invalid payload rejected, upstream failures handled
@@ -23,9 +24,11 @@
 #
 # SEE: api/app/sources/team_schedule.py
 
+import datetime as dt
 import json
 from collections.abc import Iterator
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Any
 
 import httpx
@@ -34,8 +37,9 @@ import respx
 
 from app.feeds.game_detail import GameResult
 from app.settings import Settings
-from app.sources.http import SourceError, create_client
+from app.sources.http import SourceClient, SourceError, create_client
 from app.sources.team_schedule import TeamSchedule, fetch_team_schedule
+from app.storage.state import StateStore
 
 FIXTURES = Path(__file__).parent / "fixtures" / "team_schedule"
 TEMPLATE = "https://example.com/teams/{team}/schedule"
@@ -66,8 +70,11 @@ def mock() -> Iterator[respx.MockRouter]:
 
 
 async def fetch(settings: Settings, team_code: str = "BOS") -> TeamSchedule:
-    async with create_client() as client:
-        return await fetch_team_schedule(client, team_code, settings)
+    with TemporaryDirectory() as directory:
+        store = StateStore(Path(directory))
+        store.migrate()
+        async with create_client(store) as client:
+            return await fetch_team_schedule(client, team_code, settings)
 
 
 async def fetch_error(settings: Settings, team_code: str = "BOS") -> SourceError:
@@ -259,3 +266,27 @@ async def test_raises_the_source_error_when_the_schedule_url_is_not_configured()
         error = await fetch_error(unset)
 
     assert error.reason == "team schedule URL is not configured"
+
+
+def clocked(tmp_path: Path, clock: list[dt.datetime]) -> SourceClient:
+    store = StateStore(tmp_path)
+    store.migrate()
+    return create_client(store, clock=lambda: clock[0])
+
+
+@pytest.mark.anyio
+async def test_reuses_a_team_schedule_for_one_hour(
+    mock: respx.MockRouter, settings: Settings, tmp_path: Path
+) -> None:
+    start = dt.datetime(2026, 1, 10, 12, 0, tzinfo=dt.UTC)
+    clock = [start]
+    route = mock.get(URL).respond(json=load())
+    async with clocked(tmp_path, clock) as client:
+        await fetch_team_schedule(client, "BOS", settings)
+        clock[0] = start + dt.timedelta(hours=1) - dt.timedelta(seconds=1)
+        await fetch_team_schedule(client, "BOS", settings)
+        assert route.call_count == 1
+        clock[0] = start + dt.timedelta(hours=1)
+        await fetch_team_schedule(client, "BOS", settings)
+
+    assert route.call_count == 2

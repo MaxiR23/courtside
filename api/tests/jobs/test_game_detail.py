@@ -22,6 +22,8 @@
 # - An invalid feed is not written and keeps the last valid one
 # - Deletes the feeds of games that leave the days shown and feeds left from before a start
 # - Republishes with no source call when highlights or stars change, and not when unchanged
+# - With both jobs over one client, a live detail sent after the games run started and before the scoreboard showed the game final is never used for the final attempt: the final request is new and both final feeds carry the final body
+# - Asks a live game's sections with a thirty second maximum age, a final game's sections fetched at or after the attempt's due time, and any other status with a one hour maximum age
 #
 # What is covered:
 # - Pure logic: happy path, edge cases, error case
@@ -45,16 +47,34 @@ import respx
 from pydantic import HttpUrl
 
 from app.feeds.game_detail import GameDetailFeed, Injury, LastGame
-from app.feeds.games import GameStatus, Highlight, LineScore, Score, Star, Stars, Team
+from app.feeds.games import (
+    GameStatus,
+    Highlight,
+    Leader,
+    Leaders,
+    LineScore,
+    Score,
+    Star,
+    Stars,
+    Team,
+    TeamStats,
+)
 from app.jobs.game_detail import (
     JOB,
     DetailBuildError,
     GameDetailJob,
     build_game_detail_feed,
 )
+from app.jobs.games import GamesJob
 from app.settings import Settings
-from app.sources.game_detail import GameDetailSections
-from app.sources.http import SourceError, create_client
+from app.sources.game_detail import GameDetail, GameDetailSections
+from app.sources.http import (
+    Freshness,
+    SourceClient,
+    SourceError,
+    create_client,
+    get_json,
+)
 from app.sources.league_injuries import LeagueInjuries
 from app.sources.scoreboard import ScoreboardGame
 from app.sources.standings import LeagueStandings
@@ -398,14 +418,20 @@ class FakeSources:
         self.schedule_errors: dict[str, SourceError] = {}
         self.standings_error: SourceError | None = None
         self.section_calls: list[str] = []
+        self.fresh_calls: list[tuple[str, Freshness]] = []
         self.standings_calls = 0
         self.injuries_calls = 0
         self.schedule_calls: list[str] = []
 
     async def fetch_sections(
-        self, client: httpx.AsyncClient, game_id: str, settings: Settings
+        self,
+        client: httpx.AsyncClient,
+        game_id: str,
+        settings: Settings,
+        fresh: Freshness,
     ) -> GameDetailSections:
         self.section_calls.append(game_id)
+        self.fresh_calls.append((game_id, fresh))
         if game_id in self.section_errors:
             raise self.section_errors[game_id]
         return sections(self.statuses.get(game_id, GameStatus.SCHEDULED))
@@ -478,7 +504,7 @@ def make_job(
     return GameDetailJob(
         settings,
         store,
-        create_client(),
+        create_client(store),
         games=shown,
         fetch_sections=sources.fetch_sections,
         fetch_standings=sources.fetch_standings,
@@ -784,3 +810,163 @@ async def test_does_not_republish_when_highlights_and_stars_are_unchanged(
 
     assert path.stat().st_mtime_ns == before
     assert store.job_states()[0].last_success == NOON
+
+
+@pytest.mark.anyio
+async def test_asks_a_live_games_sections_with_a_thirty_second_maximum_age(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    job = make_job(settings, store, sources, Shown([game("1", GameStatus.LIVE)]))
+
+    await job.run(NOON)
+
+    assert sources.fresh_calls == [("1", dt.timedelta(seconds=30))]
+
+
+@pytest.mark.anyio
+async def test_asks_a_final_games_sections_fetched_at_or_after_the_attempts_due_time(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    store.set_final_time("1", dt.date(2026, 10, 5), NOON)
+    sources.section_errors["1"] = SourceError("game_detail", "down")
+    job = make_job(settings, store, sources, Shown([game("1", GameStatus.FINAL)]))
+
+    await job.run(NOON + dt.timedelta(minutes=5))
+    await job.run(NOON + dt.timedelta(hours=2, minutes=5))
+
+    assert sources.fresh_calls == [("1", NOON), ("1", NOON + dt.timedelta(hours=2))]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "status",
+    [
+        GameStatus.SCHEDULED,
+        GameStatus.DELAYED,
+        GameStatus.POSTPONED,
+        GameStatus.CANCELED,
+    ],
+)
+async def test_asks_the_sections_of_any_other_status_with_a_one_hour_maximum_age(
+    settings: Settings, store: StateStore, sources: FakeSources, status: GameStatus
+) -> None:
+    job = make_job(settings, store, sources, Shown([game("1", status)]))
+
+    await job.run(NOON)
+
+    assert sources.fresh_calls == [("1", dt.timedelta(hours=1))]
+
+
+DETAIL_URL = "https://example.com/detail/1"
+
+
+def games_detail() -> GameDetail:
+    leader = {
+        code: Leader(
+            player_id=f"l{code}",
+            display_name="A B",
+            team_code=code,
+            photo_url=PHOTO,
+            points=20,
+            rebounds=5,
+            assists=5,
+        )
+        for code in ("BOS", "NYK")
+    }
+    stats = TeamStats(
+        field_goal_pct=0.5, three_point_pct=0.4, rebounds=40, assists=20, turnovers=10
+    )
+    return GameDetail.model_validate(
+        {
+            "leaders": Leaders(away=leader["BOS"], home=leader["NYK"]),
+            "team_stats": {"away": stats, "home": stats},
+        }
+    )
+
+
+@pytest.mark.anyio
+async def test_a_live_detail_sent_during_the_run_that_sees_the_game_final_is_not_used_for_the_final_attempt(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    clock = [NOON]
+    final_seen_at = NOON + dt.timedelta(seconds=63)
+    client = create_client(store, clock=lambda: clock[0])
+    route = respx.get(DETAIL_URL).mock(
+        side_effect=lambda request: httpx.Response(
+            200, json={"state": "final" if clock[0] >= final_seen_at else "live"}
+        )
+    )
+    bodies: list[str] = []
+
+    async def read_state(fresh: Freshness) -> str:
+        body = await get_json(client, DETAIL_URL, source="test", fresh=fresh)
+        state = str(body["state"])  # type: ignore[index]
+        bodies.append(state)
+        return state
+
+    async def games_detail_of(
+        client: SourceClient, game_id: str, settings: Settings, fresh: Freshness
+    ) -> GameDetail:
+        await read_state(fresh)
+        return games_detail()
+
+    async def sections_of(
+        client: SourceClient, game_id: str, settings: Settings, fresh: Freshness
+    ) -> GameDetailSections:
+        state = await read_state(fresh)
+        return GameDetailSections.model_validate(
+            {
+                "venue": {"name": state, "city": "New York"},
+                "team_stats": TEAM_STATS,
+            }
+        )
+
+    async def scoreboard(
+        client: SourceClient, day: dt.date, settings: Settings
+    ) -> list[ScoreboardGame]:
+        if day != dt.date(2026, 10, 5):
+            return []
+        if clock[0] < NOON + dt.timedelta(seconds=61):
+            return [game("1", GameStatus.LIVE)]
+        # The detail job sends its live request while the games run waits for
+        # the scoreboard, then the scoreboard answers that the game is final.
+        clock[0] = NOON + dt.timedelta(seconds=62)
+        await detail_job.run(clock[0])
+        clock[0] = final_seen_at
+        return [game("1", GameStatus.FINAL)]
+
+    games_job = GamesJob(
+        settings,
+        store,
+        client,
+        fetch_games=scoreboard,
+        fetch_game_detail=games_detail_of,
+        stars=lambda _: STARS,
+        highlights_search_url=lambda _: SEARCH_URL,
+    )
+    detail_job = GameDetailJob(
+        settings,
+        store,
+        client,
+        games=games_job.shown_games,
+        fetch_sections=sections_of,
+        fetch_standings=sources.fetch_standings,
+        fetch_injuries=sources.fetch_injuries,
+        fetch_team_schedule=sources.fetch_team_schedule,
+        stars=lambda _: STARS,
+        highlights_search_url=lambda _: SEARCH_URL,
+    )
+    await games_job.run(NOON)
+    clock[0] = NOON + dt.timedelta(seconds=31)
+    await detail_job.run(clock[0])
+    assert bodies == ["live", "live"]
+    clock[0] = NOON + dt.timedelta(seconds=61)
+
+    await games_job.run(clock[0])
+    clock[0] = NOON + dt.timedelta(seconds=64)
+    await detail_job.run(clock[0])
+
+    assert store.final_time("1") == final_seen_at
+    assert bodies == ["live", "live", "live", "final", "final"]
+    assert route.call_count == 4
+    assert read(settings, "1").venue.name == "final"

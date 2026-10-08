@@ -27,7 +27,7 @@ from pydantic.alias_generators import to_camel
 
 from app.feeds.games import FeedModel, Highlight, NonEmptyStr
 from app.settings import Settings
-from app.sources.http import SourceError, get_json, is_served
+from app.sources.http import SourceClient, SourceError, get_json, is_served
 from app.sources.scoreboard import ScoreboardGame
 
 SOURCE = "video_channel"
@@ -142,16 +142,18 @@ def _invalid(error: ValidationError) -> SourceError:
 
 
 async def lookup_video(
-    client: httpx.AsyncClient,
+    client: SourceClient,
     game: ScoreboardGame,
     day: dt.date,
     settings: Settings,
+    listed_since: dt.datetime,
 ) -> ChannelVideo | None:
     """Page back through the channel's uploads, newest first, 50 per request,
     and return the first video whose title matches the game. None once a
     page holds a video published before the game's start or the uploads
     run out. Only the matched video's thumbnails are checked against the
-    image host, best first. Raises SourceError."""
+    image host, best first. Every page is fetched at or after `listed_since`,
+    the start of the highlights run (rule E). Raises SourceError."""
     if settings.highlights_source_url is None:
         raise SourceError(SOURCE, "highlights source URL is not configured")
     key = settings.highlights_source_key
@@ -166,6 +168,7 @@ async def lookup_video(
             client,
             settings.highlights_source_url,
             source=SOURCE,
+            fresh=listed_since,
             params=params,
             headers={KEY_HEADER: key.get_secret_value()},
         )
