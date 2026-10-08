@@ -35,6 +35,11 @@
 # - Prunes the final time, first-seen flag and stats attempts of games before the cutoff, and keeps the cutoff day
 # - Pruning never deletes highlights, highlight attempts or the game date, and does nothing on an empty table
 # - Setting a star twice, and recording a job success or failure twice, leaves one row
+# - Migrates a database at the previous version with its rows to the source cache version
+# - Stores a source entry and replaces it on the next store
+# - Reports no source entry for an unknown URL
+# - Keeps source entries across store instances over the same data directory
+# - Rejects a naive fetch time
 #
 # What is covered:
 # - Happy path, edge cases (unknown game, repeat migration, restart, no jobs, no stars, pre-migration database), error case (naive time, failed migration)
@@ -124,7 +129,9 @@ def test_migrates_a_new_database_to_the_latest_version(tmp_path: Path) -> None:
     make_store(tmp_path)
 
     assert user_version(tmp_path) == len(MIGRATIONS)
-    assert {"games", "highlights", "jobs", "stars"} <= table_names(tmp_path)
+    assert {"games", "highlights", "jobs", "source_cache", "stars"} <= table_names(
+        tmp_path
+    )
 
 
 def test_brings_a_database_created_before_migrations_to_the_latest_version_and_keeps_its_rows(
@@ -232,10 +239,12 @@ def test_a_failed_migration_leaves_the_database_unchanged(
         ),
     )
 
-    with pytest.raises(StateMigrationError, match="state migration 3 failed"):
+    with pytest.raises(
+        StateMigrationError, match=f"state migration {len(MIGRATIONS) + 2} failed"
+    ):
         store.migrate()
 
-    assert user_version(tmp_path) == 1
+    assert user_version(tmp_path) == len(MIGRATIONS)
     assert "extra" not in table_names(tmp_path)
     assert [job.name for job in store.job_states()] == ["games"]
 
@@ -604,3 +613,78 @@ def test_recording_a_job_failure_twice_leaves_one_row(tmp_path: Path) -> None:
     store.record_failure("games", LATER, "y")
 
     assert len(store.job_states()) == 1
+
+
+def test_migrates_a_database_at_the_previous_version_with_its_rows_to_the_source_cache_version(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    real = state.MIGRATIONS
+    monkeypatch.setattr(state, "MIGRATIONS", real[:1])
+    store = make_store(tmp_path)
+    star = make_star("AAA", "p1")
+    store.set_final_time("g1", DAY, NOON)
+    store.set_star(star)
+    highlight = make_highlight("Recap")
+    store.set_highlight("g1", highlight)
+    store.record_success("games", NOON)
+    assert user_version(tmp_path) == 1
+    assert "source_cache" not in table_names(tmp_path)
+    monkeypatch.setattr(state, "MIGRATIONS", real)
+
+    store.migrate()
+
+    assert user_version(tmp_path) == len(real)
+    assert store.final_time("g1") == NOON
+    assert store.stars() == {"AAA": star}
+    assert store.highlights() == {"g1": highlight}
+    assert [(j.name, j.last_success) for j in store.job_states()] == [("games", NOON)]
+    assert query(tmp_path, "SELECT COUNT(*) FROM source_cache") == [(0,)]
+    store.set_source_entry("https://example.com/a", "{}", NOON)
+    entry = store.source_entry("https://example.com/a")
+    assert entry is not None
+    assert entry.body == "{}"
+
+
+def test_stores_a_source_entry_and_replaces_it_on_the_next_store(
+    tmp_path: Path,
+) -> None:
+    store = make_store(tmp_path)
+    url = "https://example.com/a?x=1"
+
+    store.set_source_entry(url, '{"n": 1}', NOON)
+    first = store.source_entry(url)
+    store.set_source_entry(
+        url, '{"n": 2}', LATER.astimezone(dt.timezone(dt.timedelta(hours=2)))
+    )
+    second = store.source_entry(url)
+
+    assert first is not None
+    assert (first.url, first.body, first.fetched_at) == (url, '{"n": 1}', NOON)
+    assert second is not None
+    assert (second.body, second.fetched_at) == ('{"n": 2}', LATER)
+    assert second.fetched_at.utcoffset() == dt.timedelta(0)
+    assert query(tmp_path, "SELECT COUNT(*) FROM source_cache") == [(1,)]
+
+
+def test_reports_no_source_entry_for_an_unknown_url(tmp_path: Path) -> None:
+    assert make_store(tmp_path).source_entry("https://example.com/none") is None
+
+
+def test_keeps_source_entries_across_store_instances_over_the_same_directory(
+    tmp_path: Path,
+) -> None:
+    make_store(tmp_path).set_source_entry("https://example.com/a", "[]", NOON)
+
+    entry = StateStore(tmp_path).source_entry("https://example.com/a")
+
+    assert entry is not None
+    assert (entry.body, entry.fetched_at) == ("[]", NOON)
+
+
+def test_rejects_a_naive_fetch_time(tmp_path: Path) -> None:
+    store = make_store(tmp_path)
+
+    with pytest.raises(ValueError, match="timezone aware"):
+        store.set_source_entry("https://example.com/a", "{}", NOON.replace(tzinfo=None))
+
+    assert store.source_entry("https://example.com/a") is None

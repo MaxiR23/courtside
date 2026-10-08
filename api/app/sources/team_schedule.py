@@ -7,10 +7,10 @@
 #
 # SEE: docs/api/game-detail.md, api/app/sources/team_players.py
 
+import datetime as dt
 from typing import Annotated, Any
 from zoneinfo import ZoneInfo
 
-import httpx
 from pydantic import (
     AwareDatetime,
     BaseModel,
@@ -23,10 +23,11 @@ from pydantic.alias_generators import to_camel
 from app.feeds.game_detail import GameResult, LastGame
 from app.feeds.games import FeedModel, NonEmptyStr
 from app.settings import Settings
-from app.sources.http import SourceError, get_json
+from app.sources.http import SourceClient, SourceError, get_json
 from app.sources.teams import TEAM_CODES, to_team_code
 
 SOURCE = "team_schedule"
+FRESH_FOR = dt.timedelta(hours=1)
 EASTERN = ZoneInfo("America/New_York")
 LAST_GAMES = 5
 PROVIDER_CODES: dict[str, str] = {
@@ -127,14 +128,14 @@ def _last_game(team_code: str, event: _ProviderEvent) -> dict[str, Any]:
 
 
 async def fetch_team_schedule(
-    client: httpx.AsyncClient, team_code: str, settings: Settings
+    client: SourceClient, team_code: str, settings: Settings
 ) -> TeamSchedule:
     """Return the completed games of one team, or raise SourceError."""
     if settings.team_schedule_url is None:
         raise SourceError(SOURCE, "team schedule URL is not configured")
     provider_code = _provider_code(team_code)
     url = settings.team_schedule_url.format(team=provider_code)
-    body = await get_json(client, url, source=SOURCE)
+    body = await get_json(client, url, source=SOURCE, fresh=FRESH_FOR)
     try:
         schedule = _ProviderSchedule.model_validate(body)
     except ValidationError as error:

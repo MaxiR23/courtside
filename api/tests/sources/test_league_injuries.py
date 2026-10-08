@@ -8,6 +8,7 @@
 # - Maps the team ids of codes that differ from the standard ones
 # - Requests the league injuries URL from the settings
 # - Raises the source error on an unknown team id, an unknown injury status, an invalid payload, an empty name, a timeout, an error status and a missing URL
+# - Reuses the league injuries for one hour
 #
 # What is covered:
 # - A valid response mapped, an invalid payload rejected, upstream failures handled
@@ -20,9 +21,11 @@
 #
 # SEE: api/app/sources/league_injuries.py
 
+import datetime as dt
 import json
 from collections.abc import Iterator
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Any
 
 import httpx
@@ -31,8 +34,9 @@ import respx
 
 from app.feeds.game_detail import InjuryStatus
 from app.settings import Settings
-from app.sources.http import SourceError, create_client
+from app.sources.http import SourceClient, SourceError, create_client
 from app.sources.league_injuries import LeagueInjuries, fetch_league_injuries
+from app.storage.state import StateStore
 
 FIXTURES = Path(__file__).parent / "fixtures" / "league_injuries"
 URL = "https://example.com/injuries"
@@ -64,8 +68,11 @@ def mock() -> Iterator[respx.MockRouter]:
 
 
 async def fetch(settings: Settings) -> LeagueInjuries:
-    async with create_client() as client:
-        return await fetch_league_injuries(client, settings)
+    with TemporaryDirectory() as directory:
+        store = StateStore(Path(directory))
+        store.migrate()
+        async with create_client(store) as client:
+            return await fetch_league_injuries(client, settings)
 
 
 async def fetch_error(settings: Settings) -> SourceError:
@@ -248,3 +255,27 @@ async def test_raises_the_source_error_when_the_url_is_not_configured() -> None:
         error = await fetch_error(unset)
 
     assert error.reason == "league injuries URL is not configured"
+
+
+def clocked(tmp_path: Path, clock: list[dt.datetime]) -> SourceClient:
+    store = StateStore(tmp_path)
+    store.migrate()
+    return create_client(store, clock=lambda: clock[0])
+
+
+@pytest.mark.anyio
+async def test_reuses_the_league_injuries_for_one_hour(
+    mock: respx.MockRouter, settings: Settings, tmp_path: Path
+) -> None:
+    start = dt.datetime(2026, 1, 10, 12, 0, tzinfo=dt.UTC)
+    clock = [start]
+    route = mock.get(URL).respond(json=load())
+    async with clocked(tmp_path, clock) as client:
+        await fetch_league_injuries(client, settings)
+        clock[0] = start + dt.timedelta(hours=1) - dt.timedelta(seconds=1)
+        await fetch_league_injuries(client, settings)
+        assert route.call_count == 1
+        clock[0] = start + dt.timedelta(hours=1)
+        await fetch_league_injuries(client, settings)
+
+    assert route.call_count == 2

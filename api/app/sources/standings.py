@@ -8,17 +8,19 @@
 #
 # SEE: docs/api/game-detail.md, api/app/sources/team_players.py
 
-import httpx
+import datetime as dt
+
 from pydantic import BaseModel, ConfigDict, ValidationError
 from pydantic.alias_generators import to_camel
 
 from app.feeds.game_detail import Conference, TeamStanding
 from app.feeds.games import FeedModel, TeamCode
 from app.settings import Settings
-from app.sources.http import SourceError, get_json
+from app.sources.http import SourceClient, SourceError, get_json
 from app.sources.teams import to_team_code
 
 SOURCE = "standings"
+FRESH_FOR = dt.timedelta(hours=1)
 CONFERENCES = {"East": Conference.EAST, "West": Conference.WEST}
 RECORDS = {
     "record": "total",
@@ -101,13 +103,13 @@ def _standing(
     return standing
 
 
-async def fetch_standings(
-    client: httpx.AsyncClient, settings: Settings
-) -> LeagueStandings:
+async def fetch_standings(client: SourceClient, settings: Settings) -> LeagueStandings:
     """Return the standing of every team, or raise SourceError."""
     if settings.standings_url is None:
         raise SourceError(SOURCE, "standings URL is not configured")
-    body = await get_json(client, settings.standings_url, source=SOURCE)
+    body = await get_json(
+        client, settings.standings_url, source=SOURCE, fresh=FRESH_FOR
+    )
     try:
         provider = _ProviderLeague.model_validate(body)
     except ValidationError as error:

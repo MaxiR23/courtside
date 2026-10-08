@@ -1,10 +1,10 @@
 # api/app/storage/state.py
 #
-# Job state in SQLite: game dates, final times and whether they were first seen, highlight attempts, failed stats attempts, matched highlights, team stars and per-job outcomes.
+# Job state in SQLite: game dates, final times and whether they were first seen, highlight attempts, failed stats attempts, matched highlights, team stars, source cache entries and per-job outcomes.
 # Schema versioned with PRAGMA user_version; MIGRATIONS run once each on startup.
 # One connection per operation, so sync endpoints can use it from the threadpool.
 #
-# SEE: docs/adr/0007-backend-runtime-and-data-pipeline.md, docs/adr/0011-state-retention.md
+# SEE: docs/adr/0007-backend-runtime-and-data-pipeline.md, docs/adr/0011-state-retention.md, docs/source-rules.md
 
 import datetime as dt
 import logging
@@ -46,6 +46,12 @@ MIGRATIONS: tuple[Migration, ...] = (
             "last_failure TEXT, last_failure_reason TEXT)"
         ),
     ),
+    (
+        (
+            "CREATE TABLE source_cache ("
+            "url TEXT PRIMARY KEY, body TEXT NOT NULL, fetched_at TEXT NOT NULL)"
+        ),
+    ),
 )
 
 
@@ -58,6 +64,12 @@ class JobState(FeedModel):
     last_success: UtcDatetime | None
     last_failure: UtcDatetime | None
     last_failure_reason: NonEmptyStr | None
+
+
+class SourceEntry(FeedModel):
+    url: NonEmptyStr
+    body: str
+    fetched_at: UtcDatetime
 
 
 def _to_text(value: dt.datetime) -> str:
@@ -266,3 +278,25 @@ class StateStore:
             )
             for name, success, failure, reason in rows
         ]
+
+    def set_source_entry(self, url: str, body: str, fetched_at: dt.datetime) -> None:
+        text = _to_text(fetched_at)
+        with self._connect() as connection, connection:
+            connection.execute(
+                "INSERT INTO source_cache (url, body, fetched_at) VALUES (?, ?, ?) "
+                "ON CONFLICT(url) DO UPDATE SET body = excluded.body, "
+                "fetched_at = excluded.fetched_at",
+                (url, body, text),
+            )
+
+    def source_entry(self, url: str) -> SourceEntry | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT body, fetched_at FROM source_cache WHERE url = ?", (url,)
+            ).fetchone()
+        if row is None:
+            return None
+        fetched_at = _from_text(row[1])
+        if fetched_at is None:
+            raise ValueError("source cache entry has no fetch time")
+        return SourceEntry(url=url, body=row[0], fetched_at=fetched_at)

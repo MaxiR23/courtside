@@ -8,6 +8,7 @@
 # - Gives a team with no games and no last ten stat a last ten record of 0-0
 # - Requests the standings URL from the settings
 # - Raises the source error on an unknown conference, standings without both conferences, a missing record stat, a missing last ten stat of a team that has played, a record that is not wins and losses, an invalid payload, a rank below one, an unknown team code, a timeout, an error status and a missing URL
+# - Reuses the standings for one hour
 #
 # What is covered:
 # - A valid response mapped, an invalid payload rejected, upstream failures handled
@@ -21,9 +22,11 @@
 #
 # SEE: api/app/sources/standings.py
 
+import datetime as dt
 import json
 from collections.abc import Iterator
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Any
 
 import httpx
@@ -32,8 +35,9 @@ import respx
 
 from app.feeds.game_detail import Conference
 from app.settings import Settings
-from app.sources.http import SourceError, create_client
+from app.sources.http import SourceClient, SourceError, create_client
 from app.sources.standings import LeagueStandings, fetch_standings
+from app.storage.state import StateStore
 
 FIXTURES = Path(__file__).parent / "fixtures" / "standings"
 URL = "https://example.com/standings"
@@ -77,8 +81,11 @@ def mock() -> Iterator[respx.MockRouter]:
 
 
 async def fetch(settings: Settings) -> LeagueStandings:
-    async with create_client() as client:
-        return await fetch_standings(client, settings)
+    with TemporaryDirectory() as directory:
+        store = StateStore(Path(directory))
+        store.migrate()
+        async with create_client(store) as client:
+            return await fetch_standings(client, settings)
 
 
 async def fetch_error(settings: Settings) -> SourceError:
@@ -305,3 +312,27 @@ async def test_raises_the_source_error_when_the_standings_url_is_not_configured(
         error = await fetch_error(unset)
 
     assert error.reason == "standings URL is not configured"
+
+
+def clocked(tmp_path: Path, clock: list[dt.datetime]) -> SourceClient:
+    store = StateStore(tmp_path)
+    store.migrate()
+    return create_client(store, clock=lambda: clock[0])
+
+
+@pytest.mark.anyio
+async def test_reuses_the_standings_for_one_hour(
+    mock: respx.MockRouter, settings: Settings, tmp_path: Path
+) -> None:
+    start = dt.datetime(2026, 1, 10, 12, 0, tzinfo=dt.UTC)
+    clock = [start]
+    route = mock.get(URL).respond(json=load())
+    async with clocked(tmp_path, clock) as client:
+        await fetch_standings(client, settings)
+        clock[0] = start + dt.timedelta(hours=1) - dt.timedelta(seconds=1)
+        await fetch_standings(client, settings)
+        assert route.call_count == 1
+        clock[0] = start + dt.timedelta(hours=1)
+        await fetch_standings(client, settings)
+
+    assert route.call_count == 2

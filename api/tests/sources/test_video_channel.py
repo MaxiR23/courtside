@@ -22,6 +22,8 @@
 # - Finds the first matching video in order, and none when no title matches
 # - Builds the highlight with the video's thumbnail and the embed template, keeping the title and channel, and raises the source error when the video has no thumbnail, the template is missing or the result is invalid
 # - Builds the search URL from the template with the encoded teams, label and date, and none when the template is missing
+# - Two lookups of one run list each page once, and a lookup lists again the pages listed before its run
+# - Never stores the key in the source cache
 #
 # What is covered:
 # - A valid response mapped, an invalid payload rejected, upstream failures handled
@@ -37,8 +39,11 @@
 
 import datetime as dt
 import logging
+import sqlite3
 from collections.abc import Iterator
+from contextlib import closing
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Any
 
 import httpx
@@ -47,7 +52,7 @@ import respx
 
 from app.feeds.games import GameStatus, Team
 from app.settings import Settings
-from app.sources.http import SourceError, create_client
+from app.sources.http import SourceClient, SourceError, create_client
 from app.sources.scoreboard import ScoreboardGame
 from app.sources.video_channel import (
     ChannelVideo,
@@ -57,11 +62,14 @@ from app.sources.video_channel import (
     search_url,
     to_highlight,
 )
+from app.storage.state import STATE_FILE, StateStore
 
 FIXTURES = Path(__file__).parent / "fixtures" / "video_channel"
 SOURCE_URL = "https://example.com/uploads?list=example"
 KEY = "test-key-value"
 DAY = dt.date(2026, 10, 4)
+# Before the fixed clock START the client reads, so every cached page counts as listed in the run.
+LISTED_SINCE = dt.datetime(2026, 1, 1, tzinfo=dt.UTC)
 START = dt.datetime(2026, 10, 5, 2, 0, tzinfo=dt.UTC)
 TITLE = "WARRIORS at CLIPPERS | PRESEASON FULL GAME HIGHLIGHTS | October 4, 2026"
 
@@ -145,8 +153,13 @@ def serve_pages() -> list[httpx.Request]:
 async def lookup(
     game: ScoreboardGame, day: dt.date, settings: Settings | None = None
 ) -> ChannelVideo | None:
-    async with create_client() as client:
-        return await lookup_video(client, game, day, settings or configured())
+    with TemporaryDirectory() as directory:
+        store = StateStore(Path(directory))
+        store.migrate()
+        async with create_client(store, clock=lambda: START) as client:
+            return await lookup_video(
+                client, game, day, settings or configured(), LISTED_SINCE
+            )
 
 
 async def lookup_error(
@@ -635,3 +648,51 @@ def test_builds_the_search_url_from_the_template_with_encoded_words() -> None:
 
 def test_builds_no_search_url_when_the_template_is_missing() -> None:
     assert search_url(make_game(), DAY, make_settings()) is None
+
+
+def clocked(tmp_path: Path, clock: list[dt.datetime]) -> SourceClient:
+    store = StateStore(tmp_path)
+    store.migrate()
+    return create_client(store, clock=lambda: clock[0])
+
+
+@pytest.mark.anyio
+async def test_two_lookups_of_one_run_list_each_page_once(tmp_path: Path) -> None:
+    seen = serve_pages()
+    start = dt.datetime(2026, 10, 5, 12, 0, tzinfo=dt.UTC)
+    second = make_game().model_copy(update={"id": "g2"})
+    async with clocked(tmp_path, [start]) as client:
+        await lookup_video(client, make_game(), DAY, configured(), start)
+        await lookup_video(client, second, DAY, configured(), start)
+
+    assert [r.url.params.get("pageToken") for r in seen] == [None, "page-2"]
+
+
+@pytest.mark.anyio
+async def test_a_lookup_lists_again_the_pages_listed_before_its_run(
+    tmp_path: Path,
+) -> None:
+    seen = serve_pages()
+    start = dt.datetime(2026, 10, 5, 12, 0, tzinfo=dt.UTC)
+    later = start + dt.timedelta(minutes=10)
+    clock = [start]
+    async with clocked(tmp_path, clock) as client:
+        await lookup_video(client, make_game(), DAY, configured(), start)
+        clock[0] = later
+        await lookup_video(client, make_game(), DAY, configured(), later)
+
+    assert len(seen) == 4
+
+
+@pytest.mark.anyio
+async def test_the_key_header_is_never_stored(tmp_path: Path) -> None:
+    serve_pages()
+    store = StateStore(tmp_path)
+    store.migrate()
+    async with create_client(store, clock=lambda: START) as client:
+        await lookup_video(client, make_game(), DAY, configured(), LISTED_SINCE)
+
+    with closing(sqlite3.connect(tmp_path / STATE_FILE)) as connection:
+        stored = connection.execute("SELECT url, body FROM source_cache").fetchall()
+    assert len(stored) == 2
+    assert KEY not in str(stored)

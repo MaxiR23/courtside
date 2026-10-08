@@ -10,7 +10,6 @@ import datetime as dt
 import re
 from typing import Any
 
-import httpx
 from pydantic import (
     AwareDatetime,
     BaseModel,
@@ -32,10 +31,11 @@ from app.feeds.games import (
     UtcDatetime,
 )
 from app.settings import Settings
-from app.sources.http import SourceError, get_json
+from app.sources.http import SourceClient, SourceError, get_json
 from app.sources.teams import to_team_code
 
 SOURCE = "scoreboard"
+FRESH_FOR = dt.timedelta(seconds=30)
 DATE_FORMAT = "%Y%m%d"
 
 STATUSES: dict[str, GameStatus] = {
@@ -207,13 +207,13 @@ def _map_event(event: _ProviderEvent) -> ScoreboardGame:
 
 
 async def fetch_games(
-    client: httpx.AsyncClient, day: dt.date, settings: Settings
+    client: SourceClient, day: dt.date, settings: Settings
 ) -> list[ScoreboardGame]:
     """Return the games of a US Eastern day in provider order, or raise SourceError."""
     if settings.scoreboard_url is None:
         raise SourceError(SOURCE, "scoreboard URL is not configured")
     url = settings.scoreboard_url.format(date=day.strftime(DATE_FORMAT))
-    body = await get_json(client, url, source=SOURCE)
+    body = await get_json(client, url, source=SOURCE, fresh=FRESH_FOR)
     try:
         scoreboard = _ProviderScoreboard.model_validate(body)
     except ValidationError as error:

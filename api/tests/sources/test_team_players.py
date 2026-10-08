@@ -19,6 +19,7 @@
 # - Counts a player stat that is missing as zero
 # - Raises the source error on an invalid player averages payload, a player stat that is not a number, a negative player stat, a timeout, an error status and a missing player averages URL
 # - Raises the source error on an invalid roster payload, an invalid averages payload, an empty roster, an empty name, a stat that is not a number, a negative stat, an unknown team code, a timeout, an error status, a missing roster URL, a missing averages URL and a missing photo URL
+# - Reuses a roster and the team leaders for twenty-four hours, and a player's averages for one hour
 #
 # What is covered:
 # - A valid response mapped, an invalid payload rejected, upstream failures handled
@@ -32,9 +33,11 @@
 #
 # SEE: api/app/sources/team_players.py
 
+import datetime as dt
 import json
 from collections.abc import Iterator
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Any
 
 import httpx
@@ -43,7 +46,7 @@ import respx
 
 from app.feeds.games import Star
 from app.settings import Settings
-from app.sources.http import SourceError, create_client
+from app.sources.http import SourceClient, SourceError, create_client
 from app.sources.team_players import (
     PlayerAverages,
     Roster,
@@ -51,6 +54,7 @@ from app.sources.team_players import (
     fetch_roster,
     fetch_season_averages,
 )
+from app.storage.state import StateStore
 
 FIXTURES = Path(__file__).parent / "fixtures" / "team_players"
 ROSTER_TEMPLATE = "https://example.com/teams/{team}/roster"
@@ -87,22 +91,31 @@ def mock() -> Iterator[respx.MockRouter]:
 
 
 async def roster_of(settings: Settings, code: str = "GSW") -> Roster:
-    async with create_client() as client:
-        return await fetch_roster(client, code, settings)
+    with TemporaryDirectory() as directory:
+        store = StateStore(Path(directory))
+        store.migrate()
+        async with create_client(store) as client:
+            return await fetch_roster(client, code, settings)
 
 
 async def averages_of(
     settings: Settings, team_id: str = "9", season: int = 2026
 ) -> list[PlayerAverages]:
-    async with create_client() as client:
-        return await fetch_season_averages(client, team_id, season, settings)
+    with TemporaryDirectory() as directory:
+        store = StateStore(Path(directory))
+        store.migrate()
+        async with create_client(store) as client:
+            return await fetch_season_averages(client, team_id, season, settings)
 
 
 async def player_of(
     settings: Settings, player_id: str = "6430", season: int = 2026
 ) -> PlayerAverages | None:
-    async with create_client() as client:
-        return await fetch_player_averages(client, player_id, season, settings)
+    with TemporaryDirectory() as directory:
+        store = StateStore(Path(directory))
+        store.migrate()
+        async with create_client(store) as client:
+            return await fetch_player_averages(client, player_id, season, settings)
 
 
 async def player_error(settings: Settings) -> SourceError:
@@ -509,3 +522,63 @@ async def test_raises_the_source_error_when_the_player_averages_url_is_not_confi
     assert (await player_error(settings)).reason == (
         "player averages URL is not configured"
     )
+
+
+def clocked(tmp_path: Path, clock: list[dt.datetime]) -> SourceClient:
+    store = StateStore(tmp_path)
+    store.migrate()
+    return create_client(store, clock=lambda: clock[0])
+
+
+@pytest.mark.anyio
+async def test_reuses_a_roster_for_twenty_four_hours(
+    mock: respx.MockRouter, settings: Settings, tmp_path: Path
+) -> None:
+    start = dt.datetime(2026, 1, 10, 12, 0, tzinfo=dt.UTC)
+    clock = [start]
+    route = mock.get(ROSTER_URL).respond(json=load("roster.json"))
+    async with clocked(tmp_path, clock) as client:
+        await fetch_roster(client, "GSW", settings)
+        clock[0] = start + dt.timedelta(hours=24) - dt.timedelta(seconds=1)
+        await fetch_roster(client, "GSW", settings)
+        assert route.call_count == 1
+        clock[0] = start + dt.timedelta(hours=24)
+        await fetch_roster(client, "GSW", settings)
+
+    assert route.call_count == 2
+
+
+@pytest.mark.anyio
+async def test_reuses_the_team_leaders_for_twenty_four_hours(
+    mock: respx.MockRouter, settings: Settings, tmp_path: Path
+) -> None:
+    start = dt.datetime(2026, 1, 10, 12, 0, tzinfo=dt.UTC)
+    clock = [start]
+    route = mock.get(AVERAGES_URL).respond(json=load("averages.json"))
+    async with clocked(tmp_path, clock) as client:
+        await fetch_season_averages(client, "9", 2026, settings)
+        clock[0] = start + dt.timedelta(hours=24) - dt.timedelta(seconds=1)
+        await fetch_season_averages(client, "9", 2026, settings)
+        assert route.call_count == 1
+        clock[0] = start + dt.timedelta(hours=24)
+        await fetch_season_averages(client, "9", 2026, settings)
+
+    assert route.call_count == 2
+
+
+@pytest.mark.anyio
+async def test_reuses_a_players_averages_for_one_hour(
+    mock: respx.MockRouter, settings: Settings, tmp_path: Path
+) -> None:
+    start = dt.datetime(2026, 1, 10, 12, 0, tzinfo=dt.UTC)
+    clock = [start]
+    route = mock.get(PLAYER_URL).respond(json=load("player_averages.json"))
+    async with clocked(tmp_path, clock) as client:
+        await fetch_player_averages(client, "6430", 2026, settings)
+        clock[0] = start + dt.timedelta(hours=1) - dt.timedelta(seconds=1)
+        await fetch_player_averages(client, "6430", 2026, settings)
+        assert route.call_count == 1
+        clock[0] = start + dt.timedelta(hours=1)
+        await fetch_player_averages(client, "6430", 2026, settings)
+
+    assert route.call_count == 2

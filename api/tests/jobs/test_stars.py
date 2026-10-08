@@ -159,7 +159,7 @@ def make_job(settings: Settings, store: StateStore, sources: FakeSources) -> Sta
     return StarsJob(
         settings,
         store,
-        create_client(),
+        create_client(store),
         fetch_roster=sources.fetch_roster,
         fetch_season_averages=sources.fetch_season_averages,
         fetch_player_averages=sources.fetch_player_averages,
@@ -495,7 +495,7 @@ async def test_fetches_every_due_team_concurrently(
     job = StarsJob(
         settings,
         store,
-        create_client(),
+        create_client(store),
         fetch_roster=roster,
         fetch_season_averages=sources.fetch_season_averages,
         fetch_player_averages=sources.fetch_player_averages,
@@ -630,7 +630,7 @@ def make_slow_job(
     return StarsJob(
         settings,
         store,
-        create_client(),
+        create_client(store),
         fetch_roster=sources.fetch_roster,
         fetch_season_averages=sources.fetch_season_averages,
         fetch_player_averages=sources.fetch_player_averages,

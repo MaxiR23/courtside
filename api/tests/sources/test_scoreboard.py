@@ -8,6 +8,7 @@
 # - Normalizes the clock, converts the start time to UTC and appends overtime periods
 # - Raises the source error on an unknown team, an unknown status, a payload missing a field, a naive start time, a live game without a clock, an empty team name or city, a timeout, an error status and a missing URL
 # - ScoreboardGame uses the same field types as the contract Game
+# - Reuses a fetched day for thirty seconds
 #
 # What is covered:
 # - A valid response mapped, an invalid payload rejected, upstream failures handled
@@ -27,6 +28,7 @@ import datetime as dt
 import json
 from collections.abc import Iterator
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Any
 
 import httpx
@@ -35,8 +37,9 @@ import respx
 
 from app.feeds.games import Game, GameStatus
 from app.settings import Settings
-from app.sources.http import SourceError, create_client
+from app.sources.http import SourceClient, SourceError, create_client
 from app.sources.scoreboard import ScoreboardGame, fetch_games
+from app.storage.state import StateStore
 
 FIXTURES = Path(__file__).parent / "fixtures" / "scoreboard"
 DAY = dt.date(2026, 10, 5)
@@ -86,8 +89,11 @@ def mock() -> Iterator[respx.MockRouter]:
 
 
 async def fetch(settings: Settings) -> list[ScoreboardGame]:
-    async with create_client() as client:
-        return await fetch_games(client, DAY, settings)
+    with TemporaryDirectory() as directory:
+        store = StateStore(Path(directory))
+        store.migrate()
+        async with create_client(store) as client:
+            return await fetch_games(client, DAY, settings)
 
 
 async def fetch_error(settings: Settings) -> SourceError:
@@ -404,3 +410,27 @@ def test_scoreboard_game_fields_match_the_contract_game() -> None:
         assert name in Game.model_fields
         assert field.annotation == Game.model_fields[name].annotation
         assert field.metadata == Game.model_fields[name].metadata
+
+
+def clocked(tmp_path: Path, clock: list[dt.datetime]) -> SourceClient:
+    store = StateStore(tmp_path)
+    store.migrate()
+    return create_client(store, clock=lambda: clock[0])
+
+
+@pytest.mark.anyio
+async def test_reuses_a_fetched_day_for_thirty_seconds(
+    mock: respx.MockRouter, settings: Settings, tmp_path: Path
+) -> None:
+    start = dt.datetime(2026, 1, 10, 12, 0, tzinfo=dt.UTC)
+    clock = [start]
+    route = mock.get(URL).respond(json=load("day.json"))
+    async with clocked(tmp_path, clock) as client:
+        await fetch_games(client, DAY, settings)
+        clock[0] = start + dt.timedelta(seconds=30) - dt.timedelta(seconds=1)
+        await fetch_games(client, DAY, settings)
+        assert route.call_count == 1
+        clock[0] = start + dt.timedelta(seconds=30)
+        await fetch_games(client, DAY, settings)
+
+    assert route.call_count == 2

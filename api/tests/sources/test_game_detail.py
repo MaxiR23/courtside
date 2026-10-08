@@ -27,6 +27,8 @@
 # - Gives each completed series game its winner and the series a leader, or none on a tie
 # - Raises the source error on a completed series game without exactly one winner
 # - SeriesMeeting uses the same field types as the contract SeriesGame, except the arena
+# - A final game's detail attempt fetches again when the stored entry is older than its due time, and reuses one fetched at or after it
+# - The sections and the detail of one game share one cached response
 #
 # What is covered:
 # - A valid response mapped, an invalid payload rejected, upstream failures handled
@@ -54,9 +56,11 @@
 #
 # SEE: api/app/sources/game_detail.py
 
+import datetime as dt
 import json
 from collections.abc import Iterator
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Any, cast
 
 import httpx
@@ -73,7 +77,8 @@ from app.sources.game_detail import (
     fetch_game_detail,
     fetch_game_detail_sections,
 )
-from app.sources.http import SourceError, create_client
+from app.sources.http import SourceClient, SourceError, create_client
+from app.storage.state import StateStore
 
 FIXTURES = Path(__file__).parent / "fixtures" / "game_detail"
 GAME_ID = "401918010"
@@ -138,8 +143,13 @@ def mock() -> Iterator[respx.MockRouter]:
 
 
 async def fetch(settings: Settings, game_id: str = GAME_ID) -> GameDetail:
-    async with create_client() as client:
-        return await fetch_game_detail(client, game_id, settings)
+    with TemporaryDirectory() as directory:
+        store = StateStore(Path(directory))
+        store.migrate()
+        async with create_client(store) as client:
+            return await fetch_game_detail(
+                client, game_id, settings, dt.timedelta(hours=1)
+            )
 
 
 async def fetch_error(settings: Settings) -> SourceError:
@@ -570,8 +580,13 @@ SECTIONS_PHOTO = "https://example.com/players/{player_id}.png"
 async def fetch_sections(
     settings: Settings, game_id: str = GAME_ID
 ) -> GameDetailSections:
-    async with create_client() as client:
-        return await fetch_game_detail_sections(client, game_id, settings)
+    with TemporaryDirectory() as directory:
+        store = StateStore(Path(directory))
+        store.migrate()
+        async with create_client(store) as client:
+            return await fetch_game_detail_sections(
+                client, game_id, settings, dt.timedelta(hours=1)
+            )
 
 
 async def sections_error(settings: Settings, game_id: str = GAME_ID) -> SourceError:
@@ -1408,3 +1423,62 @@ def test_series_meeting_fields_match_the_contract_series_game_except_arena() -> 
         assert SeriesGame.model_fields[name].annotation == field.annotation
         assert field.metadata == SeriesGame.model_fields[name].metadata
     assert set(SeriesGame.model_fields) - set(SeriesMeeting.model_fields) == {"arena"}
+
+
+def clocked(tmp_path: Path, clock: list[dt.datetime]) -> SourceClient:
+    store = StateStore(tmp_path)
+    store.migrate()
+    return create_client(store, clock=lambda: clock[0])
+
+
+FETCHED = dt.datetime(2026, 1, 10, 12, 0, tzinfo=dt.UTC)
+
+
+@pytest.mark.anyio
+async def test_a_final_game_detail_attempt_fetches_again_when_the_stored_entry_is_older_than_its_due_time(
+    mock: respx.MockRouter, settings: Settings, tmp_path: Path
+) -> None:
+    route = mock.get(URL).mock(
+        side_effect=[
+            httpx.Response(200, json=load("live.json")),
+            httpx.Response(200, json=load("final.json")),
+        ]
+    )
+    async with clocked(tmp_path, [FETCHED]) as client:
+        await fetch_game_detail(client, GAME_ID, settings, dt.timedelta(seconds=30))
+        detail = await fetch_game_detail(
+            client, GAME_ID, settings, FETCHED + dt.timedelta(seconds=1)
+        )
+
+    assert route.call_count == 2
+    away, home = detail.leaders.away, detail.leaders.home
+    assert (away.player_id, away.points) == ("4397886", 12)
+    assert (home.player_id, home.points) == ("4066648", 21)
+
+
+@pytest.mark.anyio
+async def test_a_final_game_detail_attempt_reuses_an_entry_fetched_at_or_after_its_due_time(
+    mock: respx.MockRouter, settings: Settings, tmp_path: Path
+) -> None:
+    route = mock.get(URL).respond(json=load("final.json"))
+    async with clocked(tmp_path, [FETCHED]) as client:
+        await fetch_game_detail(client, GAME_ID, settings, FETCHED)
+        await fetch_game_detail(client, GAME_ID, settings, FETCHED)
+        await fetch_game_detail(
+            client, GAME_ID, settings, FETCHED - dt.timedelta(hours=2)
+        )
+
+    assert route.call_count == 1
+
+
+@pytest.mark.anyio
+async def test_sections_and_detail_of_one_game_share_one_cached_response(
+    mock: respx.MockRouter, settings: Settings, tmp_path: Path
+) -> None:
+    route = mock.get(URL).respond(json=load("summary-final.json"))
+    fresh = dt.timedelta(seconds=30)
+    async with clocked(tmp_path, [FETCHED]) as client:
+        await fetch_game_detail_sections(client, GAME_ID, settings, fresh)
+        await fetch_game_detail(client, GAME_ID, settings, fresh)
+
+    assert route.call_count == 1

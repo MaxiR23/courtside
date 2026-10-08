@@ -10,6 +10,12 @@
 #
 # A final game's detail is fetched when it becomes final and, after a failure,
 # 2, 4 and 6 hours after its final time; the failed attempts are stored.
+# The final time is the client clock read right after the scoreboard response
+# that shows the game final arrives (a cached response included), not the time
+# the run started, and the due check reads the same clock. The cache stores a
+# fetch with its send time, and an attempt asks for a fetch at or after its
+# due time, so a first attempt is never served a detail sent before the final
+# status was observed, such as a live snapshot fetched during the same run.
 #
 # The detail job reads the games of the days shown through shown_games.
 #
@@ -27,7 +33,6 @@ from collections.abc import Set as AbstractSet
 from typing import Any
 from zoneinfo import ZoneInfo
 
-import httpx
 from pydantic import ValidationError
 
 from app.feeds.games import (
@@ -40,7 +45,7 @@ from app.feeds.games import (
 from app.settings import Settings
 from app.sources import game_detail, scoreboard
 from app.sources.game_detail import GameDetail
-from app.sources.http import SourceError
+from app.sources.http import Freshness, SourceClient, SourceError
 from app.sources.scoreboard import ScoreboardGame
 from app.storage.feeds import publish_feed
 from app.storage.state import StateStore
@@ -65,9 +70,11 @@ StarsReady = Callable[[], bool]
 SearchUrlProvider = Callable[[ScoreboardGame], str | None]
 HighlightsProvider = Callable[[ScoreboardGame], list[Highlight]]
 FetchGames = Callable[
-    [httpx.AsyncClient, dt.date, Settings], Awaitable[list[ScoreboardGame]]
+    [SourceClient, dt.date, Settings], Awaitable[list[ScoreboardGame]]
 ]
-FetchGameDetail = Callable[[httpx.AsyncClient, str, Settings], Awaitable[GameDetail]]
+FetchGameDetail = Callable[
+    [SourceClient, str, Settings, Freshness], Awaitable[GameDetail]
+]
 
 _NOT_STARTED = (GameStatus.SCHEDULED, GameStatus.DELAYED)
 _UNFINISHED = (GameStatus.SCHEDULED, GameStatus.LIVE, GameStatus.DELAYED)
@@ -183,7 +190,7 @@ class GamesJob:
         self,
         settings: Settings,
         store: StateStore,
-        client: httpx.AsyncClient,
+        client: SourceClient,
         *,
         fetch_games: FetchGames = scoreboard.fetch_games,
         fetch_game_detail: FetchGameDetail = game_detail.fetch_game_detail,
@@ -270,6 +277,7 @@ class GamesJob:
 
     async def _refresh_day(self, day: dt.date, now: dt.datetime) -> None:
         games = await self._fetch_games(self._client, day, self._settings)
+        final_at = self._client.clock()
         previous = {g.id: g.status for g in self._games.get(day, [])}
         for game in games:
             before = previous.get(game.id)
@@ -278,7 +286,7 @@ class GamesJob:
                 self._store.set_final_time(
                     game.id,
                     eastern_date(game.start_time),
-                    now,
+                    final_at,
                     first_seen=not going_final,
                 )
                 if going_final:
@@ -286,19 +294,20 @@ class GamesJob:
         self._games[day] = games
         self._fetched_at[day] = now
 
-    def _final_detail_wanted(self, game: ScoreboardGame, now: dt.datetime) -> bool:
+    def _final_detail_due(self, game: ScoreboardGame) -> dt.datetime | None:
+        """The due time of this final game's detail attempt when it is due now."""
         if game.status is not GameStatus.FINAL:
-            return False
+            return None
         if game.id in self._details and game.id not in self._catch_up:
-            return False
+            return None
         final_time = self._store.final_time(game.id)
         if final_time is None:
-            return False
+            return None
         failed = self._store.failed_stats_attempts(game.id)
-        return (
-            failed < MAX_STATS_ATTEMPTS
-            and now >= final_time + STATS_ATTEMPT_DELAYS[failed]
-        )
+        if failed >= MAX_STATS_ATTEMPTS:
+            return None
+        due_at = final_time + STATS_ATTEMPT_DELAYS[failed]
+        return due_at if self._client.clock() >= due_at else None
 
     async def run(self, now: dt.datetime) -> None:
         today = eastern_date(now)
@@ -342,17 +351,18 @@ class GamesJob:
                     if game.status is GameStatus.LIVE and day in refreshed:
                         calls += 1
                         self._details[game.id] = await self._fetch_game_detail(
-                            self._client, game.id, self._settings
+                            self._client, game.id, self._settings, LIVE_INTERVAL
                         )
             final_failure: str | None = None
             for day in sorted(self._games):
                 for game in self._games[day]:
-                    if not self._final_detail_wanted(game, now):
+                    due_at = self._final_detail_due(game)
+                    if due_at is None:
                         continue
                     calls += 1
                     try:
                         self._details[game.id] = await self._fetch_game_detail(
-                            self._client, game.id, self._settings
+                            self._client, game.id, self._settings, due_at
                         )
                     except SourceError as error:
                         self._store.record_failed_stats_attempt(

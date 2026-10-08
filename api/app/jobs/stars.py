@@ -14,14 +14,12 @@ import asyncio
 import datetime as dt
 from collections.abc import Awaitable, Callable, Sequence
 
-import httpx
-
 from app.feeds.games import Star, Stars
 from app.jobs.games import EASTERN, eastern_date
 from app.jobs.scheduler import utc_now
 from app.settings import Settings
 from app.sources import team_players
-from app.sources.http import SourceError
+from app.sources.http import SourceClient, SourceError
 from app.sources.scoreboard import ScoreboardGame
 from app.sources.team_players import PlayerAverages, Roster
 from app.sources.teams import TEAM_CODES
@@ -30,12 +28,12 @@ from app.storage.state import StateStore
 JOB = "stars"
 RETRY = dt.timedelta(minutes=5)
 
-FetchRoster = Callable[[httpx.AsyncClient, str, Settings], Awaitable[Roster]]
+FetchRoster = Callable[[SourceClient, str, Settings], Awaitable[Roster]]
 FetchSeasonAverages = Callable[
-    [httpx.AsyncClient, str, int, Settings], Awaitable[list[PlayerAverages]]
+    [SourceClient, str, int, Settings], Awaitable[list[PlayerAverages]]
 ]
 FetchPlayerAverages = Callable[
-    [httpx.AsyncClient, str, int, Settings], Awaitable[PlayerAverages | None]
+    [SourceClient, str, int, Settings], Awaitable[PlayerAverages | None]
 ]
 
 
@@ -67,7 +65,7 @@ class StarsJob:
         self,
         settings: Settings,
         store: StateStore,
-        client: httpx.AsyncClient,
+        client: SourceClient,
         *,
         fetch_roster: FetchRoster = team_players.fetch_roster,
         fetch_season_averages: FetchSeasonAverages = team_players.fetch_season_averages,

@@ -26,6 +26,7 @@
 # - Gives every game a search URL from the template, and none without it
 # - A run with no due game makes no request and records nothing
 # - An attempt keeps the game date of the row
+# - Every lookup of a run lists uploads fetched at or after the run's start
 #
 # What is covered:
 # - Job: a successful run gives the games job its data, a failed run keeps the last valid state
@@ -99,6 +100,7 @@ class FakeLookup:
         self.error: SourceError | None = None
         self.errors: dict[str, SourceError] = {}
         self.calls: list[tuple[str, dt.date]] = []
+        self.listed_since_calls: list[dt.datetime] = []
 
     async def lookup_video(
         self,
@@ -106,8 +108,10 @@ class FakeLookup:
         game: ScoreboardGame,
         day: dt.date,
         settings: Settings,
+        listed_since: dt.datetime,
     ) -> ChannelVideo | None:
         self.calls.append((game.id, day))
+        self.listed_since_calls.append(listed_since)
         if game.id in self.errors:
             raise self.errors[game.id]
         if self.error is not None:
@@ -152,7 +156,7 @@ def make_job(
     return HighlightsJob(
         make_settings(tmp_path, **values),
         store,
-        create_client(),
+        create_client(store),
         final_games=lambda: games,
         lookup_video=lookup.lookup_video,
         clock=clock,
@@ -395,7 +399,7 @@ async def test_a_video_without_a_thumbnail_or_a_missing_template_records_the_fai
     job = HighlightsJob(
         settings,
         store,
-        create_client(),
+        create_client(store),
         final_games=lambda: [make_game()],
         lookup_video=lookup.lookup_video,
     )
@@ -476,7 +480,7 @@ async def test_a_game_first_seen_final_after_a_restart_gets_its_highlight_from_a
         highlights_source_key="test-key-value",
     )
     job = HighlightsJob(
-        settings, store, create_client(), final_games=lambda: [make_game()]
+        settings, store, create_client(store), final_games=lambda: [make_game()]
     )
 
     await job.run(FINAL_TIME)
@@ -489,7 +493,7 @@ async def test_a_game_first_seen_final_after_a_restart_gets_its_highlight_from_a
     assert [
         h.title
         for h in HighlightsJob(
-            settings, store, create_client(), final_games=lambda: [make_game()]
+            settings, store, create_client(store), final_games=lambda: [make_game()]
         ).highlights_of(make_game())
     ] == [TITLE]
     assert len(requests) == 2
@@ -516,7 +520,7 @@ def test_gives_no_search_url_without_the_template(
     job = HighlightsJob(
         settings,
         store,
-        create_client(),
+        create_client(store),
         final_games=list,
         lookup_video=lookup.lookup_video,
     )
@@ -573,6 +577,7 @@ async def test_measures_the_ten_minutes_from_the_failed_request_not_from_the_sta
         game: ScoreboardGame,
         day: dt.date,
         settings: Settings,
+        listed_since: dt.datetime,
     ) -> ChannelVideo | None:
         lookup.calls.append((game.id, day))
         clock[0] = clock[0] + slow
@@ -645,3 +650,19 @@ async def test_any_other_source_error_still_uses_up_an_attempt(
 
     assert store.highlight_attempts("g1") == 1
     assert store.job_states()[0].last_failure is not None
+
+
+@pytest.mark.anyio
+async def test_every_lookup_of_a_run_lists_uploads_fetched_at_or_after_the_runs_start(
+    tmp_path: Path, store: StateStore, lookup: FakeLookup
+) -> None:
+    store.set_final_time("g1", GAME_DATE, FINAL_TIME)
+    store.set_final_time("g2", GAME_DATE, FINAL_TIME)
+    job = make_job(tmp_path, store, lookup, [make_game("g1"), make_game("g2")])
+    now = FINAL_TIME + HOUR
+
+    await job.run(now)
+    later = now + HOUR
+    await job.run(later)
+
+    assert lookup.listed_since_calls == [now, now, later, later]

@@ -5,7 +5,8 @@
 # time (right away, 1 and 2 hours later for a game first seen final), never
 # after the third attempt. A failed request (timeout, transport failure or
 # error status) uses up no attempt; the same attempt is retried no sooner than
-# 10 minutes later.
+# 10 minutes later. Every due game of a run reads the uploads listed in that
+# run: the listing is fetched at or after the run's start.
 # Matches are kept in the job state. The games job reads the
 # highlights through highlights_of and the search URL through search_url_of.
 #
@@ -18,14 +19,12 @@ import datetime as dt
 import logging
 from collections.abc import Awaitable, Callable, Sequence
 
-import httpx
-
 from app.feeds.games import Highlight
 from app.jobs.games import eastern_date
 from app.jobs.scheduler import utc_now
 from app.settings import Settings
 from app.sources import video_channel
-from app.sources.http import SourceError
+from app.sources.http import SourceClient, SourceError
 from app.sources.scoreboard import ScoreboardGame
 from app.sources.video_channel import ChannelVideo
 from app.storage.state import StateStore
@@ -46,7 +45,7 @@ RETRY = dt.timedelta(minutes=10)
 
 FinalGames = Callable[[], Sequence[ScoreboardGame]]
 LookupVideo = Callable[
-    [httpx.AsyncClient, ScoreboardGame, dt.date, Settings],
+    [SourceClient, ScoreboardGame, dt.date, Settings, dt.datetime],
     Awaitable[ChannelVideo | None],
 ]
 
@@ -60,7 +59,7 @@ class HighlightsJob:
         self,
         settings: Settings,
         store: StateStore,
-        client: httpx.AsyncClient,
+        client: SourceClient,
         *,
         final_games: FinalGames,
         lookup_video: LookupVideo = video_channel.lookup_video,
@@ -115,7 +114,7 @@ class HighlightsJob:
             day = eastern_date(game.start_time)
             try:
                 video = await self._lookup_video(
-                    self._client, game, day, self._settings
+                    self._client, game, day, self._settings, now
                 )
             except SourceError as error:
                 if error.request_failed:
