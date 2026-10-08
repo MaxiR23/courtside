@@ -2,7 +2,7 @@
 #
 # Serves the published feeds.
 #
-# SEE: docs/api/games.md, docs/api/game-detail.md
+# SEE: docs/api/games.md, docs/api/game-detail.md, docs/api/player.md, docs/api/team.md
 
 import asyncio
 import hashlib
@@ -11,6 +11,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 
 from app.jobs.game_detail_feed import KIND
 from app.jobs.on_demand import FeedCache, FeedUnavailableError, UnknownFeedError
+from app.jobs.player_feed import KIND as PLAYER_KIND
+from app.jobs.team_feed import KIND as TEAM_KIND
 from app.storage.feeds import read_feed
 
 
@@ -58,6 +60,22 @@ async def read_game_detail_feed(game_id: str, request: Request) -> Response:
     await request.app.state.games_job.refresh_live(game_id, wait=budget)
     remaining = max(0.0, budget - (loop.time() - started))
     return await serve_on_demand(feeds, KIND, game_id, request, wait=remaining)
+
+
+@router.get("/feeds/teams/{code}.json")
+async def read_team_feed(code: str, request: Request) -> Response:
+    return await serve_on_demand(request.app.state.feed_cache, TEAM_KIND, code, request)
+
+
+@router.get("/feeds/players/{player_id}.json")
+async def read_player_feed(player_id: str, request: Request) -> Response:
+    feeds: FeedCache = request.app.state.feed_cache
+    loop = asyncio.get_running_loop()
+    started = loop.time()
+    budget = feeds.wait
+    await request.app.state.player_feeds.refresh_live(player_id, wait=budget)
+    remaining = max(0.0, budget - (loop.time() - started))
+    return await serve_on_demand(feeds, PLAYER_KIND, player_id, request, wait=remaining)
 
 
 async def serve_on_demand(

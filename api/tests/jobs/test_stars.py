@@ -38,6 +38,11 @@
 # - A team with a leader on its roster makes no individual request
 # - Requests each team's roster and leaders once, also when a team is retried the same day
 # - A run a few seconds earlier than the previous day's does not reuse the previous day's roster and leaders
+# - Exposes every fetched roster's players with their team, with no request beyond the roster fetches
+# - Is not ready until every team's roster has been fetched, and a failed roster fetch keeps it not ready until the retry succeeds
+# - Records a roster even when the team's averages then fail
+# - A newer roster replaces the team's players, and a player listed by another team's newer roster belongs to it
+# - Calls after_run after a run with due teams and not after a run with none
 #
 # What is covered:
 # - Pure logic: happy path, edge cases, error case
@@ -934,3 +939,100 @@ async def test_requests_each_teams_roster_and_leaders_once_also_when_a_team_is_r
     for code in set(CODES):
         assert requests.roster_and_leaders(code) == (1, 1)
     assert (requests.individual("BOS1"), requests.individual("BOS2")) == (2, 1)
+
+
+@pytest.mark.anyio
+async def test_exposes_every_fetched_rosters_players_with_their_team_and_no_extra_request(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    job = make_job(settings, store, sources)
+
+    await job.run(NOON)
+
+    assert job.player_team("BOS1") == "BOS"
+    assert job.player_team("NYK2") == "NYK"
+    assert job.player_team("nobody") is None
+    assert sorted(sources.roster_calls) == sorted(CODES)
+    assert job.rosters_ready()
+
+
+@pytest.mark.anyio
+async def test_is_not_ready_until_every_roster_is_fetched_and_a_failed_fetch_keeps_it_not_ready(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    job = make_job(settings, store, sources)
+    assert not job.rosters_ready()
+    sources.roster_errors["BOS"] = SourceError("roster", "down")
+
+    await job.run(NOON)
+
+    assert not job.rosters_ready()
+    assert job.player_team("BOS1") is None
+    assert job.player_team("NYK1") == "NYK"
+    del sources.roster_errors["BOS"]
+    await job.run(NOON + RETRY)
+    assert job.rosters_ready()
+    assert job.player_team("BOS1") == "BOS"
+
+
+@pytest.mark.anyio
+async def test_records_a_roster_even_when_the_teams_averages_then_fail(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    sources.averages[("id-BOS", SEASON)] = []
+    job = make_job(settings, store, sources)
+
+    await job.run(NOON)
+
+    assert "BOS" not in store.stars()
+    assert job.player_team("BOS1") == "BOS"
+
+
+@pytest.mark.anyio
+async def test_a_newer_roster_replaces_the_teams_players_and_moves_a_player_to_the_new_team(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    job = make_job(settings, store, sources)
+    await job.run(NOON)
+    sources.rosters["BOS"] = Roster(
+        season=SEASON,
+        team_id="id-BOS",
+        players=[player("BOS", 3), player("BOS", 4)],
+    )
+    sources.rosters["NYK"] = Roster(
+        season=SEASON,
+        team_id="id-NYK",
+        players=[player("NYK", 1), player("BOS", 2)],
+    )
+    sources.averages[("id-BOS", SEASON)] = [averages("BOS3", 20)]
+    sources.averages[("id-NYK", SEASON)] = [averages("NYK1", 20)]
+
+    await job.run(NEXT_MORNING)
+
+    assert job.player_team("BOS1") is None
+    assert job.player_team("BOS3") == "BOS"
+    assert job.player_team("NYK2") is None
+    assert job.player_team("BOS2") == "NYK"
+    assert job.player_team("NYK1") == "NYK"
+
+
+@pytest.mark.anyio
+async def test_calls_after_run_after_a_run_with_due_teams_and_not_after_a_run_with_none(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    calls: list[int] = []
+    job = StarsJob(
+        settings,
+        store,
+        create_client(store),
+        fetch_roster=sources.fetch_roster,
+        fetch_season_averages=sources.fetch_season_averages,
+        fetch_player_averages=sources.fetch_player_averages,
+        clock=lambda: NOON,
+        after_run=lambda: calls.append(1),
+    )
+
+    await job.run(NOON)
+    await job.run(NOON + dt.timedelta(seconds=30))
+
+    assert calls == [1]

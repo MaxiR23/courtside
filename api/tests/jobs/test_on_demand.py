@@ -32,6 +32,13 @@
 # - Within 10 minutes of a failure a waiting kind serves the stored feed with no build
 # - serve with a wait override of 0 serves a stale waiting feed's stored body at once with the rebuild in flight
 # - serve with a wait override of 0 answers unavailable at once for a missing feed, and the wait property reports the configured wait
+# - A build whose kind depends on a missing feed builds that feed first and then itself
+# - A fresh dependency is not rebuilt and a stale one is rebuilt before the build
+# - A dependency build already in flight is joined: one build of it in total
+# - Five dependent builds of five missing dependencies finish while at most 4 builds run at once
+# - A dependency inside its 10-minute backoff is not rebuilt and the dependent build still runs
+# - A dependency id its kind does not know is skipped with no build
+# - An exception raised while ensuring the dependency is recorded as a failed build of the dependent feed and never raised
 # - refresh starts one build without waiting, joins one in flight and leaves no task referenced
 #
 # What is covered:
@@ -114,7 +121,9 @@ class Fake:
         self.keeps += 1
         return self.keep_ids is None or feed_id in self.keep_ids
 
-    def kind(self, serve_with: object = None) -> FeedKind[FakeFeed]:
+    def kind(
+        self, serve_with: object = None, depends_on: object = None
+    ) -> FeedKind[FakeFeed]:
         return FeedKind(
             self.name,
             FakeFeed,
@@ -123,6 +132,7 @@ class Fake:
             is_fresh=lambda feed, built_at, now: now - built_at < HOUR,
             keep=self.keep,
             serve_with=serve_with,  # type: ignore[arg-type]
+            depends_on=depends_on,  # type: ignore[arg-type]
         )
 
 
@@ -742,3 +752,159 @@ async def test_serve_with_a_wait_override_of_0_answers_unavailable_at_once_for_a
     fake.gate.set()
     await setup.settle()
     assert setup.stored() == body_of(1)
+
+
+class Dependent:
+    """A dependent kind (players) over a dependency kind (teams) in one cache."""
+
+    def __init__(
+        self, path: Path, *, wait: float = 5.0, pair: object = ("teams", "t1")
+    ) -> None:
+        self.teams = Fake("teams")
+        self.players = Fake("players")
+        self.order: list[str] = []
+        self.setup = Setup(path, self.teams, wait=wait)
+        self.pairs: dict[str, tuple[str, str] | None] = {}
+        self.pair = pair
+        self.setup.cache.register(
+            self.players.kind(depends_on=lambda feed_id: self.depends(feed_id))
+        )
+        for fake in (self.teams, self.players):
+            self._record(fake)
+
+    def depends(self, feed_id: str) -> tuple[str, str] | None:
+        if isinstance(self.pair, Exception):
+            raise self.pair
+        if feed_id in self.pairs:
+            return self.pairs[feed_id]
+        return self.pair  # type: ignore[return-value]
+
+    def _record(self, fake: Fake) -> None:
+        build = fake.build
+
+        async def recorded(feed_id: str) -> FakeFeed:
+            self.order.append(f"{fake.name}:{feed_id}")
+            return await build(feed_id)
+
+        fake.build = recorded  # type: ignore[method-assign]
+        self.setup.cache._kinds[fake.name].build = recorded
+
+
+@pytest.mark.anyio
+async def test_a_dependent_build_builds_its_missing_dependency_first(
+    tmp_path: Path,
+) -> None:
+    dep = Dependent(tmp_path)
+
+    body = await dep.setup.cache.serve("players", "p1")
+
+    assert dep.order == ["teams:t1", "players:p1"]
+    assert body == body_of(1)
+    assert read_by_id(tmp_path, "teams", "t1") == body_of(1, "t1")
+
+
+@pytest.mark.anyio
+async def test_a_fresh_dependency_is_not_rebuilt_and_a_stale_one_is(
+    tmp_path: Path,
+) -> None:
+    dep = Dependent(tmp_path)
+    await dep.setup.cache.serve("teams", "t1")
+    dep.order.clear()
+
+    await dep.setup.cache.serve("players", "p1")
+    assert dep.order == ["players:p1"]
+
+    dep.setup.now[0] = T + 2 * HOUR
+    dep.order.clear()
+    dep.players.version = 2
+    await dep.setup.cache.serve("players", "p1")
+    await dep.setup.settle()
+
+    assert dep.order == ["teams:t1", "players:p1"]
+    build = dep.setup.store.feed_build("teams", "t1")
+    assert build is not None and build.last_build == T + 2 * HOUR
+
+
+@pytest.mark.anyio
+async def test_a_dependency_build_in_flight_is_joined(tmp_path: Path) -> None:
+    dep = Dependent(tmp_path)
+    dep.teams.gate = asyncio.Event()
+    first = asyncio.create_task(dep.setup.cache.serve("teams", "t1"))
+    for _ in range(5):
+        await asyncio.sleep(0)
+    second = asyncio.create_task(dep.setup.cache.serve("players", "p1"))
+    for _ in range(5):
+        await asyncio.sleep(0)
+
+    assert dep.players.builds == 0
+    dep.teams.gate.set()
+    await asyncio.gather(first, second)
+
+    assert dep.teams.builds == 1
+    assert dep.players.builds == 1
+
+
+@pytest.mark.anyio
+async def test_dependent_builds_of_missing_dependencies_never_deadlock_under_the_limit(
+    tmp_path: Path,
+) -> None:
+    dep = Dependent(tmp_path)
+    dep.pairs = {f"p{n}": ("teams", f"t{n}") for n in range(5)}
+    dep.teams.gate = asyncio.Event()
+    tasks = [
+        asyncio.create_task(dep.setup.cache.serve("players", f"p{n}")) for n in range(5)
+    ]
+    for _ in range(20):
+        await asyncio.sleep(0)
+
+    dep.teams.gate.set()
+    bodies = await asyncio.wait_for(asyncio.gather(*tasks), 5)
+
+    assert bodies == [body_of(1, f"p{n}") for n in range(5)]
+    assert dep.teams.builds == 5
+    assert dep.teams.peak <= MAX_BUILDS
+    assert dep.players.peak <= MAX_BUILDS
+
+
+@pytest.mark.anyio
+async def test_a_dependency_inside_its_backoff_is_not_rebuilt_and_the_dependent_build_runs(
+    tmp_path: Path,
+) -> None:
+    dep = Dependent(tmp_path)
+    dep.setup.store.record_build_failure("teams", "t1", T, "down")
+    dep.setup.now[0] = T + RETRY_AFTER - dt.timedelta(seconds=1)
+
+    body = await dep.setup.cache.serve("players", "p1")
+
+    assert dep.teams.builds == 0
+    assert dep.order == ["players:p1"]
+    assert body == body_of(1)
+
+
+@pytest.mark.anyio
+async def test_a_dependency_id_its_kind_does_not_know_is_skipped_with_no_build(
+    tmp_path: Path,
+) -> None:
+    dep = Dependent(tmp_path)
+    dep.teams.status = IdStatus.UNKNOWN
+
+    await dep.setup.cache.serve("players", "p1")
+
+    assert dep.teams.builds == 0
+    assert dep.players.builds == 1
+
+
+@pytest.mark.anyio
+async def test_an_error_ensuring_the_dependency_is_recorded_as_a_failed_build_and_never_raised(
+    tmp_path: Path,
+) -> None:
+    dep = Dependent(tmp_path, pair=RuntimeError("boom"))
+
+    with pytest.raises(FeedUnavailableError):
+        await dep.setup.cache.serve("players", "p1")
+
+    assert dep.players.builds == 0
+    state = dep.setup.store.feed_build("players", "p1")
+    assert state is not None
+    assert state.last_failure_reason == "unexpected error: RuntimeError"
+    assert dep.setup.stored("p1") is None

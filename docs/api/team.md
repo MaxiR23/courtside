@@ -80,9 +80,37 @@ The root is one team.
 
 ## Refresh behavior
 
+- The id is the lowercase standard code (`okc`); any other id, such as `OKC`
+  or `xyz`, is unknown and answers 404 with no source request.
+- Nothing is built without a request: no job and no startup builds a team
+  feed. The feed is stored at `feeds/teams/{code}.json` when first requested.
 - Built on request under rule G of
   [`docs/source-rules.md`](../source-rules.md) and expiring as its table
   says: when the team has a final game whose final time plus 1 hour is after
-  the build, and in any case 7 days after the build.
-- The builder is `build_team_feed` in `api/app/jobs/team_feed.py`; the
-  endpoint is pending: added by a later issue.
+  the build, and in any case 7 days after the build. The team's final games
+  are the ones the games job holds and the games of the stored schedule that
+  started after the build minus 1 day, so a game that already left the days
+  shown still expires the feed.
+- The sources read are the roster and the season leaders (24-hour
+  freshness) and the team information, division standings, league injuries
+  and season schedules (1-hour freshness), all through the source cache.
+- `detailAvailable` is set when the feed is served, true for the games the
+  games job holds in the days shown, and not stored.
+- A failed build keeps the stored feed and is listed under `feeds` in
+  `/health`; it is not retried for 10 minutes on request.
+- Team feeds are never deleted.
+- The builder is `build_team_feed` and the feed kind is `TeamFeeds`, both in
+  `api/app/jobs/team_feed.py`.
+
+## Endpoint
+
+- `GET /feeds/teams/{code}.json` serves the feed through the on-demand cache
+  with `Cache-Control: public, max-age=10` and an `ETag`.
+- It responds 304 with no body when `If-None-Match` matches the current
+  `ETag`.
+- It responds 404 with `{"detail": ...}` for a code that is not one of the 30 lowercase standard codes, with no source request.
+- It responds 503 with `{"detail": ...}` when the request's 20 seconds end
+  before a missing feed is built and after a failed build.
+- A stale stored feed is served at once and rebuilt in the background. At
+  most 4 feeds are built at once and one per feed.
+- Every feed request records presence.

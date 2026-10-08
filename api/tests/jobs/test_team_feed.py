@@ -30,33 +30,62 @@
 # - Orders the roster by number with unnumbered players last
 # - Fails the build for a team with no standings entry and for an invalid feed
 # - Builds a valid team feed from the recorded payloads
+# - Expires a feed 7 days after its build and 1 hour after a final game that follows it, and not before
+# - Sets detailAvailable exactly for the ids given on the next game and every schedule game
+# - The kind: an unknown or uppercase code answers unknown with no build, no source request and nothing stored
+# - The kind: no team feed is built, stored or fetched by games job runs and the cleanup without a request
+# - The kind: a request builds and stores the feed and a second request reads storage with no source request
+# - The kind: a feed is fresh before a final game of its team plus 1 hour and before 7 days, and stale at either
+# - The kind: a final game that left the days held still expires the feed when it is in the stored schedule
+# - The kind: detailAvailable is true exactly for the games inside the days shown when served, and the stored file keeps its build-time values
+# - The kind: a failed build answers unavailable and is not retried for 10 minutes
+# - The kind: a failed rebuild of a stale feed keeps and serves the stored feed
+# - The kind: the cleanup keeps every standard code
 #
 # What is covered:
 # - Pure conversions: happy path, edges and errors; the built feed validates
+# - Feed kind: success publishes a valid feed, failure keeps the last valid feed, expiry edges
 #
 # Run with: cd api && .venv/bin/python -m pytest tests/jobs/test_team_feed.py
 #
 # SEE: api/app/jobs/team_feed.py
 
+import asyncio
 import datetime as dt
 import json
 from collections.abc import Iterator
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
+from zoneinfo import ZoneInfo
 
+import httpx
 import pytest
 import respx
 
 from app.feeds.game_detail import Conference, GameResult, Injury, InjuryStatus
+from app.feeds.games import GameStatus, LineScore, Score, Team
 from app.feeds.player import GameKind, GameTag, TagKind
 from app.feeds.team import PlayoffStatus, TeamFeed
+from app.jobs.games import GamesJob
+from app.jobs.on_demand import (
+    RETRY_AFTER,
+    FeedCache,
+    FeedUnavailableError,
+    IdStatus,
+    UnknownFeedError,
+)
 from app.jobs.team_feed import (
+    FEED_LIFETIME,
+    KIND,
+    TEAM_IDS,
     TeamBuildError,
+    TeamFeeds,
     age_on,
     build_team_feed,
     conference_rank,
     eastern_month,
+    feed_expired,
     game_kind_and_tag,
     games_behind,
     next_game,
@@ -67,6 +96,7 @@ from app.jobs.team_feed import (
     split_record,
     streak,
     win_pct,
+    with_team_detail,
 )
 from app.settings import Settings
 from app.sources.division_standings import (
@@ -74,12 +104,20 @@ from app.sources.division_standings import (
     DivisionStandings,
     fetch_division_standings,
 )
-from app.sources.http import create_client
+from app.sources.game_detail import GameDetail
+from app.sources.http import (
+    Freshness,
+    SourceClient,
+    SourceError,
+    create_client,
+    get_json,
+)
 from app.sources.league_injuries import (
     InjuryReport,
     LeagueInjuries,
     fetch_league_injuries,
 )
+from app.sources.scoreboard import ScoreboardGame
 from app.sources.team_info import TeamInfo, fetch_team_info
 from app.sources.team_players import (
     PlayerAverages,
@@ -95,7 +133,9 @@ from app.sources.team_schedule import (
     SeasonSchedule,
     fetch_season_schedule,
 )
+from app.storage.feeds import publish_by_id, read_by_id
 from app.storage.state import StateStore
+from tests.jobs.test_game_detail_feed import games_detail
 
 FIXTURES = Path(__file__).parent.parent / "sources" / "fixtures"
 NOW = dt.datetime(2026, 10, 8, 15, 0, tzinfo=dt.UTC)
@@ -920,3 +960,427 @@ async def test_builds_a_valid_team_feed_from_the_recorded_payloads(
         assert feed.next_game is None
         assert feed.schedule.default_group == "playoffs"
         assert [g.key for g in feed.schedule.groups][-1] == "playoffs"
+
+
+# The kind
+
+SECOND = dt.timedelta(seconds=1)
+HOUR = dt.timedelta(hours=1)
+DAY = dt.timedelta(days=1)
+SOURCE = "https://example.com/source/"
+TODAY = NOW.astimezone(ZoneInfo("America/New_York")).date()
+
+
+def test_feed_expired_is_fresh_before_both_limits() -> None:
+    final = NOW + 2 * HOUR
+
+    assert not feed_expired(NOW, NOW + 3 * HOUR - SECOND, [final])
+    assert not feed_expired(NOW, NOW + FEED_LIFETIME - SECOND, [])
+
+
+def test_feed_expired_is_expired_at_exactly_7_days_after_the_build() -> None:
+    assert feed_expired(NOW, NOW + FEED_LIFETIME, [])
+
+
+def test_feed_expired_is_expired_at_exactly_a_final_time_plus_1_hour_after_the_build() -> (
+    None
+):
+    final = NOW + 2 * HOUR
+
+    assert feed_expired(NOW, NOW + 3 * HOUR, [final])
+
+
+def test_feed_expired_ignores_a_final_game_whose_hour_ended_at_or_before_the_build() -> (
+    None
+):
+    assert not feed_expired(NOW, NOW + HOUR, [NOW - HOUR])
+    assert not feed_expired(NOW, NOW + HOUR, [NOW - 2 * HOUR])
+
+
+def test_with_team_detail_sets_detail_availability_exactly_for_the_ids_given() -> None:
+    feed = build(
+        regular=season(game("a"), game("b", START + DAY), game("c", START + 2 * DAY)),
+        detail_ids=frozenset({"c"}),
+    )
+
+    served = with_team_detail(feed, frozenset({"a", "b"}))
+
+    assert served.next_game is not None and served.next_game.detail_available
+    assert served.schedule is not None
+    flags = {
+        g.game_id: g.detail_available
+        for grp in served.schedule.groups
+        for g in grp.games
+    }
+    assert flags == {"a": True, "b": True, "c": False}
+    unset = with_team_detail(feed, frozenset())
+    assert unset.next_game is not None and not unset.next_game.detail_available
+
+
+def scoreboard(
+    game_id: str,
+    status: GameStatus,
+    start: dt.datetime,
+    away: str = "SAS",
+    home: str = "OKC",
+) -> ScoreboardGame:
+    data: dict[str, Any] = {
+        "id": game_id,
+        "away": Team(code=away, name=away.title(), city=away.title()),
+        "home": Team(code=home, name=home.title(), city=home.title()),
+        "status": status,
+        "start_time": start,
+        "venue": "Arena",
+    }
+    if status is GameStatus.LIVE:
+        data.update(period=2, clock="5:00")
+    if status in (GameStatus.LIVE, GameStatus.FINAL):
+        data["line_score"] = LineScore(away=[20, 20], home=[18, 20])
+        data["score"] = Score(away=40, home=38)
+    return ScoreboardGame.model_validate(data)
+
+
+class TeamKit:
+    """A games job, a feed cache and the team kind over one client and one clock.
+
+    Every fake adapter reads one URL through the source cache from a counted
+    respx route, so route calls are real source requests; `calls` lists the
+    adapter calls, cached or not.
+    """
+
+    def __init__(self, path: Path) -> None:
+        self.path = path
+        self.clock = [NOW]
+        self.store = StateStore(path)
+        self.store.migrate()
+        self.settings = Settings(_env_file=None, data_dir=path)  # type: ignore[call-arg]
+        self.client = create_client(self.store, clock=lambda: self.clock[0])
+        self.requests: list[str] = []
+        self.calls: list[str] = []
+        self.failing: set[str] = set()
+        self.scoreboard: dict[dt.date, list[ScoreboardGame]] = {}
+        self.regular = EMPTY
+        self.playoffs = EMPTY
+        respx.get(url__startswith=SOURCE).mock(side_effect=self.answer)
+        self.cache = FeedCache(path, self.store, clock=lambda: self.clock[0])
+        self.games = GamesJob(
+            self.settings,
+            self.store,
+            self.client,
+            fetch_games=self.fetch_games,
+            fetch_game_detail=self.fetch_game_detail,
+        )
+        self.teams = self.make_teams()
+
+    def make_teams(self) -> TeamFeeds:
+        return TeamFeeds(
+            self.settings,
+            self.store,
+            self.client,
+            self.cache,
+            self.games,
+            fetch_roster=self.fetch_roster,
+            fetch_team_leaders=self.fetch_team_leaders,
+            fetch_team_info=self.fetch_team_info,
+            fetch_division_standings=self.fetch_division_standings,
+            fetch_league_injuries=self.fetch_league_injuries,
+            fetch_season_schedule=self.fetch_season_schedule,
+        )
+
+    def answer(self, request: httpx.Request) -> httpx.Response:
+        self.requests.append(request.url.path.removeprefix("/source/"))
+        return httpx.Response(200, json={"ok": True})
+
+    async def read(self, name: str, fresh: Freshness) -> None:
+        self.calls.append(name)
+        if name in self.failing:
+            raise SourceError("test", f"{name} is down")
+        await get_json(self.client, SOURCE + name, source="test", fresh=fresh)
+
+    def requested(self, prefix: str) -> int:
+        return sum(1 for name in self.requests if name.startswith(prefix))
+
+    def called(self, name: str) -> int:
+        return self.calls.count(name)
+
+    async def fetch_games(
+        self, client: SourceClient, day: dt.date, settings: Settings
+    ) -> list[ScoreboardGame]:
+        return list(self.scoreboard.get(day, []))
+
+    async def fetch_game_detail(
+        self, client: SourceClient, game_id: str, settings: Settings, fresh: Freshness
+    ) -> GameDetail:
+        return games_detail()
+
+    async def fetch_roster(
+        self, client: SourceClient, team: str, settings: Settings
+    ) -> Roster:
+        await self.read(f"roster/{team}", dt.timedelta(hours=24))
+        return roster()
+
+    async def fetch_team_leaders(
+        self, client: SourceClient, team_roster: Roster, settings: Settings
+    ) -> SeasonLeaders:
+        await self.read("leaders", dt.timedelta(hours=24))
+        return leaders()
+
+    async def fetch_team_info(
+        self, client: SourceClient, team: str, settings: Settings
+    ) -> TeamInfo:
+        await self.read(f"info/{team}", HOUR)
+        return info()
+
+    async def fetch_division_standings(
+        self, client: SourceClient, settings: Settings
+    ) -> DivisionStandings:
+        await self.read("standings", HOUR)
+        return standings()
+
+    async def fetch_league_injuries(
+        self, client: SourceClient, settings: Settings
+    ) -> LeagueInjuries:
+        await self.read("injuries", HOUR)
+        return injuries()
+
+    async def fetch_season_schedule(
+        self,
+        client: SourceClient,
+        team: str,
+        season_year: int,
+        settings: Settings,
+        *,
+        playoffs: bool,
+    ) -> SeasonSchedule:
+        await self.read(f"schedule/{team}/{playoffs}", HOUR)
+        return self.playoffs if playoffs else self.regular
+
+    async def settle(self) -> None:
+        while self.cache.in_flight:
+            await next(iter(self.cache.in_flight.values()))
+            await asyncio.sleep(0)
+        await asyncio.sleep(0)
+
+    async def run_games(self, at: dt.datetime | None = None) -> None:
+        if at is not None:
+            self.clock[0] = at
+        await self.games.run(self.clock[0])
+        await self.settle()
+
+    async def serve(self, code: str, at: dt.datetime | None = None) -> bytes:
+        if at is not None:
+            self.clock[0] = at
+        body = await self.cache.serve(KIND, code)
+        await self.settle()
+        return body
+
+    def stored(self, code: str) -> TeamFeed | None:
+        body = read_by_id(self.path, KIND, code)
+        return None if body is None else TeamFeed.model_validate_json(body)
+
+    def last_build(self, code: str) -> dt.datetime | None:
+        state = self.store.feed_build(KIND, code)
+        return None if state is None else state.last_build
+
+
+@pytest.fixture(autouse=True)
+def no_network() -> Iterator[None]:
+    with respx.mock:
+        yield
+
+
+@pytest.fixture
+def kit(tmp_path: Path) -> TeamKit:
+    return TeamKit(tmp_path)
+
+
+@pytest.mark.anyio
+async def test_an_unknown_or_uppercase_code_answers_unknown_with_no_build_and_nothing_stored(
+    kit: TeamKit, tmp_path: Path
+) -> None:
+    for code in ("OKC", "xyz", "", "okc "):
+        assert kit.teams.check(code) is IdStatus.UNKNOWN
+        with pytest.raises(UnknownFeedError):
+            await kit.cache.serve(KIND, code)
+
+    assert kit.teams.check("okc") is IdStatus.KNOWN
+    assert kit.calls == [] and kit.requests == []
+    assert not (tmp_path / "feeds" / KIND).exists()
+    assert kit.store.feed_build_ids(KIND) == set()
+
+
+@pytest.mark.anyio
+async def test_no_team_feed_is_built_stored_or_fetched_without_a_request(
+    kit: TeamKit, tmp_path: Path
+) -> None:
+    kit.scoreboard[TODAY] = [scoreboard("g1", GameStatus.SCHEDULED, NOW + HOUR)]
+
+    await kit.run_games()
+    await kit.run_games(NOW + 30 * SECOND)
+    kit.cache.cleanup()
+    await kit.settle()
+
+    assert kit.requests == [] and kit.calls == []
+    assert not (tmp_path / "feeds" / KIND).exists()
+    assert kit.store.feed_build_ids(KIND) == set()
+
+
+@pytest.mark.anyio
+async def test_a_request_builds_and_stores_the_feed_and_a_second_request_reads_storage(
+    kit: TeamKit,
+) -> None:
+    kit.regular = season(game("g1"))
+
+    first = await kit.serve("okc")
+    requests = list(kit.requests)
+    second = await kit.serve("okc", NOW + 30 * SECOND)
+
+    assert TeamFeed.model_validate_json(first).code == "OKC"
+    assert second == first
+    assert kit.requests == requests and requests != []
+    assert kit.called("roster/OKC") == 1
+    assert kit.last_build("okc") == NOW
+    stored = kit.stored("okc")
+    assert stored is not None and stored.next_game is not None
+
+
+@pytest.mark.anyio
+async def test_a_feed_is_fresh_before_a_final_game_plus_1_hour_and_stale_at_it(
+    kit: TeamKit,
+) -> None:
+    final = NOW + 2 * HOUR
+    kit.scoreboard[TODAY] = [scoreboard("f1", GameStatus.FINAL, NOW - HOUR)]
+    kit.store.set_final_time("f1", TODAY, final)
+    await kit.run_games()
+    await kit.serve("okc")
+
+    await kit.serve("okc", final + HOUR - SECOND)
+    assert kit.called("roster/OKC") == 1
+    await kit.serve("okc", final + HOUR)
+
+    assert kit.called("roster/OKC") == 2
+    assert kit.last_build("okc") == final + HOUR
+
+
+@pytest.mark.anyio
+async def test_a_game_of_another_team_does_not_expire_the_feed(kit: TeamKit) -> None:
+    kit.scoreboard[TODAY] = [
+        scoreboard("f1", GameStatus.FINAL, NOW - HOUR, away="BOS", home="NYK")
+    ]
+    kit.store.set_final_time("f1", TODAY, NOW + 2 * HOUR)
+    await kit.run_games()
+    await kit.serve("okc")
+
+    await kit.serve("okc", NOW + 5 * HOUR)
+
+    assert kit.called("roster/OKC") == 1
+
+
+@pytest.mark.anyio
+async def test_a_feed_is_fresh_before_7_days_and_stale_at_7_days(kit: TeamKit) -> None:
+    await kit.serve("okc")
+
+    await kit.serve("okc", NOW + FEED_LIFETIME - SECOND)
+    assert kit.called("roster/OKC") == 1
+    await kit.serve("okc", NOW + FEED_LIFETIME)
+
+    assert kit.called("roster/OKC") == 2
+
+
+@pytest.mark.anyio
+async def test_a_final_game_that_left_the_days_held_expires_the_feed_when_it_is_in_the_schedule(
+    kit: TeamKit,
+) -> None:
+    kit.regular = season(game("old", NOW + HOUR), game("g2", START))
+    await kit.serve("okc")
+    kit.store.set_final_time("old", TODAY, NOW + 3 * HOUR)
+
+    await kit.serve("okc", NOW + 4 * HOUR - SECOND)
+    assert kit.called("roster/OKC") == 1
+    await kit.serve("okc", NOW + 4 * HOUR)
+
+    assert kit.called("roster/OKC") == 2
+
+
+@pytest.mark.anyio
+async def test_detail_availability_is_set_when_served_from_the_days_shown_and_not_stored(
+    kit: TeamKit,
+) -> None:
+    kit.regular = season(game("g1"), game("g2", START + DAY))
+    await kit.serve("okc")
+    kit.scoreboard[TODAY] = [scoreboard("g1", GameStatus.SCHEDULED, START)]
+    await kit.run_games()
+
+    body = await kit.serve("okc", NOW + 30 * SECOND)
+
+    served = TeamFeed.model_validate_json(body)
+    assert served.schedule is not None
+    flags = {
+        g.game_id: g.detail_available
+        for group in served.schedule.groups
+        for g in group.games
+    }
+    assert flags == {"g1": True, "g2": False}
+    assert served.next_game is not None and served.next_game.detail_available
+    stored = kit.stored("okc")
+    assert stored is not None and stored.schedule is not None
+    assert not any(
+        g.detail_available for group in stored.schedule.groups for g in group.games
+    )
+    assert stored.next_game is not None and not stored.next_game.detail_available
+
+
+@pytest.mark.anyio
+async def test_a_failed_build_answers_unavailable_and_is_not_retried_for_10_minutes(
+    kit: TeamKit,
+) -> None:
+    kit.failing.add("info/OKC")
+
+    with pytest.raises(FeedUnavailableError):
+        await kit.serve("okc")
+    await kit.settle()
+    attempts = kit.called("info/OKC")
+    kit.clock[0] = NOW + RETRY_AFTER - SECOND
+    with pytest.raises(FeedUnavailableError):
+        await kit.serve("okc")
+
+    assert kit.called("info/OKC") == attempts == 1
+    assert [f.feed_id for f in kit.store.failed_feed_builds()] == ["okc"]
+    kit.failing.clear()
+    body = await kit.serve("okc", NOW + RETRY_AFTER)
+    assert TeamFeed.model_validate_json(body).code == "OKC"
+    assert kit.called("info/OKC") == 2
+
+
+@pytest.mark.anyio
+async def test_a_failed_rebuild_of_a_stale_feed_keeps_and_serves_the_stored_feed(
+    kit: TeamKit,
+) -> None:
+    kit.regular = season(game("g1"))
+    first = await kit.serve("okc")
+    stored = read_by_id(kit.path, KIND, "okc")
+    kit.failing.add("info/OKC")
+
+    body = await kit.serve("okc", NOW + FEED_LIFETIME)
+
+    assert body == first
+    assert kit.called("info/OKC") == 2
+    assert read_by_id(kit.path, KIND, "okc") == stored
+    assert kit.last_build("okc") == NOW
+    assert [f.feed_id for f in kit.store.failed_feed_builds()] == ["okc"]
+
+
+@pytest.mark.anyio
+async def test_the_cleanup_keeps_every_standard_code(
+    kit: TeamKit, tmp_path: Path
+) -> None:
+    feed = build()
+    for code in sorted(TEAM_IDS):
+        publish_by_id(tmp_path, KIND, TeamFeed, code, feed)
+        kit.store.record_build(KIND, code, NOW)
+
+    kit.cache.cleanup()
+
+    assert len(TEAM_IDS) == 30
+    assert kit.store.feed_build_ids(KIND) == set(TEAM_IDS)
+    assert all(read_by_id(tmp_path, KIND, code) is not None for code in TEAM_IDS)

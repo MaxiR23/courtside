@@ -3,6 +3,7 @@
 # Tests for the games job.
 #
 # Tested:
+# - Lists every game of the days held in day order, and none before the first run
 # - Today is the US Eastern date, across the daylight saving change
 # - Rejects a naive time
 # - The days shown are today and three days on each side, in order
@@ -1038,6 +1039,20 @@ async def test_lists_only_the_final_games_of_the_days_held_in_day_order(
     await job.run(NOON)
 
     assert [g.id for g in job.final_games()] == ["1", "2"]
+
+
+@pytest.mark.anyio
+async def test_lists_every_game_of_the_days_held_in_day_order_and_none_before_the_first_run(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    sources.games[TODAY] = [game("2", GameStatus.FINAL), game("3", GameStatus.LIVE)]
+    sources.games[TODAY - dt.timedelta(days=1)] = [game("1", GameStatus.FINAL)]
+    job = make_job(settings, store, sources)
+
+    assert job.loaded_games() == []
+    await job.run(NOON)
+
+    assert [g.id for g in job.loaded_games()] == ["1", "2", "3"]
 
 
 @pytest.mark.anyio

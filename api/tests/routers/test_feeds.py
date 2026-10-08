@@ -20,6 +20,9 @@
 # - Responds 304 with no body for a matching, listed, weak or `*` If-None-Match on an on-demand feed
 # - Responds 404 with a JSON error for an unknown on-demand id
 # - Responds 503 with a JSON error for a not-ready on-demand id, even with If-None-Match `*`
+# - Serves a team feed with Cache-Control and ETag, answers 304 for a matching ETag, 404 for an unknown or uppercase code and 503 when the build fails
+# - Serves a player feed with Cache-Control and ETag, answers 304 for a matching ETag, 404 for an id in no roster once the rosters are fetched and 503 before, also through the app with no jobs
+# - A team and a player request record presence
 #
 # What is covered:
 # - Success response, documented failures (503, 404), edge case of an invalid publish
@@ -31,13 +34,18 @@
 import asyncio
 import datetime as dt
 import hashlib
+from collections.abc import Iterator
 from pathlib import Path
 
+import pytest
+import respx
 from fastapi import FastAPI, Request, Response
 from fastapi.testclient import TestClient
 
 from app.feeds.game_detail import GameDetailFeed
 from app.feeds.games import GamesFeed, GameStatus, Star, Stars
+from app.feeds.player import PlayerFeed
+from app.feeds.team import TeamFeed
 from app.jobs.game_detail_feed import GameDetailFeeds
 from app.jobs.games import GamesJob
 from app.jobs.on_demand import MISSING_WAIT_SECONDS, FeedCache, FeedKind, IdStatus
@@ -54,6 +62,7 @@ from app.sources.standings import LeagueStandings
 from app.sources.team_schedule import TeamSchedule
 from app.storage.feeds import publish_by_id, publish_feed
 from app.storage.state import StateStore
+from tests.jobs.test_player_feed import PlayerKit
 
 
 def make_client(path: Path) -> TestClient:
@@ -563,3 +572,141 @@ def test_responds_503_with_a_json_error_for_a_not_ready_on_demand_id_even_with_a
 
     assert response.status_code == 503
     assert isinstance(response.json()["detail"], str)
+
+
+class Profiles:
+    """An app with the feeds router and the team and player kinds over the player kit's fakes."""
+
+    def __init__(self, path: Path) -> None:
+        self.kit = PlayerKit(path)
+        self.presence = Presence(clock=lambda: self.kit.clock[0])
+        self.app = FastAPI()
+        self.app.include_router(feeds_router.router)
+        self.app.state.settings = self.kit.settings
+        self.app.state.presence = self.presence
+        self.app.state.games_job = self.kit.games
+        self.app.state.feed_cache = self.kit.cache
+        self.app.state.player_feeds = self.kit.players
+
+
+@pytest.fixture
+def profiles(tmp_path: Path) -> Iterator[Profiles]:
+    with respx.mock:
+        yield Profiles(tmp_path)
+
+
+def test_serves_a_team_feed_with_cache_control_and_an_etag(profiles: Profiles) -> None:
+    with TestClient(profiles.app) as client:
+        response = client.get("/feeds/teams/okc.json")
+
+    assert response.status_code == 200
+    assert TeamFeed.model_validate_json(response.content).code == "OKC"
+    assert response.headers["content-type"] == "application/json"
+    assert response.headers["cache-control"] == CACHE_CONTROL
+    etag = response.headers["etag"]
+    assert etag.startswith('"') and etag.endswith('"')
+
+
+def test_responds_304_when_the_team_etag_matches(profiles: Profiles) -> None:
+    with TestClient(profiles.app) as client:
+        first = client.get("/feeds/teams/okc.json")
+
+        response = client.get(
+            "/feeds/teams/okc.json", headers={"If-None-Match": first.headers["etag"]}
+        )
+
+    assert response.status_code == 304
+    assert response.content == b""
+
+
+def test_responds_404_with_a_json_error_for_an_unknown_or_uppercase_team_code(
+    profiles: Profiles,
+) -> None:
+    with TestClient(profiles.app) as client:
+        for code in ("xyz", "OKC"):
+            response = client.get(f"/feeds/teams/{code}.json")
+
+            assert response.status_code == 404
+            assert isinstance(response.json()["detail"], str)
+
+    assert profiles.kit.requests == []
+
+
+def test_responds_503_with_a_json_error_when_the_team_build_fails(
+    profiles: Profiles,
+) -> None:
+    profiles.kit.failing.add("info/OKC")
+    with TestClient(profiles.app) as client:
+        response = client.get("/feeds/teams/okc.json")
+
+    assert response.status_code == 503
+    assert isinstance(response.json()["detail"], str)
+
+
+def test_serves_a_player_feed_with_cache_control_and_an_etag(
+    profiles: Profiles,
+) -> None:
+    with TestClient(profiles.app) as client:
+        client.portal.call(profiles.kit.run_stars)  # type: ignore[union-attr]
+
+        response = client.get("/feeds/players/1.json")
+
+    assert response.status_code == 200
+    assert PlayerFeed.model_validate_json(response.content).id == "1"
+    assert response.headers["content-type"] == "application/json"
+    assert response.headers["cache-control"] == CACHE_CONTROL
+    etag = response.headers["etag"]
+    assert etag.startswith('"') and etag.endswith('"')
+
+
+def test_responds_304_when_the_player_etag_matches(profiles: Profiles) -> None:
+    with TestClient(profiles.app) as client:
+        client.portal.call(profiles.kit.run_stars)  # type: ignore[union-attr]
+        first = client.get("/feeds/players/1.json")
+
+        response = client.get(
+            "/feeds/players/1.json", headers={"If-None-Match": first.headers["etag"]}
+        )
+
+    assert response.status_code == 304
+    assert response.content == b""
+
+
+def test_responds_404_for_a_player_in_no_roster_and_503_before_the_rosters_are_fetched(
+    profiles: Profiles,
+) -> None:
+    with TestClient(profiles.app) as client:
+        before = client.get("/feeds/players/nobody.json")
+        client.portal.call(profiles.kit.run_stars)  # type: ignore[union-attr]
+        after = client.get("/feeds/players/nobody.json")
+
+    assert before.status_code == 503
+    assert isinstance(before.json()["detail"], str)
+    assert after.status_code == 404
+    assert isinstance(after.json()["detail"], str)
+    assert profiles.kit.requests == []
+
+
+def test_responds_503_for_a_player_through_the_app_with_no_jobs(
+    tmp_path: Path,
+) -> None:
+    with make_client(tmp_path) as client:
+        response = client.get("/feeds/players/1.json")
+
+    assert response.status_code == 503
+    assert isinstance(response.json()["detail"], str)
+
+
+def test_a_team_and_a_player_request_record_presence(profiles: Profiles) -> None:
+    now = profiles.kit.clock[0]
+    with TestClient(profiles.app) as client:
+        assert not profiles.presence.present(now)
+        client.get("/feeds/teams/xyz.json")
+        assert profiles.presence.present(now)
+
+    second = profiles.kit.clock[0] + dt.timedelta(hours=1)
+    with TestClient(profiles.app) as client:
+        assert not profiles.presence.present(second)
+        profiles.kit.clock[0] = second
+        client.get("/feeds/players/nobody.json")
+        assert profiles.presence.present(second)

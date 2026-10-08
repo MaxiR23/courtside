@@ -7,41 +7,83 @@
 # years, game tags from notes, the two-team season as one row, the team of the
 # draft by name, the injury from the league report by athlete id and the next
 # game of the player's team. It reads no clock and no source: the caller passes
-# the time and the ids of the games that have a detail feed. The live block is
-# added at serve time and stays null here. The feed kind that wires it to the
-# cache is a later issue.
+# the time and the ids of the games that have a detail feed. PlayerFeeds is the
+# feed kind of the on-demand cache: the ids are the players of the rosters the
+# stars job fetched (404 once all are fetched, 503 before), the team feed is
+# built first when missing or stale and the next game is the one of the stored
+# team feed, the feed expires with the player's team (rule G), the live block and
+# detailAvailable are added when it is served and never stored, and the feeds of
+# players on no roster are deleted after each stars run.
 #
-# SEE: docs/api/player.md, api/app/jobs/team_feed.py
+# SEE: docs/api/player.md, docs/source-rules.md, api/app/jobs/team_feed.py, api/app/jobs/on_demand.py
 
+import asyncio
 import datetime as dt
 import re
+from collections.abc import Awaitable, Callable
 from collections.abc import Set as AbstractSet
 from typing import Any
 
 from pydantic import ValidationError
 
-from app.feeds.game_detail import GameResult
-from app.feeds.player import GameKind, PlayerFeed
+from app.feeds.game_detail import GameDetailFeed, GameResult
+from app.feeds.games import GameStatus
+from app.feeds.player import GameKind, NextGame, PlayerFeed, PlayerLive
+from app.jobs import game_detail_feed
+from app.jobs.games import GamesJob
+from app.jobs.on_demand import (
+    FeedCache,
+    FeedKind,
+    FeedUnavailableError,
+    IdStatus,
+    UnknownFeedError,
+)
+from app.jobs.stars import StarsJob
 from app.jobs.team_feed import (
     CM_PER_INCH,
     KG_PER_LB,
+    FetchDivisionStandings,
+    FetchInjuries,
+    FetchRoster,
+    TeamFeeds,
     age_on,
     eastern_date,
     game_kind_and_tag,
-    next_game,
     season_label,
 )
+from app.jobs.team_feed import KIND as TEAM_KIND
+from app.settings import Settings
+from app.sources import (
+    division_standings,
+    league_injuries,
+    player_bio,
+    player_draft,
+    player_gamelog,
+    player_overview,
+    player_stats,
+    team_players,
+)
 from app.sources.division_standings import DivisionStandings
+from app.sources.http import SourceClient
 from app.sources.league_injuries import LeagueInjuries
 from app.sources.player_bio import PlayerBio, RankedValue
 from app.sources.player_draft import DraftPick
 from app.sources.player_gamelog import GameLogGame, PlayerGameLog
 from app.sources.player_overview import ProviderAward
 from app.sources.player_stats import MiscLine, PlayerStats, StatLine
+from app.sources.scoreboard import ScoreboardGame
 from app.sources.team_players import Roster, RosterEntry
-from app.sources.team_schedule import SeasonSchedule
+from app.storage.feeds import read_by_id
+from app.storage.state import StateStore
 
+KIND = "players"
 LAST_GAMES = 5
+
+FetchBio = Callable[[SourceClient, str, Settings], Awaitable[PlayerBio | None]]
+FetchDraft = Callable[[SourceClient, str, Settings], Awaitable[DraftPick | None]]
+FetchAwards = Callable[[SourceClient, str, Settings], Awaitable[list[ProviderAward]]]
+FetchGameLog = Callable[[SourceClient, str, Settings], Awaitable[PlayerGameLog]]
+FetchStats = Callable[..., Awaitable[PlayerStats]]
 
 _MADE_ATTEMPTED = re.compile(r"^(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)$")
 
@@ -320,8 +362,7 @@ def build_player_feed(
     roster: Roster,
     standings: DivisionStandings,
     injuries: LeagueInjuries,
-    regular: SeasonSchedule,
-    playoffs: SeasonSchedule,
+    upcoming: NextGame | None,
     bio: PlayerBio | None,
     draft: DraftPick | None,
     provided_awards: list[ProviderAward],
@@ -390,7 +431,7 @@ def build_player_feed(
                     "debut_season": rows[-1]["season"] if rows else None,
                 },
                 "summary": _summary(bio),
-                "next_game": next_game(regular, playoffs, ids),
+                "next_game": upcoming,
                 "live": None,
                 "last_games": recent,
                 "averages": averages(regular_stats, playoff_stats),
@@ -405,3 +446,213 @@ def build_player_feed(
         raise PlayerBuildError(
             f"invalid feed: {error.error_count()} errors, first at {location}"
         ) from None
+
+
+def with_player_detail(feed: PlayerFeed, ids: AbstractSet[str]) -> PlayerFeed:
+    """The feed with detailAvailable true exactly for the games with an id given."""
+    data = feed.model_dump(by_alias=False)
+    games = [*data["last_games"]]
+    if data["next_game"] is not None:
+        games.append(data["next_game"])
+    if data["game_log"] is not None:
+        games.extend(data["game_log"]["entries"])
+    for game in games:
+        game["detail_available"] = game["game_id"] in ids
+    return PlayerFeed.model_validate(data)
+
+
+def live_block(
+    team: str,
+    player_id: str,
+    game: ScoreboardGame | None,
+    detail: GameDetailFeed | None,
+) -> PlayerLive | None:
+    """The live block of a player whose team plays game: the game as the
+    scoreboard knows it and the player's box score line when the detail has it."""
+    if game is None or game.period is None or game.clock is None or game.score is None:
+        return None
+    is_home = game.home.code == team
+    opponent = game.away.code if is_home else game.home.code
+    line = None
+    if detail is not None and detail.box_score is not None:
+        side = detail.box_score.home if is_home else detail.box_score.away
+        line = next((p for p in side.players if p.player_id == player_id), None)
+    return PlayerLive(
+        game_id=game.id,
+        opponent=opponent,
+        is_home=is_home,
+        period=game.period,
+        clock=game.clock,
+        team_score=game.score.home if is_home else game.score.away,
+        opponent_score=game.score.away if is_home else game.score.home,
+        line=line,
+    )
+
+
+class PlayerFeeds:
+    def __init__(
+        self,
+        settings: Settings,
+        store: StateStore,
+        client: SourceClient,
+        cache: FeedCache,
+        games: GamesJob,
+        stars: StarsJob,
+        teams: TeamFeeds,
+        *,
+        fetch_roster: FetchRoster = team_players.fetch_roster,
+        fetch_division_standings: FetchDivisionStandings = (
+            division_standings.fetch_division_standings
+        ),
+        fetch_league_injuries: FetchInjuries = league_injuries.fetch_league_injuries,
+        fetch_player_bio: FetchBio = player_bio.fetch_player_bio,
+        fetch_player_draft: FetchDraft = player_draft.fetch_player_draft,
+        fetch_player_awards: FetchAwards = player_overview.fetch_player_awards,
+        fetch_player_gamelog: FetchGameLog = player_gamelog.fetch_player_gamelog,
+        fetch_player_stats: FetchStats = player_stats.fetch_player_stats,
+    ) -> None:
+        self._settings = settings
+        self._store = store
+        self._client = client
+        self._cache = cache
+        self._games = games
+        self._stars = stars
+        self._teams = teams
+        self._fetch_roster = fetch_roster
+        self._fetch_division_standings = fetch_division_standings
+        self._fetch_league_injuries = fetch_league_injuries
+        self._fetch_player_bio = fetch_player_bio
+        self._fetch_player_draft = fetch_player_draft
+        self._fetch_player_awards = fetch_player_awards
+        self._fetch_player_gamelog = fetch_player_gamelog
+        self._fetch_player_stats = fetch_player_stats
+        cache.register(self.kind())
+
+    def check(self, player_id: str) -> IdStatus:
+        if self._stars.player_team(player_id) is not None:
+            return IdStatus.KNOWN
+        if not self._stars.rosters_ready():
+            return IdStatus.NOT_READY
+        return IdStatus.UNKNOWN
+
+    def depends_on(self, player_id: str) -> tuple[str, str] | None:
+        team = self._stars.player_team(player_id)
+        return (TEAM_KIND, team.lower()) if team is not None else None
+
+    async def build(self, player_id: str) -> PlayerFeed:
+        team = self._stars.player_team(player_id)
+        if team is None:
+            raise PlayerBuildError(f"player {player_id} is on no roster")
+        team_feed = self._teams.stored(team)
+        if team_feed is None:
+            raise PlayerBuildError(f"team {team} has no stored feed")
+        roster = await self._fetch_roster(self._client, team, self._settings)
+        standings = await self._fetch_division_standings(self._client, self._settings)
+        injuries = await self._fetch_league_injuries(self._client, self._settings)
+        bio = await self._fetch_player_bio(self._client, player_id, self._settings)
+        draft = await self._fetch_player_draft(self._client, player_id, self._settings)
+        provided = await self._fetch_player_awards(
+            self._client, player_id, self._settings
+        )
+        log = await self._fetch_player_gamelog(self._client, player_id, self._settings)
+        regular = await self._fetch_player_stats(
+            self._client, player_id, self._settings, playoffs=False
+        )
+        playoffs = await self._fetch_player_stats(
+            self._client, player_id, self._settings, playoffs=True
+        )
+        return build_player_feed(
+            player_id,
+            team,
+            roster,
+            standings,
+            injuries,
+            team_feed.next_game,
+            bio,
+            draft,
+            provided,
+            log,
+            regular,
+            playoffs,
+            now=self._client.clock(),
+            detail_ids=self._teams.detail_ids(),
+        )
+
+    def _team_of(self, feed: PlayerFeed) -> str:
+        return self._stars.player_team(feed.id) or feed.team.code
+
+    def is_fresh(
+        self, feed: PlayerFeed, built_at: dt.datetime, now: dt.datetime
+    ) -> bool:
+        team = self._team_of(feed)
+        stored = self._teams.stored(team)
+        return not self._teams.expired(
+            team, stored.schedule if stored else None, built_at, now
+        )
+
+    def live_game(self, team: str) -> ScoreboardGame | None:
+        return next(
+            (
+                game
+                for game in self._games.loaded_games()
+                if game.status is GameStatus.LIVE
+                and team in (game.away.code, game.home.code)
+            ),
+            None,
+        )
+
+    def serve_with(self, player_id: str, feed: PlayerFeed) -> PlayerFeed:
+        game = self.live_game(self._team_of(feed))
+        detail: GameDetailFeed | None = None
+        if game is not None:
+            body = read_by_id(self._settings.data_dir, game_detail_feed.KIND, game.id)
+            if body is not None:
+                try:
+                    detail = GameDetailFeed.model_validate_json(body)
+                except ValidationError:
+                    detail = None
+        served = with_player_detail(feed, self._teams.detail_ids())
+        live = live_block(self._team_of(feed), player_id, game, detail)
+        return PlayerFeed.model_validate(
+            {**served.model_dump(by_alias=False), "live": live}
+        )
+
+    def keep(self, player_id: str) -> bool:
+        return (
+            not self._stars.rosters_ready()
+            or self._stars.player_team(player_id) is not None
+        )
+
+    async def refresh_live(self, player_id: str, *, wait: float) -> None:
+        """Refreshes the live game of the player's team and its detail feed within
+        wait seconds; makes no request for an id that is not known; never raises."""
+        if self.check(player_id) is not IdStatus.KNOWN:
+            return
+        team = self._stars.player_team(player_id)
+        game = self.live_game(team) if team is not None else None
+        if game is None:
+            return
+        loop = asyncio.get_running_loop()
+        started = loop.time()
+        await self._games.refresh_live(game.id, wait=wait)
+        remaining = max(0.0, wait - (loop.time() - started))
+        try:
+            await self._cache.serve(game_detail_feed.KIND, game.id, wait=remaining)
+        except UnknownFeedError, FeedUnavailableError:
+            return
+
+    def after_stars_run(self) -> None:
+        """The stars job's after_run hook: deletes the feeds of players on no roster."""
+        self._cache.cleanup()
+
+    def kind(self) -> FeedKind[PlayerFeed]:
+        return FeedKind(
+            KIND,
+            PlayerFeed,
+            check=self.check,
+            build=self.build,
+            is_fresh=self.is_fresh,
+            keep=self.keep,
+            serve_with=self.serve_with,
+            depends_on=self.depends_on,
+        )

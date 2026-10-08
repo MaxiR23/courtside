@@ -267,6 +267,10 @@ class GamesJob:
                     return game
         return None
 
+    def loaded_games(self) -> list[ScoreboardGame]:
+        """Every game of the days held now, in day order."""
+        return [game for day in sorted(self._games) for game in self._games[day]]
+
     def _current_stars(self) -> dict[str, Stars | None]:
         return {
             game.id: self._stars(game)
