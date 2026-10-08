@@ -1,5 +1,8 @@
 <script lang="ts">
-	type Props = { code: string; size: 'large' | 'small' | 'header' | 'header-mobile' | 'injury' };
+	type Props = {
+		code: string;
+		size: 'large' | 'small' | 'header' | 'header-mobile' | 'injury' | 'team';
+	};
 
 	let { code, size }: Props = $props();
 </script>
@@ -37,6 +40,11 @@
 	.injury {
 		width: var(--injury-monogram-size);
 		height: var(--injury-monogram-size);
+	}
+
+	.team {
+		width: var(--team-code-box-size);
+		height: var(--team-code-box-size);
 	}
 
 	.header-mobile {

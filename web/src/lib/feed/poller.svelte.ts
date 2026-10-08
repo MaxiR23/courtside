@@ -18,6 +18,11 @@ export function gamePollInterval(feed: GameDetailFeed | null): number {
 	return feed?.status === 'live' ? LIVE_POLL_MS : IDLE_POLL_MS;
 }
 
+/** docs/design-profiles.md, Polling: every 60 s. */
+export function teamPollInterval(): number {
+	return IDLE_POLL_MS;
+}
+
 type Visibility = Pick<Document, 'visibilityState' | 'addEventListener' | 'removeEventListener'>;
 
 function currentTime(): Date {

@@ -3,7 +3,8 @@
 	import type { HeroStatus } from '#lib/hero/types.ts';
 	import { m } from '#lib/paraglide/messages.js';
 
-	type Props = { status: HeroStatus } | { injury: InjuryTagStatus };
+	type Props =
+		{ status: HeroStatus } | { injury: InjuryTagStatus } | { text: string; accent?: boolean }; // free text, such as a game tag
 
 	let props: Props = $props();
 
@@ -27,6 +28,8 @@
 
 {#if 'injury' in props}
 	<span class="status-tag injury {props.injury}">{injuryLabels[props.injury]()}</span>
+{:else if 'text' in props}
+	<span class="status-tag" class:out={props.accent}>{props.text}</span>
 {:else}
 	<span class="status-tag">{labels[props.status]()}</span>
 {/if}

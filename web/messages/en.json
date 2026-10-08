@@ -142,5 +142,91 @@
 				"rankOrdinal=other": "{rank}th {conference}"
 			}
 		}
+	],
+	"team_not_found": "Team not found.",
+	"team_tab_overview": "Overview",
+	"team_tab_record": "Record",
+	"team_tab_leaders": "Leaders",
+	"team_tab_roster": "Roster",
+	"team_tab_schedule": "Schedule",
+	"team_section_leaders": "Team leaders",
+	"team_conference_east": "Eastern Conference",
+	"team_conference_west": "Western Conference",
+	"team_division": "{division} Division",
+	"team_cell_conference": "Conference",
+	"team_cell_streak": "Streak",
+	"team_cell_last_ten": "Last 10",
+	"team_cell_playoffs": "Playoffs",
+	"team_streak_win": "W{count}",
+	"team_streak_loss": "L{count}",
+	"team_playoff_playin": "Play-in",
+	"team_playoff_out": "Out",
+	"team_arena_label": "Home arena",
+	"team_coach_label": "Head coach",
+	"team_colors_label": "Team colors",
+	"team_next_game": "Next game",
+	"team_season_over": "Season over.",
+	"team_record_overall": "Overall",
+	"team_record_home": "Home",
+	"team_record_away": "Away",
+	"team_record_last_ten": "Last 10",
+	"team_record_streak": "Streak",
+	"team_record_games_behind": "Games behind",
+	"team_record_playoff_position": "Playoff position",
+	"team_record_conference": "Conference",
+	"team_record_division": "Division",
+	"team_record_points_for": "Points for",
+	"team_record_points_against": "Points against",
+	"team_record_differential": "Differential",
+	"team_leader_points": "Points",
+	"team_leader_rebounds": "Rebounds",
+	"team_leader_assists": "Assists",
+	"team_leaders_meta": "{season} · per game",
+	"team_roster_player": "Player",
+	"team_roster_number": "No.",
+	"team_roster_position": "Pos",
+	"team_roster_height": "Ht",
+	"team_roster_weight": "Wt",
+	"team_roster_age": "Age",
+	"team_roster_born": "Born",
+	"team_roster_birthplace": "Birthplace",
+	"team_roster_college": "College",
+	"team_roster_experience": "Exp",
+	"team_roster_status": "Status",
+	"team_roster_rookie": "R",
+	"team_status_active": "Active",
+	"team_injuries_meta": "Official injury report",
+	"team_schedule_months": "Months",
+	"team_schedule_playoffs": "Playoffs",
+	"team_schedule_home": "Home",
+	"team_schedule_away": "Away",
+	"team_tag_cup": "NBA Cup",
+	"team_tag_allstar": "All-Star",
+	"team_tag_playoffs": "Playoffs",
+	"team_tag_round": "{conference} R{round}",
+	"team_tag_finals": "Finals",
+	"team_tag_game": "G{game}",
+	"team_tag_next": "Next",
+	"team_playoff_seed": [
+		{
+			"declarations": ["input seed", "local seedOrdinal = seed: plural type=ordinal"],
+			"selectors": ["seedOrdinal"],
+			"match": {
+				"seedOrdinal=one": "{seed}st seed",
+				"seedOrdinal=two": "{seed}nd seed",
+				"seedOrdinal=few": "{seed}rd seed",
+				"seedOrdinal=other": "{seed}th seed"
+			}
+		}
+	],
+	"team_coach_seasons": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} season as NBA head coach",
+				"countPlural=other": "{count} seasons as NBA head coach"
+			}
+		}
 	]
 }

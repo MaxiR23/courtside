@@ -7,6 +7,7 @@
 // - Uses the large or small box by size
 // - Uses the header and header-mobile boxes on the game detail page
 // - Uses the injury box on the injuries section
+// - Uses the team box on the team page
 //
 // What is covered:
 // - Both sizes
@@ -45,6 +46,11 @@ describe('TeamMonogram', () => {
 		unmount();
 		render(TeamMonogram, { props: { code: 'LAL', size: 'header-mobile' } });
 		expect(screen.getByText('LAL').classList.contains('header-mobile')).toBe(true);
+	});
+
+	it('renders the team size', () => {
+		render(TeamMonogram, { props: { code: 'OKC', size: 'team' } });
+		expect(screen.getByText('OKC').classList.contains('team')).toBe(true);
 	});
 
 	it('renders the injury size', () => {

@@ -5,6 +5,7 @@
 // Tested:
 // - One link per tab in the given order, pointing at its section
 // - The mini score when given, none without it
+// - A pre-formatted mini text, alone or with tabs
 // - Nothing with no tabs and no mini score
 // - A click scrolls smoothly to the section, instantly under reduced motion
 // - The nav stays above the page content: sticky with z-index from --tabs-z-index
@@ -69,6 +70,15 @@ describe('SectionTabs', () => {
 	it('shows no mini score without it', () => {
 		const { container } = render(SectionTabs, { props: { tabs, miniScore: null } });
 		expect(container.querySelector('.mini-score')).toBeNull();
+	});
+
+	it('shows a mini text, and renders with only a mini text', () => {
+		const { container, unmount } = render(SectionTabs, { props: { tabs, mini: 'OKC 57–25' } });
+		expect(container.querySelector('.mini-score')?.textContent).toBe('OKC 57–25');
+		unmount();
+		const only = render(SectionTabs, { props: { tabs: [], mini: 'OKC 57–25' } });
+		expect(only.container.querySelector('nav')).toBeTruthy();
+		expect(only.container.querySelector('.mini-score')?.textContent).toBe('OKC 57–25');
 	});
 
 	it('renders nothing with no tabs and no mini score', () => {

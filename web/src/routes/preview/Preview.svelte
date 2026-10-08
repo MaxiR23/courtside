@@ -16,6 +16,7 @@
 	import SiteFooter from '#lib/components/SiteFooter.svelte';
 	import StatusTag from '#lib/components/StatusTag.svelte';
 	import TeamMonogram from '#lib/components/TeamMonogram.svelte';
+	import TeamPage from '#lib/components/TeamPage.svelte';
 	import type {
 		BoxRow,
 		BoxScoreSection,
@@ -36,6 +37,7 @@
 		VideosSection,
 		WinProbabilitySection
 	} from '#lib/game/types.ts';
+	import type { RosterRow, ScheduleRowView, TeamPageState, TeamView } from '#lib/team/types.ts';
 	import { SpoilerFree } from '#lib/schedule/spoiler-free.svelte.ts';
 	import type { HeroGame, HeroPlayer } from '#lib/hero/types.ts';
 	import type {
@@ -787,6 +789,260 @@
 	const spoilerFree = new SpoilerFree();
 
 	$effect(() => spoilerFree.load());
+	const teamGameHref = () => resolve('/preview');
+	const teamScheduleRow = (
+		gameId: string,
+		overrides: Partial<ScheduleRowView> = {}
+	): ScheduleRowView => ({
+		gameId,
+		linked: true,
+		weekday: 'Thu',
+		date: 'Oct 23',
+		opponent: 'vs HOU',
+		tags: [],
+		next: false,
+		outcome: { kind: 'played', result: 'win', resultLabel: 'W', score: '118–104', side: 'Home' },
+		...overrides
+	});
+	const teamRoster: RosterRow[] = [
+		{
+			id: 'p1',
+			name: 'Stephen Curry',
+			photo: awayPhoto,
+			number: '30',
+			position: 'G',
+			height: '6-2',
+			weight: '185',
+			age: '37',
+			born: 'Mar 14, 1988',
+			birthplace: 'Akron, USA',
+			college: 'Davidson',
+			experience: '17',
+			status: { label: 'Active', tone: 'muted' }
+		},
+		{
+			id: 'p2',
+			name: 'LeBron James',
+			photo: homePhoto,
+			number: '23',
+			position: 'F',
+			height: '6-9',
+			weight: '250',
+			age: '41',
+			born: 'Dec 30, 1984',
+			birthplace: 'Akron, USA',
+			college: null,
+			experience: '23',
+			status: { label: 'Out', tone: 'out' }
+		},
+		{
+			id: 'p3',
+			name: 'Nikola Rookie',
+			photo: null,
+			number: '21',
+			position: 'G',
+			height: '6-4',
+			weight: null,
+			age: '20',
+			born: null,
+			birthplace: null,
+			college: null,
+			experience: 'R',
+			status: { label: 'Questionable', tone: 'ink' }
+		}
+	];
+	const teamView: TeamView = {
+		header: {
+			code: 'GSW',
+			city: 'Golden State',
+			name: 'Warriors',
+			conferenceLine: 'Western Conference · Pacific Division',
+			colors: { primary: '#1D428A', secondary: '#FFC72C' },
+			record: '57–25',
+			winPct: '69.5%',
+			cells: [
+				{ label: 'Conference', value: '1st West', sub: null },
+				{ label: 'Streak', value: 'W3', sub: null },
+				{ label: 'Last 10', value: '8–2', sub: null },
+				{ label: 'Playoffs', value: '1st seed', sub: null }
+			]
+		},
+		tabs: [
+			{ id: 'overview', label: 'Overview' },
+			{ id: 'record', label: 'Record' },
+			{ id: 'leaders', label: 'Leaders' },
+			{ id: 'roster', label: 'Roster' },
+			{ id: 'injuries', label: 'Injuries' },
+			{ id: 'schedule', label: 'Schedule' }
+		],
+		mini: 'GSW 57–25',
+		sections: {
+			overview: {
+				arena: { name: 'Chase Center', city: 'San Francisco', photo: highlight1 },
+				coach: {
+					label: 'Head coach',
+					value: 'Steve Kerr',
+					sub: '12 seasons as NBA head coach'
+				},
+				colors: [{ hex: '#1D428A' }, { hex: '#FFC72C' }],
+				nextGame: {
+					gameId: 'next',
+					linked: true,
+					tag: 'NBA Cup',
+					date: 'Wednesday, October 7',
+					opponent: '@ LAL',
+					place: 'Crypto.com Arena · Los Angeles',
+					time: '7:30 PM ET · Network One'
+				}
+			},
+			record: {
+				large: [
+					{ label: 'Overall', value: '57–25', sub: '69.5%' },
+					{ label: 'Home', value: '32–9', sub: '78.0%' },
+					{ label: 'Away', value: '25–16', sub: '61.0%' },
+					{ label: 'Last 10', value: '8–2', sub: '80.0%' }
+				],
+				detail: [
+					{ label: 'Streak', value: 'W3', sub: null },
+					{ label: 'Games behind', value: '0', sub: null },
+					{ label: 'Playoff position', value: '1st seed', sub: null },
+					{ label: 'Conference', value: '1st West', sub: null },
+					{ label: 'Division', value: '1st Pacific', sub: null },
+					{ label: 'Points for', value: '118.3', sub: '9,701' },
+					{ label: 'Points against', value: '109.9', sub: '9,012' },
+					{ label: 'Differential', value: '+8.4', sub: '+689' }
+				]
+			},
+			leaders: {
+				meta: '2025-26 · per game',
+				cards: [
+					{
+						label: 'Points',
+						value: '27.8',
+						name: 'Stephen Curry',
+						line: '#30 · Guard',
+						photo: awayPhoto
+					},
+					{
+						label: 'Rebounds',
+						value: '8.9',
+						name: 'Draymond Green',
+						line: 'Forward',
+						photo: null
+					},
+					{
+						label: 'Assists',
+						value: '7.4',
+						name: 'Stephen Curry',
+						line: '#30 · Guard',
+						photo: homePhoto
+					}
+				]
+			},
+			roster: teamRoster,
+			injuries: [
+				{
+					name: 'LeBron James',
+					line: '#23 · F',
+					status: 'out',
+					comment: 'Left ankle sprain, out for two weeks'
+				},
+				{ name: 'Nikola Rookie', line: '#21 · G', status: 'questionable', comment: null }
+			],
+			schedule: {
+				defaultKey: '2025-11',
+				groups: [
+					{ key: '2025-10', label: 'Oct', rows: [teamScheduleRow('s1')] },
+					{
+						key: '2025-11',
+						label: 'Nov',
+						rows: [
+							teamScheduleRow('s2', {
+								linked: false,
+								opponent: '@ DEN',
+								outcome: {
+									kind: 'played',
+									result: 'loss',
+									resultLabel: 'L',
+									score: '99–104',
+									side: 'Away'
+								}
+							}),
+							teamScheduleRow('next', {
+								next: true,
+								weekday: 'Wed',
+								date: 'Nov 5',
+								opponent: '@ LAL',
+								tags: ['NBA Cup', 'Next'],
+								outcome: { kind: 'upcoming', time: '7:30 PM ET', broadcast: 'Network One' }
+							}),
+							teamScheduleRow('s4', {
+								linked: false,
+								weekday: 'Sat',
+								date: 'Nov 8',
+								outcome: { kind: 'upcoming', time: '8:00 PM ET', broadcast: null }
+							})
+						]
+					},
+					{
+						key: 'playoffs',
+						label: 'Playoffs',
+						rows: [teamScheduleRow('s5', { tags: ['West R1 · G3'] })]
+					}
+				]
+			}
+		}
+	};
+	const teamPartialView: TeamView = {
+		...teamView,
+		header: {
+			...teamView.header,
+			cells: [
+				{ label: 'Conference', value: '1st West', sub: null },
+				{ label: 'Last 10', value: '8–2', sub: null }
+			]
+		},
+		tabs: [
+			{ id: 'overview', label: 'Overview' },
+			{ id: 'record', label: 'Record' },
+			{ id: 'leaders', label: 'Leaders' },
+			{ id: 'roster', label: 'Roster' },
+			{ id: 'injuries', label: 'Injuries' }
+		],
+		sections: {
+			overview: {
+				arena: { name: 'Chase Center', city: null, photo: null },
+				coach: null,
+				colors: teamView.sections.overview.colors,
+				nextGame: null
+			},
+			record: {
+				large: teamView.sections.record.large,
+				detail: teamView.sections.record.detail.filter(
+					(cell) => cell.label !== 'Streak' && cell.label !== 'Playoff position'
+				)
+			},
+			leaders: {
+				meta: '2025-26 · per game',
+				cards: [teamView.sections.leaders!.cards[0]!]
+			},
+			roster: teamRoster,
+			injuries: [],
+			schedule: null
+		}
+	};
+	const teamStates: { title: string; state: TeamPageState; layout: 'desktop' | 'mobile' }[] = [
+		{ title: 'TeamPage: full', state: { kind: 'ready', view: teamView }, layout: 'desktop' },
+		{
+			title: 'TeamPage: partial data',
+			state: { kind: 'ready', view: teamPartialView },
+			layout: 'desktop'
+		},
+		{ title: 'TeamPage: mobile', state: { kind: 'ready', view: teamView }, layout: 'mobile' },
+		{ title: 'TeamPage: loading', state: { kind: 'loading' }, layout: 'desktop' },
+		{ title: 'TeamPage: feed unavailable', state: { kind: 'unavailable' }, layout: 'desktop' },
+		{ title: 'TeamPage: unknown team', state: { kind: 'not-found' }, layout: 'desktop' }
+	];
 </script>
 
 <main>
@@ -1032,6 +1288,13 @@
 		<h2>SeasonSeries: first meeting</h2>
 		<SeasonSeries series={firstMeetingSeries} />
 	</section>
+
+	{#each teamStates as { title, state, layout } (title)}
+		<section>
+			<h2>{title}</h2>
+			<TeamPage {state} {allGamesHref} {layout} gameHref={teamGameHref} />
+		</section>
+	{/each}
 
 	<section>
 		<h2>SiteFooter</h2>

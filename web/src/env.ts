@@ -25,6 +25,18 @@ export const variables = defineEnvVars({
 			return value;
 		}
 	},
+	TEAM_FEED_URL: {
+		public: true,
+		static: true,
+		description:
+			"Absolute URL of a team's feed, with {code} where the lowercase team code goes, read at build time",
+		schema: (value) => {
+			if (!value) return undefined;
+			if (!URL.canParse(value)) throw new Error('TEAM_FEED_URL must be an absolute URL');
+			if (!value.includes('{code}')) throw new Error('TEAM_FEED_URL must contain {code}');
+			return value;
+		}
+	},
 	VIDEO_PLATFORM_NAME: {
 		public: true,
 		static: true,

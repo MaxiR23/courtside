@@ -11,6 +11,7 @@
 	import MessageRow from '#lib/components/MessageRow.svelte';
 	import PlayersToWatch from '#lib/components/PlayersToWatch.svelte';
 	import SeasonSeries from '#lib/components/SeasonSeries.svelte';
+	import SectionHead from '#lib/components/SectionHead.svelte';
 	import SectionTabs from '#lib/components/SectionTabs.svelte';
 	import SiteFooter from '#lib/components/SiteFooter.svelte';
 	import StandingsRows from '#lib/components/StandingsRows.svelte';
@@ -33,13 +34,6 @@
 	let playingId = $state<string | null>(null);
 </script>
 
-{#snippet sectionHead(title: string, meta: string | null, emphasis: boolean)}
-	<div class="section-head">
-		<h2>{title}</h2>
-		{#if meta}<span class="meta" class:emphasis>{meta}</span>{/if}
-	</div>
-{/snippet}
-
 {#if page.kind === 'ready'}
 	<GameHeader header={page.view.header} {layout} {allGamesHref} />
 	<SectionTabs tabs={page.view.tabs} miniScore={page.view.miniScore} />
@@ -47,7 +41,11 @@
 	<div class="sections">
 		{#if sections.highlights}
 			<section id="highlights">
-				{@render sectionHead(m.game_tab_highlights(), sections.highlights.platform, false)}
+				<SectionHead
+					title={m.game_tab_highlights()}
+					meta={sections.highlights.platform}
+					emphasis={false}
+				/>
 				<div class="highlights-wrap">
 					<Highlights
 						detail
@@ -60,13 +58,13 @@
 		{/if}
 		{#if sections.players}
 			<section id="players">
-				{@render sectionHead(m.game_section_players_to_watch(), null, false)}
+				<SectionHead title={m.game_section_players_to_watch()} meta={null} emphasis={false} />
 				<PlayersToWatch players={sections.players} />
 			</section>
 		{/if}
 		{#if sections.score}
 			<section id="score">
-				{@render sectionHead(m.game_tab_score(), null, false)}
+				<SectionHead title={m.game_tab_score()} meta={null} emphasis={false} />
 				<div class="score-grid">
 					<LineScore
 						detail
@@ -86,43 +84,51 @@
 		{/if}
 		{#if sections.winProbability}
 			<section id="win-probability">
-				{@render sectionHead(m.game_section_win_probability(), sections.winProbability.meta, true)}
+				<SectionHead
+					title={m.game_section_win_probability()}
+					meta={sections.winProbability.meta}
+					emphasis={true}
+				/>
 				<WinProbability chart={sections.winProbability} />
 			</section>
 		{/if}
 		{#if sections.boxScore}
 			<section id="box-score">
-				{@render sectionHead(m.game_tab_box_score(), null, false)}
+				<SectionHead title={m.game_tab_box_score()} meta={null} emphasis={false} />
 				<BoxScore box={sections.boxScore} {layout} />
 			</section>
 		{/if}
 		{#if sections.injuries}
 			<section id="injuries">
-				{@render sectionHead(m.game_tab_injuries(), m.game_injuries_meta(), false)}
+				<SectionHead title={m.game_tab_injuries()} meta={m.game_injuries_meta()} emphasis={false} />
 				<Injuries injuries={sections.injuries} />
 			</section>
 		{/if}
 		{#if sections.lastGames}
 			<section id="last-games">
-				{@render sectionHead(m.game_section_last_games(), null, false)}
+				<SectionHead title={m.game_section_last_games()} meta={null} emphasis={false} />
 				<LastGames lastGames={sections.lastGames} />
 			</section>
 		{/if}
 		{#if sections.standings}
 			<section id="standings">
-				{@render sectionHead(m.game_tab_standings(), null, false)}
+				<SectionHead title={m.game_tab_standings()} meta={null} emphasis={false} />
 				<StandingsRows standings={sections.standings} />
 			</section>
 		{/if}
 		{#if sections.seasonSeries}
 			<section id="season-series">
-				{@render sectionHead(m.game_tab_season_series(), sections.seasonSeries.meta, false)}
+				<SectionHead
+					title={m.game_tab_season_series()}
+					meta={sections.seasonSeries.meta}
+					emphasis={false}
+				/>
 				<SeasonSeries series={sections.seasonSeries} />
 			</section>
 		{/if}
 		{#if sections.videos}
 			<section id="videos">
-				{@render sectionHead(m.game_tab_videos(), m.game_videos_meta(), false)}
+				<SectionHead title={m.game_tab_videos()} meta={m.game_videos_meta()} emphasis={false} />
 				<GameVideos videos={sections.videos} {layout} />
 			</section>
 		{/if}
@@ -174,33 +180,6 @@
 		gap: var(--game-list-gap);
 		align-content: start;
 		scroll-margin-top: var(--detail-section-scroll-margin);
-	}
-
-	.section-head {
-		display: flex;
-		flex-wrap: wrap;
-		justify-content: space-between;
-		align-items: baseline;
-		gap: var(--game-list-gap);
-	}
-
-	.section-head h2 {
-		margin: 0;
-		font-family: var(--font-heading);
-		font-size: var(--detail-section-h2-size);
-		line-height: var(--detail-section-h2-line-height);
-		text-transform: uppercase;
-	}
-
-	.meta {
-		font-size: var(--caption-size);
-		color: var(--color-muted);
-	}
-
-	.meta.emphasis {
-		font-family: var(--font-heading);
-		font-size: var(--win-prob-meta-size);
-		color: var(--color-accent-light);
 	}
 
 	.highlights-wrap {

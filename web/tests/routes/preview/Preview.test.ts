@@ -17,6 +17,7 @@
 // - Shows the season series with "This game" and the dimmed loser on the pre-game and final pages
 // - Keeps each game page sample consistent: header score, mini score, line score totals, box
 //   score totals, the win probability meta and the end of its curve, and the current game arena
+// - Shows the team page in each state: full, partial data, mobile, loading, feed unavailable and unknown team
 // - Uses no external URL for images, players or links
 //
 // What is covered:
@@ -34,7 +35,11 @@ import Preview from '../../../src/routes/preview/Preview.svelte';
 afterEach(() => localStorage.clear());
 
 function sectionOf(name: string): HTMLElement {
-	const section = screen.getByRole('heading', { level: 2, name }).closest('section');
+	// Only the sample titles: a page sample holds h2 headings of its own, such as "Schedule".
+	const heading = screen
+		.getAllByRole('heading', { level: 2, name })
+		.find((h) => h.parentElement?.matches('main > section'));
+	const section = heading?.closest('section');
 	if (!section) throw new Error(`No section for ${name}`);
 	return section;
 }
@@ -362,6 +367,40 @@ describe('component preview', () => {
 			const current = sectionOf(title).querySelector('.date.current')!;
 			expect(current.closest('.game')?.querySelector('.arena')?.textContent).toBe('Chase Center');
 		}
+	});
+
+	it('shows the team page in each state', () => {
+		render(Preview);
+		const tabs = (title: string) =>
+			[...sectionOf(title).querySelectorAll('nav a')].map((a) => a.textContent);
+		expect(tabs('TeamPage: full')).toEqual([
+			'Overview',
+			'Record',
+			'Leaders',
+			'Roster',
+			'Injuries',
+			'Schedule'
+		]);
+		expect(tabs('TeamPage: mobile')).toHaveLength(6);
+		expect(sectionOf('TeamPage: mobile').querySelector('.table.mobile')).not.toBeNull();
+		expect(sectionOf('TeamPage: full').querySelector('.table.mobile')).toBeNull();
+
+		const partial = sectionOf('TeamPage: partial data');
+		expect(within(partial).getByText('Season over.')).toBeTruthy();
+		expect(within(partial).getByText('No injuries reported.')).toBeTruthy();
+		expect(tabs('TeamPage: partial data')).not.toContain('Schedule');
+		expect(partial.querySelector('#schedule')).toBeNull();
+		expect(partial.querySelector('.photo-box')).toBeNull();
+
+		const loading = sectionOf('TeamPage: loading');
+		expect(loading.querySelector('header')?.getAttribute('aria-busy')).toBe('true');
+		expect(loading.querySelector('.section-skeleton')).not.toBeNull();
+		expect(
+			within(sectionOf('TeamPage: feed unavailable')).getByText(
+				"Data isn't available right now. Check back later."
+			)
+		).toBeTruthy();
+		expect(within(sectionOf('TeamPage: unknown team')).getByText('Team not found.')).toBeTruthy();
 	});
 
 	it('uses no external URL for images, players or links', async () => {

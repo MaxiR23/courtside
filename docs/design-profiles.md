@@ -146,7 +146,7 @@ Meta: "Official injury report". Two columns, min 420px. The name with `#num · P
 ### 8. Schedule
 
 - Month chips in the order the feed sends (Oct → Apr, then Playoffs). The selected chip on load is the one the feed marks as default.
-- Rows on `84px 1fr auto` (`52px 1fr auto` under 680px): the date with the weekday above; `vs` / `@` and the opponent (code only on mobile) with a tag (`NBA Cup`, `West R1 · G3`, `Next`); on the right, a played game shows `W 118–104` (W in accent text) and Home / Away, an upcoming game shows the time and the broadcaster.
+- Rows on `84px 1fr auto` (`52px 1fr auto` under 680px): the date with the weekday above; `vs` / `@` and the opponent code with a tag (`NBA Cup`, `West R1 · G3`, `Next`); on the right, a played game shows `W 118–104` (W in accent text) and Home / Away, an upcoming game shows the time and the broadcaster.
 - The next game row is tinted `rgba(116,157,196,.08)` and tagged `Next`. Rows link per the game link rule.
 
 ## Links into these pages
@@ -160,8 +160,9 @@ Meta: "Official injury report". Two columns, min 420px. The name with `#num · P
 | State | What shows |
 |---|---|
 | Loading | Skeletons shaped like the header and the first section, with the home's shimmer, stopped under reduced motion |
-| Feed unavailable | The nav row, then the home's "Data isn't available right now. Check back later." row |
-| Unknown player or team | The nav row, then a blueprint row reading "Player not found." or "Team not found." with a link back to all games |
+| Feed unavailable | The nav row, then the home's "Data isn't available right now. Check back later." row (a 503 or a failed request; polling continues, and the page fills in when a later request succeeds) |
+| Unknown player or team | The nav row, then a blueprint row reading "Player not found." or "Team not found." with a link back to all games (the feed answers 404: an unknown id, or a team code that is not lowercase) |
+| Partial data | A null field hides its cell, and a section without data hides with its tab |
 | Start of a season | Sections whose season has no data yet are hidden, together with their tabs |
 
 ## Interactions and motion
@@ -176,7 +177,7 @@ Meta: "Official injury report". Two columns, min 420px. The name with `#num · P
 
 ## Responsive
 
-- Under 680px: the photo stacks under the name, the milestones use two columns, tables scroll horizontally with their sticky first column, and the schedule shows opponent codes only.
+- Under 680px: the photo stacks under the name, the milestones use two columns, tables scroll horizontally with their sticky first column, and the schedule's date column narrows to 52px.
 - Every other section reflows through its auto-fit grid.
 
 ## Feed contract

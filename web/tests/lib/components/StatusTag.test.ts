@@ -6,6 +6,7 @@
 // - Shows Tonight, Live now, Final, Delayed, Postponed or Canceled for each status
 // - Shows Esta noche, En vivo or Final with a Spanish browser preference
 // - The injury variant: five labels with a tone class, in English and Spanish
+// - The free text variant, with an accent option
 //
 // What is covered:
 // - Every status, in English and in Spanish
@@ -103,5 +104,19 @@ describe('StatusTag injury variant', () => {
 		preferLanguages(['es-ES']);
 		render(StatusTag, { props: { injury } });
 		expect(screen.getByText(spanish)).toBeTruthy();
+	});
+});
+
+describe('StatusTag text variant', () => {
+	it('shows the given text without a tone', () => {
+		const { container } = render(StatusTag, { props: { text: 'NBA Cup' } });
+		const tag = container.querySelector('.status-tag');
+		expect(tag?.textContent).toBe('NBA Cup');
+		expect(tag?.classList.contains('out')).toBe(false);
+	});
+
+	it('takes the accent look with the accent option', () => {
+		const { container } = render(StatusTag, { props: { text: 'Next', accent: true } });
+		expect(container.querySelector('.status-tag')?.classList.contains('out')).toBe(true);
 	});
 });
