@@ -7,6 +7,8 @@
 # - Reports each job's last success and last failure
 # - Reports job state recorded before an app restart
 # - Reports the fallback reason after a failure recorded with an empty reason
+# - Reports a feed's build failure with its last build in camelCase
+# - Leaves out a feed that has built and never failed
 #
 # What is covered:
 # - Success response (the endpoint documents no failures), job state in camelCase, restart
@@ -38,7 +40,7 @@ def test_reports_ok_with_no_jobs_before_any_run(tmp_path: Path) -> None:
         response = client.get("/health")
 
     assert response.status_code == 200
-    assert response.json() == {"status": "ok", "jobs": []}
+    assert response.json() == {"status": "ok", "jobs": [], "feeds": []}
 
 
 def test_reports_each_jobs_last_success_and_last_failure(tmp_path: Path) -> None:
@@ -79,3 +81,31 @@ def test_reports_the_fallback_reason_for_a_failure_with_an_empty_reason(
 
     assert response.status_code == 200
     assert response.json()["jobs"][0]["lastFailureReason"] == NO_REASON
+
+
+def test_reports_a_feeds_build_failure_with_its_last_build(tmp_path: Path) -> None:
+    with make_client(tmp_path) as client:
+        store = StateStore(tmp_path)
+        store.record_build("players", "p1", SUCCESS)
+        store.record_build_failure("players", "p1", FAILURE, "source down")
+
+        response = client.get("/health")
+
+    assert response.json()["feeds"] == [
+        {
+            "kind": "players",
+            "feedId": "p1",
+            "lastBuild": "2026-01-10T12:00:00Z",
+            "lastFailure": "2026-01-10T13:00:00Z",
+            "lastFailureReason": "source down",
+        }
+    ]
+
+
+def test_leaves_out_a_feed_that_has_built_and_never_failed(tmp_path: Path) -> None:
+    with make_client(tmp_path) as client:
+        StateStore(tmp_path).record_build("players", "p1", SUCCESS)
+
+        response = client.get("/health")
+
+    assert response.json()["feeds"] == []

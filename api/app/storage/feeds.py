@@ -4,7 +4,7 @@
 # It also holds the per-game feeds, one file per game under feeds/games.
 #
 # SEE: docs/adr/0007-backend-runtime-and-data-pipeline.md,
-# docs/adr/0019-game-detail-route-and-feed.md
+# docs/adr/0019-game-detail-route-and-feed.md, docs/source-rules.md
 
 import logging
 import os
@@ -111,4 +111,55 @@ def delete_game_detail(data_dir: Path, game_id: str) -> None:
     except OSError as error:
         logger.error(
             "feed game-detail %s not deleted: %s", game_id, error.strerror or error
+        )
+
+
+def _by_id_dir(data_dir: Path, directory: str) -> Path:
+    return data_dir / FEED_DIR / directory
+
+
+def publish_by_id(
+    data_dir: Path,
+    directory: str,
+    model: type[BaseModel],
+    feed_id: str,
+    feed: BaseModel,
+) -> bool:
+    if not GAME_ID.match(directory) or not GAME_ID.match(feed_id):
+        logger.error("feed %s %s not published: invalid id", directory, feed_id)
+        return False
+    return _publish(
+        model,
+        _by_id_dir(data_dir, directory) / f"{feed_id}.json",
+        f"{directory} {feed_id}",
+        feed,
+    )
+
+
+def read_by_id(data_dir: Path, directory: str, feed_id: str) -> bytes | None:
+    if not GAME_ID.match(directory) or not GAME_ID.match(feed_id):
+        return None
+    try:
+        return (_by_id_dir(data_dir, directory) / f"{feed_id}.json").read_bytes()
+    except FileNotFoundError:
+        return None
+
+
+def published_ids(data_dir: Path, directory: str) -> set[str]:
+    if not GAME_ID.match(directory):
+        return set()
+    folder = _by_id_dir(data_dir, directory)
+    if not folder.is_dir():
+        return set()
+    return {path.stem for path in folder.glob("*.json") if GAME_ID.match(path.stem)}
+
+
+def delete_by_id(data_dir: Path, directory: str, feed_id: str) -> None:
+    if not GAME_ID.match(directory) or not GAME_ID.match(feed_id):
+        return
+    try:
+        (_by_id_dir(data_dir, directory) / f"{feed_id}.json").unlink(missing_ok=True)
+    except OSError as error:
+        logger.error(
+            "feed %s %s not deleted: %s", directory, feed_id, error.strerror or error
         )
