@@ -164,7 +164,7 @@ describe('toTeamView overview', () => {
 			date: 'Wednesday, October 7',
 			opponent: '@ DEN',
 			place: 'Ball Arena · Denver, CO',
-			time: '7:30 PM ET · ESPN'
+			time: '7:30 PM ET · Courtside TV'
 		});
 	});
 
@@ -397,7 +397,11 @@ describe('toTeamView schedule', () => {
 			opponent: '@ DEN',
 			outcome: { kind: 'played', result: 'loss', resultLabel: 'L', score: '99–104', side: 'Away' }
 		});
-		expect(rows[1]?.outcome).toEqual({ kind: 'upcoming', time: '7:30 PM ET', broadcast: 'ESPN' });
+		expect(rows[1]?.outcome).toEqual({
+			kind: 'upcoming',
+			time: '7:30 PM ET',
+			broadcast: 'Courtside TV'
+		});
 		expect(rows[2]?.outcome).toEqual({ kind: 'upcoming', time: '8:00 PM ET', broadcast: null });
 	});
 

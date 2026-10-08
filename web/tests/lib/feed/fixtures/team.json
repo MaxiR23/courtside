@@ -145,7 +145,7 @@
 		"tag": { "kind": "cup", "conference": null, "round": null, "game": null },
 		"arena": "Ball Arena",
 		"city": "Denver, CO",
-		"broadcast": "ESPN",
+		"broadcast": "Courtside TV",
 		"detailAvailable": false
 	},
 	"schedule": {
@@ -163,7 +163,7 @@
 						"result": "win",
 						"teamScore": 118,
 						"opponentScore": 104,
-						"broadcast": "ESPN",
+						"broadcast": "Courtside TV",
 						"isNext": false,
 						"detailAvailable": true
 					}
@@ -196,7 +196,7 @@
 						"result": null,
 						"teamScore": null,
 						"opponentScore": null,
-						"broadcast": "ESPN",
+						"broadcast": "Courtside TV",
 						"isNext": true,
 						"detailAvailable": false
 					},
@@ -229,7 +229,7 @@
 						"result": null,
 						"teamScore": null,
 						"opponentScore": null,
-						"broadcast": "NBC",
+						"broadcast": "Courtside TV",
 						"isNext": false,
 						"detailAvailable": true
 					}

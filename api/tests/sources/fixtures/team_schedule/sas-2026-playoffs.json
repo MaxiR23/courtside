@@ -47,12 +47,12 @@
           "broadcasts": [
             {
               "media": {
-                "shortName": "NBC"
+                "shortName": "Courtside TV"
               }
             },
             {
               "media": {
-                "shortName": "Peacock"
+                "shortName": "Courtside Plus"
               }
             }
           ]
@@ -106,12 +106,12 @@
           "broadcasts": [
             {
               "media": {
-                "shortName": "NBCSN"
+                "shortName": "Courtside TV"
               }
             },
             {
               "media": {
-                "shortName": "Peacock"
+                "shortName": "Courtside Plus"
               }
             }
           ]
@@ -165,12 +165,12 @@
           "broadcasts": [
             {
               "media": {
-                "shortName": "NBC"
+                "shortName": "Courtside TV"
               }
             },
             {
               "media": {
-                "shortName": "Peacock"
+                "shortName": "Courtside Plus"
               }
             }
           ]
@@ -224,7 +224,7 @@
           "broadcasts": [
             {
               "media": {
-                "shortName": "ABC"
+                "shortName": "Courtside TV"
               }
             },
             {
@@ -283,7 +283,7 @@
           "broadcasts": [
             {
               "media": {
-                "shortName": "ABC"
+                "shortName": "Courtside TV"
               }
             },
             {

@@ -43,12 +43,12 @@
           "broadcasts": [
             {
               "media": {
-                "shortName": "NBC"
+                "shortName": "Courtside TV"
               }
             },
             {
               "media": {
-                "shortName": "Peacock"
+                "shortName": "Courtside Plus"
               }
             },
             {
@@ -108,12 +108,12 @@
             },
             {
               "media": {
-                "shortName": "FanDuel SN IN"
+                "shortName": "Courtside TV"
               }
             },
             {
               "media": {
-                "shortName": "FanDuel SN OK"
+                "shortName": "Courtside Plus"
               }
             }
           ]
@@ -167,17 +167,17 @@
           "broadcasts": [
             {
               "media": {
-                "shortName": "NBC Sports CA"
+                "shortName": "Courtside TV"
               }
             },
             {
               "media": {
-                "shortName": "FanDuel SN OK"
+                "shortName": "Courtside Plus"
               }
             },
             {
               "media": {
-                "shortName": "NBA League Pass"
+                "shortName": "Courtside Plus"
               }
             }
           ]
@@ -231,12 +231,12 @@
           "broadcasts": [
             {
               "media": {
-                "shortName": "Prime Video"
+                "shortName": "Courtside TV"
               }
             },
             {
               "media": {
-                "shortName": "FanDuel SN OK"
+                "shortName": "Courtside Plus"
               }
             }
           ]
@@ -290,7 +290,7 @@
           "broadcasts": [
             {
               "media": {
-                "shortName": "Prime Video"
+                "shortName": "Courtside TV"
               }
             },
             {
@@ -345,17 +345,17 @@
           "broadcasts": [
             {
               "media": {
-                "shortName": "Altitude Sports"
+                "shortName": "Courtside TV"
               }
             },
             {
               "media": {
-                "shortName": "FanDuel SN OK"
+                "shortName": "Courtside Plus"
               }
             },
             {
               "media": {
-                "shortName": "NBA League Pass"
+                "shortName": "Courtside Plus"
               }
             }
           ]
@@ -405,22 +405,22 @@
           "broadcasts": [
             {
               "media": {
-                "shortName": "FanDuel SN OK"
+                "shortName": "Courtside TV"
               }
             },
             {
               "media": {
-                "shortName": "Arizona's Family 3TV"
+                "shortName": "Courtside Plus"
               }
             },
             {
               "media": {
-                "shortName": "Suns Live"
+                "shortName": "Courtside Plus"
               }
             },
             {
               "media": {
-                "shortName": "NBA League Pass"
+                "shortName": "Courtside Plus"
               }
             }
           ]

@@ -249,7 +249,7 @@ describe('toPlayerView next game and live', () => {
 			gameId: 'g-6',
 			linked: false,
 			opponent: 'vs DEN',
-			time: '7:30 PM ET · ESPN'
+			time: '7:30 PM ET · Courtside TV'
 		});
 	});
 

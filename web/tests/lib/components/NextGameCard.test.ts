@@ -31,7 +31,7 @@ const game: NextGameView = {
 	date: 'Wednesday, October 7',
 	opponent: '@ DEN',
 	place: 'Ball Arena · Denver, CO',
-	time: '7:30 PM ET · ESPN'
+	time: '7:30 PM ET · Courtside TV'
 };
 
 const gameHref = (id: string) => `/game/${id}` as never;
@@ -63,7 +63,7 @@ describe('NextGameCard', () => {
 			'Wednesday, October 7',
 			'@ DEN',
 			'Ball Arena · Denver, CO',
-			'7:30 PM ET · ESPN'
+			'7:30 PM ET · Courtside TV'
 		]) {
 			expect(screen.getByText(text)).toBeTruthy();
 		}

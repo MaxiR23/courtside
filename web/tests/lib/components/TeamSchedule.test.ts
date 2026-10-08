@@ -50,7 +50,7 @@ const schedule: ScheduleSection = {
 		{
 			key: '2025-11',
 			label: 'Nov',
-			rows: [upcoming('g-next', true, 'ESPN'), upcoming('g-later', false, null)]
+			rows: [upcoming('g-next', true, 'Courtside TV'), upcoming('g-later', false, null)]
 		},
 		{ key: 'playoffs', label: 'Playoffs', rows: [played('g-po', false)] }
 	],
@@ -138,7 +138,7 @@ describe('TeamSchedule rows', () => {
 		const outcomes = [...container.querySelectorAll('.outcome')].map((cell) =>
 			cell.textContent?.replace(/\s+/g, ' ').trim()
 		);
-		expect(outcomes).toEqual(['7:30 PM ET ESPN', '7:30 PM ET']);
+		expect(outcomes).toEqual(['7:30 PM ET Courtside TV', '7:30 PM ET']);
 	});
 
 	it('shows the weekday over the date and the opponent', () => {

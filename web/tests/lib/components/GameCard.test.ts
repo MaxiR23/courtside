@@ -38,7 +38,7 @@ const scheduled: ScheduleGame = {
 	id: 's',
 	away,
 	home,
-	status: { state: 'scheduled', tipTime: '9:00', tipSuffix: 'PM ET', network: 'Prime Video' }
+	status: { state: 'scheduled', tipTime: '9:00', tipSuffix: 'PM ET', network: 'Courtside TV' }
 };
 const live: ScheduleGame = {
 	id: 'l',
@@ -128,18 +128,18 @@ describe('GameCard', () => {
 		const { container } = render(GameCard, {
 			props: { teamHref, game: scheduled, layout: 'desktop' }
 		});
-		expect(container.querySelector('.status-line')?.textContent?.trim()).toBe('Prime Video');
+		expect(container.querySelector('.status-line')?.textContent?.trim()).toBe('Courtside TV');
 		expect(container.querySelector('.tip-time')?.textContent).toBe('9:00PM ET');
 		expect(container.querySelector('.tip-time .suffix')?.textContent).toBe('PM ET');
 		expect(container.querySelector('.score')).toBeNull();
 	});
 
-	it('shows "9:00 PM ET · Prime Video" on the status line of a scheduled game (mobile)', () => {
+	it('shows "9:00 PM ET · Courtside TV" on the status line of a scheduled game (mobile)', () => {
 		const { container } = render(GameCard, {
 			props: { teamHref, game: scheduled, layout: 'mobile' }
 		});
 		expect(container.querySelector('.status-line')?.textContent?.trim()).toBe(
-			'9:00 PM ET · Prime Video'
+			'9:00 PM ET · Courtside TV'
 		);
 		expect(container.querySelector('.score')).toBeNull();
 	});
@@ -332,7 +332,7 @@ describe('GameCard', () => {
 		expect(facts).toEqual([
 			['Tip-off', '9:00 PM ET'],
 			['Venue', 'Crypto.com Arena'],
-			['Broadcast', 'Prime Video']
+			['Broadcast', 'Courtside TV']
 		]);
 		expect(screen.getByText('Players to watch')).toBeTruthy();
 		expect(screen.getByText('Stephen Curry')).toBeTruthy();

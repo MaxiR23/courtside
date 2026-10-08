@@ -70,6 +70,11 @@ def test_rejects_a_game_without_a_home_team():
   or a game clock receives the time as input or runs with a frozen time.
 - Source responses used in tests are stored as fixture files next to the
   tests that use them. Fixtures contain only what the test needs.
+- Sample data never names a real brand for what it makes up: made-up
+  channels and broadcasters, and any other commercial brand that is not
+  the league content itself. Domains are example.com or `.example`. The
+  league's own teams, players and arenas are the app's content and stay
+  as they are.
 
 ## Mocking external services
 
