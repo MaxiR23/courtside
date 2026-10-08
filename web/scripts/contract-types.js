@@ -5,7 +5,9 @@
 // The options live here only: the check test imports this module.
 //
 // SEE: api/schemas/games.schema.json, web/src/lib/contract/games.ts,
-// api/schemas/game-detail.schema.json, web/src/lib/contract/game-detail.ts
+// api/schemas/game-detail.schema.json, web/src/lib/contract/game-detail.ts,
+// api/schemas/player.schema.json, web/src/lib/contract/player.ts,
+// api/schemas/team.schema.json, web/src/lib/contract/team.ts
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -18,7 +20,9 @@ const { format } = createRequire(import.meta.url)('prettier');
 
 export const feeds = [
 	{ name: 'games', rootName: 'GamesFeed' },
-	{ name: 'game-detail', rootName: 'GameDetailFeed' }
+	{ name: 'game-detail', rootName: 'GameDetailFeed' },
+	{ name: 'player', rootName: 'PlayerFeed' },
+	{ name: 'team', rootName: 'TeamFeed' }
 ].map((feed) => ({
 	...feed,
 	schemaPath: join(import.meta.dirname, `../../api/schemas/${feed.name}.schema.json`),

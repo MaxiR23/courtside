@@ -80,6 +80,7 @@ that migrates a database at the previous version with rows in it.
 - The exported schema of each feed is committed at `api/schemas/<feed>.schema.json`.
 - The generated types are committed at `web/src/lib/contract/<feed>.ts`.
 - `scripts/contract.sh` regenerates both.
+- A new feed is registered in `FEEDS` in `api/app/feeds/schema.py` and in the `feeds` array of `web/scripts/contract-types.js` before `scripts/contract.sh` generates its schema and types.
 - The api gate fails when the committed schema differs from the models; the web gate fails when the committed types differ from what the committed schema generates.
 - Recorded in [`adr/0008-contract-generation.md`](adr/0008-contract-generation.md).
 

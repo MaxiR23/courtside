@@ -13,3 +13,5 @@ regenerated, with the TypeScript types, by `scripts/contract.sh`.
 
 - [`games.md`](games.md): the games feed.
 - [`game-detail.md`](game-detail.md): the game detail feed.
+- [`player.md`](player.md): the player feed.
+- [`team.md`](team.md): the team feed.

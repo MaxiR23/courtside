@@ -1,0 +1,1665 @@
+{
+  "$defs": {
+    "AverageRow": {
+      "additionalProperties": false,
+      "properties": {
+        "gamesPlayed": {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        "minutes": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "fieldGoalPct": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "threePointPct": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "freeThrowPct": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "rebounds": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "assists": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "blocks": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "steals": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "fouls": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "turnovers": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "points": {
+          "minimum": 0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "gamesPlayed",
+        "minutes",
+        "fieldGoalPct",
+        "threePointPct",
+        "freeThrowPct",
+        "rebounds",
+        "assists",
+        "blocks",
+        "steals",
+        "fouls",
+        "turnovers",
+        "points"
+      ],
+      "title": "AverageRow",
+      "type": "object"
+    },
+    "Averages": {
+      "additionalProperties": false,
+      "properties": {
+        "regular": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SeasonAverageRow"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "playoffs": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SeasonAverageRow"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "career": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AverageRow"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "regular",
+        "playoffs",
+        "career"
+      ],
+      "title": "Averages",
+      "type": "object"
+    },
+    "Award": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "count": {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        "seasons": {
+          "items": {
+            "pattern": "^\\d{4}-\\d{2}$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "count",
+        "seasons"
+      ],
+      "title": "Award",
+      "type": "object"
+    },
+    "Birthplace": {
+      "additionalProperties": false,
+      "properties": {
+        "place": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "country": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "place",
+        "country"
+      ],
+      "title": "Birthplace",
+      "type": "object"
+    },
+    "BoxScorePlayer": {
+      "additionalProperties": false,
+      "properties": {
+        "points": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "fieldGoalsMade": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "fieldGoalsAttempted": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "threePointsMade": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "threePointsAttempted": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "freeThrowsMade": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "freeThrowsAttempted": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "offensiveRebounds": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "defensiveRebounds": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "rebounds": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "assists": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "turnovers": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "steals": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "blocks": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "fouls": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "playerId": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "displayName": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "starter": {
+          "type": "boolean"
+        },
+        "minutes": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "plusMinus": {
+          "type": "integer"
+        },
+        "photoUrl": {
+          "format": "uri",
+          "maxLength": 2083,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "points",
+        "fieldGoalsMade",
+        "fieldGoalsAttempted",
+        "threePointsMade",
+        "threePointsAttempted",
+        "freeThrowsMade",
+        "freeThrowsAttempted",
+        "offensiveRebounds",
+        "defensiveRebounds",
+        "rebounds",
+        "assists",
+        "turnovers",
+        "steals",
+        "blocks",
+        "fouls",
+        "playerId",
+        "displayName",
+        "starter",
+        "minutes",
+        "plusMinus",
+        "photoUrl"
+      ],
+      "title": "BoxScorePlayer",
+      "type": "object"
+    },
+    "CareerRows": {
+      "additionalProperties": false,
+      "properties": {
+        "perGame": {
+          "$ref": "#/$defs/StatRow"
+        },
+        "totals": {
+          "$ref": "#/$defs/StatRow"
+        }
+      },
+      "required": [
+        "perGame",
+        "totals"
+      ],
+      "title": "CareerRows",
+      "type": "object"
+    },
+    "Conference": {
+      "enum": [
+        "east",
+        "west"
+      ],
+      "title": "Conference",
+      "type": "string"
+    },
+    "Draft": {
+      "additionalProperties": false,
+      "properties": {
+        "year": {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        "round": {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        "pick": {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        "teamName": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "year",
+        "round",
+        "pick",
+        "teamName"
+      ],
+      "title": "Draft",
+      "type": "object"
+    },
+    "GameKind": {
+      "enum": [
+        "regular",
+        "cup",
+        "playoffs",
+        "allstar"
+      ],
+      "title": "GameKind",
+      "type": "string"
+    },
+    "GameLog": {
+      "additionalProperties": false,
+      "properties": {
+        "season": {
+          "pattern": "^\\d{4}-\\d{2}$",
+          "type": "string"
+        },
+        "entries": {
+          "items": {
+            "$ref": "#/$defs/GameLogEntry"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "season",
+        "entries"
+      ],
+      "title": "GameLog",
+      "type": "object"
+    },
+    "GameLogEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "gameId": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "date": {
+          "format": "date",
+          "type": "string"
+        },
+        "opponent": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Z]{3}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "isHome": {
+          "type": "boolean"
+        },
+        "kind": {
+          "$ref": "#/$defs/GameKind"
+        },
+        "tag": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GameTag"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "result": {
+          "$ref": "#/$defs/GameResult"
+        },
+        "teamScore": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "opponentScore": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "minutes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "fieldGoalsMade": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "fieldGoalsAttempted": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "fieldGoalPct": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "threePointsMade": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "threePointsAttempted": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "threePointPct": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "freeThrowsMade": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "freeThrowsAttempted": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "freeThrowPct": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "rebounds": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "assists": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "blocks": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "steals": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "fouls": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "turnovers": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "points": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "detailAvailable": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "gameId",
+        "date",
+        "opponent",
+        "isHome",
+        "kind",
+        "tag",
+        "result",
+        "teamScore",
+        "opponentScore",
+        "minutes",
+        "fieldGoalsMade",
+        "fieldGoalsAttempted",
+        "fieldGoalPct",
+        "threePointsMade",
+        "threePointsAttempted",
+        "threePointPct",
+        "freeThrowsMade",
+        "freeThrowsAttempted",
+        "freeThrowPct",
+        "rebounds",
+        "assists",
+        "blocks",
+        "steals",
+        "fouls",
+        "turnovers",
+        "points",
+        "detailAvailable"
+      ],
+      "title": "GameLogEntry",
+      "type": "object"
+    },
+    "GameResult": {
+      "enum": [
+        "win",
+        "loss"
+      ],
+      "title": "GameResult",
+      "type": "string"
+    },
+    "GameTag": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/TagKind"
+        },
+        "conference": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Conference"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "round": {
+          "anyOf": [
+            {
+              "maximum": 4,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "game": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "kind",
+        "conference",
+        "round",
+        "game"
+      ],
+      "title": "GameTag",
+      "type": "object"
+    },
+    "Height": {
+      "additionalProperties": false,
+      "properties": {
+        "display": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "cm": {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "display",
+        "cm"
+      ],
+      "title": "Height",
+      "type": "object"
+    },
+    "InjuryStatus": {
+      "enum": [
+        "out",
+        "doubtful",
+        "questionable",
+        "probable",
+        "day-to-day"
+      ],
+      "title": "InjuryStatus",
+      "type": "string"
+    },
+    "MilestoneCounts": {
+      "additionalProperties": false,
+      "properties": {
+        "doubleDoubles": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "tripleDoubles": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "disqualifications": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "ejections": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "technicals": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "flagrants": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "assistTurnoverRatio": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "stealTurnoverRatio": {
+          "minimum": 0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "doubleDoubles",
+        "tripleDoubles",
+        "disqualifications",
+        "ejections",
+        "technicals",
+        "flagrants",
+        "assistTurnoverRatio",
+        "stealTurnoverRatio"
+      ],
+      "title": "MilestoneCounts",
+      "type": "object"
+    },
+    "Milestones": {
+      "additionalProperties": false,
+      "properties": {
+        "season": {
+          "pattern": "^\\d{4}-\\d{2}$",
+          "type": "string"
+        },
+        "current": {
+          "$ref": "#/$defs/MilestoneCounts"
+        },
+        "career": {
+          "$ref": "#/$defs/MilestoneCounts"
+        }
+      },
+      "required": [
+        "season",
+        "current",
+        "career"
+      ],
+      "title": "Milestones",
+      "type": "object"
+    },
+    "NextGame": {
+      "additionalProperties": false,
+      "properties": {
+        "gameId": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "startTime": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "opponent": {
+          "pattern": "^[A-Z]{3}$",
+          "type": "string"
+        },
+        "isHome": {
+          "type": "boolean"
+        },
+        "tag": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GameTag"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "arena": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "city": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "broadcast": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "detailAvailable": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "gameId",
+        "startTime",
+        "opponent",
+        "isHome",
+        "tag",
+        "arena",
+        "city",
+        "broadcast",
+        "detailAvailable"
+      ],
+      "title": "NextGame",
+      "type": "object"
+    },
+    "PlayerInjury": {
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/InjuryStatus"
+        },
+        "comment": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "updatedAt": {
+          "format": "date-time",
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "comment",
+        "updatedAt"
+      ],
+      "title": "PlayerInjury",
+      "type": "object"
+    },
+    "PlayerLive": {
+      "additionalProperties": false,
+      "properties": {
+        "gameId": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "opponent": {
+          "pattern": "^[A-Z]{3}$",
+          "type": "string"
+        },
+        "isHome": {
+          "type": "boolean"
+        },
+        "period": {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        "clock": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "teamScore": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "opponentScore": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "line": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BoxScorePlayer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "gameId",
+        "opponent",
+        "isHome",
+        "period",
+        "clock",
+        "teamScore",
+        "opponentScore",
+        "line"
+      ],
+      "title": "PlayerLive",
+      "type": "object"
+    },
+    "Profile": {
+      "additionalProperties": false,
+      "properties": {
+        "height": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Height"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "weight": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Weight"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "birthDate": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "age": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "birthplace": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Birthplace"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "college": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "draft": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Draft"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "seasons": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "debutSeason": {
+          "anyOf": [
+            {
+              "pattern": "^\\d{4}-\\d{2}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "height",
+        "weight",
+        "birthDate",
+        "age",
+        "birthplace",
+        "college",
+        "draft",
+        "seasons",
+        "debutSeason"
+      ],
+      "title": "Profile",
+      "type": "object"
+    },
+    "RankedPercentage": {
+      "additionalProperties": false,
+      "properties": {
+        "value": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "rank": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "value",
+        "rank"
+      ],
+      "title": "RankedPercentage",
+      "type": "object"
+    },
+    "RankedStat": {
+      "additionalProperties": false,
+      "properties": {
+        "value": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "rank": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "value",
+        "rank"
+      ],
+      "title": "RankedStat",
+      "type": "object"
+    },
+    "SeasonAverageRow": {
+      "additionalProperties": false,
+      "properties": {
+        "gamesPlayed": {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        "minutes": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "fieldGoalPct": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "threePointPct": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "freeThrowPct": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "rebounds": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "assists": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "blocks": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "steals": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "fouls": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "turnovers": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "points": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "season": {
+          "pattern": "^\\d{4}-\\d{2}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "gamesPlayed",
+        "minutes",
+        "fieldGoalPct",
+        "threePointPct",
+        "freeThrowPct",
+        "rebounds",
+        "assists",
+        "blocks",
+        "steals",
+        "fouls",
+        "turnovers",
+        "points",
+        "season"
+      ],
+      "title": "SeasonAverageRow",
+      "type": "object"
+    },
+    "SeasonRow": {
+      "additionalProperties": false,
+      "properties": {
+        "gamesPlayed": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "gamesStarted": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "minutes": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "fieldGoalsMade": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "fieldGoalsAttempted": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "fieldGoalPct": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "threePointsMade": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "threePointsAttempted": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "threePointPct": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "freeThrowsMade": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "freeThrowsAttempted": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "freeThrowPct": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "offensiveRebounds": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "defensiveRebounds": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "rebounds": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "assists": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "blocks": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "steals": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "fouls": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "turnovers": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "points": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "season": {
+          "pattern": "^\\d{4}-\\d{2}$",
+          "type": "string"
+        },
+        "teams": {
+          "items": {
+            "pattern": "^[A-Z]{3}$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "gamesPlayed",
+        "gamesStarted",
+        "minutes",
+        "fieldGoalsMade",
+        "fieldGoalsAttempted",
+        "fieldGoalPct",
+        "threePointsMade",
+        "threePointsAttempted",
+        "threePointPct",
+        "freeThrowsMade",
+        "freeThrowsAttempted",
+        "freeThrowPct",
+        "offensiveRebounds",
+        "defensiveRebounds",
+        "rebounds",
+        "assists",
+        "blocks",
+        "steals",
+        "fouls",
+        "turnovers",
+        "points",
+        "season",
+        "teams"
+      ],
+      "title": "SeasonRow",
+      "type": "object"
+    },
+    "SeasonSplit": {
+      "additionalProperties": false,
+      "properties": {
+        "perGame": {
+          "items": {
+            "$ref": "#/$defs/SeasonRow"
+          },
+          "type": "array"
+        },
+        "totals": {
+          "items": {
+            "$ref": "#/$defs/SeasonRow"
+          },
+          "type": "array"
+        },
+        "career": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CareerRows"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "perGame",
+        "totals",
+        "career"
+      ],
+      "title": "SeasonSplit",
+      "type": "object"
+    },
+    "Seasons": {
+      "additionalProperties": false,
+      "properties": {
+        "regular": {
+          "$ref": "#/$defs/SeasonSplit"
+        },
+        "playoffs": {
+          "$ref": "#/$defs/SeasonSplit"
+        }
+      },
+      "required": [
+        "regular",
+        "playoffs"
+      ],
+      "title": "Seasons",
+      "type": "object"
+    },
+    "StatRow": {
+      "additionalProperties": false,
+      "properties": {
+        "gamesPlayed": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "gamesStarted": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "minutes": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "fieldGoalsMade": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "fieldGoalsAttempted": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "fieldGoalPct": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "threePointsMade": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "threePointsAttempted": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "threePointPct": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "freeThrowsMade": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "freeThrowsAttempted": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "freeThrowPct": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "offensiveRebounds": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "defensiveRebounds": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "rebounds": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "assists": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "blocks": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "steals": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "fouls": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "turnovers": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "points": {
+          "minimum": 0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "gamesPlayed",
+        "gamesStarted",
+        "minutes",
+        "fieldGoalsMade",
+        "fieldGoalsAttempted",
+        "fieldGoalPct",
+        "threePointsMade",
+        "threePointsAttempted",
+        "threePointPct",
+        "freeThrowsMade",
+        "freeThrowsAttempted",
+        "freeThrowPct",
+        "offensiveRebounds",
+        "defensiveRebounds",
+        "rebounds",
+        "assists",
+        "blocks",
+        "steals",
+        "fouls",
+        "turnovers",
+        "points"
+      ],
+      "title": "StatRow",
+      "type": "object"
+    },
+    "Summary": {
+      "additionalProperties": false,
+      "properties": {
+        "season": {
+          "pattern": "^\\d{4}-\\d{2}$",
+          "type": "string"
+        },
+        "points": {
+          "$ref": "#/$defs/RankedStat"
+        },
+        "rebounds": {
+          "$ref": "#/$defs/RankedStat"
+        },
+        "assists": {
+          "$ref": "#/$defs/RankedStat"
+        },
+        "fieldGoalPct": {
+          "$ref": "#/$defs/RankedPercentage"
+        }
+      },
+      "required": [
+        "season",
+        "points",
+        "rebounds",
+        "assists",
+        "fieldGoalPct"
+      ],
+      "title": "Summary",
+      "type": "object"
+    },
+    "TagKind": {
+      "enum": [
+        "cup",
+        "playoffs",
+        "allstar"
+      ],
+      "title": "TagKind",
+      "type": "string"
+    },
+    "Team": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "pattern": "^[A-Z]{3}$",
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "city": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "name",
+        "city"
+      ],
+      "title": "Team",
+      "type": "object"
+    },
+    "Weight": {
+      "additionalProperties": false,
+      "properties": {
+        "lb": {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        "kg": {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "lb",
+        "kg"
+      ],
+      "title": "Weight",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "firstName": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "lastName": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "number": {
+      "anyOf": [
+        {
+          "pattern": "^\\d{1,2}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "position": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "team": {
+      "$ref": "#/$defs/Team"
+    },
+    "photoUrl": {
+      "anyOf": [
+        {
+          "format": "uri",
+          "maxLength": 2083,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "injury": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PlayerInjury"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "profile": {
+      "$ref": "#/$defs/Profile"
+    },
+    "summary": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Summary"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "nextGame": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/NextGame"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "live": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PlayerLive"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "lastGames": {
+      "items": {
+        "$ref": "#/$defs/GameLogEntry"
+      },
+      "maxItems": 5,
+      "type": "array"
+    },
+    "averages": {
+      "$ref": "#/$defs/Averages"
+    },
+    "seasons": {
+      "$ref": "#/$defs/Seasons"
+    },
+    "milestones": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Milestones"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "gameLog": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/GameLog"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "awards": {
+      "items": {
+        "$ref": "#/$defs/Award"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "id",
+    "firstName",
+    "lastName",
+    "number",
+    "position",
+    "team",
+    "photoUrl",
+    "injury",
+    "profile",
+    "summary",
+    "nextGame",
+    "live",
+    "lastGames",
+    "averages",
+    "seasons",
+    "milestones",
+    "gameLog",
+    "awards"
+  ],
+  "title": "PlayerFeed",
+  "type": "object"
+}
