@@ -100,12 +100,24 @@ Rules that live in the code:
 
 ## Refresh behavior
 
-Per ADR 0007: the schedule and stars refreshed once a day in the morning US
-Eastern time; the day change of
-[ADR 0013](../adr/0013-day-change.md); every minute from a game's scheduled start until it is live;
-every 30 seconds while it is live; highlights one attempt 1, 2 and 3 hours
+The cadences of [`docs/source-rules.md`](../source-rules.md)
+([ADR 0020](../adr/0020-source-rules.md)): the schedule and stars refreshed
+once a day in the morning US Eastern time; the day change of
+[ADR 0013](../adr/0013-day-change.md); every minute from a game's scheduled
+start until it is live; while it is live, every 30 seconds with someone
+present (a feed request in the last 5 minutes) and every 2 minutes with
+nobody, with each live game's detail; highlights one attempt 1, 2 and 3 hours
 after the final time; a final game's detail when it becomes final and, after
 a failure, 2, 4 and 6 hours after the final time.
+
+- A games feed request that finds a live day refreshed 30 seconds ago or more
+  triggers one immediate refresh, shared by concurrent requests, and waits for
+  it up to 20 seconds.
+- With no live game the live refresh stops, and resumes at the start time of
+  the next game.
+- The games job also starts the build of a final game's detail feed at the
+  same attempt times (see [game detail](game-detail.md)), without waiting for
+  it.
 
 - The stars of all teams are fetched concurrently in their own task and never
   delay the live refresh. After a start, no games feed is published until

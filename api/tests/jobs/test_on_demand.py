@@ -25,6 +25,14 @@
 # - Treats a stored file that fails validation as missing and builds it
 # - The cleanup deletes only invalid ids, with no build, check or source request
 # - Rejects a second kind with the same name and a kind name that is not a safe id
+# - A stale feed whose kind waits when stale is rebuilt while the request waits and the new body is served
+# - Concurrent waiting requests share one rebuild
+# - A waiting request is served the stored body when the rebuild fails or outlives the wait, and the shielded build still finishes
+# - A stale feed whose wait_when_stale is false is served at once
+# - Within 10 minutes of a failure a waiting kind serves the stored feed with no build
+# - serve with a wait override of 0 serves a stale waiting feed's stored body at once with the rebuild in flight
+# - serve with a wait override of 0 answers unavailable at once for a missing feed, and the wait property reports the configured wait
+# - refresh starts one build without waiting, joins one in flight and leaves no task referenced
 #
 # What is covered:
 # - Happy path (fresh, missing built), edge cases (stale, concurrent, semaphore, restart, no build time, invalid stored file), error cases (failed build, timeout, unknown and not ready)
@@ -571,3 +579,166 @@ def test_rejects_a_second_kind_with_the_same_name_and_a_kind_name_that_is_not_a_
         setup.cache.register(Fake().kind())
     with pytest.raises(ValueError, match="safe id"):
         setup.cache.register(Fake("../x").kind())
+
+
+def waiting(setup: Setup, value: bool = True) -> None:
+    setup.cache._kinds["players"].wait_when_stale = lambda feed_id: value
+
+
+async def stale_setup(path: Path, *, wait: float = 5.0, value: bool = True) -> Setup:
+    fake = Fake()
+    setup = Setup(path, fake)
+    await setup.cache.serve("players", "p1")
+    setup.cache._wait = wait
+    setup.now[0] = T + 2 * HOUR
+    fake.version = 2
+    waiting(setup, value)
+    return setup
+
+
+@pytest.mark.anyio
+async def test_a_stale_feed_whose_kind_waits_is_rebuilt_while_the_request_waits(
+    tmp_path: Path,
+) -> None:
+    setup = await stale_setup(tmp_path)
+
+    body = await setup.cache.serve("players", "p1")
+
+    assert body == body_of(2)
+    assert setup.fake.builds == 2
+    assert setup.stored() == body_of(2)
+
+
+@pytest.mark.anyio
+async def test_concurrent_waiting_requests_share_one_rebuild(tmp_path: Path) -> None:
+    setup = await stale_setup(tmp_path)
+    setup.fake.gate = asyncio.Event()
+
+    tasks = [asyncio.create_task(setup.cache.serve("players", "p1")) for _ in range(3)]
+    for _ in range(5):
+        await asyncio.sleep(0)
+    setup.fake.gate.set()
+    bodies = await asyncio.gather(*tasks)
+
+    assert bodies == [body_of(2)] * 3
+    assert setup.fake.builds == 2
+
+
+@pytest.mark.anyio
+async def test_a_waiting_request_is_served_the_stored_body_when_the_rebuild_fails(
+    tmp_path: Path,
+) -> None:
+    setup = await stale_setup(tmp_path)
+    setup.fake.fail = SourceError("x", "down")
+
+    body = await setup.cache.serve("players", "p1")
+
+    assert body == body_of(1)
+    assert setup.fake.builds == 2
+    assert [f.kind for f in setup.store.failed_feed_builds()] == ["players"]
+
+
+@pytest.mark.anyio
+async def test_a_waiting_request_is_served_the_stored_body_when_the_rebuild_outlives_the_wait(
+    tmp_path: Path,
+) -> None:
+    setup = await stale_setup(tmp_path, wait=0)
+    setup.fake.gate = asyncio.Event()
+
+    body = await setup.cache.serve("players", "p1")
+
+    assert body == body_of(1)
+    task = setup.cache.in_flight[("players", "p1")]
+    assert not task.cancelled()
+    setup.fake.gate.set()
+    await task
+    await asyncio.sleep(0)
+    assert setup.stored() == body_of(2)
+    assert setup.cache.in_flight == {}
+
+
+@pytest.mark.anyio
+async def test_a_stale_feed_whose_wait_when_stale_is_false_is_served_at_once(
+    tmp_path: Path,
+) -> None:
+    setup = await stale_setup(tmp_path, value=False)
+    setup.fake.gate = asyncio.Event()
+
+    body = await setup.cache.serve("players", "p1")
+
+    assert body == body_of(1)
+    await asyncio.sleep(0)
+    assert setup.fake.builds == 2
+    assert setup.fake.running == 1
+    setup.fake.gate.set()
+    await setup.settle()
+
+
+@pytest.mark.anyio
+async def test_a_waiting_kind_serves_the_stored_feed_with_no_build_within_10_minutes_of_a_failure(
+    tmp_path: Path,
+) -> None:
+    setup = await stale_setup(tmp_path)
+    setup.store.record_build_failure("players", "p1", T + 2 * HOUR, "down")
+    setup.now[0] = T + 2 * HOUR + RETRY_AFTER / 2
+
+    body = await setup.cache.serve("players", "p1")
+
+    assert body == body_of(1)
+    assert setup.fake.builds == 1
+
+
+@pytest.mark.anyio
+async def test_refresh_starts_one_build_without_waiting_and_joins_one_in_flight(
+    tmp_path: Path,
+) -> None:
+    fake = Fake()
+    fake.gate = asyncio.Event()
+    setup = Setup(tmp_path, fake)
+
+    setup.cache.refresh("players", "p1")
+    setup.cache.refresh("players", "p1")
+    for _ in range(3):
+        await asyncio.sleep(0)
+
+    assert fake.builds == 1
+    assert list(setup.cache.in_flight) == [("players", "p1")]
+    fake.gate.set()
+    await setup.settle()
+    assert setup.stored() == body_of(1)
+    assert setup.cache.in_flight == {}
+
+
+@pytest.mark.anyio
+async def test_serve_with_a_wait_override_of_0_serves_the_stored_body_of_a_stale_waiting_feed_at_once(
+    tmp_path: Path,
+) -> None:
+    setup = await stale_setup(tmp_path, wait=60.0)
+    setup.fake.gate = asyncio.Event()
+
+    async with asyncio.timeout(1):
+        body = await setup.cache.serve("players", "p1", wait=0)
+
+    assert body == body_of(1)
+    assert ("players", "p1") in setup.cache.in_flight
+    setup.fake.gate.set()
+    await setup.settle()
+    assert setup.stored() == body_of(2)
+
+
+@pytest.mark.anyio
+async def test_serve_with_a_wait_override_of_0_answers_unavailable_at_once_for_a_missing_feed(
+    tmp_path: Path,
+) -> None:
+    fake = Fake()
+    fake.gate = asyncio.Event()
+    setup = Setup(tmp_path, fake, wait=60.0)
+
+    assert setup.cache.wait == 60.0
+    async with asyncio.timeout(1):
+        with pytest.raises(FeedUnavailableError):
+            await setup.cache.serve("players", "p1", wait=0)
+
+    fake.gate.set()
+    await setup.settle()
+    assert setup.stored() == body_of(1)

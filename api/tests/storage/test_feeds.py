@@ -10,12 +10,6 @@
 # - Leaves no temporary file behind
 # - Keeps the last valid feed when the write fails
 # - Reads nothing before the first publication
-# - Publishes a game detail feed under games by its id
-# - Never writes an invalid game detail feed and keeps the last valid one
-# - Refuses a game detail feed whose id is not a game id
-# - Reads no game detail for an unknown or unsafe id
-# - Lists the published game details without temporary files
-# - Deletes a game detail and ignores one that is missing
 # - Publishes a feed by id under its directory, validated and readable back
 # - Never writes an invalid feed by id and keeps the last valid one
 # - Refuses a feed id or a directory that is not a safe id
@@ -41,15 +35,11 @@ from app.feeds.game_detail import GameDetailFeed
 from app.feeds.games import GamesFeed, GameStatus
 from app.storage.feeds import (
     delete_by_id,
-    delete_game_detail,
     publish_by_id,
     publish_feed,
-    publish_game_detail,
-    published_game_details,
     published_ids,
     read_by_id,
     read_feed,
-    read_game_detail,
 )
 
 GENERATED_AT = dt.datetime(2026, 1, 10, 12, 0, tzinfo=dt.UTC)
@@ -160,67 +150,6 @@ def detail_feed(game_id: str = "401") -> GameDetailFeed:
 
 def invalid_detail_feed() -> GameDetailFeed:
     return detail_feed().model_copy(update={"status": GameStatus.FINAL})
-
-
-def test_publishes_a_game_detail_feed_under_games_by_its_id(tmp_path: Path) -> None:
-    feed = detail_feed("401")
-
-    assert publish_game_detail(tmp_path, feed) is True
-    assert (tmp_path / "feeds" / "games" / "401.json").is_file()
-    assert read_game_detail(tmp_path, "401") == feed.model_dump_json().encode("utf-8")
-
-
-def test_never_writes_an_invalid_game_detail_feed_and_keeps_the_last_valid_one(
-    tmp_path: Path,
-) -> None:
-    assert publish_game_detail(tmp_path, invalid_detail_feed()) is False
-    assert read_game_detail(tmp_path, "401") is None
-    publish_game_detail(tmp_path, detail_feed())
-    before = read_game_detail(tmp_path, "401")
-
-    assert publish_game_detail(tmp_path, invalid_detail_feed()) is False
-    assert read_game_detail(tmp_path, "401") == before
-
-
-def test_refuses_a_game_detail_feed_whose_id_is_not_a_game_id(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture
-) -> None:
-    with caplog.at_level(logging.ERROR):
-        assert publish_game_detail(tmp_path, detail_feed("../x")) is False
-
-    assert "invalid game id" in caplog.text
-    assert not (tmp_path / "feeds").exists()
-
-
-def test_reads_no_game_detail_for_an_unknown_or_unsafe_id(tmp_path: Path) -> None:
-    publish_game_detail(tmp_path, detail_feed())
-
-    assert read_game_detail(tmp_path, "404") is None
-    assert read_game_detail(tmp_path, "..") is None
-    assert read_game_detail(tmp_path, "a.b") is None
-
-
-def test_lists_the_published_game_details_without_temporary_files(
-    tmp_path: Path,
-) -> None:
-    assert published_game_details(tmp_path) == set()
-    publish_game_detail(tmp_path, detail_feed("1"))
-    publish_game_detail(tmp_path, detail_feed("2"))
-    (tmp_path / "feeds" / "games" / ".3.abc.tmp").write_bytes(b"x")
-
-    assert published_game_details(tmp_path) == {"1", "2"}
-
-
-def test_deletes_a_game_detail_and_ignores_one_that_is_missing(
-    tmp_path: Path,
-) -> None:
-    publish_game_detail(tmp_path, detail_feed("1"))
-
-    delete_game_detail(tmp_path, "1")
-    delete_game_detail(tmp_path, "1")
-    delete_game_detail(tmp_path, "../x")
-
-    assert read_game_detail(tmp_path, "1") is None
 
 
 def test_publishes_a_feed_by_id_under_its_directory_validated_and_readable_back(

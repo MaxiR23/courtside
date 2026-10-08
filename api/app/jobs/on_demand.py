@@ -59,6 +59,7 @@ class FeedKind[M: BaseModel]:
         is_fresh: Callable[[M, dt.datetime, dt.datetime], bool],
         keep: Callable[[str], bool],
         serve_with: Callable[[str, M], M] | None = None,
+        wait_when_stale: Callable[[str], bool] | None = None,
     ) -> None:
         self.name = name
         self.model = model
@@ -67,6 +68,7 @@ class FeedKind[M: BaseModel]:
         self.is_fresh = is_fresh
         self.keep = keep
         self.serve_with = serve_with
+        self.wait_when_stale = wait_when_stale
 
 
 class FeedCache:
@@ -93,7 +95,15 @@ class FeedCache:
             raise ValueError(f"feed kind already registered: {kind.name}")
         self._kinds[kind.name] = kind
 
-    async def serve(self, kind: str, feed_id: str) -> bytes:
+    @property
+    def wait(self) -> float:
+        """The configured wait of a request, in seconds."""
+        return self._wait
+
+    async def serve(
+        self, kind: str, feed_id: str, *, wait: float | None = None
+    ) -> bytes:
+        budget = self._wait if wait is None else wait
         feed_kind = self._kinds[kind]
         status = feed_kind.check(feed_id)
         if status is IdStatus.UNKNOWN:
@@ -118,8 +128,28 @@ class FeedCache:
 
         if body is not None and feed is not None:
             fresh = last_build is not None and feed_kind.is_fresh(feed, last_build, now)
-            if not fresh and key not in self.in_flight and not retrying:
-                self._start(feed_kind, feed_id)
+            current = self.in_flight.get(key)
+            if not fresh and current is None and not retrying:
+                current = self._start(feed_kind, feed_id)
+            if (
+                not fresh
+                and current is not None
+                and feed_kind.wait_when_stale is not None
+                and feed_kind.wait_when_stale(feed_id)
+            ):
+                try:
+                    ok = await asyncio.wait_for(asyncio.shield(current), budget)
+                except TimeoutError:
+                    ok = False
+                if ok:
+                    rebuilt = read_by_id(self._data_dir, kind, feed_id)
+                    if rebuilt is not None:
+                        try:
+                            feed = feed_kind.model.model_validate_json(rebuilt)
+                        except ValidationError:
+                            pass
+                        else:
+                            body = rebuilt
             return self._respond(feed_kind, feed_id, feed, body)
 
         task = self.in_flight.get(key)
@@ -128,7 +158,7 @@ class FeedCache:
                 raise FeedUnavailableError(f"{kind} {feed_id} failed recently")
             task = self._start(feed_kind, feed_id)
         try:
-            ok = await asyncio.wait_for(asyncio.shield(task), self._wait)
+            ok = await asyncio.wait_for(asyncio.shield(task), budget)
         except TimeoutError:
             raise FeedUnavailableError(f"{kind} {feed_id} is still building") from None
         if not ok:
@@ -143,6 +173,11 @@ class FeedCache:
                 f"{kind} {feed_id} stored file is invalid"
             ) from None
         return self._respond(feed_kind, feed_id, feed, body)
+
+    def refresh(self, kind: str, feed_id: str) -> None:
+        """Starts a build of the feed unless one is in flight; never waits."""
+        if (kind, feed_id) not in self.in_flight:
+            self._start(self._kinds[kind], feed_id)
 
     def _respond(
         self, kind: FeedKind[Any], feed_id: str, feed: BaseModel, body: bytes

@@ -35,6 +35,15 @@
 # - The cleanup runs only with the daily fetch
 # - A failed scoreboard fetch, live detail fetch or invalid feed keeps the last valid feed and records the reason
 # - Asks a live game's detail with a thirty second maximum age, and a final game's detail attempt fetched at or after its due time, never with a maximum age
+# - A live day is refreshed every 2 minutes with nobody present and every 30 seconds with someone present
+# - A request that finds live data 30 seconds old or more refreshes once, also with concurrent requests, and not under 30 seconds
+# - A detail request refreshes only when its game is live, and nothing refreshes with no live game
+# - A failed or unexpectedly failing request refresh is recorded and never raises
+# - A request refresh that outlives its wait still completes
+# - The live refresh stops with no live game and resumes at the start time of the next game
+# - refreshed_at is the time the day was last fetched, and none for an unknown game
+# - The after-run hook is called after every run, also after a failed fetch
+# - A request refresh never runs at the same time as a scheduled run
 #
 # What is covered:
 # - Pure logic: happy path, edge cases, error case
@@ -47,6 +56,7 @@
 #
 # SEE: api/app/jobs/games.py
 
+import asyncio
 import datetime as dt
 from collections.abc import Iterator
 from pathlib import Path
@@ -74,6 +84,7 @@ from app.feeds.games import (
 from app.jobs.games import (
     JOB,
     LIVE_INTERVAL,
+    NOBODY_INTERVAL,
     STATS_ATTEMPT_DELAYS,
     FeedBuildError,
     GamesJob,
@@ -83,6 +94,7 @@ from app.jobs.games import (
     final_winner,
     stats_availability,
 )
+from app.jobs.presence import Presence
 from app.settings import Settings
 from app.sources.game_detail import GameDetail
 from app.sources.http import Freshness, SourceError, create_client
@@ -173,11 +185,17 @@ class FakeSources:
         self.game_calls: list[dt.date] = []
         self.detail_calls: list[str] = []
         self.fresh_calls: list[tuple[str, Freshness]] = []
+        self.gate: asyncio.Event | None = None
+        self.unexpected: Exception | None = None
 
     async def fetch_games(
         self, client: httpx.AsyncClient, day: dt.date, settings: Settings
     ) -> list[ScoreboardGame]:
         self.game_calls.append(day)
+        if self.gate is not None:
+            await self.gate.wait()
+        if self.unexpected is not None:
+            raise self.unexpected
         if day in self.day_errors:
             raise self.day_errors[day]
         return list(self.games.get(day, []))
@@ -245,10 +263,11 @@ def make_job(
     highlights: Any = None,
     stars: Any = None,
     stars_ready: Any = None,
-) -> GamesJob:
-    extra: dict[str, Any] = {}
+    **more: Any,
+) -> ClockedGamesJob:
+    extra: dict[str, Any] = dict(more)
     if with_inputs:
-        extra = {
+        extra |= {
             "stars": lambda _: STARS,
             "highlights_search_url": lambda _: SEARCH_URL,
         }
@@ -1467,3 +1486,263 @@ async def test_never_asks_a_final_detail_with_a_maximum_age(
     assert final_time is not None
     assert sources.fresh_calls == [("1", final_time)]
     assert isinstance(sources.fresh_calls[0][1], dt.datetime)
+
+
+# Group 7: presence, requests and the live cadence
+
+
+def seconds(count: int) -> dt.timedelta:
+    return dt.timedelta(seconds=count)
+
+
+async def settle() -> None:
+    for _ in range(10):
+        await asyncio.sleep(0)
+
+
+@pytest.mark.anyio
+async def test_refreshes_a_live_day_every_two_minutes_with_nobody_present(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    sources.games[TODAY] = [game("1", GameStatus.LIVE), game("2", GameStatus.LIVE)]
+    job = make_job(settings, store, sources, present=lambda now: False)
+    await job.run(NOON)
+    sources.game_calls.clear()
+    sources.detail_calls.clear()
+
+    for offset in (30, 60, 90):
+        await job.run(NOON + seconds(offset))
+    assert (sources.game_calls, sources.detail_calls) == ([], [])
+    await job.run(NOON + seconds(120))
+
+    assert NOBODY_INTERVAL == dt.timedelta(minutes=2)
+    assert sources.game_calls == [TODAY]
+    assert sources.detail_calls == ["1", "2"]
+
+
+@pytest.mark.anyio
+async def test_refreshes_a_live_day_every_thirty_seconds_with_someone_present(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    sources.games[TODAY] = [game("1", GameStatus.LIVE)]
+    near = Presence(clock=lambda: NOON)
+    near.seen()
+    old = Presence(clock=lambda: NOON - dt.timedelta(minutes=6))
+    old.seen()
+
+    for presence, expected in ((near, [TODAY]), (old, [])):
+        sources.game_calls.clear()
+        job = make_job(settings, store, sources, present=presence.present)
+        await job.run(NOON)
+        sources.game_calls.clear()
+        await job.run(NOON + seconds(30))
+        assert sources.game_calls == expected
+        if not expected:
+            await job.run(NOON + seconds(120))
+            assert sources.game_calls == [TODAY]
+
+
+@pytest.mark.anyio
+async def test_a_request_with_live_data_thirty_seconds_old_refreshes_once_even_with_concurrent_requests(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    sources.games[TODAY] = [game("1", GameStatus.LIVE), game("2", GameStatus.LIVE)]
+    job = make_job(settings, store, sources, present=lambda now: False)
+    await job.run(NOON)
+    sources.game_calls.clear()
+    sources.detail_calls.clear()
+    job.clock_now = NOON + seconds(31)
+    sources.gate = asyncio.Event()
+
+    first = asyncio.create_task(job.refresh_live())
+    second = asyncio.create_task(job.refresh_live())
+    await settle()
+    sources.gate.set()
+    await asyncio.gather(first, second)
+    await job.refresh_live()
+
+    assert sources.game_calls == [TODAY]
+    assert sources.detail_calls == ["1", "2"]
+
+
+@pytest.mark.anyio
+async def test_a_request_with_live_data_under_thirty_seconds_old_does_not_refresh(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    sources.games[TODAY] = [game("1", GameStatus.LIVE)]
+    job = make_job(settings, store, sources)
+    await job.run(NOON)
+    sources.game_calls.clear()
+    job.clock_now = NOON + seconds(29)
+
+    await job.refresh_live()
+    await job.refresh_live("1")
+
+    assert sources.game_calls == []
+
+
+@pytest.mark.anyio
+async def test_a_detail_request_refreshes_only_when_its_game_is_live(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    later = NOON + dt.timedelta(hours=2)
+    sources.games[TODAY] = [
+        game("1", GameStatus.LIVE),
+        game("2", GameStatus.SCHEDULED, start=later),
+    ]
+    job = make_job(settings, store, sources, present=lambda now: False)
+    await job.run(NOON)
+    sources.game_calls.clear()
+    job.clock_now = NOON + seconds(31)
+
+    await job.refresh_live("2")
+    await job.refresh_live("unknown")
+    assert sources.game_calls == []
+    await job.refresh_live("1")
+
+    assert sources.game_calls == [TODAY]
+
+
+@pytest.mark.anyio
+async def test_a_request_with_no_live_game_does_not_refresh(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    sources.games[TODAY] = [game("1", GameStatus.FINAL)]
+    job = make_job(settings, store, sources)
+    await job.run(NOON)
+    sources.game_calls.clear()
+    job.clock_now = NOON + dt.timedelta(hours=1)
+
+    await job.refresh_live()
+
+    assert sources.game_calls == []
+
+
+@pytest.mark.anyio
+async def test_a_request_refresh_that_fails_records_the_failure_and_returns(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    sources.games[TODAY] = [game("1", GameStatus.LIVE)]
+    job = make_job(settings, store, sources)
+    await job.run(NOON)
+    job.clock_now = NOON + seconds(31)
+    sources.day_errors[TODAY] = SourceError("scoreboard", "down")
+
+    await job.refresh_live()
+
+    assert reason(store) is not None
+    assert "down" in (reason(store) or "")
+    del sources.day_errors[TODAY]
+    sources.unexpected = RuntimeError("boom")
+    job.clock_now = NOON + seconds(62)
+
+    await job.refresh_live()
+    await settle()
+
+    assert reason(store) == "unexpected error: RuntimeError"
+
+
+@pytest.mark.anyio
+async def test_a_request_refresh_outlives_its_wait_and_still_completes(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    sources.games[TODAY] = [game("1", GameStatus.LIVE)]
+    job = make_job(settings, store, sources)
+    await job.run(NOON)
+    first = read_feed(settings.data_dir, "games")
+    job.clock_now = NOON + seconds(31)
+    sources.games[TODAY] = [game("1", GameStatus.LIVE, score=Score(away=50, home=48))]
+    sources.gate = asyncio.Event()
+
+    await job.refresh_live(wait=0.01)
+
+    assert read_feed(settings.data_dir, "games") == first
+    sources.gate.set()
+    await settle()
+    second = read_feed(settings.data_dir, "games")
+    assert second is not None
+    assert second != first
+    assert b'"away":50' in second.replace(b" ", b"")
+
+
+@pytest.mark.anyio
+async def test_stops_the_live_refresh_with_no_live_game_and_resumes_at_the_next_start_time(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    start = NOON + dt.timedelta(hours=3)
+    sources.games[TODAY] = [
+        game("1", GameStatus.LIVE),
+        game("2", GameStatus.SCHEDULED, start=start),
+    ]
+    job = make_job(settings, store, sources)
+    await job.run(NOON)
+    sources.games[TODAY] = [
+        game("1", GameStatus.FINAL),
+        game("2", GameStatus.SCHEDULED, start=start),
+    ]
+    await job.run(NOON + seconds(30))
+    sources.game_calls.clear()
+
+    moment = NOON + seconds(60)
+    while moment < start:
+        await job.run(moment)
+        moment += seconds(30)
+    assert sources.game_calls == []
+    await job.run(start)
+
+    assert sources.game_calls == [TODAY]
+
+
+@pytest.mark.anyio
+async def test_refreshed_at_is_the_time_its_day_was_last_fetched_and_none_for_an_unknown_game(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    sources.games[TODAY] = [game("1", GameStatus.LIVE)]
+    job = make_job(settings, store, sources)
+    assert job.refreshed_at("1") is None
+    await job.run(NOON)
+    assert job.refreshed_at("1") == NOON
+    await job.run(NOON + seconds(30))
+
+    assert job.refreshed_at("1") == NOON + seconds(30)
+    assert job.refreshed_at("unknown") is None
+
+
+@pytest.mark.anyio
+async def test_calls_the_after_run_hook_after_every_run_also_after_a_failed_fetch(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    calls: list[int] = []
+    sources.games[TODAY] = [game("1", GameStatus.LIVE)]
+    job = make_job(settings, store, sources, after_run=lambda: calls.append(1))
+
+    await job.run(NOON)
+    await job.run(NOON + seconds(30))
+    sources.day_errors[TODAY] = SourceError("scoreboard", "down")
+    await job.run(NOON + seconds(60))
+
+    assert len(calls) == 3
+
+
+@pytest.mark.anyio
+async def test_a_request_refresh_never_runs_at_the_same_time_as_a_scheduled_run(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    sources.games[TODAY] = [game("1", GameStatus.LIVE)]
+    job = make_job(settings, store, sources)
+    await job.run(NOON)
+    sources.game_calls.clear()
+    later = NOON + seconds(31)
+    job.clock_now = later
+    sources.gate = asyncio.Event()
+    scheduled = asyncio.create_task(job.run(later))
+    await settle()
+    assert sources.game_calls == [TODAY]
+
+    request = asyncio.create_task(job.refresh_live())
+    await settle()
+    assert sources.game_calls == [TODAY]
+    sources.gate.set()
+    await asyncio.gather(scheduled, request)
+
+    assert sources.game_calls == [TODAY]

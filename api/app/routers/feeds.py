@@ -4,16 +4,23 @@
 #
 # SEE: docs/api/games.md, docs/api/game-detail.md
 
+import asyncio
 import hashlib
 
-from fastapi import APIRouter, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 
+from app.jobs.game_detail_feed import KIND
 from app.jobs.on_demand import FeedCache, FeedUnavailableError, UnknownFeedError
-from app.storage.feeds import read_feed, read_game_detail
+from app.storage.feeds import read_feed
 
-router = APIRouter()
 
-# Below the 30-second live polling interval of ADR 0007.
+def record_presence(request: Request) -> None:
+    request.app.state.presence.seen()
+
+
+router = APIRouter(dependencies=[Depends(record_presence)])
+
+# Below the 30-second live refresh of rule C (docs/source-rules.md); rule K keeps it.
 CACHE_CONTROL = "public, max-age=10"
 
 
@@ -34,7 +41,8 @@ def _serve(body: bytes, request: Request) -> Response:
 
 
 @router.get("/feeds/games.json")
-def read_games_feed(request: Request) -> Response:
+async def read_games_feed(request: Request) -> Response:
+    await request.app.state.games_job.refresh_live()
     body = read_feed(request.app.state.settings.data_dir, "games")
     if body is None:
         raise HTTPException(status_code=503, detail="games feed is not published yet")
@@ -42,18 +50,26 @@ def read_games_feed(request: Request) -> Response:
 
 
 @router.get("/feeds/games/{game_id}.json")
-def read_game_detail_feed(game_id: str, request: Request) -> Response:
-    body = read_game_detail(request.app.state.settings.data_dir, game_id)
-    if body is None:
-        raise HTTPException(status_code=404, detail="game not found")
-    return _serve(body, request)
+async def read_game_detail_feed(game_id: str, request: Request) -> Response:
+    feeds: FeedCache = request.app.state.feed_cache
+    loop = asyncio.get_running_loop()
+    started = loop.time()
+    budget = feeds.wait
+    await request.app.state.games_job.refresh_live(game_id, wait=budget)
+    remaining = max(0.0, budget - (loop.time() - started))
+    return await serve_on_demand(feeds, KIND, game_id, request, wait=remaining)
 
 
 async def serve_on_demand(
-    feeds: FeedCache, kind: str, feed_id: str, request: Request
+    feeds: FeedCache,
+    kind: str,
+    feed_id: str,
+    request: Request,
+    *,
+    wait: float | None = None,
 ) -> Response:
     try:
-        body = await feeds.serve(kind, feed_id)
+        body = await feeds.serve(kind, feed_id, wait=wait)
     except UnknownFeedError:
         raise HTTPException(status_code=404, detail="feed not found") from None
     except FeedUnavailableError:
