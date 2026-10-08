@@ -56,7 +56,11 @@
 	}
 
 	.star img {
-		width: var(--star-photo-scale);
+		width: auto;
+		height: 100%;
+		max-width: 100%;
+		object-fit: contain;
+		object-position: bottom;
 	}
 
 	.photo-placeholder {
