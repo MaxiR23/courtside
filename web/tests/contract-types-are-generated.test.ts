@@ -15,7 +15,9 @@
 // Run with: cd web && pnpm exec vitest run tests/contract-types-are-generated.test.ts
 //
 // SEE: web/scripts/contract-types.js, web/src/lib/contract/games.ts, api/schemas/games.schema.json,
-// web/src/lib/contract/game-detail.ts, api/schemas/game-detail.schema.json
+// web/src/lib/contract/game-detail.ts, api/schemas/game-detail.schema.json,
+// web/src/lib/contract/player.ts, api/schemas/player.schema.json, web/src/lib/contract/team.ts,
+// api/schemas/team.schema.json
 // @vitest-environment node
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';

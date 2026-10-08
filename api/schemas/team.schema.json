@@ -1,0 +1,1040 @@
+{
+  "$defs": {
+    "Coach": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "seasons": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "name",
+        "seasons"
+      ],
+      "title": "Coach",
+      "type": "object"
+    },
+    "Conference": {
+      "enum": [
+        "east",
+        "west"
+      ],
+      "title": "Conference",
+      "type": "string"
+    },
+    "Differential": {
+      "additionalProperties": false,
+      "properties": {
+        "perGame": {
+          "type": "number"
+        },
+        "total": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "perGame",
+        "total"
+      ],
+      "title": "Differential",
+      "type": "object"
+    },
+    "GameKind": {
+      "enum": [
+        "regular",
+        "cup",
+        "playoffs",
+        "allstar"
+      ],
+      "title": "GameKind",
+      "type": "string"
+    },
+    "GameResult": {
+      "enum": [
+        "win",
+        "loss"
+      ],
+      "title": "GameResult",
+      "type": "string"
+    },
+    "GameTag": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/TagKind"
+        },
+        "conference": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Conference"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "round": {
+          "anyOf": [
+            {
+              "maximum": 4,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "game": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "kind",
+        "conference",
+        "round",
+        "game"
+      ],
+      "title": "GameTag",
+      "type": "object"
+    },
+    "InjuryStatus": {
+      "enum": [
+        "out",
+        "doubtful",
+        "questionable",
+        "probable",
+        "day-to-day"
+      ],
+      "title": "InjuryStatus",
+      "type": "string"
+    },
+    "NextGame": {
+      "additionalProperties": false,
+      "properties": {
+        "gameId": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "startTime": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "opponent": {
+          "pattern": "^[A-Z]{3}$",
+          "type": "string"
+        },
+        "isHome": {
+          "type": "boolean"
+        },
+        "tag": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GameTag"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "arena": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "city": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "broadcast": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "detailAvailable": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "gameId",
+        "startTime",
+        "opponent",
+        "isHome",
+        "tag",
+        "arena",
+        "city",
+        "broadcast",
+        "detailAvailable"
+      ],
+      "title": "NextGame",
+      "type": "object"
+    },
+    "PlayoffPosition": {
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/PlayoffStatus"
+        },
+        "seed": {
+          "maximum": 15,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "status",
+        "seed"
+      ],
+      "title": "PlayoffPosition",
+      "type": "object"
+    },
+    "PlayoffStatus": {
+      "enum": [
+        "seed",
+        "playin",
+        "out"
+      ],
+      "title": "PlayoffStatus",
+      "type": "string"
+    },
+    "PointsTotal": {
+      "additionalProperties": false,
+      "properties": {
+        "perGame": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "total": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "perGame",
+        "total"
+      ],
+      "title": "PointsTotal",
+      "type": "object"
+    },
+    "RosterPlayer": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "number": {
+          "anyOf": [
+            {
+              "pattern": "^\\d{1,2}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "position": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "height": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "weight": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "age": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "birthDate": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "birthplace": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "college": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "experience": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "photoUrl": {
+          "anyOf": [
+            {
+              "format": "uri",
+              "maxLength": 2083,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "status": {
+          "anyOf": [
+            {
+              "const": "active",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/InjuryStatus"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "number",
+        "position",
+        "height",
+        "weight",
+        "age",
+        "birthDate",
+        "birthplace",
+        "college",
+        "experience",
+        "photoUrl",
+        "status"
+      ],
+      "title": "RosterPlayer",
+      "type": "object"
+    },
+    "Schedule": {
+      "additionalProperties": false,
+      "properties": {
+        "groups": {
+          "items": {
+            "$ref": "#/$defs/ScheduleGroup"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "defaultGroup": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "groups",
+        "defaultGroup"
+      ],
+      "title": "Schedule",
+      "type": "object"
+    },
+    "ScheduleGame": {
+      "additionalProperties": false,
+      "properties": {
+        "gameId": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "startTime": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "opponent": {
+          "pattern": "^[A-Z]{3}$",
+          "type": "string"
+        },
+        "isHome": {
+          "type": "boolean"
+        },
+        "kind": {
+          "$ref": "#/$defs/GameKind"
+        },
+        "tag": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GameTag"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "result": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GameResult"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "teamScore": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "opponentScore": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "broadcast": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "isNext": {
+          "type": "boolean"
+        },
+        "detailAvailable": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "gameId",
+        "startTime",
+        "opponent",
+        "isHome",
+        "kind",
+        "tag",
+        "result",
+        "teamScore",
+        "opponentScore",
+        "broadcast",
+        "isNext",
+        "detailAvailable"
+      ],
+      "title": "ScheduleGame",
+      "type": "object"
+    },
+    "ScheduleGroup": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "pattern": "^(\\d{4}-\\d{2}|playoffs)$",
+          "type": "string"
+        },
+        "games": {
+          "items": {
+            "$ref": "#/$defs/ScheduleGame"
+          },
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "key",
+        "games"
+      ],
+      "title": "ScheduleGroup",
+      "type": "object"
+    },
+    "SplitRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "wins": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "losses": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "winPct": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "wins",
+        "losses",
+        "winPct"
+      ],
+      "title": "SplitRecord",
+      "type": "object"
+    },
+    "Streak": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/GameResult"
+        },
+        "count": {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "count"
+      ],
+      "title": "Streak",
+      "type": "object"
+    },
+    "TagKind": {
+      "enum": [
+        "cup",
+        "playoffs",
+        "allstar"
+      ],
+      "title": "TagKind",
+      "type": "string"
+    },
+    "TeamColors": {
+      "additionalProperties": false,
+      "properties": {
+        "primary": {
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "type": "string"
+        },
+        "secondary": {
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "primary",
+        "secondary"
+      ],
+      "title": "TeamColors",
+      "type": "object"
+    },
+    "TeamInjury": {
+      "additionalProperties": false,
+      "properties": {
+        "playerId": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "number": {
+          "anyOf": [
+            {
+              "pattern": "^\\d{1,2}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "position": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "status": {
+          "$ref": "#/$defs/InjuryStatus"
+        },
+        "comment": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "updatedAt": {
+          "format": "date-time",
+          "type": "string"
+        }
+      },
+      "required": [
+        "playerId",
+        "name",
+        "number",
+        "position",
+        "status",
+        "comment",
+        "updatedAt"
+      ],
+      "title": "TeamInjury",
+      "type": "object"
+    },
+    "TeamLeader": {
+      "additionalProperties": false,
+      "properties": {
+        "playerId": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "number": {
+          "anyOf": [
+            {
+              "pattern": "^\\d{1,2}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "position": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "photoUrl": {
+          "anyOf": [
+            {
+              "format": "uri",
+              "maxLength": 2083,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "value": {
+          "minimum": 0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "playerId",
+        "name",
+        "number",
+        "position",
+        "photoUrl",
+        "value"
+      ],
+      "title": "TeamLeader",
+      "type": "object"
+    },
+    "TeamLeaders": {
+      "additionalProperties": false,
+      "properties": {
+        "season": {
+          "pattern": "^\\d{4}-\\d{2}$",
+          "type": "string"
+        },
+        "points": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TeamLeader"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "rebounds": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TeamLeader"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "assists": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TeamLeader"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "season",
+        "points",
+        "rebounds",
+        "assists"
+      ],
+      "title": "TeamLeaders",
+      "type": "object"
+    },
+    "TeamRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "wins": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "losses": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "winPct": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "home": {
+          "$ref": "#/$defs/SplitRecord"
+        },
+        "away": {
+          "$ref": "#/$defs/SplitRecord"
+        },
+        "lastTen": {
+          "$ref": "#/$defs/SplitRecord"
+        },
+        "streak": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Streak"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "gamesBehind": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "conferenceRank": {
+          "maximum": 15,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "divisionRank": {
+          "maximum": 5,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "playoff": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PlayoffPosition"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "pointsFor": {
+          "$ref": "#/$defs/PointsTotal"
+        },
+        "pointsAgainst": {
+          "$ref": "#/$defs/PointsTotal"
+        },
+        "differential": {
+          "$ref": "#/$defs/Differential"
+        }
+      },
+      "required": [
+        "wins",
+        "losses",
+        "winPct",
+        "home",
+        "away",
+        "lastTen",
+        "streak",
+        "gamesBehind",
+        "conferenceRank",
+        "divisionRank",
+        "playoff",
+        "pointsFor",
+        "pointsAgainst",
+        "differential"
+      ],
+      "title": "TeamRecord",
+      "type": "object"
+    },
+    "Venue": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "city": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "photoUrl": {
+          "anyOf": [
+            {
+              "format": "uri",
+              "maxLength": 2083,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "name",
+        "city",
+        "photoUrl"
+      ],
+      "title": "Venue",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "code": {
+      "pattern": "^[A-Z]{3}$",
+      "type": "string"
+    },
+    "city": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "name": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "conference": {
+      "$ref": "#/$defs/Conference"
+    },
+    "division": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "colors": {
+      "$ref": "#/$defs/TeamColors"
+    },
+    "arena": {
+      "$ref": "#/$defs/Venue"
+    },
+    "coach": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Coach"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "season": {
+      "pattern": "^\\d{4}-\\d{2}$",
+      "type": "string"
+    },
+    "record": {
+      "$ref": "#/$defs/TeamRecord"
+    },
+    "leaders": {
+      "$ref": "#/$defs/TeamLeaders"
+    },
+    "roster": {
+      "items": {
+        "$ref": "#/$defs/RosterPlayer"
+      },
+      "type": "array"
+    },
+    "injuries": {
+      "items": {
+        "$ref": "#/$defs/TeamInjury"
+      },
+      "type": "array"
+    },
+    "nextGame": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/NextGame"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "schedule": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Schedule"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "code",
+    "city",
+    "name",
+    "conference",
+    "division",
+    "colors",
+    "arena",
+    "coach",
+    "season",
+    "record",
+    "leaders",
+    "roster",
+    "injuries",
+    "nextGame",
+    "schedule"
+  ],
+  "title": "TeamFeed",
+  "type": "object"
+}
