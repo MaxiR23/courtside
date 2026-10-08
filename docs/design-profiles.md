@@ -11,7 +11,7 @@ The visual, interaction and data specification for the player page and the team 
 
 - `{id}` is the player id the feeds already use (box score, stars). `{code}` is the standard team code in lowercase, such as `gsw`.
 - A player page exists for every player on the current roster of the 30 teams. A team page exists for the 30 teams.
-- Both pages are rendered in the browser from a fallback page, as the game detail page is.
+- Both pages are rendered in the browser from a fallback page, as the game detail page is (ADR 0021).
 
 ## Implementation rules
 
@@ -202,7 +202,8 @@ Keys are camelCase. Nullable fields are always present and `null` when absent. T
 | `injury` | `status`, `comment` (or null), `updatedAt`; null when healthy |
 | `profile` | `height` (`display`, `cm`), `weight` (`lb`, `kg`), `birthDate`, `age`, `birthplace` (`place`, `country`), `college`, `draft` (`year`, `round`, `pick`, `teamName`; null when undrafted), `seasons` (count), `debutSeason`; each field null when unknown |
 | `summary` | `season` and four stats, `points`, `rebounds`, `assists`, `fieldGoalPct`, each `value` and `rank` (or null) |
-| `nextGame` | `NextGame` or null |
+| `nextGame` | `NextGame` or null; null shows "Season over." |
+| `live` | The live game of the player's team, taken from its live game detail at serve time; null when the team has no live game |
 | `lastGames` | Up to five game log entries, newest first, All-Star excluded |
 | `averages` | `regular`, `playoffs` (each with its `season`) and `career`: GP, MIN, FG%, 3P%, FT%, REB, AST, BLK, STL, PF, TOV, PTS; a row with no games is null |
 | `seasons` | `regular` and `playoffs`, each with `perGame` and `totals` row lists, newest first, plus a `career` row. A row: `season`, `teams` (codes), GP, GS, MIN (null in totals), FGM, FGA, FG%, 3PM, 3PA, 3P%, FTM, FTA, FT%, OREB, DREB, REB, AST, BLK, STL, PF, TOV, PTS |

@@ -4,7 +4,7 @@ How Courtside is built and why. This document records decisions that are in forc
 
 ## Principles
 
-1. **Visitors never reach a data source.** The backend collects data on its own schedule and publishes ready-made feeds. The number of visits never changes how often a source is called.
+1. **The source is asked at most once per URL per freshness window, whatever the number of visitors; live data is refreshed on a schedule that slows down when nobody is present; everything else is built only when requested.**
 2. **The front end only draws.** It reads published feeds and renders them. It holds no business rules about games, standings or players.
 3. **One contract, defined once.** The shape of every feed is defined in backend code and generated for the front end. Nothing is redefined by hand on either side.
 4. **Every input is validated.** Data coming from a source is validated before it is used. A feed is validated before it is published.
@@ -31,6 +31,8 @@ Runtime versions are recorded in [`adr/0017-runtime-versions.md`](adr/0017-runti
 data sources  ->  source adapters  ->  jobs  ->  feeds (JSON)  ->  front end
 ```
 
+Feeds are produced either by scheduled jobs (live data and fixed-time work, rules C to F) or by builds triggered by a feed request (rules G and H), as set in [`source-rules.md`](source-rules.md).
+
 ### Source adapters
 
 - One adapter per data source. Each adapter is the only code that knows that source's URLs, formats and quirks.
@@ -39,7 +41,7 @@ data sources  ->  source adapters  ->  jobs  ->  feeds (JSON)  ->  front end
 
 ### Jobs
 
-- Jobs run on a schedule inside the backend process. Each job owns one kind of data and has its own refresh cadence, as set in [`adr/0007-backend-runtime-and-data-pipeline.md`](adr/0007-backend-runtime-and-data-pipeline.md): live games are checked every 30 seconds and the daily schedule once a day. The feed's today changes at US Eastern midnight once no game of the previous day is live, as set in [`adr/0013-day-change.md`](adr/0013-day-change.md). The attempts for a final game's detail and highlights follow [`adr/0010-final-game-attempts.md`](adr/0010-final-game-attempts.md). A failed request does not use up a highlight attempt; the same attempt is retried no sooner than 10 minutes later, as set in [`adr/0018-highlight-request-failures.md`](adr/0018-highlight-request-failures.md). The highlights lookup reads the channel's uploads through the official video API, as set in [`adr/0015-highlights-source.md`](adr/0015-highlights-source.md). The stars job runs in its own task, as set in [`adr/0014-star-guarantees.md`](adr/0014-star-guarantees.md). Standings have no job yet, and no cadence is set for them.
+- Jobs run on a schedule inside the backend process. Each job owns one kind of data. Refresh cadences, the shared source cache, presence and on-demand builds follow the rules in [`source-rules.md`](source-rules.md), adopted by [`adr/0020-source-rules.md`](adr/0020-source-rules.md), which supersede the cadences of [`adr/0007-backend-runtime-and-data-pipeline.md`](adr/0007-backend-runtime-and-data-pipeline.md) and [`adr/0014-star-guarantees.md`](adr/0014-star-guarantees.md). The feed's today changes at US Eastern midnight once no game of the previous day is live, as set in [`adr/0013-day-change.md`](adr/0013-day-change.md). The attempts for a final game's detail and highlights follow [`adr/0010-final-game-attempts.md`](adr/0010-final-game-attempts.md). A failed request does not use up a highlight attempt; the same attempt is retried no sooner than 10 minutes later, as set in [`adr/0018-highlight-request-failures.md`](adr/0018-highlight-request-failures.md). The highlights lookup reads the channel's uploads through the official video API, as set in [`adr/0015-highlights-source.md`](adr/0015-highlights-source.md). The stars job runs in its own task, as set in [`adr/0014-star-guarantees.md`](adr/0014-star-guarantees.md). Standings have no job yet, and no cadence is set for them.
 - A job that fails keeps the last valid feed published. A partial or invalid feed is never written.
 - Each job records its last successful run, so the backend can report its own health.
 
@@ -48,10 +50,11 @@ data sources  ->  source adapters  ->  jobs  ->  feeds (JSON)  ->  front end
 - One feed per domain, each a JSON file:
   - `games.json`: games for the days shown on the site, with scores, status and game details.
   - `standings.json`: standings tables.
-  - `games/{id}.json`: one detail feed per game in the days shown, drawn by the front end's `/game/{id}` route. Refresh cadences, retries, shared league-wide data and deletion are set in [`adr/0019-game-detail-route-and-feed.md`](adr/0019-game-detail-route-and-feed.md).
+  - `games/{id}.json`: one detail feed per game in the days shown, drawn by the front end's `/game/{id}` route. Its route is set in [`adr/0020-source-rules.md`](adr/0020-source-rules.md), first set by ADR 0019; its refresh, retries and deletion follow [`adr/0020-source-rules.md`](adr/0020-source-rules.md).
+  - `players/{id}.json` and `teams/{code}.json`: one feed per player and per team, built on demand and drawn by `/player/{id}` and `/team/{code}`, as set in [`adr/0021-player-and-team-pages.md`](adr/0021-player-and-team-pages.md).
   - Seasonal feeds, such as playoffs or All-Star, added only while their section exists.
 - Each feed is validated against its model before publishing and written atomically, so a reader never sees a half-written file.
-- Feeds are served by the backend with cache headers. Only the front end's static files are served from a CDN.
+- Feeds are served by the backend with cache headers. A CDN in front of the API caches feed responses only as the origin's Cache-Control allows, per rule K of [`source-rules.md`](source-rules.md) ([`adr/0020-source-rules.md`](adr/0020-source-rules.md)); see [`deploy.md`](deploy.md).
 
 ### State database
 
@@ -83,7 +86,7 @@ that migrates a database at the previous version with rows in it.
 ## Front end
 
 - A static SvelteKit build. No server-side rendering is required to view the site.
-- The game detail page lives at `/game/{id}` and is rendered in the browser from a fallback page, because game ids are not known at build time. Recorded in [`adr/0019-game-detail-route-and-feed.md`](adr/0019-game-detail-route-and-feed.md).
+- The game detail page lives at `/game/{id}` and is rendered in the browser from a fallback page, because game ids are not known at build time. Recorded in [`adr/0020-source-rules.md`](adr/0020-source-rules.md), first set by ADR 0019.
 - Svelte 5 runes only. Syntax from earlier Svelte versions is not used.
 - The front end fetches feeds and polls them while the page is open. Polling pauses while the tab is hidden.
 - Motion uses Svelte's built-in transitions and the Web Animations API. No animation library.
@@ -193,7 +196,7 @@ Recorded in [`adr/0007-backend-runtime-and-data-pipeline.md`](adr/0007-backend-r
 
 - **Hosting**: one always-free virtual machine running Docker Compose, with a reverse proxy for HTTPS.
 - **Storage**: job state in one SQLite file on the data volume; feeds as JSON files.
-- **Refresh cadences**: per job, as listed in the ADR.
+- **Refresh cadences**: superseded by ADR 0020.
 - **Star player selection**: the highest points plus rebounds plus assists per game on the current roster.
 - **Highlight matching**: the league's official video channel, matched by both teams, the highlights label and the date.
 
@@ -233,9 +236,17 @@ Recorded in [`adr/0018-highlight-request-failures.md`](adr/0018-highlight-reques
 
 - **Highlight request failures**: a timeout, transport failure or error status uses up no highlight attempt; it is logged and recorded in the job's health, and the same attempt is retried no sooner than 10 minutes later. Any other outcome uses up the attempt.
 
-Recorded in [`adr/0019-game-detail-route-and-feed.md`](adr/0019-game-detail-route-and-feed.md):
+Recorded in [`adr/0019-game-detail-route-and-feed.md`](adr/0019-game-detail-route-and-feed.md), superseded by ADR 0020, which keeps the route:
 
-- **Game detail route and feed**: `/game/{id}` is rendered in the browser from a fallback page; one detail feed per game in the days shown at `/feeds/games/{id}.json`, refreshed every 30 seconds while live, built at the final time with retries at 2, 4 and 6 hours, refreshed hourly for other statuses, with standings and injuries fetched once per run and shared; feeds of games that leave the days shown are deleted.
+- **Game detail route and feed**: `/game/{id}` is rendered in the browser from a fallback page, and its detail feed is served at `/feeds/games/{id}.json`. This route stays in force under ADR 0020; the feed's cadences, shared data and deletion are superseded by it.
+
+Recorded in [`adr/0020-source-rules.md`](adr/0020-source-rules.md):
+
+- **Source rules**: [`source-rules.md`](source-rules.md), rules A to K, are in force for every job and feed build. It supersedes ADR 0019 (restating its route: `/game/{id}` is rendered in the browser from the fallback page and its feed is served at `/feeds/games/{id}.json`) and the refresh cadences of ADR 0007 and ADR 0014: the source is asked at most once per URL per freshness window, live data is refreshed every 30 seconds with someone present and every 2 minutes with nobody present, and everything else is built only when requested.
+
+Recorded in [`adr/0021-player-and-team-pages.md`](adr/0021-player-and-team-pages.md):
+
+- **Player and team pages**: `/player/{id}` and `/team/{code}` (lowercase standard code) are rendered in the browser from the fallback page; their feeds, `/feeds/players/{id}.json` and `/feeds/teams/{code}.json`, are built on demand under rule G. Game links only where `detailAvailable` is true; FG% is the fourth hero stat; Totals have no MIN; seasons use labels; the arena photo is in color, with no frame without a photo; "Season over." when there is no next game. The live block is drawn by a live card that replaces the next game card; the player page polls every 30 seconds while `live` is not null and every 60 seconds otherwise.
 
 ## Future
 

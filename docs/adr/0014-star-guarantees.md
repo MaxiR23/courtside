@@ -1,6 +1,6 @@
 # 0014. Star guarantees
 
-- Status: Accepted
+- Status: Superseded by 0020 for its refresh cadences only
 - Date: 2026-10-06
 
 ## Context
