@@ -19,7 +19,7 @@
 # - Counts a player stat that is missing as zero
 # - Raises the source error on an invalid player averages payload, a player stat that is not a number, a negative player stat, a timeout, an error status and a missing player averages URL
 # - Raises the source error on an invalid roster payload, an invalid averages payload, an empty roster, an empty name, a stat that is not a number, a negative stat, an unknown team code, a timeout, an error status, a missing roster URL, a missing averages URL and a missing photo URL
-# - Reuses a roster and the team leaders for twenty-four hours, and a player's averages for one hour
+# - Reuses a roster and the team leaders for twenty-four hours, and a player's averages while fetched at or after the time the caller gives
 #
 # What is covered:
 # - A valid response mapped, an invalid payload rejected, upstream failures handled
@@ -115,7 +115,9 @@ async def player_of(
         store = StateStore(Path(directory))
         store.migrate()
         async with create_client(store) as client:
-            return await fetch_player_averages(client, player_id, season, settings)
+            return await fetch_player_averages(
+                client, player_id, season, settings, dt.timedelta(hours=1)
+            )
 
 
 async def player_error(settings: Settings) -> SourceError:
@@ -567,18 +569,20 @@ async def test_reuses_the_team_leaders_for_twenty_four_hours(
 
 
 @pytest.mark.anyio
-async def test_reuses_a_players_averages_for_one_hour(
+async def test_reuses_a_players_averages_while_fetched_at_or_after_the_given_time(
     mock: respx.MockRouter, settings: Settings, tmp_path: Path
 ) -> None:
     start = dt.datetime(2026, 1, 10, 12, 0, tzinfo=dt.UTC)
     clock = [start]
     route = mock.get(PLAYER_URL).respond(json=load("player_averages.json"))
     async with clocked(tmp_path, clock) as client:
-        await fetch_player_averages(client, "6430", 2026, settings)
-        clock[0] = start + dt.timedelta(hours=1) - dt.timedelta(seconds=1)
-        await fetch_player_averages(client, "6430", 2026, settings)
+        day = dt.timedelta(days=1)
+        await fetch_player_averages(client, "6430", 2026, settings, start - day)
+        clock[0] = start + day
+        await fetch_player_averages(client, "6430", 2026, settings, start)
         assert route.call_count == 1
-        clock[0] = start + dt.timedelta(hours=1)
-        await fetch_player_averages(client, "6430", 2026, settings)
+        await fetch_player_averages(
+            client, "6430", 2026, settings, start + dt.timedelta(seconds=1)
+        )
 
     assert route.call_count == 2

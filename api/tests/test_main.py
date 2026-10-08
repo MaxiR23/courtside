@@ -3,6 +3,7 @@
 # Tests for the app factory: startup and CORS.
 #
 # Tested:
+# - Wires the games job's final games into the stars job
 # - Creates the data directory and state file on startup
 # - Stops startup with the migration error when a state migration fails, leaving the state database empty
 # - Allows a configured origin
@@ -207,6 +208,30 @@ def test_wires_the_stars_and_highlights_providers_into_the_games_job(
     assert kwargs["stars_ready"] == built["stars"].has_every_star
     assert kwargs["highlights"] == built["highlights"].highlights_of
     assert kwargs["highlights_search_url"] == built["highlights"].search_url_of
+
+
+def test_wires_the_games_jobs_final_games_into_the_stars_job(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    built: dict[str, Any] = {}
+    sentinel: list[Any] = []
+
+    class RecordingStars(StarsJob):
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            super().__init__(*args, **kwargs)
+            built["stars_kwargs"] = kwargs
+
+    class RecordingGames(GamesJob):
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            super().__init__(*args, **kwargs)
+            built["games"] = self
+
+    monkeypatch.setattr(main, "StarsJob", RecordingStars)
+    monkeypatch.setattr(main, "GamesJob", RecordingGames)
+
+    with make_client(tmp_path, []):
+        monkeypatch.setattr(built["games"], "final_games", lambda: sentinel)
+        assert built["stars_kwargs"]["final_games"]() is sentinel
 
 
 def test_wires_the_games_job_cache_stars_and_highlights_into_the_game_detail_feeds(

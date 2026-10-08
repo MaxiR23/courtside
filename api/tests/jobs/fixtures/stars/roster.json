@@ -1,0 +1,8 @@
+{
+  "season": {"year": 2027},
+  "team": {"id": "TEAM"},
+  "athletes": [
+    {"id": "P1", "firstName": "Ann", "lastName": "Bee", "shortName": "A. Bee"},
+    {"id": "P2", "firstName": "Cy", "lastName": "Dee", "shortName": "C. Dee"}
+  ]
+}

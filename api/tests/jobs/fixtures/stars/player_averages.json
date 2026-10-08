@@ -1,0 +1,7 @@
+{
+  "splits": {
+    "categories": [
+      {"name": "offensive", "stats": [{"name": "avgPoints", "value": 12.0}]}
+    ]
+  }
+}

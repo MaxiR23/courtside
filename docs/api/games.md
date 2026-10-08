@@ -125,7 +125,12 @@ a failure, 2, 4 and 6 hours after the final time.
   The stars job records a success only on the run that stores the star of
   the last team still pending that day; a run that leaves a team waiting for
   its retry records none, so the health report does not show the stars as
-  done.
+  done. Each team's roster and season leaders are reused for 24 hours
+  ([source rules](../source-rules.md), rule A). A roster player's individual
+  averages are requested only when no roster player is among the leaders,
+  and are reused until the team has a final game whose final time is after
+  the fetch, so such a team costs at most one request per player per game
+  played, never per day ([source rules](../source-rules.md), rule F).
 
 - The morning fetch runs at `DAILY_FETCH_TIME` (US Eastern, `HH:MM`, default
   06:00).
