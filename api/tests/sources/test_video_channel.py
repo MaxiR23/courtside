@@ -24,6 +24,12 @@
 # - Builds the search URL from the template with the encoded teams, label and date, and none when the template is missing
 # - Two lookups of one run list each page once, and a lookup lists again the pages listed before its run
 # - Never stores the key in the source cache
+# - Lists until every game is matched, each page once, and checks no thumbnail
+# - Lists back to the oldest game of the listing
+# - Lists the ranked thumbnail candidates of every upload
+# - Checks the thumbnail of one video best first
+# - A listing raises the failed request of a later page
+# - A listing that fails on a later page carries the uploads of the pages read
 #
 # What is covered:
 # - A valid response mapped, an invalid payload rejected, upstream failures handled
@@ -56,7 +62,10 @@ from app.sources.http import SourceClient, SourceError, create_client
 from app.sources.scoreboard import ScoreboardGame
 from app.sources.video_channel import (
     ChannelVideo,
+    ListingError,
+    check_thumbnail,
     find_video,
+    list_uploads,
     lookup_video,
     matches,
     search_url,
@@ -696,3 +705,138 @@ async def test_the_key_header_is_never_stored(tmp_path: Path) -> None:
         stored = connection.execute("SELECT url, body FROM source_cache").fetchall()
     assert len(stored) == 2
     assert KEY not in str(stored)
+
+
+async def listing(
+    games: list[tuple[ScoreboardGame, dt.date]], tmp_path: Path
+) -> list[ChannelVideo]:
+    async with clocked(tmp_path, [START]) as client:
+        return await list_uploads(client, games, configured(), LISTED_SINCE)
+
+
+def second_game(away: str, home: str, **values: Any) -> ScoreboardGame:
+    return make_game(away, home).model_copy(update={"id": "g2", **values})
+
+
+@pytest.mark.anyio
+async def test_lists_until_every_game_is_matched_each_page_once(
+    tmp_path: Path, image_host: ImageHost
+) -> None:
+    seen = serve_pages()
+    games = [
+        (make_game("Jazz", "Nuggets"), DAY),
+        (second_game("Warriors", "Clippers"), DAY),
+    ]
+
+    uploads = await listing(games, tmp_path)
+
+    assert [r.url.params.get("pageToken") for r in seen] == [None, "page-2"]
+    assert [v.video_id for v in uploads] == [
+        "vid-clip",
+        "vid-other-game",
+        "vid-full",
+        "vid-older",
+    ]
+    assert all(v.thumbnail_url is None for v in uploads)
+    assert image_host.requests == []
+
+
+@pytest.mark.anyio
+async def test_lists_back_to_the_oldest_game_of_the_listing(tmp_path: Path) -> None:
+    seen = serve_pages()
+    jazz = (make_game("Jazz", "Nuggets"), DAY)
+    early = dt.datetime(2026, 10, 5, 1, 0, tzinfo=dt.UTC)
+    nets = (second_game("Nets", "Jazz", start_time=early), DAY)
+
+    await listing([jazz], tmp_path)
+    assert len(seen) == 1
+    seen.clear()
+    (tmp_path / "other").mkdir()
+    await listing([jazz, nets], tmp_path / "other")
+
+    assert [r.url.params.get("pageToken") for r in seen] == [None, "page-2"]
+
+
+@pytest.mark.anyio
+async def test_lists_the_ranked_thumbnail_candidates_of_every_upload(
+    tmp_path: Path,
+) -> None:
+    serve_pages()
+    games = [
+        (make_game("Jazz", "Nuggets"), DAY),
+        (second_game("Warriors", "Clippers"), DAY),
+    ]
+
+    uploads = await listing(games, tmp_path)
+
+    full = next(v for v in uploads if v.video_id == "vid-full")
+    assert (
+        full.thumbnail_candidates[0] == "https://example.com/thumbs/vid-full/maxres.jpg"
+    )
+
+
+@pytest.mark.anyio
+async def test_checks_the_thumbnail_of_one_video_best_first(
+    tmp_path: Path, image_host: ImageHost
+) -> None:
+    first = "https://example.com/thumbs/a/maxres.jpg"
+    second = "https://example.com/thumbs/a/high.jpg"
+    video = ChannelVideo(
+        video_id="a",
+        title="t",
+        channel="c",
+        thumbnail_url=None,
+        thumbnail_candidates=(first, second),
+    )
+    async with clocked(tmp_path, [START]) as client:
+        image_host.missing = {first}
+        assert (await check_thumbnail(client, video)).thumbnail_url == second
+        image_host.missing = {first, second}
+        assert (await check_thumbnail(client, video)).thumbnail_url is None
+        image_host.missing = set()
+        image_host.timeout = True
+        with pytest.raises(SourceError) as raised:
+            await check_thumbnail(client, video)
+    assert raised.value.request_failed is True
+
+
+def serve_page_one_then(second: httpx.Response) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.params.get("pageToken") == "page-2":
+            return second
+        return httpx.Response(200, text=page("page-1"))
+
+    respx.get("https://example.com/uploads").mock(side_effect=handler)
+
+
+@pytest.mark.anyio
+async def test_a_listing_raises_the_failed_request_of_a_later_page(
+    tmp_path: Path,
+) -> None:
+    serve_page_one_then(httpx.Response(503))
+    games = [
+        (make_game("Jazz", "Nuggets"), DAY),
+        (second_game("Warriors", "Clippers"), DAY),
+    ]
+
+    with pytest.raises(SourceError) as raised:
+        await listing(games, tmp_path)
+
+    assert raised.value.request_failed is True
+
+
+@pytest.mark.anyio
+async def test_a_listing_that_fails_on_a_later_page_carries_the_uploads_of_the_pages_read(
+    tmp_path: Path,
+) -> None:
+    serve_page_one_then(httpx.Response(200, text="not json"))
+    games = [
+        (make_game("Jazz", "Nuggets"), DAY),
+        (second_game("Warriors", "Clippers"), DAY),
+    ]
+
+    with pytest.raises(ListingError) as raised:
+        await listing(games, tmp_path)
+
+    assert raised.value.request_failed is False
+    assert [v.video_id for v in raised.value.uploads] == ["vid-clip", "vid-other-game"]

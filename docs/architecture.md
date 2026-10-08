@@ -226,7 +226,7 @@ Recorded in [`adr/0014-star-guarantees.md`](adr/0014-star-guarantees.md):
 
 Recorded in [`adr/0015-highlights-source.md`](adr/0015-highlights-source.md):
 
-- **Highlights source**: the official channel's uploads, listed through the official video API 50 per request and paged back per game until a video older than the game; the key comes from `Settings` and is never logged.
+- **Highlights source**: the official channel's uploads, listed through the official video API 50 per request, once per highlights run, paged back to the oldest due game, and every due game is matched against that one list (rule E of [`source-rules.md`](source-rules.md), [`adr/0020-source-rules.md`](adr/0020-source-rules.md)); the key comes from `Settings` and is never logged.
 
 Recorded in [`adr/0016-production-hosting.md`](adr/0016-production-hosting.md):
 
