@@ -24,7 +24,7 @@ Everything under "Implementation rules" in `docs/design.md` and `docs/design-gam
 - **Names never break inside a word.** They wrap only at spaces or hyphens.
 - **Every player photo falls back** to initials when the feed has none or it fails to load. Alternative text is never shown in place of an image.
 - **Game links:** a game row or card links to `/game/{id}` only when the feed marks `detailAvailable: true`. Otherwise it is plain text, with no hover state.
-- **Shared components are reused:** the nav row, `SectionTabs`, `BlueprintFrame`, `TeamMonogram`, `StatusTag`, `Kicker`, the next game card pattern of the game detail page, the loading skeletons and the footer.
+- **Shared components are reused:** the nav row, `SectionTabs`, `BlueprintFrame`, `TeamMonogram`, `StatusTag`, `Kicker`, `LiveBadge`, the next game card pattern of the game detail page, the loading skeletons and the footer.
 
 ### New components
 
@@ -32,7 +32,8 @@ Everything under "Implementation rules" in `docs/design.md` and `docs/design-gam
 |---|---|
 | `PlayerHeader` | Name block, status, injury card, photo with its fade and the four hero stats |
 | `ProfileCells` | The player profile cells |
-| `NextGameCard` | The next game card, shared by both pages |
+| `NextGameCard` | The next game card, shared by both pages; on the player page it becomes the live card while the player's team is live |
+| `StatTable` | The stat table of the averages, season by season and game log: sticky first column, horizontal scroll, optional game link per row |
 | `RecentGames` | The player's last 5 games |
 | `AveragesTable` | Per-game averages: regular season, playoffs and career |
 | `SeasonsTable` | Season by season, with its two segmented controls |
@@ -77,8 +78,9 @@ Profile · Averages · Seasons · Milestones · Game log · Awards. Mini name on
 
 Two columns, `repeat(auto-fit, minmax(min(100%, 440px), 1fr))`.
 
-- **Profile** cells, min 180px: Height (sub: centimeters), Weight (sub: kilograms), Born (date; sub: `Age 25`), Birthplace (sub: country), College, Draft (`2021 · Round 1 · Pick 4`; sub: team name; `Undrafted` when the feed says so), Seasons (count; sub: `Debut 2021-22`).
+- **Profile** cells, min 180px: Height (sub: centimeters), Weight (sub: kilograms), Born (date; sub: `Age 25`), Birthplace (sub: country), College, Draft (`2021 · Round 1 · Pick 4`; sub: team name; `Undrafted` when `draft` is null), Seasons (count; sub: `Debut 2021-22`).
 - **Next game:** the next game card (tag, date, opponent, `arena · city`, `time · TV`, and "Game center →" when the game has a detail page). When the feed has no next game, a muted line: "Season over." / "Temporada terminada."
+- **Live game:** while the feed's `live` is not null, the live card replaces the next game card in the same frame: the `LiveBadge` with the period and clock (`Q3 · 4:12`), the opponent with `vs` or `@`, the score with the team's points first, then the player's MIN, PTS, REB, AST and FG from the live line, or "Not in the game yet." / "Todavía no entró." when the line is null, and "Game center →" linking to the game.
 - **Last 5 games:** rows on `22px 52px 1fr auto`: the result (W in accent text, L muted), the date, `vs` / `@` plus the opponent code, the score with the tag under it, and the points (20px) with `REB · AST` under them. Each row links to its game per the game link rule.
 
 ### 4. Per-game averages
@@ -169,7 +171,7 @@ Meta: "Official injury report". Two columns, min 420px. The name with `#num · P
 
 | What | How |
 |---|---|
-| Polling | Every 60 seconds; paused while the tab is hidden and refreshed when it is visible again |
+| Polling | Team page every 60 seconds; player page every 30 seconds while `live` is not null and every 60 seconds otherwise; paused while the tab is hidden and refreshed when it is visible again |
 | Section tabs | Smooth scroll; instant under reduced motion |
 | Segmented controls and chips | Switch the rows shown; the selection is not kept between visits |
 | Player photo | The scroll fade described in the header; none under reduced motion |

@@ -36,6 +36,7 @@ export type OverviewSection = {
 export type RecordSection = { large: InfoCell[]; detail: InfoCell[] };
 
 export type LeaderCard = {
+	playerId: string;
 	label: string; // "Points"
 	value: string; // "31.8"
 	name: string;

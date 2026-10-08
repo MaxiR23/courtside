@@ -18,6 +18,7 @@
 // - Keeps each game page sample consistent: header score, mini score, line score totals, box
 //   score totals, the win probability meta and the end of its curve, and the current game arena
 // - Shows the team page in each state: full, partial data, mobile, loading, feed unavailable and unknown team
+// - Shows the player page in each state and both live card cases
 // - Uses no external URL for images, players or links
 //
 // What is covered:
@@ -44,7 +45,8 @@ function sectionOf(name: string): HTMLElement {
 	return section;
 }
 
-describe('component preview', () => {
+// Each test renders the whole Preview, which grew with the team and player page samples.
+describe('component preview', { timeout: 30_000 }, () => {
 	it('shows every base component in each of its variants', () => {
 		render(Preview);
 		for (const name of [
@@ -401,6 +403,50 @@ describe('component preview', () => {
 			)
 		).toBeTruthy();
 		expect(within(sectionOf('TeamPage: unknown team')).getByText('Team not found.')).toBeTruthy();
+	});
+
+	it('shows the player page in each state and both live card cases', () => {
+		render(Preview);
+		const tabs = (title: string) =>
+			[...sectionOf(title).querySelectorAll('nav a')].map((a) => a.textContent);
+		expect(tabs('PlayerPage: full')).toEqual([
+			'Profile',
+			'Averages',
+			'Seasons',
+			'Milestones',
+			'Game log',
+			'Awards'
+		]);
+
+		const live = sectionOf("PlayerPage: live, with the player's line");
+		expect(within(live).getByText('LIVE')).toBeTruthy();
+		for (const text of ['Q3 · 4:12', '@ DEN', '78–74', '24:10', '7–15']) {
+			expect(within(live).getByText(text)).toBeTruthy();
+		}
+		expect(within(live).queryByText('Next game')).toBeNull();
+
+		const idle = sectionOf('PlayerPage: live, not in the game yet');
+		expect(within(idle).getByText('Not in the game yet.')).toBeTruthy();
+
+		const partial = sectionOf('PlayerPage: partial data');
+		expect(within(partial).getByText('Season over.')).toBeTruthy();
+		expect(partial.querySelector('.photo')).toBeNull();
+		expect(tabs('PlayerPage: partial data').length).toBeLessThan(6);
+
+		expect(sectionOf('PlayerPage: mobile').querySelector('.cells.mobile')).not.toBeNull();
+		expect(sectionOf('PlayerPage: full').querySelector('.cells.mobile')).toBeNull();
+
+		const loading = sectionOf('PlayerPage: loading');
+		expect(loading.querySelector('header')?.getAttribute('aria-busy')).toBe('true');
+		expect(loading.querySelector('.section-skeleton')).not.toBeNull();
+		expect(
+			within(sectionOf('PlayerPage: feed unavailable')).getByText(
+				"Data isn't available right now. Check back later."
+			)
+		).toBeTruthy();
+		expect(
+			within(sectionOf('PlayerPage: unknown player')).getByText('Player not found.')
+		).toBeTruthy();
 	});
 
 	it('uses no external URL for images, players or links', async () => {

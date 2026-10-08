@@ -228,5 +228,73 @@
 				"countPlural=other": "{count} seasons as NBA head coach"
 			}
 		}
+	],
+	"player_not_found": "Player not found.",
+	"player_tab_profile": "Profile",
+	"player_tab_averages": "Averages",
+	"player_tab_seasons": "Seasons",
+	"player_tab_milestones": "Milestones",
+	"player_tab_game_log": "Game log",
+	"player_tab_awards": "Awards",
+	"player_section_averages": "Per-game averages",
+	"player_section_seasons": "Season by season",
+	"player_averages_meta": "Regular season, playoffs and career",
+	"player_injury_updated": "Updated {date}",
+	"player_profile_height": "Height",
+	"player_profile_weight": "Weight",
+	"player_profile_draft": "Draft",
+	"player_height_cm": "{cm} cm",
+	"player_weight_lb": "{lb} lb",
+	"player_weight_kg": "{kg} kg",
+	"player_age": "Age {age}",
+	"player_draft_pick": "{year} · Round {round} · Pick {pick}",
+	"player_undrafted": "Undrafted",
+	"player_debut": "Debut {season}",
+	"player_live_not_in_game": "Not in the game yet.",
+	"player_regular_season": "Regular season",
+	"player_career": "Career",
+	"player_column_season": "Season",
+	"player_column_game": "Game",
+	"player_column_result": "Result",
+	"player_games_played": "GP",
+	"player_games_started": "GS",
+	"player_per_game": "Per game",
+	"player_regular": "Regular",
+	"player_seasons_mode": "Values",
+	"player_seasons_kind": "Season type",
+	"player_filter_all": "All",
+	"player_game_log_filters": "Game types",
+	"player_show_fewer": "Show fewer",
+	"player_milestone_double_doubles": "Double-doubles",
+	"player_milestone_triple_doubles": "Triple-doubles",
+	"player_milestone_disqualifications": "Disqualifications",
+	"player_milestone_ejections": "Ejections",
+	"player_milestone_technicals": "Technical fouls",
+	"player_milestone_flagrants": "Flagrant fouls",
+	"player_milestone_ast_to": "AST/TO",
+	"player_milestone_stl_to": "STL/TO",
+	"player_milestone_career": "Career {value}",
+	"player_award_count": "{count}×",
+	"player_rank": [
+		{
+			"declarations": ["input rank", "local rankOrdinal = rank: plural type=ordinal"],
+			"selectors": ["rankOrdinal"],
+			"match": {
+				"rankOrdinal=one": "{rank}st in NBA",
+				"rankOrdinal=two": "{rank}nd in NBA",
+				"rankOrdinal=few": "{rank}rd in NBA",
+				"rankOrdinal=other": "{rank}th in NBA"
+			}
+		}
+	],
+	"player_show_all": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "Show all {count} game",
+				"countPlural=other": "Show all {count} games"
+			}
+		}
 	]
 }

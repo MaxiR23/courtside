@@ -5,6 +5,7 @@
 // Tested:
 // - The route turns off prerender and server rendering
 // - Loads the feed of the team code in the URL and renders the h1, every section and the tabs
+// - Links roster names to /player/{id}
 // - Shows the loading skeleton until the first load settles
 // - Shows "Team not found." on a 404, for an unknown code and for an uppercase one
 // - Shows the data unavailable row on a network failure, a 503, or with no URL configured
@@ -142,6 +143,14 @@ describe('team page', () => {
 		expect(screen.getAllByRole('link').map((a) => a.getAttribute('href'))).toContain(
 			'/game/g-next'
 		);
+	});
+
+	it('links a roster name to its player page', async () => {
+		stubFetch('okc', answerWith(recorded()));
+		await renderPage();
+		const hrefs = screen.getAllByRole('link').map((a) => a.getAttribute('href'));
+		expect(hrefs).toContain('/player/p-holmgren');
+		expect(hrefs).toContain('/player/p-sga');
 	});
 
 	it('shows the loading skeleton until the first load settles', async () => {

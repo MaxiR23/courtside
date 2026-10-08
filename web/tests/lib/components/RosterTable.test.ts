@@ -8,6 +8,7 @@
 // - Values as given, R for a rookie, null cells left empty with the cell count unchanged
 // - The status tone classes
 // - The mobile class with the mobile layout
+// - Each name links to its player page; the avatar is outside the link; no nested link
 //
 // What is covered:
 // - Structure and classes; jsdom computes no layout, so widths are not asserted
@@ -18,6 +19,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import type { ResolvedPathname } from '$app/types';
 import { render, screen } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
 
@@ -63,8 +65,10 @@ const questionable: RosterRow = {
 	status: { label: 'Questionable', tone: 'ink' }
 };
 
+const playerHref = (id: string) => `/player/${id}` as ResolvedPathname;
+
 const show = (roster: RosterRow[], layout: 'desktop' | 'mobile' = 'desktop') =>
-	render(RosterTable, { props: { roster, layout } });
+	render(RosterTable, { props: { roster, layout, playerHref } });
 
 describe('RosterTable', () => {
 	it('shows the column headers in order', () => {
@@ -92,6 +96,17 @@ describe('RosterTable', () => {
 			'WO Walk On',
 			'QP Q Player'
 		]);
+	});
+
+	it('links each name to its player page, with the avatar outside the link', () => {
+		const { container } = show([full, empty]);
+		const links = screen.getAllByRole('link');
+		expect(links.map((a) => [a.textContent, a.getAttribute('href')])).toEqual([
+			['Shai Gilgeous-Alexander', '/player/p-sga'],
+			['Walk On', '/player/p-unknown']
+		]);
+		for (const link of links) expect(link.querySelector('.avatar, [role="img"]')).toBeNull();
+		expect(container.querySelectorAll('a a, button a, a button')).toHaveLength(0);
 	});
 
 	it('shows the values, with R for a rookie', () => {

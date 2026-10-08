@@ -1,27 +1,30 @@
 <script lang="ts">
+	import type { ResolvedPathname } from '$app/types';
 	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
 	import PlayerAvatar from '#lib/components/PlayerAvatar.svelte';
 	import type { LeadersSection } from '#lib/team/types.ts';
 
-	type Props = { leaders: LeadersSection };
+	type Props = { leaders: LeadersSection; playerHref: (id: string) => ResolvedPathname };
 
-	let { leaders }: Props = $props();
+	let { leaders, playerHref }: Props = $props();
 </script>
 
 <ul class="leaders">
 	{#each leaders.cards as card (card.label)}
 		<li>
-			<BlueprintFrame>
-				<div class="card">
-					<div class="text">
-						<span class="label">{card.label}</span>
-						<span class="value">{card.value}</span>
-						<span class="name">{card.name}</span>
-						<span class="line">{card.line}</span>
+			<a class="card-link" href={playerHref(card.playerId)}>
+				<BlueprintFrame>
+					<div class="card">
+						<div class="text">
+							<span class="label">{card.label}</span>
+							<span class="value">{card.value}</span>
+							<span class="name">{card.name}</span>
+							<span class="line">{card.line}</span>
+						</div>
+						<PlayerAvatar name={card.name} photo={card.photo} size="leader" />
 					</div>
-					<PlayerAvatar name={card.name} photo={card.photo} size="leader" />
-				</div>
-			</BlueprintFrame>
+				</BlueprintFrame>
+			</a>
 		</li>
 	{/each}
 </ul>
@@ -34,6 +37,17 @@
 		margin: 0;
 		padding: 0;
 		list-style: none;
+	}
+
+	.card-link {
+		display: block;
+		height: 100%;
+		color: inherit;
+		text-decoration: none;
+	}
+
+	.card-link:hover .name {
+		color: var(--color-accent-hover);
 	}
 
 	.card {
