@@ -144,7 +144,7 @@ Lucide at `stroke-width: 1.5`: `chevron-down` (expand), `play` (filled, highligh
   - **Mobile row, under 680px:**
     - A status line with the chevron on the right.
     - Two team rows, each with a 38px monogram, the name and city, and the score right-aligned.
-    - Scheduled games show the tip time and network in the status line, such as "9:00 PM ET · Prime Video".
+    - Scheduled games show the tip time and network in the status line, such as "9:00 PM ET · Courtside TV".
   - **Final games:** the losing team's name and score drop to opacity .42.
   - **Live badge:** small and outlined, never a dot. It reads "LIVE" at 9.5px with .16em letter-spacing, a 1px accent border and accent-light text, padding 1px by 5px.
 - **Expanded panel:** a 1px divider, then the content below it.

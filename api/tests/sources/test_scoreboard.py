@@ -258,7 +258,7 @@ async def test_maps_an_empty_broadcast_to_none_and_keeps_a_named_one(
     games = await fetch(settings)
 
     assert games[0].broadcast is None
-    assert "Prime Video" in [g.broadcast for g in games]
+    assert "Courtside TV" in [g.broadcast for g in games]
 
 
 @pytest.mark.anyio

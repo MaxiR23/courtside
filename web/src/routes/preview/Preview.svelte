@@ -715,7 +715,7 @@
 			id: 'scheduled',
 			away: warriors,
 			home: lakers,
-			status: { state: 'scheduled', tipTime: '9:00', tipSuffix: 'PM ET', network: 'Prime Video' },
+			status: { state: 'scheduled', tipTime: '9:00', tipSuffix: 'PM ET', network: 'Courtside TV' },
 			details: {
 				kind: 'scheduled',
 				venue: 'Crypto.com Arena',
@@ -1257,7 +1257,7 @@
 					date: 'Wednesday, October 7',
 					opponent: 'vs DEN',
 					place: 'Paycom Center · Oklahoma City, OK',
-					time: '7:30 PM ET · ESPN'
+					time: '7:30 PM ET · Courtside TV'
 				},
 				live: null,
 				recent: [

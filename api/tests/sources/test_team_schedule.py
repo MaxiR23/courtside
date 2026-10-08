@@ -360,7 +360,7 @@ async def test_maps_a_recorded_regular_season_with_notes_broadcasts_venues_and_s
     assert (opener.completed, opener.won) == (True, True)
     assert (opener.team_score, opener.opponent_score) == (125, 124)
     assert opener.note is None
-    assert opener.broadcast == "NBC"
+    assert opener.broadcast == "Courtside TV"
     assert (opener.arena, opener.city, opener.playoffs) == (
         "Paycom Center",
         "Oklahoma City",
@@ -386,7 +386,7 @@ async def test_maps_unplayed_games_without_scores(
     assert (unplayed.state, unplayed.completed, unplayed.won) == ("pre", False, None)
     assert (unplayed.team_score, unplayed.opponent_score) == (None, None)
     assert (unplayed.opponent, unplayed.is_home) == ("SAS", False)
-    assert unplayed.broadcast == "NBC"
+    assert unplayed.broadcast == "Courtside TV"
     assert games["401909865"].broadcast is None
 
 

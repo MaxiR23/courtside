@@ -655,7 +655,7 @@ def test_gives_no_leaders_without_players() -> None:
 
 def test_picks_the_first_unplayed_game_as_the_next_game_and_marks_it() -> None:
     first = played("1", START - dt.timedelta(days=3))
-    soon = game("3", START, note="NBA Cup - Group Play", broadcast="NBC")
+    soon = game("3", START, note="NBA Cup - Group Play", broadcast="Courtside TV")
     later = game("2", START + dt.timedelta(days=2))
     final = game("4", START + dt.timedelta(days=60), playoffs=True)
 
@@ -667,7 +667,7 @@ def test_picks_the_first_unplayed_game_as_the_next_game_and_marks_it() -> None:
     assert (upcoming.arena, upcoming.city, upcoming.broadcast) == (
         "Frost Bank Center",
         "San Antonio",
-        "NBC",
+        "Courtside TV",
     )
     feed = build(regular=season(first, later, soon), playoffs=season(final))
     assert feed.next_game is not None and feed.next_game.game_id == "3"

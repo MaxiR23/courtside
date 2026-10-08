@@ -107,7 +107,7 @@ describe('toHomeView', () => {
 
 	it('maps a scheduled game with its venue and players to watch', () => {
 		const game = todayGame(view(), 'g-sched');
-		expect(game.status).toMatchObject({ network: 'Prime Video' });
+		expect(game.status).toMatchObject({ network: 'Courtside TV' });
 		expect(game.details).toEqual({
 			kind: 'scheduled',
 			venue: 'Los Angeles Arena',
