@@ -1,5 +1,6 @@
 import type { GameDetailFeed } from '#lib/contract/game-detail.ts';
 import type { GamesFeed } from '#lib/contract/games.ts';
+import type { TeamFeed } from '#lib/contract/team.ts';
 
 export type FeedLoadReason = 'network' | 'status' | 'not-found' | 'body';
 
@@ -77,4 +78,21 @@ export async function loadGameDetailFeed(
 		throw new FeedLoadError('body', 'The game detail feed has no id');
 	}
 	return body as GameDetailFeed;
+}
+
+/** The URL of one team's feed: the template with the encoded code in place of {code}. */
+export function teamFeedUrl(template: string, code: string): string {
+	return template.replaceAll('{code}', encodeURIComponent(code));
+}
+
+/**
+ * Fetches a team's feed. A 404 is its own reason: the code is not a team. The body is only
+ * checked for its shape: an object with a string `code`.
+ */
+export async function loadTeamFeed(url: string, fetchFn: typeof fetch = fetch): Promise<TeamFeed> {
+	const body = await fetchFeedBody(url, 'The team feed', fetchFn, true);
+	if (typeof body !== 'object' || body === null || typeof (body as TeamFeed).code !== 'string') {
+		throw new FeedLoadError('body', 'The team feed has no code');
+	}
+	return body as TeamFeed;
 }

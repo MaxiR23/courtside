@@ -1,10 +1,14 @@
 <script lang="ts">
-	import type { MiniScore, SectionTab } from '#lib/game/types.ts';
+	import type { MiniScore } from '#lib/game/types.ts';
 	import { m } from '#lib/paraglide/messages.js';
 
-	type Props = { tabs: SectionTab[]; miniScore: MiniScore | null };
+	type Props = {
+		tabs: readonly { id: string; label: string }[];
+		miniScore?: MiniScore | null;
+		mini?: string | null; // a pre-formatted text, such as "OKC 57–25", when there is no score
+	};
 
-	let { tabs, miniScore }: Props = $props();
+	let { tabs, miniScore = null, mini = null }: Props = $props();
 
 	function scrollToSection(event: MouseEvent, id: string) {
 		event.preventDefault();
@@ -15,7 +19,7 @@
 	}
 </script>
 
-{#if tabs.length > 0 || miniScore}
+{#if tabs.length > 0 || miniScore || mini}
 	<nav class="section-tabs" aria-label={m.game_tabs_label()}>
 		<ul class="tabs">
 			{#each tabs as tab (tab.id)}
@@ -30,6 +34,8 @@
 				{miniScore.away} – {miniScore.home}
 				{miniScore.homeCode}
 			</span>
+		{:else if mini}
+			<span class="mini-score">{mini}</span>
 		{/if}
 	</nav>
 {/if}

@@ -59,7 +59,7 @@ Dark only. There is no light mode.
 | open-tint | `rgba(116,157,196,.045)` | Background of an expanded game card |
 | selected-day | `rgba(116,157,196,.12)` | Background of the selected day cell |
 
-The only color besides the neutrals is the steel accent. No team colors.
+The only color besides the neutrals is the steel accent. No team colors, except on the team page, which draws the team's colors as `docs/design-profiles.md` requires.
 
 ### Type
 
