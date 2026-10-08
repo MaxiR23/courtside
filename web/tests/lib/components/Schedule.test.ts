@@ -9,6 +9,7 @@
 // - Desktop row and full counts on a wide viewport; mobile row and numbers below it
 // - The staggered list entrance on first view and on a day change, not on the same day
 // - The list is hidden until it first scrolls into view
+// - A card that cannot expand links its team names to the page given by teamHref
 // - Each expandable card links to the detail page given by gameHref
 // - Only one game card is open at a time; clicking an open card closes it
 // - The open card can be bound from outside; each card has an anchor id; the section has the schedule anchor
@@ -45,7 +46,8 @@ const days: ScheduleDay[] = counts.map((n, i) => ({
 	games: Array.from({ length: n }, (_, k) => game(`${i}-${k}`, 90 + k))
 }));
 const gameHref = (id: string) => `/game/${id}` as ResolvedPathname;
-const props = { days, updatedMinutesAgo: 3, gameHref };
+const teamHref = (code: string) => `/team/${code.toLowerCase()}` as ResolvedPathname;
+const props = { days, updatedMinutesAgo: 3, gameHref, teamHref };
 
 function wideViewport(wide: boolean) {
 	vi.stubGlobal('matchMedia', (query: string) => ({
@@ -291,6 +293,7 @@ describe('Schedule', () => {
 		const detailedProps = {
 			updatedMinutesAgo: 3,
 			gameHref,
+			teamHref,
 			selected: 3,
 			days: [
 				...days.slice(0, 3),
@@ -418,5 +421,13 @@ describe('Schedule', () => {
 			expect(toggles(container)[0].getAttribute('aria-expanded')).toBe('true');
 			expect(container.querySelector('iframe')).toBeNull();
 		});
+	});
+
+	it("links a card's team names to the page given by teamHref", () => {
+		const { container } = render(Schedule, { props });
+		const hrefs = [...container.querySelectorAll('li a')].map((a) => a.getAttribute('href'));
+		expect(hrefs).toContain('/team/gsw');
+		expect(hrefs).toContain('/team/lal');
+		expect(container.querySelectorAll('button a, a a')).toHaveLength(0);
 	});
 });

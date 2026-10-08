@@ -374,6 +374,7 @@ const rowDate = (date: string) => feedDate(date, { month: 'short', day: 'numeric
 
 function starCard(star: Star, team: DetailTeam): StarCard {
 	return {
+		id: star.playerId,
 		firstName: star.firstName,
 		lastName: star.lastName,
 		teamCode: star.teamCode,
@@ -394,7 +395,13 @@ function injuryTeam(
 	return {
 		code: team.code,
 		name: team.name,
-		injuries: list.map((i) => ({ name: i.displayName, status: i.status, comment: i.comment }))
+		// A feed built before the playerId field has no key: no player link.
+		injuries: list.map((i) => ({
+			id: i.playerId ?? null,
+			name: i.displayName,
+			status: i.status,
+			comment: i.comment
+		}))
 	};
 }
 

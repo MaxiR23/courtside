@@ -15,7 +15,7 @@
 // - The sections: built from the feed, null with their tab, leaders from the feed, the win
 //   probability meta from the feed leader, 'Even' with none or with a feed built before the
 //   field, box score split and formatting, highlights on a final game
-// - The pre-game sections: players by side, injuries, last games (strip order, row format), standings,
+// - The pre-game sections: players by side (with the player id), injuries (with the player id, null for a feed without the key), last games (strip order, row format), standings,
 //   the season series summary (leader from the feed) and meta, the "This game" row and the dimmed
 //   loser, videos; null with their tab; the date shown in UTC
 //   (the current series row comes from the feed marker, not from the date or the position)
@@ -32,7 +32,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { GameDetailFeed } from '../../../src/lib/contract/game-detail';
+import type { GameDetailFeed, Injury } from '../../../src/lib/contract/game-detail';
 import { SECTION_TABS, toGameView } from '../../../src/lib/feed/game-props';
 import type { GameView } from '../../../src/lib/game/types';
 import { preferLanguages } from '../../prefer-languages';
@@ -472,6 +472,7 @@ describe('toGameView pre-game sections', () => {
 	it('builds the players section from each side with the full team name', () => {
 		const { players } = view(pre()).sections;
 		expect(players?.away).toEqual({
+			id: 'p-LAL',
 			firstName: 'LeBron',
 			lastName: 'James',
 			teamCode: 'LAL',
@@ -486,8 +487,13 @@ describe('toGameView pre-game sections', () => {
 		const source = pre();
 		source.injuries = {
 			away: [
-				{ displayName: 'Austin Reaves', status: 'questionable', comment: 'Hamstring.' },
-				{ displayName: 'Rui Hachimura', status: 'out', comment: null }
+				{
+					playerId: '4066457',
+					displayName: 'Austin Reaves',
+					status: 'questionable',
+					comment: 'Hamstring.'
+				},
+				{ playerId: null, displayName: 'Rui Hachimura', status: 'out', comment: null }
 			],
 			home: []
 		};
@@ -496,11 +502,20 @@ describe('toGameView pre-game sections', () => {
 			code: 'LAL',
 			name: 'Lakers',
 			injuries: [
-				{ name: 'Austin Reaves', status: 'questionable', comment: 'Hamstring.' },
-				{ name: 'Rui Hachimura', status: 'out', comment: null }
+				{ id: '4066457', name: 'Austin Reaves', status: 'questionable', comment: 'Hamstring.' },
+				{ id: null, name: 'Rui Hachimura', status: 'out', comment: null }
 			]
 		});
 		expect(injuries?.home.injuries).toEqual([]);
+	});
+
+	it('maps an injury without a playerId key to a null id', () => {
+		const source = pre();
+		const injury: Partial<Injury> = { ...source.injuries!.away[0] };
+		delete injury.playerId;
+		source.injuries = { away: [injury as Injury], home: [] };
+		const { injuries } = view(source).sections;
+		expect(injuries?.away.injuries[0].id).toBeNull();
 	});
 
 	it('lists last games newest first with the result strip oldest to newest', () => {

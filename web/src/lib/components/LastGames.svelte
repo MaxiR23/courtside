@@ -1,11 +1,16 @@
 <script lang="ts">
+	import type { ResolvedPathname } from '$app/types';
 	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
+	import NameLink from '#lib/components/NameLink.svelte';
 	import { m } from '#lib/paraglide/messages.js';
 	import type { LastGamesSection } from '#lib/game/types.ts';
 
-	type Props = { lastGames: LastGamesSection };
+	type Props = {
+		lastGames: LastGamesSection;
+		teamHref: (code: string) => ResolvedPathname;
+	};
 
-	let { lastGames }: Props = $props();
+	let { lastGames, teamHref }: Props = $props();
 
 	const teams = $derived([lastGames.away, lastGames.home]);
 </script>
@@ -15,7 +20,7 @@
 		<BlueprintFrame>
 			<div class="team">
 				<div class="head">
-					<h3>{team.name}</h3>
+					<h3><NameLink href={teamHref(team.code)} text={team.name} /></h3>
 					{#if team.rows.length > 0}
 						<span class="strip">
 							{#each team.strip as square, i (i)}

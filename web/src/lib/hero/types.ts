@@ -14,6 +14,6 @@ export type HeroGame = {
 	status: HeroStatus;
 	tipTime: string; // already formatted, e.g. "10:30 PM ET"
 	arena: string;
-	away: { name: string; star: HeroPlayer };
-	home: { name: string; star: HeroPlayer };
+	away: { code: string; name: string; star: HeroPlayer };
+	home: { code: string; name: string; star: HeroPlayer };
 };

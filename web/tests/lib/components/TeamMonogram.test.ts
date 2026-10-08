@@ -8,6 +8,7 @@
 // - Uses the header and header-mobile boxes on the game detail page
 // - Uses the injury box on the injuries section
 // - Uses the team box on the team page
+// - Links the code to the href when one is given, and renders a span without one
 //
 // What is covered:
 // - Both sizes
@@ -15,6 +16,7 @@
 // Run with: cd web && pnpm exec vitest run tests/lib/components/TeamMonogram.test.ts
 //
 // SEE: web/src/lib/components/TeamMonogram.svelte
+import type { ResolvedPathname } from '$app/types';
 import { render, screen } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
 
@@ -56,5 +58,21 @@ describe('TeamMonogram', () => {
 	it('renders the injury size', () => {
 		render(TeamMonogram, { props: { code: 'GSW', size: 'injury' } });
 		expect(screen.getByText('GSW').classList.contains('injury')).toBe(true);
+	});
+
+	it('links the code to the href when one is given', () => {
+		render(TeamMonogram, {
+			props: { code: 'GSW', size: 'large', href: '/team/gsw' as ResolvedPathname }
+		});
+		const link = screen.getByRole('link', { name: 'GSW' });
+		expect(link.getAttribute('href')).toBe('/team/gsw');
+		expect(link.classList.contains('large')).toBe(true);
+		expect(link.classList.contains('linked')).toBe(true);
+	});
+
+	it('renders a span with no link without an href', () => {
+		render(TeamMonogram, { props: { code: 'GSW', size: 'large' } });
+		expect(screen.queryByRole('link')).toBeNull();
+		expect(screen.getByText('GSW').tagName).toBe('SPAN');
 	});
 });

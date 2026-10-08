@@ -4,6 +4,7 @@
 //
 // Tested:
 // - Each team's top performer with team code, name and stat line
+// - Each team code links to the team page
 // - A placeholder in place of a photo that fails to load, keeping the other photo
 // - The stat line in Spanish with a Spanish browser preference
 //
@@ -13,6 +14,7 @@
 // Run with: cd web && pnpm exec vitest run tests/lib/components/Leaders.test.ts
 //
 // SEE: web/src/lib/components/Leaders.svelte
+import type { ResolvedPathname } from '$app/types';
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -20,6 +22,8 @@ import type { Leader } from '../../../src/lib/schedule/types';
 import { preferLanguages } from '../../prefer-languages';
 
 import Leaders from '../../../src/lib/components/Leaders.svelte';
+
+const teamHref = (code: string) => `/team/${code.toLowerCase()}` as ResolvedPathname;
 
 afterEach(() => {
 	vi.restoreAllMocks();
@@ -46,7 +50,7 @@ const home: Leader = {
 
 describe('Leaders', () => {
 	it("shows each team's top performer with team code, name and stat line", () => {
-		const { container } = render(Leaders, { props: { away, home } });
+		const { container } = render(Leaders, { props: { away, home, teamHref } });
 		const leaders = [...container.querySelectorAll('.leader')];
 		expect(leaders).toHaveLength(2);
 		expect(leaders[0].querySelector('.leader-code')?.textContent).toBe('GSW');
@@ -60,7 +64,7 @@ describe('Leaders', () => {
 	});
 
 	it('shows a placeholder in place of a photo that fails to load and keeps the other photo', async () => {
-		render(Leaders, { props: { away, home } });
+		render(Leaders, { props: { away, home, teamHref } });
 		await fireEvent.error(screen.getByAltText('Stephen Curry'));
 		expect(screen.getByRole('img', { name: 'Stephen Curry' }).textContent).toBe('SC');
 		expect(screen.getByAltText('LeBron James').tagName).toBe('IMG');
@@ -68,9 +72,18 @@ describe('Leaders', () => {
 
 	it('shows the stat line in Spanish with a Spanish preference', () => {
 		preferLanguages(['es-ES']);
-		const { container } = render(Leaders, { props: { away, home } });
+		const { container } = render(Leaders, { props: { away, home, teamHref } });
 		expect(container.querySelector('.leader-line')?.textContent?.trim()).toBe(
 			'34 PTS · 3 REB · 8 AST'
 		);
+	});
+
+	it('links each team code to the team page and keeps the names plain', () => {
+		const { container } = render(Leaders, { props: { away, home, teamHref } });
+		const links = [...container.querySelectorAll('a')];
+		expect(links.map((a) => [a.textContent, a.getAttribute('href')])).toEqual([
+			['GSW', '/team/gsw'],
+			['LAL', '/team/lal']
+		]);
 	});
 });

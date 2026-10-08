@@ -12,6 +12,9 @@
 // - Pauses while the tab is hidden and loads at once when it is visible again
 // - Keeps the last feed on screen when a later poll fails
 // - Renders the win probability chart with "Even" for a feed built before the leader field
+// - Links the header team names to /team/{code} in lowercase, box score and injured player names to /player/{id}
+// - Shows an injured player's name as plain text for a feed without playerId
+// - Renders no link inside a button or another link
 // - The chart check targets the chart by role and name: absent without win probability points while the header svg remains
 //
 // What is covered:
@@ -28,7 +31,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { GameDetailFeed } from '../../../../src/lib/contract/game-detail';
+import type { GameDetailFeed, Injury } from '../../../../src/lib/contract/game-detail';
 
 import Page from '../../../../src/routes/game/[id]/+page.svelte';
 
@@ -235,5 +238,48 @@ describe('game detail page', () => {
 		const { container } = await renderPage();
 		expect(screen.queryByRole('img', { name: 'Win probability' })).toBeNull();
 		expect(container.querySelector('svg')).not.toBeNull();
+	});
+
+	it('links the header team names to /team/{code} in lowercase', async () => {
+		stubFetch(answerWith(recorded()));
+		const { container } = await renderPage();
+		const names = [...container.querySelectorAll('h1 a')];
+		expect(names.map((a) => [a.textContent, a.getAttribute('href')])).toEqual([
+			['Lakers', '/team/lal'],
+			['Warriors', '/team/gsw']
+		]);
+	});
+
+	it('links box score player names to /player/{id}', async () => {
+		stubFetch(answerWith(recorded()));
+		await renderPage();
+		expect(screen.getByRole('link', { name: 'LeBron James' }).getAttribute('href')).toBe(
+			'/player/p-LAL'
+		);
+	});
+
+	it("links the injured player's name to /player/{id}", async () => {
+		stubFetch(answerWith(recorded()));
+		await renderPage();
+		expect(screen.getByRole('link', { name: 'Austin Reaves' }).getAttribute('href')).toBe(
+			'/player/4066457'
+		);
+	});
+
+	it("shows the injured player's name as plain text for a feed without playerId", async () => {
+		const old = recorded();
+		const injury: Partial<Injury> = { ...old.injuries!.away[0] };
+		delete injury.playerId;
+		old.injuries!.away[0] = injury as Injury;
+		stubFetch(answerWith(old));
+		await renderPage();
+		expect(screen.getByText('Austin Reaves')).toBeTruthy();
+		expect(screen.queryByRole('link', { name: 'Austin Reaves' })).toBeNull();
+	});
+
+	it('renders no link inside a button or another link', async () => {
+		stubFetch(answerWith(recorded()));
+		const { container } = await renderPage();
+		expect(container.querySelectorAll('button a, a a')).toHaveLength(0);
 	});
 });

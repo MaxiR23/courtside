@@ -124,11 +124,16 @@ export type BoxScoreTeam = {
 };
 export type BoxScoreSection = { away: BoxScoreTeam; home: BoxScoreTeam };
 
-export type StarCard = PanelPlayer & { teamName: string }; // teamName: "Golden State Warriors"
+export type StarCard = PanelPlayer & { id: string; teamName: string }; // id: the player id; teamName: "Golden State Warriors"
 export type PlayersSection = { away: StarCard; home: StarCard };
 
 export type InjuryTagStatus = 'out' | 'doubtful' | 'questionable' | 'probable' | 'day-to-day';
-export type InjuryRow = { name: string; status: InjuryTagStatus; comment: string | null }; // comment as given
+export type InjuryRow = {
+	id: string | null; // the player id, null when the feed has none
+	name: string;
+	status: InjuryTagStatus;
+	comment: string | null;
+}; // comment as given
 export type InjuryTeam = { code: string; name: string; injuries: InjuryRow[] }; // empty: none reported
 export type InjuriesSection = { away: InjuryTeam; home: InjuryTeam };
 

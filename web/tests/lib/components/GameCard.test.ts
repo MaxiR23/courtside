@@ -13,6 +13,7 @@
 // - Highlights on final games only: videos, pending, play callback, player removed on close
 // - Delayed, postponed and canceled games: status line only, no score, no tip time, no toggle
 // - A scheduled game with no known network
+// - Team names and monograms: plain text with no link inside the button of a card that expands; links to the team page on a card that cannot expand; line score and leader codes link in the open panel
 // - Spoiler-free mode: final cards that can expand hide the score and the dimming until open
 // - The Game center link on open live, final, final without stats and scheduled cards, after the stats, notice or players to watch; none without detailHref or on a card that cannot expand; Spanish copy
 //
@@ -51,6 +52,8 @@ const final = (awayScore: number, homeScore: number, winner: string): ScheduleGa
 	home,
 	status: { state: 'final', awayScore, homeScore, winner }
 });
+
+const teamHref = (code: string) => `/team/${code.toLowerCase()}` as ResolvedPathname;
 
 afterEach(() => {
 	vi.restoreAllMocks();
@@ -122,7 +125,9 @@ const dimmedText = (container: HTMLElement) =>
 
 describe('GameCard', () => {
 	it('shows the network on the status line and the tip time with its suffix on a scheduled game (desktop)', () => {
-		const { container } = render(GameCard, { props: { game: scheduled, layout: 'desktop' } });
+		const { container } = render(GameCard, {
+			props: { teamHref, game: scheduled, layout: 'desktop' }
+		});
 		expect(container.querySelector('.status-line')?.textContent?.trim()).toBe('Prime Video');
 		expect(container.querySelector('.tip-time')?.textContent).toBe('9:00PM ET');
 		expect(container.querySelector('.tip-time .suffix')?.textContent).toBe('PM ET');
@@ -130,7 +135,9 @@ describe('GameCard', () => {
 	});
 
 	it('shows "9:00 PM ET · Prime Video" on the status line of a scheduled game (mobile)', () => {
-		const { container } = render(GameCard, { props: { game: scheduled, layout: 'mobile' } });
+		const { container } = render(GameCard, {
+			props: { teamHref, game: scheduled, layout: 'mobile' }
+		});
 		expect(container.querySelector('.status-line')?.textContent?.trim()).toBe(
 			'9:00 PM ET · Prime Video'
 		);
@@ -140,7 +147,7 @@ describe('GameCard', () => {
 	it.each(['desktop', 'mobile'] as const)(
 		'shows the live badge with the period and clock on a live game (%s)',
 		(layout) => {
-			const { container } = render(GameCard, { props: { game: live, layout } });
+			const { container } = render(GameCard, { props: { teamHref, game: live, layout } });
 			expect(screen.getByText('LIVE')).toBeTruthy();
 			expect(container.querySelector('.status-line')?.textContent).toContain('Q3 · 4:12');
 			expect([...container.querySelectorAll('.score')].map((e) => e.textContent)).toEqual([
@@ -153,7 +160,9 @@ describe('GameCard', () => {
 	it.each(['desktop', 'mobile'] as const)(
 		'shows FINAL and both scores on a final game (%s)',
 		(layout) => {
-			const { container } = render(GameCard, { props: { game: final(112, 104, 'GSW'), layout } });
+			const { container } = render(GameCard, {
+				props: { teamHref, game: final(112, 104, 'GSW'), layout }
+			});
 			expect(container.querySelector('.status-line')?.textContent?.trim()).toBe('Final');
 			expect([...container.querySelectorAll('.score')].map((e) => e.textContent)).toEqual([
 				'112',
@@ -163,7 +172,9 @@ describe('GameCard', () => {
 	);
 
 	it('dims the team that is not the winner on a final game, home and away winners', () => {
-		const desktop = render(GameCard, { props: { game: final(98, 104, 'LAL'), layout: 'desktop' } });
+		const desktop = render(GameCard, {
+			props: { teamHref, game: final(98, 104, 'LAL'), layout: 'desktop' }
+		});
 		const text = dimmedText(desktop.container);
 		expect(text.some((t) => t?.includes('Warriors'))).toBe(true);
 		expect(text).toContain('98');
@@ -172,7 +183,7 @@ describe('GameCard', () => {
 		desktop.unmount();
 
 		const { container } = render(GameCard, {
-			props: { game: final(112, 104, 'GSW'), layout: 'mobile' }
+			props: { teamHref, game: final(112, 104, 'GSW'), layout: 'mobile' }
 		});
 		const mobile = dimmedText(container);
 		expect(mobile.some((t) => t?.includes('Lakers'))).toBe(true);
@@ -185,7 +196,7 @@ describe('GameCard', () => {
 		['desktop', final(98, 104, 'LAL')],
 		['mobile', final(112, 104, 'GSW')]
 	] as const)("does not dim the losing team's monogram on the %s row", (layout, game) => {
-		const { container } = render(GameCard, { props: { game, layout } });
+		const { container } = render(GameCard, { props: { teamHref, game, layout } });
 		expect(container.querySelectorAll('.team-monogram').length).toBeGreaterThan(0);
 		expect(container.querySelectorAll('.dimmed .team-monogram')).toHaveLength(0);
 		const text = dimmedText(container);
@@ -196,7 +207,7 @@ describe('GameCard', () => {
 	it('dims the team that is not the winner even when its score is higher', () => {
 		for (const layout of ['desktop', 'mobile'] as const) {
 			const { container, unmount } = render(GameCard, {
-				props: { game: final(98, 104, 'GSW'), layout }
+				props: { teamHref, game: final(98, 104, 'GSW'), layout }
 			});
 			const text = dimmedText(container);
 			expect(text.some((t) => t?.includes('Lakers'))).toBe(true);
@@ -208,23 +219,27 @@ describe('GameCard', () => {
 	});
 
 	it('does not dim a team on a live game', () => {
-		const { container } = render(GameCard, { props: { game: live, layout: 'desktop' } });
+		const { container } = render(GameCard, { props: { teamHref, game: live, layout: 'desktop' } });
 		expect(container.querySelectorAll('.dimmed')).toHaveLength(0);
 	});
 
 	it('uses the large monograms on the desktop row and the small ones on the mobile row', () => {
-		const desktop = render(GameCard, { props: { game: scheduled, layout: 'desktop' } });
+		const desktop = render(GameCard, { props: { teamHref, game: scheduled, layout: 'desktop' } });
 		expect(desktop.container.querySelectorAll('.team-monogram.large')).toHaveLength(2);
 		expect(desktop.container.querySelectorAll('.team-monogram.small')).toHaveLength(0);
 		desktop.unmount();
-		const { container } = render(GameCard, { props: { game: scheduled, layout: 'mobile' } });
+		const { container } = render(GameCard, {
+			props: { teamHref, game: scheduled, layout: 'mobile' }
+		});
 		expect(container.querySelectorAll('.team-monogram.small')).toHaveLength(2);
 		expect(container.querySelectorAll('.team-monogram.large')).toHaveLength(0);
 	});
 
 	it('shows a decorative chevron', () => {
 		for (const layout of ['desktop', 'mobile'] as const) {
-			const { container, unmount } = render(GameCard, { props: { game: scheduled, layout } });
+			const { container, unmount } = render(GameCard, {
+				props: { teamHref, game: scheduled, layout }
+			});
 			expect(container.querySelector('svg.chevron')?.getAttribute('aria-hidden')).toBe('true');
 			unmount();
 		}
@@ -232,19 +247,21 @@ describe('GameCard', () => {
 
 	it('shows the live badge in Spanish with a Spanish preference', () => {
 		preferLanguages(['es-ES']);
-		render(GameCard, { props: { game: live, layout: 'desktop' } });
+		render(GameCard, { props: { teamHref, game: live, layout: 'desktop' } });
 		expect(screen.getByText('EN VIVO')).toBeTruthy();
 	});
 
 	it('keeps a plain row with no toggle when the game has no details', () => {
-		const { container } = render(GameCard, { props: { game: scheduled, layout: 'desktop' } });
+		const { container } = render(GameCard, {
+			props: { teamHref, game: scheduled, layout: 'desktop' }
+		});
 		expect(container.querySelector('button')).toBeNull();
 		expect(container.querySelector('.panel')).toBeNull();
 	});
 
 	it('renders the row as a collapsed toggle with its panel inert when closed', () => {
 		const { container } = render(GameCard, {
-			props: { game: liveWithDetails, layout: 'desktop' }
+			props: { teamHref, game: liveWithDetails, layout: 'desktop' }
 		});
 		const toggle = container.querySelector('button.toggle');
 		const panel = container.querySelector('.panel');
@@ -257,7 +274,7 @@ describe('GameCard', () => {
 	it('calls onToggle when the row is clicked', async () => {
 		const onToggle = vi.fn();
 		const { container } = render(GameCard, {
-			props: { game: liveWithDetails, layout: 'desktop', onToggle }
+			props: { teamHref, game: liveWithDetails, layout: 'desktop', onToggle }
 		});
 		await fireEvent.click(container.querySelector('button.toggle') as HTMLElement);
 		expect(onToggle).toHaveBeenCalledTimes(1);
@@ -265,7 +282,7 @@ describe('GameCard', () => {
 
 	it('shows the accent border, the open class and an active panel when open', () => {
 		const { container } = render(GameCard, {
-			props: { game: liveWithDetails, layout: 'desktop', open: true }
+			props: { teamHref, game: liveWithDetails, layout: 'desktop', open: true }
 		});
 		expect(container.querySelector('.blueprint-frame.active')).not.toBeNull();
 		expect(container.querySelector('.card.open')).not.toBeNull();
@@ -275,7 +292,7 @@ describe('GameCard', () => {
 
 	it('shows the line score, leaders and team stats on a live game, plus the highlights notice', () => {
 		const { container } = render(GameCard, {
-			props: { game: liveWithDetails, layout: 'desktop', open: true }
+			props: { teamHref, game: liveWithDetails, layout: 'desktop', open: true }
 		});
 		expect(container.querySelector('.line-score')).not.toBeNull();
 		expect(container.querySelector('.leaders')).not.toBeNull();
@@ -287,7 +304,7 @@ describe('GameCard', () => {
 
 	it('shows the line score, leaders and team stats on a final game without the highlights notice', () => {
 		const { container } = render(GameCard, {
-			props: { game: finalWithDetails, layout: 'desktop', open: true }
+			props: { teamHref, game: finalWithDetails, layout: 'desktop', open: true }
 		});
 		expect(container.querySelector('.line-score')).not.toBeNull();
 		expect(container.querySelector('.leaders')).not.toBeNull();
@@ -297,7 +314,7 @@ describe('GameCard', () => {
 
 	it('shows the overtime columns on a final game that went to overtime', () => {
 		const { container } = render(GameCard, {
-			props: { game: overtimeWithDetails, layout: 'desktop', open: true }
+			props: { teamHref, game: overtimeWithDetails, layout: 'desktop', open: true }
 		});
 		const header = [...container.querySelectorAll('.line-score .head .cell')].map(
 			(e) => e.textContent
@@ -307,7 +324,7 @@ describe('GameCard', () => {
 
 	it('shows Tip-off, Venue, Broadcast and the players to watch on a scheduled game', () => {
 		const { container } = render(GameCard, {
-			props: { game: scheduledWithDetails, layout: 'desktop', open: true }
+			props: { teamHref, game: scheduledWithDetails, layout: 'desktop', open: true }
 		});
 		const facts = [...container.querySelectorAll('.fact')].map((e) =>
 			[...e.children].map((c) => c.textContent)
@@ -326,7 +343,7 @@ describe('GameCard', () => {
 		const animate = vi.fn(() => ({ cancel: vi.fn() }));
 		Object.assign(HTMLElement.prototype, { animate });
 		vi.stubGlobal('matchMedia', () => ({ matches: false }));
-		const props = { game: liveWithDetails, layout: 'desktop' as const };
+		const props = { teamHref, game: liveWithDetails, layout: 'desktop' as const };
 		const motion = render(GameCard, { props: { ...props, open: false } });
 		expect(animate).not.toHaveBeenCalled();
 		await motion.rerender({ ...props, open: true });
@@ -343,7 +360,7 @@ describe('GameCard', () => {
 	it('shows the panel labels in Spanish with a Spanish preference', () => {
 		preferLanguages(['es-ES']);
 		const { container } = render(GameCard, {
-			props: { game: scheduledWithDetails, layout: 'desktop', open: true }
+			props: { teamHref, game: scheduledWithDetails, layout: 'desktop', open: true }
 		});
 		expect(screen.getByText('Inicio')).toBeTruthy();
 		expect(screen.getByText('Estadio')).toBeTruthy();
@@ -354,7 +371,7 @@ describe('GameCard', () => {
 
 	it('shows the highlights after the stats on an open final game with highlights', () => {
 		const { container } = render(GameCard, {
-			props: { game: finalWithHighlights, layout: 'desktop', open: true }
+			props: { teamHref, game: finalWithHighlights, layout: 'desktop', open: true }
 		});
 		const section = container.querySelector('.panel-highlights');
 		expect(section).not.toBeNull();
@@ -366,7 +383,7 @@ describe('GameCard', () => {
 
 	it('shows "Stats will be available soon." in place of the leaders and team stats on a final game with pending stats', () => {
 		const { container } = render(GameCard, {
-			props: { game: withoutStats('pending'), layout: 'desktop', open: true }
+			props: { teamHref, game: withoutStats('pending'), layout: 'desktop', open: true }
 		});
 		expect(screen.getByText('Stats will be available soon.')).toBeTruthy();
 		expect(screen.queryByText("Stats aren't available for this game.")).toBeNull();
@@ -378,7 +395,7 @@ describe('GameCard', () => {
 
 	it('shows "Stats aren\'t available for this game." on a final game with unavailable stats', () => {
 		const { container } = render(GameCard, {
-			props: { game: withoutStats('unavailable'), layout: 'desktop', open: true }
+			props: { teamHref, game: withoutStats('unavailable'), layout: 'desktop', open: true }
 		});
 		expect(screen.getByText("Stats aren't available for this game.")).toBeTruthy();
 		expect(screen.queryByText('Stats will be available soon.')).toBeNull();
@@ -387,10 +404,12 @@ describe('GameCard', () => {
 
 	it('shows both stats messages in Spanish with a Spanish preference', () => {
 		preferLanguages(['es-ES']);
-		render(GameCard, { props: { game: withoutStats('pending'), layout: 'desktop', open: true } });
+		render(GameCard, {
+			props: { teamHref, game: withoutStats('pending'), layout: 'desktop', open: true }
+		});
 		expect(screen.getByText('Las estadísticas estarán disponibles pronto.')).toBeTruthy();
 		render(GameCard, {
-			props: { game: withoutStats('unavailable'), layout: 'desktop', open: true }
+			props: { teamHref, game: withoutStats('unavailable'), layout: 'desktop', open: true }
 		});
 		expect(
 			screen.getByText('Las estadísticas no están disponibles para este partido.')
@@ -400,7 +419,7 @@ describe('GameCard', () => {
 	it('keeps the score and the toggle of a final game without stats', async () => {
 		const onToggle = vi.fn();
 		const { container } = render(GameCard, {
-			props: { game: withoutStats('pending'), layout: 'desktop', onToggle }
+			props: { teamHref, game: withoutStats('pending'), layout: 'desktop', onToggle }
 		});
 		expect([...container.querySelectorAll('.score')].map((e) => e.textContent)).toEqual([
 			'112',
@@ -414,7 +433,7 @@ describe('GameCard', () => {
 
 	it('shows the pending highlights state on a final game whose highlights are not in yet', () => {
 		const { container } = render(GameCard, {
-			props: { game: finalPending, layout: 'desktop', open: true }
+			props: { teamHref, game: finalPending, layout: 'desktop', open: true }
 		});
 		expect(
 			screen.getByText("Highlights aren't in yet. They'll appear here automatically.")
@@ -425,7 +444,7 @@ describe('GameCard', () => {
 
 	it('shows no highlights section on a final game without highlights', () => {
 		const { container } = render(GameCard, {
-			props: { game: finalWithDetails, layout: 'desktop', open: true }
+			props: { teamHref, game: finalWithDetails, layout: 'desktop', open: true }
 		});
 		expect(container.querySelector('.highlights')).toBeNull();
 	});
@@ -433,7 +452,7 @@ describe('GameCard', () => {
 	it('shows no highlights section on a live game, only the notice', () => {
 		const liveWithHighlights = withHighlights(live, [{ id: 'v1' }]);
 		const { container } = render(GameCard, {
-			props: { game: liveWithHighlights, layout: 'desktop', open: true }
+			props: { teamHref, game: liveWithHighlights, layout: 'desktop', open: true }
 		});
 		expect(container.querySelector('.highlights')).toBeNull();
 		expect(screen.getByText(HIGHLIGHTS)).toBeTruthy();
@@ -442,14 +461,19 @@ describe('GameCard', () => {
 	it('calls onPlay with the video id when a highlight thumbnail is clicked', async () => {
 		const onPlay = vi.fn();
 		render(GameCard, {
-			props: { game: finalWithHighlights, layout: 'desktop', open: true, onPlay }
+			props: { teamHref, game: finalWithHighlights, layout: 'desktop', open: true, onPlay }
 		});
 		await fireEvent.click(screen.getByRole('button', { name: 'Play Clip v2' }));
 		expect(onPlay).toHaveBeenCalledWith('v2');
 	});
 
 	it('shows the player for playingVideoId while open and removes it when the card closes', async () => {
-		const props = { game: finalWithHighlights, layout: 'desktop' as const, playingVideoId: 'v1' };
+		const props = {
+			teamHref,
+			game: finalWithHighlights,
+			layout: 'desktop' as const,
+			playingVideoId: 'v1'
+		};
 		const { container, rerender } = render(GameCard, { props: { ...props, open: true } });
 		expect(container.querySelector('iframe')?.getAttribute('src')).toBe('/embed/v1');
 		await rerender({ ...props, open: false });
@@ -462,7 +486,7 @@ describe('GameCard', () => {
 		it.each(['desktop', 'mobile'] as const)(
 			'hides final scores until the card is expanded in spoiler-free mode (%s)',
 			async (layout) => {
-				const props = { game: finalWithDetails, layout, spoilerFree: true };
+				const props = { teamHref, game: finalWithDetails, layout, spoilerFree: true };
 				const { container, rerender } = render(GameCard, { props });
 				expect(row(container).querySelector('.score')).toBeNull();
 				expect(row(container).textContent).toContain('Tap to reveal');
@@ -475,7 +499,7 @@ describe('GameCard', () => {
 
 		it('does not dim the losing team while the score is hidden', async () => {
 			const game = withDetails(final(98, 104, 'LAL'), played([30, 28, 20, 20], [24, 27, 25, 28]));
-			const props = { game, layout: 'desktop' as const, spoilerFree: true };
+			const props = { teamHref, game, layout: 'desktop' as const, spoilerFree: true };
 			const { container, rerender } = render(GameCard, { props });
 			expect(container.querySelectorAll('.dimmed')).toHaveLength(0);
 			await rerender({ ...props, open: true });
@@ -483,8 +507,15 @@ describe('GameCard', () => {
 		});
 
 		it('hides the score again when the expanded card is collapsed', async () => {
-			const props = { game: finalWithDetails, layout: 'desktop' as const, spoilerFree: true };
-			const { container, rerender } = render(GameCard, { props: { ...props, open: true } });
+			const props = {
+				teamHref,
+				game: finalWithDetails,
+				layout: 'desktop' as const,
+				spoilerFree: true
+			};
+			const { container, rerender } = render(GameCard, {
+				props: { ...props, open: true }
+			});
 			expect(row(container).querySelector('.score')).not.toBeNull();
 			await rerender({ ...props, open: false });
 			expect(row(container).querySelector('.score')).toBeNull();
@@ -492,13 +523,13 @@ describe('GameCard', () => {
 
 		it('leaves live and scheduled cards unchanged in spoiler-free mode', () => {
 			const liveCard = render(GameCard, {
-				props: { game: liveWithDetails, layout: 'desktop', spoilerFree: true }
+				props: { teamHref, game: liveWithDetails, layout: 'desktop', spoilerFree: true }
 			});
 			expect(row(liveCard.container).textContent).toContain('78');
 			expect(row(liveCard.container).textContent).not.toContain('Tap to reveal');
 			liveCard.unmount();
 			const next = render(GameCard, {
-				props: { game: scheduledWithDetails, layout: 'desktop', spoilerFree: true }
+				props: { teamHref, game: scheduledWithDetails, layout: 'desktop', spoilerFree: true }
 			});
 			expect(next.container.querySelector('.tip-time')?.textContent).toBe('9:00PM ET');
 			expect(next.container.textContent).not.toContain('Tap to reveal');
@@ -506,7 +537,7 @@ describe('GameCard', () => {
 
 		it('keeps the score on a final card that cannot expand', () => {
 			const { container } = render(GameCard, {
-				props: { game: final(112, 104, 'GSW'), layout: 'desktop', spoilerFree: true }
+				props: { teamHref, game: final(112, 104, 'GSW'), layout: 'desktop', spoilerFree: true }
 			});
 			expect(container.querySelectorAll('.score')).toHaveLength(2);
 			expect(container.textContent).not.toContain('Tap to reveal');
@@ -515,7 +546,7 @@ describe('GameCard', () => {
 		it('shows Toca para ver with a Spanish preference', () => {
 			preferLanguages(['es-ES']);
 			const { container } = render(GameCard, {
-				props: { game: finalWithDetails, layout: 'desktop', spoilerFree: true }
+				props: { teamHref, game: finalWithDetails, layout: 'desktop', spoilerFree: true }
 			});
 			expect(row(container).textContent).toContain('Toca para ver');
 		});
@@ -535,7 +566,7 @@ describe('GameCard game center link', () => {
 		'links an open %s card to its detail page, after its last block',
 		(_n, game, before) => {
 			const { container } = render(GameCard, {
-				props: { game, layout: 'desktop', open: true, detailHref: href }
+				props: { teamHref, game, layout: 'desktop', open: true, detailHref: href }
 			});
 			const link = screen.getByRole('link', { name: 'Game center' });
 			expect(link.getAttribute('href')).toBe('/game/abc');
@@ -549,13 +580,16 @@ describe('GameCard game center link', () => {
 	);
 
 	it('shows no link without a detailHref', () => {
-		render(GameCard, { props: { game: finalWithDetails, layout: 'desktop', open: true } });
+		render(GameCard, {
+			props: { teamHref, game: finalWithDetails, layout: 'desktop', open: true }
+		});
 		expect(screen.queryByRole('link', { name: 'Game center' })).toBeNull();
 	});
 
 	it('shows no link on a delayed card, which does not expand', () => {
 		render(GameCard, {
 			props: {
+				teamHref,
 				game: { id: 'd', away, home, status: { state: 'delayed' } },
 				layout: 'desktop',
 				detailHref: href
@@ -567,7 +601,7 @@ describe('GameCard game center link', () => {
 	it('shows the link in Spanish with a Spanish preference', () => {
 		preferLanguages(['es-ES']);
 		render(GameCard, {
-			props: { game: finalWithDetails, layout: 'desktop', open: true, detailHref: href }
+			props: { teamHref, game: finalWithDetails, layout: 'desktop', open: true, detailHref: href }
 		});
 		expect(screen.getByRole('link', { name: 'Centro del partido' })).toBeTruthy();
 	});
@@ -589,7 +623,7 @@ describe('GameCard with a delayed, postponed or canceled game', () => {
 	it.each(labels)('shows %s on the status line with no score and no tip time', (state, english) => {
 		for (const layout of ['desktop', 'mobile'] as const) {
 			const { container, unmount } = render(GameCard, {
-				props: { game: inState(state), layout }
+				props: { teamHref, game: inState(state), layout }
 			});
 			expect(container.querySelector('.status-line')?.textContent?.trim()).toBe(english);
 			expect(container.querySelector('.score')).toBeNull();
@@ -600,12 +634,16 @@ describe('GameCard with a delayed, postponed or canceled game', () => {
 
 	it.each(labels)('shows %s in Spanish', (state, _label, spanish) => {
 		preferLanguages(['es-ES']);
-		const { container } = render(GameCard, { props: { game: inState(state), layout: 'desktop' } });
+		const { container } = render(GameCard, {
+			props: { teamHref, game: inState(state), layout: 'desktop' }
+		});
 		expect(container.querySelector('.status-line')?.textContent?.trim()).toBe(spanish);
 	});
 
 	it.each(labels)('keeps %s as a plain row with no toggle', (state) => {
-		const { container } = render(GameCard, { props: { game: inState(state), layout: 'desktop' } });
+		const { container } = render(GameCard, {
+			props: { teamHref, game: inState(state), layout: 'desktop' }
+		});
 		expect(container.querySelector('button.toggle')).toBeNull();
 	});
 });
@@ -617,13 +655,16 @@ describe('GameCard with an unknown network', () => {
 	};
 
 	it('shows only the tip time on the mobile status line', () => {
-		const { container } = render(GameCard, { props: { game: noNetwork, layout: 'mobile' } });
+		const { container } = render(GameCard, {
+			props: { teamHref, game: noNetwork, layout: 'mobile' }
+		});
 		expect(container.querySelector('.status-line')?.textContent?.trim()).toBe('9:00 PM ET');
 	});
 
 	it('hides the Broadcast fact', () => {
 		const { container } = render(GameCard, {
 			props: {
+				teamHref,
 				game: withDetails(noNetwork, {
 					kind: 'scheduled',
 					venue: 'Crypto.com Arena',
@@ -635,5 +676,57 @@ describe('GameCard with an unknown network', () => {
 		});
 		expect(screen.queryByText('Broadcast')).toBeNull();
 		expect(container.querySelectorAll('.fact').length).toBe(2);
+	});
+
+	describe('team links', () => {
+		it.each(['desktop', 'mobile'] as const)(
+			"keeps an expandable row's team names as plain text with no link inside the button (%s)",
+			(layout) => {
+				for (const game of [scheduledWithDetails, liveWithDetails, finalWithDetails]) {
+					const { container, unmount } = render(GameCard, {
+						props: { teamHref, game, layout }
+					});
+					expect(container.querySelectorAll('button a')).toHaveLength(0);
+					expect(container.querySelector('button')?.textContent).toContain('Warriors');
+					unmount();
+				}
+			}
+		);
+
+		it.each(['desktop', 'mobile'] as const)(
+			"links a delayed, postponed or canceled card's team names and codes to the team page (%s)",
+			(layout) => {
+				for (const state of ['delayed', 'postponed', 'canceled'] as const) {
+					const game = { ...scheduled, status: { state } } as ScheduleGame;
+					const { unmount } = render(GameCard, { props: { teamHref, game, layout } });
+					for (const name of ['GSW', 'Warriors']) {
+						expect(screen.getByRole('link', { name }).getAttribute('href')).toBe('/team/gsw');
+					}
+					for (const name of ['LAL', 'Lakers']) {
+						expect(screen.getByRole('link', { name }).getAttribute('href')).toBe('/team/lal');
+					}
+					unmount();
+				}
+			}
+		);
+
+		it("links the expanded panel's line score and leader codes", () => {
+			const { container } = render(GameCard, {
+				props: { teamHref, game: finalWithDetails, layout: 'desktop', open: true }
+			});
+			expect(container.querySelectorAll('button a')).toHaveLength(0);
+			const links = [...container.querySelectorAll('.panel a')].map((a) => [
+				a.textContent,
+				a.getAttribute('href')
+			]);
+			expect(links).toEqual(
+				expect.arrayContaining([
+					['GSW', '/team/gsw'],
+					['LAL', '/team/lal']
+				])
+			);
+			expect(container.querySelectorAll('.leader-code a')).toHaveLength(2);
+			expect(container.querySelectorAll('.line-score a')).toHaveLength(2);
+		});
 	});
 });

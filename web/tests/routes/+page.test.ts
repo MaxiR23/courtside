@@ -5,6 +5,8 @@
 // Tested:
 // - Renders the hero, the schedule with today's games and the footer from a recorded feed
 // - Expands a played game's panel with its line score, leaders, stats and highlights
+// - Links the hero's team names and the non-expandable cards' team names to /team/{code} in lowercase, and an expanded game's line score codes
+// - Renders no link inside a button or another link, before and after expanding a game
 // - Toggles spoiler-free mode from the nav row
 // - Opens the hero's game in the schedule from Match details, on today
 // - Polls again after 30 s while a game is live; pauses while the tab is hidden and loads on return
@@ -159,6 +161,47 @@ describe('home page with a feed', () => {
 		expect(within(final).getByRole('link', { name: 'Game center' }).getAttribute('href')).toBe(
 			'/game/g-final'
 		);
+	});
+
+	it("links the hero's team names to /team/{code} in lowercase", async () => {
+		stubFetch(answerWith(recorded()));
+		const { container } = await renderPage();
+		const links = [...container.querySelectorAll('.hero h1 a')];
+		expect(links.map((a) => [a.textContent, a.getAttribute('href')])).toEqual([
+			['Warriors', '/team/gsw'],
+			['Lakers', '/team/lal']
+		]);
+	});
+
+	it("links the delayed card's team names to /team/{code} in lowercase", async () => {
+		stubFetch(answerWith(recorded()));
+		const { container } = await renderPage();
+		const delayed = within(card(container, 'g-delayed'));
+		expect(delayed.getByRole('link', { name: 'Heat' }).getAttribute('href')).toBe('/team/mia');
+		expect(delayed.getByRole('link', { name: 'Bulls' }).getAttribute('href')).toBe('/team/chi');
+	});
+
+	it("links an expanded game's line score codes in lowercase", async () => {
+		stubFetch(answerWith(recorded()));
+		const { container } = await renderPage();
+		const final = card(container, 'g-final');
+		await fireEvent.click(final.querySelector('button.toggle') as HTMLElement);
+		const hrefs = [...final.querySelectorAll('.line-score a')].map((a) => [
+			a.textContent,
+			a.getAttribute('href')
+		]);
+		expect(hrefs).toEqual([
+			['DEN', '/team/den'],
+			['PHX', '/team/phx']
+		]);
+	});
+
+	it('renders no link inside a button or another link, before and after expanding a game', async () => {
+		stubFetch(answerWith(recorded()));
+		const { container } = await renderPage();
+		expect(container.querySelectorAll('button a, a a')).toHaveLength(0);
+		await fireEvent.click(card(container, 'g-final').querySelector('button.toggle') as HTMLElement);
+		expect(container.querySelectorAll('button a, a a')).toHaveLength(0);
 	});
 
 	it('leaves the highlights out when no video platform is configured', async () => {

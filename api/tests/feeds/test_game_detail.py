@@ -18,6 +18,7 @@
 # - Win probability leader: the side ahead at the last point and its probability,
 #   null when even or without win probability
 # - Win probability points: in non-decreasing elapsedSeconds order; equal consecutive seconds are accepted
+# - Injury playerId: set, absent or null is accepted (null when absent); empty is rejected
 # - Injury status, win probability, UTC time and unknown fields are validated
 # - Serialization uses camelCase keys
 # - Venue city: null or absent is accepted and serialized as null; an empty city is rejected
@@ -465,6 +466,35 @@ def test_accepts_a_team_with_no_last_games() -> None:
 
 def test_rejects_an_unknown_injury_status() -> None:
     injury = {"displayName": "A B", "status": "sidelined"}
+
+    with pytest.raises(ValidationError):
+        GameDetailFeed.model_validate(valid_game("final", injuries=pair([injury], [])))
+
+
+def test_accepts_an_injury_with_a_player_id_and_serializes_it() -> None:
+    injury = {"playerId": "4397183", "displayName": "A B", "status": "out"}
+
+    feed = GameDetailFeed.model_validate(
+        valid_game("final", injuries=pair([injury], []))
+    )
+
+    dumped = feed.model_dump(mode="json", by_alias=True)
+    assert dumped["injuries"]["away"][0]["playerId"] == "4397183"
+
+
+def test_accepts_an_injury_without_a_player_id_as_null() -> None:
+    injury = {"displayName": "A B", "status": "out"}
+
+    feed = GameDetailFeed.model_validate(
+        valid_game("final", injuries=pair([injury], []))
+    )
+
+    dumped = feed.model_dump(mode="json", by_alias=True)
+    assert dumped["injuries"]["away"][0]["playerId"] is None
+
+
+def test_rejects_an_empty_player_id() -> None:
+    injury = {"playerId": "", "displayName": "A B", "status": "out"}
 
     with pytest.raises(ValidationError):
         GameDetailFeed.model_validate(valid_game("final", injuries=pair([injury], [])))

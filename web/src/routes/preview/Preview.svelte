@@ -229,8 +229,8 @@
 		status,
 		tipTime: '10:30 PM ET',
 		arena: 'Chase Center',
-		away: { name: 'Warriors', star: away },
-		home: { name: 'Lakers', star: home }
+		away: { code: 'GSW', name: 'Warriors', star: away },
+		home: { code: 'LAL', name: 'Lakers', star: home }
 	});
 	const heroGames: HeroGame[] = [
 		heroGame('one', 'tonight'),
@@ -405,17 +405,22 @@
 		}
 	};
 	const samplePlayers: PlayersSection = {
-		away: { ...away, teamName: 'Golden State Warriors', photo: awayPhoto },
-		home: { ...home, teamName: 'Los Angeles Lakers', photo: homePhoto }
+		away: { ...away, id: 'preview-away', teamName: 'Golden State Warriors', photo: awayPhoto },
+		home: { ...home, id: 'preview-home', teamName: 'Los Angeles Lakers', photo: homePhoto }
 	};
 	const sampleInjuries: InjuriesSection = {
 		away: {
 			code: headerAway.code,
 			name: headerAway.name,
 			injuries: [
-				{ name: 'Draymond Green', status: 'out', comment: 'Left knee soreness, out for the game.' },
-				{ name: 'Jonathan Kuminga', status: 'doubtful', comment: null },
-				{ name: 'Brandin Podziemski', status: 'questionable', comment: null }
+				{
+					id: 'preview-1',
+					name: 'Draymond Green',
+					status: 'out',
+					comment: 'Left knee soreness, out for the game.'
+				},
+				{ id: null, name: 'Jonathan Kuminga', status: 'doubtful', comment: null },
+				{ id: 'preview-3', name: 'Brandin Podziemski', status: 'questionable', comment: null }
 			]
 		},
 		home: {
@@ -429,8 +434,8 @@
 		home: {
 			...sampleInjuries.home,
 			injuries: [
-				{ name: 'Gabe Vincent', status: 'probable', comment: null },
-				{ name: 'Rui Hachimura', status: 'day-to-day', comment: 'Ankle sprain.' }
+				{ id: 'preview-4', name: 'Gabe Vincent', status: 'probable', comment: null },
+				{ id: null, name: 'Rui Hachimura', status: 'day-to-day', comment: 'Ankle sprain.' }
 			]
 		}
 	};
@@ -798,6 +803,8 @@
 
 	$effect(() => spoilerFree.load());
 	const teamGameHref = () => resolve('/preview');
+	const teamHref = () => resolve('/preview');
+	const playerHref = () => resolve('/preview');
 	const teamScheduleRow = (
 		gameId: string,
 		overrides: Partial<ScheduleRowView> = {}
@@ -1470,6 +1477,7 @@
 		<section>
 			<h2>{state.title}</h2>
 			<Hero
+				{teamHref}
 				games={[heroGame(state.status, state.status)]}
 				{today}
 				scheduleHref={resolve('/')}
@@ -1483,6 +1491,7 @@
 	<section>
 		<h2>Hero: three games</h2>
 		<Hero
+			{teamHref}
 			games={heroGames}
 			{today}
 			scheduleHref={resolve('/')}
@@ -1514,10 +1523,10 @@
 		<h2>GameCard: desktop row</h2>
 		<div class="stack">
 			{#each sampleGames as game (game.id)}
-				<GameCard {game} layout="desktop" />
+				<GameCard {teamHref} {game} layout="desktop" />
 			{/each}
 			{#each statusGames as game (game.id)}
-				<GameCard {game} layout="desktop" />
+				<GameCard {teamHref} {game} layout="desktop" />
 			{/each}
 		</div>
 	</section>
@@ -1526,10 +1535,10 @@
 		<h2>GameCard: mobile row</h2>
 		<div class="stack phone">
 			{#each sampleGames as game (game.id)}
-				<GameCard {game} layout="mobile" />
+				<GameCard {teamHref} {game} layout="mobile" />
 			{/each}
 			{#each statusGames as game (game.id)}
-				<GameCard {game} layout="mobile" />
+				<GameCard {teamHref} {game} layout="mobile" />
 			{/each}
 		</div>
 	</section>
@@ -1538,6 +1547,7 @@
 		<h2>GameCard: spoiler-free</h2>
 		<div class="stack">
 			<GameCard
+				{teamHref}
 				game={sampleGames[2]}
 				layout="desktop"
 				spoilerFree
@@ -1547,6 +1557,7 @@
 		</div>
 		<div class="stack phone">
 			<GameCard
+				{teamHref}
 				game={sampleGames[2]}
 				layout="mobile"
 				spoilerFree
@@ -1560,6 +1571,7 @@
 		<section>
 			<h2>{expanded.title}</h2>
 			<GameCard
+				{teamHref}
 				game={expanded.game}
 				layout="desktop"
 				open
@@ -1573,6 +1585,7 @@
 	<section>
 		<h2>Schedule</h2>
 		<Schedule
+			{teamHref}
 			days={sampleDays}
 			updatedMinutesAgo={3}
 			spoilerFree={spoilerFree.on}
@@ -1583,6 +1596,7 @@
 	<section>
 		<h2>Schedule: day with no games</h2>
 		<Schedule
+			{teamHref}
 			days={sampleDays}
 			updatedMinutesAgo={3}
 			selected={1}
@@ -1592,13 +1606,18 @@
 
 	<section>
 		<h2>Schedule: recently updated</h2>
-		<Schedule days={sampleDays} updatedMinutesAgo={0} gameHref={() => resolve('/preview')} />
+		<Schedule
+			{teamHref}
+			days={sampleDays}
+			updatedMinutesAgo={0}
+			gameHref={() => resolve('/preview')}
+		/>
 	</section>
 
 	{#each headerStates as { title, header } (title)}
 		<section>
 			<h2>{title}</h2>
-			<GameHeader {header} {allGamesHref} layout="desktop" />
+			<GameHeader {teamHref} {header} {allGamesHref} layout="desktop" />
 		</section>
 	{/each}
 
@@ -1606,14 +1625,14 @@
 		<h2>GameHeader: mobile</h2>
 		<div class="stack phone">
 			{#each mobileHeaders as header (header.layout)}
-				<GameHeader {header} {allGamesHref} layout="mobile" />
+				<GameHeader {teamHref} {header} {allGamesHref} layout="mobile" />
 			{/each}
 		</div>
 	</section>
 
 	<section>
 		<h2>GameHeader: no venue photo</h2>
-		<GameHeader header={noPhotoHeader} {allGamesHref} layout="desktop" />
+		<GameHeader {teamHref} header={noPhotoHeader} {allGamesHref} layout="desktop" />
 	</section>
 
 	{#each tabStates as { title, tabs, miniScore } (title)}
@@ -1625,28 +1644,52 @@
 
 	<section>
 		<h2>GamePage: loading</h2>
-		<GamePage state={{ kind: 'loading' }} {allGamesHref} layout="desktop" />
+		<GamePage {teamHref} {playerHref} state={{ kind: 'loading' }} {allGamesHref} layout="desktop" />
 	</section>
 
 	<section>
 		<h2>GamePage: feed unavailable</h2>
-		<GamePage state={{ kind: 'unavailable' }} {allGamesHref} layout="desktop" />
+		<GamePage
+			{teamHref}
+			{playerHref}
+			state={{ kind: 'unavailable' }}
+			{allGamesHref}
+			layout="desktop"
+		/>
 	</section>
 
 	<section>
 		<h2>GamePage: unknown game</h2>
-		<GamePage state={{ kind: 'not-found' }} {allGamesHref} layout="desktop" />
+		<GamePage
+			{teamHref}
+			{playerHref}
+			state={{ kind: 'not-found' }}
+			{allGamesHref}
+			layout="desktop"
+		/>
 	</section>
 
 	<section>
 		<h2>GamePage: postponed</h2>
-		<GamePage state={{ kind: 'ready', view: postponedView }} {allGamesHref} layout="desktop" />
+		<GamePage
+			{teamHref}
+			{playerHref}
+			state={{ kind: 'ready', view: postponedView }}
+			{allGamesHref}
+			layout="desktop"
+		/>
 	</section>
 
 	{#each sectionViews as { title, view } (title)}
 		<section>
 			<h2>{title}</h2>
-			<GamePage state={{ kind: 'ready', view }} {allGamesHref} layout="desktop" />
+			<GamePage
+				{teamHref}
+				{playerHref}
+				state={{ kind: 'ready', view }}
+				{allGamesHref}
+				layout="desktop"
+			/>
 		</section>
 	{/each}
 

@@ -3,6 +3,7 @@
 // Tests for the GameHeader component.
 //
 // Tested:
+// - The team monogram and name link to the team page, on desktop and mobile
 // - The nav row: the brand and an All games link to the home; alone with no header
 // - The skeleton under the nav row while loading, busy and hidden from assistive tech
 // - The desktop row in every status: scheduled, delayed, postponed, canceled, live and final
@@ -28,6 +29,7 @@ import type { GameHeaderView } from '../../../src/lib/game/types';
 import type { RowLayout } from '../../../src/lib/schedule/types';
 
 const HOME = '/' as ResolvedPathname;
+const teamHref = (code: string) => `/team/${code.toLowerCase()}` as ResolvedPathname;
 
 const away = { code: 'LAL', name: 'Lakers', city: 'Los Angeles', record: '12–5' };
 const home = { code: 'GSW', name: 'Warriors', city: 'Golden State', record: '10–7' };
@@ -77,7 +79,7 @@ const final: GameHeaderView = {
 };
 
 function show(header: GameHeaderView | null, layout: RowLayout = 'desktop', loading = false) {
-	return render(GameHeader, { props: { header, allGamesHref: HOME, layout, loading } });
+	return render(GameHeader, { props: { header, allGamesHref: HOME, layout, loading, teamHref } });
 }
 
 describe('GameHeader', () => {
@@ -279,4 +281,17 @@ describe('GameHeader', () => {
 			unmount();
 		}
 	});
+
+	it.each<RowLayout>(['desktop', 'mobile'])(
+		'links the team monogram and name to the team page on %s',
+		(layout) => {
+			show(scheduled, layout);
+			const lal = screen.getAllByRole('link', { name: /^(LAL|Lakers)$/ });
+			const gsw = screen.getAllByRole('link', { name: /^(GSW|Warriors)$/ });
+			expect(lal).toHaveLength(2);
+			expect(gsw).toHaveLength(2);
+			for (const link of lal) expect(link.getAttribute('href')).toBe('/team/lal');
+			for (const link of gsw) expect(link.getAttribute('href')).toBe('/team/gsw');
+		}
+	);
 });

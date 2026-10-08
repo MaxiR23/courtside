@@ -176,6 +176,7 @@ export interface Injuries {
 	home: Injury[];
 }
 export interface Injury {
+	playerId: string | null;
 	displayName: string;
 	status: InjuryStatus;
 	comment: string | null;

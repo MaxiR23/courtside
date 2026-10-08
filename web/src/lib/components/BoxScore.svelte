@@ -1,11 +1,17 @@
 <script lang="ts">
+	import type { ResolvedPathname } from '$app/types';
 	import type { BoxRow, BoxScoreSection, BoxTotals } from '#lib/game/types.ts';
+	import NameLink from '#lib/components/NameLink.svelte';
 	import { m } from '#lib/paraglide/messages.js';
 	import type { RowLayout } from '#lib/schedule/types.ts';
 
-	type Props = { box: BoxScoreSection; layout: RowLayout };
+	type Props = {
+		box: BoxScoreSection;
+		layout: RowLayout;
+		playerHref: (id: string) => ResolvedPathname;
+	};
 
-	let { box, layout }: Props = $props();
+	let { box, layout, playerHref }: Props = $props();
 
 	// The away team is selected first.
 	let side = $state<'away' | 'home'>('away');
@@ -82,7 +88,9 @@
 				</div>
 				{#each group.rows as row (row.id)}
 					<div class="row body" role="row">
-						<span class="cell player name" role="rowheader">{row.name}</span>
+						<span class="cell player name" role="rowheader"
+							><NameLink href={playerHref(row.id)} text={row.name} /></span
+						>
 						{#each columns as column (column.key)}
 							<span
 								class="cell"

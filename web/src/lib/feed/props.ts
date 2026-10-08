@@ -233,8 +233,16 @@ function heroGame(game: Game): HeroGame {
 		status,
 		tipTime: `${tipTime} ${tipSuffix}`,
 		arena: game.venue,
-		away: { name: game.away.name, star: heroPlayer(game.stars.away, game.away) },
-		home: { name: game.home.name, star: heroPlayer(game.stars.home, game.home) }
+		away: {
+			code: game.away.code,
+			name: game.away.name,
+			star: heroPlayer(game.stars.away, game.away)
+		},
+		home: {
+			code: game.home.code,
+			name: game.home.name,
+			star: heroPlayer(game.stars.home, game.home)
+		}
 	};
 }
 

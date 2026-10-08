@@ -1,11 +1,18 @@
 <script lang="ts">
+	import type { ResolvedPathname } from '$app/types';
+	import NameLink from '#lib/components/NameLink.svelte';
 	import { m } from '#lib/paraglide/messages.js';
 	import { periodCells, periodColumns, type PeriodColumn } from '#lib/schedule/line-score.ts';
 
 	type Team = { code: string; name?: string; periods: number[]; total: number };
-	type Props = { away: Team; home: Team; detail?: boolean };
+	type Props = {
+		away: Team;
+		home: Team;
+		detail?: boolean;
+		teamHref: (code: string) => ResolvedPathname;
+	};
 
-	let { away, home, detail = false }: Props = $props();
+	let { away, home, detail = false, teamHref }: Props = $props();
 
 	const columns = $derived(periodColumns(away.periods, home.periods));
 	const teams = $derived([away, home]);
@@ -30,8 +37,10 @@
 	{#each teams as team (team.code)}
 		<div class="line">
 			<span class="team-cell">
-				{team.code}
-				{#if detail && team.name}<span class="team-name">{team.name}</span>{/if}
+				<NameLink href={teamHref(team.code)} text={team.code} />
+				{#if detail && team.name}<span class="team-name"
+						><NameLink href={teamHref(team.code)} text={team.name} /></span
+					>{/if}
 			</span>
 			{#each periodCells(team.periods, columns.length) as points, i (i)}
 				<span class="cell quarter">{points ?? '–'}</span>

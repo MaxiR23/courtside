@@ -35,6 +35,7 @@ A dark-mode, single-page site with two parts:
 | `TeamStats` | Team stat comparison with bars |
 | `Highlights` | The video cards of a final game |
 | `MessageRow` | A single blueprint row holding one muted message |
+| `NameLink` | A player or team name as a link, or as plain text when the href is null |
 
 ## Design tokens
 
@@ -50,7 +51,7 @@ Dark only. There is no light mode.
 | ink | `#ebe8e3` | Primary text, a warm off-white |
 | muted | `#a19d96` | Secondary text |
 | accent | `#749dc4` | Steel blue: primary button, live badge border, active borders, leading stat bars |
-| accent-light | `#94bce3` | Accent text on dark: kickers, "Today", player team code, links |
+| accent-light | `#94bce3` | Accent text on dark: kickers, "Today", player team code, links. Name links (player and team names) are the exception: they keep the surrounding text color and change color only on hover |
 | accent-hover | `#b5d9fd` | Link hover |
 | bar-neutral | `#424244` | Trailing stat bar |
 | divider | `color-mix(in srgb, #ebe8e3 13%, transparent)` | Every hairline border |

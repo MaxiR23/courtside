@@ -154,6 +154,7 @@ class InjuryStatus(StrEnum):
 
 
 class Injury(FeedModel):
+    player_id: NonEmptyStr | None = None
     display_name: NonEmptyStr
     status: InjuryStatus
     comment: NonEmptyStr | None = None
