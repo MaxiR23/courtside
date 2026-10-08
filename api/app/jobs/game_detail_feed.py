@@ -142,8 +142,8 @@ def build_game_detail_feed(
         },
         "standings": {"away": standings.teams[away], "home": standings.teams[home]},
         "injuries": {
-            "away": injuries.teams.get(away, []),
-            "home": injuries.teams.get(home, []),
+            "away": [report.injury for report in injuries.teams.get(away, [])],
+            "home": [report.injury for report in injuries.teams.get(home, [])],
         },
         "last_games": {
             "away": away_schedule.last_games,

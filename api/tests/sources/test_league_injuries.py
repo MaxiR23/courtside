@@ -4,6 +4,8 @@
 #
 # Tested:
 # - Maps recorded injuries by team code, with status and comment
+# - Maps the athlete id from the athlete link and the report date
+# - Keeps a null athlete id when no link carries one and a null date when the report has none
 # - Attributes the injuries to the team entry, not to the athlete's team
 # - Maps the team ids of codes that differ from the standard ones
 # - Requests the league injuries URL from the settings
@@ -98,12 +100,63 @@ async def test_maps_recorded_injuries_by_team_code(
 
     assert set(league.teams) == {"GSW", "DAL", "ATL"}
     golden_state = league.teams["GSW"]
-    assert [(i.display_name, i.status) for i in golden_state] == [
+    assert [(i.injury.display_name, i.injury.status) for i in golden_state] == [
         ("Stephen Curry", InjuryStatus.DAY_TO_DAY),
         ("Jimmy Butler III", InjuryStatus.OUT),
     ]
-    assert golden_state[1].comment is not None
+    assert golden_state[1].injury.comment is not None
     assert len(league.teams["ATL"]) == 1
+
+
+def load_detail() -> Payload:
+    payload: Payload = json.loads(
+        (FIXTURES / "injuries-detail.json").read_text(encoding="utf-8")
+    )
+    return payload
+
+
+@pytest.mark.anyio
+async def test_maps_the_athlete_id_from_the_athlete_link_and_the_report_date(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    mock.get(URL).respond(json=load_detail())
+
+    league = await fetch(settings)
+
+    report = league.teams["OKC"][0]
+    assert report.injury.display_name == "Thomas Sorber"
+    assert report.player_id == "5061603"
+    assert report.updated_at == dt.datetime(2026, 10, 7, 22, 26, tzinfo=dt.UTC)
+    assert league.teams["ATL"][0].player_id == "4397183"
+
+
+@pytest.mark.anyio
+async def test_keeps_a_null_athlete_id_when_no_link_carries_one(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load_detail()
+    athlete = team_entry(payload, "25")["injuries"][0]["athlete"]
+    athlete["links"] = [{"href": "https://example.com/nba/player/news"}]
+    team_entry(payload, "25")["injuries"][1]["athlete"]["links"] = []
+    mock.get(URL).respond(json=payload)
+
+    league = await fetch(settings)
+
+    assert [report.player_id for report in league.teams["OKC"]] == [None, None]
+
+
+@pytest.mark.anyio
+async def test_keeps_a_null_date_when_the_report_has_none(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load_detail()
+    del team_entry(payload, "25")["injuries"][0]["date"]
+    mock.get(URL).respond(json=payload)
+
+    league = await fetch(settings)
+
+    assert league.teams["OKC"][0].updated_at is None
+    assert league.teams["OKC"][1].updated_at is not None
 
 
 @pytest.mark.anyio
@@ -114,7 +167,7 @@ async def test_attributes_injuries_to_the_team_entry_not_the_athlete_team(
 
     league = await fetch(settings)
 
-    assert {i.display_name for i in league.teams["DAL"]} == {
+    assert {i.injury.display_name for i in league.teams["DAL"]} == {
         "Dereck Lively II",
         "Santi Aldama",
     }
@@ -155,7 +208,7 @@ async def test_gives_a_missing_comment_as_none(
 
     league = await fetch(settings)
 
-    assert league.teams["ATL"][0].comment is None
+    assert league.teams["ATL"][0].injury.comment is None
 
 
 @pytest.mark.anyio

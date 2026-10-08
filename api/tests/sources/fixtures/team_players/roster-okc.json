@@ -1,0 +1,622 @@
+{
+  "season": {
+    "year": 2027
+  },
+  "team": {
+    "id": "25"
+  },
+  "coach": [
+    {
+      "firstName": "Mark",
+      "lastName": "Daigneault",
+      "experience": 4
+    }
+  ],
+  "athletes": [
+    {
+      "id": "4684208",
+      "firstName": "Brooks",
+      "lastName": "Barnhizer",
+      "displayName": "Brooks Barnhizer",
+      "shortName": "B. Barnhizer",
+      "weight": 226.0,
+      "height": 78.0,
+      "displayHeight": "6' 6\"",
+      "dateOfBirth": "2002-03-02T08:00Z",
+      "jersey": "23",
+      "birthPlace": {
+        "city": "Lafayette",
+        "state": "IN",
+        "country": "USA"
+      },
+      "headshot": {
+        "href": "https://example.com/i/headshots/nba/players/full/4684208.png"
+      },
+      "college": {
+        "name": "Northwestern"
+      },
+      "experience": {
+        "years": 2
+      },
+      "position": {
+        "name": "Forward",
+        "abbreviation": "F"
+      }
+    },
+    {
+      "id": "2991350",
+      "firstName": "Alex",
+      "lastName": "Caruso",
+      "displayName": "Alex Caruso",
+      "shortName": "A. Caruso",
+      "weight": 186.0,
+      "height": 77.0,
+      "displayHeight": "6' 5\"",
+      "dateOfBirth": "1994-02-28T08:00Z",
+      "jersey": "9",
+      "birthPlace": {
+        "city": "College Station",
+        "state": "TX",
+        "country": "USA"
+      },
+      "headshot": {
+        "href": "https://example.com/i/headshots/nba/players/full/2991350.png"
+      },
+      "college": {
+        "name": "Texas A&M"
+      },
+      "experience": {
+        "years": 10
+      },
+      "position": {
+        "name": "Guard",
+        "abbreviation": "G"
+      }
+    },
+    {
+      "id": "5105800",
+      "firstName": "Josh",
+      "lastName": "Dix",
+      "displayName": "Josh Dix",
+      "shortName": "J. Dix",
+      "weight": 206.0,
+      "height": 77.0,
+      "displayHeight": "6' 5\"",
+      "dateOfBirth": "2004-06-29T07:00Z",
+      "jersey": "21",
+      "birthPlace": {
+        "city": "Council Bluffs",
+        "state": "IA",
+        "country": "USA"
+      },
+      "college": {
+        "name": "Creighton"
+      },
+      "experience": {
+        "years": 0
+      },
+      "position": {
+        "name": "Guard",
+        "abbreviation": "G"
+      }
+    },
+    {
+      "id": "4278073",
+      "firstName": "Shai",
+      "lastName": "Gilgeous-Alexander",
+      "displayName": "Shai Gilgeous-Alexander",
+      "shortName": "S. Gilgeous-Alexander",
+      "weight": 195.0,
+      "height": 78.0,
+      "displayHeight": "6' 6\"",
+      "dateOfBirth": "1998-07-12T07:00Z",
+      "jersey": "2",
+      "birthPlace": {
+        "city": "Toronto",
+        "state": "ON",
+        "country": "Canada"
+      },
+      "headshot": {
+        "href": "https://example.com/i/headshots/nba/players/full/4278073.png"
+      },
+      "college": {
+        "name": "Kentucky"
+      },
+      "experience": {
+        "years": 9
+      },
+      "position": {
+        "name": "Guard",
+        "abbreviation": "G"
+      }
+    },
+    {
+      "id": "4222252",
+      "firstName": "Isaiah",
+      "lastName": "Hartenstein",
+      "displayName": "Isaiah Hartenstein",
+      "shortName": "I. Hartenstein",
+      "weight": 250.0,
+      "height": 84.0,
+      "displayHeight": "7' 0\"",
+      "dateOfBirth": "1998-05-05T07:00Z",
+      "jersey": "55",
+      "birthPlace": {
+        "city": "Eugene",
+        "state": "OR",
+        "country": "USA"
+      },
+      "headshot": {
+        "href": "https://example.com/i/headshots/nba/players/full/4222252.png"
+      },
+      "experience": {
+        "years": 9
+      },
+      "position": {
+        "name": "Center",
+        "abbreviation": "C"
+      }
+    },
+    {
+      "id": "5116468",
+      "firstName": "Andrew",
+      "lastName": "Holifield",
+      "displayName": "Andrew Holifield",
+      "shortName": "A. Holifield",
+      "weight": 195.0,
+      "height": 80.0,
+      "displayHeight": "6' 8\"",
+      "dateOfBirth": "2004-02-02T08:00Z",
+      "jersey": "17",
+      "birthPlace": {
+        "city": "Beaumont",
+        "state": "TX",
+        "country": "USA"
+      },
+      "college": {
+        "name": "Lamar"
+      },
+      "experience": {
+        "years": 0
+      },
+      "position": {
+        "name": "Forward",
+        "abbreviation": "F"
+      }
+    },
+    {
+      "id": "4433255",
+      "firstName": "Chet",
+      "lastName": "Holmgren",
+      "displayName": "Chet Holmgren",
+      "shortName": "C. Holmgren",
+      "weight": 208.0,
+      "height": 85.0,
+      "displayHeight": "7' 1\"",
+      "dateOfBirth": "2002-05-01T07:00Z",
+      "jersey": "7",
+      "birthPlace": {
+        "city": "Minneapolis",
+        "state": "MN",
+        "country": "USA"
+      },
+      "headshot": {
+        "href": "https://example.com/i/headshots/nba/players/full/4433255.png"
+      },
+      "college": {
+        "name": "Gonzaga"
+      },
+      "experience": {
+        "years": 4
+      },
+      "position": {
+        "name": "Center",
+        "abbreviation": "C"
+      }
+    },
+    {
+      "id": "5174983",
+      "firstName": "Aday",
+      "lastName": "Mara",
+      "displayName": "Aday Mara",
+      "shortName": "A. Mara",
+      "weight": 262.0,
+      "height": 87.0,
+      "displayHeight": "7' 3\"",
+      "dateOfBirth": "2005-04-07T07:00Z",
+      "jersey": "15",
+      "birthPlace": {
+        "city": "Zaragoza",
+        "country": "Spain"
+      },
+      "headshot": {
+        "href": "https://example.com/i/headshots/nba/players/full/5174983.png"
+      },
+      "college": {
+        "name": "Michigan"
+      },
+      "experience": {
+        "years": 0
+      },
+      "position": {
+        "name": "Center",
+        "abbreviation": "C"
+      }
+    },
+    {
+      "id": "4683778",
+      "firstName": "Jared",
+      "lastName": "McCain",
+      "displayName": "Jared McCain",
+      "shortName": "J. McCain",
+      "weight": 195.0,
+      "height": 75.0,
+      "displayHeight": "6' 3\"",
+      "dateOfBirth": "2004-02-20T08:00Z",
+      "jersey": "3",
+      "birthPlace": {
+        "city": "Sacramento",
+        "state": "CA",
+        "country": "USA"
+      },
+      "headshot": {
+        "href": "https://example.com/i/headshots/nba/players/full/4683778.png"
+      },
+      "college": {
+        "name": "Duke"
+      },
+      "experience": {
+        "years": 3
+      },
+      "position": {
+        "name": "Guard",
+        "abbreviation": "G"
+      }
+    },
+    {
+      "id": "4900671",
+      "firstName": "Ajay",
+      "lastName": "Mitchell",
+      "displayName": "Ajay Mitchell",
+      "shortName": "A. Mitchell",
+      "weight": 190.0,
+      "height": 76.0,
+      "displayHeight": "6' 4\"",
+      "dateOfBirth": "2002-06-25T07:00Z",
+      "jersey": "25",
+      "birthPlace": {
+        "city": "Liege",
+        "country": "Belgium"
+      },
+      "headshot": {
+        "href": "https://example.com/i/headshots/nba/players/full/4900671.png"
+      },
+      "college": {
+        "name": "UC Santa Barbara"
+      },
+      "experience": {
+        "years": 3
+      },
+      "position": {
+        "name": "Guard",
+        "abbreviation": "G"
+      }
+    },
+    {
+      "id": "5106270",
+      "firstName": "Otega",
+      "lastName": "Oweh",
+      "displayName": "Otega Oweh",
+      "shortName": "O. Oweh",
+      "weight": 217.0,
+      "height": 76.0,
+      "displayHeight": "6' 4\"",
+      "dateOfBirth": "2003-06-21T07:00Z",
+      "jersey": "13",
+      "birthPlace": {
+        "city": "Newark",
+        "state": "NJ",
+        "country": "USA"
+      },
+      "headshot": {
+        "href": "https://example.com/i/headshots/nba/players/full/5106270.png"
+      },
+      "college": {
+        "name": "Kentucky"
+      },
+      "experience": {
+        "years": 0
+      },
+      "position": {
+        "name": "Guard",
+        "abbreviation": "G"
+      }
+    },
+    {
+      "id": "4897155",
+      "firstName": "Anthony",
+      "lastName": "Pritchard",
+      "displayName": "Anthony Pritchard",
+      "shortName": "A. Pritchard",
+      "weight": 186.0,
+      "height": 73.0,
+      "displayHeight": "6' 1\"",
+      "dateOfBirth": "2003-05-06T07:00Z",
+      "jersey": "5",
+      "birthPlace": {
+        "city": "Tulsa",
+        "state": "OK",
+        "country": "USA"
+      },
+      "college": {
+        "name": "Central Michigan"
+      },
+      "experience": {
+        "years": 0
+      },
+      "position": {
+        "name": "Guard",
+        "abbreviation": "G"
+      }
+    },
+    {
+      "id": "4277923",
+      "firstName": "Zhaire",
+      "lastName": "Smith",
+      "displayName": "Zhaire Smith",
+      "shortName": "Z. Smith",
+      "weight": 199.0,
+      "height": 75.0,
+      "displayHeight": "6' 3\"",
+      "dateOfBirth": "1999-06-04T07:00Z",
+      "jersey": "40",
+      "birthPlace": {
+        "city": "Garland",
+        "state": "TX",
+        "country": "USA"
+      },
+      "headshot": {
+        "href": "https://example.com/i/headshots/nba/players/full/4277923.png"
+      },
+      "college": {
+        "name": "Texas Tech"
+      },
+      "experience": {
+        "years": 3
+      },
+      "position": {
+        "name": "Guard",
+        "abbreviation": "G"
+      }
+    },
+    {
+      "id": "5061603",
+      "firstName": "Thomas",
+      "lastName": "Sorber",
+      "displayName": "Thomas Sorber",
+      "shortName": "T. Sorber",
+      "weight": 250.0,
+      "height": 81.0,
+      "displayHeight": "6' 9\"",
+      "dateOfBirth": "2005-12-25T08:00Z",
+      "jersey": "12",
+      "birthPlace": {
+        "city": "Trenton",
+        "state": "NJ",
+        "country": "USA"
+      },
+      "headshot": {
+        "href": "https://example.com/i/headshots/nba/players/full/5061603.png"
+      },
+      "college": {
+        "name": "Georgetown"
+      },
+      "experience": {
+        "years": 0
+      },
+      "position": {
+        "name": "Center",
+        "abbreviation": "C"
+      }
+    },
+    {
+      "id": "5241364",
+      "firstName": "Bennett",
+      "lastName": "Stirtz",
+      "displayName": "Bennett Stirtz",
+      "shortName": "B. Stirtz",
+      "weight": 190.0,
+      "height": 76.0,
+      "displayHeight": "6' 4\"",
+      "dateOfBirth": "2003-10-03T07:00Z",
+      "jersey": "14",
+      "birthPlace": {
+        "city": "Liberty",
+        "state": "MO",
+        "country": "USA"
+      },
+      "headshot": {
+        "href": "https://example.com/i/headshots/nba/players/full/5241364.png"
+      },
+      "college": {
+        "name": "Iowa"
+      },
+      "experience": {
+        "years": 0
+      },
+      "position": {
+        "name": "Guard",
+        "abbreviation": "G"
+      }
+    },
+    {
+      "id": "5109790",
+      "firstName": "Christoph",
+      "lastName": "Tilly",
+      "displayName": "Christoph Tilly",
+      "shortName": "C. Tilly",
+      "weight": 242.0,
+      "height": 84.0,
+      "displayHeight": "7' 0\"",
+      "dateOfBirth": "2003-01-28T08:00Z",
+      "jersey": "33",
+      "birthPlace": {
+        "city": "Berlin",
+        "country": "Germany"
+      },
+      "college": {
+        "name": "Ohio State"
+      },
+      "experience": {
+        "years": 0
+      },
+      "position": {
+        "name": "Center",
+        "abbreviation": "C"
+      }
+    },
+    {
+      "id": "5159925",
+      "firstName": "Nikola",
+      "lastName": "Topic",
+      "displayName": "Nikola Topic",
+      "shortName": "N. Topic",
+      "weight": 200.0,
+      "height": 78.0,
+      "displayHeight": "6' 6\"",
+      "dateOfBirth": "2005-08-10T07:00Z",
+      "jersey": "44",
+      "birthPlace": {},
+      "headshot": {
+        "href": "https://example.com/i/headshots/nba/players/full/5159925.png"
+      },
+      "experience": {
+        "years": 2
+      },
+      "position": {
+        "name": "Guard",
+        "abbreviation": "G"
+      }
+    },
+    {
+      "id": "4683692",
+      "firstName": "Cason",
+      "lastName": "Wallace",
+      "displayName": "Cason Wallace",
+      "shortName": "C. Wallace",
+      "weight": 195.0,
+      "height": 75.0,
+      "displayHeight": "6' 3\"",
+      "dateOfBirth": "2003-11-07T08:00Z",
+      "jersey": "22",
+      "birthPlace": {
+        "city": "Dallas",
+        "state": "TX",
+        "country": "USA"
+      },
+      "headshot": {
+        "href": "https://example.com/i/headshots/nba/players/full/4683692.png"
+      },
+      "college": {
+        "name": "Kentucky"
+      },
+      "experience": {
+        "years": 4
+      },
+      "position": {
+        "name": "Guard",
+        "abbreviation": "G"
+      }
+    },
+    {
+      "id": "4593803",
+      "firstName": "Jalen",
+      "lastName": "Williams",
+      "displayName": "Jalen Williams",
+      "shortName": "J. Williams",
+      "weight": 211.0,
+      "height": 77.0,
+      "displayHeight": "6' 5\"",
+      "dateOfBirth": "2001-04-14T07:00Z",
+      "jersey": "8",
+      "birthPlace": {
+        "city": "Gilbert",
+        "state": "AZ",
+        "country": "USA"
+      },
+      "headshot": {
+        "href": "https://example.com/i/headshots/nba/players/full/4593803.png"
+      },
+      "college": {
+        "name": "Santa Clara"
+      },
+      "experience": {
+        "years": 5
+      },
+      "position": {
+        "name": "Guard",
+        "abbreviation": "G"
+      }
+    },
+    {
+      "id": "4432823",
+      "firstName": "Jaylin",
+      "lastName": "Williams",
+      "displayName": "Jaylin Williams",
+      "shortName": "J. Williams",
+      "weight": 240.0,
+      "height": 81.0,
+      "displayHeight": "6' 9\"",
+      "dateOfBirth": "2002-06-29T07:00Z",
+      "jersey": "6",
+      "birthPlace": {
+        "city": "Fort Smith",
+        "state": "AR",
+        "country": "USA"
+      },
+      "headshot": {
+        "href": "https://example.com/i/headshots/nba/players/full/4432823.png"
+      },
+      "college": {
+        "name": "Arkansas"
+      },
+      "experience": {
+        "years": 5
+      },
+      "position": {
+        "name": "Forward",
+        "abbreviation": "F"
+      }
+    },
+    {
+      "id": "3133626",
+      "firstName": "Kenrich",
+      "lastName": "Williams",
+      "displayName": "Kenrich Williams",
+      "shortName": "K. Williams",
+      "weight": 210.0,
+      "height": 79.0,
+      "displayHeight": "6' 7\"",
+      "dateOfBirth": "1994-12-02T08:00Z",
+      "jersey": "34",
+      "birthPlace": {
+        "city": "Waco",
+        "state": "TX",
+        "country": "USA"
+      },
+      "headshot": {
+        "href": "https://example.com/i/headshots/nba/players/full/3133626.png"
+      },
+      "college": {
+        "name": "TCU"
+      },
+      "experience": {
+        "years": 9
+      },
+      "position": {
+        "name": "Guard",
+        "abbreviation": "G"
+      }
+    }
+  ]
+}

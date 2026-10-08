@@ -1,0 +1,176 @@
+{
+  "events": [
+    {
+      "id": "401869192",
+      "date": "2026-04-19T19:30Z",
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "Paycom Center",
+            "address": {
+              "city": "Oklahoma City"
+            }
+          },
+          "status": {
+            "type": {
+              "state": "post",
+              "completed": true
+            }
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "winner": true,
+              "score": {
+                "value": 119.0
+              },
+              "team": {
+                "abbreviation": "OKC"
+              }
+            },
+            {
+              "homeAway": "away",
+              "winner": false,
+              "score": {
+                "value": 84.0
+              },
+              "team": {
+                "abbreviation": "PHX"
+              }
+            }
+          ],
+          "notes": [
+            {
+              "headline": "West 1st Round - Game 1"
+            }
+          ],
+          "broadcasts": [
+            {
+              "media": {
+                "shortName": "ABC"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "401871326",
+      "date": "2026-05-06T00:30Z",
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "Paycom Center",
+            "address": {
+              "city": "Oklahoma City"
+            }
+          },
+          "status": {
+            "type": {
+              "state": "post",
+              "completed": true
+            }
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "winner": true,
+              "score": {
+                "value": 108.0
+              },
+              "team": {
+                "abbreviation": "OKC"
+              }
+            },
+            {
+              "homeAway": "away",
+              "winner": false,
+              "score": {
+                "value": 90.0
+              },
+              "team": {
+                "abbreviation": "LAL"
+              }
+            }
+          ],
+          "notes": [
+            {
+              "headline": "West Semifinals - Game 1"
+            }
+          ],
+          "broadcasts": [
+            {
+              "media": {
+                "shortName": "NBC"
+              }
+            },
+            {
+              "media": {
+                "shortName": "Peacock"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "401873203",
+      "date": "2026-05-31T00:00Z",
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "Paycom Center",
+            "address": {
+              "city": "Oklahoma City"
+            }
+          },
+          "status": {
+            "type": {
+              "state": "post",
+              "completed": true
+            }
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "winner": false,
+              "score": {
+                "value": 103.0
+              },
+              "team": {
+                "abbreviation": "OKC"
+              }
+            },
+            {
+              "homeAway": "away",
+              "winner": true,
+              "score": {
+                "value": 111.0
+              },
+              "team": {
+                "abbreviation": "SA"
+              }
+            }
+          ],
+          "notes": [
+            {
+              "headline": "West Finals - Game 7"
+            }
+          ],
+          "broadcasts": [
+            {
+              "media": {
+                "shortName": "NBC"
+              }
+            },
+            {
+              "media": {
+                "shortName": "Peacock"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

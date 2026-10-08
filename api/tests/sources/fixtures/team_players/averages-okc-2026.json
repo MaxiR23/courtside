@@ -1,0 +1,127 @@
+{
+  "categories": [
+    {
+      "name": "pointsPerGame",
+      "leaders": [
+        {
+          "value": 31.132352828979492,
+          "athlete": {
+            "$ref": "https://example.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4278073?lang=en&region=us"
+          }
+        },
+        {
+          "value": 17.115942001342773,
+          "athlete": {
+            "$ref": "https://example.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4433255?lang=en&region=us"
+          }
+        },
+        {
+          "value": 13.578947067260742,
+          "athlete": {
+            "$ref": "https://example.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4900671?lang=en&region=us"
+          }
+        },
+        {
+          "value": 11.0563383102417,
+          "athlete": {
+            "$ref": "https://example.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4395702?lang=en&region=us"
+          }
+        },
+        {
+          "value": 9.399999618530273,
+          "athlete": {
+            "$ref": "https://example.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4397183?lang=en&region=us"
+          }
+        },
+        {
+          "value": 8.571428298950195,
+          "athlete": {
+            "$ref": "https://example.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4683692?lang=en&region=us"
+          }
+        }
+      ]
+    },
+    {
+      "name": "assistsPerGame",
+      "leaders": [
+        {
+          "value": 6.588235378265381,
+          "athlete": {
+            "$ref": "https://example.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4278073?lang=en&region=us"
+          }
+        },
+        {
+          "value": 3.614035129547119,
+          "athlete": {
+            "$ref": "https://example.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4900671?lang=en&region=us"
+          }
+        },
+        {
+          "value": 2.597402572631836,
+          "athlete": {
+            "$ref": "https://example.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4683692?lang=en&region=us"
+          }
+        },
+        {
+          "value": 2.430769205093384,
+          "athlete": {
+            "$ref": "https://example.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4432823?lang=en&region=us"
+          }
+        },
+        {
+          "value": 1.9642857313156128,
+          "athlete": {
+            "$ref": "https://example.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/2991350?lang=en&region=us"
+          }
+        },
+        {
+          "value": 1.6769230365753174,
+          "athlete": {
+            "$ref": "https://example.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4397183?lang=en&region=us"
+          }
+        }
+      ]
+    },
+    {
+      "name": "reboundsPerGame",
+      "leaders": [
+        {
+          "value": 8.898550987243652,
+          "athlete": {
+            "$ref": "https://example.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4433255?lang=en&region=us"
+          }
+        },
+        {
+          "value": 5.507692337036133,
+          "athlete": {
+            "$ref": "https://example.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4432823?lang=en&region=us"
+          }
+        },
+        {
+          "value": 4.294117450714111,
+          "athlete": {
+            "$ref": "https://example.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4278073?lang=en&region=us"
+          }
+        },
+        {
+          "value": 3.550724744796753,
+          "athlete": {
+            "$ref": "https://example.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4397020?lang=en&region=us"
+          }
+        },
+        {
+          "value": 3.3392856121063232,
+          "athlete": {
+            "$ref": "https://example.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/3133626?lang=en&region=us"
+          }
+        },
+        {
+          "value": 3.3333332538604736,
+          "athlete": {
+            "$ref": "https://example.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4900671?lang=en&region=us"
+          }
+        }
+      ]
+    }
+  ]
+}

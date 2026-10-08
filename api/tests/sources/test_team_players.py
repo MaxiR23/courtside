@@ -7,6 +7,11 @@
 # - Requests the roster URL built from the template and the provider team code, including a code that differs from the standard one
 # - Builds photo URLs from the template and the player id
 # - Roster players use the contract Star type
+# - Maps a recorded roster's details: height, weight, birth date, birthplace, college, experience, jersey, position and headshot
+# - Maps the coach from the first coach entry, and gives no coach with an empty coach list
+# - Keeps a missing headshot, college and birthplace as null
+# - Keeps the Star players of the recorded roster unchanged
+# - Fetches the team leaders of the roster season, falls back to the previous season labeled with it, and returns the current season with no players when neither has statistics
 # - Maps recorded season averages to per-game points, rebounds and assists in provider order
 # - Takes the player id from the athlete link, with or without a query
 # - Requests the averages URL built from the template, the team id and the season
@@ -50,9 +55,11 @@ from app.sources.http import SourceClient, SourceError, create_client
 from app.sources.team_players import (
     PlayerAverages,
     Roster,
+    SeasonLeaders,
     fetch_player_averages,
     fetch_roster,
     fetch_season_averages,
+    fetch_team_leaders,
 )
 from app.storage.state import StateStore
 
@@ -108,6 +115,14 @@ async def averages_of(
             return await fetch_season_averages(client, team_id, season, settings)
 
 
+async def leaders_of(settings: Settings, roster: Roster) -> SeasonLeaders:
+    with TemporaryDirectory() as directory:
+        store = StateStore(Path(directory))
+        store.migrate()
+        async with create_client(store) as client:
+            return await fetch_team_leaders(client, roster, settings)
+
+
 async def player_of(
     settings: Settings, player_id: str = "6430", season: int = 2026
 ) -> PlayerAverages | None:
@@ -158,6 +173,155 @@ async def test_maps_a_recorded_roster_to_stars_and_the_current_season(
     )
     assert butler.short_name == "J. Butler III"
     assert butler.team_code == "GSW"
+
+
+OKC_ROSTER_URL = "https://example.com/teams/OKC/roster"
+OKC_LEADERS_URL = "https://example.com/seasons/{season}/teams/25/leaders"
+
+
+async def okc_roster(mock: respx.MockRouter, settings: Settings) -> Roster:
+    mock.get(OKC_ROSTER_URL).respond(json=load("roster-okc.json"))
+    return await roster_of(settings, "OKC")
+
+
+@pytest.mark.anyio
+async def test_maps_a_recorded_rosters_details(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    roster = await okc_roster(mock, settings)
+
+    entry = next(e for e in roster.entries if e.player_id == "4278073")
+    assert (entry.first_name, entry.last_name) == ("Shai", "Gilgeous-Alexander")
+    assert entry.height_inches == 78.0
+    assert entry.display_height == "6' 6\""
+    assert entry.weight_lb == 195.0
+    assert entry.birth_date == dt.date(1998, 7, 12)
+    assert (entry.birth_city, entry.birth_state, entry.birth_country) == (
+        "Toronto",
+        "ON",
+        "Canada",
+    )
+    assert entry.college == "Kentucky"
+    assert entry.experience == 9
+    assert entry.jersey == "2"
+    assert (entry.position_name, entry.position_abbreviation) == ("Guard", "G")
+    assert entry.headshot_url == (
+        "https://example.com/i/headshots/nba/players/full/4278073.png"
+    )
+    assert len(roster.entries) == len(roster.players) == 21
+
+
+@pytest.mark.anyio
+async def test_maps_the_coach_from_the_first_coach_entry(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    roster = await okc_roster(mock, settings)
+
+    assert roster.coach is not None
+    assert (roster.coach.first_name, roster.coach.last_name) == ("Mark", "Daigneault")
+    assert roster.coach.experience == 4
+
+
+@pytest.mark.anyio
+async def test_gives_no_coach_with_an_empty_coach_list(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("roster-okc.json")
+    payload["coach"] = []
+    mock.get(OKC_ROSTER_URL).respond(json=payload)
+
+    assert (await roster_of(settings, "OKC")).coach is None
+
+
+@pytest.mark.anyio
+async def test_keeps_a_missing_headshot_college_and_birthplace_as_null(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("roster-okc.json")
+    for athlete in payload["athletes"]:
+        if athlete["id"] == "4222252":
+            del athlete["birthPlace"]
+    mock.get(OKC_ROSTER_URL).respond(json=payload)
+
+    roster = await roster_of(settings, "OKC")
+
+    by_id = {entry.player_id: entry for entry in roster.entries}
+    assert by_id["5105800"].headshot_url is None
+    assert by_id["4222252"].college is None
+    assert by_id["4222252"].birth_city is None
+    assert by_id["5159925"].birth_city is None
+    assert by_id["5159925"].birth_country is None
+
+
+@pytest.mark.anyio
+async def test_keeps_the_star_players_of_the_recorded_roster_unchanged(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    mock.get(ROSTER_URL).respond(json=load("roster.json"))
+
+    roster = await roster_of(settings)
+
+    assert roster.players[1].player_id == "6430"
+    assert roster.players[1].short_name == "J. Butler III"
+    assert str(roster.players[3].photo_url) == "https://example.com/players/3975.png"
+
+
+@pytest.mark.anyio
+async def test_fetches_the_team_leaders_of_the_roster_season(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    roster = await okc_roster(mock, settings)
+    route = mock.get(OKC_LEADERS_URL.format(season=2027)).respond(
+        json=load("averages-okc-2026.json")
+    )
+
+    leaders = await leaders_of(settings, roster)
+
+    assert route.call_count == 1
+    assert leaders.season == 2027
+    assert leaders.players[0].player_id == "4278073"
+
+
+@pytest.mark.anyio
+async def test_falls_back_to_the_previous_season_labeled_with_it(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    roster = await okc_roster(mock, settings)
+    mock.get(OKC_LEADERS_URL.format(season=2027)).respond(status_code=404)
+    mock.get(OKC_LEADERS_URL.format(season=2026)).respond(
+        json=load("averages-okc-2026.json")
+    )
+
+    leaders = await leaders_of(settings, roster)
+
+    assert leaders.season == 2026
+    assert leaders.players[0].points == pytest.approx(31.1, abs=0.05)
+
+
+@pytest.mark.anyio
+async def test_returns_the_current_season_with_no_players_when_neither_has_statistics(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    roster = await okc_roster(mock, settings)
+    mock.get(OKC_LEADERS_URL.format(season=2027)).respond(status_code=404)
+    mock.get(OKC_LEADERS_URL.format(season=2026)).respond(json={"categories": []})
+
+    leaders = await leaders_of(settings, roster)
+
+    assert (leaders.season, leaders.players) == (2027, [])
+
+
+@pytest.mark.anyio
+async def test_raises_the_source_error_on_an_invalid_leaders_payload_of_the_roster_season(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    roster = await okc_roster(mock, settings)
+    mock.get(OKC_LEADERS_URL.format(season=2027)).respond(json={"categories": 3})
+
+    with pytest.raises(SourceError) as raised:
+        await leaders_of(settings, roster)
+
+    assert raised.value.reason.startswith("invalid payload: ")
 
 
 @pytest.mark.anyio

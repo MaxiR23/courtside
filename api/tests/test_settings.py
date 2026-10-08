@@ -30,6 +30,11 @@
 # - Reads the team schedule URL from an environment variable
 # - Leaves the league injuries URL unset by default
 # - Reads the league injuries URL from an environment variable
+# - Leaves each player and team source URL unset by default
+# - Reads each player and team source URL from an environment variable
+# - Rejects a player or team URL without its placeholder, with a wrong one or with an extra one, without showing it
+# - Rejects a division standings URL with a placeholder and accepts one with its own query
+# - Accepts an empty player or team URL as unset
 # - Leaves the highlights source URL unset by default
 # - Reads the highlights source URL from an environment variable
 # - Leaves the highlights source key unset by default
@@ -53,7 +58,7 @@
 # - Rejects an unknown key in a .env file that is not retired
 #
 # What is covered:
-# - Happy path, value from the environment, value from a .env file, .env file location, invalid value, shared instance, optional scoreboard URL, optional game detail URL, required URL placeholders (missing, escaped, malformed, empty), optional player photo URL, optional team roster URL, optional team averages URL, optional standings, team schedule and league injuries URLs, optional highlights source URL and key (unset, environment, hidden when printed), video embed URL and highlights search URL, daily fetch time (default, environment, invalid), input hidden from errors, data directory (default, environment, relative, empty), CORS origins (default, JSON list), retired setting (dropped with a warning), unknown key (rejected)
+# - Happy path, value from the environment, value from a .env file, .env file location, invalid value, shared instance, optional scoreboard URL, optional game detail URL, required URL placeholders (missing, escaped, malformed, empty), optional player photo URL, optional team roster URL, optional team averages URL, optional standings, team schedule and league injuries URLs, optional player and team source URLs (unset, environment, missing, wrong and extra placeholder, none allowed, own query, empty), optional highlights source URL and key (unset, environment, hidden when printed), video embed URL and highlights search URL, daily fetch time (default, environment, invalid), input hidden from errors, data directory (default, environment, relative, empty), CORS origins (default, JSON list), retired setting (dropped with a warning), unknown key (rejected)
 #
 # Run with: cd api && .venv/bin/python -m pytest tests/test_settings.py
 #
@@ -91,6 +96,13 @@ def clear_environment_variable(monkeypatch: pytest.MonkeyPatch) -> None:
             "standings_url",
             "team_schedule_url",
             "league_injuries_url",
+            "player_bio_url",
+            "player_draft_url",
+            "player_overview_url",
+            "player_gamelog_url",
+            "player_stats_url",
+            "team_info_url",
+            "division_standings_url",
             "highlights_source_url",
             "highlights_source_key",
             "video_embed_url",
@@ -527,3 +539,106 @@ def test_rejects_an_unknown_key_in_a_dotenv_file_that_is_not_retired(
         SettingsWithTemporaryEnvFile()
 
     assert raised.value.errors()[0]["type"] == "extra_forbidden"
+
+
+PLAYER_URLS = {
+    "PLAYER_BIO_URL": "player_bio_url",
+    "PLAYER_DRAFT_URL": "player_draft_url",
+    "PLAYER_OVERVIEW_URL": "player_overview_url",
+    "PLAYER_GAMELOG_URL": "player_gamelog_url",
+    "PLAYER_STATS_URL": "player_stats_url",
+}
+PLACEHOLDER_URLS = {**PLAYER_URLS, "TEAM_INFO_URL": "team_info_url"}
+ALL_NEW_URLS = {**PLACEHOLDER_URLS, "DIVISION_STANDINGS_URL": "division_standings_url"}
+TEMPLATES = {
+    **{name: "https://example.com/p/{player_id}" for name in PLAYER_URLS},
+    "TEAM_INFO_URL": "https://example.com/t/{team}",
+    "DIVISION_STANDINGS_URL": "https://example.com/standings?level=3&seasontype=2",
+}
+
+
+@pytest.mark.parametrize("variable", ALL_NEW_URLS)
+def test_a_player_or_team_url_is_unset_when_no_variable_is_set(variable: str) -> None:
+    assert getattr(SettingsWithoutEnvFile(), ALL_NEW_URLS[variable]) is None
+
+
+@pytest.mark.parametrize("variable", ALL_NEW_URLS)
+def test_reads_a_player_or_team_url_from_the_environment_variable(
+    monkeypatch: pytest.MonkeyPatch, variable: str
+) -> None:
+    monkeypatch.setenv(variable, TEMPLATES[variable])
+
+    assert (
+        getattr(SettingsWithoutEnvFile(), ALL_NEW_URLS[variable])
+        == (TEMPLATES[variable])
+    )
+
+
+@pytest.mark.parametrize("variable", PLACEHOLDER_URLS)
+def test_rejects_a_player_or_team_url_without_its_placeholder(
+    monkeypatch: pytest.MonkeyPatch, variable: str
+) -> None:
+    monkeypatch.setenv(variable, "https://example.com/hidden/path")
+
+    with pytest.raises(ValidationError) as raised:
+        SettingsWithoutEnvFile()
+
+    expected = "{team}" if variable == "TEAM_INFO_URL" else "{player_id}"
+    assert expected in str(raised.value)
+    assert "example.com/hidden" not in str(raised.value)
+
+
+def test_rejects_a_player_stats_url_with_a_wrong_placeholder(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PLAYER_STATS_URL", "https://example.com/hidden/{id}")
+
+    with pytest.raises(ValidationError) as raised:
+        SettingsWithoutEnvFile()
+
+    assert "{player_id}" in str(raised.value)
+    assert "example.com/hidden" not in str(raised.value)
+
+
+def test_rejects_a_team_info_url_with_an_extra_placeholder(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("TEAM_INFO_URL", "https://example.com/hidden/{team}/{season}")
+
+    with pytest.raises(ValidationError) as raised:
+        SettingsWithoutEnvFile()
+
+    assert "{team}" in str(raised.value)
+    assert "example.com/hidden" not in str(raised.value)
+
+
+def test_rejects_a_division_standings_url_with_a_placeholder(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DIVISION_STANDINGS_URL", "https://example.com/hidden/{team}")
+
+    with pytest.raises(ValidationError) as raised:
+        SettingsWithoutEnvFile()
+
+    assert "no placeholder" in str(raised.value)
+    assert "example.com/hidden" not in str(raised.value)
+
+
+def test_accepts_a_division_standings_url_with_its_own_query(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    url = "https://example.com/standings?level=3&seasontype=2"
+    monkeypatch.setenv("DIVISION_STANDINGS_URL", url)
+
+    assert SettingsWithoutEnvFile().division_standings_url == url
+
+
+def test_accepts_an_empty_player_or_team_url_as_unset(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    for variable in ALL_NEW_URLS:
+        monkeypatch.setenv(variable, "")
+
+    settings = SettingsWithoutEnvFile()
+
+    assert all(getattr(settings, name) == "" for name in ALL_NEW_URLS.values())

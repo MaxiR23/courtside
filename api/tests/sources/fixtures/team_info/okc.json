@@ -1,0 +1,23 @@
+{
+  "team": {
+    "id": "25",
+    "abbreviation": "OKC",
+    "location": "Oklahoma City",
+    "name": "Thunder",
+    "color": "007ac1",
+    "alternateColor": "ef3b24",
+    "franchise": {
+      "venue": {
+        "fullName": "Paycom Center",
+        "address": {
+          "city": "Oklahoma City"
+        },
+        "images": [
+          {
+            "href": "https://example.com/i/venues/nba/day/2559.jpg"
+          }
+        ]
+      }
+    }
+  }
+}

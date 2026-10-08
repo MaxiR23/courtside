@@ -1,0 +1,58 @@
+{
+  "awards": [
+    {
+      "name": "MVP",
+      "displayCount": "2x",
+      "seasons": [
+        "2026",
+        "2025"
+      ]
+    },
+    {
+      "name": "All-NBA 1st Team",
+      "displayCount": "4x",
+      "seasons": [
+        "2026",
+        "2025",
+        "2024",
+        "2023"
+      ]
+    },
+    {
+      "name": "Clutch Player of the Year",
+      "displayCount": "1x",
+      "seasons": [
+        "2026"
+      ]
+    },
+    {
+      "name": "NBA Cup All-Tournament Team",
+      "displayCount": "2x",
+      "seasons": [
+        "2026",
+        "2025"
+      ]
+    },
+    {
+      "name": "Finals MVP",
+      "displayCount": "1x",
+      "seasons": [
+        "2025"
+      ]
+    },
+    {
+      "name": "NBA Western Conference Finals MVP",
+      "displayCount": "1x",
+      "seasons": [
+        "2025"
+      ]
+    },
+    {
+      "name": "All-Rookie 2nd Team",
+      "displayCount": "1x",
+      "seasons": [
+        "2019"
+      ]
+    }
+  ]
+}
