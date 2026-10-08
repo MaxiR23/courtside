@@ -17,6 +17,7 @@
 	import StatusTag from '#lib/components/StatusTag.svelte';
 	import TeamMonogram from '#lib/components/TeamMonogram.svelte';
 	import TeamPage from '#lib/components/TeamPage.svelte';
+	import PlayerPage from '#lib/components/PlayerPage.svelte';
 	import type {
 		BoxRow,
 		BoxScoreSection,
@@ -37,6 +38,13 @@
 		VideosSection,
 		WinProbabilitySection
 	} from '#lib/game/types.ts';
+	import type {
+		PlayerPageState,
+		PlayerView,
+		RecentGameRow,
+		StatCell,
+		StatRowView
+	} from '#lib/player/types.ts';
 	import type { RosterRow, ScheduleRowView, TeamPageState, TeamView } from '#lib/team/types.ts';
 	import { SpoilerFree } from '#lib/schedule/spoiler-free.svelte.ts';
 	import type { HeroGame, HeroPlayer } from '#lib/hero/types.ts';
@@ -917,6 +925,7 @@
 				meta: '2025-26 · per game',
 				cards: [
 					{
+						playerId: 'p1',
 						label: 'Points',
 						value: '27.8',
 						name: 'Stephen Curry',
@@ -924,6 +933,7 @@
 						photo: awayPhoto
 					},
 					{
+						playerId: 'p4',
 						label: 'Rebounds',
 						value: '8.9',
 						name: 'Draymond Green',
@@ -931,6 +941,7 @@
 						photo: null
 					},
 					{
+						playerId: 'p1',
 						label: 'Assists',
 						value: '7.4',
 						name: 'Stephen Curry',
@@ -1042,6 +1053,368 @@
 		{ title: 'TeamPage: loading', state: { kind: 'loading' }, layout: 'desktop' },
 		{ title: 'TeamPage: feed unavailable', state: { kind: 'unavailable' }, layout: 'desktop' },
 		{ title: 'TeamPage: unknown team', state: { kind: 'not-found' }, layout: 'desktop' }
+	];
+
+	const playerGameHref = () => resolve('/preview');
+	const playerRecent = (gameId: string, overrides: Partial<RecentGameRow> = {}): RecentGameRow => ({
+		gameId,
+		linked: true,
+		result: 'win',
+		resultLabel: 'W',
+		date: 'Apr 29',
+		opponent: '@ MEM',
+		score: '118–104',
+		tag: null,
+		points: '31',
+		line: '8 REB · 6 AST',
+		...overrides
+	});
+	const statCells = (...values: string[]): StatCell[] => values;
+	const averageColumns = [
+		{ key: 'gp', label: 'GP', muted: true },
+		{ key: 'min', label: 'MIN', muted: true },
+		{ key: 'fg', label: 'FG%' },
+		{ key: 'tp', label: '3P%' },
+		{ key: 'ft', label: 'FT%' },
+		{ key: 'reb', label: 'REB' },
+		{ key: 'ast', label: 'AST' },
+		{ key: 'blk', label: 'BLK' },
+		{ key: 'stl', label: 'STL' },
+		{ key: 'pf', label: 'PF', muted: true },
+		{ key: 'tov', label: 'TOV', muted: true },
+		{ key: 'pts', label: 'PTS', points: true }
+	];
+	const seasonColumns = (totals: boolean) => [
+		{ key: 'gp', label: 'GP', muted: true },
+		{ key: 'gs', label: 'GS', muted: true },
+		...(totals ? [] : [{ key: 'min', label: 'MIN', muted: true }]),
+		{ key: 'fg', label: 'FG', wide: true },
+		{ key: 'fgp', label: 'FG%' },
+		{ key: 'tp', label: '3PT', wide: true },
+		{ key: 'tpp', label: '3P%' },
+		{ key: 'ft', label: 'FT', wide: true },
+		{ key: 'ftp', label: 'FT%' },
+		{ key: 'oreb', label: 'OREB' },
+		{ key: 'dreb', label: 'DREB' },
+		{ key: 'reb', label: 'REB' },
+		{ key: 'ast', label: 'AST' },
+		{ key: 'blk', label: 'BLK' },
+		{ key: 'stl', label: 'STL' },
+		{ key: 'pf', label: 'PF', muted: true },
+		{ key: 'tov', label: 'TOV', muted: true },
+		{ key: 'pts', label: 'PTS', points: true }
+	];
+	const seasonRow = (
+		label: string,
+		sub: string | null,
+		totals: boolean,
+		accent = false
+	): StatRowView => ({
+		key: label,
+		label,
+		sub,
+		accent,
+		cells: totals
+			? statCells(
+					'70',
+					'70',
+					'650–1,300',
+					'50.0%',
+					'98–280',
+					'35.0%',
+					'520–590',
+					'88.1%',
+					'63',
+					'294',
+					'357',
+					'448',
+					'63',
+					'119',
+					'182',
+					'168',
+					'1,928'
+				)
+			: statCells(
+					'70',
+					'70',
+					'34.2',
+					'10.1–20.3',
+					'49.8%',
+					'1.4–4.0',
+					'35.0%',
+					'7.9–8.8',
+					'89.8%',
+					'0.9',
+					'4.2',
+					'5.1',
+					'6.4',
+					'0.9',
+					'1.7',
+					'2.6',
+					'2.4',
+					'31.8'
+				)
+	});
+	const seasonTable = (totals: boolean) => ({
+		columns: seasonColumns(totals),
+		rows: [
+			seasonRow('2025-26', 'OKC', totals),
+			seasonRow('2024-25', 'LAC · OKC', totals),
+			seasonRow('2018-19', 'LAC', totals),
+			seasonRow('Career', null, totals)
+		]
+	});
+	const gameLogColumns = [
+		{ key: 'result', label: 'Result', wide: true },
+		{ key: 'min', label: 'MIN', muted: true },
+		{ key: 'fg', label: 'FG', wide: true },
+		{ key: 'fgp', label: 'FG%' },
+		{ key: 'tp', label: '3PT', wide: true },
+		{ key: 'tpp', label: '3P%' },
+		{ key: 'ft', label: 'FT', wide: true },
+		{ key: 'ftp', label: 'FT%' },
+		{ key: 'reb', label: 'REB' },
+		{ key: 'ast', label: 'AST' },
+		{ key: 'blk', label: 'BLK' },
+		{ key: 'stl', label: 'STL' },
+		{ key: 'pf', label: 'PF', muted: true },
+		{ key: 'tov', label: 'TOV', muted: true },
+		{ key: 'pts', label: 'PTS', points: true }
+	];
+	const gameLogRows: StatRowView[] = Array.from({ length: 24 }, (_, i) => ({
+		key: `log-${i}`,
+		label: `Apr ${28 - i} · ${i % 2 ? 'vs' : '@'} MEM`,
+		sub: i === 0 ? 'West R1 · G4' : null,
+		link: { gameId: `log-${i}`, linked: i % 3 !== 0 },
+		cells: [
+			{ mark: i % 4 === 3 ? 'L' : 'W', win: i % 4 !== 3, text: '118–104' },
+			'34',
+			'11–21',
+			'52.4%',
+			'2–5',
+			'40.0%',
+			'7–8',
+			'87.5%',
+			'8',
+			'6',
+			'1',
+			'2',
+			'2',
+			'3',
+			'31'
+		]
+	}));
+	const playerView: PlayerView = {
+		header: {
+			teamCode: 'OKC',
+			status: { label: 'Active', injured: false },
+			firstName: 'Shai',
+			lastName: 'Gilgeous-Alexander',
+			line: '#2 · Guard · Oklahoma City Thunder',
+			injury: null,
+			photo: homePhoto,
+			stats: {
+				label: '2025-26 · per game',
+				cells: [
+					{ label: 'Points', value: '31.8', sub: '1st in NBA' },
+					{ label: 'Rebounds', value: '4.9', sub: '41st in NBA' },
+					{ label: 'Assists', value: '6.4', sub: '5th in NBA' },
+					{ label: 'FG%', value: '47.3%', sub: '12th in NBA' }
+				]
+			}
+		},
+		tabs: [
+			{ id: 'profile', label: 'Profile' },
+			{ id: 'averages', label: 'Averages' },
+			{ id: 'seasons', label: 'Seasons' },
+			{ id: 'milestones', label: 'Milestones' },
+			{ id: 'game-log', label: 'Game log' },
+			{ id: 'awards', label: 'Awards' }
+		],
+		mini: '#2 S. Gilgeous-Alexander',
+		sections: {
+			profile: {
+				cells: [
+					{ label: 'Height', value: '6\'6"', sub: '198 cm' },
+					{ label: 'Weight', value: '195 lb', sub: '88 kg' },
+					{ label: 'Born', value: 'July 12, 1998', sub: 'Age 28' },
+					{ label: 'Birthplace', value: 'Hamilton, Ontario', sub: 'Canada' },
+					{ label: 'College', value: 'Kentucky', sub: null },
+					{ label: 'Draft', value: '2018 · Round 1 · Pick 11', sub: 'Charlotte Hornets' },
+					{ label: 'Seasons', value: '8', sub: 'Debut 2018-19' }
+				],
+				nextGame: {
+					gameId: 'next',
+					linked: true,
+					tag: null,
+					date: 'Wednesday, October 7',
+					opponent: 'vs DEN',
+					place: 'Paycom Center · Oklahoma City, OK',
+					time: '7:30 PM ET · ESPN'
+				},
+				live: null,
+				recent: [
+					playerRecent('r1', { tag: 'West R1 · G4' }),
+					playerRecent('r2', {
+						result: 'loss',
+						resultLabel: 'L',
+						opponent: 'vs MEM',
+						score: '101–108',
+						points: '24',
+						linked: false
+					}),
+					playerRecent('r3', { date: 'Apr 12', opponent: 'vs DEN', points: '35' }),
+					playerRecent('r4', { date: 'Apr 10', opponent: '@ HOU', linked: false }),
+					playerRecent('r5', {
+						date: 'Apr 8',
+						result: 'loss',
+						resultLabel: 'L',
+						tag: 'NBA Cup',
+						linked: false
+					})
+				]
+			},
+			averages: {
+				columns: averageColumns,
+				rows: [
+					{
+						key: 'regular',
+						label: 'Regular season',
+						sub: '2025-26',
+						cells: statCells(
+							'70',
+							'34.2',
+							'47.3%',
+							'35.0%',
+							'89.8%',
+							'4.9',
+							'6.4',
+							'0.9',
+							'1.7',
+							'2.6',
+							'2.4',
+							'31.8'
+						)
+					},
+					{
+						key: 'playoffs',
+						label: 'Playoffs',
+						sub: '2025-26',
+						cells: averageColumns.map(() => '—')
+					},
+					{
+						key: 'career',
+						label: 'Career',
+						sub: null,
+						accent: true,
+						cells: statCells(
+							'480',
+							'33.5',
+							'49.0%',
+							'36.0%',
+							'88.0%',
+							'4.9',
+							'5.0',
+							'0.8',
+							'1.6',
+							'2.7',
+							'2.6',
+							'24.6'
+						)
+					}
+				]
+			},
+			seasons: {
+				regular: { perGame: seasonTable(false), totals: seasonTable(true) },
+				playoffs: { perGame: seasonTable(false), totals: seasonTable(true) }
+			},
+			milestones: {
+				meta: '2025-26',
+				cells: [
+					{ label: 'Double-doubles', value: '12', sub: 'Career 75' },
+					{ label: 'Triple-doubles', value: '1', sub: 'Career 4' },
+					{ label: 'Disqualifications', value: '0', sub: 'Career 1' },
+					{ label: 'Ejections', value: '0', sub: 'Career 1' },
+					{ label: 'Technical fouls', value: '3', sub: 'Career 14' },
+					{ label: 'Flagrant fouls', value: '0', sub: 'Career 1' },
+					{ label: 'AST/TO', value: '2.67', sub: 'Career 1.92' },
+					{ label: 'STL/TO', value: '0.71', sub: 'Career 0.62' }
+				]
+			},
+			gameLog: {
+				meta: '2025-26',
+				columns: gameLogColumns,
+				filters: [
+					{ id: 'all', label: 'All', rows: gameLogRows },
+					{ id: 'regular', label: 'Regular season', rows: gameLogRows.slice(0, 12) },
+					{ id: 'playoffs', label: 'Playoffs', rows: gameLogRows.slice(0, 4) }
+				]
+			},
+			awards: [
+				{ count: '2×', name: 'NBA Most Valuable Player', seasons: '2024-25 · 2025-26' },
+				{ count: '3×', name: 'All-NBA First Team', seasons: '2022-23 · 2023-24 · 2024-25' }
+			]
+		}
+	};
+	const playerLine = [
+		{ label: 'MIN', value: '24:10', sub: null },
+		{ label: 'PTS', value: '14', sub: null },
+		{ label: 'REB', value: '4', sub: null },
+		{ label: 'AST', value: '5', sub: null },
+		{ label: 'FG', value: '7–15', sub: null }
+	];
+	const playerLive = (line: typeof playerLine | null): PlayerView => ({
+		...playerView,
+		sections: {
+			...playerView.sections,
+			profile: {
+				...playerView.sections.profile,
+				live: { gameId: 'live', opponent: '@ DEN', score: '78–74', clock: 'Q3 · 4:12', line }
+			}
+		}
+	});
+	const playerPartialView: PlayerView = {
+		...playerView,
+		header: { ...playerView.header, photo: null, stats: null },
+		tabs: [
+			{ id: 'profile', label: 'Profile' },
+			{ id: 'averages', label: 'Averages' }
+		],
+		sections: {
+			profile: {
+				cells: playerView.sections.profile.cells.slice(0, 3),
+				nextGame: null,
+				live: null,
+				recent: []
+			},
+			averages: playerView.sections.averages,
+			seasons: null,
+			milestones: null,
+			gameLog: null,
+			awards: null
+		}
+	};
+	const playerStates: { title: string; state: PlayerPageState; layout: 'desktop' | 'mobile' }[] = [
+		{ title: 'PlayerPage: full', state: { kind: 'ready', view: playerView }, layout: 'desktop' },
+		{
+			title: "PlayerPage: live, with the player's line",
+			state: { kind: 'ready', view: playerLive(playerLine) },
+			layout: 'desktop'
+		},
+		{
+			title: 'PlayerPage: live, not in the game yet',
+			state: { kind: 'ready', view: playerLive(null) },
+			layout: 'desktop'
+		},
+		{
+			title: 'PlayerPage: partial data',
+			state: { kind: 'ready', view: playerPartialView },
+			layout: 'desktop'
+		},
+		{ title: 'PlayerPage: mobile', state: { kind: 'ready', view: playerView }, layout: 'mobile' },
+		{ title: 'PlayerPage: loading', state: { kind: 'loading' }, layout: 'desktop' },
+		{ title: 'PlayerPage: feed unavailable', state: { kind: 'unavailable' }, layout: 'desktop' },
+		{ title: 'PlayerPage: unknown player', state: { kind: 'not-found' }, layout: 'desktop' }
 	];
 </script>
 
@@ -1292,7 +1665,20 @@
 	{#each teamStates as { title, state, layout } (title)}
 		<section>
 			<h2>{title}</h2>
-			<TeamPage {state} {allGamesHref} {layout} gameHref={teamGameHref} />
+			<TeamPage
+				{state}
+				{allGamesHref}
+				{layout}
+				gameHref={teamGameHref}
+				playerHref={() => resolve('/preview')}
+			/>
+		</section>
+	{/each}
+
+	{#each playerStates as { title, state, layout } (title)}
+		<section>
+			<h2>{title}</h2>
+			<PlayerPage {state} {allGamesHref} {layout} gameHref={playerGameHref} />
 		</section>
 	{/each}
 

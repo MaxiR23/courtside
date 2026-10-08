@@ -23,10 +23,11 @@
 		allGamesHref: ResolvedPathname;
 		layout: RowLayout;
 		gameHref: (id: string) => ResolvedPathname;
+		playerHref: (id: string) => ResolvedPathname;
 	};
 
 	// `state` is renamed so the `$state` rune is not read as a store of the prop.
-	let { state: page, allGamesHref, layout, gameHref }: Props = $props();
+	let { state: page, allGamesHref, layout, gameHref, playerHref }: Props = $props();
 </script>
 
 {#if page.kind === 'ready'}
@@ -45,13 +46,13 @@
 		{#if sections.leaders}
 			<section id="leaders">
 				<SectionHead title={m.team_section_leaders()} meta={sections.leaders.meta} />
-				<TeamLeaders leaders={sections.leaders} />
+				<TeamLeaders leaders={sections.leaders} {playerHref} />
 			</section>
 		{/if}
 		{#if sections.roster}
 			<section id="roster">
 				<SectionHead title={m.team_tab_roster()} />
-				<RosterTable roster={sections.roster} {layout} />
+				<RosterTable roster={sections.roster} {layout} {playerHref} />
 			</section>
 		{/if}
 		<section id="injuries">

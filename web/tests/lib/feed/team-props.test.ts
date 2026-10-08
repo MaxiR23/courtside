@@ -240,6 +240,7 @@ describe('toTeamView leaders', () => {
 		expect(leaders?.meta).toBe('2025-26 · per game');
 		expect(leaders?.cards).toEqual([
 			{
+				playerId: 'p-sga',
 				label: 'Points',
 				value: '31.8',
 				name: 'Shai Gilgeous-Alexander',
@@ -247,6 +248,7 @@ describe('toTeamView leaders', () => {
 				photo: 'https://example.com/players/sga.png'
 			},
 			{
+				playerId: 'p-holmgren',
 				label: 'Rebounds',
 				value: '8.9',
 				name: 'Chet Holmgren',
@@ -254,6 +256,7 @@ describe('toTeamView leaders', () => {
 				photo: null
 			},
 			{
+				playerId: 'p-sga',
 				label: 'Assists',
 				value: '6.4',
 				name: 'Shai Gilgeous-Alexander',

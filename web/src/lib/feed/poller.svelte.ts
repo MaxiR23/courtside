@@ -1,5 +1,6 @@
 import type { GameDetailFeed } from '#lib/contract/game-detail.ts';
 import type { GamesFeed } from '#lib/contract/games.ts';
+import type { PlayerFeed } from '#lib/contract/player.ts';
 
 export const LIVE_POLL_MS = 30_000;
 export const IDLE_POLL_MS = 60_000;
@@ -21,6 +22,11 @@ export function gamePollInterval(feed: GameDetailFeed | null): number {
 /** docs/design-profiles.md, Polling: every 60 s. */
 export function teamPollInterval(): number {
 	return IDLE_POLL_MS;
+}
+
+/** ADR 0021: every 30 s while the player's team is live, every 60 s otherwise. */
+export function playerPollInterval(feed: PlayerFeed | null): number {
+	return feed?.live ? LIVE_POLL_MS : IDLE_POLL_MS;
 }
 
 type Visibility = Pick<Document, 'visibilityState' | 'addEventListener' | 'removeEventListener'>;

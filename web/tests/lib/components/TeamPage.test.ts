@@ -9,6 +9,7 @@
 // - Unavailable: the unavailable row and the nav row
 // - Not found: "Team not found." and two All games links
 // - The footer in every state
+// - Links to the leader and roster player pages, with no nested interactive element
 //
 // What is covered:
 // - Each page state, drawn from props with no fetch; the view comes from the recorded team feed
@@ -30,6 +31,7 @@ import type { TeamPageState } from '../../../src/lib/team/types';
 
 const HOME = '/' as ResolvedPathname;
 const gameHref = (id: string) => `/game/${id}` as ResolvedPathname;
+const playerHref = (id: string) => `/player/${id}` as ResolvedPathname;
 
 const feed = (): TeamFeed =>
 	JSON.parse(
@@ -37,7 +39,7 @@ const feed = (): TeamFeed =>
 	) as TeamFeed;
 
 const show = (state: TeamPageState, layout: 'desktop' | 'mobile' = 'desktop') =>
-	render(TeamPage, { props: { state, allGamesHref: HOME, layout, gameHref } });
+	render(TeamPage, { props: { state, allGamesHref: HOME, layout, gameHref, playerHref } });
 
 const ready = (source: TeamFeed = feed()): TeamPageState => ({
 	kind: 'ready',
@@ -45,6 +47,14 @@ const ready = (source: TeamFeed = feed()): TeamPageState => ({
 });
 
 describe('TeamPage ready', () => {
+	it('links the leaders and the roster to the player pages, with nothing nested', () => {
+		const { container } = show(ready());
+		const hrefs = screen.getAllByRole('link').map((a) => a.getAttribute('href'));
+		expect(hrefs).toContain('/player/p-sga');
+		expect(hrefs).toContain('/player/p-holmgren');
+		expect(container.querySelectorAll('a a, button a, a button')).toHaveLength(0);
+	});
+
 	it('renders every section in order, matching the tabs', () => {
 		const { container } = show(ready());
 		const sectionIds = [...container.querySelectorAll('.sections > section')].map((s) => s.id);

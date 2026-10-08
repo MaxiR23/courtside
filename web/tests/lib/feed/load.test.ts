@@ -9,6 +9,8 @@
 // - loadGameDetailFeed returns the detail feed, reports a 404 as not-found and every other failure
 // - teamFeedUrl puts the encoded team code in place of {code}
 // - loadTeamFeed returns the team feed, reports a 404 as not-found and every other failure
+// - playerFeedUrl puts the encoded player id in place of {id}
+// - loadPlayerFeed returns the player feed, reports a 404 as not-found and every other failure
 //
 // What is covered:
 // - Happy path and every failure the page treats as "data unavailable"
@@ -24,6 +26,8 @@ import {
 	gameFeedUrl,
 	loadGameDetailFeed,
 	loadGamesFeed,
+	loadPlayerFeed,
+	playerFeedUrl,
 	loadTeamFeed,
 	teamFeedUrl
 } from '../../../src/lib/feed/load';
@@ -193,6 +197,68 @@ describe('loadTeamFeed', () => {
 			loadTeamFeed(
 				TEAM_URL,
 				teamFetchAnswering(() => json({ name: 'Thunder' }))
+			)
+		).rejects.toMatchObject({ reason: 'body' });
+	});
+});
+
+const PLAYER_TEMPLATE = 'https://feeds.example.com/players/{id}.json';
+const PLAYER_URL = 'https://feeds.example.com/players/p-2.json';
+
+function playerFetchAnswering(answer: () => Promise<Response>) {
+	return vi.fn((url: string | URL | Request) => {
+		if (url !== PLAYER_URL) throw new Error(`Unexpected URL ${String(url)}`);
+		return answer();
+	}) as unknown as typeof fetch & ReturnType<typeof vi.fn>;
+}
+
+describe('playerFeedUrl', () => {
+	it('builds the player feed URL by putting the encoded id in place of {id}', () => {
+		expect(playerFeedUrl(PLAYER_TEMPLATE, 'p-2')).toBe(PLAYER_URL);
+		expect(playerFeedUrl(PLAYER_TEMPLATE, 'a/b c')).toBe(
+			'https://feeds.example.com/players/a%2Fb%20c.json'
+		);
+	});
+});
+
+describe('loadPlayerFeed', () => {
+	it('returns the parsed player feed on a 200, asking for JSON from the given URL', async () => {
+		const feed = { id: 'p-2', lastName: 'Gilgeous-Alexander' };
+		const fetchFn = playerFetchAnswering(() => json(feed));
+		await expect(loadPlayerFeed(PLAYER_URL, fetchFn)).resolves.toEqual(feed);
+		expect(fetchFn).toHaveBeenCalledWith(PLAYER_URL, { headers: { accept: 'application/json' } });
+	});
+
+	it('throws a not-found FeedLoadError when the player feed answers 404', async () => {
+		const fetchFn = playerFetchAnswering(() => json({ detail: 'no player' }, 404));
+		const error = await loadPlayerFeed(PLAYER_URL, fetchFn).catch((e: unknown) => e);
+		expect(error).toBeInstanceOf(FeedLoadError);
+		expect((error as FeedLoadError).reason).toBe('not-found');
+	});
+
+	it('throws a FeedLoadError on a 503, a network error, a non-JSON body and JSON without an id', async () => {
+		await expect(
+			loadPlayerFeed(
+				PLAYER_URL,
+				playerFetchAnswering(() => json({}, 503))
+			)
+		).rejects.toMatchObject({ reason: 'status' });
+		await expect(
+			loadPlayerFeed(
+				PLAYER_URL,
+				playerFetchAnswering(() => Promise.reject(new TypeError('Failed to fetch')))
+			)
+		).rejects.toMatchObject({ reason: 'network' });
+		await expect(
+			loadPlayerFeed(
+				PLAYER_URL,
+				playerFetchAnswering(() => Promise.resolve(new Response('<html>', { status: 200 })))
+			)
+		).rejects.toMatchObject({ reason: 'body' });
+		await expect(
+			loadPlayerFeed(
+				PLAYER_URL,
+				playerFetchAnswering(() => json({ lastName: 'X' }))
 			)
 		).rejects.toMatchObject({ reason: 'body' });
 	});

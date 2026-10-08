@@ -91,7 +91,7 @@ const record = (r: { wins: number; losses: number }) =>
 	`${formatNumber(r.wins)}–${formatNumber(r.losses)}`;
 
 // A contract date has no time: "1998-07-12" is UTC midnight, so it is formatted in UTC to keep the day.
-function feedDate(date: string, options: Intl.DateTimeFormatOptions): string {
+export function feedDate(date: string, options: Intl.DateTimeFormatOptions): string {
 	return formatDate(new Date(date), { ...options, timeZone: 'UTC' });
 }
 
@@ -168,7 +168,7 @@ function header(feed: TeamFeed): TeamHeaderView {
 	};
 }
 
-function nextGameView(game: NextGame): NextGameView {
+export function nextGameView(game: NextGame): NextGameView {
 	const { tipTime, tipSuffix } = tipParts(game.startTime);
 	const time = `${tipTime} ${tipSuffix}`;
 	const team = game.opponent;
@@ -259,6 +259,7 @@ function recordSection(feed: TeamFeed): RecordSection {
 
 function leaderCard(label: string, leader: TeamLeader): LeaderCard {
 	return {
+		playerId: leader.playerId,
 		label,
 		value: formatNumber(leader.value, oneDecimal),
 		name: leader.name,

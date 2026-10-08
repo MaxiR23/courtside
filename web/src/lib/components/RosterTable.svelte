@@ -1,12 +1,17 @@
 <script lang="ts">
+	import type { ResolvedPathname } from '$app/types';
 	import PlayerAvatar from '#lib/components/PlayerAvatar.svelte';
 	import { m } from '#lib/paraglide/messages.js';
 	import type { RowLayout } from '#lib/schedule/types.ts';
 	import type { RosterRow } from '#lib/team/types.ts';
 
-	type Props = { roster: RosterRow[]; layout: RowLayout };
+	type Props = {
+		roster: RosterRow[];
+		layout: RowLayout;
+		playerHref: (id: string) => ResolvedPathname;
+	};
 
-	let { roster, layout }: Props = $props();
+	let { roster, layout, playerHref }: Props = $props();
 
 	type Field = Exclude<keyof RosterRow, 'id' | 'name' | 'photo' | 'status'>;
 
@@ -37,7 +42,7 @@
 			<div class="row body" role="row">
 				<span class="cell player" role="rowheader">
 					<PlayerAvatar name={row.name} photo={row.photo} size="roster" />
-					<span class="name">{row.name}</span>
+					<a class="name" href={playerHref(row.id)}>{row.name}</a>
 				</span>
 				{#each columns as column (column.key)}
 					<span class="cell" role="cell">{row[column.key] ?? ''}</span>
@@ -118,6 +123,12 @@
 		text-overflow: ellipsis;
 		font-family: var(--font-heading);
 		font-size: var(--box-name-size);
+		color: inherit;
+		text-decoration: none;
+	}
+
+	.name:hover {
+		color: var(--color-accent-hover);
 	}
 
 	.tone-out {

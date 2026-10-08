@@ -2,19 +2,51 @@
 	import type { ResolvedPathname } from '$app/types';
 	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
 	import Kicker from '#lib/components/Kicker.svelte';
+	import LiveBadge from '#lib/components/LiveBadge.svelte';
 	import StatusTag from '#lib/components/StatusTag.svelte';
 	import { m } from '#lib/paraglide/messages.js';
+	import type { LiveGameView } from '#lib/player/types.ts';
 	import type { NextGameView } from '#lib/team/types.ts';
 
 	type Props = {
 		game: NextGameView | null; // null: the season is over
 		gameHref: (id: string) => ResolvedPathname;
+		live?: LiveGameView | null; // the player's team is playing: the live card takes the place of the next game
 	};
 
-	let { game, gameHref }: Props = $props();
+	let { game, gameHref, live = null }: Props = $props();
 </script>
 
-{#if game}
+{#if live}
+	<BlueprintFrame>
+		<div class="card">
+			<div class="head">
+				<LiveBadge />
+				<span class="clock">{live.clock}</span>
+			</div>
+			<span class="opponent">{live.opponent}</span>
+			<span class="opponent score">{live.score}</span>
+			{#if live.line}
+				<dl class="line">
+					{#each live.line as cell (cell.label)}
+						<div class="stat">
+							<dt>{cell.label}</dt>
+							<dd>{cell.value}</dd>
+						</div>
+					{/each}
+				</dl>
+			{:else}
+				<p class="not-in-game">{m.player_live_not_in_game()}</p>
+			{/if}
+			<a class="game-center" href={gameHref(live.gameId)}>
+				{m.game_center()}
+				<svg viewBox="0 0 24 24" aria-hidden="true"
+					><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg
+				>
+			</a>
+		</div>
+	</BlueprintFrame>
+{:else if game}
 	<BlueprintFrame>
 		<div class="card">
 			<div class="head">
@@ -63,6 +95,50 @@
 		font-family: var(--font-heading);
 		font-size: var(--detail-info-value-size);
 		text-transform: uppercase;
+	}
+
+	.clock {
+		font-size: var(--body-size-small);
+		color: var(--color-muted);
+	}
+
+	.score {
+		font-variant-numeric: tabular-nums;
+	}
+
+	.line {
+		display: grid;
+		grid-template-columns: repeat(5, 1fr);
+		gap: var(--game-list-gap);
+		margin: 0;
+	}
+
+	.stat {
+		display: flex;
+		flex-direction: column;
+		gap: var(--day-strip-gap);
+		padding-top: var(--game-list-gap);
+		border-top: var(--hairline) solid var(--color-divider);
+	}
+
+	dt {
+		font-size: var(--label-size);
+		letter-spacing: var(--label-letter-spacing);
+		text-transform: uppercase;
+		color: var(--color-accent-light);
+	}
+
+	dd {
+		margin: 0;
+		font-family: var(--font-heading);
+		font-size: var(--detail-info-value-size);
+		font-variant-numeric: tabular-nums;
+	}
+
+	.not-in-game {
+		margin: 0;
+		font-size: var(--body-size);
+		color: var(--color-muted);
 	}
 
 	.place,

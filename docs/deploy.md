@@ -33,7 +33,8 @@ domains below are placeholders.
 1. `cp web/.env.example web/.env`
 2. Set `GAMES_FEED_URL=https://api.example.com/feeds/games.json`,
    `GAME_DETAIL_FEED_URL=https://api.example.com/feeds/games/{id}.json`,
-   `TEAM_FEED_URL=https://api.example.com/feeds/teams/{code}.json` and
+   `TEAM_FEED_URL=https://api.example.com/feeds/teams/{code}.json`,
+   `PLAYER_FEED_URL=https://api.example.com/feeds/players/{id}.json` and
    `VIDEO_PLATFORM_NAME`.
 3. `cd web && pnpm install --frozen-lockfile && pnpm run build`
 4. Upload the contents of `web/build/` to the static host. Configure the static

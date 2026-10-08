@@ -202,5 +202,62 @@
 				"countPlural=other": "{count} temporadas como entrenador principal en la NBA"
 			}
 		}
+	],
+	"player_not_found": "Jugador no encontrado.",
+	"player_tab_profile": "Perfil",
+	"player_tab_averages": "Promedios",
+	"player_tab_seasons": "Temporadas",
+	"player_tab_milestones": "Hitos",
+	"player_tab_game_log": "Registro de partidos",
+	"player_tab_awards": "Premios",
+	"player_section_averages": "Promedios por partido",
+	"player_section_seasons": "Temporada a temporada",
+	"player_averages_meta": "Temporada regular, playoffs y carrera",
+	"player_injury_updated": "Actualizado {date}",
+	"player_profile_height": "Altura",
+	"player_profile_weight": "Peso",
+	"player_profile_draft": "Draft",
+	"player_height_cm": "{cm} cm",
+	"player_weight_lb": "{lb} lb",
+	"player_weight_kg": "{kg} kg",
+	"player_age": "{age} años",
+	"player_draft_pick": "{year} · Ronda {round} · Elección {pick}",
+	"player_undrafted": "No elegido en el draft",
+	"player_debut": "Debut {season}",
+	"player_live_not_in_game": "Todavía no entró.",
+	"player_regular_season": "Temporada regular",
+	"player_career": "Carrera",
+	"player_column_season": "Temporada",
+	"player_column_game": "Partido",
+	"player_column_result": "Resultado",
+	"player_games_played": "PJ",
+	"player_games_started": "TIT",
+	"player_per_game": "Por partido",
+	"player_regular": "Regular",
+	"player_seasons_mode": "Valores",
+	"player_seasons_kind": "Tipo de temporada",
+	"player_filter_all": "Todos",
+	"player_game_log_filters": "Tipos de partido",
+	"player_show_fewer": "Ver menos",
+	"player_milestone_double_doubles": "Dobles-dobles",
+	"player_milestone_triple_doubles": "Triples-dobles",
+	"player_milestone_disqualifications": "Descalificaciones",
+	"player_milestone_ejections": "Expulsiones",
+	"player_milestone_technicals": "Faltas técnicas",
+	"player_milestone_flagrants": "Faltas flagrantes",
+	"player_milestone_ast_to": "AST/PÉR",
+	"player_milestone_stl_to": "ROB/PÉR",
+	"player_milestone_career": "Carrera {value}",
+	"player_award_count": "{count}×",
+	"player_rank": "{rank}.º en la NBA",
+	"player_show_all": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "Ver {count} partido",
+				"countPlural=other": "Ver {count} partidos"
+			}
+		}
 	]
 }

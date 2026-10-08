@@ -83,7 +83,7 @@ function periodLabel(period: number): string {
 	return m.game_overtime({ number: period - FIRST_OVERTIME + 1 });
 }
 
-function periodText(period: number, clock: string): string {
+export function periodText(period: number, clock: string): string {
 	return `${periodLabel(period)}${SEPARATOR}${clock}`;
 }
 

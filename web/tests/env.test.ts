@@ -5,6 +5,8 @@
 // Tested:
 // - TEAM_FEED_URL: accepts an absolute URL with {code}; empty or missing is undefined
 // - TEAM_FEED_URL: rejects a relative URL and an absolute URL without {code}
+// - PLAYER_FEED_URL: accepts an absolute URL with {id}; empty or missing is undefined
+// - PLAYER_FEED_URL: rejects a relative URL and an absolute URL without {id}
 //
 // What is covered:
 // - Happy path, edge cases (empty, missing) and error cases, on the schema alone
@@ -19,29 +21,53 @@ import { variables } from '../src/env';
 type Outcome = { value: unknown } | { issues: readonly { message: string }[] };
 type Validator = { '~standard': { validate: (value: unknown) => Outcome } };
 
-const validate = (value: string | undefined): Outcome =>
-	(variables.TEAM_FEED_URL.schema as unknown as Validator)['~standard'].validate(value);
+const validate = (name: 'TEAM_FEED_URL' | 'PLAYER_FEED_URL', value: string | undefined): Outcome =>
+	(variables[name].schema as unknown as Validator)['~standard'].validate(value);
 
 describe('TEAM_FEED_URL', () => {
 	it('accepts an absolute URL containing {code} and returns it', () => {
 		const url = 'https://feeds.example.com/teams/{code}.json';
-		expect(validate(url)).toEqual({ value: url });
+		expect(validate('TEAM_FEED_URL', url)).toEqual({ value: url });
 	});
 
 	it('returns undefined for an empty or missing value', () => {
-		expect(validate('')).toEqual({ value: undefined });
-		expect(validate(undefined)).toEqual({ value: undefined });
+		expect(validate('TEAM_FEED_URL', '')).toEqual({ value: undefined });
+		expect(validate('TEAM_FEED_URL', undefined)).toEqual({ value: undefined });
 	});
 
 	it('rejects a relative URL', () => {
-		expect(validate('/teams/{code}.json')).toEqual({
+		expect(validate('TEAM_FEED_URL', '/teams/{code}.json')).toEqual({
 			issues: [{ message: 'TEAM_FEED_URL must be an absolute URL' }]
 		});
 	});
 
 	it('rejects an absolute URL without {code}', () => {
-		expect(validate('https://feeds.example.com/teams.json')).toEqual({
+		expect(validate('TEAM_FEED_URL', 'https://feeds.example.com/teams.json')).toEqual({
 			issues: [{ message: 'TEAM_FEED_URL must contain {code}' }]
+		});
+	});
+});
+
+describe('PLAYER_FEED_URL', () => {
+	it('accepts an absolute URL containing {id} and returns it', () => {
+		const url = 'https://feeds.example.com/players/{id}.json';
+		expect(validate('PLAYER_FEED_URL', url)).toEqual({ value: url });
+	});
+
+	it('returns undefined for an empty or missing value', () => {
+		expect(validate('PLAYER_FEED_URL', '')).toEqual({ value: undefined });
+		expect(validate('PLAYER_FEED_URL', undefined)).toEqual({ value: undefined });
+	});
+
+	it('rejects a relative URL', () => {
+		expect(validate('PLAYER_FEED_URL', '/players/{id}.json')).toEqual({
+			issues: [{ message: 'PLAYER_FEED_URL must be an absolute URL' }]
+		});
+	});
+
+	it('rejects an absolute URL without {id}', () => {
+		expect(validate('PLAYER_FEED_URL', 'https://feeds.example.com/players.json')).toEqual({
+			issues: [{ message: 'PLAYER_FEED_URL must contain {id}' }]
 		});
 	});
 });

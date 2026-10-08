@@ -35,6 +35,7 @@
 
 	const wide = wideViewport();
 	const gameHref = (id: string) => resolve('/game/[id]', { id });
+	const playerHref = (id: string) => resolve('/player/[id]', { id });
 </script>
 
 <TeamPage
@@ -42,4 +43,5 @@
 	allGamesHref={resolve('/')}
 	layout={wide.current ? 'desktop' : 'mobile'}
 	{gameHref}
+	{playerHref}
 />
