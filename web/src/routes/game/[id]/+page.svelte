@@ -34,6 +34,9 @@
 		return { kind: 'loading' };
 	});
 
+	const teamHref = (code: string) => resolve('/team/[code]', { code: code.toLowerCase() });
+	const playerHref = (id: string) => resolve('/player/[id]', { id });
+
 	const wide = wideViewport();
 </script>
 
@@ -41,4 +44,6 @@
 	state={pageState}
 	allGamesHref={resolve('/')}
 	layout={wide.current ? 'desktop' : 'mobile'}
+	{teamHref}
+	{playerHref}
 />

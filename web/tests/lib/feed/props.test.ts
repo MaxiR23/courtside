@@ -3,7 +3,7 @@
 // Tests for the props layer that turns the games feed into the home page props.
 //
 // Tested:
-// - Seven days with today in the middle; today's games as hero games in feed order, without postponed and canceled games
+// - Seven days with today in the middle; today's games as hero games (with team codes) in feed order, without postponed and canceled games
 // - Postponed and canceled games stay in the schedule; with only those, no hero games; a delayed game stays with its tip time
 // - Tip time as "9:00 PM ET"; scheduled, live (Q3, OT, 2OT), final, delayed, postponed and canceled games
 // - The winner of a final game, passed through
@@ -65,6 +65,8 @@ describe('toHomeView', () => {
 		expect(v.heroGames[0].arena).toBe('Los Angeles Arena');
 		expect(v.heroGames[0].away.name).toBe('Warriors');
 		expect(v.heroGames[0].home.name).toBe('Lakers');
+		expect(v.heroGames[0].away.code).toBe('GSW');
+		expect(v.heroGames[0].home.code).toBe('LAL');
 	});
 
 	it("keeps postponed and canceled games in today's schedule", () => {

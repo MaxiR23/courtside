@@ -10,6 +10,7 @@
 # - Takes each series arena from the team schedules and this game's venue
 # - Passes the series leader, each game's winner and the current game into the feed
 # - Lists no injuries for a team absent from the league injuries
+# - Sets each injury's playerId from the recorded league injuries, null when the source has no athlete id
 # - Puts null highlights when the game has none
 # - Rejects a game whose team has no standing, a series game with no arena and a live game without team stats
 # - The pre-game expiry is 12 hours with tip-off more than 48 hours away, 6 hours from 48 to 12 hours, 3 hours under 12 hours and once tip-off has passed
@@ -47,6 +48,7 @@ import datetime as dt
 import json
 from collections.abc import Iterator
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Any
 
 import httpx
@@ -86,7 +88,11 @@ from app.sources.http import (
     create_client,
     get_json,
 )
-from app.sources.league_injuries import InjuryReport, LeagueInjuries
+from app.sources.league_injuries import (
+    InjuryReport,
+    LeagueInjuries,
+    fetch_league_injuries,
+)
 from app.sources.scoreboard import ScoreboardGame
 from app.sources.standings import LeagueStandings
 from app.sources.team_schedule import TeamSchedule
@@ -95,6 +101,7 @@ from app.storage.state import StateStore
 
 NOON = dt.datetime(2026, 10, 5, 16, 0, tzinfo=dt.UTC)
 START = NOON - dt.timedelta(hours=3)
+SOURCE_FIXTURES = Path(__file__).parent.parent / "sources" / "fixtures"
 PHOTO = HttpUrl("https://example.com/p.png")
 SEARCH_URL = "https://example.com/search?q=game"
 
@@ -398,6 +405,59 @@ def test_lists_no_injuries_for_a_team_absent_from_the_league_injuries() -> None:
 
     assert feed.injuries is not None
     assert feed.injuries.away == [] and feed.injuries.home == []
+
+
+async def recorded_injuries(clear_links: bool = False) -> LeagueInjuries:
+    payload = json.loads(
+        (SOURCE_FIXTURES / "league_injuries" / "injuries-detail.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    if clear_links:
+        entry = next(e for e in payload["injuries"] if e["id"] == "25")
+        for report in entry["injuries"]:
+            report["athlete"]["links"] = []
+    respx.get("https://example.com/injuries").respond(json=payload)
+    settings = Settings(
+        _env_file=None, league_injuries_url="https://example.com/injuries"
+    )  # type: ignore[call-arg]
+    with TemporaryDirectory() as directory:
+        store = StateStore(Path(directory))
+        store.migrate()
+        async with create_client(store) as client:
+            return await fetch_league_injuries(client, settings)
+
+
+@pytest.mark.anyio
+async def test_sets_the_injury_player_id_from_the_recorded_league_injuries() -> None:
+    league = await recorded_injuries()
+
+    feed = build(
+        game("1", GameStatus.SCHEDULED),
+        league_injuries=LeagueInjuries(teams={"BOS": league.teams["OKC"]}),
+    )
+
+    assert feed.injuries is not None
+    assert feed.injuries.away[0].player_id == "5061603"
+    assert feed.injuries.away[0].display_name == "Thomas Sorber"
+    dumped = feed.model_dump(mode="json")
+    assert dumped["injuries"]["away"][0]["playerId"] == "5061603"
+
+
+@pytest.mark.anyio
+async def test_puts_a_null_injury_player_id_when_the_source_has_none() -> None:
+    league = await recorded_injuries(clear_links=True)
+
+    feed = build(
+        game("1", GameStatus.SCHEDULED),
+        league_injuries=LeagueInjuries(teams={"BOS": league.teams["OKC"]}),
+    )
+
+    assert feed.injuries is not None
+    assert feed.injuries.away
+    assert all(i.player_id is None for i in feed.injuries.away)
+    dumped = feed.model_dump(mode="json")
+    assert all(i["playerId"] is None for i in dumped["injuries"]["away"])
 
 
 def test_puts_null_highlights_when_the_game_has_none() -> None:

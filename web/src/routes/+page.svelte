@@ -18,6 +18,7 @@
 	const poller = url ? new GamesFeedPoller(() => loadGamesFeed(url)) : undefined;
 	const spoilerFree = new SpoilerFree();
 	const gameHref = (id: string) => resolve('/game/[id]', { id });
+	const teamHref = (code: string) => resolve('/team/[code]', { code: code.toLowerCase() });
 
 	$effect(() => poller?.start());
 	$effect(() => spoilerFree.load());
@@ -67,6 +68,7 @@
 		onMatchDetails={matchDetails}
 		spoilerFree={spoilerFree.on}
 		onSpoilerFreeToggle={() => spoilerFree.toggle()}
+		{teamHref}
 	/>
 {/if}
 
@@ -78,6 +80,7 @@
 		bind:openId
 		spoilerFree={spoilerFree.on}
 		{gameHref}
+		{teamHref}
 	/>
 {:else if unavailable}
 	<section class="unavailable" id="schedule">

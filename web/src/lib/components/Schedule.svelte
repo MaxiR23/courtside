@@ -18,6 +18,7 @@
 		openId?: string | null; // $bindable, the id of the open card, so the page can open one
 		spoilerFree?: boolean; // hides final scores until a card is opened
 		gameHref: (id: string) => ResolvedPathname; // the detail page of a game
+		teamHref: (code: string) => ResolvedPathname; // the page of a team
 	};
 
 	let {
@@ -26,7 +27,8 @@
 		selected = $bindable(3),
 		openId = $bindable(null),
 		spoilerFree = false,
-		gameHref
+		gameHref,
+		teamHref
 	}: Props = $props();
 
 	const wide = wideViewport();
@@ -94,6 +96,7 @@
 								playingVideoId={openId === game.id ? playingId : null}
 								onPlay={(videoId) => (playingId = videoId)}
 								detailHref={gameHref(game.id)}
+								{teamHref}
 							/>
 						</li>
 					{/each}

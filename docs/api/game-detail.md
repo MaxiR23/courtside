@@ -80,7 +80,7 @@ code.
 | `GamePeriod`          | `number`, `startElapsedSeconds`                                                                                                              |
 | `WinProbabilityPeriods` | `periods`: `GamePeriod[]`, `endElapsedSeconds`                                                                                             |
 | `Injuries`            | `away`, `home`: `Injury[]`                                                                                                                   |
-| `Injury`              | `displayName`, `status` (`out`, `doubtful`, `questionable`, `probable`, `day-to-day`), `comment` (null when none)                            |
+| `Injury`              | `playerId` (the athlete id of the league injury report, null when the source gives none), `displayName`, `status` (`out`, `doubtful`, `questionable`, `probable`, `day-to-day`), `comment` (null when none)                            |
 | `LastGames`           | `away`, `home`: `LastGame[]`                                                                                                                 |
 | `LastGame`            | `date`, `opponent` (team code), `isHome`, `result` (`win`, `loss`), `teamScore`, `opponentScore`                                             |
 | `Standings`           | `away`, `home`: `TeamStanding`                                                                                                               |

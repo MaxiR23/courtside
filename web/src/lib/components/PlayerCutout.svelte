@@ -1,11 +1,17 @@
 <script lang="ts">
+	import type { ResolvedPathname } from '$app/types';
 	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
+	import NameLink from '#lib/components/NameLink.svelte';
 	import { crossfade, type CrossfadeParams, float, floorShadow, play } from '#lib/hero/motion.ts';
 	import type { HeroPlayer } from '#lib/hero/types.ts';
 
-	type Props = { players: readonly HeroPlayer[]; active: number };
+	type Props = {
+		players: readonly HeroPlayer[];
+		active: number;
+		teamHref: (code: string) => ResolvedPathname;
+	};
 
-	let { players, active }: Props = $props();
+	let { players, active, teamHref }: Props = $props();
 
 	let failed = $state<Record<string, boolean>>({});
 
@@ -75,10 +81,14 @@
 			<div class="chip">
 				<BlueprintFrame>
 					<div class="chip-box">
-						<span class="chip-code">{player.teamCode}</span>
+						<span class="chip-code"
+							><NameLink href={teamHref(player.teamCode)} text={player.teamCode} /></span
+						>
 						<span class="chip-first">{player.firstName}</span>
 						<span class="chip-last">{player.lastName}</span>
-						<span class="chip-team">{player.teamName}</span>
+						<span class="chip-team"
+							><NameLink href={teamHref(player.teamCode)} text={player.teamName} /></span
+						>
 					</div>
 				</BlueprintFrame>
 			</div>

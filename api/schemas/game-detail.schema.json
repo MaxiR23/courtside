@@ -440,6 +440,18 @@
     "Injury": {
       "additionalProperties": false,
       "properties": {
+        "playerId": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "displayName": {
           "minLength": 1,
           "type": "string"
@@ -461,6 +473,7 @@
         }
       },
       "required": [
+        "playerId",
         "displayName",
         "status",
         "comment"

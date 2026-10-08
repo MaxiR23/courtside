@@ -1,11 +1,17 @@
 <script lang="ts">
+	import type { ResolvedPathname } from '$app/types';
 	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
+	import NameLink from '#lib/components/NameLink.svelte';
 	import PlayerPhoto from '#lib/components/PlayerPhoto.svelte';
 	import type { PlayersSection } from '#lib/game/types.ts';
 
-	type Props = { players: PlayersSection };
+	type Props = {
+		players: PlayersSection;
+		teamHref: (code: string) => ResolvedPathname;
+		playerHref: (id: string) => ResolvedPathname;
+	};
 
-	let { players }: Props = $props();
+	let { players, teamHref, playerHref }: Props = $props();
 
 	const cards = $derived([players.away, players.home]);
 </script>
@@ -15,10 +21,12 @@
 		<BlueprintFrame>
 			<div class="card">
 				<div class="text">
-					<span class="tag">{card.teamCode}</span>
-					<span class="first">{card.firstName}</span>
-					<span class="last">{card.lastName}</span>
-					<span class="team">{card.teamName}</span>
+					<span class="tag"><NameLink href={teamHref(card.teamCode)} text={card.teamCode} /></span>
+					<a class="name" href={playerHref(card.id)}>
+						<span class="first">{card.firstName}</span>
+						<span class="last">{card.lastName}</span>
+					</a>
+					<span class="team"><NameLink href={teamHref(card.teamCode)} text={card.teamName} /></span>
 				</div>
 				<div class="photo"><PlayerPhoto star player={card} /></div>
 			</div>
@@ -56,6 +64,19 @@
 		border: var(--hairline) solid var(--color-divider);
 		padding: var(--tag-padding);
 		border-radius: var(--radius);
+	}
+
+	.name {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: var(--day-strip-gap);
+		color: inherit;
+		text-decoration: none;
+	}
+
+	.name:hover .last {
+		color: var(--color-accent-hover);
 	}
 
 	.first {

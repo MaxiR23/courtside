@@ -9,6 +9,7 @@
 // - Ready: the header and the tabs; a postponed game in the pre-game layout with its status tag
 // - Ready: each section in the design order with its tab id as anchor, none when null
 // - The section metas: the platform for highlights, the leader for win probability, the injury report, the series count, the new tab
+// - No link inside a button or another link, and the header team names link to the team page
 // - The footer in every state
 // - The not-found row in Spanish with a Spanish browser preference
 //
@@ -27,6 +28,8 @@ import type { BoxRow, GamePageState, GameSections, GameView } from '../../../src
 import { preferLanguages } from '../../prefer-languages';
 
 const HOME = '/' as ResolvedPathname;
+const teamHref = (code: string) => `/team/${code.toLowerCase()}` as ResolvedPathname;
+const playerHref = (id: string) => `/player/${id}` as ResolvedPathname;
 
 const team = (code: string, name: string, city: string, record: string) => ({
 	code,
@@ -131,8 +134,20 @@ const totals = {
 };
 const stat = { fieldGoalPct: 0.5, threePointPct: 0.35, rebounds: 30, assists: 18, turnovers: 9 };
 const detailStat = { ...stat, freeThrowPct: 0.8, steals: 5, blocks: 3 };
-const awayStar = { firstName: 'Stephen', lastName: 'Curry', teamCode: 'LAL', photo: '/a.svg' };
-const homeStar = { firstName: 'Anthony', lastName: 'Davis', teamCode: 'GSW', photo: '/h.svg' };
+const awayStar = {
+	id: 'p-away',
+	firstName: 'Stephen',
+	lastName: 'Curry',
+	teamCode: 'LAL',
+	photo: '/a.svg'
+};
+const homeStar = {
+	id: 'p-home',
+	firstName: 'Anthony',
+	lastName: 'Davis',
+	teamCode: 'GSW',
+	photo: '/h.svg'
+};
 const lastTeam = (code: string, name: string) => ({
 	code,
 	name,
@@ -165,7 +180,7 @@ const full: GameSections = {
 		away: {
 			code: 'LAL',
 			name: 'Lakers',
-			injuries: [{ name: 'A B', status: 'out', comment: null }]
+			injuries: [{ id: 'p9', name: 'A B', status: 'out', comment: null }]
 		},
 		home: { code: 'GSW', name: 'Warriors', injuries: [] }
 	},
@@ -232,7 +247,9 @@ const full: GameSections = {
 const withSections = (sections: GameSections): GameView => ({ ...view, sections });
 
 function show(state: GamePageState) {
-	return render(GamePage, { props: { state, allGamesHref: HOME, layout: 'desktop' } });
+	return render(GamePage, {
+		props: { state, allGamesHref: HOME, layout: 'desktop', teamHref, playerHref }
+	});
 }
 
 afterEach(() => {
@@ -354,6 +371,21 @@ describe('GamePage', () => {
 		expect(container.querySelector('.tip-time')).toBeNull();
 		expect(container.querySelector('.venue')).not.toBeNull();
 		expect(screen.queryByRole('navigation', { name: 'Sections' })).toBeNull();
+	});
+
+	it('renders no link inside a button or another link', () => {
+		const { container } = show({ kind: 'ready', view: withSections(full) });
+		expect(container.querySelectorAll('a').length).toBeGreaterThan(0);
+		expect(container.querySelectorAll('button a, a a')).toHaveLength(0);
+	});
+
+	it('links the header team names to the team page', () => {
+		const { container } = show({ kind: 'ready', view });
+		const names = [...container.querySelectorAll('h1 a')];
+		expect(names.map((a) => [a.textContent, a.getAttribute('href')])).toEqual([
+			['Lakers', '/team/lal'],
+			['Warriors', '/team/gsw']
+		]);
 	});
 
 	it('shows the not-found row in Spanish for an es browser', () => {

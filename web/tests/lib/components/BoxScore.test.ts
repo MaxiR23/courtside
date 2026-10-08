@@ -8,6 +8,7 @@
 // - FG%, 3P% and FT% sit under the shooting columns in the totals
 // - A positive plus-minus keeps its sign and is marked; zero and negative are not
 // - A team with no bench shows no bench group
+// - Each player name links to its player page, and the team toggle holds no link
 // - The column labels in Spanish with a Spanish browser preference
 //
 // What is covered:
@@ -16,6 +17,7 @@
 // Run with: cd web && pnpm exec vitest run tests/lib/components/BoxScore.test.ts
 //
 // SEE: web/src/lib/components/BoxScore.svelte
+import type { ResolvedPathname } from '$app/types';
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
 
@@ -77,12 +79,14 @@ const home: BoxScoreTeam = {
 };
 const box: BoxScoreSection = { away, home };
 
+const playerHref = (id: string) => `/player/${id}` as ResolvedPathname;
+
 const rowsText = (container: HTMLElement) =>
 	[...container.querySelectorAll('.row')].map((r) => r.children[0].textContent?.trim());
 
 describe('BoxScore', () => {
 	it('selects the away team first and lists its starters, bench and totals', () => {
-		const { container } = render(BoxScore, { props: { box, layout: 'desktop' } });
+		const { container } = render(BoxScore, { props: { box, layout: 'desktop', playerHref } });
 		expect(screen.getByRole('button', { name: 'Lakers' }).getAttribute('aria-pressed')).toBe(
 			'true'
 		);
@@ -99,7 +103,7 @@ describe('BoxScore', () => {
 	});
 
 	it('switches to the home team when its toggle side is clicked', async () => {
-		const { container } = render(BoxScore, { props: { box, layout: 'desktop' } });
+		const { container } = render(BoxScore, { props: { box, layout: 'desktop', playerHref } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Warriors' }));
 		expect(screen.getByRole('button', { name: 'Warriors' }).getAttribute('aria-pressed')).toBe(
 			'true'
@@ -109,19 +113,19 @@ describe('BoxScore', () => {
 	});
 
 	it('shows team names in the toggle on desktop and codes on mobile', () => {
-		const desktop = render(BoxScore, { props: { box, layout: 'desktop' } });
+		const desktop = render(BoxScore, { props: { box, layout: 'desktop', playerHref } });
 		expect(
 			[...desktop.container.querySelectorAll('.side')].map((b) => b.textContent?.trim())
 		).toEqual(['Lakers', 'Warriors']);
 		desktop.unmount();
-		const mobile = render(BoxScore, { props: { box, layout: 'mobile' } });
+		const mobile = render(BoxScore, { props: { box, layout: 'mobile', playerHref } });
 		expect(
 			[...mobile.container.querySelectorAll('.side')].map((b) => b.textContent?.trim())
 		).toEqual(['LAL', 'GSW']);
 	});
 
 	it('shows FG%, 3P% and FT% under the shooting columns in the totals', () => {
-		const { container } = render(BoxScore, { props: { box, layout: 'desktop' } });
+		const { container } = render(BoxScore, { props: { box, layout: 'desktop', playerHref } });
 		const percentages = container.querySelector('.percentages');
 		const cells = [...(percentages?.children ?? [])].map((c) => c.textContent?.trim());
 		// player, MIN, PTS, FG, 3PT, FT, then the rest
@@ -130,21 +134,21 @@ describe('BoxScore', () => {
 	});
 
 	it('shows a positive plus-minus with its sign and marks it, zero and negative unmarked', () => {
-		const { container } = render(BoxScore, { props: { box, layout: 'desktop' } });
+		const { container } = render(BoxScore, { props: { box, layout: 'desktop', playerHref } });
 		const cells = [...container.querySelectorAll('.plus-minus')];
 		expect(cells.map((c) => c.textContent?.trim())).toEqual(['+4', '0', '-3']);
 		expect(cells.map((c) => c.classList.contains('positive'))).toEqual([true, false, false]);
 	});
 
 	it('omits the bench group when the team has no bench players', async () => {
-		const { container } = render(BoxScore, { props: { box, layout: 'desktop' } });
+		const { container } = render(BoxScore, { props: { box, layout: 'desktop', playerHref } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Warriors' }));
 		expect(rowsText(container)).not.toContain('Bench');
 	});
 
 	it('shows the column labels in Spanish with a Spanish preference', () => {
 		preferLanguages(['es-ES']);
-		const { container } = render(BoxScore, { props: { box, layout: 'desktop' } });
+		const { container } = render(BoxScore, { props: { box, layout: 'desktop', playerHref } });
 		const head = [...(container.querySelector('.head')?.children ?? [])].map((c) =>
 			c.textContent?.trim()
 		);
@@ -167,5 +171,20 @@ describe('BoxScore', () => {
 		]);
 		expect(screen.getByRole('group', { name: 'Equipo' })).toBeTruthy();
 		expect(rowsText(container)).toContain('Titulares');
+	});
+
+	it('links each player name to its player page', () => {
+		render(BoxScore, { props: { box, layout: 'desktop', playerHref } });
+		expect(screen.getByRole('link', { name: 'LeBron James' }).getAttribute('href')).toBe(
+			'/player/a1'
+		);
+		expect(screen.getByRole('link', { name: 'Austin Reaves' }).getAttribute('href')).toBe(
+			'/player/a3'
+		);
+	});
+
+	it('keeps the team toggle free of links', () => {
+		const { container } = render(BoxScore, { props: { box, layout: 'desktop', playerHref } });
+		expect(container.querySelectorAll('button a')).toHaveLength(0);
 	});
 });

@@ -225,6 +225,7 @@
 	"injuries": {
 		"away": [
 			{
+				"playerId": "4066457",
 				"displayName": "Austin Reaves",
 				"status": "questionable",
 				"comment": null

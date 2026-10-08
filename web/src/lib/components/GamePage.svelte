@@ -23,10 +23,16 @@
 	import type { RowLayout } from '#lib/schedule/types.ts';
 	import { shimmer } from '#lib/skeleton/motion.ts';
 
-	type Props = { state: GamePageState; allGamesHref: ResolvedPathname; layout: RowLayout };
+	type Props = {
+		state: GamePageState;
+		allGamesHref: ResolvedPathname;
+		layout: RowLayout;
+		teamHref: (code: string) => ResolvedPathname;
+		playerHref: (id: string) => ResolvedPathname;
+	};
 
 	// `state` is renamed so the `$state` rune is not read as a store of the prop.
-	let { state: page, allGamesHref, layout }: Props = $props();
+	let { state: page, allGamesHref, layout, teamHref, playerHref }: Props = $props();
 
 	const SECTION_BONES = [0, 1]; // the first two sections
 
@@ -35,7 +41,7 @@
 </script>
 
 {#if page.kind === 'ready'}
-	<GameHeader header={page.view.header} {layout} {allGamesHref} />
+	<GameHeader header={page.view.header} {layout} {allGamesHref} {teamHref} />
 	<SectionTabs tabs={page.view.tabs} miniScore={page.view.miniScore} />
 	{@const sections = page.view.sections}
 	<div class="sections">
@@ -59,7 +65,7 @@
 		{#if sections.players}
 			<section id="players">
 				<SectionHead title={m.game_section_players_to_watch()} meta={null} emphasis={false} />
-				<PlayersToWatch players={sections.players} />
+				<PlayersToWatch players={sections.players} {teamHref} {playerHref} />
 			</section>
 		{/if}
 		{#if sections.score}
@@ -68,6 +74,7 @@
 				<div class="score-grid">
 					<LineScore
 						detail
+						{teamHref}
 						away={sections.score.lineScore.away}
 						home={sections.score.lineScore.home}
 					/>
@@ -95,25 +102,25 @@
 		{#if sections.boxScore}
 			<section id="box-score">
 				<SectionHead title={m.game_tab_box_score()} meta={null} emphasis={false} />
-				<BoxScore box={sections.boxScore} {layout} />
+				<BoxScore box={sections.boxScore} {layout} {playerHref} />
 			</section>
 		{/if}
 		{#if sections.injuries}
 			<section id="injuries">
 				<SectionHead title={m.game_tab_injuries()} meta={m.game_injuries_meta()} emphasis={false} />
-				<Injuries injuries={sections.injuries} />
+				<Injuries injuries={sections.injuries} {teamHref} {playerHref} />
 			</section>
 		{/if}
 		{#if sections.lastGames}
 			<section id="last-games">
 				<SectionHead title={m.game_section_last_games()} meta={null} emphasis={false} />
-				<LastGames lastGames={sections.lastGames} />
+				<LastGames lastGames={sections.lastGames} {teamHref} />
 			</section>
 		{/if}
 		{#if sections.standings}
 			<section id="standings">
 				<SectionHead title={m.game_tab_standings()} meta={null} emphasis={false} />
-				<StandingsRows standings={sections.standings} />
+				<StandingsRows standings={sections.standings} {teamHref} />
 			</section>
 		{/if}
 		{#if sections.seasonSeries}
@@ -134,7 +141,7 @@
 		{/if}
 	</div>
 {:else if page.kind === 'loading'}
-	<GameHeader header={null} loading {layout} {allGamesHref} />
+	<GameHeader header={null} loading {layout} {allGamesHref} {teamHref} />
 	<section class="page-section section-skeleton" aria-busy="true">
 		<div class="bones" aria-hidden="true" use:play={shimmer}>
 			{#each SECTION_BONES as i (i)}
@@ -144,12 +151,12 @@
 		</div>
 	</section>
 {:else if page.kind === 'unavailable'}
-	<GameHeader header={null} {layout} {allGamesHref} />
+	<GameHeader header={null} {layout} {allGamesHref} {teamHref} />
 	<section class="page-section">
 		<MessageRow text={m.feed_unavailable()} />
 	</section>
 {:else}
-	<GameHeader header={null} {layout} {allGamesHref} />
+	<GameHeader header={null} {layout} {allGamesHref} {teamHref} />
 	<section class="page-section">
 		<MessageRow
 			text={m.game_not_found()}

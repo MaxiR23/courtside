@@ -7,6 +7,7 @@
 // - Calls the match details action; links All games to the schedule
 // - Rotation through every game of the day, two stars each; the position "03 / 10" with several games
 // - One game shows no position; no games shows the nav row only, with no timer
+// - Both headline team names link to the team page
 // - Delayed status in the status tag; Match details receives the game on screen
 // - Slide indicator: starts on the away star, jumps on click, advances with autoplay
 // - Progress fill: none with autoplay off, on the active item with autoplay
@@ -49,8 +50,12 @@ const oneGame: HeroGame = {
 	status: 'tonight',
 	tipTime: '10:30 PM ET',
 	arena: 'Chase Center',
-	away: { name: 'Warriors', star: star('Stephen', 'Curry', 'GSW', 'Golden State Warriors') },
-	home: { name: 'Lakers', star: star('LeBron', 'James', 'LAL', 'Los Angeles Lakers') }
+	away: {
+		code: 'GSW',
+		name: 'Warriors',
+		star: star('Stephen', 'Curry', 'GSW', 'Golden State Warriors')
+	},
+	home: { code: 'LAL', name: 'Lakers', star: star('LeBron', 'James', 'LAL', 'Los Angeles Lakers') }
 };
 
 // A game numbered n, whose stars are "AwayN" and "HomeN".
@@ -59,12 +64,23 @@ const numbered = (n: number): HeroGame => ({
 	status: 'tonight',
 	tipTime: '7:00 PM ET',
 	arena: `Arena ${n}`,
-	away: { name: `Away Team ${n}`, star: star('A', `Away${n}`, 'AAA', `City Away ${n}`) },
-	home: { name: `Home Team ${n}`, star: star('H', `Home${n}`, 'HHH', `City Home ${n}`) }
+	away: {
+		code: 'AAA',
+		name: `Away Team ${n}`,
+		star: star('A', `Away${n}`, 'AAA', `City Away ${n}`)
+	},
+	home: {
+		code: 'HHH',
+		name: `Home Team ${n}`,
+		star: star('H', `Home${n}`, 'HHH', `City Home ${n}`)
+	}
 });
 const games = (count: number) => Array.from({ length: count }, (_, i) => numbered(i + 1));
 
+const teamHref = (code: string) => `/team/${code.toLowerCase()}` as ResolvedPathname;
+
 const baseProps = {
+	teamHref,
 	games: [oneGame],
 	today: new Date(2026, 9, 4, 12),
 	scheduleHref: '/' as ResolvedPathname,
@@ -460,5 +476,15 @@ describe('Hero while the first feed loads', () => {
 		render(Hero, { props: loadingProps });
 		expect(looped()).toBe(false);
 		expect(animate).not.toHaveBeenCalled();
+	});
+
+	it('links both headline team names to the team page', () => {
+		render(Hero, { props: baseProps });
+		const heading = screen.getByRole('heading', { level: 1 });
+		const links = [...heading.querySelectorAll('a')];
+		expect(links.map((a) => [a.textContent, a.getAttribute('href')])).toEqual([
+			['Warriors', '/team/gsw'],
+			['Lakers', '/team/lal']
+		]);
 	});
 });

@@ -3,6 +3,7 @@
 	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
 	import Button from '#lib/components/Button.svelte';
 	import Kicker from '#lib/components/Kicker.svelte';
+	import NameLink from '#lib/components/NameLink.svelte';
 	import NavRow from '#lib/components/NavRow.svelte';
 	import PlayerCutout from '#lib/components/PlayerCutout.svelte';
 	import StatusTag from '#lib/components/StatusTag.svelte';
@@ -29,6 +30,7 @@
 		spoilerFree: boolean;
 		onSpoilerFreeToggle: () => void;
 		autoplay?: boolean;
+		teamHref: (code: string) => ResolvedPathname;
 		loading?: boolean; // the first feed has not loaded yet: show the skeleton
 	};
 
@@ -40,6 +42,7 @@
 		spoilerFree,
 		onSpoilerFreeToggle,
 		autoplay = true,
+		teamHref,
 		loading = false
 	}: Props = $props();
 
@@ -145,8 +148,10 @@
 						<Kicker text={kicker} />
 					</div>
 					<h1 class="entrance headline" use:play={entrance('--hero-delay-h1')}>
-						{game.away.name}<br /><span class="at">{m.hero_at()}</span>
-						{game.home.name}
+						<NameLink href={teamHref(game.away.code)} text={game.away.name} /><br /><span class="at"
+							>{m.hero_at()}</span
+						>
+						<NameLink href={teamHref(game.home.code)} text={game.home.name} />
 					</h1>
 					<p class="entrance blurb" use:play={entrance('--hero-delay-blurb')}>
 						{blurb}
@@ -192,7 +197,7 @@
 				<div class="visual">
 					<div class="parallax" bind:this={parallax}>
 						<div class="frame-entrance" use:play={frameEntrance}>
-							<PlayerCutout players={stars} active={slideshow.current} />
+							<PlayerCutout players={stars} active={slideshow.current} {teamHref} />
 						</div>
 					</div>
 				</div>

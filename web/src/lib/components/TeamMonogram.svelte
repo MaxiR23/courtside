@@ -1,13 +1,20 @@
 <script lang="ts">
+	import type { ResolvedPathname } from '$app/types';
+
 	type Props = {
 		code: string;
 		size: 'large' | 'small' | 'header' | 'header-mobile' | 'injury' | 'team';
+		href?: ResolvedPathname;
 	};
 
-	let { code, size }: Props = $props();
+	let { code, size, href }: Props = $props();
 </script>
 
-<span class="team-monogram {size}">{code}</span>
+{#if href}
+	<a class="team-monogram {size} linked" {href}>{code}</a>
+{:else}
+	<span class="team-monogram {size}">{code}</span>
+{/if}
 
 <style>
 	.team-monogram {
@@ -20,6 +27,15 @@
 		font-family: var(--font-heading);
 		font-weight: var(--font-weight-semibold);
 		font-size: var(--body-size);
+	}
+
+	.linked {
+		color: inherit;
+		text-decoration: none;
+	}
+
+	.linked:hover {
+		border-color: var(--color-accent);
 	}
 
 	.large {

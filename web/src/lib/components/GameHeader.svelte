@@ -3,6 +3,7 @@
 	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
 	import DetailNav from '#lib/components/DetailNav.svelte';
 	import LiveBadge from '#lib/components/LiveBadge.svelte';
+	import NameLink from '#lib/components/NameLink.svelte';
 	import StatusTag from '#lib/components/StatusTag.svelte';
 	import TeamMonogram from '#lib/components/TeamMonogram.svelte';
 	import type { GameHeaderView, HeaderTeam, ScoreboardCenter } from '#lib/game/types.ts';
@@ -15,10 +16,11 @@
 		header: GameHeaderView | null; // null: only the nav row, or its skeleton while loading
 		allGamesHref: ResolvedPathname;
 		layout: RowLayout;
+		teamHref: (code: string) => ResolvedPathname;
 		loading?: boolean; // the first feed has not loaded yet: show the skeleton
 	};
 
-	let { header, allGamesHref, layout, loading = false }: Props = $props();
+	let { header, allGamesHref, layout, teamHref, loading = false }: Props = $props();
 
 	type TipOff = Extract<ScoreboardCenter, { kind: 'tip-off' }>;
 
@@ -55,9 +57,9 @@
 
 {#snippet teamBlock(team: HeaderTeam, side: 'away' | 'home')}
 	<div class="team {side}" class:dimmed={isLoser(side)}>
-		<TeamMonogram code={team.code} size="header" />
+		<TeamMonogram code={team.code} size="header" href={teamHref(team.code)} />
 		<span class="city">{team.city}</span>
-		<h1 class="name">{team.name}</h1>
+		<h1 class="name"><NameLink href={teamHref(team.code)} text={team.name} /></h1>
 		<span class="record">{team.record}</span>
 	</div>
 {/snippet}
@@ -99,9 +101,9 @@
 						{@const side = entry.side}
 						{@const team = entry.team}
 						<div class="row" class:dimmed={isLoser(side)}>
-							<TeamMonogram code={team.code} size="header-mobile" />
+							<TeamMonogram code={team.code} size="header-mobile" href={teamHref(team.code)} />
 							<div class="who">
-								<h1 class="name">{team.name}</h1>
+								<h1 class="name"><NameLink href={teamHref(team.code)} text={team.name} /></h1>
 								<span class="meta">{team.city} · {team.record}</span>
 							</div>
 							{#if header.center.kind === 'score'}

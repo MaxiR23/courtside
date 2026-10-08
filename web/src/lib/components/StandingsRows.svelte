@@ -1,10 +1,15 @@
 <script lang="ts">
+	import type { ResolvedPathname } from '$app/types';
 	import type { StandingRow, StandingsSection } from '#lib/game/types.ts';
+	import NameLink from '#lib/components/NameLink.svelte';
 	import { m } from '#lib/paraglide/messages.js';
 
-	type Props = { standings: StandingsSection };
+	type Props = {
+		standings: StandingsSection;
+		teamHref: (code: string) => ResolvedPathname;
+	};
 
-	let { standings }: Props = $props();
+	let { standings, teamHref }: Props = $props();
 
 	const rows = $derived([standings.away, standings.home]);
 	const columns: { key: Exclude<keyof StandingRow, 'code' | 'name'>; label: () => string }[] = [
@@ -26,7 +31,9 @@
 		</div>
 		{#each rows as row (row.code)}
 			<div class="row body" role="row">
-				<span class="cell team name" role="rowheader">{row.name}</span>
+				<span class="cell team name" role="rowheader"
+					><NameLink href={teamHref(row.code)} text={row.name} /></span
+				>
 				{#each columns as column (column.key)}
 					<span class="cell" role="cell">{row[column.key]}</span>
 				{/each}

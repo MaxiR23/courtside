@@ -12,7 +12,8 @@
 # served. After a day change whose new-day fetch fails, the games already loaded
 # keep being served and an id not loaded is not ready until every day shown is
 # loaded. The feeds of games no longer in the days shown are deleted by the
-# cache's cleanup, run when the set of games shown changes.
+# cache's cleanup, run when the set of games shown changes. Each injury carries
+# the athlete id of its league report.
 #
 # SEE: docs/source-rules.md, docs/adr/0020-source-rules.md,
 # docs/adr/0010-final-game-attempts.md, docs/api/game-detail.md
@@ -42,7 +43,7 @@ from app.settings import Settings
 from app.sources import game_detail, league_injuries, standings, team_schedule
 from app.sources.game_detail import GameDetailSections
 from app.sources.http import Freshness, SourceClient
-from app.sources.league_injuries import LeagueInjuries
+from app.sources.league_injuries import InjuryReport, LeagueInjuries
 from app.sources.scoreboard import ScoreboardGame
 from app.sources.standings import LeagueStandings
 from app.sources.team_schedule import TeamSchedule
@@ -66,6 +67,11 @@ class DetailBuildError(Exception):
     def __init__(self, reason: str) -> None:
         super().__init__(reason)
         self.reason = reason
+
+
+def _injury(report: InjuryReport) -> dict[str, Any]:
+    """The feed's injury, with the athlete id of the league report."""
+    return {**report.injury.model_dump(by_alias=False), "player_id": report.player_id}
 
 
 def build_game_detail_feed(
@@ -142,8 +148,8 @@ def build_game_detail_feed(
         },
         "standings": {"away": standings.teams[away], "home": standings.teams[home]},
         "injuries": {
-            "away": [report.injury for report in injuries.teams.get(away, [])],
-            "home": [report.injury for report in injuries.teams.get(home, [])],
+            "away": [_injury(report) for report in injuries.teams.get(away, [])],
+            "home": [_injury(report) for report in injuries.teams.get(home, [])],
         },
         "last_games": {
             "away": away_schedule.last_games,

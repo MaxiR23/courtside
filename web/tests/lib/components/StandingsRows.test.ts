@@ -4,6 +4,7 @@
 //
 // Tested:
 // - The six column headers in English and Spanish
+// - The team names link to the team page
 // - Both rows, away first, with their values
 // - The team cell is the row header and sticky; the table sits in the scroll wrapper
 //
@@ -13,6 +14,7 @@
 // Run with: cd web && pnpm exec vitest run tests/lib/components/StandingsRows.test.ts
 //
 // SEE: web/src/lib/components/StandingsRows.svelte
+import type { ResolvedPathname } from '$app/types';
 import { render, screen } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -46,17 +48,19 @@ const standings: StandingsSection = {
 	}
 };
 
+const teamHref = (code: string) => `/team/${code.toLowerCase()}` as ResolvedPathname;
+
 const headers = () => screen.getAllByRole('columnheader').map((h) => h.textContent);
 
 describe('StandingsRows', () => {
 	it('shows the six column headers in English', () => {
-		render(StandingsRows, { props: { standings } });
+		render(StandingsRows, { props: { standings, teamHref } });
 		expect(headers()).toEqual(['Team', 'Conference', 'Record', 'Home', 'Away', 'Last 10']);
 	});
 
 	it('shows the six column headers in Spanish with a Spanish preference', () => {
 		preferLanguages(['es-ES']);
-		render(StandingsRows, { props: { standings } });
+		render(StandingsRows, { props: { standings, teamHref } });
 		expect(headers()).toEqual([
 			'Equipo',
 			'Conferencia',
@@ -68,7 +72,7 @@ describe('StandingsRows', () => {
 	});
 
 	it('shows both rows, away first, with their values', () => {
-		const { container } = render(StandingsRows, { props: { standings } });
+		const { container } = render(StandingsRows, { props: { standings, teamHref } });
 		const rows = [...container.querySelectorAll('.body')].map((row) =>
 			[...row.children].map((c) => c.textContent)
 		);
@@ -79,10 +83,16 @@ describe('StandingsRows', () => {
 	});
 
 	it('makes the team cell the sticky row header and scrolls the table', () => {
-		const { container } = render(StandingsRows, { props: { standings } });
+		const { container } = render(StandingsRows, { props: { standings, teamHref } });
 		const names = screen.getAllByRole('rowheader');
 		expect(names.map((n) => n.textContent)).toEqual(['Warriors', 'Lakers']);
 		for (const name of names) expect(name.classList.contains('team')).toBe(true);
 		expect(container.querySelector('.scroll > [role="table"]')).not.toBeNull();
+	});
+
+	it('links the team names to the team page', () => {
+		render(StandingsRows, { props: { standings, teamHref } });
+		expect(screen.getByRole('link', { name: 'Warriors' }).getAttribute('href')).toBe('/team/gsw');
+		expect(screen.getByRole('link', { name: 'Lakers' }).getAttribute('href')).toBe('/team/lal');
 	});
 });
