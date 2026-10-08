@@ -99,7 +99,7 @@ The `Highlights` component from the home, at a max width of 1040px, with a 72px 
 Two cards in a grid `repeat(auto-fit, minmax(min(100%, 380px), 1fr))`. Each card is a `BlueprintFrame` split into two columns, with a min height of 240px:
 
 - Left: the team tag (11px, 1px divider border), the first name (15px, uppercase, muted), the last name (`clamp(24px, 3vw, 38px)`, wrapping only at spaces or hyphens) and the full team name (13px, muted).
-- Right: the player photo, bottom-anchored at 150% width, over a radial glow `rgba(116,157,196,.26)`, with a 1px divider on its left edge. It falls back to the placeholder.
+- Right: the player photo, as tall as the card's photo column with its width set by the photo's own proportions and never wider than the column, anchored to the bottom center so the head and shoulders show whole at every width, over a radial glow `rgba(116,157,196,.26)`, with a 1px divider on its left edge. It falls back to the placeholder.
 
 The stars are the ones the feed carries for the game.
 
