@@ -12,15 +12,18 @@
 //   overtime periods added, the viewBox kept, and a live point extends the line on the same scale
 // - The period labels are not inside the plot; the marker is
 // - A single point draws no line, one zero-area fill and the latest point marker
+// - The marker carries the live class only on a live game, never on a final game or by default
+// - No animation class on the marker under reduced motion
+// - The pulse leaves the marker's left and top unchanged, and turning final stops it on the same node
 //
 // What is covered:
-// - Live, final, single point and past-regulation states; no layout is asserted
+// - Live, final, single point, past-regulation and reduced motion states; no layout or animation frame is asserted
 //
 // Run with: cd web && pnpm exec vitest run tests/lib/components/WinProbability.test.ts
 //
 // SEE: web/src/lib/components/WinProbability.svelte
 import { render } from '@testing-library/svelte';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import WinProbability from '../../../src/lib/components/WinProbability.svelte';
 
@@ -50,6 +53,12 @@ const overtime: Boundaries = {
 const labelsOf = (container: HTMLElement) =>
 	[...container.querySelectorAll('.periods span')].map((e) => e.textContent);
 const live = [point(0, 0.5), point(600, 0.6), point(1200, 0.55)];
+const reducedMotion = (reduced: boolean) =>
+	vi.stubGlobal('matchMedia', (query: string) => ({
+		matches: reduced && query === '(prefers-reduced-motion: reduce)'
+	}));
+
+afterEach(() => vi.unstubAllGlobals());
 
 describe('WinProbability', () => {
 	it('shows the home code on top, 50% in the middle and the away code at the bottom', () => {
@@ -163,5 +172,48 @@ describe('WinProbability', () => {
 		before.forEach((node, i) => expect(after[i]).toBe(node));
 		expect(container.querySelectorAll('path.area')).toHaveLength(1);
 		expect(container.querySelector('g')?.getAttribute('transform')).toBe(groupBefore);
+	});
+
+	it('pulses the latest point marker on a live game', () => {
+		reducedMotion(false);
+		const { container } = render(WinProbability, { props: { chart: chart(live), live: true } });
+		expect(container.querySelector('.marker')?.classList.contains('live')).toBe(true);
+	});
+
+	it('keeps the marker still on a final game and by default', () => {
+		reducedMotion(false);
+		const final = render(WinProbability, { props: { chart: chart(live), live: false } });
+		expect(final.container.querySelector('.marker')?.classList.contains('live')).toBe(false);
+		const unset = render(WinProbability, { props: { chart: chart(live) } });
+		expect(unset.container.querySelector('.marker')?.classList.contains('live')).toBe(false);
+	});
+
+	it('keeps the marker still under reduced motion', () => {
+		reducedMotion(true);
+		const { container } = render(WinProbability, { props: { chart: chart(live), live: true } });
+		const marker = container.querySelector('.marker') as HTMLElement;
+		expect([...marker.classList].filter((c) => !c.startsWith('svelte-'))).toEqual(['marker']);
+	});
+
+	it('pulses without moving the marker', () => {
+		reducedMotion(false);
+		const on = render(WinProbability, { props: { chart: chart(live), live: true } });
+		const off = render(WinProbability, { props: { chart: chart(live), live: false } });
+		const a = on.container.querySelector('.marker') as HTMLElement;
+		const b = off.container.querySelector('.marker') as HTMLElement;
+		expect(a.style.left).toBe(b.style.left);
+		expect(a.style.top).toBe(b.style.top);
+	});
+
+	it('stops the pulse on the same node when the game turns final', async () => {
+		reducedMotion(false);
+		const { container, rerender } = render(WinProbability, {
+			props: { chart: chart(live), live: true }
+		});
+		const marker = container.querySelector('.marker');
+		expect(marker?.classList.contains('live')).toBe(true);
+		await rerender({ chart: chart(live), live: false });
+		expect(container.querySelector('.marker')).toBe(marker);
+		expect(marker?.classList.contains('live')).toBe(false);
 	});
 });

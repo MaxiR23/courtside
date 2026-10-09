@@ -14,6 +14,7 @@
 // - The hero toggle turns the mode on for the schedule
 // - Shows the game header in every status on both rows, the section tabs for each layout and every game page state
 // - Shows every pre-game, live and final section for a pre-game, a live, a final and an overtime game, with the win probability gridlines and period labels, and the standalone videos and first meeting samples
+// - The win probability marker pulses on the live page sample and is still on the final and overtime samples
 // - Shows the season series with "This game" and the dimmed loser on the pre-game and final pages
 // - Keeps each game page sample consistent: header score, mini score, line score totals, box
 //   score totals, the win probability meta and the end of its curve, and the current game arena
@@ -297,6 +298,11 @@ describe('component preview', { timeout: 30_000 }, () => {
 		expect(sectionOf('GamePage: final sections').querySelector('.meta.emphasis')?.textContent).toBe(
 			'GSW win'
 		);
+		const marker = (title: string) =>
+			sectionOf(title).querySelector('.win-probability .marker')?.classList.contains('live');
+		expect(marker('GamePage: live sections')).toBe(true);
+		expect(marker('GamePage: final sections')).toBe(false);
+		expect(marker('GamePage: overtime sections')).toBe(false);
 		const chartOf = (title: string) => {
 			const section = sectionOf(title);
 			return {

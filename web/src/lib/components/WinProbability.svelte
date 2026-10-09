@@ -15,9 +15,10 @@
 	import { m } from '#lib/paraglide/messages.js';
 
 	// The section header draws the meta, so the chart does not take it.
-	type Props = { chart: Omit<WinProbabilitySection, 'meta'> };
+	// `live`: the game is in progress, so the latest point marker pulses.
+	type Props = { chart: Omit<WinProbabilitySection, 'meta'>; live?: boolean };
 
-	let { chart }: Props = $props();
+	let { chart, live = false }: Props = $props();
 
 	const segs = $derived(segments(chart.points));
 	const area = $derived(areaPath(chart.points));
@@ -27,6 +28,11 @@
 	const lines = $derived(chart.boundaries ? gridlines(chart.boundaries) : []);
 	const labels = $derived(chart.boundaries ? periodLabels(chart.boundaries) : []);
 	const middle = CHART_HEIGHT / 2;
+	// Read once, as the other reduced-motion checks do. The server has no window.
+	const reduced =
+		typeof window !== 'undefined' &&
+		window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
+	const pulsing = $derived(live && !reduced);
 </script>
 
 <BlueprintFrame>
@@ -60,6 +66,7 @@
 			</svg>
 			<span
 				class="marker"
+				class:live={pulsing}
 				style:left="{marker.left * 100}%"
 				style:top="{marker.top * 100}%"
 				aria-hidden="true"
@@ -145,5 +152,20 @@
 		translate: -50% -50%;
 		background: var(--color-accent-light);
 		box-shadow: 0 0 0 var(--win-prob-marker-ring) var(--win-prob-marker-ring-color);
+	}
+
+	.marker.live {
+		animation: marker-pulse var(--win-prob-marker-pulse-duration) ease-in-out infinite;
+	}
+
+	@keyframes marker-pulse {
+		0%,
+		100% {
+			opacity: 1;
+		}
+
+		50% {
+			opacity: var(--win-prob-marker-pulse-opacity);
+		}
 	}
 </style>

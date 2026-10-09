@@ -11,6 +11,7 @@
 // - The section metas: the platform for highlights, the leader for win probability, the injury report, the series count, the new tab
 // - No link inside a button or another link, and the header team names link to the team page
 // - The footer in every state
+// - The win probability marker pulses on a live game and not on a final one
 // - The not-found row in Spanish with a Spanish browser preference
 //
 // What is covered:
@@ -352,6 +353,24 @@ describe('GamePage', () => {
 		expect(container.querySelector('#highlights .meta')?.textContent).toBe('Video platform');
 		expect(container.querySelector('#win-probability .meta')?.textContent).toBe('GSW 68%');
 		expect(container.querySelector('#score .meta')).toBeNull();
+	});
+
+	it('pulses the win probability marker only on a live game', () => {
+		const live = show({ kind: 'ready', view: withSections(full) });
+		expect(
+			live.container.querySelector('#win-probability .marker')?.classList.contains('live')
+		).toBe(true);
+		live.unmount();
+		const final = show({
+			kind: 'ready',
+			view: {
+				...withSections(full),
+				header: { ...view.header, layout: 'final', status: { state: 'final', text: 'Final' } }
+			}
+		});
+		expect(
+			final.container.querySelector('#win-probability .marker')?.classList.contains('live')
+		).toBe(false);
 	});
 
 	it('shows the injury report, the series count and the new tab note as section metas', () => {
