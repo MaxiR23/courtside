@@ -11,6 +11,7 @@ from app.jobs.on_demand import FeedCache
 from app.jobs.player_feed import PlayerFeeds
 from app.jobs.presence import Presence
 from app.jobs.scheduler import Scheduler
+from app.jobs.standings_feed import StandingsFeeds
 from app.jobs.stars import StarsJob
 from app.jobs.team_feed import TeamFeeds
 from app.log import configure_logging
@@ -65,6 +66,7 @@ def create_app(settings: Settings | None = None, *, run_jobs: bool = True) -> Fa
             highlights_search_url=highlights_job.search_url_of,
         )
         team_feeds = TeamFeeds(settings, store, client, feed_cache, games_job)
+        StandingsFeeds(settings, store, client, feed_cache, games_job)
         player_feeds = PlayerFeeds(
             settings, store, client, feed_cache, games_job, stars_job, team_feeds
         )

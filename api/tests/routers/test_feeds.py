@@ -23,6 +23,7 @@
 # - Serves a team feed with Cache-Control and ETag, answers 304 for a matching ETag, 404 for an unknown or uppercase code and 503 when the build fails
 # - Serves a player feed with Cache-Control and ETag, answers 304 for a matching ETag, 404 for an id in no roster once the rosters are fetched and 503 before, also through the app with no jobs
 # - A team and a player request record presence
+# - Serves the standings feed with Cache-Control and ETag, answers 304 for a matching ETag, 503 when the read fails with nothing stored and keeps serving the stored feed when a rebuild fails
 #
 # What is covered:
 # - Success response, documented failures (503, 404), edge case of an invalid publish
@@ -45,11 +46,13 @@ from fastapi.testclient import TestClient
 from app.feeds.game_detail import GameDetailFeed
 from app.feeds.games import GamesFeed, GameStatus, Star, Stars
 from app.feeds.player import PlayerFeed
+from app.feeds.standings import StandingsFeed
 from app.feeds.team import TeamFeed
 from app.jobs.game_detail_feed import GameDetailFeeds
 from app.jobs.games import GamesJob
 from app.jobs.on_demand import MISSING_WAIT_SECONDS, FeedCache, FeedKind, IdStatus
 from app.jobs.presence import Presence
+from app.jobs.team_feed import FEED_LIFETIME
 from app.main import create_app
 from app.routers import feeds as feeds_router
 from app.routers.feeds import CACHE_CONTROL, serve_on_demand
@@ -63,6 +66,7 @@ from app.sources.team_schedule import TeamSchedule
 from app.storage.feeds import publish_by_id, publish_feed
 from app.storage.state import StateStore
 from tests.jobs.test_player_feed import PlayerKit
+from tests.jobs.test_standings_feed import StandingsKit
 
 
 def make_client(path: Path) -> TestClient:
@@ -710,3 +714,74 @@ def test_a_team_and_a_player_request_record_presence(profiles: Profiles) -> None
         profiles.kit.clock[0] = second
         client.get("/feeds/players/nobody.json")
         assert profiles.presence.present(second)
+
+
+class Standings:
+    """An app with the feeds router and the standings kind over the standings kit's fakes."""
+
+    def __init__(self, path: Path) -> None:
+        self.kit = StandingsKit(path)
+        self.app = FastAPI()
+        self.app.include_router(feeds_router.router)
+        self.app.state.settings = self.kit.settings
+        self.app.state.presence = Presence(clock=lambda: self.kit.clock[0])
+        self.app.state.games_job = self.kit.games
+        self.app.state.feed_cache = self.kit.cache
+
+
+@pytest.fixture
+def standings(tmp_path: Path) -> Iterator[Standings]:
+    with respx.mock:
+        yield Standings(tmp_path)
+
+
+def test_serves_the_standings_feed_with_cache_control_and_an_etag(
+    standings: Standings,
+) -> None:
+    with TestClient(standings.app) as client:
+        response = client.get("/feeds/standings.json")
+
+    assert response.status_code == 200
+    feed = StandingsFeed.model_validate_json(response.content)
+    assert len(feed.conferences) == 2 and len(feed.divisions) >= 1
+    assert response.headers["content-type"] == "application/json"
+    assert response.headers["cache-control"] == CACHE_CONTROL
+    etag = response.headers["etag"]
+    assert etag.startswith('"') and etag.endswith('"')
+
+
+def test_responds_304_when_the_standings_etag_matches(standings: Standings) -> None:
+    with TestClient(standings.app) as client:
+        first = client.get("/feeds/standings.json")
+
+        response = client.get(
+            "/feeds/standings.json", headers={"If-None-Match": first.headers["etag"]}
+        )
+
+    assert response.status_code == 304
+    assert response.content == b""
+
+
+def test_responds_503_with_a_json_error_when_the_standings_read_fails_with_no_stored_feed(
+    standings: Standings,
+) -> None:
+    standings.kit.failing.add("standings")
+    with TestClient(standings.app) as client:
+        response = client.get("/feeds/standings.json")
+
+    assert response.status_code == 503
+    assert isinstance(response.json()["detail"], str)
+
+
+def test_keeps_serving_the_stored_standings_when_a_rebuild_fails(
+    standings: Standings,
+) -> None:
+    with TestClient(standings.app) as client:
+        first = client.get("/feeds/standings.json")
+        standings.kit.clock[0] += FEED_LIFETIME
+        standings.kit.failing.add("standings")
+
+        response = client.get("/feeds/standings.json")
+
+    assert response.status_code == 200
+    assert response.content == first.content

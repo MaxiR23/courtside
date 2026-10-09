@@ -1,0 +1,359 @@
+{
+  "$defs": {
+    "Clinch": {
+      "enum": [
+        "*",
+        "z",
+        "y",
+        "x",
+        "xp",
+        "pb",
+        "e"
+      ],
+      "title": "Clinch",
+      "type": "string"
+    },
+    "Conference": {
+      "enum": [
+        "east",
+        "west"
+      ],
+      "title": "Conference",
+      "type": "string"
+    },
+    "ConferenceGroup": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "$ref": "#/$defs/Conference"
+        },
+        "name": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "teamCount": {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        "teams": {
+          "items": {
+            "$ref": "#/$defs/StandingsRow"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "key",
+        "name",
+        "teamCount",
+        "teams"
+      ],
+      "title": "ConferenceGroup",
+      "type": "object"
+    },
+    "DivisionGroup": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "conference": {
+          "$ref": "#/$defs/Conference"
+        },
+        "teams": {
+          "items": {
+            "$ref": "#/$defs/StandingsRow"
+          },
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "conference",
+        "teams"
+      ],
+      "title": "DivisionGroup",
+      "type": "object"
+    },
+    "GameResult": {
+      "enum": [
+        "win",
+        "loss"
+      ],
+      "title": "GameResult",
+      "type": "string"
+    },
+    "PerGameDifferential": {
+      "additionalProperties": false,
+      "properties": {
+        "value": {
+          "pattern": "^([+\u2212]([1-9]\\d*\\.\\d|0\\.[1-9])|0\\.0)$",
+          "type": "string"
+        },
+        "nonNegative": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "value",
+        "nonNegative"
+      ],
+      "title": "PerGameDifferential",
+      "type": "object"
+    },
+    "StandingsColors": {
+      "additionalProperties": false,
+      "properties": {
+        "primary": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "secondary": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "primary",
+        "secondary"
+      ],
+      "title": "StandingsColors",
+      "type": "object"
+    },
+    "StandingsRow": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "pattern": "^[A-Z]{3}$",
+          "type": "string"
+        },
+        "city": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "colors": {
+          "$ref": "#/$defs/StandingsColors"
+        },
+        "seed": {
+          "anyOf": [
+            {
+              "maximum": 15,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "clinch": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Clinch"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "wins": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "losses": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "pct": {
+          "anyOf": [
+            {
+              "pattern": "^(\\.\\d{3}|1\\.000)$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "gamesBehind": {
+          "anyOf": [
+            {
+              "pattern": "^\\d+\\.\\d$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "streak": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Streak"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "home": {
+          "pattern": "^\\d+-\\d+$",
+          "type": "string"
+        },
+        "away": {
+          "pattern": "^\\d+-\\d+$",
+          "type": "string"
+        },
+        "lastTen": {
+          "pattern": "^\\d+-\\d+$",
+          "type": "string"
+        },
+        "division": {
+          "pattern": "^\\d+-\\d+$",
+          "type": "string"
+        },
+        "conference": {
+          "pattern": "^\\d+-\\d+$",
+          "type": "string"
+        },
+        "pointsFor": {
+          "pattern": "^\\d+\\.\\d$",
+          "type": "string"
+        },
+        "pointsAgainst": {
+          "pattern": "^\\d+\\.\\d$",
+          "type": "string"
+        },
+        "differential": {
+          "$ref": "#/$defs/PerGameDifferential"
+        },
+        "total": {
+          "$ref": "#/$defs/TotalDifferential"
+        }
+      },
+      "required": [
+        "code",
+        "city",
+        "name",
+        "colors",
+        "seed",
+        "clinch",
+        "wins",
+        "losses",
+        "pct",
+        "gamesBehind",
+        "streak",
+        "home",
+        "away",
+        "lastTen",
+        "division",
+        "conference",
+        "pointsFor",
+        "pointsAgainst",
+        "differential",
+        "total"
+      ],
+      "title": "StandingsRow",
+      "type": "object"
+    },
+    "StandingsState": {
+      "enum": [
+        "final",
+        "regular"
+      ],
+      "title": "StandingsState",
+      "type": "string"
+    },
+    "Streak": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/GameResult"
+        },
+        "count": {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "count"
+      ],
+      "title": "Streak",
+      "type": "object"
+    },
+    "TotalDifferential": {
+      "additionalProperties": false,
+      "properties": {
+        "value": {
+          "pattern": "^([+\u2212][1-9]\\d*|0)$",
+          "type": "string"
+        },
+        "nonNegative": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "value",
+        "nonNegative"
+      ],
+      "title": "TotalDifferential",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "season": {
+      "pattern": "^\\d{4}-\\d{2}$",
+      "type": "string"
+    },
+    "state": {
+      "$ref": "#/$defs/StandingsState"
+    },
+    "gamesPlayed": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "conferences": {
+      "items": {
+        "$ref": "#/$defs/ConferenceGroup"
+      },
+      "type": "array"
+    },
+    "divisions": {
+      "items": {
+        "$ref": "#/$defs/DivisionGroup"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "season",
+    "state",
+    "gamesPlayed",
+    "conferences",
+    "divisions"
+  ],
+  "title": "StandingsFeed",
+  "type": "object"
+}

@@ -41,7 +41,7 @@ Feeds are produced either by scheduled jobs (live data and fixed-time work, rule
 
 ### Jobs
 
-- Jobs run on a schedule inside the backend process. Each job owns one kind of data. Refresh cadences, the shared source cache, presence and on-demand builds follow the rules in [`source-rules.md`](source-rules.md), adopted by [`adr/0020-source-rules.md`](adr/0020-source-rules.md), which supersede the cadences of [`adr/0007-backend-runtime-and-data-pipeline.md`](adr/0007-backend-runtime-and-data-pipeline.md) and [`adr/0014-star-guarantees.md`](adr/0014-star-guarantees.md). The feed's today changes at US Eastern midnight once no game of the previous day is live, as set in [`adr/0013-day-change.md`](adr/0013-day-change.md). The attempts for a final game's detail and highlights follow [`adr/0010-final-game-attempts.md`](adr/0010-final-game-attempts.md). A failed request does not use up a highlight attempt; the same attempt is retried no sooner than 10 minutes later, as set in [`adr/0018-highlight-request-failures.md`](adr/0018-highlight-request-failures.md). The highlights lookup reads the channel's uploads through the official video API, as set in [`adr/0015-highlights-source.md`](adr/0015-highlights-source.md). The stars job runs in its own task, as set in [`adr/0014-star-guarantees.md`](adr/0014-star-guarantees.md). Standings have no job yet, and no cadence is set for them.
+- Jobs run on a schedule inside the backend process. Each job owns one kind of data. Refresh cadences, the shared source cache, presence and on-demand builds follow the rules in [`source-rules.md`](source-rules.md), adopted by [`adr/0020-source-rules.md`](adr/0020-source-rules.md), which supersede the cadences of [`adr/0007-backend-runtime-and-data-pipeline.md`](adr/0007-backend-runtime-and-data-pipeline.md) and [`adr/0014-star-guarantees.md`](adr/0014-star-guarantees.md). The feed's today changes at US Eastern midnight once no game of the previous day is live, as set in [`adr/0013-day-change.md`](adr/0013-day-change.md). The attempts for a final game's detail and highlights follow [`adr/0010-final-game-attempts.md`](adr/0010-final-game-attempts.md). A failed request does not use up a highlight attempt; the same attempt is retried no sooner than 10 minutes later, as set in [`adr/0018-highlight-request-failures.md`](adr/0018-highlight-request-failures.md). The highlights lookup reads the channel's uploads through the official video API, as set in [`adr/0015-highlights-source.md`](adr/0015-highlights-source.md). The stars job runs in its own task, as set in [`adr/0014-star-guarantees.md`](adr/0014-star-guarantees.md). Standings have no job: the standings feed is built on demand under rule G, as set in [`adr/0023-standings-feed.md`](adr/0023-standings-feed.md).
 - A job that fails keeps the last valid feed published. A partial or invalid feed is never written.
 - Each job records its last successful run, so the backend can report its own health.
 
@@ -49,7 +49,7 @@ Feeds are produced either by scheduled jobs (live data and fixed-time work, rule
 
 - One feed per domain, each a JSON file:
   - `games.json`: games for the days shown on the site, with scores, status and game details.
-  - `standings.json`: standings tables.
+  - `standings.json`: the standings by conference and by division, built on demand and drawn by `/standings`, as set in [`adr/0023-standings-feed.md`](adr/0023-standings-feed.md).
   - `games/{id}.json`: one detail feed per game in the days shown, built on request (a final game's once, at its final time), drawn by the front end's `/game/{id}` route. Its route is set in [`adr/0020-source-rules.md`](adr/0020-source-rules.md), first set by ADR 0019; its refresh, retries and deletion follow [`adr/0020-source-rules.md`](adr/0020-source-rules.md).
   - `players/{id}.json` and `teams/{code}.json`: one feed per player and per team, built on demand and drawn by `/player/{id}` and `/team/{code}`, as set in [`adr/0021-player-and-team-pages.md`](adr/0021-player-and-team-pages.md).
   - Seasonal feeds, such as playoffs or All-Star, added only while their section exists.
@@ -138,7 +138,7 @@ api/app/storage/           Job state (SQLite, with its migrations) and feed publ
 api/app/routers/           One APIRouter per module
 api/app/feeds/             One module per feed model, plus schema.py, which exports the schemas
 api/app/sources/           One module per data source adapter, plus http.py (shared client and SourceError) and teams.py (team codes)
-api/app/jobs/              One module per job, plus scheduler.py (the in-process scheduler), on_demand.py (the on-demand feed cache), presence.py (rule B), game_detail_feed.py (the game detail feed kind), team_feed.py (the team feed builder and kind) and player_feed.py (the player feed builder and kind)
+api/app/jobs/              One module per job, plus scheduler.py (the in-process scheduler), on_demand.py (the on-demand feed cache), presence.py (rule B), game_detail_feed.py (the game detail feed kind), team_feed.py (the team feed builder and kind), player_feed.py (the player feed builder and kind) and standings_feed.py (the standings feed builder and kind)
 api/data/                  Data directory (default), never committed
 api/schemas/               Exported JSON Schemas, generated
 api/tests/                 Tests, mirroring app/
@@ -252,6 +252,10 @@ Recorded in [`adr/0021-player-and-team-pages.md`](adr/0021-player-and-team-pages
 Recorded in [`adr/0022-standings-season-fallback.md`](adr/0022-standings-season-fallback.md):
 
 - **Standings season fallback**: rule L of [`source-rules.md`](source-rules.md) is in force. When the division standings are not of the regular season, the adapter makes one extra request: a preseason year Y reads `season=Y-1`, a postseason year Y reads `season=Y`; a fallback that is not of the regular season fails. The team feed labels its record with `record.season`, and its streak, games behind and seed may be null. Rule L is adopted by this ADR; rules A to K stay with ADR 0020.
+
+Recorded in [`adr/0023-standings-feed.md`](adr/0023-standings-feed.md):
+
+- **Standings feed**: `/feeds/standings.json` is built on demand under rule G and served under rule H, stored as `standings/league`, and expires 1 hour after a final game of the league that follows the build and 7 days after the build; colors come from team info and are null on failure, and `state` is `final` on the rule L fallback or when every team has 82 games.
 
 ## Future
 

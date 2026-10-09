@@ -15,7 +15,7 @@
 #
 # SEE: api/app/feeds/schema.py, api/schemas/games.schema.json,
 # api/schemas/game-detail.schema.json, api/schemas/player.schema.json,
-# api/schemas/team.schema.json
+# api/schemas/team.schema.json, api/schemas/standings.schema.json
 
 import json
 from pathlib import Path
@@ -28,6 +28,7 @@ from app.feeds.game_detail import GameDetailFeed
 from app.feeds.games import GamesFeed
 from app.feeds.player import PlayerFeed
 from app.feeds.schema import FEEDS, SCHEMA_DIR, render_schema, write_schemas
+from app.feeds.standings import StandingsFeed
 from app.feeds.team import TeamFeed
 
 
@@ -53,11 +54,13 @@ def test_writes_one_schema_file_per_feed(tmp_path: Path) -> None:
         tmp_path / "game-detail.schema.json",
         tmp_path / "player.schema.json",
         tmp_path / "team.schema.json",
+        tmp_path / "standings.schema.json",
     ]
     assert written[0].read_text(encoding="utf-8") == render_schema(GamesFeed)
     assert written[1].read_text(encoding="utf-8") == render_schema(GameDetailFeed)
     assert written[2].read_text(encoding="utf-8") == render_schema(PlayerFeed)
     assert written[3].read_text(encoding="utf-8") == render_schema(TeamFeed)
+    assert written[4].read_text(encoding="utf-8") == render_schema(StandingsFeed)
 
 
 def test_schema_forbids_unknown_fields() -> None:

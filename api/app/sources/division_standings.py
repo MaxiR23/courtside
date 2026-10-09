@@ -4,16 +4,23 @@
 # conference and division from the provider and maps each team to its record,
 # splits, seed, streak, games behind and points, in the provider's units and
 # text forms (the builders convert them). The entry order of the provider is
-# kept: the order of a team inside its division and inside its conference. The
+# kept: the order of a team inside its division, inside its conference and in
+# the whole league (provider_order, which also orders the divisions). The
 # URL is requested as configured; a response that is not of the regular season
 # is replaced by one request for the regular season through the season query
 # value (a preseason of Y reads Y - 1, a postseason of Y reads Y), per rule L.
-# Streak, games behind and seed may be null. The provider URL comes from
-# Settings. Provider data never leaves this module.
+# The division and conference records and the clinch code are mapped too: a
+# missing record is 0-0 and an absent or unknown clinch code is null (an
+# unknown one is logged with the team code). The result tells whether it came
+# from the rule L second request (fallback). Streak, games behind and seed may
+# be null. The provider URL comes from Settings. Provider data never leaves
+# this module.
 #
-# SEE: docs/api/team.md, docs/source-rules.md, api/app/sources/standings.py
+# SEE: docs/api/team.md, docs/api/standings.md, docs/source-rules.md,
+# api/app/sources/standings.py
 
 import datetime as dt
+import logging
 
 from pydantic import (
     BaseModel,
@@ -25,6 +32,7 @@ from pydantic.alias_generators import to_camel
 
 from app.feeds.game_detail import Conference
 from app.feeds.games import FeedModel, NonEmptyStr, TeamCode
+from app.feeds.standings import Clinch
 from app.settings import Settings
 from app.sources.http import SourceClient, SourceError, get_json, with_query
 from app.sources.teams import to_team_code
@@ -37,8 +45,12 @@ POSTSEASON = 3
 # Offset added to the season of a response to read its regular season.
 REGULAR_SEASON_OF = {PRESEASON: -1, POSTSEASON: 0}
 CONFERENCES = {"East": Conference.EAST, "West": Conference.WEST}
-# The provider sends no last ten record before a team's first game.
-NO_LAST_TEN = "0-0"
+# The provider sends no last ten, division or conference record before a team's
+# first game.
+NO_RECORD = "0-0"
+CLINCH_CODES = {clinch.value: clinch for clinch in Clinch}
+
+logger = logging.getLogger(__name__)
 
 
 class _ProviderModel(BaseModel):
@@ -98,6 +110,7 @@ class DivisionEntry(FeedModel):
     division: NonEmptyStr
     division_order: PositiveInt
     conference_order: PositiveInt
+    provider_order: PositiveInt
     wins: int
     losses: int
     playoff_seed: int | None
@@ -112,6 +125,9 @@ class DivisionEntry(FeedModel):
     points_against: float
     differential: float
     point_differential: float
+    vs_division: str
+    vs_conference: str
+    clinch: Clinch | None
 
 
 class DivisionStandings(FeedModel):
@@ -119,6 +135,7 @@ class DivisionStandings(FeedModel):
     the end year of the standings: 2026 is 2025-26."""
 
     season: PositiveInt
+    fallback: bool
     teams: dict[TeamCode, DivisionEntry]
 
 
@@ -156,12 +173,25 @@ def _optional_text(stats: dict[str, _ProviderStat], key: str) -> str | None:
     return stat.display_value
 
 
+def _clinch(stats: dict[str, _ProviderStat], code: str) -> Clinch | None:
+    text = _optional_text(stats, "clincher")
+    if text is None:
+        return None
+    clinch = CLINCH_CODES.get(text)
+    if clinch is None:
+        logger.warning(
+            "division standings: team %s has an unknown clinch code %r", code, text
+        )
+    return clinch
+
+
 def _entry(
     entry: _ProviderEntry,
     conference: Conference,
     division: str,
     division_order: int,
     conference_order: int,
+    provider_order: int,
 ) -> dict[str, object]:
     code = to_team_code(entry.team.abbreviation, source=SOURCE)
     stats = {stat.type: stat for stat in entry.stats}
@@ -175,6 +205,7 @@ def _entry(
         "division": division,
         "division_order": division_order,
         "conference_order": conference_order,
+        "provider_order": provider_order,
         "wins": int(_number(stats, "wins", code)),
         "losses": int(_number(stats, "losses", code)),
         "playoff_seed": None if seed is None else int(seed),
@@ -182,13 +213,16 @@ def _entry(
         "games_behind": _optional_text(stats, "gamesbehind"),
         "home": _text(stats, "home", code),
         "road": _text(stats, "road", code),
-        "last_ten": _text(stats, "lasttengames", code, NO_LAST_TEN),
+        "last_ten": _text(stats, "lasttengames", code, NO_RECORD),
         "avg_points_for": _number(stats, "avgpointsfor", code),
         "avg_points_against": _number(stats, "avgpointsagainst", code),
         "points_for": _number(stats, "pointsfor", code),
         "points_against": _number(stats, "pointsagainst", code),
         "differential": _number(stats, "differential", code),
         "point_differential": _number(stats, "pointdifferential", code),
+        "vs_division": _text(stats, "vsdiv", code, NO_RECORD),
+        "vs_conference": _text(stats, "vsconf", code, NO_RECORD),
+        "clinch": _clinch(stats, code),
     }
 
 
@@ -225,6 +259,7 @@ async def fetch_division_standings(
         raise SourceError(SOURCE, "division standings URL is not configured")
     provider = await _read(client, settings.division_standings_url)
     season, season_type = _season(provider)
+    fallback = False
     if season_type != REGULAR_SEASON:
         offset = REGULAR_SEASON_OF.get(season_type)
         if offset is None:
@@ -236,9 +271,11 @@ async def fetch_division_standings(
         season, season_type = _season(provider)
         if season_type != REGULAR_SEASON:
             raise SourceError(SOURCE, "standings are not of the regular season")
+        fallback = True
 
     teams: dict[str, dict[str, object]] = {}
     seen: set[Conference] = set()
+    provider_order = 0
     for provider_conference in provider.children:
         conference = CONFERENCES.get(provider_conference.abbreviation)
         if conference is None:
@@ -250,15 +287,23 @@ async def fetch_division_standings(
         for division in provider_conference.children:
             for division_order, entry in enumerate(division.standings.entries, 1):
                 conference_order += 1
+                provider_order += 1
                 mapped = _entry(
-                    entry, conference, division.name, division_order, conference_order
+                    entry,
+                    conference,
+                    division.name,
+                    division_order,
+                    conference_order,
+                    provider_order,
                 )
                 teams[str(mapped["code"])] = mapped
     if seen != set(Conference):
         raise SourceError(SOURCE, "standings do not have both conferences")
 
     try:
-        return DivisionStandings.model_validate({"season": season, "teams": teams})
+        return DivisionStandings.model_validate(
+            {"season": season, "fallback": fallback, "teams": teams}
+        )
     except ValidationError as error:
         first = error.errors()[0]
         raise SourceError(
