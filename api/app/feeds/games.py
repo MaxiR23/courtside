@@ -6,50 +6,38 @@
 # SEE: docs/api/games.md, docs/adr/0008-contract-generation.md
 
 import datetime as dt
-import re
 from enum import StrEnum
 from typing import Annotated
 
 from pydantic import (
-    AfterValidator,
-    AwareDatetime,
-    BaseModel,
-    ConfigDict,
     Field,
     HttpUrl,
     NonNegativeInt,
     PositiveInt,
-    StringConstraints,
     model_validator,
 )
 from pydantic.alias_generators import to_camel
 
+from app.feeds.base import (
+    FeedModel,
+    NonEmptyStr,
+    Percentage,
+    SideCode,
+    TeamCode,
+    UtcDatetime,
+)
+from app.feeds.opponent import Opponent, Side
 
-def _require_utc(value: dt.datetime) -> dt.datetime:
-    if value.utcoffset() != dt.timedelta(0):
-        raise ValueError("must be in UTC")
-    return value
-
-
-UtcDatetime = Annotated[AwareDatetime, AfterValidator(_require_utc)]
-TeamCode = Annotated[str, StringConstraints(pattern=r"^[A-Z]{3}$")]
-NonEmptyStr = Annotated[str, StringConstraints(min_length=1)]
-# A guest side keeps the provider's own code, whatever it looks like (ADR 0025).
-SideCode = NonEmptyStr
-Percentage = Annotated[float, Field(ge=0, le=1)]
-
-
-class FeedModel(BaseModel):
-    """Base of every feed model: camelCase keys, no unknown fields."""
-
-    model_config = ConfigDict(
-        extra="forbid",
-        alias_generator=to_camel,
-        validate_by_name=True,
-        validate_by_alias=True,
-        serialize_by_alias=True,
-        json_schema_serialization_defaults_required=True,
-    )
+# The base definitions live in app.feeds.base; the other feed modules import
+# them from here.
+__all__ = [
+    "FeedModel",
+    "NonEmptyStr",
+    "Percentage",
+    "SideCode",
+    "TeamCode",
+    "UtcDatetime",
+]
 
 
 class GameStatus(StrEnum):
@@ -73,17 +61,11 @@ class Team(FeedModel):
     city: NonEmptyStr
 
 
-class GameTeam(Team):
+class GameTeam(Opponent):
     """A side of a game: one of the 30 teams, or a guest team outside the league."""
 
-    code: SideCode
-    guest: bool = False
-
-    @model_validator(mode="after")
-    def _require_a_league_code_of_a_league_team(self) -> GameTeam:
-        if not self.guest and re.fullmatch(r"[A-Z]{3}", self.code) is None:
-            raise ValueError("a league team code is three capital letters")
-        return self
+    name: NonEmptyStr
+    city: NonEmptyStr
 
 
 class Player(FeedModel):
@@ -97,7 +79,7 @@ class Player(FeedModel):
 class Leader(FeedModel):
     player_id: NonEmptyStr
     display_name: NonEmptyStr
-    team_code: SideCode
+    team_code: SideCode | None
     photo_url: HttpUrl | None
     points: NonNegativeInt
     rebounds: NonNegativeInt
@@ -186,7 +168,7 @@ class Game(FeedModel):
     clock: NonEmptyStr | None = None
     line_score: LineScore | None = None
     score: Score | None = None
-    winner: SideCode | None = None
+    winner: Side | None = None
     leaders: Leaders | None = None
     team_stats: GameTeamStats | None = None
     stats_availability: StatsAvailability | None = None
@@ -207,13 +189,11 @@ class Game(FeedModel):
             return self
         if self.status is not GameStatus.FINAL:
             raise ValueError(f"a {self.status} game has no winner")
-        if self.winner not in (self.away.code, self.home.code):
-            raise ValueError("winner must be the away or the home team code")
         return self
 
     @model_validator(mode="after")
     def _require_two_different_teams(self) -> Game:
-        if self.away.code == self.home.code:
+        if self.away.code is not None and self.away.code == self.home.code:
             raise ValueError("a game has two different teams")
         return self
 

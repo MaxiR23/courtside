@@ -4,6 +4,7 @@
 	import Kicker from '#lib/components/Kicker.svelte';
 	import LiveBadge from '#lib/components/LiveBadge.svelte';
 	import StatusTag from '#lib/components/StatusTag.svelte';
+	import TeamMark from '#lib/components/TeamMark.svelte';
 	import { m } from '#lib/paraglide/messages.js';
 	import type { LiveGameView } from '#lib/player/types.ts';
 	import type { NextGameView } from '#lib/team/types.ts';
@@ -24,7 +25,13 @@
 				<LiveBadge />
 				<span class="clock">{live.clock}</span>
 			</div>
-			<span class="opponent">{live.opponent}</span>
+			<span class="opponent"
+				><TeamMark
+					part="label"
+					team={live.opponent.team}
+					versus={live.opponent.isHome ? 'home' : 'away'}
+				/></span
+			>
 			<span class="opponent score">{live.score}</span>
 			{#if live.line}
 				<dl class="line">
@@ -54,7 +61,13 @@
 				{#if game.tag}<StatusTag text={game.tag} />{/if}
 			</div>
 			<span class="date">{game.date}</span>
-			<span class="opponent">{game.opponent}</span>
+			<span class="opponent"
+				><TeamMark
+					part="label"
+					team={game.opponent.team}
+					versus={game.opponent.isHome ? 'home' : 'away'}
+				/></span
+			>
 			<span class="place">{game.place}</span>
 			<span class="time">{game.time}</span>
 			{#if game.linked}

@@ -48,6 +48,7 @@ import type {
 	WinProbabilitySection
 } from '#lib/game/types.ts';
 import { m } from '#lib/paraglide/messages.js';
+import { teamLabel, teamMark } from '#lib/team/mark.ts';
 
 const TIME_ZONE = 'America/New_York';
 const SEPARATOR = ' · ';
@@ -111,12 +112,10 @@ function record(r: FeedRecord): string {
 
 function headerTeam(team: DetailTeam): HeaderTeam {
 	return {
-		code: team.code,
+		...teamMark(team),
 		name: team.name,
 		city: team.city,
-		record: team.record ? record(team.record) : null,
-		// A feed built before the guest field has no key: a league team.
-		...(team.guest === true ? { guest: true } : {})
+		record: team.record ? record(team.record) : null
 	};
 }
 
@@ -127,8 +126,7 @@ function center(feed: GameDetailFeed): ScoreboardCenter {
 			const score = required(feed.score);
 			let loser: 'away' | 'home' | null = null;
 			if (feed.status === 'final') {
-				const winner = required(feed.winner);
-				loser = winner === feed.away.code ? 'home' : 'away';
+				loser = required(feed.winner) === 'home' ? 'away' : 'home';
 			}
 			return { kind: 'score', away: score.away, home: score.home, loser };
 		}
@@ -236,7 +234,12 @@ function tabs(feed: GameDetailFeed, layout: GameLayout, options: Options): Secti
 function miniScore(feed: GameDetailFeed): MiniScore | null {
 	if (feed.status !== 'live' && feed.status !== 'final') return null;
 	const score = required(feed.score);
-	return { awayCode: feed.away.code, away: score.away, home: score.home, homeCode: feed.home.code };
+	return {
+		awayTeam: teamMark(feed.away),
+		away: score.away,
+		home: score.home,
+		homeTeam: teamMark(feed.home)
+	};
 }
 
 const percent = (v: number) =>
@@ -244,19 +247,7 @@ const percent = (v: number) =>
 const wholePercent = (v: number) => formatNumber(v, { style: 'percent', maximumFractionDigits: 0 });
 
 function lineScoreTeam(team: DetailTeam, periods: number[], total: number): LineScoreTeam {
-	return {
-		code: team.code,
-		name: team.name,
-		periods: [...periods],
-		total,
-		...(team.guest === true ? { guest: true } : {})
-	};
-}
-
-function leadSide(feed: GameDetailFeed, code: string | null): 'away' | 'home' | null {
-	if (code === feed.away.code) return 'away';
-	if (code === feed.home.code) return 'home';
-	return null;
+	return { team: teamMark(team), periods: [...periods], total };
 }
 
 function scoreSection(feed: GameDetailFeed): ScoreSection {
@@ -271,9 +262,7 @@ function scoreSection(feed: GameDetailFeed): ScoreSection {
 		stats: stats && {
 			away: { ...stats.away } satisfies DetailTeamStatLine,
 			home: { ...stats.home } satisfies DetailTeamStatLine,
-			leads: Object.fromEntries(
-				Object.entries(stats.leaders).map(([key, code]) => [key, leadSide(feed, code)])
-			) as StatLeads
+			leads: { ...stats.leaders } satisfies StatLeads
 		}
 	};
 }
@@ -282,17 +271,18 @@ function winProbabilitySection(feed: GameDetailFeed): WinProbabilitySection {
 	const points = required(feed.winProbability);
 	// A feed built before the leader field has no key: it has no leader.
 	const leader = feed.winProbabilityLeader ?? null;
+	const labelOf = (side: 'away' | 'home') => teamLabel(teamMark(feed[side]));
 	let meta: string;
 	if (feed.status === 'final') {
-		meta = m.game_win_probability_final({ team: required(feed.winner) });
+		meta = m.game_win_probability_final({ team: labelOf(required(feed.winner)) });
 	} else if (leader !== null) {
-		meta = `${leader.teamCode} ${wholePercent(leader.winProbability)}`;
+		meta = `${labelOf(leader.side)} ${wholePercent(leader.winProbability)}`;
 	} else {
 		meta = m.game_win_probability_even();
 	}
 	return {
-		awayCode: feed.away.code,
-		homeCode: feed.home.code,
+		away: teamMark(feed.away),
+		home: teamMark(feed.home),
 		middle: wholePercent(0.5),
 		meta,
 		points: points.map((p) => ({
@@ -361,8 +351,7 @@ function boxTotals(totals: BoxScoreTotals): BoxTotals {
 
 function boxTeam(team: DetailTeam, box: BoxScore['away']): BoxScoreTeam {
 	return {
-		code: team.code,
-		name: team.name,
+		team: teamMark(team),
 		starters: box.players.filter((p) => p.starter).map((p) => boxRow(p, team)),
 		bench: box.players.filter((p) => !p.starter).map((p) => boxRow(p, team)),
 		totals: boxTotals(box.totals)
@@ -404,7 +393,7 @@ function injuryTeam(
 ): InjuryTeam | null {
 	if (list === null) return null;
 	return {
-		code: team.code,
+		code: required(team.code),
 		name: team.name,
 		// A feed built before the playerId field has no key: no player link.
 		injuries: list.map((i) => ({
@@ -425,12 +414,11 @@ function injuriesSection(feed: GameDetailFeed): InjuriesSection {
 }
 
 function lastGameRow(game: LastGame): LastGameRow {
-	const team = game.opponent;
 	return {
 		result: game.result,
 		resultLabel: game.result === 'win' ? m.game_last_game_win() : m.game_last_game_loss(),
 		date: rowDate(game.date),
-		opponent: game.isHome ? m.game_last_game_home({ team }) : m.game_last_game_away({ team }),
+		opponent: { team: teamMark(game.opponent), isHome: game.isHome },
 		score: `${formatNumber(game.teamScore)}–${formatNumber(game.opponentScore)}`
 	};
 }
@@ -439,7 +427,7 @@ function lastGamesTeam(team: DetailTeam, games: readonly LastGame[] | null): Las
 	if (games === null) return null;
 	const rows = games.map(lastGameRow);
 	return {
-		code: team.code,
+		code: required(team.code),
 		name: team.name,
 		strip: rows.map((row) => ({ result: row.result, label: row.resultLabel })).reverse(),
 		rows
@@ -465,7 +453,7 @@ function standingRow(
 ): StandingRow | null {
 	if (standing === null) return null;
 	return {
-		code: team.code,
+		code: required(team.code),
 		name: team.name,
 		conference: m.game_standings_rank({
 			rank: standing.conferenceRank,

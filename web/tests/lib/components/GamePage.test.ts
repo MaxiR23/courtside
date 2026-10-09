@@ -37,8 +37,10 @@ const team = (code: string, name: string, city: string, record: string) => ({
 	code,
 	name,
 	city,
-	record
+	record,
+	guest: false
 });
+const mark = (code: string, name: string, city: string) => ({ code, name, city, guest: false });
 
 const view: GameView = {
 	header: {
@@ -53,7 +55,12 @@ const view: GameView = {
 		{ id: 'score', label: 'Score' },
 		{ id: 'injuries', label: 'Injuries' }
 	],
-	miniScore: { awayCode: 'LAL', away: 63, home: 62, homeCode: 'GSW' },
+	miniScore: {
+		awayTeam: mark('LAL', 'Lakers', 'Los Angeles'),
+		away: 63,
+		home: 62,
+		homeTeam: mark('GSW', 'Warriors', 'Golden State')
+	},
 	sections: {
 		highlights: null,
 		players: null,
@@ -159,7 +166,7 @@ const lastTeam = (code: string, name: string) => ({
 			result: 'win' as const,
 			resultLabel: 'W',
 			date: 'Oct 5',
-			opponent: 'vs DEN',
+			opponent: { team: mark('DEN', 'Nuggets', 'Denver'), isHome: true },
 			score: '118–104'
 		}
 	]
@@ -212,8 +219,8 @@ const full: GameSections = {
 	},
 	score: {
 		lineScore: {
-			away: { code: 'LAL', name: 'Lakers', periods: [28, 25, 10], total: 63 },
-			home: { code: 'GSW', name: 'Warriors', periods: [26, 24, 12], total: 62 }
+			away: { team: mark('LAL', 'Lakers', 'Los Angeles'), periods: [28, 25, 10], total: 63 },
+			home: { team: mark('GSW', 'Warriors', 'Golden State'), periods: [26, 24, 12], total: 62 }
 		},
 		stats: {
 			away: detailStat,
@@ -231,8 +238,8 @@ const full: GameSections = {
 		}
 	},
 	winProbability: {
-		awayCode: 'LAL',
-		homeCode: 'GSW',
+		away: mark('LAL', 'Lakers', 'Los Angeles'),
+		home: mark('GSW', 'Warriors', 'Golden State'),
 		middle: '50%',
 		meta: 'GSW 68%',
 		points: [
@@ -242,8 +249,8 @@ const full: GameSections = {
 		boundaries: null
 	},
 	boxScore: {
-		away: { code: 'LAL', name: 'Lakers', starters: [row], bench: [], totals },
-		home: { code: 'GSW', name: 'Warriors', starters: [row], bench: [], totals }
+		away: { team: mark('LAL', 'Lakers', 'Los Angeles'), starters: [row], bench: [], totals },
+		home: { team: mark('GSW', 'Warriors', 'Golden State'), starters: [row], bench: [], totals }
 	}
 };
 const withSections = (sections: GameSections): GameView => ({ ...view, sections });

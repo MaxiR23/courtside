@@ -15,6 +15,7 @@
 	import SectionTabs from '#lib/components/SectionTabs.svelte';
 	import SiteFooter from '#lib/components/SiteFooter.svelte';
 	import StatusTag from '#lib/components/StatusTag.svelte';
+	import TeamMark from '#lib/components/TeamMark.svelte';
 	import TeamMonogram from '#lib/components/TeamMonogram.svelte';
 	import TeamPage from '#lib/components/TeamPage.svelte';
 	import PlayerPage from '#lib/components/PlayerPage.svelte';
@@ -47,6 +48,7 @@
 	} from '#lib/player/types.ts';
 	import type { RosterRow, ScheduleRowView, TeamPageState, TeamView } from '#lib/team/types.ts';
 	import { SpoilerFree } from '#lib/schedule/spoiler-free.svelte.ts';
+	import type { TeamMarkTeam } from '#lib/team/mark.ts';
 	import type { HeroGame, HeroPlayer } from '#lib/hero/types.ts';
 	import type {
 		GameDetails,
@@ -78,19 +80,30 @@
 		teamName: 'Los Angeles Lakers',
 		photo: homePhoto
 	};
+	// A league team as the feeds send an opponent, and a guest without a code (ADR 0026).
+	const league = (code: string): TeamMarkTeam => ({ code, name: null, city: null, guest: false });
+	const versus = (code: string, isHome = true) => ({ team: league(code), isHome });
+	const guestMariners: TeamMarkTeam = {
+		code: null,
+		name: 'Mariners',
+		city: 'Harbor City',
+		guest: true
+	};
 	const allGamesHref = resolve('/');
 	const standingsHref = resolve('/standings');
 	const headerAway: HeaderTeam = {
 		code: 'GSW',
 		name: 'Warriors',
 		city: 'Golden State',
-		record: '12–5'
+		record: '12–5',
+		guest: false
 	};
 	const headerHome: HeaderTeam = {
 		code: 'LAL',
 		name: 'Lakers',
 		city: 'Los Angeles',
-		record: '10–7'
+		record: '10–7',
+		guest: false
 	};
 	const venueStrip = {
 		arena: 'Chase Center',
@@ -162,7 +175,7 @@
 	};
 	const tabs = (...entries: [SectionTab['id'], string][]): SectionTab[] =>
 		entries.map(([id, label]) => ({ id, label }));
-	const miniScore = { awayCode: 'GSW', away: 63, home: 62, homeCode: 'LAL' };
+	const miniScore = { awayTeam: league('GSW'), away: 63, home: 62, homeTeam: league('LAL') };
 	const finalMiniScore = { ...miniScore, away: 112, home: 104 };
 	const overtimeMiniScore = { ...miniScore, away: 132, home: 130 };
 	const tabStates = [
@@ -239,12 +252,12 @@
 		heroGame('three', 'final')
 	];
 
-	const warriors = { code: 'GSW', name: 'Warriors', city: 'Golden State' };
-	const lakers = { code: 'LAL', name: 'Lakers', city: 'Los Angeles' };
-	const celtics = { code: 'BOS', name: 'Celtics', city: 'Boston' };
-	const knicks = { code: 'NYK', name: 'Knicks', city: 'New York' };
-	const nuggets = { code: 'DEN', name: 'Nuggets', city: 'Denver' };
-	const suns = { code: 'PHX', name: 'Suns', city: 'Phoenix' };
+	const warriors = { code: 'GSW', name: 'Warriors', city: 'Golden State', guest: false };
+	const lakers = { code: 'LAL', name: 'Lakers', city: 'Los Angeles', guest: false };
+	const celtics = { code: 'BOS', name: 'Celtics', city: 'Boston', guest: false };
+	const knicks = { code: 'NYK', name: 'Knicks', city: 'New York', guest: false };
+	const nuggets = { code: 'DEN', name: 'Nuggets', city: 'Denver', guest: false };
+	const suns = { code: 'PHX', name: 'Suns', city: 'Phoenix', guest: false };
 	const awayPlayer: PanelPlayer = {
 		firstName: away.firstName,
 		lastName: away.lastName,
@@ -263,7 +276,10 @@
 		rebounds: number,
 		assists: number
 	): Leader => ({
-		...player,
+		firstName: player.firstName,
+		lastName: player.lastName,
+		photo: player.photo,
+		team: league(player.teamCode),
 		points,
 		rebounds,
 		assists
@@ -294,8 +310,7 @@
 	};
 	const pendingHighlights: GameHighlights = { ...sampleHighlights, videos: [] };
 	const lineScoreTeam = (team: HeaderTeam, periods: number[], total: number): LineScoreTeam => ({
-		code: team.code,
-		name: team.name,
+		team,
 		periods,
 		total
 	});
@@ -357,12 +372,11 @@
 		plusMinusPositive: plusMinus.startsWith('+')
 	});
 	const boxTeam = (team: HeaderTeam, names: string[], points: number): BoxScoreTeam => ({
-		code: team.code,
-		name: team.name,
+		team,
 		starters: names
 			.slice(0, 2)
-			.map((name, i) => boxRow(`${team.code}-s${i}`, name, i ? '-3' : '+4')),
-		bench: names.slice(2).map((name, i) => boxRow(`${team.code}-b${i}`, name, '0')),
+			.map((name, i) => boxRow(`${team.name}-s${i}`, name, i ? '-3' : '+4')),
+		bench: names.slice(2).map((name, i) => boxRow(`${team.name}-b${i}`, name, '0')),
 		totals: {
 			points: String(points),
 			fieldGoals: '40-84',
@@ -395,8 +409,8 @@
 		}));
 	const quarterStarts = [0, 720, 1440, 2160];
 	const sampleChart: WinProbabilitySection = {
-		awayCode: headerAway.code,
-		homeCode: headerHome.code,
+		away: headerAway,
+		home: headerHome,
 		middle: '50%',
 		meta: 'LAL 68%',
 		points: curve([300, 600, 900, 1200, 1500, 1800, 1908], 0.68),
@@ -411,7 +425,7 @@
 	};
 	const sampleInjuries: InjuriesSection = {
 		away: {
-			code: headerAway.code,
+			code: 'GSW',
 			name: headerAway.name,
 			injuries: [
 				{
@@ -425,7 +439,7 @@
 			]
 		},
 		home: {
-			code: headerHome.code,
+			code: 'LAL',
 			name: headerHome.name,
 			injuries: []
 		}
@@ -433,7 +447,7 @@
 	const sampleInjuriesBoth: InjuriesSection = {
 		...sampleInjuries,
 		home: {
-			code: headerHome.code,
+			code: 'LAL',
 			name: headerHome.name,
 			injuries: [
 				{ id: 'preview-4', name: 'Gabe Vincent', status: 'probable', comment: null },
@@ -443,7 +457,7 @@
 	};
 	const sampleLastGames: LastGamesSection = {
 		away: {
-			code: headerAway.code,
+			code: 'GSW',
 			name: headerAway.name,
 			strip: [
 				{ result: 'loss', label: 'L' },
@@ -453,29 +467,71 @@
 				{ result: 'win', label: 'W' }
 			],
 			rows: [
-				{ result: 'win', resultLabel: 'W', date: 'Oct 5', opponent: 'vs DEN', score: '118–104' },
-				{ result: 'loss', resultLabel: 'L', date: 'Oct 3', opponent: '@ PHX', score: '99–107' },
-				{ result: 'win', resultLabel: 'W', date: 'Oct 1', opponent: 'vs SAC', score: '121–110' },
-				{ result: 'win', resultLabel: 'W', date: 'Sep 29', opponent: '@ LAC', score: '112–109' },
-				{ result: 'loss', resultLabel: 'L', date: 'Sep 27', opponent: 'vs DAL', score: '101–113' }
+				{
+					result: 'win',
+					resultLabel: 'W',
+					date: 'Oct 5',
+					opponent: versus('DEN'),
+					score: '118–104'
+				},
+				{
+					result: 'loss',
+					resultLabel: 'L',
+					date: 'Oct 3',
+					opponent: versus('PHX', false),
+					score: '99–107'
+				},
+				{
+					result: 'win',
+					resultLabel: 'W',
+					date: 'Oct 1',
+					opponent: versus('SAC'),
+					score: '121–110'
+				},
+				{
+					result: 'win',
+					resultLabel: 'W',
+					date: 'Sep 29',
+					opponent: versus('LAC', false),
+					score: '112–109'
+				},
+				{
+					result: 'loss',
+					resultLabel: 'L',
+					date: 'Sep 27',
+					opponent: versus('DAL'),
+					score: '101–113'
+				}
 			]
 		},
 		home: {
-			code: headerHome.code,
+			code: 'LAL',
 			name: headerHome.name,
 			strip: [
 				{ result: 'win', label: 'W' },
 				{ result: 'loss', label: 'L' }
 			],
 			rows: [
-				{ result: 'loss', resultLabel: 'L', date: 'Oct 4', opponent: '@ OKC', score: '98–110' },
-				{ result: 'win', resultLabel: 'W', date: 'Oct 2', opponent: 'vs MIA', score: '115–101' }
+				{
+					result: 'loss',
+					resultLabel: 'L',
+					date: 'Oct 4',
+					opponent: versus('OKC', false),
+					score: '98–110'
+				},
+				{
+					result: 'win',
+					resultLabel: 'W',
+					date: 'Oct 2',
+					opponent: versus('MIA'),
+					score: '115–101'
+				}
 			]
 		}
 	};
 	const sampleStandings: StandingsSection = {
 		away: {
-			code: headerAway.code,
+			code: 'GSW',
 			name: headerAway.name,
 			conference: '3rd West',
 			record: '12–5',
@@ -484,7 +540,7 @@
 			lastTen: '7–3'
 		},
 		home: {
-			code: headerHome.code,
+			code: 'LAL',
 			name: headerHome.name,
 			conference: '1st West',
 			record: '14–3',
@@ -735,7 +791,7 @@
 			id: 'final',
 			away: nuggets,
 			home: suns,
-			status: { state: 'final', awayScore: 112, homeScore: 104, winner: 'DEN' },
+			status: { state: 'final', awayScore: 112, homeScore: 104, winner: 'away' },
 			details: played(
 				{ away: [30, 28, 26, 28], home: [24, 27, 25, 28] },
 				'DEN',
@@ -752,14 +808,14 @@
 		id: 'overtime',
 		away: celtics,
 		home: knicks,
-		status: { state: 'final', awayScore: 132, homeScore: 130, winner: 'BOS' },
+		status: { state: 'final', awayScore: 132, homeScore: 130, winner: 'away' },
 		details: played({ away: [28, 25, 30, 27, 12, 10], home: [30, 26, 24, 30, 12, 8] }, 'BOS', 'NYK')
 	};
 	const singleHighlightGame: ScheduleGame = {
 		id: 'single-highlight',
 		away: nuggets,
 		home: suns,
-		status: { state: 'final', awayScore: 112, homeScore: 104, winner: 'DEN' },
+		status: { state: 'final', awayScore: 112, homeScore: 104, winner: 'away' },
 		details: played(
 			{ away: [30, 28, 26, 28], home: [24, 27, 25, 28] },
 			'DEN',
@@ -771,7 +827,7 @@
 		id: 'pending',
 		away: nuggets,
 		home: suns,
-		status: { state: 'final', awayScore: 112, homeScore: 104, winner: 'DEN' },
+		status: { state: 'final', awayScore: 112, homeScore: 104, winner: 'away' },
 		details: played(
 			{ away: [30, 28, 26, 28], home: [24, 27, 25, 28] },
 			'DEN',
@@ -815,7 +871,7 @@
 		linked: true,
 		weekday: 'Thu',
 		date: 'Oct 23',
-		opponent: 'vs HOU',
+		opponent: versus('HOU'),
 		tags: [],
 		next: false,
 		outcome: { kind: 'played', result: 'win', resultLabel: 'W', score: '118–104', side: 'Home' },
@@ -907,7 +963,7 @@
 					linked: true,
 					tag: 'NBA Cup',
 					date: 'Wednesday, October 7',
-					opponent: '@ LAL',
+					opponent: versus('LAL', false),
 					place: 'Crypto.com Arena · Los Angeles',
 					time: '7:30 PM ET · Network One'
 				}
@@ -980,7 +1036,7 @@
 						rows: [
 							teamScheduleRow('s2', {
 								linked: false,
-								opponent: '@ DEN',
+								opponent: versus('DEN', false),
 								outcome: {
 									kind: 'played',
 									result: 'loss',
@@ -993,7 +1049,7 @@
 								next: true,
 								weekday: 'Wed',
 								date: 'Nov 5',
-								opponent: '@ LAL',
+								opponent: versus('LAL', false),
 								tags: ['NBA Cup', 'Next'],
 								outcome: { kind: 'upcoming', time: '7:30 PM ET', broadcast: 'Network One' }
 							}),
@@ -1073,7 +1129,7 @@
 		result: 'win',
 		resultLabel: 'W',
 		date: 'Apr 29',
-		opponent: '@ MEM',
+		opponent: versus('MEM', false),
 		score: '118–104',
 		tag: null,
 		points: '31',
@@ -1259,7 +1315,7 @@
 					linked: true,
 					tag: null,
 					date: 'Wednesday, October 7',
-					opponent: 'vs DEN',
+					opponent: versus('DEN'),
 					place: 'Paycom Center · Oklahoma City, OK',
 					time: '7:30 PM ET · Courtside TV'
 				},
@@ -1269,13 +1325,13 @@
 					playerRecent('r2', {
 						result: 'loss',
 						resultLabel: 'L',
-						opponent: 'vs MEM',
+						opponent: versus('MEM'),
 						score: '101–108',
 						points: '24',
 						linked: false
 					}),
-					playerRecent('r3', { date: 'Apr 12', opponent: 'vs DEN', points: '35' }),
-					playerRecent('r4', { date: 'Apr 10', opponent: '@ HOU', linked: false }),
+					playerRecent('r3', { date: 'Apr 12', opponent: versus('DEN'), points: '35' }),
+					playerRecent('r4', { date: 'Apr 10', opponent: versus('HOU', false), linked: false }),
 					playerRecent('r5', {
 						date: 'Apr 8',
 						result: 'loss',
@@ -1380,7 +1436,13 @@
 			...playerView.sections,
 			profile: {
 				...playerView.sections.profile,
-				live: { gameId: 'live', opponent: '@ DEN', score: '78–74', clock: 'Q3 · 4:12', line }
+				live: {
+					gameId: 'live',
+					opponent: versus('DEN', false),
+					score: '78–74',
+					clock: 'Q3 · 4:12',
+					line
+				}
 			}
 		}
 	});
@@ -1636,6 +1698,14 @@
 				<GameHeader {teamHref} {header} {allGamesHref} {standingsHref} layout="mobile" />
 			{/each}
 		</div>
+	</section>
+
+	<section>
+		<h2>TeamMark: a guest without a code</h2>
+		<TeamMark part="tile" team={guestMariners} size="large" />
+		<TeamMark part="tile" team={guestMariners} size="small" />
+		<TeamMark part="name" team={guestMariners} />
+		<TeamMark part="label" team={guestMariners} versus="away" />
 	</section>
 
 	<section>

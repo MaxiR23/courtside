@@ -273,8 +273,15 @@
       "additionalProperties": false,
       "properties": {
         "code": {
-          "minLength": 1,
-          "type": "string"
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "name": {
           "minLength": 1,
@@ -533,8 +540,7 @@
           "type": "string"
         },
         "opponent": {
-          "minLength": 1,
-          "type": "string"
+          "$ref": "#/$defs/Opponent"
         },
         "isHome": {
           "type": "boolean"
@@ -626,6 +632,57 @@
         "home"
       ],
       "title": "LineScore",
+      "type": "object"
+    },
+    "Opponent": {
+      "additionalProperties": false,
+      "description": "A team a game is played against: a league team or a guest.",
+      "properties": {
+        "code": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "city": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "guest": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "code",
+        "name",
+        "city",
+        "guest"
+      ],
+      "title": "Opponent",
       "type": "object"
     },
     "Record": {
@@ -764,6 +821,14 @@
       ],
       "title": "SeriesGame",
       "type": "object"
+    },
+    "Side": {
+      "enum": [
+        "away",
+        "home"
+      ],
+      "title": "Side",
+      "type": "string"
     },
     "Standings": {
       "additionalProperties": false,
@@ -928,8 +993,7 @@
         "fieldGoalPct": {
           "anyOf": [
             {
-              "minLength": 1,
-              "type": "string"
+              "$ref": "#/$defs/Side"
             },
             {
               "type": "null"
@@ -939,8 +1003,7 @@
         "threePointPct": {
           "anyOf": [
             {
-              "minLength": 1,
-              "type": "string"
+              "$ref": "#/$defs/Side"
             },
             {
               "type": "null"
@@ -950,8 +1013,7 @@
         "freeThrowPct": {
           "anyOf": [
             {
-              "minLength": 1,
-              "type": "string"
+              "$ref": "#/$defs/Side"
             },
             {
               "type": "null"
@@ -961,8 +1023,7 @@
         "rebounds": {
           "anyOf": [
             {
-              "minLength": 1,
-              "type": "string"
+              "$ref": "#/$defs/Side"
             },
             {
               "type": "null"
@@ -972,8 +1033,7 @@
         "assists": {
           "anyOf": [
             {
-              "minLength": 1,
-              "type": "string"
+              "$ref": "#/$defs/Side"
             },
             {
               "type": "null"
@@ -983,8 +1043,7 @@
         "turnovers": {
           "anyOf": [
             {
-              "minLength": 1,
-              "type": "string"
+              "$ref": "#/$defs/Side"
             },
             {
               "type": "null"
@@ -994,8 +1053,7 @@
         "steals": {
           "anyOf": [
             {
-              "minLength": 1,
-              "type": "string"
+              "$ref": "#/$defs/Side"
             },
             {
               "type": "null"
@@ -1005,8 +1063,7 @@
         "blocks": {
           "anyOf": [
             {
-              "minLength": 1,
-              "type": "string"
+              "$ref": "#/$defs/Side"
             },
             {
               "type": "null"
@@ -1113,9 +1170,8 @@
     "WinProbabilityLeader": {
       "additionalProperties": false,
       "properties": {
-        "teamCode": {
-          "minLength": 1,
-          "type": "string"
+        "side": {
+          "$ref": "#/$defs/Side"
         },
         "winProbability": {
           "maximum": 1,
@@ -1124,7 +1180,7 @@
         }
       },
       "required": [
-        "teamCode",
+        "side",
         "winProbability"
       ],
       "title": "WinProbabilityLeader",
@@ -1256,8 +1312,7 @@
     "winner": {
       "anyOf": [
         {
-          "minLength": 1,
-          "type": "string"
+          "$ref": "#/$defs/Side"
         },
         {
           "type": "null"

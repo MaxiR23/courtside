@@ -29,6 +29,7 @@
 # - SeriesMeeting uses the same field types as the contract SeriesGame, except the arena
 # - A final game's detail attempt fetches again when the stored entry is older than its due time, and reuses one fetched at or after it
 # - The sections and the detail of one game share one cached response
+# - A guest team without an abbreviation is matched to its box score players by its provider id; its leaders have a null code and its stat and win probability leaders are sides
 # - A guest team keeps its provider code in the leaders, team stats and box score; a guest player photo is the box score headshot or null; a guest game has no season series and may have no win probability
 #
 # What is covered:
@@ -742,7 +743,7 @@ async def test_maps_a_recorded_final_game_to_its_detail_sections(
     assert str(detail.venue.photo_url) == "https://example.com/61"
     assert detail.win_probability_periods is not None
     assert detail.win_probability_leader is not None
-    assert detail.win_probability_leader.team_code == "BOS"
+    assert detail.win_probability_leader.side == "home"
     assert detail.win_probability_leader.win_probability == 1.0
     assert detail.box_score is not None
     home, away = detail.box_score.home.totals, detail.box_score.away.totals
@@ -780,14 +781,14 @@ async def test_maps_a_recorded_live_game_to_its_detail_sections(
     assert len(home.players) > 0
     assert detail.team_stats is not None
     leaders = detail.team_stats.leaders
-    assert leaders.field_goal_pct == "IND"
-    assert leaders.three_point_pct == "MIN"
-    assert leaders.free_throw_pct == "IND"
-    assert leaders.rebounds == "MIN"
-    assert leaders.assists == "IND"
-    assert leaders.turnovers == "IND"
+    assert leaders.field_goal_pct == "home"
+    assert leaders.three_point_pct == "away"
+    assert leaders.free_throw_pct == "home"
+    assert leaders.rebounds == "away"
+    assert leaders.assists == "home"
+    assert leaders.turnovers == "home"
     assert leaders.steals is None
-    assert leaders.blocks == "IND"
+    assert leaders.blocks == "home"
     assert detail.win_probability is not None
     seconds = [p.elapsed_seconds for p in detail.win_probability]
     assert len(seconds) == 4
@@ -965,7 +966,7 @@ async def test_takes_the_away_team_as_the_win_probability_leader_below_even(
     detail = await sections_of(mock, settings, payload)
 
     assert detail.win_probability_leader is not None
-    assert detail.win_probability_leader.team_code == "ORL"
+    assert detail.win_probability_leader.side == "away"
     assert detail.win_probability_leader.win_probability == 0.75
 
 
@@ -994,7 +995,7 @@ async def test_takes_the_win_probability_leader_from_the_last_published_point(
     detail = await sections_of(mock, settings, payload)
 
     assert detail.win_probability_leader is not None
-    assert detail.win_probability_leader.team_code == "ORL"
+    assert detail.win_probability_leader.side == "away"
     assert detail.win_probability_leader.win_probability == 0.75
 
 
@@ -1108,13 +1109,13 @@ async def test_marks_the_leading_side_of_each_team_stat_row(
 
     assert detail.team_stats is not None
     leaders = detail.team_stats.leaders
-    assert leaders.field_goal_pct == "BOS"
-    assert leaders.three_point_pct == "BOS"
-    assert leaders.free_throw_pct == "BOS"
-    assert leaders.rebounds == "ORL"
-    assert leaders.assists == "BOS"
-    assert leaders.steals == "BOS"
-    assert leaders.blocks == "BOS"
+    assert leaders.field_goal_pct == "home"
+    assert leaders.three_point_pct == "home"
+    assert leaders.free_throw_pct == "home"
+    assert leaders.rebounds == "away"
+    assert leaders.assists == "home"
+    assert leaders.steals == "home"
+    assert leaders.blocks == "home"
 
 
 @pytest.mark.anyio
@@ -1126,7 +1127,7 @@ async def test_leads_turnovers_with_the_lower_value(
     assert detail.team_stats is not None
     assert detail.team_stats.away.turnovers == 19
     assert detail.team_stats.home.turnovers == 17
-    assert detail.team_stats.leaders.turnovers == "BOS"
+    assert detail.team_stats.leaders.turnovers == "home"
 
 
 @pytest.mark.anyio
@@ -1556,7 +1557,7 @@ async def test_maps_the_box_score_team_stats_and_quarters_of_both_sides_of_a_gue
     assert detail.box_score.away.players and detail.box_score.home.players
     assert detail.team_stats.away.rebounds > 0 and detail.team_stats.home.rebounds > 0
     leaders = detail.team_stats.leaders.model_dump().values()
-    assert set(leaders) <= {"HCM", "BOS", None}
+    assert set(leaders) <= {"away", "home", None}
     assert detail.injuries is not None
 
 
@@ -1609,3 +1610,66 @@ async def test_an_empty_win_probability_of_a_guest_game_is_null(
     assert detail.win_probability is None
     assert detail.win_probability_leader is None
     assert detail.win_probability_periods is None
+
+
+def drop_abbreviation(node: Any, abbreviation: str, team_id: str = "90001") -> None:
+    """Replaces the abbreviation of a team with a provider id everywhere in a payload."""
+    if isinstance(node, dict):
+        if node.get("abbreviation") == abbreviation:
+            del node["abbreviation"]
+            node["id"] = team_id
+        for value in node.values():
+            drop_abbreviation(value, abbreviation, team_id)
+    elif isinstance(node, list):
+        for value in node:
+            drop_abbreviation(value, abbreviation, team_id)
+
+
+@pytest.mark.anyio
+async def test_maps_the_leaders_of_a_guest_without_an_abbreviation_by_its_team_id(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("final.json")
+    drop_abbreviation(payload, "GS")
+    mock.get(URL).respond(json=payload)
+
+    detail = await fetch(settings)
+
+    assert detail.leaders.away.team_code is None
+    assert detail.leaders.home.team_code == "LAC"
+    assert detail.leaders.away.points == 12
+    assert detail.leaders.away.photo_url is None
+
+
+@pytest.mark.anyio
+async def test_maps_the_sections_of_a_guest_without_an_abbreviation_matching_players_by_id(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("summary-final.json")
+    drop_abbreviation(payload, "ORL")
+
+    detail = await sections_of(mock, settings, payload, SERIES_GAME_ID)
+
+    assert detail.box_score is not None and detail.team_stats is not None
+    assert detail.box_score.away.players and detail.box_score.home.players
+    assert detail.team_stats.leaders.rebounds == "away"
+    assert detail.win_probability_leader is not None
+    assert detail.win_probability_leader.side == "home"
+    assert detail.season_series is None
+    assert detail.injuries is not None and detail.injuries.away == []
+
+
+@pytest.mark.anyio
+async def test_raises_the_source_error_when_a_side_has_no_players_by_id_or_abbreviation(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("summary-final.json")
+    drop_abbreviation(payload, "ORL")
+    payload["boxscore"]["players"] = [
+        p for p in payload["boxscore"]["players"] if "id" not in p["team"]
+    ]
+    mock.get(TEMPLATE.format(game_id=GAME_ID)).respond(json=payload)
+
+    error = await sections_error(settings)
+
+    assert error.reason == f"game {GAME_ID} has no players for 90001"

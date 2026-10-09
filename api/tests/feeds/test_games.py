@@ -8,9 +8,9 @@
 # - Invalid times, codes, numbers and URLs are rejected
 # - Unknown fields are rejected
 # - A leader carries one display name; stars keep first and last name
-# - A final game requires a winner, which must be one of its teams; any other status rejects one
+# - A final game requires a winner, which is a side (away or home); any other status rejects one
 # - A final game carries statsAvailability; leaders and teamStats are set only when it is available; any other status rejects it
-# - A guest side (outside the league) is accepted with a null star and a leader without a photo, and may win
+# - A guest side (outside the league) is accepted with a null star and a leader without a photo, and may win; its code is optional
 # - A league side needs a star, a three-letter code and a leader photo; a guest side has no star; the two sides differ; a guest code is any non-empty string
 # - Serialization uses camelCase keys and carries unknown values as null
 #
@@ -99,7 +99,7 @@ def valid_game(status: str, **overrides: object) -> Payload:
         game["clock"] = "2:10"
     if status == "final":
         game["highlightsSearchUrl"] = "https://example.com/search"
-        game["winner"] = "HHH"
+        game["winner"] = "home"
         game["statsAvailability"] = "available"
     game.update(overrides)
     return game
@@ -149,7 +149,7 @@ def test_rejects_a_final_game_without_a_required_field(field: str) -> None:
 
 
 def test_accepts_a_final_game_won_by_the_away_team() -> None:
-    GamesFeed.model_validate(valid_feed(valid_game("final", winner="AAA")))
+    GamesFeed.model_validate(valid_feed(valid_game("final", winner="away")))
 
 
 @pytest.mark.parametrize(
@@ -157,12 +157,12 @@ def test_accepts_a_final_game_won_by_the_away_team() -> None:
 )
 def test_rejects_a_winner_on_a_game_that_is_not_final(status: str) -> None:
     with pytest.raises(ValidationError, match="winner"):
-        GamesFeed.model_validate(valid_feed(valid_game(status, winner="HHH")))
+        GamesFeed.model_validate(valid_feed(valid_game(status, winner="home")))
 
 
-def test_rejects_a_winner_that_is_neither_team() -> None:
+def test_rejects_a_winner_that_is_not_a_side() -> None:
     with pytest.raises(ValidationError, match="winner"):
-        GamesFeed.model_validate(valid_feed(valid_game("final", winner="ZZZ")))
+        GamesFeed.model_validate(valid_feed(valid_game("final", winner="AAA")))
 
 
 def test_serializes_no_winner_as_null_on_a_game_that_is_not_final() -> None:
@@ -396,7 +396,7 @@ def guest_game(status: str = "final", **overrides: object) -> Payload:
     if "leaders" in game:
         game["leaders"] = pair({**leader("HCM"), "photoUrl": None}, leader("HHH"))
     if status == "final" and "winner" not in overrides:
-        game["winner"] = "HCM"
+        game["winner"] = "away"
     return game
 
 
@@ -409,7 +409,7 @@ def test_accepts_a_game_with_a_guest_side_a_null_guest_star_a_null_leader_photo_
     assert game.away.guest and not game.home.guest
     assert game.stars.away is None and game.stars.home is not None
     assert game.leaders is not None and game.leaders.away.photo_url is None
-    assert game.winner == "HCM"
+    assert game.winner == "away"
 
 
 def test_a_side_is_a_league_team_unless_the_feed_says_it_is_a_guest() -> None:
@@ -471,4 +471,64 @@ def test_rejects_an_empty_guest_code() -> None:
     game["away"] = guest_team("")
 
     with pytest.raises(ValidationError, match="away.code"):
+        GamesFeed.model_validate(valid_feed(game))
+
+
+def codeless_guest_team(name: str = "Mariners") -> Payload:
+    return {"code": None, "name": name, "city": "Harbor City", "guest": True}
+
+
+def codeless_guest_game(status: str = "final", **overrides: object) -> Payload:
+    game = guest_game(status, **{"away": codeless_guest_team(), **overrides})
+    if "leaders" in game:
+        game["leaders"] = pair(
+            {**leader("HCM"), "teamCode": None, "photoUrl": None}, leader("HHH")
+        )
+    return game
+
+
+def test_accepts_a_final_game_against_a_guest_without_a_code_that_the_guest_wins() -> (
+    None
+):
+    feed = GamesFeed.model_validate(valid_feed(codeless_guest_game()))
+
+    game = feed.days[0].games[0]
+    assert game.away.code is None and game.away.guest
+    assert game.winner == "away"
+
+
+def test_a_leader_of_a_guest_without_a_code_has_a_null_team_code() -> None:
+    feed = GamesFeed.model_validate(valid_feed(codeless_guest_game()))
+
+    leaders = feed.days[0].games[0].leaders
+    assert leaders is not None and leaders.away.team_code is None
+
+
+def test_a_guest_side_without_a_code_still_has_a_null_star() -> None:
+    game = codeless_guest_game("scheduled", stars=pair(star("HCM"), star("HHH")))
+
+    with pytest.raises(ValidationError, match="a guest side has no star"):
+        GamesFeed.model_validate(valid_feed(game))
+
+
+def test_accepts_two_guests_without_codes_when_both_have_names() -> None:
+    game = codeless_guest_game(
+        "scheduled", home=codeless_guest_team("Rovers"), stars=pair(None, None)
+    )
+
+    GamesFeed.model_validate(valid_feed(game))
+
+
+def test_rejects_a_guest_without_a_code_and_without_a_name() -> None:
+    game = codeless_guest_game("scheduled")
+    game["away"]["name"] = None
+
+    with pytest.raises(ValidationError, match="away"):
+        GamesFeed.model_validate(valid_feed(game))
+
+
+def test_rejects_a_league_side_without_a_code() -> None:
+    game = valid_game("scheduled", away={**team("AAA"), "code": None})
+
+    with pytest.raises(ValidationError, match="three capital letters"):
         GamesFeed.model_validate(valid_feed(game))

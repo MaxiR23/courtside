@@ -16,7 +16,8 @@
 # - Ranks the division by entry order
 # - Tags every playoff round format, the NBA Finals, the cup and All-Star
 # - Keeps the playoffs kind with null fields for an unrecognized playoff note
-# - Gives a regular game with an unknown note no tag
+# - Gives a regular game with an unknown note no tag, and a preseason game the preseason kind and no tag
+# - Builds a schedule and a next game with a guest opponent
 # - Computes the age on the US Eastern date, with a birthday on the build day and the day after
 # - Gives a coach without experience null seasons
 # - Converts the roster details to text and numbers
@@ -275,7 +276,7 @@ def game(game_id: str, start: dt.datetime = START, **changes: Any) -> ScheduledG
     values: dict[str, Any] = {
         "game_id": game_id,
         "start_time": start,
-        "opponent": "SAS",
+        "opponent": {"code": "SAS", "name": None, "city": None, "guest": False},
         "is_home": False,
         "state": "pre",
         "completed": False,
@@ -552,6 +553,31 @@ def test_keeps_the_playoffs_kind_with_null_fields_for_an_unrecognized_playoff_no
 @pytest.mark.parametrize("note", [None, "", "Rivalry Night", "West Finals - Game 4"])
 def test_gives_a_regular_game_with_an_unknown_note_no_tag(note: str | None) -> None:
     assert game_kind_and_tag(note, False) == (GameKind.REGULAR, None)
+
+
+@pytest.mark.parametrize("note", [None, "NBA Cup - Group Play", "Rivalry Night"])
+def test_gives_a_preseason_game_the_preseason_kind_and_no_tag(
+    note: str | None,
+) -> None:
+    assert game_kind_and_tag(note, False, preseason=True) == (GameKind.PRESEASON, None)
+
+
+GUEST_OPPONENT = {
+    "code": None,
+    "name": "Mariners",
+    "city": "Harbor City",
+    "guest": True,
+}
+
+
+def test_builds_a_schedule_and_a_next_game_against_a_guest_opponent() -> None:
+    feed = build(regular=season(game("1", opponent=GUEST_OPPONENT)))
+
+    assert feed.schedule is not None
+    scheduled = feed.schedule.groups[0].games[0]
+    assert scheduled.opponent.code is None and scheduled.opponent.guest
+    assert feed.next_game is not None
+    assert feed.next_game.opponent.name == "Mariners"
 
 
 def test_computes_ages_with_a_birthday_on_the_build_day_and_the_day_after() -> None:

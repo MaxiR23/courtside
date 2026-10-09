@@ -7,7 +7,8 @@
 # cleanup. Stars, highlights and the highlights search URL
 # are inputs, supplied by other jobs. The first feed after a start waits until
 # every team has a star (a guest side has none, ADR 0025), so no published
-# league side ever lacks one.
+# league side ever lacks one. The winner of a final game is a side, away or home
+# (ADR 0026), since a guest side may have no code.
 #
 # A final game's detail is fetched when it becomes final and, after a failure,
 # 2, 4 and 6 hours after its final time; the failed attempts are stored.
@@ -47,6 +48,7 @@ from app.feeds.games import (
     Stars,
     StatsAvailability,
 )
+from app.feeds.opponent import Side
 from app.jobs.on_demand import MISSING_WAIT_SECONDS
 from app.settings import Settings
 from app.sources import game_detail, scoreboard
@@ -124,14 +126,14 @@ def eastern_date(now: dt.datetime) -> dt.date:
     return now.astimezone(EASTERN).date()
 
 
-def final_winner(game: ScoreboardGame) -> str | None:
-    """The code of the team with more points in a final game; None on a tie or before the final."""
+def final_winner(game: ScoreboardGame) -> Side | None:
+    """The side with more points in a final game; None on a tie or before the final."""
     if game.status is not GameStatus.FINAL or game.score is None:
         return None
     if game.score.home > game.score.away:
-        return game.home.code
+        return Side.HOME
     if game.score.away > game.score.home:
-        return game.away.code
+        return Side.AWAY
     return None
 
 

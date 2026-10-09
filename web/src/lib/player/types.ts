@@ -1,5 +1,6 @@
 // Props of the player page. Components get pre-formatted strings and never a contract type.
 import type { InfoCell, InjuryTagStatus } from '#lib/game/types.ts';
+import type { TeamMarkTeam } from '#lib/team/mark.ts';
 import type { GameLink, NextGameView } from '#lib/team/types.ts';
 
 export type PlayerSectionId =
@@ -20,7 +21,7 @@ export type PlayerHeaderView = {
 
 export type LiveGameView = {
 	gameId: string;
-	opponent: string; // "vs DEN" or "@ DEN"
+	opponent: { team: TeamMarkTeam; isHome: boolean }; // drawn "vs DEN" or "@ DEN"
 	score: string; // "78–74", the team's points first
 	clock: string; // "Q3 · 4:12"
 	line: InfoCell[] | null; // MIN, PTS, REB, AST, FG with no sub-line; null: not in the game yet
@@ -30,7 +31,7 @@ export type RecentGameRow = GameLink & {
 	result: 'win' | 'loss';
 	resultLabel: string; // "W"
 	date: string; // "Apr 29"
-	opponent: string; // "vs MEM", "@ MEM", or the All-Star label
+	opponent: { team: TeamMarkTeam; isHome: boolean } | null; // drawn "vs MEM" or "@ MEM"; null: the All-Star game, drawn with its label
 	score: string; // "118–104"
 	tag: string | null; // "NBA Cup"
 	points: string; // "31"
@@ -60,6 +61,7 @@ export type StatRowView = {
 	sub: string | null;
 	accent?: boolean;
 	link?: GameLink | null;
+	opponent?: { team: TeamMarkTeam; isHome: boolean } | null; // the game log's opponent, drawn after the label; null or absent: none
 	cells: StatCell[]; // follow the column order
 };
 
@@ -74,7 +76,7 @@ export type SeasonsSection = {
 
 export type MilestonesSection = { meta: string; cells: InfoCell[] };
 
-export type GameLogFilter = 'all' | 'regular' | 'cup' | 'playoffs';
+export type GameLogFilter = 'all' | 'regular' | 'cup' | 'playoffs' | 'preseason';
 
 export type GameLogSection = {
 	meta: string;

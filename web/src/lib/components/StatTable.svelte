@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { ResolvedPathname } from '$app/types';
-	import type { StatTableView } from '#lib/player/types.ts';
+	import TeamMark from '#lib/components/TeamMark.svelte';
+	import type { StatRowView, StatTableView } from '#lib/player/types.ts';
 
 	type Props = {
 		table: StatTableView;
@@ -9,6 +10,8 @@
 	};
 
 	let { table, labelHeader, gameHref }: Props = $props();
+
+	const SEPARATOR = ' · ';
 
 	// Every row gets the same template, so the columns line up across the per-row grids.
 	const template = $derived(
@@ -23,6 +26,14 @@
 	);
 </script>
 
+{#snippet label(row: StatRowView)}
+	{row.label}{#if row.opponent}{SEPARATOR}<TeamMark
+			part="label"
+			team={row.opponent.team}
+			versus={row.opponent.isHome ? 'home' : 'away'}
+		/>{/if}
+{/snippet}
+
 <div class="scroll">
 	<div class="table" role="table">
 		<div class="row head" role="row" style:grid-template-columns={template}>
@@ -36,9 +47,9 @@
 			<div class="row body" class:linked role="row" style:grid-template-columns={template}>
 				<span class="cell first" class:accent={row.accent} role="rowheader">
 					{#if row.link?.linked}
-						<a class="label" href={gameHref(row.link.gameId)}>{row.label}</a>
+						<a class="label" href={gameHref(row.link.gameId)}>{@render label(row)}</a>
 					{:else}
-						<span class="label">{row.label}</span>
+						<span class="label">{@render label(row)}</span>
 					{/if}
 					{#if row.sub}<span class="sub">{row.sub}</span>{/if}
 				</span>

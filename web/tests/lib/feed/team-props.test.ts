@@ -15,6 +15,7 @@
 // - The injuries line with a missing number or position
 // - The schedule: group labels, default group, played and upcoming rows, the next row, links,
 //   every game tag; a null schedule
+// - The opponent of the next game and of a schedule row as a team and a side, for a league team and for a guest without a code
 // - Spanish copy
 //
 // What is covered:
@@ -36,6 +37,8 @@ const feed = (): TeamFeed =>
 	JSON.parse(readFileSync(join(__dirname, 'fixtures', 'team.json'), 'utf8')) as TeamFeed;
 
 const view = (source: TeamFeed = feed()): TeamView => toTeamView(source);
+const league = (code: string) => ({ code, name: null, city: null, guest: false });
+const mariners = { code: null, name: 'Mariners', city: 'Harbor City', guest: true };
 
 afterEach(() => {
 	vi.restoreAllMocks();
@@ -173,7 +176,7 @@ describe('toTeamView overview', () => {
 			linked: false,
 			tag: 'NBA Cup',
 			date: 'Wednesday, October 7',
-			opponent: '@ DEN',
+			opponent: { team: league('DEN'), isHome: false },
 			place: 'Ball Arena · Denver, CO',
 			time: '7:30 PM ET · Courtside TV'
 		});
@@ -193,7 +196,7 @@ describe('toTeamView overview', () => {
 		expect(view(source).sections.overview.nextGame).toMatchObject({
 			linked: true,
 			tag: null,
-			opponent: 'vs DEN',
+			opponent: { team: league('DEN'), isHome: true },
 			place: 'Ball Arena',
 			time: '7:30 PM ET'
 		});
@@ -399,7 +402,7 @@ describe('toTeamView schedule', () => {
 			linked: true,
 			weekday: 'Thu',
 			date: 'Oct 23',
-			opponent: 'vs HOU',
+			opponent: { team: league('HOU'), isHome: true },
 			tags: [],
 			next: false,
 			outcome: {
@@ -416,7 +419,7 @@ describe('toTeamView schedule', () => {
 		const rows = view().sections.schedule?.groups[1]?.rows ?? [];
 		expect(rows[0]).toMatchObject({
 			linked: false,
-			opponent: '@ DEN',
+			opponent: { team: league('DEN'), isHome: false },
 			outcome: { kind: 'played', result: 'loss', resultLabel: 'L', score: '99–104', side: 'Away' }
 		});
 		expect(rows[1]?.outcome).toEqual({
@@ -505,5 +508,19 @@ describe('toTeamView in Spanish', () => {
 		expect(gameTagLabel({ kind: 'cup', conference: null, round: null, game: null })).toBe(
 			'Copa NBA'
 		);
+	});
+});
+
+describe('toTeamView with a guest opponent without a code', () => {
+	it('keeps the guest as the opponent of the next game and of a schedule row', () => {
+		const source = feed();
+		source.nextGame!.opponent = mariners;
+		source.schedule!.groups[0]!.games[0]!.opponent = mariners;
+		const v = view(source);
+		expect(v.sections.overview.nextGame?.opponent).toEqual({ team: mariners, isHome: false });
+		expect(v.sections.schedule?.groups[0]?.rows[0]?.opponent).toEqual({
+			team: mariners,
+			isHome: true
+		});
 	});
 });

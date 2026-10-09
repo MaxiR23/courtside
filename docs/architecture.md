@@ -90,6 +90,7 @@ that migrates a database at the previous version with rows in it.
 - A static SvelteKit build. No server-side rendering is required to view the site.
 - The game detail page lives at `/game/{id}` and is rendered in the browser from a fallback page, because game ids are not known at build time. Recorded in [`adr/0020-source-rules.md`](adr/0020-source-rules.md), first set by ADR 0019.
 - Svelte 5 runes only. Syntax from earlier Svelte versions is not used.
+- Every game side or opponent that can be a guest is drawn by `TeamMark`, as a tile, a label or a name, and a guest is never a link. Recorded in [`adr/0026-one-guest-team-rule.md`](adr/0026-one-guest-team-rule.md).
 - The front end fetches feeds and polls them while the page is open. Polling pauses while the tab is hidden.
 - Motion uses Svelte's built-in transitions, the Web Animations API and, for simple looping opacity effects such as the live win probability marker pulse, scoped CSS animations whose values come from tokens. No animation library.
 - Every user-facing string lives in the translation messages (`web/messages/en.json`, `web/messages/es.json`), compiled by Paraglide JS. English is the base; Spanish is shown when the browser prefers it. The language never appears in the URL. Dates and numbers are formatted with the browser's `Intl` for the active language.
@@ -139,7 +140,7 @@ api/app/settings.py        Settings class and get_settings()
 api/app/log.py             Logging, configured once at startup
 api/app/storage/           Job state (SQLite, with its migrations) and feed publication
 api/app/routers/           One APIRouter per module
-api/app/feeds/             One module per feed model, plus schema.py, which exports the schemas
+api/app/feeds/             One module per feed model, plus schema.py (exports the schemas), base.py (the base model and shared field types) and opponent.py (the shared side and opponent model)
 api/app/sources/           One module per data source adapter, plus http.py (shared client and SourceError) and teams.py (team codes)
 api/app/jobs/              One module per job, plus scheduler.py (the in-process scheduler), on_demand.py (the on-demand feed cache), presence.py (rule B), game_detail_feed.py (the game detail feed kind), team_feed.py (the team feed builder and kind), player_feed.py (the player feed builder and kind), standings_feed.py (the standings feed builder and kind) and search_feed.py (the search feed builder and kind)
 api/data/                  Data directory (default), never committed
@@ -266,7 +267,11 @@ Recorded in [`adr/0024-search-feed.md`](adr/0024-search-feed.md):
 
 Recorded in [`adr/0025-guest-teams.md`](adr/0025-guest-teams.md):
 
-- **Guest teams**: a game side outside the 30 is a guest team with the source's code, name and city and `guest: true`. It has no star, record, standing, injuries or last games, its game has no season series, and its names are never links. Stars come only from league sides, and the hero never shows a game with a guest side.
+- **Guest teams**: a game side outside the 30 is a guest team with the source's code when it sends one ([ADR 0026](adr/0026-one-guest-team-rule.md)), its name and city and `guest: true`. It has no star, record, standing, injuries or last games, its game has no season series, and its names are never links. Stars come only from league sides, and the hero never shows a game with a guest side.
+
+Recorded in [`adr/0026-one-guest-team-rule.md`](adr/0026-one-guest-team-rule.md):
+
+- **One guest team rule**: a guest code is optional in every feed contract, and `Opponent` is the one model of a game side or an opponent. A provider team is resolved by abbreviation, then by team id, then as a guest without a code; a side with neither a code nor a name is skipped with its game. A side reference (`winner`, stat leaders, the win probability leader) is `away` or `home`. The game log keeps preseason games, with a Preseason tab, and the last five games leave them out; averages and milestones do not change. Adapters validate only the events they use. `TeamMark` draws every side or opponent that can be a guest, and a guest tile without a code shows the initials of its display name.
 
 ## Future
 

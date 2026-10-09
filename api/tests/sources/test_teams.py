@@ -10,6 +10,8 @@
 # - A guest code equal to a league standard code raises the source error
 # - Every recorded provider team id maps to its team's standard code
 # - An unknown provider team id raises the source error
+# - A provider team resolves by abbreviation, else by id, else it is a guest without a code
+# - An opponent has neither a code nor a name only when it is skipped (None); an empty abbreviation is absent
 #
 # What is covered:
 # - Happy path for all 30 teams, edge case of the codes that differ, error case of an unknown code
@@ -26,7 +28,9 @@ from app.sources.http import SourceError
 from app.sources.teams import (
     TEAM_CODES,
     TEAM_IDS,
+    side_of,
     team_code_of_id,
+    to_opponent,
     to_side,
     to_team_code,
 )
@@ -122,3 +126,59 @@ def test_to_side_raises_the_source_error_for_a_non_key_equal_to_a_league_code() 
         to_side("GSW", source="test")
 
     assert raised.value.reason == "guest team code 'GSW' is a league team code"
+
+
+def test_a_side_resolves_by_its_abbreviation() -> None:
+    assert side_of("GS", "9", source="test") == ("GSW", False)
+    assert side_of("HCM", "90001", source="test") == ("HCM", True)
+
+
+def test_a_side_without_an_abbreviation_resolves_by_its_team_id() -> None:
+    assert side_of(None, "9", source="test") == ("GSW", False)
+    assert side_of("", "26", source="test") == ("UTA", False)
+
+
+def test_a_side_without_an_abbreviation_or_a_league_id_is_a_guest_without_a_code() -> (
+    None
+):
+    assert side_of(None, "90001", source="test") == (None, True)
+    assert side_of(None, None, source="test") == (None, True)
+
+
+def test_a_side_rejects_a_guest_abbreviation_equal_to_a_league_code() -> None:
+    with pytest.raises(SourceError, match="is a league team code"):
+        side_of("GSW", None, source="test")
+
+
+def test_an_opponent_carries_the_code_name_and_city_of_the_team() -> None:
+    assert to_opponent("HCM", "90001", "Mariners", "Harbor City", source="test") == {
+        "code": "HCM",
+        "name": "Mariners",
+        "city": "Harbor City",
+        "guest": True,
+    }
+
+
+def test_an_opponent_of_a_league_team_may_have_no_name_or_city() -> None:
+    assert to_opponent("DEN", None, None, None, source="test") == {
+        "code": "DEN",
+        "name": None,
+        "city": None,
+        "guest": False,
+    }
+
+
+def test_a_guest_opponent_without_a_code_keeps_its_name() -> None:
+    opponent = to_opponent(None, "90001", "Mariners", "Harbor City", source="test")
+
+    assert opponent == {
+        "code": None,
+        "name": "Mariners",
+        "city": "Harbor City",
+        "guest": True,
+    }
+
+
+def test_an_opponent_with_neither_a_code_nor_a_name_is_none() -> None:
+    assert to_opponent(None, "90001", None, "Harbor City", source="test") is None
+    assert to_opponent("", None, "", None, source="test") is None

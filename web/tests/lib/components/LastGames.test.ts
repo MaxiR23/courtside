@@ -8,6 +8,7 @@
 // - Rows with result, date, opponent and score, in the given order
 // - A team with fewer than five games and a team with none (empty line, English and Spanish)
 // - Only the league side renders when a side is null
+// - The opponent is a guest without a code: its name shows, as plain text
 //
 // What is covered:
 // - Each state
@@ -24,6 +25,15 @@ import type { LastGamesSection } from '../../../src/lib/game/types';
 import { preferLanguages } from '../../prefer-languages';
 import LastGames from '../../../src/lib/components/LastGames.svelte';
 
+const home = (code: string) => ({
+	team: { code, name: null, city: null, guest: false },
+	isHome: true
+});
+const away = (code: string) => ({
+	team: { code, name: null, city: null, guest: false },
+	isHome: false
+});
+
 const lastGames: LastGamesSection = {
 	away: {
 		code: 'GSW',
@@ -34,9 +44,9 @@ const lastGames: LastGamesSection = {
 			{ result: 'win', label: 'W' }
 		],
 		rows: [
-			{ result: 'win', resultLabel: 'W', date: 'Oct 5', opponent: 'vs DEN', score: '118–104' },
-			{ result: 'win', resultLabel: 'W', date: 'Oct 3', opponent: '@ PHX', score: '110–99' },
-			{ result: 'loss', resultLabel: 'L', date: 'Oct 1', opponent: 'vs SAC', score: '100–101' }
+			{ result: 'win', resultLabel: 'W', date: 'Oct 5', opponent: home('DEN'), score: '118–104' },
+			{ result: 'win', resultLabel: 'W', date: 'Oct 3', opponent: away('PHX'), score: '110–99' },
+			{ result: 'loss', resultLabel: 'L', date: 'Oct 1', opponent: home('SAC'), score: '100–101' }
 		]
 	},
 	home: { code: 'LAL', name: 'Lakers', strip: [], rows: [] }
@@ -114,5 +124,24 @@ describe('LastGames with a guest team', () => {
 			props: { lastGames: { away: null, home: lastGames.away }, teamHref }
 		});
 		expect([...container.querySelectorAll('h3')].map((h) => h.textContent)).toEqual(['Warriors']);
+	});
+});
+
+describe('LastGames against a guest without a code', () => {
+	it('shows the name of the guest opponent as plain text', () => {
+		const guest = {
+			team: { code: null, name: 'Mariners', city: 'Harbor City', guest: true },
+			isHome: false
+		};
+		const section: LastGamesSection = {
+			away: {
+				...lastGames.away!,
+				rows: [{ ...lastGames.away!.rows[0], opponent: guest }]
+			},
+			home: null
+		};
+		render(LastGames, { props: { lastGames: section, teamHref } });
+		expect(screen.getByText('@ Mariners')).toBeTruthy();
+		expect(screen.queryByRole('link', { name: /Mariners/ })).toBeNull();
 	});
 });

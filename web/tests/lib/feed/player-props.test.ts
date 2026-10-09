@@ -10,7 +10,8 @@
 // - The last 5 rows: result, date, opponent, score, tag, points line and links
 // - The averages: season sub-lines, a null row, the Career accent, formatting
 // - Season by season: columns, combined teams, the Career row, playoffs, made–attempted
-// - The milestones, the game log filters and rows, the awards
+// - The milestones, the game log filters and rows (with the opponent drawn after the date, and a Preseason filter listed last), the awards
+// - The opponent as a team and a side: the next game, the live card, the last 5 rows and the game log, for a league team and for a guest without a code
 // - Spanish copy
 //
 // What is covered:
@@ -57,11 +58,14 @@ const LINE = {
 	photoUrl: 'https://example.com/players/p-2.png'
 };
 
+const league = (code: string) => ({ code, name: null, city: null, guest: false });
+const mariners = { code: null, name: 'Mariners', city: 'Harbor City', guest: true };
+
 const liveFeed = (period = 3, line: typeof LINE | null = LINE): PlayerFeed => {
 	const source = feed();
 	source.live = {
 		gameId: 'g-live',
-		opponent: 'DEN',
+		opponent: { code: 'DEN', name: null, city: null, guest: false },
 		isHome: false,
 		period,
 		clock: '4:12',
@@ -248,7 +252,7 @@ describe('toPlayerView next game and live', () => {
 		expect(nextGame).toMatchObject({
 			gameId: 'g-6',
 			linked: false,
-			opponent: 'vs DEN',
+			opponent: { team: league('DEN'), isHome: true },
 			time: '7:30 PM ET · Courtside TV'
 		});
 	});
@@ -269,7 +273,7 @@ describe('toPlayerView next game and live', () => {
 		const { live } = view(liveFeed()).sections.profile;
 		expect(live).toEqual({
 			gameId: 'g-live',
-			opponent: '@ DEN',
+			opponent: { team: league('DEN'), isHome: false },
 			score: '78–74',
 			clock: 'Q3 · 4:12',
 			line: [
@@ -301,13 +305,17 @@ describe('toPlayerView last games', () => {
 			result: 'win',
 			resultLabel: 'W',
 			date: 'Apr 29',
-			opponent: '@ MEM',
+			opponent: { team: league('MEM'), isHome: false },
 			score: '118–104',
 			tag: 'West R1 · G4',
 			points: '31',
 			line: '8 REB · 6 AST'
 		});
-		expect(recent[1]).toMatchObject({ result: 'loss', resultLabel: 'L', opponent: 'vs MEM' });
+		expect(recent[1]).toMatchObject({
+			result: 'loss',
+			resultLabel: 'L',
+			opponent: { team: league('MEM'), isHome: true }
+		});
 		expect(recent[1]?.linked).toBe(false);
 		expect(recent[2]?.tag).toBeNull();
 		expect(recent[4]?.tag).toBe('NBA Cup');
@@ -454,24 +462,46 @@ describe('toPlayerView game log', () => {
 		const log = view().sections.gameLog;
 		expect(log?.meta).toBe('2025-26');
 		expect(log?.filters.map((f) => [f.id, f.label, f.rows.length])).toEqual([
-			['all', 'All', 6],
+			['all', 'All', 7],
 			['regular', 'Regular season', 3],
 			['cup', 'NBA Cup', 1],
-			['playoffs', 'Playoffs', 2]
+			['playoffs', 'Playoffs', 2],
+			['preseason', 'Preseason', 1]
 		]);
+	});
+
+	it('lists a Preseason filter last with exactly the preseason entries, and All includes them', () => {
+		const filters = view().sections.gameLog?.filters ?? [];
+		expect(filters.at(-1)?.id).toBe('preseason');
+		expect(filters.at(-1)?.rows.map((r) => r.key)).toEqual(['g-pre']);
+		expect(filters[0]?.rows.map((r) => r.key)).toContain('g-pre');
+	});
+
+	it('draws a preseason game against a guest without a code', () => {
+		const row = view().sections.gameLog?.filters.at(-1)?.rows[0];
+		expect(row?.opponent).toEqual({ team: mariners, isHome: true });
+		expect(row?.label).toBe('Oct 18');
+	});
+
+	it('does not list a Preseason filter without preseason entries', () => {
+		const source = feed();
+		source.gameLog!.entries = source.gameLog!.entries.filter((e) => e.kind !== 'preseason');
+		const ids = view(source).sections.gameLog?.filters.map((f) => f.id);
+		expect(ids).not.toContain('preseason');
 	});
 
 	it('does not list a filter without rows', () => {
 		const source = feed();
 		source.gameLog!.entries = source.gameLog!.entries.filter((e) => e.kind !== 'playoffs');
 		const ids = view(source).sections.gameLog?.filters.map((f) => f.id);
-		expect(ids).toEqual(['all', 'regular', 'cup']);
+		expect(ids).toEqual(['all', 'regular', 'cup', 'preseason']);
 	});
 
 	it('builds the row header, tag line, result cell and links', () => {
 		const rows = view().sections.gameLog?.filters[0]?.rows;
 		expect(rows?.[0]).toMatchObject({
-			label: 'Apr 29 · @ MEM',
+			label: 'Apr 29',
+			opponent: { team: league('MEM'), isHome: false },
 			sub: 'West R1 · G4',
 			link: { gameId: 'g-5', linked: true }
 		});
@@ -483,6 +513,7 @@ describe('toPlayerView game log', () => {
 	it('shows the date alone for the All-Star game, with its tag', () => {
 		const row = view().sections.gameLog?.filters[0]?.rows.find((r) => r.key === 'g-as');
 		expect(row?.label).toBe('Feb 15');
+		expect(row?.opponent).toBeNull();
 		expect(row?.sub).toBe('All-Star');
 	});
 

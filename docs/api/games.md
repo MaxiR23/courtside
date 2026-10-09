@@ -47,7 +47,7 @@ Conventions:
 | `clock`               | string / null          | Game clock                                                       | required when `live`            |
 | `lineScore`           | `LineScore` / null     | Points per period for each team                                  | required when `live` or `final` |
 | `score`               | `Score` / null         | Current or final points                                          | required when `live` or `final` |
-| `winner`              | team code / null       | Code of the winning team: the away or the home team, a guest code included | required when `final`, null otherwise |
+| `winner`              | `away` / `home` / null | The side with more points; a side, not a code, so a guest without a code can win | required when `final`, null otherwise |
 | `leaders`             | `Leaders` / null       | Top scorer of each team                                          | required when `live`; when `final`, set when `statsAvailability` is `available`, null otherwise |
 | `teamStats`           | `GameTeamStats` / null | Team statistics                                                  | required when `live`; when `final`, set when `statsAvailability` is `available`, null otherwise |
 | `statsAvailability`   | `StatsAvailability` / null | `available`, `pending`, `unavailable`                        | required when `final`, null otherwise |
@@ -64,9 +64,10 @@ and `highlightsSearchUrl`; any other status has `winner` and
 | Object      | Fields                                                                                                      |
 | ----------- | ----------------------------------------------------------------------------------------------------------- |
 | `Team`      | `code` (three capital letters), `name`, `city`                                                              |
-| `GameTeam`  | `Team` fields plus `guest`; a league code is three capital letters, a guest code any non-empty string |
+| `Opponent`  | `code` (null for a guest without one), `name`, `city` (null when the source sends none), `guest`; a league code is three capital letters, a guest code any non-empty string, and a guest has a code or a name |
+| `GameTeam`  | `Opponent` with a required `name` and `city` |
 | `Player`    | `playerId`, `firstName`, `lastName`, `teamCode`, `photoUrl`                                                 |
-| `Leader`    | `playerId`, `displayName` (as the source gives it), `teamCode`, `photoUrl`, `points`, `rebounds`, `assists`; `photoUrl` is null only for a guest player without a headshot |
+| `Leader`    | `playerId`, `displayName` (as the source gives it), `teamCode` (null for a guest without a code), `photoUrl`, `points`, `rebounds`, `assists`; `photoUrl` is null only for a guest player without a headshot |
 | `Star`      | `Player` fields plus `shortName`                                                                            |
 | `TeamStats` | `fieldGoalPct`, `threePointPct` (0 to 1), `rebounds`, `assists`, `turnovers`                                |
 | `Highlight` | `title`, `channel`, `thumbnailUrl`, `embedUrl`                                                              |
@@ -78,7 +79,10 @@ and `highlightsSearchUrl`; any other status has `winner` and
 Rules that live in the code:
 
 - A guest side is a team outside the 30 ([ADR 0025](../adr/0025-guest-teams.md)):
-  `guest` is true and its code is the source's own. It has no star, so
+  `guest` is true and its code is the source's own, null when the source sends
+  none ([ADR 0026](../adr/0026-one-guest-team-rule.md)). A side with neither a
+  code nor a name is not a team: the adapter skips its game and the feed
+  publishes the others. It has no star, so
   `stars` is null exactly on a guest side, and its leader may have no photo.
   Its names are not links on the front end, and a game with a guest side is
   never in the hero.
@@ -96,8 +100,8 @@ Rules that live in the code:
   individual request moves on to the next step. A team that no step picks
   keeps its last known star
   ([ADR 0014](../adr/0014-star-guarantees.md)).
-- `winner` is set by the games job from the final score: the team with more
-  points. A final game whose score is tied has no winner, so the feed is
+- `winner` is set by the games job from the final score: the side with more
+  points, `away` or `home`. A final game whose score is tied has no winner, so the feed is
   invalid and the previous one stays published.
 - `statsAvailability` is set by the games job for a final game: `available`
   when it holds the game's detail, `unavailable` when no detail is held and

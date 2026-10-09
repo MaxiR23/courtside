@@ -53,7 +53,7 @@ const liveFeed = (): PlayerFeed => {
 	const source = feed();
 	source.live = {
 		gameId: 'g-live',
-		opponent: 'DEN',
+		opponent: { code: 'DEN', name: null, city: null, guest: false },
 		isHome: false,
 		period: 3,
 		clock: '4:12',

@@ -5,7 +5,7 @@
 // Tested:
 // - A live game: live layout, "Q3 · 4:12 · {arena}", the score, the mini score
 // - Period and clock pass through as the feed sends them, including 0:00; OT1 and OT2
-// - A final game: "Final · {date} · {arena}", the loser from the feed winner
+// - A final game: "Final · {date} · {arena}", the loser from the feed winner side
 // - A scheduled game: pre-game layout, tip time, broadcast and venue strip; delayed, postponed
 //   and canceled variants
 // - A venue without a city: no city in the strip and no sub-line under the Venue cell
@@ -20,6 +20,7 @@
 //   loser, videos; null with their tab; the date shown in UTC
 //   (the current series row comes from the feed marker, not from the date or the position)
 // - A guest game: the header guest has a null record and the guest flag; line score and box rows carry the flag; players, injuries, last games and standings have a null guest side; the last games tab shows with only the league side; the season series and win probability tabs are hidden when null
+// - A guest game without a code: a null code on the header, mini score, line score, win probability and box score teams; the guest named by its name in the win probability meta; stat leads and the loser from the feed sides
 // - Spanish copy and dates for an es browser
 // - A live game without its score cannot be shown
 //
@@ -53,7 +54,7 @@ function view(source: GameDetailFeed, opts = options): GameView {
 }
 
 function asFinal(source: GameDetailFeed): GameDetailFeed {
-	return { ...source, status: 'final', period: null, clock: null, winner: 'LAL' };
+	return { ...source, status: 'final', period: null, clock: null, winner: 'away' };
 }
 
 function asStatus(status: GameDetailFeed['status']): GameDetailFeed {
@@ -71,6 +72,7 @@ function asStatus(status: GameDetailFeed['status']): GameDetailFeed {
 }
 
 const ids = (v: GameView) => v.tabs.map((tab) => tab.id);
+const league = (code: string) => ({ code, name: null, city: null, guest: false });
 
 afterEach(() => {
 	vi.restoreAllMocks();
@@ -111,7 +113,7 @@ describe('toGameView', () => {
 			text: 'Final · Wednesday, October 7 · Chase Center'
 		});
 		expect(v.header.center).toEqual({ kind: 'score', away: 63, home: 62, loser: 'home' });
-		expect(view({ ...asFinal(feed()), winner: 'GSW' }).header.center).toMatchObject({
+		expect(view({ ...asFinal(feed()), winner: 'home' }).header.center).toMatchObject({
 			loser: 'away'
 		});
 	});
@@ -175,7 +177,8 @@ describe('toGameView', () => {
 			code: 'LAL',
 			name: 'Lakers',
 			city: 'Los Angeles',
-			record: '12–5'
+			record: '12–5',
+			guest: false
 		});
 		expect(v.header.home.record).toBe('10–7');
 	});
@@ -231,7 +234,13 @@ describe('toGameView', () => {
 	});
 
 	it('shows the mini score on live and final games only', () => {
-		const expected = { awayCode: 'LAL', away: 63, home: 62, homeCode: 'GSW' };
+		const team = (code: string) => ({
+			code,
+			name: expect.any(String),
+			city: expect.any(String),
+			guest: false
+		});
+		const expected = { awayTeam: team('LAL'), away: 63, home: 62, homeTeam: team('GSW') };
 		expect(view(feed()).miniScore).toEqual(expected);
 		expect(view(asFinal(feed())).miniScore).toEqual(expected);
 		expect(view(asStatus('scheduled')).miniScore).toBeNull();
@@ -265,18 +274,17 @@ describe('toGameView sections', () => {
 		const { sections } = view(feed());
 		expect(sections.highlights).toBeNull();
 		expect(sections.score?.lineScore.away).toEqual({
-			code: 'LAL',
-			name: 'Lakers',
+			team: { code: 'LAL', name: 'Lakers', city: 'Los Angeles', guest: false },
 			periods: [28, 25, 10],
 			total: 63
 		});
 		expect(sections.score?.lineScore.home.total).toBe(62);
 		expect(sections.score?.stats?.away.freeThrowPct).toBe(0.8);
-		expect(sections.winProbability?.awayCode).toBe('LAL');
-		expect(sections.winProbability?.homeCode).toBe('GSW');
+		expect(sections.winProbability?.away.code).toBe('LAL');
+		expect(sections.winProbability?.home.code).toBe('GSW');
 		expect(sections.winProbability?.middle).toBe('50%');
-		expect(sections.boxScore?.away.code).toBe('LAL');
-		expect(sections.boxScore?.home.name).toBe('Warriors');
+		expect(sections.boxScore?.away.team.code).toBe('LAL');
+		expect(sections.boxScore?.home.team.name).toBe('Warriors');
 	});
 
 	it('gives each section a null when its tab is hidden', () => {
@@ -324,14 +332,14 @@ describe('toGameView sections', () => {
 	});
 
 	it('reads the win probability meta from the feed leader: its code and percentage', () => {
-		const withLeader = (teamCode: string, winProbability: number) =>
+		const withLeader = (side: 'away' | 'home', winProbability: number) =>
 			view({
 				...feed(),
 				winProbability: [{ elapsedSeconds: 60, homeWinProbability: 0.1 }],
-				winProbabilityLeader: { teamCode, winProbability }
+				winProbabilityLeader: { side, winProbability }
 			}).sections.winProbability?.meta;
-		expect(withLeader('GSW', 0.68)).toBe('GSW 68%');
-		expect(withLeader('LAL', 0.75)).toBe('LAL 75%');
+		expect(withLeader('home', 0.68)).toBe('GSW 68%');
+		expect(withLeader('away', 0.75)).toBe('LAL 75%');
 	});
 
 	it('reads "Even" as the win probability meta with no leader', () => {
@@ -535,11 +543,14 @@ describe('toGameView pre-game sections', () => {
 			result: 'win',
 			resultLabel: 'W',
 			date: 'Oct 5',
-			opponent: 'vs DEN',
+			opponent: { team: league('DEN'), isHome: true },
 			score: '110–102'
 		});
-		expect(lastGames?.away?.rows[1]).toMatchObject({ opponent: '@ PHX', score: '99–104' });
-		expect(lastGames?.home?.rows[0].opponent).toBe('@ SAC');
+		expect(lastGames?.away?.rows[1]).toMatchObject({
+			opponent: { team: league('PHX'), isHome: false },
+			score: '99–104'
+		});
+		expect(lastGames?.home?.rows[0].opponent).toEqual({ team: league('SAC'), isHome: false });
 	});
 
 	it('shows the last-games tab and section when the feed has lastGames with at least one game', () => {
@@ -572,7 +583,7 @@ describe('toGameView pre-game sections', () => {
 			away: [
 				{
 					date: '2026-01-01',
-					opponent: 'DEN',
+					opponent: { code: 'DEN', name: null, city: null, guest: false },
 					isHome: true,
 					result: 'win',
 					teamScore: 100,
@@ -765,9 +776,12 @@ describe('toGameView pre-game sections', () => {
 		const { sections } = view(pre());
 		expect(sections.lastGames?.away?.rows[0]).toMatchObject({
 			resultLabel: 'G',
-			opponent: 'vs DEN'
+			opponent: { team: league('DEN'), isHome: true }
 		});
-		expect(sections.lastGames?.away?.rows[1].opponent).toBe('@ PHX');
+		expect(sections.lastGames?.away?.rows[1].opponent).toEqual({
+			team: league('PHX'),
+			isHome: false
+		});
 		expect(sections.seasonSeries?.summary).toBe('LAL lidera 1–0');
 		expect(sections.seasonSeries?.meta).toBe('1 de 3 partidos jugados');
 		expect(sections.seasonSeries?.games[1].date).toBe('Este partido');
@@ -783,10 +797,6 @@ describe('toGameView with a guest team', () => {
 			record: null,
 			guest: true
 		};
-		const leaders = { ...source.teamStats!.leaders };
-		for (const [key, code] of Object.entries(leaders)) {
-			if (code === 'LAL') leaders[key as keyof typeof leaders] = 'HCM';
-		}
 		return {
 			...source,
 			away: guest,
@@ -798,7 +808,7 @@ describe('toGameView with a guest team', () => {
 					players: source.boxScore!.away.players.map((p) => ({ ...p, photoUrl: null }))
 				}
 			},
-			teamStats: { ...source.teamStats!, leaders },
+			teamStats: source.teamStats,
 			winProbability: null,
 			winProbabilityLeader: null,
 			winProbabilityPeriods: null,
@@ -832,17 +842,17 @@ describe('toGameView with a guest team', () => {
 			guest: true
 		});
 		expect(header.home.record).toBe('10–7');
-		expect(header.home.guest).toBeUndefined();
+		expect(header.home.guest).toBe(false);
 	});
 
 	it('maps a feed without the guest key as league teams', () => {
-		expect(view(feed()).header.away.guest).toBeUndefined();
+		expect(view(feed()).header.away.guest).toBe(false);
 	});
 
 	it('marks the guest side of the line score and its box rows', () => {
 		const { sections } = view(guestFeed(feed()));
-		expect(sections.score?.lineScore.away.guest).toBe(true);
-		expect(sections.score?.lineScore.home.guest).toBeUndefined();
+		expect(sections.score?.lineScore.away.team.guest).toBe(true);
+		expect(sections.score?.lineScore.home.team.guest).toBe(false);
 		const away = sections.boxScore!.away;
 		expect([...away.starters, ...away.bench].every((row) => row.guest === true)).toBe(true);
 		const home = sections.boxScore!.home;
@@ -880,5 +890,50 @@ describe('toGameView with a guest team', () => {
 		expect(ids(view(final))).not.toContain('win-probability');
 		expect(view(final).sections.seasonSeries).toBeNull();
 		expect(view(final).sections.winProbability).toBeNull();
+	});
+});
+
+describe('toGameView with a guest team without a code', () => {
+	const mariners = { code: null, name: 'Mariners', city: 'Harbor City', guest: true };
+
+	function codeless(source: GameDetailFeed): GameDetailFeed {
+		return {
+			...source,
+			away: { ...mariners, record: null },
+			stars: { away: null, home: source.stars!.home },
+			winProbabilityLeader: { side: 'away', winProbability: 0.75 },
+			winProbability: [{ elapsedSeconds: 60, homeWinProbability: 0.25 }],
+			injuries: { away: null, home: source.injuries!.home },
+			lastGames: { away: null, home: source.lastGames!.home },
+			standings: { away: null, home: source.standings!.home },
+			seasonSeries: null
+		};
+	}
+
+	it('keeps a null code on the guest side of the header, mini score, line score, win probability and box score', () => {
+		const v = view(codeless(feed()));
+		expect(v.header.away).toMatchObject({ code: null, name: 'Mariners', guest: true });
+		expect(v.miniScore?.awayTeam).toEqual({ ...mariners });
+		expect(v.sections.score?.lineScore.away.team).toEqual({ ...mariners });
+		expect(v.sections.winProbability?.away).toEqual({ ...mariners });
+		expect(v.sections.boxScore?.away.team).toEqual({ ...mariners });
+	});
+
+	it('names the guest by its name in the win probability meta', () => {
+		const v = view(codeless(feed()));
+		expect(v.sections.winProbability?.meta).toBe('Mariners 75%');
+		expect(view(codeless(asFinal(feed()))).sections.winProbability?.meta).toBe('Mariners win');
+	});
+
+	it('takes the stat leads and the loser from the feed sides', () => {
+		const v = view(codeless({ ...asFinal(feed()), winner: 'home' }));
+		expect(v.header.center).toMatchObject({ loser: 'away' });
+		expect(v.sections.score?.stats?.leads.rebounds).toBe('away');
+	});
+
+	it('keeps the league sections of the league side with its code', () => {
+		const { sections } = view({ ...codeless(feed()), status: 'scheduled' } as GameDetailFeed);
+		expect(sections.injuries?.away).toBeNull();
+		expect(sections.standings?.home?.code).toBe('GSW');
 	});
 });

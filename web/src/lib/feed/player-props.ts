@@ -4,6 +4,7 @@ import type {
 	GameLogEntry,
 	InjuryStatus,
 	Milestones,
+	Opponent,
 	PlayerFeed,
 	PlayerLive,
 	Profile,
@@ -38,6 +39,7 @@ import type {
 	StatRowView,
 	StatTableView
 } from '#lib/player/types.ts';
+import { teamMark } from '#lib/team/mark.ts';
 
 const TIME_ZONE = 'America/New_York';
 const SEPARATOR = ' · ';
@@ -93,8 +95,10 @@ const range = (made: string, attempted: string) => `${made}–${attempted}`;
 
 const score = (team: number, opponent: number) => `${formatNumber(team)}–${formatNumber(opponent)}`;
 
-const versus = (isHome: boolean, team: string) =>
-	isHome ? m.game_last_game_home({ team }) : m.game_last_game_away({ team });
+const opponentOf = (game: { opponent: Opponent; isHome: boolean }) => ({
+	team: teamMark(game.opponent),
+	isHome: game.isHome
+});
 
 function initialAndLast(feed: PlayerFeed): string {
 	const initial = Array.from(feed.firstName)[0] ?? '';
@@ -216,7 +220,7 @@ function liveView(live: PlayerLive): LiveGameView {
 	const line = live.line;
 	return {
 		gameId: live.gameId,
-		opponent: versus(live.isHome, live.opponent),
+		opponent: opponentOf(live),
 		score: score(live.teamScore, live.opponentScore),
 		clock: periodText(live.period, live.clock),
 		line: line
@@ -235,8 +239,9 @@ function liveView(live: PlayerLive): LiveGameView {
 	};
 }
 
-const opponentLabel = (game: GameLogEntry): string =>
-	game.opponent === null ? m.team_tag_allstar() : versus(game.isHome, game.opponent);
+// null: the All-Star game, which has no opponent.
+const opponentView = (game: GameLogEntry) =>
+	game.opponent === null ? null : opponentOf({ opponent: game.opponent, isHome: game.isHome });
 
 function recentRow(game: GameLogEntry): RecentGameRow {
 	return {
@@ -245,7 +250,7 @@ function recentRow(game: GameLogEntry): RecentGameRow {
 		result: game.result,
 		resultLabel: game.result === 'win' ? m.game_last_game_win() : m.game_last_game_loss(),
 		date: feedDate(game.date, { month: 'short', day: 'numeric' }),
-		opponent: opponentLabel(game),
+		opponent: opponentView(game),
 		score: score(game.teamScore, game.opponentScore),
 		tag: game.tag ? gameTagLabel(game.tag) : null,
 		points: formatNumber(game.points),
@@ -460,9 +465,10 @@ function gameLogRow(game: GameLogEntry): StatRowView {
 	const date = feedDate(game.date, { month: 'short', day: 'numeric' });
 	return {
 		key: game.gameId,
-		label: game.opponent === null ? date : `${date}${SEPARATOR}${opponentLabel(game)}`,
+		label: date,
 		sub: game.tag ? gameTagLabel(game.tag) : null,
 		link: { gameId: game.gameId, linked: game.detailAvailable },
+		opponent: opponentView(game),
 		cells: [
 			{
 				mark: game.result === 'win' ? m.game_last_game_win() : m.game_last_game_loss(),
@@ -496,7 +502,8 @@ function gameLogSection(feed: PlayerFeed): GameLogSection | null {
 		{ id: 'all', label: m.player_filter_all(), rows: log.entries.map(gameLogRow) },
 		{ id: 'regular', label: m.player_regular_season(), rows: pick(['regular', 'cup']) },
 		{ id: 'cup', label: m.team_tag_cup(), rows: pick(['cup']) },
-		{ id: 'playoffs', label: m.team_schedule_playoffs(), rows: pick(['playoffs']) }
+		{ id: 'playoffs', label: m.team_schedule_playoffs(), rows: pick(['playoffs']) },
+		{ id: 'preseason', label: m.player_preseason(), rows: pick(['preseason']) }
 	];
 	return {
 		meta: log.season,

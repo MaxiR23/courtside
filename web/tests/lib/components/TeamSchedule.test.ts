@@ -9,6 +9,7 @@
 // - The next row has the next class and the Next tag
 // - A linked row is a link to the game and an unlinked row is not
 // - Played and upcoming right columns; the mobile class
+// - A guest opponent without a code reads with its name, as plain text
 //
 // What is covered:
 // - Each state the section shows, plus the chip interaction
@@ -27,7 +28,7 @@ const played = (gameId: string, linked: boolean): ScheduleRowView => ({
 	linked,
 	weekday: 'Thu',
 	date: 'Oct 23',
-	opponent: 'vs HOU',
+	opponent: { team: { code: 'HOU', name: null, city: null, guest: false }, isHome: true },
 	tags: [],
 	next: false,
 	outcome: { kind: 'played', result: 'win', resultLabel: 'W', score: '118–104', side: 'Home' }
@@ -38,7 +39,7 @@ const upcoming = (gameId: string, next: boolean, broadcast: string | null): Sche
 	linked: false,
 	weekday: 'Wed',
 	date: 'Nov 5',
-	opponent: '@ DEN',
+	opponent: { team: { code: 'DEN', name: null, city: null, guest: false }, isHome: false },
 	tags: next ? ['NBA Cup', 'Next'] : [],
 	next,
 	outcome: { kind: 'upcoming', time: '7:30 PM ET', broadcast }
@@ -155,5 +156,18 @@ describe('TeamSchedule rows', () => {
 		unmount();
 		const mobile = show(schedule, 'mobile');
 		expect(mobile.container.querySelector('.rows')?.classList.contains('mobile')).toBe(true);
+	});
+});
+
+describe('TeamSchedule with a guest opponent without a code', () => {
+	it('reads "@ Mariners" with no link', () => {
+		const guest = { code: null, name: 'Mariners', city: 'Harbor City', guest: true };
+		const row = { ...upcoming('g-guest', false, null), opponent: { team: guest, isHome: false } };
+		const { container } = show({
+			groups: [{ key: '2025-11', label: 'Nov', rows: [row] }],
+			defaultKey: '2025-11'
+		});
+		expect(screen.getByText('@ Mariners')).toBeTruthy();
+		expect(container.querySelector('.opponent a')).toBeNull();
 	});
 });

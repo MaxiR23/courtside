@@ -13,7 +13,7 @@
 # - Asks for the season the roster states and the one before, never one computed from the date
 # - Stores each team's star and serves it to a game of those two teams
 # - Serves no stars for a game whose team has no star yet
-# - A guest game has the league side's star and none for the guest, serves none when the league side has no star, never waits for a guest and never fetches a guest roster
+# - A guest game, with or without a code, has the league side's star and none for the guest, serves none when the league side has no star, never waits for a guest and never fetches a guest roster
 # - Loads the stored stars on start, before any fetch
 # - Fetches every team on the first run and not again before the next morning, then again at the morning time the next day
 # - Picks the star from the roster players' individual averages when no roster player is among the season leaders, for the season in use
@@ -1132,6 +1132,25 @@ async def test_stars_of_a_guest_game_has_the_league_star_and_none_for_the_guest(
     await job.run(NOON)
 
     stars = job.stars_of(a_guest_game("NYK"))
+
+    assert stars is not None
+    assert stars.away is None
+    assert stars.home is not None and stars.home.player_id == "NYK2"
+
+
+@pytest.mark.anyio
+async def test_stars_of_a_game_with_a_guest_without_a_code_has_no_star_for_the_guest(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    job = make_job(settings, store, sources)
+    await job.run(NOON)
+    codeless = a_guest_game("NYK").model_copy(
+        update={
+            "away": GameTeam(code=None, name="Mariners", city="Harbor City", guest=True)
+        }
+    )
+
+    stars = job.stars_of(codeless)
 
     assert stars is not None
     assert stars.away is None

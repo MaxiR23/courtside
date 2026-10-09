@@ -8,7 +8,7 @@ export type GameResult = 'win' | 'loss';
 export type PlayoffStatus = 'seed' | 'playin' | 'out';
 export type InjuryStatus = 'out' | 'doubtful' | 'questionable' | 'probable' | 'day-to-day';
 export type TagKind = 'cup' | 'playoffs' | 'allstar';
-export type GameKind = 'regular' | 'cup' | 'playoffs' | 'allstar';
+export type GameKind = 'regular' | 'cup' | 'playoffs' | 'allstar' | 'preseason';
 
 export interface TeamFeed {
 	code: string;
@@ -119,13 +119,22 @@ export interface TeamInjury {
 export interface NextGame {
 	gameId: string;
 	startTime: string;
-	opponent: string;
+	opponent: Opponent;
 	isHome: boolean;
 	tag: GameTag | null;
 	arena: string;
 	city: string | null;
 	broadcast: string | null;
 	detailAvailable: boolean;
+}
+/**
+ * A team a game is played against: a league team or a guest.
+ */
+export interface Opponent {
+	code: string | null;
+	name: string | null;
+	city: string | null;
+	guest: boolean;
 }
 export interface GameTag {
 	kind: TagKind;
@@ -150,7 +159,7 @@ export interface ScheduleGroup {
 export interface ScheduleGame {
 	gameId: string;
 	startTime: string;
-	opponent: string;
+	opponent: Opponent;
 	isHome: boolean;
 	kind: GameKind;
 	tag: GameTag | null;

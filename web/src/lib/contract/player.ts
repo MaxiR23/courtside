@@ -6,7 +6,7 @@
 export type InjuryStatus = 'out' | 'doubtful' | 'questionable' | 'probable' | 'day-to-day';
 export type TagKind = 'cup' | 'playoffs' | 'allstar';
 export type Conference = 'east' | 'west';
-export type GameKind = 'regular' | 'cup' | 'playoffs' | 'allstar';
+export type GameKind = 'regular' | 'cup' | 'playoffs' | 'allstar' | 'preseason';
 export type GameResult = 'win' | 'loss';
 
 export interface PlayerFeed {
@@ -95,13 +95,22 @@ export interface RankedPercentage {
 export interface NextGame {
 	gameId: string;
 	startTime: string;
-	opponent: string;
+	opponent: Opponent;
 	isHome: boolean;
 	tag: GameTag | null;
 	arena: string;
 	city: string | null;
 	broadcast: string | null;
 	detailAvailable: boolean;
+}
+/**
+ * A team a game is played against: a league team or a guest.
+ */
+export interface Opponent {
+	code: string | null;
+	name: string | null;
+	city: string | null;
+	guest: boolean;
 }
 export interface GameTag {
 	kind: TagKind;
@@ -111,7 +120,7 @@ export interface GameTag {
 }
 export interface PlayerLive {
 	gameId: string;
-	opponent: string;
+	opponent: Opponent;
 	isHome: boolean;
 	period: number;
 	clock: string;
@@ -145,7 +154,7 @@ export interface BoxScorePlayer {
 export interface GameLogEntry {
 	gameId: string;
 	date: string;
-	opponent: string | null;
+	opponent: Opponent | null;
 	isHome: boolean;
 	kind: GameKind;
 	tag: GameTag | null;

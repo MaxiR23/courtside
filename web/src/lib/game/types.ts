@@ -1,15 +1,15 @@
 // Props of the game detail page. Components get pre-formatted strings and never a contract type.
 import type { Side } from '#lib/schedule/stats.ts';
 import type { GameHighlights, PanelPlayer, TeamStatLine } from '#lib/schedule/types.ts';
+import type { TeamMarkTeam } from '#lib/team/mark.ts';
 
 export type GameLayout = 'pre-game' | 'live' | 'final';
 
-export type HeaderTeam = {
-	code: string; // three letters, monogram
+// A game side (ADR 0025, ADR 0026): the code is null for a guest without one.
+export type HeaderTeam = TeamMarkTeam & {
 	name: string; // e.g. "Warriors"
 	city: string; // e.g. "Golden State"
 	record: string | null; // "12–5", already formatted; null: a guest team has no record
-	guest?: boolean; // a team outside the league: no link (ADR 0025)
 };
 
 export type StatusLine =
@@ -64,15 +64,14 @@ export type SectionId =
 
 export type SectionTab = { id: SectionId; label: string };
 
-export type MiniScore = { awayCode: string; away: number; home: number; homeCode: string };
-
-export type LineScoreTeam = {
-	code: string;
-	name: string;
-	periods: number[];
-	total: number;
-	guest?: boolean;
+export type MiniScore = {
+	awayTeam: TeamMarkTeam;
+	away: number;
+	home: number;
+	homeTeam: TeamMarkTeam;
 };
+
+export type LineScoreTeam = { team: TeamMarkTeam; periods: number[]; total: number };
 
 export type DetailTeamStatLine = TeamStatLine & {
 	freeThrowPct: number;
@@ -87,8 +86,8 @@ export type ScoreSection = {
 };
 
 export type WinProbabilitySection = {
-	awayCode: string;
-	homeCode: string;
+	away: TeamMarkTeam;
+	home: TeamMarkTeam;
 	middle: string; // "50%", formatted
 	meta: string; // "GSW 68%", "Even" or "OKC win", formatted
 	points: { elapsedSeconds: number; homeWinProbability: number }[]; // at least one, feed order
@@ -124,8 +123,7 @@ export type BoxTotals = Omit<
 	freeThrowPct: string;
 };
 export type BoxScoreTeam = {
-	code: string;
-	name: string;
+	team: TeamMarkTeam;
 	starters: BoxRow[];
 	bench: BoxRow[];
 	totals: BoxTotals;
@@ -149,7 +147,7 @@ export type LastGameRow = {
 	result: 'win' | 'loss';
 	resultLabel: string; // "W", translated
 	date: string; // "Oct 5"
-	opponent: string; // "vs DEN" or "@ DEN"
+	opponent: { team: TeamMarkTeam; isHome: boolean }; // drawn "vs DEN" or "@ DEN"
 	score: string; // "118–104", the team's points first
 };
 export type LastGamesTeam = {

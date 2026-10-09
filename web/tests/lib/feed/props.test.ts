@@ -10,7 +10,8 @@
 // - Leaders (display name split), stats, highlights with autoplay, the hero chip's full team name
 // - A final game with pending or unavailable stats keeps its line score and highlights without leaders or stats
 // - A guest team (outside the league) is marked guest on its team view, has no player to watch, and has a leader marked guest with no photo; a feed without the guest key maps as league
-// - A game with a guest side is never a hero game; the league games stay
+// - A game with a guest side is never a hero game, with or without a code; the league games stay
+// - A guest side without a code maps to a team with a null code, and its leader to a team with a null code
 // - Minutes since the feed was generated, never negative
 // - Null network, no video platform name, no videos, a one-word display name
 // - A feed without seven days, and a live game without its fields or a final game without its winner or stats availability, cannot be shown
@@ -155,15 +156,15 @@ describe('toHomeView', () => {
 			state: 'final',
 			awayScore: 112,
 			homeScore: 104,
-			winner: 'DEN'
+			winner: 'away'
 		});
 		if (game.details?.kind !== 'played') throw new Error('Expected played details');
 		expect(game.details.periods).toEqual({ away: [30, 28, 26, 28], home: [24, 27, 25, 28] });
 		expect(game.details.leaders.away).toEqual({
 			firstName: 'Nikola',
 			lastName: 'Jokic',
-			teamCode: 'DEN',
 			photo: 'https://example.com/photos/DEN.png',
+			team: { code: 'DEN', name: 'Nuggets', city: 'Denver', guest: false },
 			points: 31,
 			rebounds: 7,
 			assists: 6
@@ -250,7 +251,7 @@ describe('toHomeView', () => {
 
 	it('passes the winner through on a final game won by the home team', () => {
 		const game = view().days[2].games.find((g) => g.id === 'g-final2');
-		expect(game?.status).toMatchObject({ state: 'final', winner: 'UTA' });
+		expect(game?.status).toMatchObject({ state: 'final', winner: 'home' });
 	});
 
 	it('returns null for a final game without its winner', () => {
@@ -342,7 +343,7 @@ describe('toHomeView with a guest team', () => {
 		scheduled.stars.away = null;
 		const final = games[2];
 		final.away = guest;
-		final.winner = 'HCM';
+		final.winner = 'away';
 		final.stars.away = null;
 		if (!final.leaders) throw new Error('fixture');
 		final.leaders.away = { ...final.leaders.away, teamCode: 'HCM', photoUrl: null };
@@ -352,13 +353,13 @@ describe('toHomeView with a guest team', () => {
 	it('marks a guest team and leaves a league team unmarked', () => {
 		const game = todayGame(view(withGuests()), 'g-sched');
 		expect(game.away).toEqual({ ...guest });
-		expect(game.home.guest).toBeUndefined();
+		expect(game.home.guest).toBe(false);
 	});
 
 	it('maps a feed without the guest key as league teams', () => {
 		const game = todayGame(view(), 'g-sched');
-		expect(game.away.guest).toBeUndefined();
-		expect(game.home.guest).toBeUndefined();
+		expect(game.away.guest).toBe(false);
+		expect(game.home.guest).toBe(false);
 	});
 
 	it('has no player to watch for the guest side and keeps the league side', () => {
@@ -371,18 +372,51 @@ describe('toHomeView with a guest team', () => {
 	it('marks a guest leader and keeps its null photo', () => {
 		const game = todayGame(view(withGuests()), 'g-final');
 		if (game.details?.kind !== 'played') throw new Error('Expected played details');
-		expect(game.details.leaders.away).toMatchObject({ teamCode: 'HCM', guest: true, photo: null });
-		expect(game.details.leaders.home.guest).toBeUndefined();
+		expect(game.details.leaders.away).toMatchObject({ team: guest, photo: null });
+		expect(game.details.leaders.home.team.guest).toBe(false);
 	});
 
 	it('passes a guest winner through', () => {
 		const game = todayGame(view(withGuests()), 'g-final');
-		expect(game.status).toMatchObject({ state: 'final', winner: 'HCM' });
+		expect(game.status).toMatchObject({ state: 'final', winner: 'away' });
 	});
 
 	it('never puts a game with a guest side in the hero and keeps the league games', () => {
 		const v = view(withGuests());
 		expect(v.heroGames.map((g) => g.id)).toEqual(['g-live', 'g-delayed']);
+		expect(v.days[3].games).toHaveLength(6);
+	});
+});
+
+describe('toHomeView with a guest team without a code', () => {
+	const codeless = { code: null, name: 'Mariners', city: 'Harbor City', guest: true };
+
+	function withCodelessGuest(): GamesFeed {
+		const source = feed();
+		const final = source.days[3].games[2];
+		final.away = codeless;
+		final.winner = 'away';
+		final.stars.away = null;
+		if (!final.leaders) throw new Error('fixture');
+		final.leaders.away = { ...final.leaders.away, teamCode: null, photoUrl: null };
+		return source;
+	}
+
+	it('maps the guest side to a team with a null code', () => {
+		const game = todayGame(view(withCodelessGuest()), 'g-final');
+		expect(game.away).toEqual({ ...codeless });
+		expect(game.status).toMatchObject({ state: 'final', winner: 'away' });
+	});
+
+	it('maps the leader of the guest to its team with a null code', () => {
+		const game = todayGame(view(withCodelessGuest()), 'g-final');
+		if (game.details?.kind !== 'played') throw new Error('Expected played details');
+		expect(game.details.leaders.away.team).toEqual({ ...codeless });
+	});
+
+	it('does not put the game in the hero rotation', () => {
+		const v = view(withCodelessGuest());
+		expect(v.heroGames.map((g) => g.id)).not.toContain('g-final');
 		expect(v.days[3].games).toHaveLength(6);
 	});
 });

@@ -1,27 +1,28 @@
+import type { Side } from '#lib/contract/games.ts';
 import type { HeroPlayer } from '#lib/hero/types.ts';
+import type { TeamMarkTeam } from '#lib/team/mark.ts';
 
-export type ScheduleTeam = {
-	code: string; // three letters, monogram
+// A game side: the code (null for a guest without one), the name and the city, and the guest flag (ADR 0025, ADR 0026).
+export type ScheduleTeam = TeamMarkTeam & {
 	name: string; // e.g. "Warriors"
 	city: string; // e.g. "Golden State", muted
-	guest?: boolean; // a team outside the league: no link (ADR 0025)
 };
 
 export type GameStatus =
 	| { state: 'scheduled'; tipTime: string; tipSuffix: string; network: string | null } // "9:00", "PM ET", already formatted; no network when unknown
 	| { state: 'live'; period: string; clock: string; awayScore: number; homeScore: number } // "Q3", "4:12", already formatted
-	| { state: 'final'; awayScore: number; homeScore: number; winner: string } // winner: the winning team's code, from the feed
+	| { state: 'final'; awayScore: number; homeScore: number; winner: Side } // winner: the winning side, from the feed
 	| { state: 'delayed' | 'postponed' | 'canceled' }; // no score, no tip time
 
 export type PanelPlayer = Pick<HeroPlayer, 'firstName' | 'lastName' | 'teamCode'> & {
 	photo: string | null; // null: no photo, so initials
 };
 
-export type Leader = PanelPlayer & {
+export type Leader = Omit<PanelPlayer, 'teamCode'> & {
 	points: number;
 	rebounds: number;
 	assists: number;
-	guest?: boolean; // a player of a team outside the league: no team link
+	team: TeamMarkTeam; // the player's team: a guest has no link (ADR 0025)
 };
 
 export type TeamStatLine = {

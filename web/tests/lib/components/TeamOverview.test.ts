@@ -30,7 +30,7 @@ const overview: OverviewSection = {
 		linked: false,
 		tag: null,
 		date: 'Wednesday, October 7',
-		opponent: '@ DEN',
+		opponent: { team: { code: 'DEN', name: null, city: null, guest: false }, isHome: false },
 		place: 'Ball Arena',
 		time: '7:30 PM ET'
 	}

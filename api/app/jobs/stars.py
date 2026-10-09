@@ -229,8 +229,16 @@ class StarsJob:
         return self._latest_roster_fetch
 
     def stars_of(self, game: ScoreboardGame) -> Stars | None:
-        away = None if game.away.guest else self._stars.get(game.away.code)
-        home = None if game.home.guest else self._stars.get(game.home.code)
+        away = (
+            None
+            if game.away.guest or game.away.code is None
+            else self._stars.get(game.away.code)
+        )
+        home = (
+            None
+            if game.home.guest or game.home.code is None
+            else self._stars.get(game.home.code)
+        )
         if (away is None and not game.away.guest) or (
             home is None and not game.home.guest
         ):

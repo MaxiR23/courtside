@@ -4,11 +4,14 @@
 #
 # Tested:
 # - Maps the recorded regular season and postseason games with their stats
-# - Excludes preseason games
+# - Keeps preseason games, marked preseason, as a third season type
+# - Maps an opponent without an abbreviation to a guest with a null code, its name and city, and an unknown abbreviation to a guest with that code
+# - Skips an event whose opponent has neither a code nor a name
+# - Validates only the events a matched season type references: an invalid event nothing references does not fail the log
 # - Takes the season label from the season type names
 # - Maps an All-Star game with no opponent
 # - Maps the team and opponent scores from the home and away sides
-# - Raises the source error on a stat line whose labels are missing a column, an event the log does not describe, an unknown opponent and a malformed stat
+# - Raises the source error on a stat line whose labels are missing a column, an event the log does not describe, an event of an invalid shape that a season type references and a malformed stat
 # - Raises the source error on an invalid payload, a timeout, an error status and a missing URL
 # - Reuses a game log for one hour
 #
@@ -83,10 +86,11 @@ async def test_maps_the_recorded_regular_season_and_postseason_games_with_their_
     log = await fetch(settings)
 
     games = {game.game_id: game for game in log.games}
-    assert len(games) == 10
+    assert len(games) == 11
     game = games["401873203"]
     assert game.start_time == dt.datetime(2026, 5, 31, 0, 0, tzinfo=dt.UTC)
-    assert (game.opponent, game.is_home, game.won) == ("SAS", True, False)
+    assert game.opponent is not None
+    assert (game.opponent.code, game.is_home, game.won) == ("SAS", True, False)
     assert (game.team_score, game.opponent_score) == (103, 111)
     assert game.note == "West Finals - Game 7"
     assert game.playoffs is True
@@ -104,14 +108,17 @@ async def test_maps_the_recorded_regular_season_and_postseason_games_with_their_
 
 
 @pytest.mark.anyio
-async def test_excludes_preseason_games(
+async def test_keeps_preseason_games_marked_as_preseason(
     mock: respx.MockRouter, settings: Settings
 ) -> None:
     mock.get(URL).respond(json=load())
 
     log = await fetch(settings)
 
-    assert "401812735" not in {game.game_id for game in log.games}
+    games = {game.game_id: game for game in log.games}
+    assert games["401812735"].preseason is True
+    assert games["401812735"].playoffs is False
+    assert [g.game_id for g in log.games if g.preseason] == ["401812735"]
 
 
 @pytest.mark.anyio
@@ -124,11 +131,13 @@ async def test_takes_the_season_label_from_the_season_type_names(
 
 
 @pytest.mark.anyio
-async def test_gives_no_season_and_no_games_without_regular_season_or_postseason(
+async def test_gives_no_season_and_no_games_without_a_matching_season_type(
     mock: respx.MockRouter, settings: Settings
 ) -> None:
     payload = load()
-    payload["seasonTypes"] = payload["seasonTypes"][2:]
+    payload["seasonTypes"] = [
+        {**payload["seasonTypes"][0], "displayName": "2025-26 Summer League"}
+    ]
     mock.get(URL).respond(json=payload)
 
     log = await fetch(settings)
@@ -209,16 +218,102 @@ async def test_raises_the_source_error_on_an_event_the_log_does_not_describe(
 
 
 @pytest.mark.anyio
-async def test_raises_the_source_error_on_an_unknown_opponent(
+async def test_maps_an_unknown_opponent_abbreviation_to_a_guest_with_that_code(
     mock: respx.MockRouter, settings: Settings
 ) -> None:
     payload = load()
     payload["events"]["401873203"]["opponent"]["abbreviation"] = "XXX"
     mock.get(URL).respond(json=payload)
 
+    log = await fetch(settings)
+
+    opponent = {g.game_id: g for g in log.games}["401873203"].opponent
+    assert opponent is not None
+    assert (opponent.code, opponent.guest) == ("XXX", True)
+
+
+@pytest.mark.anyio
+async def test_maps_a_preseason_game_against_an_opponent_without_an_abbreviation(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load()
+    payload["events"]["401812735"]["opponent"] = {
+        "id": "90001",
+        "displayName": "Harbor City Mariners",
+        "name": "Mariners",
+        "location": "Harbor City",
+    }
+    mock.get(URL).respond(json=payload)
+
+    log = await fetch(settings)
+
+    game = {g.game_id: g for g in log.games}["401812735"]
+    assert game.preseason is True
+    assert game.opponent is not None
+    assert (game.opponent.code, game.opponent.name, game.opponent.city) == (
+        None,
+        "Mariners",
+        "Harbor City",
+    )
+    assert game.opponent.guest is True
+
+
+@pytest.mark.anyio
+async def test_uses_the_display_name_of_an_opponent_without_a_name(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load()
+    payload["events"]["401812735"]["opponent"] = {
+        "id": "90001",
+        "displayName": "Harbor City Mariners",
+    }
+    mock.get(URL).respond(json=payload)
+
+    log = await fetch(settings)
+
+    opponent = {g.game_id: g for g in log.games}["401812735"].opponent
+    assert opponent is not None and opponent.name == "Harbor City Mariners"
+
+
+@pytest.mark.anyio
+async def test_skips_an_event_whose_opponent_has_neither_a_code_nor_a_name(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load()
+    payload["events"]["401812735"]["opponent"] = {"id": "90001"}
+    mock.get(URL).respond(json=payload)
+
+    log = await fetch(settings)
+
+    assert len(log.games) == 10
+    assert "401812735" not in {g.game_id for g in log.games}
+
+
+@pytest.mark.anyio
+async def test_does_not_validate_an_event_that_no_season_type_references(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load()
+    payload["events"]["999"] = {"id": "999"}
+    mock.get(URL).respond(json=payload)
+
+    log = await fetch(settings)
+
+    assert len(log.games) == 11
+
+
+@pytest.mark.anyio
+async def test_raises_the_source_error_on_an_invalid_event_a_season_type_references(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load()
+    payload["events"]["401812735"] = {"id": "401812735"}
+    mock.get(URL).respond(json=payload)
+
     error = await fetch_error(settings)
 
-    assert error.reason == "unknown team code 'XXX'"
+    assert error.reason.startswith("invalid payload: ")
+    assert "first at events.401812735." in error.reason
 
 
 @pytest.mark.anyio

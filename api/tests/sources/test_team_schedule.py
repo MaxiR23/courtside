@@ -7,6 +7,9 @@
 # - Marks home games and results from the side of the requested team
 # - Dates games on the US Eastern day
 # - Lists a completed game against a guest team with the guest's code
+# - Maps an opponent without an abbreviation to a guest with a null code, its name and city, and an opponent with an unknown abbreviation to a guest with that code
+# - Skips a game whose opponent has neither a code nor a name, in the last games and in a season schedule; the last five are taken after skipping
+# - Validates only the completed events of a team schedule: an upcoming event of an invalid shape does not fail it, and still fails a season schedule
 # - Returns no last games when no game is completed
 # - Maps the arena of each completed game by game id
 # - Requests the schedule URL built from the template and the provider team code, including a code that differs from the standard one
@@ -119,7 +122,7 @@ async def test_maps_the_last_five_completed_games_newest_first_with_both_scores(
         "2025-11-07",
         "2025-10-26",
     ]
-    assert [g.opponent for g in games] == ["ORL", "ORL", "ORL", "ORL", "DET"]
+    assert [g.opponent.code for g in games] == ["ORL", "ORL", "ORL", "ORL", "DET"]
     assert [(g.team_score, g.opponent_score) for g in games] == [
         (113, 108),
         (138, 129),
@@ -142,7 +145,7 @@ async def test_lists_a_completed_game_against_a_guest_among_the_last_games_with_
 
     schedule = await fetch(settings)
 
-    assert [g.opponent for g in schedule.last_games] == [
+    assert [g.opponent.code for g in schedule.last_games] == [
         "HCM",
         "ORL",
         "ORL",
@@ -379,7 +382,11 @@ async def test_maps_a_recorded_regular_season_with_notes_broadcasts_venues_and_s
     assert len(schedule.games) == 7
     opener = games["401809243"]
     assert opener.start_time == dt.datetime(2025, 10, 21, 23, 30, tzinfo=dt.UTC)
-    assert (opener.opponent, opener.is_home, opener.state) == ("HOU", True, "post")
+    assert (opener.opponent.code, opener.is_home, opener.state) == (
+        "HOU",
+        True,
+        "post",
+    )
     assert (opener.completed, opener.won) == (True, True)
     assert (opener.team_score, opener.opponent_score) == (125, 124)
     assert opener.note is None
@@ -408,7 +415,7 @@ async def test_maps_unplayed_games_without_scores(
     unplayed = games["401909090"]
     assert (unplayed.state, unplayed.completed, unplayed.won) == ("pre", False, None)
     assert (unplayed.team_score, unplayed.opponent_score) == (None, None)
-    assert (unplayed.opponent, unplayed.is_home) == ("SAS", False)
+    assert (unplayed.opponent.code, unplayed.is_home) == ("SAS", False)
     assert unplayed.broadcast == "Courtside TV"
     assert games["401909865"].broadcast is None
 
@@ -563,3 +570,154 @@ async def test_reuses_a_season_schedule_for_one_hour(
         await fetch_season_schedule(client, "OKC", 2026, query_settings, playoffs=False)
 
     assert route.call_count == 2
+
+
+async def fetch_season_with(
+    mock: respx.MockRouter, settings: Settings, payload: Payload
+) -> SeasonSchedule:
+    mock.get(season_url("OKC", 2026, 2)).respond(json=payload)
+    return await fetch_season(settings)
+
+
+def set_guest_opponent(game: Payload, team_code: str = "BOS") -> Payload:
+    """Replaces the opponent of a game with the invented Harbor City Mariners,
+    without an abbreviation."""
+    for competitor in game["competitions"][0]["competitors"]:
+        if competitor["team"]["abbreviation"] != team_code:
+            competitor["team"] = {
+                "id": "90001",
+                "name": "Mariners",
+                "location": "Harbor City",
+            }
+    return game
+
+
+@pytest.mark.anyio
+async def test_maps_an_opponent_without_an_abbreviation_to_a_guest_with_a_null_code(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load()
+    set_guest_opponent(max(payload["events"], key=lambda e: e["date"]))
+    mock.get(URL).respond(json=payload)
+
+    schedule = await fetch(settings)
+
+    newest = schedule.last_games[0].opponent
+    assert (newest.code, newest.name, newest.city, newest.guest) == (
+        None,
+        "Mariners",
+        "Harbor City",
+        True,
+    )
+
+
+@pytest.mark.anyio
+async def test_maps_an_opponent_with_an_unknown_abbreviation_to_a_guest_with_that_code(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load()
+    latest = max(payload["events"], key=lambda e: e["date"])
+    for competitor in latest["competitions"][0]["competitors"]:
+        if competitor["team"]["abbreviation"] != "BOS":
+            competitor["team"]["abbreviation"] = "XXX"
+    mock.get(URL).respond(json=payload)
+
+    schedule = await fetch(settings)
+
+    assert schedule.last_games[0].opponent.code == "XXX"
+    assert schedule.last_games[0].opponent.guest is True
+
+
+@pytest.mark.anyio
+async def test_skips_a_game_whose_opponent_has_neither_a_code_nor_a_name_and_still_lists_five(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load()
+    latest = max(payload["events"], key=lambda e: e["date"])
+    for competitor in latest["competitions"][0]["competitors"]:
+        if competitor["team"]["abbreviation"] != "BOS":
+            competitor["team"] = {"id": "90001"}
+    mock.get(URL).respond(json=payload)
+
+    schedule = await fetch(settings)
+
+    assert len(schedule.last_games) == 5
+    assert latest["date"][:10] != schedule.last_games[0].date.isoformat()
+
+
+@pytest.mark.anyio
+async def test_does_not_validate_an_upcoming_event_of_an_invalid_shape(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load()
+    payload["events"].append(
+        {
+            "id": "upcoming",
+            "competitions": [
+                {"status": {"type": {"state": "pre", "completed": False}}}
+            ],
+        }
+    )
+    mock.get(URL).respond(json=payload)
+
+    schedule = await fetch(settings)
+
+    assert len(schedule.last_games) == 5
+
+
+@pytest.mark.anyio
+async def test_raises_the_source_error_on_a_completed_event_of_an_invalid_shape(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load()
+    payload["events"].append(
+        {
+            "id": "broken",
+            "competitions": [
+                {"status": {"type": {"state": "post", "completed": True}}}
+            ],
+        }
+    )
+
+    error = await fetch_error_of(mock, settings, payload)
+
+    assert error.reason.startswith("invalid payload: ")
+    assert "first at events.7." in error.reason
+
+
+@pytest.mark.anyio
+async def test_a_season_schedule_still_validates_an_upcoming_event(
+    mock: respx.MockRouter, query_settings: Settings
+) -> None:
+    payload = load("okc-2026-regular.json")
+    payload["events"].append(
+        {
+            "id": "upcoming",
+            "competitions": [
+                {"status": {"type": {"state": "pre", "completed": False}}}
+            ],
+        }
+    )
+
+    error = await season_error(mock, query_settings, payload)
+
+    assert error.reason.startswith("invalid payload: ")
+
+
+@pytest.mark.anyio
+async def test_a_season_schedule_maps_a_guest_opponent_without_a_code_and_skips_a_nameless_one(
+    mock: respx.MockRouter, query_settings: Settings
+) -> None:
+    payload = load("okc-2026-regular.json")
+    set_guest_opponent(payload["events"][0], "OKC")
+    nameless = payload["events"][1]
+    for competitor in nameless["competitions"][0]["competitors"]:
+        if competitor["team"]["abbreviation"] != "OKC":
+            competitor["team"] = {"id": "90002"}
+
+    schedule = await fetch_season_with(mock, query_settings, payload)
+
+    assert len(schedule.games) == 6
+    assert schedule.games[0].opponent.code is None
+    assert schedule.games[0].opponent.name == "Mariners"
+    assert nameless["id"] not in [g.game_id for g in schedule.games]

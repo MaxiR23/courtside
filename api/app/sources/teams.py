@@ -1,8 +1,11 @@
 # api/app/sources/teams.py
 #
-# The tables that map the provider's team codes and team ids to the standard codes.
+# The tables that map the provider's team codes and team ids to the standard codes,
+# and the one resolver that maps a side or an opponent for every adapter (ADR 0026).
 #
 # SEE: docs/api/games.md, api/app/sources/http.py
+
+from typing import Any
 
 from app.sources.http import SourceError
 
@@ -107,3 +110,35 @@ def team_code_of_id(provider_id: str, *, source: str) -> str:
         return TEAM_CODES[TEAM_IDS[provider_id]]
     except KeyError:
         raise SourceError(source, f"unknown team id {provider_id!r}") from None
+
+
+def side_of(
+    abbreviation: str | None, team_id: str | None, *, source: str
+) -> tuple[str | None, bool]:
+    """Return the code and guest flag of a provider team: by abbreviation
+    (to_side), else a league team by its provider id, else a guest without a code.
+
+    An empty abbreviation or id counts as absent.
+    """
+    if abbreviation:
+        return to_side(abbreviation, source=source)
+    if team_id and team_id in TEAM_IDS:
+        return TEAM_CODES[TEAM_IDS[team_id]], False
+    return None, True
+
+
+def to_opponent(
+    abbreviation: str | None,
+    team_id: str | None,
+    name: str | None,
+    location: str | None,
+    *,
+    source: str,
+) -> dict[str, Any] | None:
+    """Return the Opponent fields of a provider team, or None when it has neither
+    a code nor a name: the caller skips that game (ADR 0026)."""
+    code, guest = side_of(abbreviation, team_id, source=source)
+    name = name or None
+    if code is None and name is None:
+        return None
+    return {"code": code, "name": name, "city": location or None, "guest": guest}

@@ -25,10 +25,11 @@
 # - Lists no shown games before the first run or while a day shown failed to fetch, and the games of every day shown in day order
 # - Republishes the feed with no source call when a final game's highlights change, and not when they are unchanged
 # - Republishes the feed with no source call when a game's stars change, publishes as soon as the last missing star arrives, and does not republish when stars are unchanged
-# - The winner of each final game comes from its final score: home, away, none on a tie or before the final; a tied final game makes the feed invalid
+# - The winner of each final game is a side from its final score: home, away, none on a tie or before the final; a tied final game makes the feed invalid
 # - Publishes no feed and records no success while a team has no star
 # - Publishes the first feed with every star on the first run after every team has one, even with nothing due and with no games in the window
 # - A successful run publishes a valid feed and records success
+# - A run over a day with a guest side without a code publishes, and a run over a day with a game whose side has neither a code nor a name publishes the other games
 # - A run over a day with a guest game publishes, a league game next to a guest game turns final on the next refresh, a final guest game has a guest winner and leaders without photo, and a league side without a star still makes the feed invalid
 # - A failing final game detail never blocks live details: the last live detail is published, and a final game with no detail is published as pending
 # - A failing final detail is fetched again only 2, 4 and 6 hours after the final time, then the game is unavailable; failed attempts survive a restart
@@ -60,6 +61,7 @@
 
 import asyncio
 import datetime as dt
+import json
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -98,12 +100,14 @@ from app.jobs.games import (
 )
 from app.jobs.presence import Presence
 from app.settings import Settings
+from app.sources import scoreboard
 from app.sources.game_detail import GameDetail
 from app.sources.http import Freshness, SourceError, create_client
 from app.sources.scoreboard import ScoreboardGame
 from app.storage.feeds import read_feed
 from app.storage.state import StateStore
 
+SCOREBOARD_FIXTURES = Path(__file__).parents[1] / "sources" / "fixtures" / "scoreboard"
 TODAY = dt.date(2026, 10, 5)
 # 12:00 US Eastern (EDT) on TODAY.
 NOON = dt.datetime(2026, 10, 5, 16, 0, tzinfo=dt.UTC)
@@ -180,6 +184,7 @@ def game(
 
 
 GUEST = GameTeam(code="HCM", name="Mariners", city="Harbor City", guest=True)
+CODELESS_GUEST = GameTeam(code=None, name="Mariners", city="Harbor City", guest=True)
 GUEST_STARS = Stars(away=None, home=star("NYK"))
 GUEST_DETAIL = GameDetail.model_validate(
     {
@@ -446,11 +451,11 @@ def test_reports_the_reason_when_a_final_game_has_no_search_url() -> None:
 def test_the_winner_is_the_home_team_when_it_has_more_points() -> None:
     final = game("1", GameStatus.FINAL, score=Score(away=98, home=104))
 
-    assert final_winner(final) == "NYK"
+    assert final_winner(final) == "home"
 
 
 def test_the_winner_is_the_away_team_when_it_has_more_points() -> None:
-    assert final_winner(game("1", GameStatus.FINAL)) == "BOS"
+    assert final_winner(game("1", GameStatus.FINAL)) == "away"
 
 
 def test_a_tied_final_score_has_no_winner() -> None:
@@ -471,7 +476,7 @@ def test_builder_sets_the_winner_of_each_final_game_and_none_otherwise() -> None
         details={"2": DETAIL, "3": DETAIL},
     )
 
-    assert [g.winner for g in feed.days[0].games] == [None, None, "NYK"]
+    assert [g.winner for g in feed.days[0].games] == [None, None, "home"]
 
 
 def test_stats_availability_is_available_with_a_detail_pending_without_one_and_unavailable_out_of_attempts() -> (
@@ -1299,7 +1304,7 @@ async def test_a_successful_run_publishes_a_valid_feed_and_records_success(
     feed = GamesFeed.model_validate_json(published)
     assert len(feed.days) == 7
     published_game = next(g for d in feed.days for g in d.games if g.id == "2")
-    assert published_game.winner == "BOS"
+    assert published_game.winner == "away"
     state = store.job_states()[0]
     assert state.name == JOB
     assert state.last_success == NOON
@@ -1818,6 +1823,75 @@ async def test_a_run_over_a_day_with_a_guest_game_publishes_the_feed(
 
 
 @pytest.mark.anyio
+async def test_a_run_over_a_day_with_a_guest_side_without_a_code_publishes_the_feed(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    codeless = guest_game("g", GameStatus.FINAL).model_copy(
+        update={"away": CODELESS_GUEST}
+    )
+    sources.games[TODAY] = [codeless]
+    sources.details["g"] = GameDetail.model_validate(
+        {
+            "leaders": Leaders(
+                away=leader("HCM").model_copy(
+                    update={"team_code": None, "photo_url": None}
+                ),
+                home=leader("NYK"),
+            ),
+            "team_stats": {"away": STATS, "home": STATS},
+        }
+    )
+
+    await make_job(settings, store, sources, stars=guest_stars).run(NOON)
+
+    published = read_feed(settings.data_dir, "games")
+    assert published is not None
+    feed = GamesFeed.model_validate_json(published)
+    [first] = next(d.games for d in feed.days if d.date == TODAY)
+    assert (first.away.guest, first.away.code, first.winner) == (True, None, "away")
+    assert first.leaders is not None and first.leaders.away.team_code is None
+    assert store.job_states()[0].last_success == NOON
+
+
+@pytest.mark.anyio
+async def test_a_run_over_a_day_with_a_game_whose_side_has_neither_a_code_nor_a_name_publishes_the_other_games(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    day = json.loads((SCOREBOARD_FIXTURES / "day.json").read_text(encoding="utf-8"))
+    scheduled = [
+        e for e in day["events"] if e["status"]["type"]["name"] == "STATUS_SCHEDULED"
+    ]
+    nobody = scheduled[0]
+    team = nobody["competitions"][0]["competitors"][0]["team"]
+    del team["abbreviation"]
+    del team["name"]
+    template = "https://example.com/scoreboard/{date}"
+    with_url = settings.model_copy(update={"scoreboard_url": template})
+    with respx.mock(assert_all_called=False) as router:
+        router.get(url__regex=r"https://example\.com/scoreboard/\d{8}").respond(
+            json={"events": scheduled}
+        )
+        job = ClockedGamesJob(
+            with_url,
+            store,
+            fetch_games=scoreboard.fetch_games,
+            fetch_game_detail=sources.fetch_game_detail,
+            stars=lambda _: Stars(away=star("MEM"), home=star("DET")),
+            highlights_search_url=lambda _: SEARCH_URL,
+        )
+
+        await job.run(NOON)
+
+    published = read_feed(settings.data_dir, "games")
+    assert published is not None
+    feed = GamesFeed.model_validate_json(published)
+    ids = [g.id for d in feed.days for g in d.games]
+    assert nobody["id"] not in ids
+    assert scheduled[1]["id"] in ids
+    assert store.job_states()[0].last_success == NOON
+
+
+@pytest.mark.anyio
 async def test_a_league_game_live_on_a_day_with_a_guest_game_turns_final_on_the_next_refresh(
     settings: Settings, store: StateStore, sources: FakeSources
 ) -> None:
@@ -1850,7 +1924,7 @@ def test_builder_publishes_a_final_guest_game_with_a_guest_winner_and_leaders_wi
     )
 
     [published] = feed.days[0].games
-    assert published.winner == "HCM"
+    assert published.winner == "away"
     assert published.leaders is not None
     assert published.leaders.away.photo_url is None
     assert published.leaders.home.photo_url == PHOTO

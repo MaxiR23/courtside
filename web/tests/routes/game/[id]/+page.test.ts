@@ -59,7 +59,7 @@ const recorded = (): GameDetailFeed =>
 			'utf8'
 		)
 	) as GameDetailFeed;
-const finalGame = (): GameDetailFeed => ({ ...recorded(), status: 'final', winner: 'LAL' });
+const finalGame = (): GameDetailFeed => ({ ...recorded(), status: 'final', winner: 'away' });
 
 type Answer = () => Promise<unknown>;
 let answers: Answer[];

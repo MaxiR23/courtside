@@ -138,13 +138,13 @@ Lucide at `stroke-width: 1.5`: `chevron-down` (expand), `play` (filled, highligh
 - **Data unavailable (temporary):** when the games feed cannot be loaded, a single blueprint row in place of the schedule, styled like the day with no games, reads "Data isn't available right now. Check back later.". It stays until the missing data design is decided (see "Open decisions" in `docs/architecture.md`). A day with no data in a loaded feed is still undecided.
 - **Game card,** a blueprint frame:
   - **Desktop row, width 680px and up:** grid `minmax(0,1fr) auto minmax(0,1fr) 24px`.
-    - Away team: a 46px monogram box with the team's three-letter code, the team name and the city in muted.
+    - Away team: a 46px monogram box with the team's code (a guest without a code shows the initials of its display name, the first and last word's initial, uppercased), the team name and the city in muted.
     - Center: a status line, then the score or the tip time. The status line is "FINAL", or the live badge plus the period and clock ("Q3 · 4:12"), or "DELAYED", "POSTPONED" or "CANCELED" for those games, with no score and no tip time (those cards do not expand), or the TV network. The TV network is omitted when it is unknown.
     - Home team: mirrored and right-aligned.
     - A chevron that rotates 180 degrees when the card is open.
   - **Mobile row, under 680px:**
     - A status line with the chevron on the right.
-    - Two team rows, each with a 38px monogram, the name and city, and the score right-aligned.
+    - Two team rows, each with a 38px monogram (same content), the name and city, and the score right-aligned.
     - Scheduled games show the tip time and network in the status line, such as "9:00 PM ET · Courtside TV".
   - **Final games:** the losing team's name and score drop to opacity .42.
   - **Live badge:** small and outlined, never a dot. It reads "LIVE" at 9.5px with .16em letter-spacing, a 1px accent border and accent-light text, padding 1px by 5px.
@@ -201,4 +201,4 @@ Until the first feed loads, the hero and the schedule show skeletons shaped like
 - **Player photos:** transparent PNG cutouts, one per player.
 - **Video thumbnails:** provided with each highlight.
 - **Fonts:** Barlow and Barlow Condensed from Google Fonts.
-- No other images. Team logos are replaced by three-letter monograms on purpose.
+- No other images. Team logos are replaced by monograms (the team code, or the initials of a guest's name) on purpose.

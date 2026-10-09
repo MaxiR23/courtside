@@ -7,6 +7,7 @@
 // - One row per entry with a sticky row header holding the label and sub-line
 // - The muted and points classes, the result cell's win mark, the accent row
 // - A link only on a linked row, with the href from gameHref
+// - A row with an opponent draws it after the label ("Apr 29 · @ MEM"), inside the link of a linked row; a row without one is unchanged
 //
 // What is covered:
 // - Structure and classes from props; jsdom computes no layout
@@ -32,14 +33,16 @@ const table: StatTableView = {
 	rows: [
 		{
 			key: 'a',
-			label: 'Apr 29 · @ MEM',
+			label: 'Apr 29',
+			opponent: { team: { code: 'MEM', name: null, city: null, guest: false }, isHome: false },
 			sub: 'NBA Cup',
 			link: { gameId: 'g-1', linked: true },
 			cells: [{ mark: 'W', win: true, text: '118–104' }, '34', '31']
 		},
 		{
 			key: 'b',
-			label: 'Apr 26 · vs MEM',
+			label: 'Apr 26',
+			opponent: { team: { code: 'MEM', name: null, city: null, guest: false }, isHome: true },
 			sub: null,
 			link: { gameId: 'g-2', linked: false },
 			cells: [{ mark: 'L', win: false, text: '101–108' }, '30', '24']
@@ -107,5 +110,36 @@ describe('StatTable', () => {
 		);
 		expect(new Set(templates).size).toBe(1);
 		expect(templates[0]).toContain('var(--player-shooting-column-min)');
+	});
+});
+
+describe('StatTable opponent', () => {
+	it('draws the opponent after the label, inside the link of a linked row', () => {
+		show();
+		const link = screen.getByRole('link', { name: /Apr 29/ });
+		expect(link.textContent?.replace(/\s+/g, ' ').trim()).toBe('Apr 29 · @ MEM');
+		expect(link.getAttribute('href')).toBe('/game/g-1');
+	});
+
+	it('draws a home opponent with vs on an unlinked row, and leaves a row without one unchanged', () => {
+		const { container } = show();
+		const labels = [...container.querySelectorAll('.label')].map((l) =>
+			l.textContent?.replace(/\s+/g, ' ').trim()
+		);
+		expect(labels).toEqual(['Apr 29 · @ MEM', 'Apr 26 · vs MEM', 'Career']);
+	});
+
+	it('names a guest opponent without a code by its name, unlinked', () => {
+		const guest = { code: null, name: 'Mariners', city: 'Harbor City', guest: true };
+		const guestTable: StatTableView = {
+			...table,
+			rows: [{ ...table.rows[1], opponent: { team: guest, isHome: false } }]
+		};
+		const { container } = render(StatTable, {
+			props: { table: guestTable, labelHeader: 'Game', gameHref }
+		});
+		expect(container.querySelector('.label')?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
+			'Apr 26 · @ Mariners'
+		);
 	});
 });

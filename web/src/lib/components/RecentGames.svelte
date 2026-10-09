@@ -1,5 +1,7 @@
 <script lang="ts">
 	import type { ResolvedPathname } from '$app/types';
+	import TeamMark from '#lib/components/TeamMark.svelte';
+	import { m } from '#lib/paraglide/messages.js';
 	import type { RecentGameRow } from '#lib/player/types.ts';
 
 	type Props = { rows: RecentGameRow[]; gameHref: (id: string) => ResolvedPathname };
@@ -11,7 +13,17 @@
 	<span class="result" class:win={row.result === 'win'}>{row.resultLabel}</span>
 	<span class="date">{row.date}</span>
 	<span class="game">
-		<span class="opponent">{row.opponent}</span>
+		<span class="opponent">
+			{#if row.opponent}
+				<TeamMark
+					part="label"
+					team={row.opponent.team}
+					versus={row.opponent.isHome ? 'home' : 'away'}
+				/>
+			{:else}
+				{m.team_tag_allstar()}
+			{/if}
+		</span>
 		<span class="score">{row.score}</span>
 		{#if row.tag}<span class="sub">{row.tag}</span>{/if}
 	</span>

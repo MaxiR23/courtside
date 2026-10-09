@@ -13,6 +13,7 @@
 //   the arena name and city); without a city, the arena name alone in the caption and no sub-line under the Venue cell
 // - Each team name in full, in its own level 1 heading
 // - A guest team: the monogram and name are plain text and no record is shown, on desktop and mobile
+// - A guest without a code shows the initials of its name in the monogram and its name as plain text, on desktop and mobile
 //
 // What is covered:
 // - Each state the header shows
@@ -33,8 +34,8 @@ const HOME = '/' as ResolvedPathname;
 const STANDINGS = '/standings' as ResolvedPathname;
 const teamHref = (code: string) => `/team/${code.toLowerCase()}` as ResolvedPathname;
 
-const away = { code: 'LAL', name: 'Lakers', city: 'Los Angeles', record: '12–5' };
-const home = { code: 'GSW', name: 'Warriors', city: 'Golden State', record: '10–7' };
+const away = { code: 'LAL', name: 'Lakers', city: 'Los Angeles', record: '12–5', guest: false };
+const home = { code: 'GSW', name: 'Warriors', city: 'Golden State', record: '10–7', guest: false };
 
 const venue = {
 	arena: 'Chase Center',
@@ -325,4 +326,29 @@ describe('GameHeader with a guest team', () => {
 		const metas = [...container.querySelectorAll('.meta')].map((m) => m.textContent);
 		expect(metas).toEqual(['Harbor City', 'Golden State · 10–7']);
 	});
+});
+
+describe('GameHeader with a guest team without a code', () => {
+	const guest = { code: null, name: 'Mariners', city: 'Harbor City', record: null, guest: true };
+	const header: GameHeaderView = { ...scheduled, away: guest };
+
+	it.each(['desktop', 'mobile'] as const)(
+		'shows the initials in the monogram and the name as plain text (%s)',
+		(layout: RowLayout) => {
+			const { container } = render(GameHeader, {
+				props: {
+					header,
+					allGamesHref: HOME,
+					standingsHref: STANDINGS,
+					layout,
+					teamHref
+				}
+			});
+			expect(screen.getByText('HM').classList.contains('team-monogram')).toBe(true);
+			expect(screen.getByRole('heading', { name: 'Mariners' })).toBeTruthy();
+			expect(screen.queryByRole('link', { name: 'HM' })).toBeNull();
+			expect(screen.queryByRole('link', { name: 'Mariners' })).toBeNull();
+			expect(container.querySelectorAll('a[href^="/team/"]').length).toBeGreaterThan(0);
+		}
+	);
 });

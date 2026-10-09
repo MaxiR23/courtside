@@ -36,6 +36,7 @@ from app.feeds.games import (
     TeamCode,
     UtcDatetime,
 )
+from app.feeds.opponent import Opponent
 
 SeasonLabel = Annotated[str, StringConstraints(pattern=r"^\d{4}-\d{2}$")]
 JerseyNumber = Annotated[str, StringConstraints(pattern=r"^\d{1,2}$")]
@@ -52,6 +53,7 @@ class GameKind(StrEnum):
     CUP = "cup"
     PLAYOFFS = "playoffs"
     ALLSTAR = "allstar"
+    PRESEASON = "preseason"
 
 
 class GameTag(FeedModel):
@@ -64,7 +66,7 @@ class GameTag(FeedModel):
 class NextGame(FeedModel):
     game_id: NonEmptyStr
     start_time: UtcDatetime
-    opponent: TeamCode
+    opponent: Opponent
     is_home: bool
     tag: GameTag | None = None
     arena: NonEmptyStr
@@ -146,7 +148,7 @@ class Summary(FeedModel):
 
 class PlayerLive(FeedModel):
     game_id: NonEmptyStr
-    opponent: TeamCode
+    opponent: Opponent
     is_home: bool
     period: PositiveInt
     clock: NonEmptyStr
@@ -158,7 +160,7 @@ class PlayerLive(FeedModel):
 class GameLogEntry(ShootingLine):
     game_id: NonEmptyStr
     date: dt.date
-    opponent: TeamCode | None = None
+    opponent: Opponent | None = None
     is_home: bool
     kind: GameKind
     tag: GameTag | None = None
@@ -344,8 +346,13 @@ class PlayerFeed(FeedModel):
         dates = [game.date for game in self.last_games]
         if any(a < b for a, b in pairwise(dates)):
             raise ValueError("last games must be listed newest first")
-        if any(game.kind is GameKind.ALLSTAR for game in self.last_games):
-            raise ValueError("last games must not include an All-Star game")
+        if any(
+            game.kind in (GameKind.ALLSTAR, GameKind.PRESEASON)
+            for game in self.last_games
+        ):
+            raise ValueError(
+                "last games must not include an All-Star or preseason game"
+            )
         return self
 
     @model_validator(mode="after")

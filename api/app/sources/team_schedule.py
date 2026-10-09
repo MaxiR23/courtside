@@ -8,6 +8,11 @@
 # season type to the URL's own query. The provider URL comes from Settings.
 # Provider data never leaves this module.
 #
+# An opponent is a league team, a guest with a code, or a guest without one. A
+# game whose opponent has neither a code nor a name is skipped. The team
+# schedule validates only its completed events; the season schedule validates
+# every event (ADR 0026).
+#
 # SEE: docs/api/game-detail.md, api/app/sources/team_players.py
 
 import datetime as dt
@@ -25,10 +30,11 @@ from pydantic import (
 from pydantic.alias_generators import to_camel
 
 from app.feeds.game_detail import GameResult, LastGame
-from app.feeds.games import FeedModel, NonEmptyStr, TeamCode, UtcDatetime
+from app.feeds.games import FeedModel, NonEmptyStr, UtcDatetime
+from app.feeds.opponent import Opponent
 from app.settings import Settings
 from app.sources.http import SourceClient, SourceError, get_json, with_query
-from app.sources.teams import TEAM_CODES, to_side, to_team_code
+from app.sources.teams import TEAM_CODES, side_of, to_opponent
 
 SOURCE = "team_schedule"
 FRESH_FOR = dt.timedelta(hours=1)
@@ -46,7 +52,10 @@ class _ProviderModel(BaseModel):
 
 
 class _ProviderTeam(_ProviderModel):
-    abbreviation: str
+    abbreviation: str | None = None
+    id: str | None = None
+    name: str | None = None
+    location: str | None = None
 
 
 class _ProviderScore(_ProviderModel):
@@ -108,6 +117,19 @@ class _ProviderSchedule(_ProviderModel):
     events: list[_ProviderEvent]
 
 
+class _ProviderCompetitionState(_ProviderModel):
+    status: _ProviderStatus
+
+
+class _ProviderEventState(_ProviderModel):
+    competitions: Annotated[list[_ProviderCompetitionState], Field(min_length=1)]
+
+
+class _ProviderRawSchedule(_ProviderModel):
+    # Events stay raw: only the completed ones are validated in full.
+    events: list[dict[str, Any]]
+
+
 class TeamSchedule(FeedModel):
     """A team's completed games: the last five for the feed, and the arena of
     each completed game by game id, for the season series. Never reaches the feed."""
@@ -122,7 +144,7 @@ class ScheduledGame(FeedModel):
 
     game_id: NonEmptyStr
     start_time: UtcDatetime
-    opponent: TeamCode
+    opponent: Opponent
     is_home: bool
     state: Literal["pre", "in", "post"]
     completed: bool
@@ -154,22 +176,38 @@ def _location(error: ValidationError) -> str:
     return ".".join(str(part) for part in error.errors()[0]["loc"])
 
 
-def _last_game(team_code: str, event: _ProviderEvent) -> dict[str, Any]:
-    competitors = {
-        to_side(c.team.abbreviation, source=SOURCE)[0]: c
-        for c in event.competitions[0].competitors
-    }
-    team = competitors.get(team_code)
-    if team is None or len(competitors) != 2:
+def _team_and_opponent(
+    team_code: str, event: _ProviderEvent
+) -> tuple[_ProviderCompetitor, _ProviderCompetitor]:
+    competitors = event.competitions[0].competitors
+    matches = [
+        c
+        for c in competitors
+        if side_of(c.team.abbreviation, c.team.id, source=SOURCE)[0] == team_code
+    ]
+    if len(competitors) != 2 or len(matches) != 1:
         raise SourceError(SOURCE, f"team {team_code} is missing from game {event.id}")
-    opponent_code, opponent = next(
-        (code, c) for code, c in competitors.items() if code != team_code
+    team = matches[0]
+    return team, next(c for c in competitors if c is not team)
+
+
+def _opponent_of(competitor: _ProviderCompetitor) -> dict[str, Any] | None:
+    team = competitor.team
+    return to_opponent(
+        team.abbreviation, team.id, team.name, team.location, source=SOURCE
     )
+
+
+def _last_game(team_code: str, event: _ProviderEvent) -> dict[str, Any] | None:
+    team, opponent = _team_and_opponent(team_code, event)
+    opponent_team = _opponent_of(opponent)
+    if opponent_team is None:
+        return None
     if team.score is None or opponent.score is None:
         raise SourceError(SOURCE, f"game {event.id} has no score")
     return {
         "date": event.date.astimezone(EASTERN).date(),
-        "opponent": opponent_code,
+        "opponent": opponent_team,
         "is_home": team.home_away == "home",
         "result": GameResult.WIN if team.winner else GameResult.LOSS,
         "team_score": int(team.score.value),
@@ -187,26 +225,40 @@ async def fetch_team_schedule(
     url = settings.team_schedule_url.format(team=provider_code)
     body = await get_json(client, url, source=SOURCE, fresh=FRESH_FOR)
     try:
-        schedule = _ProviderSchedule.model_validate(body)
+        raw = _ProviderRawSchedule.model_validate(body)
     except ValidationError as error:
         raise SourceError(
             SOURCE,
             f"invalid payload: {error.error_count()} errors, first at {_location(error)}",
         ) from None
 
-    completed = [
-        event
-        for event in schedule.events
-        if event.competitions[0].status.type.completed
-        and event.competitions[0].status.type.state == "post"
-    ]
+    # Only completed events are used, so only they are validated in full.
+    completed: list[_ProviderEvent] = []
+    for index, raw_event in enumerate(raw.events):
+        try:
+            state = _ProviderEventState.model_validate(raw_event)
+            status = state.competitions[0].status.type
+            if not (status.completed and status.state == "post"):
+                continue
+            completed.append(_ProviderEvent.model_validate(raw_event))
+        except ValidationError as error:
+            raise SourceError(
+                SOURCE,
+                f"invalid payload: {error.error_count()} errors, first at"
+                f" events.{index}.{_location(error)}",
+            ) from None
     newest_first = sorted(completed, key=lambda event: event.date, reverse=True)
     try:
+        last_games: list[dict[str, Any]] = []
+        for event in newest_first:
+            if len(last_games) == LAST_GAMES:
+                break
+            game = _last_game(team_code, event)
+            if game is not None:
+                last_games.append(game)
         return TeamSchedule.model_validate(
             {
-                "last_games": [
-                    _last_game(team_code, event) for event in newest_first[:LAST_GAMES]
-                ],
+                "last_games": last_games,
                 "arenas": {
                     event.id: event.competitions[0].venue.full_name
                     for event in completed
@@ -223,18 +275,12 @@ async def fetch_team_schedule(
 
 def _scheduled_game(
     team_code: str, event: _ProviderEvent, *, playoffs: bool
-) -> dict[str, Any]:
+) -> dict[str, Any] | None:
     competition = event.competitions[0]
-    competitors = {
-        to_team_code(c.team.abbreviation, source=SOURCE): c
-        for c in competition.competitors
-    }
-    team = competitors.get(team_code)
-    if team is None or len(competitors) != 2:
-        raise SourceError(SOURCE, f"team {team_code} is missing from game {event.id}")
-    opponent_code, opponent = next(
-        (code, c) for code, c in competitors.items() if code != team_code
-    )
+    team, opponent = _team_and_opponent(team_code, event)
+    opponent_team = _opponent_of(opponent)
+    if opponent_team is None:
+        return None
     played = (
         competition.status.type.completed and competition.status.type.state == "post"
     )
@@ -243,7 +289,7 @@ def _scheduled_game(
     return {
         "game_id": event.id,
         "start_time": event.date,
-        "opponent": opponent_code,
+        "opponent": opponent_team,
         "is_home": team.home_away == "home",
         "state": competition.status.type.state,
         "completed": competition.status.type.completed,
@@ -293,13 +339,12 @@ async def fetch_season_schedule(
             f"invalid payload: {error.error_count()} errors, first at {_location(error)}",
         ) from None
     try:
+        games = (
+            _scheduled_game(team_code, event, playoffs=playoffs)
+            for event in schedule.events
+        )
         return SeasonSchedule.model_validate(
-            {
-                "games": [
-                    _scheduled_game(team_code, event, playoffs=playoffs)
-                    for event in schedule.events
-                ]
-            }
+            {"games": [game for game in games if game is not None]}
         )
     except ValidationError as error:
         first = error.errors()[0]

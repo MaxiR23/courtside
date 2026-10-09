@@ -58,7 +58,12 @@
 	"nextGame": {
 		"gameId": "g-6",
 		"startTime": "2026-10-08T23:30:00Z",
-		"opponent": "DEN",
+		"opponent": {
+			"code": "DEN",
+			"name": null,
+			"city": null,
+			"guest": false
+		},
 		"isHome": true,
 		"tag": null,
 		"arena": "Paycom Center",
@@ -71,7 +76,12 @@
 		{
 			"gameId": "g-5",
 			"date": "2026-04-29",
-			"opponent": "MEM",
+			"opponent": {
+				"code": "MEM",
+				"name": null,
+				"city": null,
+				"guest": false
+			},
 			"isHome": false,
 			"kind": "playoffs",
 			"tag": {
@@ -105,7 +115,12 @@
 		{
 			"gameId": "g-4",
 			"date": "2026-04-26",
-			"opponent": "MEM",
+			"opponent": {
+				"code": "MEM",
+				"name": null,
+				"city": null,
+				"guest": false
+			},
 			"isHome": true,
 			"kind": "playoffs",
 			"tag": {
@@ -139,7 +154,12 @@
 		{
 			"gameId": "g-3",
 			"date": "2026-04-12",
-			"opponent": "DEN",
+			"opponent": {
+				"code": "DEN",
+				"name": null,
+				"city": null,
+				"guest": false
+			},
 			"isHome": true,
 			"kind": "regular",
 			"tag": null,
@@ -168,7 +188,12 @@
 		{
 			"gameId": "g-2",
 			"date": "2026-04-10",
-			"opponent": "HOU",
+			"opponent": {
+				"code": "HOU",
+				"name": null,
+				"city": null,
+				"guest": false
+			},
 			"isHome": false,
 			"kind": "regular",
 			"tag": null,
@@ -197,7 +222,12 @@
 		{
 			"gameId": "g-1",
 			"date": "2026-04-08",
-			"opponent": "LAL",
+			"opponent": {
+				"code": "LAL",
+				"name": null,
+				"city": null,
+				"guest": false
+			},
 			"isHome": true,
 			"kind": "cup",
 			"tag": {
@@ -614,7 +644,12 @@
 			{
 				"gameId": "g-5",
 				"date": "2026-04-29",
-				"opponent": "MEM",
+				"opponent": {
+					"code": "MEM",
+					"name": null,
+					"city": null,
+					"guest": false
+				},
 				"isHome": false,
 				"kind": "playoffs",
 				"tag": {
@@ -648,7 +683,12 @@
 			{
 				"gameId": "g-4",
 				"date": "2026-04-26",
-				"opponent": "MEM",
+				"opponent": {
+					"code": "MEM",
+					"name": null,
+					"city": null,
+					"guest": false
+				},
 				"isHome": true,
 				"kind": "playoffs",
 				"tag": {
@@ -682,7 +722,12 @@
 			{
 				"gameId": "g-3",
 				"date": "2026-04-12",
-				"opponent": "DEN",
+				"opponent": {
+					"code": "DEN",
+					"name": null,
+					"city": null,
+					"guest": false
+				},
 				"isHome": true,
 				"kind": "regular",
 				"tag": null,
@@ -745,7 +790,12 @@
 			{
 				"gameId": "g-0",
 				"date": "2026-01-20",
-				"opponent": "POR",
+				"opponent": {
+					"code": "POR",
+					"name": null,
+					"city": null,
+					"guest": false
+				},
 				"isHome": false,
 				"kind": "regular",
 				"tag": null,
@@ -774,7 +824,12 @@
 			{
 				"gameId": "g-1",
 				"date": "2026-01-08",
-				"opponent": "LAL",
+				"opponent": {
+					"code": "LAL",
+					"name": null,
+					"city": null,
+					"guest": false
+				},
 				"isHome": true,
 				"kind": "cup",
 				"tag": {
@@ -783,6 +838,40 @@
 					"round": null,
 					"game": null
 				},
+				"result": "loss",
+				"teamScore": 99,
+				"opponentScore": 102,
+				"minutes": 34,
+				"fieldGoalsMade": 11,
+				"fieldGoalsAttempted": 21,
+				"fieldGoalPct": 0.524,
+				"threePointsMade": 2,
+				"threePointsAttempted": 5,
+				"threePointPct": 0.4,
+				"freeThrowsMade": 7,
+				"freeThrowsAttempted": 8,
+				"freeThrowPct": 0.875,
+				"rebounds": 8,
+				"assists": 6,
+				"blocks": 1,
+				"steals": 2,
+				"fouls": 2,
+				"turnovers": 3,
+				"points": 22,
+				"detailAvailable": false
+			},
+			{
+				"gameId": "g-pre",
+				"date": "2025-10-18",
+				"opponent": {
+					"code": null,
+					"name": "Mariners",
+					"city": "Harbor City",
+					"guest": true
+				},
+				"isHome": true,
+				"kind": "preseason",
+				"tag": null,
 				"result": "loss",
 				"teamScore": 99,
 				"opponentScore": 102,

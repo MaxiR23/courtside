@@ -9,6 +9,7 @@
 // - "Season over." with no next game
 // - The live card: badge, clock, opponent, score, the five line values, Game center always linked
 // - The live card with no line, with no next game, and in Spanish
+// - A guest opponent without a code reads with its name, as plain text
 //
 // What is covered:
 // - Each state the card shows
@@ -24,12 +25,17 @@ import type { LiveGameView } from '../../../src/lib/player/types';
 import type { NextGameView } from '../../../src/lib/team/types';
 import { preferLanguages } from '../../prefer-languages';
 
+const versus = (code: string, isHome: boolean) => ({
+	team: { code, name: null, city: null, guest: false },
+	isHome
+});
+
 const game: NextGameView = {
 	gameId: 'g-next',
 	linked: true,
 	tag: 'NBA Cup',
 	date: 'Wednesday, October 7',
-	opponent: '@ DEN',
+	opponent: versus('DEN', false),
 	place: 'Ball Arena · Denver, CO',
 	time: '7:30 PM ET · Courtside TV'
 };
@@ -38,7 +44,7 @@ const gameHref = (id: string) => `/game/${id}` as never;
 
 const live: LiveGameView = {
 	gameId: 'g-live',
-	opponent: '@ DEN',
+	opponent: versus('DEN', false),
 	score: '78–74',
 	clock: 'Q3 · 4:12',
 	line: [
@@ -134,5 +140,27 @@ describe('NextGameCard live', () => {
 		preferLanguages(['es']);
 		render(NextGameCard, { props: { game: null, gameHref, live: { ...live, line: null } } });
 		expect(screen.getByText('Todavía no entró.')).toBeTruthy();
+	});
+});
+
+describe('NextGameCard with a guest opponent without a code', () => {
+	const mariners = { code: null, name: 'Mariners', city: 'Harbor City', guest: true };
+
+	it('reads the next game opponent as "@ Mariners"', () => {
+		const { container } = render(NextGameCard, {
+			props: { game: { ...game, opponent: { team: mariners, isHome: false } }, gameHref }
+		});
+		expect(container.querySelector('.opponent')?.textContent?.trim()).toBe('@ Mariners');
+	});
+
+	it('reads the live opponent as "vs Mariners"', () => {
+		const { container } = render(NextGameCard, {
+			props: {
+				game: null,
+				gameHref,
+				live: { ...live, opponent: { team: mariners, isHome: true } }
+			}
+		});
+		expect(container.querySelector('.opponent')?.textContent?.trim()).toBe('vs Mariners');
 	});
 });

@@ -5,6 +5,7 @@
 // Tested:
 // - One link per tab in the given order, pointing at its section
 // - The mini score when given, none without it
+// - The mini score names a guest without a code by its name
 // - A pre-formatted mini text, alone or with tabs
 // - Nothing with no tabs and no mini score
 // - A click scrolls smoothly to the section, instantly under reduced motion
@@ -35,7 +36,8 @@ const tabs: SectionTab[] = [
 	{ id: 'injuries', label: 'Injuries' }
 ];
 
-const miniScore = { awayCode: 'LAL', away: 63, home: 62, homeCode: 'GSW' };
+const league = (code: string) => ({ code, name: null, city: null, guest: false });
+const miniScore = { awayTeam: league('LAL'), away: 63, home: 62, homeTeam: league('GSW') };
 
 function stubSection(id: string) {
 	const section = document.createElement('section');
@@ -64,6 +66,16 @@ describe('SectionTabs', () => {
 		const { container } = render(SectionTabs, { props: { tabs, miniScore } });
 		expect(container.querySelector('.mini-score')?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
 			'LAL 63 – 62 GSW'
+		);
+	});
+
+	it('names a guest without a code by its name in the mini score', () => {
+		const guest = { code: null, name: 'Mariners', city: 'Harbor City', guest: true };
+		const { container } = render(SectionTabs, {
+			props: { tabs, miniScore: { ...miniScore, awayTeam: guest } }
+		});
+		expect(container.querySelector('.mini-score')?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
+			'Mariners 63 – 62 GSW'
 		);
 	});
 

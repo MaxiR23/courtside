@@ -352,7 +352,8 @@
         "regular",
         "cup",
         "playoffs",
-        "allstar"
+        "allstar",
+        "preseason"
       ],
       "title": "GameKind",
       "type": "string"
@@ -392,8 +393,7 @@
         "opponent": {
           "anyOf": [
             {
-              "pattern": "^[A-Z]{3}$",
-              "type": "string"
+              "$ref": "#/$defs/Opponent"
             },
             {
               "type": "null"
@@ -709,8 +709,7 @@
           "type": "string"
         },
         "opponent": {
-          "pattern": "^[A-Z]{3}$",
-          "type": "string"
+          "$ref": "#/$defs/Opponent"
         },
         "isHome": {
           "type": "boolean"
@@ -772,6 +771,57 @@
       "title": "NextGame",
       "type": "object"
     },
+    "Opponent": {
+      "additionalProperties": false,
+      "description": "A team a game is played against: a league team or a guest.",
+      "properties": {
+        "code": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "city": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "guest": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "code",
+        "name",
+        "city",
+        "guest"
+      ],
+      "title": "Opponent",
+      "type": "object"
+    },
     "PlayerInjury": {
       "additionalProperties": false,
       "properties": {
@@ -811,8 +861,7 @@
           "type": "string"
         },
         "opponent": {
-          "pattern": "^[A-Z]{3}$",
-          "type": "string"
+          "$ref": "#/$defs/Opponent"
         },
         "isHome": {
           "type": "boolean"

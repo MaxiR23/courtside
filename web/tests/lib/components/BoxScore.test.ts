@@ -11,6 +11,7 @@
 // - Each player name links to its player page, and the team toggle holds no link
 // - The column labels in Spanish with a Spanish browser preference
 // - The player names of a guest team are plain text and the league ones link
+// - A guest without a code is named by its name in the toggle on desktop and on mobile, and the toggle holds no link
 //
 // What is covered:
 // - Both teams, both layouts, the empty bench and Spanish; layout (wrapping, sticky) is not asserted
@@ -65,15 +66,13 @@ const totals = {
 };
 
 const away: BoxScoreTeam = {
-	code: 'LAL',
-	name: 'Lakers',
+	team: { code: 'LAL', name: 'Lakers', city: 'Los Angeles', guest: false },
 	starters: [row('a1', 'LeBron James', '+4', true), row('a2', 'Anthony Davis', '0')],
 	bench: [row('a3', 'Austin Reaves', '-3')],
 	totals
 };
 const home: BoxScoreTeam = {
-	code: 'GSW',
-	name: 'Warriors',
+	team: { code: 'GSW', name: 'Warriors', city: 'Golden State', guest: false },
 	starters: [row('h1', 'Stephen Curry', '+2', true)],
 	bench: [],
 	totals: { ...totals, points: '62' }
@@ -194,8 +193,7 @@ describe('BoxScore with a guest team', () => {
 	const guestBox: BoxScoreSection = {
 		away: {
 			...away,
-			code: 'HCM',
-			name: 'Mariners',
+			team: { code: 'HCM', name: 'Mariners', city: 'Harbor City', guest: true },
 			starters: [{ ...row('g1', 'Casey Marin', '+1', true), guest: true }],
 			bench: []
 		},
@@ -214,5 +212,27 @@ describe('BoxScore with a guest team', () => {
 		expect(screen.getByRole('link', { name: 'Stephen Curry' }).getAttribute('href')).toBe(
 			'/player/h1'
 		);
+	});
+});
+
+describe('BoxScore with a guest team without a code', () => {
+	const codelessBox: BoxScoreSection = {
+		away: {
+			...away,
+			team: { code: null, name: 'Mariners', city: 'Harbor City', guest: true }
+		},
+		home
+	};
+
+	it('names the guest by its name in the toggle on desktop and on mobile', () => {
+		for (const layout of ['desktop', 'mobile'] as const) {
+			const { container, unmount } = render(BoxScore, {
+				props: { box: codelessBox, layout, playerHref }
+			});
+			const sides = [...container.querySelectorAll('.side')].map((b) => b.textContent?.trim());
+			expect(sides[0]).toBe('Mariners');
+			expect(container.querySelector('.toggle a')).toBeNull();
+			unmount();
+		}
 	});
 });
