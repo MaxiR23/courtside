@@ -23,13 +23,13 @@ from app.feeds.games import (
     NonEmptyStr,
     Percentage,
     Score,
-    SideCode,
     Stars,
     TeamCode,
     TeamStats,
     UtcDatetime,
     stars_match_sides,
 )
+from app.feeds.opponent import Opponent, Side
 
 
 class Record(FeedModel):
@@ -54,14 +54,14 @@ class DetailTeamStats(TeamStats):
 
 
 class TeamStatLeaders(FeedModel):
-    field_goal_pct: SideCode | None
-    three_point_pct: SideCode | None
-    free_throw_pct: SideCode | None
-    rebounds: SideCode | None
-    assists: SideCode | None
-    turnovers: SideCode | None
-    steals: SideCode | None
-    blocks: SideCode | None
+    field_goal_pct: Side | None
+    three_point_pct: Side | None
+    free_throw_pct: Side | None
+    rebounds: Side | None
+    assists: Side | None
+    turnovers: Side | None
+    steals: Side | None
+    blocks: Side | None
 
 
 class DetailGameTeamStats(FeedModel):
@@ -119,7 +119,7 @@ class WinProbabilityPoint(FeedModel):
 
 
 class WinProbabilityLeader(FeedModel):
-    team_code: SideCode
+    side: Side
     win_probability: Percentage
 
 
@@ -174,7 +174,7 @@ class GameResult(StrEnum):
 
 class LastGame(FeedModel):
     date: dt.date
-    opponent: SideCode
+    opponent: Opponent
     is_home: bool
     result: GameResult
     team_score: NonNegativeInt
@@ -275,7 +275,7 @@ class GameDetailFeed(FeedModel):
     clock: NonEmptyStr | None = None
     line_score: LineScore | None = None
     score: Score | None = None
-    winner: SideCode | None = None
+    winner: Side | None = None
     team_stats: DetailGameTeamStats | None = None
     stars: Stars | None = None
     box_score: BoxScore | None = None
@@ -307,13 +307,11 @@ class GameDetailFeed(FeedModel):
             return self
         if self.status is not GameStatus.FINAL:
             raise ValueError(f"a {self.status} game has no winner")
-        if self.winner not in (self.away.code, self.home.code):
-            raise ValueError("winner must be the away or the home team code")
         return self
 
     @model_validator(mode="after")
     def _require_two_different_teams(self) -> GameDetailFeed:
-        if self.away.code == self.home.code:
+        if self.away.code is not None and self.away.code == self.home.code:
             raise ValueError("a game has two different teams")
         return self
 
@@ -381,30 +379,20 @@ class GameDetailFeed(FeedModel):
 
     @model_validator(mode="after")
     def _require_the_leader_of_the_latest_point(self) -> GameDetailFeed:
-        expected: tuple[str, float] | None = None
+        expected: tuple[Side, float] | None = None
         if self.win_probability is not None:
             latest = self.win_probability[-1].home_win_probability
             if latest > 0.5:
-                expected = (self.home.code, latest)
+                expected = (Side.HOME, latest)
             elif latest < 0.5:
-                expected = (self.away.code, 1 - latest)
+                expected = (Side.AWAY, 1 - latest)
         leader = self.win_probability_leader
-        found = None if leader is None else (leader.team_code, leader.win_probability)
+        found = None if leader is None else (leader.side, leader.win_probability)
         if found != expected:
             raise ValueError(
                 "win probability leader must be the side ahead at the latest"
                 " point, null when even or without win probability"
             )
-        return self
-
-    @model_validator(mode="after")
-    def _require_stat_leaders_of_the_game(self) -> GameDetailFeed:
-        if self.team_stats is None:
-            return self
-        codes = (self.away.code, self.home.code)
-        for leader in self.team_stats.leaders.model_dump().values():
-            if leader is not None and leader not in codes:
-                raise ValueError("a stat leader must be the away or the home team code")
         return self
 
     @model_validator(mode="after")

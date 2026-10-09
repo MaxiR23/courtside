@@ -8,6 +8,7 @@
 // - A placeholder in place of a photo that fails to load, keeping the other photo
 // - The stat line in Spanish with a Spanish browser preference
 // - A guest leader: the team code is plain text and a missing photo shows the initials
+// - A guest leader without a code shows the name of the guest, with no link
 //
 // What is covered:
 // - Happy path, the photo error interaction and Spanish
@@ -33,7 +34,7 @@ afterEach(() => {
 const away: Leader = {
 	firstName: 'Stephen',
 	lastName: 'Curry',
-	teamCode: 'GSW',
+	team: { code: 'GSW', name: 'Warriors', city: 'Golden State', guest: false },
 	photo: '/away.svg',
 	points: 34,
 	rebounds: 3,
@@ -42,7 +43,7 @@ const away: Leader = {
 const home: Leader = {
 	firstName: 'LeBron',
 	lastName: 'James',
-	teamCode: 'LAL',
+	team: { code: 'LAL', name: 'Lakers', city: 'Los Angeles', guest: false },
 	photo: '/home.svg',
 	points: 29,
 	rebounds: 9,
@@ -94,9 +95,8 @@ describe('Leaders of a guest team', () => {
 		...away,
 		firstName: 'Casey',
 		lastName: 'Marin',
-		teamCode: 'HCM',
-		photo: null,
-		guest: true
+		team: { code: 'HCM', name: 'Mariners', city: 'Harbor City', guest: true },
+		photo: null
 	};
 
 	it('shows the guest code as plain text and the league code as a link', () => {
@@ -111,5 +111,20 @@ describe('Leaders of a guest team', () => {
 		render(Leaders, { props: { away: guest, home, teamHref } });
 		expect(screen.getByRole('img', { name: 'Casey Marin' }).textContent).toBe('CM');
 		expect(screen.getByAltText('LeBron James')).toBeTruthy();
+	});
+});
+
+describe('Leaders of a guest team without a code', () => {
+	it("shows the guest's name with no link", () => {
+		const codeless: Leader = {
+			...away,
+			team: { code: null, name: 'Mariners', city: 'Harbor City', guest: true },
+			photo: null
+		};
+		const { container } = render(Leaders, { props: { away: codeless, home, teamHref } });
+		const codes = [...container.querySelectorAll('.leader-code')];
+		expect(codes[0].textContent).toBe('Mariners');
+		expect(codes[0].querySelector('a')).toBeNull();
+		expect(codes[1].querySelector('a')?.getAttribute('href')).toBe('/team/lal');
 	});
 });

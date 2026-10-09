@@ -4,6 +4,7 @@
  */
 
 export type GameStatus = 'scheduled' | 'live' | 'final' | 'delayed' | 'postponed' | 'canceled';
+export type Side = 'away' | 'home';
 export type StatsAvailability = 'available' | 'pending' | 'unavailable';
 
 export interface GamesFeed {
@@ -28,7 +29,7 @@ export interface Game {
 	clock: string | null;
 	lineScore: LineScore | null;
 	score: Score | null;
-	winner: string | null;
+	winner: Side | null;
 	leaders: Leaders | null;
 	teamStats: GameTeamStats | null;
 	statsAvailability: StatsAvailability | null;
@@ -38,7 +39,7 @@ export interface Game {
  * A side of a game: one of the 30 teams, or a guest team outside the league.
  */
 export interface GameTeam {
-	code: string;
+	code: string | null;
 	name: string;
 	city: string;
 	guest: boolean;
@@ -82,7 +83,7 @@ export interface Leaders {
 export interface Leader {
 	playerId: string;
 	displayName: string;
-	teamCode: string;
+	teamCode: string | null;
 	photoUrl: string | null;
 	points: number;
 	rebounds: number;

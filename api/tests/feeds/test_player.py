@@ -10,9 +10,10 @@
 # - The live block: the line may be null, and is the line of the player
 # - Percentages are 0 to 1, counting stats are not negative, made is within
 #   attempted
-# - Last games: at most five, newest first, no All-Star game
+# - Last games: at most five, newest first, no All-Star or preseason game
 # - Season rows: newest first, one per season, minutes only in per game rows
-# - Game log: newest first, only an All-Star entry has a null opponent
+# - Game log: newest first, only an All-Star entry has a null opponent; a preseason entry against a guest without a code is accepted
+# - The live block and the next game may be against a guest without a code
 # - Profile: seasons and debutSeason agree with the regular season rows
 # - Averages rows have at least one game; season labels look like 2025-26
 # - Injury status, UTC time and unknown fields are validated
@@ -49,6 +50,10 @@ NULLABLE_SECTIONS = [
 ]
 
 
+def opponent(code: str | None, **overrides: object) -> Payload:
+    return {"code": code, "name": None, "city": None, "guest": False, **overrides}
+
+
 def game_tag() -> Payload:
     return {"kind": "playoffs", "conference": "east", "round": 2, "game": 3}
 
@@ -57,7 +62,7 @@ def next_game() -> Payload:
     return {
         "gameId": "g9",
         "startTime": "2026-01-15T00:30:00Z",
-        "opponent": "BBB",
+        "opponent": opponent("BBB"),
         "isHome": True,
         "tag": game_tag(),
         "arena": "Arena",
@@ -96,7 +101,7 @@ def box_player() -> Payload:
 def live() -> Payload:
     return {
         "gameId": "g10",
-        "opponent": "BBB",
+        "opponent": opponent("BBB"),
         "isHome": False,
         "period": 2,
         "clock": "5:30",
@@ -110,7 +115,7 @@ def log_entry(date: str, kind: str = "regular") -> Payload:
     return {
         "gameId": f"g{date}",
         "date": date,
-        "opponent": "BBB",
+        "opponent": opponent("BBB"),
         "isHome": True,
         "kind": kind,
         "tag": None,
@@ -416,6 +421,39 @@ def test_rejects_an_all_star_game_in_last_games() -> None:
     player["lastGames"] = [log_entry("2026-01-12", kind="allstar")]
 
     rejects(player, "All-Star")
+
+
+def test_rejects_a_preseason_game_in_last_games() -> None:
+    player = valid_player()
+    player["lastGames"] = [log_entry("2026-01-12", kind="preseason")]
+
+    rejects(player, "preseason")
+
+
+GUEST = {"code": None, "name": "Mariners", "city": "Harbor City", "guest": True}
+
+
+def test_accepts_a_preseason_game_log_entry_against_a_guest_without_a_code() -> None:
+    player = valid_player()
+    entry = log_entry("2026-01-12", kind="preseason")
+    entry["opponent"] = GUEST
+    player["gameLog"]["entries"] = [entry]
+
+    feed = PlayerFeed.model_validate(player)
+
+    assert feed.game_log is not None
+    assert feed.game_log.entries[0].kind == "preseason"
+    opponent_of_entry = feed.game_log.entries[0].opponent
+    assert opponent_of_entry is not None and opponent_of_entry.code is None
+
+
+def test_accepts_a_live_block_against_a_guest_without_a_code() -> None:
+    player = valid_player()
+    player["live"]["opponent"] = GUEST
+
+    feed = PlayerFeed.model_validate(player)
+
+    assert feed.live is not None and feed.live.opponent.guest
 
 
 @pytest.mark.parametrize("list_name", ["perGame", "totals"])

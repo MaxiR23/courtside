@@ -1,10 +1,11 @@
 <script lang="ts">
 	import type { ResolvedPathname } from '$app/types';
-	import NameLink from '#lib/components/NameLink.svelte';
+	import TeamMark from '#lib/components/TeamMark.svelte';
 	import { m } from '#lib/paraglide/messages.js';
 	import { periodCells, periodColumns, type PeriodColumn } from '#lib/schedule/line-score.ts';
+	import type { TeamMarkTeam } from '#lib/team/mark.ts';
 
-	type Team = { code: string; name?: string; guest?: boolean; periods: number[]; total: number };
+	type Team = { team: TeamMarkTeam; periods: number[]; total: number };
 	type Props = {
 		away: Team;
 		home: Team;
@@ -15,7 +16,10 @@
 	let { away, home, detail = false, teamHref }: Props = $props();
 
 	const columns = $derived(periodColumns(away.periods, home.periods));
-	const teams = $derived([away, home]);
+	const teams = $derived([
+		{ side: 'away' as const, team: away.team, periods: away.periods, total: away.total },
+		{ side: 'home' as const, team: home.team, periods: home.periods, total: home.total }
+	]);
 
 	function label(column: PeriodColumn): string {
 		if (column.kind === 'quarter') return String(column.number);
@@ -34,18 +38,19 @@
 		{/each}
 		<span class="cell total-cell">{m.panel_line_score_total()}</span>
 	</div>
-	{#each teams as team (team.code)}
+	{#each teams as entry (entry.side)}
+		{@const team = entry.team}
 		<div class="line">
 			<span class="team-cell">
-				<NameLink href={team.guest ? null : teamHref(team.code)} text={team.code} />
-				{#if detail && team.name}<span class="team-name"
-						><NameLink href={team.guest ? null : teamHref(team.code)} text={team.name} /></span
+				<TeamMark part="label" {team} {teamHref} />
+				{#if detail && team.code !== null && team.name}<span class="team-name"
+						><TeamMark part="name" {team} {teamHref} /></span
 					>{/if}
 			</span>
-			{#each periodCells(team.periods, columns.length) as points, i (i)}
+			{#each periodCells(entry.periods, columns.length) as points, i (i)}
 				<span class="cell quarter">{points ?? '–'}</span>
 			{/each}
-			<span class="cell total">{team.total}</span>
+			<span class="cell total">{entry.total}</span>
 		</div>
 	{/each}
 </div>

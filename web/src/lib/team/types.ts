@@ -1,5 +1,6 @@
 // Props of the team page. Components get pre-formatted strings and never a contract type.
 import type { InfoCell, InjuryTagStatus } from '#lib/game/types.ts';
+import type { TeamMarkTeam } from '#lib/team/mark.ts';
 
 export type TeamSectionId = 'overview' | 'record' | 'leaders' | 'roster' | 'injuries' | 'schedule';
 
@@ -21,7 +22,7 @@ export type GameLink = { gameId: string; linked: boolean }; // linked: the feed'
 export type NextGameView = GameLink & {
 	tag: string | null; // "NBA Cup"
 	date: string; // "Wednesday, October 7"
-	opponent: string; // "vs DEN" or "@ DEN"
+	opponent: { team: TeamMarkTeam; isHome: boolean }; // drawn "vs DEN" or "@ DEN"
 	place: string; // "Ball Arena · Denver, CO", or the arena alone
 	time: string; // "7:30 PM ET · Courtside TV", or the time alone
 };
@@ -73,7 +74,7 @@ export type TeamInjuryRow = {
 export type ScheduleRowView = GameLink & {
 	weekday: string; // "Wed"
 	date: string; // "Oct 7"
-	opponent: string; // "vs DEN" or "@ DEN"
+	opponent: { team: TeamMarkTeam; isHome: boolean }; // drawn "vs DEN" or "@ DEN"
 	tags: string[]; // the game tag, then "Next" on the next game
 	next: boolean;
 	outcome:

@@ -70,6 +70,7 @@ from app.feeds.games import (
     Stars,
     TeamStats,
 )
+from app.feeds.opponent import Opponent
 from app.jobs.game_detail_feed import (
     KIND,
     DetailBuildError,
@@ -216,7 +217,7 @@ def injuries(teams: dict[str, list[Injury]] | None = None) -> LeagueInjuries:
 def schedule(arenas: dict[str, str] | None = None) -> TeamSchedule:
     last = LastGame(
         date=dt.date(2026, 10, 1),
-        opponent="MIA",
+        opponent=Opponent(code="MIA", name=None, city=None),
         is_home=True,
         result="win",  # type: ignore[arg-type]
         team_score=100,
@@ -270,6 +271,7 @@ def build(
 
 
 GUEST = GameTeam(code="HCM", name="Mariners", city="Harbor City", guest=True)
+CODELESS_GUEST = GameTeam(code=None, name="Mariners", city="Harbor City", guest=True)
 GUEST_STARS = Stars(away=None, home=star("NYK"))
 BOX_LINE = {
     "points": 20,
@@ -323,7 +325,7 @@ def guest_sections(
     if status is GameStatus.FINAL:
         data["team_stats"] = {
             **TEAM_STATS,
-            "leaders": {**TEAM_STATS["leaders"], "rebounds": "HCM"},
+            "leaders": {**TEAM_STATS["leaders"], "rebounds": "away"},
         }
         data["box_score"] = {
             "away": box_team(None),
@@ -384,7 +386,7 @@ def test_builds_a_final_game_with_its_winner_box_score_and_season_series() -> No
         away_schedule=schedule({"1": "Garden"}),
     )
 
-    assert feed.winner == "BOS"
+    assert feed.winner == "away"
     assert feed.season_series is not None
     assert feed.season_series.games[0].arena == "Garden"
     assert feed.win_probability_periods is None
@@ -415,12 +417,12 @@ def test_builds_a_final_game_with_its_win_probability_periods() -> None:
     ]
 
 
-def leader_sections(team_code: str) -> GameDetailSections:
+def leader_sections(side: str) -> GameDetailSections:
     return GameDetailSections.model_validate(
         {
             "venue": VENUE,
             "win_probability": [{"elapsed_seconds": 5, "home_win_probability": 0.3}],
-            "win_probability_leader": {"team_code": team_code, "win_probability": 0.7},
+            "win_probability_leader": {"side": side, "win_probability": 0.7},
             "win_probability_periods": {
                 "periods": [{"number": 1, "start_elapsed_seconds": 0}],
                 "end_elapsed_seconds": 20,
@@ -432,12 +434,12 @@ def leader_sections(team_code: str) -> GameDetailSections:
 def test_builds_a_game_with_its_win_probability_leader() -> None:
     feed = build(
         game("1", GameStatus.FINAL),
-        leader_sections("BOS"),
+        leader_sections("away"),
         away_schedule=schedule(),
     )
 
     assert feed.win_probability_leader is not None
-    assert feed.win_probability_leader.team_code == "BOS"
+    assert feed.win_probability_leader.side == "away"
     assert feed.win_probability_leader.win_probability == 0.7
 
 
@@ -445,7 +447,7 @@ def test_fails_the_build_when_the_win_probability_leader_does_not_match() -> Non
     with pytest.raises(DetailBuildError):
         build(
             game("1", GameStatus.FINAL),
-            leader_sections("NYK"),
+            leader_sections("home"),
             away_schedule=schedule(),
         )
 
@@ -1188,12 +1190,12 @@ def test_builds_a_guest_game_with_the_box_score_team_stats_and_quarters_of_both_
 ):
     feed = build_guest(guest_game("1", GameStatus.FINAL), guest_sections())
 
-    assert feed.away.guest and feed.winner == "HCM"
+    assert feed.away.guest and feed.winner == "away"
     assert feed.box_score is not None
     assert feed.box_score.away.players[0].photo_url is None
     assert feed.box_score.home.players[0].photo_url == PHOTO
     assert feed.team_stats is not None
-    assert feed.team_stats.leaders.rebounds == "HCM"
+    assert feed.team_stats.leaders.rebounds == "away"
     assert feed.line_score is not None
     assert feed.line_score.away == [20, 20] and feed.line_score.home == [18, 20]
 
@@ -1241,6 +1243,52 @@ def test_a_guest_game_with_an_empty_win_probability_builds_with_null_win_probabi
     assert feed.win_probability is None
     assert feed.win_probability_leader is None
     assert feed.win_probability_periods is None
+
+
+def test_builds_the_detail_of_a_game_against_a_guest_without_a_code() -> None:
+    out = Injury(display_name="A B", status="out")  # type: ignore[arg-type]
+    codeless = guest_game("1", GameStatus.FINAL).model_copy(
+        update={"away": CODELESS_GUEST}
+    )
+
+    feed = build_guest(
+        codeless,
+        guest_sections(season_series=series("1")),
+        league_injuries=injuries({"NYK": [out]}),
+    )
+
+    assert feed.away.code is None and feed.away.guest
+    assert feed.away.record is None
+    assert feed.winner == "away"
+    assert feed.standings is not None
+    assert feed.standings.away is None and feed.standings.home is not None
+    assert feed.injuries is not None
+    assert feed.injuries.away is None and feed.injuries.home == [out]
+    assert feed.last_games is not None
+    assert feed.last_games.away is None and feed.last_games.home is not None
+    assert feed.season_series is None
+
+
+def test_a_league_sides_last_games_list_a_guest_opponent_without_a_code() -> None:
+    guest = Opponent(code=None, name="Mariners", city="Harbor City", guest=True)
+    against_guest = TeamSchedule(
+        last_games=[
+            LastGame(
+                date=dt.date(2026, 10, 1),
+                opponent=guest,
+                is_home=True,
+                result="win",  # type: ignore[arg-type]
+                team_score=100,
+                opponent_score=90,
+            )
+        ],
+        arenas={},
+    )
+
+    feed = build(game("1", GameStatus.FINAL), away_schedule=against_guest)
+
+    assert feed.last_games is not None and feed.last_games.away is not None
+    assert feed.last_games.away[0].opponent.code is None
 
 
 @pytest.mark.anyio

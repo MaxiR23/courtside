@@ -1,4 +1,5 @@
 <script lang="ts">
+	import TeamMark from '#lib/components/TeamMark.svelte';
 	import type { MiniScore } from '#lib/game/types.ts';
 	import { m } from '#lib/paraglide/messages.js';
 
@@ -30,9 +31,9 @@
 		</ul>
 		{#if miniScore}
 			<span class="mini-score">
-				{miniScore.awayCode}
+				<TeamMark part="label" team={miniScore.awayTeam} />
 				{miniScore.away} – {miniScore.home}
-				{miniScore.homeCode}
+				<TeamMark part="label" team={miniScore.homeTeam} />
 			</span>
 		{:else if mini}
 			<span class="mini-score">{mini}</span>

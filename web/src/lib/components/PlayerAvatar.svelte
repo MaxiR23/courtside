@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { initials as initialsOf } from '#lib/format/initials.ts';
+
 	type Props = { name: string; photo: string | null; size: 'roster' | 'leader' | 'search' };
 
 	let { name, photo, size }: Props = $props();
@@ -6,12 +8,7 @@
 	// Keyed by photo URL, so a new URL tries again after a failure.
 	let failedPhoto = $state<string | null>(null);
 	const showPhoto = $derived(photo !== null && photo !== failedPhoto);
-	const initials = $derived.by(() => {
-		const words = name.split(/\s+/).filter(Boolean);
-		const first = words[0]?.charAt(0) ?? '';
-		const last = words.length > 1 ? (words[words.length - 1]?.charAt(0) ?? '') : '';
-		return `${first}${last}`.toUpperCase();
-	});
+	const initials = $derived(initialsOf(name));
 </script>
 
 <span class="avatar {size}">

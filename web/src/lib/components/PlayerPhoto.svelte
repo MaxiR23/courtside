@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { PanelPlayer } from '#lib/schedule/types.ts';
 
-	type Props = { player: PanelPlayer; star?: boolean };
+	type Props = { player: Pick<PanelPlayer, 'firstName' | 'lastName' | 'photo'>; star?: boolean };
 
 	let { player, star = false }: Props = $props();
 

@@ -59,14 +59,14 @@
 			"blocks": 3
 		},
 		"leaders": {
-			"fieldGoalPct": "LAL",
-			"threePointPct": "GSW",
+			"fieldGoalPct": "away",
+			"threePointPct": "home",
 			"freeThrowPct": null,
-			"rebounds": "LAL",
-			"assists": "GSW",
+			"rebounds": "away",
+			"assists": "home",
 			"turnovers": null,
-			"steals": "GSW",
-			"blocks": "LAL"
+			"steals": "home",
+			"blocks": "away"
 		}
 	},
 	"stars": {
@@ -212,13 +212,28 @@
 			"homeWinProbability": 0.48
 		}
 	],
-	"winProbabilityLeader": { "teamCode": "LAL", "winProbability": 0.52 },
+	"winProbabilityLeader": {
+		"winProbability": 0.52,
+		"side": "away"
+	},
 	"winProbabilityPeriods": {
 		"periods": [
-			{ "number": 1, "startElapsedSeconds": 0 },
-			{ "number": 2, "startElapsedSeconds": 720 },
-			{ "number": 3, "startElapsedSeconds": 1440 },
-			{ "number": 4, "startElapsedSeconds": 2160 }
+			{
+				"number": 1,
+				"startElapsedSeconds": 0
+			},
+			{
+				"number": 2,
+				"startElapsedSeconds": 720
+			},
+			{
+				"number": 3,
+				"startElapsedSeconds": 1440
+			},
+			{
+				"number": 4,
+				"startElapsedSeconds": 2160
+			}
 		],
 		"endElapsedSeconds": 2880
 	},
@@ -237,7 +252,12 @@
 		"away": [
 			{
 				"date": "2026-10-05",
-				"opponent": "DEN",
+				"opponent": {
+					"code": "DEN",
+					"name": null,
+					"city": null,
+					"guest": false
+				},
 				"isHome": true,
 				"result": "win",
 				"teamScore": 110,
@@ -245,7 +265,12 @@
 			},
 			{
 				"date": "2026-10-03",
-				"opponent": "PHX",
+				"opponent": {
+					"code": "PHX",
+					"name": null,
+					"city": null,
+					"guest": false
+				},
 				"isHome": false,
 				"result": "loss",
 				"teamScore": 99,
@@ -255,7 +280,12 @@
 		"home": [
 			{
 				"date": "2026-10-05",
-				"opponent": "SAC",
+				"opponent": {
+					"code": "SAC",
+					"name": null,
+					"city": null,
+					"guest": false
+				},
 				"isHome": false,
 				"result": "win",
 				"teamScore": 120,

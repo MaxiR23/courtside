@@ -2,10 +2,9 @@
 	import type { ResolvedPathname } from '$app/types';
 	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
 	import LiveBadge from '#lib/components/LiveBadge.svelte';
-	import NameLink from '#lib/components/NameLink.svelte';
 	import NavRow from '#lib/components/NavRow.svelte';
 	import StatusTag from '#lib/components/StatusTag.svelte';
-	import TeamMonogram from '#lib/components/TeamMonogram.svelte';
+	import TeamMark from '#lib/components/TeamMark.svelte';
 	import type { GameHeaderView, HeaderTeam, ScoreboardCenter } from '#lib/game/types.ts';
 	import { play } from '#lib/hero/motion.ts';
 	import { m } from '#lib/paraglide/messages.js';
@@ -61,14 +60,10 @@
 
 {#snippet teamBlock(team: HeaderTeam, side: 'away' | 'home')}
 	<div class="team {side}" class:dimmed={isLoser(side)}>
-		<TeamMonogram
-			code={team.code}
-			size="header"
-			href={team.guest ? undefined : teamHref(team.code)}
-		/>
+		<TeamMark part="tile" {team} size="header" {teamHref} />
 		<span class="city">{team.city}</span>
 		<h1 class="name">
-			<NameLink href={team.guest ? null : teamHref(team.code)} text={team.name} />
+			<TeamMark part="name" {team} {teamHref} />
 		</h1>
 		{#if team.record}<span class="record">{team.record}</span>{/if}
 	</div>
@@ -111,14 +106,10 @@
 						{@const side = entry.side}
 						{@const team = entry.team}
 						<div class="row" class:dimmed={isLoser(side)}>
-							<TeamMonogram
-								code={team.code}
-								size="header-mobile"
-								href={team.guest ? undefined : teamHref(team.code)}
-							/>
+							<TeamMark part="tile" {team} size="header-mobile" {teamHref} />
 							<div class="who">
 								<h1 class="name">
-									<NameLink href={team.guest ? null : teamHref(team.code)} text={team.name} />
+									<TeamMark part="name" {team} {teamHref} />
 								</h1>
 								<span class="meta">{metaOf(team)}</span>
 							</div>

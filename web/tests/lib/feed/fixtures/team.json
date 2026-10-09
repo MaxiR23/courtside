@@ -4,30 +4,63 @@
 	"name": "Thunder",
 	"conference": "west",
 	"division": "Northwest",
-	"colors": { "primary": "#007AC1", "secondary": "#EF3B24" },
+	"colors": {
+		"primary": "#007AC1",
+		"secondary": "#EF3B24"
+	},
 	"arena": {
 		"name": "Paycom Center",
 		"city": "Oklahoma City, OK",
 		"photoUrl": "https://example.com/arena/okc.jpg"
 	},
-	"coach": { "name": "Mark Daigneault", "seasons": 6 },
+	"coach": {
+		"name": "Mark Daigneault",
+		"seasons": 6
+	},
 	"season": "2025-26",
 	"record": {
 		"season": "2025-26",
 		"wins": 57,
 		"losses": 25,
 		"winPct": 0.695,
-		"home": { "wins": 32, "losses": 9, "winPct": 0.78 },
-		"away": { "wins": 25, "losses": 16, "winPct": 0.61 },
-		"lastTen": { "wins": 8, "losses": 2, "winPct": 0.8 },
-		"streak": { "kind": "win", "count": 3 },
+		"home": {
+			"wins": 32,
+			"losses": 9,
+			"winPct": 0.78
+		},
+		"away": {
+			"wins": 25,
+			"losses": 16,
+			"winPct": 0.61
+		},
+		"lastTen": {
+			"wins": 8,
+			"losses": 2,
+			"winPct": 0.8
+		},
+		"streak": {
+			"kind": "win",
+			"count": 3
+		},
 		"gamesBehind": 0,
 		"conferenceRank": 1,
 		"divisionRank": 1,
-		"playoff": { "status": "seed", "seed": 1 },
-		"pointsFor": { "perGame": 118.3, "total": 9701 },
-		"pointsAgainst": { "perGame": 109.9, "total": 9012 },
-		"differential": { "perGame": 8.4, "total": 689 }
+		"playoff": {
+			"status": "seed",
+			"seed": 1
+		},
+		"pointsFor": {
+			"perGame": 118.3,
+			"total": 9701
+		},
+		"pointsAgainst": {
+			"perGame": 109.9,
+			"total": 9012
+		},
+		"differential": {
+			"perGame": 8.4,
+			"total": 689
+		}
 	},
 	"leaders": {
 		"season": "2025-26",
@@ -141,9 +174,19 @@
 	"nextGame": {
 		"gameId": "g-next",
 		"startTime": "2026-10-07T23:30:00Z",
-		"opponent": "DEN",
+		"opponent": {
+			"code": "DEN",
+			"name": null,
+			"city": null,
+			"guest": false
+		},
 		"isHome": false,
-		"tag": { "kind": "cup", "conference": null, "round": null, "game": null },
+		"tag": {
+			"kind": "cup",
+			"conference": null,
+			"round": null,
+			"game": null
+		},
 		"arena": "Ball Arena",
 		"city": "Denver, CO",
 		"broadcast": "Courtside TV",
@@ -157,7 +200,12 @@
 					{
 						"gameId": "g-won",
 						"startTime": "2025-10-23T23:00:00Z",
-						"opponent": "HOU",
+						"opponent": {
+							"code": "HOU",
+							"name": null,
+							"city": null,
+							"guest": false
+						},
 						"isHome": true,
 						"kind": "regular",
 						"tag": null,
@@ -176,7 +224,12 @@
 					{
 						"gameId": "g-lost",
 						"startTime": "2025-11-02T00:30:00Z",
-						"opponent": "DEN",
+						"opponent": {
+							"code": "DEN",
+							"name": null,
+							"city": null,
+							"guest": false
+						},
 						"isHome": false,
 						"kind": "regular",
 						"tag": null,
@@ -190,10 +243,20 @@
 					{
 						"gameId": "g-next",
 						"startTime": "2026-10-07T23:30:00Z",
-						"opponent": "DEN",
+						"opponent": {
+							"code": "DEN",
+							"name": null,
+							"city": null,
+							"guest": false
+						},
 						"isHome": false,
 						"kind": "cup",
-						"tag": { "kind": "cup", "conference": null, "round": null, "game": null },
+						"tag": {
+							"kind": "cup",
+							"conference": null,
+							"round": null,
+							"game": null
+						},
 						"result": null,
 						"teamScore": null,
 						"opponentScore": null,
@@ -204,7 +267,12 @@
 					{
 						"gameId": "g-later",
 						"startTime": "2025-11-20T01:00:00Z",
-						"opponent": "LAL",
+						"opponent": {
+							"code": "LAL",
+							"name": null,
+							"city": null,
+							"guest": false
+						},
 						"isHome": true,
 						"kind": "regular",
 						"tag": null,
@@ -223,10 +291,20 @@
 					{
 						"gameId": "g-playoff",
 						"startTime": "2026-04-24T00:00:00Z",
-						"opponent": "LAC",
+						"opponent": {
+							"code": "LAC",
+							"name": null,
+							"city": null,
+							"guest": false
+						},
 						"isHome": true,
 						"kind": "playoffs",
-						"tag": { "kind": "playoffs", "conference": "west", "round": 1, "game": 3 },
+						"tag": {
+							"kind": "playoffs",
+							"conference": "west",
+							"round": 1,
+							"game": 3
+						},
 						"result": null,
 						"teamScore": null,
 						"opponentScore": null,

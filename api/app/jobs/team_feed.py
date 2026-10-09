@@ -162,9 +162,11 @@ def conference_rank(entry: DivisionEntry) -> int:
 
 
 def game_kind_and_tag(
-    note: str | None, playoffs: bool
+    note: str | None, playoffs: bool, *, preseason: bool = False
 ) -> tuple[GameKind, GameTag | None]:
-    """The kind and the tag of a game from its note."""
+    """The kind and the tag of a game from its note. A preseason game has no tag."""
+    if preseason:
+        return GameKind.PRESEASON, None
     if playoffs:
         text = note or ""
         match = _ROUND_NOTE.match(text)

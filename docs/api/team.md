@@ -57,9 +57,9 @@ The root is one team.
 | `TeamInjury`    | `playerId`, `name`, `number` (null), `position` (null), `status`, `comment` (null when none), `updatedAt`                                   |
 | `Schedule`      | `groups`: `ScheduleGroup[]` in display order; `defaultGroup`                                                                                |
 | `ScheduleGroup` | `key` (such as `2025-10` or `playoffs`), `games`: `ScheduleGame[]`                                                                          |
-| `ScheduleGame`  | `gameId`, `startTime`, `opponent`, `isHome`, `kind`, `tag`, `result` (null), `teamScore`, `opponentScore` (null), `broadcast` (null), `isNext`, `detailAvailable` |
+| `ScheduleGame`  | `gameId`, `startTime`, `opponent`: `Opponent`, `isHome`, `kind`, `tag`, `result` (null), `teamScore`, `opponentScore` (null), `broadcast` (null), `isNext`, `detailAvailable` |
 
-`GameTag` and `NextGame` are documented in the [player feed](player.md).
+`GameTag`, `NextGame` and `Opponent` (the opponent of `NextGame` and of `ScheduleGame`) are documented in the [player feed](player.md).
 
 ## Rules that live in the code
 

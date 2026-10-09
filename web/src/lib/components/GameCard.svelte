@@ -5,14 +5,13 @@
 	import Leaders from '#lib/components/Leaders.svelte';
 	import LineScore from '#lib/components/LineScore.svelte';
 	import LiveBadge from '#lib/components/LiveBadge.svelte';
-	import NameLink from '#lib/components/NameLink.svelte';
 	import PlayerPhoto from '#lib/components/PlayerPhoto.svelte';
-	import TeamMonogram from '#lib/components/TeamMonogram.svelte';
+	import TeamMark from '#lib/components/TeamMark.svelte';
 	import TeamStats from '#lib/components/TeamStats.svelte';
 	import { crossfade } from '#lib/hero/motion.ts';
 	import { m } from '#lib/paraglide/messages.js';
 	import { panelContent, panelExpand, panelTint } from '#lib/schedule/motion.ts';
-	import type { RowLayout, ScheduleGame, ScheduleTeam } from '#lib/schedule/types.ts';
+	import type { RowLayout, ScheduleGame } from '#lib/schedule/types.ts';
 
 	type Props = {
 		game: ScheduleGame;
@@ -48,9 +47,7 @@
 		if (hidden) return null;
 		const status = game.status;
 		if (status.state !== 'final') return null;
-		if (status.winner === game.home.code) return 'away';
-		if (status.winner === game.away.code) return 'home';
-		return null;
+		return status.winner === 'home' ? 'away' : 'home';
 	});
 	const entries = $derived([
 		{ team: game.away, side: 'away' as const },
@@ -91,15 +88,14 @@
 {/snippet}
 
 {#snippet row()}
-	{@const rowHref = (team: ScheduleTeam) =>
-		game.details || team.guest ? null : teamHref(team.code)}
 	<!-- The row is the expand button when the card has details: no link inside a button. -->
+	{@const rowHref = game.details ? undefined : teamHref}
 	{#if layout === 'desktop'}
 		<span class="row desktop">
 			<span class="team away">
-				<TeamMonogram code={game.away.code} size="large" href={rowHref(game.away) ?? undefined} />
+				<TeamMark part="tile" team={game.away} size="large" teamHref={rowHref} />
 				<span class="names" class:dimmed={loser === 'away'}>
-					<span class="name"><NameLink href={rowHref(game.away)} text={game.away.name} /></span>
+					<span class="name"><TeamMark part="name" team={game.away} teamHref={rowHref} /></span>
 					<span class="city">{game.away.city}</span>
 				</span>
 			</span>
@@ -120,10 +116,10 @@
 			</span>
 			<span class="team home">
 				<span class="names" class:dimmed={loser === 'home'}>
-					<span class="name"><NameLink href={rowHref(game.home)} text={game.home.name} /></span>
+					<span class="name"><TeamMark part="name" team={game.home} teamHref={rowHref} /></span>
 					<span class="city">{game.home.city}</span>
 				</span>
-				<TeamMonogram code={game.home.code} size="large" href={rowHref(game.home) ?? undefined} />
+				<TeamMark part="tile" team={game.home} size="large" teamHref={rowHref} />
 			</span>
 			{@render chevron()}
 		</span>
@@ -138,13 +134,9 @@
 			</span>
 			{#each entries as entry (entry.side)}
 				<span class="mobile-team">
-					<TeamMonogram
-						code={entry.team.code}
-						size="small"
-						href={rowHref(entry.team) ?? undefined}
-					/>
+					<TeamMark part="tile" team={entry.team} size="small" teamHref={rowHref} />
 					<span class="names" class:dimmed={loser === entry.side}>
-						<span class="name"><NameLink href={rowHref(entry.team)} text={entry.team.name} /></span>
+						<span class="name"><TeamMark part="name" team={entry.team} teamHref={rowHref} /></span>
 						<span class="city">{entry.team.city}</span>
 					</span>
 					{#if scores}
@@ -175,14 +167,12 @@
 			<LineScore
 				{teamHref}
 				away={{
-					code: game.away.code,
-					guest: game.away.guest,
+					team: game.away,
 					periods: details.periods.away,
 					total: status.awayScore
 				}}
 				home={{
-					code: game.home.code,
-					guest: game.home.guest,
+					team: game.home,
 					periods: details.periods.home,
 					total: status.homeScore
 				}}

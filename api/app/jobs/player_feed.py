@@ -6,7 +6,8 @@
 # "made-attempted" text, percentages from 0-100 to 0-1, season labels from end
 # years, game tags from notes, the two-team season as one row, the team of the
 # draft by name, the injury from the league report by athlete id and the next
-# game of the player's team. It reads no clock and no source: the caller passes
+# game of the player's team. The game log keeps preseason games; the last five
+# games leave them out, as they leave out the All-Star game (ADR 0026). It reads no clock and no source: the caller passes
 # the time and the ids of the games that have a detail feed. PlayerFeeds is the
 # feed kind of the on-demand cache: the ids are the players of the rosters the
 # stars job fetched (404 once all are fetched, 503 before), the team feed is
@@ -28,6 +29,7 @@ from pydantic import ValidationError
 
 from app.feeds.game_detail import GameDetailFeed, GameResult
 from app.feeds.games import GameStatus
+from app.feeds.opponent import Opponent
 from app.feeds.player import GameKind, NextGame, PlayerFeed, PlayerLive
 from app.jobs import game_detail_feed
 from app.jobs.games import GamesJob
@@ -255,7 +257,7 @@ def milestones(stats: PlayerStats) -> dict[str, Any] | None:
 
 
 def _log_entry(game: GameLogGame, detail_ids: AbstractSet[str]) -> dict[str, Any]:
-    kind, tag = game_kind_and_tag(game.note, game.playoffs)
+    kind, tag = game_kind_and_tag(game.note, game.playoffs, preseason=game.preseason)
     values: dict[str, Any] = {}
     for name in ("field_goals", "three_points", "free_throws"):
         made, attempted = made_attempted(getattr(game, name))
@@ -290,12 +292,14 @@ def game_log(
     log: PlayerGameLog, detail_ids: AbstractSet[str]
 ) -> tuple[dict[str, Any] | None, list[dict[str, Any]]]:
     """The game log newest first, none without games, and the last five games
-    that are not All-Star games."""
+    that are neither All-Star nor preseason games."""
     if not log.games or log.season is None:
         return None, []
     games = sorted(log.games, key=lambda game: game.start_time, reverse=True)
     entries = [_log_entry(game, detail_ids) for game in games]
-    recent = [e for e in entries if e["kind"] is not GameKind.ALLSTAR][:LAST_GAMES]
+    recent = [
+        e for e in entries if e["kind"] not in (GameKind.ALLSTAR, GameKind.PRESEASON)
+    ][:LAST_GAMES]
     return {"season": log.season, "entries": entries}, recent
 
 
@@ -472,14 +476,14 @@ def live_block(
     if game is None or game.period is None or game.clock is None or game.score is None:
         return None
     is_home = game.home.code == team
-    opponent = game.away.code if is_home else game.home.code
+    opponent_side = game.away if is_home else game.home
     line = None
     if detail is not None and detail.box_score is not None:
         side = detail.box_score.home if is_home else detail.box_score.away
         line = next((p for p in side.players if p.player_id == player_id), None)
     return PlayerLive(
         game_id=game.id,
-        opponent=opponent,
+        opponent=Opponent.model_validate(opponent_side.model_dump(by_alias=False)),
         is_home=is_home,
         period=game.period,
         clock=game.clock,

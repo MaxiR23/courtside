@@ -2,6 +2,7 @@
 	import type { ResolvedPathname } from '$app/types';
 	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
 	import NameLink from '#lib/components/NameLink.svelte';
+	import TeamMark from '#lib/components/TeamMark.svelte';
 	import { m } from '#lib/paraglide/messages.js';
 	import type { LastGamesSection } from '#lib/game/types.ts';
 
@@ -35,7 +36,13 @@
 							<li class="row">
 								<span class="result {row.result}">{row.resultLabel}</span>
 								<span class="date">{row.date}</span>
-								<span class="opponent">{row.opponent}</span>
+								<span class="opponent"
+									><TeamMark
+										part="label"
+										team={row.opponent.team}
+										versus={row.opponent.isHome ? 'home' : 'away'}
+									/></span
+								>
 								<span class="score">{row.score}</span>
 							</li>
 						{/each}

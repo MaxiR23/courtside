@@ -35,7 +35,7 @@ The root is one game.
 | `clock`               | string / null             | Game clock                                                       | required when `live`                  |
 | `lineScore`           | `LineScore` / null        | Points per period for each team                                  | required when `live` or `final`       |
 | `score`               | `Score` / null            | Current or final points                                          | required when `live` or `final`       |
-| `winner`              | team code / null          | Code of the winning team: the away or the home team              | required when `final`, null otherwise |
+| `winner`              | `away` / `home` / null    | The side with more points                                        | required when `final`, null otherwise |
 | `teamStats`           | `DetailGameTeamStats` / null | Team statistics and the leader of each row                    | required when `live`                  |
 | `stars`               | `Stars` / null            | The star of each team                                            | null when no data                     |
 | `boxScore`            | `BoxScore` / null         | Player lines and totals for each team                            | null when no data                     |
@@ -56,8 +56,8 @@ with no data is hidden, together with its tab").
 
 A `live` game requires `period`, `clock`, `lineScore`, `score` and
 `teamStats`. A `final` game requires `lineScore`, `score` and `winner`. Any
-other status has `winner` null. Every stat leader is the away or the home
-code.
+other status has `winner` null. Every stat leader is a side, `away` or
+`home`.
 
 `stars` uses the `Stars` model of the [games feed](games.md).
 
@@ -65,24 +65,25 @@ code.
 
 | Object                | Fields                                                                                                                                       |
 | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Opponent`            | `code` (null for a guest without one), `name`, `city` (null when the source sends none), `guest`; as in the [games feed](games.md) ([ADR 0026](../adr/0026-one-guest-team-rule.md)) |
 | `Record`              | `wins`, `losses`                                                                                                                             |
-| `DetailTeam`          | `GameTeam` fields (`code`, `name`, `city`, `guest`) plus `record` (null for a guest)                                                         |
+| `DetailTeam`          | `GameTeam` fields (`code`, null for a guest without one, `name`, `city`, `guest`) plus `record` (null for a guest)                                                         |
 | `Venue`               | `name`, `city` (null when the source has no city), `photoUrl` (null when unknown)                                                                                        |
 | `DetailTeamStats`     | `TeamStats` fields (`fieldGoalPct`, `threePointPct`, `rebounds`, `assists`, `turnovers`) plus `freeThrowPct` (0 to 1), `steals`, `blocks`    |
-| `TeamStatLeaders`     | one team code (either side's, a guest code included) or null per row: `fieldGoalPct`, `threePointPct`, `freeThrowPct`, `rebounds`, `assists`, `turnovers`, `steals`, `blocks`       |
+| `TeamStatLeaders`     | one side (`away` or `home`) or null per row: `fieldGoalPct`, `threePointPct`, `freeThrowPct`, `rebounds`, `assists`, `turnovers`, `steals`, `blocks`       |
 | `DetailGameTeamStats` | `away`, `home`: `DetailTeamStats`; `leaders`: `TeamStatLeaders`                                                                              |
 | `BoxScore`            | `away`, `home`: `TeamBoxScore`                                                                                                               |
 | `TeamBoxScore`        | `players`: `BoxScorePlayer[]`; `totals`: `BoxScoreTotals`                                                                                    |
 | `BoxScorePlayer`      | `playerId`, `displayName`, `starter`, `minutes` (text), `plusMinus`, `photoUrl` (null only for a guest player without a headshot) plus the counting stats of `BoxScoreTotals`                   |
 | `BoxScoreTotals`      | `points`, `fieldGoalsMade`, `fieldGoalsAttempted`, `threePointsMade`, `threePointsAttempted`, `freeThrowsMade`, `freeThrowsAttempted`, `offensiveRebounds`, `defensiveRebounds`, `rebounds`, `assists`, `turnovers`, `steals`, `blocks`, `fouls`, plus `fieldGoalPct`, `threePointPct`, `freeThrowPct` (0 to 1) |
 | `WinProbabilityPoint` | `elapsedSeconds`, `homeWinProbability` (0 to 1)                                                                                              |
-| `WinProbabilityLeader` | `teamCode` (the away or the home code, a guest code included), `winProbability` (0 to 1, above 0.5) |
+| `WinProbabilityLeader` | `side` (`away` or `home`), `winProbability` (0 to 1, above 0.5) |
 | `GamePeriod`          | `number`, `startElapsedSeconds`                                                                                                              |
 | `WinProbabilityPeriods` | `periods`: `GamePeriod[]`, `endElapsedSeconds`                                                                                             |
 | `Injuries`            | `away`, `home`: `Injury[]`, null for a guest side                                                                                                                  |
 | `Injury`              | `playerId` (the athlete id of the league injury report, null when the source gives none), `displayName`, `status` (`out`, `doubtful`, `questionable`, `probable`, `day-to-day`), `comment` (null when none)                            |
 | `LastGames`           | `away`, `home`: `LastGame[]`, null for a guest side                                                                                                                |
-| `LastGame`            | `date`, `opponent` (team code; a guest code when the opponent is a guest), `isHome`, `result` (`win`, `loss`), `teamScore`, `opponentScore`                                             |
+| `LastGame`            | `date`, `opponent`: `Opponent` (a league code, or a guest with its name and, when the source sends one, its code), `isHome`, `result` (`win`, `loss`), `teamScore`, `opponentScore`                                             |
 | `Standings`           | `away`, `home`: `TeamStanding`, null for a guest side                                                                                                              |
 | `TeamStanding`        | `conference` (`east`, `west`), `conferenceRank`, `record`, `homeRecord`, `awayRecord`, `lastTen`: `Record`                                   |
 | `SeasonSeries`        | `totalGames`, `awayWins`, `homeWins`, `leader` (team code, null on a tie or before any game), `games`: `SeriesGame[]`                    |
@@ -120,8 +121,8 @@ builds the feed.
 - `winProbability` has at least one point, in non-decreasing
   `elapsedSeconds` order. The feed's validator checks it.
 - `winProbabilityLeader` is read off the last point of `winProbability` in feed
-  order: the home team with that point's `homeWinProbability` above 0.5, the
-  away team with 1 minus it below 0.5, null on exactly 0.5 and null without
+  order: the `home` side with that point's `homeWinProbability` above 0.5, the
+  `away` side with 1 minus it below 0.5, null on exactly 0.5 and null without
   `winProbability`. The feed's validator checks it.
 - `winProbabilityPeriods` exists only with `winProbability`. Periods are
   numbered from 1, the first starts at 0, and starts increase. Every point

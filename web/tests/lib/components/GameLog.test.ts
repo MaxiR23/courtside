@@ -8,6 +8,7 @@
 // - 20 of 25 rows with Show all 25 games; clicking shows all and Show fewer with aria-expanded
 // - Changing the chip collapses the list; no toggle with 20 rows or fewer
 // - Links only on linked rows
+// - The Preseason chip shows the preseason rows
 //
 // What is covered:
 // - Each case, from props built for the test
@@ -42,7 +43,8 @@ const log = (all = 25): GameLogSection => ({
 	filters: [
 		{ id: 'all', label: 'All', rows: rowsOf('all', all) },
 		{ id: 'regular', label: 'Regular season', rows: rowsOf('reg', 3) },
-		{ id: 'playoffs', label: 'Playoffs', rows: rowsOf('po', 2) }
+		{ id: 'playoffs', label: 'Playoffs', rows: rowsOf('po', 2) },
+		{ id: 'preseason', label: 'Preseason', rows: rowsOf('pre', 1) }
 	]
 });
 
@@ -58,6 +60,7 @@ describe('GameLog', () => {
 			'All',
 			'Regular season',
 			'Playoffs',
+			'Preseason',
 			'Show all 25 games'
 		]);
 		expect(screen.getByRole('button', { name: 'All' }).getAttribute('aria-pressed')).toBe('true');
@@ -73,6 +76,16 @@ describe('GameLog', () => {
 		expect(screen.getByRole('button', { name: 'Playoffs' }).getAttribute('aria-pressed')).toBe(
 			'true'
 		);
+	});
+
+	it('shows the preseason rows on the Preseason tab', async () => {
+		show(log());
+		await fireEvent.click(screen.getByRole('button', { name: 'Preseason' }));
+		expect(bodyRows()).toBe(1);
+		expect(screen.getByRole('button', { name: 'Preseason' }).getAttribute('aria-pressed')).toBe(
+			'true'
+		);
+		expect(screen.getByText('pre 0')).toBeTruthy();
 	});
 
 	it('shows 20 of 25 rows, then all of them and Show fewer when expanded', async () => {

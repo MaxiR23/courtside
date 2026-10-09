@@ -14,6 +14,7 @@
 # - The schedule: the default group is a group, at most one game is next, and
 #   the next game agrees with nextGame
 # - Hex colors, group keys, UTC time and unknown fields are validated
+# - A schedule game or the next game may be against a guest opponent, with or without a code
 # - Serialization uses camelCase keys
 #
 # What is covered:
@@ -46,6 +47,10 @@ NULLABLE_PATHS = [
 ]
 
 
+def opponent(code: str | None, **overrides: object) -> Payload:
+    return {"code": code, "name": None, "city": None, "guest": False, **overrides}
+
+
 def split(wins: int, losses: int) -> Payload:
     return {"wins": wins, "losses": losses, "winPct": 0.6}
 
@@ -72,7 +77,7 @@ def next_game(game_id: str) -> Payload:
     return {
         "gameId": game_id,
         "startTime": "2026-01-15T00:30:00Z",
-        "opponent": "BBB",
+        "opponent": opponent("BBB"),
         "isHome": True,
         "tag": None,
         "arena": "Arena",
@@ -86,7 +91,7 @@ def schedule_game(game_id: str, start: str, is_next: bool = False) -> Payload:
     return {
         "gameId": game_id,
         "startTime": start,
-        "opponent": "BBB",
+        "opponent": opponent("BBB"),
         "isHome": True,
         "kind": "regular",
         "tag": {"kind": "cup"},
@@ -422,3 +427,32 @@ def test_accepts_a_coach_with_null_seasons() -> None:
     dumped = TeamFeed.model_validate(team).model_dump(mode="json", by_alias=True)
 
     assert dumped["coach"]["seasons"] is None
+
+
+GUEST = {"code": None, "name": "Mariners", "city": "Harbor City", "guest": True}
+
+
+def test_accepts_a_schedule_game_against_a_guest_opponent_without_a_code() -> None:
+    team = valid_team()
+    team["schedule"]["groups"][0]["games"][0]["opponent"] = GUEST
+
+    feed = TeamFeed.model_validate(team)
+
+    assert feed.schedule is not None
+    assert feed.schedule.groups[0].games[0].opponent.code is None
+
+
+def test_accepts_a_next_game_against_a_guest_opponent_with_a_code() -> None:
+    team = valid_team()
+    team["nextGame"]["opponent"] = {**GUEST, "code": "HCM"}
+
+    feed = TeamFeed.model_validate(team)
+
+    assert feed.next_game is not None and feed.next_game.opponent.code == "HCM"
+
+
+def test_rejects_a_schedule_opponent_that_is_a_bare_code() -> None:
+    team = valid_team()
+    team["schedule"]["groups"][0]["games"][0]["opponent"] = "BBB"
+
+    rejects(team, "opponent")

@@ -35,6 +35,7 @@ from app.feeds.games import (
     TeamCode,
     UtcDatetime,
 )
+from app.feeds.opponent import Opponent
 from app.feeds.player import (
     GameKind,
     GameTag,
@@ -159,7 +160,7 @@ class TeamInjury(FeedModel):
 class ScheduleGame(FeedModel):
     game_id: NonEmptyStr
     start_time: UtcDatetime
-    opponent: TeamCode
+    opponent: Opponent
     is_home: bool
     kind: GameKind
     tag: GameTag | None = None

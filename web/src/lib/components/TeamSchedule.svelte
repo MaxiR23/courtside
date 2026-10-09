@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { ResolvedPathname } from '$app/types';
 	import StatusTag from '#lib/components/StatusTag.svelte';
+	import TeamMark from '#lib/components/TeamMark.svelte';
 	import { m } from '#lib/paraglide/messages.js';
 	import type { RowLayout } from '#lib/schedule/types.ts';
 	import type { ScheduleRowView, ScheduleSection } from '#lib/team/types.ts';
@@ -27,7 +28,13 @@
 		<span class="day">{row.date}</span>
 	</span>
 	<span class="game">
-		<span class="opponent">{row.opponent}</span>
+		<span class="opponent"
+			><TeamMark
+				part="label"
+				team={row.opponent.team}
+				versus={row.opponent.isHome ? 'home' : 'away'}
+			/></span
+		>
 		{#each row.tags as tag, i (i)}
 			<StatusTag text={tag} accent={row.next && i === row.tags.length - 1} />
 		{/each}

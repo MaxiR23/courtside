@@ -35,7 +35,7 @@ The root is one player.
 | `summary`      | `Summary` / null        | Season averages with their league rank                             | null when no data                        |
 | `nextGame`     | `NextGame` / null       | The team's next game                                               | null shows "Season over."                |
 | `live`         | `PlayerLive` / null     | The live game of the player's team                                 | null when the team has no live game      |
-| `lastGames`    | `GameLogEntry[]`        | Up to five games, newest first, All-Star excluded                  | always, may be empty                     |
+| `lastGames`    | `GameLogEntry[]`        | Up to five games, newest first, All-Star and preseason excluded    | always, may be empty                     |
 | `averages`     | `Averages`              | Regular season, playoffs and career averages                       | always                                   |
 | `seasons`      | `Seasons`               | Season rows of the regular season and the playoffs                 | always                                   |
 | `milestones`   | `Milestones` / null     | Counts of notable events                                           | null when no data                        |
@@ -46,8 +46,9 @@ The root is one player.
 
 | Object             | Fields                                                                                                                                         |
 | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Opponent`         | `code` (null for a guest without one), `name`, `city` (null when the source sends none), `guest`; as in the [games feed](games.md) ([ADR 0026](../adr/0026-one-guest-team-rule.md)) |
 | `GameTag`          | `kind` (`cup`, `playoffs`, `allstar`), `conference` (`east`, `west` / null), `round` (1 to 4 / null, 4 is the Finals), `game` (number / null)  |
-| `NextGame`         | `gameId`, `startTime`, `opponent` (code), `isHome`, `tag`: `GameTag` / null, `arena`, `city` (null), `broadcast` (null), `detailAvailable`    |
+| `NextGame`         | `gameId`, `startTime`, `opponent`: `Opponent`, `isHome`, `tag`: `GameTag` / null, `arena`, `city` (null), `broadcast` (null), `detailAvailable`    |
 | `PlayerInjury`     | `status` (the game detail feed's `InjuryStatus`), `comment` (null when none), `updatedAt`                                                      |
 | `Profile`          | `height`: `Height`, `weight`: `Weight`, `birthDate`, `age`, `birthplace`: `Birthplace`, `college`, `draft`: `Draft` (null when undrafted), `seasons`, `debutSeason`; each null when unknown |
 | `Height`           | `display` (text), `cm`                                                                                                                         |
@@ -56,8 +57,8 @@ The root is one player.
 | `Draft`            | `year`, `round`, `pick`, `teamName`                                                                                                            |
 | `Summary`          | `season`, `points`, `rebounds`, `assists`: `RankedStat`, `fieldGoalPct`: `RankedPercentage`                                                    |
 | `RankedStat`       | `value`, `rank` (null when unranked); `RankedPercentage` has `value` from 0 to 1                                                               |
-| `PlayerLive`       | `gameId`, `opponent` (code), `isHome`, `period`, `clock`, `teamScore`, `opponentScore`, `line`: the game detail feed's `BoxScorePlayer` / null  |
-| `GameLogEntry`     | `gameId`, `date`, `opponent` (code, null for All-Star), `isHome`, `kind` (`regular`, `cup`, `playoffs`, `allstar`), `tag`, `result` (`win`, `loss`), `teamScore`, `opponentScore`, `minutes` (whole), `fieldGoalsMade`, `fieldGoalsAttempted`, `fieldGoalPct`, `threePointsMade`, `threePointsAttempted`, `threePointPct`, `freeThrowsMade`, `freeThrowsAttempted`, `freeThrowPct`, `rebounds`, `assists`, `blocks`, `steals`, `fouls`, `turnovers`, `points`, `detailAvailable` |
+| `PlayerLive`       | `gameId`, `opponent`: `Opponent`, `isHome`, `period`, `clock`, `teamScore`, `opponentScore`, `line`: the game detail feed's `BoxScorePlayer` / null  |
+| `GameLogEntry`     | `gameId`, `date`, `opponent`: `Opponent` (null for All-Star), `isHome`, `kind` (`regular`, `cup`, `playoffs`, `allstar`, `preseason`), `tag`, `result` (`win`, `loss`), `teamScore`, `opponentScore`, `minutes` (whole), `fieldGoalsMade`, `fieldGoalsAttempted`, `fieldGoalPct`, `threePointsMade`, `threePointsAttempted`, `threePointPct`, `freeThrowsMade`, `freeThrowsAttempted`, `freeThrowPct`, `rebounds`, `assists`, `blocks`, `steals`, `fouls`, `turnovers`, `points`, `detailAvailable` |
 | `GameLog`          | `season`, `entries`: `GameLogEntry[]`                                                                                                          |
 | `Averages`         | `regular`, `playoffs`: `SeasonAverageRow` / null; `career`: `AverageRow` / null                                                                |
 | `AverageRow`       | `gamesPlayed` (at least 1), `minutes`, `fieldGoalPct`, `threePointPct`, `freeThrowPct`, `rebounds`, `assists`, `blocks`, `steals`, `fouls`, `turnovers`, `points`; `SeasonAverageRow` adds `season` |
@@ -80,8 +81,13 @@ The root is one player.
   digits.
 - `Draft.teamName` is the drafting franchise's current name.
 - An award with no season is left out.
-- `lastGames` lists at most five entries, newest first, with no All-Star
-  game.
+- `lastGames` lists at most five entries, newest first, with no All-Star or
+  preseason game. The game log keeps preseason games, with `kind` `preseason`
+  and no tag; averages and milestones come from the season stats and do not
+  change.
+- An `Opponent` is a league team or a guest ([ADR 0026](../adr/0026-one-guest-team-rule.md)):
+  a guest without a code has a null `code` and the source's `name` and `city`,
+  and an event whose opponent has neither a code nor a name is skipped.
 - `gameLog.entries` are newest first. Only an All-Star entry has a null
   `opponent`.
 - `seasons.*.perGame` and `seasons.*.totals` are newest first with one row

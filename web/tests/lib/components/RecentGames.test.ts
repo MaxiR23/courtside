@@ -4,6 +4,7 @@
 //
 // Tested:
 // - Each row's result (win class), date, opponent, score, tag, points and line
+// - A guest opponent without a code reads "@ Mariners", and a null opponent reads "All-Star"
 // - A linked row is an anchor to the game; an unlinked row has no link and no link class
 //
 // What is covered:
@@ -28,7 +29,7 @@ const rows: RecentGameRow[] = [
 		result: 'win',
 		resultLabel: 'W',
 		date: 'Apr 29',
-		opponent: '@ MEM',
+		opponent: { team: { code: 'MEM', name: null, city: null, guest: false }, isHome: false },
 		score: '118–104',
 		tag: 'West R1 · G4',
 		points: '31',
@@ -40,7 +41,7 @@ const rows: RecentGameRow[] = [
 		result: 'loss',
 		resultLabel: 'L',
 		date: 'Apr 26',
-		opponent: 'vs MEM',
+		opponent: { team: { code: 'MEM', name: null, city: null, guest: false }, isHome: true },
 		score: '101–108',
 		tag: null,
 		points: '24',
@@ -81,5 +82,21 @@ describe('RecentGames', () => {
 		const plain = container.querySelectorAll('li')[1]?.querySelector('.row');
 		expect(plain?.tagName).toBe('DIV');
 		expect(plain?.classList.contains('link')).toBe(false);
+	});
+});
+
+describe('RecentGames with other opponents', () => {
+	it('names a guest opponent without a code by its name', () => {
+		const guest = { code: null, name: 'Mariners', city: 'Harbor City', guest: true };
+		render(RecentGames, {
+			props: { rows: [{ ...rows[0], opponent: { team: guest, isHome: false } }], gameHref }
+		});
+		expect(screen.getByText('@ Mariners')).toBeTruthy();
+	});
+
+	it('reads All-Star for a null opponent', () => {
+		render(RecentGames, { props: { rows: [{ ...rows[0], opponent: null }], gameHref } });
+		expect(screen.getByText('All-Star')).toBeTruthy();
+		expect(screen.queryByText('@ MEM')).toBeNull();
 	});
 });

@@ -2,6 +2,7 @@
 	import type { ResolvedPathname } from '$app/types';
 	import type { BoxRow, BoxScoreSection, BoxTotals } from '#lib/game/types.ts';
 	import NameLink from '#lib/components/NameLink.svelte';
+	import TeamMark from '#lib/components/TeamMark.svelte';
 	import { m } from '#lib/paraglide/messages.js';
 	import type { RowLayout } from '#lib/schedule/types.ts';
 
@@ -67,7 +68,7 @@
 				aria-pressed={side === option}
 				onclick={() => (side = option)}
 			>
-				{layout === 'desktop' ? box[option].name : box[option].code}
+				<TeamMark part={layout === 'desktop' ? 'name' : 'label'} team={box[option].team} />
 			</button>
 		{/each}
 	</div>

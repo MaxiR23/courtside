@@ -4,6 +4,7 @@
  */
 
 export type GameStatus = 'scheduled' | 'live' | 'final' | 'delayed' | 'postponed' | 'canceled';
+export type Side = 'away' | 'home';
 export type InjuryStatus = 'out' | 'doubtful' | 'questionable' | 'probable' | 'day-to-day';
 export type GameResult = 'win' | 'loss';
 export type Conference = 'east' | 'west';
@@ -20,7 +21,7 @@ export interface GameDetailFeed {
 	clock: string | null;
 	lineScore: LineScore | null;
 	score: Score | null;
-	winner: string | null;
+	winner: Side | null;
 	teamStats: DetailGameTeamStats | null;
 	stars: Stars | null;
 	boxScore: BoxScore | null;
@@ -41,7 +42,7 @@ export interface Venue {
 	photoUrl: string | null;
 }
 export interface DetailTeam {
-	code: string;
+	code: string | null;
 	name: string;
 	city: string;
 	guest: boolean;
@@ -81,14 +82,14 @@ export interface DetailTeamStats {
 	blocks: number;
 }
 export interface TeamStatLeaders {
-	fieldGoalPct: string | null;
-	threePointPct: string | null;
-	freeThrowPct: string | null;
-	rebounds: string | null;
-	assists: string | null;
-	turnovers: string | null;
-	steals: string | null;
-	blocks: string | null;
+	fieldGoalPct: Side | null;
+	threePointPct: Side | null;
+	freeThrowPct: Side | null;
+	rebounds: Side | null;
+	assists: Side | null;
+	turnovers: Side | null;
+	steals: Side | null;
+	blocks: Side | null;
 }
 export interface Stars {
 	away: Star | null;
@@ -158,7 +159,7 @@ export interface WinProbabilityPoint {
 	homeWinProbability: number;
 }
 export interface WinProbabilityLeader {
-	teamCode: string;
+	side: Side;
 	winProbability: number;
 }
 export interface WinProbabilityPeriods {
@@ -202,11 +203,20 @@ export interface LastGames {
 }
 export interface LastGame {
 	date: string;
-	opponent: string;
+	opponent: Opponent;
 	isHome: boolean;
 	result: GameResult;
 	teamScore: number;
 	opponentScore: number;
+}
+/**
+ * A team a game is played against: a league team or a guest.
+ */
+export interface Opponent {
+	code: string | null;
+	name: string | null;
+	city: string | null;
+	guest: boolean;
 }
 export interface Standings {
 	away: TeamStanding | null;

@@ -8,6 +8,8 @@
 # - Normalizes the clock, converts the start time to UTC and appends overtime periods
 # - Maps a team outside the league to a guest side with the source code, name and city, and keeps a guest code outside the usual pattern as it is
 # - Raises the source error on a guest code equal to a league code, an unknown status, a payload missing a field, a naive start time, a live game without a clock, an empty team name or city, a timeout, an error status and a missing URL
+# - Maps a team without an abbreviation to a guest side with a null code, its name and city, or to a league side by its provider id
+# - Skips a game with a side that has neither a code nor a name, and keeps the other games in provider order
 # - ScoreboardGame uses the same field types as the contract Game
 # - Reuses a fetched day for thirty seconds
 #
@@ -299,7 +301,7 @@ async def test_maps_a_team_outside_the_league_to_a_guest_side_with_the_source_co
     [guest] = [side for side in sides if side.guest]
     [league] = [side for side in sides if not side.guest]
     assert (guest.code, guest.name, guest.city) == ("HCM", "Mariners", "Harbor City")
-    assert len(league.code) == 3
+    assert league.code is not None and len(league.code) == 3
 
 
 @pytest.mark.anyio
@@ -320,6 +322,59 @@ async def test_maps_a_day_with_a_guest_game_and_a_league_game(
         (False, False),
         (False, True),
     ]
+
+
+@pytest.mark.anyio
+async def test_maps_a_team_without_an_abbreviation_to_a_guest_side_with_a_null_code(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    game = event(load("day.json"), "STATUS_FINAL")
+    guest_side(game)
+    team = game["competitions"][0]["competitors"][0]["team"]
+    del team["abbreviation"]
+    team["id"] = "90001"
+    mock.get(URL).respond(json=only(game))
+
+    [mapped] = await fetch(settings)
+
+    [guest] = [side for side in (mapped.away, mapped.home) if side.guest]
+    assert (guest.code, guest.name, guest.city) == (None, "Mariners", "Harbor City")
+
+
+@pytest.mark.anyio
+async def test_maps_a_team_without_an_abbreviation_to_a_league_side_by_its_provider_id(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    game = event(load("day.json"), "STATUS_FINAL")
+    team = game["competitions"][0]["competitors"][0]["team"]
+    del team["abbreviation"]
+    team["id"] = "9"
+    mock.get(URL).respond(json=only(game))
+
+    [mapped] = await fetch(settings)
+
+    sides = [side for side in (mapped.away, mapped.home) if side.code == "GSW"]
+    assert [side.guest for side in sides] == [False]
+
+
+@pytest.mark.anyio
+async def test_skips_a_game_with_a_side_that_has_neither_a_code_nor_a_name(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    day = load("day.json")
+    nobody = event(day, "STATUS_FINAL")
+    nobody["id"] = "nobody"
+    team = nobody["competitions"][0]["competitors"][0]["team"]
+    del team["abbreviation"]
+    del team["name"]
+    first = event(day, "STATUS_FINAL")
+    last = event(day, "STATUS_FINAL")
+    last["id"] = "last"
+    mock.get(URL).respond(json=only(first, nobody, last))
+
+    games = await fetch(settings)
+
+    assert [g.id for g in games] == [first["id"], "last"]
 
 
 @pytest.mark.anyio

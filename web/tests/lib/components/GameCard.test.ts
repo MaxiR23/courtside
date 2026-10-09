@@ -16,6 +16,7 @@
 // - Team names and monograms: plain text with no link inside the button of a card that expands; links to the team page on a card that cannot expand; line score and leader codes link in the open panel
 // - Spoiler-free mode: final cards that can expand hide the score and the dimming until open
 // - The Game center link on open live, final, final without stats and scheduled cards, after the stats, notice or players to watch; none without detailHref or on a card that cannot expand; Spanish copy
+// - A guest without a code shows its initials in the tile and its name unlinked, and the loser dims from a side winner
 // - A guest team (outside the league): its monogram and name are never links, the league ones link on a card that cannot expand, no color strip is drawn, a scheduled panel shows only the league player to watch, a final panel shows the leaders, line score and team stats of both sides
 //
 // What is covered:
@@ -33,8 +34,8 @@ import { preferLanguages } from '../../prefer-languages';
 
 import GameCard from '../../../src/lib/components/GameCard.svelte';
 
-const away = { code: 'GSW', name: 'Warriors', city: 'Golden State' };
-const home = { code: 'LAL', name: 'Lakers', city: 'Los Angeles' };
+const away = { code: 'GSW', name: 'Warriors', city: 'Golden State', guest: false };
+const home = { code: 'LAL', name: 'Lakers', city: 'Los Angeles', guest: false };
 const scheduled: ScheduleGame = {
 	id: 's',
 	away,
@@ -47,7 +48,7 @@ const live: ScheduleGame = {
 	home,
 	status: { state: 'live', period: 'Q3', clock: '4:12', awayScore: 78, homeScore: 74 }
 };
-const final = (awayScore: number, homeScore: number, winner: string): ScheduleGame => ({
+const final = (awayScore: number, homeScore: number, winner: 'away' | 'home'): ScheduleGame => ({
 	id: 'f',
 	away,
 	home,
@@ -64,12 +65,18 @@ afterEach(() => {
 
 const awayPlayer = { firstName: 'Stephen', lastName: 'Curry', teamCode: 'GSW', photo: '/away.svg' };
 const homePlayer = { firstName: 'LeBron', lastName: 'James', teamCode: 'LAL', photo: '/home.svg' };
+const leaderOf = (player: typeof awayPlayer, team: typeof away) => ({
+	firstName: player.firstName,
+	lastName: player.lastName,
+	photo: player.photo,
+	team
+});
 const played = (periodsAway: number[], periodsHome: number[]): GameDetails => ({
 	kind: 'played',
 	periods: { away: periodsAway, home: periodsHome },
 	leaders: {
-		away: { ...awayPlayer, points: 34, rebounds: 3, assists: 8 },
-		home: { ...homePlayer, points: 29, rebounds: 9, assists: 7 }
+		away: { ...leaderOf(awayPlayer, away), points: 34, rebounds: 3, assists: 8 },
+		home: { ...leaderOf(homePlayer, home), points: 29, rebounds: 9, assists: 7 }
 	},
 	stats: {
 		away: { fieldGoalPct: 0.478, threePointPct: 0.391, rebounds: 44, assists: 27, turnovers: 9 },
@@ -82,11 +89,11 @@ const withDetails = (game: ScheduleGame, details: GameDetails): ScheduleGame => 
 });
 const liveWithDetails = withDetails(live, played([28, 26, 24], [25, 27, 22]));
 const finalWithDetails = withDetails(
-	final(112, 104, 'GSW'),
+	final(112, 104, 'away'),
 	played([30, 28, 26, 28], [24, 27, 25, 28])
 );
 const overtimeWithDetails = withDetails(
-	final(132, 130, 'GSW'),
+	final(132, 130, 'away'),
 	played([28, 25, 30, 27, 12, 10], [30, 26, 24, 30, 12, 8])
 );
 const scheduledWithDetails = withDetails(scheduled, {
@@ -110,10 +117,10 @@ const withHighlights = (game: ScheduleGame, videos: { id: string }[]): ScheduleG
 		...played([30, 28, 26, 28], [24, 27, 25, 28]),
 		highlights: highlightsData(videos)
 	} as GameDetails);
-const finalWithHighlights = withHighlights(final(112, 104, 'GSW'), [{ id: 'v1' }, { id: 'v2' }]);
-const finalPending = withHighlights(final(112, 104, 'GSW'), []);
+const finalWithHighlights = withHighlights(final(112, 104, 'away'), [{ id: 'v1' }, { id: 'v2' }]);
+const finalPending = withHighlights(final(112, 104, 'away'), []);
 const withoutStats = (availability: 'pending' | 'unavailable'): ScheduleGame =>
-	withDetails(final(112, 104, 'GSW'), {
+	withDetails(final(112, 104, 'away'), {
 		kind: 'final-without-stats',
 		periods: { away: [30, 28, 26, 28], home: [24, 27, 25, 28] },
 		statsAvailability: availability,
@@ -162,7 +169,7 @@ describe('GameCard', () => {
 		'shows FINAL and both scores on a final game (%s)',
 		(layout) => {
 			const { container } = render(GameCard, {
-				props: { teamHref, game: final(112, 104, 'GSW'), layout }
+				props: { teamHref, game: final(112, 104, 'away'), layout }
 			});
 			expect(container.querySelector('.status-line')?.textContent?.trim()).toBe('Final');
 			expect([...container.querySelectorAll('.score')].map((e) => e.textContent)).toEqual([
@@ -174,7 +181,7 @@ describe('GameCard', () => {
 
 	it('dims the team that is not the winner on a final game, home and away winners', () => {
 		const desktop = render(GameCard, {
-			props: { teamHref, game: final(98, 104, 'LAL'), layout: 'desktop' }
+			props: { teamHref, game: final(98, 104, 'home'), layout: 'desktop' }
 		});
 		const text = dimmedText(desktop.container);
 		expect(text.some((t) => t?.includes('Warriors'))).toBe(true);
@@ -184,7 +191,7 @@ describe('GameCard', () => {
 		desktop.unmount();
 
 		const { container } = render(GameCard, {
-			props: { teamHref, game: final(112, 104, 'GSW'), layout: 'mobile' }
+			props: { teamHref, game: final(112, 104, 'away'), layout: 'mobile' }
 		});
 		const mobile = dimmedText(container);
 		expect(mobile.some((t) => t?.includes('Lakers'))).toBe(true);
@@ -194,8 +201,8 @@ describe('GameCard', () => {
 	});
 
 	it.each([
-		['desktop', final(98, 104, 'LAL')],
-		['mobile', final(112, 104, 'GSW')]
+		['desktop', final(98, 104, 'home')],
+		['mobile', final(112, 104, 'away')]
 	] as const)("does not dim the losing team's monogram on the %s row", (layout, game) => {
 		const { container } = render(GameCard, { props: { teamHref, game, layout } });
 		expect(container.querySelectorAll('.team-monogram').length).toBeGreaterThan(0);
@@ -208,7 +215,7 @@ describe('GameCard', () => {
 	it('dims the team that is not the winner even when its score is higher', () => {
 		for (const layout of ['desktop', 'mobile'] as const) {
 			const { container, unmount } = render(GameCard, {
-				props: { teamHref, game: final(98, 104, 'GSW'), layout }
+				props: { teamHref, game: final(98, 104, 'away'), layout }
 			});
 			const text = dimmedText(container);
 			expect(text.some((t) => t?.includes('Lakers'))).toBe(true);
@@ -499,7 +506,7 @@ describe('GameCard', () => {
 		);
 
 		it('does not dim the losing team while the score is hidden', async () => {
-			const game = withDetails(final(98, 104, 'LAL'), played([30, 28, 20, 20], [24, 27, 25, 28]));
+			const game = withDetails(final(98, 104, 'home'), played([30, 28, 20, 20], [24, 27, 25, 28]));
 			const props = { teamHref, game, layout: 'desktop' as const, spoilerFree: true };
 			const { container, rerender } = render(GameCard, { props });
 			expect(container.querySelectorAll('.dimmed')).toHaveLength(0);
@@ -538,7 +545,7 @@ describe('GameCard', () => {
 
 		it('keeps the score on a final card that cannot expand', () => {
 			const { container } = render(GameCard, {
-				props: { teamHref, game: final(112, 104, 'GSW'), layout: 'desktop', spoilerFree: true }
+				props: { teamHref, game: final(112, 104, 'away'), layout: 'desktop', spoilerFree: true }
 			});
 			expect(container.querySelectorAll('.score')).toHaveLength(2);
 			expect(container.textContent).not.toContain('Tap to reveal');
@@ -772,11 +779,10 @@ describe('GameCard with a guest team', () => {
 		if (details.kind !== 'played') throw new Error('Expected played details');
 		details.leaders.away = {
 			...details.leaders.away,
-			teamCode: 'HCM',
-			photo: null,
-			guest: true
+			team: guest,
+			photo: null
 		};
-		const game = withDetails({ ...final(112, 104, 'HCM'), away: guest }, details);
+		const game = withDetails({ ...final(112, 104, 'away'), away: guest }, details);
 		const { container } = render(GameCard, {
 			props: { teamHref, game, layout: 'desktop', open: true }
 		});
@@ -787,5 +793,43 @@ describe('GameCard with a guest team', () => {
 		expect(links).toContain('LAL');
 		expect(links).not.toContain('HCM');
 		expect(container.querySelectorAll('.leader')[0].querySelector('img')).toBeNull();
+	});
+});
+
+describe('GameCard with a guest team without a code', () => {
+	const codeless = { code: null, name: 'Mariners', city: 'Harbor City', guest: true };
+
+	it('shows the initials of the guest in its tile and its name as plain text', () => {
+		const game: ScheduleGame = { id: 'c', away: codeless, home, status: { state: 'delayed' } };
+		for (const layout of ['desktop', 'mobile'] as const) {
+			const { unmount } = render(GameCard, { props: { teamHref, game, layout } });
+			expect(screen.getByText('HM').classList.contains('team-monogram')).toBe(true);
+			expect(screen.queryByRole('link', { name: 'HM' })).toBeNull();
+			expect(screen.queryByRole('link', { name: 'Mariners' })).toBeNull();
+			expect(screen.getByRole('link', { name: 'Lakers' }).getAttribute('href')).toBe('/team/lal');
+			unmount();
+		}
+	});
+
+	it('dims the guest when the home side wins and the home side when the guest wins', () => {
+		const lost = render(GameCard, {
+			props: {
+				teamHref,
+				game: { ...final(98, 104, 'home'), away: codeless },
+				layout: 'desktop'
+			}
+		});
+		expect(dimmedText(lost.container).some((t) => t?.includes('Mariners'))).toBe(true);
+		expect(dimmedText(lost.container).some((t) => t?.includes('Lakers'))).toBe(false);
+		lost.unmount();
+		const won = render(GameCard, {
+			props: {
+				teamHref,
+				game: { ...final(112, 104, 'away'), away: codeless },
+				layout: 'desktop'
+			}
+		});
+		expect(dimmedText(won.container).some((t) => t?.includes('Lakers'))).toBe(true);
+		expect(dimmedText(won.container).some((t) => t?.includes('Mariners'))).toBe(false);
 	});
 });

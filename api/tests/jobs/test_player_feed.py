@@ -15,6 +15,8 @@
 # - Labels award seasons and reads the count
 # - Excludes All-Star games from the last five games and keeps them in the game log with no opponent
 # - Tags the game log entries and converts their numbers
+# - Keeps preseason games in the game log with the preseason kind and no tag, against a guest without a code, and leaves them out of the last five games as it leaves out the All-Star game
+# - Averages and milestones are equal with and without preseason games in the log
 # - Takes the playoffs average of the latest regular season only
 # - Gives null averages for a row with no games
 # - Builds the milestones from the newest season and the career
@@ -32,6 +34,7 @@
 # - The kind: a failed rebuild of a stale player feed keeps and serves the stored feed
 # - The kind: a player feed is fresh before a final game of its team plus 1 hour and before 7 days, and stale at either
 # - The kind: live is added when served from the team's live game, with the line from the stored detail feed, and is never stored
+# - The kind: live is added while the team plays a guest without a code
 # - The kind: a live player request refreshes the game and serves its detail feed within the wait, and makes no request for an unknown id
 # - The kind: detailAvailable is true exactly for the games inside the days shown when served
 # - The kind: after a stars run the cleanup deletes the feeds of players on no roster with no source request, and nothing while the rosters are not all fetched
@@ -61,7 +64,7 @@ from app.feeds.game_detail import (
     Injury,
     InjuryStatus,
 )
-from app.feeds.games import GameStatus, Star
+from app.feeds.games import GameStatus, GameTeam, Star
 from app.feeds.player import GameKind, NextGame, PlayerFeed, TagKind
 from app.jobs import game_detail_feed
 from app.jobs.on_demand import (
@@ -318,12 +321,13 @@ def log_game(game_id: str, start: dt.datetime, **changes: Any) -> GameLogGame:
         "game_id": game_id,
         "start_time": start,
         "is_home": True,
-        "opponent": "SAS",
+        "opponent": {"code": "SAS", "name": None, "city": None, "guest": False},
         "won": True,
         "team_score": 110,
         "opponent_score": 100,
         "note": None,
         "playoffs": False,
+        "preseason": False,
         "minutes": "36",
         "field_goals": "12-21",
         "field_goal_pct": 57.1,
@@ -361,7 +365,7 @@ def future(game_id: str = "g1") -> ScheduledGame:
         {
             "game_id": game_id,
             "start_time": START,
-            "opponent": "SAS",
+            "opponent": {"code": "SAS", "name": None, "city": None, "guest": False},
             "is_home": False,
             "state": "pre",
             "completed": False,
@@ -583,6 +587,101 @@ def test_excludes_all_star_games_from_the_last_five_games_and_keeps_them_in_the_
     assert [e["game_id"] for e in recent] == ["g7", "g6", "g5", "g4", "g3"]
 
 
+CODELESS_GUEST = {
+    "code": None,
+    "name": "Mariners",
+    "city": "Harbor City",
+    "guest": True,
+}
+
+
+def test_keeps_preseason_games_in_the_log_against_a_guest_without_a_code() -> None:
+    games = [
+        log_game(
+            "pre",
+            at_day(2),
+            preseason=True,
+            opponent=CODELESS_GUEST,
+            note="Preseason game",
+        ),
+        log_game("g1", at_day(1)),
+    ]
+
+    log, _ = game_log(PlayerGameLog(season="2025-26", games=games), frozenset())
+
+    assert log is not None
+    entry = log["entries"][0]
+    assert (entry["game_id"], entry["kind"], entry["tag"]) == (
+        "pre",
+        GameKind.PRESEASON,
+        None,
+    )
+    assert entry["opponent"].guest and entry["opponent"].code is None
+
+
+def test_builds_a_player_feed_whose_game_log_has_a_preseason_game_against_a_guest_without_a_code() -> (
+    None
+):
+    games = [
+        log_game("pre", at_day(2), preseason=True, opponent=CODELESS_GUEST),
+        log_game("g1", at_day(1)),
+    ]
+
+    feed = build(log=PlayerGameLog(season="2025-26", games=games))
+
+    assert feed.game_log is not None
+    assert [e.kind for e in feed.game_log.entries] == [
+        GameKind.PRESEASON,
+        GameKind.REGULAR,
+    ]
+    assert feed.game_log.entries[0].opponent is not None
+    assert feed.game_log.entries[0].opponent.code is None
+
+
+def test_the_last_five_games_exclude_preseason_games_as_they_exclude_the_all_star_game() -> (
+    None
+):
+    games = [log_game(f"g{day}", at_day(day)) for day in range(1, 6)]
+    games.append(log_game("pre", at_day(20), preseason=True))
+    games.append(
+        log_game("star", at_day(21), opponent=None, note="NBA All-Star - Championship")
+    )
+
+    log, recent = game_log(PlayerGameLog(season="2025-26", games=games), frozenset())
+
+    assert log is not None
+    assert len(log["entries"]) == 7
+    assert [e["game_id"] for e in recent] == ["g5", "g4", "g3", "g2", "g1"]
+    feed = build(log=PlayerGameLog(season="2025-26", games=games))
+    assert [g.game_id for g in feed.last_games] == ["g5", "g4", "g3", "g2", "g1"]
+
+
+def test_averages_and_milestones_are_equal_with_and_without_preseason_games_in_the_log() -> (
+    None
+):
+    regular = [log_game(f"g{day}", at_day(day)) for day in range(1, 4)]
+    with_preseason = [
+        *regular,
+        log_game("pre1", at_day(20), preseason=True, points=2),
+        log_game("pre2", at_day(21), preseason=True, points=1),
+    ]
+
+    without = build(
+        log=PlayerGameLog(season="2025-26", games=regular),
+        regular_stats=stats(),
+        playoff_stats=stats(),
+    )
+    with_log = build(
+        log=PlayerGameLog(season="2025-26", games=with_preseason),
+        regular_stats=stats(),
+        playoff_stats=stats(),
+    )
+
+    assert with_log.averages == without.averages
+    assert with_log.milestones == without.milestones
+    assert with_log.milestones is not None
+
+
 def test_tags_the_game_log_entries_and_converts_their_numbers() -> None:
     games = [
         log_game(
@@ -769,7 +868,7 @@ def test_takes_the_next_game_it_is_given_or_none_when_the_season_is_over() -> No
     over = build(upcoming=None).next_game
 
     assert upcoming is not None
-    assert (upcoming.game_id, upcoming.opponent, upcoming.detail_available) == (
+    assert (upcoming.game_id, upcoming.opponent.code, upcoming.detail_available) == (
         "g9",
         "SAS",
         True,
@@ -958,7 +1057,7 @@ async def test_builds_a_valid_player_feed_from_the_recorded_payloads(
     assert feed.seasons.regular.per_game[1].teams == ["DAL", "LAL"]
     assert feed.averages.regular is not None
     assert feed.averages.playoffs is None
-    assert feed.game_log is not None and len(feed.game_log.entries) == 10
+    assert feed.game_log is not None and len(feed.game_log.entries) == 11
     assert len(feed.last_games) == 5
     assert [award.name for award in feed.awards][:2] == ["MVP", "All-NBA 1st Team"]
     assert feed.awards[0].count == 2
@@ -1033,7 +1132,7 @@ def detail_of(
     return build_detail(
         game,
         detail,
-        league_standings=detail_standings(game.away.code, game.home.code),
+        league_standings=detail_standings(game.away.code or "", game.home.code or ""),
     )
 
 
@@ -1055,11 +1154,11 @@ def test_live_block_carries_the_game_from_the_teams_side_and_the_players_line() 
     away = live_block("SAS", "9", game, detail)
 
     assert home is not None and away is not None
-    assert (home.game_id, home.opponent, home.is_home) == ("L1", "SAS", True)
+    assert (home.game_id, home.opponent.code, home.is_home) == ("L1", "SAS", True)
     assert (home.period, home.clock) == (2, "5:00")
     assert (home.team_score, home.opponent_score) == (38, 40)
     assert home.line is not None and home.line.player_id == "1"
-    assert (away.opponent, away.is_home) == ("OKC", False)
+    assert (away.opponent.code, away.is_home) == ("OKC", False)
     assert (away.team_score, away.opponent_score) == (40, 38)
     assert away.line is not None and away.line.player_id == "9"
 
@@ -1457,6 +1556,26 @@ def stored_live(kit: PlayerKit, home_ids: tuple[str, ...]) -> None:
 
 
 @pytest.mark.anyio
+async def test_live_is_added_while_the_team_plays_a_guest_without_a_code(
+    kit: PlayerKit,
+) -> None:
+    codeless = GameTeam(code=None, name="Mariners", city="Harbor City", guest=True)
+    kit.scoreboard[TODAY] = [
+        live_game().model_copy(update={"away": codeless}),
+    ]
+    await kit.run_stars()
+    await kit.run_games()
+
+    served = PlayerFeed.model_validate_json(await kit.serve_player("1"))
+
+    assert served.live is not None
+    assert served.live.opponent.guest is True
+    assert served.live.opponent.code is None
+    assert served.live.opponent.name == "Mariners"
+    assert served.live.line is None
+
+
+@pytest.mark.anyio
 async def test_live_is_null_with_no_live_game_of_the_team(kit: PlayerKit) -> None:
     kit.scoreboard[TODAY] = [
         scoreboard("L2", GameStatus.LIVE, NOW - HOUR, away="BOS", home="NYK")
@@ -1481,7 +1600,11 @@ async def test_live_carries_the_game_and_the_players_line_and_is_never_stored(
     served = PlayerFeed.model_validate_json(await kit.serve_player("1"))
 
     assert served.live is not None
-    assert (served.live.game_id, served.live.opponent, served.live.is_home) == (
+    assert (
+        served.live.game_id,
+        served.live.opponent.code,
+        served.live.is_home,
+    ) == (
         "L1",
         "SAS",
         True,

@@ -21,6 +21,7 @@ import type {
 	ScheduleTeam,
 	TeamStatLine
 } from '#lib/schedule/types.ts';
+import { teamMark } from '#lib/team/mark.ts';
 
 const TODAY_INDEX = 3; // the middle of the seven days, as in DayStrip
 const DAYS = 7;
@@ -82,13 +83,7 @@ function periodLabel(period: number): string {
 }
 
 function scheduleTeam(team: GameTeam): ScheduleTeam {
-	// A feed built before the guest field has no key: a league team.
-	return {
-		code: team.code,
-		name: team.name,
-		city: team.city,
-		...(team.guest === true ? { guest: true } : {})
-	};
+	return { ...teamMark(team), name: team.name, city: team.city };
 }
 
 function panelPlayer(star: Star | null): PanelPlayer | null {
@@ -117,12 +112,11 @@ function leader(entry: FeedLeader, team: GameTeam): Leader {
 	return {
 		firstName: space === -1 ? entry.displayName : entry.displayName.slice(0, space),
 		lastName: space === -1 ? '' : entry.displayName.slice(space + 1),
-		teamCode: entry.teamCode,
 		photo: entry.photoUrl,
 		points: entry.points,
 		rebounds: entry.rebounds,
 		assists: entry.assists,
-		...(team.guest === true ? { guest: true } : {})
+		team: teamMark(team)
 	};
 }
 
@@ -248,12 +242,12 @@ function heroGame(game: Game): HeroGame {
 		tipTime: `${tipTime} ${tipSuffix}`,
 		arena: game.venue,
 		away: {
-			code: game.away.code,
+			code: required(game.away.code),
 			name: game.away.name,
 			star: heroPlayer(required(game.stars.away), game.away)
 		},
 		home: {
-			code: game.home.code,
+			code: required(game.home.code),
 			name: game.home.name,
 			star: heroPlayer(required(game.stars.home), game.home)
 		}

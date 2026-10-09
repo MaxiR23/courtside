@@ -1,5 +1,6 @@
 <script lang="ts">
 	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
+	import TeamMark from '#lib/components/TeamMark.svelte';
 	import type { WinProbabilitySection } from '#lib/game/types.ts';
 	import {
 		CHART_HEIGHT,
@@ -38,9 +39,9 @@
 <BlueprintFrame>
 	<div class="win-probability">
 		<div class="axis">
-			<span>{chart.homeCode}</span>
+			<span><TeamMark part="label" team={chart.home} /></span>
 			<span>{chart.middle}</span>
-			<span>{chart.awayCode}</span>
+			<span><TeamMark part="label" team={chart.away} /></span>
 		</div>
 		<div class="plot">
 			<svg

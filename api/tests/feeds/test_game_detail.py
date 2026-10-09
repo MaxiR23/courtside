@@ -6,8 +6,8 @@
 # - A game of each status is accepted; a final game with every section is accepted
 # - Any optional section being absent is accepted and serialized as null
 # - A live or final game missing a field its status requires is rejected
-# - A winner must be one of the teams and only a final game has one
-# - A stat leader must be one of the teams; a tie is a null leader
+# - A winner is a side (away or home) and only a final game has one
+# - A stat leader is a side; a tie is a null leader
 # - Series games: a score and a winner come together, the winner is one of the
 #   game's teams, and at most one game is the current game; the current game
 #   may have neither
@@ -20,6 +20,7 @@
 # - Win probability points: in non-decreasing elapsedSeconds order; equal consecutive seconds are accepted
 # - Injury playerId: set, absent or null is accepted (null when absent); empty is rejected
 # - Injury status, win probability, UTC time and unknown fields are validated
+# - A guest side without a code keeps a null record, standing, injuries and last games, has no series, and may be the opponent of a last game
 # - A guest game: a null record, standing, injuries and last games on the guest side, box score players without a photo, a guest stat leader and win probability leader, no win probability and no season series
 # - A per-side section is null exactly on a guest side; a guest game has no season series; a league box score player has a photo; the two sides differ; a league side's last game may be against a guest
 # - Serialization uses camelCase keys
@@ -99,14 +100,14 @@ def stats() -> Payload:
 
 def leaders() -> Payload:
     return {
-        "fieldGoalPct": "AAA",
-        "threePointPct": "HHH",
-        "freeThrowPct": "AAA",
-        "rebounds": "HHH",
+        "fieldGoalPct": "away",
+        "threePointPct": "home",
+        "freeThrowPct": "away",
+        "rebounds": "home",
         "assists": None,
-        "turnovers": "AAA",
-        "steals": "HHH",
-        "blocks": "AAA",
+        "turnovers": "away",
+        "steals": "home",
+        "blocks": "away",
     }
 
 
@@ -152,10 +153,14 @@ def box_team() -> Payload:
     return {"players": [box_player()], "totals": totals}
 
 
+def opponent(code: str | None, **overrides: object) -> Payload:
+    return {"code": code, "name": None, "city": None, "guest": False, **overrides}
+
+
 def last_game(date: str) -> Payload:
     return {
         "date": date,
-        "opponent": "BBB",
+        "opponent": opponent("BBB"),
         "isHome": True,
         "result": "win",
         "teamScore": 100,
@@ -203,7 +208,7 @@ def valid_game(status: str, **overrides: object) -> Payload:
         game["period"] = 4
         game["clock"] = "2:10"
     if status == "final":
-        game["winner"] = "HHH"
+        game["winner"] = "home"
     game.update(overrides)
     return game
 
@@ -334,21 +339,28 @@ def test_rejects_a_final_game_without_a_required_field(field: str) -> None:
         GameDetailFeed.model_validate(game)
 
 
-def test_rejects_a_winner_that_is_not_one_of_the_teams() -> None:
-    with pytest.raises(ValidationError, match="winner must be"):
-        GameDetailFeed.model_validate(valid_game("final", winner="ZZZ"))
+def test_rejects_a_winner_that_is_not_a_side() -> None:
+    with pytest.raises(ValidationError, match="winner"):
+        GameDetailFeed.model_validate(valid_game("final", winner="HHH"))
 
 
 def test_rejects_a_winner_on_a_game_that_is_not_final() -> None:
     with pytest.raises(ValidationError, match="has no winner"):
-        GameDetailFeed.model_validate(valid_game("live", winner="HHH"))
+        GameDetailFeed.model_validate(valid_game("live", winner="home"))
 
 
-def test_rejects_a_stat_leader_that_is_not_one_of_the_teams() -> None:
+def test_accepts_stat_leaders_as_sides() -> None:
+    feed = GameDetailFeed.model_validate(valid_game("live"))
+
+    assert feed.team_stats is not None
+    assert feed.team_stats.leaders.rebounds == "home"
+
+
+def test_rejects_a_stat_leader_that_is_not_a_side() -> None:
     game = valid_game("live")
-    game["teamStats"]["leaders"]["blocks"] = "ZZZ"
+    game["teamStats"]["leaders"]["blocks"] = "HHH"
 
-    with pytest.raises(ValidationError, match="stat leader"):
+    with pytest.raises(ValidationError, match="blocks"):
         GameDetailFeed.model_validate(game)
 
 
@@ -535,7 +547,7 @@ def periods_game(**periods: Any) -> Payload:
 def test_accepts_win_probability_periods_with_points_inside_the_game() -> None:
     game = full_game()
     game["winProbability"].append({"elapsedSeconds": 20, "homeWinProbability": 0.6})
-    game["winProbabilityLeader"] = {"teamCode": "HHH", "winProbability": 0.6}
+    game["winProbabilityLeader"] = {"side": "home", "winProbability": 0.6}
 
     feed = GameDetailFeed.model_validate(game)
 
@@ -619,21 +631,21 @@ def leader_game(points: list[float], leader: Payload | None) -> Payload:
 
 
 def test_accepts_the_home_team_as_the_leader_of_a_latest_point_above_even() -> None:
-    leader = {"teamCode": "HHH", "winProbability": 0.68}
+    leader = {"side": "home", "winProbability": 0.68}
 
     feed = GameDetailFeed.model_validate(leader_game([0.68], leader))
 
     assert feed.win_probability_leader is not None
-    assert feed.win_probability_leader.team_code == "HHH"
+    assert feed.win_probability_leader.side == "home"
 
 
 def test_accepts_the_away_team_as_the_leader_of_a_latest_point_below_even() -> None:
-    leader = {"teamCode": "AAA", "winProbability": 1 - 0.25}
+    leader = {"side": "away", "winProbability": 1 - 0.25}
 
     feed = GameDetailFeed.model_validate(leader_game([0.25], leader))
 
     assert feed.win_probability_leader is not None
-    assert feed.win_probability_leader.team_code == "AAA"
+    assert feed.win_probability_leader.side == "away"
     assert feed.win_probability_leader.win_probability == 0.75
 
 
@@ -644,7 +656,7 @@ def test_accepts_no_leader_on_an_exactly_even_latest_point() -> None:
 
 
 def test_reads_the_leader_off_the_last_point_in_feed_order() -> None:
-    leader = {"teamCode": "HHH", "winProbability": 0.7}
+    leader = {"side": "home", "winProbability": 0.7}
     game = leader_game([0.3, 0.7], leader)
     game["winProbability"][0]["elapsedSeconds"] = 10
     game["winProbability"][1]["elapsedSeconds"] = 10
@@ -652,7 +664,7 @@ def test_reads_the_leader_off_the_last_point_in_feed_order() -> None:
     feed = GameDetailFeed.model_validate(game)
 
     assert feed.win_probability_leader is not None
-    assert feed.win_probability_leader.team_code == "HHH"
+    assert feed.win_probability_leader.side == "home"
 
 
 def test_rejects_win_probability_points_that_go_back_in_game_time() -> None:
@@ -661,14 +673,14 @@ def test_rejects_win_probability_points_that_go_back_in_game_time() -> None:
         {"elapsedSeconds": 10, "homeWinProbability": 0.6},
         {"elapsedSeconds": 5, "homeWinProbability": 0.6},
     ]
-    game["winProbabilityLeader"] = {"teamCode": "HHH", "winProbability": 0.6}
+    game["winProbabilityLeader"] = {"side": "home", "winProbability": 0.6}
 
     with pytest.raises(ValidationError, match="game time order"):
         GameDetailFeed.model_validate(game)
 
 
 def test_accepts_win_probability_points_at_the_same_second() -> None:
-    game = leader_game([0.4, 0.6], {"teamCode": "HHH", "winProbability": 0.6})
+    game = leader_game([0.4, 0.6], {"side": "home", "winProbability": 0.6})
     game["winProbability"][0]["elapsedSeconds"] = 10
     game["winProbability"][1]["elapsedSeconds"] = 10
 
@@ -679,7 +691,7 @@ def test_accepts_win_probability_points_at_the_same_second() -> None:
 
 
 def test_rejects_a_leader_on_an_exactly_even_latest_point() -> None:
-    leader = {"teamCode": "HHH", "winProbability": 0.5}
+    leader = {"side": "home", "winProbability": 0.5}
 
     with pytest.raises(ValidationError, match="win probability leader"):
         GameDetailFeed.model_validate(leader_game([0.5], leader))
@@ -691,14 +703,14 @@ def test_rejects_no_leader_when_the_latest_point_is_not_even() -> None:
 
 
 def test_rejects_a_leader_that_is_not_the_side_ahead() -> None:
-    leader = {"teamCode": "AAA", "winProbability": 0.68}
+    leader = {"side": "away", "winProbability": 0.68}
 
     with pytest.raises(ValidationError, match="win probability leader"):
         GameDetailFeed.model_validate(leader_game([0.68], leader))
 
 
 def test_rejects_a_leader_probability_that_does_not_match_the_latest_point() -> None:
-    leader = {"teamCode": "HHH", "winProbability": 0.7}
+    leader = {"side": "home", "winProbability": 0.7}
 
     with pytest.raises(ValidationError, match="win probability leader"):
         GameDetailFeed.model_validate(leader_game([0.68], leader))
@@ -706,14 +718,14 @@ def test_rejects_a_leader_probability_that_does_not_match_the_latest_point() -> 
 
 def test_rejects_a_leader_without_win_probability() -> None:
     game = without(full_game(), "winProbability")
-    game["winProbabilityLeader"] = {"teamCode": "HHH", "winProbability": 0.6}
+    game["winProbabilityLeader"] = {"side": "home", "winProbability": 0.6}
 
     with pytest.raises(ValidationError, match="win probability leader"):
         GameDetailFeed.model_validate(game)
 
 
 def test_serializes_the_win_probability_leader_with_camel_case_keys() -> None:
-    leader = {"teamCode": "HHH", "winProbability": 0.68}
+    leader = {"side": "home", "winProbability": 0.68}
 
     dumped = GameDetailFeed.model_validate(leader_game([0.68], leader)).model_dump(
         mode="json", by_alias=True
@@ -757,20 +769,26 @@ def guest_detail() -> Payload:
     box["away"]["players"][0]["photoUrl"] = None
     game.update(
         away={**team("HCM"), "guest": True, "record": None},
-        winner="HCM",
+        winner="away",
         winProbability=None,
         winProbabilityPeriods=None,
         winProbabilityLeader=None,
         injuries=pair(None, []),
-        lastGames=pair(None, [{**last_game("2026-01-10"), "opponent": "HCM"}]),
+        lastGames=pair(
+            None,
+            [
+                {
+                    **last_game("2026-01-10"),
+                    "opponent": opponent(
+                        "HCM", guest=True, name="Mariners", city="Harbor City"
+                    ),
+                }
+            ],
+        ),
         standings=pair(None, standing()),
         seasonSeries=None,
         stars=pair(None, star("HHH")),
     )
-    leaders = game["teamStats"]["leaders"]
-    for row, code in leaders.items():
-        if code == "AAA":
-            leaders[row] = "HCM"
     return game
 
 
@@ -785,13 +803,13 @@ def test_accepts_a_guest_game_without_league_data_for_the_guest_side() -> None:
     assert feed.box_score is not None
     assert feed.box_score.away.players[0].photo_url is None
     assert feed.team_stats is not None
-    assert feed.team_stats.leaders.field_goal_pct == "HCM"
+    assert feed.team_stats.leaders.field_goal_pct == "away"
 
 
 def test_accepts_a_guest_win_probability_leader() -> None:
     game = guest_detail()
     game["winProbability"] = [{"elapsedSeconds": 0, "homeWinProbability": 0.2}]
-    game["winProbabilityLeader"] = {"teamCode": "HCM", "winProbability": 0.8}
+    game["winProbabilityLeader"] = {"side": "away", "winProbability": 0.8}
     game["winProbabilityPeriods"] = {
         "periods": [{"number": 1, "startElapsedSeconds": 0}],
         "endElapsedSeconds": 20,
@@ -800,14 +818,14 @@ def test_accepts_a_guest_win_probability_leader() -> None:
     feed = GameDetailFeed.model_validate(game)
 
     assert feed.win_probability_leader is not None
-    assert feed.win_probability_leader.team_code == "HCM"
+    assert feed.win_probability_leader.side == "away"
 
 
 def test_accepts_the_last_game_of_a_league_side_against_a_guest_opponent() -> None:
     feed = GameDetailFeed.model_validate(guest_detail())
 
     assert feed.last_games is not None and feed.last_games.home is not None
-    assert feed.last_games.home[0].opponent == "HCM"
+    assert feed.last_games.home[0].opponent.code == "HCM"
 
 
 @pytest.mark.parametrize("section", ["standings", "injuries", "lastGames"])
@@ -868,3 +886,49 @@ def test_rejects_two_sides_with_the_same_code() -> None:
 
     with pytest.raises(ValidationError, match="two different teams"):
         GameDetailFeed.model_validate(game)
+
+
+def codeless_guest_detail() -> Payload:
+    game = guest_detail()
+    game["away"] = {**game["away"], "code": None, "name": "Mariners"}
+    return game
+
+
+def test_accepts_a_guest_without_a_code_with_no_league_data() -> None:
+    feed = GameDetailFeed.model_validate(codeless_guest_detail())
+
+    assert feed.away.code is None and feed.away.guest
+    assert feed.away.record is None
+    assert feed.standings is not None and feed.standings.away is None
+    assert feed.injuries is not None and feed.injuries.away is None
+    assert feed.last_games is not None and feed.last_games.away is None
+    assert feed.season_series is None
+
+
+def test_accepts_a_last_game_whose_opponent_is_a_guest_without_a_code() -> None:
+    game = guest_detail()
+    guest = opponent(None, guest=True, name="Mariners", city="Harbor City")
+    game["lastGames"] = pair(None, [{**last_game("2026-01-10"), "opponent": guest}])
+
+    feed = GameDetailFeed.model_validate(game)
+
+    assert feed.last_games is not None and feed.last_games.home is not None
+    assert feed.last_games.home[0].opponent.code is None
+
+
+def test_rejects_a_last_game_whose_opponent_is_a_guest_with_neither_code_nor_name() -> (
+    None
+):
+    game = guest_detail()
+    nobody = opponent(None, guest=True)
+    game["lastGames"] = pair(None, [{**last_game("2026-01-10"), "opponent": nobody}])
+
+    with pytest.raises(ValidationError, match="a code or a name"):
+        GameDetailFeed.model_validate(game)
+
+
+def test_rejects_a_win_probability_leader_that_is_a_team_code() -> None:
+    leader = {"side": "HHH", "winProbability": 0.68}
+
+    with pytest.raises(ValidationError, match="side"):
+        GameDetailFeed.model_validate(leader_game([0.68], leader))

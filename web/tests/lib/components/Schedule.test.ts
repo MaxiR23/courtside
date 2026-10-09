@@ -33,12 +33,12 @@ import { preferLanguages } from '../../prefer-languages';
 
 import Schedule from '../../../src/lib/components/Schedule.svelte';
 
-const team = (code: string, name: string, city: string) => ({ code, name, city });
+const team = (code: string, name: string, city: string) => ({ code, name, city, guest: false });
 const game = (id: string, awayScore: number): ScheduleGame => ({
 	id,
 	away: team('GSW', 'Warriors', 'Golden State'),
 	home: team('LAL', 'Lakers', 'Los Angeles'),
-	status: { state: 'final', awayScore, homeScore: 100, winner: 'LAL' }
+	status: { state: 'final', awayScore, homeScore: 100, winner: 'home' }
 });
 const counts = [1, 0, 2, 3, 1, 1, 1];
 const days: ScheduleDay[] = counts.map((n, i) => ({
@@ -249,7 +249,7 @@ describe('Schedule', () => {
 					away: {
 						firstName: 'A',
 						lastName: 'One',
-						teamCode: 'GSW',
+						team: team('GSW', 'Warriors', 'Golden State'),
 						photo: '/a.svg',
 						points: 1,
 						rebounds: 2,
@@ -258,7 +258,7 @@ describe('Schedule', () => {
 					home: {
 						firstName: 'B',
 						lastName: 'Two',
-						teamCode: 'LAL',
+						team: team('LAL', 'Lakers', 'Los Angeles'),
 						photo: '/b.svg',
 						points: 1,
 						rebounds: 2,

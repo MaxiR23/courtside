@@ -4,7 +4,9 @@
 # provider and maps them to contract types. The provider URL comes from
 # Settings. Provider data never leaves this module.
 #
-# A team outside the 30 is a guest side with the provider's code.
+# A team outside the 30 is a guest side with the provider's code when it sends
+# one. A side with neither a code nor a name is not a team: its game is skipped
+# (ADR 0026).
 #
 # SEE: docs/api/games.md, docs/adr/0007-backend-runtime-and-data-pipeline.md
 
@@ -34,7 +36,7 @@ from app.feeds.games import (
 )
 from app.settings import Settings
 from app.sources.http import SourceClient, SourceError, get_json
-from app.sources.teams import to_side
+from app.sources.teams import to_opponent
 
 SOURCE = "scoreboard"
 FRESH_FOR = dt.timedelta(seconds=30)
@@ -62,9 +64,10 @@ class _ProviderModel(BaseModel):
 
 
 class _ProviderTeam(_ProviderModel):
-    abbreviation: str
-    name: str
-    location: str
+    abbreviation: str | None = None
+    id: str | None = None
+    name: str | None = None
+    location: str | None = None
 
 
 class _ProviderPeriod(_ProviderModel):
@@ -151,10 +154,11 @@ def _normalize_clock(display_clock: str | None) -> str | None:
     return None
 
 
-def _team(competitor: _ProviderCompetitor) -> dict[str, Any]:
+def _team(competitor: _ProviderCompetitor) -> dict[str, Any] | None:
     team = competitor.team
-    code, guest = to_side(team.abbreviation, source=SOURCE)
-    return {"code": code, "name": team.name, "city": team.location, "guest": guest}
+    return to_opponent(
+        team.abbreviation, team.id, team.name, team.location, source=SOURCE
+    )
 
 
 def _points(competitor: _ProviderCompetitor) -> list[int]:
@@ -162,7 +166,7 @@ def _points(competitor: _ProviderCompetitor) -> list[int]:
     return [int(p.value) for p in periods]
 
 
-def _map_event(event: _ProviderEvent) -> ScoreboardGame:
+def _map_event(event: _ProviderEvent) -> ScoreboardGame | None:
     if not event.competitions:
         raise SourceError(SOURCE, f"game {event.id} has no competition")
     competition = event.competitions[0]
@@ -170,6 +174,9 @@ def _map_event(event: _ProviderEvent) -> ScoreboardGame:
     if set(sides) != {"home", "away"} or len(competition.competitors) != 2:
         raise SourceError(SOURCE, f"game {event.id} needs one home and one away team")
     away, home = sides["away"], sides["home"]
+    away_team, home_team = _team(away), _team(home)
+    if away_team is None or home_team is None:
+        return None
 
     provider_status = event.status.type.name
     if provider_status not in STATUSES:
@@ -178,8 +185,8 @@ def _map_event(event: _ProviderEvent) -> ScoreboardGame:
 
     data: dict[str, Any] = {
         "id": event.id,
-        "away": _team(away),
-        "home": _team(home),
+        "away": away_team,
+        "home": home_team,
         "status": status,
         "start_time": event.date.astimezone(dt.UTC),
         "venue": competition.venue.full_name if competition.venue else None,
@@ -222,4 +229,5 @@ async def fetch_games(
             SOURCE,
             f"invalid payload: {error.error_count()} errors, first at {location}",
         ) from None
-    return [_map_event(event) for event in scoreboard.events]
+    games = (_map_event(event) for event in scoreboard.events)
+    return [game for game in games if game is not None]

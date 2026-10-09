@@ -32,6 +32,7 @@ import type {
 	TeamTab,
 	TeamView
 } from '#lib/team/types.ts';
+import { teamMark } from '#lib/team/mark.ts';
 
 const TIME_ZONE = 'America/New_York';
 const SEPARATOR = ' · ';
@@ -172,13 +173,12 @@ function header(feed: TeamFeed): TeamHeaderView {
 export function nextGameView(game: NextGame): NextGameView {
 	const { tipTime, tipSuffix } = tipParts(game.startTime);
 	const time = `${tipTime} ${tipSuffix}`;
-	const team = game.opponent;
 	return {
 		gameId: game.gameId,
 		linked: game.detailAvailable,
 		tag: game.tag ? gameTagLabel(game.tag) : null,
 		date: etDate(game.startTime, { weekday: 'long', month: 'long', day: 'numeric' }),
-		opponent: game.isHome ? m.game_last_game_home({ team }) : m.game_last_game_away({ team }),
+		opponent: { team: teamMark(game.opponent), isHome: game.isHome },
 		place: [game.arena, game.city].filter((part): part is string => part !== null).join(SEPARATOR),
 		time: [time, game.broadcast].filter((part): part is string => part !== null).join(SEPARATOR)
 	};
@@ -326,7 +326,6 @@ function groupLabel(key: string): string {
 }
 
 function scheduleRow(game: ScheduleGame): ScheduleRowView {
-	const team = game.opponent;
 	const tags = [
 		game.tag ? gameTagLabel(game.tag) : null,
 		game.isNext ? m.team_tag_next() : null
@@ -336,7 +335,7 @@ function scheduleRow(game: ScheduleGame): ScheduleRowView {
 		linked: game.detailAvailable,
 		weekday: etDate(game.startTime, { weekday: 'short' }),
 		date: etDate(game.startTime, { month: 'short', day: 'numeric' }),
-		opponent: game.isHome ? m.game_last_game_home({ team }) : m.game_last_game_away({ team }),
+		opponent: { team: teamMark(game.opponent), isHome: game.isHome },
 		tags,
 		next: game.isNext
 	};

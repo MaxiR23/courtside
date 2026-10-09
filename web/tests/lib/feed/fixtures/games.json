@@ -49,7 +49,7 @@
 						"away": 100,
 						"home": 80
 					},
-					"winner": "ATL",
+					"winner": "away",
 					"leaders": {
 						"away": {
 							"playerId": "p-ATL",
@@ -143,7 +143,7 @@
 						"away": 97,
 						"home": 103
 					},
-					"winner": "UTA",
+					"winner": "home",
 					"leaders": {
 						"away": {
 							"playerId": "p-POR",
@@ -376,7 +376,7 @@
 						"away": 112,
 						"home": 104
 					},
-					"winner": "DEN",
+					"winner": "away",
 					"leaders": {
 						"away": {
 							"playerId": "p-DEN",

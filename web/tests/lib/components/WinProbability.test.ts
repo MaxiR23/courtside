@@ -33,8 +33,8 @@ const point = (elapsedSeconds: number, homeWinProbability: number) => ({
 });
 type Boundaries = { periods: { label: string; start: number }[]; end: number } | null;
 const chart = (points: ReturnType<typeof point>[], boundaries: Boundaries = null) => ({
-	awayCode: 'LAL',
-	homeCode: 'GSW',
+	away: { code: 'LAL', name: 'Lakers', city: 'Los Angeles', guest: false },
+	home: { code: 'GSW', name: 'Warriors', city: 'Golden State', guest: false },
 	middle: '50%',
 	points,
 	boundaries
@@ -61,6 +61,15 @@ const reducedMotion = (reduced: boolean) =>
 afterEach(() => vi.unstubAllGlobals());
 
 describe('WinProbability', () => {
+	it('names a guest without a code by its name in the axis', () => {
+		const guest = { code: null, name: 'Mariners', city: 'Harbor City', guest: true };
+		const { container } = render(WinProbability, {
+			props: { chart: { ...chart(live), away: guest } }
+		});
+		const axis = [...container.querySelectorAll('.axis span')].map((e) => e.textContent);
+		expect(axis).toEqual(['GSW', '50%', 'Mariners']);
+	});
+
 	it('shows the home code on top, 50% in the middle and the away code at the bottom', () => {
 		const { container } = render(WinProbability, { props: { chart: chart(live) } });
 		const axis = [...container.querySelectorAll('.axis span')].map((e) => e.textContent);

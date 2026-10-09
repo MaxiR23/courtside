@@ -91,8 +91,9 @@ def build_game_detail_feed(
     for side in (game.away, game.home):
         if not side.guest and side.code not in standings.teams:
             raise DetailBuildError(f"team {side.code} has no standing")
-    away_standing = None if game.away.guest else standings.teams[away]
-    home_standing = None if game.home.guest else standings.teams[home]
+    # A guest side has no standing, injuries or schedule (ADR 0025).
+    away_standing = None if game.away.guest or away is None else standings.teams[away]
+    home_standing = None if game.home.guest or home is None else standings.teams[home]
     schedules = [s for s in (away_schedule, home_schedule) if s is not None]
 
     season_series: dict[str, Any] | None = None
@@ -158,10 +159,10 @@ def build_game_detail_feed(
         "standings": {"away": away_standing, "home": home_standing},
         "injuries": {
             "away": None
-            if game.away.guest
+            if game.away.guest or away is None
             else [_injury(report) for report in injuries.teams.get(away, [])],
             "home": None
-            if game.home.guest
+            if game.home.guest or home is None
             else [_injury(report) for report in injuries.teams.get(home, [])],
         },
         "last_games": {
@@ -278,14 +279,14 @@ class GameDetailFeeds:
         # A guest side's schedule is never fetched (ADR 0025).
         away_schedule = (
             None
-            if game.away.guest
+            if game.away.guest or game.away.code is None
             else await self._fetch_team_schedule(
                 self._client, game.away.code, self._settings
             )
         )
         home_schedule = (
             None
-            if game.home.guest
+            if game.home.guest or game.home.code is None
             else await self._fetch_team_schedule(
                 self._client, game.home.code, self._settings
             )

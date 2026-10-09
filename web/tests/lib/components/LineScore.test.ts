@@ -10,6 +10,7 @@
 // - The header in Spanish with a Spanish browser preference
 // - Detail mode: OT1 and OT2 labels, and the team name next to the code
 // - A guest team code and name are plain text
+// - A guest without a code shows its name unlinked and the league team links
 //
 // What is covered:
 // - Regulation, live and overtime games, plus Spanish
@@ -31,14 +32,21 @@ afterEach(() => {
 
 const teamHref = (code: string) => `/team/${code.toLowerCase()}` as ResolvedPathname;
 
+const side = (code: string | null, name: string | null = null, guest = false) => ({
+	code,
+	name,
+	city: null,
+	guest
+});
+
 const rows = (container: HTMLElement) =>
 	[...container.querySelectorAll('.line')].map((line) =>
 		[...line.children].map((cell) => cell.textContent?.trim())
 	);
 
 const regulation = {
-	away: { code: 'GSW', periods: [28, 26, 24, 34], total: 112 },
-	home: { code: 'LAL', periods: [25, 27, 22, 30], total: 104 }
+	away: { team: side('GSW'), periods: [28, 26, 24, 34], total: 112 },
+	home: { team: side('LAL'), periods: [25, 27, 22, 30], total: 104 }
 };
 
 describe('LineScore', () => {
@@ -55,8 +63,8 @@ describe('LineScore', () => {
 		const { container } = render(LineScore, {
 			props: {
 				teamHref,
-				away: { code: 'GSW', periods: [28, 26], total: 54 },
-				home: { code: 'LAL', periods: [25, 27], total: 52 }
+				away: { team: side('GSW'), periods: [28, 26], total: 54 },
+				home: { team: side('LAL'), periods: [25, 27], total: 52 }
 			}
 		});
 		expect(rows(container)[1]).toEqual(['GSW', '28', '26', '–', '–', '54']);
@@ -66,8 +74,8 @@ describe('LineScore', () => {
 		const one = render(LineScore, {
 			props: {
 				teamHref,
-				away: { code: 'GSW', periods: [1, 2, 3, 4, 5], total: 15 },
-				home: { code: 'LAL', periods: [1, 2, 3, 4, 6], total: 16 }
+				away: { team: side('GSW'), periods: [1, 2, 3, 4, 5], total: 15 },
+				home: { team: side('LAL'), periods: [1, 2, 3, 4, 6], total: 16 }
 			}
 		});
 		expect(rows(one.container)[0]).toEqual(['Team', '1', '2', '3', '4', 'OT', 'T']);
@@ -75,8 +83,8 @@ describe('LineScore', () => {
 		const two = render(LineScore, {
 			props: {
 				teamHref,
-				away: { code: 'GSW', periods: [1, 2, 3, 4, 5, 6], total: 21 },
-				home: { code: 'LAL', periods: [1, 2, 3, 4, 6, 7], total: 23 }
+				away: { team: side('GSW'), periods: [1, 2, 3, 4, 5, 6], total: 21 },
+				home: { team: side('LAL'), periods: [1, 2, 3, 4, 6, 7], total: 23 }
 			}
 		});
 		expect(rows(two.container)[0]).toEqual(['Team', '1', '2', '3', '4', 'OT', '2OT', 'T']);
@@ -87,8 +95,8 @@ describe('LineScore', () => {
 		const { container } = render(LineScore, {
 			props: {
 				teamHref,
-				away: { code: 'GSW', periods: [1, 2, 3, 4, 5], total: 15 },
-				home: { code: 'LAL', periods: [1, 2, 3, 4, 6], total: 16 }
+				away: { team: side('GSW'), periods: [1, 2, 3, 4, 5], total: 15 },
+				home: { team: side('LAL'), periods: [1, 2, 3, 4, 6], total: 16 }
 			}
 		});
 		expect(rows(container)[0]).toEqual(['Equipo', '1', '2', '3', '4', 'PR', 'T']);
@@ -99,8 +107,8 @@ describe('LineScore', () => {
 			props: {
 				teamHref,
 				detail: true,
-				away: { code: 'GSW', periods: [1, 2, 3, 4, 5, 6], total: 21 },
-				home: { code: 'LAL', periods: [1, 2, 3, 4, 6, 7], total: 23 }
+				away: { team: side('GSW'), periods: [1, 2, 3, 4, 5, 6], total: 21 },
+				home: { team: side('LAL'), periods: [1, 2, 3, 4, 6, 7], total: 23 }
 			}
 		});
 		expect(rows(container)[0]).toEqual(['Team', '1', '2', '3', '4', 'OT1', 'OT2', 'T']);
@@ -111,8 +119,8 @@ describe('LineScore', () => {
 			props: {
 				teamHref,
 				detail: true,
-				away: { code: 'GSW', name: 'Warriors', periods: [28], total: 28 },
-				home: { code: 'LAL', name: 'Lakers', periods: [25], total: 25 }
+				away: { team: side('GSW', 'Warriors'), periods: [28], total: 28 },
+				home: { team: side('LAL', 'Lakers'), periods: [25], total: 25 }
 			}
 		});
 		const names = [...container.querySelectorAll('.team-name')].map((e) => e.textContent);
@@ -125,8 +133,8 @@ describe('LineScore', () => {
 			props: {
 				detail: true,
 				teamHref,
-				away: { code: 'GSW', name: 'Warriors', periods: [28], total: 28 },
-				home: { code: 'LAL', name: 'Lakers', periods: [25], total: 25 }
+				away: { team: side('GSW', 'Warriors'), periods: [28], total: 28 },
+				home: { team: side('LAL', 'Lakers'), periods: [25], total: 25 }
 			}
 		});
 		for (const name of ['GSW', 'Warriors']) {
@@ -144,13 +152,29 @@ describe('LineScore with a guest team', () => {
 			props: {
 				teamHref,
 				detail: true,
-				away: { code: 'HCM', name: 'Mariners', guest: true, periods: [28, 26, 24, 34], total: 112 },
-				home: { ...regulation.home, name: 'Lakers' }
+				away: { team: side('HCM', 'Mariners', true), periods: [28, 26, 24, 34], total: 112 },
+				home: { ...regulation.home, team: side('LAL', 'Lakers') }
 			}
 		});
 		const links = [...container.querySelectorAll('a')].map((a) => a.textContent);
 		expect(links).toEqual(['LAL', 'Lakers']);
 		expect(container.textContent).toContain('HCM');
 		expect(container.textContent).toContain('Mariners');
+	});
+});
+
+describe('LineScore with a guest team without a code', () => {
+	it('shows the name of the guest once, unlinked, and links the league team', () => {
+		const { container } = render(LineScore, {
+			props: {
+				teamHref,
+				detail: true,
+				away: { team: side(null, 'Mariners', true), periods: [28, 26, 24, 34], total: 112 },
+				home: { ...regulation.home, team: side('LAL', 'Lakers') }
+			}
+		});
+		expect(rows(container)[1]).toEqual(['Mariners', '28', '26', '24', '34', '112']);
+		const links = [...container.querySelectorAll('a')].map((a) => a.textContent);
+		expect(links).toEqual(['LAL', 'Lakers']);
 	});
 });

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { ResolvedPathname } from '$app/types';
-	import NameLink from '#lib/components/NameLink.svelte';
 	import PlayerPhoto from '#lib/components/PlayerPhoto.svelte';
+	import TeamMark from '#lib/components/TeamMark.svelte';
 	import { formatNumber } from '#lib/format/locale.ts';
 	import { m } from '#lib/paraglide/messages.js';
 	import type { Leader } from '#lib/schedule/types.ts';
@@ -15,7 +15,11 @@
 	let { away, home, teamHref }: Props = $props();
 
 	const leaders = $derived(
-		[away, home].map((leader) => ({
+		[
+			{ side: 'away', leader: away },
+			{ side: 'home', leader: home }
+		].map(({ side, leader }) => ({
+			side,
 			...leader,
 			line: m.panel_leader_line({
 				points: formatNumber(leader.points),
@@ -27,16 +31,11 @@
 </script>
 
 <div class="leaders">
-	{#each leaders as leader (leader.teamCode)}
+	{#each leaders as leader (leader.side)}
 		<div class="leader">
 			<PlayerPhoto player={leader} />
 			<span class="info">
-				<span class="leader-code"
-					><NameLink
-						href={leader.guest ? null : teamHref(leader.teamCode)}
-						text={leader.teamCode}
-					/></span
-				>
+				<span class="leader-code"><TeamMark part="label" team={leader.team} {teamHref} /></span>
 				<span class="leader-name">{leader.firstName} {leader.lastName}</span>
 				<span class="leader-line">{leader.line}</span>
 			</span>

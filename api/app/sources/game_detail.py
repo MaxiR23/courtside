@@ -6,6 +6,10 @@
 # its period boundaries, injuries, season series and videos. The provider URLs come from Settings.
 # Provider data never leaves this module.
 #
+# A team is matched to its box score players by id when both sides send one,
+# else by abbreviation. A team without an abbreviation is resolved by id or is a
+# guest without a code (ADR 0026). Stat and win probability leaders are sides.
+#
 # SEE: docs/api/games.md, api/app/sources/scoreboard.py
 
 import datetime as dt
@@ -42,9 +46,10 @@ from app.feeds.games import (
     Score,
     TeamCode,
 )
+from app.feeds.opponent import Side
 from app.settings import Settings
 from app.sources.http import Freshness, SourceClient, SourceError, get_json
-from app.sources.teams import to_side, to_team_code
+from app.sources.teams import side_of, to_team_code
 
 SOURCE = "game_detail"
 EASTERN = ZoneInfo("America/New_York")
@@ -79,7 +84,19 @@ class _ProviderModel(BaseModel):
 
 
 class _ProviderTeamRef(_ProviderModel):
-    abbreviation: str
+    abbreviation: str | None = None
+    id: str | None = None
+
+
+def _same_team(a: _ProviderTeamRef, b: _ProviderTeamRef) -> bool:
+    # Equal ids when both are sent, else equal abbreviations when both are sent.
+    if a.id and b.id:
+        return a.id == b.id
+    return bool(a.abbreviation) and a.abbreviation == b.abbreviation
+
+
+def _team_name(team: _ProviderTeamRef) -> str:
+    return team.abbreviation or team.id or "an unnamed team"
 
 
 class _ProviderStatistic(_ProviderModel):
@@ -153,13 +170,14 @@ def _photo(athlete: _ProviderAthlete, photo_url: str, guest: bool) -> str | None
 
 def _leader(
     game_id: str,
-    code: str,
+    code: str | None,
     players: _ProviderBoxPlayers,
     photo_url: str,
     guest: bool,
 ) -> dict[str, Any]:
+    label = code or "a guest side"
     if not players.statistics:
-        raise SourceError(SOURCE, f"game {game_id} has no player stats for {code}")
+        raise SourceError(SOURCE, f"game {game_id} has no player stats for {label}")
     group = players.statistics[0]
     columns: dict[str, int] = {}
     for key in ("points", "rebounds", "assists"):
@@ -168,7 +186,7 @@ def _leader(
         columns[key] = group.keys.index(key)
     played = [line for line in group.athletes if line.stats]
     if not played:
-        raise SourceError(SOURCE, f"game {game_id} has no player stats for {code}")
+        raise SourceError(SOURCE, f"game {game_id} has no player stats for {label}")
     try:
         values = [
             {key: _number(game_id, line.stats[i], int) for key, i in columns.items()}
@@ -243,14 +261,11 @@ async def fetch_game_detail(
     leaders: dict[str, Any] = {}
     team_stats: dict[str, Any] = {}
     for side, team in sides.items():
-        abbreviation = team.team.abbreviation
-        code, guest = to_side(abbreviation, source=SOURCE)
-        players = next(
-            (p for p in box.players if p.team.abbreviation == abbreviation), None
-        )
+        code, guest = side_of(team.team.abbreviation, team.team.id, source=SOURCE)
+        players = next((p for p in box.players if _same_team(p.team, team.team)), None)
         if players is None:
             raise SourceError(
-                SOURCE, f"game {game_id} has no players for {abbreviation}"
+                SOURCE, f"game {game_id} has no players for {_team_name(team.team)}"
             )
         leaders[side] = _leader(
             game_id, code, players, settings.player_photo_url, guest
@@ -442,16 +457,14 @@ def _stat_leader(
     row: str,
     away_value: float,
     home_value: float,
-    away_code: str,
-    home_code: str,
-) -> str | None:
+) -> Side | None:
     # Rule: docs/api/game-detail.md. A tie has no leader; turnovers go to the lower.
     if away_value == home_value:
         return None
     away_leads = (
         away_value < home_value if row == "turnovers" else away_value > home_value
     )
-    return away_code if away_leads else home_code
+    return Side.AWAY if away_leads else Side.HOME
 
 
 def _period_length(period: int, fmt: _SummaryFormat) -> float:
@@ -552,7 +565,7 @@ def _team_box_score(
 ) -> dict[str, Any]:
     if not players.statistics:
         raise SourceError(
-            SOURCE, f"game {game_id} has no player stats for {team.team.abbreviation}"
+            SOURCE, f"game {game_id} has no player stats for {_team_name(team.team)}"
         )
     group = players.statistics[0]
     wanted = (*BOX_COLUMNS, *BOX_SHOTS.values())
@@ -628,18 +641,16 @@ def _win_probability(summary: _ProviderSummary) -> list[dict[str, Any]]:
     return sorted(points, key=lambda point: point["elapsed_seconds"])
 
 
-def _win_probability_leader(
-    points: list[dict[str, Any]], codes: dict[str, str]
-) -> dict[str, Any] | None:
+def _win_probability_leader(points: list[dict[str, Any]]) -> dict[str, Any] | None:
     # Rule: docs/api/game-detail.md. The side ahead at the last published
     # point; none when it is exactly even.
     if not points:
         return None
     latest = points[-1]["home_win_probability"]
     if latest > 0.5:
-        return {"team_code": codes["home"], "win_probability": latest}
+        return {"side": Side.HOME, "win_probability": latest}
     if latest < 0.5:
-        return {"team_code": codes["away"], "win_probability": 1 - latest}
+        return {"side": Side.AWAY, "win_probability": 1 - latest}
     return None
 
 
@@ -659,13 +670,14 @@ def _win_probability_periods(summary: _ProviderSummary) -> dict[str, Any]:
 
 
 def _injuries(
-    game_id: str, summary: _ProviderSummary, abbreviations: dict[str, str]
+    game_id: str, summary: _ProviderSummary, abbreviations: dict[str, str | None]
 ) -> dict[str, list[dict[str, Any]]]:
     injuries: dict[str, list[dict[str, Any]]] = {}
     for side, abbreviation in abbreviations.items():
         listed: list[dict[str, Any]] = []
         for entry in summary.injuries:
-            if entry.team.abbreviation != abbreviation:
+            # A side without a code lists nothing (ADR 0026).
+            if abbreviation is None or entry.team.abbreviation != abbreviation:
                 continue
             for injury in entry.injuries:
                 try:
@@ -704,8 +716,8 @@ def _season_series(
                 SOURCE,
                 f"game {game_id} has a series game without one home and one away team",
             )
-        away = to_team_code(sides["away"].team.abbreviation, source=SOURCE)
-        home = to_team_code(sides["home"].team.abbreviation, source=SOURCE)
+        away = to_team_code(sides["away"].team.abbreviation or "", source=SOURCE)
+        home = to_team_code(sides["home"].team.abbreviation or "", source=SOURCE)
         if {away, home} != set(codes.values()):
             raise SourceError(
                 SOURCE, f"game {game_id} has a series game of other teams"
@@ -797,10 +809,9 @@ async def fetch_game_detail_sections(
         raise SourceError(SOURCE, f"game {game_id} needs one home and one away team")
     abbreviations = {side: team.team.abbreviation for side, team in sides.items()}
     resolved = {
-        side: to_side(abbreviation, source=SOURCE)
-        for side, abbreviation in abbreviations.items()
+        side: side_of(team.team.abbreviation, team.team.id, source=SOURCE)
+        for side, team in sides.items()
     }
-    codes = {side: code for side, (code, _) in resolved.items()}
     guests = {side: guest for side, (_, guest) in resolved.items()}
 
     venue = summary.game_info.venue
@@ -817,13 +828,12 @@ async def fetch_game_detail_sections(
         team_stats: dict[str, Any] = {}
         for side, team in sides.items():
             players = next(
-                (p for p in box.players if p.team.abbreviation == abbreviations[side]),
-                None,
+                (p for p in box.players if _same_team(p.team, team.team)), None
             )
             if players is None:
                 raise SourceError(
                     SOURCE,
-                    f"game {game_id} has no players for {abbreviations[side]}",
+                    f"game {game_id} has no players for {_team_name(team.team)}",
                 )
             box_score[side] = _team_box_score(
                 game_id, team, players, settings.player_photo_url, guests[side]
@@ -834,8 +844,6 @@ async def fetch_game_detail_sections(
                 row,
                 team_stats["away"][row],
                 team_stats["home"][row],
-                codes["away"],
-                codes["home"],
             )
             for row in STAT_ROWS
         }
@@ -844,7 +852,7 @@ async def fetch_game_detail_sections(
 
     points = _win_probability(summary)
     sections["win_probability"] = points or None
-    sections["win_probability_leader"] = _win_probability_leader(points, codes)
+    sections["win_probability_leader"] = _win_probability_leader(points)
     sections["win_probability_periods"] = (
         _win_probability_periods(summary) if points else None
     )
@@ -852,7 +860,13 @@ async def fetch_game_detail_sections(
         sections["injuries"] = _injuries(game_id, summary, abbreviations)
     # A guest game has no season series (ADR 0025).
     sections["season_series"] = (
-        None if any(guests.values()) else _season_series(game_id, summary, codes)
+        None
+        if any(guests.values())
+        else _season_series(
+            game_id,
+            summary,
+            {side: code for side, (code, _) in resolved.items() if code is not None},
+        )
     )
     sections["videos"] = _videos(summary.videos) or None
 

@@ -115,8 +115,7 @@
         "winner": {
           "anyOf": [
             {
-              "minLength": 1,
-              "type": "string"
+              "$ref": "#/$defs/Side"
             },
             {
               "type": "null"
@@ -212,8 +211,15 @@
       "description": "A side of a game: one of the 30 teams, or a guest team outside the league.",
       "properties": {
         "code": {
-          "minLength": 1,
-          "type": "string"
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "name": {
           "minLength": 1,
@@ -299,8 +305,15 @@
           "type": "string"
         },
         "teamCode": {
-          "minLength": 1,
-          "type": "string"
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "photoUrl": {
           "anyOf": [
@@ -402,6 +415,14 @@
       ],
       "title": "Score",
       "type": "object"
+    },
+    "Side": {
+      "enum": [
+        "away",
+        "home"
+      ],
+      "title": "Side",
+      "type": "string"
     },
     "Star": {
       "additionalProperties": false,
