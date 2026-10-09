@@ -313,5 +313,15 @@
 	"clinch_xp": "Play-in asegurado",
 	"clinch_pb": "En posición de play-in",
 	"clinch_e": "Eliminado",
-	"standings_key_note": "DP, Div y Conf son dentro del grupo mostrado. Dif es por partido, Tot es el total de la temporada. Las líneas discontinuas marcan el puesto 6 y el 10."
+	"standings_key_note": "DP, Div y Conf son dentro del grupo mostrado. Dif es por partido, Tot es el total de la temporada. Las líneas discontinuas marcan el puesto 6 y el 10.",
+	"search_trigger_label": "Buscar",
+	"search_placeholder": "Buscar jugador o equipo",
+	"search_clear": "Borrar",
+	"search_esc": "Esc",
+	"search_cancel": "Cancelar",
+	"search_teams": "Equipos · {n}",
+	"search_players": "Jugadores · {n}",
+	"search_show_all": "Ver los {n} jugadores",
+	"search_no_results": "Ningún jugador ni equipo coincide con \"{q}\".",
+	"search_team_meta": "{code} · {rank}.º en {division}"
 }

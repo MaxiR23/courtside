@@ -350,5 +350,31 @@
 	"clinch_xp": "Clinched play-in",
 	"clinch_pb": "In play-in position",
 	"clinch_e": "Eliminated",
-	"standings_key_note": "GB, Div and Conf are within the group shown. Diff is per game, Tot is the season total. The dashed lines mark seed 6 and seed 10."
+	"standings_key_note": "GB, Div and Conf are within the group shown. Diff is per game, Tot is the season total. The dashed lines mark seed 6 and seed 10.",
+	"search_trigger_label": "Search",
+	"search_placeholder": "Search player or team",
+	"search_clear": "Clear",
+	"search_esc": "Esc",
+	"search_cancel": "Cancel",
+	"search_teams": "Teams · {n}",
+	"search_players": "Players · {n}",
+	"search_show_all": "Show all {n} players",
+	"search_no_results": "No players or teams match \"{q}\".",
+	"search_team_meta": [
+		{
+			"declarations": [
+				"input code",
+				"input rank",
+				"input division",
+				"local rankOrdinal = rank: plural type=ordinal"
+			],
+			"selectors": ["rankOrdinal"],
+			"match": {
+				"rankOrdinal=one": "{code} · {rank}st in {division}",
+				"rankOrdinal=two": "{code} · {rank}nd in {division}",
+				"rankOrdinal=few": "{code} · {rank}rd in {division}",
+				"rankOrdinal=other": "{code} · {rank}th in {division}"
+			}
+		}
+	]
 }

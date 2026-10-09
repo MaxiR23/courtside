@@ -1,6 +1,7 @@
 import type { GameDetailFeed } from '#lib/contract/game-detail.ts';
 import type { GamesFeed } from '#lib/contract/games.ts';
 import type { PlayerFeed } from '#lib/contract/player.ts';
+import type { SearchFeed } from '#lib/contract/search.ts';
 import type { StandingsFeed } from '#lib/contract/standings.ts';
 import type { TeamFeed } from '#lib/contract/team.ts';
 
@@ -22,11 +23,12 @@ async function fetchFeedBody(
 	url: string,
 	label: string,
 	fetchFn: typeof fetch,
-	notFound = false // report a 404 as its own reason
+	notFound = false, // report a 404 as its own reason
+	init: Pick<RequestInit, 'cache'> = {}
 ): Promise<unknown> {
 	let response: Response;
 	try {
-		response = await fetchFn(url, { headers: { accept: 'application/json' } });
+		response = await fetchFn(url, { ...init, headers: { accept: 'application/json' } });
 	} catch {
 		throw new FeedLoadError('network', `${label} could not be reached`);
 	}
@@ -136,4 +138,26 @@ export async function loadStandingsFeed(
 		throw new FeedLoadError('body', 'The standings feed has no conferences');
 	}
 	return body as StandingsFeed;
+}
+
+/**
+ * Fetches the search feed. The body is only checked for its shape: an object with `teams` and
+ * `players` arrays. `no-cache` makes the browser revalidate with the stored ETag on every
+ * request (If-None-Match, no preflight, since the browser adds the header and not the page),
+ * and hand back the cached body on a 304. The API's CORS setup would reject a hand-set header.
+ */
+export async function loadSearchFeed(
+	url: string,
+	fetchFn: typeof fetch = fetch
+): Promise<SearchFeed> {
+	const body = await fetchFeedBody(url, 'The search feed', fetchFn, false, { cache: 'no-cache' });
+	if (
+		typeof body !== 'object' ||
+		body === null ||
+		!Array.isArray((body as SearchFeed).teams) ||
+		!Array.isArray((body as SearchFeed).players)
+	) {
+		throw new FeedLoadError('body', 'The search feed has no teams or players');
+	}
+	return body as SearchFeed;
 }

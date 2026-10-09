@@ -3,6 +3,7 @@
 // Tests for the team page.
 //
 // Tested:
+// - Shows the search trigger in the nav
 // - The route turns off prerender and server rendering
 // - Loads the feed of the team code in the URL and renders the h1, every section and the tabs
 // - Links roster names to /player/{id}
@@ -153,6 +154,12 @@ describe('team page', () => {
 		const hrefs = screen.getAllByRole('link').map((a) => a.getAttribute('href'));
 		expect(hrefs).toContain('/player/p-holmgren');
 		expect(hrefs).toContain('/player/p-sga');
+	});
+
+	it('shows the search trigger in the nav', async () => {
+		stubFetch('okc', answerWith(recorded()));
+		await renderPage();
+		expect(screen.getByRole('button', { name: 'Search' })).toBeTruthy();
 	});
 
 	it('shows the loading skeleton until the first load settles', async () => {

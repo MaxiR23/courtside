@@ -3,6 +3,7 @@
 // Tests for the standings route.
 //
 // Tested:
+// - Shows the search trigger in the nav
 // - The route turns off server rendering and keeps prerender from the layout
 // - Loads the standings feed and renders the Conference view, the nav with Standings current
 //   and the footer
@@ -118,6 +119,12 @@ describe('standings page', () => {
 		expect(screen.getByRole('link', { name: 'All games' }).getAttribute('href')).toBe('/');
 		expect(container.ownerDocument.querySelector('footer')).toBeTruthy();
 		expect(screen.getByRole('link', { name: /Celtics/ }).getAttribute('href')).toBe('/team/bos');
+	});
+
+	it('shows the search trigger in the nav', async () => {
+		stubFetch(answerWith(recorded()));
+		await renderPage();
+		expect(screen.getByRole('button', { name: 'Search' })).toBeTruthy();
 	});
 
 	it('shows the skeleton until the first load settles', async () => {

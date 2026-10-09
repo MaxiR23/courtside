@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { ResolvedPathname } from '$app/types';
+	import NavSearchTrigger from '#lib/components/NavSearchTrigger.svelte';
 	import { formatDate } from '#lib/format/locale.ts';
 	import { m } from '#lib/paraglide/messages.js';
 	import type { RowLayout } from '#lib/schedule/types.ts';
@@ -67,6 +68,7 @@
 			</button>
 		{/if}
 	</div>
+	<NavSearchTrigger {layout} />
 </nav>
 
 <style>

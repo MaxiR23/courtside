@@ -3,7 +3,8 @@
 
 	type Props = {
 		code: string;
-		size: 'large' | 'small' | 'header' | 'header-mobile' | 'injury' | 'team' | 'standings';
+		size:
+			'large' | 'small' | 'header' | 'header-mobile' | 'injury' | 'team' | 'standings' | 'search';
 		href?: ResolvedPathname;
 	};
 
@@ -66,6 +67,12 @@
 	.standings {
 		width: var(--standings-monogram-size);
 		height: var(--standings-monogram-size);
+	}
+
+	.search {
+		width: var(--search-tile-size);
+		height: var(--search-tile-size);
+		border-radius: var(--search-tile-radius);
 	}
 
 	.header-mobile {

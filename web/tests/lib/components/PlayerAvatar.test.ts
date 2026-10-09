@@ -6,7 +6,7 @@
 // - A lazy image with the name as its alt text
 // - Initials with no photo, and after the image fails to load
 // - A new photo URL tries again after a failure
-// - The roster and leader size classes
+// - The roster, leader and search size classes
 //
 // What is covered:
 // - Each state the avatar shows, plus the error event
@@ -75,5 +75,12 @@ describe('PlayerAvatar', () => {
 			props: { name: 'A B', photo: null, size: 'leader' }
 		});
 		expect(container.querySelector('.avatar')?.classList.contains('leader')).toBe(true);
+	});
+
+	it('uses the search size class', () => {
+		const { container } = render(PlayerAvatar, {
+			props: { name: 'A B', photo: null, size: 'search' }
+		});
+		expect(container.querySelector('.avatar')?.classList.contains('search')).toBe(true);
 	});
 });

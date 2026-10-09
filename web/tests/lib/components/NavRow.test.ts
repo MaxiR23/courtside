@@ -10,6 +10,8 @@
 // - Standings page: Standings is the current page; All games is not
 // - Links go to gamesHref and standingsHref
 // - The mobile layout adds the mobile class that puts the links on their own row
+// - The search trigger is the last child of the nav on Home, the detail pages and the standings page
+// - The mobile layout gives the search trigger its mobile class
 // - Spoiler-free toggle: off by default, pressed when on, calls its callback
 // - Spanish: Partidos, Clasificación, the date, Sin spoilers, Todos los partidos
 //
@@ -91,7 +93,7 @@ describe('NavRow', () => {
 		expect(screen.getByRole('link', { name: 'Standings' })).toBeTruthy();
 		expect(container.querySelector('[aria-current]')).toBeNull();
 		expect(container.querySelector('time')).toBeNull();
-		expect(screen.queryByRole('button')).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Spoiler-free' })).toBeNull();
 	});
 
 	it('marks Standings current on the standings page and not All games', () => {
@@ -145,5 +147,19 @@ describe('NavRow', () => {
 		preferLanguages(['es-ES']);
 		render(NavRow, { props: detailProps });
 		expect(screen.getByRole('link', { name: 'Todos los partidos' })).toBeTruthy();
+	});
+
+	it('ends the nav with the search trigger on Home, detail pages and the standings page', () => {
+		for (const props of [homeProps, detailProps, standingsProps]) {
+			const { container, unmount } = render(NavRow, { props });
+			const nav = container.querySelector('nav');
+			expect(nav?.lastElementChild).toBe(screen.getByRole('button', { name: 'Search' }));
+			unmount();
+		}
+	});
+
+	it('gives the search trigger the mobile class with the mobile layout', () => {
+		render(NavRow, { props: { ...homeProps, layout: 'mobile' } });
+		expect(screen.getByRole('button', { name: 'Search' }).classList.contains('mobile')).toBe(true);
 	});
 });

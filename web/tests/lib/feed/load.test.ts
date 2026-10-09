@@ -10,6 +10,7 @@
 // - teamFeedUrl puts the encoded team code in place of {code}
 // - loadTeamFeed returns the team feed, reports a 404 as not-found and every other failure
 // - loadStandingsFeed returns the standings feed and reports 503, 404, network and body failures
+// - loadSearchFeed returns the search feed with a no-cache request and reports 503, network and body failures
 // - playerFeedUrl puts the encoded player id in place of {id}
 // - loadPlayerFeed returns the player feed, reports a 404 as not-found and every other failure
 //
@@ -28,6 +29,7 @@ import {
 	loadGameDetailFeed,
 	loadGamesFeed,
 	loadPlayerFeed,
+	loadSearchFeed,
 	loadStandingsFeed,
 	playerFeedUrl,
 	loadTeamFeed,
@@ -311,5 +313,52 @@ describe('loadStandingsFeed', () => {
 		await expect(loadStandingsFeed(STANDINGS_URL, empty)).rejects.toMatchObject({
 			reason: 'body'
 		});
+	});
+});
+
+const SEARCH_URL = 'https://feeds.example.com/search.json';
+
+function searchFetchAnswering(answer: () => Promise<Response>) {
+	return vi.fn((url: string | URL | Request) => {
+		if (url !== SEARCH_URL) throw new Error(`Unexpected URL ${String(url)}`);
+		return answer();
+	}) as unknown as typeof fetch & ReturnType<typeof vi.fn>;
+}
+
+describe('loadSearchFeed', () => {
+	it('returns the parsed feed, asking the browser to revalidate on every request', async () => {
+		const feed = { teams: [], players: [] };
+		const fetchFn = searchFetchAnswering(() => json(feed));
+		await expect(loadSearchFeed(SEARCH_URL, fetchFn)).resolves.toEqual(feed);
+		expect(fetchFn).toHaveBeenCalledWith(SEARCH_URL, {
+			cache: 'no-cache',
+			headers: { accept: 'application/json' }
+		});
+	});
+
+	it('throws a status error on a 503', async () => {
+		const fetchFn = searchFetchAnswering(() => json({ detail: 'no' }, 503));
+		await expect(loadSearchFeed(SEARCH_URL, fetchFn)).rejects.toMatchObject({
+			name: 'FeedLoadError',
+			reason: 'status'
+		});
+	});
+
+	it('throws a network error', async () => {
+		const fetchFn = searchFetchAnswering(() => Promise.reject(new TypeError('Failed to fetch')));
+		const error = await loadSearchFeed(SEARCH_URL, fetchFn).catch((e: unknown) => e);
+		expect(error).toBeInstanceOf(FeedLoadError);
+		expect((error as FeedLoadError).reason).toBe('network');
+	});
+
+	it('throws a body error on a non-JSON body and on JSON without the arrays', async () => {
+		const html = searchFetchAnswering(() =>
+			Promise.resolve(new Response('<html>', { status: 200 }))
+		);
+		await expect(loadSearchFeed(SEARCH_URL, html)).rejects.toMatchObject({ reason: 'body' });
+		const noPlayers = searchFetchAnswering(() => json({ teams: [] }));
+		await expect(loadSearchFeed(SEARCH_URL, noPlayers)).rejects.toMatchObject({ reason: 'body' });
+		const noTeams = searchFetchAnswering(() => json({ players: [] }));
+		await expect(loadSearchFeed(SEARCH_URL, noTeams)).rejects.toMatchObject({ reason: 'body' });
 	});
 });

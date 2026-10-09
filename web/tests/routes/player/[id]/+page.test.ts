@@ -3,6 +3,7 @@
 // Tests for the player page.
 //
 // Tested:
+// - Shows the search trigger in the nav
 // - The route turns off prerender and server rendering
 // - Loads the feed of the player id in the URL and renders the h1, every section and the tabs
 // - Links a game only where the feed has its detail
@@ -160,6 +161,12 @@ describe('player page', () => {
 		expect(links).toContain('/game/g-5');
 		expect(links).not.toContain('/game/g-4');
 		expect(links).not.toContain('/game/g-6');
+	});
+
+	it('shows the search trigger in the nav', async () => {
+		stubFetch('p-2', answerWith(recorded()));
+		await renderPage();
+		expect(screen.getByRole('button', { name: 'Search' })).toBeTruthy();
 	});
 
 	it('shows the loading skeleton until the first load settles', async () => {

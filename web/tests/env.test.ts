@@ -8,6 +8,7 @@
 // - PLAYER_FEED_URL: accepts an absolute URL with {id}; empty or missing is undefined
 // - PLAYER_FEED_URL: rejects a relative URL and an absolute URL without {id}
 // - STANDINGS_FEED_URL: accepts an absolute URL; empty or missing is undefined; rejects a relative URL
+// - SEARCH_FEED_URL: accepts an absolute URL; empty or missing is undefined; rejects a relative URL
 //
 // What is covered:
 // - Happy path, edge cases (empty, missing) and error cases, on the schema alone
@@ -23,7 +24,7 @@ type Outcome = { value: unknown } | { issues: readonly { message: string }[] };
 type Validator = { '~standard': { validate: (value: unknown) => Outcome } };
 
 const validate = (
-	name: 'TEAM_FEED_URL' | 'PLAYER_FEED_URL' | 'STANDINGS_FEED_URL',
+	name: 'TEAM_FEED_URL' | 'PLAYER_FEED_URL' | 'STANDINGS_FEED_URL' | 'SEARCH_FEED_URL',
 	value: string | undefined
 ): Outcome => (variables[name].schema as unknown as Validator)['~standard'].validate(value);
 
@@ -89,6 +90,24 @@ describe('STANDINGS_FEED_URL', () => {
 	it('rejects a relative URL', () => {
 		expect(validate('STANDINGS_FEED_URL', '/standings.json')).toEqual({
 			issues: [{ message: 'STANDINGS_FEED_URL must be an absolute URL' }]
+		});
+	});
+});
+
+describe('SEARCH_FEED_URL', () => {
+	it('accepts an absolute URL and returns it', () => {
+		const url = 'https://feeds.example.com/search.json';
+		expect(validate('SEARCH_FEED_URL', url)).toEqual({ value: url });
+	});
+
+	it('returns undefined for an empty or missing value', () => {
+		expect(validate('SEARCH_FEED_URL', '')).toEqual({ value: undefined });
+		expect(validate('SEARCH_FEED_URL', undefined)).toEqual({ value: undefined });
+	});
+
+	it('rejects a relative URL', () => {
+		expect(validate('SEARCH_FEED_URL', '/search.json')).toEqual({
+			issues: [{ message: 'SEARCH_FEED_URL must be an absolute URL' }]
 		});
 	});
 });
