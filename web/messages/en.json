@@ -299,5 +299,56 @@
 			}
 		}
 	],
-	"standings_title": "Standings"
+	"standings_title": "Standings",
+	"standings_note": "Seeds follow the official seeding.",
+	"standings_state_final": "Final · regular season",
+	"standings_state_live": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "Regular season · {count} game played",
+				"countPlural=other": "Regular season · {count} games played"
+			}
+		}
+	],
+	"standings_conference": "Conference",
+	"standings_division": "Division",
+	"standings_view_toggle": "Standings view",
+	"standings_meta_conference": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} team · GB vs conference leader",
+				"countPlural=other": "{count} teams · GB vs conference leader"
+			}
+		}
+	],
+	"standings_meta_division": "{conference} · GB vs division leader",
+	"standings_col_seed": "Seed",
+	"standings_col_team": "Team",
+	"standings_col_w": "W",
+	"standings_col_l": "L",
+	"standings_col_pct": "Pct",
+	"standings_col_gb": "GB",
+	"standings_col_strk": "Strk",
+	"standings_col_home": "Home",
+	"standings_col_away": "Away",
+	"standings_col_l10": "L10",
+	"standings_col_div": "Div",
+	"standings_col_conf": "Conf",
+	"standings_col_ppg": "PPG",
+	"standings_col_opp": "Opp",
+	"standings_col_diff": "Diff",
+	"standings_col_tot": "Tot",
+	"standings_key": "Key",
+	"clinch_star": "Clinched best record in league",
+	"clinch_z": "Clinched best record in conference",
+	"clinch_y": "Clinched division",
+	"clinch_x": "Clinched playoffs",
+	"clinch_xp": "Clinched play-in",
+	"clinch_pb": "In play-in position",
+	"clinch_e": "Eliminated",
+	"standings_key_note": "GB, Div and Conf are within the group shown. Diff is per game, Tot is the season total. The dashed lines mark seed 6 and seed 10."
 }

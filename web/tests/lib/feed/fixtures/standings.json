@@ -1,0 +1,937 @@
+{
+	"season": "2025-26",
+	"state": "regular",
+	"gamesPlayed": 1180,
+	"conferences": [
+		{
+			"key": "east",
+			"name": "Eastern",
+			"teamCount": 11,
+			"teams": [
+				{
+					"code": "BOS",
+					"city": "Boston",
+					"name": "Celtics",
+					"colors": {
+						"primary": "#0064c8",
+						"secondary": "#ffffff"
+					},
+					"seed": 1,
+					"clinch": "*",
+					"wins": 60,
+					"losses": 22,
+					"pct": ".731",
+					"gamesBehind": null,
+					"streak": {
+						"kind": "win",
+						"count": 3
+					},
+					"home": "31-11",
+					"away": "29-12",
+					"lastTen": "7-3",
+					"division": "15-5",
+					"conference": "40-14",
+					"pointsFor": "118.0",
+					"pointsAgainst": "112.0",
+					"differential": {
+						"value": "+5.5",
+						"nonNegative": true
+					},
+					"total": {
+						"value": "+451",
+						"nonNegative": true
+					}
+				},
+				{
+					"code": "NYK",
+					"city": "New York",
+					"name": "Knicks",
+					"colors": {
+						"primary": "#1464be",
+						"secondary": "#ffffff"
+					},
+					"seed": 2,
+					"clinch": "z",
+					"wins": 56,
+					"losses": 26,
+					"pct": ".682",
+					"gamesBehind": "1.0",
+					"streak": {
+						"kind": "loss",
+						"count": 2
+					},
+					"home": "29-13",
+					"away": "27-14",
+					"lastTen": "6-4",
+					"division": "14-6",
+					"conference": "37-17",
+					"pointsFor": "117.3",
+					"pointsAgainst": "112.5",
+					"differential": {
+						"value": "+4.5",
+						"nonNegative": true
+					},
+					"total": {
+						"value": "+369",
+						"nonNegative": true
+					}
+				},
+				{
+					"code": "CLE",
+					"city": "Cleveland",
+					"name": "Cavaliers",
+					"colors": {
+						"primary": "#2864b4",
+						"secondary": "#ffffff"
+					},
+					"seed": 3,
+					"clinch": "y",
+					"wins": 52,
+					"losses": 30,
+					"pct": ".634",
+					"gamesBehind": "2.0",
+					"streak": {
+						"kind": "win",
+						"count": 3
+					},
+					"home": "27-15",
+					"away": "25-16",
+					"lastTen": "5-5",
+					"division": "13-7",
+					"conference": "34-20",
+					"pointsFor": "116.6",
+					"pointsAgainst": "113.0",
+					"differential": {
+						"value": "+3.5",
+						"nonNegative": true
+					},
+					"total": {
+						"value": "+287",
+						"nonNegative": true
+					}
+				},
+				{
+					"code": "ORL",
+					"city": "Orlando",
+					"name": "Magic",
+					"colors": {
+						"primary": "#3c64aa",
+						"secondary": "#ffffff"
+					},
+					"seed": 4,
+					"clinch": "x",
+					"wins": 48,
+					"losses": 34,
+					"pct": ".585",
+					"gamesBehind": "3.0",
+					"streak": {
+						"kind": "loss",
+						"count": 2
+					},
+					"home": "25-17",
+					"away": "23-18",
+					"lastTen": "4-6",
+					"division": "12-8",
+					"conference": "32-22",
+					"pointsFor": "115.9",
+					"pointsAgainst": "113.5",
+					"differential": {
+						"value": "+2.5",
+						"nonNegative": true
+					},
+					"total": {
+						"value": "+205",
+						"nonNegative": true
+					}
+				},
+				{
+					"code": "MIL",
+					"city": "Milwaukee",
+					"name": "Bucks",
+					"colors": {
+						"primary": "#5064a0",
+						"secondary": "#ffffff"
+					},
+					"seed": 5,
+					"clinch": "xp",
+					"wins": 44,
+					"losses": 38,
+					"pct": ".536",
+					"gamesBehind": "4.0",
+					"streak": {
+						"kind": "win",
+						"count": 3
+					},
+					"home": "23-19",
+					"away": "21-20",
+					"lastTen": "7-3",
+					"division": "11-9",
+					"conference": "29-25",
+					"pointsFor": "115.2",
+					"pointsAgainst": "114.0",
+					"differential": {
+						"value": "+1.5",
+						"nonNegative": true
+					},
+					"total": {
+						"value": "+123",
+						"nonNegative": true
+					}
+				},
+				{
+					"code": "IND",
+					"city": "Indiana",
+					"name": "Pacers",
+					"colors": {
+						"primary": "#646496",
+						"secondary": "#ffffff"
+					},
+					"seed": 6,
+					"clinch": "pb",
+					"wins": 40,
+					"losses": 42,
+					"pct": ".487",
+					"gamesBehind": "5.0",
+					"streak": {
+						"kind": "loss",
+						"count": 2
+					},
+					"home": "21-21",
+					"away": "19-22",
+					"lastTen": "6-4",
+					"division": "10-10",
+					"conference": "26-28",
+					"pointsFor": "114.5",
+					"pointsAgainst": "114.5",
+					"differential": {
+						"value": "+0.5",
+						"nonNegative": true
+					},
+					"total": {
+						"value": "+41",
+						"nonNegative": true
+					}
+				},
+				{
+					"code": "MIA",
+					"city": "Miami",
+					"name": "Heat",
+					"colors": {
+						"primary": "#78648c",
+						"secondary": "#ffffff"
+					},
+					"seed": 7,
+					"clinch": "e",
+					"wins": 36,
+					"losses": 46,
+					"pct": ".439",
+					"gamesBehind": "6.0",
+					"streak": {
+						"kind": "win",
+						"count": 3
+					},
+					"home": "19-23",
+					"away": "17-24",
+					"lastTen": "5-5",
+					"division": "9-11",
+					"conference": "24-30",
+					"pointsFor": "113.8",
+					"pointsAgainst": "115.0",
+					"differential": {
+						"value": "−0.5",
+						"nonNegative": false
+					},
+					"total": {
+						"value": "−41",
+						"nonNegative": false
+					}
+				},
+				{
+					"code": "PHI",
+					"city": "Philadelphia",
+					"name": "76ers",
+					"colors": {
+						"primary": "#8c6482",
+						"secondary": "#ffffff"
+					},
+					"seed": 8,
+					"clinch": null,
+					"wins": 32,
+					"losses": 50,
+					"pct": ".390",
+					"gamesBehind": "7.0",
+					"streak": {
+						"kind": "loss",
+						"count": 2
+					},
+					"home": "17-25",
+					"away": "15-26",
+					"lastTen": "4-6",
+					"division": "8-12",
+					"conference": "21-33",
+					"pointsFor": "113.1",
+					"pointsAgainst": "115.5",
+					"differential": {
+						"value": "0.0",
+						"nonNegative": true
+					},
+					"total": {
+						"value": "0",
+						"nonNegative": true
+					}
+				},
+				{
+					"code": "CHI",
+					"city": "Chicago",
+					"name": "Bulls",
+					"colors": {
+						"primary": null,
+						"secondary": null
+					},
+					"seed": 9,
+					"clinch": null,
+					"wins": 28,
+					"losses": 54,
+					"pct": ".341",
+					"gamesBehind": "8.0",
+					"streak": {
+						"kind": "win",
+						"count": 3
+					},
+					"home": "15-27",
+					"away": "13-28",
+					"lastTen": "7-3",
+					"division": "7-13",
+					"conference": "18-36",
+					"pointsFor": "112.4",
+					"pointsAgainst": "116.0",
+					"differential": {
+						"value": "−2.5",
+						"nonNegative": false
+					},
+					"total": {
+						"value": "−205",
+						"nonNegative": false
+					}
+				},
+				{
+					"code": "ATL",
+					"city": "Atlanta",
+					"name": "Hawks",
+					"colors": {
+						"primary": "#b4646e",
+						"secondary": "#ffffff"
+					},
+					"seed": 10,
+					"clinch": null,
+					"wins": 24,
+					"losses": 58,
+					"pct": ".292",
+					"gamesBehind": "9.0",
+					"streak": {
+						"kind": "loss",
+						"count": 2
+					},
+					"home": "13-29",
+					"away": "11-30",
+					"lastTen": "6-4",
+					"division": "6-14",
+					"conference": "16-38",
+					"pointsFor": "111.7",
+					"pointsAgainst": "116.5",
+					"differential": {
+						"value": "−3.5",
+						"nonNegative": false
+					},
+					"total": {
+						"value": "−287",
+						"nonNegative": false
+					}
+				},
+				{
+					"code": "BKN",
+					"city": "Brooklyn",
+					"name": "Nets",
+					"colors": {
+						"primary": "#c86464",
+						"secondary": "#ffffff"
+					},
+					"seed": 11,
+					"clinch": null,
+					"wins": 20,
+					"losses": 62,
+					"pct": ".243",
+					"gamesBehind": "10.0",
+					"streak": {
+						"kind": "win",
+						"count": 3
+					},
+					"home": "11-31",
+					"away": "9-32",
+					"lastTen": "5-5",
+					"division": "5-15",
+					"conference": "13-41",
+					"pointsFor": "111.0",
+					"pointsAgainst": "117.0",
+					"differential": {
+						"value": "−4.5",
+						"nonNegative": false
+					},
+					"total": {
+						"value": "−369",
+						"nonNegative": false
+					}
+				}
+			]
+		},
+		{
+			"key": "west",
+			"name": "Western",
+			"teamCount": 2,
+			"teams": [
+				{
+					"code": "OKC",
+					"city": "Oklahoma City",
+					"name": "Thunder",
+					"colors": {
+						"primary": "#0064c8",
+						"secondary": "#ffffff"
+					},
+					"seed": 1,
+					"clinch": null,
+					"wins": 60,
+					"losses": 22,
+					"pct": ".731",
+					"gamesBehind": null,
+					"streak": {
+						"kind": "win",
+						"count": 3
+					},
+					"home": "31-11",
+					"away": "29-12",
+					"lastTen": "7-3",
+					"division": "15-5",
+					"conference": "40-14",
+					"pointsFor": "118.0",
+					"pointsAgainst": "112.0",
+					"differential": {
+						"value": "+5.5",
+						"nonNegative": true
+					},
+					"total": {
+						"value": "+451",
+						"nonNegative": true
+					}
+				},
+				{
+					"code": "DEN",
+					"city": "Denver",
+					"name": "Nuggets",
+					"colors": {
+						"primary": "#1464be",
+						"secondary": "#ffffff"
+					},
+					"seed": 2,
+					"clinch": null,
+					"wins": 56,
+					"losses": 26,
+					"pct": ".682",
+					"gamesBehind": "2.0",
+					"streak": {
+						"kind": "loss",
+						"count": 2
+					},
+					"home": "29-13",
+					"away": "27-14",
+					"lastTen": "6-4",
+					"division": "14-6",
+					"conference": "37-17",
+					"pointsFor": "117.3",
+					"pointsAgainst": "112.5",
+					"differential": {
+						"value": "+4.5",
+						"nonNegative": true
+					},
+					"total": {
+						"value": "+369",
+						"nonNegative": true
+					}
+				}
+			]
+		}
+	],
+	"divisions": [
+		{
+			"name": "Atlantic",
+			"conference": "east",
+			"teams": [
+				{
+					"code": "BOS",
+					"city": "Boston",
+					"name": "Celtics",
+					"colors": {
+						"primary": "#0064c8",
+						"secondary": "#ffffff"
+					},
+					"seed": 1,
+					"clinch": "*",
+					"wins": 60,
+					"losses": 22,
+					"pct": ".731",
+					"gamesBehind": null,
+					"streak": {
+						"kind": "win",
+						"count": 3
+					},
+					"home": "31-11",
+					"away": "29-12",
+					"lastTen": "7-3",
+					"division": "15-5",
+					"conference": "40-14",
+					"pointsFor": "118.0",
+					"pointsAgainst": "112.0",
+					"differential": {
+						"value": "+5.5",
+						"nonNegative": true
+					},
+					"total": {
+						"value": "+451",
+						"nonNegative": true
+					}
+				},
+				{
+					"code": "NYK",
+					"city": "New York",
+					"name": "Knicks",
+					"colors": {
+						"primary": "#1464be",
+						"secondary": "#ffffff"
+					},
+					"seed": 2,
+					"clinch": "z",
+					"wins": 56,
+					"losses": 26,
+					"pct": ".682",
+					"gamesBehind": "1.0",
+					"streak": {
+						"kind": "loss",
+						"count": 2
+					},
+					"home": "29-13",
+					"away": "27-14",
+					"lastTen": "6-4",
+					"division": "14-6",
+					"conference": "37-17",
+					"pointsFor": "117.3",
+					"pointsAgainst": "112.5",
+					"differential": {
+						"value": "+4.5",
+						"nonNegative": true
+					},
+					"total": {
+						"value": "+369",
+						"nonNegative": true
+					}
+				},
+				{
+					"code": "PHI",
+					"city": "Philadelphia",
+					"name": "76ers",
+					"colors": {
+						"primary": "#8c6482",
+						"secondary": "#ffffff"
+					},
+					"seed": 8,
+					"clinch": null,
+					"wins": 32,
+					"losses": 50,
+					"pct": ".390",
+					"gamesBehind": "2.0",
+					"streak": {
+						"kind": "loss",
+						"count": 2
+					},
+					"home": "17-25",
+					"away": "15-26",
+					"lastTen": "4-6",
+					"division": "8-12",
+					"conference": "21-33",
+					"pointsFor": "113.1",
+					"pointsAgainst": "115.5",
+					"differential": {
+						"value": "0.0",
+						"nonNegative": true
+					},
+					"total": {
+						"value": "0",
+						"nonNegative": true
+					}
+				},
+				{
+					"code": "BKN",
+					"city": "Brooklyn",
+					"name": "Nets",
+					"colors": {
+						"primary": "#c86464",
+						"secondary": "#ffffff"
+					},
+					"seed": 11,
+					"clinch": null,
+					"wins": 20,
+					"losses": 62,
+					"pct": ".243",
+					"gamesBehind": "3.0",
+					"streak": {
+						"kind": "win",
+						"count": 3
+					},
+					"home": "11-31",
+					"away": "9-32",
+					"lastTen": "5-5",
+					"division": "5-15",
+					"conference": "13-41",
+					"pointsFor": "111.0",
+					"pointsAgainst": "117.0",
+					"differential": {
+						"value": "−4.5",
+						"nonNegative": false
+					},
+					"total": {
+						"value": "−369",
+						"nonNegative": false
+					}
+				},
+				{
+					"code": "TOR",
+					"city": "Toronto",
+					"name": "Raptors",
+					"colors": {
+						"primary": "#f06450",
+						"secondary": "#ffffff"
+					},
+					"seed": 12,
+					"clinch": null,
+					"wins": 12,
+					"losses": 70,
+					"pct": ".146",
+					"gamesBehind": "12.0",
+					"streak": {
+						"kind": "win",
+						"count": 3
+					},
+					"home": "7-35",
+					"away": "5-36",
+					"lastTen": "7-3",
+					"division": "3-17",
+					"conference": "8-46",
+					"pointsFor": "109.6",
+					"pointsAgainst": "118.0",
+					"differential": {
+						"value": "−6.5",
+						"nonNegative": false
+					},
+					"total": {
+						"value": "−533",
+						"nonNegative": false
+					}
+				}
+			]
+		},
+		{
+			"name": "Southeast",
+			"conference": "east",
+			"teams": [
+				{
+					"code": "MIA",
+					"city": "Miami",
+					"name": "Heat",
+					"colors": {
+						"primary": "#78648c",
+						"secondary": "#ffffff"
+					},
+					"seed": 7,
+					"clinch": "e",
+					"wins": 36,
+					"losses": 46,
+					"pct": ".439",
+					"gamesBehind": null,
+					"streak": {
+						"kind": "win",
+						"count": 3
+					},
+					"home": "19-23",
+					"away": "17-24",
+					"lastTen": "5-5",
+					"division": "9-11",
+					"conference": "24-30",
+					"pointsFor": "113.8",
+					"pointsAgainst": "115.0",
+					"differential": {
+						"value": "−0.5",
+						"nonNegative": false
+					},
+					"total": {
+						"value": "−41",
+						"nonNegative": false
+					}
+				}
+			]
+		},
+		{
+			"name": "Central",
+			"conference": "east",
+			"teams": [
+				{
+					"code": "CLE",
+					"city": "Cleveland",
+					"name": "Cavaliers",
+					"colors": {
+						"primary": "#2864b4",
+						"secondary": "#ffffff"
+					},
+					"seed": 3,
+					"clinch": "y",
+					"wins": 52,
+					"losses": 30,
+					"pct": ".634",
+					"gamesBehind": null,
+					"streak": {
+						"kind": "win",
+						"count": 3
+					},
+					"home": "27-15",
+					"away": "25-16",
+					"lastTen": "5-5",
+					"division": "13-7",
+					"conference": "34-20",
+					"pointsFor": "116.6",
+					"pointsAgainst": "113.0",
+					"differential": {
+						"value": "+3.5",
+						"nonNegative": true
+					},
+					"total": {
+						"value": "+287",
+						"nonNegative": true
+					}
+				},
+				{
+					"code": "MIL",
+					"city": "Milwaukee",
+					"name": "Bucks",
+					"colors": {
+						"primary": "#5064a0",
+						"secondary": "#ffffff"
+					},
+					"seed": 5,
+					"clinch": "xp",
+					"wins": 44,
+					"losses": 38,
+					"pct": ".536",
+					"gamesBehind": "1.0",
+					"streak": {
+						"kind": "win",
+						"count": 3
+					},
+					"home": "23-19",
+					"away": "21-20",
+					"lastTen": "7-3",
+					"division": "11-9",
+					"conference": "29-25",
+					"pointsFor": "115.2",
+					"pointsAgainst": "114.0",
+					"differential": {
+						"value": "+1.5",
+						"nonNegative": true
+					},
+					"total": {
+						"value": "+123",
+						"nonNegative": true
+					}
+				},
+				{
+					"code": "IND",
+					"city": "Indiana",
+					"name": "Pacers",
+					"colors": {
+						"primary": "#646496",
+						"secondary": "#ffffff"
+					},
+					"seed": 6,
+					"clinch": "pb",
+					"wins": 40,
+					"losses": 42,
+					"pct": ".487",
+					"gamesBehind": "2.0",
+					"streak": {
+						"kind": "loss",
+						"count": 2
+					},
+					"home": "21-21",
+					"away": "19-22",
+					"lastTen": "6-4",
+					"division": "10-10",
+					"conference": "26-28",
+					"pointsFor": "114.5",
+					"pointsAgainst": "114.5",
+					"differential": {
+						"value": "+0.5",
+						"nonNegative": true
+					},
+					"total": {
+						"value": "+41",
+						"nonNegative": true
+					}
+				},
+				{
+					"code": "CHI",
+					"city": "Chicago",
+					"name": "Bulls",
+					"colors": {
+						"primary": null,
+						"secondary": null
+					},
+					"seed": 9,
+					"clinch": null,
+					"wins": 28,
+					"losses": 54,
+					"pct": ".341",
+					"gamesBehind": "3.0",
+					"streak": {
+						"kind": "win",
+						"count": 3
+					},
+					"home": "15-27",
+					"away": "13-28",
+					"lastTen": "7-3",
+					"division": "7-13",
+					"conference": "18-36",
+					"pointsFor": "112.4",
+					"pointsAgainst": "116.0",
+					"differential": {
+						"value": "−2.5",
+						"nonNegative": false
+					},
+					"total": {
+						"value": "−205",
+						"nonNegative": false
+					}
+				},
+				{
+					"code": "DET",
+					"city": "Detroit",
+					"name": "Pistons",
+					"colors": {
+						"primary": "#1046446",
+						"secondary": "#ffffff"
+					},
+					"seed": 13,
+					"clinch": null,
+					"wins": 8,
+					"losses": 74,
+					"pct": ".097",
+					"gamesBehind": "15.0",
+					"streak": {
+						"kind": "loss",
+						"count": 2
+					},
+					"home": "5-37",
+					"away": "3-38",
+					"lastTen": "6-4",
+					"division": "2-18",
+					"conference": "5-49",
+					"pointsFor": "108.9",
+					"pointsAgainst": "118.5",
+					"differential": {
+						"value": "−7.5",
+						"nonNegative": false
+					},
+					"total": {
+						"value": "−615",
+						"nonNegative": false
+					}
+				}
+			]
+		},
+		{
+			"name": "Pacific",
+			"conference": "west",
+			"teams": [
+				{
+					"code": "OKC",
+					"city": "Oklahoma City",
+					"name": "Thunder",
+					"colors": {
+						"primary": "#0064c8",
+						"secondary": "#ffffff"
+					},
+					"seed": 1,
+					"clinch": null,
+					"wins": 60,
+					"losses": 22,
+					"pct": ".731",
+					"gamesBehind": null,
+					"streak": {
+						"kind": "win",
+						"count": 3
+					},
+					"home": "31-11",
+					"away": "29-12",
+					"lastTen": "7-3",
+					"division": "15-5",
+					"conference": "40-14",
+					"pointsFor": "118.0",
+					"pointsAgainst": "112.0",
+					"differential": {
+						"value": "+5.5",
+						"nonNegative": true
+					},
+					"total": {
+						"value": "+451",
+						"nonNegative": true
+					}
+				}
+			]
+		},
+		{
+			"name": "Northwest",
+			"conference": "west",
+			"teams": [
+				{
+					"code": "DEN",
+					"city": "Denver",
+					"name": "Nuggets",
+					"colors": {
+						"primary": "#1464be",
+						"secondary": "#ffffff"
+					},
+					"seed": 2,
+					"clinch": null,
+					"wins": 56,
+					"losses": 26,
+					"pct": ".682",
+					"gamesBehind": null,
+					"streak": {
+						"kind": "loss",
+						"count": 2
+					},
+					"home": "29-13",
+					"away": "27-14",
+					"lastTen": "6-4",
+					"division": "14-6",
+					"conference": "37-17",
+					"pointsFor": "117.3",
+					"pointsAgainst": "112.5",
+					"differential": {
+						"value": "+4.5",
+						"nonNegative": true
+					},
+					"total": {
+						"value": "+369",
+						"nonNegative": true
+					}
+				}
+			]
+		}
+	]
+}

@@ -271,12 +271,11 @@ Mapped to existing tokens: active toggle `rgba(116, 157, 196, 0.14)` is `--toggl
 | `standings_title` | Standings | Clasificación |
 | `standings_note` | Seeds follow the official seeding. | Los puestos siguen la clasificación oficial. |
 | `standings_state_final` | Final · regular season | Final · temporada regular |
-| `standings_state_live` | Regular season · {n} games played | Temporada regular · {n} partidos jugados |
+| `standings_state_live` | Regular season · {count} game played / {count} games played (one / other) | Temporada regular · {count} partido jugado / {count} partidos jugados (one / other) |
 | `standings_conference` | Conference | Conferencia |
 | `standings_division` | Division | División |
-| `standings_east` | Eastern Conference | Conferencia Este |
-| `standings_west` | Western Conference | Conferencia Oeste |
-| `standings_meta_conference` | {n} teams · GB vs conference leader | {n} equipos · DP vs líder de conferencia |
+| `standings_view_toggle` | Standings view | Vista de la clasificación |
+| `standings_meta_conference` | {count} team / {count} teams · GB vs conference leader (one / other) | {count} equipo / {count} equipos · DP vs líder de conferencia (one / other) |
 | `standings_meta_division` | {conference} · GB vs division leader | {conference} · DP vs líder de división |
 | `standings_col_seed` | Seed | Puesto |
 | `standings_col_team` | Team | Equipo |
@@ -294,8 +293,6 @@ Mapped to existing tokens: active toggle `rgba(116, 157, 196, 0.14)` is `--toggl
 | `standings_col_opp` | Opp | Rival |
 | `standings_col_diff` | Diff | Dif |
 | `standings_col_tot` | Tot | Tot |
-| `standings_playoff_line` | Playoff line | Línea de playoffs |
-| `standings_playin_line` | Play-in line | Línea de play-in |
 | `standings_key` | Key | Leyenda |
 | `clinch_star` | Clinched best record in league | Mejor récord de la liga asegurado |
 | `clinch_z` | Clinched best record in conference | Mejor récord de la conferencia asegurado |
@@ -305,10 +302,10 @@ Mapped to existing tokens: active toggle `rgba(116, 157, 196, 0.14)` is `--toggl
 | `clinch_pb` | In play-in position | En posición de play-in |
 | `clinch_e` | Eliminated | Eliminado |
 | `standings_key_note` | GB, Div and Conf are within the group shown. Diff is per game, Tot is the season total. The dashed lines mark seed 6 and seed 10. | DP, Div y Conf son dentro del grupo mostrado. Dif es por partido, Tot es el total de la temporada. Las líneas discontinuas marcan el puesto 6 y el 10. |
-| `standings_unavailable` | Data isn't available right now. Check back later. | Los datos no están disponibles ahora. Vuelve más tarde. |
 
 Notes:
 
+- Conference names reuse `team_conference_east` and `team_conference_west`, and the unavailable row reuses `feed_unavailable`. The playoff and play-in lines carry no text.
 - Division names, team names, cities, positions and injury statuses are shown as the feed sends them or through the existing translations of the injury statuses.
 - Ordinals (`1st`, `2nd`) are formatted by the page from the feed's integer position, in the active language's form (`1.º`).
 

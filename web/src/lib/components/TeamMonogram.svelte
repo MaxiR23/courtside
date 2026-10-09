@@ -3,7 +3,7 @@
 
 	type Props = {
 		code: string;
-		size: 'large' | 'small' | 'header' | 'header-mobile' | 'injury' | 'team';
+		size: 'large' | 'small' | 'header' | 'header-mobile' | 'injury' | 'team' | 'standings';
 		href?: ResolvedPathname;
 	};
 
@@ -61,6 +61,11 @@
 	.team {
 		width: var(--team-code-box-size);
 		height: var(--team-code-box-size);
+	}
+
+	.standings {
+		width: var(--standings-monogram-size);
+		height: var(--standings-monogram-size);
 	}
 
 	.header-mobile {

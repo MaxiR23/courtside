@@ -8,6 +8,7 @@
 // - Uses the header and header-mobile boxes on the game detail page
 // - Uses the injury box on the injuries section
 // - Uses the team box on the team page
+// - Uses the standings box on the standings page
 // - Links the code to the href when one is given, and renders a span without one
 //
 // What is covered:
@@ -74,5 +75,10 @@ describe('TeamMonogram', () => {
 		render(TeamMonogram, { props: { code: 'GSW', size: 'large' } });
 		expect(screen.queryByRole('link')).toBeNull();
 		expect(screen.getByText('GSW').tagName).toBe('SPAN');
+	});
+
+	it('renders the standings size', () => {
+		render(TeamMonogram, { props: { code: 'OKC', size: 'standings' } });
+		expect(screen.getByText('OKC').classList.contains('standings')).toBe(true);
 	});
 });
