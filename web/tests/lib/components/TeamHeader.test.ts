@@ -3,7 +3,7 @@
 // Tests for the TeamHeader component.
 //
 // Tested:
-// - The h1, city, conference line, record, win percentage and cells
+// - The h1, city, conference line, record, win percentage, the season of the record and cells
 // - The two halves of the color strip carry the feed colors as inline backgrounds
 // - Only the nav row with no header; the skeleton and aria-busy while loading
 //
@@ -32,6 +32,7 @@ const header: TeamHeaderView = {
 	colors: { primary: '#007AC1', secondary: '#EF3B24' },
 	record: '57–25',
 	winPct: '69.5%',
+	recordSeason: '2025-26 record',
 	cells: [
 		{ label: 'Conference', value: '1st West', sub: null },
 		{ label: 'Streak', value: 'W3', sub: null },
@@ -57,6 +58,7 @@ describe('TeamHeader', () => {
 		});
 		expect(container.querySelector('.record')?.textContent).toBe('57–25');
 		expect(container.querySelector('.win-pct')?.textContent).toBe('69.5%');
+		expect(container.querySelector('.record-season')?.textContent).toBe('2025-26 record');
 		const cells = [...container.querySelectorAll('.cell')].map((cell) =>
 			[...cell.querySelectorAll('span')].map((span) => span.textContent)
 		);

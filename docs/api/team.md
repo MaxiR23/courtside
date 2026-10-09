@@ -46,7 +46,7 @@ The root is one team.
 | `TeamColors`    | `primary`, `secondary`                                                                                                                      |
 | `Coach`         | `name`, `seasons` (null)                                                                                                                    |
 | `SplitRecord`   | `Record` fields (`wins`, `losses`) plus `winPct` (0 to 1)                                                                                   |
-| `TeamRecord`    | `SplitRecord` fields plus `season` (label of the standings season, such as `2025-26`; in the preseason it is the previous season), `home`, `away`, `lastTen`: `SplitRecord`; `streak`: `Streak` / null; `gamesBehind` / null when the source sends none; `conferenceRank` (1 to 15); `divisionRank` (1 to 5); `playoff`: `PlayoffPosition` / null before the first game or without a seed; `pointsFor`, `pointsAgainst`: `PointsTotal`; `differential`: `Differential` |
+| `TeamRecord`    | `SplitRecord` fields plus `season` (label of the standings season, such as `2025-26`; in the preseason it is the previous season), `home`, `away`, `lastTen`: `SplitRecord`; `streak`: `Streak` / null; `gamesBehind`: games behind the leader of the team's conference (0 for the leader), null before the team's first game; `conferenceRank` (1 to 15); `divisionRank` (1 to 5); `playoff`: `PlayoffPosition` / null before the first game or without a seed; `pointsFor`, `pointsAgainst`: `PointsTotal`; `differential`: `Differential` |
 | `Streak`        | `kind` (`win`, `loss`), `count`                                                                                                             |
 | `PlayoffPosition` | `status` (`seed`, `playin`, `out`), `seed`                                                                                                |
 | `PointsTotal`   | `perGame`, `total`                                                                                                                          |
@@ -64,6 +64,11 @@ The root is one team.
 ## Rules that live in the code
 
 - Win percentages are from 0 to 1; counts are not negative.
+- `record.gamesBehind` is half the gap between the best wins minus losses of
+  the team's conference and the team's own. It is computed by the same
+  function as the conference rows of the [standings feed](standings.md), so
+  both feeds give the same value: a standings row with a null value (the
+  leader) is 0 here.
 - A playoff `seed` matches its `status`: `seed` 1 to 6, `playin` 7 to 10,
   `out` 11 to 15.
 - Before the first game, or without a seed, `conferenceRank` is the team's

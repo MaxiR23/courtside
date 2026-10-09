@@ -12,7 +12,9 @@
 # - Maps seeds 1-6, 7-10 and 11-15 to their status and gives none before the first game
 # - Ranks the conference by seed, and by entry order before the first game or without a seed
 # - Labels the record with the season of the standings, apart from the roster season
-# - Builds a record with no streak, games behind or seed
+# - Computes games behind the conference leader from wins and losses, ignoring the other conference
+# - Builds a record with no streak or seed, with games behind from wins and losses
+# - Gives a division leader its games behind the conference leader, the conference leader 0 and a team before its first game null
 # - Ranks the division by entry order
 # - Tags every playoff round format, the NBA Finals, the cup and All-Star
 # - Keeps the playoffs kind with null fields for an unrecognized playoff note
@@ -57,7 +59,7 @@
 import asyncio
 import datetime as dt
 import json
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
@@ -87,11 +89,11 @@ from app.jobs.team_feed import (
     TeamFeeds,
     age_on,
     build_team_feed,
+    conference_games_behind,
     conference_rank,
     eastern_month,
     feed_expired,
     game_kind_and_tag,
-    games_behind,
     next_game,
     playoff_position,
     roster_status,
@@ -179,10 +181,16 @@ def standing(code: str = "OKC", **changes: Any) -> DivisionEntry:
 
 
 def standings(
-    entry: DivisionEntry | None = None, season: int = 2026
+    entry: DivisionEntry | None = None,
+    season: int = 2026,
+    others: Sequence[DivisionEntry] = (),
 ) -> DivisionStandings:
     entry = entry or standing()
-    return DivisionStandings(season=season, fallback=False, teams={entry.code: entry})
+    return DivisionStandings(
+        season=season,
+        fallback=False,
+        teams={e.code: e for e in (entry, *others)},
+    )
 
 
 def info() -> TeamInfo:
@@ -310,6 +318,7 @@ EMPTY = season()
 def build(
     *,
     entry: DivisionEntry | None = None,
+    others: Sequence[DivisionEntry] = (),
     standings_season: int = 2026,
     team_roster: Roster | None = None,
     season_leaders: SeasonLeaders | None = None,
@@ -322,7 +331,7 @@ def build(
     return build_team_feed(
         "OKC",
         info(),
-        standings(entry, standings_season),
+        standings(entry, standings_season, others),
         team_roster or roster(),
         season_leaders or leaders(),
         league or injuries(),
@@ -377,11 +386,21 @@ def test_rejects_a_streak_it_cannot_read(text: str) -> None:
         streak(text)
 
 
-def test_reads_games_behind_with_a_dash_for_the_leader() -> None:
-    assert games_behind("-") == 0
-    assert games_behind("1.5") == 1.5
-    with pytest.raises(TeamBuildError):
-        games_behind("one")
+def test_computes_games_behind_the_conference_leader_from_wins_and_losses() -> None:
+    east = Conference.EAST
+    leader = standing("AAA", conference=east, wins=50, losses=20)
+    behind = standing("BBB", conference=east, wins=45, losses=24)
+    tied = standing("CCC", conference=east, wins=50, losses=20)
+    lone = standing("DDD", conference=east, wins=60, losses=10)
+    west = standing("EEE", wins=60, losses=10)
+    group = [leader, behind, tied]
+
+    assert conference_games_behind(leader, group) == 0
+    assert conference_games_behind(behind, group) == 4.5
+    assert conference_games_behind(tied, group) == 0
+    assert conference_games_behind(behind, [*group, west]) == 4.5
+    assert conference_games_behind(west, [*group, west]) == 0
+    assert conference_games_behind(lone, [lone]) == 0
 
 
 @pytest.mark.parametrize(
@@ -431,7 +450,10 @@ def test_ranks_the_division_by_entry_order() -> None:
 
 
 def test_records_the_standing_with_converted_values() -> None:
-    feed = build(entry=standing(games_behind="2.5", streak="L3"))
+    feed = build(
+        entry=standing(streak="L3"),
+        others=[standing("DEN", wins=35, losses=10, division="Northwest")],
+    )
 
     record = feed.record
     assert (record.wins, record.losses, record.win_pct) == (30, 10, 0.75)
@@ -461,7 +483,25 @@ def test_labels_the_record_with_the_season_of_the_standings() -> None:
     assert feed.season == "2026-27"
 
 
-def test_builds_a_record_with_no_streak_games_behind_or_seed() -> None:
+def test_gives_a_division_leader_its_conference_games_behind() -> None:
+    entry = standing(games_behind="-", division_order=1)
+    others = [standing("HOU", wins=36, losses=8, division="Southwest")]
+
+    record = build(entry=entry, others=others).record
+
+    assert record.games_behind == 4.0
+
+
+def test_gives_the_conference_leader_0_games_behind() -> None:
+    others = [
+        standing("DEN", wins=20, losses=20),
+        standing("BOS", wins=40, losses=5, conference=Conference.EAST),
+    ]
+
+    assert build(others=others).record.games_behind == 0
+
+
+def test_builds_a_record_with_no_streak_or_seed() -> None:
     entry = standing(
         streak=None, games_behind=None, playoff_seed=None, conference_order=6
     )
@@ -469,7 +509,7 @@ def test_builds_a_record_with_no_streak_games_behind_or_seed() -> None:
     record = build(entry=entry).record
 
     assert record.streak is None
-    assert record.games_behind is None
+    assert record.games_behind == 0
     assert record.playoff is None
     assert record.conference_rank == 6
 
@@ -497,6 +537,7 @@ def test_builds_a_record_before_the_first_game() -> None:
 
     assert record.playoff is None
     assert record.streak is None
+    assert record.games_behind is None
     assert (record.win_pct, record.conference_rank) == (0.0, 7)
 
 

@@ -933,6 +933,7 @@
 			colors: { primary: '#1D428A', secondary: '#FFC72C' },
 			record: '57–25',
 			winPct: '69.5%',
+			recordSeason: '2024-25 record',
 			cells: [
 				{ label: 'Conference', value: '1st West', sub: null },
 				{ label: 'Streak', value: 'W3', sub: null },
