@@ -15,6 +15,7 @@ from pydantic.json_schema import GenerateJsonSchema
 from app.feeds.game_detail import GameDetailFeed
 from app.feeds.games import GamesFeed
 from app.feeds.player import PlayerFeed
+from app.feeds.search import SearchFeed
 from app.feeds.standings import StandingsFeed
 from app.feeds.team import TeamFeed
 
@@ -26,6 +27,7 @@ FEEDS: dict[str, type[BaseModel]] = {
     "player": PlayerFeed,
     "team": TeamFeed,
     "standings": StandingsFeed,
+    "search": SearchFeed,
 }
 
 
