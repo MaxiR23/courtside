@@ -29,6 +29,7 @@ import type { GameHeaderView } from '../../../src/lib/game/types';
 import type { RowLayout } from '../../../src/lib/schedule/types';
 
 const HOME = '/' as ResolvedPathname;
+const STANDINGS = '/standings' as ResolvedPathname;
 const teamHref = (code: string) => `/team/${code.toLowerCase()}` as ResolvedPathname;
 
 const away = { code: 'LAL', name: 'Lakers', city: 'Los Angeles', record: '12–5' };
@@ -79,7 +80,9 @@ const final: GameHeaderView = {
 };
 
 function show(header: GameHeaderView | null, layout: RowLayout = 'desktop', loading = false) {
-	return render(GameHeader, { props: { header, allGamesHref: HOME, layout, loading, teamHref } });
+	return render(GameHeader, {
+		props: { header, allGamesHref: HOME, standingsHref: STANDINGS, layout, loading, teamHref }
+	});
 }
 
 describe('GameHeader', () => {
@@ -87,6 +90,8 @@ describe('GameHeader', () => {
 		show(null);
 		expect(screen.getByText('Courtside')).toBeTruthy();
 		expect(screen.getByRole('link', { name: 'All games' }).getAttribute('href')).toBe('/');
+		expect(screen.getByRole('link', { name: 'Standings' }).getAttribute('href')).toBe('/standings');
+		expect(document.querySelector('[aria-current]')).toBeNull();
 	});
 
 	it('shows only the nav row with no header', () => {
@@ -260,6 +265,7 @@ describe('GameHeader', () => {
 		await rerender({
 			header: { ...scheduled, venue: { ...venue, photo: '/other.svg' } },
 			allGamesHref: HOME,
+			standingsHref: STANDINGS,
 			layout: 'desktop',
 			loading: false
 		});

@@ -79,6 +79,7 @@
 		photo: homePhoto
 	};
 	const allGamesHref = resolve('/');
+	const standingsHref = resolve('/standings');
 	const headerAway: HeaderTeam = {
 		code: 'GSW',
 		name: 'Warriors',
@@ -1483,6 +1484,8 @@
 				games={[heroGame(state.status, state.status)]}
 				{today}
 				scheduleHref={resolve('/')}
+				{standingsHref}
+				layout="desktop"
 				onMatchDetails={() => {}}
 				spoilerFree={spoilerFree.on}
 				onSpoilerFreeToggle={() => spoilerFree.toggle()}
@@ -1497,6 +1500,8 @@
 			games={heroGames}
 			{today}
 			scheduleHref={resolve('/')}
+			{standingsHref}
+			layout="desktop"
 			onMatchDetails={() => {}}
 			spoilerFree={spoilerFree.on}
 			onSpoilerFreeToggle={() => spoilerFree.toggle()}
@@ -1619,7 +1624,7 @@
 	{#each headerStates as { title, header } (title)}
 		<section>
 			<h2>{title}</h2>
-			<GameHeader {teamHref} {header} {allGamesHref} layout="desktop" />
+			<GameHeader {teamHref} {header} {allGamesHref} {standingsHref} layout="desktop" />
 		</section>
 	{/each}
 
@@ -1627,14 +1632,14 @@
 		<h2>GameHeader: mobile</h2>
 		<div class="stack phone">
 			{#each mobileHeaders as header (header.layout)}
-				<GameHeader {teamHref} {header} {allGamesHref} layout="mobile" />
+				<GameHeader {teamHref} {header} {allGamesHref} {standingsHref} layout="mobile" />
 			{/each}
 		</div>
 	</section>
 
 	<section>
 		<h2>GameHeader: no venue photo</h2>
-		<GameHeader {teamHref} header={noPhotoHeader} {allGamesHref} layout="desktop" />
+		<GameHeader {teamHref} header={noPhotoHeader} {allGamesHref} {standingsHref} layout="desktop" />
 	</section>
 
 	{#each tabStates as { title, tabs, miniScore } (title)}
@@ -1646,7 +1651,14 @@
 
 	<section>
 		<h2>GamePage: loading</h2>
-		<GamePage {teamHref} {playerHref} state={{ kind: 'loading' }} {allGamesHref} layout="desktop" />
+		<GamePage
+			{teamHref}
+			{playerHref}
+			state={{ kind: 'loading' }}
+			{allGamesHref}
+			{standingsHref}
+			layout="desktop"
+		/>
 	</section>
 
 	<section>
@@ -1656,6 +1668,7 @@
 			{playerHref}
 			state={{ kind: 'unavailable' }}
 			{allGamesHref}
+			{standingsHref}
 			layout="desktop"
 		/>
 	</section>
@@ -1667,6 +1680,7 @@
 			{playerHref}
 			state={{ kind: 'not-found' }}
 			{allGamesHref}
+			{standingsHref}
 			layout="desktop"
 		/>
 	</section>
@@ -1678,6 +1692,7 @@
 			{playerHref}
 			state={{ kind: 'ready', view: postponedView }}
 			{allGamesHref}
+			{standingsHref}
 			layout="desktop"
 		/>
 	</section>
@@ -1690,6 +1705,7 @@
 				{playerHref}
 				state={{ kind: 'ready', view }}
 				{allGamesHref}
+				{standingsHref}
 				layout="desktop"
 			/>
 		</section>
@@ -1713,6 +1729,7 @@
 			<TeamPage
 				{state}
 				{allGamesHref}
+				{standingsHref}
 				{layout}
 				gameHref={teamGameHref}
 				playerHref={() => resolve('/preview')}
@@ -1723,7 +1740,7 @@
 	{#each playerStates as { title, state, layout } (title)}
 		<section>
 			<h2>{title}</h2>
-			<PlayerPage {state} {allGamesHref} {layout} gameHref={playerGameHref} />
+			<PlayerPage {state} {allGamesHref} {standingsHref} {layout} gameHref={playerGameHref} />
 		</section>
 	{/each}
 

@@ -24,16 +24,17 @@
 	type Props = {
 		state: PlayerPageState;
 		allGamesHref: ResolvedPathname;
+		standingsHref: ResolvedPathname;
 		layout: RowLayout;
 		gameHref: (id: string) => ResolvedPathname;
 	};
 
 	// `state` is renamed so the `$state` rune is not read as a store of the prop.
-	let { state: page, allGamesHref, layout, gameHref }: Props = $props();
+	let { state: page, allGamesHref, standingsHref, layout, gameHref }: Props = $props();
 </script>
 
 {#if page.kind === 'ready'}
-	<PlayerHeader header={page.view.header} {allGamesHref} />
+	<PlayerHeader header={page.view.header} {allGamesHref} {standingsHref} {layout} />
 	<SectionTabs tabs={page.view.tabs} mini={page.view.mini} />
 	{@const sections = page.view.sections}
 	{@const profile = sections.profile}
@@ -85,7 +86,7 @@
 		{/if}
 	</div>
 {:else if page.kind === 'loading'}
-	<PlayerHeader header={null} loading {allGamesHref} />
+	<PlayerHeader header={null} loading {allGamesHref} {standingsHref} {layout} />
 	<section class="page-section section-skeleton" aria-busy="true">
 		<div class="bones" aria-hidden="true" use:play={shimmer}>
 			<span class="bone heading-bone"></span>
@@ -93,12 +94,12 @@
 		</div>
 	</section>
 {:else if page.kind === 'unavailable'}
-	<PlayerHeader header={null} {allGamesHref} />
+	<PlayerHeader header={null} {allGamesHref} {standingsHref} {layout} />
 	<section class="page-section">
 		<MessageRow text={m.feed_unavailable()} />
 	</section>
 {:else}
-	<PlayerHeader header={null} {allGamesHref} />
+	<PlayerHeader header={null} {allGamesHref} {standingsHref} {layout} />
 	<section class="page-section">
 		<MessageRow
 			text={m.player_not_found()}

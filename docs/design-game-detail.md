@@ -62,7 +62,7 @@ The h2 is Barlow Condensed, `clamp(28px, 3.4vw, 40px)`, line-height 1, uppercase
 ### 1. Header
 
 - Background: bg with the 88px grid of 1px lines in grid-line. The bottom border is a divider.
-- **Nav row:** the brand mark and "COURTSIDE" on the left, as on the home. On the right, "All games" (15px, .1em, uppercase) with a Lucide `arrow-left`, linking to the home.
+- **Nav row:** the brand mark and "COURTSIDE" on the left, as on the home. On the right, "All games" (muted, links to the home) and "Standings" (muted), with no link current, using the shared nav from `docs/design-standings-search.md`, "Nav (every page)".
 - **Status line,** centered, 13px, .08em, uppercase, muted:
   - Scheduled: `Wednesday, October 7 · Chase Center`.
   - Delayed, postponed, canceled: the `StatusTag` with "Delayed", "Postponed" or "Canceled", then the date and arena.

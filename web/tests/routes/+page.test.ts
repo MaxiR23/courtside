@@ -213,6 +213,20 @@ describe('home page with a feed', () => {
 		expect(within(final).queryByText('Highlights')).toBeNull();
 	});
 
+	it('shows Games current, then Standings, then the date in the nav row', async () => {
+		stubFetch(answerWith(recorded()));
+		const { container } = await renderPage();
+		const links = container.querySelector('nav .links') as HTMLElement;
+		const [games, standings] = [...links.querySelectorAll('a')];
+		expect(games.textContent?.trim()).toBe('Games');
+		expect(games.getAttribute('aria-current')).toBe('page');
+		expect(games.getAttribute('href')).toBe('/#schedule');
+		expect(standings.textContent?.trim()).toBe('Standings');
+		expect(standings.getAttribute('href')).toBe('/standings');
+		expect(standings.getAttribute('aria-current')).toBeNull();
+		expect(links.children[2]?.tagName).toBe('TIME');
+	});
+
 	it('toggles spoiler-free mode from the nav row', async () => {
 		stubFetch(answerWith(recorded()));
 		const { container } = await renderPage();

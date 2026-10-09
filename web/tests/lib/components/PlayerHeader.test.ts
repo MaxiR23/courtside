@@ -23,6 +23,7 @@ import PlayerHeader from '../../../src/lib/components/PlayerHeader.svelte';
 import type { PlayerHeaderView } from '../../../src/lib/player/types';
 
 const HOME = '/' as ResolvedPathname;
+const STANDINGS = '/standings' as ResolvedPathname;
 
 const header: PlayerHeaderView = {
 	teamCode: 'OKC',
@@ -44,7 +45,9 @@ const header: PlayerHeaderView = {
 };
 
 const show = (props: { header: PlayerHeaderView | null; loading?: boolean }) =>
-	render(PlayerHeader, { props: { allGamesHref: HOME, ...props } });
+	render(PlayerHeader, {
+		props: { allGamesHref: HOME, standingsHref: STANDINGS, layout: 'desktop', ...props }
+	});
 
 describe('PlayerHeader', () => {
 	it('shows the names, the line, the team tag and Active', () => {
@@ -132,5 +135,14 @@ describe('PlayerHeader', () => {
 		expect(container.querySelector('h1')).toBeNull();
 		expect(container.querySelector('.bone')).toBeNull();
 		expect(screen.getByRole('link', { name: 'All games' })).toBeTruthy();
+		expect(screen.getByRole('link', { name: 'Standings' }).getAttribute('href')).toBe('/standings');
+		expect(document.querySelector('[aria-current]')).toBeNull();
+	});
+
+	it('puts the nav links on their own row on a phone', () => {
+		const { container } = render(PlayerHeader, {
+			props: { header: null, allGamesHref: HOME, standingsHref: STANDINGS, layout: 'mobile' }
+		});
+		expect(container.querySelector('nav')?.classList.contains('mobile')).toBe(true);
 	});
 });

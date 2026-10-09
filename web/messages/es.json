@@ -13,6 +13,7 @@
 	"time_eastern": "ET",
 	"nav_games": "Partidos",
 	"nav_spoiler_free": "Sin spoilers",
+	"nav_standings": "Clasificación",
 	"hero_at": "en",
 	"hero_blurb": "{awayStar} y {homeStar} se enfrentan en {arena}.",
 	"hero_match_details": "Detalles del partido",
@@ -260,5 +261,6 @@
 				"countPlural=other": "Ver {count} partidos"
 			}
 		}
-	]
+	],
+	"standings_title": "Clasificación"
 }

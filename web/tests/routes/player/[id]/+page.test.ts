@@ -149,6 +149,8 @@ describe('player page', () => {
 		]);
 		expect(container.querySelector('.mini-score')?.textContent).toBe('#2 S. Gilgeous-Alexander');
 		expect(screen.getByRole('contentinfo')).toBeTruthy();
+		expect(screen.getByRole('link', { name: 'Standings' }).getAttribute('href')).toBe('/standings');
+		expect(document.querySelector('[aria-current="page"]:not(nav[aria-label] *)')).toBeNull();
 	});
 
 	it('links a game only where the feed has its detail', async () => {

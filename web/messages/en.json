@@ -13,6 +13,7 @@
 	"time_eastern": "ET",
 	"nav_games": "Games",
 	"nav_spoiler_free": "Spoiler-free",
+	"nav_standings": "Standings",
 	"hero_at": "at",
 	"hero_blurb": "{awayStar} and {homeStar} meet at {arena}.",
 	"hero_match_details": "Match details",
@@ -297,5 +298,6 @@
 				"countPlural=other": "Show all {count} games"
 			}
 		}
-	]
+	],
+	"standings_title": "Standings"
 }

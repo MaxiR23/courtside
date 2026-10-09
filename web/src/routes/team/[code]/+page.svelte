@@ -41,6 +41,7 @@
 <TeamPage
 	state={pageState}
 	allGamesHref={resolve('/')}
+	standingsHref={resolve('/standings')}
 	layout={wide.current ? 'desktop' : 'mobile'}
 	{gameHref}
 	{playerHref}

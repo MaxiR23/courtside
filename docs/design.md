@@ -111,7 +111,7 @@ Lucide at `stroke-width: 1.5`: `chevron-down` (expand), `play` (filled, highligh
 
 ### 1. Hero
 
-- **Nav row:** the brand mark (a 22px square outline in accent with an 8px solid accent square inside) and "COURTSIDE" in Barlow Condensed 20px with .12em letter-spacing. Then today's date in muted ("Sun, Oct 4, 2026") and a "GAMES" anchor to the schedule. The row wraps on narrow screens.
+- **Nav row:** the brand mark (a 22px square outline in accent with an 8px solid accent square inside) and "COURTSIDE" in Barlow Condensed 20px with .12em letter-spacing. Then "Games" (current: ink with a 1px accent underline) and "Standings" (muted, ink on hover), both at `--nav-link-size` / `--nav-link-letter-spacing`, then today's date in muted ("Sun, Oct 4, 2026") and the spoiler-free toggle. See `docs/design-standings-search.md`, "Nav (every page)". The row wraps on narrow screens.
 - **Layout:** a two-column grid, `repeat(auto-fit, minmax(min(100%, 440px), 1fr))`, that stacks on mobile. Gap `clamp(40px, 6vw, 96px)`, min-height `min(820px, 88vh)`.
 - **Background:** an 88px square grid of faint lines. A huge outlined watermark of the current star's short name sits behind the content on the right.
 - **Left column, top to bottom:**

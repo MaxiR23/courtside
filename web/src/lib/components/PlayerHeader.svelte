@@ -1,10 +1,11 @@
 <script lang="ts">
 	import type { ResolvedPathname } from '$app/types';
 	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
-	import DetailNav from '#lib/components/DetailNav.svelte';
 	import Kicker from '#lib/components/Kicker.svelte';
+	import NavRow from '#lib/components/NavRow.svelte';
 	import StatusTag from '#lib/components/StatusTag.svelte';
 	import { play } from '#lib/hero/motion.ts';
+	import type { RowLayout } from '#lib/schedule/types.ts';
 	import type { PlayerHeaderView } from '#lib/player/types.ts';
 	import { scrollFade } from '#lib/player/scroll-fade.ts';
 	import { shimmer } from '#lib/skeleton/motion.ts';
@@ -12,10 +13,12 @@
 	type Props = {
 		header: PlayerHeaderView | null; // null: only the nav row, or its skeleton while loading
 		allGamesHref: ResolvedPathname;
+		standingsHref: ResolvedPathname;
+		layout: RowLayout;
 		loading?: boolean; // the first feed has not loaded yet: show the skeleton
 	};
 
-	let { header, allGamesHref, loading = false }: Props = $props();
+	let { header, allGamesHref, standingsHref, layout, loading = false }: Props = $props();
 
 	const CELL_BONES = [0, 1, 2, 3];
 
@@ -27,7 +30,7 @@
 <header class="player-header" aria-busy={loading && !header ? 'true' : undefined}>
 	<div class="grid-bg" aria-hidden="true"></div>
 	<div class="content">
-		<DetailNav {allGamesHref} />
+		<NavRow page="detail" gamesHref={allGamesHref} {standingsHref} {layout} />
 
 		{#if header}
 			<div class="top">

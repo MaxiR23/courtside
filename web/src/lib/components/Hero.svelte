@@ -20,12 +20,15 @@
 	import { Slideshow } from '#lib/hero/slideshow.svelte.ts';
 	import type { HeroGame, HeroPlayer } from '#lib/hero/types.ts';
 	import { m } from '#lib/paraglide/messages.js';
+	import type { RowLayout } from '#lib/schedule/types.ts';
 	import { shimmer } from '#lib/skeleton/motion.ts';
 
 	type Props = {
 		games: HeroGame[]; // the games in the rotation; two stars each rotate on the slideshow
 		today: Date;
 		scheduleHref: ResolvedPathname;
+		standingsHref: ResolvedPathname;
+		layout: RowLayout;
 		onMatchDetails: (gameId: string) => void;
 		spoilerFree: boolean;
 		onSpoilerFreeToggle: () => void;
@@ -38,6 +41,8 @@
 		games,
 		today,
 		scheduleHref,
+		standingsHref,
+		layout,
 		onMatchDetails,
 		spoilerFree,
 		onSpoilerFreeToggle,
@@ -138,7 +143,13 @@
 	</div>
 
 	<div class="content">
-		<NavRow {today} {scheduleHref} {spoilerFree} {onSpoilerFreeToggle} />
+		<NavRow
+			page="home"
+			gamesHref={scheduleHref}
+			{standingsHref}
+			{layout}
+			home={{ today, spoilerFree, onSpoilerFreeToggle }}
+		/>
 
 		{#if game}
 			<div class="columns">
