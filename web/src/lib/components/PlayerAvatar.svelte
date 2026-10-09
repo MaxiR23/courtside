@@ -1,5 +1,5 @@
 <script lang="ts">
-	type Props = { name: string; photo: string | null; size: 'roster' | 'leader' };
+	type Props = { name: string; photo: string | null; size: 'roster' | 'leader' | 'search' };
 
 	let { name, photo, size }: Props = $props();
 
@@ -40,6 +40,12 @@
 		align-self: stretch;
 		width: var(--team-leader-photo-width);
 		height: 100%;
+	}
+
+	.search {
+		width: var(--search-tile-size);
+		height: var(--search-tile-size);
+		border-radius: var(--search-tile-radius);
 	}
 
 	img {

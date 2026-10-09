@@ -93,6 +93,8 @@ that migrates a database at the previous version with rows in it.
 - The front end fetches feeds and polls them while the page is open. Polling pauses while the tab is hidden.
 - Motion uses Svelte's built-in transitions, the Web Animations API and, for simple looping opacity effects such as the live win probability marker pulse, scoped CSS animations whose values come from tokens. No animation library.
 - Every user-facing string lives in the translation messages (`web/messages/en.json`, `web/messages/es.json`), compiled by Paraglide JS. English is the base; Spanish is shown when the browser prefers it. The language never appears in the URL. Dates and numbers are formatted with the browser's `Intl` for the active language.
+- On-demand feeds such as the search feed are revalidated through the browser HTTP cache with `fetch(..., { cache: 'no-cache' })`, and the browser sends `If-None-Match` itself. The front end never sets `If-None-Match` or any other non-safelisted header by hand, because the API's CORS setup allows only `GET`, allows no extra request headers and exposes no `ETag`, so a hand-set header would fail its preflight.
+- State shared across routes lives in a module-level runes class in a `.svelte.ts` file (the first one is `web/src/lib/search/overlay.svelte.ts`). The search overlay and its index store are mounted once in the root layout, so they outlive client navigations, and the overlay closes on every navigation.
 - Recorded in [`adr/0004-web-tooling.md`](adr/0004-web-tooling.md) and [`adr/0006-translations.md`](adr/0006-translations.md).
 
 ## Performance
@@ -115,7 +117,7 @@ Sections such as All-Star or the Finals are temporary. Each one is self-containe
 - `.env` is never committed. `api/.env.example` lists every variable `Settings` reads.
 - Data source URLs and keys live only in configuration, never in code or documentation.
 - Recorded in [`adr/0003-api-tooling-and-configuration.md`](adr/0003-api-tooling-and-configuration.md).
-- The front end's build-time settings are declared in `web/src/env.ts` and listed in `web/.env.example`: the games feed URL, the standings feed URL, `STANDINGS_FEED_URL`, the game detail feed URL (with an `{id}` placeholder), the team feed URL, `TEAM_FEED_URL` (with a `{code}` placeholder), the player feed URL, `PLAYER_FEED_URL` (with an `{id}` placeholder), and the video platform's name.
+- The front end's build-time settings are declared in `web/src/env.ts` and listed in `web/.env.example`: the games feed URL, the standings feed URL, `STANDINGS_FEED_URL`, the search feed URL, `SEARCH_FEED_URL`, the game detail feed URL (with an `{id}` placeholder), the team feed URL, `TEAM_FEED_URL` (with a `{code}` placeholder), the player feed URL, `PLAYER_FEED_URL` (with an `{id}` placeholder), and the video platform's name.
 - The deployment's domain, `API_DOMAIN`, is read by Docker Compose from the root `.env` and listed in the root `.env.example`; it is not a `Settings` variable, because `api/.env` holds only those.
 
 ## Repository layout

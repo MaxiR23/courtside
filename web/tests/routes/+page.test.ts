@@ -3,6 +3,7 @@
 // Tests for the home page.
 //
 // Tested:
+// - Shows the search trigger in the nav
 // - Renders the hero, the schedule with today's games and the footer from a recorded feed
 // - Expands a played game's panel with its line score, leaders, stats and highlights
 // - Links the hero's team names and the non-expandable cards' team names to /team/{code} in lowercase, and an expanded game's line score codes
@@ -129,6 +130,12 @@ describe('home page with a feed', () => {
 			)
 		).toBeTruthy();
 		expect(fetchMock).toHaveBeenCalledTimes(1);
+	});
+
+	it('shows the search trigger in the nav', async () => {
+		stubFetch(answerWith(recorded()));
+		await renderPage();
+		expect(screen.getByRole('button', { name: 'Search' })).toBeTruthy();
 	});
 
 	it('keeps postponed and canceled games out of the hero and in the schedule', async () => {

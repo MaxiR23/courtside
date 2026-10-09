@@ -33,6 +33,7 @@ domains below are placeholders.
 1. `cp web/.env.example web/.env`
 2. Set `GAMES_FEED_URL=https://api.example.com/feeds/games.json`,
    `STANDINGS_FEED_URL=https://api.example.com/feeds/standings.json`,
+   `SEARCH_FEED_URL=https://api.example.com/feeds/search.json`,
    `GAME_DETAIL_FEED_URL=https://api.example.com/feeds/games/{id}.json`,
    `TEAM_FEED_URL=https://api.example.com/feeds/teams/{code}.json`,
    `PLAYER_FEED_URL=https://api.example.com/feeds/players/{id}.json` and

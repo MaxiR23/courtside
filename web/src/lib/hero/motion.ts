@@ -32,7 +32,7 @@ function reader(node: Element): TokenReader {
 	return (name) => getComputedStyle(node).getPropertyValue(name).trim();
 }
 
-function canAnimate(node: Element): boolean {
+export function canAnimate(node: Element): boolean {
 	if (typeof node.animate !== 'function') return false;
 	if (typeof matchMedia !== 'function') return true;
 	return !matchMedia('(prefers-reduced-motion: reduce)').matches;

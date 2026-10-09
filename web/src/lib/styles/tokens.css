@@ -297,6 +297,30 @@
 	--player-award-count-size: 36px;
 	--player-award-name-size: 21px;
 
+	/* Search */
+	--nav-search-width: 240px;
+	--nav-search-height: 40px;
+	--nav-search-icon-trigger: 40px;
+	--search-radius: 10px;
+	--search-panel-radius: 14px;
+	--search-tile-radius: 8px;
+	--search-esc-radius: 6px;
+	--search-panel-max-width: 720px;
+	--search-panel-top: 10vh;
+	--search-input-row-height: 64px;
+	--search-input-size: 24px;
+	--search-tile-size: 42px;
+	--search-strip-height: 4px;
+	--search-team-bar-width: 3px;
+	--search-row-inset: 8px;
+	--search-active-row: rgba(116, 157, 196, 0.1);
+	--search-backdrop: rgba(6, 7, 8, 0.74);
+	--search-backdrop-blur: 6px;
+	--search-panel-bg: #101316;
+	--search-panel-shadow: 0 40px 90px -20px rgba(0, 0, 0, 0.85);
+	--search-players-cap: 8;
+	--search-z-index: 2;
+
 	/* Focus */
 	--focus-ring-width: 2px;
 	--focus-ring-offset: 2px;

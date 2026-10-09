@@ -1,0 +1,456 @@
+{
+	"teams": [
+		{
+			"code": "ATL",
+			"city": "Atlanta",
+			"name": "Hawks",
+			"colors": {
+				"primary": "#e03a3e",
+				"secondary": "#c1d32f"
+			},
+			"record": "60-22",
+			"division": "Southeast",
+			"divisionRank": 1
+		},
+		{
+			"code": "BOS",
+			"city": "Boston",
+			"name": "Celtics",
+			"colors": {
+				"primary": "#007a33",
+				"secondary": "#ba9653"
+			},
+			"record": "59-23",
+			"division": "Atlantic",
+			"divisionRank": 2
+		},
+		{
+			"code": "BKN",
+			"city": "Brooklyn",
+			"name": "Nets",
+			"colors": {
+				"primary": "#000000",
+				"secondary": "#ffffff"
+			},
+			"record": "58-24",
+			"division": "Atlantic",
+			"divisionRank": 3
+		},
+		{
+			"code": "CHA",
+			"city": "Charlotte",
+			"name": "Hornets",
+			"colors": {
+				"primary": "#1d1160",
+				"secondary": "#00788c"
+			},
+			"record": "57-25",
+			"division": "Southeast",
+			"divisionRank": 4
+		},
+		{
+			"code": "CHI",
+			"city": "Chicago",
+			"name": "Bulls",
+			"colors": {
+				"primary": "#ce1141",
+				"secondary": "#000000"
+			},
+			"record": "56-26",
+			"division": "Central",
+			"divisionRank": 5
+		},
+		{
+			"code": "CLE",
+			"city": "Cleveland",
+			"name": "Cavaliers",
+			"colors": {
+				"primary": "#860038",
+				"secondary": "#041e42"
+			},
+			"record": "55-27",
+			"division": "Central",
+			"divisionRank": 1
+		},
+		{
+			"code": "DAL",
+			"city": "Dallas",
+			"name": "Mavericks",
+			"colors": {
+				"primary": "#00538c",
+				"secondary": "#002b5e"
+			},
+			"record": "54-28",
+			"division": "Southwest",
+			"divisionRank": 2
+		},
+		{
+			"code": "DEN",
+			"city": "Denver",
+			"name": "Nuggets",
+			"colors": {
+				"primary": "#0e2240",
+				"secondary": "#fec524"
+			},
+			"record": "53-29",
+			"division": "Northwest",
+			"divisionRank": 2
+		},
+		{
+			"code": "DET",
+			"city": "Detroit",
+			"name": "Pistons",
+			"colors": {
+				"primary": "#c8102e",
+				"secondary": "#1d42ba"
+			},
+			"record": "52-30",
+			"division": "Central",
+			"divisionRank": 4
+		},
+		{
+			"code": "GSW",
+			"city": "Golden State",
+			"name": "Warriors",
+			"colors": {
+				"primary": "#1d428a",
+				"secondary": "#ffc72c"
+			},
+			"record": "51-31",
+			"division": "Pacific",
+			"divisionRank": 5
+		},
+		{
+			"code": "HOU",
+			"city": "Houston",
+			"name": "Rockets",
+			"colors": {
+				"primary": "#ce1141",
+				"secondary": "#000000"
+			},
+			"record": "50-32",
+			"division": "Southwest",
+			"divisionRank": 1
+		},
+		{
+			"code": "IND",
+			"city": "Indiana",
+			"name": "Pacers",
+			"colors": {
+				"primary": "#002d62",
+				"secondary": "#fdbb30"
+			},
+			"record": "49-33",
+			"division": "Central",
+			"divisionRank": 2
+		},
+		{
+			"code": "LAC",
+			"city": "Los Angeles",
+			"name": "Clippers",
+			"colors": {
+				"primary": "#c8102e",
+				"secondary": "#1d428a"
+			},
+			"record": "48-34",
+			"division": "Pacific",
+			"divisionRank": 3
+		},
+		{
+			"code": "LAL",
+			"city": "Los Angeles",
+			"name": "Lakers",
+			"colors": {
+				"primary": "#552583",
+				"secondary": "#fdb927"
+			},
+			"record": "47-35",
+			"division": "Pacific",
+			"divisionRank": 4
+		},
+		{
+			"code": "MEM",
+			"city": "Memphis",
+			"name": "Grizzlies",
+			"colors": {
+				"primary": "#5d76a9",
+				"secondary": "#12173f"
+			},
+			"record": "46-36",
+			"division": "Southwest",
+			"divisionRank": 5
+		},
+		{
+			"code": "MIA",
+			"city": "Miami",
+			"name": "Heat",
+			"colors": {
+				"primary": "#98002e",
+				"secondary": "#f9a01b"
+			},
+			"record": "45-37",
+			"division": "Southeast",
+			"divisionRank": 1
+		},
+		{
+			"code": "MIL",
+			"city": "Milwaukee",
+			"name": "Bucks",
+			"colors": {
+				"primary": "#00471b",
+				"secondary": "#eee1c6"
+			},
+			"record": "44-38",
+			"division": "Central",
+			"divisionRank": 2
+		},
+		{
+			"code": "MIN",
+			"city": "Minnesota",
+			"name": "Timberwolves",
+			"colors": {
+				"primary": "#0c2340",
+				"secondary": "#236192"
+			},
+			"record": "43-39",
+			"division": "Northwest",
+			"divisionRank": 3
+		},
+		{
+			"code": "NOP",
+			"city": "New Orleans",
+			"name": "Pelicans",
+			"colors": {
+				"primary": "#0c2340",
+				"secondary": "#c8102e"
+			},
+			"record": "42-40",
+			"division": "Southwest",
+			"divisionRank": 4
+		},
+		{
+			"code": "NYK",
+			"city": "New York",
+			"name": "Knicks",
+			"colors": {
+				"primary": "#006bb6",
+				"secondary": "#f58426"
+			},
+			"record": "41-41",
+			"division": "Atlantic",
+			"divisionRank": 5
+		},
+		{
+			"code": "OKC",
+			"city": "Oklahoma City",
+			"name": "Thunder",
+			"colors": {
+				"primary": "#007ac1",
+				"secondary": "#ef3b24"
+			},
+			"record": "40-42",
+			"division": "Northwest",
+			"divisionRank": 1
+		},
+		{
+			"code": "ORL",
+			"city": "Orlando",
+			"name": "Magic",
+			"colors": {
+				"primary": "#0077c0",
+				"secondary": "#c4ced4"
+			},
+			"record": "39-43",
+			"division": "Southeast",
+			"divisionRank": 2
+		},
+		{
+			"code": "PHI",
+			"city": "Philadelphia",
+			"name": "76ers",
+			"colors": {
+				"primary": "#006bb6",
+				"secondary": "#ed174c"
+			},
+			"record": "38-44",
+			"division": "Atlantic",
+			"divisionRank": 3
+		},
+		{
+			"code": "PHX",
+			"city": "Phoenix",
+			"name": "Suns",
+			"colors": {
+				"primary": "#1d1160",
+				"secondary": "#e56020"
+			},
+			"record": "37-45",
+			"division": "Pacific",
+			"divisionRank": 4
+		},
+		{
+			"code": "POR",
+			"city": "Portland",
+			"name": "Trail Blazers",
+			"colors": {
+				"primary": "#e03a3e",
+				"secondary": "#000000"
+			},
+			"record": "36-46",
+			"division": "Northwest",
+			"divisionRank": 4
+		},
+		{
+			"code": "SAC",
+			"city": "Sacramento",
+			"name": "Kings",
+			"colors": {
+				"primary": "#5a2d81",
+				"secondary": "#63727a"
+			},
+			"record": "35-47",
+			"division": "Pacific",
+			"divisionRank": 1
+		},
+		{
+			"code": "SAS",
+			"city": "San Antonio",
+			"name": "Spurs",
+			"colors": {
+				"primary": null,
+				"secondary": null
+			},
+			"record": "34-48",
+			"division": "Southwest",
+			"divisionRank": null
+		},
+		{
+			"code": "TOR",
+			"city": "Toronto",
+			"name": "Raptors",
+			"colors": {
+				"primary": "#ce1141",
+				"secondary": "#000000"
+			},
+			"record": "33-49",
+			"division": "Atlantic",
+			"divisionRank": 3
+		},
+		{
+			"code": "UTA",
+			"city": "Utah",
+			"name": "Jazz",
+			"colors": {
+				"primary": "#002b5c",
+				"secondary": "#f9a01b"
+			},
+			"record": "32-50",
+			"division": "Northwest",
+			"divisionRank": 5
+		},
+		{
+			"code": "WAS",
+			"city": "Washington",
+			"name": "Wizards",
+			"colors": {
+				"primary": "#002b5c",
+				"secondary": "#e31837"
+			},
+			"record": "31-51",
+			"division": "Southeast",
+			"divisionRank": 5
+		}
+	],
+	"players": [
+		{
+			"id": "1628983",
+			"name": "Shai Gilgeous-Alexander",
+			"shortName": "S. Gilgeous-Alexander",
+			"number": "2",
+			"position": "Guard",
+			"positionAbbr": "G",
+			"photoUrl": "https://cdn.example.com/players/1628983.png",
+			"injury": null,
+			"team": {
+				"code": "OKC",
+				"primary": "#007ac1"
+			}
+		},
+		{
+			"id": "203999",
+			"name": "Nikola Jokić",
+			"shortName": "N. Jokić",
+			"number": "15",
+			"position": "Center",
+			"positionAbbr": "C",
+			"photoUrl": "https://cdn.example.com/players/203999.png",
+			"injury": {
+				"status": "questionable"
+			},
+			"team": {
+				"code": "DEN",
+				"primary": "#0e2240"
+			}
+		},
+		{
+			"id": "1630162",
+			"name": "Anthony Edwards",
+			"shortName": "A. Edwards",
+			"number": "5",
+			"position": "Guard",
+			"positionAbbr": "G",
+			"photoUrl": "https://cdn.example.com/players/1630162.png",
+			"injury": {
+				"status": "out"
+			},
+			"team": {
+				"code": "MIN",
+				"primary": "#0c2340"
+			}
+		},
+		{
+			"id": "1628368",
+			"name": "De'Aaron Fox",
+			"shortName": "D. Fox",
+			"number": "4",
+			"position": "Guard",
+			"positionAbbr": "G",
+			"photoUrl": "https://cdn.example.com/players/1628368.png",
+			"injury": null,
+			"team": {
+				"code": "SAS",
+				"primary": null
+			}
+		},
+		{
+			"id": "1627750",
+			"name": "Jaren Jackson Jr.",
+			"shortName": "J. Jackson Jr.",
+			"number": "13",
+			"position": "Forward",
+			"positionAbbr": "F",
+			"photoUrl": "https://cdn.example.com/players/1627750.png",
+			"injury": {
+				"status": "day-to-day"
+			},
+			"team": {
+				"code": "MEM",
+				"primary": "#5d76a9"
+			}
+		},
+		{
+			"id": "1641000",
+			"name": "Walk On",
+			"shortName": "W. On",
+			"number": null,
+			"position": null,
+			"positionAbbr": null,
+			"photoUrl": null,
+			"injury": null,
+			"team": {
+				"code": "OKC",
+				"primary": "#007ac1"
+			}
+		}
+	]
+}

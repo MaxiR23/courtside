@@ -9,6 +9,7 @@
 // - Uses the injury box on the injuries section
 // - Uses the team box on the team page
 // - Uses the standings box on the standings page
+// - Uses the search box in the search overlay
 // - Links the code to the href when one is given, and renders a span without one
 //
 // What is covered:
@@ -80,5 +81,10 @@ describe('TeamMonogram', () => {
 	it('renders the standings size', () => {
 		render(TeamMonogram, { props: { code: 'OKC', size: 'standings' } });
 		expect(screen.getByText('OKC').classList.contains('standings')).toBe(true);
+	});
+
+	it('renders the search size', () => {
+		render(TeamMonogram, { props: { code: 'OKC', size: 'search' } });
+		expect(screen.getByText('OKC').classList.contains('search')).toBe(true);
 	});
 });

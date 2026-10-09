@@ -3,6 +3,7 @@
 // Tests for the game detail page.
 //
 // Tested:
+// - Shows the search trigger in the nav
 // - The route turns off prerender and server rendering
 // - Loads the feed of the game in the URL and renders its header and tabs
 // - Draws the shared nav with a Standings link to /standings and no current link
@@ -142,6 +143,12 @@ describe('game detail page', () => {
 		await renderPage();
 		expect(screen.getByRole('link', { name: 'Standings' }).getAttribute('href')).toBe('/standings');
 		expect(document.querySelector('[aria-current="page"]:not(nav[aria-label] *)')).toBeNull();
+	});
+
+	it('shows the search trigger in the nav', async () => {
+		stubFetch(answerWith(recorded()));
+		await renderPage();
+		expect(screen.getByRole('button', { name: 'Search' })).toBeTruthy();
 	});
 
 	it('shows the loading skeleton until the first load settles', async () => {
