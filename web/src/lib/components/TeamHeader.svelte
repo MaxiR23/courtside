@@ -1,18 +1,21 @@
 <script lang="ts">
 	import type { ResolvedPathname } from '$app/types';
-	import DetailNav from '#lib/components/DetailNav.svelte';
 	import TeamMonogram from '#lib/components/TeamMonogram.svelte';
+	import NavRow from '#lib/components/NavRow.svelte';
 	import { play } from '#lib/hero/motion.ts';
 	import { shimmer } from '#lib/skeleton/motion.ts';
+	import type { RowLayout } from '#lib/schedule/types.ts';
 	import type { TeamHeaderView } from '#lib/team/types.ts';
 
 	type Props = {
 		header: TeamHeaderView | null; // null: only the nav row, or its skeleton while loading
 		allGamesHref: ResolvedPathname;
+		standingsHref: ResolvedPathname;
+		layout: RowLayout;
 		loading?: boolean; // the first feed has not loaded yet: show the skeleton
 	};
 
-	let { header, allGamesHref, loading = false }: Props = $props();
+	let { header, allGamesHref, standingsHref, layout, loading = false }: Props = $props();
 
 	const CELL_BONES = [0, 1, 2, 3];
 </script>
@@ -20,7 +23,7 @@
 <header class="team-header" aria-busy={loading && !header ? 'true' : undefined}>
 	<div class="grid-bg" aria-hidden="true"></div>
 	<div class="content">
-		<DetailNav {allGamesHref} />
+		<NavRow page="detail" gamesHref={allGamesHref} {standingsHref} {layout} />
 
 		{#if header}
 			<div class="columns">

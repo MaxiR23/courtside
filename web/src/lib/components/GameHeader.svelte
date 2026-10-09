@@ -1,9 +1,9 @@
 <script lang="ts">
 	import type { ResolvedPathname } from '$app/types';
 	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
-	import DetailNav from '#lib/components/DetailNav.svelte';
 	import LiveBadge from '#lib/components/LiveBadge.svelte';
 	import NameLink from '#lib/components/NameLink.svelte';
+	import NavRow from '#lib/components/NavRow.svelte';
 	import StatusTag from '#lib/components/StatusTag.svelte';
 	import TeamMonogram from '#lib/components/TeamMonogram.svelte';
 	import type { GameHeaderView, HeaderTeam, ScoreboardCenter } from '#lib/game/types.ts';
@@ -15,12 +15,13 @@
 	type Props = {
 		header: GameHeaderView | null; // null: only the nav row, or its skeleton while loading
 		allGamesHref: ResolvedPathname;
+		standingsHref: ResolvedPathname;
 		layout: RowLayout;
 		teamHref: (code: string) => ResolvedPathname;
 		loading?: boolean; // the first feed has not loaded yet: show the skeleton
 	};
 
-	let { header, allGamesHref, layout, teamHref, loading = false }: Props = $props();
+	let { header, allGamesHref, standingsHref, layout, teamHref, loading = false }: Props = $props();
 
 	type TipOff = Extract<ScoreboardCenter, { kind: 'tip-off' }>;
 
@@ -67,7 +68,7 @@
 <header class="game-header" aria-busy={loading && !header ? 'true' : undefined}>
 	<div class="grid-bg" aria-hidden="true"></div>
 	<div class="content">
-		<DetailNav {allGamesHref} />
+		<NavRow page="detail" gamesHref={allGamesHref} {standingsHref} {layout} />
 
 		{#if header}
 			<p class="status-line">

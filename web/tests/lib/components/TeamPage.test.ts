@@ -30,6 +30,7 @@ import { toTeamView } from '../../../src/lib/feed/team-props';
 import type { TeamPageState } from '../../../src/lib/team/types';
 
 const HOME = '/' as ResolvedPathname;
+const STANDINGS = '/standings' as ResolvedPathname;
 const gameHref = (id: string) => `/game/${id}` as ResolvedPathname;
 const playerHref = (id: string) => `/player/${id}` as ResolvedPathname;
 
@@ -39,7 +40,9 @@ const feed = (): TeamFeed =>
 	) as TeamFeed;
 
 const show = (state: TeamPageState, layout: 'desktop' | 'mobile' = 'desktop') =>
-	render(TeamPage, { props: { state, allGamesHref: HOME, layout, gameHref, playerHref } });
+	render(TeamPage, {
+		props: { state, allGamesHref: HOME, standingsHref: STANDINGS, layout, gameHref, playerHref }
+	});
 
 const ready = (source: TeamFeed = feed()): TeamPageState => ({
 	kind: 'ready',

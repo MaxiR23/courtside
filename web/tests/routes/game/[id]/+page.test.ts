@@ -5,6 +5,7 @@
 // Tested:
 // - The route turns off prerender and server rendering
 // - Loads the feed of the game in the URL and renders its header and tabs
+// - Draws the shared nav with a Standings link to /standings and no current link
 // - Shows the loading skeleton until the first load settles
 // - Shows "Game not found." when the feed answers 404
 // - Shows the data unavailable row on a network failure, a 503, a feed it cannot show, or with no URL configured
@@ -15,7 +16,7 @@
 // - Links the header team names to /team/{code} in lowercase, box score and injured player names to /player/{id}
 // - Shows an injured player's name as plain text for a feed without playerId
 // - Renders no link inside a button or another link
-// - The chart check targets the chart by role and name: absent without win probability points while the header svg remains
+// - The chart check targets the chart by role and name: absent without win probability points
 //
 // What is covered:
 // - The page wired end to end: config, fetch, polling, props layer, header, tabs, footer
@@ -136,6 +137,13 @@ describe('game detail page', () => {
 		expect(screen.getByRole('contentinfo')).toBeTruthy();
 	});
 
+	it('draws the shared nav with a Standings link and no current link', async () => {
+		stubFetch(answerWith(recorded()));
+		await renderPage();
+		expect(screen.getByRole('link', { name: 'Standings' }).getAttribute('href')).toBe('/standings');
+		expect(document.querySelector('[aria-current="page"]:not(nav[aria-label] *)')).toBeNull();
+	});
+
 	it('shows the loading skeleton until the first load settles', async () => {
 		let finish: (answer: unknown) => void = () => {};
 		stubFetch(() => new Promise((resolve) => (finish = resolve)));
@@ -233,11 +241,10 @@ describe('game detail page', () => {
 		expect(screen.queryByText("Data isn't available right now. Check back later.")).toBeNull();
 	});
 
-	it('draws no win probability chart for a feed without win probability points, though the header still has an svg', async () => {
+	it('draws no win probability chart for a feed without win probability points', async () => {
 		stubFetch(answerWith({ ...recorded(), winProbability: null }));
-		const { container } = await renderPage();
+		await renderPage();
 		expect(screen.queryByRole('img', { name: 'Win probability' })).toBeNull();
-		expect(container.querySelector('svg')).not.toBeNull();
 	});
 
 	it('links the header team names to /team/{code} in lowercase', async () => {

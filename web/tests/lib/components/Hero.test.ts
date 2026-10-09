@@ -84,6 +84,8 @@ const baseProps = {
 	games: [oneGame],
 	today: new Date(2026, 9, 4, 12),
 	scheduleHref: '/' as ResolvedPathname,
+	standingsHref: '/standings' as ResolvedPathname,
+	layout: 'desktop' as const,
 	onMatchDetails: () => {},
 	spoilerFree: false,
 	onSpoilerFreeToggle: () => {},
@@ -486,5 +488,14 @@ describe('Hero while the first feed loads', () => {
 			['Warriors', '/team/gsw'],
 			['Lakers', '/team/lal']
 		]);
+	});
+
+	it('passes Home through to the nav row: Games current, Standings linked', () => {
+		render(Hero, { props: { ...baseProps, standingsHref: '/standings' as ResolvedPathname } });
+		const games = screen.getByRole('link', { name: 'Games' });
+		expect(games.getAttribute('aria-current')).toBe('page');
+		const standings = screen.getByRole('link', { name: 'Standings' });
+		expect(standings.getAttribute('href')).toBe('/standings');
+		expect(standings.getAttribute('aria-current')).toBeNull();
 	});
 });

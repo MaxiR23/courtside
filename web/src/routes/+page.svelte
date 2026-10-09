@@ -11,12 +11,13 @@
 	import { GamesFeedPoller } from '#lib/feed/poller.svelte.ts';
 	import { toHomeView } from '#lib/feed/props.ts';
 	import { m } from '#lib/paraglide/messages.js';
-	import { cardAnchor } from '#lib/schedule/layout.ts';
+	import { cardAnchor, wideViewport } from '#lib/schedule/layout.ts';
 	import { SpoilerFree } from '#lib/schedule/spoiler-free.svelte.ts';
 
 	const url = gamesFeedUrl;
 	const poller = url ? new GamesFeedPoller(() => loadGamesFeed(url)) : undefined;
 	const spoilerFree = new SpoilerFree();
+	const wide = wideViewport();
 	const gameHref = (id: string) => resolve('/game/[id]', { id });
 	const teamHref = (code: string) => resolve('/team/[code]', { code: code.toLowerCase() });
 
@@ -65,6 +66,8 @@
 		{today}
 		{loading}
 		scheduleHref={resolve('/#schedule')}
+		standingsHref={resolve('/standings')}
+		layout={wide.current ? 'desktop' : 'mobile'}
 		onMatchDetails={matchDetails}
 		spoilerFree={spoilerFree.on}
 		onSpoilerFreeToggle={() => spoilerFree.toggle()}

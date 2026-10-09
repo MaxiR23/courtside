@@ -254,6 +254,7 @@ const expected: Record<string, string> = {
 	'--standings-team-column-min': '150px',
 	'--standings-column-min': '76px',
 	'--standings-min-width': '560px',
+	'--standings-h1-size': 'clamp(56px, 9vw, 128px)',
 	'--series-summary-size': 'clamp(40px, 5vw, 64px)',
 	'--video-column-min': '240px',
 	'--video-play-size': '40px',

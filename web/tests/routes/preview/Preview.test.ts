@@ -235,7 +235,7 @@ describe('component preview', { timeout: 30_000 }, () => {
 	it('shows the section tabs for each layout', () => {
 		render(Preview);
 		const links = (title: string) =>
-			[...sectionOf(title).querySelectorAll('nav a')].map((a) => a.textContent);
+			[...sectionOf(title).querySelectorAll('nav:not(.nav-row) a')].map((a) => a.textContent);
 		expect(links('SectionTabs: pre-game')).toHaveLength(5);
 		expect(links('SectionTabs: live')).toEqual(['Score', 'Win prob.', 'Box score', 'Injuries']);
 		expect(links('SectionTabs: final')).toHaveLength(7);
@@ -380,7 +380,7 @@ describe('component preview', { timeout: 30_000 }, () => {
 	it('shows the team page in each state', () => {
 		render(Preview);
 		const tabs = (title: string) =>
-			[...sectionOf(title).querySelectorAll('nav a')].map((a) => a.textContent);
+			[...sectionOf(title).querySelectorAll('nav:not(.nav-row) a')].map((a) => a.textContent);
 		expect(tabs('TeamPage: full')).toEqual([
 			'Overview',
 			'Record',
@@ -414,7 +414,7 @@ describe('component preview', { timeout: 30_000 }, () => {
 	it('shows the player page in each state and both live card cases', () => {
 		render(Preview);
 		const tabs = (title: string) =>
-			[...sectionOf(title).querySelectorAll('nav a')].map((a) => a.textContent);
+			[...sectionOf(title).querySelectorAll('nav:not(.nav-row) a')].map((a) => a.textContent);
 		expect(tabs('PlayerPage: full')).toEqual([
 			'Profile',
 			'Averages',

@@ -29,6 +29,7 @@ import type { BoxRow, GamePageState, GameSections, GameView } from '../../../src
 import { preferLanguages } from '../../prefer-languages';
 
 const HOME = '/' as ResolvedPathname;
+const STANDINGS = '/standings' as ResolvedPathname;
 const teamHref = (code: string) => `/team/${code.toLowerCase()}` as ResolvedPathname;
 const playerHref = (id: string) => `/player/${id}` as ResolvedPathname;
 
@@ -249,7 +250,14 @@ const withSections = (sections: GameSections): GameView => ({ ...view, sections 
 
 function show(state: GamePageState) {
 	return render(GamePage, {
-		props: { state, allGamesHref: HOME, layout: 'desktop', teamHref, playerHref }
+		props: {
+			state,
+			allGamesHref: HOME,
+			standingsHref: STANDINGS,
+			layout: 'desktop',
+			teamHref,
+			playerHref
+		}
 	});
 }
 

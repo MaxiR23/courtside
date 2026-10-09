@@ -2,15 +2,22 @@
 	import type { ResolvedPathname } from '$app/types';
 	import { formatDate } from '#lib/format/locale.ts';
 	import { m } from '#lib/paraglide/messages.js';
+	import type { RowLayout } from '#lib/schedule/types.ts';
 
-	type Props = {
+	type HomeExtras = {
 		today: Date;
-		scheduleHref: ResolvedPathname;
 		spoilerFree: boolean;
 		onSpoilerFreeToggle: () => void;
 	};
+	type Props = {
+		page: 'home' | 'standings' | 'detail'; // home: "Games" current; standings: "Standings" current; detail: none
+		gamesHref: ResolvedPathname; // Home: the schedule; every other page: Home
+		standingsHref: ResolvedPathname;
+		layout: RowLayout;
+		home?: HomeExtras; // Home only: the date and the spoiler-free toggle, after the links
+	};
 
-	let { today, scheduleHref, spoilerFree, onSpoilerFreeToggle }: Props = $props();
+	let { page, gamesHref, standingsHref, layout, home }: Props = $props();
 
 	const dateOptions: Intl.DateTimeFormatOptions = {
 		weekday: 'short',
@@ -20,25 +27,46 @@
 	};
 
 	const iso = $derived(
-		`${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+		home
+			? `${home.today.getFullYear()}-${String(home.today.getMonth() + 1).padStart(2, '0')}-${String(home.today.getDate()).padStart(2, '0')}`
+			: ''
 	);
 </script>
 
-<nav class="nav-row">
+<nav class="nav-row" class:mobile={layout === 'mobile'}>
 	<span class="brand">
 		<span class="brand-mark" aria-hidden="true"></span>
 		<span class="brand-name">{m.site_name()}</span>
 	</span>
-	<time class="date" datetime={iso}>{formatDate(today, dateOptions)}</time>
-	<a class="games" href={scheduleHref}>{m.nav_games()}</a>
-	<button
-		type="button"
-		class="spoiler-free"
-		aria-pressed={spoilerFree}
-		onclick={onSpoilerFreeToggle}
-	>
-		{m.nav_spoiler_free()}
-	</button>
+	<div class="links">
+		<a
+			class="link"
+			class:current={page === 'home'}
+			aria-current={page === 'home' ? 'page' : undefined}
+			href={gamesHref}
+		>
+			{page === 'home' ? m.nav_games() : m.hero_all_games()}
+		</a>
+		<a
+			class="link"
+			class:current={page === 'standings'}
+			aria-current={page === 'standings' ? 'page' : undefined}
+			href={standingsHref}
+		>
+			{m.nav_standings()}
+		</a>
+		{#if home}
+			<time class="date" datetime={iso}>{formatDate(home.today, dateOptions)}</time>
+			<button
+				type="button"
+				class="spoiler-free"
+				aria-pressed={home.spoilerFree}
+				onclick={home.onSpoilerFreeToggle}
+			>
+				{m.nav_spoiler_free()}
+			</button>
+		{/if}
+	</div>
 </nav>
 
 <style>
@@ -85,15 +113,38 @@
 		color: var(--color-muted);
 	}
 
-	.games {
+	.links {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--game-list-gap);
+	}
+
+	.mobile .links {
+		flex-basis: 100%;
+		order: 1;
+	}
+
+	.link {
 		display: inline-flex;
 		align-items: center;
 		min-height: var(--hit-target-size);
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
+		font-size: var(--nav-link-size);
+		letter-spacing: var(--nav-link-letter-spacing);
 		text-transform: uppercase;
-		color: var(--color-ink);
 		text-decoration: none;
+		color: var(--color-muted);
+	}
+
+	.link:hover {
+		color: var(--color-ink);
+	}
+
+	.link.current {
+		color: var(--color-ink);
+		text-decoration: underline;
+		text-decoration-color: var(--color-accent);
+		text-decoration-thickness: var(--hairline);
 	}
 
 	.spoiler-free {

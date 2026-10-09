@@ -22,6 +22,7 @@ import TeamHeader from '../../../src/lib/components/TeamHeader.svelte';
 import type { TeamHeaderView } from '../../../src/lib/team/types';
 
 const HOME = '/' as ResolvedPathname;
+const STANDINGS = '/standings' as ResolvedPathname;
 
 const header: TeamHeaderView = {
 	code: 'OKC',
@@ -41,7 +42,9 @@ const header: TeamHeaderView = {
 
 describe('TeamHeader', () => {
 	it('shows the name as the h1 with the city and conference line', () => {
-		render(TeamHeader, { props: { header, allGamesHref: HOME } });
+		render(TeamHeader, {
+			props: { header, allGamesHref: HOME, standingsHref: STANDINGS, layout: 'desktop' }
+		});
 		expect(screen.getByRole('heading', { level: 1, name: 'Thunder' })).toBeTruthy();
 		expect(screen.getByText('Oklahoma City')).toBeTruthy();
 		expect(screen.getByText('Western Conference · Northwest Division')).toBeTruthy();
@@ -49,7 +52,9 @@ describe('TeamHeader', () => {
 	});
 
 	it('shows the record, win percentage and the cells', () => {
-		const { container } = render(TeamHeader, { props: { header, allGamesHref: HOME } });
+		const { container } = render(TeamHeader, {
+			props: { header, allGamesHref: HOME, standingsHref: STANDINGS, layout: 'desktop' }
+		});
 		expect(container.querySelector('.record')?.textContent).toBe('57–25');
 		expect(container.querySelector('.win-pct')?.textContent).toBe('69.5%');
 		const cells = [...container.querySelectorAll('.cell')].map((cell) =>
@@ -64,7 +69,9 @@ describe('TeamHeader', () => {
 	});
 
 	it('draws the color strip with the feed colors as inline backgrounds', () => {
-		const { container } = render(TeamHeader, { props: { header, allGamesHref: HOME } });
+		const { container } = render(TeamHeader, {
+			props: { header, allGamesHref: HOME, standingsHref: STANDINGS, layout: 'desktop' }
+		});
 		const halves = [...container.querySelectorAll<HTMLElement>('.strip .half')];
 		expect(halves.map((half) => half.style.backgroundColor)).toEqual([
 			'rgb(0, 122, 193)',
@@ -73,8 +80,12 @@ describe('TeamHeader', () => {
 	});
 
 	it('shows only the nav row with no header', () => {
-		const { container } = render(TeamHeader, { props: { header: null, allGamesHref: HOME } });
+		const { container } = render(TeamHeader, {
+			props: { header: null, allGamesHref: HOME, standingsHref: STANDINGS, layout: 'desktop' }
+		});
 		expect(screen.getByRole('link', { name: 'All games' }).getAttribute('href')).toBe('/');
+		expect(screen.getByRole('link', { name: 'Standings' }).getAttribute('href')).toBe('/standings');
+		expect(document.querySelector('[aria-current]')).toBeNull();
 		expect(container.querySelector('h1')).toBeNull();
 		expect(container.querySelector('.skeleton')).toBeNull();
 		expect(container.querySelector('header')?.getAttribute('aria-busy')).toBeNull();
@@ -82,7 +93,13 @@ describe('TeamHeader', () => {
 
 	it('shows the skeleton and aria-busy while loading', () => {
 		const { container } = render(TeamHeader, {
-			props: { header: null, allGamesHref: HOME, loading: true }
+			props: {
+				header: null,
+				allGamesHref: HOME,
+				standingsHref: STANDINGS,
+				layout: 'desktop',
+				loading: true
+			}
 		});
 		expect(container.querySelector('header')?.getAttribute('aria-busy')).toBe('true');
 		expect(container.querySelector('.skeleton')?.getAttribute('aria-hidden')).toBe('true');
@@ -92,8 +109,21 @@ describe('TeamHeader', () => {
 
 	it('is not busy once the header is there', () => {
 		const { container } = render(TeamHeader, {
-			props: { header, allGamesHref: HOME, loading: true }
+			props: {
+				header,
+				allGamesHref: HOME,
+				standingsHref: STANDINGS,
+				layout: 'desktop',
+				loading: true
+			}
 		});
 		expect(container.querySelector('header')?.getAttribute('aria-busy')).toBeNull();
+	});
+
+	it('puts the nav links on their own row on a phone', () => {
+		const { container } = render(TeamHeader, {
+			props: { header: null, allGamesHref: HOME, standingsHref: STANDINGS, layout: 'mobile' }
+		});
+		expect(container.querySelector('nav')?.classList.contains('mobile')).toBe(true);
 	});
 });

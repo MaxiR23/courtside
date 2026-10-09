@@ -31,6 +31,7 @@ import type { PlayerPageState } from '../../../src/lib/player/types';
 import { preferLanguages } from '../../prefer-languages';
 
 const HOME = '/' as ResolvedPathname;
+const STANDINGS = '/standings' as ResolvedPathname;
 const gameHref = (id: string) => `/game/${id}` as ResolvedPathname;
 
 const feed = (): PlayerFeed =>
@@ -39,7 +40,9 @@ const feed = (): PlayerFeed =>
 	) as PlayerFeed;
 
 const show = (state: PlayerPageState, layout: 'desktop' | 'mobile' = 'desktop') =>
-	render(PlayerPage, { props: { state, allGamesHref: HOME, layout, gameHref } });
+	render(PlayerPage, {
+		props: { state, allGamesHref: HOME, standingsHref: STANDINGS, layout, gameHref }
+	});
 
 const ready = (source: PlayerFeed = feed()): PlayerPageState => ({
 	kind: 'ready',
