@@ -59,8 +59,7 @@ export type SectionId =
 	| 'injuries'
 	| 'last-games'
 	| 'standings'
-	| 'season-series'
-	| 'videos';
+	| 'season-series';
 
 export type SectionTab = { id: SectionId; label: string };
 
@@ -185,9 +184,6 @@ export type SeasonSeriesSection = {
 	games: SeriesRow[]; // feed order
 };
 
-export type VideoLink = { title: string; duration: string; thumbnail: string | null; href: string };
-export type VideosSection = VideoLink[];
-
 export type GameSections = {
 	highlights: GameHighlights | null;
 	players: PlayersSection | null;
@@ -198,7 +194,6 @@ export type GameSections = {
 	lastGames: LastGamesSection | null;
 	standings: StandingsSection | null;
 	seasonSeries: SeasonSeriesSection | null;
-	videos: VideosSection | null;
 };
 
 export type GameView = {

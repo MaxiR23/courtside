@@ -1126,47 +1126,6 @@
       "title": "Venue",
       "type": "object"
     },
-    "Video": {
-      "additionalProperties": false,
-      "properties": {
-        "title": {
-          "minLength": 1,
-          "type": "string"
-        },
-        "duration": {
-          "minLength": 1,
-          "type": "string"
-        },
-        "thumbnailUrl": {
-          "anyOf": [
-            {
-              "format": "uri",
-              "maxLength": 2083,
-              "minLength": 1,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
-        },
-        "linkUrl": {
-          "format": "uri",
-          "maxLength": 2083,
-          "minLength": 1,
-          "type": "string"
-        }
-      },
-      "required": [
-        "title",
-        "duration",
-        "thumbnailUrl",
-        "linkUrl"
-      ],
-      "title": "Video",
-      "type": "object"
-    },
     "WinProbabilityLeader": {
       "additionalProperties": false,
       "properties": {
@@ -1461,20 +1420,6 @@
         }
       ],
       "default": null
-    },
-    "videos": {
-      "anyOf": [
-        {
-          "items": {
-            "$ref": "#/$defs/Video"
-          },
-          "type": "array"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null
     }
   },
   "required": [
@@ -1501,8 +1446,7 @@
     "standings",
     "seasonSeries",
     "highlights",
-    "highlightsSearchUrl",
-    "videos"
+    "highlightsSearchUrl"
   ],
   "title": "GameDetailFeed",
   "type": "object"

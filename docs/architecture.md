@@ -273,6 +273,10 @@ Recorded in [`adr/0026-one-guest-team-rule.md`](adr/0026-one-guest-team-rule.md)
 
 - **One guest team rule**: a guest code is optional in every feed contract, and `Opponent` is the one model of a game side or an opponent. A provider team is resolved by abbreviation, then by team id, then as a guest without a code; a side with neither a code nor a name is skipped with its game. A side reference (`winner`, stat leaders, the win probability leader) is `away` or `home`. The game log keeps preseason games, with a Preseason tab, and the last five games leave them out; averages and milestones do not change. Adapters validate only the events they use. `TeamMark` draws every side or opponent that can be a guest, and a guest tile without a code shows the initials of its display name.
 
+Recorded in [`adr/0027-no-game-videos-section.md`](adr/0027-no-game-videos-section.md):
+
+- **No game videos section**: the game page shows no videos other than the highlights and never links out to watch one. The game detail feed has no `videos` field; a stored feed that still has it is read with the field dropped, never rebuilt for it.
+
 ## Future
 
 - A notification panel for job failures.

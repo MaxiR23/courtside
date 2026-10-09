@@ -22,6 +22,7 @@
 # - A stale live detail waits for the rebuild, so the score is never older than 30 seconds
 # - A final game's detail is built once with the ADR 0010 attempts and never again
 # - A final game is never built after the fourth failed attempt
+# - A stored final feed that still has the retired videos field is served without it and never rebuilt
 # - A game turning final shares one summary request with the games job
 # - A requested final game never starts a build
 # - Stars, highlights and the search URL are added when served and not stored
@@ -933,6 +934,32 @@ async def test_a_final_game_detail_is_built_once_with_the_adr_0010_attempts_and_
         await harness.run(final_time + later)
         await harness.serve("1")
     assert harness.standings_calls == 2
+    assert harness.last_build("1") == built
+
+
+@pytest.mark.anyio
+async def test_a_stored_final_feed_that_still_has_videos_is_served_without_them_and_never_rebuilt(
+    harness: Harness,
+) -> None:
+    final_time = await turn_final(harness)
+    assert harness.stored("1") is not None
+    built = harness.last_build("1")
+    calls = harness.standings_calls
+    body = read_by_id(harness.settings.data_dir, KIND, "1")
+    assert body is not None
+    stored = json.loads(body)
+    stored["videos"] = [
+        {"title": "V", "duration": "1:30", "thumbnailUrl": None, "linkUrl": "link"}
+    ]
+    path = harness.settings.data_dir / "feeds" / "games" / "1.json"
+    path.write_bytes(json.dumps(stored).encode())
+
+    await harness.run(final_time + 2 * HOUR)
+    served = await harness.serve("1")
+
+    assert "videos" not in json.loads(served)
+    assert GameDetailFeed.model_validate_json(served).status is GameStatus.FINAL
+    assert harness.standings_calls == calls
     assert harness.last_build("1") == built
 
 

@@ -34,7 +34,6 @@ export interface GameDetailFeed {
 	seasonSeries: SeasonSeries | null;
 	highlights: Highlight[] | null;
 	highlightsSearchUrl: string | null;
-	videos: Video[] | null;
 }
 export interface Venue {
 	name: string;
@@ -251,10 +250,4 @@ export interface Highlight {
 	channel: string;
 	thumbnailUrl: string;
 	embedUrl: string;
-}
-export interface Video {
-	title: string;
-	duration: string;
-	thumbnailUrl: string | null;
-	linkUrl: string;
 }

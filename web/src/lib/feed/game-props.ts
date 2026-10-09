@@ -44,7 +44,6 @@ import type {
 	StatLeads,
 	StatusLine,
 	VenueStrip,
-	VideosSection,
 	WinProbabilitySection
 } from '#lib/game/types.ts';
 import { m } from '#lib/paraglide/messages.js';
@@ -169,23 +168,14 @@ const TAB_LABELS: Record<SectionId, () => string> = {
 	injuries: m.game_tab_injuries,
 	'last-games': m.game_tab_last_games,
 	standings: m.game_tab_standings,
-	'season-series': m.game_tab_season_series,
-	videos: m.game_tab_videos
+	'season-series': m.game_tab_season_series
 };
 
 /** The sections of each layout, in the design's order. */
 export const SECTION_TABS: Record<GameLayout, SectionId[]> = {
 	'pre-game': ['players', 'injuries', 'last-games', 'standings', 'season-series'],
 	live: ['score', 'win-probability', 'box-score', 'injuries'],
-	final: [
-		'highlights',
-		'score',
-		'win-probability',
-		'box-score',
-		'injuries',
-		'season-series',
-		'videos'
-	]
+	final: ['highlights', 'score', 'win-probability', 'box-score', 'injuries', 'season-series']
 };
 
 // Whether the feed has data for a section. A null section is hidden, with its tab.
@@ -217,8 +207,6 @@ function hasData(feed: GameDetailFeed, id: SectionId, options: Options): boolean
 			return feed.standings !== null;
 		case 'season-series':
 			return feed.seasonSeries !== null;
-		case 'videos':
-			return feed.videos !== null;
 	}
 }
 
@@ -513,15 +501,6 @@ function seasonSeriesSection(feed: GameDetailFeed): SeasonSeriesSection {
 	};
 }
 
-function videosSection(feed: GameDetailFeed): VideosSection {
-	return required(feed.videos).map((v) => ({
-		title: v.title,
-		duration: v.duration,
-		thumbnail: v.thumbnailUrl,
-		href: v.linkUrl
-	}));
-}
-
 // A section's props exist only when its tab is shown, so a section hides together with its tab.
 function sections(feed: GameDetailFeed, shown: SectionTab[], options: Options): GameSections {
 	const has = (id: SectionId) => shown.some((tab) => tab.id === id);
@@ -541,8 +520,7 @@ function sections(feed: GameDetailFeed, shown: SectionTab[], options: Options): 
 		injuries: has('injuries') ? injuriesSection(feed) : null,
 		lastGames: has('last-games') ? lastGamesSection(feed) : null,
 		standings: has('standings') ? standingsSection(feed) : null,
-		seasonSeries: has('season-series') ? seasonSeriesSection(feed) : null,
-		videos: has('videos') ? videosSection(feed) : null
+		seasonSeries: has('season-series') ? seasonSeriesSection(feed) : null
 	};
 }
 

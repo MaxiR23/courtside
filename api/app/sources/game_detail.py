@@ -3,7 +3,7 @@
 # Game detail adapter: fetches one game's box score from the provider and
 # maps it to the contract's leaders and team stats. It also maps the full
 # game detail sections: venue, box score, team stats, win probability and
-# its period boundaries, injuries, season series and videos. The provider URLs come from Settings.
+# its period boundaries, injuries and season series. The provider URLs come from Settings.
 # Provider data never leaves this module.
 #
 # A team is matched to its box score players by id when both sides send one,
@@ -33,7 +33,6 @@ from app.feeds.game_detail import (
     Injuries,
     InjuryStatus,
     Venue,
-    Video,
     WinProbabilityLeader,
     WinProbabilityPeriods,
     WinProbabilityPoint,
@@ -389,21 +388,6 @@ class _SummarySeries(_ProviderModel):
     events: list[_SummarySeriesEvent] = []
 
 
-class _SummaryHref(_ProviderModel):
-    href: str
-
-
-class _SummaryVideoLinks(_ProviderModel):
-    web: _SummaryHref
-
-
-class _SummaryVideo(_ProviderModel):
-    headline: str
-    duration: NonNegativeInt
-    thumbnail: str | None = None
-    links: _SummaryVideoLinks
-
-
 class _ProviderSummary(_ProviderModel):
     format: _SummaryFormat
     game_info: _SummaryGameInfo
@@ -412,7 +396,6 @@ class _ProviderSummary(_ProviderModel):
     winprobability: list[_SummaryWinProbability] = []
     injuries: list[_SummaryTeamInjuries] = []
     seasonseries: list[_SummarySeries] = []
-    videos: list[_SummaryVideo] = []
 
 
 class SeriesMeeting(FeedModel):
@@ -450,7 +433,6 @@ class GameDetailSections(FeedModel):
     win_probability_periods: WinProbabilityPeriods | None = None
     injuries: Injuries | None = None
     season_series: SeriesMeetings | None = None
-    videos: list[Video] | None = None
 
 
 def _stat_leader(
@@ -768,18 +750,6 @@ def _season_series(
     }
 
 
-def _videos(videos: list[_SummaryVideo]) -> list[dict[str, Any]]:
-    return [
-        {
-            "title": video.headline,
-            "duration": f"{video.duration // 60}:{video.duration % 60:02d}",
-            "thumbnail_url": video.thumbnail or None,
-            "link_url": video.links.web.href,
-        }
-        for video in videos
-    ]
-
-
 async def fetch_game_detail_sections(
     client: SourceClient, game_id: str, settings: Settings, fresh: Freshness
 ) -> GameDetailSections:
@@ -868,7 +838,6 @@ async def fetch_game_detail_sections(
             {side: code for side, (code, _) in resolved.items() if code is not None},
         )
     )
-    sections["videos"] = _videos(summary.videos) or None
 
     try:
         return GameDetailSections.model_validate(sections)

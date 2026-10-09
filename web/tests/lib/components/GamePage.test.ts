@@ -8,10 +8,11 @@
 // - Unknown game: the nav row and "Game not found." with a link to all games
 // - Ready: the header and the tabs; a postponed game in the pre-game layout with its status tag
 // - Ready: each section in the design order with its tab id as anchor, none when null
-// - The section metas: the platform for highlights, the leader for win probability, the injury report, the series count, the new tab
+// - The section metas: the platform for highlights, the leader for win probability, the injury report, the series count
 // - No link inside a button or another link, and the header team names link to the team page
 // - The footer in every state
 // - The win probability marker pulses on a live game and not on a final one
+// - A final game has no Videos section and keeps its highlights
 // - The not-found row in Spanish with a Spanish browser preference
 //
 // What is covered:
@@ -70,8 +71,7 @@ const view: GameView = {
 		injuries: null,
 		lastGames: null,
 		standings: null,
-		seasonSeries: null,
-		videos: null
+		seasonSeries: null
 	}
 };
 
@@ -100,8 +100,7 @@ const postponed: GameView = {
 		injuries: null,
 		lastGames: null,
 		standings: null,
-		seasonSeries: null,
-		videos: null
+		seasonSeries: null
 	}
 };
 
@@ -211,7 +210,6 @@ const full: GameSections = {
 			}
 		]
 	},
-	videos: [{ title: 'Recap', duration: '2:14', thumbnail: null, href: '/video' }],
 	highlights: {
 		platform: 'Video platform',
 		searchUrl: '/search',
@@ -323,8 +321,7 @@ describe('GamePage', () => {
 			'injuries',
 			'last-games',
 			'standings',
-			'season-series',
-			'videos'
+			'season-series'
 		]);
 		expect(sections.map((s) => s.querySelector('h2')?.textContent)).toEqual([
 			'Highlights',
@@ -335,8 +332,7 @@ describe('GamePage', () => {
 			'Injuries',
 			'Last 5 games',
 			'Standings',
-			'Season series',
-			'Videos'
+			'Season series'
 		]);
 	});
 
@@ -351,8 +347,7 @@ describe('GamePage', () => {
 				injuries: null,
 				lastGames: null,
 				standings: null,
-				seasonSeries: null,
-				videos: null
+				seasonSeries: null
 			})
 		});
 		expect([...container.querySelectorAll('.sections > section')].map((s) => s.id)).toEqual([
@@ -388,13 +383,28 @@ describe('GamePage', () => {
 		).toBe(false);
 	});
 
-	it('shows the injury report, the series count and the new tab note as section metas', () => {
+	it('has no Videos section on a final game, and still renders the highlights', () => {
+		const { container } = show({
+			kind: 'ready',
+			view: {
+				...withSections(full),
+				header: { ...view.header, layout: 'final', status: { state: 'final', text: 'Final' } }
+			}
+		});
+		expect(container.querySelector('#videos')).toBeNull();
+		expect([...container.querySelectorAll('.sections > section')].map((s) => s.id)).not.toContain(
+			'videos'
+		);
+		expect([...container.querySelectorAll('h2')].map((h) => h.textContent)).not.toContain('Videos');
+		expect(container.querySelector('#highlights')).not.toBeNull();
+	});
+
+	it('shows the injury report and the series count as section metas', () => {
 		const { container } = show({ kind: 'ready', view: withSections(full) });
 		expect(container.querySelector('#injuries .meta')?.textContent).toBe('Injury report');
 		expect(container.querySelector('#season-series .meta')?.textContent).toBe(
 			'1 of 3 games played'
 		);
-		expect(container.querySelector('#videos .meta')?.textContent).toBe('Opens in a new tab');
 		expect(container.querySelector('#players .meta')).toBeNull();
 		expect(container.querySelector('#standings .meta')).toBeNull();
 	});

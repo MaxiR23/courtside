@@ -15,9 +15,10 @@
 // - The sections: built from the feed, null with their tab, leaders from the feed, the win
 //   probability meta from the feed leader, 'Even' with none or with a feed built before the
 //   field, box score split and formatting, highlights on a final game
+// - The final layout has no Videos tab or section, even from a stored feed that still has videos
 // - The pre-game sections: players by side (with the player id), injuries (with the player id, null for a feed without the key), last games (strip order, row format), standings,
 //   the season series summary (leader from the feed) and meta, the "This game" row and the dimmed
-//   loser, videos; null with their tab; the date shown in UTC
+//   loser; null with their tab; the date shown in UTC
 //   (the current series row comes from the feed marker, not from the date or the position)
 // - A guest game: the header guest has a null record and the guest flag; line score and box rows carry the flag; players, injuries, last games and standings have a null guest side; the last games tab shows with only the league side; the season series and win probability tabs are hidden when null
 // - A guest game without a code: a null code on the header, mini score, line score, win probability and box score teams; the guest named by its name in the win probability meta; stat leads and the loser from the feed sides
@@ -188,15 +189,7 @@ describe('toGameView', () => {
 		expect(ids(view(feed()))).toEqual(['score', 'win-probability', 'box-score', 'injuries']);
 		expect(ids(view(asFinal(feed())))).toEqual(SECTION_TABS.final);
 		const labels = view(asFinal(feed())).tabs.map((tab) => tab.label);
-		expect(labels).toEqual([
-			'Highlights',
-			'Score',
-			'Win prob.',
-			'Box score',
-			'Injuries',
-			'Series',
-			'Videos'
-		]);
+		expect(labels).toEqual(['Highlights', 'Score', 'Win prob.', 'Box score', 'Injuries', 'Series']);
 		expect(view(asStatus('scheduled')).tabs.map((tab) => tab.label)).toEqual([
 			'Players',
 			'Injuries',
@@ -213,8 +206,7 @@ describe('toGameView', () => {
 			winProbability: null,
 			boxScore: null,
 			injuries: null,
-			seasonSeries: null,
-			videos: null
+			seasonSeries: null
 		} as unknown as GameDetailFeed;
 		expect(ids(view(source))).toEqual(['highlights']);
 		const pre = {
@@ -303,8 +295,7 @@ describe('toGameView sections', () => {
 			boxScore: null,
 			lastGames: null,
 			standings: null,
-			seasonSeries: null,
-			videos: null
+			seasonSeries: null
 		});
 		const noPlatform = view(asFinal(feed()), {});
 		expect(noPlatform.sections.highlights).toBeNull();
@@ -736,29 +727,27 @@ describe('toGameView pre-game sections', () => {
 		expect(games.map((g) => g.current)).toEqual([true, false]);
 	});
 
-	it('passes videos through with a null thumbnail kept null', () => {
-		const { videos } = view(asFinal(feed())).sections;
-		expect(videos).toEqual([
-			{
-				title: 'Game recap',
-				duration: '2:10',
-				thumbnail: null,
-				href: 'https://example.com/videos/1'
-			}
-		]);
+	it('shows no Videos tab on a final game, even from a stored feed that still has videos', () => {
+		const stored = {
+			...asFinal(feed()),
+			videos: [{ title: 'Recap', duration: '2:10', thumbnailUrl: null, linkUrl: 'link' }]
+		} as unknown as GameDetailFeed;
+		const result = view(stored);
+		expect(ids(result)).not.toContain('videos');
+		expect(result.tabs.map((tab) => tab.label)).not.toContain('Videos');
+		expect(SECTION_TABS.final).not.toContain('videos' as never);
+		expect('videos' in result.sections).toBe(false);
 	});
 
 	it('leaves each new section null when its feed field is null', () => {
 		const source = {
 			...asFinal(feed()),
 			injuries: null,
-			seasonSeries: null,
-			videos: null
+			seasonSeries: null
 		} as unknown as GameDetailFeed;
 		const { sections } = view(source);
 		expect(sections.injuries).toBeNull();
 		expect(sections.seasonSeries).toBeNull();
-		expect(sections.videos).toBeNull();
 		const bare = {
 			...pre(),
 			stars: null,
