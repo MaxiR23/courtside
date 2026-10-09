@@ -9,6 +9,7 @@
 // - loadGameDetailFeed returns the detail feed, reports a 404 as not-found and every other failure
 // - teamFeedUrl puts the encoded team code in place of {code}
 // - loadTeamFeed returns the team feed, reports a 404 as not-found and every other failure
+// - loadStandingsFeed returns the standings feed and reports 503, 404, network and body failures
 // - playerFeedUrl puts the encoded player id in place of {id}
 // - loadPlayerFeed returns the player feed, reports a 404 as not-found and every other failure
 //
@@ -27,6 +28,7 @@ import {
 	loadGameDetailFeed,
 	loadGamesFeed,
 	loadPlayerFeed,
+	loadStandingsFeed,
 	playerFeedUrl,
 	loadTeamFeed,
 	teamFeedUrl
@@ -261,5 +263,53 @@ describe('loadPlayerFeed', () => {
 				playerFetchAnswering(() => json({ lastName: 'X' }))
 			)
 		).rejects.toMatchObject({ reason: 'body' });
+	});
+});
+
+const STANDINGS_URL = 'https://feeds.example.com/standings.json';
+
+function standingsFetchAnswering(answer: () => Promise<Response>) {
+	return vi.fn((url: string | URL | Request) => {
+		if (url !== STANDINGS_URL) throw new Error(`Unexpected URL ${String(url)}`);
+		return answer();
+	}) as unknown as typeof fetch & ReturnType<typeof vi.fn>;
+}
+
+describe('loadStandingsFeed', () => {
+	it('returns the parsed standings feed on a 200, asking for JSON from the given URL', async () => {
+		const feed = { season: '2025-26', conferences: [], divisions: [] };
+		const fetchFn = standingsFetchAnswering(() => json(feed));
+		await expect(loadStandingsFeed(STANDINGS_URL, fetchFn)).resolves.toEqual(feed);
+		expect(fetchFn).toHaveBeenCalledWith(STANDINGS_URL, {
+			headers: { accept: 'application/json' }
+		});
+	});
+
+	it('throws a status error on a 503 and on a 404', async () => {
+		for (const status of [503, 404]) {
+			const fetchFn = standingsFetchAnswering(() => json({ detail: 'no' }, status));
+			await expect(loadStandingsFeed(STANDINGS_URL, fetchFn)).rejects.toMatchObject({
+				name: 'FeedLoadError',
+				reason: 'status'
+			});
+		}
+	});
+
+	it('throws a network error', async () => {
+		const fetchFn = standingsFetchAnswering(() => Promise.reject(new TypeError('Failed to fetch')));
+		const error = await loadStandingsFeed(STANDINGS_URL, fetchFn).catch((e: unknown) => e);
+		expect(error).toBeInstanceOf(FeedLoadError);
+		expect((error as FeedLoadError).reason).toBe('network');
+	});
+
+	it('throws a body error on a non-JSON body and on JSON without conferences', async () => {
+		const html = standingsFetchAnswering(() =>
+			Promise.resolve(new Response('<html>', { status: 200 }))
+		);
+		await expect(loadStandingsFeed(STANDINGS_URL, html)).rejects.toMatchObject({ reason: 'body' });
+		const empty = standingsFetchAnswering(() => json({ season: 'x' }));
+		await expect(loadStandingsFeed(STANDINGS_URL, empty)).rejects.toMatchObject({
+			reason: 'body'
+		});
 	});
 });

@@ -262,5 +262,56 @@
 			}
 		}
 	],
-	"standings_title": "Clasificación"
+	"standings_title": "Clasificación",
+	"standings_note": "Los puestos siguen la clasificación oficial.",
+	"standings_state_final": "Final · temporada regular",
+	"standings_state_live": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "Temporada regular · {count} partido jugado",
+				"countPlural=other": "Temporada regular · {count} partidos jugados"
+			}
+		}
+	],
+	"standings_conference": "Conferencia",
+	"standings_division": "División",
+	"standings_view_toggle": "Vista de la clasificación",
+	"standings_meta_conference": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} equipo · DP vs líder de conferencia",
+				"countPlural=other": "{count} equipos · DP vs líder de conferencia"
+			}
+		}
+	],
+	"standings_meta_division": "{conference} · DP vs líder de división",
+	"standings_col_seed": "Puesto",
+	"standings_col_team": "Equipo",
+	"standings_col_w": "G",
+	"standings_col_l": "P",
+	"standings_col_pct": "Pct",
+	"standings_col_gb": "DP",
+	"standings_col_strk": "Racha",
+	"standings_col_home": "Casa",
+	"standings_col_away": "Fuera",
+	"standings_col_l10": "U10",
+	"standings_col_div": "Div",
+	"standings_col_conf": "Conf",
+	"standings_col_ppg": "PPP",
+	"standings_col_opp": "Rival",
+	"standings_col_diff": "Dif",
+	"standings_col_tot": "Tot",
+	"standings_key": "Leyenda",
+	"clinch_star": "Mejor récord de la liga asegurado",
+	"clinch_z": "Mejor récord de la conferencia asegurado",
+	"clinch_y": "División asegurada",
+	"clinch_x": "Playoffs asegurados",
+	"clinch_xp": "Play-in asegurado",
+	"clinch_pb": "En posición de play-in",
+	"clinch_e": "Eliminado",
+	"standings_key_note": "DP, Div y Conf son dentro del grupo mostrado. Dif es por partido, Tot es el total de la temporada. Las líneas discontinuas marcan el puesto 6 y el 10."
 }

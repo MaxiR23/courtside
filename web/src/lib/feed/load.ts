@@ -1,6 +1,7 @@
 import type { GameDetailFeed } from '#lib/contract/game-detail.ts';
 import type { GamesFeed } from '#lib/contract/games.ts';
 import type { PlayerFeed } from '#lib/contract/player.ts';
+import type { StandingsFeed } from '#lib/contract/standings.ts';
 import type { TeamFeed } from '#lib/contract/team.ts';
 
 export type FeedLoadReason = 'network' | 'status' | 'not-found' | 'body';
@@ -116,4 +117,23 @@ export async function loadPlayerFeed(
 		throw new FeedLoadError('body', 'The player feed has no id');
 	}
 	return body as PlayerFeed;
+}
+
+/**
+ * Fetches the standings feed. The body is only checked for its shape: an object with a
+ * `conferences` array.
+ */
+export async function loadStandingsFeed(
+	url: string,
+	fetchFn: typeof fetch = fetch
+): Promise<StandingsFeed> {
+	const body = await fetchFeedBody(url, 'The standings feed', fetchFn);
+	if (
+		typeof body !== 'object' ||
+		body === null ||
+		!Array.isArray((body as StandingsFeed).conferences)
+	) {
+		throw new FeedLoadError('body', 'The standings feed has no conferences');
+	}
+	return body as StandingsFeed;
 }

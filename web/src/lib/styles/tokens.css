@@ -241,6 +241,10 @@
 	--standings-column-min: 76px;
 	--standings-min-width: 560px;
 	--standings-h1-size: clamp(56px, 9vw, 128px);
+	--standings-monogram-size: 34px;
+	--standings-strip-height: 3px;
+	--standings-team-column-page-min: 178px;
+	--standings-line-dash: 4 4;
 	--series-summary-size: clamp(40px, 5vw, 64px);
 	--video-column-min: 240px;
 	--video-play-size: 40px;
