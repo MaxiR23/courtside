@@ -3,11 +3,13 @@
 # Tests for the division standings adapter.
 #
 # Tested:
-# - Maps every team's conference, division, entry orders and stats from a recorded season
+# - Maps every team's conference, division, entry orders (and the league-wide provider order, West first when the provider sends it first) and stats from a recorded season
 # - Maps the standings before the first game: seed 0, streak and games behind as dashes, no last ten record
 # - Requests the configured URL as is, adding nothing to its query, and carries the season end year
 # - Falls back to one request for the regular season from a preseason (previous season) and from a postseason (same season)
 # - Maps an absent, null or empty streak, games behind and seed to null
+# - Maps the division and conference records and the clinch code, a missing record to 0-0, an absent, null or empty clincher to null, every known clinch code and an unknown one to null with a log of the team code
+# - Reports whether the standings came from the rule L fallback
 # - Raises the source error on a fallback that is not of the regular season, an unknown season type, mixed seasons, without both conferences, with an unknown conference, an unknown team code, a missing stat, an invalid payload, a timeout, an error status (on both requests) and a missing URL
 # - Reuses the standings and the fallback for one hour
 #
@@ -24,6 +26,7 @@
 
 import datetime as dt
 import json
+import logging
 from collections.abc import Iterator
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -34,6 +37,7 @@ import pytest
 import respx
 
 from app.feeds.game_detail import Conference
+from app.feeds.standings import Clinch
 from app.settings import Settings
 from app.sources.division_standings import (
     DivisionStandings,
@@ -126,6 +130,31 @@ async def test_maps_every_teams_conference_division_entry_order_and_stats(
 
 
 @pytest.mark.anyio
+async def test_numbers_the_entries_across_the_league_in_the_providers_order(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load()
+    payload["children"].reverse()
+    mock.get(URL).respond(json=payload)
+
+    standings = await fetch(settings)
+
+    west = [
+        e.provider_order
+        for e in standings.teams.values()
+        if e.conference is Conference.WEST
+    ]
+    east = [
+        e.provider_order
+        for e in standings.teams.values()
+        if e.conference is Conference.EAST
+    ]
+    assert max(west) < min(east)
+    assert sorted(west + east) == list(range(1, 31))
+    assert standings.teams["LAL"].conference_order == 6
+
+
+@pytest.mark.anyio
 async def test_maps_the_standings_before_the_first_game(
     mock: respx.MockRouter, settings: Settings
 ) -> None:
@@ -157,7 +186,10 @@ async def test_carries_the_season_end_year_of_a_regular_season(
 ) -> None:
     mock.get(URL).respond(json=load())
 
-    assert (await fetch(settings)).season == 2026
+    standings = await fetch(settings)
+
+    assert standings.season == 2026
+    assert standings.fallback is False
 
 
 @pytest.mark.anyio
@@ -170,6 +202,7 @@ async def test_falls_back_to_the_previous_regular_season_from_a_preseason(
     standings = await fetch(settings)
 
     assert standings.season == 2026
+    assert standings.fallback is True
     assert standings.teams["OKC"].wins == 64
     assert first.call_count == 1
     assert fallback.call_count == 1
@@ -185,6 +218,7 @@ async def test_falls_back_to_the_same_season_from_a_postseason(
     standings = await fetch(settings)
 
     assert (standings.season, standings.teams["OKC"].losses) == (2026, 18)
+    assert standings.fallback is True
     assert (first.call_count, fallback.call_count) == (1, 1)
 
 
@@ -459,3 +493,95 @@ async def test_reuses_the_fallback_for_one_hour(
         await fetch_division_standings(client, settings)
 
     assert (first.call_count, fallback.call_count) == (1, 1)
+
+
+def add_stats(payload: Payload, *stats: Payload) -> None:
+    division(payload)["standings"]["entries"][0]["stats"].extend(stats)
+
+
+@pytest.mark.anyio
+async def test_maps_the_division_and_conference_records_and_the_clinch_code(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load()
+    add_stats(
+        payload,
+        {"type": "vsdiv", "displayValue": "12-4"},
+        {"type": "vsconf", "displayValue": "36-16"},
+        {"type": "clincher", "displayValue": "z"},
+    )
+    mock.get(URL).respond(json=payload)
+
+    team = (await fetch(settings)).teams["BOS"]
+
+    assert (team.vs_division, team.vs_conference) == ("12-4", "36-16")
+    assert team.clinch is Clinch.CONFERENCE
+
+
+@pytest.mark.anyio
+async def test_maps_a_missing_division_or_conference_record_to_0_0(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    mock.get(URL).respond(json=load())
+
+    teams = (await fetch(settings)).teams.values()
+
+    assert {(team.vs_division, team.vs_conference) for team in teams} == {
+        ("0-0", "0-0")
+    }
+    assert {team.clinch for team in teams} == {None}
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("form", ["absent", "null", "empty"])
+async def test_maps_an_absent_null_or_empty_clincher_to_null(
+    mock: respx.MockRouter, settings: Settings, form: str
+) -> None:
+    payload = load()
+    if form == "null":
+        add_stats(payload, {"type": "clincher", "displayValue": None})
+    elif form == "empty":
+        add_stats(payload, {"type": "clincher", "displayValue": ""})
+    mock.get(URL).respond(json=payload)
+
+    assert (await fetch(settings)).teams["BOS"].clinch is None
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("code", "clinch"),
+    [
+        ("*", Clinch.LEAGUE),
+        ("z", Clinch.CONFERENCE),
+        ("y", Clinch.DIVISION),
+        ("x", Clinch.PLAYOFFS),
+        ("xp", Clinch.PLAYIN),
+        ("pb", Clinch.PLAYIN_POSITION),
+        ("e", Clinch.ELIMINATED),
+    ],
+)
+async def test_maps_every_known_clinch_code(
+    mock: respx.MockRouter, settings: Settings, code: str, clinch: Clinch
+) -> None:
+    payload = load()
+    add_stats(payload, {"type": "clincher", "displayValue": code})
+    mock.get(URL).respond(json=payload)
+
+    assert (await fetch(settings)).teams["BOS"].clinch is clinch
+
+
+@pytest.mark.anyio
+async def test_maps_an_unknown_clincher_to_null_and_logs_the_team_code(
+    mock: respx.MockRouter, settings: Settings, caplog: pytest.LogCaptureFixture
+) -> None:
+    payload = load()
+    add_stats(payload, {"type": "clincher", "displayValue": "q"})
+    mock.get(URL).respond(json=payload)
+
+    with caplog.at_level(logging.WARNING):
+        team = (await fetch(settings)).teams["BOS"]
+
+    assert team.clinch is None
+    warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
+    assert len(warnings) == 1
+    assert "BOS" in warnings[0].getMessage()

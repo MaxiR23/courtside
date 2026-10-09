@@ -155,6 +155,7 @@ def standing(code: str = "OKC", **changes: Any) -> DivisionEntry:
         "division": "Northwest",
         "division_order": 2,
         "conference_order": 4,
+        "provider_order": 4,
         "wins": 30,
         "losses": 10,
         "playoff_seed": 1,
@@ -169,6 +170,9 @@ def standing(code: str = "OKC", **changes: Any) -> DivisionEntry:
         "points_against": 4317,
         "differential": 10.1,
         "point_differential": 405,
+        "vs_division": "10-2",
+        "vs_conference": "20-6",
+        "clinch": None,
     }
     return DivisionEntry.model_validate(values | changes)
 
@@ -177,7 +181,7 @@ def standings(
     entry: DivisionEntry | None = None, season: int = 2026
 ) -> DivisionStandings:
     entry = entry or standing()
-    return DivisionStandings(season=season, teams={entry.code: entry})
+    return DivisionStandings(season=season, fallback=False, teams={entry.code: entry})
 
 
 def info() -> TeamInfo:

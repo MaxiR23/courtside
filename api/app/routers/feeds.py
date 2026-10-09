@@ -2,7 +2,8 @@
 #
 # Serves the published feeds.
 #
-# SEE: docs/api/games.md, docs/api/game-detail.md, docs/api/player.md, docs/api/team.md
+# SEE: docs/api/games.md, docs/api/game-detail.md, docs/api/player.md, docs/api/team.md,
+# docs/api/standings.md
 
 import asyncio
 import hashlib
@@ -12,6 +13,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from app.jobs.game_detail_feed import KIND
 from app.jobs.on_demand import FeedCache, FeedUnavailableError, UnknownFeedError
 from app.jobs.player_feed import KIND as PLAYER_KIND
+from app.jobs.standings_feed import FEED_ID as STANDINGS_ID
+from app.jobs.standings_feed import KIND as STANDINGS_KIND
 from app.jobs.team_feed import KIND as TEAM_KIND
 from app.storage.feeds import read_feed
 
@@ -65,6 +68,13 @@ async def read_game_detail_feed(game_id: str, request: Request) -> Response:
 @router.get("/feeds/teams/{code}.json")
 async def read_team_feed(code: str, request: Request) -> Response:
     return await serve_on_demand(request.app.state.feed_cache, TEAM_KIND, code, request)
+
+
+@router.get("/feeds/standings.json")
+async def read_standings_feed(request: Request) -> Response:
+    return await serve_on_demand(
+        request.app.state.feed_cache, STANDINGS_KIND, STANDINGS_ID, request
+    )
 
 
 @router.get("/feeds/players/{player_id}.json")

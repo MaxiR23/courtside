@@ -318,13 +318,15 @@ Keys are camelCase. Nullable fields are always present and `null` when absent. T
 
 ### Standings feed
 
+Where this table and `docs/api/standings.md` or `web/src/lib/contract/standings.ts` differ, those two are the authority.
+
 | Field | Content |
 |---|---|
 | `season` | Label, such as `2025-26` |
-| `state` | `final` or `live`, and `gamesPlayed` for the state line |
+| `state` | `final` or `regular`, and `gamesPlayed` for the state line |
 | `conferences` | In display order; each `key` (`east` / `west`), `name`, `teamCount` and `teams` sorted by seed |
-| `divisions` | In display order; each `name`, `conference` (name) and `teams` in division order |
-| Team row | `code`, `city`, `name`, `colors` (`primary`, `secondary`; each or null), `seed` (or null), `clinch` (`*`, `z`, `y`, `x`, `xp`, `pb`, `e`; or null), `wins`, `losses`, `pct` (ready string, such as `.659`), `gamesBehind` (ready string, or null; against the group), `streak` (ready string such as `W3`, or null; `kind` win / loss for the accent), `home`, `away`, `lastTen`, `division`, `conference` (each ready `W–L`), `pointsFor`, `pointsAgainst` (per game), `differential` (ready signed string, per game, and `nonNegative`), `total` (ready signed string, and `nonNegative`) |
+| `divisions` | In display order; each `name`, `conference` (the key, `east` / `west`) and `teams` in division order |
+| Team row | `code`, `city`, `name`, `colors` (`primary`, `secondary`; each or null), `seed` (or null), `clinch` (`*`, `z`, `y`, `x`, `xp`, `pb`, `e`; or null), `wins`, `losses`, `pct` (ready string, such as `.659`), `gamesBehind` (ready string, or null; against the group), `streak` (an object with `kind` win / loss and `count`, or null), `home`, `away`, `lastTen`, `division`, `conference` (each a ready `W-L` with a hyphen, such as `34-7`), `pointsFor`, `pointsAgainst` (per game), `differential` (ready signed string, per game, and `nonNegative`), `total` (ready signed string, and `nonNegative`) |
 
 ### Search feed
 
