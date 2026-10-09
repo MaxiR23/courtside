@@ -14,6 +14,8 @@
 # - Computes the conference games behind from wins and losses, with the leader null and a tied team 0.0
 # - Picks the leader by wins minus losses with ties to the lower seed
 # - Keeps the provider's division games behind
+# - Keeps the conference and division games behind of the recorded season
+# - Gives the same games behind as the team feed for every team of the recorded standings, in season and before the first game
 # - Gives a 0-0 team null pct, streak and games behind in both groupings
 # - Builds colors from team info and null for a team without
 # - Labels the season, sums the wins and sets the state (fallback, 82 games, otherwise regular)
@@ -67,7 +69,7 @@ from app.jobs.standings_feed import (
     StandingsBuildError,
     StandingsFeeds,
     build_standings_feed,
-    conference_games_behind,
+    conference_games_behind_text,
     division_games_behind,
     leader_of,
     one_decimal,
@@ -76,7 +78,7 @@ from app.jobs.standings_feed import (
     signed_per_game,
     signed_total,
 )
-from app.jobs.team_feed import FEED_LIFETIME
+from app.jobs.team_feed import FEED_LIFETIME, build_team_feed
 from app.settings import Settings
 from app.sources.division_standings import (
     DivisionEntry,
@@ -97,7 +99,18 @@ from app.sources.teams import TEAM_CODES
 from app.storage.feeds import publish_by_id, read_by_id
 from app.storage.state import StateStore
 from tests.jobs.test_game_detail_feed import games_detail
-from tests.jobs.test_team_feed import HOUR, NOW, SECOND, TODAY, info, scoreboard
+from tests.jobs.test_team_feed import (
+    EMPTY,
+    HOUR,
+    NOW,
+    SECOND,
+    TODAY,
+    info,
+    injuries,
+    leaders,
+    roster,
+    scoreboard,
+)
 
 FIXTURES = Path(__file__).parent.parent / "sources" / "fixtures"
 SOURCE = "https://example.com/source/"
@@ -357,8 +370,18 @@ def test_picks_the_leader_by_wins_minus_losses_with_ties_to_the_lower_seed() -> 
     assert leader_of([better_seed, better_record]) is better_record
     assert leader_of([better_record, tied_low]) is tied_low
     assert leader_of([tied_high, tied_low]) is tied_low
-    assert conference_games_behind(better_seed, better_record) == "3.0"
-    assert conference_games_behind(better_record, better_record) is None
+    assert (
+        conference_games_behind_text(
+            better_seed, better_record, [better_seed, better_record]
+        )
+        == "3.0"
+    )
+    assert (
+        conference_games_behind_text(
+            better_record, better_record, [better_seed, better_record]
+        )
+        is None
+    )
 
 
 def test_keeps_the_providers_division_games_behind_with_the_leader_null() -> None:
@@ -506,6 +529,121 @@ async def test_builds_a_valid_feed_from_the_recorded_season(
     assert len(feed.divisions) == 6
     assert feed.conferences[1].teams[0].code == "OKC"
     assert {row.colors.primary for row in feed.conferences[0].teams} == {None}
+
+
+@pytest.mark.anyio
+async def test_keeps_the_conference_and_division_games_behind_of_the_recorded_season(
+    mock: respx.MockRouter,
+) -> None:
+    standings = await fetch_recorded(mock, "regular-2026.json")
+
+    feed = build_standings_feed(standings, {})
+
+    conference = {
+        row.code: row.games_behind for c in feed.conferences for row in c.teams
+    }
+    division = {row.code: row.games_behind for d in feed.divisions for row in d.teams}
+    assert conference == {
+        "DET": None,
+        "BOS": "4.0",
+        "NYK": "7.0",
+        "CLE": "8.0",
+        "TOR": "14.0",
+        "ATL": "14.0",
+        "PHI": "15.0",
+        "ORL": "15.0",
+        "CHA": "16.0",
+        "MIA": "17.0",
+        "MIL": "28.0",
+        "CHI": "29.0",
+        "BKN": "40.0",
+        "IND": "41.0",
+        "WAS": "43.0",
+        "OKC": None,
+        "SAS": "2.0",
+        "DEN": "10.0",
+        "LAL": "11.0",
+        "HOU": "12.0",
+        "MIN": "15.0",
+        "POR": "22.0",
+        "PHX": "19.0",
+        "LAC": "22.0",
+        "GSW": "27.0",
+        "NOP": "38.0",
+        "DAL": "38.0",
+        "MEM": "39.0",
+        "SAC": "42.0",
+        "UTA": "42.0",
+    }
+    assert division == {
+        "BOS": None,
+        "PHI": "11.0",
+        "TOR": "10.0",
+        "NYK": "3.0",
+        "BKN": "36.0",
+        "DET": None,
+        "CLE": "8.0",
+        "IND": "41.0",
+        "CHI": "29.0",
+        "MIL": "28.0",
+        "ATL": None,
+        "ORL": "1.0",
+        "MIA": "3.0",
+        "CHA": "2.0",
+        "WAS": "29.0",
+        "POR": "22.0",
+        "MIN": "15.0",
+        "DEN": "10.0",
+        "UTA": "42.0",
+        "OKC": None,
+        "LAL": None,
+        "PHX": "8.0",
+        "GSW": "16.0",
+        "LAC": "11.0",
+        "SAC": "31.0",
+        "SAS": None,
+        "HOU": "10.0",
+        "MEM": "37.0",
+        "NOP": "36.0",
+        "DAL": "36.0",
+    }
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("name", ["regular-2026.json", "before-first-game.json"])
+async def test_gives_the_same_games_behind_as_the_team_feed_for_every_team(
+    mock: respx.MockRouter, name: str
+) -> None:
+    standings = await fetch_recorded(mock, name)
+    feed = build_standings_feed(standings, {})
+
+    behind = {}
+    for conference in feed.conferences:
+        for row in conference.teams:
+            team = build_team_feed(
+                row.code,
+                info(),
+                standings,
+                roster(),
+                leaders(),
+                injuries(),
+                EMPTY,
+                EMPTY,
+                now=NOW,
+                detail_ids=frozenset(),
+            )
+            value = team.record.games_behind
+            behind[row.code] = value
+            if row.pct is None:
+                assert (value, row.games_behind) == (None, None)
+            elif row.games_behind is None:
+                assert value == 0
+            else:
+                assert value == float(row.games_behind)
+
+    assert len(behind) == 30
+    if name == "regular-2026.json":
+        assert (behind["BOS"], behind["LAL"]) == (4.0, 11.0)
 
 
 @pytest.mark.anyio

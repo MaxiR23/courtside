@@ -36,6 +36,7 @@ from app.jobs.team_feed import (
     FetchDivisionStandings,
     FetchInfo,
     TeamBuildError,
+    conference_games_behind,
     feed_expired,
     season_label,
 )
@@ -126,12 +127,13 @@ def leader_of(entries: Sequence[DivisionEntry]) -> DivisionEntry:
     )
 
 
-def conference_games_behind(entry: DivisionEntry, leader: DivisionEntry) -> str | None:
-    """Games behind the leader of the conference; none for the leader."""
+def conference_games_behind_text(
+    entry: DivisionEntry, leader: DivisionEntry, members: Sequence[DivisionEntry]
+) -> str | None:
+    """Games behind the leader of the conference with one decimal; none for the leader."""
     if entry is leader:
         return None
-    behind = ((leader.wins - entry.wins) + (entry.losses - leader.losses)) / 2
-    return one_decimal(behind)
+    return one_decimal(conference_games_behind(entry, members))
 
 
 def _row(
@@ -188,7 +190,9 @@ def build_standings_feed(
             _row(
                 entry,
                 colors.get(entry.code),
-                conference_games_behind(entry, leader) if leader else None,
+                conference_games_behind_text(entry, leader, members)
+                if leader
+                else None,
             )
             for entry in members
         ]

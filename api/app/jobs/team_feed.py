@@ -5,7 +5,8 @@
 # records, streak, playoff status by seed, ranks, season labels, game tags from
 # notes, ages on the US Eastern date, leaders matched to the roster, roster
 # status from the league injuries, the record labeled with the season of the
-# standings, the next game and the schedule grouped by
+# standings, games behind the conference leader (shared with the standings
+# feed builder), the next game and the schedule grouped by
 # US Eastern month with the playoffs last. It reads no clock and no source: the
 # caller passes the time and the ids of the games that have a detail feed. The
 # shared conversions are used by the player feed builder too. TeamFeeds is the
@@ -129,14 +130,19 @@ def streak(text: str) -> Streak | None:
     return Streak(kind=kind, count=int(match[2]))
 
 
-def games_behind(text: str) -> float:
-    """Parse games behind: a dash is the leader, 0."""
-    if text == "-":
-        return 0
-    try:
-        return float(text)
-    except ValueError:
-        raise TeamBuildError(f"games behind {text!r} is not a number") from None
+def conference_games_behind(
+    entry: DivisionEntry, entries: Iterable[DivisionEntry]
+) -> float:
+    """Games behind the leader of the team's conference: half the gap between
+    the best wins minus losses of the conference and the team's; 0 for the
+    leader. The entries must contain the entry. Shared with the standings feed
+    builder."""
+    best = max(
+        other.wins - other.losses
+        for other in entries
+        if other.conference is entry.conference
+    )
+    return (best - (entry.wins - entry.losses)) / 2
 
 
 def playoff_position(seed: int | None, games: int) -> PlayoffPosition | None:
@@ -395,7 +401,9 @@ def _injuries(
     return listed
 
 
-def _record(entry: DivisionEntry, season: int) -> dict[str, Any]:
+def _record(
+    entry: DivisionEntry, season: int, entries: Iterable[DivisionEntry]
+) -> dict[str, Any]:
     games = entry.wins + entry.losses
     return {
         "season": season_label(season),
@@ -407,7 +415,7 @@ def _record(entry: DivisionEntry, season: int) -> dict[str, Any]:
         "last_ten": split_record(entry.last_ten),
         "streak": None if entry.streak is None else streak(entry.streak),
         "games_behind": (
-            None if entry.games_behind is None else games_behind(entry.games_behind)
+            conference_games_behind(entry, entries) if games > 0 else None
         ),
         "conference_rank": conference_rank(entry),
         "division_rank": entry.division_order,
@@ -478,7 +486,7 @@ def build_team_feed(
                     else None
                 ),
                 "season": season_label(roster.season),
-                "record": _record(entry, standings.season),
+                "record": _record(entry, standings.season, standings.teams.values()),
                 "leaders": {
                     "season": season_label(leaders.season),
                     **{

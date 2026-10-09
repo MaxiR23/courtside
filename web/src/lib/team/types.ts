@@ -14,6 +14,7 @@ export type TeamHeaderView = {
 	colors: { primary: string; secondary: string }; // hex values from the feed
 	record: string; // "57–25"
 	winPct: string; // "69.5%"
+	recordSeason: string; // "2025-26 record", the season of the record
 	cells: InfoCell[]; // Conference, Streak, Last 10, Playoffs; a cell with no data is left out
 };
 

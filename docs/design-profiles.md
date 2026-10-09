@@ -115,7 +115,7 @@ Two columns, min 420px. The count `3×` (36px, accent text), the award name (21p
 Two columns, min 440px:
 
 - **Left:** the code box, `clamp(64px, 7vw, 88px)`, with a 5px strip under it split into the primary and secondary team colors from the feed; the city (uppercase, muted); the team name as the h1, `clamp(52px, 8vw, 120px)`; then `Western Conference · Northwest Division`.
-- **Right:** the record `57–25`, `clamp(64px, 8vw, 112px)`; the win percentage, 24px, accent text; and four cells: Conference (`1st West`), Streak (`W3`), Last 10, Playoffs (`1st seed`, `Play-in` or `Out`). The Playoffs cell is hidden when the feed has no playoff position.
+- **Right:** the record `57–25`, `clamp(64px, 8vw, 112px)`; the win percentage, 24px, accent text; under it the season of the record, `2025-26 record` (small, muted; in the preseason it is the previous season); and four cells: Conference (`1st West`), Streak (`W3`), Last 10, Playoffs (`1st seed`, `Play-in` or `Out`). The Playoffs cell is hidden when the feed has no playoff position.
 
 ### 2. Tabs
 
@@ -133,7 +133,7 @@ Overview · Record · Leaders · Roster · Injuries · Schedule. Mini `OKC 57–
 The meta names the season of the record, such as `2025-26 · regular season`.
 
 - **Large row:** Overall, Home, Away and Last 10, each as `W–L` with the win percentage.
-- **Detail row:** Streak, Games behind, Playoff position, Conference, Division, Points for (per game; sub: total), Points against (per game; sub: total), Differential (`+8.4`; sub: total `+689`). Games behind shows `—` when the feed has none.
+- **Detail row:** Streak, Games behind, Playoff position, Conference, Division, Points for (per game; sub: total), Points against (per game; sub: total), Differential (`+8.4`; sub: total `+689`). Games behind is measured against the conference leader, with the sub line `East leader` or `West leader`; it shows `—` for the leader (0) and when the feed has none.
 
 ### 5. Team leaders
 

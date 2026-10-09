@@ -68,6 +68,11 @@ const CONFERENCE_LONG: Record<Conference, () => string> = {
 	west: m.team_conference_west
 };
 
+const GAMES_BEHIND_REFERENCE: Record<Conference, () => string> = {
+	east: m.team_record_games_behind_east,
+	west: m.team_record_games_behind_west
+};
+
 const INJURY_LABELS: Record<InjuryStatus, () => string> = {
 	out: m.injury_status_out,
 	doubtful: m.injury_status_doubtful,
@@ -166,6 +171,7 @@ function header(feed: TeamFeed): TeamHeaderView {
 		colors: { primary: feed.colors.primary, secondary: feed.colors.secondary },
 		record: record(r),
 		winPct: percent(r.winPct),
+		recordSeason: m.team_header_record_season({ season: r.season }),
 		cells
 	};
 }
@@ -212,8 +218,10 @@ function recordSection(feed: TeamFeed): RecordSection {
 	detail.push({
 		label: m.team_record_games_behind(),
 		value:
-			r.gamesBehind === null ? NO_VALUE : formatNumber(r.gamesBehind, { maximumFractionDigits: 1 }),
-		sub: null
+			r.gamesBehind === null || r.gamesBehind === 0
+				? NO_VALUE
+				: formatNumber(r.gamesBehind, { maximumFractionDigits: 1 }),
+		sub: GAMES_BEHIND_REFERENCE[feed.conference]()
 	});
 	if (r.playoff) {
 		detail.push({

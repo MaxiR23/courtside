@@ -42,6 +42,7 @@
 				<div class="standing">
 					<span class="record">{header.record}</span>
 					<span class="win-pct">{header.winPct}</span>
+					<span class="record-season">{header.recordSeason}</span>
 					<div class="cells">
 						{#each header.cells as cell (cell.label)}
 							<div class="cell">
@@ -164,6 +165,11 @@
 		font-size: var(--team-win-pct-size);
 		color: var(--color-accent-light);
 		font-variant-numeric: tabular-nums;
+	}
+
+	.record-season {
+		font-size: var(--body-size-small);
+		color: var(--color-muted);
 	}
 
 	.cells {

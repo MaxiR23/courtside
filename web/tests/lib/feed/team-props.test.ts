@@ -3,13 +3,14 @@
 // Tests for the props layer that turns the team feed into the team page props.
 //
 // Tested:
-// - The header: record, win percentage, conference line and its four cells; the Streak cell
-//   left out with a null streak, the Playoffs cell with a null playoff; Play-in and Out
+// - The header: record, win percentage, the season of the record under the win percentage,
+//   conference line and its four cells; the Streak cell left out with a null streak, the
+//   Playoffs cell with a null playoff; Play-in and Out
 // - The tabs in order and the mini text; sections without data leave with their tab
 // - The overview: arena, coach line (singular and plural, and none without seasons), colors, the next game (tag, ET date,
 //   "@ DEN", place and time lines, links) and a null next game
 // - The record rows: the season meta, large cells, detail cells, points and the signed differential;
-//   the Games behind cell shows — without a value
+//   the Games behind cell shows — for null and 0, with the East or West leader sub line
 // - The leaders: order, a null number, a skipped null leader, a null section with three nulls
 // - The roster: formatting, rookie, UTC birth date, null details, status tones, an empty roster
 // - The injuries line with a missing number or position
@@ -52,8 +53,15 @@ describe('toTeamView header', () => {
 		expect(header.name).toBe('Thunder');
 		expect(header.record).toBe('57–25');
 		expect(header.winPct).toBe('69.5%');
+		expect(header.recordSeason).toBe('2025-26 record');
 		expect(header.conferenceLine).toBe('Western Conference · Northwest Division');
 		expect(header.colors).toEqual({ primary: '#007AC1', secondary: '#EF3B24' });
+	});
+
+	it('reads the season of the record from the record, not the feed season', () => {
+		const source = feed();
+		source.record.season = '2024-25';
+		expect(view(source).header.recordSeason).toBe('2024-25 record');
 	});
 
 	it('has the Conference, Streak, Last 10 and Playoffs cells', () => {
@@ -226,7 +234,7 @@ describe('toTeamView record', () => {
 	it('has the detail row', () => {
 		expect(view().sections.record.detail).toEqual([
 			{ label: 'Streak', value: 'W3', sub: null },
-			{ label: 'Games behind', value: '0', sub: null },
+			{ label: 'Games behind', value: '—', sub: 'West leader' },
 			{ label: 'Playoff position', value: '1st seed', sub: null },
 			{ label: 'Conference', value: '1st West', sub: null },
 			{ label: 'Division', value: '1st Northwest', sub: null },
@@ -240,7 +248,15 @@ describe('toTeamView record', () => {
 		const source = feed();
 		source.record.gamesBehind = null;
 		const cell = view(source).sections.record.detail.find((c) => c.label === 'Games behind');
-		expect(cell?.value).toBe('—');
+		expect(cell).toMatchObject({ value: '—', sub: 'West leader' });
+	});
+
+	it('measures games behind against the East leader for an East team', () => {
+		const source = feed();
+		source.conference = 'east';
+		source.record.gamesBehind = 4;
+		const cell = view(source).sections.record.detail.find((c) => c.label === 'Games behind');
+		expect(cell).toMatchObject({ value: '4', sub: 'East leader' });
 	});
 
 	it('leaves out the streak and playoff position cells and keeps a negative differential', () => {
@@ -252,7 +268,10 @@ describe('toTeamView record', () => {
 		const { detail } = view(source).sections.record;
 		expect(detail.map((cell) => cell.label)).not.toContain('Streak');
 		expect(detail.map((cell) => cell.label)).not.toContain('Playoff position');
-		expect(detail.find((cell) => cell.label === 'Games behind')?.value).toBe('2.5');
+		expect(detail.find((cell) => cell.label === 'Games behind')).toMatchObject({
+			value: '2.5',
+			sub: 'West leader'
+		});
 		const differential = detail.find((cell) => cell.label === 'Differential');
 		expect(differential?.value).toMatch(/^-3\.[23]/);
 		expect(differential?.sub).toBe('-267');
@@ -490,6 +509,14 @@ describe('toTeamView in Spanish', () => {
 		source.nextGame = null;
 		const result = view(source);
 		expect(result.header.conferenceLine).toBe('Conferencia Oeste · División Northwest');
+		expect(result.header.recordSeason).toBe('Récord 2025-26');
+		expect(result.sections.record.detail.find((c) => c.label === 'Partidos detrás')?.sub).toBe(
+			'Líder del Oeste'
+		);
+		source.conference = 'east';
+		expect(
+			view(source).sections.record.detail.find((c) => c.label === 'Partidos detrás')?.sub
+		).toBe('Líder del Este');
 		expect(result.header.cells[0]?.value).toBe('1.º Oeste');
 		expect(result.header.cells[1]?.value).toBe('G3');
 		expect(result.header.cells[3]?.value).toBe('1.º puesto');
