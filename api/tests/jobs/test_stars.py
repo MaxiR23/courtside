@@ -42,6 +42,9 @@
 # - Is not ready until every team's roster has been fetched, and a failed roster fetch keeps it not ready until the retry succeeds
 # - Records a roster even when the team's averages then fail
 # - A newer roster replaces the team's players, and a player listed by another team's newer roster belongs to it
+# - Exposes the entries of each fetched roster by team code, with no request beyond the roster fetches, and none before any fetch
+# - A newer roster replaces the team's entries
+# - Has no latest roster fetch before any fetch, has the clock time of the latest roster fetch after a run, and a run with no due teams does not move it
 # - Calls after_run after a run with due teams and not after a run with none
 #
 # What is covered:
@@ -74,7 +77,7 @@ from app.settings import Settings
 from app.sources import team_players
 from app.sources.http import Freshness, SourceError, create_client
 from app.sources.scoreboard import ScoreboardGame
-from app.sources.team_players import PlayerAverages, Roster
+from app.sources.team_players import PlayerAverages, Roster, RosterEntry
 from app.sources.teams import TEAM_CODES
 from app.storage.state import StateStore
 
@@ -1014,6 +1017,73 @@ async def test_a_newer_roster_replaces_the_teams_players_and_moves_a_player_to_t
     assert job.player_team("NYK2") is None
     assert job.player_team("BOS2") == "NYK"
     assert job.player_team("NYK1") == "NYK"
+
+
+def entry(player_id: str) -> RosterEntry:
+    return RosterEntry(player_id=player_id, first_name="Ann", last_name="Bee")
+
+
+@pytest.mark.anyio
+async def test_exposes_the_entries_of_each_fetched_roster_by_team_with_no_extra_request(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    sources.rosters["BOS"].entries = [entry("BOS1"), entry("BOS2")]
+    job = make_job(settings, store, sources)
+    assert job.roster_entries() == {}
+
+    await job.run(NOON)
+
+    entries = job.roster_entries()
+    assert [e.player_id for e in entries["BOS"]] == ["BOS1", "BOS2"]
+    assert entries["NYK"] == []
+    assert sorted(entries) == sorted(CODES)
+    assert sorted(sources.roster_calls) == sorted(CODES)
+    entries["BOS"].clear()
+    assert len(job.roster_entries()["BOS"]) == 2
+
+
+@pytest.mark.anyio
+async def test_a_newer_roster_replaces_the_teams_entries(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    sources.rosters["BOS"].entries = [entry("BOS1")]
+    job = make_job(settings, store, sources)
+    await job.run(NOON)
+    sources.rosters["BOS"] = Roster(
+        season=SEASON,
+        team_id="id-BOS",
+        players=[player("BOS", 3)],
+        entries=[entry("BOS3")],
+    )
+    sources.averages[("id-BOS", SEASON)] = [averages("BOS3", 20)]
+
+    await job.run(NEXT_MORNING)
+
+    assert [e.player_id for e in job.roster_entries()["BOS"]] == ["BOS3"]
+
+
+@pytest.mark.anyio
+async def test_has_no_latest_roster_fetch_before_a_fetch_and_the_clock_time_after_a_run(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    clock = [NOON]
+    job = StarsJob(
+        settings,
+        store,
+        create_client(store),
+        fetch_roster=sources.fetch_roster,
+        fetch_season_averages=sources.fetch_season_averages,
+        fetch_player_averages=sources.fetch_player_averages,
+        clock=lambda: clock[0],
+    )
+    assert job.latest_roster_fetch() is None
+
+    await job.run(NOON)
+    assert job.latest_roster_fetch() == NOON
+
+    clock[0] = NOON + dt.timedelta(minutes=1)
+    await job.run(NOON + dt.timedelta(minutes=1))
+    assert job.latest_roster_fetch() == NOON
 
 
 @pytest.mark.anyio

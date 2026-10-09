@@ -24,6 +24,8 @@
 # - Serves a player feed with Cache-Control and ETag, answers 304 for a matching ETag, 404 for an id in no roster once the rosters are fetched and 503 before, also through the app with no jobs
 # - A team and a player request record presence
 # - Serves the standings feed with Cache-Control and ETag, answers 304 for a matching ETag, 503 when the read fails with nothing stored and keeps serving the stored feed when a rebuild fails
+# - Serves the search feed with Cache-Control and ETag, with 30 teams and every roster player, and answers 304 for a matching ETag
+# - Responds 503 with a JSON error for the search feed before the rosters are fetched or when the standings read fails with nothing stored, and keeps serving the stored feed when a rebuild fails
 #
 # What is covered:
 # - Success response, documented failures (503, 404), edge case of an invalid publish
@@ -46,6 +48,7 @@ from fastapi.testclient import TestClient
 from app.feeds.game_detail import GameDetailFeed
 from app.feeds.games import GamesFeed, GameStatus, Star, Stars
 from app.feeds.player import PlayerFeed
+from app.feeds.search import SearchFeed
 from app.feeds.standings import StandingsFeed
 from app.feeds.team import TeamFeed
 from app.jobs.game_detail_feed import GameDetailFeeds
@@ -66,6 +69,7 @@ from app.sources.team_schedule import TeamSchedule
 from app.storage.feeds import publish_by_id, publish_feed
 from app.storage.state import StateStore
 from tests.jobs.test_player_feed import PlayerKit
+from tests.jobs.test_search_feed import SearchKit
 from tests.jobs.test_standings_feed import StandingsKit
 
 
@@ -782,6 +786,97 @@ def test_keeps_serving_the_stored_standings_when_a_rebuild_fails(
         standings.kit.failing.add("standings")
 
         response = client.get("/feeds/standings.json")
+
+    assert response.status_code == 200
+    assert response.content == first.content
+
+
+class Search:
+    """An app with the feeds router and the search kind over the search kit's fakes."""
+
+    def __init__(self, path: Path) -> None:
+        self.kit = SearchKit(path)
+        self.app = FastAPI()
+        self.app.include_router(feeds_router.router)
+        self.app.state.settings = self.kit.settings
+        self.app.state.presence = Presence(clock=lambda: self.kit.clock[0])
+        self.app.state.games_job = self.kit.games
+        self.app.state.feed_cache = self.kit.cache
+
+    def fetch_rosters(self) -> None:
+        now = self.kit.clock[0]
+        asyncio.run(self.kit.run_stars(now - dt.timedelta(hours=1)))
+        self.kit.clock[0] = now
+
+
+@pytest.fixture
+def search(tmp_path: Path) -> Iterator[Search]:
+    with respx.mock:
+        yield Search(tmp_path)
+
+
+def test_serves_the_search_feed_with_cache_control_and_an_etag(
+    search: Search,
+) -> None:
+    search.fetch_rosters()
+    with TestClient(search.app) as client:
+        response = client.get("/feeds/search.json")
+
+    assert response.status_code == 200
+    feed = SearchFeed.model_validate_json(response.content)
+    assert len(feed.teams) == 30 and len(feed.players) == 60
+    assert response.headers["content-type"] == "application/json"
+    assert response.headers["cache-control"] == CACHE_CONTROL
+    etag = response.headers["etag"]
+    assert etag.startswith('"') and etag.endswith('"')
+
+
+def test_responds_304_when_the_search_etag_matches(search: Search) -> None:
+    search.fetch_rosters()
+    with TestClient(search.app) as client:
+        first = client.get("/feeds/search.json")
+
+        response = client.get(
+            "/feeds/search.json", headers={"If-None-Match": first.headers["etag"]}
+        )
+
+    assert response.status_code == 304
+    assert response.content == b""
+
+
+def test_responds_503_with_a_json_error_before_the_rosters_are_fetched(
+    search: Search,
+) -> None:
+    with TestClient(search.app) as client:
+        response = client.get("/feeds/search.json")
+
+    assert response.status_code == 503
+    assert isinstance(response.json()["detail"], str)
+    assert search.kit.requests == []
+
+
+def test_responds_503_when_the_search_standings_read_fails_with_no_stored_feed(
+    search: Search,
+) -> None:
+    search.fetch_rosters()
+    search.kit.failing.add("standings")
+    with TestClient(search.app) as client:
+        response = client.get("/feeds/search.json")
+
+    assert response.status_code == 503
+    assert isinstance(response.json()["detail"], str)
+
+
+def test_keeps_serving_the_stored_search_feed_when_a_rebuild_fails(
+    search: Search,
+) -> None:
+    search.fetch_rosters()
+    with TestClient(search.app) as client:
+        first = client.get("/feeds/search.json")
+        search.kit.clock[0] += FEED_LIFETIME
+        search.kit.failing.add("standings")
+
+        response = client.get("/feeds/search.json")
 
     assert response.status_code == 200
     assert response.content == first.content

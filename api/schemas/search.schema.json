@@ -1,0 +1,250 @@
+{
+  "$defs": {
+    "InjuryStatus": {
+      "enum": [
+        "out",
+        "doubtful",
+        "questionable",
+        "probable",
+        "day-to-day"
+      ],
+      "title": "InjuryStatus",
+      "type": "string"
+    },
+    "SearchInjury": {
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/InjuryStatus"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "title": "SearchInjury",
+      "type": "object"
+    },
+    "SearchPlayer": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "shortName": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "number": {
+          "anyOf": [
+            {
+              "pattern": "^\\d{1,2}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "position": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "positionAbbr": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "photoUrl": {
+          "anyOf": [
+            {
+              "format": "uri",
+              "maxLength": 2083,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "injury": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SearchInjury"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "team": {
+          "$ref": "#/$defs/SearchPlayerTeam"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "shortName",
+        "number",
+        "position",
+        "positionAbbr",
+        "photoUrl",
+        "injury",
+        "team"
+      ],
+      "title": "SearchPlayer",
+      "type": "object"
+    },
+    "SearchPlayerTeam": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "pattern": "^[A-Z]{3}$",
+          "type": "string"
+        },
+        "primary": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "code",
+        "primary"
+      ],
+      "title": "SearchPlayerTeam",
+      "type": "object"
+    },
+    "SearchTeam": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "pattern": "^[A-Z]{3}$",
+          "type": "string"
+        },
+        "city": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "colors": {
+          "$ref": "#/$defs/StandingsColors"
+        },
+        "record": {
+          "pattern": "^\\d+-\\d+$",
+          "type": "string"
+        },
+        "division": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "divisionRank": {
+          "anyOf": [
+            {
+              "maximum": 5,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "code",
+        "city",
+        "name",
+        "colors",
+        "record",
+        "division",
+        "divisionRank"
+      ],
+      "title": "SearchTeam",
+      "type": "object"
+    },
+    "StandingsColors": {
+      "additionalProperties": false,
+      "properties": {
+        "primary": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "secondary": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "primary",
+        "secondary"
+      ],
+      "title": "StandingsColors",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "teams": {
+      "items": {
+        "$ref": "#/$defs/SearchTeam"
+      },
+      "maxItems": 30,
+      "minItems": 30,
+      "type": "array"
+    },
+    "players": {
+      "items": {
+        "$ref": "#/$defs/SearchPlayer"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "teams",
+    "players"
+  ],
+  "title": "SearchFeed",
+  "type": "object"
+}

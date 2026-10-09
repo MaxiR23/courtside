@@ -47,7 +47,7 @@ The roster and leaders are fetched once a day per team. A player's individual av
 
 ## G. On demand
 
-Everything else is built on request only: pre-game game detail, team feeds, player feeds and the standings feed. A feed nobody requests is never built, stored or fetched. A stored feed expires:
+Everything else is built on request only: pre-game game detail, team feeds, player feeds, the standings feed and the search feed. A feed nobody requests is never built, stored or fetched. A stored feed expires:
 
 | Feed | Expires |
 |---|---|
@@ -56,6 +56,7 @@ Everything else is built on request only: pre-game game detail, team feeds, play
 | Pre-game game detail, tip-off under 12 hours away or passed | 3 hours after the build |
 | Team feed, player feed | When the team has a final game whose final time plus 1 hour is after the build, and in any case 7 days after the build |
 | Standings feed | When any game of the league has a final time plus 1 hour after the build, and in any case 7 days after the build |
+| Search feed | When any game of the league has a final time plus 1 hour after the build, when the stars job fetches a roster after the build, and in any case 7 days after the build |
 
 ## H. Serving
 

@@ -18,7 +18,7 @@ The visual, interaction and data specification for the nav, the `/standings` pag
 
 Everything under "Implementation rules" in `docs/design.md`, `docs/design-game-detail.md` and `docs/design-profiles.md` applies, plus:
 
-- **The front end only draws.** Every value comes ready from the feed: percentage, short name, ordinal inputs, both games behind, signs. `/web` computes nothing except search matching and ranking, locally, with zero requests per keystroke.
+- **The front end only draws.** Every value comes ready from the feed: percentage, short name, ordinal inputs (the page formats the ordinal), both games behind, signs. `/web` computes nothing except search matching and ranking, locally, with zero requests per keystroke.
 - **A missing value is `null` in the feed and renders `—`** (seed, streak, games behind). A missing clinch renders no tag.
 - **No URL and no data source name is written in `/web`.** Photos come from the feed.
 - **Every user-facing string is translatable**, in English and Spanish (Paraglide). The full list is in "Strings".
@@ -310,11 +310,11 @@ Mapped to existing tokens: active toggle `rgba(116, 157, 196, 0.14)` is `--toggl
 Notes:
 
 - Division names, team names, cities, positions and injury statuses are shown as the feed sends them or through the existing translations of the injury statuses.
-- Ordinals (`1st`, `2nd`) come ready from the feed in the active language's form (`1.º`).
+- Ordinals (`1st`, `2nd`) are formatted by the page from the feed's integer position, in the active language's form (`1.º`).
 
 ## Feed contract
 
-Keys are camelCase. Nullable fields are always present and `null` when absent. Times are UTC, ISO 8601. Every value below is computed by the backend. Both feeds are on demand (rule G).
+Keys are camelCase. Nullable fields are always present and `null` when absent. Times are UTC, ISO 8601. Every value below is computed by the backend, except the ordinal text, which the page formats from an integer position. Both feeds are on demand (rule G).
 
 ### Standings feed
 
@@ -330,9 +330,11 @@ Where this table and `docs/api/standings.md` or `web/src/lib/contract/standings.
 
 ### Search feed
 
+Where this table and `docs/api/search.md` or `web/src/lib/contract/search.ts` differ, those two are the authority.
+
 | Field | Content |
 |---|---|
-| `teams` | `code`, `city`, `name`, `colors`, `record` (ready string), `rank` (ready ordinal) and `division` (name) |
+| `teams` | `code`, `city`, `name`, `colors`, `record` (ready string), `divisionRank` (integer 1 to 5, or null; the page formats the ordinal) and `division` (name) |
 | `players` | `id`, `name`, `shortName`, `number`, `position` (name), `positionAbbr`, `photoUrl` (or null), `injury` (`status`, or null), `team` (`code`, `primary` color or null) |
 
 - Answers 503 until the rosters are fetched. The client sends the ETag back and handles 304.

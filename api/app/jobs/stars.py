@@ -11,8 +11,9 @@
 # only replaced by a newly picked one: a failed team keeps its last known star.
 # The games job reads the stars through stars_of and waits for has_every_star
 # before its first feed. It records the players of every roster it fetches, with
-# their team, for the player feed's ids (rule I), and calls after_run after a run
-# with due teams.
+# their team, for the player feed's ids (rule I), keeps each roster's entries and
+# the time of the latest roster fetch for the search feed, and calls after_run
+# after a run with due teams.
 #
 # SEE: docs/adr/0007-backend-runtime-and-data-pipeline.md, docs/adr/0014-star-guarantees.md, docs/source-rules.md, docs/adr/0020-source-rules.md
 
@@ -27,7 +28,7 @@ from app.settings import Settings
 from app.sources import team_players
 from app.sources.http import Freshness, SourceClient, SourceError
 from app.sources.scoreboard import ScoreboardGame
-from app.sources.team_players import PlayerAverages, Roster
+from app.sources.team_players import PlayerAverages, Roster, RosterEntry
 from app.sources.teams import TEAM_CODES
 from app.storage.state import StateStore
 
@@ -101,6 +102,8 @@ class StarsJob:
         self._after_run = after_run
         self._player_teams: dict[str, str] = {}
         self._roster_fetched: set[str] = set()
+        self._roster_entries: dict[str, list[RosterEntry]] = {}
+        self._latest_roster_fetch: dt.datetime | None = None
         self._stars: dict[str, Star] = store.stars()
         self._daily_fetched_at: dt.datetime | None = None
         self._pending: list[str] = []
@@ -130,6 +133,8 @@ class StarsJob:
         for member in roster.players:
             self._player_teams[member.player_id] = code
         self._roster_fetched.add(code)
+        self._roster_entries[code] = list(roster.entries)
+        self._latest_roster_fetch = self._clock()
         star: Star | None = None
         individual_error: SourceError | None = None
         for season in (roster.season, roster.season - 1):
@@ -214,6 +219,14 @@ class StarsJob:
     def rosters_ready(self) -> bool:
         """True once every team's roster has been fetched."""
         return all(code in self._roster_fetched for code in TEAM_CODES.values())
+
+    def roster_entries(self) -> dict[str, list[RosterEntry]]:
+        """The entries of each team's latest fetched roster, by standard code."""
+        return {code: list(entries) for code, entries in self._roster_entries.items()}
+
+    def latest_roster_fetch(self) -> dt.datetime | None:
+        """When the latest roster was fetched; none before the first."""
+        return self._latest_roster_fetch
 
     def stars_of(self, game: ScoreboardGame) -> Stars | None:
         away = self._stars.get(game.away.code)

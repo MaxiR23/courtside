@@ -18,7 +18,7 @@
 // web/src/lib/contract/game-detail.ts, api/schemas/game-detail.schema.json,
 // web/src/lib/contract/player.ts, api/schemas/player.schema.json, web/src/lib/contract/team.ts,
 // api/schemas/team.schema.json, web/src/lib/contract/standings.ts,
-// api/schemas/standings.schema.json
+// api/schemas/standings.schema.json, web/src/lib/contract/search.ts, api/schemas/search.schema.json
 // @vitest-environment node
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
