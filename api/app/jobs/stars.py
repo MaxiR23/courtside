@@ -10,7 +10,7 @@
 # so such a team costs at most one request per player per game played. A star is
 # only replaced by a newly picked one: a failed team keeps its last known star.
 # The games job reads the stars through stars_of and waits for has_every_star
-# before its first feed. It records the players of every roster it fetches, with
+# before its first feed (a guest side has no star, ADR 0025). It records the players of every roster it fetches, with
 # their team, for the player feed's ids (rule I), keeps each roster's entries and
 # the time of the latest roster fetch for the search feed, and calls after_run
 # after a run with due teams.
@@ -229,8 +229,10 @@ class StarsJob:
         return self._latest_roster_fetch
 
     def stars_of(self, game: ScoreboardGame) -> Stars | None:
-        away = self._stars.get(game.away.code)
-        home = self._stars.get(game.home.code)
-        if away is None or home is None:
+        away = None if game.away.guest else self._stars.get(game.away.code)
+        home = None if game.home.guest else self._stars.get(game.home.code)
+        if (away is None and not game.away.guest) or (
+            home is None and not game.home.guest
+        ):
             return None
         return Stars(away=away, home=home)

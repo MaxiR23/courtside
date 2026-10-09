@@ -6,6 +6,7 @@
 // - Both cards, away first, with the team tag, first name, last name, team name and photo
 // - The star's name links to the player page; the team tag and name link to the team page
 // - The initials placeholder when a photo fails to load
+// - One card is rendered when a side is null (a guest team has no star)
 //
 // What is covered:
 // - Each state and the photo error interaction
@@ -83,5 +84,15 @@ describe('PlayersToWatch', () => {
 			expect(screen.getByRole('link', { name }).getAttribute('href')).toBe('/team/gsw');
 		}
 		expect(screen.getByRole('link', { name: 'LAL' }).getAttribute('href')).toBe('/team/lal');
+	});
+});
+
+describe('PlayersToWatch with a guest team', () => {
+	it('renders one card for the league side', () => {
+		const { container } = render(PlayersToWatch, {
+			props: { players: { away: null, home: players.home }, teamHref, playerHref }
+		});
+		expect(container.querySelectorAll('.card')).toHaveLength(1);
+		expect(container.querySelector('.tag')?.textContent).toBe('LAL');
 	});
 });

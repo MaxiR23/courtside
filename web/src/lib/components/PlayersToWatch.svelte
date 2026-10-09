@@ -13,7 +13,8 @@
 
 	let { players, teamHref, playerHref }: Props = $props();
 
-	const cards = $derived([players.away, players.home]);
+	// A guest team has no star: its card is not shown.
+	const cards = $derived([players.away, players.home].filter((card) => card !== null));
 </script>
 
 <div class="players">

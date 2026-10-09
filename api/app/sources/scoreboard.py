@@ -4,6 +4,8 @@
 # provider and maps them to contract types. The provider URL comes from
 # Settings. Provider data never leaves this module.
 #
+# A team outside the 30 is a guest side with the provider's code.
+#
 # SEE: docs/api/games.md, docs/adr/0007-backend-runtime-and-data-pipeline.md
 
 import datetime as dt
@@ -24,15 +26,15 @@ from app.feeds.games import (
     REQUIRED_BY_STATUS,
     FeedModel,
     GameStatus,
+    GameTeam,
     LineScore,
     NonEmptyStr,
     Score,
-    Team,
     UtcDatetime,
 )
 from app.settings import Settings
 from app.sources.http import SourceClient, SourceError, get_json
-from app.sources.teams import to_team_code
+from app.sources.teams import to_side
 
 SOURCE = "scoreboard"
 FRESH_FOR = dt.timedelta(seconds=30)
@@ -112,8 +114,8 @@ class ScoreboardGame(FeedModel):
     """A game as the scoreboard knows it: a `Game` without stars and detail."""
 
     id: NonEmptyStr
-    away: Team
-    home: Team
+    away: GameTeam
+    home: GameTeam
     status: GameStatus
     start_time: UtcDatetime
     venue: NonEmptyStr
@@ -151,11 +153,8 @@ def _normalize_clock(display_clock: str | None) -> str | None:
 
 def _team(competitor: _ProviderCompetitor) -> dict[str, Any]:
     team = competitor.team
-    return {
-        "code": to_team_code(team.abbreviation, source=SOURCE),
-        "name": team.name,
-        "city": team.location,
-    }
+    code, guest = to_side(team.abbreviation, source=SOURCE)
+    return {"code": code, "name": team.name, "city": team.location, "guest": guest}
 
 
 def _points(competitor: _ProviderCompetitor) -> list[int]:

@@ -41,7 +41,7 @@ Feeds are produced either by scheduled jobs (live data and fixed-time work, rule
 
 ### Jobs
 
-- Jobs run on a schedule inside the backend process. Each job owns one kind of data. Refresh cadences, the shared source cache, presence and on-demand builds follow the rules in [`source-rules.md`](source-rules.md), adopted by [`adr/0020-source-rules.md`](adr/0020-source-rules.md), which supersede the cadences of [`adr/0007-backend-runtime-and-data-pipeline.md`](adr/0007-backend-runtime-and-data-pipeline.md) and [`adr/0014-star-guarantees.md`](adr/0014-star-guarantees.md). The feed's today changes at US Eastern midnight once no game of the previous day is live, as set in [`adr/0013-day-change.md`](adr/0013-day-change.md). The attempts for a final game's detail and highlights follow [`adr/0010-final-game-attempts.md`](adr/0010-final-game-attempts.md). A failed request does not use up a highlight attempt; the same attempt is retried no sooner than 10 minutes later, as set in [`adr/0018-highlight-request-failures.md`](adr/0018-highlight-request-failures.md). The highlights lookup reads the channel's uploads through the official video API, as set in [`adr/0015-highlights-source.md`](adr/0015-highlights-source.md). The stars job runs in its own task, as set in [`adr/0014-star-guarantees.md`](adr/0014-star-guarantees.md). Standings have no job: the standings feed is built on demand under rule G, as set in [`adr/0023-standings-feed.md`](adr/0023-standings-feed.md). The search feed is built on demand under rule G from the rosters the stars job keeps, as set in [`adr/0024-search-feed.md`](adr/0024-search-feed.md).
+- Jobs run on a schedule inside the backend process. Each job owns one kind of data. Refresh cadences, the shared source cache, presence and on-demand builds follow the rules in [`source-rules.md`](source-rules.md), adopted by [`adr/0020-source-rules.md`](adr/0020-source-rules.md), which supersede the cadences of [`adr/0007-backend-runtime-and-data-pipeline.md`](adr/0007-backend-runtime-and-data-pipeline.md) and [`adr/0014-star-guarantees.md`](adr/0014-star-guarantees.md). The feed's today changes at US Eastern midnight once no game of the previous day is live, as set in [`adr/0013-day-change.md`](adr/0013-day-change.md). The attempts for a final game's detail and highlights follow [`adr/0010-final-game-attempts.md`](adr/0010-final-game-attempts.md). A failed request does not use up a highlight attempt; the same attempt is retried no sooner than 10 minutes later, as set in [`adr/0018-highlight-request-failures.md`](adr/0018-highlight-request-failures.md). The highlights lookup reads the channel's uploads through the official video API, as set in [`adr/0015-highlights-source.md`](adr/0015-highlights-source.md). The stars job runs in its own task, as set in [`adr/0014-star-guarantees.md`](adr/0014-star-guarantees.md). A guest side has no star and a guest game is never in the hero, as set in [`adr/0025-guest-teams.md`](adr/0025-guest-teams.md). Standings have no job: the standings feed is built on demand under rule G, as set in [`adr/0023-standings-feed.md`](adr/0023-standings-feed.md). The search feed is built on demand under rule G from the rosters the stars job keeps, as set in [`adr/0024-search-feed.md`](adr/0024-search-feed.md).
 - A job that fails keeps the last valid feed published. A partial or invalid feed is never written.
 - Each job records its last successful run, so the backend can report its own health.
 
@@ -218,7 +218,7 @@ Recorded in [`adr/0011-state-retention.md`](adr/0011-state-retention.md):
 
 Recorded in [`adr/0012-hero-rotation.md`](adr/0012-hero-rotation.md):
 
-- **Hero rotation**: the hero rotates through the games of the day that are not postponed or canceled; with none, it shows no game. Delayed games stay in the rotation.
+- **Hero rotation**: the hero rotates through the games of the day that are not postponed or canceled and have no guest side ([ADR 0025](adr/0025-guest-teams.md)); with none, it shows no game. Delayed games stay in the rotation.
 
 Recorded in [`adr/0013-day-change.md`](adr/0013-day-change.md):
 
@@ -226,7 +226,7 @@ Recorded in [`adr/0013-day-change.md`](adr/0013-day-change.md):
 
 Recorded in [`adr/0014-star-guarantees.md`](adr/0014-star-guarantees.md):
 
-- **Star guarantees**: every game shows both stars. The stars job runs in its own task and fetches all teams concurrently; the first games feed waits until every team has a star; a team with no roster player among its season leaders gets its star from individual averages; a failed team keeps its last known star.
+- **Star guarantees**: every league side shows its star, a guest side has none ([ADR 0025](adr/0025-guest-teams.md)). The stars job runs in its own task and fetches all teams concurrently; the first games feed waits until every team has a star; a team with no roster player among its season leaders gets its star from individual averages; a failed team keeps its last known star.
 
 Recorded in [`adr/0015-highlights-source.md`](adr/0015-highlights-source.md):
 
@@ -263,6 +263,10 @@ Recorded in [`adr/0023-standings-feed.md`](adr/0023-standings-feed.md):
 Recorded in [`adr/0024-search-feed.md`](adr/0024-search-feed.md):
 
 - **Search feed**: `/feeds/search.json` is built on demand under rule G and served under rule H, stored as `search/league`. It lists the 30 teams and every roster player from the rosters the stars job keeps in memory, with no roster or per-player request, and answers 503 until every roster is fetched. It expires 1 hour after a final game of the league that follows the build, when the stars job fetches a roster after the build, and 7 days after the build. A failed standings or injuries read fails the build; colors are null on a failed team info read; `divisionRank` is an integer the page formats.
+
+Recorded in [`adr/0025-guest-teams.md`](adr/0025-guest-teams.md):
+
+- **Guest teams**: a game side outside the 30 is a guest team with the source's code, name and city and `guest: true`. It has no star, record, standing, injuries or last games, its game has no season series, and its names are never links. Stars come only from league sides, and the hero never shows a game with a guest side.
 
 ## Future
 

@@ -3,8 +3,8 @@ import type {
 	GamesFeed,
 	Highlight,
 	Leader as FeedLeader,
+	GameTeam,
 	Star,
-	Team,
 	TeamStats
 } from '#lib/contract/games.ts';
 import { formatDateParts } from '#lib/format/locale.ts';
@@ -28,15 +28,21 @@ const TIME_ZONE = 'America/New_York';
 
 export type HomeView = {
 	today: Date; // days[3], the middle day
-	heroGames: HeroGame[]; // the games of today in feed order, without postponed and canceled ones
+	heroGames: HeroGame[]; // the games of today in feed order, without postponed, canceled and guest games
 	days: ScheduleDay[]; // seven days
 	updatedMinutesAgo: number;
 };
 
-// Games that will not be played today are not in the hero rotation (ADR 0012).
+// Games that will not be played today, and games with a guest team, are not in the hero rotation (ADR 0012, ADR 0025).
 const OFF_HERO: ReadonlySet<Game['status']> = new Set(['postponed', 'canceled']);
 
 type Options = { videoPlatformName?: string };
+
+// A game with a team outside the league is never the hero game (ADR 0025).
+// A feed built before the guest field has no key: a league team.
+function hasGuest(game: Game): boolean {
+	return game.away.guest === true || game.home.guest === true;
+}
 
 // A live or final game without the fields its status requires: the feed cannot be shown.
 class IncompleteGame extends Error {}
@@ -75,11 +81,18 @@ function periodLabel(period: number): string {
 	return m.panel_line_score_overtime_n({ number: period - 4 });
 }
 
-function scheduleTeam(team: Team): ScheduleTeam {
-	return { code: team.code, name: team.name, city: team.city };
+function scheduleTeam(team: GameTeam): ScheduleTeam {
+	// A feed built before the guest field has no key: a league team.
+	return {
+		code: team.code,
+		name: team.name,
+		city: team.city,
+		...(team.guest === true ? { guest: true } : {})
+	};
 }
 
-function panelPlayer(star: Star): PanelPlayer {
+function panelPlayer(star: Star | null): PanelPlayer | null {
+	if (star === null) return null;
 	return {
 		firstName: star.firstName,
 		lastName: star.lastName,
@@ -88,7 +101,7 @@ function panelPlayer(star: Star): PanelPlayer {
 	};
 }
 
-function heroPlayer(star: Star, team: Team): HeroPlayer {
+function heroPlayer(star: Star, team: GameTeam): HeroPlayer {
 	return {
 		firstName: star.firstName,
 		lastName: star.lastName,
@@ -99,7 +112,7 @@ function heroPlayer(star: Star, team: Team): HeroPlayer {
 	};
 }
 
-function leader(entry: FeedLeader): Leader {
+function leader(entry: FeedLeader, team: GameTeam): Leader {
 	const space = entry.displayName.indexOf(' ');
 	return {
 		firstName: space === -1 ? entry.displayName : entry.displayName.slice(0, space),
@@ -108,7 +121,8 @@ function leader(entry: FeedLeader): Leader {
 		photo: entry.photoUrl,
 		points: entry.points,
 		rebounds: entry.rebounds,
-		assists: entry.assists
+		assists: entry.assists,
+		...(team.guest === true ? { guest: true } : {})
 	};
 }
 
@@ -145,7 +159,7 @@ function playedDetails(game: Game, highlights?: GameHighlights): GameDetails {
 	return {
 		kind: 'played',
 		periods: { away: [...lineScore.away], home: [...lineScore.home] },
-		leaders: { away: leader(leaders.away), home: leader(leaders.home) },
+		leaders: { away: leader(leaders.away, game.away), home: leader(leaders.home, game.home) },
 		stats: { away: statLine(teamStats.away), home: statLine(teamStats.home) },
 		...(highlights ? { highlights } : {})
 	};
@@ -236,12 +250,12 @@ function heroGame(game: Game): HeroGame {
 		away: {
 			code: game.away.code,
 			name: game.away.name,
-			star: heroPlayer(game.stars.away, game.away)
+			star: heroPlayer(required(game.stars.away), game.away)
 		},
 		home: {
 			code: game.home.code,
 			name: game.home.name,
-			star: heroPlayer(game.stars.home, game.home)
+			star: heroPlayer(required(game.stars.home), game.home)
 		}
 	};
 }
@@ -258,7 +272,9 @@ export function toHomeView(feed: GamesFeed, receivedAt: Date, options: Options):
 		const generatedAt = new Date(feed.generatedAt).getTime();
 		return {
 			today: days[TODAY_INDEX].date,
-			heroGames: today.games.filter((game) => !OFF_HERO.has(game.status)).map(heroGame),
+			heroGames: today.games
+				.filter((game) => !OFF_HERO.has(game.status) && !hasGuest(game))
+				.map(heroGame),
 			days,
 			updatedMinutesAgo: Math.max(0, Math.floor((receivedAt.getTime() - generatedAt) / 60_000))
 		};

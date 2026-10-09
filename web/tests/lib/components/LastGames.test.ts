@@ -7,6 +7,7 @@
 // - The team names link to the team page; the opponent stays plain text
 // - Rows with result, date, opponent and score, in the given order
 // - A team with fewer than five games and a team with none (empty line, English and Spanish)
+// - Only the league side renders when a side is null
 //
 // What is covered:
 // - Each state
@@ -104,5 +105,14 @@ describe('LastGames', () => {
 		render(LastGames, { props: { lastGames, teamHref } });
 		expect(screen.getByText('vs DEN')).toBeTruthy();
 		expect(screen.queryByRole('link', { name: /DEN|PHX|SAC/ })).toBeNull();
+	});
+});
+
+describe('LastGames with a guest team', () => {
+	it('renders only the league team', () => {
+		const { container } = render(LastGames, {
+			props: { lastGames: { away: null, home: lastGames.away }, teamHref }
+		});
+		expect([...container.querySelectorAll('h3')].map((h) => h.textContent)).toEqual(['Warriors']);
 	});
 });

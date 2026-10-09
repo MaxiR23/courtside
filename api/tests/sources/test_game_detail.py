@@ -9,7 +9,7 @@
 # - Builds photo URLs from the template and keeps the display name exactly as the provider gives it
 # - Converts shooting percentages to fractions and takes team turnovers from the box score
 # - Maps the provider team codes that differ from the standard ones
-# - Raises the source error on an invalid payload, an unknown team, a missing home or away team, a team without player stats, a missing team stat, a stat that is not a number, an empty display name, a timeout, an error status and a missing URL
+# - Raises the source error on an invalid payload, a missing home or away team, a team without player stats, a missing team stat, a stat that is not a number, an empty display name, a timeout, an error status and a missing URL
 # - GameDetail uses the same field types as the contract Game
 # - Maps a recorded scheduled game and a recorded final game to their detail sections: venue, box score, team stats, win probability, injuries, season series and videos
 # - Maps a venue without an address, or an address without a city, to a null city
@@ -29,6 +29,7 @@
 # - SeriesMeeting uses the same field types as the contract SeriesGame, except the arena
 # - A final game's detail attempt fetches again when the stored entry is older than its due time, and reuses one fetched at or after it
 # - The sections and the detail of one game share one cached response
+# - A guest team keeps its provider code in the leaders, team stats and box score; a guest player photo is the box score headshot or null; a guest game has no season series and may have no win probability
 #
 # What is covered:
 # - A valid response mapped, an invalid payload rejected, upstream failures handled
@@ -404,17 +405,69 @@ async def test_raises_the_source_error_on_a_payload_missing_a_used_field(
     assert error.reason.startswith("invalid payload: ")
 
 
+def rename_team(node: Any, abbreviation: str, guest: str = "HCM") -> None:
+    """Renames a team everywhere in a payload: the invented Harbor City Mariners."""
+    if isinstance(node, dict):
+        if node.get("abbreviation") == abbreviation:
+            node["abbreviation"] = guest
+        for value in node.values():
+            rename_team(value, abbreviation, guest)
+    elif isinstance(node, list):
+        for value in node:
+            rename_team(value, abbreviation, guest)
+
+
+def headshot(payload: Payload, abbreviation: str, name: str, href: str) -> None:
+    found = next(
+        a
+        for p in payload["boxscore"]["players"]
+        if p["team"]["abbreviation"] == abbreviation
+        for a in p["statistics"][0]["athletes"]
+        if a["athlete"]["displayName"] == name
+    )
+    found["athlete"]["headshot"] = {"href": href}
+
+
 @pytest.mark.anyio
-async def test_raises_the_source_error_on_an_unknown_team_code(
+async def test_maps_the_leaders_and_team_stats_of_a_guest_game(
     mock: respx.MockRouter, settings: Settings
 ) -> None:
     payload = load("final.json")
-    box_team(payload, "away")["team"]["abbreviation"] = "ZZZ"
+    rename_team(payload, "GS")
     mock.get(URL).respond(json=payload)
 
-    error = await fetch_error(settings)
+    detail = await fetch(settings)
 
-    assert error.reason == "unknown team code 'ZZZ'"
+    assert detail.leaders.away.team_code == "HCM"
+    assert detail.leaders.home.team_code == "LAC"
+    assert detail.leaders.away.points == 12
+    assert detail.team_stats.away.rebounds == 49
+
+
+@pytest.mark.anyio
+async def test_a_guest_leader_photo_is_the_box_score_headshot_and_null_without_one(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("final.json")
+    rename_team(payload, "GS")
+    headshot(
+        payload, "HCM", "Charles Bassey", "https://example.com/headshots/bassey.png"
+    )
+    mock.get(URL).respond(json=payload)
+    bare = load("final.json")
+    rename_team(bare, "GS")
+    mock.get(TEMPLATE.format(game_id="bare")).respond(json=bare)
+
+    with_headshot = await fetch(settings)
+    without_headshot = await fetch(settings, game_id="bare")
+
+    assert str(with_headshot.leaders.away.photo_url) == (
+        "https://example.com/headshots/bassey.png"
+    )
+    assert str(with_headshot.leaders.home.photo_url) == (
+        "https://example.com/players/4066648.png"
+    )
+    assert without_headshot.leaders.away.photo_url is None
 
 
 @pytest.mark.anyio
@@ -640,6 +693,8 @@ async def test_maps_a_recorded_scheduled_game_to_its_venue_injuries_and_series_w
     assert detail.win_probability_leader is None
     assert detail.win_probability_periods is None
     assert detail.injuries is not None
+    assert detail.injuries.away is not None
+    assert detail.injuries.home is not None
     assert [i.display_name for i in detail.injuries.away] == ["Donte DiVincenzo"]
     assert [i.status.value for i in detail.injuries.away] == ["out"]
     assert [i.status.value for i in detail.injuries.home] == [
@@ -701,6 +756,7 @@ async def test_maps_a_recorded_final_game_to_its_detail_sections(
     assert detail.team_stats.home.free_throw_pct == 1.0
     assert (detail.team_stats.home.steals, detail.team_stats.home.blocks) == (10, 6)
     assert detail.injuries is not None
+    assert detail.injuries.away is not None
     assert detail.injuries.home == []
     assert len(detail.injuries.away) == 5
     assert detail.season_series is not None
@@ -1482,3 +1538,74 @@ async def test_sections_and_detail_of_one_game_share_one_cached_response(
         await fetch_game_detail(client, GAME_ID, settings, fresh)
 
     assert route.call_count == 1
+
+
+# Guest games: the Harbor City Mariners replace one side of a recorded game.
+
+
+@pytest.mark.anyio
+async def test_maps_the_box_score_team_stats_and_quarters_of_both_sides_of_a_guest_game(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("summary-final.json")
+    rename_team(payload, "ORL")
+
+    detail = await sections_of(mock, settings, payload, SERIES_GAME_ID)
+
+    assert detail.box_score is not None and detail.team_stats is not None
+    assert detail.box_score.away.players and detail.box_score.home.players
+    assert detail.team_stats.away.rebounds > 0 and detail.team_stats.home.rebounds > 0
+    leaders = detail.team_stats.leaders.model_dump().values()
+    assert set(leaders) <= {"HCM", "BOS", None}
+    assert detail.injuries is not None
+
+
+@pytest.mark.anyio
+async def test_a_guest_player_photo_is_the_headshot_and_null_without_one_while_a_league_player_keeps_the_template(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("summary-final.json")
+    rename_team(payload, "ORL")
+    headshot(payload, "HCM", "Paolo Banchero", "https://example.com/headshots/pb.png")
+
+    detail = await sections_of(mock, settings, payload, SERIES_GAME_ID)
+
+    assert detail.box_score is not None
+    guest = {p.display_name: p.photo_url for p in detail.box_score.away.players}
+    league = detail.box_score.home.players
+    assert str(guest["Paolo Banchero"]) == "https://example.com/headshots/pb.png"
+    assert guest["Franz Wagner"] is None
+    assert str(league[0].photo_url) == (
+        f"https://example.com/players/{league[0].player_id}.png"
+    )
+
+
+@pytest.mark.anyio
+async def test_a_guest_game_has_no_season_series(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    league = load("summary-final.json")
+    guest = load("summary-final.json")
+    rename_team(guest, "ORL")
+    mock.get(TEMPLATE.format(game_id="guest")).respond(json=guest)
+
+    with_series = await sections_of(mock, settings, league, SERIES_GAME_ID)
+    without_series = await fetch_sections(settings, "guest")
+
+    assert with_series.season_series is not None
+    assert without_series.season_series is None
+
+
+@pytest.mark.anyio
+async def test_an_empty_win_probability_of_a_guest_game_is_null(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("summary-final.json")
+    rename_team(payload, "ORL")
+    payload["winprobability"] = []
+
+    detail = await sections_of(mock, settings, payload, SERIES_GAME_ID)
+
+    assert detail.win_probability is None
+    assert detail.win_probability_leader is None
+    assert detail.win_probability_periods is None

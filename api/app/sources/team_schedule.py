@@ -28,7 +28,7 @@ from app.feeds.game_detail import GameResult, LastGame
 from app.feeds.games import FeedModel, NonEmptyStr, TeamCode, UtcDatetime
 from app.settings import Settings
 from app.sources.http import SourceClient, SourceError, get_json, with_query
-from app.sources.teams import TEAM_CODES, to_team_code
+from app.sources.teams import TEAM_CODES, to_side, to_team_code
 
 SOURCE = "team_schedule"
 FRESH_FOR = dt.timedelta(hours=1)
@@ -156,7 +156,7 @@ def _location(error: ValidationError) -> str:
 
 def _last_game(team_code: str, event: _ProviderEvent) -> dict[str, Any]:
     competitors = {
-        to_team_code(c.team.abbreviation, source=SOURCE): c
+        to_side(c.team.abbreviation, source=SOURCE)[0]: c
         for c in event.competitions[0].competitors
     }
     team = competitors.get(team_code)

@@ -11,7 +11,7 @@
 
 	let { standings, teamHref }: Props = $props();
 
-	const rows = $derived([standings.away, standings.home]);
+	const rows = $derived([standings.away, standings.home].filter((row) => row !== null));
 	const columns: { key: Exclude<keyof StandingRow, 'code' | 'name'>; label: () => string }[] = [
 		{ key: 'conference', label: m.game_standings_conference },
 		{ key: 'record', label: m.game_standings_record },

@@ -13,7 +13,8 @@
 # keep being served and an id not loaded is not ready until every day shown is
 # loaded. The feeds of games no longer in the days shown are deleted by the
 # cache's cleanup, run when the set of games shown changes. Each injury carries
-# the athlete id of its league report.
+# the athlete id of its league report. A guest side has no record, standing,
+# injuries or last games, and a guest game has no season series (ADR 0025).
 #
 # SEE: docs/source-rules.md, docs/adr/0020-source-rules.md,
 # docs/adr/0010-final-game-attempts.md, docs/api/game-detail.md
@@ -79,24 +80,32 @@ def build_game_detail_feed(
     sections: GameDetailSections,
     standings: LeagueStandings,
     injuries: LeagueInjuries,
-    away_schedule: TeamSchedule,
-    home_schedule: TeamSchedule,
+    away_schedule: TeamSchedule | None,
+    home_schedule: TeamSchedule | None,
     *,
     stars: StarsProvider,
     highlights: HighlightsProvider,
     highlights_search_url: SearchUrlProvider,
 ) -> GameDetailFeed:
     away, home = game.away.code, game.home.code
-    for code in (away, home):
-        if code not in standings.teams:
-            raise DetailBuildError(f"team {code} has no standing")
+    for side in (game.away, game.home):
+        if not side.guest and side.code not in standings.teams:
+            raise DetailBuildError(f"team {side.code} has no standing")
+    away_standing = None if game.away.guest else standings.teams[away]
+    home_standing = None if game.home.guest else standings.teams[home]
+    schedules = [s for s in (away_schedule, home_schedule) if s is not None]
 
     season_series: dict[str, Any] | None = None
-    if sections.season_series is not None:
+    if sections.season_series is not None and not (game.away.guest or game.home.guest):
         meetings: list[dict[str, Any]] = []
         for meeting in sections.season_series.games:
-            arena = away_schedule.arenas.get(meeting.game_id) or (
-                home_schedule.arenas.get(meeting.game_id)
+            arena = next(
+                (
+                    s.arenas[meeting.game_id]
+                    for s in schedules
+                    if s.arenas.get(meeting.game_id)
+                ),
+                None,
             )
             if arena is None and meeting.game_id == game.id:
                 arena = game.venue
@@ -140,20 +149,24 @@ def build_game_detail_feed(
         "videos": sections.videos,
         "away": {
             **game.away.model_dump(by_alias=False),
-            "record": standings.teams[away].record,
+            "record": away_standing.record if away_standing else None,
         },
         "home": {
             **game.home.model_dump(by_alias=False),
-            "record": standings.teams[home].record,
+            "record": home_standing.record if home_standing else None,
         },
-        "standings": {"away": standings.teams[away], "home": standings.teams[home]},
+        "standings": {"away": away_standing, "home": home_standing},
         "injuries": {
-            "away": [_injury(report) for report in injuries.teams.get(away, [])],
-            "home": [_injury(report) for report in injuries.teams.get(home, [])],
+            "away": None
+            if game.away.guest
+            else [_injury(report) for report in injuries.teams.get(away, [])],
+            "home": None
+            if game.home.guest
+            else [_injury(report) for report in injuries.teams.get(home, [])],
         },
         "last_games": {
-            "away": away_schedule.last_games,
-            "home": home_schedule.last_games,
+            "away": away_schedule.last_games if away_schedule else None,
+            "home": home_schedule.last_games if home_schedule else None,
         },
         "season_series": season_series,
         "stars": stars(game),
@@ -262,11 +275,20 @@ class GameDetailFeeds:
         )
         league_standings = await self._fetch_standings(self._client, self._settings)
         injuries = await self._fetch_injuries(self._client, self._settings)
-        away_schedule = await self._fetch_team_schedule(
-            self._client, game.away.code, self._settings
+        # A guest side's schedule is never fetched (ADR 0025).
+        away_schedule = (
+            None
+            if game.away.guest
+            else await self._fetch_team_schedule(
+                self._client, game.away.code, self._settings
+            )
         )
-        home_schedule = await self._fetch_team_schedule(
-            self._client, game.home.code, self._settings
+        home_schedule = (
+            None
+            if game.home.guest
+            else await self._fetch_team_schedule(
+                self._client, game.home.code, self._settings
+            )
         )
         return build_game_detail_feed(
             game,

@@ -6,6 +6,8 @@
 # - Every provider team code maps to a standard code
 # - The 30 standard codes are each reached exactly once
 # - An unknown provider code raises the source error
+# - A game side maps to its standard code, or to the provider's own code as a guest
+# - A guest code equal to a league standard code raises the source error
 # - Every recorded provider team id maps to its team's standard code
 # - An unknown provider team id raises the source error
 #
@@ -21,7 +23,13 @@ from pydantic import TypeAdapter
 
 from app.feeds.games import TeamCode
 from app.sources.http import SourceError
-from app.sources.teams import TEAM_CODES, TEAM_IDS, team_code_of_id, to_team_code
+from app.sources.teams import (
+    TEAM_CODES,
+    TEAM_IDS,
+    team_code_of_id,
+    to_side,
+    to_team_code,
+)
 
 # The provider's teams list, as recorded: provider code and the standard code.
 RECORDED_TEAMS = {
@@ -98,3 +106,19 @@ def test_raises_the_source_error_on_an_unknown_team_id(provider_id: str) -> None
         team_code_of_id(provider_id, source="test")
 
     assert raised.value.reason == f"unknown team id {provider_id!r}"
+
+
+def test_to_side_maps_every_provider_key_to_its_standard_code_and_not_a_guest() -> None:
+    for provider_code, standard_code in RECORDED_TEAMS.items():
+        assert to_side(provider_code, source="test") == (standard_code, False)
+
+
+def test_to_side_maps_an_unknown_code_to_itself_as_a_guest() -> None:
+    assert to_side("HCM", source="test") == ("HCM", True)
+
+
+def test_to_side_raises_the_source_error_for_a_non_key_equal_to_a_league_code() -> None:
+    with pytest.raises(SourceError) as raised:
+        to_side("GSW", source="test")
+
+    assert raised.value.reason == "guest team code 'GSW' is a league team code"

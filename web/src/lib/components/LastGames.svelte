@@ -12,7 +12,7 @@
 
 	let { lastGames, teamHref }: Props = $props();
 
-	const teams = $derived([lastGames.away, lastGames.home]);
+	const teams = $derived([lastGames.away, lastGames.home].filter((team) => team !== null));
 </script>
 
 <div class="last-games">

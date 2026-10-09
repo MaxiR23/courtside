@@ -82,6 +82,25 @@ def to_team_code(provider_code: str, *, source: str) -> str:
         raise SourceError(source, f"unknown team code {provider_code!r}") from None
 
 
+LEAGUE_CODES = frozenset(TEAM_CODES.values())
+
+
+def to_side(provider_code: str, *, source: str) -> tuple[str, bool]:
+    """Return the standard code and False for one of the 30 teams, or the
+    provider's own code and True for a guest team.
+
+    Raises SourceError for a provider code that is not a league key but equals
+    a league standard code.
+    """
+    if provider_code in TEAM_CODES:
+        return TEAM_CODES[provider_code], False
+    if provider_code in LEAGUE_CODES:
+        raise SourceError(
+            source, f"guest team code {provider_code!r} is a league team code"
+        )
+    return provider_code, True
+
+
 def team_code_of_id(provider_id: str, *, source: str) -> str:
     """Return the standard code of a provider team id, or raise SourceError."""
     try:

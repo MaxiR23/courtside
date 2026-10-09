@@ -44,7 +44,8 @@ export interface DetailTeam {
 	code: string;
 	name: string;
 	city: string;
-	record: Record;
+	guest: boolean;
+	record: Record | null;
 }
 export interface Record {
 	wins: number;
@@ -90,8 +91,8 @@ export interface TeamStatLeaders {
 	blocks: string | null;
 }
 export interface Stars {
-	away: Star;
-	home: Star;
+	away: Star | null;
+	home: Star | null;
 }
 export interface Star {
 	playerId: string;
@@ -130,7 +131,7 @@ export interface BoxScorePlayer {
 	starter: boolean;
 	minutes: string;
 	plusMinus: number;
-	photoUrl: string;
+	photoUrl: string | null;
 }
 export interface BoxScoreTotals {
 	points: number;
@@ -172,8 +173,8 @@ export interface GamePeriod {
 	startElapsedSeconds: number;
 }
 export interface Injuries {
-	away: Injury[];
-	home: Injury[];
+	away: Injury[] | null;
+	home: Injury[] | null;
 }
 export interface Injury {
 	playerId: string | null;
@@ -182,26 +183,22 @@ export interface Injury {
 	comment: string | null;
 }
 export interface LastGames {
-	/**
-	 * @maxItems 5
-	 */
 	away:
 		| []
 		| [LastGame]
 		| [LastGame, LastGame]
 		| [LastGame, LastGame, LastGame]
 		| [LastGame, LastGame, LastGame, LastGame]
-		| [LastGame, LastGame, LastGame, LastGame, LastGame];
-	/**
-	 * @maxItems 5
-	 */
+		| [LastGame, LastGame, LastGame, LastGame, LastGame]
+		| null;
 	home:
 		| []
 		| [LastGame]
 		| [LastGame, LastGame]
 		| [LastGame, LastGame, LastGame]
 		| [LastGame, LastGame, LastGame, LastGame]
-		| [LastGame, LastGame, LastGame, LastGame, LastGame];
+		| [LastGame, LastGame, LastGame, LastGame, LastGame]
+		| null;
 }
 export interface LastGame {
 	date: string;
@@ -212,8 +209,8 @@ export interface LastGame {
 	opponentScore: number;
 }
 export interface Standings {
-	away: TeamStanding;
-	home: TeamStanding;
+	away: TeamStanding | null;
+	home: TeamStanding | null;
 }
 export interface TeamStanding {
 	conference: Conference;

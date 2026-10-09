@@ -30,6 +30,7 @@
 # - The cleanup deletes the stored detail of a game that left the days shown with no source request, and runs only when the games shown change
 # - A failed build keeps the stored feed and is listed as failed
 # - After a day change whose new-day fetch fails, loaded games keep being served with their additions and no stored feed is deleted, an id not loaded answers unavailable, and once the day loads an id outside the days shown answers unknown
+# - A guest game builds with the box score and team stats of both sides, a record, standing, injuries and last games only for the league side, no season series and a null win probability; the guest side's schedule is never fetched and the served stars have none for the guest
 #
 # What is covered:
 # - Pure logic: happy path, edge cases, error case
@@ -59,6 +60,7 @@ from pydantic import HttpUrl
 from app.feeds.game_detail import GameDetailFeed, Injury, LastGame
 from app.feeds.games import (
     GameStatus,
+    GameTeam,
     Highlight,
     Leader,
     Leaders,
@@ -66,7 +68,6 @@ from app.feeds.games import (
     Score,
     Star,
     Stars,
-    Team,
     TeamStats,
 )
 from app.jobs.game_detail_feed import (
@@ -124,7 +125,7 @@ STATS_ROW = {
     "steals": 5,
     "blocks": 4,
 }
-TEAM_STATS = {
+TEAM_STATS: dict[str, Any] = {
     "away": STATS_ROW,
     "home": STATS_ROW,
     "leaders": {
@@ -161,8 +162,8 @@ HIGHLIGHT = Highlight(
 )
 
 
-def team(code: str) -> Team:
-    return Team(code=code, name=code.title(), city=code.title())
+def team(code: str) -> GameTeam:
+    return GameTeam(code=code, name=code.title(), city=code.title())
 
 
 def game(
@@ -268,6 +269,88 @@ def build(
     )
 
 
+GUEST = GameTeam(code="HCM", name="Mariners", city="Harbor City", guest=True)
+GUEST_STARS = Stars(away=None, home=star("NYK"))
+BOX_LINE = {
+    "points": 20,
+    "field_goals_made": 8,
+    "field_goals_attempted": 15,
+    "three_points_made": 2,
+    "three_points_attempted": 6,
+    "free_throws_made": 2,
+    "free_throws_attempted": 3,
+    "offensive_rebounds": 1,
+    "defensive_rebounds": 5,
+    "rebounds": 6,
+    "assists": 4,
+    "turnovers": 2,
+    "steals": 1,
+    "blocks": 0,
+    "fouls": 3,
+}
+
+
+def box_team(photo: str | None) -> dict[str, Any]:
+    player = {
+        **BOX_LINE,
+        "player_id": "p1",
+        "display_name": "A B",
+        "starter": True,
+        "minutes": "30:00",
+        "plus_minus": 2,
+        "photo_url": photo,
+    }
+    totals = {
+        **BOX_LINE,
+        "field_goal_pct": 0.5,
+        "three_point_pct": 0.3,
+        "free_throw_pct": 0.7,
+    }
+    return {"players": [player], "totals": totals}
+
+
+def guest_game(
+    game_id: str, status: GameStatus, score: Score | None = None
+) -> ScoreboardGame:
+    """A game whose away side is the invented Harbor City Mariners."""
+    return game(game_id, status, score).model_copy(update={"away": GUEST})
+
+
+def guest_sections(
+    status: GameStatus = GameStatus.FINAL, **more: Any
+) -> GameDetailSections:
+    data: dict[str, Any] = {"venue": VENUE, **more}
+    if status is GameStatus.FINAL:
+        data["team_stats"] = {
+            **TEAM_STATS,
+            "leaders": {**TEAM_STATS["leaders"], "rebounds": "HCM"},
+        }
+        data["box_score"] = {
+            "away": box_team(None),
+            "home": box_team("https://example.com/p.png"),
+        }
+    return GameDetailSections.model_validate(data)
+
+
+def build_guest(
+    scoreboard_game: ScoreboardGame,
+    detail: GameDetailSections,
+    *,
+    league_injuries: LeagueInjuries | None = None,
+) -> GameDetailFeed:
+    return build_game_detail_feed(
+        scoreboard_game,
+        detail,
+        standings("NYK"),
+        league_injuries or injuries(),
+        None,
+        schedule(),
+        stars=lambda _: GUEST_STARS,
+        highlights=lambda _: [],
+        highlights_search_url=lambda _: SEARCH_URL,
+    )
+
+
 # Group 1: the builder
 
 
@@ -280,11 +363,14 @@ def test_builds_a_scheduled_game_with_records_standings_injuries_and_last_games(
         game("1", GameStatus.SCHEDULED), league_injuries=injuries({"BOS": [out]})
     )
 
-    assert feed.away.record.wins == 3
+    assert feed.away.record is not None and feed.away.record.wins == 3
     assert feed.home.code == "NYK"
-    assert feed.standings is not None and feed.standings.away.conference_rank == 2
+    assert feed.standings is not None
+    assert feed.standings.away is not None
+    assert feed.standings.away.conference_rank == 2
     assert feed.injuries is not None and feed.injuries.away == [out]
-    assert feed.last_games is not None and len(feed.last_games.home) == 1
+    assert feed.last_games is not None
+    assert feed.last_games.home is not None and len(feed.last_games.home) == 1
     assert feed.venue.name == "Garden"
     assert feed.stars == STARS
     assert str(feed.highlights_search_url) == SEARCH_URL
@@ -438,6 +524,7 @@ async def test_sets_the_injury_player_id_from_the_recorded_league_injuries() -> 
     )
 
     assert feed.injuries is not None
+    assert feed.injuries.away is not None
     assert feed.injuries.away[0].player_id == "5061603"
     assert feed.injuries.away[0].display_name == "Thomas Sorber"
     dumped = feed.model_dump(mode="json")
@@ -577,6 +664,7 @@ class Harness:
         self.sections_fresh: list[Freshness] = []
         self.fail_standings = False
         self.standings_calls = 0
+        self.schedule_calls: list[str] = []
         self.stars: Stars | None = STARS
         self.highlights: list[Highlight] = []
         self.search_url: str | None = SEARCH_URL
@@ -661,6 +749,7 @@ class Harness:
     async def fetch_team_schedule(
         self, client: SourceClient, code: str, settings: Settings
     ) -> TeamSchedule:
+        self.schedule_calls.append(code)
         return schedule()
 
     async def settle(self) -> None:
@@ -1089,3 +1178,103 @@ async def test_after_a_day_change_whose_new_day_fetch_fails_loaded_games_keep_be
     with pytest.raises(UnknownFeedError):
         await harness.serve("never")
     assert (await harness.serve("1")) is not None
+
+
+# Group: guest games
+
+
+def test_builds_a_guest_game_with_the_box_score_team_stats_and_quarters_of_both_sides() -> (
+    None
+):
+    feed = build_guest(guest_game("1", GameStatus.FINAL), guest_sections())
+
+    assert feed.away.guest and feed.winner == "HCM"
+    assert feed.box_score is not None
+    assert feed.box_score.away.players[0].photo_url is None
+    assert feed.box_score.home.players[0].photo_url == PHOTO
+    assert feed.team_stats is not None
+    assert feed.team_stats.leaders.rebounds == "HCM"
+    assert feed.line_score is not None
+    assert feed.line_score.away == [20, 20] and feed.line_score.home == [18, 20]
+
+
+def test_a_guest_game_has_standings_injuries_last_games_and_record_only_for_the_league_side() -> (
+    None
+):
+    out = Injury(display_name="A B", status="out")  # type: ignore[arg-type]
+
+    feed = build_guest(
+        guest_game("1", GameStatus.SCHEDULED),
+        guest_sections(GameStatus.SCHEDULED),
+        league_injuries=injuries({"NYK": [out]}),
+    )
+
+    assert feed.away.record is None
+    assert feed.home.record is not None and feed.home.record.wins == 3
+    assert feed.standings is not None
+    assert feed.standings.away is None and feed.standings.home is not None
+    assert feed.injuries is not None
+    assert feed.injuries.away is None and feed.injuries.home == [out]
+    assert feed.last_games is not None
+    assert feed.last_games.away is None and feed.last_games.home is not None
+
+
+def test_a_guest_game_has_no_season_series() -> None:
+    meetings = series("1")
+
+    feed = build_guest(
+        guest_game("1", GameStatus.FINAL),
+        guest_sections(GameStatus.FINAL, season_series=meetings),
+    )
+
+    assert feed.season_series is None
+
+
+def test_a_guest_game_with_an_empty_win_probability_builds_with_null_win_probability() -> (
+    None
+):
+    feed = build_guest(
+        guest_game("1", GameStatus.FINAL),
+        guest_sections(win_probability=None),
+    )
+
+    assert feed.win_probability is None
+    assert feed.win_probability_leader is None
+    assert feed.win_probability_periods is None
+
+
+@pytest.mark.anyio
+async def test_never_fetches_the_schedule_of_the_guest_side(harness: Harness) -> None:
+    harness.stars = GUEST_STARS
+    harness.games = [
+        guest_game("g", GameStatus.SCHEDULED).model_copy(
+            update={"start_time": NOON + 5 * HOUR}
+        )
+    ]
+    await harness.run(NOON)
+
+    feed = GameDetailFeed.model_validate_json(await harness.serve("g"))
+
+    assert harness.schedule_calls == ["NYK"]
+    assert feed.away.guest and feed.last_games is not None
+    assert feed.last_games.away is None
+
+
+@pytest.mark.anyio
+async def test_stars_served_with_a_guest_game_have_none_for_the_guest_side(
+    harness: Harness,
+) -> None:
+    harness.stars = GUEST_STARS
+    harness.games = [
+        guest_game("g", GameStatus.SCHEDULED).model_copy(
+            update={"start_time": NOON + 5 * HOUR}
+        )
+    ]
+    await harness.run(NOON)
+    await harness.serve("g")
+
+    served = GameDetailFeed.model_validate_json(await harness.serve("g"))
+
+    assert served.stars == GUEST_STARS
+    stored = harness.stored("g")
+    assert stored is not None and stored.stars is None

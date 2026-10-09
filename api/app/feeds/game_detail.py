@@ -17,16 +17,18 @@ from pydantic.alias_generators import to_camel
 from app.feeds.games import (
     FeedModel,
     GameStatus,
+    GameTeam,
     Highlight,
     LineScore,
     NonEmptyStr,
     Percentage,
     Score,
+    SideCode,
     Stars,
-    Team,
     TeamCode,
     TeamStats,
     UtcDatetime,
+    stars_match_sides,
 )
 
 
@@ -35,8 +37,8 @@ class Record(FeedModel):
     losses: NonNegativeInt
 
 
-class DetailTeam(Team):
-    record: Record
+class DetailTeam(GameTeam):
+    record: Record | None
 
 
 class Venue(FeedModel):
@@ -52,14 +54,14 @@ class DetailTeamStats(TeamStats):
 
 
 class TeamStatLeaders(FeedModel):
-    field_goal_pct: TeamCode | None
-    three_point_pct: TeamCode | None
-    free_throw_pct: TeamCode | None
-    rebounds: TeamCode | None
-    assists: TeamCode | None
-    turnovers: TeamCode | None
-    steals: TeamCode | None
-    blocks: TeamCode | None
+    field_goal_pct: SideCode | None
+    three_point_pct: SideCode | None
+    free_throw_pct: SideCode | None
+    rebounds: SideCode | None
+    assists: SideCode | None
+    turnovers: SideCode | None
+    steals: SideCode | None
+    blocks: SideCode | None
 
 
 class DetailGameTeamStats(FeedModel):
@@ -92,7 +94,7 @@ class BoxScorePlayer(BoxScoreLine):
     starter: bool
     minutes: NonEmptyStr
     plus_minus: int
-    photo_url: HttpUrl
+    photo_url: HttpUrl | None
 
 
 class BoxScoreTotals(BoxScoreLine):
@@ -117,7 +119,7 @@ class WinProbabilityPoint(FeedModel):
 
 
 class WinProbabilityLeader(FeedModel):
-    team_code: TeamCode
+    team_code: SideCode
     win_probability: Percentage
 
 
@@ -161,8 +163,8 @@ class Injury(FeedModel):
 
 
 class Injuries(FeedModel):
-    away: list[Injury]
-    home: list[Injury]
+    away: list[Injury] | None
+    home: list[Injury] | None
 
 
 class GameResult(StrEnum):
@@ -172,7 +174,7 @@ class GameResult(StrEnum):
 
 class LastGame(FeedModel):
     date: dt.date
-    opponent: TeamCode
+    opponent: SideCode
     is_home: bool
     result: GameResult
     team_score: NonNegativeInt
@@ -183,12 +185,14 @@ LastGameList = Annotated[list[LastGame], Field(max_length=5)]
 
 
 class LastGames(FeedModel):
-    away: LastGameList
-    home: LastGameList
+    away: LastGameList | None
+    home: LastGameList | None
 
     @model_validator(mode="after")
     def _require_newest_first(self) -> LastGames:
         for games in (self.away, self.home):
+            if games is None:
+                continue
             dates = [game.date for game in games]
             if any(a < b for a, b in pairwise(dates)):
                 raise ValueError("last games must be listed newest first")
@@ -210,8 +214,8 @@ class TeamStanding(FeedModel):
 
 
 class Standings(FeedModel):
-    away: TeamStanding
-    home: TeamStanding
+    away: TeamStanding | None
+    home: TeamStanding | None
 
 
 class SeriesGame(FeedModel):
@@ -271,7 +275,7 @@ class GameDetailFeed(FeedModel):
     clock: NonEmptyStr | None = None
     line_score: LineScore | None = None
     score: Score | None = None
-    winner: TeamCode | None = None
+    winner: SideCode | None = None
     team_stats: DetailGameTeamStats | None = None
     stars: Stars | None = None
     box_score: BoxScore | None = None
@@ -305,6 +309,54 @@ class GameDetailFeed(FeedModel):
             raise ValueError(f"a {self.status} game has no winner")
         if self.winner not in (self.away.code, self.home.code):
             raise ValueError("winner must be the away or the home team code")
+        return self
+
+    @model_validator(mode="after")
+    def _require_two_different_teams(self) -> GameDetailFeed:
+        if self.away.code == self.home.code:
+            raise ValueError("a game has two different teams")
+        return self
+
+    @model_validator(mode="after")
+    def _require_league_data_of_league_sides(self) -> GameDetailFeed:
+        for team in (self.away, self.home):
+            if (team.record is None) != team.guest:
+                raise ValueError("a guest side has no record and a league side has one")
+        if self.stars is not None and not stars_match_sides(
+            self.stars, self.away, self.home
+        ):
+            raise ValueError("a guest side has no star and a league side has one")
+        sections = (
+            ("standings", self.standings),
+            ("injuries", self.injuries),
+            ("lastGames", self.last_games),
+        )
+        for name, section in sections:
+            if section is None:
+                continue
+            for side, team in ((section.away, self.away), (section.home, self.home)):
+                if (side is None) != team.guest:
+                    raise ValueError(
+                        f"{name} of a guest side is null and of a league side is set"
+                    )
+        return self
+
+    @model_validator(mode="after")
+    def _require_no_series_of_a_guest_game(self) -> GameDetailFeed:
+        if self.season_series is not None and (self.away.guest or self.home.guest):
+            raise ValueError("a guest game has no season series")
+        return self
+
+    @model_validator(mode="after")
+    def _require_photos_of_league_players(self) -> GameDetailFeed:
+        if self.box_score is None:
+            return self
+        for team_box, team in (
+            (self.box_score.away, self.away),
+            (self.box_score.home, self.home),
+        ):
+            if not team.guest and any(p.photo_url is None for p in team_box.players):
+                raise ValueError("a league box score player has a photo")
         return self
 
     @model_validator(mode="after")

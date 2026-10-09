@@ -29,10 +29,10 @@
           "type": "string"
         },
         "away": {
-          "$ref": "#/$defs/Team"
+          "$ref": "#/$defs/GameTeam"
         },
         "home": {
-          "$ref": "#/$defs/Team"
+          "$ref": "#/$defs/GameTeam"
         },
         "status": {
           "$ref": "#/$defs/GameStatus"
@@ -115,7 +115,7 @@
         "winner": {
           "anyOf": [
             {
-              "pattern": "^[A-Z]{3}$",
+              "minLength": 1,
               "type": "string"
             },
             {
@@ -207,6 +207,36 @@
       "title": "GameStatus",
       "type": "string"
     },
+    "GameTeam": {
+      "additionalProperties": false,
+      "description": "A side of a game: one of the 30 teams, or a guest team outside the league.",
+      "properties": {
+        "code": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "city": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "guest": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "code",
+        "name",
+        "city",
+        "guest"
+      ],
+      "title": "GameTeam",
+      "type": "object"
+    },
     "GameTeamStats": {
       "additionalProperties": false,
       "properties": {
@@ -269,14 +299,21 @@
           "type": "string"
         },
         "teamCode": {
-          "pattern": "^[A-Z]{3}$",
+          "minLength": 1,
           "type": "string"
         },
         "photoUrl": {
-          "format": "uri",
-          "maxLength": 2083,
-          "minLength": 1,
-          "type": "string"
+          "anyOf": [
+            {
+              "format": "uri",
+              "maxLength": 2083,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "points": {
           "minimum": 0,
@@ -411,10 +448,24 @@
       "additionalProperties": false,
       "properties": {
         "away": {
-          "$ref": "#/$defs/Star"
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Star"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "home": {
-          "$ref": "#/$defs/Star"
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Star"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -432,30 +483,6 @@
       ],
       "title": "StatsAvailability",
       "type": "string"
-    },
-    "Team": {
-      "additionalProperties": false,
-      "properties": {
-        "code": {
-          "pattern": "^[A-Z]{3}$",
-          "type": "string"
-        },
-        "name": {
-          "minLength": 1,
-          "type": "string"
-        },
-        "city": {
-          "minLength": 1,
-          "type": "string"
-        }
-      },
-      "required": [
-        "code",
-        "name",
-        "city"
-      ],
-      "title": "Team",
-      "type": "object"
     },
     "TeamStats": {
       "additionalProperties": false,

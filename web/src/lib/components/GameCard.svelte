@@ -12,7 +12,7 @@
 	import { crossfade } from '#lib/hero/motion.ts';
 	import { m } from '#lib/paraglide/messages.js';
 	import { panelContent, panelExpand, panelTint } from '#lib/schedule/motion.ts';
-	import type { RowLayout, ScheduleGame } from '#lib/schedule/types.ts';
+	import type { RowLayout, ScheduleGame, ScheduleTeam } from '#lib/schedule/types.ts';
 
 	type Props = {
 		game: ScheduleGame;
@@ -91,19 +91,15 @@
 {/snippet}
 
 {#snippet row()}
-	{@const rowHref = (code: string) => (game.details ? null : teamHref(code))}
+	{@const rowHref = (team: ScheduleTeam) =>
+		game.details || team.guest ? null : teamHref(team.code)}
 	<!-- The row is the expand button when the card has details: no link inside a button. -->
 	{#if layout === 'desktop'}
 		<span class="row desktop">
 			<span class="team away">
-				<TeamMonogram
-					code={game.away.code}
-					size="large"
-					href={rowHref(game.away.code) ?? undefined}
-				/>
+				<TeamMonogram code={game.away.code} size="large" href={rowHref(game.away) ?? undefined} />
 				<span class="names" class:dimmed={loser === 'away'}>
-					<span class="name"><NameLink href={rowHref(game.away.code)} text={game.away.name} /></span
-					>
+					<span class="name"><NameLink href={rowHref(game.away)} text={game.away.name} /></span>
 					<span class="city">{game.away.city}</span>
 				</span>
 			</span>
@@ -124,15 +120,10 @@
 			</span>
 			<span class="team home">
 				<span class="names" class:dimmed={loser === 'home'}>
-					<span class="name"><NameLink href={rowHref(game.home.code)} text={game.home.name} /></span
-					>
+					<span class="name"><NameLink href={rowHref(game.home)} text={game.home.name} /></span>
 					<span class="city">{game.home.city}</span>
 				</span>
-				<TeamMonogram
-					code={game.home.code}
-					size="large"
-					href={rowHref(game.home.code) ?? undefined}
-				/>
+				<TeamMonogram code={game.home.code} size="large" href={rowHref(game.home) ?? undefined} />
 			</span>
 			{@render chevron()}
 		</span>
@@ -150,12 +141,10 @@
 					<TeamMonogram
 						code={entry.team.code}
 						size="small"
-						href={rowHref(entry.team.code) ?? undefined}
+						href={rowHref(entry.team) ?? undefined}
 					/>
 					<span class="names" class:dimmed={loser === entry.side}>
-						<span class="name"
-							><NameLink href={rowHref(entry.team.code)} text={entry.team.name} /></span
-						>
+						<span class="name"><NameLink href={rowHref(entry.team)} text={entry.team.name} /></span>
 						<span class="city">{entry.team.city}</span>
 					</span>
 					{#if scores}
@@ -185,8 +174,18 @@
 		<div class="panel-grid">
 			<LineScore
 				{teamHref}
-				away={{ code: game.away.code, periods: details.periods.away, total: status.awayScore }}
-				home={{ code: game.home.code, periods: details.periods.home, total: status.homeScore }}
+				away={{
+					code: game.away.code,
+					guest: game.away.guest,
+					periods: details.periods.away,
+					total: status.awayScore
+				}}
+				home={{
+					code: game.home.code,
+					guest: game.home.guest,
+					periods: details.periods.home,
+					total: status.homeScore
+				}}
 			/>
 			{#if details.kind === 'played'}
 				<Leaders away={details.leaders.away} home={details.leaders.home} {teamHref} />
@@ -238,7 +237,7 @@
 		</dl>
 		<p class="watch-title">{m.panel_players_to_watch()}</p>
 		<div class="watch">
-			{#each [details.playersToWatch.away, details.playersToWatch.home] as player (player.teamCode)}
+			{#each [details.playersToWatch.away, details.playersToWatch.home].filter((p) => p !== null) as player (player.teamCode)}
 				<div class="watch-player">
 					<PlayerPhoto {player} />
 					<span class="watch-name">{player.firstName} {player.lastName}</span>

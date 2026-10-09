@@ -7,6 +7,7 @@
 // - The team names link to the team page
 // - Both rows, away first, with their values
 // - The team cell is the row header and sticky; the table sits in the scroll wrapper
+// - Only the league row renders when a side is null
 //
 // What is covered:
 // - Each state, in both languages
@@ -94,5 +95,14 @@ describe('StandingsRows', () => {
 		render(StandingsRows, { props: { standings, teamHref } });
 		expect(screen.getByRole('link', { name: 'Warriors' }).getAttribute('href')).toBe('/team/gsw');
 		expect(screen.getByRole('link', { name: 'Lakers' }).getAttribute('href')).toBe('/team/lal');
+	});
+});
+
+describe('StandingsRows with a guest team', () => {
+	it('renders only the league row', () => {
+		render(StandingsRows, {
+			props: { standings: { away: null, home: standings.home }, teamHref }
+		});
+		expect(screen.getAllByRole('rowheader').map((h) => h.textContent)).toEqual(['Lakers']);
 	});
 });

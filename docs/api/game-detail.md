@@ -66,24 +66,24 @@ code.
 | Object                | Fields                                                                                                                                       |
 | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Record`              | `wins`, `losses`                                                                                                                             |
-| `DetailTeam`          | `Team` fields (`code`, `name`, `city`) plus `record`                                                                                         |
+| `DetailTeam`          | `GameTeam` fields (`code`, `name`, `city`, `guest`) plus `record` (null for a guest)                                                         |
 | `Venue`               | `name`, `city` (null when the source has no city), `photoUrl` (null when unknown)                                                                                        |
 | `DetailTeamStats`     | `TeamStats` fields (`fieldGoalPct`, `threePointPct`, `rebounds`, `assists`, `turnovers`) plus `freeThrowPct` (0 to 1), `steals`, `blocks`    |
-| `TeamStatLeaders`     | one team code or null per row: `fieldGoalPct`, `threePointPct`, `freeThrowPct`, `rebounds`, `assists`, `turnovers`, `steals`, `blocks`       |
+| `TeamStatLeaders`     | one team code (either side's, a guest code included) or null per row: `fieldGoalPct`, `threePointPct`, `freeThrowPct`, `rebounds`, `assists`, `turnovers`, `steals`, `blocks`       |
 | `DetailGameTeamStats` | `away`, `home`: `DetailTeamStats`; `leaders`: `TeamStatLeaders`                                                                              |
 | `BoxScore`            | `away`, `home`: `TeamBoxScore`                                                                                                               |
 | `TeamBoxScore`        | `players`: `BoxScorePlayer[]`; `totals`: `BoxScoreTotals`                                                                                    |
-| `BoxScorePlayer`      | `playerId`, `displayName`, `starter`, `minutes` (text), `plusMinus`, `photoUrl` plus the counting stats of `BoxScoreTotals`                   |
+| `BoxScorePlayer`      | `playerId`, `displayName`, `starter`, `minutes` (text), `plusMinus`, `photoUrl` (null only for a guest player without a headshot) plus the counting stats of `BoxScoreTotals`                   |
 | `BoxScoreTotals`      | `points`, `fieldGoalsMade`, `fieldGoalsAttempted`, `threePointsMade`, `threePointsAttempted`, `freeThrowsMade`, `freeThrowsAttempted`, `offensiveRebounds`, `defensiveRebounds`, `rebounds`, `assists`, `turnovers`, `steals`, `blocks`, `fouls`, plus `fieldGoalPct`, `threePointPct`, `freeThrowPct` (0 to 1) |
 | `WinProbabilityPoint` | `elapsedSeconds`, `homeWinProbability` (0 to 1)                                                                                              |
-| `WinProbabilityLeader` | `teamCode` (the away or the home code), `winProbability` (0 to 1, above 0.5) |
+| `WinProbabilityLeader` | `teamCode` (the away or the home code, a guest code included), `winProbability` (0 to 1, above 0.5) |
 | `GamePeriod`          | `number`, `startElapsedSeconds`                                                                                                              |
 | `WinProbabilityPeriods` | `periods`: `GamePeriod[]`, `endElapsedSeconds`                                                                                             |
-| `Injuries`            | `away`, `home`: `Injury[]`                                                                                                                   |
+| `Injuries`            | `away`, `home`: `Injury[]`, null for a guest side                                                                                                                  |
 | `Injury`              | `playerId` (the athlete id of the league injury report, null when the source gives none), `displayName`, `status` (`out`, `doubtful`, `questionable`, `probable`, `day-to-day`), `comment` (null when none)                            |
-| `LastGames`           | `away`, `home`: `LastGame[]`                                                                                                                 |
-| `LastGame`            | `date`, `opponent` (team code), `isHome`, `result` (`win`, `loss`), `teamScore`, `opponentScore`                                             |
-| `Standings`           | `away`, `home`: `TeamStanding`                                                                                                               |
+| `LastGames`           | `away`, `home`: `LastGame[]`, null for a guest side                                                                                                                |
+| `LastGame`            | `date`, `opponent` (team code; a guest code when the opponent is a guest), `isHome`, `result` (`win`, `loss`), `teamScore`, `opponentScore`                                             |
+| `Standings`           | `away`, `home`: `TeamStanding`, null for a guest side                                                                                                              |
 | `TeamStanding`        | `conference` (`east`, `west`), `conferenceRank`, `record`, `homeRecord`, `awayRecord`, `lastTen`: `Record`                                   |
 | `SeasonSeries`        | `totalGames`, `awayWins`, `homeWins`, `leader` (team code, null on a tie or before any game), `games`: `SeriesGame[]`                    |
 | `SeriesGame`          | `date`, `away`, `home` (team codes), `isCurrent`, `score`: `Score` / null, `winner` (team code / null), `arena`                             |
@@ -96,6 +96,10 @@ turnover direction of `teamStats.leaders`, and which games
 `seasonSeries.games` holds. The source adapter applies them when it
 builds the feed.
 
+- A guest side ([ADR 0025](../adr/0025-guest-teams.md)) has a null `record`,
+  `standings`, `injuries`, `lastGames` and `stars` side, each null exactly
+  when the side is a guest. `seasonSeries` is null on a guest game, and a
+  guest side's schedule is never fetched.
 - `injuries.away` or `home` empty means no injuries reported; `injuries`
   `null` means no data.
 - `lastGames` lists at most five games per team, newest first; a list may be

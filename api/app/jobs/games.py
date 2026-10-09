@@ -6,7 +6,8 @@
 # the window moves. The morning run refreshes the days shown and runs the
 # cleanup. Stars, highlights and the highlights search URL
 # are inputs, supplied by other jobs. The first feed after a start waits until
-# every team has a star, so no published game ever lacks one.
+# every team has a star (a guest side has none, ADR 0025), so no published
+# league side ever lacks one.
 #
 # A final game's detail is fetched when it becomes final and, after a failure,
 # 2, 4 and 6 hours after its final time; the failed attempts are stored.

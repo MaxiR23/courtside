@@ -56,7 +56,7 @@ import httpx
 import pytest
 import respx
 
-from app.feeds.games import GameStatus, Team
+from app.feeds.games import GameStatus, GameTeam
 from app.settings import Settings
 from app.sources.http import SourceClient, SourceError, create_client
 from app.sources.scoreboard import ScoreboardGame
@@ -124,8 +124,8 @@ def make_game(away: str = "Warriors", home: str = "Clippers") -> ScoreboardGame:
     }
     return ScoreboardGame(
         id="g1",
-        away=Team(code=codes[away], name=away, city="City"),
-        home=Team(code=codes[home], name=home, city="City"),
+        away=GameTeam(code=codes[away], name=away, city="City"),
+        home=GameTeam(code=codes[home], name=home, city="City"),
         status=GameStatus.SCHEDULED,
         start_time=START,
         venue="Arena",

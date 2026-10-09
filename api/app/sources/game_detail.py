@@ -44,7 +44,7 @@ from app.feeds.games import (
 )
 from app.settings import Settings
 from app.sources.http import Freshness, SourceClient, SourceError, get_json
-from app.sources.teams import to_team_code
+from app.sources.teams import to_side, to_team_code
 
 SOURCE = "game_detail"
 EASTERN = ZoneInfo("America/New_York")
@@ -93,9 +93,14 @@ class _ProviderBoxTeam(_ProviderModel):
     statistics: list[_ProviderStatistic]
 
 
+class _ProviderHeadshot(_ProviderModel):
+    href: str
+
+
 class _ProviderAthlete(_ProviderModel):
     id: str
     display_name: str
+    headshot: _ProviderHeadshot | None = None
 
 
 class _ProviderAthleteLine(_ProviderModel):
@@ -138,8 +143,20 @@ def _number(game_id: str, value: str, kind: type[int | float]) -> Any:
         ) from None
 
 
+def _photo(athlete: _ProviderAthlete, photo_url: str, guest: bool) -> str | None:
+    # A league player's photo comes from the template; a guest player has only
+    # the box score headshot, if any.
+    if guest:
+        return athlete.headshot.href if athlete.headshot else None
+    return photo_url.format(player_id=athlete.id)
+
+
 def _leader(
-    game_id: str, code: str, players: _ProviderBoxPlayers, photo_url: str
+    game_id: str,
+    code: str,
+    players: _ProviderBoxPlayers,
+    photo_url: str,
+    guest: bool,
 ) -> dict[str, Any]:
     if not players.statistics:
         raise SourceError(SOURCE, f"game {game_id} has no player stats for {code}")
@@ -174,7 +191,7 @@ def _leader(
         "player_id": athlete.id,
         "display_name": athlete.display_name,
         "team_code": code,
-        "photo_url": photo_url.format(player_id=athlete.id),
+        "photo_url": _photo(athlete, photo_url, guest),
         **values[top],
     }
 
@@ -227,7 +244,7 @@ async def fetch_game_detail(
     team_stats: dict[str, Any] = {}
     for side, team in sides.items():
         abbreviation = team.team.abbreviation
-        code = to_team_code(abbreviation, source=SOURCE)
+        code, guest = to_side(abbreviation, source=SOURCE)
         players = next(
             (p for p in box.players if p.team.abbreviation == abbreviation), None
         )
@@ -235,7 +252,9 @@ async def fetch_game_detail(
             raise SourceError(
                 SOURCE, f"game {game_id} has no players for {abbreviation}"
             )
-        leaders[side] = _leader(game_id, code, players, settings.player_photo_url)
+        leaders[side] = _leader(
+            game_id, code, players, settings.player_photo_url, guest
+        )
         team_stats[side] = _team_stats(game_id, team)
 
     try:
@@ -529,6 +548,7 @@ def _team_box_score(
     team: _ProviderBoxTeam,
     players: _SummaryBoxPlayers,
     photo_url: str,
+    guest: bool,
 ) -> dict[str, Any]:
     if not players.statistics:
         raise SourceError(
@@ -558,7 +578,7 @@ def _team_box_score(
                 "starter": line.starter,
                 "minutes": minutes,
                 "plus_minus": _number(game_id, plus_minus, int),
-                "photo_url": photo_url.format(player_id=line.athlete.id),
+                "photo_url": _photo(line.athlete, photo_url, guest),
                 **values,
             }
         )
@@ -776,10 +796,12 @@ async def fetch_game_detail_sections(
     if set(sides) != {"home", "away"} or len(box.teams) != 2:
         raise SourceError(SOURCE, f"game {game_id} needs one home and one away team")
     abbreviations = {side: team.team.abbreviation for side, team in sides.items()}
-    codes = {
-        side: to_team_code(abbreviation, source=SOURCE)
+    resolved = {
+        side: to_side(abbreviation, source=SOURCE)
         for side, abbreviation in abbreviations.items()
     }
+    codes = {side: code for side, (code, _) in resolved.items()}
+    guests = {side: guest for side, (_, guest) in resolved.items()}
 
     venue = summary.game_info.venue
     sections: dict[str, Any] = {
@@ -804,7 +826,7 @@ async def fetch_game_detail_sections(
                     f"game {game_id} has no players for {abbreviations[side]}",
                 )
             box_score[side] = _team_box_score(
-                game_id, team, players, settings.player_photo_url
+                game_id, team, players, settings.player_photo_url, guests[side]
             )
             team_stats[side] = _detail_team_stats(game_id, team)
         team_stats["leaders"] = {
@@ -828,7 +850,10 @@ async def fetch_game_detail_sections(
     )
     if summary.injuries:
         sections["injuries"] = _injuries(game_id, summary, abbreviations)
-    sections["season_series"] = _season_series(game_id, summary, codes)
+    # A guest game has no season series (ADR 0025).
+    sections["season_series"] = (
+        None if any(guests.values()) else _season_series(game_id, summary, codes)
+    )
     sections["videos"] = _videos(summary.videos) or None
 
     try:

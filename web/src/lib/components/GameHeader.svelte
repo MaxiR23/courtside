@@ -37,6 +37,9 @@
 	const isLoser = (side: 'away' | 'home') =>
 		header?.center.kind === 'score' && header.center.loser === side;
 
+	// The mobile meta line: the city, then the record when the team has one.
+	const metaOf = (team: HeaderTeam) => (team.record ? `${team.city} · ${team.record}` : team.city);
+
 	// Keyed by photo URL, so a new URL tries again after a failure.
 	let failedPhoto = $state<string | null>(null);
 </script>
@@ -58,10 +61,16 @@
 
 {#snippet teamBlock(team: HeaderTeam, side: 'away' | 'home')}
 	<div class="team {side}" class:dimmed={isLoser(side)}>
-		<TeamMonogram code={team.code} size="header" href={teamHref(team.code)} />
+		<TeamMonogram
+			code={team.code}
+			size="header"
+			href={team.guest ? undefined : teamHref(team.code)}
+		/>
 		<span class="city">{team.city}</span>
-		<h1 class="name"><NameLink href={teamHref(team.code)} text={team.name} /></h1>
-		<span class="record">{team.record}</span>
+		<h1 class="name">
+			<NameLink href={team.guest ? null : teamHref(team.code)} text={team.name} />
+		</h1>
+		{#if team.record}<span class="record">{team.record}</span>{/if}
 	</div>
 {/snippet}
 
@@ -102,10 +111,16 @@
 						{@const side = entry.side}
 						{@const team = entry.team}
 						<div class="row" class:dimmed={isLoser(side)}>
-							<TeamMonogram code={team.code} size="header-mobile" href={teamHref(team.code)} />
+							<TeamMonogram
+								code={team.code}
+								size="header-mobile"
+								href={team.guest ? undefined : teamHref(team.code)}
+							/>
 							<div class="who">
-								<h1 class="name"><NameLink href={teamHref(team.code)} text={team.name} /></h1>
-								<span class="meta">{team.city} · {team.record}</span>
+								<h1 class="name">
+									<NameLink href={team.guest ? null : teamHref(team.code)} text={team.name} />
+								</h1>
+								<span class="meta">{metaOf(team)}</span>
 							</div>
 							{#if header.center.kind === 'score'}
 								<span class="points">{header.center[side]}</span>

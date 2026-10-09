@@ -8,7 +8,8 @@ export type HeaderTeam = {
 	code: string; // three letters, monogram
 	name: string; // e.g. "Warriors"
 	city: string; // e.g. "Golden State"
-	record: string; // "12–5", already formatted
+	record: string | null; // "12–5", already formatted; null: a guest team has no record
+	guest?: boolean; // a team outside the league: no link (ADR 0025)
 };
 
 export type StatusLine =
@@ -65,7 +66,13 @@ export type SectionTab = { id: SectionId; label: string };
 
 export type MiniScore = { awayCode: string; away: number; home: number; homeCode: string };
 
-export type LineScoreTeam = { code: string; name: string; periods: number[]; total: number };
+export type LineScoreTeam = {
+	code: string;
+	name: string;
+	periods: number[];
+	total: number;
+	guest?: boolean;
+};
 
 export type DetailTeamStatLine = TeamStatLine & {
 	freeThrowPct: number;
@@ -106,6 +113,7 @@ export type BoxRow = {
 	fouls: string;
 	plusMinus: string; // "+4", "0", "-3"
 	plusMinusPositive: boolean;
+	guest?: boolean; // a player of a guest team: no link
 };
 export type BoxTotals = Omit<
 	BoxRow,
@@ -125,7 +133,7 @@ export type BoxScoreTeam = {
 export type BoxScoreSection = { away: BoxScoreTeam; home: BoxScoreTeam };
 
 export type StarCard = PanelPlayer & { id: string; teamName: string }; // id: the player id; teamName: "Golden State Warriors"
-export type PlayersSection = { away: StarCard; home: StarCard };
+export type PlayersSection = { away: StarCard | null; home: StarCard | null }; // null: a guest team has no star
 
 export type InjuryTagStatus = 'out' | 'doubtful' | 'questionable' | 'probable' | 'day-to-day';
 export type InjuryRow = {
@@ -135,7 +143,7 @@ export type InjuryRow = {
 	comment: string | null;
 }; // comment as given
 export type InjuryTeam = { code: string; name: string; injuries: InjuryRow[] }; // empty: none reported
-export type InjuriesSection = { away: InjuryTeam; home: InjuryTeam };
+export type InjuriesSection = { away: InjuryTeam | null; home: InjuryTeam | null }; // null: a guest team
 
 export type LastGameRow = {
 	result: 'win' | 'loss';
@@ -150,7 +158,7 @@ export type LastGamesTeam = {
 	strip: { result: 'win' | 'loss'; label: string }[]; // oldest to newest
 	rows: LastGameRow[]; // newest first, as the feed sends them
 };
-export type LastGamesSection = { away: LastGamesTeam; home: LastGamesTeam };
+export type LastGamesSection = { away: LastGamesTeam | null; home: LastGamesTeam | null }; // null: a guest team
 
 export type StandingRow = {
 	code: string;
@@ -161,7 +169,7 @@ export type StandingRow = {
 	away: string;
 	lastTen: string;
 };
-export type StandingsSection = { away: StandingRow; home: StandingRow };
+export type StandingsSection = { away: StandingRow | null; home: StandingRow | null }; // null: a guest team
 
 export type SeriesRow = {
 	date: string; // "Jan 10", or "This game" for the current game

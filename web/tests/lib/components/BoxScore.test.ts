@@ -10,6 +10,7 @@
 // - A team with no bench shows no bench group
 // - Each player name links to its player page, and the team toggle holds no link
 // - The column labels in Spanish with a Spanish browser preference
+// - The player names of a guest team are plain text and the league ones link
 //
 // What is covered:
 // - Both teams, both layouts, the empty bench and Spanish; layout (wrapping, sticky) is not asserted
@@ -186,5 +187,32 @@ describe('BoxScore', () => {
 	it('keeps the team toggle free of links', () => {
 		const { container } = render(BoxScore, { props: { box, layout: 'desktop', playerHref } });
 		expect(container.querySelectorAll('button a')).toHaveLength(0);
+	});
+});
+
+describe('BoxScore with a guest team', () => {
+	const guestBox: BoxScoreSection = {
+		away: {
+			...away,
+			code: 'HCM',
+			name: 'Mariners',
+			starters: [{ ...row('g1', 'Casey Marin', '+1', true), guest: true }],
+			bench: []
+		},
+		home
+	};
+
+	it('shows guest player names as plain text', () => {
+		render(BoxScore, { props: { box: guestBox, layout: 'desktop', playerHref } });
+		expect(screen.getByText('Casey Marin')).toBeTruthy();
+		expect(screen.queryByRole('link', { name: 'Casey Marin' })).toBeNull();
+	});
+
+	it('links the league player names', async () => {
+		render(BoxScore, { props: { box: guestBox, layout: 'desktop', playerHref } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Warriors' }));
+		expect(screen.getByRole('link', { name: 'Stephen Curry' }).getAttribute('href')).toBe(
+			'/player/h1'
+		);
 	});
 });

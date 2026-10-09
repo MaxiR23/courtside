@@ -282,9 +282,9 @@ describe('game detail page', () => {
 
 	it("shows the injured player's name as plain text for a feed without playerId", async () => {
 		const old = recorded();
-		const injury: Partial<Injury> = { ...old.injuries!.away[0] };
+		const injury: Partial<Injury> = { ...old.injuries!.away![0] };
 		delete injury.playerId;
-		old.injuries!.away[0] = injury as Injury;
+		old.injuries!.away![0] = injury as Injury;
 		stubFetch(answerWith(old));
 		await renderPage();
 		expect(screen.getByText('Austin Reaves')).toBeTruthy();

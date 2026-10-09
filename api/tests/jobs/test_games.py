@@ -29,6 +29,7 @@
 # - Publishes no feed and records no success while a team has no star
 # - Publishes the first feed with every star on the first run after every team has one, even with nothing due and with no games in the window
 # - A successful run publishes a valid feed and records success
+# - A run over a day with a guest game publishes, a league game next to a guest game turns final on the next refresh, a final guest game has a guest winner and leaders without photo, and a league side without a star still makes the feed invalid
 # - A failing final game detail never blocks live details: the last live detail is published, and a final game with no detail is published as pending
 # - A failing final detail is fetched again only 2, 4 and 6 hours after the final time, then the game is unavailable; failed attempts survive a restart
 # - Stores the US Eastern date of each game seen final
@@ -71,6 +72,7 @@ from pydantic import HttpUrl
 from app.feeds.games import (
     GamesFeed,
     GameStatus,
+    GameTeam,
     Highlight,
     Leader,
     Leaders,
@@ -79,7 +81,6 @@ from app.feeds.games import (
     Star,
     Stars,
     StatsAvailability,
-    Team,
     TeamStats,
 )
 from app.jobs.games import (
@@ -115,8 +116,8 @@ SEARCH_URL = "https://example.com/search?q=game"
 PHOTO = HttpUrl("https://example.com/p.png")
 
 
-def team(code: str) -> Team:
-    return Team(code=code, name=code.title(), city=code.title())
+def team(code: str) -> GameTeam:
+    return GameTeam(code=code, name=code.title(), city=code.title())
 
 
 def star(code: str) -> Star:
@@ -178,11 +179,39 @@ def game(
     return ScoreboardGame.model_validate(data)
 
 
+GUEST = GameTeam(code="HCM", name="Mariners", city="Harbor City", guest=True)
+GUEST_STARS = Stars(away=None, home=star("NYK"))
+GUEST_DETAIL = GameDetail.model_validate(
+    {
+        "leaders": Leaders(
+            away=leader("HCM").model_copy(update={"photo_url": None}),
+            home=leader("NYK"),
+        ),
+        "team_stats": {"away": STATS, "home": STATS},
+    }
+)
+
+
+def guest_game(
+    game_id: str,
+    status: GameStatus,
+    start: dt.datetime = NOON - dt.timedelta(hours=3),
+    score: Score | None = None,
+) -> ScoreboardGame:
+    """A game whose away side is the invented Harbor City Mariners."""
+    return game(game_id, status, start, score).model_copy(update={"away": GUEST})
+
+
+def guest_stars(scoreboard_game: ScoreboardGame) -> Stars:
+    return GUEST_STARS if scoreboard_game.away.guest else STARS
+
+
 class FakeSources:
     def __init__(self) -> None:
         self.games: dict[dt.date, list[ScoreboardGame]] = {}
         self.day_errors: dict[dt.date, SourceError] = {}
         self.detail_errors: dict[str, SourceError] = {}
+        self.details: dict[str, GameDetail] = {}
         self.game_calls: list[dt.date] = []
         self.detail_calls: list[str] = []
         self.fresh_calls: list[tuple[str, Freshness]] = []
@@ -212,7 +241,7 @@ class FakeSources:
         self.fresh_calls.append((game_id, fresh))
         if game_id in self.detail_errors:
             raise self.detail_errors[game_id]
-        return DETAIL
+        return self.details.get(game_id, DETAIL)
 
 
 @pytest.fixture(autouse=True)
@@ -1761,3 +1790,87 @@ async def test_a_request_refresh_never_runs_at_the_same_time_as_a_scheduled_run(
     await asyncio.gather(scheduled, request)
 
     assert sources.game_calls == [TODAY]
+
+
+# Group: guest games
+
+
+@pytest.mark.anyio
+async def test_a_run_over_a_day_with_a_guest_game_publishes_the_feed(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    sources.games[TODAY] = [
+        guest_game("g", GameStatus.LIVE),
+        game("1", GameStatus.LIVE),
+    ]
+    sources.details["g"] = GUEST_DETAIL
+
+    await make_job(settings, store, sources, stars=guest_stars).run(NOON)
+
+    published = read_feed(settings.data_dir, "games")
+    assert published is not None
+    feed = GamesFeed.model_validate_json(published)
+    first, second = next(d.games for d in feed.days if d.date == TODAY)
+    assert (first.away.guest, first.away.code) == (True, "HCM")
+    assert first.stars.away is None
+    assert second.away.guest is False
+    assert store.job_states()[0].last_success == NOON
+
+
+@pytest.mark.anyio
+async def test_a_league_game_live_on_a_day_with_a_guest_game_turns_final_on_the_next_refresh(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    scheduled = guest_game("g", GameStatus.SCHEDULED, NOON + dt.timedelta(hours=3))
+    sources.games[TODAY] = [scheduled, game("1", GameStatus.LIVE)]
+    job = make_job(settings, store, sources, stars=guest_stars)
+    await job.run(NOON)
+    sources.games[TODAY] = [scheduled, game("1", GameStatus.FINAL)]
+    later = NOON + LIVE_INTERVAL
+
+    await job.run(later)
+
+    published = read_feed(settings.data_dir, "games")
+    assert published is not None
+    feed = GamesFeed.model_validate_json(published)
+    today = next(d.games for d in feed.days if d.date == TODAY)
+    assert [g.status for g in today] == [GameStatus.SCHEDULED, GameStatus.FINAL]
+    assert store.job_states()[0].last_success == later
+
+
+def test_builder_publishes_a_final_guest_game_with_a_guest_winner_and_leaders_without_photo() -> (
+    None
+):
+    feed = build_games_feed(
+        NOON,
+        [(TODAY, [guest_game("g", GameStatus.FINAL)])],
+        {"g": GUEST_DETAIL},
+        guest_stars,
+        lambda _: SEARCH_URL,
+    )
+
+    [published] = feed.days[0].games
+    assert published.winner == "HCM"
+    assert published.leaders is not None
+    assert published.leaders.away.photo_url is None
+    assert published.leaders.home.photo_url == PHOTO
+
+
+@pytest.mark.anyio
+async def test_a_league_side_without_a_star_still_makes_the_feed_invalid_on_a_guest_game(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    job = make_job(settings, store, sources)
+    await job.run(NOON)
+    before = read_feed(settings.data_dir, "games")
+    sources.games[TODAY] = [guest_game("g", GameStatus.SCHEDULED, NOON)]
+    bare = make_job(
+        settings, store, sources, stars=lambda _: Stars(away=None, home=None)
+    )
+
+    await bare.run(NOON)
+
+    assert before is not None
+    assert read_feed(settings.data_dir, "games") == before
+    failure = reason(store)
+    assert failure is not None and failure.startswith("invalid feed:")

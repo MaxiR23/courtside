@@ -20,6 +20,8 @@
 # - Win probability points: in non-decreasing elapsedSeconds order; equal consecutive seconds are accepted
 # - Injury playerId: set, absent or null is accepted (null when absent); empty is rejected
 # - Injury status, win probability, UTC time and unknown fields are validated
+# - A guest game: a null record, standing, injuries and last games on the guest side, box score players without a photo, a guest stat leader and win probability leader, no win probability and no season series
+# - A per-side section is null exactly on a guest side; a guest game has no season series; a league box score player has a photo; the two sides differ; a league side's last game may be against a guest
 # - Serialization uses camelCase keys
 # - Venue city: null or absent is accepted and serialized as null; an empty city is rejected
 #
@@ -508,6 +510,7 @@ def test_accepts_day_to_day_injury_status() -> None:
     )
 
     assert feed.injuries is not None
+    assert feed.injuries.away is not None
     assert feed.injuries.away[0].comment is None
 
 
@@ -745,3 +748,123 @@ def test_serializes_camel_case_keys_and_absent_sections_as_null() -> None:
     assert dumped["boxScore"] is None
     assert dumped["venue"]["photoUrl"] is None
     assert "start_time" not in dumped
+
+
+def guest_detail() -> Payload:
+    """A final game whose away side is the invented Harbor City Mariners."""
+    game = full_game()
+    box = game["boxScore"]
+    box["away"]["players"][0]["photoUrl"] = None
+    game.update(
+        away={**team("HCM"), "guest": True, "record": None},
+        winner="HCM",
+        winProbability=None,
+        winProbabilityPeriods=None,
+        winProbabilityLeader=None,
+        injuries=pair(None, []),
+        lastGames=pair(None, [{**last_game("2026-01-10"), "opponent": "HCM"}]),
+        standings=pair(None, standing()),
+        seasonSeries=None,
+        stars=pair(None, star("HHH")),
+    )
+    leaders = game["teamStats"]["leaders"]
+    for row, code in leaders.items():
+        if code == "AAA":
+            leaders[row] = "HCM"
+    return game
+
+
+def test_accepts_a_guest_game_without_league_data_for_the_guest_side() -> None:
+    feed = GameDetailFeed.model_validate(guest_detail())
+
+    assert feed.away.guest and feed.away.record is None
+    assert feed.standings is not None and feed.standings.away is None
+    assert feed.injuries is not None and feed.injuries.away is None
+    assert feed.last_games is not None and feed.last_games.away is None
+    assert feed.season_series is None and feed.win_probability is None
+    assert feed.box_score is not None
+    assert feed.box_score.away.players[0].photo_url is None
+    assert feed.team_stats is not None
+    assert feed.team_stats.leaders.field_goal_pct == "HCM"
+
+
+def test_accepts_a_guest_win_probability_leader() -> None:
+    game = guest_detail()
+    game["winProbability"] = [{"elapsedSeconds": 0, "homeWinProbability": 0.2}]
+    game["winProbabilityLeader"] = {"teamCode": "HCM", "winProbability": 0.8}
+    game["winProbabilityPeriods"] = {
+        "periods": [{"number": 1, "startElapsedSeconds": 0}],
+        "endElapsedSeconds": 20,
+    }
+
+    feed = GameDetailFeed.model_validate(game)
+
+    assert feed.win_probability_leader is not None
+    assert feed.win_probability_leader.team_code == "HCM"
+
+
+def test_accepts_the_last_game_of_a_league_side_against_a_guest_opponent() -> None:
+    feed = GameDetailFeed.model_validate(guest_detail())
+
+    assert feed.last_games is not None and feed.last_games.home is not None
+    assert feed.last_games.home[0].opponent == "HCM"
+
+
+@pytest.mark.parametrize("section", ["standings", "injuries", "lastGames"])
+def test_rejects_a_section_set_on_a_guest_side(section: str) -> None:
+    game = guest_detail()
+    game[section] = full_game()[section]
+
+    with pytest.raises(ValidationError, match=section):
+        GameDetailFeed.model_validate(game)
+
+
+@pytest.mark.parametrize("section", ["standings", "injuries", "lastGames"])
+def test_rejects_a_section_null_on_a_league_side(section: str) -> None:
+    game = full_game()
+    game[section] = pair(None, game[section]["home"])
+
+    with pytest.raises(ValidationError, match=section):
+        GameDetailFeed.model_validate(game)
+
+
+def test_rejects_a_record_on_a_guest_side_and_none_on_a_league_side() -> None:
+    guest = guest_detail()
+    guest["away"]["record"] = record()
+    league = full_game()
+    league["away"]["record"] = None
+
+    for game in (guest, league):
+        with pytest.raises(ValidationError, match="record"):
+            GameDetailFeed.model_validate(game)
+
+
+def test_rejects_a_star_on_a_guest_side() -> None:
+    game = guest_detail()
+    game["stars"] = pair(star("HCM"), star("HHH"))
+
+    with pytest.raises(ValidationError, match="a guest side has no star"):
+        GameDetailFeed.model_validate(game)
+
+
+def test_rejects_a_season_series_on_a_guest_game() -> None:
+    game = guest_detail()
+    game["seasonSeries"] = full_game()["seasonSeries"]
+
+    with pytest.raises(ValidationError, match="a guest game has no season series"):
+        GameDetailFeed.model_validate(game)
+
+
+def test_rejects_a_null_photo_on_a_league_box_score_player() -> None:
+    game = full_game()
+    game["boxScore"]["home"]["players"][0]["photoUrl"] = None
+
+    with pytest.raises(ValidationError, match="a league box score player has a photo"):
+        GameDetailFeed.model_validate(game)
+
+
+def test_rejects_two_sides_with_the_same_code() -> None:
+    game = valid_game("scheduled", home=team("AAA"))
+
+    with pytest.raises(ValidationError, match="two different teams"):
+        GameDetailFeed.model_validate(game)

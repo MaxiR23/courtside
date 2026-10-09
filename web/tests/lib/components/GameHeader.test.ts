@@ -12,6 +12,7 @@
 // - The venue strip in three states: the photo with its gradient, no photo, and a photo that fails to load (the grid with
 //   the arena name and city); without a city, the arena name alone in the caption and no sub-line under the Venue cell
 // - Each team name in full, in its own level 1 heading
+// - A guest team: the monogram and name are plain text and no record is shown, on desktop and mobile
 //
 // What is covered:
 // - Each state the header shows
@@ -300,4 +301,28 @@ describe('GameHeader', () => {
 			for (const link of gsw) expect(link.getAttribute('href')).toBe('/team/gsw');
 		}
 	);
+});
+
+describe('GameHeader with a guest team', () => {
+	const guest = { code: 'HCM', name: 'Mariners', city: 'Harbor City', record: null, guest: true };
+	const guestHeader: GameHeaderView = { ...live, away: guest };
+
+	it('shows the guest monogram and name as plain text with no record on desktop', () => {
+		const { container } = show(guestHeader, 'desktop');
+		expect(screen.queryByRole('link', { name: 'HCM' })).toBeNull();
+		expect(screen.queryByRole('link', { name: 'Mariners' })).toBeNull();
+		expect(screen.getByText('HCM').tagName).toBe('SPAN');
+		expect(screen.getByRole('link', { name: 'GSW' }).getAttribute('href')).toBe('/team/gsw');
+		expect(screen.getByRole('link', { name: 'Warriors' }).getAttribute('href')).toBe('/team/gsw');
+		expect(container.querySelectorAll('.record')).toHaveLength(1);
+		expect(container.querySelector('.record')?.textContent).toBe('10–7');
+	});
+
+	it('shows the guest as plain text and its city without a record on mobile', () => {
+		const { container } = show(guestHeader, 'mobile');
+		expect(screen.queryByRole('link', { name: 'HCM' })).toBeNull();
+		expect(screen.queryByRole('link', { name: 'Mariners' })).toBeNull();
+		const metas = [...container.querySelectorAll('.meta')].map((m) => m.textContent);
+		expect(metas).toEqual(['Harbor City', 'Golden State · 10–7']);
+	});
 });
