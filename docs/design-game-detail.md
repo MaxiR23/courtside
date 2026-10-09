@@ -116,7 +116,7 @@ Two columns, `repeat(auto-fit, minmax(min(100%, 440px), 1fr))`.
 - The chart is an SVG, `viewBox 0 0 1000 200`, height `clamp(180px, 24vw, 280px)`:
   - A dashed 50% line in `rgba(235,232,227,.22)`, and a gridline in row-rule at the start of every period after the first, with none at the left edge. The x axis runs from 0 to the game's end as the feed sends it, so a regulation game has its gridlines at 250, 500 and 750, and overtime periods narrow every period inside the same chart width.
   - The area between the line and 50% as one shape under the whole line, filled with `rgba(116,157,196,.12)`, and the line itself 2px in accent-light, with a non-scaling stroke.
-  - A 9px square marks the latest point, with a 4px ring in `rgba(116,157,196,.25)`.
+  - A 9px square marks the latest point, with a 4px ring in `rgba(116,157,196,.25)`. While the game is live, the marker pulses: its opacity goes from 1 to .5 and back over 2s (`--win-prob-marker-pulse-duration`, with `--win-prob-marker-pulse-opacity` for the low point), ease-in-out, looping. Only the opacity changes: the marker keeps its size and position. On a final game the marker is still. Under reduced motion it does not pulse.
 - Y is the home team's win probability (top is 100% home). X is elapsed game time.
 - One label per period runs under the chart, centered under its period: Q1 to Q4, then OT1, OT2 when present. Without period boundaries in the feed, the chart draws no gridlines and no labels, and its x axis spans the points.
 - The section meta, 26px, accent-light, shows the leading team and its percentage from the feed, such as `GSW 68%`. With no leader, on an exactly even latest point, it reads `Even` (Spanish `Parejo`). On a final game it reads `OKC win`.
@@ -193,6 +193,7 @@ The same footer as the home.
 | Highlights | As on the home: the thumbnail is replaced by the autoplaying player on click |
 | Box score toggle | Switches the team shown; away first |
 | New data while live | Values update in place. The win probability line extends without redrawing the whole chart |
+| Win probability marker | While the game is live, the latest point marker pulses: opacity 1 to .5 and back over 2s, ease-in-out, looping. Still on a final game. Off under reduced motion |
 | Spoiler-free mode | Does not apply on this page: it is reached from a card that is already expanded |
 | Focus | `:focus-visible` as on the home |
 

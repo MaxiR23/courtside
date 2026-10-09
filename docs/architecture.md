@@ -90,7 +90,7 @@ that migrates a database at the previous version with rows in it.
 - The game detail page lives at `/game/{id}` and is rendered in the browser from a fallback page, because game ids are not known at build time. Recorded in [`adr/0020-source-rules.md`](adr/0020-source-rules.md), first set by ADR 0019.
 - Svelte 5 runes only. Syntax from earlier Svelte versions is not used.
 - The front end fetches feeds and polls them while the page is open. Polling pauses while the tab is hidden.
-- Motion uses Svelte's built-in transitions and the Web Animations API. No animation library.
+- Motion uses Svelte's built-in transitions, the Web Animations API and, for simple looping opacity effects such as the live win probability marker pulse, scoped CSS animations whose values come from tokens. No animation library.
 - Every user-facing string lives in the translation messages (`web/messages/en.json`, `web/messages/es.json`), compiled by Paraglide JS. English is the base; Spanish is shown when the browser prefers it. The language never appears in the URL. Dates and numbers are formatted with the browser's `Intl` for the active language.
 - Recorded in [`adr/0004-web-tooling.md`](adr/0004-web-tooling.md) and [`adr/0006-translations.md`](adr/0006-translations.md).
 

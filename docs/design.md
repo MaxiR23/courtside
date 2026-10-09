@@ -18,7 +18,7 @@ A dark-mode, single-page site with two parts:
 - **Components receive data through props**, with their own types. No component reads a feed directly. A separate layer turns feed data into props.
 - **Reusable primitives first.** Shared pieces, such as the blueprint frame, are built once and reused everywhere they appear.
 - **Every user-facing string is translatable**, in English and Spanish. The copy in this document is the English text.
-- **Reduced motion.** When the system asks for reduced motion, entrance animations, the idle float, the parallax and the skeleton shimmer are disabled, and transitions become instant or simple fades.
+- **Reduced motion.** When the system asks for reduced motion, entrance animations, the idle float, the parallax, the skeleton shimmer and the live win probability marker pulse are disabled, and transitions become instant or simple fades.
 
 ### Components
 
@@ -101,6 +101,7 @@ The only color besides the neutrals is the steel accent. No team colors, except 
 
 - Default easing: `cubic-bezier(.2,.7,.1,1)`, unless a section says otherwise.
 - **Skeleton shimmer:** opacity from 1 to .5 and back over 1.6s, ease-in-out, looping. None under reduced motion.
+- **Live marker pulse:** the win probability marker's opacity goes from 1 to .5 and back over 2s, ease-in-out, looping, while the game is live. None under reduced motion. See `docs/design-game-detail.md`, section 6.
 
 ### Icons
 

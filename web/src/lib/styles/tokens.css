@@ -209,6 +209,8 @@
 	--win-prob-marker-size: 9px;
 	--win-prob-marker-ring: 4px;
 	--win-prob-marker-ring-color: rgba(116, 157, 196, 0.25);
+	--win-prob-marker-pulse-duration: 2s;
+	--win-prob-marker-pulse-opacity: 0.5;
 	--win-prob-meta-size: 26px;
 	--win-prob-dash: 6 6;
 	--box-player-column-min: 150px;

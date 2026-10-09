@@ -96,7 +96,7 @@
 					meta={sections.winProbability.meta}
 					emphasis={true}
 				/>
-				<WinProbability chart={sections.winProbability} />
+				<WinProbability chart={sections.winProbability} live={page.view.header.layout === 'live'} />
 			</section>
 		{/if}
 		{#if sections.boxScore}
