@@ -1,0 +1,26 @@
+{
+  "season": { "year": 2027 },
+  "team": { "id": "9" },
+  "coach": [
+    { "firstName": "Jordan", "lastName": "Sample", "experience": null }
+  ],
+  "athletes": [
+    {
+      "id": "900001",
+      "firstName": "Casey",
+      "lastName": "Example",
+      "shortName": "C. Example",
+      "displayName": "Casey Example",
+      "jersey": "7",
+      "height": 79.0,
+      "displayHeight": "6' 7\"",
+      "weight": 210.0,
+      "dateOfBirth": "2000-01-15T08:00Z",
+      "birthPlace": { "city": "Sample City", "state": "ST", "country": "Example Country" },
+      "college": { "name": "Example College" },
+      "experience": { "years": 3 },
+      "position": { "name": "Forward", "abbreviation": "F" },
+      "headshot": { "href": "https://example.com/headshots/900001.png" }
+    }
+  ]
+}

@@ -53,7 +53,7 @@ class TeamColors(FeedModel):
 
 class Coach(FeedModel):
     name: NonEmptyStr
-    seasons: NonNegativeInt
+    seasons: NonNegativeInt | None = None
 
 
 class SplitRecord(Record):

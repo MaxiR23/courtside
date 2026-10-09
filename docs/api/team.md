@@ -44,7 +44,7 @@ The root is one team.
 | Object          | Fields                                                                                                                                      |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | `TeamColors`    | `primary`, `secondary`                                                                                                                      |
-| `Coach`         | `name`, `seasons`                                                                                                                           |
+| `Coach`         | `name`, `seasons` (null)                                                                                                                    |
 | `SplitRecord`   | `Record` fields (`wins`, `losses`) plus `winPct` (0 to 1)                                                                                   |
 | `TeamRecord`    | `SplitRecord` fields plus `home`, `away`, `lastTen`: `SplitRecord`; `streak`: `Streak` / null; `gamesBehind`; `conferenceRank` (1 to 15); `divisionRank` (1 to 5); `playoff`: `PlayoffPosition` / null before the first game; `pointsFor`, `pointsAgainst`: `PointsTotal`; `differential`: `Differential` |
 | `Streak`        | `kind` (`win`, `loss`), `count`                                                                                                             |

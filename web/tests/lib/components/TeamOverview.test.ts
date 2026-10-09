@@ -5,7 +5,7 @@
 // Tested:
 // - The arena frame with the photo (empty alt, no filter class) and its caption
 // - No frame and a stat cell with no photo; the cell replaces the frame after the image fails
-// - The head coach cell, present and absent
+// - The head coach cell, present, with the name alone and absent
 // - Swatches with the inline colors and the hex text
 // - The next game card, or "Season over."
 //
@@ -88,6 +88,17 @@ describe('TeamOverview cells', () => {
 		unmount();
 		const { container } = show({ ...overview, coach: null });
 		expect(container.querySelector('.coach-cell')).toBeNull();
+	});
+
+	it('shows the coach name alone without seasons', () => {
+		const { container } = show({
+			...overview,
+			coach: { label: 'Head coach', value: 'Jordan Sample', sub: null }
+		});
+		expect(screen.getByText('Head coach')).toBeTruthy();
+		expect(screen.getByText('Jordan Sample')).toBeTruthy();
+		expect(container.querySelector('.coach-cell .cell-sub')).toBeNull();
+		expect(screen.queryByText(/seasons as NBA head coach/)).toBeNull();
 	});
 
 	it('shows the team colors as inline swatches with their hex values', () => {
