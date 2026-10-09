@@ -7,7 +7,8 @@
 
 	// Keyed by photo URL, so a new URL tries again after a failure.
 	let failedPhoto = $state<string | null>(null);
-	const failed = $derived(failedPhoto === player.photo);
+	// No photo (a guest player without a headshot) shows the initials, as a failed photo does.
+	const failed = $derived(player.photo === null || failedPhoto === player.photo);
 	const fullName = $derived(`${player.firstName} ${player.lastName}`);
 	const initials = $derived(`${player.firstName.charAt(0)}${player.lastName.charAt(0)}`);
 </script>

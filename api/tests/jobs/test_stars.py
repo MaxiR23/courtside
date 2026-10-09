@@ -13,6 +13,7 @@
 # - Asks for the season the roster states and the one before, never one computed from the date
 # - Stores each team's star and serves it to a game of those two teams
 # - Serves no stars for a game whose team has no star yet
+# - A guest game has the league side's star and none for the guest, serves none when the league side has no star, never waits for a guest and never fetches a guest roster
 # - Loads the stored stars on start, before any fetch
 # - Fetches every team on the first run and not again before the next morning, then again at the morning time the next day
 # - Picks the star from the roster players' individual averages when no roster player is among the season leaders, for the season in use
@@ -71,7 +72,7 @@ import pytest
 import respx
 from pydantic import HttpUrl
 
-from app.feeds.games import GameStatus, Star
+from app.feeds.games import GameStatus, GameTeam, Star
 from app.jobs.stars import JOB, NO_FINAL_GAME, RETRY, StarsJob, pick_star
 from app.settings import Settings
 from app.sources import team_players
@@ -215,6 +216,17 @@ def a_game(away: str, home: str) -> ScoreboardGame:
     )
 
 
+def a_guest_game(home: str) -> ScoreboardGame:
+    """A game whose away side is the invented Harbor City Mariners."""
+    return a_game("BOS", home).model_copy(
+        update={
+            "away": GameTeam(
+                code="HCM", name="Mariners", city="Harbor City", guest=True
+            )
+        }
+    )
+
+
 # Group 1: pick_star
 
 
@@ -320,6 +332,7 @@ async def test_stores_each_teams_star_and_serves_it_to_a_game_of_those_teams(
 
     stars = job.stars_of(a_game("BOS", "NYK"))
     assert stars is not None
+    assert stars.away is not None and stars.home is not None
     assert (stars.away.player_id, stars.home.player_id) == ("BOS2", "NYK2")
     assert set(store.stars()) == set(CODES)
 
@@ -348,7 +361,8 @@ async def test_loads_the_stored_stars_on_start_before_any_fetch(
     job = make_job(settings, store, sources)
 
     stars = job.stars_of(a_game("BOS", "NYK"))
-    assert stars is not None and stars.away.player_id == "BOS1"
+    assert stars is not None and stars.away is not None
+    assert stars.away.player_id == "BOS1"
     assert sources.roster_calls == []
 
 
@@ -384,7 +398,8 @@ async def test_keeps_the_last_known_star_when_no_star_can_be_picked(
 
     assert store.stars()["BOS"].player_id == "BOS9"
     stars = job.stars_of(a_game("BOS", "NYK"))
-    assert stars is not None and stars.away.player_id == "BOS9"
+    assert stars is not None and stars.away is not None
+    assert stars.away.player_id == "BOS9"
     assert store.job_states()[0].last_failure is not None
 
 
@@ -399,7 +414,8 @@ async def test_replaces_a_stored_star_who_left_the_roster_once_a_new_one_is_pick
 
     assert store.stars()["BOS"].player_id == "BOS2"
     stars = job.stars_of(a_game("BOS", "NYK"))
-    assert stars is not None and stars.away.player_id == "BOS2"
+    assert stars is not None and stars.away is not None
+    assert stars.away.player_id == "BOS2"
 
 
 @pytest.mark.anyio
@@ -1106,3 +1122,48 @@ async def test_calls_after_run_after_a_run_with_due_teams_and_not_after_a_run_wi
     await job.run(NOON + dt.timedelta(seconds=30))
 
     assert calls == [1]
+
+
+@pytest.mark.anyio
+async def test_stars_of_a_guest_game_has_the_league_star_and_none_for_the_guest(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    job = make_job(settings, store, sources)
+    await job.run(NOON)
+
+    stars = job.stars_of(a_guest_game("NYK"))
+
+    assert stars is not None
+    assert stars.away is None
+    assert stars.home is not None and stars.home.player_id == "NYK2"
+
+
+def test_stars_of_a_guest_game_is_none_when_the_league_side_has_no_star(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    job = make_job(settings, store, sources)
+
+    assert job.stars_of(a_guest_game("NYK")) is None
+
+
+def test_has_every_star_never_waits_for_a_guest(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    for code in set(CODES):
+        store.set_star(player(code, 1))
+    job = make_job(settings, store, sources)
+
+    assert job.stars_of(a_guest_game("NYK")) is not None
+    assert job.has_every_star()
+
+
+@pytest.mark.anyio
+async def test_a_run_never_fetches_a_guest_roster(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    job = make_job_with_games(settings, store, sources, [a_guest_game("NYK")])
+
+    await job.run(NOON)
+
+    assert sorted(sources.roster_calls) == sorted(CODES)
+    assert job.stars_of(a_guest_game("NYK")) is not None

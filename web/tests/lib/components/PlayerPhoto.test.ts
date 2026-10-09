@@ -11,6 +11,7 @@
 // - The star photo is sized by its column's height, never wider than the
 //   column, bottom-centered
 // - The leader photo keeps its width and height tokens
+// - A player without a photo shows the initials and no image
 //
 // What is covered:
 // - Each state and the error interaction
@@ -123,5 +124,14 @@ describe('PlayerPhoto star variant', () => {
 		expect(star).toMatch(/height:\s*100%;/);
 		expect(star).toMatch(/border-left:\s*var\(--hairline\) solid var\(--color-divider\);/);
 		expect(star).toMatch(/background:\s*var\(--star-glow\), var\(--color-frame-fill\);/);
+	});
+});
+
+describe('PlayerPhoto without a photo', () => {
+	it('shows the initials and name with no img element', () => {
+		const { container } = render(PlayerPhoto, { props: { player: { ...player, photo: null } } });
+		expect(container.querySelector('img')).toBeNull();
+		const placeholder = screen.getByRole('img', { name: 'Stephen Curry' });
+		expect(placeholder.textContent).toBe('SC');
 	});
 });

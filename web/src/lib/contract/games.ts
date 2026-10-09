@@ -16,8 +16,8 @@ export interface Day {
 }
 export interface Game {
 	id: string;
-	away: Team;
-	home: Team;
+	away: GameTeam;
+	home: GameTeam;
 	status: GameStatus;
 	startTime: string;
 	venue: string;
@@ -34,14 +34,18 @@ export interface Game {
 	statsAvailability: StatsAvailability | null;
 	highlightsSearchUrl: string | null;
 }
-export interface Team {
+/**
+ * A side of a game: one of the 30 teams, or a guest team outside the league.
+ */
+export interface GameTeam {
 	code: string;
 	name: string;
 	city: string;
+	guest: boolean;
 }
 export interface Stars {
-	away: Star;
-	home: Star;
+	away: Star | null;
+	home: Star | null;
 }
 export interface Star {
 	playerId: string;
@@ -79,7 +83,7 @@ export interface Leader {
 	playerId: string;
 	displayName: string;
 	teamCode: string;
-	photoUrl: string;
+	photoUrl: string | null;
 	points: number;
 	rebounds: number;
 	assists: number;

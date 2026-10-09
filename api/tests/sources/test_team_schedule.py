@@ -6,6 +6,7 @@
 # - Maps the last five completed games newest first with both scores
 # - Marks home games and results from the side of the requested team
 # - Dates games on the US Eastern day
+# - Lists a completed game against a guest team with the guest's code
 # - Returns no last games when no game is completed
 # - Maps the arena of each completed game by game id
 # - Requests the schedule URL built from the template and the provider team code, including a code that differs from the standard one
@@ -125,6 +126,28 @@ async def test_maps_the_last_five_completed_games_newest_first_with_both_scores(
         (111, 107),
         (110, 123),
         (113, 119),
+    ]
+
+
+@pytest.mark.anyio
+async def test_lists_a_completed_game_against_a_guest_among_the_last_games_with_the_guest_code(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load()
+    latest = max(payload["events"], key=lambda e: e["date"])
+    for competitor in latest["competitions"][0]["competitors"]:
+        if competitor["team"]["abbreviation"] != "BOS":
+            competitor["team"]["abbreviation"] = "HCM"
+    mock.get(URL).respond(json=payload)
+
+    schedule = await fetch(settings)
+
+    assert [g.opponent for g in schedule.last_games] == [
+        "HCM",
+        "ORL",
+        "ORL",
+        "ORL",
+        "DET",
     ]
 
 

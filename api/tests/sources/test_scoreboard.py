@@ -6,7 +6,8 @@
 # - Maps a recorded day with scheduled, live and final games to contract types
 # - Maps each provider status, and leaves scores and clock empty outside live and final
 # - Normalizes the clock, converts the start time to UTC and appends overtime periods
-# - Raises the source error on an unknown team, an unknown status, a payload missing a field, a naive start time, a live game without a clock, an empty team name or city, a timeout, an error status and a missing URL
+# - Maps a team outside the league to a guest side with the source code, name and city, and keeps a guest code outside the usual pattern as it is
+# - Raises the source error on a guest code equal to a league code, an unknown status, a payload missing a field, a naive start time, a live game without a clock, an empty team name or city, a timeout, an error status and a missing URL
 # - ScoreboardGame uses the same field types as the contract Game
 # - Reuses a fetched day for thirty seconds
 #
@@ -277,17 +278,75 @@ async def test_appends_overtime_periods_to_the_line_score(
     assert sum(mapped.line_score.home) == mapped.score.home
 
 
+def guest_side(game: Payload, index: int = 0) -> None:
+    team = game["competitions"][0]["competitors"][index]["team"]
+    team["abbreviation"] = "HCM"
+    team["name"] = "Mariners"
+    team["location"] = "Harbor City"
+
+
 @pytest.mark.anyio
-async def test_raises_the_source_error_on_an_unknown_team_code(
+async def test_maps_a_team_outside_the_league_to_a_guest_side_with_the_source_code_name_and_city(
     mock: respx.MockRouter, settings: Settings
 ) -> None:
     game = event(load("day.json"), "STATUS_FINAL")
-    game["competitions"][0]["competitors"][0]["team"]["abbreviation"] = "ZZZ"
+    guest_side(game)
+    mock.get(URL).respond(json=only(game))
+
+    [mapped] = await fetch(settings)
+
+    sides = (mapped.away, mapped.home)
+    [guest] = [side for side in sides if side.guest]
+    [league] = [side for side in sides if not side.guest]
+    assert (guest.code, guest.name, guest.city) == ("HCM", "Mariners", "Harbor City")
+    assert len(league.code) == 3
+
+
+@pytest.mark.anyio
+async def test_maps_a_day_with_a_guest_game_and_a_league_game(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    day = load("day.json")
+    guest = event(day, "STATUS_FINAL")
+    guest["id"] = "guest-game"
+    guest_side(guest)
+    league = event(day, "STATUS_FINAL")
+    mock.get(URL).respond(json=only(league, guest))
+
+    games = await fetch(settings)
+
+    assert [g.id for g in games] == [league["id"], "guest-game"]
+    assert [(g.away.guest, g.home.guest) for g in games] == [
+        (False, False),
+        (False, True),
+    ]
+
+
+@pytest.mark.anyio
+async def test_raises_the_source_error_on_a_guest_code_equal_to_a_league_code(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    game = event(load("day.json"), "STATUS_FINAL")
+    game["competitions"][0]["competitors"][0]["team"]["abbreviation"] = "GSW"
     mock.get(URL).respond(json=only(game))
 
     error = await fetch_error(settings)
 
-    assert error.reason == "unknown team code 'ZZZ'"
+    assert error.reason == "guest team code 'GSW' is a league team code"
+
+
+@pytest.mark.anyio
+async def test_keeps_a_guest_code_outside_the_usual_pattern_as_it_is(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    game = event(load("day.json"), "STATUS_FINAL")
+    game["competitions"][0]["competitors"][0]["team"]["abbreviation"] = "harbor city"
+    mock.get(URL).respond(json=only(game))
+
+    [fetched] = await fetch(settings)
+
+    assert fetched.home.code == "harbor city"
+    assert fetched.home.guest is True
 
 
 @pytest.mark.anyio

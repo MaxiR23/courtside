@@ -4,7 +4,7 @@
 	import { m } from '#lib/paraglide/messages.js';
 	import { periodCells, periodColumns, type PeriodColumn } from '#lib/schedule/line-score.ts';
 
-	type Team = { code: string; name?: string; periods: number[]; total: number };
+	type Team = { code: string; name?: string; guest?: boolean; periods: number[]; total: number };
 	type Props = {
 		away: Team;
 		home: Team;
@@ -37,9 +37,9 @@
 	{#each teams as team (team.code)}
 		<div class="line">
 			<span class="team-cell">
-				<NameLink href={teamHref(team.code)} text={team.code} />
+				<NameLink href={team.guest ? null : teamHref(team.code)} text={team.code} />
 				{#if detail && team.name}<span class="team-name"
-						><NameLink href={teamHref(team.code)} text={team.name} /></span
+						><NameLink href={team.guest ? null : teamHref(team.code)} text={team.name} /></span
 					>{/if}
 			</span>
 			{#each periodCells(team.periods, columns.length) as points, i (i)}

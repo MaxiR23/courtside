@@ -16,6 +16,7 @@
 // - Team names and monograms: plain text with no link inside the button of a card that expands; links to the team page on a card that cannot expand; line score and leader codes link in the open panel
 // - Spoiler-free mode: final cards that can expand hide the score and the dimming until open
 // - The Game center link on open live, final, final without stats and scheduled cards, after the stats, notice or players to watch; none without detailHref or on a card that cannot expand; Spanish copy
+// - A guest team (outside the league): its monogram and name are never links, the league ones link on a card that cannot expand, no color strip is drawn, a scheduled panel shows only the league player to watch, a final panel shows the leaders, line score and team stats of both sides
 //
 // What is covered:
 // - Each card state on each row layout
@@ -728,5 +729,63 @@ describe('GameCard with an unknown network', () => {
 			expect(container.querySelectorAll('.leader-code a')).toHaveLength(2);
 			expect(container.querySelectorAll('.line-score a')).toHaveLength(2);
 		});
+	});
+});
+
+describe('GameCard with a guest team', () => {
+	const guest = { code: 'HCM', name: 'Mariners', city: 'Harbor City', guest: true };
+	const delayed: ScheduleGame = { id: 'd', away: guest, home, status: { state: 'delayed' } };
+
+	it('keeps the guest monogram and name as plain text and links the league ones', () => {
+		for (const layout of ['desktop', 'mobile'] as const) {
+			const { container, unmount } = render(GameCard, {
+				props: { teamHref, game: delayed, layout }
+			});
+			expect(screen.queryByRole('link', { name: 'HCM' })).toBeNull();
+			expect(screen.queryByRole('link', { name: 'Mariners' })).toBeNull();
+			expect(screen.getByText('HCM').tagName).toBe('SPAN');
+			expect(screen.getByRole('link', { name: 'LAL' }).getAttribute('href')).toBe('/team/lal');
+			expect(screen.getByRole('link', { name: 'Lakers' }).getAttribute('href')).toBe('/team/lal');
+			expect(container.querySelector('[class*="strip"]')).toBeNull();
+			unmount();
+		}
+	});
+
+	it('shows only the league player to watch of a scheduled guest game', () => {
+		const game = withDetails(
+			{ ...scheduled, away: guest },
+			{
+				kind: 'scheduled',
+				venue: 'Test Arena',
+				playersToWatch: { away: null, home: homePlayer }
+			}
+		);
+		const { container } = render(GameCard, {
+			props: { teamHref, game, layout: 'desktop', open: true }
+		});
+		expect(container.querySelectorAll('.watch-player')).toHaveLength(1);
+		expect(screen.getByText('LeBron James')).toBeTruthy();
+	});
+
+	it('shows the leaders, line score and team stats of both sides of a final guest game, the guest code unlinked', () => {
+		const details = played([28, 26, 24, 34], [25, 27, 22, 30]);
+		if (details.kind !== 'played') throw new Error('Expected played details');
+		details.leaders.away = {
+			...details.leaders.away,
+			teamCode: 'HCM',
+			photo: null,
+			guest: true
+		};
+		const game = withDetails({ ...final(112, 104, 'HCM'), away: guest }, details);
+		const { container } = render(GameCard, {
+			props: { teamHref, game, layout: 'desktop', open: true }
+		});
+		expect(container.querySelectorAll('.leader')).toHaveLength(2);
+		expect(container.querySelectorAll('.line-score .line:not(.head)')).toHaveLength(2);
+		expect(container.querySelector('.stats-column')).not.toBeNull();
+		const links = [...container.querySelectorAll('.panel a')].map((a) => a.textContent);
+		expect(links).toContain('LAL');
+		expect(links).not.toContain('HCM');
+		expect(container.querySelectorAll('.leader')[0].querySelector('img')).toBeNull();
 	});
 });

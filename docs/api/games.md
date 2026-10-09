@@ -36,7 +36,7 @@ Conventions:
 | Field                 | Type                   | Meaning                                                          | Present                         |
 | --------------------- | ---------------------- | ---------------------------------------------------------------- | ------------------------------- |
 | `id`                  | string                 | Game identifier                                                  | always                          |
-| `away`, `home`        | `Team`                 | The two teams                                                    | always                          |
+| `away`, `home`        | `GameTeam`             | The two teams                                                    | always                          |
 | `status`              | `GameStatus`           | `scheduled`, `live`, `final`, `delayed`, `postponed`, `canceled` | always                          |
 | `startTime`           | time                   | Scheduled start, UTC                                             | always                          |
 | `venue`               | string                 | Arena name                                                       | always                          |
@@ -47,7 +47,7 @@ Conventions:
 | `clock`               | string / null          | Game clock                                                       | required when `live`            |
 | `lineScore`           | `LineScore` / null     | Points per period for each team                                  | required when `live` or `final` |
 | `score`               | `Score` / null         | Current or final points                                          | required when `live` or `final` |
-| `winner`              | team code / null       | Code of the winning team: the away or the home team              | required when `final`, null otherwise |
+| `winner`              | team code / null       | Code of the winning team: the away or the home team, a guest code included | required when `final`, null otherwise |
 | `leaders`             | `Leaders` / null       | Top scorer of each team                                          | required when `live`; when `final`, set when `statsAvailability` is `available`, null otherwise |
 | `teamStats`           | `GameTeamStats` / null | Team statistics                                                  | required when `live`; when `final`, set when `statsAvailability` is `available`, null otherwise |
 | `statsAvailability`   | `StatsAvailability` / null | `available`, `pending`, `unavailable`                        | required when `final`, null otherwise |
@@ -64,18 +64,24 @@ and `highlightsSearchUrl`; any other status has `winner` and
 | Object      | Fields                                                                                                      |
 | ----------- | ----------------------------------------------------------------------------------------------------------- |
 | `Team`      | `code` (three capital letters), `name`, `city`                                                              |
+| `GameTeam`  | `Team` fields plus `guest`; a league code is three capital letters, a guest code any non-empty string |
 | `Player`    | `playerId`, `firstName`, `lastName`, `teamCode`, `photoUrl`                                                 |
-| `Leader`    | `playerId`, `displayName` (as the source gives it), `teamCode`, `photoUrl`, `points`, `rebounds`, `assists` |
+| `Leader`    | `playerId`, `displayName` (as the source gives it), `teamCode`, `photoUrl`, `points`, `rebounds`, `assists`; `photoUrl` is null only for a guest player without a headshot |
 | `Star`      | `Player` fields plus `shortName`                                                                            |
 | `TeamStats` | `fieldGoalPct`, `threePointPct` (0 to 1), `rebounds`, `assists`, `turnovers`                                |
 | `Highlight` | `title`, `channel`, `thumbnailUrl`, `embedUrl`                                                              |
 | `LineScore` | `away`, `home`: points per period, at least one, overtimes appended                                         |
 | `Score`     | `away`, `home`: points                                                                                      |
 | `Leaders`   | `away`, `home`: `Leader`                                                                                    |
-| `Stars`     | `away`, `home`: `Star`                                                                                      |
+| `Stars`     | `away`, `home`: `Star`, null for a guest side                                                               |
 
 Rules that live in the code:
 
+- A guest side is a team outside the 30 ([ADR 0025](../adr/0025-guest-teams.md)):
+  `guest` is true and its code is the source's own. It has no star, so
+  `stars` is null exactly on a guest side, and its leader may have no photo.
+  Its names are not links on the front end, and a game with a guest side is
+  never in the hero.
 - The leader is the team's top scorer by points. A tie on points goes to
   the tied player with the most rebounds plus assists, and a tie on both
   to the first of them in the provider's order

@@ -6,6 +6,7 @@
 # SEE: docs/api/games.md, docs/adr/0008-contract-generation.md
 
 import datetime as dt
+import re
 from enum import StrEnum
 from typing import Annotated
 
@@ -33,6 +34,8 @@ def _require_utc(value: dt.datetime) -> dt.datetime:
 UtcDatetime = Annotated[AwareDatetime, AfterValidator(_require_utc)]
 TeamCode = Annotated[str, StringConstraints(pattern=r"^[A-Z]{3}$")]
 NonEmptyStr = Annotated[str, StringConstraints(min_length=1)]
+# A guest side keeps the provider's own code, whatever it looks like (ADR 0025).
+SideCode = NonEmptyStr
 Percentage = Annotated[float, Field(ge=0, le=1)]
 
 
@@ -70,6 +73,19 @@ class Team(FeedModel):
     city: NonEmptyStr
 
 
+class GameTeam(Team):
+    """A side of a game: one of the 30 teams, or a guest team outside the league."""
+
+    code: SideCode
+    guest: bool = False
+
+    @model_validator(mode="after")
+    def _require_a_league_code_of_a_league_team(self) -> GameTeam:
+        if not self.guest and re.fullmatch(r"[A-Z]{3}", self.code) is None:
+            raise ValueError("a league team code is three capital letters")
+        return self
+
+
 class Player(FeedModel):
     player_id: NonEmptyStr
     first_name: NonEmptyStr
@@ -81,8 +97,8 @@ class Player(FeedModel):
 class Leader(FeedModel):
     player_id: NonEmptyStr
     display_name: NonEmptyStr
-    team_code: TeamCode
-    photo_url: HttpUrl
+    team_code: SideCode
+    photo_url: HttpUrl | None
     points: NonNegativeInt
     rebounds: NonNegativeInt
     assists: NonNegativeInt
@@ -128,8 +144,13 @@ class GameTeamStats(FeedModel):
 
 
 class Stars(FeedModel):
-    away: Star
-    home: Star
+    away: Star | None
+    home: Star | None
+
+
+def stars_match_sides(stars: Stars, away: GameTeam, home: GameTeam) -> bool:
+    """True when a side has no star exactly when it is a guest."""
+    return (stars.away is None) == away.guest and (stars.home is None) == home.guest
 
 
 REQUIRED_BY_STATUS: dict[GameStatus, tuple[str, ...]] = {
@@ -153,8 +174,8 @@ REQUIRED_BY_STATUS: dict[GameStatus, tuple[str, ...]] = {
 
 class Game(FeedModel):
     id: NonEmptyStr
-    away: Team
-    home: Team
+    away: GameTeam
+    home: GameTeam
     status: GameStatus
     start_time: UtcDatetime
     venue: NonEmptyStr
@@ -165,7 +186,7 @@ class Game(FeedModel):
     clock: NonEmptyStr | None = None
     line_score: LineScore | None = None
     score: Score | None = None
-    winner: TeamCode | None = None
+    winner: SideCode | None = None
     leaders: Leaders | None = None
     team_stats: GameTeamStats | None = None
     stats_availability: StatsAvailability | None = None
@@ -188,6 +209,30 @@ class Game(FeedModel):
             raise ValueError(f"a {self.status} game has no winner")
         if self.winner not in (self.away.code, self.home.code):
             raise ValueError("winner must be the away or the home team code")
+        return self
+
+    @model_validator(mode="after")
+    def _require_two_different_teams(self) -> Game:
+        if self.away.code == self.home.code:
+            raise ValueError("a game has two different teams")
+        return self
+
+    @model_validator(mode="after")
+    def _require_stars_of_the_league_sides(self) -> Game:
+        if not stars_match_sides(self.stars, self.away, self.home):
+            raise ValueError("a guest side has no star and a league side has one")
+        return self
+
+    @model_validator(mode="after")
+    def _require_photos_of_league_players(self) -> Game:
+        if self.leaders is None:
+            return self
+        for leader, team in (
+            (self.leaders.away, self.away),
+            (self.leaders.home, self.home),
+        ):
+            if leader.photo_url is None and not team.guest:
+                raise ValueError("a league leader has a photo")
         return self
 
     @model_validator(mode="after")

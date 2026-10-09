@@ -140,7 +140,7 @@ export interface BoxScorePlayer {
 	starter: boolean;
 	minutes: string;
 	plusMinus: number;
-	photoUrl: string;
+	photoUrl: string | null;
 }
 export interface GameLogEntry {
 	gameId: string;

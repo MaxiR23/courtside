@@ -19,6 +19,7 @@
 //   the season series summary (leader from the feed) and meta, the "This game" row and the dimmed
 //   loser, videos; null with their tab; the date shown in UTC
 //   (the current series row comes from the feed marker, not from the date or the position)
+// - A guest game: the header guest has a null record and the guest flag; line score and box rows carry the flag; players, injuries, last games and standings have a null guest side; the last games tab shows with only the league side; the season series and win probability tabs are hidden when null
 // - Spanish copy and dates for an es browser
 // - A live game without its score cannot be shown
 //
@@ -479,8 +480,8 @@ describe('toGameView pre-game sections', () => {
 			photo: 'https://example.com/photos/LAL.png',
 			teamName: 'Los Angeles Lakers'
 		});
-		expect(players?.home.teamName).toBe('Golden State Warriors');
-		expect(players?.home.lastName).toBe('Curry');
+		expect(players?.home?.teamName).toBe('Golden State Warriors');
+		expect(players?.home?.lastName).toBe('Curry');
 	});
 
 	it('builds the injuries section with the status key and the comment as given', () => {
@@ -506,39 +507,39 @@ describe('toGameView pre-game sections', () => {
 				{ id: null, name: 'Rui Hachimura', status: 'out', comment: null }
 			]
 		});
-		expect(injuries?.home.injuries).toEqual([]);
+		expect(injuries?.home?.injuries).toEqual([]);
 	});
 
 	it('maps an injury without a playerId key to a null id', () => {
 		const source = pre();
-		const injury: Partial<Injury> = { ...source.injuries!.away[0] };
+		const injury: Partial<Injury> = { ...source.injuries!.away![0] };
 		delete injury.playerId;
 		source.injuries = { away: [injury as Injury], home: [] };
 		const { injuries } = view(source).sections;
-		expect(injuries?.away.injuries[0].id).toBeNull();
+		expect(injuries?.away?.injuries[0].id).toBeNull();
 	});
 
 	it('lists last games newest first with the result strip oldest to newest', () => {
 		const { lastGames } = view(pre()).sections;
-		expect(lastGames?.away.rows.map((r) => r.date)).toEqual(['Oct 5', 'Oct 3']);
-		expect(lastGames?.away.strip).toEqual([
+		expect(lastGames?.away?.rows.map((r) => r.date)).toEqual(['Oct 5', 'Oct 3']);
+		expect(lastGames?.away?.strip).toEqual([
 			{ result: 'loss', label: 'L' },
 			{ result: 'win', label: 'W' }
 		]);
-		expect(lastGames?.home.strip).toEqual([{ result: 'win', label: 'W' }]);
+		expect(lastGames?.home?.strip).toEqual([{ result: 'win', label: 'W' }]);
 	});
 
 	it('formats a last game as W, "Oct 5", "vs DEN" at home and "@ PHX" away, with the team points first', () => {
 		const { lastGames } = view(pre()).sections;
-		expect(lastGames?.away.rows[0]).toEqual({
+		expect(lastGames?.away?.rows[0]).toEqual({
 			result: 'win',
 			resultLabel: 'W',
 			date: 'Oct 5',
 			opponent: 'vs DEN',
 			score: '110–102'
 		});
-		expect(lastGames?.away.rows[1]).toMatchObject({ opponent: '@ PHX', score: '99–104' });
-		expect(lastGames?.home.rows[0].opponent).toBe('@ SAC');
+		expect(lastGames?.away?.rows[1]).toMatchObject({ opponent: '@ PHX', score: '99–104' });
+		expect(lastGames?.home?.rows[0].opponent).toBe('@ SAC');
 	});
 
 	it('shows the last-games tab and section when the feed has lastGames with at least one game', () => {
@@ -581,7 +582,7 @@ describe('toGameView pre-game sections', () => {
 			home: []
 		};
 		const spy = vi.spyOn(Intl, 'DateTimeFormat');
-		expect(view(source).sections.lastGames?.away.rows[0].date).toBe('Jan 1');
+		expect(view(source).sections.lastGames?.away?.rows[0].date).toBe('Jan 1');
 		const zones = spy.mock.calls.map((call) => (call[1] as Intl.DateTimeFormatOptions).timeZone);
 		expect(zones).toContain('UTC');
 	});
@@ -590,8 +591,8 @@ describe('toGameView pre-game sections', () => {
 		const source = pre();
 		const standings = source.standings!;
 		const rank = (n: number, conference: 'east' | 'west') => {
-			standings.away = { ...standings.away, conferenceRank: n, conference };
-			return view(source).sections.standings?.away.conference;
+			standings.away = { ...standings.away!, conferenceRank: n, conference };
+			return view(source).sections.standings?.away?.conference;
 		};
 		expect(rank(3, 'west')).toBe('3rd West');
 		expect(rank(1, 'east')).toBe('1st East');
@@ -601,7 +602,7 @@ describe('toGameView pre-game sections', () => {
 
 	it('formats the conference rank in Spanish', () => {
 		preferLanguages(['es-ES']);
-		expect(view(pre()).sections.standings?.away.conference).toBe('3.º Oeste');
+		expect(view(pre()).sections.standings?.away?.conference).toBe('3.º Oeste');
 	});
 
 	it('formats the standings records as wins–losses', () => {
@@ -614,7 +615,7 @@ describe('toGameView pre-game sections', () => {
 			away: '4–3',
 			lastTen: '6–4'
 		});
-		expect(standings?.home.record).toBe('10–7');
+		expect(standings?.home?.record).toBe('10–7');
 	});
 
 	it('summarises the series as "LAL lead 1–0", "GSW lead 2–1", "Series tied 1–1" and "First meeting"', () => {
@@ -762,13 +763,122 @@ describe('toGameView pre-game sections', () => {
 	it('shows the new section copy in Spanish for an es browser', () => {
 		preferLanguages(['es-ES']);
 		const { sections } = view(pre());
-		expect(sections.lastGames?.away.rows[0]).toMatchObject({
+		expect(sections.lastGames?.away?.rows[0]).toMatchObject({
 			resultLabel: 'G',
 			opponent: 'vs DEN'
 		});
-		expect(sections.lastGames?.away.rows[1].opponent).toBe('@ PHX');
+		expect(sections.lastGames?.away?.rows[1].opponent).toBe('@ PHX');
 		expect(sections.seasonSeries?.summary).toBe('LAL lidera 1–0');
 		expect(sections.seasonSeries?.meta).toBe('1 de 3 partidos jugados');
 		expect(sections.seasonSeries?.games[1].date).toBe('Este partido');
+	});
+});
+
+describe('toGameView with a guest team', () => {
+	function guestFeed(source: GameDetailFeed): GameDetailFeed {
+		const guest = {
+			code: 'HCM',
+			name: 'Mariners',
+			city: 'Harbor City',
+			record: null,
+			guest: true
+		};
+		const leaders = { ...source.teamStats!.leaders };
+		for (const [key, code] of Object.entries(leaders)) {
+			if (code === 'LAL') leaders[key as keyof typeof leaders] = 'HCM';
+		}
+		return {
+			...source,
+			away: guest,
+			stars: { away: null, home: source.stars!.home },
+			boxScore: {
+				...source.boxScore!,
+				away: {
+					...source.boxScore!.away,
+					players: source.boxScore!.away.players.map((p) => ({ ...p, photoUrl: null }))
+				}
+			},
+			teamStats: { ...source.teamStats!, leaders },
+			winProbability: null,
+			winProbabilityLeader: null,
+			winProbabilityPeriods: null,
+			injuries: { away: null, home: source.injuries!.home },
+			lastGames: { away: null, home: source.lastGames!.home },
+			standings: { away: null, home: source.standings!.home },
+			seasonSeries: null
+		};
+	}
+
+	function guestPre(): GameDetailFeed {
+		return {
+			...guestFeed(feed()),
+			status: 'scheduled',
+			period: null,
+			clock: null,
+			lineScore: null,
+			score: null,
+			teamStats: null,
+			boxScore: null
+		};
+	}
+
+	it('gives the guest header team no record and the guest flag, and the league team neither', () => {
+		const { header } = view(guestFeed(feed()));
+		expect(header.away).toEqual({
+			code: 'HCM',
+			name: 'Mariners',
+			city: 'Harbor City',
+			record: null,
+			guest: true
+		});
+		expect(header.home.record).toBe('10–7');
+		expect(header.home.guest).toBeUndefined();
+	});
+
+	it('maps a feed without the guest key as league teams', () => {
+		expect(view(feed()).header.away.guest).toBeUndefined();
+	});
+
+	it('marks the guest side of the line score and its box rows', () => {
+		const { sections } = view(guestFeed(feed()));
+		expect(sections.score?.lineScore.away.guest).toBe(true);
+		expect(sections.score?.lineScore.home.guest).toBeUndefined();
+		const away = sections.boxScore!.away;
+		expect([...away.starters, ...away.bench].every((row) => row.guest === true)).toBe(true);
+		const home = sections.boxScore!.home;
+		expect([...home.starters, ...home.bench].every((row) => row.guest === undefined)).toBe(true);
+	});
+
+	it('gives the leading side of the stat leaders to the guest', () => {
+		const { sections } = view(guestFeed(feed()));
+		expect(sections.score?.stats?.leads.fieldGoalPct).toBe('away');
+	});
+
+	it('has a null guest side in the players, injuries, last games and standings sections', () => {
+		const { sections } = view(guestPre());
+		expect(sections.players?.away).toBeNull();
+		expect(sections.players?.home?.teamCode).toBe('GSW');
+		expect(sections.injuries?.away).toBeNull();
+		expect(sections.injuries?.home?.code).toBe('GSW');
+		expect(sections.lastGames?.away).toBeNull();
+		expect(sections.lastGames?.home?.code).toBe('GSW');
+		expect(sections.standings?.away).toBeNull();
+		expect(sections.standings?.home?.code).toBe('GSW');
+	});
+
+	it('shows the last games tab with only the league side', () => {
+		const source = guestPre();
+		source.lastGames = { away: null, home: source.lastGames!.home };
+		expect(ids(view(source))).toContain('last-games');
+		source.lastGames = { away: null, home: [] };
+		expect(ids(view(source))).not.toContain('last-games');
+	});
+
+	it('hides the season series and win probability tabs when the feed has none', () => {
+		const final = guestFeed(asFinal(feed()));
+		expect(ids(view(final))).not.toContain('season-series');
+		expect(ids(view(final))).not.toContain('win-probability');
+		expect(view(final).sections.seasonSeries).toBeNull();
+		expect(view(final).sections.winProbability).toBeNull();
 	});
 });

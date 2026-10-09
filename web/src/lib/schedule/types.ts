@@ -4,6 +4,7 @@ export type ScheduleTeam = {
 	code: string; // three letters, monogram
 	name: string; // e.g. "Warriors"
 	city: string; // e.g. "Golden State", muted
+	guest?: boolean; // a team outside the league: no link (ADR 0025)
 };
 
 export type GameStatus =
@@ -12,9 +13,16 @@ export type GameStatus =
 	| { state: 'final'; awayScore: number; homeScore: number; winner: string } // winner: the winning team's code, from the feed
 	| { state: 'delayed' | 'postponed' | 'canceled' }; // no score, no tip time
 
-export type PanelPlayer = Pick<HeroPlayer, 'firstName' | 'lastName' | 'teamCode' | 'photo'>;
+export type PanelPlayer = Pick<HeroPlayer, 'firstName' | 'lastName' | 'teamCode'> & {
+	photo: string | null; // null: no photo, so initials
+};
 
-export type Leader = PanelPlayer & { points: number; rebounds: number; assists: number };
+export type Leader = PanelPlayer & {
+	points: number;
+	rebounds: number;
+	assists: number;
+	guest?: boolean; // a player of a team outside the league: no team link
+};
 
 export type TeamStatLine = {
 	fieldGoalPct: number; // 0 to 1
@@ -39,7 +47,11 @@ export type GameHighlights = {
 };
 
 export type GameDetails =
-	| { kind: 'scheduled'; venue: string; playersToWatch: { away: PanelPlayer; home: PanelPlayer } }
+	| {
+			kind: 'scheduled';
+			venue: string;
+			playersToWatch: { away: PanelPlayer | null; home: PanelPlayer | null };
+	  } // null: a guest team has no star
 	| {
 			kind: 'played'; // live or final
 			periods: { away: number[]; home: number[] }; // points per period played so far, overtime included

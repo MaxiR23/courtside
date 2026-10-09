@@ -9,6 +9,8 @@
 // - The winner of a final game, passed through
 // - Leaders (display name split), stats, highlights with autoplay, the hero chip's full team name
 // - A final game with pending or unavailable stats keeps its line score and highlights without leaders or stats
+// - A guest team (outside the league) is marked guest on its team view, has no player to watch, and has a leader marked guest with no photo; a feed without the guest key maps as league
+// - A game with a guest side is never a hero game; the league games stay
 // - Minutes since the feed was generated, never negative
 // - Null network, no video platform name, no videos, a one-word display name
 // - A feed without seven days, and a live game without its fields or a final game without its winner or stats availability, cannot be shown
@@ -326,5 +328,61 @@ describe('toHomeView', () => {
 		const source = feed();
 		source.days[3].games[1].score = null;
 		expect(toHomeView(source, received, options)).toBeNull();
+	});
+});
+
+describe('toHomeView with a guest team', () => {
+	const guest = { code: 'HCM', name: 'Mariners', city: 'Harbor City', guest: true };
+
+	function withGuests(): GamesFeed {
+		const source = feed();
+		const games = source.days[3].games;
+		const scheduled = games[0];
+		scheduled.away = guest;
+		scheduled.stars.away = null;
+		const final = games[2];
+		final.away = guest;
+		final.winner = 'HCM';
+		final.stars.away = null;
+		if (!final.leaders) throw new Error('fixture');
+		final.leaders.away = { ...final.leaders.away, teamCode: 'HCM', photoUrl: null };
+		return source;
+	}
+
+	it('marks a guest team and leaves a league team unmarked', () => {
+		const game = todayGame(view(withGuests()), 'g-sched');
+		expect(game.away).toEqual({ ...guest });
+		expect(game.home.guest).toBeUndefined();
+	});
+
+	it('maps a feed without the guest key as league teams', () => {
+		const game = todayGame(view(), 'g-sched');
+		expect(game.away.guest).toBeUndefined();
+		expect(game.home.guest).toBeUndefined();
+	});
+
+	it('has no player to watch for the guest side and keeps the league side', () => {
+		const game = todayGame(view(withGuests()), 'g-sched');
+		if (game.details?.kind !== 'scheduled') throw new Error('Expected scheduled details');
+		expect(game.details.playersToWatch.away).toBeNull();
+		expect(game.details.playersToWatch.home?.teamCode).toBe('LAL');
+	});
+
+	it('marks a guest leader and keeps its null photo', () => {
+		const game = todayGame(view(withGuests()), 'g-final');
+		if (game.details?.kind !== 'played') throw new Error('Expected played details');
+		expect(game.details.leaders.away).toMatchObject({ teamCode: 'HCM', guest: true, photo: null });
+		expect(game.details.leaders.home.guest).toBeUndefined();
+	});
+
+	it('passes a guest winner through', () => {
+		const game = todayGame(view(withGuests()), 'g-final');
+		expect(game.status).toMatchObject({ state: 'final', winner: 'HCM' });
+	});
+
+	it('never puts a game with a guest side in the hero and keeps the league games', () => {
+		const v = view(withGuests());
+		expect(v.heroGames.map((g) => g.id)).toEqual(['g-live', 'g-delayed']);
+		expect(v.days[3].games).toHaveLength(6);
 	});
 });

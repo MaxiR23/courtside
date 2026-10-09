@@ -15,7 +15,7 @@
 
 	let { injuries, teamHref, playerHref }: Props = $props();
 
-	const teams = $derived([injuries.away, injuries.home]);
+	const teams = $derived([injuries.away, injuries.home].filter((team) => team !== null));
 </script>
 
 <div class="injuries">

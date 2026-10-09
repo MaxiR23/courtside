@@ -8,6 +8,7 @@
 // - The comment as given, absent when null
 // - The team monogram and name link to the team page; a player name links to its page, or is plain text with a null id
 // - "No injuries reported." for a team with an empty list, in both languages
+// - Only the league side renders when a side is null
 //
 // What is covered:
 // - Each state, in both languages
@@ -114,5 +115,14 @@ describe('Injuries', () => {
 		render(Injuries, { props });
 		expect(screen.getByText('Player 1')).toBeTruthy();
 		expect(screen.queryByRole('link', { name: 'Player 1' })).toBeNull();
+	});
+});
+
+describe('Injuries with a guest team', () => {
+	it('renders only the league team', () => {
+		const { container } = render(Injuries, {
+			props: { injuries: { away: null, home: injuries.home }, teamHref, playerHref }
+		});
+		expect([...container.querySelectorAll('h3')].map((h) => h.textContent)).toEqual(['Lakers']);
 	});
 });

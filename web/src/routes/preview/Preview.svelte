@@ -433,7 +433,8 @@
 	const sampleInjuriesBoth: InjuriesSection = {
 		...sampleInjuries,
 		home: {
-			...sampleInjuries.home,
+			code: headerHome.code,
+			name: headerHome.name,
 			injuries: [
 				{ id: 'preview-4', name: 'Gabe Vincent', status: 'probable', comment: null },
 				{ id: null, name: 'Rui Hachimura', status: 'day-to-day', comment: 'Ankle sprain.' }

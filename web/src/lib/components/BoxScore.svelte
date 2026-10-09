@@ -18,7 +18,7 @@
 	const sides = ['away', 'home'] as const;
 	const team = $derived(box[side]);
 
-	type StatKey = Exclude<keyof BoxRow, 'id' | 'name' | 'plusMinusPositive'>;
+	type StatKey = Exclude<keyof BoxRow, 'id' | 'name' | 'plusMinusPositive' | 'guest'>;
 	type Column = { key: StatKey; label: () => string; muted?: boolean; shooting?: boolean };
 
 	// MIN and PTS, the shooting columns, then the counting stats and +/-.
@@ -89,7 +89,7 @@
 				{#each group.rows as row (row.id)}
 					<div class="row body" role="row">
 						<span class="cell player name" role="rowheader"
-							><NameLink href={playerHref(row.id)} text={row.name} /></span
+							><NameLink href={row.guest ? null : playerHref(row.id)} text={row.name} /></span
 						>
 						{#each columns as column (column.key)}
 							<span

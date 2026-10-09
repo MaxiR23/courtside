@@ -99,10 +99,17 @@
           "type": "integer"
         },
         "photoUrl": {
-          "format": "uri",
-          "maxLength": 2083,
-          "minLength": 1,
-          "type": "string"
+          "anyOf": [
+            {
+              "format": "uri",
+              "maxLength": 2083,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -266,7 +273,7 @@
       "additionalProperties": false,
       "properties": {
         "code": {
-          "pattern": "^[A-Z]{3}$",
+          "minLength": 1,
           "type": "string"
         },
         "name": {
@@ -277,14 +284,26 @@
           "minLength": 1,
           "type": "string"
         },
+        "guest": {
+          "default": false,
+          "type": "boolean"
+        },
         "record": {
-          "$ref": "#/$defs/Record"
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Record"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
         "code",
         "name",
         "city",
+        "guest",
         "record"
       ],
       "title": "DetailTeam",
@@ -418,16 +437,30 @@
       "additionalProperties": false,
       "properties": {
         "away": {
-          "items": {
-            "$ref": "#/$defs/Injury"
-          },
-          "type": "array"
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/Injury"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "home": {
-          "items": {
-            "$ref": "#/$defs/Injury"
-          },
-          "type": "array"
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/Injury"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -500,7 +533,7 @@
           "type": "string"
         },
         "opponent": {
-          "pattern": "^[A-Z]{3}$",
+          "minLength": 1,
           "type": "string"
         },
         "isHome": {
@@ -533,18 +566,32 @@
       "additionalProperties": false,
       "properties": {
         "away": {
-          "items": {
-            "$ref": "#/$defs/LastGame"
-          },
-          "maxItems": 5,
-          "type": "array"
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/LastGame"
+              },
+              "maxItems": 5,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "home": {
-          "items": {
-            "$ref": "#/$defs/LastGame"
-          },
-          "maxItems": 5,
-          "type": "array"
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/LastGame"
+              },
+              "maxItems": 5,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -722,10 +769,24 @@
       "additionalProperties": false,
       "properties": {
         "away": {
-          "$ref": "#/$defs/TeamStanding"
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TeamStanding"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "home": {
-          "$ref": "#/$defs/TeamStanding"
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TeamStanding"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -780,10 +841,24 @@
       "additionalProperties": false,
       "properties": {
         "away": {
-          "$ref": "#/$defs/Star"
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Star"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "home": {
-          "$ref": "#/$defs/Star"
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Star"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -853,7 +928,7 @@
         "fieldGoalPct": {
           "anyOf": [
             {
-              "pattern": "^[A-Z]{3}$",
+              "minLength": 1,
               "type": "string"
             },
             {
@@ -864,7 +939,7 @@
         "threePointPct": {
           "anyOf": [
             {
-              "pattern": "^[A-Z]{3}$",
+              "minLength": 1,
               "type": "string"
             },
             {
@@ -875,7 +950,7 @@
         "freeThrowPct": {
           "anyOf": [
             {
-              "pattern": "^[A-Z]{3}$",
+              "minLength": 1,
               "type": "string"
             },
             {
@@ -886,7 +961,7 @@
         "rebounds": {
           "anyOf": [
             {
-              "pattern": "^[A-Z]{3}$",
+              "minLength": 1,
               "type": "string"
             },
             {
@@ -897,7 +972,7 @@
         "assists": {
           "anyOf": [
             {
-              "pattern": "^[A-Z]{3}$",
+              "minLength": 1,
               "type": "string"
             },
             {
@@ -908,7 +983,7 @@
         "turnovers": {
           "anyOf": [
             {
-              "pattern": "^[A-Z]{3}$",
+              "minLength": 1,
               "type": "string"
             },
             {
@@ -919,7 +994,7 @@
         "steals": {
           "anyOf": [
             {
-              "pattern": "^[A-Z]{3}$",
+              "minLength": 1,
               "type": "string"
             },
             {
@@ -930,7 +1005,7 @@
         "blocks": {
           "anyOf": [
             {
-              "pattern": "^[A-Z]{3}$",
+              "minLength": 1,
               "type": "string"
             },
             {
@@ -1039,7 +1114,7 @@
       "additionalProperties": false,
       "properties": {
         "teamCode": {
-          "pattern": "^[A-Z]{3}$",
+          "minLength": 1,
           "type": "string"
         },
         "winProbability": {
@@ -1181,7 +1256,7 @@
     "winner": {
       "anyOf": [
         {
-          "pattern": "^[A-Z]{3}$",
+          "minLength": 1,
           "type": "string"
         },
         {

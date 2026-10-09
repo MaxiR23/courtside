@@ -67,7 +67,7 @@ import pytest
 import respx
 
 from app.feeds.game_detail import Conference, GameResult, Injury, InjuryStatus
-from app.feeds.games import GameStatus, LineScore, Score, Team
+from app.feeds.games import GameStatus, GameTeam, LineScore, Score
 from app.feeds.player import GameKind, GameTag, TagKind
 from app.feeds.team import PlayoffStatus, TeamFeed
 from app.jobs.games import GamesJob
@@ -1071,8 +1071,8 @@ def scoreboard(
 ) -> ScoreboardGame:
     data: dict[str, Any] = {
         "id": game_id,
-        "away": Team(code=away, name=away.title(), city=away.title()),
-        "home": Team(code=home, name=home.title(), city=home.title()),
+        "away": GameTeam(code=away, name=away.title(), city=away.title()),
+        "home": GameTeam(code=home, name=home.title(), city=home.title()),
         "status": status,
         "start_time": start,
         "venue": "Arena",

@@ -56,7 +56,7 @@ import httpx
 import pytest
 import respx
 
-from app.feeds.games import GameStatus, Team
+from app.feeds.games import GameStatus, GameTeam
 from app.jobs.highlights import JOB, RETRY, HighlightsJob
 from app.settings import Settings
 from app.sources.http import SourceError, create_client
@@ -95,8 +95,8 @@ def make_game(
 ) -> ScoreboardGame:
     return ScoreboardGame(
         id=game_id,
-        away=Team(code=away[0], name=away[1], city="City"),
-        home=Team(code=home[0], name=home[1], city="City"),
+        away=GameTeam(code=away[0], name=away[1], city="City"),
+        home=GameTeam(code=home[0], name=home[1], city="City"),
         status=GameStatus.FINAL,
         start_time=start,
         venue="Arena",

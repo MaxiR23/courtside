@@ -7,6 +7,7 @@
 // - Each team code links to the team page
 // - A placeholder in place of a photo that fails to load, keeping the other photo
 // - The stat line in Spanish with a Spanish browser preference
+// - A guest leader: the team code is plain text and a missing photo shows the initials
 //
 // What is covered:
 // - Happy path, the photo error interaction and Spanish
@@ -85,5 +86,30 @@ describe('Leaders', () => {
 			['GSW', '/team/gsw'],
 			['LAL', '/team/lal']
 		]);
+	});
+});
+
+describe('Leaders of a guest team', () => {
+	const guest: Leader = {
+		...away,
+		firstName: 'Casey',
+		lastName: 'Marin',
+		teamCode: 'HCM',
+		photo: null,
+		guest: true
+	};
+
+	it('shows the guest code as plain text and the league code as a link', () => {
+		const { container } = render(Leaders, { props: { away: guest, home, teamHref } });
+		const codes = [...container.querySelectorAll('.leader-code')];
+		expect(codes[0].textContent).toBe('HCM');
+		expect(codes[0].querySelector('a')).toBeNull();
+		expect(codes[1].querySelector('a')?.getAttribute('href')).toBe('/team/lal');
+	});
+
+	it('shows initials in place of a missing photo', () => {
+		render(Leaders, { props: { away: guest, home, teamHref } });
+		expect(screen.getByRole('img', { name: 'Casey Marin' }).textContent).toBe('CM');
+		expect(screen.getByAltText('LeBron James')).toBeTruthy();
 	});
 });

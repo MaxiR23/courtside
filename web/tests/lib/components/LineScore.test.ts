@@ -9,6 +9,7 @@
 // - The code, and on the detail page the team name, link to the team page
 // - The header in Spanish with a Spanish browser preference
 // - Detail mode: OT1 and OT2 labels, and the team name next to the code
+// - A guest team code and name are plain text
 //
 // What is covered:
 // - Regulation, live and overtime games, plus Spanish
@@ -134,5 +135,22 @@ describe('LineScore', () => {
 		for (const name of ['LAL', 'Lakers']) {
 			expect(screen.getByRole('link', { name }).getAttribute('href')).toBe('/team/lal');
 		}
+	});
+});
+
+describe('LineScore with a guest team', () => {
+	it('does not link the guest code or name and links the league ones', () => {
+		const { container } = render(LineScore, {
+			props: {
+				teamHref,
+				detail: true,
+				away: { code: 'HCM', name: 'Mariners', guest: true, periods: [28, 26, 24, 34], total: 112 },
+				home: { ...regulation.home, name: 'Lakers' }
+			}
+		});
+		const links = [...container.querySelectorAll('a')].map((a) => a.textContent);
+		expect(links).toEqual(['LAL', 'Lakers']);
+		expect(container.textContent).toContain('HCM');
+		expect(container.textContent).toContain('Mariners');
 	});
 });

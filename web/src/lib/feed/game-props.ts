@@ -114,7 +114,9 @@ function headerTeam(team: DetailTeam): HeaderTeam {
 		code: team.code,
 		name: team.name,
 		city: team.city,
-		record: record(team.record)
+		record: team.record ? record(team.record) : null,
+		// A feed built before the guest field has no key: a league team.
+		...(team.guest === true ? { guest: true } : {})
 	};
 }
 
@@ -211,7 +213,7 @@ function hasData(feed: GameDetailFeed, id: SectionId, options: Options): boolean
 		case 'last-games':
 			return (
 				feed.lastGames !== null &&
-				(feed.lastGames.away.length > 0 || feed.lastGames.home.length > 0)
+				((feed.lastGames.away?.length ?? 0) > 0 || (feed.lastGames.home?.length ?? 0) > 0)
 			);
 		case 'standings':
 			return feed.standings !== null;
@@ -242,7 +244,13 @@ const percent = (v: number) =>
 const wholePercent = (v: number) => formatNumber(v, { style: 'percent', maximumFractionDigits: 0 });
 
 function lineScoreTeam(team: DetailTeam, periods: number[], total: number): LineScoreTeam {
-	return { code: team.code, name: team.name, periods: [...periods], total };
+	return {
+		code: team.code,
+		name: team.name,
+		periods: [...periods],
+		total,
+		...(team.guest === true ? { guest: true } : {})
+	};
 }
 
 function leadSide(feed: GameDetailFeed, code: string | null): 'away' | 'home' | null {
@@ -308,7 +316,7 @@ type Shooting = { made: number; attempted: number };
 const shooting = ({ made, attempted }: Shooting) =>
 	`${formatNumber(made)}-${formatNumber(attempted)}`;
 
-function boxRow(player: BoxScorePlayer): BoxRow {
+function boxRow(player: BoxScorePlayer, team: DetailTeam): BoxRow {
 	return {
 		id: player.playerId,
 		name: player.displayName,
@@ -326,7 +334,8 @@ function boxRow(player: BoxScorePlayer): BoxRow {
 		blocks: formatNumber(player.blocks),
 		fouls: formatNumber(player.fouls),
 		plusMinus: formatNumber(player.plusMinus, { signDisplay: 'exceptZero' }),
-		plusMinusPositive: player.plusMinus > 0
+		plusMinusPositive: player.plusMinus > 0,
+		...(team.guest === true ? { guest: true } : {})
 	};
 }
 
@@ -354,8 +363,8 @@ function boxTeam(team: DetailTeam, box: BoxScore['away']): BoxScoreTeam {
 	return {
 		code: team.code,
 		name: team.name,
-		starters: box.players.filter((p) => p.starter).map(boxRow),
-		bench: box.players.filter((p) => !p.starter).map(boxRow),
+		starters: box.players.filter((p) => p.starter).map((p) => boxRow(p, team)),
+		bench: box.players.filter((p) => !p.starter).map((p) => boxRow(p, team)),
 		totals: boxTotals(box.totals)
 	};
 }
@@ -372,7 +381,8 @@ function feedDate(date: string, options: Intl.DateTimeFormatOptions): string {
 
 const rowDate = (date: string) => feedDate(date, { month: 'short', day: 'numeric' });
 
-function starCard(star: Star, team: DetailTeam): StarCard {
+function starCard(star: Star | null, team: DetailTeam): StarCard | null {
+	if (star === null) return null;
 	return {
 		id: star.playerId,
 		firstName: star.firstName,
@@ -391,7 +401,8 @@ function playersSection(feed: GameDetailFeed): PlayersSection {
 function injuryTeam(
 	team: DetailTeam,
 	list: NonNullable<GameDetailFeed['injuries']>['away']
-): InjuryTeam {
+): InjuryTeam | null {
+	if (list === null) return null;
 	return {
 		code: team.code,
 		name: team.name,
@@ -424,7 +435,8 @@ function lastGameRow(game: LastGame): LastGameRow {
 	};
 }
 
-function lastGamesTeam(team: DetailTeam, games: readonly LastGame[]): LastGamesTeam {
+function lastGamesTeam(team: DetailTeam, games: readonly LastGame[] | null): LastGamesTeam | null {
+	if (games === null) return null;
 	const rows = games.map(lastGameRow);
 	return {
 		code: team.code,
@@ -450,7 +462,8 @@ const CONFERENCE_LABELS: Record<Conference, () => string> = {
 function standingRow(
 	team: DetailTeam,
 	standing: NonNullable<GameDetailFeed['standings']>['away']
-): StandingRow {
+): StandingRow | null {
+	if (standing === null) return null;
 	return {
 		code: team.code,
 		name: team.name,

@@ -32,7 +32,10 @@
 			<PlayerPhoto player={leader} />
 			<span class="info">
 				<span class="leader-code"
-					><NameLink href={teamHref(leader.teamCode)} text={leader.teamCode} /></span
+					><NameLink
+						href={leader.guest ? null : teamHref(leader.teamCode)}
+						text={leader.teamCode}
+					/></span
 				>
 				<span class="leader-name">{leader.firstName} {leader.lastName}</span>
 				<span class="leader-line">{leader.line}</span>
