@@ -5,6 +5,7 @@
 # Tested:
 # - A team with every section is accepted; nullable sections and fields may be
 #   null and are serialized as null
+# - A coach without seasons is accepted and serialized with null seasons
 # - Roster status is active or an injury status
 # - Win percentages are 0 to 1 and counts are not negative
 # - The playoff seed matches its status
@@ -34,6 +35,7 @@ Payload = dict[str, Any]
 
 NULLABLE_PATHS = [
     ("coach",),
+    ("coach", "seasons"),
     ("nextGame",),
     ("schedule",),
     ("record", "streak"),
@@ -393,3 +395,12 @@ def test_rejects_unknown_fields() -> None:
     team = valid_team()
     team["roster"][0]["extra"] = 1
     rejects(team)
+
+
+def test_accepts_a_coach_with_null_seasons() -> None:
+    team = valid_team()
+    team["coach"]["seasons"] = None
+
+    dumped = TeamFeed.model_validate(team).model_dump(mode="json", by_alias=True)
+
+    assert dumped["coach"]["seasons"] is None

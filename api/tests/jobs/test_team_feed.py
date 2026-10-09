@@ -16,6 +16,7 @@
 # - Keeps the playoffs kind with null fields for an unrecognized playoff note
 # - Gives a regular game with an unknown note no tag
 # - Computes the age on the US Eastern date, with a birthday on the build day and the day after
+# - Gives a coach without experience null seasons
 # - Converts the roster details to text and numbers
 # - Builds the roster status from the league injuries by athlete id
 # - Matches each leader to the roster and gives null when the leader is no longer on it
@@ -821,6 +822,15 @@ def test_maps_the_coach() -> None:
     assert feed.coach is not None
     assert (feed.coach.name, feed.coach.seasons) == ("Mark Daigneault", 4)
     assert build().coach is None
+
+
+def test_maps_a_coach_without_experience_to_null_seasons() -> None:
+    coach = RosterCoach(first_name="Jordan", last_name="Sample", experience=None)
+
+    feed = build(team_roster=roster(coach=coach))
+
+    assert feed.coach is not None
+    assert (feed.coach.name, feed.coach.seasons) == ("Jordan Sample", None)
 
 
 def test_fails_the_build_for_a_team_with_no_standings_entry() -> None:

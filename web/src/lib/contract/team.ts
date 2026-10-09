@@ -38,7 +38,7 @@ export interface Venue {
 }
 export interface Coach {
 	name: string;
-	seasons: number;
+	seasons: number | null;
 }
 export interface TeamRecord {
 	wins: number;

@@ -124,7 +124,7 @@ Overview · Record · Leaders · Roster · Injuries · Schedule. Mini `OKC 57–
 ### 3. Overview
 
 - **Arena:** a 16:10 blueprint frame with the arena photo **in its original colors** and a bottom gradient, the label "Home arena", the arena name and the city over it. **Without a photo the frame is not shown:** the label, the arena name and the city are shown as a stat cell, in the same position and order.
-- **Head coach:** the name and `N seasons as NBA head coach`.
+- **Head coach:** the name and `N seasons as NBA head coach`; with no seasons in the feed (a first-year head coach), the name alone, with no seasons line.
 - **Team colors:** two 26px swatches with their hex values.
 - **Next game:** the next game card, as on the player page.
 
@@ -222,7 +222,7 @@ Keys are camelCase. Nullable fields are always present and `null` when absent. T
 | `conference`, `division` | `east` / `west`, and the division name |
 | `colors` | `primary`, `secondary`: hex values |
 | `arena` | `name`, `city` (or null), `photoUrl` (or null) |
-| `coach` | `name`, `seasons`; or null |
+| `coach` | `name`, `seasons` (or null); or null |
 | `season` | Label, such as `2026-27` |
 | `record` | `wins`, `losses`, `winPct`; `home`, `away`, `lastTen` (each `wins`, `losses`, `winPct`); `streak` (`kind` win / loss, `count`; or null); `gamesBehind`; `conferenceRank`; `divisionRank`; `playoff` (`status` seed / playin / out, `seed`; or null before the first game); `pointsFor`, `pointsAgainst`, `differential` (each `perGame`, `total`) |
 | `leaders` | `season` and `points`, `rebounds`, `assists`: `playerId`, `name`, `number`, `position`, `photoUrl`, `value`; each or null |

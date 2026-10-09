@@ -190,7 +190,8 @@ function overview(feed: TeamFeed): OverviewSection {
 			? {
 					label: m.team_coach_label(),
 					value: feed.coach.name,
-					sub: m.team_coach_seasons({ count: feed.coach.seasons })
+					sub:
+						feed.coach.seasons === null ? null : m.team_coach_seasons({ count: feed.coach.seasons })
 				}
 			: null,
 		colors: [{ hex: feed.colors.primary }, { hex: feed.colors.secondary }],

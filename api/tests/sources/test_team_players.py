@@ -10,6 +10,7 @@
 # - Maps a recorded roster's details: height, weight, birth date, birthplace, college, experience, jersey, position and headshot
 # - Maps the coach from the first coach entry, and gives no coach with an empty coach list
 # - Keeps a missing headshot, college and birthplace as null
+# - Maps a coach whose experience is null or missing, and keeps a null in each optional athlete field as null
 # - Keeps the Star players of the recorded roster unchanged
 # - Fetches the team leaders of the roster season, falls back to the previous season labeled with it, and returns the current season with no players when neither has statistics
 # - Maps recorded season averages to per-game points, rebounds and assists in provider order
@@ -32,7 +33,8 @@
 # The fixtures are a real roster and real season averages trimmed to the fields
 # the adapter reads: every URL-valued key is removed except the athlete links,
 # which are rewritten to an example.com address. The averages list players
-# who are not on the roster.
+# who are not on the roster. roster-coach-without-experience.json is made-up
+# example data.
 #
 # Run with: cd api && .venv/bin/python -m pytest tests/sources/test_team_players.py
 #
@@ -55,6 +57,8 @@ from app.sources.http import SourceClient, SourceError, create_client
 from app.sources.team_players import (
     PlayerAverages,
     Roster,
+    RosterCoach,
+    RosterEntry,
     SeasonLeaders,
     fetch_player_averages,
     fetch_roster,
@@ -251,6 +255,94 @@ async def test_keeps_a_missing_headshot_college_and_birthplace_as_null(
     assert by_id["4222252"].birth_city is None
     assert by_id["5159925"].birth_city is None
     assert by_id["5159925"].birth_country is None
+
+
+async def roster_from_payload(
+    mock: respx.MockRouter, settings: Settings, payload: Payload
+) -> Roster:
+    mock.get(ROSTER_URL).respond(json=payload)
+    return await roster_of(settings)
+
+
+@pytest.mark.anyio
+async def test_maps_a_coach_without_experience(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    roster = await roster_from_payload(
+        mock, settings, load("roster-coach-without-experience.json")
+    )
+
+    assert roster.coach == RosterCoach(
+        first_name="Jordan", last_name="Sample", experience=None
+    )
+    assert len(roster.players) == len(roster.entries) == 1
+
+
+@pytest.mark.anyio
+async def test_keeps_a_coach_without_the_experience_key(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("roster-coach-without-experience.json")
+    del payload["coach"][0]["experience"]
+
+    roster = await roster_from_payload(mock, settings, payload)
+
+    assert roster.coach is not None
+    assert roster.coach.experience is None
+
+
+NULL_CASES = [
+    ("displayName", ("display_name",)),
+    ("jersey", ("jersey",)),
+    ("height", ("height_inches",)),
+    ("displayHeight", ("display_height",)),
+    ("weight", ("weight_lb",)),
+    ("dateOfBirth", ("birth_date",)),
+    ("birthPlace", ("birth_city", "birth_state", "birth_country")),
+    ("birthPlace.city", ("birth_city",)),
+    ("birthPlace.state", ("birth_state",)),
+    ("birthPlace.country", ("birth_country",)),
+    ("college", ("college",)),
+    ("college.name", ("college",)),
+    ("experience", ("experience",)),
+    ("position", ("position_name", "position_abbreviation")),
+    ("position.name", ("position_name",)),
+    ("position.abbreviation", ("position_abbreviation",)),
+    ("headshot", ("headshot_url",)),
+]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("key", "attributes"), NULL_CASES, ids=[case[0] for case in NULL_CASES]
+)
+async def test_keeps_a_null_optional_athlete_field_as_null(
+    mock: respx.MockRouter,
+    settings: Settings,
+    key: str,
+    attributes: tuple[str, ...],
+) -> None:
+    payload = load("roster-coach-without-experience.json")
+    target = payload["athletes"][0]
+    *path, last = key.split(".")
+    for part in path:
+        target = target[part]
+    target[last] = None
+
+    roster = await roster_from_payload(mock, settings, payload)
+
+    baseline = (
+        await roster_from_payload(
+            mock, settings, load("roster-coach-without-experience.json")
+        )
+    ).entries[0]
+    entry = roster.entries[0]
+    for name in attributes:
+        assert getattr(entry, name) is None
+        assert getattr(baseline, name) is not None
+    others = set(RosterEntry.model_fields) - set(attributes)
+    for name in others:
+        assert getattr(entry, name) == getattr(baseline, name)
 
 
 @pytest.mark.anyio

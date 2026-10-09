@@ -6,7 +6,7 @@
 // - The header: record, win percentage, conference line and its four cells; the Streak cell
 //   left out with a null streak, the Playoffs cell with a null playoff; Play-in and Out
 // - The tabs in order and the mini text; sections without data leave with their tab
-// - The overview: arena, coach line (singular and plural), colors, the next game (tag, ET date,
+// - The overview: arena, coach line (singular and plural, and none without seasons), colors, the next game (tag, ET date,
 //   "@ DEN", place and time lines, links) and a null next game
 // - The record rows: large cells, detail cells, points and the signed differential
 // - The leaders: order, a null number, a skipped null leader, a null section with three nulls
@@ -144,6 +144,16 @@ describe('toTeamView overview', () => {
 		expect(view(source).sections.overview.coach?.sub).toBe('1 season as NBA head coach');
 		source.coach = null;
 		expect(view(source).sections.overview.coach).toBeNull();
+	});
+
+	it('gives the coach name alone when the seasons are null', () => {
+		const source = feed();
+		source.coach = { name: 'Jordan Sample', seasons: null };
+		expect(view(source).sections.overview.coach).toEqual({
+			label: 'Head coach',
+			value: 'Jordan Sample',
+			sub: null
+		});
 	});
 
 	it('keeps the arena fields the feed leaves null', () => {

@@ -105,7 +105,7 @@ class _ProviderAthlete(_ProviderModel):
 class _ProviderCoach(_ProviderModel):
     first_name: str
     last_name: str
-    experience: int
+    experience: int | None = None
 
 
 class _ProviderRoster(_ProviderModel):
@@ -179,7 +179,7 @@ class RosterCoach(FeedModel):
 
     first_name: NonEmptyStr
     last_name: NonEmptyStr
-    experience: int
+    experience: int | None = None
 
 
 class Roster(FeedModel):
