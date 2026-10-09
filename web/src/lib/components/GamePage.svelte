@@ -3,7 +3,6 @@
 	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
 	import BoxScore from '#lib/components/BoxScore.svelte';
 	import GameHeader from '#lib/components/GameHeader.svelte';
-	import GameVideos from '#lib/components/GameVideos.svelte';
 	import Highlights from '#lib/components/Highlights.svelte';
 	import Injuries from '#lib/components/Injuries.svelte';
 	import LastGames from '#lib/components/LastGames.svelte';
@@ -132,12 +131,6 @@
 					emphasis={false}
 				/>
 				<SeasonSeries series={sections.seasonSeries} />
-			</section>
-		{/if}
-		{#if sections.videos}
-			<section id="videos">
-				<SectionHead title={m.game_tab_videos()} meta={m.game_videos_meta()} emphasis={false} />
-				<GameVideos videos={sections.videos} {layout} />
 			</section>
 		{/if}
 	</div>

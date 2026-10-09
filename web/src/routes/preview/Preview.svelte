@@ -6,7 +6,6 @@
 	import GameCard from '#lib/components/GameCard.svelte';
 	import GameHeader from '#lib/components/GameHeader.svelte';
 	import GamePage from '#lib/components/GamePage.svelte';
-	import GameVideos from '#lib/components/GameVideos.svelte';
 	import Hero from '#lib/components/Hero.svelte';
 	import Kicker from '#lib/components/Kicker.svelte';
 	import LiveBadge from '#lib/components/LiveBadge.svelte';
@@ -36,7 +35,6 @@
 		SectionTab,
 		StandingsSection,
 		StatLeads,
-		VideosSection,
 		WinProbabilitySection
 	} from '#lib/game/types.ts';
 	import type {
@@ -208,8 +206,7 @@
 				['win-probability', 'Win prob.'],
 				['box-score', 'Box score'],
 				['injuries', 'Injuries'],
-				['season-series', 'Series'],
-				['videos', 'Videos']
+				['season-series', 'Series']
 			),
 			miniScore: finalMiniScore
 		}
@@ -223,8 +220,7 @@
 		injuries: null,
 		lastGames: null,
 		standings: null,
-		seasonSeries: null,
-		videos: null
+		seasonSeries: null
 	};
 	const postponedView: GameView = {
 		header: preGameHeader('postponed'),
@@ -620,15 +616,6 @@
 		meta: '0 of 4 games played',
 		games: []
 	};
-	const sampleVideos: VideosSection = [
-		{
-			title: 'Curry hits seven threes',
-			duration: '2:14',
-			thumbnail: highlight2,
-			href: resolve('/preview')
-		},
-		{ title: 'Full game recap', duration: '5:30', thumbnail: null, href: resolve('/preview') }
-	];
 	const preGameSections: GameSections = {
 		...noSections,
 		players: samplePlayers,
@@ -661,8 +648,7 @@
 		},
 		boxScore: finalBox,
 		injuries: sampleInjuriesBoth,
-		seasonSeries: finalSeries,
-		videos: sampleVideos
+		seasonSeries: finalSeries
 	};
 	const overtimeSections: GameSections = {
 		...finalSections,
@@ -670,7 +656,6 @@
 		highlights: null,
 		injuries: null,
 		seasonSeries: null,
-		videos: null,
 		score: detailScore(
 			lineScoreTeam(headerAway, [28, 25, 30, 27, 12, 10], 132),
 			lineScoreTeam(headerHome, [30, 26, 24, 30, 12, 8], 130)
@@ -729,8 +714,7 @@
 					['win-probability', 'Win prob.'],
 					['box-score', 'Box score'],
 					['injuries', 'Injuries'],
-					['season-series', 'Series'],
-					['videos', 'Videos']
+					['season-series', 'Series']
 				),
 				miniScore: finalMiniScore,
 				sections: finalSections
@@ -1782,13 +1766,6 @@
 			/>
 		</section>
 	{/each}
-
-	<section>
-		<h2>GameVideos: mobile</h2>
-		<div class="stack phone">
-			<GameVideos videos={sampleVideos} layout="mobile" />
-		</div>
-	</section>
 
 	<section>
 		<h2>SeasonSeries: first meeting</h2>

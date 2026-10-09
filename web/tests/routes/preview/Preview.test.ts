@@ -13,7 +13,7 @@
 // - Shows final cards with spoiler-free mode on next to the rows with it off
 // - The hero toggle turns the mode on for the schedule
 // - Shows the game header in every status on both rows, the section tabs for each layout and every game page state
-// - Shows every pre-game, live and final section for a pre-game, a live, a final and an overtime game, with the win probability gridlines and period labels, and the standalone videos and first meeting samples
+// - Shows every pre-game, live and final section for a pre-game, a live, a final and an overtime game, with the win probability gridlines and period labels, and the first meeting sample
 // - The win probability marker pulses on the live page sample and is still on the final and overtime samples
 // - Shows the season series with "This game" and the dimmed loser on the pre-game and final pages
 // - Keeps each game page sample consistent: header score, mini score, line score totals, box
@@ -238,7 +238,7 @@ describe('component preview', { timeout: 30_000 }, () => {
 			[...sectionOf(title).querySelectorAll('nav:not(.nav-row) a')].map((a) => a.textContent);
 		expect(links('SectionTabs: pre-game')).toHaveLength(5);
 		expect(links('SectionTabs: live')).toEqual(['Score', 'Win prob.', 'Box score', 'Injuries']);
-		expect(links('SectionTabs: final')).toHaveLength(7);
+		expect(links('SectionTabs: final')).toHaveLength(6);
 		expect(sectionOf('SectionTabs: pre-game').querySelector('.mini-score')).toBeNull();
 		expect(sectionOf('SectionTabs: live').querySelector('.mini-score')).not.toBeNull();
 	});
@@ -282,8 +282,7 @@ describe('component preview', { timeout: 30_000 }, () => {
 			'win-probability',
 			'box-score',
 			'injuries',
-			'season-series',
-			'videos'
+			'season-series'
 		]);
 		expect(ids('GamePage: overtime sections')).toEqual(['score', 'win-probability', 'box-score']);
 		const overtime = sectionOf('GamePage: overtime sections');
@@ -322,9 +321,8 @@ describe('component preview', { timeout: 30_000 }, () => {
 		});
 	});
 
-	it('shows the standalone mobile videos and the first meeting series', () => {
+	it('shows the first meeting series', () => {
 		render(Preview);
-		expect(sectionOf('GameVideos: mobile').querySelector('ul.mobile')).not.toBeNull();
 		const first = sectionOf('SeasonSeries: first meeting');
 		expect(within(first).getByText('First meeting')).toBeTruthy();
 		expect(first.querySelectorAll('.game')).toHaveLength(0);

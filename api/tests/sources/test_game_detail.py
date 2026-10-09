@@ -11,10 +11,10 @@
 # - Maps the provider team codes that differ from the standard ones
 # - Raises the source error on an invalid payload, a missing home or away team, a team without player stats, a missing team stat, a stat that is not a number, an empty display name, a timeout, an error status and a missing URL
 # - GameDetail uses the same field types as the contract Game
-# - Maps a recorded scheduled game and a recorded final game to their detail sections: venue, box score, team stats, win probability, injuries, season series and videos
+# - Maps a recorded scheduled game and a recorded final game to their detail sections: venue, box score, team stats, win probability, injuries and season series
 # - Maps a venue without an address, or an address without a city, to a null city
 # - Maps a recorded live game to a box score for both teams, the team stats with their leading side and win probability points not past the recorded clock
-# - Maps recorded videos with their duration as text
+# - Ignores the summary's videos, whatever their shape
 # - Places each win probability point at its elapsed game seconds, in regulation and overtime, and drops a point that cannot be placed
 # - Orders win probability points by elapsed game seconds, keeping the source order of points at the same second, and keeps the recorded points unchanged
 # - Takes the win probability leader from the last published point: the side ahead and its probability, none when even or without points
@@ -708,7 +708,6 @@ async def test_maps_a_recorded_scheduled_game_to_its_venue_injuries_and_series_w
     assert detail.season_series.total_games == 2
     assert detail.season_series.games == []
     assert detail.season_series.leader is None
-    assert detail.videos is None
 
 
 @pytest.mark.anyio
@@ -765,7 +764,6 @@ async def test_maps_a_recorded_final_game_to_its_detail_sections(
     assert (detail.season_series.home_wins, detail.season_series.away_wins) == (3, 1)
     assert len(detail.season_series.games) == 4
     assert detail.season_series.games[-1].game_id == "401811041"
-    assert detail.videos is None
 
 
 @pytest.mark.anyio
@@ -801,19 +799,16 @@ async def test_maps_a_recorded_live_game_to_its_detail_sections(
 
 
 @pytest.mark.anyio
-async def test_maps_recorded_videos_with_their_duration_as_text(
+async def test_maps_the_sections_whatever_videos_the_summary_sends(
     mock: respx.MockRouter, settings: Settings
 ) -> None:
-    detail = await sections_of(mock, settings, load("summary-preseason-final.json"))
+    payload = load("summary-final.json")
+    payload["videos"] = [{"unexpected": 1}]
 
-    assert detail.videos is not None
-    assert len(detail.videos) == 2
-    first = detail.videos[0]
-    assert first.title.endswith("Game Highlights")
-    assert first.duration == "1:13"
-    assert str(first.link_url) == "https://example.com/298"
-    assert str(first.thumbnail_url) == "https://example.com/277"
-    assert detail.videos[1].duration == "0:16"
+    detail = await sections_of(mock, settings, payload)
+
+    assert "videos" not in detail.model_dump()
+    assert "videos" not in GameDetailSections.model_fields
 
 
 @pytest.mark.anyio

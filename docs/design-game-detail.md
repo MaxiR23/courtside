@@ -18,7 +18,7 @@ The page receives all its data from the game's detail feed. It holds no business
 
 Everything under "Implementation rules" in `docs/design.md` applies, plus:
 
-- **No URL and no data source or platform name is written in `/web`.** Images, video players, video links and the video platform name come from the feed or from build-time configuration.
+- **No URL and no data source or platform name is written in `/web`.** Images, video players and the video platform name come from the feed or from build-time configuration.
 - **A section with no data is hidden, together with its tab.** This is how the page handles data a source does not provide for a given game.
 - **Every user-facing string is translatable**, in English and Spanish. The copy in this document is the English text.
 - **Team and player names never break inside a word.** Long names wrap only at spaces. Text that still does not fit is reduced in size by its clamp, never split.
@@ -38,7 +38,6 @@ Everything under "Implementation rules" in `docs/design.md` applies, plus:
 | `LastGames` | Last five games of each team |
 | `StandingsRows` | The two teams' standings rows |
 | `SeasonSeries` | The season series summary and its games |
-| `GameVideos` | The grid of video links |
 
 ## Entry point
 
@@ -86,7 +85,7 @@ Sticky at the top of the viewport. Background `rgba(12,14,16,.9)` with a 12px ba
 |---|---|
 | Pre-game | Players · Injuries · Last 5 · Standings · Season series |
 | Live | Score · Win prob. · Box score · Injuries |
-| Final | Highlights · Score · Win prob. · Box score · Injuries · Series · Videos |
+| Final | Highlights · Score · Win prob. · Box score · Injuries · Series |
 
 A tab is shown only when its section has data. Tab links scroll smoothly, and instantly under reduced motion.
 
@@ -163,13 +162,6 @@ A grid `minmax(150px, 2fr) repeat(5, minmax(76px, 1fr))`, min width 560px, scrol
 - Before tip-off, the current game's row shows the team codes with no points.
 - The feed also marks the current game on a live page, where this section is not shown.
 - On a final game, the current game is part of the series the feed sends.
-
-### 12. Videos (final)
-
-- A grid `repeat(auto-fill, minmax(240px, 1fr))` on desktop, two columns on mobile.
-- Each card is a `BlueprintFrame` link that opens in a new tab: a 16:9 thumbnail (the 44px grid when there is none), a 40px solid-accent play square, a duration chip at the bottom right, then the title (17px) and a Lucide `arrow-up-right`.
-- Hover: the border turns accent.
-- The section meta reads "Opens in a new tab". These videos are links, never embedded.
 
 ### Footer
 

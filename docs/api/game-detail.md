@@ -15,7 +15,7 @@ and the models disagree, the models win. The route is decided in
 Conventions:
 
 - Keys are camelCase.
-- No unknown fields are accepted.
+- No unknown fields are accepted, except the retired `videos` field, which is dropped when a stored feed is read ([ADR 0027](../adr/0027-no-game-videos-section.md)).
 - Nullable fields are always present and `null` when absent.
 - Times are UTC, as ISO 8601 with a timezone.
 
@@ -48,7 +48,6 @@ The root is one game.
 | `seasonSeries`        | `SeasonSeries` / null     | Games between the two teams this season                          | null when no data                     |
 | `highlights`          | `Highlight[]` / null      | Matched highlight videos, as in the [games feed](games.md)       | null when no data                     |
 | `highlightsSearchUrl` | URL / null                | Link to search for highlights, as in the [games feed](games.md)  | null when no data                     |
-| `videos`              | `Video[]` / null          | Related videos                                                   | null when no data                     |
 
 For every optional section, `null` means the source has no data for it: the
 page hides the section and its tab (`docs/design-game-detail.md`, "A section
@@ -88,7 +87,6 @@ other status has `winner` null. Every stat leader is a side, `away` or
 | `TeamStanding`        | `conference` (`east`, `west`), `conferenceRank`, `record`, `homeRecord`, `awayRecord`, `lastTen`: `Record`                                   |
 | `SeasonSeries`        | `totalGames`, `awayWins`, `homeWins`, `leader` (team code, null on a tie or before any game), `games`: `SeriesGame[]`                    |
 | `SeriesGame`          | `date`, `away`, `home` (team codes), `isCurrent`, `score`: `Score` / null, `winner` (team code / null), `arena`                             |
-| `Video`               | `title`, `duration` (text), `thumbnailUrl` (null when none), `linkUrl`                                                                       |
 
 Rules that live in the code:
 

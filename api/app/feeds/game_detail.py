@@ -4,12 +4,13 @@
 # shape. The JSON Schema and the TypeScript types are generated from these
 # models.
 #
-# SEE: docs/api/game-detail.md, docs/adr/0019-game-detail-route-and-feed.md
+# SEE: docs/api/game-detail.md, docs/adr/0019-game-detail-route-and-feed.md,
+# docs/adr/0027-no-game-videos-section.md
 
 import datetime as dt
 from enum import StrEnum
 from itertools import pairwise
-from typing import Annotated
+from typing import Annotated, Any
 
 from pydantic import Field, HttpUrl, NonNegativeInt, PositiveInt, model_validator
 from pydantic.alias_generators import to_camel
@@ -250,17 +251,17 @@ class SeasonSeries(FeedModel):
         return self
 
 
-class Video(FeedModel):
-    title: NonEmptyStr
-    duration: NonEmptyStr
-    thumbnail_url: HttpUrl | None = None
-    link_url: HttpUrl
-
-
 REQUIRED_BY_STATUS: dict[GameStatus, tuple[str, ...]] = {
     GameStatus.LIVE: ("period", "clock", "line_score", "score", "team_stats"),
     GameStatus.FINAL: ("line_score", "score", "winner"),
 }
+
+
+# Fields a stored game detail feed may still carry after their removal from
+# the model. They are dropped when the feed is read, so a stored feed keeps
+# loading until it is rebuilt or deleted (ADR 0027). Any other unknown field
+# still fails.
+RETIRED_FIELDS = frozenset({"videos"})
 
 
 class GameDetailFeed(FeedModel):
@@ -290,7 +291,13 @@ class GameDetailFeed(FeedModel):
     season_series: SeasonSeries | None = None
     highlights: list[Highlight] | None = None
     highlights_search_url: HttpUrl | None = None
-    videos: list[Video] | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _drop_retired_fields(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        return {key: value for key, value in data.items() if key not in RETIRED_FIELDS}
 
     @model_validator(mode="after")
     def _require_fields_of_status(self) -> GameDetailFeed:

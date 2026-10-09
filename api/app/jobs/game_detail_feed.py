@@ -147,7 +147,6 @@ def build_game_detail_feed(
         "win_probability": sections.win_probability,
         "win_probability_leader": sections.win_probability_leader,
         "win_probability_periods": sections.win_probability_periods,
-        "videos": sections.videos,
         "away": {
             **game.away.model_dump(by_alias=False),
             "record": away_standing.record if away_standing else None,

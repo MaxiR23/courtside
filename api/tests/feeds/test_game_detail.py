@@ -23,6 +23,8 @@
 # - A guest side without a code keeps a null record, standing, injuries and last games, has no series, and may be the opponent of a last game
 # - A guest game: a null record, standing, injuries and last games on the guest side, box score players without a photo, a guest stat leader and win probability leader, no win probability and no season series
 # - A per-side section is null exactly on a guest side; a guest game has no season series; a league box score player has a photo; the two sides differ; a league side's last game may be against a guest
+# - The retired `videos` field of a stored feed is dropped when read; any other unknown field is still rejected
+# - The feed has no videos field
 # - Serialization uses camelCase keys
 # - Venue city: null or absent is accepted and serialized as null; an empty city is rejected
 #
@@ -35,6 +37,7 @@
 # SEE: api/app/feeds/game_detail.py
 
 import copy
+import json
 from typing import Any
 
 import pytest
@@ -57,7 +60,6 @@ OPTIONAL_SECTIONS = [
     "seasonSeries",
     "highlights",
     "highlightsSearchUrl",
-    "videos",
     "broadcast",
 ]
 
@@ -255,14 +257,6 @@ def full_game() -> Payload:
             }
         ],
         highlightsSearchUrl="https://example.com/search",
-        videos=[
-            {
-                "title": "V",
-                "duration": "1:30",
-                "thumbnailUrl": "https://example.com/v.png",
-                "linkUrl": "https://example.com/v",
-            }
-        ],
     )
 
 
@@ -288,7 +282,6 @@ def test_accepts_a_final_game_with_every_section() -> None:
     feed = GameDetailFeed.model_validate(full_game())
 
     assert feed.box_score is not None
-    assert feed.videos is not None
     assert feed.venue.photo_url is not None
 
 
@@ -739,6 +732,32 @@ def test_rejects_a_start_time_not_in_utc() -> None:
         GameDetailFeed.model_validate(
             valid_game("scheduled", startTime="2026-01-15T00:30:00-05:00")
         )
+
+
+def test_drops_the_retired_videos_field_of_a_stored_feed() -> None:
+    stored = json.dumps(
+        {
+            **full_game(),
+            "videos": [
+                {
+                    "title": "V",
+                    "duration": "1:30",
+                    "thumbnailUrl": None,
+                    "linkUrl": "link",
+                }
+            ],
+        }
+    )
+
+    feed = GameDetailFeed.model_validate_json(stored)
+
+    dumped = feed.model_dump(mode="json")
+    assert "videos" not in dumped
+    assert dumped == GameDetailFeed.model_validate(full_game()).model_dump(mode="json")
+
+
+def test_has_no_videos_field() -> None:
+    assert "videos" not in GameDetailFeed.model_fields
 
 
 def test_rejects_unknown_fields() -> None:

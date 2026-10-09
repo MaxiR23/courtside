@@ -879,27 +879,5 @@
         }
       ]
     }
-  ],
-  "videos": [
-    {
-      "headline": "Los Angeles Lakers vs. Golden State Warriors: Game Highlights",
-      "duration": 73,
-      "thumbnail": "https://example.com/277",
-      "links": {
-        "web": {
-          "href": "https://example.com/298"
-        }
-      }
-    },
-    {
-      "headline": "Yaxel Lendeborg with the and-1 bucket",
-      "duration": 16,
-      "thumbnail": "https://example.com/301",
-      "links": {
-        "web": {
-          "href": "https://example.com/322"
-        }
-      }
-    }
   ]
 }

@@ -372,13 +372,5 @@
 			"embedUrl": "https://example.com/embed/1"
 		}
 	],
-	"highlightsSearchUrl": "https://example.com/search?q=lakers+warriors",
-	"videos": [
-		{
-			"title": "Game recap",
-			"duration": "2:10",
-			"thumbnailUrl": null,
-			"linkUrl": "https://example.com/videos/1"
-		}
-	]
+	"highlightsSearchUrl": "https://example.com/search?q=lakers+warriors"
 }

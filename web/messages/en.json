@@ -73,7 +73,6 @@
 	"game_tab_win_probability": "Win prob.",
 	"game_tab_box_score": "Box score",
 	"game_tab_highlights": "Highlights",
-	"game_tab_videos": "Videos",
 	"panel_stat_free_throws": "FT%",
 	"panel_stat_steals": "Steals",
 	"panel_stat_blocks": "Blocks",
@@ -127,7 +126,6 @@
 	"game_series_first_meeting": "First meeting",
 	"game_series_played": "{played} of {total} games played",
 	"game_series_this_game": "This game",
-	"game_videos_meta": "Opens in a new tab",
 	"game_standings_rank": [
 		{
 			"declarations": [
