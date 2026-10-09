@@ -826,6 +826,10 @@
           "minimum": 0,
           "type": "number"
         },
+        "season": {
+          "pattern": "^\\d{4}-\\d{2}$",
+          "type": "string"
+        },
         "home": {
           "$ref": "#/$defs/SplitRecord"
         },
@@ -847,8 +851,16 @@
           "default": null
         },
         "gamesBehind": {
-          "minimum": 0,
-          "type": "number"
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "conferenceRank": {
           "maximum": 15,
@@ -885,6 +897,7 @@
         "wins",
         "losses",
         "winPct",
+        "season",
         "home",
         "away",
         "lastTen",

@@ -8,7 +8,8 @@
 // - The tabs in order and the mini text; sections without data leave with their tab
 // - The overview: arena, coach line (singular and plural, and none without seasons), colors, the next game (tag, ET date,
 //   "@ DEN", place and time lines, links) and a null next game
-// - The record rows: large cells, detail cells, points and the signed differential
+// - The record rows: the season meta, large cells, detail cells, points and the signed differential;
+//   the Games behind cell shows — without a value
 // - The leaders: order, a null number, a skipped null leader, a null section with three nulls
 // - The roster: formatting, rookie, UTC birth date, null details, status tones, an empty roster
 // - The injuries line with a missing number or position
@@ -206,6 +207,10 @@ describe('toTeamView overview', () => {
 });
 
 describe('toTeamView record', () => {
+	it('names the season of the record in its meta', () => {
+		expect(view().sections.record.meta).toBe('2025-26 · regular season');
+	});
+
 	it('has the large row with the win percentages', () => {
 		expect(view().sections.record.large).toEqual([
 			{ label: 'Overall', value: '57–25', sub: '69.5%' },
@@ -226,6 +231,13 @@ describe('toTeamView record', () => {
 			{ label: 'Points against', value: '109.9', sub: '9,012' },
 			{ label: 'Differential', value: '+8.4', sub: '+689' }
 		]);
+	});
+
+	it('shows a dash for games behind when the feed has none', () => {
+		const source = feed();
+		source.record.gamesBehind = null;
+		const cell = view(source).sections.record.detail.find((c) => c.label === 'Games behind');
+		expect(cell?.value).toBe('—');
 	});
 
 	it('leaves out the streak and playoff position cells and keeps a negative differential', () => {
@@ -480,6 +492,7 @@ describe('toTeamView in Spanish', () => {
 		expect(result.header.cells[3]?.value).toBe('1.º puesto');
 		expect(result.sections.overview.nextGame).toBeNull();
 		expect(result.sections.leaders?.meta).toBe('2025-26 · por partido');
+		expect(result.sections.record.meta).toBe('2025-26 · temporada regular');
 		expect(result.sections.schedule?.groups[2]?.rows[0]?.tags).toEqual(['Oeste R1 · P3']);
 		expect(result.tabs[0]?.label).toBe('Resumen');
 		expect(result.sections.overview.coach?.sub).toBe(

@@ -3,7 +3,7 @@
 // Tests for the TeamPage component.
 //
 // Tested:
-// - Ready: every section in order, the tab ids matching the section ids, the mini text
+// - Ready: every section in order, the tab ids matching the section ids, the mini text, the record head with its season meta
 // - A view with no leaders, roster or schedule renders no such sections and no such tabs
 // - Loading: aria-busy and the section skeleton
 // - Unavailable: the unavailable row and the nav row
@@ -53,6 +53,11 @@ describe('TeamPage ready', () => {
 		expect(hrefs).toContain('/player/p-sga');
 		expect(hrefs).toContain('/player/p-holmgren');
 		expect(container.querySelectorAll('a a, button a, a button')).toHaveLength(0);
+	});
+
+	it('shows the season of the record in its section head', () => {
+		const { container } = show(ready());
+		expect(container.querySelector('#record .meta')?.textContent).toBe('2025-26 · regular season');
 	});
 
 	it('renders every section in order, matching the tabs', () => {

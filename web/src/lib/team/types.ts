@@ -33,7 +33,7 @@ export type OverviewSection = {
 	nextGame: NextGameView | null; // null: "Season over."
 };
 
-export type RecordSection = { large: InfoCell[]; detail: InfoCell[] };
+export type RecordSection = { meta: string; large: InfoCell[]; detail: InfoCell[] };
 
 export type LeaderCard = {
 	playerId: string;

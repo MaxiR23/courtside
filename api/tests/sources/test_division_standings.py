@@ -5,16 +5,18 @@
 # Tested:
 # - Maps every team's conference, division, entry orders and stats from a recorded season
 # - Maps the standings before the first game: seed 0, streak and games behind as dashes, no last ten record
-# - Requests the configured URL as is, adding nothing to its query
-# - Raises the source error on standings that are not of the regular season, without both conferences, with an unknown conference, an unknown team code, a missing stat, an invalid payload, a timeout, an error status and a missing URL
-# - Reuses the standings for one hour
+# - Requests the configured URL as is, adding nothing to its query, and carries the season end year
+# - Falls back to one request for the regular season from a preseason (previous season) and from a postseason (same season)
+# - Maps an absent, null or empty streak, games behind and seed to null
+# - Raises the source error on a fallback that is not of the regular season, an unknown season type, mixed seasons, without both conferences, with an unknown conference, an unknown team code, a missing stat, an invalid payload, a timeout, an error status (on both requests) and a missing URL
+# - Reuses the standings and the fallback for one hour
 #
 # What is covered:
 # - A valid response mapped, an invalid payload rejected, upstream failures handled
 #
-# The fixtures are the recorded standings of the finished 2025-26 regular season
-# and of the 2026-27 regular season before its first game, trimmed to the
-# fields the adapter reads.
+# The fixtures are the standings of the finished 2025-26 regular season, of the
+# 2026-27 regular season before its first game and of the 2026-27 preseason,
+# trimmed to the fields the adapter reads.
 #
 # Run with: cd api && .venv/bin/python -m pytest tests/sources/test_division_standings.py
 #
@@ -42,6 +44,7 @@ from app.storage.state import StateStore
 
 FIXTURES = Path(__file__).parent / "fixtures" / "division_standings"
 URL = "https://example.com/standings?level=3&seasontype=2"
+FALLBACK_URL = "https://example.com/standings?level=3&seasontype=2&season=2026"
 
 Payload = dict[str, Any]
 
@@ -73,6 +76,13 @@ async def fetch(settings: Settings) -> DivisionStandings:
         store.migrate()
         async with create_client(store) as client:
             return await fetch_division_standings(client, settings)
+
+
+def with_season_type(payload: Payload, season_type: int) -> Payload:
+    for conference in payload["children"]:
+        for found in conference["children"]:
+            found["standings"]["seasonType"] = season_type
+    return payload
 
 
 async def fetch_error_of(
@@ -142,7 +152,71 @@ async def test_requests_the_configured_url_as_is(
 
 
 @pytest.mark.anyio
-async def test_rejects_standings_that_are_not_of_the_regular_season(
+async def test_carries_the_season_end_year_of_a_regular_season(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    mock.get(URL).respond(json=load())
+
+    assert (await fetch(settings)).season == 2026
+
+
+@pytest.mark.anyio
+async def test_falls_back_to_the_previous_regular_season_from_a_preseason(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    first = mock.get(URL).respond(json=load("preseason-2027.json"))
+    fallback = mock.get(FALLBACK_URL).respond(json=load())
+
+    standings = await fetch(settings)
+
+    assert standings.season == 2026
+    assert standings.teams["OKC"].wins == 64
+    assert first.call_count == 1
+    assert fallback.call_count == 1
+
+
+@pytest.mark.anyio
+async def test_falls_back_to_the_same_season_from_a_postseason(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    first = mock.get(URL).respond(json=with_season_type(load(), 3))
+    fallback = mock.get(FALLBACK_URL).respond(json=load())
+
+    standings = await fetch(settings)
+
+    assert (standings.season, standings.teams["OKC"].losses) == (2026, 18)
+    assert (first.call_count, fallback.call_count) == (1, 1)
+
+
+@pytest.mark.anyio
+async def test_raises_the_source_error_when_the_fallback_is_not_of_the_regular_season(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    mock.get(URL).respond(json=load("preseason-2027.json"))
+    fallback = mock.get(FALLBACK_URL).respond(json=load("preseason-2027.json"))
+
+    with pytest.raises(SourceError) as raised:
+        await fetch(settings)
+
+    assert raised.value.source == "division_standings"
+    assert raised.value.reason == "standings are not of the regular season"
+    assert fallback.call_count == 1
+
+
+@pytest.mark.anyio
+async def test_raises_the_source_error_on_an_unknown_season_type_without_a_fallback(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    fallback = mock.get(FALLBACK_URL).respond(json=load())
+
+    error = await fetch_error_of(mock, settings, with_season_type(load(), 4))
+
+    assert error.reason == "standings are not of the regular season"
+    assert fallback.call_count == 0
+
+
+@pytest.mark.anyio
+async def test_raises_the_source_error_on_standings_that_mix_seasons(
     mock: respx.MockRouter, settings: Settings
 ) -> None:
     payload = load()
@@ -150,8 +224,46 @@ async def test_rejects_standings_that_are_not_of_the_regular_season(
 
     error = await fetch_error_of(mock, settings, payload)
 
-    assert error.source == "division_standings"
-    assert error.reason == "standings are not of the regular season"
+    assert error.reason == "standings mix seasons"
+
+
+@pytest.mark.anyio
+async def test_raises_the_source_error_on_standings_without_divisions(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    error = await fetch_error_of(mock, settings, {"children": []})
+
+    assert error.reason == "standings have no divisions"
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("stat", ["streak", "gamesbehind", "playoffseed"])
+@pytest.mark.parametrize("form", ["absent", "null", "empty"])
+async def test_maps_an_absent_null_or_empty_stat_to_null(
+    mock: respx.MockRouter, settings: Settings, stat: str, form: str
+) -> None:
+    payload = load()
+    stats = division(payload)["standings"]["entries"][0]["stats"]
+    for item in list(stats):
+        if item["type"] != stat:
+            continue
+        if form == "absent":
+            stats.remove(item)
+        elif form == "null":
+            item["value"] = None
+            item["displayValue"] = None
+        else:
+            item.pop("value", None)
+            item["displayValue"] = ""
+    mock.get(URL).respond(json=payload)
+
+    teams = (await fetch(settings)).teams
+
+    field = {"gamesbehind": "games_behind", "playoffseed": "playoff_seed"}.get(
+        stat, stat
+    )
+    assert getattr(teams["BOS"], field) is None
+    assert getattr(teams["OKC"], field) is not None
 
 
 @pytest.mark.anyio
@@ -196,11 +308,11 @@ async def test_raises_the_source_error_on_a_missing_stat(
 ) -> None:
     payload = load()
     stats = division(payload)["standings"]["entries"][0]["stats"]
-    stats[:] = [stat for stat in stats if stat["type"] != "playoffseed"]
+    stats[:] = [stat for stat in stats if stat["type"] != "wins"]
 
     error = await fetch_error_of(mock, settings, payload)
 
-    assert error.reason == "team BOS has no playoffseed stat"
+    assert error.reason == "team BOS has no wins stat"
 
 
 @pytest.mark.anyio
@@ -210,12 +322,12 @@ async def test_raises_the_source_error_on_a_stat_without_a_value(
     payload = load()
     stats = division(payload)["standings"]["entries"][0]["stats"]
     for stat in stats:
-        if stat["type"] == "streak":
+        if stat["type"] == "home":
             del stat["displayValue"]
 
     error = await fetch_error_of(mock, settings, payload)
 
-    assert error.reason == "team BOS has no streak stat"
+    assert error.reason == "team BOS has no home stat"
 
 
 @pytest.mark.anyio
@@ -292,3 +404,58 @@ async def test_reuses_the_standings_for_one_hour(
         await fetch_division_standings(client, settings)
 
     assert route.call_count == 2
+
+
+@pytest.mark.anyio
+async def test_raises_the_source_error_on_an_invalid_fallback_payload(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    mock.get(URL).respond(json=load("preseason-2027.json"))
+    mock.get(FALLBACK_URL).respond(json={})
+
+    with pytest.raises(SourceError) as raised:
+        await fetch(settings)
+
+    assert raised.value.reason.startswith("invalid payload: ")
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("fails", "reason"),
+    [
+        (
+            lambda route: route.mock(side_effect=httpx.ReadTimeout("slow")),
+            "request timed out",
+        ),
+        (lambda route: route.respond(status_code=500), "responded with status 500"),
+    ],
+    ids=["timeout", "error status"],
+)
+async def test_raises_the_source_error_when_the_fallback_request_fails(
+    mock: respx.MockRouter, settings: Settings, fails: Any, reason: str
+) -> None:
+    mock.get(URL).respond(json=load("preseason-2027.json"))
+    fails(mock.get(FALLBACK_URL))
+
+    with pytest.raises(SourceError) as raised:
+        await fetch(settings)
+
+    assert raised.value.reason == reason
+
+
+@pytest.mark.anyio
+async def test_reuses_the_fallback_for_one_hour(
+    mock: respx.MockRouter, settings: Settings, tmp_path: Path
+) -> None:
+    start = dt.datetime(2026, 9, 10, 12, 0, tzinfo=dt.UTC)
+    clock = [start]
+    first = mock.get(URL).respond(json=load("preseason-2027.json"))
+    fallback = mock.get(FALLBACK_URL).respond(json=load())
+    store = StateStore(tmp_path)
+    store.migrate()
+    async with create_client(store, clock=lambda: clock[0]) as client:
+        await fetch_division_standings(client, settings)
+        clock[0] = start + dt.timedelta(minutes=59)
+        await fetch_division_standings(client, settings)
+
+    assert (first.call_count, fallback.call_count) == (1, 1)

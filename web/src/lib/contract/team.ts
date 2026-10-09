@@ -44,11 +44,12 @@ export interface TeamRecord {
 	wins: number;
 	losses: number;
 	winPct: number;
+	season: string;
 	home: SplitRecord;
 	away: SplitRecord;
 	lastTen: SplitRecord;
 	streak: Streak | null;
-	gamesBehind: number;
+	gamesBehind: number | null;
 	conferenceRank: number;
 	divisionRank: number;
 	playoff: PlayoffPosition | null;

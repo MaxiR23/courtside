@@ -35,6 +35,7 @@ import type {
 
 const TIME_ZONE = 'America/New_York';
 const SEPARATOR = ' · ';
+const NO_VALUE = '—';
 const FINALS_ROUND = 4;
 const PLAYOFFS_KEY = 'playoffs';
 
@@ -210,7 +211,8 @@ function recordSection(feed: TeamFeed): RecordSection {
 		detail.push({ label: m.team_record_streak(), value: streakLabel(r.streak), sub: null });
 	detail.push({
 		label: m.team_record_games_behind(),
-		value: formatNumber(r.gamesBehind, { maximumFractionDigits: 1 }),
+		value:
+			r.gamesBehind === null ? NO_VALUE : formatNumber(r.gamesBehind, { maximumFractionDigits: 1 }),
 		sub: null
 	});
 	if (r.playoff) {
@@ -248,6 +250,7 @@ function recordSection(feed: TeamFeed): RecordSection {
 		}
 	);
 	return {
+		meta: m.team_record_meta({ season: r.season }),
 		large: [
 			splitCell(m.team_record_overall(), r),
 			splitCell(m.team_record_home(), r.home),

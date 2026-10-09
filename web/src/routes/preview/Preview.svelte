@@ -911,6 +911,7 @@
 				}
 			},
 			record: {
+				meta: '2025-26 · regular season',
 				large: [
 					{ label: 'Overall', value: '57–25', sub: '69.5%' },
 					{ label: 'Home', value: '32–9', sub: '78.0%' },
@@ -1035,6 +1036,7 @@
 				nextGame: null
 			},
 			record: {
+				meta: teamView.sections.record.meta,
 				large: teamView.sections.record.large,
 				detail: teamView.sections.record.detail.filter(
 					(cell) => cell.label !== 'Streak' && cell.label !== 'Playoff position'

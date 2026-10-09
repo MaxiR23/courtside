@@ -19,6 +19,7 @@ import TeamRecord from '../../../src/lib/components/TeamRecord.svelte';
 import type { RecordSection } from '../../../src/lib/team/types';
 
 const record: RecordSection = {
+	meta: '2025-26 · regular season',
 	large: [
 		{ label: 'Overall', value: '57–25', sub: '69.5%' },
 		{ label: 'Home', value: '32–9', sub: '78.0%' },

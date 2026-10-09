@@ -178,6 +178,7 @@
 	"team_record_points_for": "Points for",
 	"team_record_points_against": "Points against",
 	"team_record_differential": "Differential",
+	"team_record_meta": "{season} · regular season",
 	"team_leader_points": "Points",
 	"team_leader_rebounds": "Rebounds",
 	"team_leader_assists": "Assists",

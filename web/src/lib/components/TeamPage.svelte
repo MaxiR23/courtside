@@ -40,7 +40,7 @@
 			<TeamOverview overview={sections.overview} {gameHref} />
 		</section>
 		<section id="record">
-			<SectionHead title={m.team_tab_record()} />
+			<SectionHead title={m.team_tab_record()} meta={sections.record.meta} />
 			<TeamRecord record={sections.record} />
 		</section>
 		{#if sections.leaders}

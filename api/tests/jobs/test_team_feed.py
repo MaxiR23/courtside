@@ -10,7 +10,9 @@
 # - Reads a win and a loss streak and gives none for a dash
 # - Rejects a streak it cannot read
 # - Maps seeds 1-6, 7-10 and 11-15 to their status and gives none before the first game
-# - Ranks the conference by seed, and by entry order before the first game
+# - Ranks the conference by seed, and by entry order before the first game or without a seed
+# - Labels the record with the season of the standings, apart from the roster season
+# - Builds a record with no streak, games behind or seed
 # - Ranks the division by entry order
 # - Tags every playoff round format, the NBA Finals, the cup and All-Star
 # - Keeps the playoffs kind with null fields for an unrecognized playoff note
@@ -171,9 +173,11 @@ def standing(code: str = "OKC", **changes: Any) -> DivisionEntry:
     return DivisionEntry.model_validate(values | changes)
 
 
-def standings(entry: DivisionEntry | None = None) -> DivisionStandings:
+def standings(
+    entry: DivisionEntry | None = None, season: int = 2026
+) -> DivisionStandings:
     entry = entry or standing()
-    return DivisionStandings(teams={entry.code: entry})
+    return DivisionStandings(season=season, teams={entry.code: entry})
 
 
 def info() -> TeamInfo:
@@ -301,6 +305,7 @@ EMPTY = season()
 def build(
     *,
     entry: DivisionEntry | None = None,
+    standings_season: int = 2026,
     team_roster: Roster | None = None,
     season_leaders: SeasonLeaders | None = None,
     league: LeagueInjuries | None = None,
@@ -312,7 +317,7 @@ def build(
     return build_team_feed(
         "OKC",
         info(),
-        standings(entry),
+        standings(entry, standings_season),
         team_roster or roster(),
         season_leaders or leaders(),
         league or injuries(),
@@ -396,6 +401,10 @@ def test_gives_no_playoff_position_before_the_first_game() -> None:
     assert playoff_position(0, 0) is None
 
 
+def test_gives_no_playoff_position_without_a_seed() -> None:
+    assert playoff_position(None, 82) is None
+
+
 @pytest.mark.parametrize("seed", [0, 16, -1])
 def test_rejects_a_seed_outside_one_to_fifteen_after_a_game(seed: int) -> None:
     with pytest.raises(TeamBuildError):
@@ -407,6 +416,7 @@ def test_ranks_the_conference_by_seed_and_by_entry_order_before_the_first_game()
 ):
     assert conference_rank(standing(playoff_seed=3, conference_order=9)) == 3
     assert conference_rank(standing(playoff_seed=0, conference_order=9)) == 9
+    assert conference_rank(standing(playoff_seed=None, conference_order=9)) == 9
 
 
 def test_ranks_the_division_by_entry_order() -> None:
@@ -437,6 +447,26 @@ def test_records_the_standing_with_converted_values() -> None:
     assert (feed.conference, feed.division) == (Conference.WEST, "Northwest")
     assert (feed.arena.name, feed.arena.city) == ("Paycom Center", "Oklahoma City")
     assert feed.season == "2026-27"
+
+
+def test_labels_the_record_with_the_season_of_the_standings() -> None:
+    feed = build(entry=standing(), standings_season=2025)
+
+    assert feed.record.season == "2024-25"
+    assert feed.season == "2026-27"
+
+
+def test_builds_a_record_with_no_streak_games_behind_or_seed() -> None:
+    entry = standing(
+        streak=None, games_behind=None, playoff_seed=None, conference_order=6
+    )
+
+    record = build(entry=entry).record
+
+    assert record.streak is None
+    assert record.games_behind is None
+    assert record.playoff is None
+    assert record.conference_rank == 6
 
 
 def test_builds_a_record_before_the_first_game() -> None:
@@ -954,6 +984,7 @@ async def test_builds_a_valid_team_feed_from_the_recorded_payloads(
     assert TeamFeed.model_validate(dumped) == feed
     assert (feed.code, feed.city, feed.name) == ("OKC", "Oklahoma City", "Thunder")
     assert feed.record.playoff is not None and feed.record.playoff.seed == 1
+    assert feed.record.season == "2025-26"
     assert feed.leaders.season == "2025-26"
     assert feed.leaders.points is not None
     assert feed.leaders.points.player_id == "4278073"

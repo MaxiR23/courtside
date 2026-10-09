@@ -1,6 +1,6 @@
 # Source rules
 
-The rules every job and feed build follows so the data source is asked as little as possible. They are adopted by ADR 0020 and apply to every feed: games, game detail, player and team.
+The rules every job and feed build follows so the data source is asked as little as possible. They are adopted by ADR 0020 and apply to every feed: games, game detail, player and team. Rule L records the season fallbacks of the adapters; it is adopted by ADR 0022.
 
 References:
 
@@ -76,3 +76,7 @@ Stored feeds, source cache entries and build times survive a restart; a restart 
 ## K. Cache headers
 
 Feed responses keep `Cache-Control: public, max-age=10` and the ETag. The CDN in front of the API must honor the origin's Cache-Control, must not add `s-maxage`, and must keep "Always Online" off.
+
+## L. Previous season
+
+A source read for the current season that has no regular season data is read once more for the regular season it has. The season leaders and averages fall back to the previous season when the current one has none (the team feed's leaders and the stars job). The division standings, when the response is not of the regular season, are requested once more with the `season` query value: a preseason response of season `Y` reads `Y - 1`, a postseason response of season `Y` reads `Y`. That request is cached under its own URL (rule A), and a fallback that is not of the regular season fails the read.

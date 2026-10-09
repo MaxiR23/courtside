@@ -100,11 +100,12 @@ class Differential(FeedModel):
 
 
 class TeamRecord(SplitRecord):
+    season: SeasonLabel
     home: SplitRecord
     away: SplitRecord
     last_ten: SplitRecord
     streak: Streak | None = None
-    games_behind: NonNegativeFloat
+    games_behind: NonNegativeFloat | None = None
     conference_rank: Annotated[int, Field(ge=1, le=15)]
     division_rank: Annotated[int, Field(ge=1, le=5)]
     playoff: PlayoffPosition | None = None
