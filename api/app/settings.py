@@ -70,8 +70,9 @@ class Settings(BaseSettings):
     player_stats_url: str | None = None
     # Template with {team}, the provider's team code: colors, arena and images.
     team_info_url: str | None = None
-    # Standings by division of the regular season, requested as is: its query
-    # must select the regular season.
+    # Standings by division, requested as is: its query must select the regular
+    # season. When the response is not of the regular season, the adapter adds
+    # the season to its query.
     division_standings_url: str | None = None
     # Listing of the official channel's uploads, without the key. The adapter
     # adds the page size and the page token.

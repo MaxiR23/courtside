@@ -249,6 +249,10 @@ Recorded in [`adr/0021-player-and-team-pages.md`](adr/0021-player-and-team-pages
 
 - **Player and team pages**: `/player/{id}` and `/team/{code}` (lowercase standard code) are rendered in the browser from the fallback page; their feeds, `/feeds/players/{id}.json` and `/feeds/teams/{code}.json`, are built on demand under rule G. Game links only where `detailAvailable` is true; FG% is the fourth hero stat; Totals have no MIN; seasons use labels; the arena photo is in color, with no frame without a photo; "Season over." when there is no next game. The live block is drawn by a live card that replaces the next game card; the player page polls every 30 seconds while `live` is not null and every 60 seconds otherwise.
 
+Recorded in [`adr/0022-standings-season-fallback.md`](adr/0022-standings-season-fallback.md):
+
+- **Standings season fallback**: rule L of [`source-rules.md`](source-rules.md) is in force. When the division standings are not of the regular season, the adapter makes one extra request: a preseason year Y reads `season=Y-1`, a postseason year Y reads `season=Y`; a fallback that is not of the regular season fails. The team feed labels its record with `record.season`, and its streak, games behind and seed may be null. Rule L is adopted by this ADR; rules A to K stay with ADR 0020.
+
 ## Future
 
 - A notification panel for job failures.

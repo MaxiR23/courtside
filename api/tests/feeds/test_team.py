@@ -5,6 +5,7 @@
 # Tested:
 # - A team with every section is accepted; nullable sections and fields may be
 #   null and are serialized as null
+# - A record carries a season label and may have null games behind
 # - A coach without seasons is accepted and serialized with null seasons
 # - Roster status is active or an injury status
 # - Win percentages are 0 to 1 and counts are not negative
@@ -40,6 +41,7 @@ NULLABLE_PATHS = [
     ("schedule",),
     ("record", "streak"),
     ("record", "playoff"),
+    ("record", "gamesBehind"),
     ("leaders", "points"),
 ]
 
@@ -51,6 +53,7 @@ def split(wins: int, losses: int) -> Payload:
 def record() -> Payload:
     return {
         **split(30, 20),
+        "season": "2025-26",
         "home": split(18, 7),
         "away": split(12, 13),
         "lastTen": split(6, 4),
@@ -188,6 +191,21 @@ def rejects(team: Payload, match: str | None = None) -> None:
 
 def test_accepts_a_team_with_every_section() -> None:
     TeamFeed.model_validate(valid_team())
+
+
+@pytest.mark.parametrize("season", ["2025", "2025-2026", ""])
+def test_rejects_a_record_season_that_is_not_a_label(season: str) -> None:
+    team = valid_team()
+    team["record"]["season"] = season
+
+    rejects(team)
+
+
+def test_rejects_a_record_without_a_season() -> None:
+    team = valid_team()
+    del team["record"]["season"]
+
+    rejects(team, "season")
 
 
 @pytest.mark.parametrize("path", NULLABLE_PATHS, ids=lambda p: ".".join(p))

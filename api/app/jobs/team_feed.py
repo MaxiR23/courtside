@@ -4,7 +4,8 @@
 # to the team feed, with every conversion the contract needs: win percentages,
 # records, streak, playoff status by seed, ranks, season labels, game tags from
 # notes, ages on the US Eastern date, leaders matched to the roster, roster
-# status from the league injuries, the next game and the schedule grouped by
+# status from the league injuries, the record labeled with the season of the
+# standings, the next game and the schedule grouped by
 # US Eastern month with the playoffs last. It reads no clock and no source: the
 # caller passes the time and the ids of the games that have a detail feed. The
 # shared conversions are used by the player feed builder too. TeamFeeds is the
@@ -138,10 +139,10 @@ def games_behind(text: str) -> float:
         raise TeamBuildError(f"games behind {text!r} is not a number") from None
 
 
-def playoff_position(seed: int, games: int) -> PlayoffPosition | None:
+def playoff_position(seed: int | None, games: int) -> PlayoffPosition | None:
     """The playoff status of a seed: 1-6 seed, 7-10 playin, 11-15 out; none
-    while the team has played no game."""
-    if games == 0:
+    while the team has played no game or without a seed."""
+    if games == 0 or seed is None:
         return None
     if 1 <= seed <= 6:
         status = PlayoffStatus.SEED
@@ -156,7 +157,7 @@ def playoff_position(seed: int, games: int) -> PlayoffPosition | None:
 
 def conference_rank(entry: DivisionEntry) -> int:
     """The seed, or the team's place in its conference's entry order while the
-    provider sends seed 0 because no game was played."""
+    provider sends seed 0 because no game was played, or without a seed."""
     return entry.playoff_seed if entry.playoff_seed else entry.conference_order
 
 
@@ -392,17 +393,20 @@ def _injuries(
     return listed
 
 
-def _record(entry: DivisionEntry) -> dict[str, Any]:
+def _record(entry: DivisionEntry, season: int) -> dict[str, Any]:
     games = entry.wins + entry.losses
     return {
+        "season": season_label(season),
         "wins": entry.wins,
         "losses": entry.losses,
         "win_pct": win_pct(entry.wins, entry.losses),
         "home": split_record(entry.home),
         "away": split_record(entry.road),
         "last_ten": split_record(entry.last_ten),
-        "streak": streak(entry.streak),
-        "games_behind": games_behind(entry.games_behind),
+        "streak": None if entry.streak is None else streak(entry.streak),
+        "games_behind": (
+            None if entry.games_behind is None else games_behind(entry.games_behind)
+        ),
         "conference_rank": conference_rank(entry),
         "division_rank": entry.division_order,
         "playoff": playoff_position(entry.playoff_seed, games),
@@ -472,7 +476,7 @@ def build_team_feed(
                     else None
                 ),
                 "season": season_label(roster.season),
-                "record": _record(entry),
+                "record": _record(entry, standings.season),
                 "leaders": {
                     "season": season_label(leaders.season),
                     **{

@@ -184,7 +184,9 @@ def standings() -> DivisionStandings:
         standing("OKC", "Oklahoma City Thunder"),
         standing("CHA", "Charlotte Hornets", conference=Conference.EAST),
     ]
-    return DivisionStandings(teams={entry.code: entry for entry in entries})
+    return DivisionStandings(
+        season=2026, teams={entry.code: entry for entry in entries}
+    )
 
 
 def player(player_id: str = "1", **changes: Any) -> RosterEntry:

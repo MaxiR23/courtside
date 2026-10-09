@@ -6,7 +6,7 @@
         {
           "name": "Atlantic",
           "standings": {
-            "seasonType": 2,
+            "seasonType": 1,
             "season": 2027,
             "seasonDisplayName": "2026-27",
             "entries": [
@@ -381,7 +381,7 @@
         {
           "name": "Central",
           "standings": {
-            "seasonType": 2,
+            "seasonType": 1,
             "season": 2027,
             "seasonDisplayName": "2026-27",
             "entries": [
@@ -756,7 +756,7 @@
         {
           "name": "Southeast",
           "standings": {
-            "seasonType": 2,
+            "seasonType": 1,
             "season": 2027,
             "seasonDisplayName": "2026-27",
             "entries": [
@@ -1136,7 +1136,7 @@
         {
           "name": "Northwest",
           "standings": {
-            "seasonType": 2,
+            "seasonType": 1,
             "season": 2027,
             "seasonDisplayName": "2026-27",
             "entries": [
@@ -1511,7 +1511,7 @@
         {
           "name": "Pacific",
           "standings": {
-            "seasonType": 2,
+            "seasonType": 1,
             "season": 2027,
             "seasonDisplayName": "2026-27",
             "entries": [
@@ -1886,7 +1886,7 @@
         {
           "name": "Southwest",
           "standings": {
-            "seasonType": 2,
+            "seasonType": 1,
             "season": 2027,
             "seasonDisplayName": "2026-27",
             "entries": [

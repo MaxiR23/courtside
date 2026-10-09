@@ -46,7 +46,7 @@ The root is one team.
 | `TeamColors`    | `primary`, `secondary`                                                                                                                      |
 | `Coach`         | `name`, `seasons` (null)                                                                                                                    |
 | `SplitRecord`   | `Record` fields (`wins`, `losses`) plus `winPct` (0 to 1)                                                                                   |
-| `TeamRecord`    | `SplitRecord` fields plus `home`, `away`, `lastTen`: `SplitRecord`; `streak`: `Streak` / null; `gamesBehind`; `conferenceRank` (1 to 15); `divisionRank` (1 to 5); `playoff`: `PlayoffPosition` / null before the first game; `pointsFor`, `pointsAgainst`: `PointsTotal`; `differential`: `Differential` |
+| `TeamRecord`    | `SplitRecord` fields plus `season` (label of the standings season, such as `2025-26`; in the preseason it is the previous season), `home`, `away`, `lastTen`: `SplitRecord`; `streak`: `Streak` / null; `gamesBehind` / null when the source sends none; `conferenceRank` (1 to 15); `divisionRank` (1 to 5); `playoff`: `PlayoffPosition` / null before the first game or without a seed; `pointsFor`, `pointsAgainst`: `PointsTotal`; `differential`: `Differential` |
 | `Streak`        | `kind` (`win`, `loss`), `count`                                                                                                             |
 | `PlayoffPosition` | `status` (`seed`, `playin`, `out`), `seed`                                                                                                |
 | `PointsTotal`   | `perGame`, `total`                                                                                                                          |
@@ -66,8 +66,11 @@ The root is one team.
 - Win percentages are from 0 to 1; counts are not negative.
 - A playoff `seed` matches its `status`: `seed` 1 to 6, `playin` 7 to 10,
   `out` 11 to 15.
-- Before the first game, `conferenceRank` is the team's place in the
-  provider's list.
+- Before the first game, or without a seed, `conferenceRank` is the team's
+  place in the provider's list.
+- `record.season` can differ from `season`: the standings fall back to the
+  last regular season (rule L of
+  [`docs/source-rules.md`](../source-rules.md)).
 - A leader with no position, like a leader no longer on the roster, is null.
 - `roster` is ordered by jersey number as an integer, equal numbers allowed
   (`0` and `00`), players with a null number last.
@@ -94,6 +97,8 @@ The root is one team.
 - The sources read are the roster and the season leaders (24-hour
   freshness) and the team information, division standings, league injuries
   and season schedules (1-hour freshness), all through the source cache.
+  The division standings add one request for the regular season when the
+  configured one is not (rule L).
 - `detailAvailable` is set when the feed is served, true for the games the
   games job holds in the days shown, and not stored.
 - A failed build keeps the stored feed and is listed under `feeds` in

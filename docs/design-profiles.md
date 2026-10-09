@@ -130,8 +130,10 @@ Overview · Record · Leaders · Roster · Injuries · Schedule. Mini `OKC 57–
 
 ### 4. Record
 
+The meta names the season of the record, such as `2025-26 · regular season`.
+
 - **Large row:** Overall, Home, Away and Last 10, each as `W–L` with the win percentage.
-- **Detail row:** Streak, Games behind, Playoff position, Conference, Division, Points for (per game; sub: total), Points against (per game; sub: total), Differential (`+8.4`; sub: total `+689`).
+- **Detail row:** Streak, Games behind, Playoff position, Conference, Division, Points for (per game; sub: total), Points against (per game; sub: total), Differential (`+8.4`; sub: total `+689`). Games behind shows `—` when the feed has none.
 
 ### 5. Team leaders
 
@@ -224,7 +226,7 @@ Keys are camelCase. Nullable fields are always present and `null` when absent. T
 | `arena` | `name`, `city` (or null), `photoUrl` (or null) |
 | `coach` | `name`, `seasons` (or null); or null |
 | `season` | Label, such as `2026-27` |
-| `record` | `wins`, `losses`, `winPct`; `home`, `away`, `lastTen` (each `wins`, `losses`, `winPct`); `streak` (`kind` win / loss, `count`; or null); `gamesBehind`; `conferenceRank`; `divisionRank`; `playoff` (`status` seed / playin / out, `seed`; or null before the first game); `pointsFor`, `pointsAgainst`, `differential` (each `perGame`, `total`) |
+| `record` | `wins`, `losses`, `winPct`; `home`, `away`, `lastTen` (each `wins`, `losses`, `winPct`); `season` (label); `streak` (`kind` win / loss, `count`; or null); `gamesBehind` (or null); `conferenceRank`; `divisionRank`; `playoff` (`status` seed / playin / out, `seed`; or null before the first game or without a seed); `pointsFor`, `pointsAgainst`, `differential` (each `perGame`, `total`) |
 | `leaders` | `season` and `points`, `rebounds`, `assists`: `playerId`, `name`, `number`, `position`, `photoUrl`, `value`; each or null |
 | `roster` | Ordered by number: `id`, `name`, `number`, `position` (abbreviation), `height`, `weight` (lb), `age`, `birthDate`, `birthplace`, `college`, `experience` (0 is a rookie), `photoUrl`, `status` (`active` or an injury status); each detail null when unknown |
 | `injuries` | `playerId`, `name`, `number`, `position`, `status`, `comment`, `updatedAt` |
