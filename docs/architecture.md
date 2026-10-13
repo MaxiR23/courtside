@@ -290,3 +290,5 @@ Recorded in [`adr/0029-cup-matchup-feed.md`](adr/0029-cup-matchup-feed.md):
 ## Future
 
 - A notification panel for job failures.
+- Official game clips: research official sources with clips tied to a game, so a videos section can return (see ADR 0027).
+- Team videos: the latest uploads of each team's official channel, on the team page.
