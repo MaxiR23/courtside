@@ -9,6 +9,8 @@ knockout bracket and every Cup game, with every value ready to draw.
 from the models in `api/app/feeds/cup.py`. When this page and the models
 disagree, the models win. The route is decided in
 [ADR 0028](../adr/0028-cup-feed.md); the feed is served at `/feeds/cup.json`.
+The data of the matchup panel is the [Cup matchup feed](cup-matchup.md), one
+per slot id.
 
 Conventions:
 

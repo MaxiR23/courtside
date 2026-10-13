@@ -16,7 +16,7 @@ Every source response is stored once, by URL, with its fetch time, and reused by
 |---|---|
 | Scoreboard day, live game detail | 30 seconds |
 | League standings, league injuries | 1 hour |
-| Roster, team leaders | 24 hours |
+| Roster, team leaders, depth chart | 24 hours |
 | A player's individual averages | Until the player's team has a final game after the fetch |
 | Everything else | 1 hour |
 
@@ -47,7 +47,7 @@ The roster and leaders are fetched once a day per team. A player's individual av
 
 ## G. On demand
 
-Everything else is built on request only: pre-game game detail, team feeds, player feeds, the standings feed, the search feed and the Cup feed. A feed nobody requests is never built, stored or fetched. A stored feed expires:
+Everything else is built on request only: pre-game game detail, team feeds, player feeds, the standings feed, the search feed, the Cup feed and the Cup matchup feeds. A feed nobody requests is never built, stored or fetched. A stored feed expires:
 
 | Feed | Expires |
 |---|---|
@@ -58,6 +58,7 @@ Everything else is built on request only: pre-game game detail, team feeds, play
 | Standings feed | When any game of the league has a final time plus 1 hour after the build, and in any case 7 days after the build |
 | Search feed | When any game of the league has a final time plus 1 hour after the build, when the stars job fetches a roster after the build, and in any case 7 days after the build |
 | Cup feed | When any Cup game has a final time plus 1 hour after the build, and in any case 7 days after the build; once the championship is final, kept while its season is the current one |
+| Cup matchup feed | When either of its teams has a final game whose final time plus 1 hour is after the build, when the Cup feed it read is rebuilt, and in any case 7 days after the build |
 
 ## H. Serving
 
@@ -70,7 +71,7 @@ Everything else is built on request only: pre-game game detail, team feeds, play
 
 ## I. Unknown ids
 
-Unknown ids answer 404 with no source request: game ids outside the days shown, player ids not in the rosters the stars job fetches, codes outside the 30 standard codes. While the rosters are not fetched yet, player requests answer 503.
+Unknown ids answer 404 with no source request: game ids outside the days shown, player ids not in the rosters the stars job fetches, codes outside the 30 standard codes, slot ids outside the 7 of the Cup bracket. While the rosters are not fetched yet, player requests answer 503.
 
 ## J. Restart and cleanup
 

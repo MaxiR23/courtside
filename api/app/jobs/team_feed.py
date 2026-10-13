@@ -339,13 +339,13 @@ def player_name(entry: RosterEntry) -> str:
     return entry.display_name or f"{entry.first_name} {entry.last_name}"
 
 
-def _roster_order(number: str | None) -> tuple[bool, int]:
+def roster_order(number: str | None) -> tuple[bool, int]:
     if number is not None and not number.isdecimal():
         raise TeamBuildError(f"jersey number {number!r} is not a number")
     return (number is None, int(number or 0))
 
 
-def _roster_player(
+def roster_player(
     entry: RosterEntry, today: dt.date, injuries: LeagueInjuries
 ) -> dict[str, Any]:
     return {
@@ -388,7 +388,7 @@ def _leader(
     }
 
 
-def _injuries(
+def team_injuries(
     team_code: str, injuries: LeagueInjuries, by_id: dict[str, RosterEntry]
 ) -> list[dict[str, Any]]:
     listed: list[dict[str, Any]] = []
@@ -469,7 +469,7 @@ def build_team_feed(
     coach = roster.coach
     try:
         sorted_entries = sorted(
-            roster.entries, key=lambda player: _roster_order(player.jersey)
+            roster.entries, key=lambda player: roster_order(player.jersey)
         )
         return TeamFeed.model_validate(
             {
@@ -505,9 +505,9 @@ def build_team_feed(
                     },
                 },
                 "roster": [
-                    _roster_player(player, today, injuries) for player in sorted_entries
+                    roster_player(player, today, injuries) for player in sorted_entries
                 ],
-                "injuries": _injuries(team_code, injuries, by_id),
+                "injuries": team_injuries(team_code, injuries, by_id),
                 "next_game": upcoming,
                 "schedule": schedule(
                     regular,

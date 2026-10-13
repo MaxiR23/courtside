@@ -3,7 +3,8 @@
 # Serves the published feeds.
 #
 # SEE: docs/api/games.md, docs/api/game-detail.md, docs/api/player.md, docs/api/team.md,
-# docs/api/standings.md, docs/api/search.md, docs/api/cup.md
+# docs/api/standings.md, docs/api/search.md, docs/api/cup.md,
+# docs/api/cup-matchup.md
 
 import asyncio
 import hashlib
@@ -12,6 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 
 from app.jobs.cup_feed import FEED_ID as CUP_ID
 from app.jobs.cup_feed import KIND as CUP_KIND
+from app.jobs.cup_matchup_feed import KIND as MATCHUP_KIND
 from app.jobs.game_detail_feed import KIND
 from app.jobs.on_demand import FeedCache, FeedUnavailableError, UnknownFeedError
 from app.jobs.player_feed import KIND as PLAYER_KIND
@@ -92,6 +94,13 @@ async def read_search_feed(request: Request) -> Response:
 async def read_cup_feed(request: Request) -> Response:
     return await serve_on_demand(
         request.app.state.feed_cache, CUP_KIND, CUP_ID, request
+    )
+
+
+@router.get("/feeds/cup/matchups/{slot_id}.json")
+async def read_cup_matchup_feed(slot_id: str, request: Request) -> Response:
+    return await serve_on_demand(
+        request.app.state.feed_cache, MATCHUP_KIND, slot_id, request
     )
 
 

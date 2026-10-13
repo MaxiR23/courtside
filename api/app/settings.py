@@ -25,6 +25,7 @@ EXACT_PLACEHOLDERS: dict[str, frozenset[str]] = {
     "division_standings_url": frozenset(),
     "cup_group_url": frozenset({"season", "group"}),
     "cup_group_standings_url": frozenset({"season", "group"}),
+    "depth_chart_url": frozenset({"season", "team_id"}),
 }
 
 # Names of settings that no longer exist. A stale .env may still carry them,
@@ -82,6 +83,9 @@ class Settings(BaseSettings):
     # Template with {season} and {group}: the Cup table (the standings item
     # named "inseason") of one Cup group or Cup conference.
     cup_group_standings_url: str | None = None
+    # Template with {season}, the end year of the season, and {team_id}, the
+    # provider's team id: the current depth chart of one team.
+    depth_chart_url: str | None = None
     # Listing of the official channel's uploads, without the key. The adapter
     # adds the page size and the page token.
     highlights_source_url: str | None = None

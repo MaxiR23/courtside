@@ -1,0 +1,807 @@
+{
+  "$defs": {
+    "Conference": {
+      "enum": [
+        "east",
+        "west"
+      ],
+      "title": "Conference",
+      "type": "string"
+    },
+    "CupGame": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "stage": {
+          "$ref": "#/$defs/CupRound"
+        },
+        "date": {
+          "format": "date",
+          "type": "string"
+        },
+        "startTime": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "away": {
+          "$ref": "#/$defs/Opponent"
+        },
+        "home": {
+          "$ref": "#/$defs/Opponent"
+        },
+        "status": {
+          "$ref": "#/$defs/GameStatus"
+        },
+        "score": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Score"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "winner": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Side"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "broadcast": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "venue": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "city": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "neutralSite": {
+          "type": "boolean"
+        },
+        "countsInStandings": {
+          "type": "boolean"
+        },
+        "detailAvailable": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "stage",
+        "date",
+        "startTime",
+        "away",
+        "home",
+        "status",
+        "score",
+        "winner",
+        "broadcast",
+        "venue",
+        "city",
+        "neutralSite",
+        "countsInStandings",
+        "detailAvailable"
+      ],
+      "title": "CupGame",
+      "type": "object"
+    },
+    "CupRound": {
+      "enum": [
+        "group",
+        "quarterfinals",
+        "semifinals",
+        "championship"
+      ],
+      "title": "CupRound",
+      "type": "string"
+    },
+    "GameResult": {
+      "enum": [
+        "win",
+        "loss"
+      ],
+      "title": "GameResult",
+      "type": "string"
+    },
+    "GameStatus": {
+      "enum": [
+        "scheduled",
+        "live",
+        "final",
+        "delayed",
+        "postponed",
+        "canceled"
+      ],
+      "title": "GameStatus",
+      "type": "string"
+    },
+    "InjuryStatus": {
+      "enum": [
+        "out",
+        "doubtful",
+        "questionable",
+        "probable",
+        "day-to-day"
+      ],
+      "title": "InjuryStatus",
+      "type": "string"
+    },
+    "MatchupPlayer": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "number": {
+          "anyOf": [
+            {
+              "pattern": "^\\d{1,2}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "position": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "height": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "weight": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "age": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "birthDate": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "birthplace": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "college": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "experience": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "photoUrl": {
+          "anyOf": [
+            {
+              "format": "uri",
+              "maxLength": 2083,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "status": {
+          "anyOf": [
+            {
+              "const": "active",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/InjuryStatus"
+            }
+          ]
+        },
+        "averages": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PerGameAverages"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "starter": {
+          "type": "boolean"
+        },
+        "leader": {
+          "$ref": "#/$defs/StatLeaders"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "number",
+        "position",
+        "height",
+        "weight",
+        "age",
+        "birthDate",
+        "birthplace",
+        "college",
+        "experience",
+        "photoUrl",
+        "status",
+        "averages",
+        "starter",
+        "leader"
+      ],
+      "title": "MatchupPlayer",
+      "type": "object"
+    },
+    "MatchupSide": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "$ref": "#/$defs/SlotLabel"
+        },
+        "rule": {
+          "$ref": "#/$defs/SlotRule"
+        },
+        "known": {
+          "type": "boolean"
+        },
+        "projected": {
+          "type": "boolean"
+        },
+        "team": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Opponent"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "details": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MatchupTeam"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "label",
+        "rule",
+        "known",
+        "projected",
+        "team",
+        "details"
+      ],
+      "title": "MatchupSide",
+      "type": "object"
+    },
+    "MatchupTeam": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "items": {
+            "$ref": "#/$defs/PathGame"
+          },
+          "type": "array"
+        },
+        "injuries": {
+          "items": {
+            "$ref": "#/$defs/TeamInjury"
+          },
+          "type": "array"
+        },
+        "roster": {
+          "items": {
+            "$ref": "#/$defs/MatchupPlayer"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "path",
+        "injuries",
+        "roster"
+      ],
+      "title": "MatchupTeam",
+      "type": "object"
+    },
+    "Opponent": {
+      "additionalProperties": false,
+      "description": "A team a game is played against: a league team or a guest.",
+      "properties": {
+        "code": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "city": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "guest": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "code",
+        "name",
+        "city",
+        "guest"
+      ],
+      "title": "Opponent",
+      "type": "object"
+    },
+    "PathGame": {
+      "additionalProperties": false,
+      "properties": {
+        "gameId": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "stage": {
+          "$ref": "#/$defs/CupRound"
+        },
+        "startTime": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "opponent": {
+          "$ref": "#/$defs/Opponent"
+        },
+        "isHome": {
+          "type": "boolean"
+        },
+        "status": {
+          "$ref": "#/$defs/GameStatus"
+        },
+        "result": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GameResult"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "teamScore": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "opponentScore": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "detailAvailable": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "gameId",
+        "stage",
+        "startTime",
+        "opponent",
+        "isHome",
+        "status",
+        "result",
+        "teamScore",
+        "opponentScore",
+        "detailAvailable"
+      ],
+      "title": "PathGame",
+      "type": "object"
+    },
+    "PerGameAverages": {
+      "additionalProperties": false,
+      "properties": {
+        "points": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "rebounds": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "assists": {
+          "minimum": 0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "points",
+        "rebounds",
+        "assists"
+      ],
+      "title": "PerGameAverages",
+      "type": "object"
+    },
+    "Score": {
+      "additionalProperties": false,
+      "properties": {
+        "away": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "home": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "away",
+        "home"
+      ],
+      "title": "Score",
+      "type": "object"
+    },
+    "Side": {
+      "enum": [
+        "away",
+        "home"
+      ],
+      "title": "Side",
+      "type": "string"
+    },
+    "SlotId": {
+      "enum": [
+        "east-qf-1",
+        "east-qf-2",
+        "east-sf",
+        "final",
+        "west-sf",
+        "west-qf-1",
+        "west-qf-2"
+      ],
+      "title": "SlotId",
+      "type": "string"
+    },
+    "SlotLabel": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "$ref": "#/$defs/SlotLabelKey"
+        },
+        "conference": {
+          "$ref": "#/$defs/Conference"
+        },
+        "seed": {
+          "anyOf": [
+            {
+              "maximum": 3,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "quarterfinal": {
+          "anyOf": [
+            {
+              "maximum": 2,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "key",
+        "conference",
+        "seed",
+        "quarterfinal"
+      ],
+      "title": "SlotLabel",
+      "type": "object"
+    },
+    "SlotLabelKey": {
+      "enum": [
+        "seed",
+        "wild_card",
+        "quarterfinal_winner",
+        "semifinal_winner"
+      ],
+      "title": "SlotLabelKey",
+      "type": "string"
+    },
+    "SlotRule": {
+      "enum": [
+        "best_group_winner",
+        "second_best_group_winner",
+        "third_best_group_winner",
+        "best_non_winner",
+        "quarterfinal_winner",
+        "semifinal_winner"
+      ],
+      "title": "SlotRule",
+      "type": "string"
+    },
+    "StatLeaders": {
+      "additionalProperties": false,
+      "properties": {
+        "points": {
+          "type": "boolean"
+        },
+        "rebounds": {
+          "type": "boolean"
+        },
+        "assists": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "points",
+        "rebounds",
+        "assists"
+      ],
+      "title": "StatLeaders",
+      "type": "object"
+    },
+    "TeamInjury": {
+      "additionalProperties": false,
+      "properties": {
+        "playerId": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "number": {
+          "anyOf": [
+            {
+              "pattern": "^\\d{1,2}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "position": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "status": {
+          "$ref": "#/$defs/InjuryStatus"
+        },
+        "comment": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "updatedAt": {
+          "format": "date-time",
+          "type": "string"
+        }
+      },
+      "required": [
+        "playerId",
+        "name",
+        "number",
+        "position",
+        "status",
+        "comment",
+        "updatedAt"
+      ],
+      "title": "TeamInjury",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "season": {
+      "pattern": "^\\d{4}-\\d{2}$",
+      "type": "string"
+    },
+    "id": {
+      "$ref": "#/$defs/SlotId"
+    },
+    "round": {
+      "$ref": "#/$defs/CupRound"
+    },
+    "conference": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Conference"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "game": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CupGame"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "top": {
+      "$ref": "#/$defs/MatchupSide"
+    },
+    "bottom": {
+      "$ref": "#/$defs/MatchupSide"
+    }
+  },
+  "required": [
+    "season",
+    "id",
+    "round",
+    "conference",
+    "game",
+    "top",
+    "bottom"
+  ],
+  "title": "CupMatchupFeed",
+  "type": "object"
+}
