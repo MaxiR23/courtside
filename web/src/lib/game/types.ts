@@ -44,6 +44,7 @@ export type VenueStrip = {
 export type GameHeaderView = {
 	layout: GameLayout;
 	status: StatusLine;
+	cupTag: string | null; // "NBA Cup · Group play"; null: not a Cup game
 	away: HeaderTeam;
 	home: HeaderTeam;
 	center: ScoreboardCenter;

@@ -6,6 +6,7 @@
 // - The h1, city, conference line, record, win percentage, the season of the record and cells
 // - The two halves of the color strip carry the feed colors as inline backgrounds
 // - Only the nav row with no header; the skeleton and aria-busy while loading
+// - The Cup line after the conference line, linking to the Cup page; none without the mark
 //
 // What is covered:
 // - Each state the header shows
@@ -29,6 +30,7 @@ const header: TeamHeaderView = {
 	city: 'Oklahoma City',
 	name: 'Thunder',
 	conferenceLine: 'Western Conference · Northwest Division',
+	cupLine: null,
 	colors: { primary: '#007AC1', secondary: '#EF3B24' },
 	record: '57–25',
 	winPct: '69.5%',
@@ -155,5 +157,32 @@ describe('TeamHeader', () => {
 			}
 		});
 		expect(container.querySelector('nav')?.classList.contains('mobile')).toBe(true);
+	});
+});
+
+describe('TeamHeader with the Cup mark', () => {
+	const props = { allGamesHref: HOME, standingsHref: STANDINGS, layout: 'desktop' as const };
+
+	it('shows the Cup line after the conference line, linking to the Cup page', () => {
+		const { container } = render(TeamHeader, {
+			props: { ...props, header: { ...header, cupLine: { group: 'West Group B', record: '2-2' } } }
+		});
+		expect(screen.getByRole('link', { name: 'West Group B · 2-2' }).getAttribute('href')).toBe(
+			'/cup'
+		);
+		const classes = [...(container.querySelector('.identity')?.children ?? [])].map(
+			(child) => child.getAttribute('class')?.split(' ')[0]
+		);
+		expect(classes.slice(-2)).toEqual(['conference-line', 'cup-line']);
+	});
+
+	it('shows no Cup line and keeps the identity in order without the mark', () => {
+		const { container } = render(TeamHeader, { props: { ...props, header } });
+		expect(container.querySelector('.cup-line')).toBeNull();
+		expect(screen.queryByRole('link', { name: /Group/ })).toBeNull();
+		const classes = [...(container.querySelector('.identity')?.children ?? [])].map(
+			(child) => child.getAttribute('class')?.split(' ')[0]
+		);
+		expect(classes).toEqual(['code-box', 'city', 'name', 'conference-line']);
 	});
 });

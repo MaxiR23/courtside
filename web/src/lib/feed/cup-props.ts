@@ -4,7 +4,6 @@ import type {
 	CupFeed,
 	CupGame,
 	CupGroup,
-	CupGroupName,
 	CupRound,
 	CupStage,
 	CupTag,
@@ -37,6 +36,7 @@ import type {
 	StageView,
 	WildCardView
 } from '#lib/cup/types.ts';
+import { CONFERENCE_SHORT, groupTitle } from '#lib/feed/cup-mark-props.ts';
 import { tipParts } from '#lib/feed/props.ts';
 import { feedDate } from '#lib/feed/team-props.ts';
 import { formatNumber } from '#lib/format/locale.ts';
@@ -46,11 +46,6 @@ import { teamLabel, teamMark } from '#lib/team/mark.ts';
 
 const NO_VALUE = '—';
 const STAGE_DATE_SEPARATOR = ' – ';
-
-export const CONFERENCE_SHORT: Record<Conference, () => string> = {
-	east: m.game_conference_east,
-	west: m.game_conference_west
-};
 
 const CONFERENCE_LONG: Record<Conference, () => string> = {
 	east: m.team_conference_east,
@@ -122,10 +117,6 @@ function signed(value: PerGameDifferential | TotalDifferential | null): Signed {
 	return value === null
 		? { value: NO_VALUE, accent: false }
 		: { value: value.value, accent: value.nonNegative };
-}
-
-function groupTitle(name: CupGroupName): string {
-	return m.cup_group_name({ conference: CONFERENCE_SHORT[name.conference](), letter: name.letter });
 }
 
 function tagView(tag: CupTag | null): ClinchView | null {

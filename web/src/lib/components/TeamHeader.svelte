@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { ResolvedPathname } from '$app/types';
+	import CupTeamLine from '#lib/components/CupTeamLine.svelte';
 	import TeamMonogram from '#lib/components/TeamMonogram.svelte';
 	import NavRow from '#lib/components/NavRow.svelte';
 	import { play } from '#lib/hero/motion.ts';
@@ -38,6 +39,7 @@
 					<span class="city">{header.city}</span>
 					<h1 class="name">{header.name}</h1>
 					<span class="conference-line">{header.conferenceLine}</span>
+					{#if header.cupLine}<CupTeamLine line={header.cupLine} />{/if}
 				</div>
 				<div class="standing">
 					<span class="record">{header.record}</span>

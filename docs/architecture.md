@@ -8,7 +8,7 @@ How Courtside is built and why. This document records decisions that are in forc
 2. **The front end only draws.** It reads published feeds and renders them. It holds no business rules about games, standings or players.
 3. **One contract, defined once.** The shape of every feed is defined in backend code and generated for the front end. Nothing is redefined by hand on either side.
 4. **Every input is validated.** Data coming from a source is validated before it is used. A feed is validated before it is published.
-5. **Small core, removable extras.** The core is the scoreboard. Seasonal sections are self-contained and can be added or removed without touching the core, except for a nullable mark on core feeds (ADR 0028) and the front end touches of ADR 0030.
+5. **Small core, removable extras.** The core is the scoreboard. Seasonal sections are self-contained and can be added or removed without touching the core, except for a nullable mark on core feeds (ADR 0028), the front end touches of ADR 0030 and the drawing of those marks (ADR 0031).
 
 ## Stack
 
@@ -112,7 +112,7 @@ The site has to load and respond fast on a phone. These rules apply to every cha
 
 ## Seasonal sections
 
-Sections such as All-Star or the Finals are temporary. Each one is self-contained: its own route or component, its own feed and its own job. Removing a section removes those pieces and touches nothing in the core, with one qualification: a seasonal section may mark core feeds with a nullable field, as recorded in ADR 0028. Removing it then also touches those fields and the adapters that set them. A second qualification: a seasonal section may add its nav link inside `NavRow`, which resolves the route itself, size variants to a shared component and entries in the shared feed modules, as recorded in ADR 0030. Removing it then also touches only those pieces, and no other core component or route.
+Sections such as All-Star or the Finals are temporary. Each one is self-contained: its own route or component, its own feed and its own job. Removing a section removes those pieces and touches nothing in the core, with one qualification: a seasonal section may mark core feeds with a nullable field, as recorded in ADR 0028. Removing it then also touches those fields and the adapters that set them. A second qualification: a seasonal section may add its nav link inside `NavRow`, which resolves the route itself, size variants to a shared component and entries in the shared feed modules, as recorded in ADR 0030. Removing it then also touches only those pieces, and no other core component or route, except as below. A third qualification: the marks on core feeds are drawn by the section's own components, rendered by the core card or header behind one condition, from one nullable view field the core props layer fills through the section's mapping module, as recorded in [`adr/0031-cup-marks-in-core-components.md`](adr/0031-cup-marks-in-core-components.md). Removing it then also touches those fields and lines.
 
 ## Configuration
 

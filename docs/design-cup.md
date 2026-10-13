@@ -41,7 +41,8 @@ Everything under "Implementation rules" in `docs/design.md`, `docs/design-standi
 | `PlayerCard` | The player card panel |
 | `CupGames` | Filter chips and the date-grouped list |
 | `CupGameRow` | One Cup game row |
-| `CupTag` | The `NBA Cup · {stage}` tag |
+| `CupMarkTag` | The `NBA Cup · {stage}` tag |
+| `CupTeamLine` | The `{group} · {W}-{L}` line on the team page header, linking to /cup |
 
 ## Shared patterns
 
@@ -137,22 +138,22 @@ Continuous zoom levels 3 and 4, pinch-to-enter and the ghost layer.
 
 ## Cup marks elsewhere
 
-Three small marks carry the Cup into pages that already exist. `/web` computes nothing for them: the stage, the group name and the Cup record come ready from the feeds, and a mark whose field is absent is not drawn.
+Three small marks carry the Cup into pages that already exist. `/web` computes nothing for them: the stage, the group and the Cup record come from the feeds and the page only writes the words, and a mark whose field is absent is not drawn.
 
 ### Home game card
 
-- A Cup game shows the tag `NBA Cup · {stage}` in the card's tag row, using the existing `StatusTag` styling (accent outline, uppercase, 11px, .16em letter spacing, accent text). `{stage}` is `Group play`, `Quarterfinal`, `Semifinal` or `Championship`.
+- A Cup game shows the tag `NBA Cup · {stage}` first in the card's center column, above the status line (first in the status line on the mobile row), using the existing `StatusTag` styling (accent outline, uppercase, 11px, .16em letter spacing, accent text). `{stage}` is `Group play`, `Quarterfinal`, `Semifinal` or `Championship`, the words for the contract values `group`, `quarterfinals`, `semifinals` and `championship`.
 - A game that is not a Cup game shows no tag.
 - The tag is plain text: it does not link and has no hover state. It truncates with an ellipsis and never wraps.
 
 ### Game page header
 
-- The same tag, `NBA Cup · {stage}`, sits in the header's kicker line, before the date and venue, with the same styling and truncation as on the home card.
+- The same tag, `NBA Cup · {stage}`, sits in the header's kicker line (the status line above the teams), as its first item, before the date and venue, with the same styling and truncation as on the home card.
 - A non-Cup game shows no tag.
 
 ### Team page header
 
-- During the current Cup, a line under the conference and division line reads `{group} · {W}-{L}`, for example `East Group A · 3-1`. The group name is the group's own title and the record is the team's Cup record.
+- During the current Cup, a line under the conference and division line reads `{group} · {W}-{L}`, for example `East Group A · 3-1`. The group name is written from the feed's parts as on `/cup` (`cup_group_name`, such as East Group A) and the record is the team's Cup record.
 - Style: 13px, muted, tabular numbers; the group name in accent text. The line sits between the name block and the record, and wraps only at spaces.
 - Outside the current Cup, and for a team with no group, the line is not drawn and the cells around it keep their order.
 - The Cup record is the team's record in group play. The Championship game is not counted in it.
@@ -162,20 +163,19 @@ Three small marks carry the Cup into pages that already exist. `/web` computes n
 
 | Key | English | Spanish |
 |---|---|---|
-| `cup.tag` | `NBA Cup · {stage}` | `Copa NBA · {stage}` |
-| `cup.stage.group` | Group play | Fase de grupos |
-| `cup.stage.quarterfinal` | Quarterfinal | Cuartos de final |
-| `cup.stage.semifinal` | Semifinal | Semifinal |
-| `cup.stage.championship` | Championship | Final |
-| `cup.teamLine` | `{group} · {wins}-{losses}` | `{group} · {wins}-{losses}` |
+| `cup_mark_tag` | `NBA Cup · {stage}` | `Copa NBA · {stage}` |
+| `cup_stage_group` (existing) | Group play | Fase de grupos |
+| `cup_stage_quarterfinal` | Quarterfinal | Cuartos de final |
+| `cup_stage_semifinal` | Semifinal | Semifinal |
+| `cup_state_final` (existing) | Championship | Final |
+| `cup_group_name` (existing) | `{conference} Group {letter}` | `Grupo {letter} del {conference}` |
 
-The group name (`East Group A`) and the stage label are sent by the feed already translated; the keys above are the fallbacks for the fixed words.
+The line joins the group and the record with " · " in markup. The feed sends the stage as a value and the group as parts (conference, letter); the page writes the words with the keys above.
 
 ### Feed contract
 
-- Game cards (home feed, game detail feed): a nullable `cup` object, `null` for a game that is not a Cup game, with the stage as a value of `group`, `quarterfinal`, `semifinal` or `championship`.
-- Team feed: a nullable `cup` object, `null` outside the current Cup or when the team has no group, with the group name and the team's Cup wins and losses.
-- The exact field names are set by `docs/api/cup.md` in the issue that adds the feeds.
+- Game cards (home feed, game detail feed): a nullable `cup` object, `null` for a game that is not a Cup game, with `stage: CupRound` (`group`, `quarterfinals`, `semifinals`, `championship`).
+- Team feed: a nullable `cup` object, `null` outside the current Cup or when the team has no group, with `group: CupGroupName` (`conference`: `east` or `west`, `letter`: `A`, `B` or `C`), `wins` and `losses`, as set in `docs/api/cup.md`.
 
 ## Edge cases
 

@@ -7,6 +7,7 @@ import type {
 	Star,
 	TeamStats
 } from '#lib/contract/games.ts';
+import { cupTag } from '#lib/feed/cup-mark-props.ts';
 import { formatDateParts } from '#lib/format/locale.ts';
 import type { HeroGame, HeroPlayer, HeroStatus } from '#lib/hero/types.ts';
 import { m } from '#lib/paraglide/messages.js';
@@ -179,7 +180,12 @@ function finalDetails(game: Game, highlights?: GameHighlights): GameDetails {
 }
 
 function scheduleGame(game: Game, options: Options): ScheduleGame {
-	const base = { id: game.id, away: scheduleTeam(game.away), home: scheduleTeam(game.home) };
+	const base = {
+		id: game.id,
+		away: scheduleTeam(game.away),
+		home: scheduleTeam(game.home),
+		cupTag: cupTag(game.cup)
+	};
 	switch (game.status) {
 		case 'scheduled':
 			return {

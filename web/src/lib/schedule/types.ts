@@ -72,6 +72,7 @@ export type ScheduleGame = {
 	away: ScheduleTeam;
 	home: ScheduleTeam;
 	status: GameStatus;
+	cupTag: string | null; // "NBA Cup · Group play"; null: not a Cup game
 	details?: GameDetails; // panel data; a card without it does not expand
 };
 

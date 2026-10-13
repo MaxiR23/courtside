@@ -11,6 +11,7 @@ import type {
 	Star
 } from '#lib/contract/game-detail.ts';
 import { formatDate, formatNumber } from '#lib/format/locale.ts';
+import { cupTag } from '#lib/feed/cup-mark-props.ts';
 import { tipParts, video } from '#lib/feed/props.ts';
 import type {
 	BoxRow,
@@ -528,6 +529,7 @@ function header(feed: GameDetailFeed, layout: GameLayout): GameHeaderView {
 	return {
 		layout,
 		status: statusLine(feed),
+		cupTag: cupTag(feed.cup),
 		away: headerTeam(feed.away),
 		home: headerTeam(feed.home),
 		center: center(feed),

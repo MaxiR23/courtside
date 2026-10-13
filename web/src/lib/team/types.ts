@@ -1,4 +1,5 @@
 // Props of the team page. Components get pre-formatted strings and never a contract type.
+import type { CupTeamLineView } from '#lib/cup/types.ts';
 import type { InfoCell, InjuryTagStatus } from '#lib/game/types.ts';
 import type { TeamMarkTeam } from '#lib/team/mark.ts';
 
@@ -11,6 +12,7 @@ export type TeamHeaderView = {
 	city: string; // e.g. "Oklahoma City"
 	name: string; // e.g. "Thunder"
 	conferenceLine: string; // "Western Conference · Northwest Division"
+	cupLine: CupTeamLineView | null; // null: outside the Cup or no group
 	colors: { primary: string; secondary: string }; // hex values from the feed
 	record: string; // "57–25"
 	winPct: string; // "69.5%"

@@ -36,6 +36,7 @@ import Schedule from '../../../src/lib/components/Schedule.svelte';
 const team = (code: string, name: string, city: string) => ({ code, name, city, guest: false });
 const game = (id: string, awayScore: number): ScheduleGame => ({
 	id,
+	cupTag: null,
 	away: team('GSW', 'Warriors', 'Golden State'),
 	home: team('LAL', 'Lakers', 'Los Angeles'),
 	status: { state: 'final', awayScore, homeScore: 100, winner: 'home' }
