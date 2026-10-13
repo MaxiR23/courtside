@@ -319,7 +319,7 @@ function rosterRow(player: RosterPlayer): RosterRow {
 	};
 }
 
-function injuryRow(injury: TeamInjury): TeamInjuryRow {
+export function injuryRow(injury: TeamInjury): TeamInjuryRow {
 	return {
 		name: injury.name,
 		line: numberAndPosition(injury.number, injury.position),

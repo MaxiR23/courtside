@@ -37,7 +37,7 @@ Conventions:
 
 | Object           | Fields                                                                                                                                                                  |
 | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `CupGame`        | As in the [Cup feed](cup.md): `id`, `stage`, `date`, `startTime`, `away`, `home`, `status`, `score`, `winner`, `broadcast`, `venue`, `city`, `neutralSite`, `countsInStandings`, `detailAvailable` |
+| `CupGame`        | As in the [Cup feed](cup.md): `id`, `stage`, `date`, `startTime`, `away`, `home`, `status`, `score`, `winner`, `period`, `broadcast`, `venue`, `city`, `neutralSite`, `countsInStandings`, `detailAvailable` |
 | `SlotLabel`      | As in the [Cup feed](cup.md): `key`, `conference`, `seed`, `quarterfinal`                                                                                                |
 | `SlotRule`       | As in the [Cup feed](cup.md)                                                                                                                                             |
 | `MatchupSide`    | `label`: `SlotLabel`; `rule`: `SlotRule`; `known`; `projected` (true when `team` is the projected team); `team`: `Opponent` / null; `details`: `MatchupTeam` / null (set exactly when `team` is set) |

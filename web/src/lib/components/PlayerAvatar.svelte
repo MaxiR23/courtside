@@ -1,7 +1,11 @@
 <script lang="ts">
 	import { initials as initialsOf } from '#lib/format/initials.ts';
 
-	type Props = { name: string; photo: string | null; size: 'roster' | 'leader' | 'search' };
+	type Props = {
+		name: string;
+		photo: string | null;
+		size: 'roster' | 'leader' | 'search' | 'cup-card';
+	};
 
 	let { name, photo, size }: Props = $props();
 
@@ -43,6 +47,11 @@
 		width: var(--search-tile-size);
 		height: var(--search-tile-size);
 		border-radius: var(--search-tile-radius);
+	}
+
+	.cup-card {
+		width: var(--cup-card-photo-size);
+		height: var(--cup-card-photo-size);
 	}
 
 	img {

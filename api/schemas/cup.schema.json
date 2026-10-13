@@ -124,6 +124,18 @@
             }
           ]
         },
+        "period": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "broadcast": {
           "anyOf": [
             {
@@ -170,6 +182,7 @@
         "status",
         "score",
         "winner",
+        "period",
         "broadcast",
         "venue",
         "city",
@@ -584,6 +597,49 @@
       "title": "Side",
       "type": "string"
     },
+    "SideStanding": {
+      "additionalProperties": false,
+      "properties": {
+        "seed": {
+          "anyOf": [
+            {
+              "maximum": 4,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "group": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CupGroupName"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "wins": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "losses": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "seed",
+        "group",
+        "wins",
+        "losses"
+      ],
+      "title": "SideStanding",
+      "type": "object"
+    },
     "SlotId": {
       "enum": [
         "east-qf-1",
@@ -693,6 +749,17 @@
               "type": "null"
             }
           ]
+        },
+        "standing": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SideStanding"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -700,7 +767,8 @@
         "rule",
         "known",
         "team",
-        "projected"
+        "projected",
+        "standing"
       ],
       "title": "SlotSide",
       "type": "object"

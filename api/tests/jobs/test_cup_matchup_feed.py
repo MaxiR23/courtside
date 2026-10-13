@@ -4,6 +4,7 @@
 #
 # Tested:
 # - The header: a final game with its score, winner and status, and a scheduled game with no score or winner
+# - The header game keeps the period of the stored Cup feed's slot
 # - The sides: projected teams during group play, known teams not projected, and a side with no team that has only its label and rule
 # - The path: every Cup game of the team by start time with the result and scores only when final
 # - The injuries are the team's entries of the league injuries
@@ -74,6 +75,7 @@ from app.sources.team_players import PlayerAverages, Roster
 from app.sources.team_schedule import SeasonSchedule
 from app.storage.feeds import read_by_id
 from tests.jobs.test_cup_feed import (
+    BASE,
     HOUR,
     NOW,
     SECOND,
@@ -82,6 +84,7 @@ from tests.jobs.test_cup_feed import (
     all_final,
     group_pairs,
     knockouts,
+    pair,
     schedules_of,
     scoreboard,
     slot,
@@ -157,6 +160,23 @@ def test_a_final_game_fills_the_header_with_its_score_winner_and_status() -> Non
     assert feed.game.winner is not None and feed.game.winner.value == "home"
     cup_game = slot(build_cup([*group_pairs(all_final()), *knockouts(1, 1)]), feed.id)
     assert feed.game == cup_game.game
+
+
+def test_the_header_game_keeps_the_period_of_the_cup_feed_slot() -> None:
+    overtime = pair(
+        "qe1",
+        CupRound.QUARTERFINALS,
+        "ATL",
+        "BOS",
+        BASE + 20 * DAY,
+        scores=(100, 90),
+        period=5,
+    )
+    others = [p for p in knockouts(1, 1) if "BOS" not in p]
+
+    feed = build(pairs=[*group_pairs(all_final()), overtime, *others])
+
+    assert feed.game is not None and feed.game.period == 5
 
 
 def test_a_scheduled_game_not_started_has_no_score_or_winner() -> None:

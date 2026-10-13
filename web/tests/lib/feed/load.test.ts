@@ -11,6 +11,8 @@
 // - loadTeamFeed returns the team feed, reports a 404 as not-found and every other failure
 // - loadStandingsFeed returns the standings feed and reports 503, 404, network and body failures
 // - loadCupFeed returns the Cup feed and reports 503, network and body failures
+// - cupMatchupFeedUrl puts the encoded slot id in place of every {id}
+// - loadCupMatchupFeed returns the matchup feed with a no-cache request, reports a 404 as not-found and every other failure
 // - loadSearchFeed returns the search feed with a no-cache request and reports 503, network and body failures
 // - playerFeedUrl puts the encoded player id in place of {id}
 // - loadPlayerFeed returns the player feed, reports a 404 as not-found and every other failure
@@ -32,6 +34,8 @@ import {
 	loadPlayerFeed,
 	loadSearchFeed,
 	loadCupFeed,
+	loadCupMatchupFeed,
+	cupMatchupFeedUrl,
 	loadStandingsFeed,
 	playerFeedUrl,
 	loadTeamFeed,
@@ -359,6 +363,82 @@ describe('loadCupFeed', () => {
 		await expect(loadCupFeed(CUP_URL, empty)).rejects.toMatchObject({ reason: 'body' });
 		const noGroups = cupFetchAnswering(() => json({ stages: [] }));
 		await expect(loadCupFeed(CUP_URL, noGroups)).rejects.toMatchObject({ reason: 'body' });
+	});
+});
+
+const MATCHUP_TEMPLATE = 'https://feeds.example.com/cup/matchups/{id}.json';
+const MATCHUP_URL = 'https://feeds.example.com/cup/matchups/final.json';
+
+function matchupFetchAnswering(answer: () => Promise<Response>) {
+	return vi.fn((url: string | URL | Request) => {
+		if (url !== MATCHUP_URL) throw new Error(`Unexpected URL ${String(url)}`);
+		return answer();
+	}) as unknown as typeof fetch & ReturnType<typeof vi.fn>;
+}
+
+describe('cupMatchupFeedUrl', () => {
+	it('puts the encoded id in place of every {id}', () => {
+		expect(cupMatchupFeedUrl(MATCHUP_TEMPLATE, 'final')).toBe(MATCHUP_URL);
+		expect(cupMatchupFeedUrl(MATCHUP_TEMPLATE, 'a/b c')).toBe(
+			'https://feeds.example.com/cup/matchups/a%2Fb%20c.json'
+		);
+		expect(cupMatchupFeedUrl('https://feeds.example.com/{id}/{id}.json', 'x')).toBe(
+			'https://feeds.example.com/x/x.json'
+		);
+	});
+});
+
+describe('loadCupMatchupFeed', () => {
+	it('returns the parsed feed, asking the browser to revalidate on every request', async () => {
+		const feed = { id: 'final', top: {}, bottom: {} };
+		const fetchFn = matchupFetchAnswering(() => json(feed));
+		await expect(loadCupMatchupFeed(MATCHUP_URL, fetchFn)).resolves.toEqual(feed);
+		expect(fetchFn).toHaveBeenCalledWith(MATCHUP_URL, {
+			cache: 'no-cache',
+			headers: { accept: 'application/json' }
+		});
+	});
+
+	it('throws a not-found error on a 404', async () => {
+		const fetchFn = matchupFetchAnswering(() => json({ detail: 'no' }, 404));
+		await expect(loadCupMatchupFeed(MATCHUP_URL, fetchFn)).rejects.toMatchObject({
+			reason: 'not-found'
+		});
+	});
+
+	it('throws a status error on a 503 and a network error on a failed request', async () => {
+		await expect(
+			loadCupMatchupFeed(
+				MATCHUP_URL,
+				matchupFetchAnswering(() => json({}, 503))
+			)
+		).rejects.toMatchObject({ name: 'FeedLoadError', reason: 'status' });
+		await expect(
+			loadCupMatchupFeed(
+				MATCHUP_URL,
+				matchupFetchAnswering(() => Promise.reject(new TypeError('Failed to fetch')))
+			)
+		).rejects.toMatchObject({ reason: 'network' });
+	});
+
+	it('throws a body error on a non-JSON body and on JSON without an id or sides', async () => {
+		const html = matchupFetchAnswering(() =>
+			Promise.resolve(new Response('<html>', { status: 200 }))
+		);
+		await expect(loadCupMatchupFeed(MATCHUP_URL, html)).rejects.toMatchObject({ reason: 'body' });
+		for (const body of [
+			{ top: {}, bottom: {} },
+			{ id: 'final', top: {} },
+			{ id: 'final', top: null, bottom: {} },
+			null
+		]) {
+			await expect(
+				loadCupMatchupFeed(
+					MATCHUP_URL,
+					matchupFetchAnswering(() => json(body))
+				)
+			).rejects.toMatchObject({ reason: 'body' });
+		}
 	});
 });
 
