@@ -1,0 +1,1055 @@
+{
+  "name": "inseason",
+  "standings": [
+    {
+      "team": {
+        "$ref": "https://example.com/v2/seasons/2027/teams/1?lang=en"
+      },
+      "records": [
+        {
+          "type": "inseason",
+          "displayValue": "5-0",
+          "stats": [
+            {
+              "name": "wins",
+              "value": 5,
+              "displayValue": "5"
+            },
+            {
+              "name": "losses",
+              "value": 0,
+              "displayValue": "0"
+            },
+            {
+              "name": "playoffSeed",
+              "value": 1,
+              "displayValue": "1"
+            },
+            {
+              "name": "gamesBehind",
+              "displayValue": "-"
+            },
+            {
+              "name": "differential",
+              "value": 2.5,
+              "displayValue": "2.5"
+            },
+            {
+              "name": "pointDifferential",
+              "value": 10.0,
+              "displayValue": "10.0"
+            },
+            {
+              "name": "pointsFor",
+              "value": 400.0
+            },
+            {
+              "name": "pointsAgainst",
+              "value": 390.0
+            },
+            {
+              "name": "streak",
+              "displayValue": "W2"
+            },
+            {
+              "name": "OTWins",
+              "value": 1
+            },
+            {
+              "name": "OTLosses",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "type": "home",
+          "displayValue": "2-1"
+        },
+        {
+          "type": "road",
+          "displayValue": "1-1"
+        }
+      ]
+    },
+    {
+      "team": {
+        "$ref": "https://example.com/v2/seasons/2027/teams/2?lang=en"
+      },
+      "records": [
+        {
+          "type": "inseason",
+          "displayValue": "5-0",
+          "stats": [
+            {
+              "name": "wins",
+              "value": 5,
+              "displayValue": "5"
+            },
+            {
+              "name": "losses",
+              "value": 0,
+              "displayValue": "0"
+            },
+            {
+              "name": "playoffSeed",
+              "value": 2,
+              "displayValue": "2"
+            },
+            {
+              "name": "gamesBehind",
+              "displayValue": "1.0"
+            },
+            {
+              "name": "differential",
+              "value": 2.5,
+              "displayValue": "2.5"
+            },
+            {
+              "name": "pointDifferential",
+              "value": 10.0,
+              "displayValue": "10.0"
+            },
+            {
+              "name": "pointsFor",
+              "value": 400.0
+            },
+            {
+              "name": "pointsAgainst",
+              "value": 390.0
+            },
+            {
+              "name": "streak",
+              "displayValue": "W2"
+            },
+            {
+              "name": "OTWins",
+              "value": 1
+            },
+            {
+              "name": "OTLosses",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "type": "home",
+          "displayValue": "2-1"
+        },
+        {
+          "type": "road",
+          "displayValue": "1-1"
+        }
+      ]
+    },
+    {
+      "team": {
+        "$ref": "https://example.com/v2/seasons/2027/teams/3?lang=en"
+      },
+      "records": [
+        {
+          "type": "inseason",
+          "displayValue": "5-0",
+          "stats": [
+            {
+              "name": "wins",
+              "value": 5,
+              "displayValue": "5"
+            },
+            {
+              "name": "losses",
+              "value": 0,
+              "displayValue": "0"
+            },
+            {
+              "name": "playoffSeed",
+              "value": 3,
+              "displayValue": "3"
+            },
+            {
+              "name": "gamesBehind",
+              "displayValue": "2.0"
+            },
+            {
+              "name": "differential",
+              "value": 2.5,
+              "displayValue": "2.5"
+            },
+            {
+              "name": "pointDifferential",
+              "value": 10.0,
+              "displayValue": "10.0"
+            },
+            {
+              "name": "pointsFor",
+              "value": 400.0
+            },
+            {
+              "name": "pointsAgainst",
+              "value": 390.0
+            },
+            {
+              "name": "streak",
+              "displayValue": "W2"
+            },
+            {
+              "name": "OTWins",
+              "value": 1
+            },
+            {
+              "name": "OTLosses",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "type": "home",
+          "displayValue": "2-1"
+        },
+        {
+          "type": "road",
+          "displayValue": "1-1"
+        }
+      ]
+    },
+    {
+      "team": {
+        "$ref": "https://example.com/v2/seasons/2027/teams/4?lang=en"
+      },
+      "records": [
+        {
+          "type": "inseason",
+          "displayValue": "4-1",
+          "stats": [
+            {
+              "name": "wins",
+              "value": 4,
+              "displayValue": "4"
+            },
+            {
+              "name": "losses",
+              "value": 1,
+              "displayValue": "1"
+            },
+            {
+              "name": "playoffSeed",
+              "value": 4,
+              "displayValue": "4"
+            },
+            {
+              "name": "gamesBehind",
+              "displayValue": "3.0"
+            },
+            {
+              "name": "differential",
+              "value": 2.5,
+              "displayValue": "2.5"
+            },
+            {
+              "name": "pointDifferential",
+              "value": 10.0,
+              "displayValue": "10.0"
+            },
+            {
+              "name": "pointsFor",
+              "value": 400.0
+            },
+            {
+              "name": "pointsAgainst",
+              "value": 390.0
+            },
+            {
+              "name": "streak",
+              "displayValue": "W2"
+            },
+            {
+              "name": "OTWins",
+              "value": 1
+            },
+            {
+              "name": "OTLosses",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "type": "home",
+          "displayValue": "2-1"
+        },
+        {
+          "type": "road",
+          "displayValue": "1-1"
+        }
+      ]
+    },
+    {
+      "team": {
+        "$ref": "https://example.com/v2/seasons/2027/teams/5?lang=en"
+      },
+      "records": [
+        {
+          "type": "inseason",
+          "displayValue": "4-1",
+          "stats": [
+            {
+              "name": "wins",
+              "value": 4,
+              "displayValue": "4"
+            },
+            {
+              "name": "losses",
+              "value": 1,
+              "displayValue": "1"
+            },
+            {
+              "name": "playoffSeed",
+              "value": 5,
+              "displayValue": "5"
+            },
+            {
+              "name": "gamesBehind",
+              "displayValue": "4.0"
+            },
+            {
+              "name": "differential",
+              "value": 2.5,
+              "displayValue": "2.5"
+            },
+            {
+              "name": "pointDifferential",
+              "value": 10.0,
+              "displayValue": "10.0"
+            },
+            {
+              "name": "pointsFor",
+              "value": 400.0
+            },
+            {
+              "name": "pointsAgainst",
+              "value": 390.0
+            },
+            {
+              "name": "streak",
+              "displayValue": "W2"
+            },
+            {
+              "name": "OTWins",
+              "value": 1
+            },
+            {
+              "name": "OTLosses",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "type": "home",
+          "displayValue": "2-1"
+        },
+        {
+          "type": "road",
+          "displayValue": "1-1"
+        }
+      ]
+    },
+    {
+      "team": {
+        "$ref": "https://example.com/v2/seasons/2027/teams/6?lang=en"
+      },
+      "records": [
+        {
+          "type": "inseason",
+          "displayValue": "4-1",
+          "stats": [
+            {
+              "name": "wins",
+              "value": 4,
+              "displayValue": "4"
+            },
+            {
+              "name": "losses",
+              "value": 1,
+              "displayValue": "1"
+            },
+            {
+              "name": "playoffSeed",
+              "value": 6,
+              "displayValue": "6"
+            },
+            {
+              "name": "gamesBehind",
+              "displayValue": "5.0"
+            },
+            {
+              "name": "differential",
+              "value": 2.5,
+              "displayValue": "2.5"
+            },
+            {
+              "name": "pointDifferential",
+              "value": 10.0,
+              "displayValue": "10.0"
+            },
+            {
+              "name": "pointsFor",
+              "value": 400.0
+            },
+            {
+              "name": "pointsAgainst",
+              "value": 390.0
+            },
+            {
+              "name": "streak",
+              "displayValue": "W2"
+            },
+            {
+              "name": "OTWins",
+              "value": 1
+            },
+            {
+              "name": "OTLosses",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "type": "home",
+          "displayValue": "2-1"
+        },
+        {
+          "type": "road",
+          "displayValue": "1-1"
+        }
+      ]
+    },
+    {
+      "team": {
+        "$ref": "https://example.com/v2/seasons/2027/teams/7?lang=en"
+      },
+      "records": [
+        {
+          "type": "inseason",
+          "displayValue": "3-2",
+          "stats": [
+            {
+              "name": "wins",
+              "value": 3,
+              "displayValue": "3"
+            },
+            {
+              "name": "losses",
+              "value": 2,
+              "displayValue": "2"
+            },
+            {
+              "name": "playoffSeed",
+              "value": 7,
+              "displayValue": "7"
+            },
+            {
+              "name": "gamesBehind",
+              "displayValue": "6.0"
+            },
+            {
+              "name": "differential",
+              "value": 2.5,
+              "displayValue": "2.5"
+            },
+            {
+              "name": "pointDifferential",
+              "value": 10.0,
+              "displayValue": "10.0"
+            },
+            {
+              "name": "pointsFor",
+              "value": 400.0
+            },
+            {
+              "name": "pointsAgainst",
+              "value": 390.0
+            },
+            {
+              "name": "streak",
+              "displayValue": "W2"
+            },
+            {
+              "name": "OTWins",
+              "value": 1
+            },
+            {
+              "name": "OTLosses",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "type": "home",
+          "displayValue": "2-1"
+        },
+        {
+          "type": "road",
+          "displayValue": "1-1"
+        }
+      ]
+    },
+    {
+      "team": {
+        "$ref": "https://example.com/v2/seasons/2027/teams/8?lang=en"
+      },
+      "records": [
+        {
+          "type": "inseason",
+          "displayValue": "3-2",
+          "stats": [
+            {
+              "name": "wins",
+              "value": 3,
+              "displayValue": "3"
+            },
+            {
+              "name": "losses",
+              "value": 2,
+              "displayValue": "2"
+            },
+            {
+              "name": "playoffSeed",
+              "value": 8,
+              "displayValue": "8"
+            },
+            {
+              "name": "gamesBehind",
+              "displayValue": "7.0"
+            },
+            {
+              "name": "differential",
+              "value": 2.5,
+              "displayValue": "2.5"
+            },
+            {
+              "name": "pointDifferential",
+              "value": 10.0,
+              "displayValue": "10.0"
+            },
+            {
+              "name": "pointsFor",
+              "value": 400.0
+            },
+            {
+              "name": "pointsAgainst",
+              "value": 390.0
+            },
+            {
+              "name": "streak",
+              "displayValue": "W2"
+            },
+            {
+              "name": "OTWins",
+              "value": 1
+            },
+            {
+              "name": "OTLosses",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "type": "home",
+          "displayValue": "2-1"
+        },
+        {
+          "type": "road",
+          "displayValue": "1-1"
+        }
+      ]
+    },
+    {
+      "team": {
+        "$ref": "https://example.com/v2/seasons/2027/teams/9?lang=en"
+      },
+      "records": [
+        {
+          "type": "inseason",
+          "displayValue": "3-2",
+          "stats": [
+            {
+              "name": "wins",
+              "value": 3,
+              "displayValue": "3"
+            },
+            {
+              "name": "losses",
+              "value": 2,
+              "displayValue": "2"
+            },
+            {
+              "name": "playoffSeed",
+              "value": 9,
+              "displayValue": "9"
+            },
+            {
+              "name": "gamesBehind",
+              "displayValue": "8.0"
+            },
+            {
+              "name": "differential",
+              "value": 2.5,
+              "displayValue": "2.5"
+            },
+            {
+              "name": "pointDifferential",
+              "value": 10.0,
+              "displayValue": "10.0"
+            },
+            {
+              "name": "pointsFor",
+              "value": 400.0
+            },
+            {
+              "name": "pointsAgainst",
+              "value": 390.0
+            },
+            {
+              "name": "streak",
+              "displayValue": "W2"
+            },
+            {
+              "name": "OTWins",
+              "value": 1
+            },
+            {
+              "name": "OTLosses",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "type": "home",
+          "displayValue": "2-1"
+        },
+        {
+          "type": "road",
+          "displayValue": "1-1"
+        }
+      ]
+    },
+    {
+      "team": {
+        "$ref": "https://example.com/v2/seasons/2027/teams/10?lang=en"
+      },
+      "records": [
+        {
+          "type": "inseason",
+          "displayValue": "2-3",
+          "stats": [
+            {
+              "name": "wins",
+              "value": 2,
+              "displayValue": "2"
+            },
+            {
+              "name": "losses",
+              "value": 3,
+              "displayValue": "3"
+            },
+            {
+              "name": "playoffSeed",
+              "value": 10,
+              "displayValue": "10"
+            },
+            {
+              "name": "gamesBehind",
+              "displayValue": "9.0"
+            },
+            {
+              "name": "differential",
+              "value": 2.5,
+              "displayValue": "2.5"
+            },
+            {
+              "name": "pointDifferential",
+              "value": 10.0,
+              "displayValue": "10.0"
+            },
+            {
+              "name": "pointsFor",
+              "value": 400.0
+            },
+            {
+              "name": "pointsAgainst",
+              "value": 390.0
+            },
+            {
+              "name": "streak",
+              "displayValue": "W2"
+            },
+            {
+              "name": "OTWins",
+              "value": 1
+            },
+            {
+              "name": "OTLosses",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "type": "home",
+          "displayValue": "2-1"
+        },
+        {
+          "type": "road",
+          "displayValue": "1-1"
+        }
+      ]
+    },
+    {
+      "team": {
+        "$ref": "https://example.com/v2/seasons/2027/teams/11?lang=en"
+      },
+      "records": [
+        {
+          "type": "inseason",
+          "displayValue": "2-3",
+          "stats": [
+            {
+              "name": "wins",
+              "value": 2,
+              "displayValue": "2"
+            },
+            {
+              "name": "losses",
+              "value": 3,
+              "displayValue": "3"
+            },
+            {
+              "name": "playoffSeed",
+              "value": 11,
+              "displayValue": "11"
+            },
+            {
+              "name": "gamesBehind",
+              "displayValue": "10.0"
+            },
+            {
+              "name": "differential",
+              "value": 2.5,
+              "displayValue": "2.5"
+            },
+            {
+              "name": "pointDifferential",
+              "value": 10.0,
+              "displayValue": "10.0"
+            },
+            {
+              "name": "pointsFor",
+              "value": 400.0
+            },
+            {
+              "name": "pointsAgainst",
+              "value": 390.0
+            },
+            {
+              "name": "streak",
+              "displayValue": "W2"
+            },
+            {
+              "name": "OTWins",
+              "value": 1
+            },
+            {
+              "name": "OTLosses",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "type": "home",
+          "displayValue": "2-1"
+        },
+        {
+          "type": "road",
+          "displayValue": "1-1"
+        }
+      ]
+    },
+    {
+      "team": {
+        "$ref": "https://example.com/v2/seasons/2027/teams/12?lang=en"
+      },
+      "records": [
+        {
+          "type": "inseason",
+          "displayValue": "2-3",
+          "stats": [
+            {
+              "name": "wins",
+              "value": 2,
+              "displayValue": "2"
+            },
+            {
+              "name": "losses",
+              "value": 3,
+              "displayValue": "3"
+            },
+            {
+              "name": "playoffSeed",
+              "value": 12,
+              "displayValue": "12"
+            },
+            {
+              "name": "gamesBehind",
+              "displayValue": "11.0"
+            },
+            {
+              "name": "differential",
+              "value": 2.5,
+              "displayValue": "2.5"
+            },
+            {
+              "name": "pointDifferential",
+              "value": 10.0,
+              "displayValue": "10.0"
+            },
+            {
+              "name": "pointsFor",
+              "value": 400.0
+            },
+            {
+              "name": "pointsAgainst",
+              "value": 390.0
+            },
+            {
+              "name": "streak",
+              "displayValue": "W2"
+            },
+            {
+              "name": "OTWins",
+              "value": 1
+            },
+            {
+              "name": "OTLosses",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "type": "home",
+          "displayValue": "2-1"
+        },
+        {
+          "type": "road",
+          "displayValue": "1-1"
+        }
+      ]
+    },
+    {
+      "team": {
+        "$ref": "https://example.com/v2/seasons/2027/teams/13?lang=en"
+      },
+      "records": [
+        {
+          "type": "inseason",
+          "displayValue": "1-4",
+          "stats": [
+            {
+              "name": "wins",
+              "value": 1,
+              "displayValue": "1"
+            },
+            {
+              "name": "losses",
+              "value": 4,
+              "displayValue": "4"
+            },
+            {
+              "name": "playoffSeed",
+              "value": 13,
+              "displayValue": "13"
+            },
+            {
+              "name": "gamesBehind",
+              "displayValue": "12.0"
+            },
+            {
+              "name": "differential",
+              "value": 2.5,
+              "displayValue": "2.5"
+            },
+            {
+              "name": "pointDifferential",
+              "value": 10.0,
+              "displayValue": "10.0"
+            },
+            {
+              "name": "pointsFor",
+              "value": 400.0
+            },
+            {
+              "name": "pointsAgainst",
+              "value": 390.0
+            },
+            {
+              "name": "streak",
+              "displayValue": "W2"
+            },
+            {
+              "name": "OTWins",
+              "value": 1
+            },
+            {
+              "name": "OTLosses",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "type": "home",
+          "displayValue": "2-1"
+        },
+        {
+          "type": "road",
+          "displayValue": "1-1"
+        }
+      ]
+    },
+    {
+      "team": {
+        "$ref": "https://example.com/v2/seasons/2027/teams/14?lang=en"
+      },
+      "records": [
+        {
+          "type": "inseason",
+          "displayValue": "1-4",
+          "stats": [
+            {
+              "name": "wins",
+              "value": 1,
+              "displayValue": "1"
+            },
+            {
+              "name": "losses",
+              "value": 4,
+              "displayValue": "4"
+            },
+            {
+              "name": "playoffSeed",
+              "value": 14,
+              "displayValue": "14"
+            },
+            {
+              "name": "gamesBehind",
+              "displayValue": "13.0"
+            },
+            {
+              "name": "differential",
+              "value": 2.5,
+              "displayValue": "2.5"
+            },
+            {
+              "name": "pointDifferential",
+              "value": 10.0,
+              "displayValue": "10.0"
+            },
+            {
+              "name": "pointsFor",
+              "value": 400.0
+            },
+            {
+              "name": "pointsAgainst",
+              "value": 390.0
+            },
+            {
+              "name": "streak",
+              "displayValue": "W2"
+            },
+            {
+              "name": "OTWins",
+              "value": 1
+            },
+            {
+              "name": "OTLosses",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "type": "home",
+          "displayValue": "2-1"
+        },
+        {
+          "type": "road",
+          "displayValue": "1-1"
+        }
+      ]
+    },
+    {
+      "team": {
+        "$ref": "https://example.com/v2/seasons/2027/teams/15?lang=en"
+      },
+      "records": [
+        {
+          "type": "inseason",
+          "displayValue": "1-4",
+          "stats": [
+            {
+              "name": "wins",
+              "value": 1,
+              "displayValue": "1"
+            },
+            {
+              "name": "losses",
+              "value": 4,
+              "displayValue": "4"
+            },
+            {
+              "name": "playoffSeed",
+              "value": 15,
+              "displayValue": "15"
+            },
+            {
+              "name": "gamesBehind",
+              "displayValue": "14.0"
+            },
+            {
+              "name": "differential",
+              "value": 2.5,
+              "displayValue": "2.5"
+            },
+            {
+              "name": "pointDifferential",
+              "value": 10.0,
+              "displayValue": "10.0"
+            },
+            {
+              "name": "pointsFor",
+              "value": 400.0
+            },
+            {
+              "name": "pointsAgainst",
+              "value": 390.0
+            },
+            {
+              "name": "streak",
+              "displayValue": "W2"
+            },
+            {
+              "name": "OTWins",
+              "value": 1
+            },
+            {
+              "name": "OTLosses",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "type": "home",
+          "displayValue": "2-1"
+        },
+        {
+          "type": "road",
+          "displayValue": "1-1"
+        }
+      ]
+    }
+  ]
+}

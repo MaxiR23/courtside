@@ -26,6 +26,7 @@ export interface TeamFeed {
 	injuries: TeamInjury[];
 	nextGame: NextGame | null;
 	schedule: Schedule | null;
+	cup: TeamCup | null;
 }
 export interface TeamColors {
 	primary: string;
@@ -169,4 +170,20 @@ export interface ScheduleGame {
 	broadcast: string | null;
 	isNext: boolean;
 	detailAvailable: boolean;
+}
+/**
+ * The Cup mark of a team: its group and its Cup record.
+ */
+export interface TeamCup {
+	group: CupGroupName;
+	wins: number;
+	losses: number;
+}
+/**
+ * The label of a Cup group: its conference and its letter. The one shape of
+ * a group label in every feed that names a group.
+ */
+export interface CupGroupName {
+	conference: Conference;
+	letter: 'A' | 'B' | 'C';
 }

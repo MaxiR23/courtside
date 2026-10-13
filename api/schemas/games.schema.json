@@ -1,5 +1,15 @@
 {
   "$defs": {
+    "CupRound": {
+      "enum": [
+        "group",
+        "quarterfinals",
+        "semifinals",
+        "championship"
+      ],
+      "title": "CupRound",
+      "type": "string"
+    },
     "Day": {
       "additionalProperties": false,
       "properties": {
@@ -169,6 +179,17 @@
             }
           ],
           "default": null
+        },
+        "cup": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GameCup"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -189,9 +210,24 @@
         "leaders",
         "teamStats",
         "statsAvailability",
-        "highlightsSearchUrl"
+        "highlightsSearchUrl",
+        "cup"
       ],
       "title": "Game",
+      "type": "object"
+    },
+    "GameCup": {
+      "additionalProperties": false,
+      "description": "The mark of a Cup game: the round it belongs to.",
+      "properties": {
+        "stage": {
+          "$ref": "#/$defs/CupRound"
+        }
+      },
+      "required": [
+        "stage"
+      ],
+      "title": "GameCup",
       "type": "object"
     },
     "GameStatus": {

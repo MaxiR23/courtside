@@ -49,6 +49,19 @@ class GameStatus(StrEnum):
     CANCELED = "canceled"
 
 
+class CupRound(StrEnum):
+    GROUP = "group"
+    QUARTERFINALS = "quarterfinals"
+    SEMIFINALS = "semifinals"
+    CHAMPIONSHIP = "championship"
+
+
+class GameCup(FeedModel):
+    """The mark of a Cup game: the round it belongs to."""
+
+    stage: CupRound
+
+
 class StatsAvailability(StrEnum):
     AVAILABLE = "available"
     PENDING = "pending"
@@ -173,6 +186,7 @@ class Game(FeedModel):
     team_stats: GameTeamStats | None = None
     stats_availability: StatsAvailability | None = None
     highlights_search_url: HttpUrl | None = None
+    cup: GameCup | None = None
 
     @model_validator(mode="after")
     def _require_fields_of_status(self) -> Game:

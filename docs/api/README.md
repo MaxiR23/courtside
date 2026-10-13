@@ -17,3 +17,4 @@ regenerated, with the TypeScript types, by `scripts/contract.sh`.
 - [`team.md`](team.md): the team feed.
 - [`standings.md`](standings.md): the standings feed.
 - [`search.md`](search.md): the search feed.
+- [`cup.md`](cup.md): the Cup feed.

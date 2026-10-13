@@ -46,6 +46,7 @@
 # - Exposes the entries of each fetched roster by team code, with no request beyond the roster fetches, and none before any fetch
 # - A newer roster replaces the team's entries
 # - Has no latest roster fetch before any fetch, has the clock time of the latest roster fetch after a run, and a run with no due teams does not move it
+# - Has no current season before a fetch and the season of the latest fetched roster after a run
 # - Calls after_run after a run with due teams and not after a run with none
 #
 # What is covered:
@@ -1100,6 +1101,26 @@ async def test_has_no_latest_roster_fetch_before_a_fetch_and_the_clock_time_afte
     clock[0] = NOON + dt.timedelta(minutes=1)
     await job.run(NOON + dt.timedelta(minutes=1))
     assert job.latest_roster_fetch() == NOON
+
+
+@pytest.mark.anyio
+async def test_has_no_current_season_before_a_fetch_and_the_rosters_season_after_a_run(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    job = StarsJob(
+        settings,
+        store,
+        create_client(store),
+        fetch_roster=sources.fetch_roster,
+        fetch_season_averages=sources.fetch_season_averages,
+        fetch_player_averages=sources.fetch_player_averages,
+        clock=lambda: NOON,
+    )
+    assert job.current_season() is None
+
+    await job.run(NOON)
+
+    assert job.current_season() == SEASON
 
 
 @pytest.mark.anyio

@@ -27,6 +27,7 @@
 # - The feed has no videos field
 # - Serialization uses camelCase keys
 # - Venue city: null or absent is accepted and serialized as null; an empty city is rejected
+# - Accepts a Cup mark of each round and a null or absent Cup mark, and rejects an unknown round
 #
 # What is covered:
 # - A valid feed is accepted and an invalid one is rejected
@@ -951,3 +952,25 @@ def test_rejects_a_win_probability_leader_that_is_a_team_code() -> None:
 
     with pytest.raises(ValidationError, match="side"):
         GameDetailFeed.model_validate(leader_game([0.68], leader))
+
+
+@pytest.mark.parametrize(
+    "stage", ["group", "quarterfinals", "semifinals", "championship"]
+)
+def test_accepts_a_cup_mark_of_each_round(stage: str) -> None:
+    feed = GameDetailFeed.model_validate(valid_game("scheduled", cup={"stage": stage}))
+
+    assert feed.cup is not None and feed.cup.stage == stage
+
+
+def test_reads_a_game_without_a_cup_mark_as_null() -> None:
+    absent = GameDetailFeed.model_validate(valid_game("scheduled"))
+    explicit = GameDetailFeed.model_validate(valid_game("scheduled", cup=None))
+
+    assert absent.cup is None and explicit.cup is None
+    assert absent.model_dump(mode="json")["cup"] is None
+
+
+def test_rejects_a_cup_mark_with_an_unknown_round() -> None:
+    with pytest.raises(ValidationError):
+        GameDetailFeed.model_validate(valid_game("scheduled", cup={"stage": "final"}))

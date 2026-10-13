@@ -9,7 +9,8 @@
 // api/schemas/player.schema.json, web/src/lib/contract/player.ts,
 // api/schemas/team.schema.json, web/src/lib/contract/team.ts,
 // api/schemas/standings.schema.json, web/src/lib/contract/standings.ts,
-// api/schemas/search.schema.json, web/src/lib/contract/search.ts
+// api/schemas/search.schema.json, web/src/lib/contract/search.ts,
+// api/schemas/cup.schema.json, web/src/lib/contract/cup.ts
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -26,7 +27,8 @@ export const feeds = [
 	{ name: 'player', rootName: 'PlayerFeed' },
 	{ name: 'team', rootName: 'TeamFeed' },
 	{ name: 'standings', rootName: 'StandingsFeed' },
-	{ name: 'search', rootName: 'SearchFeed' }
+	{ name: 'search', rootName: 'SearchFeed' },
+	{ name: 'cup', rootName: 'CupFeed' }
 ].map((feed) => ({
 	...feed,
 	schemaPath: join(import.meta.dirname, `../../api/schemas/${feed.name}.schema.json`),

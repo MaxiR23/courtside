@@ -21,6 +21,7 @@
 # - Postponed and canceled games are never checked
 # - A run with nothing due makes no request and records nothing
 # - The builder puts each game's highlights from the provider in the feed, and none without a provider
+# - The builder carries each game's Cup mark into the feed, and null for a game without one
 # - Lists only the final games of the days held, in day order
 # - Lists no shown games before the first run or while a day shown failed to fetch, and the games of every day shown in day order
 # - Republishes the feed with no source call when a final game's highlights change, and not when they are unchanged
@@ -72,6 +73,8 @@ import respx
 from pydantic import HttpUrl
 
 from app.feeds.games import (
+    CupRound,
+    GameCup,
     GamesFeed,
     GameStatus,
     GameTeam,
@@ -399,6 +402,20 @@ def test_builder_puts_each_games_highlights_from_the_provider_in_the_feed() -> N
     first, second = feed.days[0].games
     assert first.highlights == [HIGHLIGHT]
     assert second.highlights == []
+
+
+def test_builder_carries_the_cup_mark_of_each_game_and_null_without_one() -> None:
+    marked = game("1", GameStatus.FINAL).model_copy(
+        update={"cup": GameCup(stage=CupRound.GROUP)}
+    )
+
+    feed = build(
+        marked, game("2", GameStatus.FINAL), details={"1": DETAIL, "2": DETAIL}
+    )
+
+    first, second = feed.days[0].games
+    assert first.cup == GameCup(stage=CupRound.GROUP)
+    assert second.cup is None
 
 
 def test_builder_gives_no_highlights_without_a_provider() -> None:

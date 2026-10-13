@@ -141,6 +141,7 @@ def build_game_detail_feed(
         "line_score": game.line_score,
         "score": game.score,
         "winner": final_winner(game),
+        "cup": game.cup,
         "venue": sections.venue,
         "team_stats": sections.team_stats,
         "box_score": sections.box_score,

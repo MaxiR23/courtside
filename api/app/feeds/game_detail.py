@@ -17,6 +17,7 @@ from pydantic.alias_generators import to_camel
 
 from app.feeds.games import (
     FeedModel,
+    GameCup,
     GameStatus,
     GameTeam,
     Highlight,
@@ -291,6 +292,7 @@ class GameDetailFeed(FeedModel):
     season_series: SeasonSeries | None = None
     highlights: list[Highlight] | None = None
     highlights_search_url: HttpUrl | None = None
+    cup: GameCup | None = None
 
     @model_validator(mode="before")
     @classmethod

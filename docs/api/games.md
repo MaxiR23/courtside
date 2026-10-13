@@ -52,6 +52,7 @@ Conventions:
 | `teamStats`           | `GameTeamStats` / null | Team statistics                                                  | required when `live`; when `final`, set when `statsAvailability` is `available`, null otherwise |
 | `statsAvailability`   | `StatsAvailability` / null | `available`, `pending`, `unavailable`                        | required when `final`, null otherwise |
 | `highlightsSearchUrl` | URL / null             | Link to search for highlights                                    | required when `final`           |
+| `cup`                 | `GameCup` / null       | The Cup mark: the round the game belongs to                      | null when the game is not a Cup game |
 
 A `live` game requires `period`, `clock`, `lineScore`, `score`, `leaders`
 and `teamStats`. A `final` game requires `lineScore`, `score`, `winner`, `statsAvailability`
@@ -63,6 +64,7 @@ and `highlightsSearchUrl`; any other status has `winner` and
 
 | Object      | Fields                                                                                                      |
 | ----------- | ----------------------------------------------------------------------------------------------------------- |
+| `GameCup`   | `stage` (`group`, `quarterfinals`, `semifinals`, `championship`), taken from the game's note |
 | `Team`      | `code` (three capital letters), `name`, `city`                                                              |
 | `Opponent`  | `code` (null for a guest without one), `name`, `city` (null when the source sends none), `guest`; a league code is three capital letters, a guest code any non-empty string, and a guest has a code or a name |
 | `GameTeam`  | `Opponent` with a required `name` and `city` |

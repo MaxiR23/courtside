@@ -12,6 +12,7 @@
 # - Lists no injuries for a team absent from the league injuries
 # - Sets each injury's playerId from the recorded league injuries, null when the source has no athlete id
 # - Puts null highlights when the game has none
+# - Carries the game's Cup mark into the feed, and null for a game without one
 # - Rejects a game whose team has no standing, a series game with no arena and a live game without team stats
 # - The pre-game expiry is 12 hours with tip-off more than 48 hours away, 6 hours from 48 to 12 hours, 3 hours under 12 hours and once tip-off has passed
 # - A pre-game detail is fresh until its expiry and stale at it, in each bucket
@@ -60,6 +61,8 @@ from pydantic import HttpUrl
 
 from app.feeds.game_detail import GameDetailFeed, Injury, LastGame
 from app.feeds.games import (
+    CupRound,
+    GameCup,
     GameStatus,
     GameTeam,
     Highlight,
@@ -378,6 +381,15 @@ def test_builds_a_scheduled_game_with_records_standings_injuries_and_last_games(
     assert feed.stars == STARS
     assert str(feed.highlights_search_url) == SEARCH_URL
     assert feed.winner is None
+
+
+def test_carries_the_cup_mark_of_the_game_and_null_without_one() -> None:
+    marked = game("1", GameStatus.SCHEDULED).model_copy(
+        update={"cup": GameCup(stage=CupRound.SEMIFINALS)}
+    )
+
+    assert build(marked).cup == GameCup(stage=CupRound.SEMIFINALS)
+    assert build(game("1", GameStatus.SCHEDULED)).cup is None
 
 
 def test_builds_a_final_game_with_its_winner_box_score_and_season_series() -> None:

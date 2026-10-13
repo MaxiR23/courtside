@@ -16,6 +16,7 @@
 # - Hex colors, group keys, UTC time and unknown fields are validated
 # - A schedule game or the next game may be against a guest opponent, with or without a code
 # - Serialization uses camelCase keys
+# - Accepts a Cup mark with the group, wins and losses and a null or absent one, and rejects an unknown group letter, a missing record and a negative count
 #
 # What is covered:
 # - A valid feed is accepted and an invalid one is rejected
@@ -456,3 +457,36 @@ def test_rejects_a_schedule_opponent_that_is_a_bare_code() -> None:
     team["schedule"]["groups"][0]["games"][0]["opponent"] = "BBB"
 
     rejects(team, "opponent")
+
+
+CUP = {"group": {"conference": "west", "letter": "B"}, "wins": 3, "losses": 1}
+
+
+def test_accepts_a_team_with_a_cup_mark() -> None:
+    feed = TeamFeed.model_validate({**valid_team(), "cup": CUP})
+
+    assert feed.cup is not None
+    assert (feed.cup.group.letter, feed.cup.wins, feed.cup.losses) == ("B", 3, 1)
+    assert feed.model_dump(mode="json")["cup"] == CUP
+
+
+def test_reads_a_team_without_a_cup_mark_as_null() -> None:
+    absent = TeamFeed.model_validate(valid_team())
+    explicit = TeamFeed.model_validate({**valid_team(), "cup": None})
+
+    assert absent.cup is None and explicit.cup is None
+    assert absent.model_dump(mode="json")["cup"] is None
+
+
+@pytest.mark.parametrize(
+    "cup",
+    [
+        {**CUP, "group": {"conference": "west", "letter": "D"}},
+        {**CUP, "group": {"conference": "north", "letter": "A"}},
+        {"group": CUP["group"], "wins": 3},
+        {**CUP, "losses": -1},
+    ],
+    ids=["letter", "conference", "missing losses", "negative"],
+)
+def test_rejects_an_invalid_cup_mark(cup: Payload) -> None:
+    rejects({**valid_team(), "cup": cup})

@@ -35,6 +35,29 @@
       "title": "Conference",
       "type": "string"
     },
+    "CupGroupName": {
+      "additionalProperties": false,
+      "description": "The label of a Cup group: its conference and its letter. The one shape of\na group label in every feed that names a group.",
+      "properties": {
+        "conference": {
+          "$ref": "#/$defs/Conference"
+        },
+        "letter": {
+          "enum": [
+            "A",
+            "B",
+            "C"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "conference",
+        "letter"
+      ],
+      "title": "CupGroupName",
+      "type": "object"
+    },
     "Differential": {
       "additionalProperties": false,
       "properties": {
@@ -686,6 +709,30 @@
       "title": "TeamColors",
       "type": "object"
     },
+    "TeamCup": {
+      "additionalProperties": false,
+      "description": "The Cup mark of a team: its group and its Cup record.",
+      "properties": {
+        "group": {
+          "$ref": "#/$defs/CupGroupName"
+        },
+        "wins": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "losses": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "group",
+        "wins",
+        "losses"
+      ],
+      "title": "TeamCup",
+      "type": "object"
+    },
     "TeamInjury": {
       "additionalProperties": false,
       "properties": {
@@ -1087,6 +1134,17 @@
         }
       ],
       "default": null
+    },
+    "cup": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TeamCup"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     }
   },
   "required": [
@@ -1104,7 +1162,8 @@
     "roster",
     "injuries",
     "nextGame",
-    "schedule"
+    "schedule",
+    "cup"
   ],
   "title": "TeamFeed",
   "type": "object"

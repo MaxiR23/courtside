@@ -11,6 +11,7 @@
 # - Maps a team without an abbreviation to a guest side with a null code, its name and city, or to a league side by its provider id
 # - Skips a game with a side that has neither a code nor a name, and keeps the other games in provider order
 # - ScoreboardGame uses the same field types as the contract Game
+# - Marks a game with the Cup round of its note, and leaves any other note or none unmarked
 # - Reuses a fetched day for thirty seconds
 #
 # What is covered:
@@ -38,7 +39,7 @@ import httpx
 import pytest
 import respx
 
-from app.feeds.games import Game, GameStatus
+from app.feeds.games import CupRound, Game, GameStatus
 from app.settings import Settings
 from app.sources.http import SourceClient, SourceError, create_client
 from app.sources.scoreboard import ScoreboardGame, fetch_games
@@ -548,3 +549,31 @@ async def test_reuses_a_fetched_day_for_thirty_seconds(
         await fetch_games(client, DAY, settings)
 
     assert route.call_count == 2
+
+
+@pytest.mark.anyio
+async def test_marks_a_game_with_the_cup_round_of_its_note(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    mock.get(URL).respond(json=load("cup.json"))
+
+    games = await fetch(settings)
+
+    assert [g.cup.stage if g.cup else None for g in games] == [
+        CupRound.GROUP,
+        CupRound.QUARTERFINALS,
+        CupRound.SEMIFINALS,
+        CupRound.CHAMPIONSHIP,
+        None,
+        None,
+        CupRound.SEMIFINALS,
+    ]
+
+
+@pytest.mark.anyio
+async def test_leaves_a_game_without_notes_unmarked(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    mock.get(URL).respond(json=load("day.json"))
+
+    assert all(game.cup is None for game in await fetch(settings))

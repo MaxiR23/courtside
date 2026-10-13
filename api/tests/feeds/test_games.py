@@ -13,6 +13,7 @@
 # - A guest side (outside the league) is accepted with a null star and a leader without a photo, and may win; its code is optional
 # - A league side needs a star, a three-letter code and a leader photo; a guest side has no star; the two sides differ; a guest code is any non-empty string
 # - Serialization uses camelCase keys and carries unknown values as null
+# - Accepts a game with a Cup mark of each round and with a null or absent Cup mark, and rejects an unknown round
 #
 # What is covered:
 # - A valid feed is accepted and an invalid one is rejected
@@ -532,3 +533,34 @@ def test_rejects_a_league_side_without_a_code() -> None:
 
     with pytest.raises(ValidationError, match="three capital letters"):
         GamesFeed.model_validate(valid_feed(game))
+
+
+@pytest.mark.parametrize(
+    "stage", ["group", "quarterfinals", "semifinals", "championship"]
+)
+def test_accepts_a_game_with_a_cup_mark_of_each_round(stage: str) -> None:
+    feed = GamesFeed.model_validate(
+        valid_feed(valid_game("scheduled", cup={"stage": stage}))
+    )
+
+    game = feed.days[0].games[0]
+    assert game.cup is not None and game.cup.stage == stage
+    assert feed.model_dump(mode="json")["days"][0]["games"][0]["cup"] == {
+        "stage": stage
+    }
+
+
+def test_reads_a_game_without_a_cup_mark_as_null() -> None:
+    absent = GamesFeed.model_validate(valid_feed(valid_game("scheduled")))
+    explicit = GamesFeed.model_validate(valid_feed(valid_game("scheduled", cup=None)))
+
+    assert absent.days[0].games[0].cup is None
+    assert explicit.days[0].games[0].cup is None
+    assert absent.model_dump(mode="json")["days"][0]["games"][0]["cup"] is None
+
+
+def test_rejects_a_cup_mark_with_an_unknown_round() -> None:
+    with pytest.raises(ValidationError):
+        GamesFeed.model_validate(
+            valid_feed(valid_game("scheduled", cup={"stage": "final"}))
+        )
