@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import type { ResolvedPathname } from '$app/types';
 	import NavSearchTrigger from '#lib/components/NavSearchTrigger.svelte';
 	import { formatDate } from '#lib/format/locale.ts';
@@ -11,7 +12,7 @@
 		onSpoilerFreeToggle: () => void;
 	};
 	type Props = {
-		page: 'home' | 'standings' | 'detail'; // home: "Games" current; standings: "Standings" current; detail: none
+		page: 'home' | 'standings' | 'cup' | 'detail'; // each current page marks its own link; detail: none
 		gamesHref: ResolvedPathname; // Home: the schedule; every other page: Home
 		standingsHref: ResolvedPathname;
 		layout: RowLayout;
@@ -55,6 +56,15 @@
 			href={standingsHref}
 		>
 			{m.nav_standings()}
+		</a>
+		<!-- The Cup link resolves its own route so removing the Cup touches only this file (ADR 0030). -->
+		<a
+			class="link"
+			class:current={page === 'cup'}
+			aria-current={page === 'cup' ? 'page' : undefined}
+			href={resolve('/cup')}
+		>
+			{m.nav_cup()}
 		</a>
 		{#if home}
 			<time class="date" datetime={iso}>{formatDate(home.today, dateOptions)}</time>

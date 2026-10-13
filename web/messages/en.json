@@ -378,5 +378,60 @@
 				"rankOrdinal=other": "{code} · {rank}th in {division}"
 			}
 		}
-	]
+	],
+	"nav_cup": "Cup",
+	"cup_title": "NBA Cup",
+	"cup_not_drawn": "Groups not drawn yet",
+	"cup_state_draw": "Groups drawn · Play starts {date}",
+	"cup_state_group": "Group play · {n} of 60 games played",
+	"cup_state_qf": "Quarterfinals",
+	"cup_state_sf": "Semifinals",
+	"cup_state_final": "Championship",
+	"cup_state_complete": "Complete",
+	"cup_champion": "Champion",
+	"cup_stage_group": "Group play",
+	"cup_tbd": "TBD",
+	"cup_status_complete": "Complete",
+	"cup_status_in_progress": "In progress",
+	"cup_status_next": "Next",
+	"cup_status_upcoming": "Upcoming",
+	"cup_group_teams": [
+		{
+			"declarations": ["input n", "local nPlural = n: plural"],
+			"selectors": ["nPlural"],
+			"match": {
+				"nPlural=one": "{n} team",
+				"nPlural=other": "{n} teams"
+			}
+		}
+	],
+	"cup_group_games": "{n} of 10 games",
+	"cup_group_final": "Final",
+	"cup_more_columns": "More columns",
+	"cup_tag_y": "Won group",
+	"cup_tag_x": "Wild card",
+	"cup_tag_e": "Eliminated",
+	"cup_wild_card": "Wild card",
+	"cup_wild_card_line": "Wild card line",
+	"cup_col_pos": "Pos",
+	"cup_col_team": "Team",
+	"cup_col_group": "Group",
+	"cup_col_rank": "Rank",
+	"cup_bracket": "Bracket",
+	"cup_not_counted": "Not counted in standings",
+	"cup_filter_all": "All",
+	"cup_filter_group": "Group play",
+	"cup_filter_qf": "Quarterfinals",
+	"cup_filter_sf": "Semifinals",
+	"cup_filter_final": "Championship",
+	"cup_group_name": "{conference} Group {letter}",
+	"cup_groups": "Groups",
+	"cup_games": "Cup games",
+	"cup_games_filter": "Filter Cup games",
+	"cup_col_wl": "W-L",
+	"cup_col_diff_per_game": "Diff/G",
+	"cup_col_diff": "Diff",
+	"cup_col_pf": "PF",
+	"cup_col_pa": "PA",
+	"cup_col_ot": "OT"
 }

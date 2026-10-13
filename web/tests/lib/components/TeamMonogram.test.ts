@@ -10,6 +10,7 @@
 // - Uses the team box on the team page
 // - Uses the standings box on the standings page
 // - Uses the search box in the search overlay
+// - Uses the cup-draw box in the Cup draw list and the cup-champion box in the Cup header
 // - Links the code to the href when one is given, and renders a span without one
 //
 // What is covered:
@@ -86,5 +87,12 @@ describe('TeamMonogram', () => {
 	it('renders the search size', () => {
 		render(TeamMonogram, { props: { code: 'OKC', size: 'search' } });
 		expect(screen.getByText('OKC').classList.contains('search')).toBe(true);
+	});
+
+	it('renders the cup-draw and cup-champion sizes', () => {
+		render(TeamMonogram, { props: { code: 'QXA', size: 'cup-draw' } });
+		render(TeamMonogram, { props: { code: 'QXB', size: 'cup-champion' } });
+		expect(screen.getByText('QXA').classList.contains('cup-draw')).toBe(true);
+		expect(screen.getByText('QXB').classList.contains('cup-champion')).toBe(true);
 	});
 });

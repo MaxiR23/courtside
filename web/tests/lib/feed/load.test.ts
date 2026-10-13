@@ -10,6 +10,7 @@
 // - teamFeedUrl puts the encoded team code in place of {code}
 // - loadTeamFeed returns the team feed, reports a 404 as not-found and every other failure
 // - loadStandingsFeed returns the standings feed and reports 503, 404, network and body failures
+// - loadCupFeed returns the Cup feed and reports 503, network and body failures
 // - loadSearchFeed returns the search feed with a no-cache request and reports 503, network and body failures
 // - playerFeedUrl puts the encoded player id in place of {id}
 // - loadPlayerFeed returns the player feed, reports a 404 as not-found and every other failure
@@ -30,6 +31,7 @@ import {
 	loadGamesFeed,
 	loadPlayerFeed,
 	loadSearchFeed,
+	loadCupFeed,
 	loadStandingsFeed,
 	playerFeedUrl,
 	loadTeamFeed,
@@ -313,6 +315,50 @@ describe('loadStandingsFeed', () => {
 		await expect(loadStandingsFeed(STANDINGS_URL, empty)).rejects.toMatchObject({
 			reason: 'body'
 		});
+	});
+});
+
+const CUP_URL = 'https://feeds.example.com/cup.json';
+
+function cupFetchAnswering(answer: () => Promise<Response>) {
+	return vi.fn((url: string | URL | Request) => {
+		if (url !== CUP_URL) throw new Error(`Unexpected URL ${String(url)}`);
+		return answer();
+	}) as unknown as typeof fetch & ReturnType<typeof vi.fn>;
+}
+
+describe('loadCupFeed', () => {
+	it('returns the parsed Cup feed on a 200, asking for JSON from the given URL', async () => {
+		const feed = { season: '2026', stages: [], groups: [] };
+		const fetchFn = cupFetchAnswering(() => json(feed));
+		await expect(loadCupFeed(CUP_URL, fetchFn)).resolves.toEqual(feed);
+		expect(fetchFn).toHaveBeenCalledWith(CUP_URL, {
+			headers: { accept: 'application/json' }
+		});
+	});
+
+	it('throws a status error on a 503', async () => {
+		const fetchFn = cupFetchAnswering(() => json({ detail: 'no' }, 503));
+		await expect(loadCupFeed(CUP_URL, fetchFn)).rejects.toMatchObject({
+			name: 'FeedLoadError',
+			reason: 'status'
+		});
+	});
+
+	it('throws a network error', async () => {
+		const fetchFn = cupFetchAnswering(() => Promise.reject(new TypeError('Failed to fetch')));
+		const error = await loadCupFeed(CUP_URL, fetchFn).catch((e: unknown) => e);
+		expect(error).toBeInstanceOf(FeedLoadError);
+		expect((error as FeedLoadError).reason).toBe('network');
+	});
+
+	it('throws a body error on a non-JSON body and on JSON without stages or groups', async () => {
+		const html = cupFetchAnswering(() => Promise.resolve(new Response('<html>', { status: 200 })));
+		await expect(loadCupFeed(CUP_URL, html)).rejects.toMatchObject({ reason: 'body' });
+		const empty = cupFetchAnswering(() => json({ season: 'x' }));
+		await expect(loadCupFeed(CUP_URL, empty)).rejects.toMatchObject({ reason: 'body' });
+		const noGroups = cupFetchAnswering(() => json({ stages: [] }));
+		await expect(loadCupFeed(CUP_URL, noGroups)).rejects.toMatchObject({ reason: 'body' });
 	});
 });
 

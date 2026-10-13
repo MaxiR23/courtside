@@ -4,16 +4,17 @@
 //
 // Tested:
 // - Shows the brand name and hides the brand mark from assistive technology
-// - Home: Games, Standings, the date and the Spoiler-free toggle, in that order
+// - Home: Games, Standings, Cup, the date and the Spoiler-free toggle, in that order
 // - Home: Games is the current page; Standings is not
 // - Detail pages: All games and Standings, nothing current, no date, no toggle
 // - Standings page: Standings is the current page; All games is not
-// - Links go to gamesHref and standingsHref
+// - Links go to gamesHref and standingsHref; Cup goes to /cup
+// - Cup page: Cup is the current page; Standings and All games are not; Cup is current nowhere else
 // - The mobile layout adds the mobile class that puts the links on their own row
-// - The search trigger is the last child of the nav on Home, the detail pages and the standings page
+// - The search trigger is the last child of the nav on Home, the detail pages, the standings page and the Cup page
 // - The mobile layout gives the search trigger its mobile class
 // - Spoiler-free toggle: off by default, pressed when on, calls its callback
-// - Spanish: Partidos, Clasificación, the date, Sin spoilers, Todos los partidos
+// - Spanish: Partidos, Clasificación, Copa, the date, Sin spoilers, Todos los partidos
 //
 // What is covered:
 // - Every page state (home, standings, detail), both layouts, the toggle off and on, its click
@@ -45,6 +46,7 @@ const homeProps = {
 };
 const detailProps = { ...homeProps, page: 'detail' as const, home: undefined };
 const standingsProps = { ...homeProps, page: 'standings' as const, home: undefined };
+const cupProps = { ...homeProps, page: 'cup' as const, home: undefined };
 const dateOptions: Intl.DateTimeFormatOptions = {
 	weekday: 'short',
 	month: 'short',
@@ -68,13 +70,40 @@ describe('NavRow', () => {
 		const items = Array.from(container.querySelector('.links')?.children ?? []).map((el) =>
 			el.textContent?.trim()
 		);
-		expect(items).toEqual(['Games', 'Standings', 'Sun, Oct 4, 2026', 'Spoiler-free']);
+		expect(items).toEqual(['Games', 'Standings', 'Cup', 'Sun, Oct 4, 2026', 'Spoiler-free']);
 	});
 
 	it('links Games to gamesHref and Standings to standingsHref', () => {
 		render(NavRow, { props: homeProps });
 		expect(screen.getByRole('link', { name: 'Games' }).getAttribute('href')).toBe('/#schedule');
 		expect(screen.getByRole('link', { name: 'Standings' }).getAttribute('href')).toBe('/standings');
+	});
+
+	it('links Cup to /cup', () => {
+		render(NavRow, { props: homeProps });
+		expect(screen.getByRole('link', { name: 'Cup' }).getAttribute('href')).toBe('/cup');
+	});
+
+	it('marks Cup current on the Cup page and neither Standings nor All games', () => {
+		render(NavRow, { props: cupProps });
+		const cup = screen.getByRole('link', { name: 'Cup' });
+		expect(cup.getAttribute('aria-current')).toBe('page');
+		expect(cup.classList.contains('current')).toBe(true);
+		for (const name of ['Standings', 'All games']) {
+			const link = screen.getByRole('link', { name });
+			expect(link.getAttribute('aria-current')).toBeNull();
+			expect(link.classList.contains('current')).toBe(false);
+		}
+	});
+
+	it('does not mark Cup current on Home, the standings page or a detail page', () => {
+		for (const props of [homeProps, standingsProps, detailProps]) {
+			const { unmount } = render(NavRow, { props });
+			const cup = screen.getByRole('link', { name: 'Cup' });
+			expect(cup.getAttribute('aria-current')).toBeNull();
+			expect(cup.classList.contains('current')).toBe(false);
+			unmount();
+		}
 	});
 
 	it('marks Games current on Home and not Standings', () => {
@@ -140,6 +169,7 @@ describe('NavRow', () => {
 		expect(screen.getByText(formatDate(today, dateOptions))).toBeTruthy();
 		expect(screen.getByRole('link', { name: 'Partidos' })).toBeTruthy();
 		expect(screen.getByRole('link', { name: 'Clasificación' })).toBeTruthy();
+		expect(screen.getByRole('link', { name: 'Copa' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Sin spoilers' })).toBeTruthy();
 	});
 
@@ -149,8 +179,8 @@ describe('NavRow', () => {
 		expect(screen.getByRole('link', { name: 'Todos los partidos' })).toBeTruthy();
 	});
 
-	it('ends the nav with the search trigger on Home, detail pages and the standings page', () => {
-		for (const props of [homeProps, detailProps, standingsProps]) {
+	it('ends the nav with the search trigger on Home, detail pages, the standings page and the Cup page', () => {
+		for (const props of [homeProps, detailProps, standingsProps, cupProps]) {
 			const { container, unmount } = render(NavRow, { props });
 			const nav = container.querySelector('nav');
 			expect(nav?.lastElementChild).toBe(screen.getByRole('button', { name: 'Search' }));

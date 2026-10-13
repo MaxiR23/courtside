@@ -42,7 +42,13 @@ const ready = (): StandingsPageState => ({ kind: 'ready', view: toStandingsView(
 
 const show = (state: StandingsPageState) =>
 	render(StandingsPage, {
-		props: { state, allGamesHref: HOME, standingsHref: STANDINGS, layout: 'desktop', teamHref }
+		props: {
+			state,
+			allGamesHref: HOME,
+			standingsHref: STANDINGS,
+			layout: 'desktop',
+			teamHref
+		}
 	});
 
 const headings = () => screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent);
@@ -52,6 +58,13 @@ afterEach(() => {
 });
 
 describe('StandingsPage', () => {
+	it('links Cup in the nav to /cup without marking it current', () => {
+		show(ready());
+		const cup = screen.getByRole('link', { name: 'Cup' });
+		expect(cup.getAttribute('href')).toBe('/cup');
+		expect(cup.getAttribute('aria-current')).toBeNull();
+	});
+
 	it('ready: Conference view by default, Eastern then Western, then the key', () => {
 		const { container } = show(ready());
 		expect(headings()).toEqual(['Eastern Conference', 'Western Conference']);

@@ -4,7 +4,16 @@
 	type Props = {
 		code: string;
 		size:
-			'large' | 'small' | 'header' | 'header-mobile' | 'injury' | 'team' | 'standings' | 'search';
+			| 'large'
+			| 'small'
+			| 'header'
+			| 'header-mobile'
+			| 'injury'
+			| 'team'
+			| 'standings'
+			| 'search'
+			| 'cup-draw'
+			| 'cup-champion';
 		href?: ResolvedPathname;
 	};
 
@@ -73,6 +82,17 @@
 		width: var(--search-tile-size);
 		height: var(--search-tile-size);
 		border-radius: var(--search-tile-radius);
+	}
+
+	.cup-draw {
+		width: var(--cup-group-mark);
+		height: var(--cup-group-mark);
+	}
+
+	.cup-champion {
+		width: var(--cup-champion-mark);
+		height: var(--cup-champion-mark);
+		border-color: var(--color-accent);
 	}
 
 	.header-mobile {
