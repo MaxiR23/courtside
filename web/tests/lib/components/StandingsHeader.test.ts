@@ -43,6 +43,13 @@ afterEach(() => {
 });
 
 describe('StandingsHeader', () => {
+	it('links Cup to /cup and does not mark it current', () => {
+		render(StandingsHeader, { props: props() });
+		const cup = screen.getByRole('link', { name: 'Cup' });
+		expect(cup.getAttribute('href')).toBe('/cup');
+		expect(cup.getAttribute('aria-current')).toBeNull();
+	});
+
 	it('renders the season tag, the state line, the h1, the note and the toggle with Conference pressed', () => {
 		render(StandingsHeader, { props: props() });
 		expect(screen.getByText('2025-26')).toBeTruthy();

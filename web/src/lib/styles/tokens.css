@@ -294,6 +294,15 @@
 	--player-award-count-size: 36px;
 	--player-award-name-size: 21px;
 
+	/* Cup page */
+	--cup-title-size: clamp(56px, 9vw, 128px);
+	--cup-champion-mark: 52px;
+	--cup-stage-rule-current: 2px;
+	--cup-stage-rule-done: 1px;
+	--cup-group-min: 380px;
+	--cup-group-wide: 560px;
+	--cup-group-mark: 32px;
+
 	/* Search */
 	--nav-search-width: 240px;
 	--nav-search-height: 40px;

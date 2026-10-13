@@ -491,11 +491,19 @@ describe('Hero while the first feed loads', () => {
 	});
 
 	it('passes Home through to the nav row: Games current, Standings linked', () => {
-		render(Hero, { props: { ...baseProps, standingsHref: '/standings' as ResolvedPathname } });
+		render(Hero, {
+			props: {
+				...baseProps,
+				standingsHref: '/standings' as ResolvedPathname
+			}
+		});
 		const games = screen.getByRole('link', { name: 'Games' });
 		expect(games.getAttribute('aria-current')).toBe('page');
 		const standings = screen.getByRole('link', { name: 'Standings' });
 		expect(standings.getAttribute('href')).toBe('/standings');
 		expect(standings.getAttribute('aria-current')).toBeNull();
+		const cup = screen.getByRole('link', { name: 'Cup' });
+		expect(cup.getAttribute('href')).toBe('/cup');
+		expect(cup.getAttribute('aria-current')).toBeNull();
 	});
 });

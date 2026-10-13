@@ -1,4 +1,5 @@
 import type { GameDetailFeed } from '#lib/contract/game-detail.ts';
+import type { CupFeed } from '#lib/contract/cup.ts';
 import type { GamesFeed } from '#lib/contract/games.ts';
 import type { PlayerFeed } from '#lib/contract/player.ts';
 import type { SearchFeed } from '#lib/contract/search.ts';
@@ -138,6 +139,23 @@ export async function loadStandingsFeed(
 		throw new FeedLoadError('body', 'The standings feed has no conferences');
 	}
 	return body as StandingsFeed;
+}
+
+/**
+ * Fetches the Cup feed. The body is only checked for its shape: an object with `stages` and
+ * `groups` arrays.
+ */
+export async function loadCupFeed(url: string, fetchFn: typeof fetch = fetch): Promise<CupFeed> {
+	const body = await fetchFeedBody(url, 'The Cup feed', fetchFn);
+	if (
+		typeof body !== 'object' ||
+		body === null ||
+		!Array.isArray((body as CupFeed).stages) ||
+		!Array.isArray((body as CupFeed).groups)
+	) {
+		throw new FeedLoadError('body', 'The Cup feed has no stages or groups');
+	}
+	return body as CupFeed;
 }
 
 /**

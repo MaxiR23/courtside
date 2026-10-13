@@ -50,7 +50,7 @@ Everything under "Implementation rules" in `docs/design.md`, `docs/design-game-d
 
 ## Nav (every page)
 
-- Order: logo, page links ("Games" or "All games", "Standings", the date on Home), search trigger.
+- Order: logo, page links ("Games" or "All games", "Standings", "Cup", the date on Home), search trigger. The Cup link's current state is in `docs/design-cup.md`, "Nav".
 - "Games" is shown on Home; "All games" on every other page (it links to Home).
 - Current page link: ink with a 1px accent underline. Other links: muted, ink on hover. Link text uses `--nav-link-size` and `--nav-link-letter-spacing`.
 - **Desktop trigger,** 240x40: the search icon (`--nav-icon-size`) and the placeholder "Search player or team", nothing else. Radius 10px.

@@ -29,6 +29,11 @@ export function standingsPollInterval(): number {
 	return IDLE_POLL_MS;
 }
 
+/** Issue 207, decision 4: the standings page's interval, every 60 s. */
+export function cupPollInterval(): number {
+	return IDLE_POLL_MS;
+}
+
 /** ADR 0021: every 30 s while the player's team is live, every 60 s otherwise. */
 export function playerPollInterval(feed: PlayerFeed | null): number {
 	return feed?.live ? LIVE_POLL_MS : IDLE_POLL_MS;

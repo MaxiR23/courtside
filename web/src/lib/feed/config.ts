@@ -1,4 +1,5 @@
 import {
+	CUP_FEED_URL,
 	GAME_DETAIL_FEED_URL,
 	GAMES_FEED_URL,
 	PLAYER_FEED_URL,
@@ -12,6 +13,7 @@ import {
 export const gamesFeedUrl: string | undefined = GAMES_FEED_URL;
 export const standingsFeedUrl: string | undefined = STANDINGS_FEED_URL;
 export const searchFeedUrl: string | undefined = SEARCH_FEED_URL;
+export const cupFeedUrl: string | undefined = CUP_FEED_URL;
 export const gameDetailFeedUrl: string | undefined = GAME_DETAIL_FEED_URL;
 export const teamFeedUrl: string | undefined = TEAM_FEED_URL;
 export const playerFeedUrl: string | undefined = PLAYER_FEED_URL;

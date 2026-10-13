@@ -46,7 +46,12 @@ const header: PlayerHeaderView = {
 
 const show = (props: { header: PlayerHeaderView | null; loading?: boolean }) =>
 	render(PlayerHeader, {
-		props: { allGamesHref: HOME, standingsHref: STANDINGS, layout: 'desktop', ...props }
+		props: {
+			allGamesHref: HOME,
+			standingsHref: STANDINGS,
+			layout: 'desktop',
+			...props
+		}
 	});
 
 describe('PlayerHeader', () => {
@@ -136,12 +141,20 @@ describe('PlayerHeader', () => {
 		expect(container.querySelector('.bone')).toBeNull();
 		expect(screen.getByRole('link', { name: 'All games' })).toBeTruthy();
 		expect(screen.getByRole('link', { name: 'Standings' }).getAttribute('href')).toBe('/standings');
+		const cup = screen.getByRole('link', { name: 'Cup' });
+		expect(cup.getAttribute('href')).toBe('/cup');
+		expect(cup.getAttribute('aria-current')).toBeNull();
 		expect(document.querySelector('[aria-current]')).toBeNull();
 	});
 
 	it('puts the nav links on their own row on a phone', () => {
 		const { container } = render(PlayerHeader, {
-			props: { header: null, allGamesHref: HOME, standingsHref: STANDINGS, layout: 'mobile' }
+			props: {
+				header: null,
+				allGamesHref: HOME,
+				standingsHref: STANDINGS,
+				layout: 'mobile'
+			}
 		});
 		expect(container.querySelector('nav')?.classList.contains('mobile')).toBe(true);
 	});

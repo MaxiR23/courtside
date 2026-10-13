@@ -151,6 +151,9 @@ describe('player page', () => {
 		expect(container.querySelector('.mini-score')?.textContent).toBe('#2 S. Gilgeous-Alexander');
 		expect(screen.getByRole('contentinfo')).toBeTruthy();
 		expect(screen.getByRole('link', { name: 'Standings' }).getAttribute('href')).toBe('/standings');
+		const cup = screen.getByRole('link', { name: 'Cup' });
+		expect(cup.getAttribute('href')).toBe('/cup');
+		expect(cup.getAttribute('aria-current')).toBeNull();
 		expect(document.querySelector('[aria-current="page"]:not(nav[aria-label] *)')).toBeNull();
 	});
 

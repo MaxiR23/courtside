@@ -12,6 +12,7 @@
 // - FeedPoller with gamePollInterval polls a detail feed; it exposes the error of the last load
 // - teamPollInterval: 60 s; a FeedPoller with it polls again after 60 s, pauses while hidden
 // - standingsPollInterval: 60 s; a FeedPoller with it polls again after 60 s, pauses while hidden
+// - cupPollInterval: 60 s; a FeedPoller with it polls again after 60 s, pauses while hidden
 // - playerPollInterval: 30 s while live, 60 s otherwise; slows down when live turns null
 //
 // What is covered:
@@ -27,6 +28,7 @@ import type { GameDetailFeed } from '../../../src/lib/contract/game-detail';
 import type { GameStatus, GamesFeed } from '../../../src/lib/contract/games';
 import type { PlayerFeed } from '../../../src/lib/contract/player';
 import {
+	cupPollInterval,
 	FeedPoller,
 	GamesFeedPoller,
 	gamePollInterval,
@@ -394,6 +396,40 @@ describe('standingsPollInterval', () => {
 		const page = fakePage();
 		const load = vi.fn().mockResolvedValue({ conferences: [] });
 		new FeedPoller(load, standingsPollInterval, {
+			visibility: () => page as unknown as Document
+		}).start();
+		await vi.advanceTimersByTimeAsync(0);
+		page.set('hidden');
+		await vi.advanceTimersByTimeAsync(180_000);
+		expect(load).toHaveBeenCalledTimes(1);
+		page.set('visible');
+		await vi.advanceTimersByTimeAsync(0);
+		expect(load).toHaveBeenCalledTimes(2);
+	});
+});
+
+describe('cupPollInterval', () => {
+	it('is 60 s', () => {
+		expect(cupPollInterval()).toBe(IDLE_POLL_MS);
+	});
+
+	it('polls again after 60 s and not before', async () => {
+		const load = vi.fn().mockResolvedValue({ stages: [] });
+		new FeedPoller(load, cupPollInterval, {
+			visibility: () => fakePage() as unknown as Document
+		}).start();
+		await vi.advanceTimersByTimeAsync(0);
+		expect(load).toHaveBeenCalledTimes(1);
+		await vi.advanceTimersByTimeAsync(59_999);
+		expect(load).toHaveBeenCalledTimes(1);
+		await vi.advanceTimersByTimeAsync(1);
+		expect(load).toHaveBeenCalledTimes(2);
+	});
+
+	it('does not poll while the tab is hidden and loads at once when it is visible again', async () => {
+		const page = fakePage();
+		const load = vi.fn().mockResolvedValue({ stages: [] });
+		new FeedPoller(load, cupPollInterval, {
 			visibility: () => page as unknown as Document
 		}).start();
 		await vi.advanceTimersByTimeAsync(0);

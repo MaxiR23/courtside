@@ -41,7 +41,14 @@ const feed = (): TeamFeed =>
 
 const show = (state: TeamPageState, layout: 'desktop' | 'mobile' = 'desktop') =>
 	render(TeamPage, {
-		props: { state, allGamesHref: HOME, standingsHref: STANDINGS, layout, gameHref, playerHref }
+		props: {
+			state,
+			allGamesHref: HOME,
+			standingsHref: STANDINGS,
+			layout,
+			gameHref,
+			playerHref
+		}
 	});
 
 const ready = (source: TeamFeed = feed()): TeamPageState => ({

@@ -116,6 +116,9 @@ describe('standings page', () => {
 		const standings = screen.getByRole('link', { name: 'Standings' });
 		expect(standings.getAttribute('aria-current')).toBe('page');
 		expect(standings.getAttribute('href')).toBe('/standings');
+		const cup = screen.getByRole('link', { name: 'Cup' });
+		expect(cup.getAttribute('href')).toBe('/cup');
+		expect(cup.getAttribute('aria-current')).toBeNull();
 		expect(screen.getByRole('link', { name: 'All games' }).getAttribute('href')).toBe('/');
 		expect(container.ownerDocument.querySelector('footer')).toBeTruthy();
 		expect(screen.getByRole('link', { name: /Celtics/ }).getAttribute('href')).toBe('/team/bos');

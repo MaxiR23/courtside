@@ -1,0 +1,1047 @@
+{
+	"season": "2026-27",
+	"drawn": true,
+	"stage": "group",
+	"firstGameDate": "2026-11-04",
+	"groupGamesPlayed": 16,
+	"groupGamesTotal": 60,
+	"champion": null,
+	"stages": [
+		{
+			"stage": "group",
+			"status": "in_progress",
+			"firstDate": "2026-11-04",
+			"lastDate": "2026-12-02"
+		},
+		{
+			"stage": "quarterfinals",
+			"status": "next",
+			"firstDate": "2026-12-08",
+			"lastDate": "2026-12-08"
+		},
+		{
+			"stage": "semifinals",
+			"status": "upcoming",
+			"firstDate": null,
+			"lastDate": null
+		},
+		{
+			"stage": "championship",
+			"status": "upcoming",
+			"firstDate": "2026-12-16",
+			"lastDate": "2026-12-16"
+		}
+	],
+	"groups": [
+		{
+			"name": {
+				"conference": "east",
+				"letter": "A"
+			},
+			"teams": [
+				{
+					"code": "QXA",
+					"name": "Herons",
+					"city": "Alderton",
+					"guest": false
+				},
+				{
+					"code": "QXB",
+					"name": "Pilots",
+					"city": "Brookfield",
+					"guest": false
+				},
+				{
+					"code": "QXC",
+					"name": "Lanterns",
+					"city": "Cedarvale",
+					"guest": false
+				},
+				{
+					"code": "QXD",
+					"name": "Foxes",
+					"city": "Dunmore",
+					"guest": false
+				},
+				{
+					"code": "QXE",
+					"name": "Rovers",
+					"city": "Eastgate",
+					"guest": false
+				}
+			],
+			"rows": [
+				{
+					"position": 1,
+					"team": {
+						"code": "QXA",
+						"name": "Herons",
+						"city": "Alderton",
+						"guest": false
+					},
+					"wins": 4,
+					"losses": 0,
+					"gamesBehind": null,
+					"differential": {
+						"value": "+12.5",
+						"nonNegative": true
+					},
+					"total": {
+						"value": "+50",
+						"nonNegative": true
+					},
+					"streak": {
+						"kind": "win",
+						"count": 4
+					},
+					"pointsFor": 470,
+					"pointsAgainst": 420,
+					"home": "2-0",
+					"away": "2-0",
+					"overtime": "0-0",
+					"tag": "won_group"
+				},
+				{
+					"position": 2,
+					"team": {
+						"code": "QXB",
+						"name": "Pilots",
+						"city": "Brookfield",
+						"guest": false
+					},
+					"wins": 3,
+					"losses": 1,
+					"gamesBehind": "1.0",
+					"differential": {
+						"value": "+4.0",
+						"nonNegative": true
+					},
+					"total": {
+						"value": "+16",
+						"nonNegative": true
+					},
+					"streak": {
+						"kind": "win",
+						"count": 2
+					},
+					"pointsFor": 440,
+					"pointsAgainst": 424,
+					"home": "2-0",
+					"away": "1-1",
+					"overtime": "1-0",
+					"tag": "wild_card"
+				},
+				{
+					"position": 3,
+					"team": {
+						"code": "QXC",
+						"name": "Lanterns",
+						"city": "Cedarvale",
+						"guest": false
+					},
+					"wins": 2,
+					"losses": 2,
+					"gamesBehind": "2.0",
+					"differential": {
+						"value": "0.0",
+						"nonNegative": true
+					},
+					"total": {
+						"value": "0",
+						"nonNegative": true
+					},
+					"streak": {
+						"kind": "loss",
+						"count": 1
+					},
+					"pointsFor": 430,
+					"pointsAgainst": 430,
+					"home": "1-1",
+					"away": "1-1",
+					"overtime": "0-0",
+					"tag": null
+				},
+				{
+					"position": 4,
+					"team": {
+						"code": "QXD",
+						"name": "Foxes",
+						"city": "Dunmore",
+						"guest": false
+					},
+					"wins": 0,
+					"losses": 4,
+					"gamesBehind": "4.0",
+					"differential": {
+						"value": "−9.0",
+						"nonNegative": false
+					},
+					"total": {
+						"value": "−36",
+						"nonNegative": false
+					},
+					"streak": {
+						"kind": "loss",
+						"count": 4
+					},
+					"pointsFor": 400,
+					"pointsAgainst": 436,
+					"home": "0-2",
+					"away": "0-2",
+					"overtime": "0-1",
+					"tag": "eliminated"
+				},
+				{
+					"position": null,
+					"team": {
+						"code": "QXE",
+						"name": "Rovers",
+						"city": "Eastgate",
+						"guest": false
+					},
+					"wins": 0,
+					"losses": 0,
+					"gamesBehind": null,
+					"differential": null,
+					"total": null,
+					"streak": null,
+					"pointsFor": null,
+					"pointsAgainst": null,
+					"home": null,
+					"away": null,
+					"overtime": null,
+					"tag": null
+				}
+			],
+			"gamesFinal": 6,
+			"final": false
+		},
+		{
+			"name": {
+				"conference": "east",
+				"letter": "B"
+			},
+			"teams": [
+				{
+					"code": "RXA",
+					"name": "Kites",
+					"city": "Ashford",
+					"guest": false
+				},
+				{
+					"code": "RXB",
+					"name": "Anchors",
+					"city": "Bayview",
+					"guest": false
+				},
+				{
+					"code": "RXC",
+					"name": "Pines",
+					"city": "Clover Hill",
+					"guest": false
+				},
+				{
+					"code": "RXD",
+					"name": "Wolves",
+					"city": "Dalton",
+					"guest": false
+				},
+				{
+					"code": "RXE",
+					"name": "Sparks",
+					"city": "Elmwood",
+					"guest": false
+				}
+			],
+			"rows": [
+				{
+					"position": 1,
+					"team": {
+						"code": "RXA",
+						"name": "Kites",
+						"city": "Ashford",
+						"guest": false
+					},
+					"wins": 4,
+					"losses": 0,
+					"gamesBehind": null,
+					"differential": {
+						"value": "+1.0",
+						"nonNegative": true
+					},
+					"total": {
+						"value": "+4",
+						"nonNegative": true
+					},
+					"streak": {
+						"kind": "win",
+						"count": 1
+					},
+					"pointsFor": 420,
+					"pointsAgainst": 416,
+					"home": "1-1",
+					"away": "1-1",
+					"overtime": "0-0",
+					"tag": null
+				},
+				{
+					"position": 2,
+					"team": {
+						"code": "RXB",
+						"name": "Anchors",
+						"city": "Bayview",
+						"guest": false
+					},
+					"wins": 3,
+					"losses": 1,
+					"gamesBehind": "1.0",
+					"differential": {
+						"value": "+1.0",
+						"nonNegative": true
+					},
+					"total": {
+						"value": "+4",
+						"nonNegative": true
+					},
+					"streak": {
+						"kind": "win",
+						"count": 1
+					},
+					"pointsFor": 420,
+					"pointsAgainst": 416,
+					"home": "1-1",
+					"away": "1-1",
+					"overtime": "0-0",
+					"tag": null
+				},
+				{
+					"position": 3,
+					"team": {
+						"code": "RXC",
+						"name": "Pines",
+						"city": "Clover Hill",
+						"guest": false
+					},
+					"wins": 2,
+					"losses": 2,
+					"gamesBehind": "2.0",
+					"differential": {
+						"value": "+1.0",
+						"nonNegative": true
+					},
+					"total": {
+						"value": "+4",
+						"nonNegative": true
+					},
+					"streak": {
+						"kind": "win",
+						"count": 1
+					},
+					"pointsFor": 420,
+					"pointsAgainst": 416,
+					"home": "1-1",
+					"away": "1-1",
+					"overtime": "0-0",
+					"tag": null
+				},
+				{
+					"position": 4,
+					"team": {
+						"code": "RXD",
+						"name": "Wolves",
+						"city": "Dalton",
+						"guest": false
+					},
+					"wins": 1,
+					"losses": 3,
+					"gamesBehind": "3.0",
+					"differential": {
+						"value": "+1.0",
+						"nonNegative": true
+					},
+					"total": {
+						"value": "+4",
+						"nonNegative": true
+					},
+					"streak": {
+						"kind": "win",
+						"count": 1
+					},
+					"pointsFor": 420,
+					"pointsAgainst": 416,
+					"home": "1-1",
+					"away": "1-1",
+					"overtime": "0-0",
+					"tag": null
+				},
+				{
+					"position": 5,
+					"team": {
+						"code": "RXE",
+						"name": "Sparks",
+						"city": "Elmwood",
+						"guest": false
+					},
+					"wins": 0,
+					"losses": 4,
+					"gamesBehind": "4.0",
+					"differential": {
+						"value": "+1.0",
+						"nonNegative": true
+					},
+					"total": {
+						"value": "+4",
+						"nonNegative": true
+					},
+					"streak": {
+						"kind": "win",
+						"count": 1
+					},
+					"pointsFor": 420,
+					"pointsAgainst": 416,
+					"home": "1-1",
+					"away": "1-1",
+					"overtime": "0-0",
+					"tag": null
+				}
+			],
+			"gamesFinal": 10,
+			"final": true
+		},
+		{
+			"name": {
+				"conference": "east",
+				"letter": "C"
+			},
+			"teams": [
+				{
+					"code": "SXA",
+					"name": "Comets",
+					"city": "Fairmont",
+					"guest": false
+				},
+				{
+					"code": "SXB",
+					"name": "Miners",
+					"city": "Glenrock",
+					"guest": false
+				},
+				{
+					"code": "SXC",
+					"name": "Gulls",
+					"city": "Hartley",
+					"guest": false
+				},
+				{
+					"code": "SXD",
+					"name": "Smiths",
+					"city": "Ironvale",
+					"guest": false
+				},
+				{
+					"code": "SXE",
+					"name": "Rangers",
+					"city": "Jasper",
+					"guest": false
+				}
+			],
+			"rows": [],
+			"gamesFinal": 0,
+			"final": false
+		},
+		{
+			"name": {
+				"conference": "west",
+				"letter": "A"
+			},
+			"teams": [
+				{
+					"code": "TXA",
+					"name": "Tides",
+					"city": "Kingsport",
+					"guest": false
+				},
+				{
+					"code": "TXB",
+					"name": "Otters",
+					"city": "Lakeland",
+					"guest": false
+				},
+				{
+					"code": "TXC",
+					"name": "Hawks",
+					"city": "Maplewood",
+					"guest": false
+				},
+				{
+					"code": "TXD",
+					"name": "Barons",
+					"city": "Northfield",
+					"guest": false
+				},
+				{
+					"code": "TXE",
+					"name": "Bears",
+					"city": "Oakridge",
+					"guest": false
+				}
+			],
+			"rows": [],
+			"gamesFinal": 0,
+			"final": false
+		},
+		{
+			"name": {
+				"conference": "west",
+				"letter": "B"
+			},
+			"teams": [
+				{
+					"code": "UXA",
+					"name": "Falcons",
+					"city": "Pinecrest",
+					"guest": false
+				},
+				{
+					"code": "UXB",
+					"name": "Seals",
+					"city": "Quarry Bay",
+					"guest": false
+				},
+				{
+					"code": "UXC",
+					"name": "Drifters",
+					"city": "Riverton",
+					"guest": false
+				},
+				{
+					"code": "UXD",
+					"name": "Jays",
+					"city": "Stonebridge",
+					"guest": false
+				},
+				{
+					"code": "UXE",
+					"name": "Lynx",
+					"city": "Timberline",
+					"guest": false
+				}
+			],
+			"rows": [],
+			"gamesFinal": 0,
+			"final": false
+		},
+		{
+			"name": {
+				"conference": "west",
+				"letter": "C"
+			},
+			"teams": [
+				{
+					"code": "VXA",
+					"name": "Sailors",
+					"city": "Union Park",
+					"guest": false
+				},
+				{
+					"code": "VXB",
+					"name": "Stags",
+					"city": "Valley Run",
+					"guest": false
+				},
+				{
+					"code": "VXC",
+					"name": "Cranes",
+					"city": "Westport",
+					"guest": false
+				},
+				{
+					"code": "VXD",
+					"name": "Moths",
+					"city": "Yarrow",
+					"guest": false
+				},
+				{
+					"code": "VXE",
+					"name": "Gliders",
+					"city": "Zephyr",
+					"guest": false
+				}
+			],
+			"rows": [],
+			"gamesFinal": 0,
+			"final": false
+		}
+	],
+	"wildCard": [
+		{
+			"conference": "east",
+			"rows": [
+				{
+					"rank": 1,
+					"team": {
+						"code": "QXB",
+						"name": "Pilots",
+						"city": "Brookfield",
+						"guest": false
+					},
+					"group": {
+						"conference": "east",
+						"letter": "A"
+					},
+					"wins": 3,
+					"losses": 1,
+					"total": {
+						"value": "+16",
+						"nonNegative": true
+					},
+					"pointsFor": 440,
+					"tag": "wild_card"
+				},
+				{
+					"rank": 2,
+					"team": {
+						"code": "RXB",
+						"name": "Anchors",
+						"city": "Bayview",
+						"guest": false
+					},
+					"group": {
+						"conference": "east",
+						"letter": "B"
+					},
+					"wins": 3,
+					"losses": 1,
+					"total": {
+						"value": "+4",
+						"nonNegative": true
+					},
+					"pointsFor": 420,
+					"tag": null
+				},
+				{
+					"rank": 3,
+					"team": {
+						"code": "SXA",
+						"name": "Comets",
+						"city": "Fairmont",
+						"guest": false
+					},
+					"group": null,
+					"wins": 0,
+					"losses": 0,
+					"total": null,
+					"pointsFor": null,
+					"tag": null
+				}
+			]
+		},
+		{
+			"conference": "west",
+			"rows": []
+		}
+	],
+	"bracket": [
+		{
+			"id": "east-qf-1",
+			"round": "quarterfinals",
+			"conference": "east",
+			"top": {
+				"label": {
+					"key": "seed",
+					"conference": "east",
+					"seed": 1,
+					"quarterfinal": null
+				},
+				"rule": "best_group_winner",
+				"known": false,
+				"team": null,
+				"projected": null
+			},
+			"bottom": {
+				"label": {
+					"key": "wild_card",
+					"conference": "east",
+					"seed": null,
+					"quarterfinal": null
+				},
+				"rule": "best_non_winner",
+				"known": false,
+				"team": null,
+				"projected": null
+			},
+			"game": null
+		},
+		{
+			"id": "east-qf-2",
+			"round": "quarterfinals",
+			"conference": "east",
+			"top": {
+				"label": {
+					"key": "seed",
+					"conference": "east",
+					"seed": 2,
+					"quarterfinal": null
+				},
+				"rule": "second_best_group_winner",
+				"known": false,
+				"team": null,
+				"projected": null
+			},
+			"bottom": {
+				"label": {
+					"key": "seed",
+					"conference": "east",
+					"seed": 3,
+					"quarterfinal": null
+				},
+				"rule": "third_best_group_winner",
+				"known": false,
+				"team": null,
+				"projected": null
+			},
+			"game": null
+		},
+		{
+			"id": "east-sf",
+			"round": "semifinals",
+			"conference": "east",
+			"top": {
+				"label": {
+					"key": "quarterfinal_winner",
+					"conference": "east",
+					"seed": null,
+					"quarterfinal": 1
+				},
+				"rule": "quarterfinal_winner",
+				"known": false,
+				"team": null,
+				"projected": null
+			},
+			"bottom": {
+				"label": {
+					"key": "quarterfinal_winner",
+					"conference": "east",
+					"seed": null,
+					"quarterfinal": 2
+				},
+				"rule": "quarterfinal_winner",
+				"known": false,
+				"team": null,
+				"projected": null
+			},
+			"game": null
+		},
+		{
+			"id": "final",
+			"round": "championship",
+			"conference": null,
+			"top": {
+				"label": {
+					"key": "semifinal_winner",
+					"conference": "east",
+					"seed": null,
+					"quarterfinal": null
+				},
+				"rule": "semifinal_winner",
+				"known": false,
+				"team": null,
+				"projected": null
+			},
+			"bottom": {
+				"label": {
+					"key": "semifinal_winner",
+					"conference": "west",
+					"seed": null,
+					"quarterfinal": null
+				},
+				"rule": "semifinal_winner",
+				"known": false,
+				"team": null,
+				"projected": null
+			},
+			"game": null
+		},
+		{
+			"id": "west-sf",
+			"round": "semifinals",
+			"conference": "west",
+			"top": {
+				"label": {
+					"key": "quarterfinal_winner",
+					"conference": "west",
+					"seed": null,
+					"quarterfinal": 1
+				},
+				"rule": "quarterfinal_winner",
+				"known": false,
+				"team": null,
+				"projected": null
+			},
+			"bottom": {
+				"label": {
+					"key": "quarterfinal_winner",
+					"conference": "west",
+					"seed": null,
+					"quarterfinal": 2
+				},
+				"rule": "quarterfinal_winner",
+				"known": false,
+				"team": null,
+				"projected": null
+			},
+			"game": null
+		},
+		{
+			"id": "west-qf-1",
+			"round": "quarterfinals",
+			"conference": "west",
+			"top": {
+				"label": {
+					"key": "seed",
+					"conference": "west",
+					"seed": 1,
+					"quarterfinal": null
+				},
+				"rule": "best_group_winner",
+				"known": false,
+				"team": null,
+				"projected": null
+			},
+			"bottom": {
+				"label": {
+					"key": "wild_card",
+					"conference": "west",
+					"seed": null,
+					"quarterfinal": null
+				},
+				"rule": "best_non_winner",
+				"known": false,
+				"team": null,
+				"projected": null
+			},
+			"game": null
+		},
+		{
+			"id": "west-qf-2",
+			"round": "quarterfinals",
+			"conference": "west",
+			"top": {
+				"label": {
+					"key": "seed",
+					"conference": "west",
+					"seed": 2,
+					"quarterfinal": null
+				},
+				"rule": "second_best_group_winner",
+				"known": false,
+				"team": null,
+				"projected": null
+			},
+			"bottom": {
+				"label": {
+					"key": "seed",
+					"conference": "west",
+					"seed": 3,
+					"quarterfinal": null
+				},
+				"rule": "third_best_group_winner",
+				"known": false,
+				"team": null,
+				"projected": null
+			},
+			"game": null
+		}
+	],
+	"games": {
+		"days": [
+			{
+				"date": "2026-11-04",
+				"games": [
+					{
+						"id": "9000001",
+						"stage": "group",
+						"date": "2026-11-04",
+						"startTime": "2026-11-05T00:30:00Z",
+						"away": {
+							"code": "QXB",
+							"name": "Pilots",
+							"city": "Brookfield",
+							"guest": false
+						},
+						"home": {
+							"code": "QXA",
+							"name": "Herons",
+							"city": "Alderton",
+							"guest": false
+						},
+						"status": "final",
+						"score": {
+							"away": 98,
+							"home": 110
+						},
+						"winner": "home",
+						"broadcast": "Courtside TV",
+						"venue": "Harbor Arena",
+						"city": "Alderton",
+						"neutralSite": false,
+						"countsInStandings": true,
+						"detailAvailable": true
+					},
+					{
+						"id": "9000002",
+						"stage": "group",
+						"date": "2026-11-04",
+						"startTime": "2026-11-05T03:00:00Z",
+						"away": {
+							"code": "QXC",
+							"name": "Lanterns",
+							"city": "Cedarvale",
+							"guest": false
+						},
+						"home": {
+							"code": "QXD",
+							"name": "Foxes",
+							"city": "Dunmore",
+							"guest": false
+						},
+						"status": "live",
+						"score": null,
+						"winner": null,
+						"broadcast": null,
+						"venue": "Harbor Arena",
+						"city": "Alderton",
+						"neutralSite": false,
+						"countsInStandings": true,
+						"detailAvailable": true
+					}
+				]
+			},
+			{
+				"date": "2026-11-07",
+				"games": [
+					{
+						"id": "9000003",
+						"stage": "group",
+						"date": "2026-11-07",
+						"startTime": "2026-11-08T00:00:00Z",
+						"away": {
+							"code": "RXA",
+							"name": "Kites",
+							"city": "Ashford",
+							"guest": false
+						},
+						"home": {
+							"code": "RXB",
+							"name": "Anchors",
+							"city": "Bayview",
+							"guest": false
+						},
+						"status": "scheduled",
+						"score": null,
+						"winner": null,
+						"broadcast": "Courtside TV",
+						"venue": "Harbor Arena",
+						"city": "Alderton",
+						"neutralSite": false,
+						"countsInStandings": true,
+						"detailAvailable": false
+					},
+					{
+						"id": "9000004",
+						"stage": "group",
+						"date": "2026-11-07",
+						"startTime": "2026-11-08T02:30:00Z",
+						"away": {
+							"code": "RXC",
+							"name": "Pines",
+							"city": "Clover Hill",
+							"guest": false
+						},
+						"home": {
+							"code": "RXD",
+							"name": "Wolves",
+							"city": "Dalton",
+							"guest": false
+						},
+						"status": "scheduled",
+						"score": null,
+						"winner": null,
+						"broadcast": null,
+						"venue": "Harbor Arena",
+						"city": "Alderton",
+						"neutralSite": false,
+						"countsInStandings": true,
+						"detailAvailable": false
+					},
+					{
+						"id": "9000005",
+						"stage": "group",
+						"date": "2026-11-07",
+						"startTime": "2026-11-08T03:00:00Z",
+						"away": {
+							"code": "QXE",
+							"name": "Rovers",
+							"city": "Eastgate",
+							"guest": false
+						},
+						"home": {
+							"code": "RXE",
+							"name": "Sparks",
+							"city": "Elmwood",
+							"guest": false
+						},
+						"status": "postponed",
+						"score": null,
+						"winner": null,
+						"broadcast": null,
+						"venue": "Harbor Arena",
+						"city": "Alderton",
+						"neutralSite": false,
+						"countsInStandings": true,
+						"detailAvailable": false
+					}
+				]
+			},
+			{
+				"date": "2026-12-16",
+				"games": [
+					{
+						"id": "9000006",
+						"stage": "championship",
+						"date": "2026-12-16",
+						"startTime": "2026-12-17T01:30:00Z",
+						"away": {
+							"code": "QXA",
+							"name": "Herons",
+							"city": "Alderton",
+							"guest": false
+						},
+						"home": {
+							"code": "TXA",
+							"name": "Tides",
+							"city": "Kingsport",
+							"guest": false
+						},
+						"status": "scheduled",
+						"score": null,
+						"winner": null,
+						"broadcast": null,
+						"venue": "Harbor Arena",
+						"city": "Alderton",
+						"neutralSite": true,
+						"countsInStandings": false,
+						"detailAvailable": false
+					}
+				]
+			}
+		],
+		"counts": {
+			"all": 6,
+			"group": 5,
+			"quarterfinals": 0,
+			"semifinals": 0,
+			"championship": 1
+		}
+	}
+}

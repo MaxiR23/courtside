@@ -83,7 +83,14 @@ const final: GameHeaderView = {
 
 function show(header: GameHeaderView | null, layout: RowLayout = 'desktop', loading = false) {
 	return render(GameHeader, {
-		props: { header, allGamesHref: HOME, standingsHref: STANDINGS, layout, loading, teamHref }
+		props: {
+			header,
+			allGamesHref: HOME,
+			standingsHref: STANDINGS,
+			layout,
+			loading,
+			teamHref
+		}
 	});
 }
 
@@ -93,6 +100,9 @@ describe('GameHeader', () => {
 		expect(screen.getByText('Courtside')).toBeTruthy();
 		expect(screen.getByRole('link', { name: 'All games' }).getAttribute('href')).toBe('/');
 		expect(screen.getByRole('link', { name: 'Standings' }).getAttribute('href')).toBe('/standings');
+		const cup = screen.getByRole('link', { name: 'Cup' });
+		expect(cup.getAttribute('href')).toBe('/cup');
+		expect(cup.getAttribute('aria-current')).toBeNull();
 		expect(document.querySelector('[aria-current]')).toBeNull();
 	});
 
