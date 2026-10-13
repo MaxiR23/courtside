@@ -12,7 +12,8 @@
 # knockout round that is not final, then complete. Seeds are the first three
 # rows of each conference table and the wild card is its fourth row; the bracket
 # holds the 7 slots with labels and rules as keys, the projected team of an
-# unscheduled quarterfinal side with its record, and the scheduled game that
+# unscheduled quarterfinal side with its record, a side's standing (its row in
+# its conference table) and the last period of a final game, and the scheduled game that
 # replaces it. The build reads no clock and no source. CupFeeds is the feed
 # kind of the on-demand cache: the only id is "league", the feed is stored at
 # feeds/cup/league.json only when requested, and it expires 1 hour after a final
@@ -144,6 +145,7 @@ class _Game:
     broadcast: str | None
     venue: str
     city: str | None
+    period: int | None
 
     @property
     def final(self) -> bool:
@@ -200,6 +202,7 @@ def cup_games(schedules: Mapping[str, SeasonSchedule]) -> list[_Game]:
                 broadcast=game.broadcast,
                 venue=game.arena,
                 city=game.city,
+                period=game.period,
             )
     return sorted(merged.values(), key=lambda g: (g.start_time, g.id))
 
@@ -325,6 +328,19 @@ class _Builder:
         conference: Conference = group["conference"]
         return conference
 
+    def standing(self, code: str) -> dict[str, Any] | None:
+        """A team's row in its conference table, or None when it has none."""
+        for table in self.conference_tables.values():
+            for index, row in enumerate(table.rows, start=1):
+                if row.code == code:
+                    return {
+                        "seed": index if index <= 4 else None,
+                        "group": self.group_of.get(code),
+                        "wins": row.wins,
+                        "losses": row.losses,
+                    }
+        return None
+
     # Games
 
     def game(self, game: _Game) -> dict[str, Any]:
@@ -348,6 +364,7 @@ class _Builder:
                 if winner is None
                 else (Side.HOME if winner == game.home else Side.AWAY)
             ),
+            "period": game.period if game.final else None,
             "broadcast": game.broadcast,
             "venue": game.venue,
             "city": game.city,
@@ -521,6 +538,7 @@ class _Builder:
                 "known": known,
                 "team": None if code is None else self.team(code),
                 "projected": projected,
+                "standing": None if code is None else self.standing(code),
             }
 
         def pick(

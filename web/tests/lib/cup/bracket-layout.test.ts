@@ -1,0 +1,185 @@
+// web/tests/lib/cup/bracket-layout.test.ts
+//
+// Tests for the world geometry of the Cup bracket.
+//
+// Tested:
+// - The 7 desktop positions equal the design's, West is the East mirrored, every node lies inside its world
+// - The mobile rows run East quarterfinals, East semifinal, final, West semifinal, West quarterfinals with 200-unit gaps
+// - 6 connectors per world, orthogonal, starting and ending on node edges
+// - Quarterfinal 1 feeds the top, quarterfinal 2 the bottom, the East semifinal the final's top
+// - Round labels per column or row, and the champion anchor under the final
+// - The sizes match the --bracket-* tokens
+//
+// What is covered:
+// - Happy path, mirroring and the token cross-check
+//
+// Run with: cd web && pnpm exec vitest run tests/lib/cup/bracket-layout.test.ts
+//
+// SEE: web/src/lib/cup/bracket-layout.ts
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { describe, expect, it } from 'vitest';
+
+import {
+	championAnchor,
+	connectors,
+	DESKTOP_NODES,
+	DESKTOP_WORLD,
+	MOBILE_NODES,
+	MOBILE_WORLD,
+	NODE,
+	roundLabels,
+	SLOT_IDS,
+	TICK_SIZE
+} from '../../../src/lib/cup/bracket-layout';
+
+const tokensCss = readFileSync(join(process.cwd(), 'src/lib/styles/tokens.css'), 'utf8');
+const token = (name: string): number => {
+	const match = tokensCss.match(new RegExp(`${name}:\\s*(\\d+)px;`));
+	if (!match) throw new Error(`${name} is not a px token`);
+	return Number(match[1]);
+};
+
+describe('desktop world', () => {
+	it('places the 7 nodes where the design puts them', () => {
+		expect(DESKTOP_NODES).toEqual({
+			'east-qf-1': { x: 0, y: 0 },
+			'east-qf-2': { x: 0, y: 760 },
+			'east-sf': { x: 1300, y: 380 },
+			final: { x: 2600, y: 380 },
+			'west-sf': { x: 3900, y: 380 },
+			'west-qf-1': { x: 5200, y: 0 },
+			'west-qf-2': { x: 5200, y: 760 }
+		});
+	});
+
+	it('mirrors the West nodes around the vertical axis of the world', () => {
+		for (const id of ['qf-1', 'qf-2', 'sf'] as const) {
+			const east = DESKTOP_NODES[`east-${id}`];
+			const west = DESKTOP_NODES[`west-${id}`];
+			expect(west.x).toBe(DESKTOP_WORLD.width - NODE.width - east.x);
+			expect(west.y).toBe(east.y);
+		}
+		expect(DESKTOP_NODES.final.x).toBe((DESKTOP_WORLD.width - NODE.width) / 2);
+	});
+
+	it('keeps every node inside the world', () => {
+		for (const id of SLOT_IDS) {
+			const { x, y } = DESKTOP_NODES[id];
+			expect(x).toBeGreaterThanOrEqual(0);
+			expect(y).toBeGreaterThanOrEqual(0);
+			expect(x + NODE.width).toBeLessThanOrEqual(DESKTOP_WORLD.width);
+			expect(y + NODE.height).toBeLessThanOrEqual(DESKTOP_WORLD.height);
+		}
+	});
+});
+
+describe('mobile world', () => {
+	it('stacks East quarterfinals, East semifinal, final, West semifinal and West quarterfinals', () => {
+		const rows = [
+			[MOBILE_NODES['east-qf-1'], MOBILE_NODES['east-qf-2']],
+			[MOBILE_NODES['east-sf']],
+			[MOBILE_NODES.final],
+			[MOBILE_NODES['west-sf']],
+			[MOBILE_NODES['west-qf-1'], MOBILE_NODES['west-qf-2']]
+		];
+		const tops = rows.map((row) => row[0].y);
+		expect(tops).toEqual([0, 760, 1520, 2280, 3040]);
+		for (let i = 1; i < tops.length; i++) {
+			expect(tops[i] - (tops[i - 1] + NODE.height)).toBe(200);
+		}
+		expect(MOBILE_NODES['east-qf-2'].x - (MOBILE_NODES['east-qf-1'].x + NODE.width)).toBe(200);
+	});
+
+	it('keeps every node inside the world, with the single nodes centered', () => {
+		for (const id of SLOT_IDS) {
+			const { x, y } = MOBILE_NODES[id];
+			expect(x + NODE.width).toBeLessThanOrEqual(MOBILE_WORLD.width);
+			expect(y + NODE.height).toBeLessThanOrEqual(MOBILE_WORLD.height);
+		}
+		expect(MOBILE_NODES.final.x).toBe((MOBILE_WORLD.width - NODE.width) / 2);
+	});
+});
+
+describe('connectors', () => {
+	it.each([DESKTOP_WORLD, MOBILE_WORLD])('has 6 orthogonal paths in the $kind world', (world) => {
+		const list = connectors(world);
+		expect(list).toHaveLength(6);
+		for (const { d } of list) {
+			const commands = d.match(/[A-Za-z]/g);
+			expect(commands?.every((c) => ['M', 'H', 'V'].includes(c))).toBe(true);
+			expect(d.startsWith('M ')).toBe(true);
+		}
+	});
+
+	it('maps quarterfinal 1 to the top, quarterfinal 2 to the bottom and the East semifinal to the final top', () => {
+		const list = connectors(DESKTOP_WORLD);
+		const side = (from: string) => list.find((c) => c.from === from);
+		expect(side('east-qf-1')).toMatchObject({ to: 'east-sf', side: 'top' });
+		expect(side('east-qf-2')).toMatchObject({ to: 'east-sf', side: 'bottom' });
+		expect(side('west-qf-1')).toMatchObject({ to: 'west-sf', side: 'top' });
+		expect(side('west-qf-2')).toMatchObject({ to: 'west-sf', side: 'bottom' });
+		expect(side('east-sf')).toMatchObject({ to: 'final', side: 'top' });
+		expect(side('west-sf')).toMatchObject({ to: 'final', side: 'bottom' });
+	});
+
+	it('runs the desktop paths between the facing edges, middle to middle', () => {
+		const list = connectors(DESKTOP_WORLD);
+		expect(list[0].d).toBe('M 1100 280 H 1200 V 660 H 1300');
+		expect(list[1].d).toBe('M 1100 1040 H 1200 V 660 H 1300');
+		expect(list[2].d).toBe('M 5200 280 H 5100 V 660 H 5000');
+		expect(list[4].d).toBe('M 2400 660 H 2500 V 660 H 2600');
+		expect(list[5].d).toBe('M 3900 660 H 3800 V 660 H 3700');
+	});
+
+	it('runs the mobile paths from the bottom (East) or top (West) middle to the facing edge', () => {
+		const list = connectors(MOBILE_WORLD);
+		expect(list[0].d).toBe('M 550 560 V 660 H 1200 V 760');
+		expect(list[1].d).toBe('M 1850 560 V 660 H 1200 V 760');
+		expect(list[2].d).toBe('M 550 3040 V 2940 H 1200 V 2840');
+		expect(list[4].d).toBe('M 1200 1320 V 1420 H 1200 V 1520');
+		expect(list[5].d).toBe('M 1200 2280 V 2180 H 1200 V 2080');
+	});
+});
+
+describe('round labels and champion', () => {
+	it('puts one label above each desktop column', () => {
+		expect(roundLabels(DESKTOP_WORLD)).toEqual([
+			{ key: 'quarterfinals', x: 550, y: -120 },
+			{ key: 'semifinals', x: 1850, y: 260 },
+			{ key: 'championship', x: 3150, y: 260 },
+			{ key: 'semifinals', x: 4450, y: 260 },
+			{ key: 'quarterfinals', x: 5750, y: -120 }
+		]);
+	});
+
+	it('puts one label above each mobile row, centered', () => {
+		const labels = roundLabels(MOBILE_WORLD);
+		expect(labels.map((l) => l.key)).toEqual([
+			'quarterfinals',
+			'semifinals',
+			'championship',
+			'semifinals',
+			'quarterfinals'
+		]);
+		expect(labels.map((l) => l.y)).toEqual([-120, 640, 1400, 2160, 2920]);
+		expect(labels.every((l) => l.x === 1200)).toBe(true);
+	});
+
+	it('anchors the champion under the final', () => {
+		expect(championAnchor(DESKTOP_WORLD)).toEqual({ x: 3150, y: 1000 });
+		expect(championAnchor(MOBILE_WORLD)).toEqual({ x: 1200, y: 2140 });
+	});
+});
+
+describe('tokens', () => {
+	it('mirrors the sizes of the --bracket-* tokens', () => {
+		expect(DESKTOP_WORLD.width).toBe(token('--bracket-world-width'));
+		expect(DESKTOP_WORLD.height).toBe(token('--bracket-world-height'));
+		expect(NODE.width).toBe(token('--bracket-node-width'));
+		expect(NODE.height).toBe(token('--bracket-node-height'));
+		expect(MOBILE_WORLD.width).toBe(token('--bracket-mobile-width'));
+		expect(MOBILE_WORLD.height).toBe(token('--bracket-mobile-height'));
+		expect(TICK_SIZE).toBe(token('--bracket-tick-size'));
+	});
+});

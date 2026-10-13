@@ -39,6 +39,7 @@ export interface CupGame {
 	status: GameStatus;
 	score: Score | null;
 	winner: Side | null;
+	period: number | null;
 	broadcast: string | null;
 	venue: string;
 	city: string | null;

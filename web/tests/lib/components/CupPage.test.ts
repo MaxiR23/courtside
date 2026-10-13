@@ -4,7 +4,7 @@
 //
 // Tested:
 // - Ready: the sections in group order in group play and the draw, in knockout order after
-// - The Bracket placeholder with the stage text; Groups not drawn yet before the draw; the legend
+// - The bracket sits in the Bracket section in both section orders, with no placeholder text; Groups not drawn yet before the draw; the legend
 // - One More columns state widens every group card
 // - Loading: the header and the table skeleton are aria-busy
 // - Unavailable: the unavailable row under the nav; the footer in every state
@@ -26,11 +26,13 @@ import type { CupFeed } from '../../../src/lib/contract/cup';
 import { toCupView } from '../../../src/lib/feed/cup-props';
 import { preferLanguages } from '../../prefer-languages';
 import CupPage from '../../../src/lib/components/CupPage.svelte';
+import { CupMatchupStore } from '../../../src/lib/cup/matchup.svelte';
 import type { CupPageState } from '../../../src/lib/cup/types';
 const HOME = '/' as ResolvedPathname;
 const STANDINGS = '/standings' as ResolvedPathname;
 const teamHref = (code: string) => `/team/${code.toLowerCase()}` as ResolvedPathname;
 const gameHref = (id: string) => `/game/${id}` as ResolvedPathname;
+const playerHref = (id: string) => `/player/${id}` as ResolvedPathname;
 
 const feed = (): CupFeed =>
 	JSON.parse(
@@ -57,7 +59,9 @@ const show = (state: CupPageState) =>
 			standingsHref: STANDINGS,
 			layout: 'desktop' as const,
 			teamHref,
-			gameHref
+			gameHref,
+			playerHref,
+			matchup: new CupMatchupStore(undefined)
 		}
 	});
 
@@ -82,9 +86,14 @@ describe('CupPage', () => {
 		expect(headings()).toEqual(['Bracket', 'Groups', 'Wild card', 'Cup games']);
 	});
 
-	it('ready: the Bracket placeholder shows the stage text', () => {
-		const { container } = show(ready((f) => (f.stage = 'semifinals')));
-		expect(container.querySelector('#bracket .bracket-text')?.textContent).toBe('Semifinals');
+	it('ready: the bracket sits in the Bracket section in both section orders', () => {
+		for (const stage of ['group', 'semifinals'] as const) {
+			const { container, unmount } = show(ready((f) => (f.stage = stage)));
+			const section = container.querySelector('#bracket');
+			expect(section?.querySelector('.viewport')).not.toBeNull();
+			expect(section?.querySelectorAll('.node')).toHaveLength(7);
+			unmount();
+		}
 	});
 
 	it('ready: says the groups are not drawn yet instead of the groups', () => {

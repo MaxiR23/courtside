@@ -13,6 +13,8 @@
 # - Missing table values are null, and a row with no clinch has a null tag
 # - The wild card standings of each conference, ranked from the fourth row
 # - Unscheduled knockout slots carry their labels, rules and the current leaders with their records
+# - Known sides carry their standing (seed, group and record), a semifinal side its winner's, and a projected or empty side has none
+# - A final game keeps its period and a scheduled game has none
 # - Scheduled knockout games replace the projections, matched to the quarterfinal slots by seed
 # - Two quarterfinals in one slot, a knockout team outside the draw and a bad streak fail the build
 # - The championship counts outside the standings and both final rounds are on a neutral court
@@ -198,6 +200,7 @@ def pair(
     *,
     scores: tuple[int, int] | None = None,
     note: str | None = None,
+    period: int | None = None,
 ) -> Pair:
     """A game as each of its two teams' schedules shows it: home score first."""
     played = scores is not None
@@ -223,6 +226,7 @@ def pair(
             arena="Arena",
             city="Town",
             playoffs=False,
+            period=period if played else None,
         )
     return views
 
@@ -569,6 +573,66 @@ def test_semifinal_and_final_sides_know_the_winners_of_final_feeders() -> None:
     assert east_sf.top.team is not None and east_sf.top.team.code == "ATL"
     final = slot(feed, SlotId.FINAL)
     assert final.game is None and not final.top.known and final.top.team is None
+
+
+def test_known_sides_carry_their_standing_and_projected_or_empty_sides_have_none() -> (
+    None
+):
+    feed = build([*group_pairs(all_final()), *knockouts(2, 1)])
+
+    qf1 = slot(feed, SlotId.EAST_QF_1)
+    assert qf1.top.standing is not None and qf1.bottom.standing is not None
+    assert (qf1.top.standing.seed, qf1.top.standing.wins) == (1, 3)
+    assert (qf1.bottom.standing.seed, qf1.bottom.standing.losses) == (4, 0)
+    assert qf1.top.standing.group is not None
+    assert qf1.top.standing.group.conference is EAST
+    sf = slot(feed, SlotId.EAST_SF)
+    assert sf.top.team is not None and sf.top.standing is not None
+    assert sf.top.standing.seed == 1
+    assert slot(feed, SlotId.FINAL).top.standing is None
+
+    projected = build(group_pairs({(EAST, "A"): 2}))
+    top = slot(projected, SlotId.EAST_QF_1).top
+    assert top.projected is not None and top.standing is None
+
+
+def test_a_team_below_the_fourth_row_has_a_null_seed() -> None:
+    low = ORDER[EAST][6]
+    row = next(r for r in sources().conference_tables[EAST].rows if r.code == low)
+    assert row is not None
+    pairs = [
+        *group_pairs(all_final()),
+        pair("qe1", CupRound.QUARTERFINALS, "ATL", low, BASE + 20 * DAY),
+    ]
+
+    feed = build(pairs)
+
+    bottom = slot(feed, SlotId.EAST_QF_1).bottom
+    assert bottom.standing is not None and bottom.standing.seed is None
+
+
+def test_a_final_game_keeps_its_period_and_a_scheduled_game_has_none() -> None:
+    swapped = [
+        pair(
+            "final",
+            CupRound.CHAMPIONSHIP,
+            "DAL",
+            "ATL",
+            BASE + 26 * DAY,
+            scores=(100, 98),
+            period=5,
+        ),
+        pair("se", CupRound.SEMIFINALS, "ATL", "CLE", BASE + 24 * DAY),
+    ]
+    base = [p for p in knockouts(3, 2) if "DAL" not in p or "ATL" not in p]
+    base = [p for p in base if "CLE" not in p or "ATL" not in p]
+
+    feed = build([*group_pairs(all_final()), *base, *swapped])
+
+    final = slot(feed, SlotId.FINAL).game
+    assert final is not None and final.period == 5
+    scheduled = slot(feed, SlotId.EAST_SF).game
+    assert scheduled is not None and scheduled.period is None
 
 
 def test_two_quarterfinals_in_one_slot_fail_the_build() -> None:

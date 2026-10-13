@@ -1,0 +1,432 @@
+{
+	"season": "2026-27",
+	"id": "final",
+	"round": "championship",
+	"conference": null,
+	"game": {
+		"id": "9100004",
+		"stage": "championship",
+		"date": "2026-12-16",
+		"startTime": "2026-12-17T01:30:00Z",
+		"away": {
+			"code": "UXA",
+			"name": "Sailors",
+			"city": "Glenhaven",
+			"guest": false
+		},
+		"home": {
+			"code": "QXA",
+			"name": "Herons",
+			"city": "Alderton",
+			"guest": false
+		},
+		"status": "final",
+		"score": {
+			"away": 120,
+			"home": 124
+		},
+		"winner": "home",
+		"period": 5,
+		"broadcast": "Courtside TV",
+		"venue": "Harbor Arena",
+		"city": "Alderton",
+		"neutralSite": true,
+		"countsInStandings": false,
+		"detailAvailable": true
+	},
+	"top": {
+		"label": {
+			"key": "semifinal_winner",
+			"conference": "east",
+			"seed": null,
+			"quarterfinal": null
+		},
+		"rule": "semifinal_winner",
+		"known": true,
+		"projected": false,
+		"team": {
+			"code": "QXA",
+			"name": "Herons",
+			"city": "Alderton",
+			"guest": false
+		},
+		"details": {
+			"path": [
+				{
+					"gameId": "9100001",
+					"stage": "quarterfinals",
+					"startTime": "2026-12-02T01:00:00Z",
+					"opponent": {
+						"code": "UXA",
+						"name": "Sailors",
+						"city": "Glenhaven",
+						"guest": false
+					},
+					"isHome": true,
+					"status": "final",
+					"result": "win",
+					"teamScore": 110,
+					"opponentScore": 98,
+					"detailAvailable": true
+				},
+				{
+					"gameId": "9100003",
+					"stage": "semifinals",
+					"startTime": "2026-12-12T01:00:00Z",
+					"opponent": {
+						"code": "RXA",
+						"name": "Comets",
+						"city": "Carrow",
+						"guest": false
+					},
+					"isHome": true,
+					"status": "final",
+					"result": "loss",
+					"teamScore": 118,
+					"opponentScore": 112,
+					"detailAvailable": false
+				},
+				{
+					"gameId": "9100004",
+					"stage": "championship",
+					"startTime": "2026-12-17T01:30:00Z",
+					"opponent": {
+						"code": "UXA",
+						"name": "Sailors",
+						"city": "Glenhaven",
+						"guest": false
+					},
+					"isHome": true,
+					"status": "final",
+					"result": "win",
+					"teamScore": 124,
+					"opponentScore": 120,
+					"detailAvailable": true
+				}
+			],
+			"injuries": [
+				{
+					"playerId": "p103",
+					"name": "Cal Duran",
+					"number": "11",
+					"position": "C",
+					"status": "out",
+					"comment": "Ankle sprain",
+					"updatedAt": "2026-12-15T18:00:00Z"
+				}
+			],
+			"roster": [
+				{
+					"id": "p101",
+					"name": "Ari Vance",
+					"number": "2",
+					"position": "G",
+					"height": "6-4",
+					"weight": 200,
+					"age": 26,
+					"birthDate": "2000-03-01",
+					"birthplace": "Alderton, OH",
+					"college": "Northfield",
+					"experience": 4,
+					"photoUrl": "https://example.com/photos/p101.png",
+					"status": "active",
+					"averages": {
+						"points": 27.4,
+						"rebounds": 5.1,
+						"assists": 7.9
+					},
+					"starter": true,
+					"leader": {
+						"points": true,
+						"rebounds": false,
+						"assists": true
+					}
+				},
+				{
+					"id": "p102",
+					"name": "Bo Keller",
+					"number": "7",
+					"position": "F",
+					"height": "6-9",
+					"weight": 225,
+					"age": 24,
+					"birthDate": "2002-06-11",
+					"birthplace": "Brookfield, TX",
+					"college": null,
+					"experience": 0,
+					"photoUrl": "https://example.com/photos/p102.png",
+					"status": "active",
+					"averages": {
+						"points": 14.0,
+						"rebounds": 9.2,
+						"assists": 2.1
+					},
+					"starter": true,
+					"leader": {
+						"points": false,
+						"rebounds": true,
+						"assists": false
+					}
+				},
+				{
+					"id": "p103",
+					"name": "Cal Duran",
+					"number": "11",
+					"position": "C",
+					"height": "6-11",
+					"weight": 250,
+					"age": 29,
+					"birthDate": "1997-01-20",
+					"birthplace": "Carrow, FL",
+					"college": "Eastgate",
+					"experience": 8,
+					"photoUrl": null,
+					"status": "out",
+					"averages": {
+						"points": 9.5,
+						"rebounds": 6.0,
+						"assists": 1.0
+					},
+					"starter": false,
+					"leader": {
+						"points": false,
+						"rebounds": false,
+						"assists": false
+					}
+				},
+				{
+					"id": "p104",
+					"name": "Dev Okoro",
+					"number": "14",
+					"position": "G",
+					"height": "6-1",
+					"weight": 185,
+					"age": 22,
+					"birthDate": "2004-09-09",
+					"birthplace": "Dunmere, GA",
+					"college": "Westford",
+					"experience": 1,
+					"photoUrl": "https://example.com/photos/p104.png",
+					"status": "active",
+					"averages": null,
+					"starter": false,
+					"leader": {
+						"points": false,
+						"rebounds": false,
+						"assists": false
+					}
+				},
+				{
+					"id": "p105",
+					"name": "Eli Ross",
+					"number": "21",
+					"position": "F",
+					"height": "6-8",
+					"weight": 215,
+					"age": 27,
+					"birthDate": "1999-02-02",
+					"birthplace": "Fenwick, NC",
+					"college": "Southfield",
+					"experience": 5,
+					"photoUrl": "https://example.com/photos/p105.png",
+					"status": "active",
+					"averages": {
+						"points": 11.2,
+						"rebounds": 4.4,
+						"assists": 3.3
+					},
+					"starter": false,
+					"leader": {
+						"points": false,
+						"rebounds": false,
+						"assists": false
+					}
+				}
+			]
+		}
+	},
+	"bottom": {
+		"label": {
+			"key": "semifinal_winner",
+			"conference": "west",
+			"seed": null,
+			"quarterfinal": null
+		},
+		"rule": "semifinal_winner",
+		"known": true,
+		"projected": false,
+		"team": {
+			"code": "UXA",
+			"name": "Sailors",
+			"city": "Glenhaven",
+			"guest": false
+		},
+		"details": {
+			"path": [
+				{
+					"gameId": "9100005",
+					"stage": "semifinals",
+					"startTime": "2026-12-12T03:30:00Z",
+					"opponent": {
+						"code": "TXA",
+						"name": "Falcons",
+						"city": "Eastvale",
+						"guest": false
+					},
+					"isHome": false,
+					"status": "final",
+					"result": "win",
+					"teamScore": 99,
+					"opponentScore": 95,
+					"detailAvailable": true
+				},
+				{
+					"gameId": "9100004",
+					"stage": "championship",
+					"startTime": "2026-12-17T01:30:00Z",
+					"opponent": {
+						"code": "QXA",
+						"name": "Herons",
+						"city": "Alderton",
+						"guest": false
+					},
+					"isHome": false,
+					"status": "final",
+					"result": "loss",
+					"teamScore": 120,
+					"opponentScore": 124,
+					"detailAvailable": true
+				}
+			],
+			"injuries": [],
+			"roster": [
+				{
+					"id": "p201",
+					"name": "Fay Lund",
+					"number": "1",
+					"position": "G",
+					"height": "6-2",
+					"weight": 190,
+					"age": 25,
+					"birthDate": "2001-04-04",
+					"birthplace": "Glenhaven, WA",
+					"college": "Lakeside",
+					"experience": 3,
+					"photoUrl": "https://example.com/photos/p201.png",
+					"status": "active",
+					"averages": {
+						"points": 22.1,
+						"rebounds": 3.0,
+						"assists": 8.8
+					},
+					"starter": true,
+					"leader": {
+						"points": true,
+						"rebounds": false,
+						"assists": true
+					}
+				},
+				{
+					"id": "p202",
+					"name": "Gus Hale",
+					"number": "9",
+					"position": "F",
+					"height": "6-10",
+					"weight": 235,
+					"age": 28,
+					"birthDate": "1998-05-05",
+					"birthplace": "Harlow, IL",
+					"college": "Hillcrest",
+					"experience": 6,
+					"photoUrl": "https://example.com/photos/p202.png",
+					"status": "active",
+					"averages": {
+						"points": 12.3,
+						"rebounds": 10.4,
+						"assists": 1.9
+					},
+					"starter": true,
+					"leader": {
+						"points": false,
+						"rebounds": true,
+						"assists": false
+					}
+				},
+				{
+					"id": "p203",
+					"name": "Hal Imre",
+					"number": "15",
+					"position": "C",
+					"height": "7-0",
+					"weight": 260,
+					"age": 23,
+					"birthDate": "2003-07-07",
+					"birthplace": "Ivydale, NY",
+					"college": null,
+					"experience": 2,
+					"photoUrl": "https://example.com/photos/p203.png",
+					"status": "active",
+					"averages": {
+						"points": 8.0,
+						"rebounds": 7.7,
+						"assists": 0.8
+					},
+					"starter": false,
+					"leader": {
+						"points": false,
+						"rebounds": false,
+						"assists": false
+					}
+				},
+				{
+					"id": "p204",
+					"name": "Ian Jost",
+					"number": "23",
+					"position": "G",
+					"height": "6-3",
+					"weight": 195,
+					"age": 31,
+					"birthDate": "1995-08-08",
+					"birthplace": "Juniper, CA",
+					"college": "Midvale",
+					"experience": 9,
+					"photoUrl": null,
+					"status": "active",
+					"averages": {
+						"points": 10.0,
+						"rebounds": 2.5,
+						"assists": 4.4
+					},
+					"starter": false,
+					"leader": {
+						"points": false,
+						"rebounds": false,
+						"assists": false
+					}
+				},
+				{
+					"id": "p205",
+					"name": "Jay Kerr",
+					"number": "30",
+					"position": "F",
+					"height": "6-7",
+					"weight": 210,
+					"age": 21,
+					"birthDate": "2005-10-10",
+					"birthplace": "Kestrel, MI",
+					"college": null,
+					"experience": 0,
+					"photoUrl": null,
+					"status": "active",
+					"averages": null,
+					"starter": false,
+					"leader": {
+						"points": false,
+						"rebounds": false,
+						"assists": false
+					}
+				}
+			]
+		}
+	}
+}

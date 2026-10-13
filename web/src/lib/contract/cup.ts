@@ -165,6 +165,7 @@ export interface SlotSide {
 	known: boolean;
 	team: Opponent | null;
 	projected: Projection | null;
+	standing: SideStanding | null;
 }
 export interface SlotLabel {
 	key: SlotLabelKey;
@@ -174,6 +175,12 @@ export interface SlotLabel {
 }
 export interface Projection {
 	team: Opponent;
+	wins: number;
+	losses: number;
+}
+export interface SideStanding {
+	seed: number | null;
+	group: CupGroupName | null;
 	wins: number;
 	losses: number;
 }
@@ -187,6 +194,7 @@ export interface CupGame {
 	status: GameStatus;
 	score: Score | null;
 	winner: Side | null;
+	period: number | null;
 	broadcast: string | null;
 	venue: string;
 	city: string | null;

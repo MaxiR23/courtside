@@ -5,10 +5,11 @@
 # Tested:
 # - A valid feed is accepted and serialized with camelCase keys
 # - A not drawn feed, a feed with a champion and a feed with scheduled bracket games are accepted
-# - Rejects a champion before the Cup is complete, no champion when complete, 5 groups, groups out of order, stages out of order, the wrong slot order, a winner on a game that is not final, a final game without a score, a championship that counts in the standings, a semifinal not on a neutral court, a side with both a team and a projection, stage dates with only one end set, a group that is final without its 10 games, stage counts that do not add up, a final slot with a conference, a record that is not W-L, a group letter outside A to C and an unknown field
+# - Rejects a champion before the Cup is complete, no champion when complete, 5 groups, groups out of order, stages out of order, the wrong slot order, a winner on a game that is not final, a final game without a score, a championship that counts in the standings, a semifinal not on a neutral court, a side with both a team and a projection, a period on a game that is not final, a standing without a team, a seed of 0 or 5, stage dates with only one end set, a group that is final without its 10 games, stage counts that do not add up, a final slot with a conference, a record that is not W-L, a group letter outside A to C and an unknown field
 #
 # What is covered:
 # - A valid feed is accepted and an invalid one is rejected
+# - A final game with a period and a side with a team and a standing are accepted; a stored feed without either field still validates
 # - Happy path, edge cases (null optionals) and error cases of each validator
 #
 # Run with: cd api && .venv/bin/python -m pytest tests/feeds/test_cup.py
@@ -330,6 +331,73 @@ def test_rejects_a_side_with_both_a_team_and_a_projection() -> None:
     feed["bracket"][0]["top"]["team"] = team()
 
     rejects(feed, "not both")
+
+
+def test_accepts_a_final_game_with_a_period_and_a_side_with_a_standing() -> None:
+    feed = valid_feed()
+    final = feed["bracket"][3]
+    final["game"] = game(
+        "championship",
+        status="final",
+        score={"away": 90, "home": 100},
+        winner="home",
+        period=5,
+    )
+    final["top"] = side(
+        known=True,
+        team=team(),
+        projected=None,
+        standing={
+            "seed": 1,
+            "group": {"conference": "east", "letter": "A"},
+            "wins": 4,
+            "losses": 0,
+        },
+    )
+
+    parsed = CupFeed.model_validate(feed)
+
+    assert parsed.bracket[3].game is not None and parsed.bracket[3].game.period == 5
+    standing = parsed.bracket[3].top.standing
+    assert standing is not None and (standing.seed, standing.wins) == (1, 4)
+
+
+def test_defaults_the_period_and_the_standing_to_null_for_a_stored_feed() -> None:
+    parsed = CupFeed.model_validate(valid_feed())
+
+    assert parsed.bracket[0].top.standing is None
+    assert parsed.games.days[0].games[0].period is None
+
+
+def test_rejects_a_period_on_a_game_that_is_not_final() -> None:
+    feed = valid_feed()
+    feed["games"]["days"][0]["games"][0]["period"] = 5
+
+    rejects(feed, "no period")
+
+
+def test_rejects_a_standing_without_a_team() -> None:
+    feed = valid_feed()
+    feed["bracket"][0]["top"]["standing"] = {
+        "seed": 1,
+        "group": None,
+        "wins": 1,
+        "losses": 0,
+    }
+
+    rejects(feed, "standing only with a team")
+
+
+@pytest.mark.parametrize("seed", [0, 5])
+def test_rejects_a_seed_outside_1_to_4(seed: int) -> None:
+    feed = valid_feed()
+    feed["bracket"][0]["top"].update(
+        team=team(),
+        projected=None,
+        standing={"seed": seed, "group": None, "wins": 1, "losses": 0},
+    )
+
+    rejects(feed, "seed")
 
 
 @pytest.mark.parametrize("missing", ["firstDate", "lastDate"])

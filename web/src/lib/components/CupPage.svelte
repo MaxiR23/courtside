@@ -2,6 +2,7 @@
 	import type { ResolvedPathname } from '$app/types';
 	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
 	import ClinchTag from '#lib/components/ClinchTag.svelte';
+	import CupBracket from '#lib/components/CupBracket.svelte';
 	import CupGames from '#lib/components/CupGames.svelte';
 	import CupHeader from '#lib/components/CupHeader.svelte';
 	import GroupCard from '#lib/components/GroupCard.svelte';
@@ -9,6 +10,7 @@
 	import SectionHead from '#lib/components/SectionHead.svelte';
 	import SiteFooter from '#lib/components/SiteFooter.svelte';
 	import WildCardTable from '#lib/components/WildCardTable.svelte';
+	import type { CupMatchupStore } from '#lib/cup/matchup.svelte.ts';
 	import type { CupPageState } from '#lib/cup/types.ts';
 	import { play } from '#lib/hero/motion.ts';
 	import { m } from '#lib/paraglide/messages.js';
@@ -22,10 +24,21 @@
 		layout: RowLayout;
 		teamHref: (code: string) => ResolvedPathname;
 		gameHref: (id: string) => ResolvedPathname;
+		playerHref: (id: string) => ResolvedPathname;
+		matchup: CupMatchupStore;
 	};
 
 	// `state` is renamed so the `$state` rune is not read as a store of the prop.
-	let { state: page, allGamesHref, standingsHref, layout, teamHref, gameHref }: Props = $props();
+	let {
+		state: page,
+		allGamesHref,
+		standingsHref,
+		layout,
+		teamHref,
+		gameHref,
+		playerHref,
+		matchup
+	}: Props = $props();
 
 	// One toggle widens every group card. Not kept between visits.
 	let wide = $state(false);
@@ -73,7 +86,7 @@
 					</div>
 				{:else if id === 'bracket'}
 					<SectionHead title={m.cup_bracket()} />
-					<p class="bracket-text">{view.bracketText}</p>
+					<CupBracket bracket={view.bracket} {layout} {matchup} {gameHref} {playerHref} />
 				{:else}
 					<SectionHead title={m.cup_games()} />
 					<CupGames filters={view.filters} {layout} {gameHref} />
@@ -159,12 +172,6 @@
 
 	.label {
 		font-size: var(--body-size-small);
-		color: var(--color-muted);
-	}
-
-	.bracket-text {
-		margin: 0;
-		font-size: var(--body-size);
 		color: var(--color-muted);
 	}
 

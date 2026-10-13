@@ -656,7 +656,17 @@
 				"rule": "best_group_winner",
 				"known": false,
 				"team": null,
-				"projected": null
+				"projected": {
+					"team": {
+						"code": "QXA",
+						"name": "Herons",
+						"city": "Alderton",
+						"guest": false
+					},
+					"wins": 4,
+					"losses": 0
+				},
+				"standing": null
 			},
 			"bottom": {
 				"label": {
@@ -668,7 +678,17 @@
 				"rule": "best_non_winner",
 				"known": false,
 				"team": null,
-				"projected": null
+				"projected": {
+					"team": {
+						"code": "QXB",
+						"name": "Pilots",
+						"city": "Brookfield",
+						"guest": false
+					},
+					"wins": 3,
+					"losses": 1
+				},
+				"standing": null
 			},
 			"game": null
 		},
@@ -686,7 +706,17 @@
 				"rule": "second_best_group_winner",
 				"known": false,
 				"team": null,
-				"projected": null
+				"projected": {
+					"team": {
+						"code": "RXA",
+						"name": "Kites",
+						"city": "Ashford",
+						"guest": false
+					},
+					"wins": 4,
+					"losses": 0
+				},
+				"standing": null
 			},
 			"bottom": {
 				"label": {
@@ -698,7 +728,17 @@
 				"rule": "third_best_group_winner",
 				"known": false,
 				"team": null,
-				"projected": null
+				"projected": {
+					"team": {
+						"code": "RXB",
+						"name": "Anchors",
+						"city": "Bayview",
+						"guest": false
+					},
+					"wins": 3,
+					"losses": 1
+				},
+				"standing": null
 			},
 			"game": null
 		},
@@ -716,7 +756,8 @@
 				"rule": "quarterfinal_winner",
 				"known": false,
 				"team": null,
-				"projected": null
+				"projected": null,
+				"standing": null
 			},
 			"bottom": {
 				"label": {
@@ -728,7 +769,8 @@
 				"rule": "quarterfinal_winner",
 				"known": false,
 				"team": null,
-				"projected": null
+				"projected": null,
+				"standing": null
 			},
 			"game": null
 		},
@@ -746,7 +788,8 @@
 				"rule": "semifinal_winner",
 				"known": false,
 				"team": null,
-				"projected": null
+				"projected": null,
+				"standing": null
 			},
 			"bottom": {
 				"label": {
@@ -758,7 +801,8 @@
 				"rule": "semifinal_winner",
 				"known": false,
 				"team": null,
-				"projected": null
+				"projected": null,
+				"standing": null
 			},
 			"game": null
 		},
@@ -776,7 +820,8 @@
 				"rule": "quarterfinal_winner",
 				"known": false,
 				"team": null,
-				"projected": null
+				"projected": null,
+				"standing": null
 			},
 			"bottom": {
 				"label": {
@@ -788,7 +833,8 @@
 				"rule": "quarterfinal_winner",
 				"known": false,
 				"team": null,
-				"projected": null
+				"projected": null,
+				"standing": null
 			},
 			"game": null
 		},
@@ -806,7 +852,8 @@
 				"rule": "best_group_winner",
 				"known": false,
 				"team": null,
-				"projected": null
+				"projected": null,
+				"standing": null
 			},
 			"bottom": {
 				"label": {
@@ -818,7 +865,8 @@
 				"rule": "best_non_winner",
 				"known": false,
 				"team": null,
-				"projected": null
+				"projected": null,
+				"standing": null
 			},
 			"game": null
 		},
@@ -836,7 +884,8 @@
 				"rule": "second_best_group_winner",
 				"known": false,
 				"team": null,
-				"projected": null
+				"projected": null,
+				"standing": null
 			},
 			"bottom": {
 				"label": {
@@ -848,7 +897,8 @@
 				"rule": "third_best_group_winner",
 				"known": false,
 				"team": null,
-				"projected": null
+				"projected": null,
+				"standing": null
 			},
 			"game": null
 		}
@@ -881,6 +931,7 @@
 							"home": 110
 						},
 						"winner": "home",
+						"period": null,
 						"broadcast": "Courtside TV",
 						"venue": "Harbor Arena",
 						"city": "Alderton",
@@ -908,6 +959,7 @@
 						"status": "live",
 						"score": null,
 						"winner": null,
+						"period": null,
 						"broadcast": null,
 						"venue": "Harbor Arena",
 						"city": "Alderton",
@@ -940,6 +992,7 @@
 						"status": "scheduled",
 						"score": null,
 						"winner": null,
+						"period": null,
 						"broadcast": "Courtside TV",
 						"venue": "Harbor Arena",
 						"city": "Alderton",
@@ -967,6 +1020,7 @@
 						"status": "scheduled",
 						"score": null,
 						"winner": null,
+						"period": null,
 						"broadcast": null,
 						"venue": "Harbor Arena",
 						"city": "Alderton",
@@ -994,6 +1048,7 @@
 						"status": "postponed",
 						"score": null,
 						"winner": null,
+						"period": null,
 						"broadcast": null,
 						"venue": "Harbor Arena",
 						"city": "Alderton",
@@ -1026,6 +1081,7 @@
 						"status": "scheduled",
 						"score": null,
 						"winner": null,
+						"period": null,
 						"broadcast": null,
 						"venue": "Harbor Arena",
 						"city": "Alderton",

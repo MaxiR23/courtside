@@ -25,6 +25,7 @@ from pydantic import (
     ConfigDict,
     Field,
     NonNegativeInt,
+    PositiveInt,
     ValidationError,
 )
 from pydantic.alias_generators import to_camel
@@ -97,6 +98,7 @@ class _ProviderStatusType(_ProviderModel):
 
 class _ProviderStatus(_ProviderModel):
     type: _ProviderStatusType
+    period: int = 0
 
 
 class _ProviderCompetition(_ProviderModel):
@@ -156,6 +158,7 @@ class ScheduledGame(FeedModel):
     arena: NonEmptyStr
     city: NonEmptyStr | None = None
     playoffs: bool
+    period: PositiveInt | None = None
 
 
 class SeasonSchedule(FeedModel):
@@ -310,6 +313,11 @@ def _scheduled_game(
         "arena": competition.venue.full_name,
         "city": (competition.venue.address.city if competition.venue.address else None),
         "playoffs": playoffs,
+        "period": (
+            competition.status.period
+            if played and competition.status.period > 0
+            else None
+        ),
     }
 
 

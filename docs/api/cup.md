@@ -54,10 +54,11 @@ Conventions:
 | `CupGames`       | `days`: `CupDay[]` by date; `counts`: `StageCounts`                                                                                                                      |
 | `CupDay`         | `date`; `games`: `CupGame[]` (at least one) by start time, then id                                                                                                       |
 | `StageCounts`    | `all` (the sum of the rounds), `group`, `quarterfinals`, `semifinals`, `championship`                                                                                    |
-| `CupGame`        | `id`; `stage`: `CupRound`; `date` (US Eastern); `startTime`; `away`, `home`: `Opponent`; `status`: `GameStatus`; `score`: `Score` / null (set only when final); `winner` (`away`, `home`, null); `broadcast` (null); `venue`; `city` (null); `neutralSite`; `countsInStandings`; `detailAvailable` |
+| `CupGame`        | `id`; `stage`: `CupRound`; `date` (US Eastern); `startTime`; `away`, `home`: `Opponent`; `status`: `GameStatus`; `score`: `Score` / null (set only when final); `winner` (`away`, `home`, null); `period` (the last period of a final game, 5 and up are overtimes; null when not final or not sent); `broadcast` (null); `venue`; `city` (null); `neutralSite`; `countsInStandings`; `detailAvailable` |
 | `BracketSlot`    | `id`: `SlotId`; `round`: `CupRound`; `conference` (null for the final only); `top`, `bottom`: `SlotSide`; `game`: `CupGame` / null                                      |
 | `SlotId`         | `east-qf-1`, `east-qf-2`, `east-sf`, `final`, `west-sf`, `west-qf-1`, `west-qf-2`                                                                                        |
-| `SlotSide`       | `label`: `SlotLabel`; `rule`: `SlotRule`; `known`; `team`: `Opponent` / null; `projected`: `Projection` / null (never both a team and a projection)                      |
+| `SlotSide`       | `label`: `SlotLabel`; `rule`: `SlotRule`; `known`; `team`: `Opponent` / null; `projected`: `Projection` / null (never both a team and a projection); `standing`: `SideStanding` / null (set only with a team) |
+| `SideStanding`   | `seed` (1 to 4, 4 is the wild card, null below row 4); `group`: `CupGroupName` / null; `wins`, `losses` (the team's conference table row)                               |
 | `SlotLabel`      | `key`: `SlotLabelKey` (`seed`, `wild_card`, `quarterfinal_winner`, `semifinal_winner`); `conference`; `seed` (1 to 3, null); `quarterfinal` (1 to 2, null)                |
 | `SlotRule`       | `best_group_winner`, `second_best_group_winner`, `third_best_group_winner`, `best_non_winner`, `quarterfinal_winner`, `semifinal_winner`                                 |
 | `Projection`     | `team`: `Opponent`, `wins`, `losses`: the team that leads today, drawn as "Currently XXX (W-L)"                                                                          |
@@ -82,6 +83,8 @@ the [standings feed](standings.md), the [team feed](team.md) and the
    championship; `countsInStandings` is false for the championship only.
    `score` is set only for a final game. It is null while scheduled, live or
    postponed, because the schedules carry scores only for completed games.
+   `period` is the last period of a final game as the schedule reports it, and
+   null when the game is not final or the schedule sends none.
    `detailAvailable` is set when the feed is served, from the games of the days
    shown, and is false in the stored file.
 3. **Drawn.** `drawn` is true when every group has teams. Before that every
@@ -140,6 +143,11 @@ the [standings feed](standings.md), the [team feed](team.md) and the
 15. **Games list.** `days` by date, games by start time then id. Knockout slots
     with no game add nothing.
 16. **Champion.** When `complete`, the winner of the championship.
+17. **Standing.** A side with a team carries its conference table row as
+    `standing`: `seed` is the row, 1 to 4, and null below row 4; `group` is the
+    team's group from the draw; `wins` and `losses` are the row's. A team in no
+    table row has none, and a projected side has none (its record is in
+    `projected`).
 
 The note of a game maps to its round:
 

@@ -1,5 +1,6 @@
 import type { GameDetailFeed } from '#lib/contract/game-detail.ts';
 import type { CupFeed } from '#lib/contract/cup.ts';
+import type { CupMatchupFeed } from '#lib/contract/cup-matchup.ts';
 import type { GamesFeed } from '#lib/contract/games.ts';
 import type { PlayerFeed } from '#lib/contract/player.ts';
 import type { SearchFeed } from '#lib/contract/search.ts';
@@ -156,6 +157,39 @@ export async function loadCupFeed(url: string, fetchFn: typeof fetch = fetch): P
 		throw new FeedLoadError('body', 'The Cup feed has no stages or groups');
 	}
 	return body as CupFeed;
+}
+
+/** The URL of one Cup matchup feed: the template with the encoded slot id in place of {id}. */
+export function cupMatchupFeedUrl(template: string, id: string): string {
+	return template.replaceAll('{id}', encodeURIComponent(id));
+}
+
+/**
+ * Fetches a Cup matchup feed. A 404 is its own reason: the id is not a slot. The body is only
+ * checked for its shape: an object with a string `id` and the `top` and `bottom` sides.
+ * `no-cache` makes the browser revalidate with the stored ETag on every request, as for the
+ * search feed.
+ */
+export async function loadCupMatchupFeed(
+	url: string,
+	fetchFn: typeof fetch = fetch
+): Promise<CupMatchupFeed> {
+	const body = await fetchFeedBody(url, 'The Cup matchup feed', fetchFn, true, {
+		cache: 'no-cache'
+	});
+	const feed = body as Partial<CupMatchupFeed> | null;
+	if (
+		typeof body !== 'object' ||
+		feed === null ||
+		typeof feed.id !== 'string' ||
+		typeof feed.top !== 'object' ||
+		feed.top === null ||
+		typeof feed.bottom !== 'object' ||
+		feed.bottom === null
+	) {
+		throw new FeedLoadError('body', 'The Cup matchup feed has no id or sides');
+	}
+	return body as CupMatchupFeed;
 }
 
 /**

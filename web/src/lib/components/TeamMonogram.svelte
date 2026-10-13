@@ -13,7 +13,8 @@
 			| 'standings'
 			| 'search'
 			| 'cup-draw'
-			| 'cup-champion';
+			| 'cup-champion'
+			| 'cup-node';
 		href?: ResolvedPathname;
 	};
 
@@ -93,6 +94,12 @@
 		width: var(--cup-champion-mark);
 		height: var(--cup-champion-mark);
 		border-color: var(--color-accent);
+	}
+
+	.cup-node {
+		width: var(--bracket-tile-size);
+		height: var(--bracket-tile-size);
+		font-size: var(--bracket-meta-size);
 	}
 
 	.header-mobile {

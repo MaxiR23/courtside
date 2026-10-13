@@ -55,6 +55,18 @@
             }
           ]
         },
+        "period": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "broadcast": {
           "anyOf": [
             {
@@ -101,6 +113,7 @@
         "status",
         "score",
         "winner",
+        "period",
         "broadcast",
         "venue",
         "city",

@@ -1,4 +1,5 @@
 import type {
+	BracketSlot,
 	Conference,
 	CupFeed,
 	CupGame,
@@ -9,12 +10,17 @@ import type {
 	CupTag,
 	GroupRow,
 	PerGameDifferential,
+	SlotRule,
+	SlotSide,
 	StageEntry,
 	StageStatus,
 	TotalDifferential,
 	WildCardTable
 } from '#lib/contract/cup.ts';
 import type {
+	BracketNodeView,
+	BracketSideView,
+	BracketView,
 	CupDayView,
 	CupFilterKey,
 	CupFilterView,
@@ -36,12 +42,12 @@ import { feedDate } from '#lib/feed/team-props.ts';
 import { formatNumber } from '#lib/format/locale.ts';
 import { m } from '#lib/paraglide/messages.js';
 import type { ClinchView } from '#lib/standings/types.ts';
-import { teamMark } from '#lib/team/mark.ts';
+import { teamLabel, teamMark } from '#lib/team/mark.ts';
 
 const NO_VALUE = '—';
 const STAGE_DATE_SEPARATOR = ' – ';
 
-const CONFERENCE_SHORT: Record<Conference, () => string> = {
+export const CONFERENCE_SHORT: Record<Conference, () => string> = {
 	east: m.game_conference_east,
 	west: m.game_conference_west
 };
@@ -51,7 +57,7 @@ const CONFERENCE_LONG: Record<Conference, () => string> = {
 	west: m.team_conference_west
 };
 
-const ROUND_LABEL: Record<CupRound, () => string> = {
+export const ROUND_LABEL: Record<CupRound, () => string> = {
 	group: m.cup_stage_group,
 	quarterfinals: m.cup_state_qf,
 	semifinals: m.cup_state_sf,
@@ -94,6 +100,15 @@ const TAG_LABEL: Record<CupTag, () => string> = {
 };
 
 const TAG_ORDER: CupTag[] = ['won_group', 'wild_card', 'eliminated'];
+
+const RULE_LABEL: Record<SlotRule, () => string> = {
+	best_group_winner: m.cup_rule_best_group_winner,
+	second_best_group_winner: m.cup_rule_second_best_group_winner,
+	third_best_group_winner: m.cup_rule_third_best_group_winner,
+	best_non_winner: m.cup_rule_best_non_winner,
+	quarterfinal_winner: m.cup_rule_quarterfinal_winner,
+	semifinal_winner: m.cup_rule_semifinal_winner
+};
 
 const GROUP_SECTIONS: CupSectionId[] = ['groups', 'wild-card', 'bracket', 'games'];
 const KNOCKOUT_SECTIONS: CupSectionId[] = ['bracket', 'groups', 'wild-card', 'games'];
@@ -256,6 +271,94 @@ function gameView(game: CupGame): CupGameRowView {
 	};
 }
 
+export function slotLabel(label: SlotSide['label']): string {
+	const conference = CONFERENCE_SHORT[label.conference]();
+	switch (label.key) {
+		case 'seed':
+			return m.cup_slot_seed({ conference, seed: formatNumber(label.seed ?? 0) });
+		case 'wild_card':
+			return m.cup_slot_wild_card({ conference });
+		case 'quarterfinal_winner':
+			return m.cup_slot_qf_winner({ conference, n: formatNumber(label.quarterfinal ?? 0) });
+		case 'semifinal_winner':
+			return m.cup_slot_sf_winner({ conference });
+	}
+}
+
+function standingMeta(standing: SlotSide['standing']): string | null {
+	if (!standing) return null;
+	const parts = [
+		standing.seed === null ? null : m.cup_side_seed({ seed: formatNumber(standing.seed) }),
+		standing.group === null ? null : groupTitle(standing.group),
+		record(standing.wins, standing.losses)
+	];
+	return parts.filter((part) => part !== null).join(' · ');
+}
+
+function bracketSide(side: SlotSide, game: CupGame | null): BracketSideView {
+	const team = side.team === null ? null : teamMark(side.team);
+	// The game lists away and home; a side takes the score of the team it is.
+	const place =
+		game && side.team?.code != null
+			? side.team.code === game.away.code
+				? 'away'
+				: side.team.code === game.home.code
+					? 'home'
+					: null
+			: null;
+	return {
+		team,
+		name: team ? (team.name ?? teamLabel(team)) : m.cup_tbd_slot(),
+		label: slotLabel(side.label),
+		rule: RULE_LABEL[side.rule](),
+		currently: side.projected
+			? m.cup_currently({
+					team: teamLabel(teamMark(side.projected.team)),
+					w: formatNumber(side.projected.wins),
+					l: formatNumber(side.projected.losses)
+				})
+			: null,
+		meta: standingMeta(side.standing),
+		score: place && game?.score ? formatNumber(game.score[place]) : null,
+		winner: place !== null && game?.winner === place
+	};
+}
+
+function bracketNode(slot: BracketSlot): BracketNodeView {
+	const { game } = slot;
+	return {
+		id: slot.id,
+		roundLabel: ROUND_LABEL[slot.round](),
+		mirrored: slot.conference === 'west',
+		final: slot.id === 'final',
+		top: bracketSide(slot.top, game),
+		bottom: bracketSide(slot.bottom, game),
+		date: game ? feedDate(game.date, { month: 'short', day: 'numeric' }) : null,
+		venue: game ? game.venue : null,
+		broadcast: game ? game.broadcast : null,
+		neutral: game ? game.neutralSite : false
+	};
+}
+
+function bracketView(feed: CupFeed): BracketView {
+	const known = {} as BracketView['known'];
+	for (const slot of feed.bracket) {
+		known[`${slot.id}:top`] = slot.top.known;
+		known[`${slot.id}:bottom`] = slot.bottom.known;
+	}
+	const champion = feed.stage === 'complete' ? feed.champion : null;
+	return {
+		nodes: feed.bracket.map(bracketNode),
+		known,
+		rounds: {
+			quarterfinals: ROUND_LABEL.quarterfinals(),
+			semifinals: ROUND_LABEL.semifinals(),
+			championship: ROUND_LABEL.championship()
+		},
+		champion: champion ? (champion.name ?? teamLabel(teamMark(champion))) : null
+	};
+}
+
 function filters(feed: CupFeed): CupFilterView[] {
 	return FILTER_ORDER.map((key) => {
 		const days: CupDayView[] = [];
@@ -290,7 +393,7 @@ export function toCupView(feed: CupFeed): CupView {
 		groups: feed.groups.map(groupView),
 		legend: legend(),
 		wildCard: feed.wildCard.map(wildCardView),
-		bracketText: header.stateLine,
+		bracket: bracketView(feed),
 		filters: filters(feed)
 	};
 }

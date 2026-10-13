@@ -35,6 +35,7 @@ domains below are placeholders.
    `STANDINGS_FEED_URL=https://api.example.com/feeds/standings.json`,
    `SEARCH_FEED_URL=https://api.example.com/feeds/search.json`,
    `CUP_FEED_URL=https://api.example.com/feeds/cup.json`,
+   `CUP_MATCHUP_FEED_URL=https://api.example.com/feeds/cup/matchups/{id}.json`,
    `GAME_DETAIL_FEED_URL=https://api.example.com/feeds/games/{id}.json`,
    `TEAM_FEED_URL=https://api.example.com/feeds/teams/{code}.json`,
    `PLAYER_FEED_URL=https://api.example.com/feeds/players/{id}.json` and

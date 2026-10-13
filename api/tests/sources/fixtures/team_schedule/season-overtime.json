@@ -1,0 +1,131 @@
+{
+  "events": [
+    {
+      "id": "401909101",
+      "date": "2026-12-10T01:30Z",
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "Paycom Center",
+            "address": {
+              "city": "Oklahoma City"
+            }
+          },
+          "status": {
+            "type": {
+              "state": "post",
+              "completed": true
+            },
+            "period": 5
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "team": {
+                "abbreviation": "OKC"
+              },
+              "score": {
+                "value": 131.0
+              },
+              "winner": true
+            },
+            {
+              "homeAway": "away",
+              "team": {
+                "abbreviation": "DEN"
+              },
+              "score": {
+                "value": 128.0
+              },
+              "winner": false
+            }
+          ],
+          "notes": [],
+          "broadcasts": []
+        }
+      ]
+    },
+    {
+      "id": "401909102",
+      "date": "2026-12-12T01:30Z",
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "Paycom Center",
+            "address": {
+              "city": "Oklahoma City"
+            }
+          },
+          "status": {
+            "type": {
+              "state": "post",
+              "completed": true
+            },
+            "period": 4
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "team": {
+                "abbreviation": "OKC"
+              },
+              "score": {
+                "value": 110.0
+              },
+              "winner": true
+            },
+            {
+              "homeAway": "away",
+              "team": {
+                "abbreviation": "LAC"
+              },
+              "score": {
+                "value": 104.0
+              },
+              "winner": false
+            }
+          ],
+          "notes": [],
+          "broadcasts": []
+        }
+      ]
+    },
+    {
+      "id": "401909103",
+      "date": "2026-12-14T01:30Z",
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "Paycom Center",
+            "address": {
+              "city": "Oklahoma City"
+            }
+          },
+          "status": {
+            "type": {
+              "state": "pre",
+              "completed": false
+            },
+            "period": 0
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "team": {
+                "abbreviation": "OKC"
+              }
+            },
+            {
+              "homeAway": "away",
+              "team": {
+                "abbreviation": "SA"
+              }
+            }
+          ],
+          "notes": [],
+          "broadcasts": []
+        }
+      ]
+    }
+  ]
+}

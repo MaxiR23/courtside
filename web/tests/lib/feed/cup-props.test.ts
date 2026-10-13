@@ -12,6 +12,10 @@
 // - The wild card tables: titles, the line only after rank 1, a — for a missing group
 // - The games filters in order with the feed's counts, a round filter that drops empty days
 // - Loser sides, scores only when set, the four status kinds, linked, not counted
+// - The bracket: 7 nodes in feed order, West mirrored, only the final marked final
+// - Undecided sides: To be decided, label, rule and the Currently line only with a projection
+// - Known sides: name, meta of seed, group and record, scores and winner on the right side, a missing standing leaves meta null
+// - The known map mirrors the feed; the champion's name only when complete
 // - Spanish copy of the state line, a group title and a stage label
 //
 // What is covered:
@@ -32,6 +36,9 @@ import { preferLanguages } from '../../prefer-languages';
 const feed = (): CupFeed =>
 	JSON.parse(readFileSync(join(__dirname, 'fixtures', 'cup.json'), 'utf8')) as CupFeed;
 
+const complete = (): CupFeed =>
+	JSON.parse(readFileSync(join(__dirname, 'fixtures', 'cup-complete.json'), 'utf8')) as CupFeed;
+
 const view = (source: CupFeed = feed()): CupView => toCupView(source);
 
 const atStage = (stage: CupStage, change: (f: CupFeed) => void = () => {}): CupView => {
@@ -50,7 +57,6 @@ describe('toCupView header', () => {
 		const v = view();
 		expect(v.header.season).toBe('2026-27');
 		expect(v.header.stateLine).toBe('Group play · 16 of 60 games played');
-		expect(v.bracketText).toBe(v.header.stateLine);
 	});
 
 	it('writes the state line of the draw with the first game date', () => {
@@ -386,6 +392,144 @@ describe('toCupView games', () => {
 			counts: { all: 0, group: 0, quarterfinals: 0, semifinals: 0, championship: 0 }
 		};
 		expect(view(f).filters.every((x) => x.days.length === 0 && x.count === '0')).toBe(true);
+	});
+});
+
+describe('toCupView bracket', () => {
+	const node = (v: CupView, id: string) => {
+		const found = v.bracket.nodes.find((n) => n.id === id);
+		if (!found) throw new Error(`no node ${id}`);
+		return found;
+	};
+
+	it('has the 7 nodes in the feed order, the West mirrored and only the final marked final', () => {
+		const v = view();
+		expect(v.bracket.nodes.map((n) => n.id)).toEqual([
+			'east-qf-1',
+			'east-qf-2',
+			'east-sf',
+			'final',
+			'west-sf',
+			'west-qf-1',
+			'west-qf-2'
+		]);
+		expect(v.bracket.nodes.filter((n) => n.mirrored).map((n) => n.id)).toEqual([
+			'west-sf',
+			'west-qf-1',
+			'west-qf-2'
+		]);
+		expect(v.bracket.nodes.filter((n) => n.final).map((n) => n.id)).toEqual(['final']);
+		expect(node(v, 'east-sf').roundLabel).toBe('Semifinals');
+		expect(node(v, 'final').roundLabel).toBe('Championship');
+	});
+
+	it('writes To be decided, the label and the rule for an undecided side', () => {
+		const side = node(view(), 'west-qf-1').top;
+		expect(side.team).toBeNull();
+		expect(side.name).toBe('To be decided');
+		expect(side.label).toBe('West #1 seed');
+		expect(side.rule).toBe('Best group winner');
+		expect([side.meta, side.score, side.winner]).toEqual([null, null, false]);
+		const n = node(view(), 'west-qf-1');
+		expect([n.date, n.venue, n.broadcast, n.neutral]).toEqual([null, null, null, false]);
+	});
+
+	it('writes every label and rule text', () => {
+		const v = view();
+		expect(node(v, 'east-qf-1').bottom.label).toBe('East wild card');
+		expect(node(v, 'east-qf-1').bottom.rule).toBe('Best team that did not win its group');
+		expect(node(v, 'east-qf-2').bottom.rule).toBe('Third-best group winner');
+		expect(node(v, 'east-qf-2').top.rule).toBe('Second-best group winner');
+		expect(node(v, 'east-sf').bottom.label).toBe('Winner of East QF 2');
+		expect(node(v, 'east-sf').top.rule).toBe('Advances from the quarterfinal');
+		expect(node(v, 'final').bottom.label).toBe('Winner of West SF');
+		expect(node(v, 'final').bottom.rule).toBe('Advances from the semifinal');
+	});
+
+	it('writes the Currently line only from a projection', () => {
+		const v = view();
+		expect(node(v, 'east-qf-1').top.currently).toBe('Currently QXA (4-0)');
+		expect(node(v, 'east-qf-1').bottom.currently).toBe('Currently QXB (3-1)');
+		expect(node(v, 'west-qf-1').top.currently).toBeNull();
+		expect(node(v, 'final').top.currently).toBeNull();
+	});
+
+	it('writes the name, meta, scores and winner of a decided node', () => {
+		const final = node(view(complete()), 'final');
+		expect(final.top.team?.code).toBe('QXA');
+		expect(final.top.name).toBe('Herons');
+		expect(final.top.meta).toBe('#1 seed · East Group A · 4-0');
+		// The top team is the home team: the score is the feed's home score.
+		expect([final.top.score, final.top.winner]).toEqual(['124', true]);
+		expect([final.bottom.score, final.bottom.winner]).toEqual(['120', false]);
+		expect(final.date).toBe('Dec 16');
+		expect([final.venue, final.broadcast, final.neutral]).toEqual([
+			'Harbor Arena',
+			'Courtside TV',
+			true
+		]);
+		expect(final.bottom.meta).toBe('#1 seed · West Group B · 4-0');
+	});
+
+	it('takes the away score for a side that is the away team', () => {
+		const qf = node(view(complete()), 'east-qf-1');
+		expect([qf.top.score, qf.top.winner]).toEqual(['110', true]);
+		expect([qf.bottom.score, qf.bottom.winner]).toEqual(['98', false]);
+		const f = complete();
+		const slot = f.bracket[0];
+		if (!slot?.game) throw new Error('fixture');
+		[slot.top, slot.bottom] = [slot.bottom, slot.top];
+		const swapped = node(view(f), 'east-qf-1');
+		expect([swapped.top.score, swapped.top.winner]).toEqual(['98', false]);
+		expect([swapped.bottom.score, swapped.bottom.winner]).toEqual(['110', true]);
+	});
+
+	it('leaves out the parts of the meta with no value and the meta itself with no standing', () => {
+		const f = complete();
+		const slot = f.bracket[0];
+		if (!slot?.top.standing) throw new Error('fixture');
+		slot.top.standing.seed = null;
+		slot.top.standing.group = null;
+		expect(node(view(f), 'east-qf-1').top.meta).toBe('4-0');
+		slot.top.standing = null;
+		expect(node(view(f), 'east-qf-1').top.meta).toBeNull();
+	});
+
+	it('writes the round labels of the columns', () => {
+		expect(view().bracket.rounds).toEqual({
+			quarterfinals: 'Quarterfinals',
+			semifinals: 'Semifinals',
+			championship: 'Championship'
+		});
+	});
+
+	it('mirrors the known flags of the feed', () => {
+		const none = view().bracket.known;
+		expect(Object.keys(none)).toHaveLength(14);
+		expect(Object.values(none).some(Boolean)).toBe(false);
+		const all = view(complete()).bracket.known;
+		expect(Object.values(all).every(Boolean)).toBe(true);
+		expect(all['east-sf:top']).toBe(true);
+	});
+
+	it('names the champion only when the Cup is complete', () => {
+		expect(view().bracket.champion).toBeNull();
+		expect(view(complete()).bracket.champion).toBe('Herons');
+		const f = complete();
+		f.champion = null;
+		expect(view(f).bracket.champion).toBeNull();
+	});
+
+	it('writes the bracket in Spanish', () => {
+		preferLanguages(['es']);
+		const v = view(complete());
+		expect(node(v, 'east-qf-1').roundLabel).toBe('Cuartos de final');
+		expect(node(v, 'east-qf-1').top.meta).toBe('Preclasificado 1 · Grupo A del Este · 4-0');
+		const open = view();
+		expect(node(open, 'east-qf-1').top.name).toBe('Por decidir');
+		expect(node(open, 'east-qf-1').top.currently).toBe('Actualmente QXA (4-0)');
+		expect(node(open, 'east-sf').top.label).toBe('Ganador de cuartos 1 del Este');
+		expect(node(open, 'east-qf-1').top.rule).toBe('Mejor ganador de grupo');
 	});
 });
 

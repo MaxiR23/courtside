@@ -1,10 +1,11 @@
 // Props of the Cup page. Components get pre-formatted strings and never a contract type.
 
-import type { CupRound, StageStatus } from '#lib/contract/cup.ts';
+import type { CupRound, SlotId, StageStatus } from '#lib/contract/cup.ts';
+import type { InjuryTagStatus } from '#lib/game/types.ts';
 import type { HeroStatus } from '#lib/hero/types.ts';
 import type { ClinchView } from '#lib/standings/types.ts';
 import type { TeamMarkTeam } from '#lib/team/mark.ts';
-import type { GameLink } from '#lib/team/types.ts';
+import type { GameLink, TeamInjuryRow } from '#lib/team/types.ts';
 
 export type CupSectionId = 'groups' | 'wild-card' | 'bracket' | 'games';
 
@@ -90,6 +91,37 @@ export type CupFilterView = {
 	days: CupDayView[];
 };
 
+export type BracketSideView = {
+	team: TeamMarkTeam | null; // null: undecided
+	name: string; // the team's name, or "To be decided"
+	label: string; // "East #1 seed"
+	rule: string; // "Best group winner"
+	currently: string | null; // "Currently QXA (3-1)", only from a projection
+	meta: string | null; // "#1 seed · East Group A · 4-0", parts with no value left out
+	score: string | null;
+	winner: boolean;
+};
+
+export type BracketNodeView = {
+	id: SlotId;
+	roundLabel: string;
+	mirrored: boolean; // the West half reads right to left
+	final: boolean;
+	top: BracketSideView;
+	bottom: BracketSideView;
+	date: string | null;
+	venue: string | null;
+	broadcast: string | null;
+	neutral: boolean;
+};
+
+export type BracketView = {
+	nodes: BracketNodeView[]; // in the feed's order
+	known: Record<`${SlotId}:${'top' | 'bottom'}`, boolean>; // the feed's `known`, for the connectors
+	rounds: Record<'quarterfinals' | 'semifinals' | 'championship', string>; // the round labels of the columns
+	champion: string | null; // the champion's name, when the Cup is complete
+};
+
 export type CupView = {
 	header: CupHeaderView;
 	sections: CupSectionId[]; // in drawing order
@@ -97,9 +129,84 @@ export type CupView = {
 	groups: CupGroupView[];
 	legend: CupLegendEntry[];
 	wildCard: WildCardView[];
-	bracketText: string;
+	bracket: BracketView;
 	filters: CupFilterView[];
 };
+
+export type PlayerCardView = {
+	id: string;
+	name: string;
+	photo: string | null;
+	team: string;
+	number: string | null; // "#2"
+	position: string | null;
+	injury: InjuryTagStatus | null;
+	points: string; // per game, one decimal, or "—"
+	rebounds: string;
+	assists: string;
+	height: string | null;
+	weight: string | null; // "200 lb"
+	age: string | null;
+	hometown: string | null;
+	college: string | null;
+	experience: string | null; // a number, or the rookie mark ("R")
+};
+
+export type MatchupPlayerRow = {
+	id: string;
+	name: string;
+	number: string | null;
+	position: string | null;
+	injury: InjuryTagStatus | null; // shown in place of the position
+	points: string;
+	rebounds: string;
+	assists: string;
+	leader: { points: boolean; rebounds: boolean; assists: boolean };
+	starter: boolean;
+	card: PlayerCardView;
+};
+
+export type PathRowView = GameLink & {
+	result: 'W' | 'L' | null;
+	opponent: TeamMarkTeam;
+	isHome: boolean;
+	score: string | null; // "110-98", the team's score first
+};
+
+export type MatchupSideView = {
+	team: TeamMarkTeam | null; // null: undecided, with no blocks
+	name: string;
+	label: string;
+	score: string | null;
+	path: PathRowView[];
+	injuries: TeamInjuryRow[];
+	roster: MatchupPlayerRow[];
+};
+
+export type MatchupStatusView =
+	| { kind: 'final'; text: string } // "Final" or "Final/OT"
+	| { kind: 'vs' }
+	| { kind: 'status'; status: HeroStatus };
+
+export type MatchupView = {
+	header: {
+		round: string; // "East · Semifinals", or "Championship"
+		date: string | null;
+		venue: string | null;
+		broadcast: string | null;
+		neutral: boolean;
+		gameLink: GameLink | null; // null: no game yet
+	};
+	sides: [MatchupSideView, MatchupSideView];
+	status: MatchupStatusView;
+	note: boolean; // the championship does not count toward the record
+};
+
+export type MatchupPanelState =
+	{ kind: 'loading' } | { kind: 'unavailable' } | { kind: 'ready'; view: MatchupView };
+
+/** The player card that is open: a side of the matchup and a place in its roster. */
+export type OpenCard = { side: 0 | 1; index: number };
 
 export type CupPageState =
 	{ kind: 'loading' } | { kind: 'unavailable' } | { kind: 'ready'; view: CupView };

@@ -17,7 +17,7 @@ The visual, interaction and data specification of the NBA Cup page (`/cup`), the
 
 Everything under "Implementation rules" in `docs/design.md`, `docs/design-standings-search.md` and `docs/design-profiles.md` applies, plus:
 
-- **`/web` computes nothing.** Stage, stage dates, stage status, clinch tags, positions, games behind, differentials, slot labels, "Currently ..." lines, projected pairings, starters, stat leaders, winners, progress counts ("N of 60 games played"), chip counts and group meta all come ready from the feeds.
+- **`/web` computes nothing.** Stage, stage dates, stage status, clinch tags, positions, games behind, differentials, "Currently ..." lines, projected pairings, starters, stat leaders, winners, progress counts ("N of 60 games played"), chip counts and group meta all come ready from the feeds. Slot labels and rules are the exception: the feed sends them as keys and parts (conference, letter, seed), never prose (`docs/api/cup.md`, Conventions), and the page writes the words.
 - **Nothing is hardcoded in `/web`:** no venue, broadcast, date, team or group. No data source name, video platform or URL is written in `/web`.
 - **Every user-facing string is translatable**, in English and Spanish. Long labels truncate with an ellipsis and never wrap in a table cell.
 - **A value that is missing renders `—`.**
@@ -98,7 +98,7 @@ Levels 1 and 2 only.
 - **Level 1** (k < .36, k being the zoom): team codes at 150px and a score per slot; round labels above each column; the champion name under the final.
 - **Level 2** (k >= .36): monogram tile, team name, "seed · group · record", score, venue, a "Neutral site" tag (semifinals and final), broadcast.
 - **Undecided slot:** dashed tile, "To be decided", the rule text and, during group play, the "Currently XXX (W-L)" line.
-- Slots before a game is scheduled show the feed label ("East #1 seed", "East wild card", "Winner of East QF 1") and the rule text. During group play the feed adds "Currently XXX (W-L)" from the conference table order. Seeds 1 to 3 are the group winners in conference order, the wild card is the fourth; pairings are seed 1 vs wild card and seed 2 vs seed 3. Once the game is scheduled, the game's own teams, date, venue and broadcast replace the projection.
+- Slots before a game is scheduled show a label the page writes from the feed's keys and parts ("East #1 seed", "East wild card", "Winner of East QF 1") and the rule text. During group play the feed adds "Currently XXX (W-L)" from the conference table order. Seeds 1 to 3 are the group winners in conference order, the wild card is the fourth; pairings are seed 1 vs wild card and seed 2 vs seed 3. Once the game is scheduled, the game's own teams, date, venue and broadcast replace the projection.
 - Click on a node opens the matchup panel.
 
 ### Mobile (under 680px)
@@ -112,7 +112,7 @@ Continuous zoom levels 3 and 4, pinch-to-enter and the ghost layer.
 
 ## Matchup panel
 
-- Desktop: a 480px side panel inside the viewport. Mobile: a full-screen sheet.
+- Desktop: a 480px side panel fixed to the right edge of the browser window, full height. Mobile: a full-screen sheet.
 - Header: round, date, venue, broadcast, "Neutral site" tag and, when the game exists, "Game page →".
 - Both teams with scores and status (Final, Final/OT, vs).
 - Per team, two blocks:
@@ -124,7 +124,7 @@ Continuous zoom levels 3 and 4, pinch-to-enter and the ghost layer.
 
 ## Player card
 
-- Desktop: a 340px panel on the side opposite the matchup panel. Mobile: full screen.
+- Desktop: a 340px panel fixed to the left edge of the browser window, full height, opposite the matchup panel. Mobile: full screen.
 - Content: photo (initials when missing), name, team, number, position, injury, season averages (PTS, REB, AST), height, weight, age, hometown, college, experience, and a link to the player page. No Cup-only averages.
 - Previous / next buttons step through the roster of the team. Esc or the close button closes the card.
 
@@ -239,8 +239,10 @@ To add to `web/src/lib/styles/tokens.css` in the implementing issue. Values not 
 | `--bracket-mobile-width` | 2400px | Mobile world |
 | `--bracket-mobile-height` | 3600px | Mobile world |
 | `--bracket-node-bg` | `#0f1215` | Node background |
-| `--bracket-line-known` | accent, 1.5px | Connector with known winner |
-| `--bracket-line-open` | `rgba(235, 232, 227, .22)`, 1px | Other connectors |
+| `--bracket-line-known-color` | accent (`var(--color-accent)`) | Connector with known winner |
+| `--bracket-line-known-width` | 1.5px | Connector with known winner |
+| `--bracket-line-open-color` | `rgba(235, 232, 227, .22)` | Other connectors |
+| `--bracket-line-open-width` | 1px | Other connectors |
 | `--bracket-level-threshold` | .36 | Level 1 / 2 switch |
 | `--bracket-code-size` | 150px | Level 1 team code |
 | `--bracket-zoom-min` | .75 (of fit) | Zoom floor |
@@ -250,6 +252,19 @@ To add to `web/src/lib/styles/tokens.css` in the implementing issue. Values not 
 | `--bracket-mobile-viewport` | `min(70vh, 620px)` | Mobile viewport |
 | `--cup-panel-width` | 480px | Matchup panel |
 | `--cup-card-width` | 340px | Player card |
+| `--bracket-viewport-height` | `clamp(360px, 36vw, 560px)` | Desktop bracket viewport height |
+| `--bracket-node-padding` | 56px | Node inner padding (world units) |
+| `--bracket-tile-size` | 120px | Level 2 team tile |
+| `--bracket-name-size` | 64px | Level 2 team name |
+| `--bracket-meta-size` | 36px | Level 2 meta line |
+| `--bracket-score-size` | 110px | Score |
+| `--bracket-label-size` | 64px | Undecided slot label |
+| `--bracket-round-label-size` | 56px | Round label |
+| `--bracket-champion-size` | 72px | Champion name |
+| `--bracket-tick-size` | 40px | Node corner ticks |
+| `--bracket-focus-width` | 2px | Node focus frame |
+| `--cup-panel-z-index` | 2 | Matchup panel and player card layer |
+| `--cup-card-photo-size` | 96px | Player card photo |
 
 Mapped to existing tokens: the divider is `--color-divider`; accent text is `--color-accent-light`; label size and spacing are `--label-size` and `--label-letter-spacing`; the 680px break is `--game-row-breakpoint`.
 
@@ -315,8 +330,22 @@ Mapped to existing tokens: the divider is `--color-divider`; accent text is `--c
 | `cup_filter_sf` | Semifinals | Semifinales |
 | `cup_filter_final` | Championship | Final |
 | `cup_unavailable` | Data isn't available right now. Check back later. | Los datos no están disponibles ahora. Vuelve más tarde. |
+| `cup_slot_seed` | {conference} #{seed} seed | {conference} · preclasificado {seed} |
+| `cup_slot_wild_card` | {conference} wild card | Comodín del {conference} |
+| `cup_slot_qf_winner` | Winner of {conference} QF {n} | Ganador de cuartos {n} del {conference} |
+| `cup_slot_sf_winner` | Winner of {conference} SF | Ganador de la semifinal del {conference} |
+| `cup_rule_best_group_winner` | Best group winner | Mejor ganador de grupo |
+| `cup_rule_second_best_group_winner` | Second-best group winner | Segundo mejor ganador de grupo |
+| `cup_rule_third_best_group_winner` | Third-best group winner | Tercer mejor ganador de grupo |
+| `cup_rule_best_non_winner` | Best team that did not win its group | Mejor equipo que no ganó su grupo |
+| `cup_rule_quarterfinal_winner` | Advances from the quarterfinal | Avanza desde cuartos de final |
+| `cup_rule_semifinal_winner` | Advances from the semifinal | Avanza desde la semifinal |
+| `cup_side_seed` | #{seed} seed | Preclasificado {seed} |
+| `cup_card_hometown` | Hometown | Ciudad natal |
+| `cup_card_experience` | Experience | Experiencia |
+| `cup_matchup_loading` | Loading matchup | Cargando el cruce |
 
-Slot labels, "Currently" lines, group titles and stage dates are sent by the feed; the keys above are the fixed words around them. Strings for the Cup marks are in the section below.
+"Currently" lines, group titles and stage dates are sent by the feed; slot labels and rules are sent as keys and parts and the page writes the words with the `cup_slot_*` and `cup_rule_*` keys above. The other keys are the fixed words around them. Strings for the Cup marks are in the section below.
 
 
 ## Feed contract

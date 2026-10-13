@@ -4,7 +4,8 @@
 # JSON Schema and the TypeScript types are generated from these models. The
 # feed has the draw (six groups of five), the group tables, the wild card
 # standings, the knockout bracket with its seeding rules, every Cup game by day
-# and the stage of the competition. Labels are keys and parts, never prose: the
+# and the stage of the competition. A final game has its last period, and a side
+# with a team has its standing (seed, group and record). Labels are keys and parts, never prose: the
 # page writes the words. Every team is an Opponent.
 #
 # SEE: docs/api/cup.md, docs/adr/0028-cup-feed.md
@@ -138,6 +139,7 @@ class CupGame(FeedModel):
     status: GameStatus
     score: Score | None
     winner: Side | None
+    period: PositiveInt | None = None
     broadcast: NonEmptyStr | None
     venue: NonEmptyStr
     city: NonEmptyStr | None
@@ -150,6 +152,8 @@ class CupGame(FeedModel):
         final = self.status is GameStatus.FINAL
         if self.winner is not None and not final:
             raise ValueError(f"a {self.status} game has no winner")
+        if self.period is not None and not final:
+            raise ValueError(f"a {self.status} game has no period")
         if final and self.score is None:
             raise ValueError("a final game requires score")
         return self
@@ -229,17 +233,31 @@ class Projection(FeedModel):
     losses: NonNegativeInt
 
 
+class SideStanding(FeedModel):
+    seed: Annotated[int, Field(ge=1, le=4)] | None
+    group: CupGroupName | None
+    wins: NonNegativeInt
+    losses: NonNegativeInt
+
+
 class SlotSide(FeedModel):
     label: SlotLabel
     rule: SlotRule
     known: bool
     team: Opponent | None
     projected: Projection | None
+    standing: SideStanding | None = None
 
     @model_validator(mode="after")
     def _require_a_team_or_a_projection(self) -> SlotSide:
         if self.team is not None and self.projected is not None:
             raise ValueError("a side has a team or a projection, not both")
+        return self
+
+    @model_validator(mode="after")
+    def _require_a_team_for_a_standing(self) -> SlotSide:
+        if self.standing is not None and self.team is None:
+            raise ValueError("a side has a standing only with a team")
         return self
 
 

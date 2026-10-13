@@ -11,6 +11,7 @@
 // - Uses the standings box on the standings page
 // - Uses the search box in the search overlay
 // - Uses the cup-draw box in the Cup draw list and the cup-champion box in the Cup header
+// - Uses the cup-node box in a bracket node
 // - Links the code to the href when one is given, and renders a span without one
 //
 // What is covered:
@@ -94,5 +95,10 @@ describe('TeamMonogram', () => {
 		render(TeamMonogram, { props: { code: 'QXB', size: 'cup-champion' } });
 		expect(screen.getByText('QXA').classList.contains('cup-draw')).toBe(true);
 		expect(screen.getByText('QXB').classList.contains('cup-champion')).toBe(true);
+	});
+
+	it('renders the cup-node size', () => {
+		render(TeamMonogram, { props: { code: 'QXC', size: 'cup-node' } });
+		expect(screen.getByText('QXC').classList.contains('cup-node')).toBe(true);
 	});
 });

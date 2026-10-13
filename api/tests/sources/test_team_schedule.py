@@ -17,6 +17,7 @@
 # - Reuses a team's schedule for one hour
 # - Maps a recorded regular season with notes, broadcasts, venues and scores
 # - Maps unplayed games without scores
+# - Maps the period of a played season game and leaves it null for an unplayed game, a period of 0 and a missing period
 # - Marks playoff games from the playoffs season type
 # - Requests the season and the season type in the URL's query and keeps the template's own query
 # - Maps an empty playoff schedule to no games
@@ -418,6 +419,31 @@ async def test_maps_unplayed_games_without_scores(
     assert (unplayed.opponent.code, unplayed.is_home) == ("SAS", False)
     assert unplayed.broadcast == "Courtside TV"
     assert games["401909865"].broadcast is None
+
+
+@pytest.mark.anyio
+async def test_maps_the_period_of_a_played_season_game(
+    mock: respx.MockRouter, query_settings: Settings
+) -> None:
+    mock.get(season_url("OKC", 2027, 2)).respond(json=load("season-overtime.json"))
+
+    schedule = await fetch_season(query_settings, season=2027)
+
+    games = {game.game_id: game for game in schedule.games}
+    assert games["401909101"].period == 5
+    assert games["401909102"].period == 4
+    assert games["401909103"].period is None
+
+
+@pytest.mark.anyio
+async def test_leaves_the_period_null_when_the_source_sends_none(
+    mock: respx.MockRouter, query_settings: Settings
+) -> None:
+    mock.get(season_url("OKC", 2026, 2)).respond(json=load("okc-2026-regular.json"))
+
+    schedule = await fetch_season(query_settings)
+
+    assert all(game.period is None for game in schedule.games)
 
 
 @pytest.mark.anyio
