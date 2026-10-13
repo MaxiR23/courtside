@@ -66,6 +66,25 @@ class Streak(FeedModel):
     count: PositiveInt
 
 
+GroupLetter = Literal["A", "B", "C"]
+
+
+class CupGroupName(FeedModel):
+    """The label of a Cup group: its conference and its letter. The one shape of
+    a group label in every feed that names a group."""
+
+    conference: Conference
+    letter: GroupLetter
+
+
+class TeamCup(FeedModel):
+    """The Cup mark of a team: its group and its Cup record."""
+
+    group: CupGroupName
+    wins: NonNegativeInt
+    losses: NonNegativeInt
+
+
 class PlayoffStatus(StrEnum):
     SEED = "seed"
     PLAYIN = "playin"
@@ -215,6 +234,7 @@ class TeamFeed(FeedModel):
     injuries: list[TeamInjury]
     next_game: NextGame | None = None
     schedule: Schedule | None = None
+    cup: TeamCup | None = None
 
     @model_validator(mode="after")
     def _require_roster_by_number(self) -> TeamFeed:

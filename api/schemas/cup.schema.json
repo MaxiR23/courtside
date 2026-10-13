@@ -1,0 +1,1017 @@
+{
+  "$defs": {
+    "BracketSlot": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/SlotId"
+        },
+        "round": {
+          "$ref": "#/$defs/CupRound"
+        },
+        "conference": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Conference"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "top": {
+          "$ref": "#/$defs/SlotSide"
+        },
+        "bottom": {
+          "$ref": "#/$defs/SlotSide"
+        },
+        "game": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CupGame"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "round",
+        "conference",
+        "top",
+        "bottom",
+        "game"
+      ],
+      "title": "BracketSlot",
+      "type": "object"
+    },
+    "Conference": {
+      "enum": [
+        "east",
+        "west"
+      ],
+      "title": "Conference",
+      "type": "string"
+    },
+    "CupDay": {
+      "additionalProperties": false,
+      "properties": {
+        "date": {
+          "format": "date",
+          "type": "string"
+        },
+        "games": {
+          "items": {
+            "$ref": "#/$defs/CupGame"
+          },
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "date",
+        "games"
+      ],
+      "title": "CupDay",
+      "type": "object"
+    },
+    "CupGame": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "stage": {
+          "$ref": "#/$defs/CupRound"
+        },
+        "date": {
+          "format": "date",
+          "type": "string"
+        },
+        "startTime": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "away": {
+          "$ref": "#/$defs/Opponent"
+        },
+        "home": {
+          "$ref": "#/$defs/Opponent"
+        },
+        "status": {
+          "$ref": "#/$defs/GameStatus"
+        },
+        "score": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Score"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "winner": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Side"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "broadcast": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "venue": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "city": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "neutralSite": {
+          "type": "boolean"
+        },
+        "countsInStandings": {
+          "type": "boolean"
+        },
+        "detailAvailable": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "stage",
+        "date",
+        "startTime",
+        "away",
+        "home",
+        "status",
+        "score",
+        "winner",
+        "broadcast",
+        "venue",
+        "city",
+        "neutralSite",
+        "countsInStandings",
+        "detailAvailable"
+      ],
+      "title": "CupGame",
+      "type": "object"
+    },
+    "CupGames": {
+      "additionalProperties": false,
+      "properties": {
+        "days": {
+          "items": {
+            "$ref": "#/$defs/CupDay"
+          },
+          "type": "array"
+        },
+        "counts": {
+          "$ref": "#/$defs/StageCounts"
+        }
+      },
+      "required": [
+        "days",
+        "counts"
+      ],
+      "title": "CupGames",
+      "type": "object"
+    },
+    "CupGroup": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/CupGroupName"
+        },
+        "teams": {
+          "items": {
+            "$ref": "#/$defs/Opponent"
+          },
+          "maxItems": 5,
+          "type": "array"
+        },
+        "rows": {
+          "items": {
+            "$ref": "#/$defs/GroupRow"
+          },
+          "maxItems": 5,
+          "type": "array"
+        },
+        "gamesFinal": {
+          "maximum": 10,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "final": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "teams",
+        "rows",
+        "gamesFinal",
+        "final"
+      ],
+      "title": "CupGroup",
+      "type": "object"
+    },
+    "CupGroupName": {
+      "additionalProperties": false,
+      "description": "The label of a Cup group: its conference and its letter. The one shape of\na group label in every feed that names a group.",
+      "properties": {
+        "conference": {
+          "$ref": "#/$defs/Conference"
+        },
+        "letter": {
+          "enum": [
+            "A",
+            "B",
+            "C"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "conference",
+        "letter"
+      ],
+      "title": "CupGroupName",
+      "type": "object"
+    },
+    "CupRound": {
+      "enum": [
+        "group",
+        "quarterfinals",
+        "semifinals",
+        "championship"
+      ],
+      "title": "CupRound",
+      "type": "string"
+    },
+    "CupStage": {
+      "enum": [
+        "draw",
+        "group",
+        "quarterfinals",
+        "semifinals",
+        "championship",
+        "complete"
+      ],
+      "title": "CupStage",
+      "type": "string"
+    },
+    "CupTag": {
+      "enum": [
+        "won_group",
+        "wild_card",
+        "eliminated"
+      ],
+      "title": "CupTag",
+      "type": "string"
+    },
+    "GameResult": {
+      "enum": [
+        "win",
+        "loss"
+      ],
+      "title": "GameResult",
+      "type": "string"
+    },
+    "GameStatus": {
+      "enum": [
+        "scheduled",
+        "live",
+        "final",
+        "delayed",
+        "postponed",
+        "canceled"
+      ],
+      "title": "GameStatus",
+      "type": "string"
+    },
+    "GroupRow": {
+      "additionalProperties": false,
+      "properties": {
+        "position": {
+          "anyOf": [
+            {
+              "maximum": 5,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "team": {
+          "$ref": "#/$defs/Opponent"
+        },
+        "wins": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "losses": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "gamesBehind": {
+          "anyOf": [
+            {
+              "pattern": "^\\d+\\.\\d$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "differential": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PerGameDifferential"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "total": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TotalDifferential"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "streak": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Streak"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pointsFor": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pointsAgainst": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "home": {
+          "anyOf": [
+            {
+              "pattern": "^\\d+-\\d+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "away": {
+          "anyOf": [
+            {
+              "pattern": "^\\d+-\\d+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "overtime": {
+          "anyOf": [
+            {
+              "pattern": "^\\d+-\\d+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "tag": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CupTag"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "position",
+        "team",
+        "wins",
+        "losses",
+        "gamesBehind",
+        "differential",
+        "total",
+        "streak",
+        "pointsFor",
+        "pointsAgainst",
+        "home",
+        "away",
+        "overtime",
+        "tag"
+      ],
+      "title": "GroupRow",
+      "type": "object"
+    },
+    "Opponent": {
+      "additionalProperties": false,
+      "description": "A team a game is played against: a league team or a guest.",
+      "properties": {
+        "code": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "city": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "guest": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "code",
+        "name",
+        "city",
+        "guest"
+      ],
+      "title": "Opponent",
+      "type": "object"
+    },
+    "PerGameDifferential": {
+      "additionalProperties": false,
+      "properties": {
+        "value": {
+          "pattern": "^([+\u2212]([1-9]\\d*\\.\\d|0\\.[1-9])|0\\.0)$",
+          "type": "string"
+        },
+        "nonNegative": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "value",
+        "nonNegative"
+      ],
+      "title": "PerGameDifferential",
+      "type": "object"
+    },
+    "Projection": {
+      "additionalProperties": false,
+      "properties": {
+        "team": {
+          "$ref": "#/$defs/Opponent"
+        },
+        "wins": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "losses": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "team",
+        "wins",
+        "losses"
+      ],
+      "title": "Projection",
+      "type": "object"
+    },
+    "Score": {
+      "additionalProperties": false,
+      "properties": {
+        "away": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "home": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "away",
+        "home"
+      ],
+      "title": "Score",
+      "type": "object"
+    },
+    "Side": {
+      "enum": [
+        "away",
+        "home"
+      ],
+      "title": "Side",
+      "type": "string"
+    },
+    "SlotId": {
+      "enum": [
+        "east-qf-1",
+        "east-qf-2",
+        "east-sf",
+        "final",
+        "west-sf",
+        "west-qf-1",
+        "west-qf-2"
+      ],
+      "title": "SlotId",
+      "type": "string"
+    },
+    "SlotLabel": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "$ref": "#/$defs/SlotLabelKey"
+        },
+        "conference": {
+          "$ref": "#/$defs/Conference"
+        },
+        "seed": {
+          "anyOf": [
+            {
+              "maximum": 3,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "quarterfinal": {
+          "anyOf": [
+            {
+              "maximum": 2,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "key",
+        "conference",
+        "seed",
+        "quarterfinal"
+      ],
+      "title": "SlotLabel",
+      "type": "object"
+    },
+    "SlotLabelKey": {
+      "enum": [
+        "seed",
+        "wild_card",
+        "quarterfinal_winner",
+        "semifinal_winner"
+      ],
+      "title": "SlotLabelKey",
+      "type": "string"
+    },
+    "SlotRule": {
+      "enum": [
+        "best_group_winner",
+        "second_best_group_winner",
+        "third_best_group_winner",
+        "best_non_winner",
+        "quarterfinal_winner",
+        "semifinal_winner"
+      ],
+      "title": "SlotRule",
+      "type": "string"
+    },
+    "SlotSide": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "$ref": "#/$defs/SlotLabel"
+        },
+        "rule": {
+          "$ref": "#/$defs/SlotRule"
+        },
+        "known": {
+          "type": "boolean"
+        },
+        "team": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Opponent"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "projected": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Projection"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "label",
+        "rule",
+        "known",
+        "team",
+        "projected"
+      ],
+      "title": "SlotSide",
+      "type": "object"
+    },
+    "StageCounts": {
+      "additionalProperties": false,
+      "properties": {
+        "all": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "group": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "quarterfinals": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "semifinals": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "championship": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "all",
+        "group",
+        "quarterfinals",
+        "semifinals",
+        "championship"
+      ],
+      "title": "StageCounts",
+      "type": "object"
+    },
+    "StageEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "stage": {
+          "$ref": "#/$defs/CupRound"
+        },
+        "status": {
+          "$ref": "#/$defs/StageStatus"
+        },
+        "firstDate": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "lastDate": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "stage",
+        "status",
+        "firstDate",
+        "lastDate"
+      ],
+      "title": "StageEntry",
+      "type": "object"
+    },
+    "StageStatus": {
+      "enum": [
+        "complete",
+        "in_progress",
+        "next",
+        "upcoming"
+      ],
+      "title": "StageStatus",
+      "type": "string"
+    },
+    "Streak": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/GameResult"
+        },
+        "count": {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "count"
+      ],
+      "title": "Streak",
+      "type": "object"
+    },
+    "TotalDifferential": {
+      "additionalProperties": false,
+      "properties": {
+        "value": {
+          "pattern": "^([+\u2212][1-9]\\d*|0)$",
+          "type": "string"
+        },
+        "nonNegative": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "value",
+        "nonNegative"
+      ],
+      "title": "TotalDifferential",
+      "type": "object"
+    },
+    "WildCardRow": {
+      "additionalProperties": false,
+      "properties": {
+        "rank": {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        "team": {
+          "$ref": "#/$defs/Opponent"
+        },
+        "group": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CupGroupName"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "wins": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "losses": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "total": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TotalDifferential"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pointsFor": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "tag": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CupTag"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "rank",
+        "team",
+        "group",
+        "wins",
+        "losses",
+        "total",
+        "pointsFor",
+        "tag"
+      ],
+      "title": "WildCardRow",
+      "type": "object"
+    },
+    "WildCardTable": {
+      "additionalProperties": false,
+      "properties": {
+        "conference": {
+          "$ref": "#/$defs/Conference"
+        },
+        "rows": {
+          "items": {
+            "$ref": "#/$defs/WildCardRow"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "conference",
+        "rows"
+      ],
+      "title": "WildCardTable",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "season": {
+      "pattern": "^\\d{4}-\\d{2}$",
+      "type": "string"
+    },
+    "drawn": {
+      "type": "boolean"
+    },
+    "stage": {
+      "$ref": "#/$defs/CupStage"
+    },
+    "firstGameDate": {
+      "anyOf": [
+        {
+          "format": "date",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "groupGamesPlayed": {
+      "maximum": 60,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "groupGamesTotal": {
+      "const": 60,
+      "type": "integer"
+    },
+    "champion": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Opponent"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "stages": {
+      "items": {
+        "$ref": "#/$defs/StageEntry"
+      },
+      "maxItems": 4,
+      "minItems": 4,
+      "type": "array"
+    },
+    "groups": {
+      "items": {
+        "$ref": "#/$defs/CupGroup"
+      },
+      "maxItems": 6,
+      "minItems": 6,
+      "type": "array"
+    },
+    "wildCard": {
+      "items": {
+        "$ref": "#/$defs/WildCardTable"
+      },
+      "maxItems": 2,
+      "minItems": 2,
+      "type": "array"
+    },
+    "bracket": {
+      "items": {
+        "$ref": "#/$defs/BracketSlot"
+      },
+      "maxItems": 7,
+      "minItems": 7,
+      "type": "array"
+    },
+    "games": {
+      "$ref": "#/$defs/CupGames"
+    }
+  },
+  "required": [
+    "season",
+    "drawn",
+    "stage",
+    "firstGameDate",
+    "groupGamesPlayed",
+    "groupGamesTotal",
+    "champion",
+    "stages",
+    "groups",
+    "wildCard",
+    "bracket",
+    "games"
+  ],
+  "title": "CupFeed",
+  "type": "object"
+}

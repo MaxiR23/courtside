@@ -8,6 +8,7 @@ export type Side = 'away' | 'home';
 export type InjuryStatus = 'out' | 'doubtful' | 'questionable' | 'probable' | 'day-to-day';
 export type GameResult = 'win' | 'loss';
 export type Conference = 'east' | 'west';
+export type CupRound = 'group' | 'quarterfinals' | 'semifinals' | 'championship';
 
 export interface GameDetailFeed {
 	id: string;
@@ -34,6 +35,7 @@ export interface GameDetailFeed {
 	seasonSeries: SeasonSeries | null;
 	highlights: Highlight[] | null;
 	highlightsSearchUrl: string | null;
+	cup: GameCup | null;
 }
 export interface Venue {
 	name: string;
@@ -250,4 +252,10 @@ export interface Highlight {
 	channel: string;
 	thumbnailUrl: string;
 	embedUrl: string;
+}
+/**
+ * The mark of a Cup game: the round it belongs to.
+ */
+export interface GameCup {
+	stage: CupRound;
 }

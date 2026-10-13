@@ -103,6 +103,8 @@ def clear_environment_variable(monkeypatch: pytest.MonkeyPatch) -> None:
             "player_stats_url",
             "team_info_url",
             "division_standings_url",
+            "cup_group_url",
+            "cup_group_standings_url",
             "highlights_source_url",
             "highlights_source_key",
             "video_embed_url",
@@ -642,3 +644,53 @@ def test_accepts_an_empty_player_or_team_url_as_unset(
     settings = SettingsWithoutEnvFile()
 
     assert all(getattr(settings, name) == "" for name in ALL_NEW_URLS.values())
+
+
+CUP_URLS = {
+    "CUP_GROUP_URL": "cup_group_url",
+    "CUP_GROUP_STANDINGS_URL": "cup_group_standings_url",
+}
+
+
+@pytest.mark.parametrize("variable", CUP_URLS)
+def test_accepts_a_cup_url_with_the_season_and_group_placeholders(
+    monkeypatch: pytest.MonkeyPatch, variable: str
+) -> None:
+    url = "https://example.com/{season}/groups/{group}"
+    monkeypatch.setenv(variable, url)
+
+    assert getattr(SettingsWithoutEnvFile(), CUP_URLS[variable]) == url
+
+
+@pytest.mark.parametrize("variable", CUP_URLS)
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://example.com/hidden/{season}",
+        "https://example.com/hidden/{group}",
+        "https://example.com/hidden/{season}/{group}/{team}",
+        "https://example.com/hidden/path",
+    ],
+)
+def test_rejects_a_cup_url_without_exactly_its_placeholders(
+    monkeypatch: pytest.MonkeyPatch, variable: str, url: str
+) -> None:
+    monkeypatch.setenv(variable, url)
+
+    with pytest.raises(ValidationError) as raised:
+        SettingsWithoutEnvFile()
+
+    assert "{group}" in str(raised.value)
+    assert "{season}" in str(raised.value)
+    assert "example.com/hidden" not in str(raised.value)
+
+
+@pytest.mark.parametrize("variable", CUP_URLS)
+def test_a_cup_url_is_unset_by_default_and_empty_counts_as_unset(
+    monkeypatch: pytest.MonkeyPatch, variable: str
+) -> None:
+    assert getattr(SettingsWithoutEnvFile(), CUP_URLS[variable]) is None
+
+    monkeypatch.setenv(variable, "")
+
+    assert getattr(SettingsWithoutEnvFile(), CUP_URLS[variable]) == ""

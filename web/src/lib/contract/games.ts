@@ -6,6 +6,7 @@
 export type GameStatus = 'scheduled' | 'live' | 'final' | 'delayed' | 'postponed' | 'canceled';
 export type Side = 'away' | 'home';
 export type StatsAvailability = 'available' | 'pending' | 'unavailable';
+export type CupRound = 'group' | 'quarterfinals' | 'semifinals' | 'championship';
 
 export interface GamesFeed {
 	generatedAt: string;
@@ -34,6 +35,7 @@ export interface Game {
 	teamStats: GameTeamStats | null;
 	statsAvailability: StatsAvailability | null;
 	highlightsSearchUrl: string | null;
+	cup: GameCup | null;
 }
 /**
  * A side of a game: one of the 30 teams, or a guest team outside the league.
@@ -99,4 +101,10 @@ export interface TeamStats {
 	rebounds: number;
 	assists: number;
 	turnovers: number;
+}
+/**
+ * The mark of a Cup game: the round it belongs to.
+ */
+export interface GameCup {
+	stage: CupRound;
 }

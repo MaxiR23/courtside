@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.jobs.cup_feed import CupFeeds
 from app.jobs.game_detail_feed import GameDetailFeeds
 from app.jobs.games import GamesJob
 from app.jobs.highlights import HighlightsJob
@@ -69,6 +70,7 @@ def create_app(settings: Settings | None = None, *, run_jobs: bool = True) -> Fa
         team_feeds = TeamFeeds(settings, store, client, feed_cache, games_job)
         StandingsFeeds(settings, store, client, feed_cache, games_job)
         SearchFeeds(settings, store, client, feed_cache, games_job, stars_job)
+        CupFeeds(settings, store, client, feed_cache, games_job, stars_job)
         player_feeds = PlayerFeeds(
             settings, store, client, feed_cache, games_job, stars_job, team_feeds
         )

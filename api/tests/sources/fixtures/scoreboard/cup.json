@@ -1,0 +1,311 @@
+{
+  "events": [
+    {
+      "id": "9000",
+      "date": "2026-10-05T23:00Z",
+      "status": {
+        "period": 0,
+        "displayClock": "0.0",
+        "type": {
+          "name": "STATUS_SCHEDULED"
+        }
+      },
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "State Farm Arena"
+          },
+          "broadcast": "",
+          "competitors": [
+            {
+              "homeAway": "home",
+              "score": "0",
+              "team": {
+                "abbreviation": "ATL",
+                "name": "Hawks",
+                "location": "Atlanta"
+              }
+            },
+            {
+              "homeAway": "away",
+              "score": "0",
+              "team": {
+                "abbreviation": "MEM",
+                "name": "Grizzlies",
+                "location": "Memphis"
+              }
+            }
+          ],
+          "notes": [
+            {
+              "headline": "NBA Cup - Group Play"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "9001",
+      "date": "2026-10-05T23:00Z",
+      "status": {
+        "period": 0,
+        "displayClock": "0.0",
+        "type": {
+          "name": "STATUS_SCHEDULED"
+        }
+      },
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "State Farm Arena"
+          },
+          "broadcast": "",
+          "competitors": [
+            {
+              "homeAway": "home",
+              "score": "0",
+              "team": {
+                "abbreviation": "ATL",
+                "name": "Hawks",
+                "location": "Atlanta"
+              }
+            },
+            {
+              "homeAway": "away",
+              "score": "0",
+              "team": {
+                "abbreviation": "MEM",
+                "name": "Grizzlies",
+                "location": "Memphis"
+              }
+            }
+          ],
+          "notes": [
+            {
+              "headline": "NBA Cup - Quarterfinals"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "9002",
+      "date": "2026-10-05T23:00Z",
+      "status": {
+        "period": 0,
+        "displayClock": "0.0",
+        "type": {
+          "name": "STATUS_SCHEDULED"
+        }
+      },
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "State Farm Arena"
+          },
+          "broadcast": "",
+          "competitors": [
+            {
+              "homeAway": "home",
+              "score": "0",
+              "team": {
+                "abbreviation": "ATL",
+                "name": "Hawks",
+                "location": "Atlanta"
+              }
+            },
+            {
+              "homeAway": "away",
+              "score": "0",
+              "team": {
+                "abbreviation": "MEM",
+                "name": "Grizzlies",
+                "location": "Memphis"
+              }
+            }
+          ],
+          "notes": [
+            {
+              "headline": "NBA Cup - Semifinals"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "9003",
+      "date": "2026-10-05T23:00Z",
+      "status": {
+        "period": 0,
+        "displayClock": "0.0",
+        "type": {
+          "name": "STATUS_SCHEDULED"
+        }
+      },
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "State Farm Arena"
+          },
+          "broadcast": "",
+          "competitors": [
+            {
+              "homeAway": "home",
+              "score": "0",
+              "team": {
+                "abbreviation": "ATL",
+                "name": "Hawks",
+                "location": "Atlanta"
+              }
+            },
+            {
+              "homeAway": "away",
+              "score": "0",
+              "team": {
+                "abbreviation": "MEM",
+                "name": "Grizzlies",
+                "location": "Memphis"
+              }
+            }
+          ],
+          "notes": [
+            {
+              "headline": "NBA Cup Championship"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "9004",
+      "date": "2026-10-05T23:00Z",
+      "status": {
+        "period": 0,
+        "displayClock": "0.0",
+        "type": {
+          "name": "STATUS_SCHEDULED"
+        }
+      },
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "State Farm Arena"
+          },
+          "broadcast": "",
+          "competitors": [
+            {
+              "homeAway": "home",
+              "score": "0",
+              "team": {
+                "abbreviation": "ATL",
+                "name": "Hawks",
+                "location": "Atlanta"
+              }
+            },
+            {
+              "homeAway": "away",
+              "score": "0",
+              "team": {
+                "abbreviation": "MEM",
+                "name": "Grizzlies",
+                "location": "Memphis"
+              }
+            }
+          ],
+          "notes": [
+            {
+              "headline": "Emirates NBA Cup"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "9005",
+      "date": "2026-10-05T23:00Z",
+      "status": {
+        "period": 0,
+        "displayClock": "0.0",
+        "type": {
+          "name": "STATUS_SCHEDULED"
+        }
+      },
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "State Farm Arena"
+          },
+          "broadcast": "",
+          "competitors": [
+            {
+              "homeAway": "home",
+              "score": "0",
+              "team": {
+                "abbreviation": "ATL",
+                "name": "Hawks",
+                "location": "Atlanta"
+              }
+            },
+            {
+              "homeAway": "away",
+              "score": "0",
+              "team": {
+                "abbreviation": "MEM",
+                "name": "Grizzlies",
+                "location": "Memphis"
+              }
+            }
+          ],
+          "notes": []
+        }
+      ]
+    },
+    {
+      "id": "9100",
+      "date": "2026-10-05T23:00Z",
+      "status": {
+        "period": 0,
+        "displayClock": "0.0",
+        "type": {
+          "name": "STATUS_SCHEDULED"
+        }
+      },
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "State Farm Arena"
+          },
+          "broadcast": "",
+          "competitors": [
+            {
+              "homeAway": "home",
+              "score": "0",
+              "team": {
+                "abbreviation": "ATL",
+                "name": "Hawks",
+                "location": "Atlanta"
+              }
+            },
+            {
+              "homeAway": "away",
+              "score": "0",
+              "team": {
+                "abbreviation": "MEM",
+                "name": "Grizzlies",
+                "location": "Memphis"
+              }
+            }
+          ],
+          "notes": [
+            {
+              "headline": "Rivalry night"
+            },
+            {
+              "headline": "NBA Cup - Semifinals"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

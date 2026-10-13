@@ -27,6 +27,9 @@
 # - Serves the search feed with Cache-Control and ETag, with 30 teams and every roster player, and answers 304 for a matching ETag
 # - Responds 503 with a JSON error for the search feed before the rosters are fetched or when the standings read fails with nothing stored, and keeps serving the stored feed when a rebuild fails
 #
+# - Serves the Cup feed with Cache-Control and ETag and answers 304 for a matching ETag
+# - Responds 503 with a JSON error for the Cup feed when a group read fails with nothing stored and before the season is known
+#
 # What is covered:
 # - Success response, documented failures (503, 404), edge case of an invalid publish
 #
@@ -45,6 +48,7 @@ import respx
 from fastapi import FastAPI, Request, Response
 from fastapi.testclient import TestClient
 
+from app.feeds.cup import CupFeed
 from app.feeds.game_detail import GameDetailFeed
 from app.feeds.games import GamesFeed, GameStatus, Star, Stars
 from app.feeds.player import PlayerFeed
@@ -68,6 +72,7 @@ from app.sources.standings import LeagueStandings
 from app.sources.team_schedule import TeamSchedule
 from app.storage.feeds import publish_by_id, publish_feed
 from app.storage.state import StateStore
+from tests.jobs.test_cup_feed import CupKit
 from tests.jobs.test_player_feed import PlayerKit
 from tests.jobs.test_search_feed import SearchKit
 from tests.jobs.test_standings_feed import StandingsKit
@@ -880,3 +885,65 @@ def test_keeps_serving_the_stored_search_feed_when_a_rebuild_fails(
 
     assert response.status_code == 200
     assert response.content == first.content
+
+
+class Cup:
+    """An app with the feeds router and the Cup kind over the Cup kit's fakes."""
+
+    def __init__(self, path: Path) -> None:
+        self.kit = CupKit(path)
+        self.app = FastAPI()
+        self.app.include_router(feeds_router.router)
+        self.app.state.settings = self.kit.settings
+        self.app.state.presence = Presence(clock=lambda: self.kit.clock[0])
+        self.app.state.games_job = self.kit.games
+        self.app.state.feed_cache = self.kit.cache
+
+
+@pytest.fixture
+def cup(tmp_path: Path) -> Iterator[Cup]:
+    with respx.mock:
+        yield Cup(tmp_path)
+
+
+def test_serves_the_cup_feed_with_cache_control_and_an_etag(cup: Cup) -> None:
+    with TestClient(cup.app) as client:
+        response = client.get("/feeds/cup.json")
+
+    assert response.status_code == 200
+    feed = CupFeed.model_validate_json(response.content)
+    assert feed.drawn and len(feed.groups) == 6
+    assert response.headers["content-type"] == "application/json"
+    assert response.headers["cache-control"] == CACHE_CONTROL
+    etag = response.headers["etag"]
+    assert etag.startswith('"') and etag.endswith('"')
+
+
+def test_responds_304_when_the_cup_etag_matches(cup: Cup) -> None:
+    with TestClient(cup.app) as client:
+        first = client.get("/feeds/cup.json")
+
+        response = client.get(
+            "/feeds/cup.json", headers={"If-None-Match": first.headers["etag"]}
+        )
+
+    assert response.status_code == 304
+    assert response.content == b""
+
+
+def test_responds_503_when_a_cup_group_read_fails_with_no_stored_feed(cup: Cup) -> None:
+    cup.kit.failing.add("table/eastA")
+    with TestClient(cup.app) as client:
+        response = client.get("/feeds/cup.json")
+
+    assert response.status_code == 503
+    assert isinstance(response.json()["detail"], str)
+
+
+def test_responds_503_before_the_season_is_known(cup: Cup) -> None:
+    cup.kit.stars.season = None
+    with TestClient(cup.app) as client:
+        response = client.get("/feeds/cup.json")
+
+    assert response.status_code == 503
+    assert cup.kit.calls == []

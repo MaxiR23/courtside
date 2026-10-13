@@ -14,10 +14,13 @@
 # the feed is stored at feeds/teams/{code}.json only when requested, it expires 1
 # hour after a final game of the team that follows the build and 7 days after the
 # build (rule G), and detailAvailable is set when it is served, from the games of
-# the days shown. Team feeds are never deleted.
+# the days shown. The feed carries the team's Cup group and record, read from
+# the six Cup group tables of the season, and none when no table has the team
+# or a read fails. Team feeds are never deleted.
 #
 # SEE: docs/api/team.md, docs/api/player.md, docs/source-rules.md, api/app/jobs/game_detail_feed.py
 
+import asyncio
 import datetime as dt
 import re
 from collections.abc import Awaitable, Callable, Iterable
@@ -30,11 +33,13 @@ from pydantic import ValidationError
 from app.feeds.game_detail import Conference, GameResult, InjuryStatus
 from app.feeds.player import GameKind, GameTag, NextGame, TagKind
 from app.feeds.team import (
+    CupGroupName,
     PlayoffPosition,
     PlayoffStatus,
     Schedule,
     SplitRecord,
     Streak,
+    TeamCup,
     TeamFeed,
 )
 from app.jobs.games import GamesJob
@@ -47,8 +52,9 @@ from app.sources import (
     team_players,
     team_schedule,
 )
+from app.sources.cup import GROUP_IDS, CupTable, fetch_group_table
 from app.sources.division_standings import DivisionEntry, DivisionStandings
-from app.sources.http import SourceClient
+from app.sources.http import SourceClient, SourceError
 from app.sources.league_injuries import LeagueInjuries
 from app.sources.team_info import TeamInfo
 from app.sources.team_players import (
@@ -76,6 +82,9 @@ FetchDivisionStandings = Callable[
 ]
 FetchInjuries = Callable[[SourceClient, Settings], Awaitable[LeagueInjuries]]
 FetchSeasonSchedule = Callable[..., Awaitable[SeasonSchedule]]
+FetchGroupTable = Callable[
+    [SourceClient, int, Conference, str, Settings], Awaitable[CupTable]
+]
 
 EASTERN = ZoneInfo("America/New_York")
 KG_PER_LB = 0.45359237
@@ -447,6 +456,7 @@ def build_team_feed(
     *,
     now: dt.datetime,
     detail_ids: AbstractSet[str],
+    cup: TeamCup | None = None,
 ) -> TeamFeed:
     """Build the team feed from the fetched data, or raise TeamBuildError."""
     entry = standings.teams.get(team_code)
@@ -505,6 +515,7 @@ def build_team_feed(
                     upcoming.game_id if upcoming else None,
                     ids,
                 ),
+                "cup": cup,
             }
         )
     except ValidationError as error:
@@ -553,6 +564,7 @@ class TeamFeeds:
         ),
         fetch_league_injuries: FetchInjuries = league_injuries.fetch_league_injuries,
         fetch_season_schedule: FetchSeasonSchedule = team_schedule.fetch_season_schedule,
+        fetch_group_table: FetchGroupTable = fetch_group_table,
     ) -> None:
         self._settings = settings
         self._store = store
@@ -565,6 +577,7 @@ class TeamFeeds:
         self._fetch_division_standings = fetch_division_standings
         self._fetch_league_injuries = fetch_league_injuries
         self._fetch_season_schedule = fetch_season_schedule
+        self._fetch_group_table = fetch_group_table
         cache.register(self.kind())
 
     def check(self, code: str) -> IdStatus:
@@ -594,7 +607,32 @@ class TeamFeeds:
             playoffs,
             now=self._client.clock(),
             detail_ids=self.detail_ids(),
+            cup=await self._cup(team, roster.season),
         )
+
+    async def _cup(self, team: str, season: int) -> TeamCup | None:
+        """The team's group and Cup record; none when no group table has the
+        team or a read fails: the Cup never fails the team feed."""
+        try:
+            tables = await asyncio.gather(
+                *(
+                    self._fetch_group_table(
+                        self._client, season, conference, letter, self._settings
+                    )
+                    for conference, letter in GROUP_IDS
+                )
+            )
+        except SourceError:
+            return None
+        for (conference, letter), table in zip(GROUP_IDS, tables, strict=True):
+            row = next((row for row in table.rows if row.code == team), None)
+            if row is not None:
+                return TeamCup(
+                    group=CupGroupName(conference=conference, letter=letter),  # type: ignore[arg-type]
+                    wins=row.wins,
+                    losses=row.losses,
+                )
+        return None
 
     def detail_ids(self) -> frozenset[str]:
         """The ids of the games of the days shown now."""

@@ -47,6 +47,7 @@
 # - The kind: a failed build answers unavailable and is not retried for 10 minutes
 # - The kind: a failed rebuild of a stale feed keeps and serves the stored feed
 # - The kind: the cleanup keeps every standard code
+# - The kind: the feed holds the team's Cup group and Cup record, read with the roster's season; null when no group table has the team, and null with the feed still built when a group table read fails
 #
 # What is covered:
 # - Pure conversions: happy path, edges and errors; the built feed validates
@@ -72,7 +73,7 @@ import respx
 from app.feeds.game_detail import Conference, GameResult, Injury, InjuryStatus
 from app.feeds.games import GameStatus, GameTeam, LineScore, Score
 from app.feeds.player import GameKind, GameTag, TagKind
-from app.feeds.team import PlayoffStatus, TeamFeed
+from app.feeds.team import CupGroupName, PlayoffStatus, TeamCup, TeamFeed
 from app.jobs.games import GamesJob
 from app.jobs.on_demand import (
     RETRY_AFTER,
@@ -105,6 +106,7 @@ from app.jobs.team_feed import (
     with_team_detail,
 )
 from app.settings import Settings
+from app.sources.cup import CupTable, CupTableRow
 from app.sources.division_standings import (
     DivisionEntry,
     DivisionStandings,
@@ -1173,6 +1175,8 @@ class TeamKit:
         self.scoreboard: dict[dt.date, list[ScoreboardGame]] = {}
         self.regular = EMPTY
         self.playoffs = EMPTY
+        self.group_tables: dict[tuple[Conference, str], CupTable] = {}
+        self.group_seasons: list[int] = []
         respx.get(url__startswith=SOURCE).mock(side_effect=self.answer)
         self.cache = FeedCache(path, self.store, clock=lambda: self.clock[0])
         self.games = GamesJob(
@@ -1197,7 +1201,22 @@ class TeamKit:
             fetch_division_standings=self.fetch_division_standings,
             fetch_league_injuries=self.fetch_league_injuries,
             fetch_season_schedule=self.fetch_season_schedule,
+            fetch_group_table=self.fetch_group_table,
         )
+
+    async def fetch_group_table(
+        self,
+        client: SourceClient,
+        season: int,
+        conference: Conference,
+        letter: str,
+        settings: Settings,
+    ) -> CupTable:
+        self.calls.append(f"cup/{conference.value}/{letter}")
+        self.group_seasons.append(season)
+        if "cup" in self.failing:
+            raise SourceError("test", "cup is down")
+        return self.group_tables.get((conference, letter), CupTable(rows=[]))
 
     def answer(self, request: httpx.Request) -> httpx.Response:
         self.requests.append(request.url.path.removeprefix("/source/"))
@@ -1496,3 +1515,63 @@ async def test_the_cleanup_keeps_every_standard_code(
     assert len(TEAM_IDS) == 30
     assert kit.store.feed_build_ids(KIND) == set(TEAM_IDS)
     assert all(read_by_id(tmp_path, KIND, code) is not None for code in TEAM_IDS)
+
+
+def cup_row(code: str, wins: int, losses: int) -> CupTableRow:
+    return CupTableRow(
+        code=code,
+        wins=wins,
+        losses=losses,
+        position=1,
+        games_behind=None,
+        differential=None,
+        point_differential=None,
+        points_for=None,
+        points_against=None,
+        streak=None,
+        ot_wins=None,
+        ot_losses=None,
+        clincher=None,
+        home=None,
+        road=None,
+    )
+
+
+@pytest.mark.anyio
+async def test_the_feed_holds_the_teams_cup_group_and_record_read_with_the_rosters_season(
+    kit: TeamKit,
+) -> None:
+    kit.group_tables[(Conference.WEST, "B")] = CupTable(
+        rows=[cup_row("LAL", 1, 0), cup_row("OKC", 3, 1)]
+    )
+
+    feed = TeamFeed.model_validate_json(await kit.serve("okc"))
+
+    assert feed.cup == TeamCup(
+        group=CupGroupName(conference=Conference.WEST, letter="B"), wins=3, losses=1
+    )
+    assert set(kit.group_seasons) == {2027}
+    assert len(kit.group_seasons) == 6
+
+
+@pytest.mark.anyio
+async def test_the_feed_has_no_cup_when_no_group_table_has_the_team(
+    kit: TeamKit,
+) -> None:
+    kit.group_tables[(Conference.WEST, "B")] = CupTable(rows=[cup_row("LAL", 1, 0)])
+
+    feed = TeamFeed.model_validate_json(await kit.serve("okc"))
+
+    assert feed.cup is None
+
+
+@pytest.mark.anyio
+async def test_a_failed_group_table_read_leaves_cup_null_and_the_feed_built(
+    kit: TeamKit,
+) -> None:
+    kit.failing.add("cup")
+
+    feed = TeamFeed.model_validate_json(await kit.serve("okc"))
+
+    assert feed.code == "OKC"
+    assert feed.cup is None

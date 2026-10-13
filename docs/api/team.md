@@ -38,12 +38,14 @@ The root is one team.
 | `injuries`   | `TeamInjury[]`       | Injury reports of the team                                | always, may be empty   |
 | `nextGame`   | `NextGame` / null    | The next game, as in the [player feed](player.md)         | null when none         |
 | `schedule`   | `Schedule` / null    | Games grouped for display                                 | null when no data      |
+| `cup`        | `TeamCup` / null     | The team's Cup group and Cup record of the season         | null when no Cup group table has the team, and when a Cup read fails |
 
 ## Nested objects
 
 | Object          | Fields                                                                                                                                      |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | `TeamColors`    | `primary`, `secondary`                                                                                                                      |
+| `TeamCup`       | `group`: `CupGroupName` (`conference`: `east`, `west`; `letter`: `A`, `B`, `C`), `wins`, `losses` (the Cup record, as in the [Cup feed](cup.md))  |
 | `Coach`         | `name`, `seasons` (null)                                                                                                                    |
 | `SplitRecord`   | `Record` fields (`wins`, `losses`) plus `winPct` (0 to 1)                                                                                   |
 | `TeamRecord`    | `SplitRecord` fields plus `season` (label of the standings season, such as `2025-26`; in the preseason it is the previous season), `home`, `away`, `lastTen`: `SplitRecord`; `streak`: `Streak` / null; `gamesBehind`: games behind the leader of the team's conference (0 for the leader), null before the team's first game; `conferenceRank` (1 to 15); `divisionRank` (1 to 5); `playoff`: `PlayoffPosition` / null before the first game or without a seed; `pointsFor`, `pointsAgainst`: `PointsTotal`; `differential`: `Differential` |

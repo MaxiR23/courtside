@@ -23,6 +23,8 @@ EXACT_PLACEHOLDERS: dict[str, frozenset[str]] = {
     "player_stats_url": frozenset({"player_id"}),
     "team_info_url": frozenset({"team"}),
     "division_standings_url": frozenset(),
+    "cup_group_url": frozenset({"season", "group"}),
+    "cup_group_standings_url": frozenset({"season", "group"}),
 }
 
 # Names of settings that no longer exist. A stale .env may still carry them,
@@ -74,6 +76,12 @@ class Settings(BaseSettings):
     # season. When the response is not of the regular season, the adapter adds
     # the season to its query.
     division_standings_url: str | None = None
+    # Template with {season}, the end year of the season, and {group}, the
+    # provider's group id: the teams collection of one Cup group.
+    cup_group_url: str | None = None
+    # Template with {season} and {group}: the Cup table (the standings item
+    # named "inseason") of one Cup group or Cup conference.
+    cup_group_standings_url: str | None = None
     # Listing of the official channel's uploads, without the key. The adapter
     # adds the page size and the page token.
     highlights_source_url: str | None = None

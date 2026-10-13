@@ -104,6 +104,7 @@ class StarsJob:
         self._roster_fetched: set[str] = set()
         self._roster_entries: dict[str, list[RosterEntry]] = {}
         self._latest_roster_fetch: dt.datetime | None = None
+        self._season: int | None = None
         self._stars: dict[str, Star] = store.stars()
         self._daily_fetched_at: dt.datetime | None = None
         self._pending: list[str] = []
@@ -129,6 +130,7 @@ class StarsJob:
 
     async def _update_team(self, code: str) -> None:
         roster = await self._fetch_roster(self._client, code, self._settings)
+        self._season = roster.season
         self._player_teams = {p: t for p, t in self._player_teams.items() if t != code}
         for member in roster.players:
             self._player_teams[member.player_id] = code
@@ -215,6 +217,10 @@ class StarsJob:
     def player_team(self, player_id: str) -> str | None:
         """The standard code of the team whose latest fetched roster lists the player."""
         return self._player_teams.get(player_id)
+
+    def current_season(self) -> int | None:
+        """The season (end year) of the latest fetched roster; none before the first."""
+        return self._season
 
     def rosters_ready(self) -> bool:
         """True once every team's roster has been fetched."""

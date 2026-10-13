@@ -6,7 +6,7 @@
 #
 # A team outside the 30 is a guest side with the provider's code when it sends
 # one. A side with neither a code nor a name is not a team: its game is skipped
-# (ADR 0026).
+# (ADR 0026). A game whose note names a Cup round carries the Cup mark.
 #
 # SEE: docs/api/games.md, docs/adr/0007-backend-runtime-and-data-pipeline.md
 
@@ -27,6 +27,7 @@ from pydantic.alias_generators import to_camel
 from app.feeds.games import (
     REQUIRED_BY_STATUS,
     FeedModel,
+    GameCup,
     GameStatus,
     GameTeam,
     LineScore,
@@ -35,6 +36,7 @@ from app.feeds.games import (
     UtcDatetime,
 )
 from app.settings import Settings
+from app.sources.cup import cup_round
 from app.sources.http import SourceClient, SourceError, get_json
 from app.sources.teams import to_opponent
 
@@ -96,9 +98,14 @@ class _ProviderStatus(_ProviderModel):
     type: _ProviderType
 
 
+class _ProviderNote(_ProviderModel):
+    headline: str | None = None
+
+
 class _ProviderCompetition(_ProviderModel):
     venue: _ProviderVenue | None = None
     broadcast: str | None = None
+    notes: list[_ProviderNote] = []
     competitors: list[_ProviderCompetitor]
 
 
@@ -127,6 +134,7 @@ class ScoreboardGame(FeedModel):
     clock: NonEmptyStr | None = None
     line_score: LineScore | None = None
     score: Score | None = None
+    cup: GameCup | None = None
 
     @model_validator(mode="after")
     def _require_fields_of_status(self) -> ScoreboardGame:
@@ -166,6 +174,15 @@ def _points(competitor: _ProviderCompetitor) -> list[int]:
     return [int(p.value) for p in periods]
 
 
+def _cup(competition: _ProviderCompetition) -> dict[str, Any] | None:
+    """The Cup mark of a game: the round of the first note that is a Cup note."""
+    for note in competition.notes:
+        stage = cup_round(note.headline)
+        if stage is not None:
+            return {"stage": stage}
+    return None
+
+
 def _map_event(event: _ProviderEvent) -> ScoreboardGame | None:
     if not event.competitions:
         raise SourceError(SOURCE, f"game {event.id} has no competition")
@@ -191,6 +208,7 @@ def _map_event(event: _ProviderEvent) -> ScoreboardGame | None:
         "start_time": event.date.astimezone(dt.UTC),
         "venue": competition.venue.full_name if competition.venue else None,
         "broadcast": competition.broadcast or None,
+        "cup": _cup(competition),
     }
     if status is GameStatus.LIVE:
         data["period"] = event.status.period or None
