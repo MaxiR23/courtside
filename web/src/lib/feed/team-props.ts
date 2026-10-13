@@ -11,6 +11,7 @@ import type {
 	TeamInjury,
 	TeamLeader
 } from '#lib/contract/team.ts';
+import { cupTeamLine } from '#lib/feed/cup-mark-props.ts';
 import { tipParts } from '#lib/feed/props.ts';
 import { formatDate, formatNumber } from '#lib/format/locale.ts';
 import type { InfoCell, InjuryTagStatus } from '#lib/game/types.ts';
@@ -168,6 +169,7 @@ function header(feed: TeamFeed): TeamHeaderView {
 			CONFERENCE_LONG[feed.conference](),
 			m.team_division({ division: feed.division })
 		].join(SEPARATOR),
+		cupLine: cupTeamLine(feed.cup),
 		colors: { primary: feed.colors.primary, secondary: feed.colors.secondary },
 		record: record(r),
 		winPct: percent(r.winPct),

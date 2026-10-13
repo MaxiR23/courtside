@@ -87,7 +87,8 @@
 						}
 					},
 					"statsAvailability": "available",
-					"highlightsSearchUrl": "https://example.com/search?q=highlights"
+					"highlightsSearchUrl": "https://example.com/search?q=highlights",
+					"cup": null
 				}
 			]
 		},
@@ -181,7 +182,8 @@
 						}
 					},
 					"statsAvailability": "available",
-					"highlightsSearchUrl": "https://example.com/search?q=highlights"
+					"highlightsSearchUrl": "https://example.com/search?q=highlights",
+					"cup": null
 				}
 			]
 		},
@@ -231,7 +233,8 @@
 					"leaders": null,
 					"teamStats": null,
 					"statsAvailability": null,
-					"highlightsSearchUrl": null
+					"highlightsSearchUrl": null,
+					"cup": null
 				},
 				{
 					"id": "g-live",
@@ -316,7 +319,8 @@
 						}
 					},
 					"statsAvailability": null,
-					"highlightsSearchUrl": null
+					"highlightsSearchUrl": null,
+					"cup": null
 				},
 				{
 					"id": "g-final",
@@ -414,7 +418,8 @@
 						}
 					},
 					"statsAvailability": "available",
-					"highlightsSearchUrl": "https://example.com/search?q=highlights"
+					"highlightsSearchUrl": "https://example.com/search?q=highlights",
+					"cup": null
 				},
 				{
 					"id": "g-delayed",
@@ -459,7 +464,8 @@
 					"leaders": null,
 					"teamStats": null,
 					"statsAvailability": null,
-					"highlightsSearchUrl": null
+					"highlightsSearchUrl": null,
+					"cup": null
 				},
 				{
 					"id": "g-postponed",
@@ -504,7 +510,8 @@
 					"leaders": null,
 					"teamStats": null,
 					"statsAvailability": null,
-					"highlightsSearchUrl": null
+					"highlightsSearchUrl": null,
+					"cup": null
 				},
 				{
 					"id": "g-canceled",
@@ -549,7 +556,8 @@
 					"leaders": null,
 					"teamStats": null,
 					"statsAvailability": null,
-					"highlightsSearchUrl": null
+					"highlightsSearchUrl": null,
+					"cup": null
 				}
 			]
 		},
@@ -639,7 +647,8 @@
 						}
 					},
 					"statsAvailability": null,
-					"highlightsSearchUrl": null
+					"highlightsSearchUrl": null,
+					"cup": null
 				},
 				{
 					"id": "g-nonet",
@@ -684,7 +693,8 @@
 					"leaders": null,
 					"teamStats": null,
 					"statsAvailability": null,
-					"highlightsSearchUrl": null
+					"highlightsSearchUrl": null,
+					"cup": null
 				}
 			]
 		},

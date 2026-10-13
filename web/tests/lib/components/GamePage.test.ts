@@ -47,6 +47,7 @@ const view: GameView = {
 	header: {
 		layout: 'live',
 		status: { state: 'live', text: 'Q3 · 4:12 · Chase Center' },
+		cupTag: null,
 		away: team('LAL', 'Lakers', 'Los Angeles', '12–5'),
 		home: team('GSW', 'Warriors', 'Golden State', '10–7'),
 		center: { kind: 'score', away: 63, home: 62, loser: null },
@@ -79,6 +80,7 @@ const postponed: GameView = {
 	header: {
 		layout: 'pre-game',
 		status: { state: 'postponed', text: 'Wednesday, October 7 · Chase Center' },
+		cupTag: null,
 		away: view.header.away,
 		home: view.header.home,
 		center: { kind: 'none' },

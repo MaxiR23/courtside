@@ -468,5 +468,8 @@
 	"cup_side_seed": "#{seed} seed",
 	"cup_card_hometown": "Hometown",
 	"cup_card_experience": "Experience",
-	"cup_matchup_loading": "Loading matchup"
+	"cup_matchup_loading": "Loading matchup",
+	"cup_mark_tag": "NBA Cup · {stage}",
+	"cup_stage_quarterfinal": "Quarterfinal",
+	"cup_stage_semifinal": "Semifinal"
 }

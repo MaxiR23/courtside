@@ -18,6 +18,7 @@
 //   every game tag; a null schedule
 // - The opponent of the next game and of a schedule row as a team and a side, for a league team and for a guest without a code
 // - Spanish copy
+// - The Cup mark: the header line, none for a null mark
 //
 // What is covered:
 // - Pure logic on a recorded feed (tests/lib/feed/fixtures/team.json); no clock, no network
@@ -43,6 +44,20 @@ const mariners = { code: null, name: 'Mariners', city: 'Harbor City', guest: tru
 
 afterEach(() => {
 	vi.restoreAllMocks();
+});
+
+describe('toTeamView Cup line', () => {
+	it('maps the Cup mark to the header line', () => {
+		const source = {
+			...feed(),
+			cup: { group: { conference: 'west' as const, letter: 'B' as const }, wins: 2, losses: 2 }
+		};
+		expect(view(source).header.cupLine).toEqual({ group: 'West Group B', record: '2-2' });
+	});
+
+	it('maps a null Cup mark to no line', () => {
+		expect(view().header.cupLine).toBeNull();
+	});
 });
 
 describe('toTeamView header', () => {

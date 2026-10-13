@@ -24,6 +24,7 @@
 // - A guest game without a code: a null code on the header, mini score, line score, win probability and box score teams; the guest named by its name in the win probability meta; stat leads and the loser from the feed sides
 // - Spanish copy and dates for an es browser
 // - A live game without its score cannot be shown
+// - The Cup mark: the header tag, none for a null mark
 //
 // What is covered:
 // - Pure logic on a recorded feed (tests/lib/feed/fixtures/game-detail.json); no clock, no network
@@ -77,6 +78,17 @@ const league = (code: string) => ({ code, name: null, city: null, guest: false }
 
 afterEach(() => {
 	vi.restoreAllMocks();
+});
+
+describe('toGameView with the Cup mark', () => {
+	it('maps the Cup mark to the header tag', () => {
+		const source = { ...feed(), cup: { stage: 'quarterfinals' as const } };
+		expect(view(source).header.cupTag).toBe('NBA Cup · Quarterfinal');
+	});
+
+	it('maps a null Cup mark to no tag', () => {
+		expect(view(feed()).header.cupTag).toBeNull();
+	});
 });
 
 describe('toGameView', () => {

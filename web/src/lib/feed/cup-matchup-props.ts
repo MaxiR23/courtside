@@ -13,7 +13,8 @@ import type {
 	PathRowView,
 	PlayerCardView
 } from '#lib/cup/types.ts';
-import { CONFERENCE_SHORT, ROUND_LABEL, slotLabel } from '#lib/feed/cup-props.ts';
+import { CONFERENCE_SHORT } from '#lib/feed/cup-mark-props.ts';
+import { ROUND_LABEL, slotLabel } from '#lib/feed/cup-props.ts';
 import { feedDate, injuryRow } from '#lib/feed/team-props.ts';
 import { formatNumber } from '#lib/format/locale.ts';
 import { m } from '#lib/paraglide/messages.js';

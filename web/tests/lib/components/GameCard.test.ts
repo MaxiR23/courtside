@@ -18,6 +18,7 @@
 // - The Game center link on open live, final, final without stats and scheduled cards, after the stats, notice or players to watch; none without detailHref or on a card that cannot expand; Spanish copy
 // - A guest without a code shows its initials in the tile and its name unlinked, and the loser dims from a side winner
 // - A guest team (outside the league): its monogram and name are never links, the league ones link on a card that cannot expand, no color strip is drawn, a scheduled panel shows only the league player to watch, a final panel shows the leaders, line score and team stats of both sides
+// - The Cup tag first in the center column on desktop and in the status line on mobile, none for a game without the mark, plain text inside the toggle, on a guest card too
 //
 // What is covered:
 // - Each card state on each row layout
@@ -38,18 +39,21 @@ const away = { code: 'GSW', name: 'Warriors', city: 'Golden State', guest: false
 const home = { code: 'LAL', name: 'Lakers', city: 'Los Angeles', guest: false };
 const scheduled: ScheduleGame = {
 	id: 's',
+	cupTag: null,
 	away,
 	home,
 	status: { state: 'scheduled', tipTime: '9:00', tipSuffix: 'PM ET', network: 'Courtside TV' }
 };
 const live: ScheduleGame = {
 	id: 'l',
+	cupTag: null,
 	away,
 	home,
 	status: { state: 'live', period: 'Q3', clock: '4:12', awayScore: 78, homeScore: 74 }
 };
 const final = (awayScore: number, homeScore: number, winner: 'away' | 'home'): ScheduleGame => ({
 	id: 'f',
+	cupTag: null,
 	away,
 	home,
 	status: { state: 'final', awayScore, homeScore, winner }
@@ -598,7 +602,7 @@ describe('GameCard game center link', () => {
 		render(GameCard, {
 			props: {
 				teamHref,
-				game: { id: 'd', away, home, status: { state: 'delayed' } },
+				game: { id: 'd', away, home, cupTag: null, status: { state: 'delayed' } },
 				layout: 'desktop',
 				detailHref: href
 			}
@@ -618,6 +622,7 @@ describe('GameCard game center link', () => {
 describe('GameCard with a delayed, postponed or canceled game', () => {
 	const inState = (state: 'delayed' | 'postponed' | 'canceled'): ScheduleGame => ({
 		id: state,
+		cupTag: null,
 		away,
 		home,
 		status: { state }
@@ -741,7 +746,13 @@ describe('GameCard with an unknown network', () => {
 
 describe('GameCard with a guest team', () => {
 	const guest = { code: 'HCM', name: 'Mariners', city: 'Harbor City', guest: true };
-	const delayed: ScheduleGame = { id: 'd', away: guest, home, status: { state: 'delayed' } };
+	const delayed: ScheduleGame = {
+		id: 'd',
+		away: guest,
+		home,
+		cupTag: null,
+		status: { state: 'delayed' }
+	};
 
 	it('keeps the guest monogram and name as plain text and links the league ones', () => {
 		for (const layout of ['desktop', 'mobile'] as const) {
@@ -800,7 +811,13 @@ describe('GameCard with a guest team without a code', () => {
 	const codeless = { code: null, name: 'Mariners', city: 'Harbor City', guest: true };
 
 	it('shows the initials of the guest in its tile and its name as plain text', () => {
-		const game: ScheduleGame = { id: 'c', away: codeless, home, status: { state: 'delayed' } };
+		const game: ScheduleGame = {
+			id: 'c',
+			away: codeless,
+			home,
+			cupTag: null,
+			status: { state: 'delayed' }
+		};
 		for (const layout of ['desktop', 'mobile'] as const) {
 			const { unmount } = render(GameCard, { props: { teamHref, game, layout } });
 			expect(screen.getByText('HM').classList.contains('team-monogram')).toBe(true);
@@ -831,5 +848,51 @@ describe('GameCard with a guest team without a code', () => {
 		});
 		expect(dimmedText(won.container).some((t) => t?.includes('Lakers'))).toBe(true);
 		expect(dimmedText(won.container).some((t) => t?.includes('Mariners'))).toBe(false);
+	});
+});
+
+describe('GameCard with the Cup mark', () => {
+	const tagged: ScheduleGame = { ...scheduled, cupTag: 'NBA Cup · Semifinal' };
+
+	it('shows the Cup tag above the status line on the desktop row', () => {
+		const { container } = render(GameCard, {
+			props: { teamHref, game: tagged, layout: 'desktop' }
+		});
+		const center = container.querySelector('.center');
+		expect(center?.firstElementChild?.classList.contains('cup-tag')).toBe(true);
+		expect(center?.firstElementChild?.textContent).toBe('NBA Cup · Semifinal');
+	});
+
+	it('shows the Cup tag first in the mobile status line', () => {
+		const { container } = render(GameCard, { props: { teamHref, game: tagged, layout: 'mobile' } });
+		const status = container.querySelector('.mobile-status');
+		expect(status?.firstElementChild?.classList.contains('cup-tag')).toBe(true);
+		expect(status?.firstElementChild?.textContent).toBe('NBA Cup · Semifinal');
+	});
+
+	it('shows no Cup tag on a game that is not a Cup game', () => {
+		for (const layout of ['desktop', 'mobile'] as const) {
+			const { container, unmount } = render(GameCard, {
+				props: { teamHref, game: scheduled, layout }
+			});
+			expect(container.querySelector('.cup-tag')).toBeNull();
+			unmount();
+		}
+	});
+
+	it('keeps the Cup tag plain text inside the toggle of a card with details', () => {
+		const game: ScheduleGame = { ...finalWithDetails, cupTag: 'NBA Cup · Group play' };
+		const { container } = render(GameCard, { props: { teamHref, game, layout: 'desktop' } });
+		const tag = container.querySelector('.cup-tag');
+		expect(tag?.closest('button')).not.toBeNull();
+		expect(tag?.closest('a')).toBeNull();
+		expect(tag?.querySelector('a')).toBeNull();
+	});
+
+	it('shows the Cup tag on a card with a guest team', () => {
+		const guestAway = { code: null, name: 'Mariners', city: 'Harbor City', guest: true };
+		const game: ScheduleGame = { ...tagged, away: guestAway };
+		const { container } = render(GameCard, { props: { teamHref, game, layout: 'desktop' } });
+		expect(container.querySelector('.cup-tag')?.textContent).toBe('NBA Cup · Semifinal');
 	});
 });

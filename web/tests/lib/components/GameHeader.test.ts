@@ -14,6 +14,7 @@
 // - Each team name in full, in its own level 1 heading
 // - A guest team: the monogram and name are plain text and no record is shown, on desktop and mobile
 // - A guest without a code shows the initials of its name in the monogram and its name as plain text, on desktop and mobile
+// - The Cup tag first in the status line, before the live badge, the date and the venue; none for a game without the mark
 //
 // What is covered:
 // - Each state the header shows
@@ -51,6 +52,7 @@ const venue = {
 const scheduled: GameHeaderView = {
 	layout: 'pre-game',
 	status: { state: 'scheduled', text: 'Wednesday, October 7 · Chase Center' },
+	cupTag: null,
 	away,
 	home,
 	center: {
@@ -66,6 +68,7 @@ const scheduled: GameHeaderView = {
 const live: GameHeaderView = {
 	layout: 'live',
 	status: { state: 'live', text: 'Q3 · 4:12 · Chase Center' },
+	cupTag: null,
 	away,
 	home,
 	center: { kind: 'score', away: 63, home: 62, loser: null },
@@ -75,6 +78,7 @@ const live: GameHeaderView = {
 const final: GameHeaderView = {
 	layout: 'final',
 	status: { state: 'final', text: 'Final · Wednesday, October 7 · Chase Center' },
+	cupTag: null,
 	away,
 	home,
 	center: { kind: 'score', away: 110, home: 98, loser: 'home' },
@@ -361,4 +365,26 @@ describe('GameHeader with a guest team without a code', () => {
 			expect(container.querySelectorAll('a[href^="/team/"]').length).toBeGreaterThan(0);
 		}
 	);
+});
+
+describe('GameHeader with the Cup mark', () => {
+	it('shows the Cup tag first in the status line, before the date and venue', () => {
+		const { container } = show({ ...scheduled, cupTag: 'NBA Cup · Group play' });
+		const line = container.querySelector('.status-line');
+		expect(line?.firstElementChild?.classList.contains('cup-tag')).toBe(true);
+		expect(line?.firstElementChild?.textContent).toBe('NBA Cup · Group play');
+		expect(line?.lastElementChild?.textContent).toBe('Wednesday, October 7 · Chase Center');
+	});
+
+	it('shows the Cup tag before the live badge on a live game', () => {
+		const { container } = show({ ...live, cupTag: 'NBA Cup · Championship' });
+		const line = container.querySelector('.status-line');
+		expect(line?.firstElementChild?.textContent).toBe('NBA Cup · Championship');
+		expect(line?.children.length).toBe(3);
+	});
+
+	it('shows no Cup tag on a game that is not a Cup game', () => {
+		const { container } = show(scheduled);
+		expect(container.querySelector('.cup-tag')).toBeNull();
+	});
 });

@@ -210,3 +210,4 @@ export type OpenCard = { side: 0 | 1; index: number };
 
 export type CupPageState =
 	{ kind: 'loading' } | { kind: 'unavailable' } | { kind: 'ready'; view: CupView };
+export type CupTeamLineView = { group: string; record: string }; // "East Group A", "3-1"

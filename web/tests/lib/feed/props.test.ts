@@ -15,6 +15,7 @@
 // - Minutes since the feed was generated, never negative
 // - Null network, no video platform name, no videos, a one-word display name
 // - A feed without seven days, and a live game without its fields or a final game without its winner or stats availability, cannot be shown
+// - The Cup mark of a game: the tag for each stage, none for a null mark
 //
 // What is covered:
 // - Pure logic on a recorded feed (tests/lib/feed/fixtures/games.json); no clock, no network
@@ -329,6 +330,26 @@ describe('toHomeView', () => {
 		const source = feed();
 		source.days[3].games[1].score = null;
 		expect(toHomeView(source, received, options)).toBeNull();
+	});
+});
+
+describe('toHomeView with the Cup mark', () => {
+	it('maps the Cup stage of each Cup game to its tag', () => {
+		const stages = [
+			['group', 'NBA Cup · Group play'],
+			['quarterfinals', 'NBA Cup · Quarterfinal'],
+			['semifinals', 'NBA Cup · Semifinal'],
+			['championship', 'NBA Cup · Championship']
+		] as const;
+		for (const [stage, tag] of stages) {
+			const source = feed();
+			source.days[3].games[0].cup = { stage };
+			expect(todayGame(view(source), 'g-sched').cupTag).toBe(tag);
+		}
+	});
+
+	it('maps a game with a null Cup mark to no tag', () => {
+		expect(todayGame(view(), 'g-sched').cupTag).toBeNull();
 	});
 });
 

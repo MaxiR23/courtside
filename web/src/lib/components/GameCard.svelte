@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { ResolvedPathname } from '$app/types';
 	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
+	import CupMarkTag from '#lib/components/CupMarkTag.svelte';
 	import Highlights from '#lib/components/Highlights.svelte';
 	import Leaders from '#lib/components/Leaders.svelte';
 	import LineScore from '#lib/components/LineScore.svelte';
@@ -100,6 +101,7 @@
 				</span>
 			</span>
 			<span class="center">
+				{#if game.cupTag}<CupMarkTag text={game.cupTag} />{/if}
 				{@render statusLine()}
 				{#if scores}
 					<span class="scores">
@@ -127,6 +129,7 @@
 		<span class="row mobile">
 			<span class="mobile-head">
 				<span class="mobile-status">
+					{#if game.cupTag}<CupMarkTag text={game.cupTag} />{/if}
 					{@render statusLine()}
 					{#if hidden}<span class="reveal">{m.schedule_tap_to_reveal()}</span>{/if}
 				</span>

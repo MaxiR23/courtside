@@ -415,5 +415,8 @@
 	"cup_side_seed": "Preclasificado {seed}",
 	"cup_card_hometown": "Ciudad natal",
 	"cup_card_experience": "Experiencia",
-	"cup_matchup_loading": "Cargando el cruce"
+	"cup_matchup_loading": "Cargando el cruce",
+	"cup_mark_tag": "Copa NBA · {stage}",
+	"cup_stage_quarterfinal": "Cuartos de final",
+	"cup_stage_semifinal": "Semifinal"
 }
