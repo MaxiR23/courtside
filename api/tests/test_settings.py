@@ -18,6 +18,7 @@
 # - Does not count an escaped placeholder
 # - Rejects a malformed template without showing it
 # - Accepts an empty template as unset
+# - Accepts, rejects and leaves unset the depth chart URL template
 # - Leaves the player photo URL unset by default
 # - Reads the player photo URL from an environment variable
 # - Leaves the team roster URL unset by default
@@ -105,6 +106,7 @@ def clear_environment_variable(monkeypatch: pytest.MonkeyPatch) -> None:
             "division_standings_url",
             "cup_group_url",
             "cup_group_standings_url",
+            "depth_chart_url",
             "highlights_source_url",
             "highlights_source_key",
             "video_embed_url",
@@ -694,3 +696,44 @@ def test_a_cup_url_is_unset_by_default_and_empty_counts_as_unset(
     monkeypatch.setenv(variable, "")
 
     assert getattr(SettingsWithoutEnvFile(), CUP_URLS[variable]) == ""
+
+
+def test_accepts_a_depth_chart_url_with_the_season_and_team_id_placeholders(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    url = "https://example.com/{season}/teams/{team_id}/depthcharts"
+    monkeypatch.setenv("DEPTH_CHART_URL", url)
+
+    assert SettingsWithoutEnvFile().depth_chart_url == url
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://example.com/hidden/{season}",
+        "https://example.com/hidden/{team_id}",
+        "https://example.com/hidden/{season}/{team_id}/{team}",
+        "https://example.com/hidden/path",
+    ],
+)
+def test_rejects_a_depth_chart_url_without_exactly_its_placeholders(
+    monkeypatch: pytest.MonkeyPatch, url: str
+) -> None:
+    monkeypatch.setenv("DEPTH_CHART_URL", url)
+
+    with pytest.raises(ValidationError) as raised:
+        SettingsWithoutEnvFile()
+
+    assert "{season}" in str(raised.value)
+    assert "{team_id}" in str(raised.value)
+    assert "example.com/hidden" not in str(raised.value)
+
+
+def test_the_depth_chart_url_is_unset_by_default_and_empty_counts_as_unset(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    assert SettingsWithoutEnvFile().depth_chart_url is None
+
+    monkeypatch.setenv("DEPTH_CHART_URL", "")
+
+    assert SettingsWithoutEnvFile().depth_chart_url == ""

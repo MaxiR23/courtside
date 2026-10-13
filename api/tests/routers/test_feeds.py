@@ -29,6 +29,9 @@
 #
 # - Serves the Cup feed with Cache-Control and ETag and answers 304 for a matching ETag
 # - Responds 503 with a JSON error for the Cup feed when a group read fails with nothing stored and before the season is known
+# - Serves a Cup matchup feed for each of the 7 slot ids with Cache-Control and ETag and answers 304 for a matching ETag
+# - Responds 404 with a JSON error for an id outside the 7 slots with no source request
+# - Responds 503 for a Cup matchup before the season is known and when a roster read fails with nothing stored
 #
 # What is covered:
 # - Success response, documented failures (503, 404), edge case of an invalid publish
@@ -48,7 +51,8 @@ import respx
 from fastapi import FastAPI, Request, Response
 from fastapi.testclient import TestClient
 
-from app.feeds.cup import CupFeed
+from app.feeds.cup import CupFeed, SlotId
+from app.feeds.cup_matchup import CupMatchupFeed
 from app.feeds.game_detail import GameDetailFeed
 from app.feeds.games import GamesFeed, GameStatus, Star, Stars
 from app.feeds.player import PlayerFeed
@@ -73,6 +77,7 @@ from app.sources.team_schedule import TeamSchedule
 from app.storage.feeds import publish_by_id, publish_feed
 from app.storage.state import StateStore
 from tests.jobs.test_cup_feed import CupKit
+from tests.jobs.test_cup_matchup_feed import MatchupKit
 from tests.jobs.test_player_feed import PlayerKit
 from tests.jobs.test_search_feed import SearchKit
 from tests.jobs.test_standings_feed import StandingsKit
@@ -947,3 +952,82 @@ def test_responds_503_before_the_season_is_known(cup: Cup) -> None:
 
     assert response.status_code == 503
     assert cup.kit.calls == []
+
+
+class Matchup:
+    """An app with the feeds router and the Cup matchup kind over the matchup kit's fakes."""
+
+    def __init__(self, path: Path) -> None:
+        self.kit = MatchupKit(path)
+        self.app = FastAPI()
+        self.app.include_router(feeds_router.router)
+        self.app.state.settings = self.kit.settings
+        self.app.state.presence = Presence(clock=lambda: self.kit.clock[0])
+        self.app.state.games_job = self.kit.games
+        self.app.state.feed_cache = self.kit.cache
+
+
+@pytest.fixture
+def matchup(tmp_path: Path) -> Iterator[Matchup]:
+    with respx.mock:
+        yield Matchup(tmp_path)
+
+
+@pytest.mark.parametrize("slot_id", [slot.value for slot in SlotId])
+def test_serves_a_matchup_feed_for_each_slot_with_cache_control_and_an_etag(
+    matchup: Matchup, slot_id: str
+) -> None:
+    with TestClient(matchup.app) as client:
+        response = client.get(f"/feeds/cup/matchups/{slot_id}.json")
+
+    assert response.status_code == 200
+    assert CupMatchupFeed.model_validate_json(response.content).id.value == slot_id
+    assert response.headers["content-type"] == "application/json"
+    assert response.headers["cache-control"] == CACHE_CONTROL
+    etag = response.headers["etag"]
+    assert etag.startswith('"') and etag.endswith('"')
+
+
+def test_responds_304_when_the_matchup_etag_matches(matchup: Matchup) -> None:
+    url = "/feeds/cup/matchups/east-qf-1.json"
+    with TestClient(matchup.app) as client:
+        first = client.get(url)
+
+        response = client.get(url, headers={"If-None-Match": first.headers["etag"]})
+
+    assert response.status_code == 304
+    assert response.content == b""
+
+
+@pytest.mark.parametrize("slot_id", ["east-qf-3", "league", "EAST-QF-1"])
+def test_responds_404_for_an_unknown_slot_id_with_no_source_request(
+    matchup: Matchup, slot_id: str
+) -> None:
+    with TestClient(matchup.app) as client:
+        response = client.get(f"/feeds/cup/matchups/{slot_id}.json")
+
+    assert response.status_code == 404
+    assert isinstance(response.json()["detail"], str)
+    assert matchup.kit.calls == []
+
+
+def test_responds_503_for_a_matchup_before_the_season_is_known(
+    matchup: Matchup,
+) -> None:
+    matchup.kit.stars.season = None
+    with TestClient(matchup.app) as client:
+        response = client.get("/feeds/cup/matchups/east-qf-1.json")
+
+    assert response.status_code == 503
+    assert matchup.kit.calls == []
+
+
+def test_responds_503_when_a_matchup_roster_read_fails_with_nothing_stored(
+    matchup: Matchup,
+) -> None:
+    matchup.kit.failing.add("roster/ATL")
+    with TestClient(matchup.app) as client:
+        response = client.get("/feeds/cup/matchups/east-qf-1.json")
+
+    assert response.status_code == 503
+    assert isinstance(response.json()["detail"], str)

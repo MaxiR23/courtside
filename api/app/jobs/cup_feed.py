@@ -162,7 +162,7 @@ class _Game:
         return eastern_date(self.start_time)
 
 
-def _status_of(game: ScheduledGame) -> GameStatus:
+def status_of(game: ScheduledGame) -> GameStatus:
     if game.completed and game.state == "post":
         return GameStatus.FINAL
     if game.state == "in":
@@ -194,7 +194,7 @@ def cup_games(schedules: Mapping[str, SeasonSchedule]) -> list[_Game]:
                 start_time=game.start_time,
                 home=home,
                 away=away,
-                status=_status_of(game),
+                status=status_of(game),
                 home_score=home_score,
                 away_score=away_score,
                 broadcast=game.broadcast,
@@ -765,6 +765,16 @@ class CupFeeds:
         ):
             return IdStatus.NOT_READY
         return IdStatus.KNOWN
+
+    def stored(self) -> CupFeed | None:
+        """The stored Cup feed, or none when missing or invalid."""
+        body = read_by_id(self._settings.data_dir, KIND, FEED_ID)
+        if body is None:
+            return None
+        try:
+            return CupFeed.model_validate_json(body)
+        except ValidationError:
+            return None
 
     async def build(self, feed_id: str) -> CupFeed:
         season = self._stars.current_season()

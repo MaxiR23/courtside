@@ -1,0 +1,101 @@
+{
+  "items": [
+    {
+      "name": "Base",
+      "positions": {
+        "pg": {
+          "athletes": [
+            {
+              "athlete": {
+                "$ref": "https://example.com/v2/seasons/2027/athletes/101?lang=en"
+              },
+              "slot": 1
+            },
+            {
+              "athlete": {
+                "$ref": "https://example.com/v2/seasons/2027/athletes/102?lang=en"
+              },
+              "slot": 1
+            },
+            {
+              "athlete": {
+                "$ref": "https://example.com/v2/seasons/2027/athletes/103?lang=en"
+              },
+              "slot": 1
+            }
+          ]
+        },
+        "sg": {
+          "athletes": [
+            {
+              "athlete": {
+                "$ref": "https://example.com/v2/seasons/2027/athletes/201?lang=en"
+              },
+              "slot": 1
+            },
+            {
+              "athlete": {
+                "$ref": "https://example.com/v2/seasons/2027/athletes/202?lang=en"
+              },
+              "slot": 1
+            }
+          ]
+        },
+        "sf": {
+          "athletes": [
+            {
+              "athlete": {
+                "$ref": "https://example.com/v2/seasons/2027/athletes/301?lang=en"
+              },
+              "slot": 1
+            },
+            {
+              "athlete": {
+                "$ref": "https://example.com/v2/seasons/2027/athletes/302?lang=en"
+              },
+              "slot": 1
+            },
+            {
+              "athlete": {
+                "$ref": "https://example.com/v2/seasons/2027/athletes/303?lang=en"
+              },
+              "slot": 1
+            }
+          ]
+        },
+        "pf": {
+          "athletes": [
+            {
+              "athlete": {
+                "$ref": "https://example.com/v2/seasons/2027/athletes/401?lang=en"
+              },
+              "slot": 1
+            },
+            {
+              "athlete": {
+                "$ref": "https://example.com/v2/seasons/2027/athletes/402?lang=en"
+              },
+              "slot": 1
+            }
+          ]
+        },
+        "c": {
+          "athletes": [
+            {
+              "athlete": {
+                "$ref": "https://example.com/v2/seasons/2027/athletes/501?lang=en"
+              },
+              "slot": 1
+            },
+            {
+              "athlete": {
+                "$ref": "https://example.com/v2/seasons/2027/athletes/502?lang=en"
+              },
+              "slot": 1
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

@@ -32,6 +32,7 @@
 # - The kind: a complete feed stays fresh past 7 days and after later final Cup games, and is stale once the season changes
 # - The kind: detailAvailable is set when served from the loaded games and not stored
 # - The kind: the cleanup keeps league
+# - The kind: it reads the stored feed, and none when missing or invalid
 #
 # What is covered:
 # - Pure conversions: happy path, edges and errors; the built feed validates
@@ -1115,3 +1116,17 @@ async def test_the_cleanup_keeps_league(kit: CupKit) -> None:
 
     assert kit.stored() is not None
     assert kit.store.feed_build_ids(KIND) == {FEED_ID}
+
+
+@pytest.mark.anyio
+async def test_the_kind_reads_the_stored_feed_and_none_when_missing_or_invalid(
+    kit: CupKit,
+) -> None:
+    assert kit.cup.stored() is None
+
+    await kit.serve()
+
+    stored = kit.cup.stored()
+    assert stored is not None and stored == kit.stored()
+    (kit.path / "feeds" / KIND / "league.json").write_text("{not json", "utf-8")
+    assert kit.cup.stored() is None
