@@ -1,0 +1,6 @@
+{
+  "format": {
+    "regulation": { "periods": 4, "clock": 720.0 },
+    "overtime": { "clock": 300.0 }
+  }
+}

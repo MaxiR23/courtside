@@ -18,6 +18,7 @@ from app.feeds.game_detail import GameDetailFeed
 from app.feeds.games import GamesFeed
 from app.feeds.player import PlayerFeed
 from app.feeds.playoffs import PlayoffsFeed
+from app.feeds.playoffs_finals import PlayoffsFinalsFeed
 from app.feeds.search import SearchFeed
 from app.feeds.standings import StandingsFeed
 from app.feeds.team import TeamFeed
@@ -34,6 +35,7 @@ FEEDS: dict[str, type[BaseModel]] = {
     "cup": CupFeed,
     "cup-matchup": CupMatchupFeed,
     "playoffs": PlayoffsFeed,
+    "playoffs-finals": PlayoffsFinalsFeed,
 }
 
 

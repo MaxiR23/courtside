@@ -1,0 +1,14 @@
+{
+  "format": {
+    "regulation": { "periods": 4, "clock": 720.0 },
+    "overtime": { "clock": 300.0 }
+  },
+  "plays": [
+    { "id": "1", "period": { "number": 1 }, "clock": { "displayValue": "12:00" } },
+    { "id": "2", "period": { "number": 1 }, "clock": { "displayValue": "11:30" }, "homeScore": 0, "awayScore": 2 },
+    { "id": "3", "period": { "number": 1 }, "clock": { "displayValue": "10:00" }, "homeScore": 3, "awayScore": 2 },
+    { "id": "4", "period": { "number": 2 }, "clock": { "displayValue": "bad" }, "homeScore": 9, "awayScore": 9 },
+    { "id": "5", "period": { "number": 4 }, "clock": { "displayValue": "0:00" }, "homeScore": 100, "awayScore": 100 },
+    { "id": "6", "period": { "number": 5 }, "clock": { "displayValue": "4:30" }, "homeScore": 102, "awayScore": 100 }
+  ]
+}

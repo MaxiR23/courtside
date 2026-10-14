@@ -19,6 +19,8 @@ from app.jobs.on_demand import FeedCache, FeedUnavailableError, UnknownFeedError
 from app.jobs.player_feed import KIND as PLAYER_KIND
 from app.jobs.playoffs_feed import FEED_ID as PLAYOFFS_ID
 from app.jobs.playoffs_feed import KIND as PLAYOFFS_KIND
+from app.jobs.playoffs_finals_feed import FEED_ID as FINALS_ID
+from app.jobs.playoffs_finals_feed import KIND as FINALS_KIND
 from app.jobs.search_feed import FEED_ID as SEARCH_ID
 from app.jobs.search_feed import KIND as SEARCH_KIND
 from app.jobs.standings_feed import FEED_ID as STANDINGS_ID
@@ -104,6 +106,22 @@ async def read_playoffs_feed(request: Request) -> Response:
     return await serve_on_demand(
         request.app.state.feed_cache, PLAYOFFS_KIND, PLAYOFFS_ID, request
     )
+
+
+@router.get("/feeds/playoffs/finals.json")
+async def read_playoffs_finals_feed(request: Request) -> Response:
+    feeds: FeedCache = request.app.state.feed_cache
+    loop = asyncio.get_running_loop()
+    started = loop.time()
+    budget = feeds.wait
+    try:
+        await feeds.serve(PLAYOFFS_KIND, PLAYOFFS_ID, wait=budget)
+    except FeedUnavailableError:
+        raise HTTPException(
+            status_code=503, detail="feed is not available yet"
+        ) from None
+    remaining = max(0.0, budget - (loop.time() - started))
+    return await serve_on_demand(feeds, FINALS_KIND, FINALS_ID, request, wait=remaining)
 
 
 @router.get("/feeds/cup/matchups/{slot_id}.json")
