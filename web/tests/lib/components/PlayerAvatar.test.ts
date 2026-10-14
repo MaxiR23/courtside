@@ -6,7 +6,7 @@
 // - A lazy image with the name as its alt text
 // - Initials with no photo, and after the image fails to load
 // - A new photo URL tries again after a failure
-// - The roster, leader, search and cup-card size classes
+// - The roster, leader, search, cup-card, playoffs-avatar and playoffs-card size classes
 //
 // What is covered:
 // - Each state the avatar shows, plus the error event
@@ -89,5 +89,20 @@ describe('PlayerAvatar', () => {
 			props: { name: 'A B', photo: null, size: 'cup-card' }
 		});
 		expect(container.querySelector('.avatar')?.classList.contains('cup-card')).toBe(true);
+	});
+
+	it('uses the playoffs-card size class', () => {
+		const { container } = render(PlayerAvatar, {
+			props: { name: 'A B', photo: null, size: 'playoffs-card' }
+		});
+		expect(container.querySelector('.avatar')?.classList.contains('playoffs-card')).toBe(true);
+	});
+
+	it('uses the playoffs-avatar size class and shows initials without a photo', () => {
+		const { container } = render(PlayerAvatar, {
+			props: { name: 'Ada Byrne', photo: null, size: 'playoffs-avatar' }
+		});
+		expect(container.querySelector('.avatar')?.classList.contains('playoffs-avatar')).toBe(true);
+		expect(screen.getByRole('img', { name: 'Ada Byrne' }).textContent).toBe('AB');
 	});
 });

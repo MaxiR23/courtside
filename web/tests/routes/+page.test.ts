@@ -220,11 +220,11 @@ describe('home page with a feed', () => {
 		expect(within(final).queryByText('Highlights')).toBeNull();
 	});
 
-	it('shows Games current, then Standings, Cup, then the date in the nav row', async () => {
+	it('shows Games current, then Standings, Cup, Playoffs, then the date in the nav row', async () => {
 		stubFetch(answerWith(recorded()));
 		const { container } = await renderPage();
 		const links = container.querySelector('nav .links') as HTMLElement;
-		const [games, standings, cup] = [...links.querySelectorAll('a')];
+		const [games, standings, cup, playoffs] = [...links.querySelectorAll('a')];
 		expect(games.textContent?.trim()).toBe('Games');
 		expect(games.getAttribute('aria-current')).toBe('page');
 		expect(games.getAttribute('href')).toBe('/#schedule');
@@ -234,7 +234,10 @@ describe('home page with a feed', () => {
 		expect(cup.textContent?.trim()).toBe('Cup');
 		expect(cup.getAttribute('href')).toBe('/cup');
 		expect(cup.getAttribute('aria-current')).toBeNull();
-		expect(links.children[3]?.tagName).toBe('TIME');
+		expect(playoffs.textContent?.trim()).toBe('Playoffs');
+		expect(playoffs.getAttribute('href')).toBe('/playoffs');
+		expect(playoffs.getAttribute('aria-current')).toBeNull();
+		expect(links.children[4]?.tagName).toBe('TIME');
 	});
 
 	it('toggles spoiler-free mode from the nav row', async () => {

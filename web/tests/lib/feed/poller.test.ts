@@ -13,6 +13,7 @@
 // - teamPollInterval: 60 s; a FeedPoller with it polls again after 60 s, pauses while hidden
 // - standingsPollInterval: 60 s; a FeedPoller with it polls again after 60 s, pauses while hidden
 // - cupPollInterval: 60 s; a FeedPoller with it polls again after 60 s, pauses while hidden
+// - playoffsPollInterval: 60 s
 // - playerPollInterval: 30 s while live, 60 s otherwise; slows down when live turns null
 //
 // What is covered:
@@ -35,6 +36,7 @@ import {
 	IDLE_POLL_MS,
 	LIVE_POLL_MS,
 	playerPollInterval,
+	playoffsPollInterval,
 	pollInterval,
 	standingsPollInterval,
 	teamPollInterval
@@ -439,5 +441,11 @@ describe('cupPollInterval', () => {
 		page.set('visible');
 		await vi.advanceTimersByTimeAsync(0);
 		expect(load).toHaveBeenCalledTimes(2);
+	});
+});
+
+describe('playoffsPollInterval', () => {
+	it('is 60 s', () => {
+		expect(playoffsPollInterval()).toBe(IDLE_POLL_MS);
 	});
 });

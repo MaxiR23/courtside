@@ -318,6 +318,8 @@ To add to `web/src/lib/styles/tokens.css` in the implementing issue. Values not 
 | `--playoffs-wp-height` | 120px | Win probability viewBox |
 | `--playoffs-leader-value-size` | `clamp(56px, 7vw, 84px)` | Leader value |
 | `--playoffs-avatar-size` | 30px | Averages table photo |
+| `--playoffs-tab-rule` | 2px | Active game tab rule |
+| `--playoffs-card-photo-size` | 96px | Finals MVP and award card photo |
 | `--playoffs-world-width` | 1400px | Desktop world |
 | `--playoffs-world-height` | 650px | Desktop world |
 | `--playoffs-column-width` | 176px | Bracket column |
@@ -394,6 +396,7 @@ Mapped to existing tokens: the divider is `--color-divider`; accent text is `--c
 | `playoffs_largest_deficit` | Largest deficit: {n} | Mayor desventaja: {n} |
 | `playoffs_game_page` | Game page → | Página del partido → |
 | `playoffs_road` | Road to the title | El camino al título |
+| `playoffs_road_opponent_seed` | #{seed} | n.º {seed} |
 | `playoffs_road_seed` | #{seed} seed · {record} | Cabeza de serie {seed} · {record} |
 | `playoffs_round_1` | Round 1 | Ronda 1 |
 | `playoffs_round_2` | Conference semifinals | Semifinales de conferencia |

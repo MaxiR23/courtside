@@ -1,0 +1,1400 @@
+{
+	"season": "2026-27",
+	"state": "playin",
+	"postseasonDates": {
+		"firstDate": "2027-04-14",
+		"lastDate": "2027-06-19"
+	},
+	"currentRound": null,
+	"finalsGame": null,
+	"finalsSummary": null,
+	"stages": [
+		{
+			"stage": "playin",
+			"status": "in_progress",
+			"firstDate": "2027-04-14",
+			"lastDate": "2027-04-17"
+		},
+		{
+			"stage": "round_1",
+			"status": "next",
+			"firstDate": null,
+			"lastDate": null
+		},
+		{
+			"stage": "round_2",
+			"status": "upcoming",
+			"firstDate": null,
+			"lastDate": null
+		},
+		{
+			"stage": "round_3",
+			"status": "upcoming",
+			"firstDate": null,
+			"lastDate": null
+		},
+		{
+			"stage": "finals",
+			"status": "upcoming",
+			"firstDate": null,
+			"lastDate": null
+		}
+	],
+	"picture": [
+		{
+			"conference": "east",
+			"rows": [
+				{
+					"seed": 1,
+					"team": {
+						"code": "QXA",
+						"name": "Owls",
+						"city": "Harbor",
+						"guest": false,
+						"colors": {
+							"primary": "#1d4e89",
+							"secondary": "#f2c14e"
+						}
+					},
+					"wins": 56,
+					"losses": 26,
+					"gamesBehind": null,
+					"clinch": "z",
+					"line": null
+				},
+				{
+					"seed": 2,
+					"team": {
+						"code": "QXB",
+						"name": "Foxes",
+						"city": "Marsh",
+						"guest": false,
+						"colors": {
+							"primary": "#8c1c13",
+							"secondary": "#e8e0d0"
+						}
+					},
+					"wins": 52,
+					"losses": 30,
+					"gamesBehind": "2.0",
+					"clinch": "y",
+					"line": null
+				},
+				{
+					"seed": 3,
+					"team": {
+						"code": "QXC",
+						"name": "Herons",
+						"city": "Lake",
+						"guest": false,
+						"colors": {
+							"primary": "#2a6f4e",
+							"secondary": "#d9d9d9"
+						}
+					},
+					"wins": 48,
+					"losses": 34,
+					"gamesBehind": "4.0",
+					"clinch": "x",
+					"line": null
+				},
+				{
+					"seed": 4,
+					"team": {
+						"code": "QXD",
+						"name": "Lynxes",
+						"city": "Ridge",
+						"guest": false,
+						"colors": {
+							"primary": "#5a2a82",
+							"secondary": "#c0c0c0"
+						}
+					},
+					"wins": 44,
+					"losses": 38,
+					"gamesBehind": "6.0",
+					"clinch": null,
+					"line": null
+				},
+				{
+					"seed": 5,
+					"team": {
+						"code": "QXE",
+						"name": "Otters",
+						"city": "Delta",
+						"guest": false,
+						"colors": {
+							"primary": "#0b6e99",
+							"secondary": "#f5f5f5"
+						}
+					},
+					"wins": 40,
+					"losses": 42,
+					"gamesBehind": "8.0",
+					"clinch": null,
+					"line": null
+				},
+				{
+					"seed": 6,
+					"team": {
+						"code": "QXF",
+						"name": "Badgers",
+						"city": "Quarry",
+						"guest": false,
+						"colors": {
+							"primary": "#333333",
+							"secondary": "#f0a830"
+						}
+					},
+					"wins": 36,
+					"losses": 46,
+					"gamesBehind": "10.0",
+					"clinch": null,
+					"line": "playoffs"
+				},
+				{
+					"seed": 7,
+					"team": {
+						"code": "QXG",
+						"name": "Falcons",
+						"city": "Mesa",
+						"guest": false,
+						"colors": {
+							"primary": "#a4262c",
+							"secondary": "#101820"
+						}
+					},
+					"wins": 32,
+					"losses": 50,
+					"gamesBehind": "12.0",
+					"clinch": null,
+					"line": null
+				},
+				{
+					"seed": 8,
+					"team": {
+						"code": "QXH",
+						"name": "Bison",
+						"city": "Prairie",
+						"guest": false,
+						"colors": {
+							"primary": "#6b4423",
+							"secondary": "#e0c097"
+						}
+					},
+					"wins": 28,
+					"losses": 54,
+					"gamesBehind": "14.0",
+					"clinch": null,
+					"line": null
+				},
+				{
+					"seed": 9,
+					"team": {
+						"code": "QXI",
+						"name": "Cranes",
+						"city": "Bay",
+						"guest": false,
+						"colors": {
+							"primary": "#1b998b",
+							"secondary": "#2d3047"
+						}
+					},
+					"wins": 24,
+					"losses": 58,
+					"gamesBehind": "16.0",
+					"clinch": "pb",
+					"line": null
+				},
+				{
+					"seed": 10,
+					"team": {
+						"code": "QXJ",
+						"name": "Stags",
+						"city": "Glen",
+						"guest": false,
+						"colors": {
+							"primary": "#7d4e57",
+							"secondary": "#d2b48c"
+						}
+					},
+					"wins": 20,
+					"losses": 62,
+					"gamesBehind": "18.0",
+					"clinch": "e",
+					"line": "playin"
+				}
+			]
+		},
+		{
+			"conference": "west",
+			"rows": [
+				{
+					"seed": 1,
+					"team": {
+						"code": "QYA",
+						"name": "Wolves",
+						"city": "Summit",
+						"guest": false,
+						"colors": {
+							"primary": "#2e4057",
+							"secondary": "#f6ae2d"
+						}
+					},
+					"wins": 56,
+					"losses": 26,
+					"gamesBehind": null,
+					"clinch": "z",
+					"line": null
+				},
+				{
+					"seed": 2,
+					"team": {
+						"code": "QYB",
+						"name": "Hawks",
+						"city": "Canyon",
+						"guest": false,
+						"colors": {
+							"primary": "#c1272d",
+							"secondary": "#ffffff"
+						}
+					},
+					"wins": 52,
+					"losses": 30,
+					"gamesBehind": "2.0",
+					"clinch": "y",
+					"line": null
+				},
+				{
+					"seed": 3,
+					"team": {
+						"code": "QYC",
+						"name": "Rams",
+						"city": "Valley",
+						"guest": false,
+						"colors": {
+							"primary": "#0f4c5c",
+							"secondary": "#e36414"
+						}
+					},
+					"wins": 48,
+					"losses": 34,
+					"gamesBehind": "4.0",
+					"clinch": "x",
+					"line": null
+				},
+				{
+					"seed": 4,
+					"team": {
+						"code": "QYD",
+						"name": "Pumas",
+						"city": "Dune",
+						"guest": false,
+						"colors": {
+							"primary": "#9a031e",
+							"secondary": "#fb8b24"
+						}
+					},
+					"wins": 44,
+					"losses": 38,
+					"gamesBehind": "6.0",
+					"clinch": null,
+					"line": null
+				},
+				{
+					"seed": 5,
+					"team": {
+						"code": "QYE",
+						"name": "Orcas",
+						"city": "Cove",
+						"guest": false,
+						"colors": {
+							"primary": "#114b5f",
+							"secondary": "#e4fde1"
+						}
+					},
+					"wins": 40,
+					"losses": 42,
+					"gamesBehind": "8.0",
+					"clinch": null,
+					"line": null
+				},
+				{
+					"seed": 6,
+					"team": {
+						"code": "QYF",
+						"name": "Moose",
+						"city": "Timber",
+						"guest": false,
+						"colors": {
+							"primary": "#4a5240",
+							"secondary": "#c9ada7"
+						}
+					},
+					"wins": 36,
+					"losses": 46,
+					"gamesBehind": "10.0",
+					"clinch": null,
+					"line": "playoffs"
+				},
+				{
+					"seed": 7,
+					"team": {
+						"code": "QYG",
+						"name": "Lions",
+						"city": "Savanna",
+						"guest": false,
+						"colors": {
+							"primary": "#b5651d",
+							"secondary": "#222222"
+						}
+					},
+					"wins": 32,
+					"losses": 50,
+					"gamesBehind": "12.0",
+					"clinch": null,
+					"line": null
+				},
+				{
+					"seed": 8,
+					"team": {
+						"code": "QYH",
+						"name": "Seals",
+						"city": "Pier",
+						"guest": false,
+						"colors": {
+							"primary": "#3d5a80",
+							"secondary": "#e0fbfc"
+						}
+					},
+					"wins": 28,
+					"losses": 54,
+					"gamesBehind": "14.0",
+					"clinch": null,
+					"line": null
+				},
+				{
+					"seed": 9,
+					"team": {
+						"code": "QYI",
+						"name": "Crows",
+						"city": "Hollow",
+						"guest": false,
+						"colors": {
+							"primary": "#22223b",
+							"secondary": "#c9ada7"
+						}
+					},
+					"wins": 24,
+					"losses": 58,
+					"gamesBehind": "16.0",
+					"clinch": "pb",
+					"line": null
+				},
+				{
+					"seed": 10,
+					"team": {
+						"code": "QYJ",
+						"name": "Bears",
+						"city": "Pine",
+						"guest": false,
+						"colors": {
+							"primary": "#5f0f40",
+							"secondary": "#fb8b24"
+						}
+					},
+					"wins": 20,
+					"losses": 62,
+					"gamesBehind": "18.0",
+					"clinch": "e",
+					"line": "playin"
+				}
+			]
+		}
+	],
+	"playIn": [
+		{
+			"conference": "east",
+			"games": [
+				{
+					"kind": "seven_eight",
+					"top": {
+						"label": {
+							"key": "place",
+							"place": 7,
+							"game": null
+						},
+						"team": {
+							"code": "QXG",
+							"name": "Falcons",
+							"city": "Mesa",
+							"guest": false,
+							"colors": {
+								"primary": "#a4262c",
+								"secondary": "#101820"
+							}
+						},
+						"currently": null
+					},
+					"bottom": {
+						"label": {
+							"key": "place",
+							"place": 8,
+							"game": null
+						},
+						"team": {
+							"code": "QXH",
+							"name": "Bison",
+							"city": "Prairie",
+							"guest": false,
+							"colors": {
+								"primary": "#6b4423",
+								"secondary": "#e0c097"
+							}
+						},
+						"currently": null
+					},
+					"game": {
+						"id": "g1",
+						"date": "2027-04-14",
+						"startTime": "2027-04-14T23:30:00Z",
+						"away": {
+							"code": "QXH",
+							"name": "Bison",
+							"city": "Prairie",
+							"guest": false
+						},
+						"home": {
+							"code": "QXG",
+							"name": "Falcons",
+							"city": "Mesa",
+							"guest": false
+						},
+						"status": "final",
+						"score": {
+							"away": 101,
+							"home": 108
+						},
+						"winner": "home",
+						"overtime": false,
+						"venue": "Example Arena",
+						"broadcast": null,
+						"detailAvailable": false
+					},
+					"outcome": {
+						"seed": 7,
+						"loserOut": false
+					}
+				},
+				{
+					"kind": "nine_ten",
+					"top": {
+						"label": {
+							"key": "place",
+							"place": 9,
+							"game": null
+						},
+						"team": {
+							"code": "QXI",
+							"name": "Cranes",
+							"city": "Bay",
+							"guest": false,
+							"colors": {
+								"primary": "#1b998b",
+								"secondary": "#2d3047"
+							}
+						},
+						"currently": null
+					},
+					"bottom": {
+						"label": {
+							"key": "place",
+							"place": 10,
+							"game": null
+						},
+						"team": {
+							"code": "QXJ",
+							"name": "Stags",
+							"city": "Glen",
+							"guest": false,
+							"colors": {
+								"primary": "#7d4e57",
+								"secondary": "#d2b48c"
+							}
+						},
+						"currently": null
+					},
+					"game": {
+						"id": "g2",
+						"date": "2027-04-14",
+						"startTime": "2027-04-14T23:30:00Z",
+						"away": {
+							"code": "QXJ",
+							"name": "Stags",
+							"city": "Glen",
+							"guest": false
+						},
+						"home": {
+							"code": "QXI",
+							"name": "Cranes",
+							"city": "Bay",
+							"guest": false
+						},
+						"status": "final",
+						"score": {
+							"away": 99,
+							"home": 97
+						},
+						"winner": "away",
+						"overtime": true,
+						"venue": "Example Arena",
+						"broadcast": null,
+						"detailAvailable": false
+					},
+					"outcome": {
+						"seed": null,
+						"loserOut": true
+					}
+				},
+				{
+					"kind": "eighth_seed",
+					"top": {
+						"label": {
+							"key": "loser_of",
+							"place": null,
+							"game": "seven_eight"
+						},
+						"team": {
+							"code": "QXH",
+							"name": "Bison",
+							"city": "Prairie",
+							"guest": false,
+							"colors": {
+								"primary": "#6b4423",
+								"secondary": "#e0c097"
+							}
+						},
+						"currently": null
+					},
+					"bottom": {
+						"label": {
+							"key": "winner_of",
+							"place": null,
+							"game": "nine_ten"
+						},
+						"team": {
+							"code": "QXJ",
+							"name": "Stags",
+							"city": "Glen",
+							"guest": false,
+							"colors": {
+								"primary": "#7d4e57",
+								"secondary": "#d2b48c"
+							}
+						},
+						"currently": null
+					},
+					"game": {
+						"id": "g3",
+						"date": "2027-04-17",
+						"startTime": "2027-04-17T23:30:00Z",
+						"away": {
+							"code": "QXJ",
+							"name": "Stags",
+							"city": "Glen",
+							"guest": false
+						},
+						"home": {
+							"code": "QXH",
+							"name": "Bison",
+							"city": "Prairie",
+							"guest": false
+						},
+						"status": "scheduled",
+						"score": null,
+						"winner": null,
+						"overtime": false,
+						"venue": "Example Arena",
+						"broadcast": null,
+						"detailAvailable": false
+					},
+					"outcome": null
+				}
+			]
+		},
+		{
+			"conference": "west",
+			"games": [
+				{
+					"kind": "seven_eight",
+					"top": {
+						"label": {
+							"key": "place",
+							"place": 7,
+							"game": null
+						},
+						"team": null,
+						"currently": null
+					},
+					"bottom": {
+						"label": {
+							"key": "place",
+							"place": 8,
+							"game": null
+						},
+						"team": null,
+						"currently": null
+					},
+					"game": null,
+					"outcome": null
+				},
+				{
+					"kind": "nine_ten",
+					"top": {
+						"label": {
+							"key": "place",
+							"place": 9,
+							"game": null
+						},
+						"team": null,
+						"currently": null
+					},
+					"bottom": {
+						"label": {
+							"key": "place",
+							"place": 10,
+							"game": null
+						},
+						"team": null,
+						"currently": null
+					},
+					"game": null,
+					"outcome": null
+				},
+				{
+					"kind": "eighth_seed",
+					"top": {
+						"label": {
+							"key": "loser_of",
+							"place": null,
+							"game": "seven_eight"
+						},
+						"team": null,
+						"currently": null
+					},
+					"bottom": {
+						"label": {
+							"key": "winner_of",
+							"place": null,
+							"game": "nine_ten"
+						},
+						"team": null,
+						"currently": null
+					},
+					"game": null,
+					"outcome": null
+				}
+			]
+		}
+	],
+	"bracket": [
+		{
+			"id": "east-r1-1",
+			"round": 1,
+			"conference": "east",
+			"top": {
+				"label": {
+					"key": "seed",
+					"conference": "east",
+					"seed": 1,
+					"series": null
+				},
+				"team": null,
+				"seed": null,
+				"wins": null,
+				"currently": null
+			},
+			"bottom": {
+				"label": {
+					"key": "playin_winner",
+					"conference": "east",
+					"seed": 8,
+					"series": null
+				},
+				"team": null,
+				"seed": null,
+				"wins": null,
+				"currently": null
+			},
+			"status": "upcoming",
+			"summary": null,
+			"winner": null,
+			"games": []
+		},
+		{
+			"id": "east-r1-2",
+			"round": 1,
+			"conference": "east",
+			"top": {
+				"label": {
+					"key": "seed",
+					"conference": "east",
+					"seed": 4,
+					"series": null
+				},
+				"team": null,
+				"seed": null,
+				"wins": null,
+				"currently": null
+			},
+			"bottom": {
+				"label": {
+					"key": "seed",
+					"conference": "east",
+					"seed": 5,
+					"series": null
+				},
+				"team": null,
+				"seed": null,
+				"wins": null,
+				"currently": null
+			},
+			"status": "upcoming",
+			"summary": null,
+			"winner": null,
+			"games": []
+		},
+		{
+			"id": "east-r1-3",
+			"round": 1,
+			"conference": "east",
+			"top": {
+				"label": {
+					"key": "seed",
+					"conference": "east",
+					"seed": 3,
+					"series": null
+				},
+				"team": null,
+				"seed": null,
+				"wins": null,
+				"currently": null
+			},
+			"bottom": {
+				"label": {
+					"key": "seed",
+					"conference": "east",
+					"seed": 6,
+					"series": null
+				},
+				"team": null,
+				"seed": null,
+				"wins": null,
+				"currently": null
+			},
+			"status": "upcoming",
+			"summary": null,
+			"winner": null,
+			"games": []
+		},
+		{
+			"id": "east-r1-4",
+			"round": 1,
+			"conference": "east",
+			"top": {
+				"label": {
+					"key": "seed",
+					"conference": "east",
+					"seed": 2,
+					"series": null
+				},
+				"team": null,
+				"seed": null,
+				"wins": null,
+				"currently": null
+			},
+			"bottom": {
+				"label": {
+					"key": "playin_winner",
+					"conference": "east",
+					"seed": 7,
+					"series": null
+				},
+				"team": null,
+				"seed": null,
+				"wins": null,
+				"currently": null
+			},
+			"status": "upcoming",
+			"summary": null,
+			"winner": null,
+			"games": []
+		},
+		{
+			"id": "east-r2-1",
+			"round": 2,
+			"conference": "east",
+			"top": {
+				"label": {
+					"key": "round_1_winner",
+					"conference": "east",
+					"seed": null,
+					"series": 1
+				},
+				"team": null,
+				"seed": null,
+				"wins": null,
+				"currently": null
+			},
+			"bottom": {
+				"label": {
+					"key": "round_1_winner",
+					"conference": "east",
+					"seed": null,
+					"series": 2
+				},
+				"team": null,
+				"seed": null,
+				"wins": null,
+				"currently": null
+			},
+			"status": "upcoming",
+			"summary": null,
+			"winner": null,
+			"games": []
+		},
+		{
+			"id": "east-r2-2",
+			"round": 2,
+			"conference": "east",
+			"top": {
+				"label": {
+					"key": "round_1_winner",
+					"conference": "east",
+					"seed": null,
+					"series": 3
+				},
+				"team": null,
+				"seed": null,
+				"wins": null,
+				"currently": null
+			},
+			"bottom": {
+				"label": {
+					"key": "round_1_winner",
+					"conference": "east",
+					"seed": null,
+					"series": 4
+				},
+				"team": null,
+				"seed": null,
+				"wins": null,
+				"currently": null
+			},
+			"status": "upcoming",
+			"summary": null,
+			"winner": null,
+			"games": []
+		},
+		{
+			"id": "east-r3",
+			"round": 3,
+			"conference": "east",
+			"top": {
+				"label": {
+					"key": "round_2_winner",
+					"conference": "east",
+					"seed": null,
+					"series": 1
+				},
+				"team": null,
+				"seed": null,
+				"wins": null,
+				"currently": null
+			},
+			"bottom": {
+				"label": {
+					"key": "round_2_winner",
+					"conference": "east",
+					"seed": null,
+					"series": 2
+				},
+				"team": null,
+				"seed": null,
+				"wins": null,
+				"currently": null
+			},
+			"status": "upcoming",
+			"summary": null,
+			"winner": null,
+			"games": []
+		},
+		{
+			"id": "finals",
+			"round": 4,
+			"conference": null,
+			"top": {
+				"label": {
+					"key": "round_3_winner",
+					"conference": "east",
+					"seed": null,
+					"series": null
+				},
+				"team": null,
+				"seed": null,
+				"wins": null,
+				"currently": null
+			},
+			"bottom": {
+				"label": {
+					"key": "round_3_winner",
+					"conference": "west",
+					"seed": null,
+					"series": null
+				},
+				"team": null,
+				"seed": null,
+				"wins": null,
+				"currently": null
+			},
+			"status": "upcoming",
+			"summary": null,
+			"winner": null,
+			"games": []
+		},
+		{
+			"id": "west-r3",
+			"round": 3,
+			"conference": "west",
+			"top": {
+				"label": {
+					"key": "round_2_winner",
+					"conference": "west",
+					"seed": null,
+					"series": 1
+				},
+				"team": null,
+				"seed": null,
+				"wins": null,
+				"currently": null
+			},
+			"bottom": {
+				"label": {
+					"key": "round_2_winner",
+					"conference": "west",
+					"seed": null,
+					"series": 2
+				},
+				"team": null,
+				"seed": null,
+				"wins": null,
+				"currently": null
+			},
+			"status": "upcoming",
+			"summary": null,
+			"winner": null,
+			"games": []
+		},
+		{
+			"id": "west-r2-1",
+			"round": 2,
+			"conference": "west",
+			"top": {
+				"label": {
+					"key": "round_1_winner",
+					"conference": "west",
+					"seed": null,
+					"series": 1
+				},
+				"team": null,
+				"seed": null,
+				"wins": null,
+				"currently": null
+			},
+			"bottom": {
+				"label": {
+					"key": "round_1_winner",
+					"conference": "west",
+					"seed": null,
+					"series": 2
+				},
+				"team": null,
+				"seed": null,
+				"wins": null,
+				"currently": null
+			},
+			"status": "upcoming",
+			"summary": null,
+			"winner": null,
+			"games": []
+		},
+		{
+			"id": "west-r2-2",
+			"round": 2,
+			"conference": "west",
+			"top": {
+				"label": {
+					"key": "round_1_winner",
+					"conference": "west",
+					"seed": null,
+					"series": 3
+				},
+				"team": null,
+				"seed": null,
+				"wins": null,
+				"currently": null
+			},
+			"bottom": {
+				"label": {
+					"key": "round_1_winner",
+					"conference": "west",
+					"seed": null,
+					"series": 4
+				},
+				"team": null,
+				"seed": null,
+				"wins": null,
+				"currently": null
+			},
+			"status": "upcoming",
+			"summary": null,
+			"winner": null,
+			"games": []
+		},
+		{
+			"id": "west-r1-1",
+			"round": 1,
+			"conference": "west",
+			"top": {
+				"label": {
+					"key": "seed",
+					"conference": "west",
+					"seed": 1,
+					"series": null
+				},
+				"team": null,
+				"seed": null,
+				"wins": null,
+				"currently": null
+			},
+			"bottom": {
+				"label": {
+					"key": "playin_winner",
+					"conference": "west",
+					"seed": 8,
+					"series": null
+				},
+				"team": null,
+				"seed": null,
+				"wins": null,
+				"currently": null
+			},
+			"status": "upcoming",
+			"summary": null,
+			"winner": null,
+			"games": []
+		},
+		{
+			"id": "west-r1-2",
+			"round": 1,
+			"conference": "west",
+			"top": {
+				"label": {
+					"key": "seed",
+					"conference": "west",
+					"seed": 4,
+					"series": null
+				},
+				"team": null,
+				"seed": null,
+				"wins": null,
+				"currently": null
+			},
+			"bottom": {
+				"label": {
+					"key": "seed",
+					"conference": "west",
+					"seed": 5,
+					"series": null
+				},
+				"team": null,
+				"seed": null,
+				"wins": null,
+				"currently": null
+			},
+			"status": "upcoming",
+			"summary": null,
+			"winner": null,
+			"games": []
+		},
+		{
+			"id": "west-r1-3",
+			"round": 1,
+			"conference": "west",
+			"top": {
+				"label": {
+					"key": "seed",
+					"conference": "west",
+					"seed": 3,
+					"series": null
+				},
+				"team": null,
+				"seed": null,
+				"wins": null,
+				"currently": null
+			},
+			"bottom": {
+				"label": {
+					"key": "seed",
+					"conference": "west",
+					"seed": 6,
+					"series": null
+				},
+				"team": null,
+				"seed": null,
+				"wins": null,
+				"currently": null
+			},
+			"status": "upcoming",
+			"summary": null,
+			"winner": null,
+			"games": []
+		},
+		{
+			"id": "west-r1-4",
+			"round": 1,
+			"conference": "west",
+			"top": {
+				"label": {
+					"key": "seed",
+					"conference": "west",
+					"seed": 2,
+					"series": null
+				},
+				"team": null,
+				"seed": null,
+				"wins": null,
+				"currently": null
+			},
+			"bottom": {
+				"label": {
+					"key": "playin_winner",
+					"conference": "west",
+					"seed": 7,
+					"series": null
+				},
+				"team": null,
+				"seed": null,
+				"wins": null,
+				"currently": null
+			},
+			"status": "upcoming",
+			"summary": null,
+			"winner": null,
+			"games": []
+		}
+	],
+	"champion": null,
+	"leaders": [
+		{
+			"category": "points",
+			"leaders": [
+				{
+					"rank": 1,
+					"playerId": "p00",
+					"name": "Leader points 1",
+					"photoUrl": "https://cdn.example.com/p/00.png",
+					"teamCode": "QXA",
+					"value": "30.0"
+				},
+				{
+					"rank": 2,
+					"playerId": "p01",
+					"name": "Leader points 2",
+					"photoUrl": null,
+					"teamCode": "QYA",
+					"value": "28.1"
+				},
+				{
+					"rank": 3,
+					"playerId": "p02",
+					"name": "Leader points 3",
+					"photoUrl": "https://cdn.example.com/p/02.png",
+					"teamCode": "QXA",
+					"value": "26.2"
+				}
+			]
+		},
+		{
+			"category": "rebounds",
+			"leaders": [
+				{
+					"rank": 1,
+					"playerId": "p10",
+					"name": "Leader rebounds 1",
+					"photoUrl": "https://cdn.example.com/p/10.png",
+					"teamCode": "QXA",
+					"value": "30.0"
+				},
+				{
+					"rank": 2,
+					"playerId": "p11",
+					"name": "Leader rebounds 2",
+					"photoUrl": null,
+					"teamCode": "QYA",
+					"value": "28.1"
+				},
+				{
+					"rank": 3,
+					"playerId": "p12",
+					"name": "Leader rebounds 3",
+					"photoUrl": "https://cdn.example.com/p/12.png",
+					"teamCode": "QXA",
+					"value": "26.2"
+				},
+				{
+					"rank": 4,
+					"playerId": "p13",
+					"name": "Leader rebounds 4",
+					"photoUrl": null,
+					"teamCode": "QYA",
+					"value": "24.3"
+				},
+				{
+					"rank": 5,
+					"playerId": "p14",
+					"name": "Leader rebounds 5",
+					"photoUrl": "https://cdn.example.com/p/14.png",
+					"teamCode": "QXA",
+					"value": "22.4"
+				}
+			]
+		},
+		{
+			"category": "assists",
+			"leaders": []
+		},
+		{
+			"category": "steals",
+			"leaders": [
+				{
+					"rank": 1,
+					"playerId": "p30",
+					"name": "Leader steals 1",
+					"photoUrl": "https://cdn.example.com/p/30.png",
+					"teamCode": "QXA",
+					"value": "30.0"
+				}
+			]
+		},
+		{
+			"category": "blocks",
+			"leaders": [
+				{
+					"rank": 1,
+					"playerId": "p40",
+					"name": "Leader blocks 1",
+					"photoUrl": "https://cdn.example.com/p/40.png",
+					"teamCode": "QXA",
+					"value": "30.0"
+				}
+			]
+		},
+		{
+			"category": "field_goal_pct",
+			"leaders": [
+				{
+					"rank": 1,
+					"playerId": "p50",
+					"name": "Leader field_goal_pct 1",
+					"photoUrl": "https://cdn.example.com/p/50.png",
+					"teamCode": "QXA",
+					"value": "30.0"
+				}
+			]
+		},
+		{
+			"category": "threes_made",
+			"leaders": [
+				{
+					"rank": 1,
+					"playerId": "p60",
+					"name": "Leader threes_made 1",
+					"photoUrl": "https://cdn.example.com/p/60.png",
+					"teamCode": "QXA",
+					"value": "30.0"
+				}
+			]
+		},
+		{
+			"category": "double_doubles",
+			"leaders": [
+				{
+					"rank": 1,
+					"playerId": "p70",
+					"name": "Leader double_doubles 1",
+					"photoUrl": "https://cdn.example.com/p/70.png",
+					"teamCode": "QXA",
+					"value": "30.0"
+				}
+			]
+		},
+		{
+			"category": "minutes",
+			"leaders": [
+				{
+					"rank": 1,
+					"playerId": "p80",
+					"name": "Leader minutes 1",
+					"photoUrl": "https://cdn.example.com/p/80.png",
+					"teamCode": "QXA",
+					"value": "30.0"
+				}
+			]
+		}
+	],
+	"awards": [
+		{
+			"code": "mvp",
+			"team": null,
+			"winners": [
+				{
+					"playerId": "a1",
+					"name": "Ada Byrne",
+					"photoUrl": null,
+					"teamCode": "QXA"
+				}
+			]
+		},
+		{
+			"code": "all_nba",
+			"team": 1,
+			"winners": [
+				{
+					"playerId": "a2",
+					"name": "Cy Dunn",
+					"photoUrl": "https://cdn.example.com/p/a2.png",
+					"teamCode": "QXA"
+				},
+				{
+					"playerId": "a3",
+					"name": "Eli Fox",
+					"photoUrl": "https://cdn.example.com/p/a3.png",
+					"teamCode": "QYA"
+				},
+				{
+					"playerId": "a4",
+					"name": "Gus Hale",
+					"photoUrl": null,
+					"teamCode": "QXB"
+				},
+				{
+					"playerId": "a5",
+					"name": "Ivo Jett",
+					"photoUrl": "https://cdn.example.com/p/a5.png",
+					"teamCode": "QYB"
+				}
+			]
+		}
+	]
+}

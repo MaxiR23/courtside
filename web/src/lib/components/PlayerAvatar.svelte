@@ -4,7 +4,7 @@
 	type Props = {
 		name: string;
 		photo: string | null;
-		size: 'roster' | 'leader' | 'search' | 'cup-card';
+		size: 'roster' | 'leader' | 'search' | 'cup-card' | 'playoffs-avatar' | 'playoffs-card';
 	};
 
 	let { name, photo, size }: Props = $props();
@@ -52,6 +52,16 @@
 	.cup-card {
 		width: var(--cup-card-photo-size);
 		height: var(--cup-card-photo-size);
+	}
+
+	.playoffs-card {
+		width: var(--playoffs-card-photo-size);
+		height: var(--playoffs-card-photo-size);
+	}
+
+	.playoffs-avatar {
+		width: var(--playoffs-avatar-size);
+		height: var(--playoffs-avatar-size);
 	}
 
 	img {
