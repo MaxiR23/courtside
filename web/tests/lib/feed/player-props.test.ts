@@ -13,6 +13,7 @@
 // - The milestones, the game log filters and rows (with the opponent drawn after the date, and a Preseason filter listed last), the awards
 // - The opponent as a team and a side: the next game, the live card, the last 5 rows and the game log, for a league team and for a guest without a code
 // - Spanish copy
+// - The All-Star tag of the header from allStarYear, none for null and for a recorded feed without the key
 //
 // What is covered:
 // - Pure logic on a recorded feed (tests/lib/feed/fixtures/player.json); no clock, no network
@@ -565,5 +566,16 @@ describe('toPlayerView in Spanish', () => {
 		expect(result.header.injury?.updated).toBe('Actualizado 7 oct · 15:15 ET');
 		expect(result.sections.profile.cells[5]?.value).toBe('2018 · Ronda 1 · Elección 11');
 		expect(result.sections.profile.live?.clock).toBe('C3 · 4:12');
+	});
+});
+
+describe('toPlayerView with the All-Star year', () => {
+	it('maps the year to the header tag', () => {
+		expect(view({ ...feed(), allStarYear: 2027 }).header.allStarTag).toBe('All-Star 2027');
+	});
+
+	it('gives no tag for null and for the recorded feed without the key', () => {
+		expect(view({ ...feed(), allStarYear: null }).header.allStarTag).toBeNull();
+		expect(view().header.allStarTag).toBeNull();
 	});
 });

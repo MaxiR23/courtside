@@ -20,6 +20,8 @@
 // - A guest team (outside the league): its monogram and name are never links, the league ones link on a card that cannot expand, no color strip is drawn, a scheduled panel shows only the league player to watch, a final panel shows the leaders, line score and team stats of both sides
 // - The Cup tag first in the center column on desktop and in the status line on mobile, none for a game without the mark, plain text inside the toggle, on a guest card too
 // - The postseason mark (tag, context line, stakes flag) on a scheduled, a live and a final game on desktop and on the mobile row, none for a regular game, and the Cup tag unchanged for a Cup game
+// - The All-Star mark (tag and round) before the status line on the desktop row and first in the mobile status row, the solid tag for the Championship, none for a game without the mark
+// - A guest side without a city shows no city and its tile is not a link
 //
 // What is covered:
 // - Each card state on each row layout
@@ -42,6 +44,7 @@ const scheduled: ScheduleGame = {
 	id: 's',
 	cupTag: null,
 	postseasonMark: null,
+	allStarMark: null,
 	away,
 	home,
 	status: { state: 'scheduled', tipTime: '9:00', tipSuffix: 'PM ET', network: 'Courtside TV' }
@@ -50,6 +53,7 @@ const live: ScheduleGame = {
 	id: 'l',
 	cupTag: null,
 	postseasonMark: null,
+	allStarMark: null,
 	away,
 	home,
 	status: { state: 'live', period: 'Q3', clock: '4:12', awayScore: 78, homeScore: 74 }
@@ -58,6 +62,7 @@ const final = (awayScore: number, homeScore: number, winner: 'away' | 'home'): S
 	id: 'f',
 	cupTag: null,
 	postseasonMark: null,
+	allStarMark: null,
 	away,
 	home,
 	status: { state: 'final', awayScore, homeScore, winner }
@@ -612,6 +617,7 @@ describe('GameCard game center link', () => {
 					home,
 					cupTag: null,
 					postseasonMark: null,
+					allStarMark: null,
 					status: { state: 'delayed' }
 				},
 				layout: 'desktop',
@@ -635,6 +641,7 @@ describe('GameCard with a delayed, postponed or canceled game', () => {
 		id: state,
 		cupTag: null,
 		postseasonMark: null,
+		allStarMark: null,
 		away,
 		home,
 		status: { state }
@@ -764,6 +771,7 @@ describe('GameCard with a guest team', () => {
 		home,
 		cupTag: null,
 		postseasonMark: null,
+		allStarMark: null,
 		status: { state: 'delayed' }
 	};
 
@@ -830,6 +838,7 @@ describe('GameCard with a guest team without a code', () => {
 			home,
 			cupTag: null,
 			postseasonMark: null,
+			allStarMark: null,
 			status: { state: 'delayed' }
 		};
 		for (const layout of ['desktop', 'mobile'] as const) {
@@ -968,5 +977,77 @@ describe('GameCard with the postseason mark', () => {
 			container.querySelector('.center')?.firstElementChild?.classList.contains('cup-tag')
 		).toBe(true);
 		expect(container.querySelector('.postseason-mark')).toBeNull();
+	});
+});
+
+describe('GameCard with the All-Star mark', () => {
+	const mark = { tag: 'All-Star', context: 'Round Robin', championship: false };
+	const stripes = { code: 'STR', name: 'Team Stripes', city: null, guest: true };
+	const waves = { code: 'WAV', name: 'Team Waves', city: null, guest: true };
+	const allStar: ScheduleGame = {
+		...scheduled,
+		away: stripes,
+		home: waves,
+		allStarMark: mark
+	};
+
+	it('draws the tag and the round before the status line on the desktop row', () => {
+		const { container } = render(GameCard, {
+			props: { teamHref, game: allStar, layout: 'desktop' }
+		});
+		const center = container.querySelector('.center');
+		expect(center?.firstElementChild?.classList.contains('allstar-mark')).toBe(true);
+		expect(center?.querySelector('.allstar-tag')?.textContent).toBe('All-Star');
+		expect(center?.querySelector('.context')?.textContent).toBe('Round Robin');
+		const line = center?.querySelector('.status-line');
+		const order = center?.firstElementChild?.compareDocumentPosition(line as Element) ?? 0;
+		expect(order & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+	});
+
+	it('draws the tag first in the mobile status row', () => {
+		const { container } = render(GameCard, {
+			props: { teamHref, game: allStar, layout: 'mobile' }
+		});
+		const status = container.querySelector('.mobile-status');
+		expect(status?.firstElementChild?.classList.contains('allstar-mark')).toBe(true);
+		expect(status?.querySelector('.context')?.textContent).toBe('Round Robin');
+	});
+
+	it('draws the solid tag for the Championship', () => {
+		const game = {
+			...allStar,
+			allStarMark: { tag: 'All-Star', context: 'Championship', championship: true }
+		};
+		const { container } = render(GameCard, { props: { teamHref, game, layout: 'desktop' } });
+		expect(container.querySelector('.allstar-tag')?.classList.contains('solid')).toBe(true);
+	});
+
+	it('draws a tag that is not solid for another round', () => {
+		const { container } = render(GameCard, {
+			props: { teamHref, game: allStar, layout: 'desktop' }
+		});
+		expect(container.querySelector('.allstar-tag')?.classList.contains('solid')).toBe(false);
+	});
+
+	it('draws no All-Star tag on a game without the mark', () => {
+		for (const layout of ['desktop', 'mobile'] as const) {
+			const { container, unmount } = render(GameCard, {
+				props: { teamHref, game: scheduled, layout }
+			});
+			expect(container.querySelector('.allstar-mark')).toBeNull();
+			unmount();
+		}
+	});
+
+	it('draws no city for a guest side without one, and its tile is not a link', () => {
+		for (const layout of ['desktop', 'mobile'] as const) {
+			const { container, unmount } = render(GameCard, {
+				props: { teamHref, game: allStar, layout }
+			});
+			expect(container.querySelector('.city')).toBeNull();
+			expect(container.querySelector('a')).toBeNull();
+			expect(screen.getAllByText('Team Stripes').length).toBeGreaterThan(0);
+			unmount();
+		}
 	});
 });

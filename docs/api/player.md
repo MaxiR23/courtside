@@ -41,6 +41,7 @@ The root is one player.
 | `milestones`   | `Milestones` / null     | Counts of notable events                                           | null when no data                        |
 | `gameLog`      | `GameLog` / null        | Every game of the season, newest first                             | null when no data                        |
 | `awards`       | `Award[]`               | Awards with their seasons                                          | always, may be empty                     |
+| `allStarYear`  | integer / null          | The year of the All-Star game in the season's game log             | null when the game log has no All-Star game, and when a stored feed was written before the field |
 
 ## Nested objects
 
@@ -75,6 +76,9 @@ The root is one player.
 
 ## Rules that live in the code
 
+- `allStarYear` is the year of the date of the game log's All-Star entry
+  ([ADR 0038](../adr/0038-all-star-marks-in-core-feeds.md)); it is null when the
+  game log has no All-Star game, and when a stored feed was written before the field.
 - Percentages are from 0 to 1; counting stats are not negative; in every
   stat row and game log entry, made is not above attempted.
 - Season labels look like `2025-26`; jersey numbers are text of one or two

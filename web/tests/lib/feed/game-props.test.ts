@@ -26,6 +26,7 @@
 // - A live game without its score cannot be shown
 // - The Cup mark: the header tag, none for a null mark
 // - The postseason mark: the header mark filled from the feed, none for a null mark
+// - The All-Star mark: the header mark filled from the feed, none for a null mark and a feed without the key; a guest side without a city maps to a header team with a null city
 //
 // What is covered:
 // - Pure logic on a recorded feed (tests/lib/feed/fixtures/game-detail.json); no clock, no network
@@ -964,5 +965,29 @@ describe('toGameView with a guest team without a code', () => {
 		const { sections } = view({ ...codeless(feed()), status: 'scheduled' } as GameDetailFeed);
 		expect(sections.injuries?.away).toBeNull();
 		expect(sections.standings?.home?.code).toBe('GSW');
+	});
+});
+
+describe('toGameView with the All-Star mark', () => {
+	it('maps the All-Star mark to the header mark', () => {
+		const source = { ...feed(), allStar: { roundLabel: 'Semifinals', championship: false } };
+		expect(view(source).header.allStarMark).toEqual({
+			tag: 'All-Star',
+			context: 'Semifinals',
+			championship: false
+		});
+	});
+
+	it('maps a null mark and a feed without the key to no mark', () => {
+		expect(view({ ...feed(), allStar: null }).header.allStarMark).toBeNull();
+		expect(view(feed()).header.allStarMark).toBeNull();
+	});
+
+	it('maps a guest side without a city to a header team with a null city', () => {
+		const source: GameDetailFeed = {
+			...feed(),
+			away: { code: 'STR', name: 'Team Stripes', city: null, record: null, guest: true }
+		};
+		expect(view(source).header.away.city).toBeNull();
 	});
 });

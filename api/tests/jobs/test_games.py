@@ -39,6 +39,8 @@
 # - Stores the US Eastern date of each game seen final
 # - The daily run deletes the final time and stats attempts of a game 31 days old, keeps one 30 days old, and never touches highlights
 # - The cleanup runs only with the daily fetch
+# - The builder and a run carry the All-Star mark of each game, keep a run over an All-Star day valid, and leave out an All-Star game that has no live detail, has two sides with one code or has no search URL, with one log line and without failing the feed
+# - A failed live detail fetch of an All-Star game neither fails the run nor drops the game, which keeps its previous detail, and a league game still fails it
 # - A failed scoreboard fetch, live detail fetch or invalid feed keeps the last valid feed and records the reason
 # - Asks a live game's detail with a thirty second maximum age, and a final game's detail attempt fetched at or after its due time, never with a maximum age
 # - A live day is refreshed every 2 minutes with nobody present and every 30 seconds with someone present
@@ -65,6 +67,7 @@
 import asyncio
 import datetime as dt
 import json
+import logging
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -76,6 +79,7 @@ from pydantic import HttpUrl
 
 from app.feeds.games import (
     CupRound,
+    GameAllStar,
     GameCup,
     GamePostseason,
     GamesFeed,
@@ -2033,3 +2037,184 @@ async def test_a_games_run_with_an_unreadable_postseason_mark_publishes_the_day(
     assert games["7001"].postseason is not None
     assert games["7004"].postseason is not None
     assert store.job_states()[0].last_success == NOON
+
+
+# Group: All-Star games
+
+STRIPES = GameTeam(code="STR", name="Team Stripes", city=None, guest=True)
+WAVES = GameTeam(code="WAV", name="Team Waves", city=None, guest=True)
+ALL_STAR_MARK = GameAllStar(round_label="Round Robin", championship=False)
+NO_STARS = Stars(away=None, home=None)
+ALL_STAR_DETAIL = GameDetail.model_validate(
+    {
+        "leaders": Leaders(
+            away=leader("STR").model_copy(update={"photo_url": None}),
+            home=leader("WAV").model_copy(update={"photo_url": None}),
+        ),
+        "team_stats": {"away": STATS, "home": STATS},
+    }
+)
+
+
+def all_star_game(
+    game_id: str,
+    status: GameStatus,
+    start: dt.datetime = NOON - dt.timedelta(hours=3),
+) -> ScoreboardGame:
+    """An All-Star game: two guest sides without a city and the round mark."""
+    return game(game_id, status, start).model_copy(
+        update={"away": STRIPES, "home": WAVES, "all_star": ALL_STAR_MARK}
+    )
+
+
+def all_star_stars(scoreboard_game: ScoreboardGame) -> Stars:
+    return NO_STARS if scoreboard_game.all_star is not None else STARS
+
+
+def build_all_star(
+    *games: ScoreboardGame,
+    details: dict[str, GameDetail] | None = None,
+    search_url: Any = lambda _: SEARCH_URL,
+) -> GamesFeed:
+    return build_games_feed(
+        NOON,
+        [(TODAY, list(games))],
+        details or {},
+        all_star_stars,
+        search_url,
+    )
+
+
+def warnings(caplog: pytest.LogCaptureFixture) -> list[str]:
+    return [r.getMessage() for r in caplog.records if r.name == "app.jobs.games"]
+
+
+def test_the_games_feed_carries_the_all_star_mark_of_the_scoreboard_game() -> None:
+    feed = build_all_star(
+        all_star_game("a", GameStatus.FINAL),
+        game("1", GameStatus.FINAL),
+        details={"a": ALL_STAR_DETAIL, "1": DETAIL},
+    )
+
+    first, second = feed.days[0].games
+    assert first.all_star == ALL_STAR_MARK
+    assert (first.away.guest, first.away.city, first.stars.away) == (True, None, None)
+    assert second.all_star is None
+    assert second.stars.away is not None
+
+
+def test_the_builder_leaves_out_a_live_all_star_game_without_a_detail_and_logs_it(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    with caplog.at_level(logging.WARNING, logger="app.jobs.games"):
+        feed = build_all_star(
+            all_star_game("a", GameStatus.LIVE),
+            game("1", GameStatus.LIVE),
+            details={"1": DETAIL},
+        )
+
+    assert [g.id for g in feed.days[0].games] == ["1"]
+    [message] = warnings(caplog)
+    assert message.startswith("games: All-Star game a skipped: ")
+
+
+def test_the_builder_leaves_out_an_all_star_game_whose_sides_have_the_same_code(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    twins = all_star_game("a", GameStatus.SCHEDULED, NOON).model_copy(
+        update={"home": STRIPES}
+    )
+
+    with caplog.at_level(logging.WARNING, logger="app.jobs.games"):
+        feed = build_all_star(twins, game("1", GameStatus.SCHEDULED, NOON))
+
+    assert [g.id for g in feed.days[0].games] == ["1"]
+    assert len(warnings(caplog)) == 1
+
+
+def test_the_builder_leaves_out_a_final_all_star_game_without_a_search_url(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    with caplog.at_level(logging.WARNING, logger="app.jobs.games"):
+        feed = build_all_star(
+            all_star_game("a", GameStatus.FINAL),
+            game("1", GameStatus.FINAL),
+            details={"a": ALL_STAR_DETAIL, "1": DETAIL},
+            search_url=lambda g: None if g.all_star is not None else SEARCH_URL,
+        )
+
+    assert [g.id for g in feed.days[0].games] == ["1"]
+    assert len(warnings(caplog)) == 1
+
+
+@pytest.mark.anyio
+async def test_a_run_over_an_all_star_day_publishes_the_feed(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    sources.games[TODAY] = [
+        all_star_game("a", GameStatus.FINAL),
+        game("1", GameStatus.LIVE),
+    ]
+    sources.details["a"] = ALL_STAR_DETAIL
+
+    await make_job(settings, store, sources, stars=all_star_stars).run(NOON)
+
+    published = read_feed(settings.data_dir, "games")
+    assert published is not None
+    feed = GamesFeed.model_validate_json(published)
+    first, second = next(d.games for d in feed.days if d.date == TODAY)
+    assert first.all_star == ALL_STAR_MARK
+    assert (first.away.guest, first.away.city, first.stars.away) == (True, None, None)
+    assert second.all_star is None
+    assert second.stars.home is not None
+    assert store.job_states()[0].last_success == NOON
+
+
+@pytest.mark.anyio
+async def test_a_failed_live_detail_fetch_of_an_all_star_game_does_not_fail_the_run(
+    settings: Settings,
+    store: StateStore,
+    sources: FakeSources,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    sources.games[TODAY] = [
+        all_star_game("a", GameStatus.LIVE),
+        game("1", GameStatus.LIVE),
+    ]
+    sources.detail_errors["a"] = SourceError("game detail", "request timed out")
+
+    with caplog.at_level(logging.WARNING, logger="app.jobs.games"):
+        await make_job(settings, store, sources, stars=all_star_stars).run(NOON)
+
+    published = read_feed(settings.data_dir, "games")
+    assert published is not None
+    feed = GamesFeed.model_validate_json(published)
+    assert [g.id for g in next(d.games for d in feed.days if d.date == TODAY)] == ["1"]
+    assert store.job_states()[0].last_success == NOON
+    assert reason(store) is None
+    live_failures = [m for m in warnings(caplog) if "live detail" in m]
+    assert live_failures == [
+        "games: live detail of All-Star game a failed: request timed out"
+    ]
+
+
+@pytest.mark.anyio
+async def test_a_failed_live_detail_fetch_of_an_all_star_game_keeps_its_previous_detail(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    sources.games[TODAY] = [all_star_game("a", GameStatus.LIVE)]
+    sources.details["a"] = ALL_STAR_DETAIL
+    job = make_job(settings, store, sources, stars=all_star_stars)
+    await job.run(NOON)
+    sources.detail_errors["a"] = SourceError("game detail", "request timed out")
+    later = NOON + LIVE_INTERVAL
+
+    await job.run(later)
+
+    published = read_feed(settings.data_dir, "games")
+    assert published is not None
+    feed = GamesFeed.model_validate_json(published)
+    [shown] = next(d.games for d in feed.days if d.date == TODAY)
+    assert shown.leaders == ALL_STAR_DETAIL.leaders
+    assert feed.generated_at == later
+    assert reason(store) is None

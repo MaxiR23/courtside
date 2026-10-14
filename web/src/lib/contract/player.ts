@@ -37,6 +37,7 @@ export interface PlayerFeed {
 	milestones: Milestones | null;
 	gameLog: GameLog | null;
 	awards: Award[];
+	allStarYear: number | null;
 }
 export interface Team {
 	code: string;

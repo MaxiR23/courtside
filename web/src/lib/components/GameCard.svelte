@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { ResolvedPathname } from '$app/types';
+	import AllStarTag from '#lib/components/AllStarTag.svelte';
 	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
 	import CupMarkTag from '#lib/components/CupMarkTag.svelte';
 	import Highlights from '#lib/components/Highlights.svelte';
@@ -98,12 +99,17 @@
 				<TeamMark part="tile" team={game.away} size="large" teamHref={rowHref} />
 				<span class="names" class:dimmed={loser === 'away'}>
 					<span class="name"><TeamMark part="name" team={game.away} teamHref={rowHref} /></span>
-					<span class="city">{game.away.city}</span>
+					{#if game.away.city}<span class="city">{game.away.city}</span>{/if}
 				</span>
 			</span>
 			<span class="center">
 				{#if game.cupTag}<CupMarkTag text={game.cupTag} />{/if}
 				{#if game.postseasonMark}<PostseasonMark mark={game.postseasonMark} />{/if}
+				{#if game.allStarMark}<AllStarTag
+						text={game.allStarMark.tag}
+						context={game.allStarMark.context}
+						solid={game.allStarMark.championship}
+					/>{/if}
 				{@render statusLine()}
 				{#if scores}
 					<span class="scores">
@@ -121,7 +127,7 @@
 			<span class="team home">
 				<span class="names" class:dimmed={loser === 'home'}>
 					<span class="name"><TeamMark part="name" team={game.home} teamHref={rowHref} /></span>
-					<span class="city">{game.home.city}</span>
+					{#if game.home.city}<span class="city">{game.home.city}</span>{/if}
 				</span>
 				<TeamMark part="tile" team={game.home} size="large" teamHref={rowHref} />
 			</span>
@@ -133,6 +139,11 @@
 				<span class="mobile-status">
 					{#if game.cupTag}<CupMarkTag text={game.cupTag} />{/if}
 					{#if game.postseasonMark}<PostseasonMark mark={game.postseasonMark} />{/if}
+					{#if game.allStarMark}<AllStarTag
+							text={game.allStarMark.tag}
+							context={game.allStarMark.context}
+							solid={game.allStarMark.championship}
+						/>{/if}
 					{@render statusLine()}
 					{#if hidden}<span class="reveal">{m.schedule_tap_to_reveal()}</span>{/if}
 				</span>
@@ -143,7 +154,7 @@
 					<TeamMark part="tile" team={entry.team} size="small" teamHref={rowHref} />
 					<span class="names" class:dimmed={loser === entry.side}>
 						<span class="name"><TeamMark part="name" team={entry.team} teamHref={rowHref} /></span>
-						<span class="city">{entry.team.city}</span>
+						{#if entry.team.city}<span class="city">{entry.team.city}</span>{/if}
 					</span>
 					{#if scores}
 						<span class="score" class:dimmed={loser === entry.side}>{scores[entry.side]}</span>

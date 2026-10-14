@@ -583,6 +583,7 @@
 	"playoffs_context_game": "Partido {n}",
 	"allstar_title": "All-Star",
 	"allstar_tag": "All-Star {year}",
+	"allstar_stage_tag": "All-Star",
 	"allstar_kicker_champions": "Campeones del día",
 	"allstar_kicker_live": "En vivo",
 	"allstar_kicker_next": "Próxima edición",

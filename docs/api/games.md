@@ -54,6 +54,7 @@ Conventions:
 | `highlightsSearchUrl` | URL / null             | Link to search for highlights                                    | required when `final`           |
 | `cup`                 | `GameCup` / null       | The Cup mark: the round the game belongs to                      | null when the game is not a Cup game |
 | `postseason`          | `GamePostseason` / null | The play-in or playoff mark                                     | null for a game that is neither a play-in nor a playoff game, and when the mark cannot be read |
+| `allStar`             | `GameAllStar` / null   | The All-Star mark                                                | null for a game that is not an All-Star game |
 
 A `live` game requires `period`, `clock`, `lineScore`, `score`, `leaders`
 and `teamStats`. A `final` game requires `lineScore`, `score`, `winner`, `statsAvailability`
@@ -67,9 +68,10 @@ and `highlightsSearchUrl`; any other status has `winner` and
 | ----------- | ----------------------------------------------------------------------------------------------------------- |
 | `GameCup`   | `stage` (`group`, `quarterfinals`, `semifinals`, `championship`), taken from the game's note |
 | `GamePostseason` | `stage` (`playin`, `playoffs`, `finals`); `round` (1 to 4: 1 to 3 are `playoffs`, 4 is `finals`; null for `playin`); `conference` (`east`, `west`; null exactly for `finals`); `number` (game number 1 to 7; null exactly for `playin`); `summary` (the series summary; null when the source has none, always null for `playin`); `playIn` (`seven_eight`, `nine_ten`, `eighth_seed`; set exactly for `playin`); `stakes` (`game_7`, `elimination`, `can_clinch`, `clinched`; null for none) |
+| `GameAllStar` | `roundLabel` (the round as the source writes it: "Round Robin", "Semifinals", "Championship"; the format suffix is not part of it); `championship` (true for the round `Championship`) |
 | `Team`      | `code` (three capital letters), `name`, `city`                                                              |
 | `Opponent`  | `code` (null for a guest without one), `name`, `city` (null when the source sends none), `guest`; a league code is three capital letters, a guest code any non-empty string, and a guest has a code or a name |
-| `GameTeam`  | `Opponent` with a required `name` and `city` |
+| `GameTeam`  | `Opponent` with a required `name`; `city` required for a league team, null for a guest the source sends without one (an All-Star team) |
 | `Player`    | `playerId`, `firstName`, `lastName`, `teamCode`, `photoUrl`                                                 |
 | `Leader`    | `playerId`, `displayName` (as the source gives it), `teamCode` (null for a guest without a code), `photoUrl`, `points`, `rebounds`, `assists`; `photoUrl` is null only for a guest player without a headshot |
 | `Star`      | `Player` fields plus `shortName`                                                                            |
@@ -98,6 +100,18 @@ Rules that live in the code:
   The mark never fails the feed: an unreadable or inconsistent postseason value
   (a malformed series, an unknown competitor id, a missing note or an unknown
   competition type) makes the mark null, logged by event id only.
+- An All-Star game ([ADR 0038](../adr/0038-all-star-marks-in-core-feeds.md)) is
+  a regular season game (type 2) whose competition type is `ALLSTAR`. Its sides
+  are guests. A game with a side that is not an All-Star team (a placeholder) is
+  skipped until its teams are known. The `allStar` mark is read from the note
+  `NBA All-Star - <round>` with an optional format suffix; `championship` is true
+  for the round `Championship`. An All-Star event that cannot be mapped (an
+  unreadable note, an unknown status, a side code the league owns, or a required
+  field missing for its status, such as a final without line score or a live game
+  without clock) is skipped with a log line by event id, and so is an All-Star
+  game whose live detail cannot be fetched or that fails the game rules. Neither
+  fails the day or the feed. Any other game that fails still fails the day, as
+  before.
 - A guest side is a team outside the 30 ([ADR 0025](../adr/0025-guest-teams.md)):
   `guest` is true and its code is the source's own, null when the source sends
   none ([ADR 0026](../adr/0026-one-guest-team-rule.md)). A side with neither a

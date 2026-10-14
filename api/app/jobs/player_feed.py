@@ -7,7 +7,8 @@
 # years, game tags from notes, the two-team season as one row, the team of the
 # draft by name, the injury from the league report by athlete id and the next
 # game of the player's team. The game log keeps preseason games; the last five
-# games leave them out, as they leave out the All-Star game (ADR 0026). It reads no clock and no source: the caller passes
+# games leave them out, as they leave out the All-Star game (ADR 0026). The feed
+# carries the year of the All-Star game of the season's game log (ADR 0038). It reads no clock and no source: the caller passes
 # the time and the ids of the games that have a detail feed. PlayerFeeds is the
 # feed kind of the on-demand cache: the ids are the players of the rosters the
 # stars job fetched (404 once all are fetched, 503 before), the team feed is
@@ -303,6 +304,14 @@ def game_log(
     return {"season": log.season, "entries": entries}, recent
 
 
+def all_star_year(log: dict[str, Any] | None) -> int | None:
+    """The year of the All-Star game in the season's game log, or none."""
+    if log is None:
+        return None
+    entry = next((e for e in log["entries"] if e["kind"] is GameKind.ALLSTAR), None)
+    return None if entry is None else int(entry["date"].year)
+
+
 def awards(provided: list[ProviderAward]) -> list[dict[str, Any]]:
     """The awards with their count and season labels; an award with no season
     is left out."""
@@ -443,6 +452,7 @@ def build_player_feed(
                 "milestones": milestones(regular_stats),
                 "game_log": log_feed,
                 "awards": awards(provided_awards),
+                "all_star_year": all_star_year(log_feed),
             }
         )
     except ValidationError as error:

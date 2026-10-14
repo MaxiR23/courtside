@@ -5,6 +5,7 @@
 # Tested:
 # - Builds a scheduled game with records, standings, injuries and last games
 # - Carries the postseason mark of the game into the feed, and null without one
+# - Carries the All-Star mark of the game into the feed, and null without one, and builds the detail of an All-Star game with two guest sides without a city
 # - Builds a final game with its winner, box score and season series
 # - Carries the win probability periods of the sections into the feed, or null
 # - Carries the win probability leader of the sections into the feed and fails the build when it does not match the latest point
@@ -64,6 +65,7 @@ from app.feeds.game_detail import GameDetailFeed, Injury, LastGame
 from app.feeds.games import (
     Conference,
     CupRound,
+    GameAllStar,
     GameCup,
     GamePostseason,
     GameStatus,
@@ -1386,3 +1388,52 @@ async def test_stars_served_with_a_guest_game_have_none_for_the_guest_side(
     assert served.stars == GUEST_STARS
     stored = harness.stored("g")
     assert stored is not None and stored.stars is None
+
+
+ALL_STAR_MARK = GameAllStar(round_label="Round Robin", championship=False)
+
+
+def test_the_detail_feed_carries_the_all_star_mark_of_the_game() -> None:
+    marked = game("1", GameStatus.SCHEDULED).model_copy(
+        update={"all_star": ALL_STAR_MARK}
+    )
+
+    assert build(marked).all_star == ALL_STAR_MARK
+    assert build(game("1", GameStatus.SCHEDULED)).all_star is None
+
+
+def test_the_detail_of_an_all_star_game_with_two_guest_sides_without_a_city_builds() -> (
+    None
+):
+    stripes = GameTeam(code="STR", name="Team Stripes", city=None, guest=True)
+    waves = GameTeam(code="WAV", name="Team Waves", city=None, guest=True)
+    all_star = game("1", GameStatus.SCHEDULED).model_copy(
+        update={"away": stripes, "home": waves, "all_star": ALL_STAR_MARK}
+    )
+
+    feed = build_game_detail_feed(
+        all_star,
+        sections(GameStatus.SCHEDULED),
+        standings(),
+        injuries(),
+        None,
+        None,
+        stars=lambda _: Stars(away=None, home=None),
+        highlights=lambda _: [],
+        highlights_search_url=lambda _: SEARCH_URL,
+    )
+
+    assert (feed.away.city, feed.home.city) == (None, None)
+    assert (feed.away.record, feed.home.record) == (None, None)
+    assert feed.standings is None or (feed.standings.away, feed.standings.home) == (
+        None,
+        None,
+    )
+    assert feed.injuries is None or (feed.injuries.away, feed.injuries.home) == (
+        None,
+        None,
+    )
+    assert feed.last_games is None or (feed.last_games.away, feed.last_games.home) == (
+        None,
+        None,
+    )

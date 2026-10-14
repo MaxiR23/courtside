@@ -9,7 +9,12 @@
 # (ADR 0026). A game whose note names a Cup round carries the Cup mark. A play-in
 # or playoff game carries the postseason mark (ADR 0035). The postseason fields are
 # read leniently: an unreadable or inconsistent value only leaves that game's
-# mark null, logged by event id, and never fails the event or its day.
+# mark null, logged by event id, and never fails the event or its day. An
+# All-Star game (regular season type 2, competition type ALLSTAR) carries the
+# All-Star mark; its sides are guests without a city. A game with a placeholder
+# side (not an All-Star team) is skipped, and an All-Star event that cannot be
+# mapped (its note, status, sides or required fields) is skipped with a log line
+# by event id: it never fails the day (ADR 0038).
 #
 # SEE: docs/api/games.md, docs/adr/0007-backend-runtime-and-data-pipeline.md
 
@@ -31,6 +36,7 @@ from pydantic.alias_generators import to_camel
 from app.feeds.games import (
     REQUIRED_BY_STATUS,
     FeedModel,
+    GameAllStar,
     GameCup,
     GamePostseason,
     GameStatus,
@@ -41,6 +47,7 @@ from app.feeds.games import (
     UtcDatetime,
 )
 from app.settings import Settings
+from app.sources.all_star_mark import all_star_mark, is_all_star
 from app.sources.cup import cup_round
 from app.sources.http import SourceClient, SourceError, get_json
 from app.sources.postseason_mark import postseason_mark
@@ -79,6 +86,7 @@ class _ProviderTeam(_ProviderModel):
     id: str | None = None
     name: str | None = None
     location: str | None = None
+    is_all_star: bool = False
 
 
 class _ProviderPeriod(_ProviderModel):
@@ -167,6 +175,7 @@ class ScoreboardGame(FeedModel):
     score: Score | None = None
     cup: GameCup | None = None
     postseason: GamePostseason | None = None
+    all_star: GameAllStar | None = None
 
     @model_validator(mode="after")
     def _require_fields_of_status(self) -> ScoreboardGame:
@@ -279,7 +288,31 @@ def _postseason(event: _ProviderEvent, game: ScoreboardGame) -> GamePostseason |
     return mark
 
 
-def _map_event(event: _ProviderEvent) -> ScoreboardGame | None:
+def _is_all_star_game(event: _ProviderEvent) -> bool:
+    """Whether the event is the All-Star game. Never raises: an unreadable season
+    or competition type is not All-Star."""
+    try:
+        competition = event.competitions[0]
+        season = (
+            None
+            if event.season is None
+            else _MarkSeason.model_validate(event.season, from_attributes=True)
+        )
+        kind = (
+            None
+            if competition.type is None
+            else _MarkCompetitionType.model_validate(
+                competition.type, from_attributes=True
+            )
+        )
+        return is_all_star(
+            season.type if season else None, kind.abbreviation if kind else None
+        )
+    except ValidationError, ValueError, TypeError, IndexError:
+        return False
+
+
+def _read_event(event: _ProviderEvent, *, all_star: bool) -> ScoreboardGame | None:
     if not event.competitions:
         raise SourceError(SOURCE, f"game {event.id} has no competition")
     competition = event.competitions[0]
@@ -287,6 +320,11 @@ def _map_event(event: _ProviderEvent) -> ScoreboardGame | None:
     if set(sides) != {"home", "away"} or len(competition.competitors) != 2:
         raise SourceError(SOURCE, f"game {event.id} needs one home and one away team")
     away, home = sides["away"], sides["home"]
+    if all_star and not (away.team.is_all_star and home.team.is_all_star):
+        return None  # a placeholder side: the game has no teams yet (ADR 0038)
+    mark = all_star_mark(_first_note(competition)) if all_star else None
+    if all_star and mark is None:
+        raise SourceError(SOURCE, f"game {event.id} has an unreadable All-Star mark")
     away_team, home_team = _team(away), _team(home)
     if away_team is None or home_team is None:
         return None
@@ -305,6 +343,7 @@ def _map_event(event: _ProviderEvent) -> ScoreboardGame | None:
         "venue": competition.venue.full_name if competition.venue else None,
         "broadcast": competition.broadcast or None,
         "cup": _cup(competition),
+        "all_star": mark,
     }
     if status is GameStatus.LIVE:
         data["period"] = event.status.period or None
@@ -323,8 +362,22 @@ def _map_event(event: _ProviderEvent) -> ScoreboardGame | None:
         raise SourceError(
             SOURCE, f"game {event.id} is invalid: {first['type']} at {location}"
         ) from None
-    mark = _postseason(event, game)
-    return game.model_copy(update={"postseason": mark}) if mark else game
+    postseason = _postseason(event, game)
+    return game.model_copy(update={"postseason": postseason}) if postseason else game
+
+
+def _map_event(event: _ProviderEvent) -> ScoreboardGame | None:
+    """Map one event. An All-Star event that cannot be mapped is skipped with a
+    log line and never fails the day (ADR 0038); any other event raises."""
+    if not _is_all_star_game(event):
+        return _read_event(event, all_star=False)
+    try:
+        return _read_event(event, all_star=True)
+    except SourceError as error:
+        logger.warning(
+            "scoreboard: All-Star event %s skipped: %s", event.id, error.reason
+        )
+        return None
 
 
 async def fetch_games(

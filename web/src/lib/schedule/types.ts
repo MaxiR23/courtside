@@ -1,3 +1,4 @@
+import type { AllStarMarkView } from '#lib/all-star/types.ts';
 import type { Side } from '#lib/contract/games.ts';
 import type { HeroPlayer } from '#lib/hero/types.ts';
 import type { PostseasonMarkView } from '#lib/playoffs/types.ts';
@@ -6,7 +7,7 @@ import type { TeamMarkTeam } from '#lib/team/mark.ts';
 // A game side: the code (null for a guest without one), the name and the city, and the guest flag (ADR 0025, ADR 0026).
 export type ScheduleTeam = TeamMarkTeam & {
 	name: string; // e.g. "Warriors"
-	city: string; // e.g. "Golden State", muted
+	city: string | null; // e.g. "Golden State", muted; null: a guest the source sends without a city, such as an All-Star team
 };
 
 export type GameStatus =
@@ -75,6 +76,7 @@ export type ScheduleGame = {
 	status: GameStatus;
 	cupTag: string | null; // "NBA Cup · Group play"; null: not a Cup game
 	postseasonMark: PostseasonMarkView | null; // null: neither a play-in nor a playoff game
+	allStarMark: AllStarMarkView | null; // null: not an All-Star game
 	details?: GameDetails; // panel data; a card without it does not expand
 };
 

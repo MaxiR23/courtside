@@ -19,6 +19,9 @@
 # due time, so a first attempt is never served a detail sent before the final
 # status was observed, such as a live snapshot fetched during the same run.
 #
+# An All-Star game that fails (its live detail fetch, or its validation as a feed
+# game) is left out of the feed with a log line and never fails the run (ADR 0038).
+#
 # The game detail feed kind reads the games of the days shown through
 # shown_games and refreshed_at; after_run lets it start the final builds and
 # the cleanup.
@@ -34,6 +37,7 @@
 
 import asyncio
 import datetime as dt
+import logging
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from collections.abc import Set as AbstractSet
 from typing import Any
@@ -42,6 +46,7 @@ from zoneinfo import ZoneInfo
 from pydantic import ValidationError
 
 from app.feeds.games import (
+    Game,
     GamesFeed,
     GameStatus,
     Highlight,
@@ -57,6 +62,8 @@ from app.sources.http import Freshness, SourceClient, SourceError
 from app.sources.scoreboard import ScoreboardGame
 from app.storage.feeds import publish_feed
 from app.storage.state import StateStore
+
+logger = logging.getLogger(__name__)
 
 JOB = "games"
 FEED = "games"
@@ -190,6 +197,19 @@ def build_games_feed(
             if detail is not None:
                 data["leaders"] = detail.leaders
                 data["team_stats"] = detail.team_stats
+            if game.all_star is not None:
+                try:
+                    Game.model_validate(data)
+                except ValidationError as error:
+                    first = error.errors()[0]
+                    location = ".".join(str(part) for part in first["loc"])
+                    logger.warning(
+                        "games: All-Star game %s skipped: %s at %s",
+                        game.id,
+                        first["type"],
+                        location,
+                    )
+                    continue
             built_games.append(data)
         built_days.append({"date": day, "games": built_games})
     try:
@@ -461,9 +481,18 @@ class GamesJob:
                 for game in self._games[day]:
                     if game.status is GameStatus.LIVE and day in refreshed:
                         calls += 1
-                        self._details[game.id] = await self._fetch_game_detail(
-                            self._client, game.id, self._settings, LIVE_INTERVAL
-                        )
+                        try:
+                            self._details[game.id] = await self._fetch_game_detail(
+                                self._client, game.id, self._settings, LIVE_INTERVAL
+                            )
+                        except SourceError as error:
+                            if game.all_star is None:
+                                raise
+                            logger.warning(
+                                "games: live detail of All-Star game %s failed: %s",
+                                game.id,
+                                error.reason,
+                            )
             final_failure: str | None = None
             for day in sorted(self._games):
                 for game in self._games[day]:

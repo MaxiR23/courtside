@@ -17,6 +17,7 @@
 // - A feed without seven days, and a live game without its fields or a final game without its winner or stats availability, cannot be shown
 // - The Cup mark of a game: the tag for each stage, none for a null mark
 // - The postseason mark of a game: filled from the feed's mark, null for a null mark
+// - The All-Star mark of a game: filled from the feed's mark, null for a null mark and for a feed without the key; a game whose guest sides have no city maps with a null city; an All-Star game is never a hero game and the league games stay
 //
 // What is covered:
 // - Pure logic on a recorded feed (tests/lib/feed/fixtures/games.json); no clock, no network
@@ -456,6 +457,49 @@ describe('toHomeView with a guest team without a code', () => {
 	it('does not put the game in the hero rotation', () => {
 		const v = view(withCodelessGuest());
 		expect(v.heroGames.map((g) => g.id)).not.toContain('g-final');
+		expect(v.days[3].games).toHaveLength(6);
+	});
+});
+
+describe('toHomeView with the All-Star mark', () => {
+	const stripes = { code: 'STR', name: 'Team Stripes', city: null, guest: true };
+	const waves = { code: 'WAV', name: 'Team Waves', city: null, guest: true };
+
+	function withAllStar(): GamesFeed {
+		const source = feed();
+		const scheduled = source.days[3].games[0];
+		scheduled.away = stripes;
+		scheduled.home = waves;
+		scheduled.stars = { away: null, home: null };
+		scheduled.allStar = { roundLabel: 'Round Robin', championship: false };
+		return source;
+	}
+
+	it('fills the mark of an All-Star game from the feed', () => {
+		expect(todayGame(view(withAllStar()), 'g-sched').allStarMark).toEqual({
+			tag: 'All-Star',
+			context: 'Round Robin',
+			championship: false
+		});
+	});
+
+	it('maps a null mark and a feed without the key to no mark', () => {
+		const source = feed();
+		source.days[3].games[0].allStar = null;
+		expect(todayGame(view(source), 'g-sched').allStarMark).toBeNull();
+		expect(todayGame(view(), 'g-sched').allStarMark).toBeNull();
+	});
+
+	it('maps guest sides without a city to a null city', () => {
+		const game = todayGame(view(withAllStar()), 'g-sched');
+		expect(game.away).toEqual({ ...stripes });
+		expect(game.home).toEqual({ ...waves });
+	});
+
+	it('never puts an All-Star game in the hero and keeps the league games', () => {
+		const v = view(withAllStar());
+		expect(v.heroGames.map((g) => g.id)).not.toContain('g-sched');
+		expect(v.heroGames.map((g) => g.id)).toEqual(['g-live', 'g-final', 'g-delayed']);
 		expect(v.days[3].games).toHaveLength(6);
 	});
 });

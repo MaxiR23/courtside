@@ -73,6 +73,14 @@ class GameCup(FeedModel):
     stage: CupRound
 
 
+class GameAllStar(FeedModel):
+    """The mark of an All-Star game: its round as the source writes it, and
+    whether it is the Championship."""
+
+    round_label: NonEmptyStr
+    championship: bool
+
+
 class PostseasonStage(StrEnum):
     PLAYIN = "playin"
     PLAYOFFS = "playoffs"
@@ -141,10 +149,16 @@ class Team(FeedModel):
 
 
 class GameTeam(Opponent):
-    """A side of a game: one of the 30 teams, or a guest team outside the league."""
+    """A side of a game: one of the 30 teams, or a guest team outside the league.
+    A guest may have no city (an All-Star team); a league team has one."""
 
     name: NonEmptyStr
-    city: NonEmptyStr
+
+    @model_validator(mode="after")
+    def _require_a_city_of_a_league_team(self) -> GameTeam:
+        if not self.guest and self.city is None:
+            raise ValueError("a league team has a city")
+        return self
 
 
 class Player(FeedModel):
@@ -254,6 +268,7 @@ class Game(FeedModel):
     highlights_search_url: HttpUrl | None = None
     cup: GameCup | None = None
     postseason: GamePostseason | None = None
+    all_star: GameAllStar | None = None
 
     @model_validator(mode="after")
     def _require_fields_of_status(self) -> Game:

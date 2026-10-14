@@ -5,6 +5,13 @@ import type { AllStarState } from '#lib/contract/all-star.ts';
 import type { HighlightVideo, Leader } from '#lib/schedule/types.ts';
 import type { TeamMarkTeam } from '#lib/team/mark.ts';
 
+/** The All-Star mark of a core game (ADR 0038): the stage tag and the round line. */
+export type AllStarMarkView = {
+	tag: string; // "All-Star"
+	context: string; // "Round Robin", "Championship"
+	championship: boolean; // true: the solid accent tag
+};
+
 export type AllStarSectionId = 'last-time' | 'mvp' | 'games' | 'teams';
 
 /** A league team's monogram: its code and the two colors of its bar (null when the feed has none). */
