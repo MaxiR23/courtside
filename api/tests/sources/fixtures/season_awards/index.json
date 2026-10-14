@@ -1,0 +1,74 @@
+{
+  "count": 22,
+  "pageIndex": 1,
+  "pageSize": 25,
+  "pageCount": 1,
+  "items": [
+    {
+      "$ref": "https://example.com/v2/seasons/2027/awards/101?lang=en"
+    },
+    {
+      "$ref": "https://example.com/v2/seasons/2027/awards/102?lang=en"
+    },
+    {
+      "$ref": "https://example.com/v2/seasons/2027/awards/103?lang=en"
+    },
+    {
+      "$ref": "https://example.com/v2/seasons/2027/awards/104?lang=en"
+    },
+    {
+      "$ref": "https://example.com/v2/seasons/2027/awards/105?lang=en"
+    },
+    {
+      "$ref": "https://example.com/v2/seasons/2027/awards/106?lang=en"
+    },
+    {
+      "$ref": "https://example.com/v2/seasons/2027/awards/107?lang=en"
+    },
+    {
+      "$ref": "https://example.com/v2/seasons/2027/awards/108?lang=en"
+    },
+    {
+      "$ref": "https://example.com/v2/seasons/2027/awards/109?lang=en"
+    },
+    {
+      "$ref": "https://example.com/v2/seasons/2027/awards/110?lang=en"
+    },
+    {
+      "$ref": "https://example.com/v2/seasons/2027/awards/111?lang=en"
+    },
+    {
+      "$ref": "https://example.com/v2/seasons/2027/awards/112?lang=en"
+    },
+    {
+      "$ref": "https://example.com/v2/seasons/2027/awards/113?lang=en"
+    },
+    {
+      "$ref": "https://example.com/v2/seasons/2027/awards/114?lang=en"
+    },
+    {
+      "$ref": "https://example.com/v2/seasons/2027/awards/115?lang=en"
+    },
+    {
+      "$ref": "https://example.com/v2/seasons/2027/awards/116?lang=en"
+    },
+    {
+      "$ref": "https://example.com/v2/seasons/2027/awards/117?lang=en"
+    },
+    {
+      "$ref": "https://example.com/v2/seasons/2027/awards/118?lang=en"
+    },
+    {
+      "$ref": "https://example.com/v2/seasons/2027/awards/119?lang=en"
+    },
+    {
+      "$ref": "https://example.com/v2/seasons/2027/awards/120?lang=en"
+    },
+    {
+      "$ref": "https://example.com/v2/seasons/2027/awards/121?lang=en"
+    },
+    {
+      "$ref": "https://example.com/v2/seasons/2027/awards/122?lang=en"
+    }
+  ]
+}

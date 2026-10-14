@@ -1,14 +1,15 @@
 # api/app/sources/season_awards.py
 #
-# Season awards adapter: fetches the awards of a season with their winners from
-# the provider and maps each award it knows to its code, its team number (the
+# Season awards adapter: reads the season's paged index of award links from the
+# provider, then each linked award document, and maps each award it knows to its code, its team number (the
 # All-NBA, All-Rookie and All-Defensive teams) and the winners in the provider's
 # order. The name of an award is matched ignoring case against a fixed table. An
 # award with no winners is skipped before the lookup, which covers the awards
 # the app does not show (the coach and the executive of the year); an unknown
 # name with winners is skipped and logged by name. A player and a team are read
-# from the provider ids in their links, never by following the link; a winner
-# with no team link has a null team. The provider URL comes from Settings.
+# from the provider ids in their links, never by following the link; only the
+# award links of the index are followed, one after the other, with the shared
+# cache and the 1-hour freshness. A winner with no team link, or with a team link that is not a league team (the All-Star MVP's All-Star side), has a null team. The provider URL comes from Settings.
 # Provider data never leaves this module.
 #
 # SEE: docs/api/playoffs.md, docs/adr/0032-playoffs-feed.md,
@@ -25,7 +26,7 @@ from app.feeds.games import FeedModel, NonEmptyStr, TeamCode
 from app.feeds.playoffs import AwardCode
 from app.settings import Settings
 from app.sources.http import SourceClient, SourceError, get_json
-from app.sources.teams import team_code_of_id
+from app.sources.teams import TEAM_IDS, team_code_of_id
 
 SOURCE = "season_awards"
 FRESH_FOR = dt.timedelta(hours=1)
@@ -77,8 +78,8 @@ class _ProviderAward(_ProviderModel):
     winners: list[_ProviderWinner] = []
 
 
-class _ProviderAwards(_ProviderModel):
-    awards: list[_ProviderAward]
+class _ProviderIndex(_ProviderModel):
+    items: list[_ProviderRef]
 
 
 class AwardWinnerRef(FeedModel):
@@ -115,16 +116,29 @@ def _id_after(ref: str, segment: str, what: str) -> str:
 
 
 def _winner(winner: _ProviderWinner) -> dict[str, str | None]:
+    player_id = _id_after(winner.athlete.ref, "athletes", "athlete")
+    team_id = (
+        None if winner.team is None else _id_after(winner.team.ref, "teams", "team")
+    )
     return {
-        "player_id": _id_after(winner.athlete.ref, "athletes", "athlete"),
+        "player_id": player_id,
         "team_code": (
-            None
-            if winner.team is None
-            else team_code_of_id(
-                _id_after(winner.team.ref, "teams", "team"), source=SOURCE
-            )
+            team_code_of_id(team_id, source=SOURCE)
+            if team_id is not None and team_id in TEAM_IDS
+            else None
         ),
     }
+
+
+async def _read_award(client: SourceClient, ref: str) -> _ProviderAward:
+    body = await get_json(client, ref, source=SOURCE, fresh=FRESH_FOR)
+    try:
+        return _ProviderAward.model_validate(body)
+    except ValidationError as error:
+        raise SourceError(
+            SOURCE,
+            f"invalid award payload: {error.error_count()} errors, first at {_location(error)}",
+        ) from None
 
 
 async def fetch_season_awards(
@@ -136,14 +150,17 @@ async def fetch_season_awards(
     url = settings.season_awards_url.format(season=season)
     body = await get_json(client, url, source=SOURCE, fresh=FRESH_FOR)
     try:
-        provider = _ProviderAwards.model_validate(body)
+        provider = _ProviderIndex.model_validate(body)
     except ValidationError as error:
         raise SourceError(
             SOURCE,
             f"invalid payload: {error.error_count()} errors, first at {_location(error)}",
         ) from None
+    documents = []
+    for item in provider.items:
+        documents.append(await _read_award(client, item.ref))
     awards = []
-    for award in provider.awards:
+    for award in documents:
         if not award.winners:
             continue
         known = AWARDS.get(award.name.casefold())

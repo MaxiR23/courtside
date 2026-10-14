@@ -210,8 +210,12 @@ the repository. The shape each must return:
   read are `avgPoints`, `avgRebounds`, `avgAssists`, `avgBlocks`, `avgSteals`,
   `fieldGoalPct`, `effectiveFGPct`, `technicalFouls` and `gamesPlayed`; a plus
   minus statistic is never read. The playoffs feed does not read this setting; the finals feed reads it.
-- **`SEASON_AWARDS_URL`** (`{season}`): `{"awards": [{"name", "winners":
-  [{"athlete": {"$ref"}, "team": {"$ref"}}]}]}`; `team` may be absent. The names
+- **`SEASON_AWARDS_URL`** (`{season}`): a paged index
+  `{"count", "pageIndex", "pageSize", "pageCount", "items": [{"$ref"}]}`, of which
+  only `items` is read, and only its first page; then each item's link is read (1
+  hour cache), an award document `{"name", "winners": [{"athlete": {"$ref"},
+  "team": {"$ref"}}]}`; `team` may be absent. A winner whose team is absent or is not a league team (an All-Star side) has no team. A missing or invalid award document
+  fails the read like an invalid index. The names
   read, compared ignoring case: `MVP`, `Defensive Player of the Year`, `Rookie of
   the Year`, `Sixth Man of the Year`, `Most Improved Player`, `Clutch Player of the
   Year`, `Finals MVP`, `Eastern Conference Finals MVP`, `Western Conference Finals

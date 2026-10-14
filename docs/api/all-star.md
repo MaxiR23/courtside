@@ -107,7 +107,8 @@ Conventions:
 13. **MVP.** The first winner of the award `all_star_mvp` of the season awards. One
     line per final game in which he has a box row, in start order; the totals are the
     sums. His name, photo and jersey come from his first box row. Null without the
-    award or without a box row of his.
+    award or without a box row of his. A null MVP of an edition in play is logged as a
+    warning with the season and the reason.
 14. **Recap.** The previous season's edition read the same way: the Championship
     result, the date, the venue and its MVP. Null when that edition was not
     discovered, its day could not be read, or its Championship is not final.
