@@ -351,6 +351,8 @@
 	--playoffs-count-duration: 1.4s;
 	--playoffs-count-timeout: 1.6s;
 	--playoffs-stage-columns: 5;
+	--playoffs-tag-border: rgba(235, 232, 227, 0.35);
+	--playoffs-mark-gap: 6px;
 	--playoffs-series-tab-mobile: 132px;
 	--playoffs-award-card-mobile: 156px;
 	--playoffs-wp-width: 480px;

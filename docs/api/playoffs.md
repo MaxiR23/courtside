@@ -192,7 +192,10 @@ the repository. The shape each must return:
   postseason reads on each event `season.type`; on the first competition
   `type.abbreviation` (the competition type), the first `notes[].headline`, and
   `series`: `summary`, `completed`, `totalCompetitions` and `competitors[]` with
-  the team `id` and `wins`; and the `status.period` of a live or final game.
+  the team `id` and `wins`; and the `status.period` of a live or final game. The
+  games feed reads the season type, the competition type, the first note and the
+  series object too, for its `postseason` mark
+  ([ADR 0035](../adr/0035-playoffs-marks-in-core-feeds.md)).
 - **`POSTSEASON_LEADERS_URL`** (`{season}`): `{"categories": [{"name", "leaders":
   [{"displayValue", "athlete": {"$ref"}}]}]}`. The names read are
   `pointsPerGame`, `reboundsPerGame`, `assistsPerGame`, `stealsPerGame`,
@@ -218,6 +221,14 @@ the repository. The shape each must return:
   `Twyman-Stokes Teammate of the Year`. An award with no winners (the coach and the
   executive of the year) is skipped; an unknown name with winners is skipped and
   logged by name.
+
+## Marks on the core feeds
+
+The games, game detail and team feeds carry marks that read this section's
+data ([ADR 0035](../adr/0035-playoffs-marks-in-core-feeds.md)). The `postseason`
+mark of a game is described in the [games feed](games.md). The team `titles` are
+described in the [team feed](team.md); they read this feed's `champion` and its
+`east-r3` and `west-r3` series, from the stored feed only.
 
 ## Edge cases
 

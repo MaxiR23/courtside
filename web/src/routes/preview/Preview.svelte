@@ -119,6 +119,7 @@
 		layout: 'pre-game',
 		status: { state, text: 'Sunday, October 4 · Chase Center' },
 		cupTag: null,
+		postseasonMark: null,
 		away: headerAway,
 		home: headerHome,
 		center:
@@ -137,6 +138,7 @@
 		layout: 'live',
 		status: { state: 'live', text },
 		cupTag: null,
+		postseasonMark: null,
 		away: headerAway,
 		home: headerHome,
 		center: { kind: 'score', away: 63, home: 62, loser: null },
@@ -146,6 +148,7 @@
 		layout: 'final',
 		status: { state: 'final', text: 'Final · Sunday, October 4 · Chase Center' },
 		cupTag: null,
+		postseasonMark: null,
 		away: headerAway,
 		home: headerHome,
 		center: { kind: 'score', away: 112, home: 104, loser: 'home' },
@@ -759,6 +762,7 @@
 		{
 			id: 'scheduled',
 			cupTag: null,
+			postseasonMark: null,
 			away: warriors,
 			home: lakers,
 			status: { state: 'scheduled', tipTime: '9:00', tipSuffix: 'PM ET', network: 'Courtside TV' },
@@ -771,6 +775,7 @@
 		{
 			id: 'live',
 			cupTag: null,
+			postseasonMark: null,
 			away: celtics,
 			home: knicks,
 			status: { state: 'live', period: 'Q3', clock: '4:12', awayScore: 78, homeScore: 74 },
@@ -779,6 +784,7 @@
 		{
 			id: 'final',
 			cupTag: null,
+			postseasonMark: null,
 			away: nuggets,
 			home: suns,
 			status: { state: 'final', awayScore: 112, homeScore: 104, winner: 'away' },
@@ -792,11 +798,19 @@
 	];
 	// Games with no score and no tip time. They have no details, so they do not expand.
 	const statusGames: ScheduleGame[] = (['delayed', 'postponed', 'canceled'] as const).map(
-		(state) => ({ id: state, away: celtics, home: knicks, cupTag: null, status: { state } })
+		(state) => ({
+			id: state,
+			away: celtics,
+			home: knicks,
+			cupTag: null,
+			postseasonMark: null,
+			status: { state }
+		})
 	);
 	const overtimeGame: ScheduleGame = {
 		id: 'overtime',
 		cupTag: null,
+		postseasonMark: null,
 		away: celtics,
 		home: knicks,
 		status: { state: 'final', awayScore: 132, homeScore: 130, winner: 'away' },
@@ -805,6 +819,7 @@
 	const singleHighlightGame: ScheduleGame = {
 		id: 'single-highlight',
 		cupTag: null,
+		postseasonMark: null,
 		away: nuggets,
 		home: suns,
 		status: { state: 'final', awayScore: 112, homeScore: 104, winner: 'away' },
@@ -818,6 +833,7 @@
 	const pendingGame: ScheduleGame = {
 		id: 'pending',
 		cupTag: null,
+		postseasonMark: null,
 		away: nuggets,
 		home: suns,
 		status: { state: 'final', awayScore: 112, homeScore: 104, winner: 'away' },
@@ -924,6 +940,7 @@
 			name: 'Warriors',
 			conferenceLine: 'Western Conference · Pacific Division',
 			cupLine: null,
+			titles: null,
 			colors: { primary: '#1D428A', secondary: '#FFC72C' },
 			record: '57–25',
 			winPct: '69.5%',

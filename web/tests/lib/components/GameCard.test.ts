@@ -19,6 +19,7 @@
 // - A guest without a code shows its initials in the tile and its name unlinked, and the loser dims from a side winner
 // - A guest team (outside the league): its monogram and name are never links, the league ones link on a card that cannot expand, no color strip is drawn, a scheduled panel shows only the league player to watch, a final panel shows the leaders, line score and team stats of both sides
 // - The Cup tag first in the center column on desktop and in the status line on mobile, none for a game without the mark, plain text inside the toggle, on a guest card too
+// - The postseason mark (tag, context line, stakes flag) on a scheduled, a live and a final game on desktop and on the mobile row, none for a regular game, and the Cup tag unchanged for a Cup game
 //
 // What is covered:
 // - Each card state on each row layout
@@ -40,6 +41,7 @@ const home = { code: 'LAL', name: 'Lakers', city: 'Los Angeles', guest: false };
 const scheduled: ScheduleGame = {
 	id: 's',
 	cupTag: null,
+	postseasonMark: null,
 	away,
 	home,
 	status: { state: 'scheduled', tipTime: '9:00', tipSuffix: 'PM ET', network: 'Courtside TV' }
@@ -47,6 +49,7 @@ const scheduled: ScheduleGame = {
 const live: ScheduleGame = {
 	id: 'l',
 	cupTag: null,
+	postseasonMark: null,
 	away,
 	home,
 	status: { state: 'live', period: 'Q3', clock: '4:12', awayScore: 78, homeScore: 74 }
@@ -54,6 +57,7 @@ const live: ScheduleGame = {
 const final = (awayScore: number, homeScore: number, winner: 'away' | 'home'): ScheduleGame => ({
 	id: 'f',
 	cupTag: null,
+	postseasonMark: null,
 	away,
 	home,
 	status: { state: 'final', awayScore, homeScore, winner }
@@ -602,7 +606,14 @@ describe('GameCard game center link', () => {
 		render(GameCard, {
 			props: {
 				teamHref,
-				game: { id: 'd', away, home, cupTag: null, status: { state: 'delayed' } },
+				game: {
+					id: 'd',
+					away,
+					home,
+					cupTag: null,
+					postseasonMark: null,
+					status: { state: 'delayed' }
+				},
 				layout: 'desktop',
 				detailHref: href
 			}
@@ -623,6 +634,7 @@ describe('GameCard with a delayed, postponed or canceled game', () => {
 	const inState = (state: 'delayed' | 'postponed' | 'canceled'): ScheduleGame => ({
 		id: state,
 		cupTag: null,
+		postseasonMark: null,
 		away,
 		home,
 		status: { state }
@@ -751,6 +763,7 @@ describe('GameCard with a guest team', () => {
 		away: guest,
 		home,
 		cupTag: null,
+		postseasonMark: null,
 		status: { state: 'delayed' }
 	};
 
@@ -816,6 +829,7 @@ describe('GameCard with a guest team without a code', () => {
 			away: codeless,
 			home,
 			cupTag: null,
+			postseasonMark: null,
 			status: { state: 'delayed' }
 		};
 		for (const layout of ['desktop', 'mobile'] as const) {
@@ -894,5 +908,65 @@ describe('GameCard with the Cup mark', () => {
 		const game: ScheduleGame = { ...tagged, away: guestAway };
 		const { container } = render(GameCard, { props: { teamHref, game, layout: 'desktop' } });
 		expect(container.querySelector('.cup-tag')?.textContent).toBe('NBA Cup · Semifinal');
+	});
+});
+
+describe('GameCard with the postseason mark', () => {
+	const mark = {
+		tag: 'Playoffs',
+		finals: false,
+		context: 'West finals · Game 7',
+		stakes: 'Game 7'
+	};
+	const states: [string, ScheduleGame][] = [
+		['scheduled', scheduled],
+		['live', live],
+		['final', final(112, 104, 'away')]
+	];
+
+	it.each(states)('draws the mark of a %s game on the desktop row', (_, game) => {
+		const { container } = render(GameCard, {
+			props: { teamHref, game: { ...game, postseasonMark: mark }, layout: 'desktop' }
+		});
+		const center = container.querySelector('.center');
+		expect(center?.firstElementChild?.classList.contains('postseason-mark')).toBe(true);
+		expect(center?.querySelector('.tournament-tag')?.textContent).toBe('Playoffs');
+		expect(center?.querySelector('.context')?.textContent).toBe('West finals · Game 7');
+		expect(center?.querySelector('.stakes-flag')?.textContent).toBe('Game 7');
+	});
+
+	it.each(states)('draws the mark of a %s game first in the mobile status row', (_, game) => {
+		const { container } = render(GameCard, {
+			props: { teamHref, game: { ...game, postseasonMark: mark }, layout: 'mobile' }
+		});
+		const status = container.querySelector('.mobile-status');
+		expect(status?.firstElementChild?.classList.contains('postseason-mark')).toBe(true);
+		expect(status?.querySelector('.stakes-flag')?.textContent).toBe('Game 7');
+	});
+
+	it('draws no flag when the stakes are null', () => {
+		const game = { ...scheduled, postseasonMark: { ...mark, stakes: null } };
+		const { container } = render(GameCard, { props: { teamHref, game, layout: 'desktop' } });
+		expect(container.querySelector('.postseason-mark')).not.toBeNull();
+		expect(container.querySelector('.stakes-flag')).toBeNull();
+	});
+
+	it('draws nothing for a regular season game', () => {
+		for (const layout of ['desktop', 'mobile'] as const) {
+			const { container, unmount } = render(GameCard, {
+				props: { teamHref, game: scheduled, layout }
+			});
+			expect(container.querySelector('.postseason-mark')).toBeNull();
+			unmount();
+		}
+	});
+
+	it('still draws the Cup tag unchanged for a Cup game', () => {
+		const game: ScheduleGame = { ...scheduled, cupTag: 'NBA Cup · Semifinal' };
+		const { container } = render(GameCard, { props: { teamHref, game, layout: 'desktop' } });
+		expect(
+			container.querySelector('.center')?.firstElementChild?.classList.contains('cup-tag')
+		).toBe(true);
+		expect(container.querySelector('.postseason-mark')).toBeNull();
 	});
 });

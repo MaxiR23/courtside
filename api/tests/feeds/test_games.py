@@ -14,6 +14,7 @@
 # - A league side needs a star, a three-letter code and a leader photo; a guest side has no star; the two sides differ; a guest code is any non-empty string
 # - Serialization uses camelCase keys and carries unknown values as null
 # - Accepts a game with a Cup mark of each round and with a null or absent Cup mark, and rejects an unknown round
+# - Accepts a game with a postseason mark of each stage and a null or absent one, and rejects a mark whose round, conference, number, play-in kind or stakes do not fit its stage
 #
 # What is covered:
 # - A valid feed is accepted and an invalid one is rejected
@@ -564,3 +565,105 @@ def test_rejects_a_cup_mark_with_an_unknown_round() -> None:
         GamesFeed.model_validate(
             valid_feed(valid_game("scheduled", cup={"stage": "final"}))
         )
+
+
+PLAY_IN_MARK = {
+    "stage": "playin",
+    "round": None,
+    "conference": "west",
+    "number": None,
+    "summary": None,
+    "playIn": "nine_ten",
+    "stakes": "elimination",
+}
+PLAYOFFS_MARK = {
+    "stage": "playoffs",
+    "round": 3,
+    "conference": "east",
+    "number": 7,
+    "summary": "Series tied 3-3",
+    "playIn": None,
+    "stakes": "game_7",
+}
+FINALS_MARK = {
+    "stage": "finals",
+    "round": 4,
+    "conference": None,
+    "number": 6,
+    "summary": None,
+    "playIn": None,
+    "stakes": "can_clinch",
+}
+
+
+def marked(**changes: Any) -> GamesFeed:
+    mark = {**PLAYOFFS_MARK, **changes}
+    return GamesFeed.model_validate(
+        valid_feed(valid_game("scheduled", postseason=mark))
+    )
+
+
+@pytest.mark.parametrize("mark", [PLAY_IN_MARK, PLAYOFFS_MARK, FINALS_MARK])
+def test_accepts_a_game_with_each_postseason_stage(mark: Payload) -> None:
+    feed = GamesFeed.model_validate(
+        valid_feed(valid_game("scheduled", postseason=mark))
+    )
+
+    assert feed.model_dump(mode="json")["days"][0]["games"][0]["postseason"] == mark
+
+
+@pytest.mark.parametrize("change", [{"round": 1}, {"number": 3}, {"summary": "x"}])
+def test_rejects_a_play_in_mark_with_a_round_or_a_number(change: Payload) -> None:
+    with pytest.raises(ValidationError):
+        GamesFeed.model_validate(
+            valid_feed(valid_game("scheduled", postseason={**PLAY_IN_MARK, **change}))
+        )
+
+
+@pytest.mark.parametrize(
+    "change",
+    [{"conference": None}, {"round": 4}, {"number": None}, {"playIn": "nine_ten"}],
+)
+def test_rejects_a_playoffs_mark_without_a_conference_or_with_round_4(
+    change: Payload,
+) -> None:
+    with pytest.raises(ValidationError):
+        marked(**change)
+
+
+def test_rejects_a_finals_mark_with_a_conference() -> None:
+    with pytest.raises(ValidationError):
+        GamesFeed.model_validate(
+            valid_feed(
+                valid_game(
+                    "scheduled", postseason={**FINALS_MARK, "conference": "east"}
+                )
+            )
+        )
+
+
+def test_rejects_game_7_stakes_on_another_game_number() -> None:
+    with pytest.raises(ValidationError):
+        marked(number=6)
+
+
+def test_rejects_series_stakes_on_a_play_in_mark() -> None:
+    with pytest.raises(ValidationError):
+        GamesFeed.model_validate(
+            valid_feed(
+                valid_game(
+                    "scheduled", postseason={**PLAY_IN_MARK, "stakes": "can_clinch"}
+                )
+            )
+        )
+
+
+def test_reads_a_game_without_the_key_as_postseason_null() -> None:
+    absent = GamesFeed.model_validate(valid_feed(valid_game("scheduled")))
+    explicit = GamesFeed.model_validate(
+        valid_feed(valid_game("scheduled", postseason=None))
+    )
+
+    assert absent.days[0].games[0].postseason is None
+    assert explicit.days[0].games[0].postseason is None
+    assert absent.model_dump(mode="json")["days"][0]["games"][0]["postseason"] is None

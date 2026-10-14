@@ -8,6 +8,7 @@ import type {
 	TeamStats
 } from '#lib/contract/games.ts';
 import { cupTag } from '#lib/feed/cup-mark-props.ts';
+import { postseasonMark } from '#lib/feed/postseason-mark-props.ts';
 import { formatDateParts } from '#lib/format/locale.ts';
 import type { HeroGame, HeroPlayer, HeroStatus } from '#lib/hero/types.ts';
 import { m } from '#lib/paraglide/messages.js';
@@ -184,7 +185,8 @@ function scheduleGame(game: Game, options: Options): ScheduleGame {
 		id: game.id,
 		away: scheduleTeam(game.away),
 		home: scheduleTeam(game.home),
-		cupTag: cupTag(game.cup)
+		cupTag: cupTag(game.cup),
+		postseasonMark: postseasonMark(game.postseason)
 	};
 	switch (game.status) {
 		case 'scheduled':

@@ -9,6 +9,7 @@ export type PlayoffStatus = 'seed' | 'playin' | 'out';
 export type InjuryStatus = 'out' | 'doubtful' | 'questionable' | 'probable' | 'day-to-day';
 export type TagKind = 'cup' | 'playoffs' | 'allstar';
 export type GameKind = 'regular' | 'cup' | 'playoffs' | 'allstar' | 'preseason';
+export type TitleKind = 'nba_champions' | 'nba_cup_champions' | 'conference_champions';
 
 export interface TeamFeed {
 	code: string;
@@ -27,6 +28,7 @@ export interface TeamFeed {
 	nextGame: NextGame | null;
 	schedule: Schedule | null;
 	cup: TeamCup | null;
+	titles: [TeamTitle] | [TeamTitle, TeamTitle] | [TeamTitle, TeamTitle, TeamTitle] | null;
 }
 export interface TeamColors {
 	primary: string;
@@ -186,4 +188,12 @@ export interface TeamCup {
 export interface CupGroupName {
 	conference: Conference;
 	letter: 'A' | 'B' | 'C';
+}
+/**
+ * A title the team won in the current season.
+ */
+export interface TeamTitle {
+	kind: TitleKind;
+	year: number | null;
+	conference: Conference | null;
 }

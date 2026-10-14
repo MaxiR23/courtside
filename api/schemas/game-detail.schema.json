@@ -411,6 +411,91 @@
       "title": "GamePeriod",
       "type": "object"
     },
+    "GamePostseason": {
+      "additionalProperties": false,
+      "description": "The mark of a play-in or playoff game: its stage, place in the bracket and stakes.",
+      "properties": {
+        "stage": {
+          "$ref": "#/$defs/PostseasonStage"
+        },
+        "round": {
+          "anyOf": [
+            {
+              "maximum": 4,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "conference": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Conference"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "number": {
+          "anyOf": [
+            {
+              "maximum": 7,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "summary": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "playIn": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PlayInGameKind"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "stakes": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Stakes"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "stage",
+        "round",
+        "conference",
+        "number",
+        "summary",
+        "playIn",
+        "stakes"
+      ],
+      "title": "GamePostseason",
+      "type": "object"
+    },
     "GameResult": {
       "enum": [
         "win",
@@ -709,6 +794,24 @@
       "title": "Opponent",
       "type": "object"
     },
+    "PlayInGameKind": {
+      "enum": [
+        "seven_eight",
+        "nine_ten",
+        "eighth_seed"
+      ],
+      "title": "PlayInGameKind",
+      "type": "string"
+    },
+    "PostseasonStage": {
+      "enum": [
+        "playin",
+        "playoffs",
+        "finals"
+      ],
+      "title": "PostseasonStage",
+      "type": "string"
+    },
     "Record": {
       "additionalProperties": false,
       "properties": {
@@ -852,6 +955,16 @@
         "home"
       ],
       "title": "Side",
+      "type": "string"
+    },
+    "Stakes": {
+      "enum": [
+        "game_7",
+        "elimination",
+        "can_clinch",
+        "clinched"
+      ],
+      "title": "Stakes",
       "type": "string"
     },
     "Standings": {
@@ -1455,6 +1568,17 @@
         }
       ],
       "default": null
+    },
+    "postseason": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/GamePostseason"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     }
   },
   "required": [
@@ -1482,7 +1606,8 @@
     "seasonSeries",
     "highlights",
     "highlightsSearchUrl",
-    "cup"
+    "cup",
+    "postseason"
   ],
   "title": "GameDetailFeed",
   "type": "object"

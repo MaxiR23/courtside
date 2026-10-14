@@ -9,6 +9,9 @@ export type InjuryStatus = 'out' | 'doubtful' | 'questionable' | 'probable' | 'd
 export type GameResult = 'win' | 'loss';
 export type Conference = 'east' | 'west';
 export type CupRound = 'group' | 'quarterfinals' | 'semifinals' | 'championship';
+export type PostseasonStage = 'playin' | 'playoffs' | 'finals';
+export type PlayInGameKind = 'seven_eight' | 'nine_ten' | 'eighth_seed';
+export type Stakes = 'game_7' | 'elimination' | 'can_clinch' | 'clinched';
 
 export interface GameDetailFeed {
 	id: string;
@@ -36,6 +39,7 @@ export interface GameDetailFeed {
 	highlights: Highlight[] | null;
 	highlightsSearchUrl: string | null;
 	cup: GameCup | null;
+	postseason: GamePostseason | null;
 }
 export interface Venue {
 	name: string;
@@ -258,4 +262,16 @@ export interface Highlight {
  */
 export interface GameCup {
 	stage: CupRound;
+}
+/**
+ * The mark of a play-in or playoff game: its stage, place in the bracket and stakes.
+ */
+export interface GamePostseason {
+	stage: PostseasonStage;
+	round: number | null;
+	conference: Conference | null;
+	number: number | null;
+	summary: string | null;
+	playIn: PlayInGameKind | null;
+	stakes: Stakes | null;
 }

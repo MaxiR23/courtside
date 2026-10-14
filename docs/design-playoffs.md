@@ -313,6 +313,7 @@ To add to `web/src/lib/styles/tokens.css` in the implementing issue. Values not 
 | `--playoffs-count-timeout` | 1.6s | Final values forced |
 | `--playoffs-stage-columns` | 5 | Stage strip |
 | `--playoffs-tag-border` | ink at 35% | Play-In and Playoffs tags |
+| `--playoffs-mark-gap` | 6px | Gap inside the postseason mark |
 | `--playoffs-series-tab-mobile` | 132px | Game tab card on mobile |
 | `--playoffs-award-card-mobile` | 156px | Award card on mobile |
 | `--playoffs-wp-width` | 480px | Win probability viewBox |
@@ -480,6 +481,10 @@ Mapped to existing tokens: the divider is `--color-divider`; accent text is `--c
 | `playoffs_context_series` | {round} · Game {n} | {round} · Partido {n} |
 | `playoffs_context_finals` | Game {n} · {summary} | Partido {n} · {summary} |
 | `playoffs_context_playin` | {conference} · {game} | {conference} · {game} |
+| `playoffs_context_round_1` | {conference} round 1 | Ronda 1 del {conference} |
+| `playoffs_context_round_2` | {conference} semifinals | Semifinales del {conference} |
+| `playoffs_context_round_3` | {conference} finals | Final del {conference} |
+| `playoffs_context_game` | Game {n} | Partido {n} |
 | `playoffs_flag_game_7` | Game 7 | Partido 7 |
 | `playoffs_flag_elimination` | Elimination | Eliminación |
 | `playoffs_flag_can_clinch` | Can clinch | Puede ganar la serie |

@@ -49,6 +49,7 @@ The root is one game.
 | `highlights`          | `Highlight[]` / null      | Matched highlight videos, as in the [games feed](games.md)       | null when no data                     |
 | `highlightsSearchUrl` | URL / null                | Link to search for highlights, as in the [games feed](games.md)  | null when no data                     |
 | `cup`                 | `GameCup` / null          | The Cup mark, as in the [games feed](games.md)                   | null when the game is not a Cup game  |
+| `postseason`          | `GamePostseason` / null   | The play-in or playoff mark, as in the [games feed](games.md)    | null when the game is neither, and when a stored feed was written before the mark |
 
 For every optional section, `null` means the source has no data for it: the
 page hides the section and its tab (`docs/design-game-detail.md`, "A section

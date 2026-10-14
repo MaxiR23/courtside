@@ -54,7 +54,8 @@ Everything else is built on request only: pre-game game detail, team feeds, play
 | Pre-game game detail, tip-off more than 48 hours away | 12 hours after the build |
 | Pre-game game detail, tip-off between 48 and 12 hours away | 6 hours after the build |
 | Pre-game game detail, tip-off under 12 hours away or passed | 3 hours after the build |
-| Team feed, player feed | When the team has a final game whose final time plus 1 hour is after the build, and in any case 7 days after the build |
+| Team feed | When the team has a final game whose final time plus 1 hour is after the build, when the stored playoffs feed or the stored Cup feed is rebuilt after the build, and in any case 7 days after the build |
+| Player feed | When the team has a final game whose final time plus 1 hour is after the build, and in any case 7 days after the build |
 | Standings feed | When any game of the league has a final time plus 1 hour after the build, and in any case 7 days after the build |
 | Search feed | When any game of the league has a final time plus 1 hour after the build, when the stars job fetches a roster after the build, and in any case 7 days after the build |
 | Cup feed | When any Cup game has a final time plus 1 hour after the build, and in any case 7 days after the build; once the championship is final, kept while its season is the current one |

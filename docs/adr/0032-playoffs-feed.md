@@ -1,6 +1,6 @@
 # 0032. Playoffs feed
 
-- Status: Accepted
+- Status: Superseded by 0035 for its scoreboard function only
 - Date: 2026-10-14
 
 ## Context

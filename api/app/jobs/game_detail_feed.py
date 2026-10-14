@@ -142,6 +142,7 @@ def build_game_detail_feed(
         "score": game.score,
         "winner": final_winner(game),
         "cup": game.cup,
+        "postseason": game.postseason,
         "venue": sections.venue,
         "team_stats": sections.team_stats,
         "box_score": sections.box_score,

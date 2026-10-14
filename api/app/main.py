@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.jobs.cup_feed import CupFeeds
 from app.jobs.cup_matchup_feed import CupMatchupFeeds
+from app.jobs.cup_titles import CupTitles
 from app.jobs.game_detail_feed import GameDetailFeeds
 from app.jobs.games import GamesJob
 from app.jobs.highlights import HighlightsJob
@@ -13,6 +14,7 @@ from app.jobs.on_demand import FeedCache
 from app.jobs.player_feed import PlayerFeeds
 from app.jobs.playoffs_feed import PlayoffsFeeds
 from app.jobs.playoffs_finals_feed import PlayoffsFinalsFeeds
+from app.jobs.playoffs_titles import PlayoffsTitles
 from app.jobs.presence import Presence
 from app.jobs.scheduler import Scheduler
 from app.jobs.search_feed import SearchFeeds
@@ -70,7 +72,6 @@ def create_app(settings: Settings | None = None, *, run_jobs: bool = True) -> Fa
             highlights=highlights_job.highlights_of,
             highlights_search_url=highlights_job.search_url_of,
         )
-        team_feeds = TeamFeeds(settings, store, client, feed_cache, games_job)
         StandingsFeeds(settings, store, client, feed_cache, games_job)
         SearchFeeds(settings, store, client, feed_cache, games_job, stars_job)
         cup_feeds = CupFeeds(settings, store, client, feed_cache, games_job, stars_job)
@@ -79,6 +80,17 @@ def create_app(settings: Settings | None = None, *, run_jobs: bool = True) -> Fa
         )
         playoffs_feeds = PlayoffsFeeds(
             settings, store, client, feed_cache, games_job, stars_job
+        )
+        team_feeds = TeamFeeds(
+            settings,
+            store,
+            client,
+            feed_cache,
+            games_job,
+            title_providers=(
+                CupTitles(store, cup_feeds),
+                PlayoffsTitles(store, playoffs_feeds),
+            ),
         )
         PlayoffsFinalsFeeds(
             settings,

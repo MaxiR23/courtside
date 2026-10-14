@@ -7,6 +7,7 @@
 // - The two halves of the color strip carry the feed colors as inline backgrounds
 // - Only the nav row with no header; the skeleton and aria-busy while loading
 // - The Cup line after the conference line, linking to the Cup page; none without the mark
+// - Every title after the Cup line, one or more, none for null titles, never a link
 //
 // What is covered:
 // - Each state the header shows
@@ -31,6 +32,7 @@ const header: TeamHeaderView = {
 	name: 'Thunder',
 	conferenceLine: 'Western Conference · Northwest Division',
 	cupLine: null,
+	titles: null,
 	colors: { primary: '#007AC1', secondary: '#EF3B24' },
 	record: '57–25',
 	winPct: '69.5%',
@@ -184,5 +186,50 @@ describe('TeamHeader with the Cup mark', () => {
 			(child) => child.getAttribute('class')?.split(' ')[0]
 		);
 		expect(classes).toEqual(['code-box', 'city', 'name', 'conference-line']);
+	});
+});
+
+describe('TeamHeader with titles', () => {
+	const props = { allGamesHref: HOME, standingsHref: STANDINGS, layout: 'desktop' as const };
+	const titles = [
+		{ text: '2027 NBA Champions', solid: true },
+		{ text: 'West Champions', solid: false }
+	];
+
+	it('shows every title after the Cup line, as plain text', () => {
+		const { container } = render(TeamHeader, {
+			props: {
+				...props,
+				header: { ...header, cupLine: { group: 'West Group B', record: '2-2' }, titles }
+			}
+		});
+		const badges = [...container.querySelectorAll('.team-titles .title-badge')];
+		expect(badges.map((badge) => badge.textContent)).toEqual([
+			'2027 NBA Champions',
+			'West Champions'
+		]);
+		expect(container.querySelector('.team-titles a')).toBeNull();
+		const classes = [...(container.querySelector('.identity')?.children ?? [])].map(
+			(child) => child.getAttribute('class')?.split(' ')[0]
+		);
+		expect(classes.slice(-2)).toEqual(['cup-line', 'team-titles']);
+	});
+
+	it('shows one title', () => {
+		const { container } = render(TeamHeader, {
+			props: { ...props, header: { ...header, titles: [titles[1]] } }
+		});
+		expect(container.querySelectorAll('.title-badge').length).toBe(1);
+	});
+
+	it('shows no title for null titles and keeps the Cup line in place', () => {
+		const { container } = render(TeamHeader, {
+			props: { ...props, header: { ...header, cupLine: { group: 'West Group B', record: '2-2' } } }
+		});
+		expect(container.querySelector('.team-titles')).toBeNull();
+		const classes = [...(container.querySelector('.identity')?.children ?? [])].map(
+			(child) => child.getAttribute('class')?.split(' ')[0]
+		);
+		expect(classes.slice(-2)).toEqual(['conference-line', 'cup-line']);
 	});
 });

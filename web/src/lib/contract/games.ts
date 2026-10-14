@@ -7,6 +7,10 @@ export type GameStatus = 'scheduled' | 'live' | 'final' | 'delayed' | 'postponed
 export type Side = 'away' | 'home';
 export type StatsAvailability = 'available' | 'pending' | 'unavailable';
 export type CupRound = 'group' | 'quarterfinals' | 'semifinals' | 'championship';
+export type PostseasonStage = 'playin' | 'playoffs' | 'finals';
+export type Conference = 'east' | 'west';
+export type PlayInGameKind = 'seven_eight' | 'nine_ten' | 'eighth_seed';
+export type Stakes = 'game_7' | 'elimination' | 'can_clinch' | 'clinched';
 
 export interface GamesFeed {
 	generatedAt: string;
@@ -36,6 +40,7 @@ export interface Game {
 	statsAvailability: StatsAvailability | null;
 	highlightsSearchUrl: string | null;
 	cup: GameCup | null;
+	postseason: GamePostseason | null;
 }
 /**
  * A side of a game: one of the 30 teams, or a guest team outside the league.
@@ -107,4 +112,16 @@ export interface TeamStats {
  */
 export interface GameCup {
 	stage: CupRound;
+}
+/**
+ * The mark of a play-in or playoff game: its stage, place in the bracket and stakes.
+ */
+export interface GamePostseason {
+	stage: PostseasonStage;
+	round: number | null;
+	conference: Conference | null;
+	number: number | null;
+	summary: string | null;
+	playIn: PlayInGameKind | null;
+	stakes: Stakes | null;
 }

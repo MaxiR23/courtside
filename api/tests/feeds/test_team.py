@@ -16,6 +16,7 @@
 # - Hex colors, group keys, UTC time and unknown fields are validated
 # - A schedule game or the next game may be against a guest opponent, with or without a code
 # - Serialization uses camelCase keys
+# - Accepts titles in kind order, rejects an empty list, a repeated kind, a conference title without a conference or with a year and a championship title without a year, and reads a stored feed without the key as null titles
 # - Accepts a Cup mark with the group, wins and losses and a null or absent one, and rejects an unknown group letter, a missing record and a negative count
 #
 # What is covered:
@@ -490,3 +491,54 @@ def test_reads_a_team_without_a_cup_mark_as_null() -> None:
 )
 def test_rejects_an_invalid_cup_mark(cup: Payload) -> None:
     rejects({**valid_team(), "cup": cup})
+
+
+CHAMPIONS = {"kind": "nba_champions", "year": 2027, "conference": None}
+CUP_CHAMPIONS = {"kind": "nba_cup_champions", "year": 2026, "conference": None}
+CONFERENCE = {"kind": "conference_champions", "year": None, "conference": "west"}
+
+
+def test_accepts_titles_in_kind_order() -> None:
+    titles = [CHAMPIONS, CUP_CHAMPIONS, CONFERENCE]
+
+    feed = TeamFeed.model_validate({**valid_team(), "titles": titles})
+
+    assert feed.titles is not None and len(feed.titles) == 3
+    assert feed.model_dump(mode="json")["titles"] == titles
+    single = TeamFeed.model_validate({**valid_team(), "titles": [CONFERENCE]})
+    assert single.titles is not None and len(single.titles) == 1
+
+
+def test_rejects_an_empty_title_list() -> None:
+    rejects({**valid_team(), "titles": []}, "titles")
+
+
+def test_rejects_a_repeated_title_kind() -> None:
+    rejects({**valid_team(), "titles": [CHAMPIONS, CHAMPIONS]}, "titles")
+    rejects({**valid_team(), "titles": [CONFERENCE, CHAMPIONS]}, "titles")
+
+
+@pytest.mark.parametrize(
+    "title",
+    [
+        {**CONFERENCE, "conference": None},
+        {**CONFERENCE, "year": 2027},
+        {**CHAMPIONS, "conference": "east"},
+    ],
+)
+def test_rejects_a_conference_title_without_a_conference_or_with_a_year(
+    title: dict[str, Any],
+) -> None:
+    rejects({**valid_team(), "titles": [title]}, "titles")
+
+
+def test_rejects_a_championship_title_without_a_year() -> None:
+    rejects({**valid_team(), "titles": [{**CUP_CHAMPIONS, "year": None}]}, "titles")
+
+
+def test_reads_a_stored_team_feed_without_the_key_as_titles_null() -> None:
+    absent = TeamFeed.model_validate(valid_team())
+    explicit = TeamFeed.model_validate({**valid_team(), "titles": None})
+
+    assert absent.titles is None and explicit.titles is None
+    assert absent.model_dump(mode="json")["titles"] is None

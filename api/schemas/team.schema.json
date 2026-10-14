@@ -1010,6 +1010,52 @@
       "title": "TeamRecord",
       "type": "object"
     },
+    "TeamTitle": {
+      "additionalProperties": false,
+      "description": "A title the team won in the current season.",
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/TitleKind"
+        },
+        "year": {
+          "anyOf": [
+            {
+              "minimum": 1946,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "conference": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Conference"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "year",
+        "conference"
+      ],
+      "title": "TeamTitle",
+      "type": "object"
+    },
+    "TitleKind": {
+      "enum": [
+        "nba_champions",
+        "nba_cup_champions",
+        "conference_champions"
+      ],
+      "title": "TitleKind",
+      "type": "string"
+    },
     "Venue": {
       "additionalProperties": false,
       "properties": {
@@ -1145,6 +1191,22 @@
         }
       ],
       "default": null
+    },
+    "titles": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/TeamTitle"
+          },
+          "maxItems": 3,
+          "minItems": 1,
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     }
   },
   "required": [
@@ -1163,7 +1225,8 @@
     "injuries",
     "nextGame",
     "schedule",
-    "cup"
+    "cup",
+    "titles"
   ],
   "title": "TeamFeed",
   "type": "object"

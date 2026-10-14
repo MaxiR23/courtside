@@ -16,16 +16,19 @@
 # build (rule G), and detailAvailable is set when it is served, from the games of
 # the days shown. The feed carries the team's Cup group and record, read from
 # the six Cup group tables of the season, and none when no table has the team
-# or a read fails. Team feeds are never deleted.
+# or a read fails. It also carries the titles of the current season, given by
+# injected providers, one per section, that read no source and are merged in
+# title order, and it expires when a feed any provider reads was rebuilt after
+# it (ADR 0035). Team feeds are never deleted.
 #
 # SEE: docs/api/team.md, docs/api/player.md, docs/source-rules.md, api/app/jobs/game_detail_feed.py
 
 import asyncio
 import datetime as dt
 import re
-from collections.abc import Awaitable, Callable, Iterable
+from collections.abc import Awaitable, Callable, Iterable, Sequence
 from collections.abc import Set as AbstractSet
-from typing import Any
+from typing import Any, Protocol
 from zoneinfo import ZoneInfo
 
 from pydantic import ValidationError
@@ -41,6 +44,8 @@ from app.feeds.team import (
     Streak,
     TeamCup,
     TeamFeed,
+    TeamTitle,
+    TitleKind,
 )
 from app.jobs.games import GamesJob
 from app.jobs.on_demand import FeedCache, FeedKind, IdStatus
@@ -457,6 +462,7 @@ def build_team_feed(
     now: dt.datetime,
     detail_ids: AbstractSet[str],
     cup: TeamCup | None = None,
+    titles: list[TeamTitle] | None = None,
 ) -> TeamFeed:
     """Build the team feed from the fetched data, or raise TeamBuildError."""
     entry = standings.teams.get(team_code)
@@ -516,6 +522,7 @@ def build_team_feed(
                     ids,
                 ),
                 "cup": cup,
+                "titles": titles,
             }
         )
     except ValidationError as error:
@@ -547,6 +554,26 @@ def with_team_detail(feed: TeamFeed, ids: AbstractSet[str]) -> TeamFeed:
     return TeamFeed.model_validate(data)
 
 
+class TitleProvider(Protocol):
+    """One section's titles of the current season (ADR 0035). It reads no source."""
+
+    def titles(self, team: str, season: int) -> list[TeamTitle] | None: ...
+
+    def rebuilt_after(self, built_at: dt.datetime) -> bool:
+        """True when a stored feed the titles read was built after built_at."""
+        ...
+
+
+def merge_titles(parts: Iterable[list[TeamTitle] | None]) -> list[TeamTitle] | None:
+    """The titles of every provider in title kind order; none without a title."""
+    order = list(TitleKind)
+    merged = sorted(
+        (title for part in parts for title in part or []),
+        key=lambda title: order.index(title.kind),
+    )
+    return merged or None
+
+
 class TeamFeeds:
     def __init__(
         self,
@@ -565,6 +592,7 @@ class TeamFeeds:
         fetch_league_injuries: FetchInjuries = league_injuries.fetch_league_injuries,
         fetch_season_schedule: FetchSeasonSchedule = team_schedule.fetch_season_schedule,
         fetch_group_table: FetchGroupTable = fetch_group_table,
+        title_providers: Sequence[TitleProvider] = (),
     ) -> None:
         self._settings = settings
         self._store = store
@@ -578,6 +606,7 @@ class TeamFeeds:
         self._fetch_league_injuries = fetch_league_injuries
         self._fetch_season_schedule = fetch_season_schedule
         self._fetch_group_table = fetch_group_table
+        self._title_providers = tuple(title_providers)
         cache.register(self.kind())
 
     def check(self, code: str) -> IdStatus:
@@ -608,6 +637,10 @@ class TeamFeeds:
             now=self._client.clock(),
             detail_ids=self.detail_ids(),
             cup=await self._cup(team, roster.season),
+            titles=merge_titles(
+                provider.titles(team, roster.season)
+                for provider in self._title_providers
+            ),
         )
 
     async def _cup(self, team: str, season: int) -> TeamCup | None:
@@ -682,6 +715,8 @@ class TeamFeeds:
         )
 
     def is_fresh(self, feed: TeamFeed, built_at: dt.datetime, now: dt.datetime) -> bool:
+        if any(p.rebuilt_after(built_at) for p in self._title_providers):
+            return False
         return not self.expired(feed.code, feed.schedule, built_at, now)
 
     def serve_with(self, code: str, feed: TeamFeed) -> TeamFeed:

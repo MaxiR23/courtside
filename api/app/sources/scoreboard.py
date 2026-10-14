@@ -6,11 +6,15 @@
 #
 # A team outside the 30 is a guest side with the provider's code when it sends
 # one. A side with neither a code nor a name is not a team: its game is skipped
-# (ADR 0026). A game whose note names a Cup round carries the Cup mark.
+# (ADR 0026). A game whose note names a Cup round carries the Cup mark. A play-in
+# or playoff game carries the postseason mark (ADR 0035). The postseason fields are
+# read leniently: an unreadable or inconsistent value only leaves that game's
+# mark null, logged by event id, and never fails the event or its day.
 #
 # SEE: docs/api/games.md, docs/adr/0007-backend-runtime-and-data-pipeline.md
 
 import datetime as dt
+import logging
 import re
 from typing import Any
 
@@ -28,6 +32,7 @@ from app.feeds.games import (
     REQUIRED_BY_STATUS,
     FeedModel,
     GameCup,
+    GamePostseason,
     GameStatus,
     GameTeam,
     LineScore,
@@ -38,7 +43,11 @@ from app.feeds.games import (
 from app.settings import Settings
 from app.sources.cup import cup_round
 from app.sources.http import SourceClient, SourceError, get_json
-from app.sources.teams import to_opponent
+from app.sources.postseason_mark import postseason_mark
+from app.sources.season_types import PLAY_IN, POSTSEASON
+from app.sources.teams import TEAM_CODES, TEAM_IDS, to_opponent
+
+logger = logging.getLogger(__name__)
 
 SOURCE = "scoreboard"
 FRESH_FOR = dt.timedelta(seconds=30)
@@ -107,6 +116,9 @@ class _ProviderCompetition(_ProviderModel):
     broadcast: str | None = None
     notes: list[_ProviderNote] = []
     competitors: list[_ProviderCompetitor]
+    # Raw postseason values, read leniently for the mark (ADR 0035).
+    type: Any = None
+    series: Any = None
 
 
 class _ProviderEvent(_ProviderModel):
@@ -114,6 +126,25 @@ class _ProviderEvent(_ProviderModel):
     date: AwareDatetime
     status: _ProviderStatus
     competitions: list[_ProviderCompetition]
+    season: Any = None
+
+
+class _MarkCompetitionType(_ProviderModel):
+    abbreviation: str | None = None
+
+
+class _MarkSeriesCompetitor(_ProviderModel):
+    id: str | None = None
+    wins: int | None = None
+
+
+class _MarkSeries(_ProviderModel):
+    summary: str | None = None
+    competitors: list[_MarkSeriesCompetitor] | None = None
+
+
+class _MarkSeason(_ProviderModel):
+    type: int | None = None
 
 
 class _ProviderScoreboard(_ProviderModel):
@@ -135,6 +166,7 @@ class ScoreboardGame(FeedModel):
     line_score: LineScore | None = None
     score: Score | None = None
     cup: GameCup | None = None
+    postseason: GamePostseason | None = None
 
     @model_validator(mode="after")
     def _require_fields_of_status(self) -> ScoreboardGame:
@@ -183,6 +215,70 @@ def _cup(competition: _ProviderCompetition) -> dict[str, Any] | None:
     return None
 
 
+def _first_note(competition: _ProviderCompetition) -> str | None:
+    return next((n.headline for n in competition.notes if n.headline), None)
+
+
+def _series_wins(series: _MarkSeries | None) -> dict[str, int] | None:
+    """Wins by standard code, or None without a series. Raises on a competitor
+    that is not a league team with a win count."""
+    if series is None or not series.competitors:
+        return None
+    wins: dict[str, int] = {}
+    for competitor in series.competitors:
+        if competitor.id is None or competitor.wins is None or competitor.wins < 0:
+            raise ValueError("a series competitor needs an id and wins")
+        wins[TEAM_CODES[TEAM_IDS[competitor.id]]] = competitor.wins
+    return wins
+
+
+def _postseason(event: _ProviderEvent, game: ScoreboardGame) -> GamePostseason | None:
+    """The postseason mark of a game, or None. Never raises: an unreadable or
+    inconsistent value is logged by event id and leaves the mark null."""
+    mark: GamePostseason | None = None
+    season_type: int | None = None
+    try:
+        competition = event.competitions[0]
+        season = (
+            None
+            if event.season is None
+            else _MarkSeason.model_validate(event.season, from_attributes=True)
+        )
+        season_type = season.type if season else None
+        if season_type not in (PLAY_IN, POSTSEASON):
+            return None
+        kind = (
+            None
+            if competition.type is None
+            else _MarkCompetitionType.model_validate(
+                competition.type, from_attributes=True
+            )
+        )
+        series = (
+            None
+            if competition.series is None
+            else _MarkSeries.model_validate(competition.series, from_attributes=True)
+        )
+        mark = postseason_mark(
+            season_type=season_type,
+            competition_type=kind.abbreviation if kind else None,
+            note=_first_note(competition),
+            summary=series.summary if series else None,
+            wins=_series_wins(series),
+            status=game.status,
+            away=game.away.code,
+            home=game.home.code,
+            score=game.score,
+        )
+    except ValidationError, ValueError, TypeError, KeyError:
+        mark = None
+    if mark is None:
+        logger.warning(
+            "scoreboard: event %s has an unreadable postseason mark", event.id
+        )
+    return mark
+
+
 def _map_event(event: _ProviderEvent) -> ScoreboardGame | None:
     if not event.competitions:
         raise SourceError(SOURCE, f"game {event.id} has no competition")
@@ -227,7 +323,8 @@ def _map_event(event: _ProviderEvent) -> ScoreboardGame | None:
         raise SourceError(
             SOURCE, f"game {event.id} is invalid: {first['type']} at {location}"
         ) from None
-    return game
+    mark = _postseason(event, game)
+    return game.model_copy(update={"postseason": mark}) if mark else game
 
 
 async def fetch_games(
