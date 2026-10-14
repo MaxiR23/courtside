@@ -18,6 +18,7 @@
 # - Averages rows have at least one game; season labels look like 2025-26
 # - Injury status, UTC time and unknown fields are validated
 # - Serialization uses camelCase keys
+# - Accepts the All-Star year set, null and absent, and rejects zero
 #
 # What is covered:
 # - A valid feed is accepted and an invalid one is rejected
@@ -605,3 +606,29 @@ def test_rejects_unknown_fields() -> None:
     player = copy.deepcopy(valid_player())
     player["lastGames"][0]["extra"] = 1
     rejects(player)
+
+
+@pytest.mark.parametrize("year", [2027, None])
+def test_accepts_an_all_star_year_set_or_null(year: int | None) -> None:
+    player = valid_player()
+    player["allStarYear"] = year
+
+    feed = PlayerFeed.model_validate(player)
+
+    assert feed.all_star_year == year
+    assert feed.model_dump(mode="json")["allStarYear"] == year
+
+
+def test_reads_a_player_without_the_all_star_year_as_null() -> None:
+    player = valid_player()
+    player.pop("allStarYear", None)
+
+    assert PlayerFeed.model_validate(player).all_star_year is None
+
+
+def test_rejects_an_all_star_year_of_zero() -> None:
+    player = valid_player()
+    player["allStarYear"] = 0
+
+    with pytest.raises(ValidationError):
+        PlayerFeed.model_validate(player)

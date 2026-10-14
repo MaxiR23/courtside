@@ -29,6 +29,8 @@
 # - Venue city: null or absent is accepted and serialized as null; an empty city is rejected
 # - Accepts a Cup mark of each round and a null or absent Cup mark, and rejects an unknown round
 # - Accepts a postseason mark and reads a stored feed without the key as null
+# - Accepts an All-Star mark and reads a stored feed without the key as null
+# - Accepts a guest side with a null city and rejects a league side with a null city
 #
 # What is covered:
 # - A valid feed is accepted and an invalid one is rejected
@@ -1000,3 +1002,41 @@ def test_reads_a_stored_detail_feed_without_the_key_as_postseason_null() -> None
 
     assert absent.postseason is None and explicit.postseason is None
     assert absent.model_dump(mode="json")["postseason"] is None
+
+
+def test_accepts_a_detail_feed_with_an_all_star_mark() -> None:
+    mark = {"roundLabel": "Championship", "championship": True}
+
+    feed = GameDetailFeed.model_validate(valid_game("scheduled", allStar=mark))
+
+    assert feed.all_star is not None and feed.all_star.championship is True
+    assert feed.model_dump(mode="json")["allStar"] == mark
+
+
+def test_reads_a_stored_detail_feed_without_the_key_as_all_star_null() -> None:
+    absent = GameDetailFeed.model_validate(valid_game("scheduled"))
+    explicit = GameDetailFeed.model_validate(valid_game("scheduled", allStar=None))
+
+    assert absent.all_star is None and explicit.all_star is None
+    assert absent.model_dump(mode="json")["allStar"] is None
+
+
+def test_accepts_a_guest_detail_side_with_a_null_city() -> None:
+    guest = {
+        **team("STR"),
+        "name": "Team Stripes",
+        "city": None,
+        "guest": True,
+        "record": None,
+    }
+
+    feed = GameDetailFeed.model_validate(valid_game("scheduled", away=guest))
+
+    assert feed.away.city is None and feed.away.guest is True
+
+
+def test_rejects_a_league_detail_side_with_a_null_city() -> None:
+    with pytest.raises(ValidationError, match="a league team has a city"):
+        GameDetailFeed.model_validate(
+            valid_game("scheduled", away={**team("AAA"), "city": None})
+        )

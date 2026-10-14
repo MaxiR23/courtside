@@ -14,6 +14,7 @@
 # - Gives an undrafted player a null draft and names the drafting team from the standings
 # - Labels award seasons and reads the count
 # - Excludes All-Star games from the last five games and keeps them in the game log with no opponent
+# - Gives the year of the All-Star game of the game log, none for a log without one and for no log, and the built feed carries it with the All-Star game out of the last five games
 # - Tags the game log entries and converts their numbers
 # - Keeps preseason games in the game log with the preseason kind and no tag, against a guest without a code, and leaves them out of the last five games as it leaves out the All-Star game
 # - Averages and milestones are equal with and without preseason games in the log
@@ -77,6 +78,7 @@ from app.jobs.player_feed import (
     KIND,
     PlayerBuildError,
     PlayerFeeds,
+    all_star_year,
     averages,
     awards,
     build_player_feed,
@@ -728,6 +730,45 @@ def test_tags_the_game_log_entries_and_converts_their_numbers() -> None:
     assert by_id["r"].kind is GameKind.REGULAR and by_id["r"].tag is None
     assert by_id["r"].detail_available is False
     assert [e.game_id for e in feed.last_games] == ["p", "c", "r"]
+
+
+def all_star_games() -> list[GameLogGame]:
+    games = [log_game(f"g{day}", at_day(day)) for day in range(1, 4)]
+    games.append(
+        log_game("star", at_day(20), opponent=None, note="NBA All-Star - Championship")
+    )
+    return games
+
+
+def test_gives_the_year_of_the_all_star_game_in_the_game_log() -> None:
+    log, _ = game_log(
+        PlayerGameLog(season="2025-26", games=all_star_games()), frozenset()
+    )
+
+    assert log is not None
+    star = next(e for e in log["entries"] if e["game_id"] == "star")
+    assert all_star_year(log) == star["date"].year
+
+
+def test_gives_no_all_star_year_for_a_log_without_the_game_and_for_no_log() -> None:
+    games = [log_game(f"g{day}", at_day(day)) for day in range(1, 4)]
+    log, _ = game_log(PlayerGameLog(season="2025-26", games=games), frozenset())
+
+    assert all_star_year(log) is None
+    assert all_star_year(None) is None
+
+
+def test_the_built_feed_carries_the_all_star_year_and_keeps_the_game_out_of_the_last_games() -> (
+    None
+):
+    with_star = build(log=PlayerGameLog(season="2025-26", games=all_star_games()))
+    without = build(log=PlayerGameLog(season="2025-26", games=all_star_games()[:3]))
+
+    star = next(e for e in with_star.game_log.entries if e.game_id == "star")  # type: ignore[union-attr]
+    assert with_star.all_star_year == star.date.year
+    assert "star" not in [g.game_id for g in with_star.last_games]
+    assert without.all_star_year is None
+    assert build().all_star_year is None
 
 
 def test_gives_no_game_log_without_games() -> None:

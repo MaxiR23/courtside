@@ -1,0 +1,253 @@
+{
+  "events": [
+    {
+      "id": "9100",
+      "date": "2026-10-05T23:00Z",
+      "season": {
+        "type": 2
+      },
+      "status": {
+        "period": 4,
+        "displayClock": "0.0",
+        "type": {
+          "name": "STATUS_FINAL"
+        }
+      },
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "Example Arena"
+          },
+          "broadcast": "",
+          "type": {
+            "abbreviation": "STD"
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "score": "100",
+              "team": {
+                "abbreviation": "CHA",
+                "name": "Hornets",
+                "location": "Charlotte"
+              },
+              "linescores": [
+                {
+                  "period": 1,
+                  "value": 30.0
+                },
+                {
+                  "period": 2,
+                  "value": 35.0
+                },
+                {
+                  "period": 3,
+                  "value": 25.0
+                },
+                {
+                  "period": 4,
+                  "value": 10.0
+                }
+              ]
+            },
+            {
+              "homeAway": "away",
+              "score": "118",
+              "team": {
+                "abbreviation": "DET",
+                "name": "Pistons",
+                "location": "Detroit"
+              },
+              "linescores": [
+                {
+                  "period": 1,
+                  "value": 36.0
+                },
+                {
+                  "period": 2,
+                  "value": 32.0
+                },
+                {
+                  "period": 3,
+                  "value": 25.0
+                },
+                {
+                  "period": 4,
+                  "value": 25.0
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "9101",
+      "date": "2026-10-05T23:30Z",
+      "season": {
+        "type": 2
+      },
+      "status": {
+        "period": 1,
+        "displayClock": "0.0",
+        "type": {
+          "name": "STATUS_FINAL"
+        }
+      },
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "Example Arena"
+          },
+          "broadcast": "",
+          "type": {
+            "abbreviation": "ALLSTAR"
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "score": "18",
+              "team": {
+                "abbreviation": "WAV",
+                "name": "Team Waves",
+                "id": "902",
+                "isAllStar": true
+              },
+              "linescores": [
+                {
+                  "period": 1,
+                  "value": 18.0
+                }
+              ]
+            },
+            {
+              "homeAway": "away",
+              "score": "21",
+              "team": {
+                "abbreviation": "STR",
+                "name": "Team Stripes",
+                "id": "901",
+                "isAllStar": true
+              },
+              "linescores": [
+                {
+                  "period": 1,
+                  "value": 21.0
+                }
+              ]
+            }
+          ],
+          "notes": [
+            {
+              "headline": "NBA All-Star - Round Robin"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "9102",
+      "date": "2026-10-06T00:30Z",
+      "season": {
+        "type": 2
+      },
+      "status": {
+        "period": 0,
+        "displayClock": "0.0",
+        "type": {
+          "name": "STATUS_SCHEDULED"
+        }
+      },
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "Example Arena"
+          },
+          "broadcast": "",
+          "type": {
+            "abbreviation": "ALLSTAR"
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "score": "0",
+              "team": {
+                "abbreviation": "PKS",
+                "name": "Team Peaks",
+                "id": "903",
+                "isAllStar": true
+              }
+            },
+            {
+              "homeAway": "away",
+              "score": "0",
+              "team": {
+                "abbreviation": "STR",
+                "name": "Team Stripes",
+                "id": "901",
+                "isAllStar": true
+              }
+            }
+          ],
+          "notes": [
+            {
+              "headline": "NBA All-Star - Semifinals First team to 40 points wins - Untimed"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "9103",
+      "date": "2026-10-06T01:30Z",
+      "season": {
+        "type": 2
+      },
+      "status": {
+        "period": 0,
+        "displayClock": "0.0",
+        "type": {
+          "name": "STATUS_SCHEDULED"
+        }
+      },
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "Example Arena"
+          },
+          "broadcast": "",
+          "type": {
+            "abbreviation": "ALLSTAR"
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "score": "0",
+              "team": {
+                "abbreviation": "TBD",
+                "id": "0",
+                "name": "TBD",
+                "isAllStar": false
+              }
+            },
+            {
+              "homeAway": "away",
+              "score": "0",
+              "team": {
+                "abbreviation": "TBD",
+                "id": "0",
+                "name": "TBD",
+                "isAllStar": false
+              }
+            }
+          ],
+          "notes": [
+            {
+              "headline": "NBA All-Star - Championship"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

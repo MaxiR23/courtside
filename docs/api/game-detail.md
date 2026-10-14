@@ -50,6 +50,7 @@ The root is one game.
 | `highlightsSearchUrl` | URL / null                | Link to search for highlights, as in the [games feed](games.md)  | null when no data                     |
 | `cup`                 | `GameCup` / null          | The Cup mark, as in the [games feed](games.md)                   | null when the game is not a Cup game  |
 | `postseason`          | `GamePostseason` / null   | The play-in or playoff mark, as in the [games feed](games.md)    | null when the game is neither, and when a stored feed was written before the mark |
+| `allStar`             | `GameAllStar` / null      | The All-Star mark, as in the [games feed](games.md)              | null when the game is not an All-Star game, and when a stored feed was written before the mark |
 
 For every optional section, `null` means the source has no data for it: the
 page hides the section and its tab (`docs/design-game-detail.md`, "A section
@@ -68,7 +69,7 @@ other status has `winner` null. Every stat leader is a side, `away` or
 | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Opponent`            | `code` (null for a guest without one), `name`, `city` (null when the source sends none), `guest`; as in the [games feed](games.md) ([ADR 0026](../adr/0026-one-guest-team-rule.md)) |
 | `Record`              | `wins`, `losses`                                                                                                                             |
-| `DetailTeam`          | `GameTeam` fields (`code`, null for a guest without one, `name`, `city`, `guest`) plus `record` (null for a guest)                                                         |
+| `DetailTeam`          | `GameTeam` fields (`code`, null for a guest without one, `name`, `city`, `guest`; `city` is null for a guest the source sends without one, such as an All-Star team) plus `record` (null for a guest)                                                         |
 | `Venue`               | `name`, `city` (null when the source has no city), `photoUrl` (null when unknown)                                                                                        |
 | `DetailTeamStats`     | `TeamStats` fields (`fieldGoalPct`, `threePointPct`, `rebounds`, `assists`, `turnovers`) plus `freeThrowPct` (0 to 1), `steals`, `blocks`    |
 | `TeamStatLeaders`     | one side (`away` or `home`) or null per row: `fieldGoalPct`, `threePointPct`, `freeThrowPct`, `rebounds`, `assists`, `turnovers`, `steals`, `blocks`       |

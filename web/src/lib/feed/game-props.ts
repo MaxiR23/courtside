@@ -11,6 +11,7 @@ import type {
 	Star
 } from '#lib/contract/game-detail.ts';
 import { formatDate, formatNumber } from '#lib/format/locale.ts';
+import { allStarMark } from '#lib/feed/all-star-mark-props.ts';
 import { cupTag } from '#lib/feed/cup-mark-props.ts';
 import { postseasonMark } from '#lib/feed/postseason-mark-props.ts';
 import { tipParts, video } from '#lib/feed/props.ts';
@@ -532,6 +533,7 @@ function header(feed: GameDetailFeed, layout: GameLayout): GameHeaderView {
 		status: statusLine(feed),
 		cupTag: cupTag(feed.cup),
 		postseasonMark: postseasonMark(feed.postseason),
+		allStarMark: allStarMark(feed.allStar),
 		away: headerTeam(feed.away),
 		home: headerTeam(feed.home),
 		center: center(feed),

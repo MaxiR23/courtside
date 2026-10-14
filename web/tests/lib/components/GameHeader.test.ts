@@ -16,6 +16,7 @@
 // - A guest without a code shows the initials of its name in the monogram and its name as plain text, on desktop and mobile
 // - The Cup tag first in the status line, before the live badge, the date and the venue; none for a game without the mark
 // - The postseason mark first in the status line, before the live badge and the status text, for a scheduled and a live game; none for a regular game; the Cup tag unchanged
+// - The All-Star mark first in the status line of a scheduled game, then the round, the solid tag for the Championship, none without the mark, and no city for a guest side without one
 //
 // What is covered:
 // - Each state the header shows
@@ -55,6 +56,7 @@ const scheduled: GameHeaderView = {
 	status: { state: 'scheduled', text: 'Wednesday, October 7 · Chase Center' },
 	cupTag: null,
 	postseasonMark: null,
+	allStarMark: null,
 	away,
 	home,
 	center: {
@@ -72,6 +74,7 @@ const live: GameHeaderView = {
 	status: { state: 'live', text: 'Q3 · 4:12 · Chase Center' },
 	cupTag: null,
 	postseasonMark: null,
+	allStarMark: null,
 	away,
 	home,
 	center: { kind: 'score', away: 63, home: 62, loser: null },
@@ -83,6 +86,7 @@ const final: GameHeaderView = {
 	status: { state: 'final', text: 'Final · Wednesday, October 7 · Chase Center' },
 	cupTag: null,
 	postseasonMark: null,
+	allStarMark: null,
 	away,
 	home,
 	center: { kind: 'score', away: 110, home: 98, loser: 'home' },
@@ -427,5 +431,42 @@ describe('GameHeader with the postseason mark', () => {
 		expect(
 			container.querySelector('.status-line')?.firstElementChild?.classList.contains('cup-tag')
 		).toBe(true);
+	});
+});
+
+describe('GameHeader with the All-Star mark', () => {
+	const mark = { tag: 'All-Star', context: 'Semifinals', championship: false };
+	const stripes = { code: 'STR', name: 'Team Stripes', city: null, record: null, guest: true };
+	const waves = { code: 'WAV', name: 'Team Waves', city: null, record: null, guest: true };
+
+	it('shows the tag first in the status line, then the round', () => {
+		const { container } = show({ ...scheduled, allStarMark: mark });
+		const line = container.querySelector('.status-line');
+		expect(line?.firstElementChild?.classList.contains('allstar-mark')).toBe(true);
+		expect(line?.querySelector('.allstar-tag')?.textContent).toBe('All-Star');
+		expect(line?.querySelector('.context')?.textContent).toBe('Semifinals');
+	});
+
+	it('shows the solid tag for the Championship', () => {
+		const championship = { tag: 'All-Star', context: 'Championship', championship: true };
+		const { container } = show({ ...scheduled, allStarMark: championship });
+		expect(container.querySelector('.allstar-tag')?.classList.contains('solid')).toBe(true);
+	});
+
+	it('shows nothing without the mark', () => {
+		const { container } = show(scheduled);
+		expect(container.querySelector('.allstar-mark')).toBeNull();
+	});
+
+	it('shows no city for a guest side without one', () => {
+		for (const layout of ['desktop', 'mobile'] as const) {
+			const { container, unmount } = show(
+				{ ...scheduled, away: stripes, home: waves, allStarMark: mark },
+				layout
+			);
+			expect(container.querySelector('.city')).toBeNull();
+			expect(container.querySelector('.meta')?.textContent ?? '').toBe('');
+			unmount();
+		}
 	});
 });

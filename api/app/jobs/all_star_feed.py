@@ -86,6 +86,7 @@ from app.sources import (
     team_info,
 )
 from app.sources.all_star_detail import AllStarDetailExtras
+from app.sources.all_star_mark import CHAMPIONSHIP, parse_note
 from app.sources.all_star_scoreboard import AllStarScoreboardGame, AllStarSide
 from app.sources.game_detail import GameDetail, GameDetailSections
 from app.sources.http import Freshness, SourceClient, SourceError
@@ -100,12 +101,7 @@ FEED_ID = "league"
 UNPLAYED_FRESH = dt.timedelta(hours=1)
 FINAL_HOLD = dt.timedelta(hours=1)
 PREVIOUS_FRESH = dt.timedelta(hours=24)
-CHAMPIONSHIP = "Championship"
 MAX_TOP5 = 5
-NOTE = re.compile(
-    r"^NBA All-Star - (?P<round>.+?)"
-    r"(?: (?P<suffix>First team to \d+ points wins.*))?$"
-)
 FIRST_TO = re.compile(r"First team to (\d+) points wins")
 STAT_ORDER = (
     "field_goal_pct",
@@ -163,14 +159,6 @@ class AllStarSources:
     player_teams: Mapping[str, str]
     awards: SeasonAwards | None
     previous: AllStarSources | None
-
-
-def parse_note(note: str | None) -> tuple[str | None, str | None]:
-    """The round label and the format suffix of a game note, or none of them."""
-    found = NOTE.match(note) if note else None
-    if found is None:
-        return None, None
-    return found.group("round"), found.group("suffix")
 
 
 def format_line(suffix: str | None, extras: AllStarDetailExtras | None) -> str | None:

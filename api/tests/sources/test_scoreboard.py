@@ -17,6 +17,11 @@
 # - A malformed series object, an unknown series competitor id, a missing note and an unknown competition type each give a null mark, log the event id only and still build the day
 # - The lenient mark shapes read the field names the strict postseason shapes read
 # - The playoffs adapter path reads the same mark as the core path and logs no unreadable mark warning
+# - Maps an All-Star day: the All-Star games carry the round mark with the suffix dropped, their sides are guests with the source code and name and a null city, and the league game keeps its city, score and no mark
+# - Skips an All-Star game whose sides are placeholders and keeps the other games, and marks the Championship when its sides are All-Star teams
+# - Treats an unreadable season or competition type as not All-Star, and leaves a regular game with no All-Star flag unaffected
+# - Skips with one log line by event id an All-Star event without a line score, without a clock, with a league code, with a provider-key side without a city, with a note that is not an All-Star note or with an unknown status, and keeps the rest of the day
+# - Still raises the source error for an event with no competition
 #
 # What is covered:
 # - A valid response mapped, an invalid payload rejected, upstream failures handled
@@ -479,7 +484,7 @@ async def test_raises_the_source_error_on_a_final_game_without_a_score(
 
 @pytest.mark.anyio
 @pytest.mark.parametrize(
-    ("field", "location"), [("name", "home.name"), ("location", "home.city")]
+    ("field", "location"), [("name", "home.name"), ("location", "home")]
 )
 async def test_raises_the_source_error_on_an_empty_team_name_or_city(
     mock: respx.MockRouter, settings: Settings, field: str, location: str
@@ -768,3 +773,248 @@ def test_the_playoffs_adapter_path_reads_the_same_mark_as_the_core_path_and_logs
     assert caplog.records == []
     assert all(game is not None and game.postseason for game in actual)
     assert [g.postseason for g in actual if g] == [g.postseason for g in expected if g]
+
+
+def all_star_event(payload: Payload, event_id: str) -> Payload:
+    found: Payload = next(e for e in payload["events"] if e["id"] == event_id)
+    return found
+
+
+def all_star_sides(game: Payload) -> list[Payload]:
+    sides: list[Payload] = game["competitions"][0]["competitors"]
+    return sides
+
+
+@pytest.mark.anyio
+async def test_maps_an_all_star_day_with_marks_and_guest_sides(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    mock.get(URL).respond(json=load("all-star.json"))
+
+    games = {g.id: g for g in await fetch(settings)}
+
+    assert list(games) == ["9100", "9101", "9102"]
+    robin, semi = games["9101"], games["9102"]
+    assert robin.all_star is not None
+    assert (robin.all_star.round_label, robin.all_star.championship) == (
+        "Round Robin",
+        False,
+    )
+    assert semi.all_star is not None
+    assert (semi.all_star.round_label, semi.all_star.championship) == (
+        "Semifinals",
+        False,
+    )
+    for side in (robin.home, robin.away, semi.home, semi.away):
+        assert side.guest is True
+        assert side.city is None
+    assert (robin.away.code, robin.away.name) == ("STR", "Team Stripes")
+    assert (robin.home.code, robin.home.name) == ("WAV", "Team Waves")
+    assert robin.score is not None
+    assert (robin.score.away, robin.score.home) == (21, 18)
+
+
+@pytest.mark.anyio
+async def test_the_league_game_of_an_all_star_day_has_no_mark_and_keeps_its_city(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    mock.get(URL).respond(json=load("all-star.json"))
+
+    league = (await fetch(settings))[0]
+
+    assert league.all_star is None
+    assert (league.home.city, league.away.city) == ("Charlotte", "Detroit")
+    assert league.score is not None
+    assert (league.score.home, league.score.away) == (100, 118)
+
+
+@pytest.mark.anyio
+async def test_skips_an_all_star_game_with_placeholder_sides_and_keeps_the_others(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("all-star.json")
+    mock.get(URL).respond(json=payload)
+
+    games = await fetch(settings)
+
+    assert "9103" not in [g.id for g in games]
+    assert len(games) == 3
+
+
+@pytest.mark.anyio
+async def test_marks_the_championship_when_its_sides_are_all_star_teams(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("all-star.json")
+    stripes, waves = all_star_sides(all_star_event(payload, "9101"))
+    sides = all_star_sides(all_star_event(payload, "9103"))
+    sides[0]["team"] = copy.deepcopy(stripes["team"])
+    sides[1]["team"] = copy.deepcopy(waves["team"])
+    mock.get(URL).respond(json=payload)
+
+    final = next(g for g in await fetch(settings) if g.id == "9103")
+
+    assert final.all_star is not None
+    assert final.all_star.round_label == "Championship"
+    assert final.all_star.championship is True
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "season", [{"type": "regular"}, "regular", 7], ids=["text", "string", "number"]
+)
+async def test_an_unreadable_season_is_not_all_star_and_the_day_is_read(
+    mock: respx.MockRouter, settings: Settings, season: Any
+) -> None:
+    payload = load("all-star.json")
+    league = all_star_event(payload, "9100")
+    league["season"] = season
+    mock.get(URL).respond(json=only(league))
+
+    games = await fetch(settings)
+
+    assert [g.id for g in games] == ["9100"]
+    assert games[0].all_star is None
+
+
+@pytest.mark.anyio
+async def test_an_unreadable_competition_type_is_not_all_star_and_the_day_is_read(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("all-star.json")
+    league = all_star_event(payload, "9100")
+    league["competitions"][0]["type"] = "ALLSTAR"
+    mock.get(URL).respond(json=only(league))
+
+    games = await fetch(settings)
+
+    assert [g.id for g in games] == ["9100"]
+    assert games[0].all_star is None
+
+
+@pytest.mark.anyio
+async def test_a_regular_game_without_the_all_star_flag_is_unaffected(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    mock.get(URL).respond(json=load("day.json"))
+
+    games = await fetch(settings)
+
+    assert len(games) == 6
+    assert all(g.all_star is None for g in games)
+
+
+async def skipped_all_star(
+    mock: respx.MockRouter,
+    settings: Settings,
+    caplog: pytest.LogCaptureFixture,
+    payload: Payload,
+    event_id: str,
+) -> str:
+    mock.get(URL).respond(json=payload)
+
+    with caplog.at_level(logging.WARNING, logger="app.sources.scoreboard"):
+        games = await fetch(settings)
+
+    expected = [e["id"] for e in payload["events"] if e["id"] != event_id]
+    expected = [i for i in expected if i != "9103"]
+    assert [g.id for g in games] == expected
+    warned = [r for r in caplog.records if r.name == "app.sources.scoreboard"]
+    assert len(warned) == 1
+    message = warned[0].getMessage()
+    assert message.startswith(f"scoreboard: All-Star event {event_id} skipped: ")
+    return message
+
+
+@pytest.mark.anyio
+async def test_skips_a_final_all_star_game_without_a_line_score(
+    mock: respx.MockRouter, settings: Settings, caplog: pytest.LogCaptureFixture
+) -> None:
+    payload = load("all-star.json")
+    for side in all_star_sides(all_star_event(payload, "9101")):
+        del side["linescores"]
+
+    message = await skipped_all_star(mock, settings, caplog, payload, "9101")
+
+    assert "is invalid: value_error" in message
+
+
+@pytest.mark.anyio
+async def test_skips_a_live_all_star_game_without_a_clock(
+    mock: respx.MockRouter, settings: Settings, caplog: pytest.LogCaptureFixture
+) -> None:
+    payload = load("all-star.json")
+    game = all_star_event(payload, "9101")
+    game["status"] = {"period": 1, "type": {"name": "STATUS_IN_PROGRESS"}}
+
+    message = await skipped_all_star(mock, settings, caplog, payload, "9101")
+
+    assert "is invalid: value_error" in message
+
+
+@pytest.mark.anyio
+async def test_skips_an_all_star_game_with_a_side_code_the_league_owns(
+    mock: respx.MockRouter, settings: Settings, caplog: pytest.LogCaptureFixture
+) -> None:
+    payload = load("all-star.json")
+    team = all_star_sides(all_star_event(payload, "9101"))[0]["team"]
+    team["abbreviation"] = "GSW"
+    team["id"] = "901"
+
+    message = await skipped_all_star(mock, settings, caplog, payload, "9101")
+
+    assert "is a league team code" in message
+
+
+@pytest.mark.anyio
+async def test_skips_an_all_star_game_with_a_provider_key_side_without_a_city(
+    mock: respx.MockRouter, settings: Settings, caplog: pytest.LogCaptureFixture
+) -> None:
+    payload = load("all-star.json")
+    team = all_star_sides(all_star_event(payload, "9101"))[0]["team"]
+    team["abbreviation"] = "LAL"
+    del team["id"]
+
+    message = await skipped_all_star(mock, settings, caplog, payload, "9101")
+
+    assert "is invalid" in message
+
+
+@pytest.mark.anyio
+async def test_skips_an_all_star_game_whose_note_is_not_an_all_star_note(
+    mock: respx.MockRouter, settings: Settings, caplog: pytest.LogCaptureFixture
+) -> None:
+    payload = load("all-star.json")
+    all_star_event(payload, "9101")["competitions"][0]["notes"] = [
+        {"headline": "Exhibition"}
+    ]
+
+    message = await skipped_all_star(mock, settings, caplog, payload, "9101")
+
+    assert "unreadable All-Star mark" in message
+
+
+@pytest.mark.anyio
+async def test_skips_an_all_star_game_with_an_unknown_status(
+    mock: respx.MockRouter, settings: Settings, caplog: pytest.LogCaptureFixture
+) -> None:
+    payload = load("all-star.json")
+    all_star_event(payload, "9101")["status"]["type"]["name"] = "STATUS_UNKNOWN"
+
+    message = await skipped_all_star(mock, settings, caplog, payload, "9101")
+
+    assert "unknown game status" in message
+
+
+@pytest.mark.anyio
+async def test_an_event_without_a_competition_still_raises_the_source_error(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("all-star.json")
+    league = all_star_event(payload, "9100")
+    league["competitions"] = []
+    mock.get(URL).respond(json=only(league))
+
+    error = await fetch_error(settings)
+
+    assert error.reason == "game 9100 has no competition"

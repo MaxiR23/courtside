@@ -209,6 +209,17 @@
             }
           ],
           "default": null
+        },
+        "allStar": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GameAllStar"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -231,9 +242,29 @@
         "statsAvailability",
         "highlightsSearchUrl",
         "cup",
-        "postseason"
+        "postseason",
+        "allStar"
       ],
       "title": "Game",
+      "type": "object"
+    },
+    "GameAllStar": {
+      "additionalProperties": false,
+      "description": "The mark of an All-Star game: its round as the source writes it, and\nwhether it is the Championship.",
+      "properties": {
+        "roundLabel": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "championship": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "roundLabel",
+        "championship"
+      ],
+      "title": "GameAllStar",
       "type": "object"
     },
     "GameCup": {
@@ -349,7 +380,7 @@
     },
     "GameTeam": {
       "additionalProperties": false,
-      "description": "A side of a game: one of the 30 teams, or a guest team outside the league.",
+      "description": "A side of a game: one of the 30 teams, or a guest team outside the league.\nA guest may have no city (an All-Star team); a league team has one.",
       "properties": {
         "code": {
           "anyOf": [
@@ -367,8 +398,15 @@
           "type": "string"
         },
         "city": {
-          "minLength": 1,
-          "type": "string"
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "guest": {
           "default": false,

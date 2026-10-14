@@ -340,6 +340,7 @@ class PlayerFeed(FeedModel):
     milestones: Milestones | None = None
     game_log: GameLog | None = None
     awards: list[Award]
+    all_star_year: PositiveInt | None = None
 
     @model_validator(mode="after")
     def _require_recent_games_newest_first_without_all_star(self) -> PlayerFeed:

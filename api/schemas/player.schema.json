@@ -1694,6 +1694,18 @@
         "$ref": "#/$defs/Award"
       },
       "type": "array"
+    },
+    "allStarYear": {
+      "anyOf": [
+        {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     }
   },
   "required": [
@@ -1714,7 +1726,8 @@
     "seasons",
     "milestones",
     "gameLog",
-    "awards"
+    "awards",
+    "allStarYear"
   ],
   "title": "PlayerFeed",
   "type": "object"

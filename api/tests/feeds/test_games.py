@@ -15,6 +15,8 @@
 # - Serialization uses camelCase keys and carries unknown values as null
 # - Accepts a game with a Cup mark of each round and with a null or absent Cup mark, and rejects an unknown round
 # - Accepts a game with a postseason mark of each stage and a null or absent one, and rejects a mark whose round, conference, number, play-in kind or stakes do not fit its stage
+# - Accepts a game with an All-Star mark, a null mark and no key, and rejects a mark with an empty round or without the Championship flag
+# - Accepts a guest side with a null city and rejects a league side with a null city
 #
 # What is covered:
 # - A valid feed is accepted and an invalid one is rejected
@@ -667,3 +669,62 @@ def test_reads_a_game_without_the_key_as_postseason_null() -> None:
     assert absent.days[0].games[0].postseason is None
     assert explicit.days[0].games[0].postseason is None
     assert absent.model_dump(mode="json")["days"][0]["games"][0]["postseason"] is None
+
+
+ALL_STAR_MARK = {"roundLabel": "Round Robin", "championship": False}
+
+
+def all_star_team(code: str) -> Payload:
+    return {"code": code, "name": f"Team {code}", "city": None, "guest": True}
+
+
+def test_accepts_a_game_with_an_all_star_mark_a_null_mark_and_no_key() -> None:
+    marked = GamesFeed.model_validate(
+        valid_feed(valid_game("scheduled", allStar=ALL_STAR_MARK))
+    )
+    null = GamesFeed.model_validate(valid_feed(valid_game("scheduled", allStar=None)))
+    absent = GamesFeed.model_validate(valid_feed(valid_game("scheduled")))
+
+    dumped = marked.model_dump(mode="json")["days"][0]["games"][0]
+    assert dumped["allStar"] == ALL_STAR_MARK
+    assert null.days[0].games[0].all_star is None
+    assert absent.days[0].games[0].all_star is None
+    assert absent.model_dump(mode="json")["days"][0]["games"][0]["allStar"] is None
+
+
+@pytest.mark.parametrize(
+    "mark",
+    [
+        {"roundLabel": "", "championship": False},
+        {"roundLabel": "Round Robin"},
+    ],
+    ids=["empty round", "no championship flag"],
+)
+def test_rejects_an_all_star_mark_with_an_empty_round_or_without_the_flag(
+    mark: Payload,
+) -> None:
+    with pytest.raises(ValidationError):
+        GamesFeed.model_validate(valid_feed(valid_game("scheduled", allStar=mark)))
+
+
+def test_accepts_a_guest_side_with_a_null_city() -> None:
+    feed = GamesFeed.model_validate(
+        valid_feed(
+            valid_game(
+                "scheduled",
+                away=all_star_team("STR"),
+                home=all_star_team("WAV"),
+                stars=pair(None, None),
+            )
+        )
+    )
+
+    game = feed.days[0].games[0]
+    assert (game.away.city, game.home.city) == (None, None)
+
+
+def test_rejects_a_league_side_with_a_null_city() -> None:
+    with pytest.raises(ValidationError, match="a league team has a city"):
+        GamesFeed.model_validate(
+            valid_feed(valid_game("scheduled", away={**team("AAA"), "city": None}))
+        )

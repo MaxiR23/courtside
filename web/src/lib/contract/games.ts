@@ -41,14 +41,16 @@ export interface Game {
 	highlightsSearchUrl: string | null;
 	cup: GameCup | null;
 	postseason: GamePostseason | null;
+	allStar: GameAllStar | null;
 }
 /**
  * A side of a game: one of the 30 teams, or a guest team outside the league.
+ * A guest may have no city (an All-Star team); a league team has one.
  */
 export interface GameTeam {
 	code: string | null;
 	name: string;
-	city: string;
+	city: string | null;
 	guest: boolean;
 }
 export interface Stars {
@@ -124,4 +126,12 @@ export interface GamePostseason {
 	summary: string | null;
 	playIn: PlayInGameKind | null;
 	stakes: Stakes | null;
+}
+/**
+ * The mark of an All-Star game: its round as the source writes it, and
+ * whether it is the Championship.
+ */
+export interface GameAllStar {
+	roundLabel: string;
+	championship: boolean;
 }

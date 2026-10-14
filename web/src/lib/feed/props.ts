@@ -7,6 +7,7 @@ import type {
 	Star,
 	TeamStats
 } from '#lib/contract/games.ts';
+import { allStarMark } from '#lib/feed/all-star-mark-props.ts';
 import { cupTag } from '#lib/feed/cup-mark-props.ts';
 import { postseasonMark } from '#lib/feed/postseason-mark-props.ts';
 import { formatDateParts } from '#lib/format/locale.ts';
@@ -186,7 +187,8 @@ function scheduleGame(game: Game, options: Options): ScheduleGame {
 		away: scheduleTeam(game.away),
 		home: scheduleTeam(game.home),
 		cupTag: cupTag(game.cup),
-		postseasonMark: postseasonMark(game.postseason)
+		postseasonMark: postseasonMark(game.postseason),
+		allStarMark: allStarMark(game.allStar)
 	};
 	switch (game.status) {
 		case 'scheduled':

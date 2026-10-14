@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { ResolvedPathname } from '$app/types';
+	import AllStarTag from '#lib/components/AllStarTag.svelte';
 	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
 	import CupMarkTag from '#lib/components/CupMarkTag.svelte';
 	import LiveBadge from '#lib/components/LiveBadge.svelte';
@@ -39,7 +40,7 @@
 		header?.center.kind === 'score' && header.center.loser === side;
 
 	// The mobile meta line: the city, then the record when the team has one.
-	const metaOf = (team: HeaderTeam) => (team.record ? `${team.city} · ${team.record}` : team.city);
+	const metaOf = (team: HeaderTeam) => [team.city, team.record].filter(Boolean).join(' · ');
 
 	// Keyed by photo URL, so a new URL tries again after a failure.
 	let failedPhoto = $state<string | null>(null);
@@ -63,7 +64,7 @@
 {#snippet teamBlock(team: HeaderTeam, side: 'away' | 'home')}
 	<div class="team {side}" class:dimmed={isLoser(side)}>
 		<TeamMark part="tile" {team} size="header" {teamHref} />
-		<span class="city">{team.city}</span>
+		{#if team.city}<span class="city">{team.city}</span>{/if}
 		<h1 class="name">
 			<TeamMark part="name" {team} {teamHref} />
 		</h1>
@@ -80,6 +81,11 @@
 			<p class="status-line">
 				{#if header.cupTag}<CupMarkTag text={header.cupTag} />{/if}
 				{#if header.postseasonMark}<PostseasonMark mark={header.postseasonMark} />{/if}
+				{#if header.allStarMark}<AllStarTag
+						text={header.allStarMark.tag}
+						context={header.allStarMark.context}
+						solid={header.allStarMark.championship}
+					/>{/if}
 				{#if header.status.state === 'live'}
 					<LiveBadge />
 				{:else if header.status.state === 'delayed' || header.status.state === 'postponed' || header.status.state === 'canceled'}

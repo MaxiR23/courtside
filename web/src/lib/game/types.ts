@@ -2,6 +2,7 @@
 import type { Side } from '#lib/schedule/stats.ts';
 import type { PostseasonMarkView } from '#lib/playoffs/types.ts';
 import type { GameHighlights, PanelPlayer, TeamStatLine } from '#lib/schedule/types.ts';
+import type { AllStarMarkView } from '#lib/all-star/types.ts';
 import type { TeamMarkTeam } from '#lib/team/mark.ts';
 
 export type GameLayout = 'pre-game' | 'live' | 'final';
@@ -9,7 +10,7 @@ export type GameLayout = 'pre-game' | 'live' | 'final';
 // A game side (ADR 0025, ADR 0026): the code is null for a guest without one.
 export type HeaderTeam = TeamMarkTeam & {
 	name: string; // e.g. "Warriors"
-	city: string; // e.g. "Golden State"
+	city: string | null; // e.g. "Golden State"; null: a guest the source sends without a city, such as an All-Star team
 	record: string | null; // "12–5", already formatted; null: a guest team has no record
 };
 
@@ -47,6 +48,7 @@ export type GameHeaderView = {
 	status: StatusLine;
 	cupTag: string | null; // "NBA Cup · Group play"; null: not a Cup game
 	postseasonMark: PostseasonMarkView | null; // null: neither a play-in nor a playoff game
+	allStarMark: AllStarMarkView | null; // null: not an All-Star game
 	away: HeaderTeam;
 	home: HeaderTeam;
 	center: ScoreboardCenter;

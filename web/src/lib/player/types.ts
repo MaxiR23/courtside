@@ -14,6 +14,7 @@ export type PlayerHeaderView = {
 	firstName: string;
 	lastName: string;
 	line: string; // "#2 · Guard · Oklahoma City Thunder"; a null number is left out
+	allStarTag: string | null; // "All-Star 2027"; null: no All-Star game this season
 	injury: { status: InjuryTagStatus; comment: string | null; updated: string } | null; // updated: "Updated Oct 7 · 3:15 PM ET"
 	photo: string | null; // null: the photo block is not rendered
 	stats: { label: string; cells: InfoCell[] } | null; // null: no summary

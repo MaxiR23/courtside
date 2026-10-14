@@ -185,6 +185,7 @@ Same size, letter spacing and truncation as the other stage tags: 11px, .16em, u
 ### Context line
 
 - Muted caps after the tag: the round, as the feed sends it ("Round Robin", "Championship", "Semifinals"). The format suffix is not shown here.
+- Exception: "Championship" is the translated string `allstar_round_championship` ("Campeonato" in Spanish), as on the `/all-star` page.
 
 ### Home game card
 

@@ -1,6 +1,6 @@
 # 0036. All-Star feed
 
-- Status: Accepted
+- Status: Superseded by 0038 for the core adapters' handling of All-Star games only
 - Date: 2026-10-14
 
 ## Context

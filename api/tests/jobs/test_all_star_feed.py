@@ -94,7 +94,6 @@ from app.jobs.all_star_feed import (
     leading,
     league_team,
     next_game,
-    parse_note,
     placements,
     previous_edition,
     team_stats,
@@ -112,6 +111,7 @@ from app.jobs.on_demand import (
 from app.jobs.stars import StarsJob
 from app.settings import Settings
 from app.sources.all_star_detail import AllStarDetailExtras
+from app.sources.all_star_mark import parse_note
 from app.sources.all_star_scoreboard import AllStarScoreboardGame, AllStarSide
 from app.sources.game_detail import GameDetail, GameDetailSections
 from app.sources.http import Freshness, SourceClient, SourceError, create_client

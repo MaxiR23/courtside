@@ -8,6 +8,7 @@
 // - The photo with a URL; no photo block without one or after a load error
 // - The four stat cells; no stats block with null stats
 // - Loading: aria-busy and the bones; a null header shows only the nav row
+// - The All-Star tag in the tags when the header has one, none without it, and it is not a link
 //
 // What is covered:
 // - Each state, drawn from props with no fetch
@@ -31,6 +32,7 @@ const header: PlayerHeaderView = {
 	firstName: 'Shai',
 	lastName: 'Gilgeous-Alexander',
 	line: '#2 · Guard · Oklahoma City Thunder',
+	allStarTag: null,
 	injury: null,
 	photo: 'https://example.com/players/p-2.png',
 	stats: {
@@ -157,5 +159,23 @@ describe('PlayerHeader', () => {
 			}
 		});
 		expect(container.querySelector('nav')?.classList.contains('mobile')).toBe(true);
+	});
+});
+
+describe('PlayerHeader with the All-Star tag', () => {
+	it('shows the tag in the tags row', () => {
+		const { container } = show({ header: { ...header, allStarTag: 'All-Star 2027' } });
+		expect(container.querySelector('.tags')?.textContent).toContain('All-Star 2027');
+		expect(container.querySelector('.allstar-tag')?.textContent).toBe('All-Star 2027');
+	});
+
+	it('shows no tag without it', () => {
+		const { container } = show({ header });
+		expect(container.querySelector('.allstar-mark')).toBeNull();
+	});
+
+	it('draws the tag as plain text, not a link', () => {
+		const { container } = show({ header: { ...header, allStarTag: 'All-Star 2027' } });
+		expect(container.querySelector('.allstar-mark a, .allstar-mark button')).toBeNull();
 	});
 });

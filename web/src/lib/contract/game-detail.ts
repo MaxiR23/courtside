@@ -40,6 +40,7 @@ export interface GameDetailFeed {
 	highlightsSearchUrl: string | null;
 	cup: GameCup | null;
 	postseason: GamePostseason | null;
+	allStar: GameAllStar | null;
 }
 export interface Venue {
 	name: string;
@@ -49,7 +50,7 @@ export interface Venue {
 export interface DetailTeam {
 	code: string | null;
 	name: string;
-	city: string;
+	city: string | null;
 	guest: boolean;
 	record: Record | null;
 }
@@ -274,4 +275,12 @@ export interface GamePostseason {
 	summary: string | null;
 	playIn: PlayInGameKind | null;
 	stakes: Stakes | null;
+}
+/**
+ * The mark of an All-Star game: its round as the source writes it, and
+ * whether it is the Championship.
+ */
+export interface GameAllStar {
+	roundLabel: string;
+	championship: boolean;
 }

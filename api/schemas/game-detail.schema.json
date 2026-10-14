@@ -298,8 +298,15 @@
           "type": "string"
         },
         "city": {
-          "minLength": 1,
-          "type": "string"
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "guest": {
           "default": false,
@@ -376,6 +383,25 @@
         "blocks"
       ],
       "title": "DetailTeamStats",
+      "type": "object"
+    },
+    "GameAllStar": {
+      "additionalProperties": false,
+      "description": "The mark of an All-Star game: its round as the source writes it, and\nwhether it is the Championship.",
+      "properties": {
+        "roundLabel": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "championship": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "roundLabel",
+        "championship"
+      ],
+      "title": "GameAllStar",
       "type": "object"
     },
     "GameCup": {
@@ -1579,6 +1605,17 @@
         }
       ],
       "default": null
+    },
+    "allStar": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/GameAllStar"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     }
   },
   "required": [
@@ -1607,7 +1644,8 @@
     "highlights",
     "highlightsSearchUrl",
     "cup",
-    "postseason"
+    "postseason",
+    "allStar"
   ],
   "title": "GameDetailFeed",
   "type": "object"

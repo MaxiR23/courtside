@@ -1,4 +1,5 @@
 <script lang="ts">
+	import AllStarTag from '#lib/components/AllStarTag.svelte';
 	import type { ResolvedPathname } from '$app/types';
 	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
 	import Kicker from '#lib/components/Kicker.svelte';
@@ -38,6 +39,7 @@
 					<div class="tags">
 						<StatusTag text={header.teamCode} />
 						<StatusTag text={header.status.label} accent={header.status.injured} />
+						{#if header.allStarTag}<AllStarTag text={header.allStarTag} />{/if}
 					</div>
 					<span class="first-name">{header.firstName}</span>
 					<h1 class="last-name">{header.lastName}</h1>

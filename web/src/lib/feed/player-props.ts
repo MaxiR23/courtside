@@ -13,6 +13,7 @@ import type {
 	SeasonSplit,
 	StatRow
 } from '#lib/contract/player.ts';
+import { allStarPlayerTag } from '#lib/feed/all-star-mark-props.ts';
 import { periodText } from '#lib/feed/game-props.ts';
 import { tipParts } from '#lib/feed/props.ts';
 import { feedDate, gameTagLabel, nextGameView } from '#lib/feed/team-props.ts';
@@ -140,6 +141,7 @@ function header(feed: PlayerFeed): PlayerHeaderView {
 		firstName: feed.firstName,
 		lastName: feed.lastName,
 		line: parts.join(SEPARATOR),
+		allStarTag: allStarPlayerTag(feed.allStarYear),
 		injury: injury ? { status: injury.status, comment: injury.comment, updated } : null,
 		photo: feed.photoUrl,
 		stats: summary
