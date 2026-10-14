@@ -1,16 +1,20 @@
 # api/app/storage/state.py
 #
-# Job state in SQLite: game dates, final times and whether they were first seen, highlight attempts, failed stats attempts, matched highlights, team stars, source cache entries, feed build times and failures and per-job outcomes.
+# Job state in SQLite: game dates, final times and whether they were first seen, highlight attempts, failed stats attempts, matched highlights, team stars, discovered All-Star editions and the time each All-Star game was first seen final, source cache entries, feed build times and failures and per-job outcomes.
 # Schema versioned with PRAGMA user_version; MIGRATIONS run once each on startup.
 # One connection per operation, so sync endpoints can use it from the threadpool.
 #
 # SEE: docs/adr/0007-backend-runtime-and-data-pipeline.md, docs/adr/0011-state-retention.md, docs/source-rules.md
 
 import datetime as dt
+import json
 import logging
 import sqlite3
 from contextlib import closing
 from pathlib import Path
+from typing import Annotated
+
+from pydantic import Field
 
 from app.feeds.games import FeedModel, Highlight, NonEmptyStr, Star, UtcDatetime
 
@@ -62,6 +66,21 @@ MIGRATIONS: tuple[Migration, ...] = (
     ),
     # Removes the jobs row of the game detail job removed in issue 154.
     (("DELETE FROM jobs WHERE name = 'game-detail'"),),
+    # The All-Star editions the discovery job found, one per season (ADR 0036).
+    (
+        (
+            "CREATE TABLE all_star_editions ("
+            "season INTEGER PRIMARY KEY, game_date TEXT NOT NULL, "
+            "game_ids TEXT NOT NULL)"
+        ),
+    ),
+    # The time the All-Star feed first saw each All-Star game final (ADR 0036).
+    (
+        (
+            "CREATE TABLE all_star_finals ("
+            "game_id TEXT PRIMARY KEY, seen_at TEXT NOT NULL)"
+        ),
+    ),
 )
 
 
@@ -82,6 +101,14 @@ class FeedBuildState(FeedModel):
     last_build: UtcDatetime | None
     last_failure: UtcDatetime | None
     last_failure_reason: NonEmptyStr | None
+
+
+class AllStarEditionRecord(FeedModel):
+    """An All-Star edition the discovery job found. Never reaches a feed."""
+
+    season: int
+    game_date: dt.date
+    game_ids: Annotated[list[NonEmptyStr], Field(min_length=1)]
 
 
 class SourceEntry(FeedModel):
@@ -391,3 +418,48 @@ class StateStore:
                 "DELETE FROM feed_builds WHERE kind = ? AND feed_id = ?",
                 (kind, feed_id),
             )
+
+    def set_all_star_edition(
+        self, season: int, game_date: dt.date, game_ids: list[str]
+    ) -> None:
+        record = AllStarEditionRecord(
+            season=season, game_date=game_date, game_ids=game_ids
+        )
+        with self._connect() as connection, connection:
+            connection.execute(
+                "INSERT INTO all_star_editions (season, game_date, game_ids) "
+                "VALUES (?, ?, ?) ON CONFLICT(season) DO UPDATE SET "
+                "game_date = excluded.game_date, game_ids = excluded.game_ids",
+                (season, record.game_date.isoformat(), json.dumps(record.game_ids)),
+            )
+
+    def all_star_edition(self, season: int) -> AllStarEditionRecord | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT game_date, game_ids FROM all_star_editions WHERE season = ?",
+                (season,),
+            ).fetchone()
+        if row is None:
+            return None
+        return AllStarEditionRecord(
+            season=season,
+            game_date=dt.date.fromisoformat(row[0]),
+            game_ids=json.loads(row[1]),
+        )
+
+    def record_all_star_final(self, game_id: str, at: dt.datetime) -> None:
+        """Stores the time an All-Star game was first seen final; a stored time
+        is never overwritten."""
+        with self._connect() as connection, connection:
+            connection.execute(
+                "INSERT OR IGNORE INTO all_star_finals (game_id, seen_at) "
+                "VALUES (?, ?)",
+                (game_id, _to_text(at)),
+            )
+
+    def all_star_final_time(self, game_id: str) -> dt.datetime | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT seen_at FROM all_star_finals WHERE game_id = ?", (game_id,)
+            ).fetchone()
+        return _from_text(row[0]) if row else None

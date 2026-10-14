@@ -1,0 +1,138 @@
+{
+  "format": {
+    "regulation": {
+      "periods": 1,
+      "clock": 720.0
+    },
+    "overtime": {
+      "clock": 120.0
+    }
+  },
+  "gameInfo": {
+    "venue": {
+      "fullName": "Example Arena",
+      "address": {
+        "city": "Exampleton"
+      },
+      "images": [
+        {
+          "href": "https://example.com/venue.png"
+        }
+      ]
+    },
+    "attendance": 18500
+  },
+  "boxscore": {
+    "teams": [
+      {
+        "homeAway": "away",
+        "team": {
+          "abbreviation": "STR",
+          "id": "901"
+        },
+        "statistics": [
+          {
+            "name": "fieldGoalPct",
+            "displayValue": "53.3"
+          },
+          {
+            "name": "threePointFieldGoalPct",
+            "displayValue": "50"
+          },
+          {
+            "name": "freeThrowPct",
+            "displayValue": "50"
+          },
+          {
+            "name": "totalRebounds",
+            "displayValue": "11"
+          },
+          {
+            "name": "assists",
+            "displayValue": "4"
+          },
+          {
+            "name": "turnovers",
+            "displayValue": "1"
+          },
+          {
+            "name": "steals",
+            "displayValue": "1"
+          },
+          {
+            "name": "blocks",
+            "displayValue": "3"
+          }
+        ]
+      },
+      {
+        "homeAway": "home",
+        "team": {
+          "abbreviation": "WAV",
+          "id": "902"
+        },
+        "statistics": [
+          {
+            "name": "fieldGoalPct",
+            "displayValue": "47.1"
+          },
+          {
+            "name": "threePointFieldGoalPct",
+            "displayValue": "25"
+          },
+          {
+            "name": "freeThrowPct",
+            "displayValue": "100"
+          },
+          {
+            "name": "totalRebounds",
+            "displayValue": "10"
+          },
+          {
+            "name": "assists",
+            "displayValue": "8"
+          },
+          {
+            "name": "turnovers",
+            "displayValue": "5"
+          },
+          {
+            "name": "steals",
+            "displayValue": "3"
+          },
+          {
+            "name": "blocks",
+            "displayValue": "1"
+          }
+        ]
+      }
+    ],
+    "players": []
+  },
+  "broadcasts": [
+    {
+      "type": {
+        "shortName": "TV"
+      },
+      "media": {
+        "shortName": "Example Network"
+      }
+    },
+    {
+      "type": {
+        "shortName": "Streaming"
+      },
+      "media": {
+        "shortName": "Example Stream"
+      }
+    },
+    {
+      "type": {
+        "shortName": "Radio"
+      },
+      "media": {
+        "shortName": "Example Radio"
+      }
+    }
+  ]
+}

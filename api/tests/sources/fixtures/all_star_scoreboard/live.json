@@ -1,0 +1,56 @@
+{
+  "events": [
+    {
+      "id": "9020",
+      "date": "2027-02-15T01:00Z",
+      "season": {
+        "type": 2
+      },
+      "status": {
+        "type": {
+          "name": "STATUS_IN_PROGRESS",
+          "shortDetail": "Q2 8.3"
+        },
+        "period": 2,
+        "displayClock": "8.3"
+      },
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "Example Arena"
+          },
+          "notes": [
+            {
+              "headline": "NBA All-Star - Semifinals First team to 40 points wins - Untimed"
+            }
+          ],
+          "type": {
+            "abbreviation": "ALLSTAR"
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "team": {
+                "abbreviation": "WAV",
+                "id": "902",
+                "name": "Team Waves",
+                "isAllStar": true
+              },
+              "score": "9"
+            },
+            {
+              "homeAway": "away",
+              "team": {
+                "abbreviation": "STR",
+                "id": "901",
+                "name": "Team Stripes",
+                "isAllStar": true
+              },
+              "score": "12"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

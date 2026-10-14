@@ -37,6 +37,8 @@
 # - Serves the playoffs finals feed with Cache-Control and ETag and answers 304 for a matching ETag
 # - Responds 404 with a JSON error when the Finals has no game, with no finals read, and 503 when the playoffs feed cannot be built with nothing stored
 # - Keeps serving the stored playoffs finals feed when a rebuild fails
+# - Serves the All-Star feed with Cache-Control and ETag and answers 304 for a matching ETag
+# - Responds 503 with a JSON error for the All-Star feed when the scoreboard day read fails with nothing stored and before the season, the rosters or the discovery are known, and keeps serving the stored feed when a rebuild fails
 #
 # What is covered:
 # - Success response, documented failures (503, 404), edge case of an invalid publish
@@ -56,6 +58,7 @@ import respx
 from fastapi import FastAPI, Request, Response
 from fastapi.testclient import TestClient
 
+from app.feeds.all_star import AllStarFeed
 from app.feeds.cup import CupFeed, SlotId
 from app.feeds.cup_matchup import CupMatchupFeed
 from app.feeds.game_detail import GameDetailFeed
@@ -83,6 +86,8 @@ from app.sources.standings import LeagueStandings
 from app.sources.team_schedule import TeamSchedule
 from app.storage.feeds import publish_by_id, publish_feed
 from app.storage.state import StateStore
+from tests.jobs.test_all_star_feed import DAY as ALL_STAR_DAY
+from tests.jobs.test_all_star_feed import AllStarKit
 from tests.jobs.test_cup_feed import CupKit
 from tests.jobs.test_cup_matchup_feed import MatchupKit
 from tests.jobs.test_player_feed import PlayerKit
@@ -1211,3 +1216,93 @@ def test_responds_503_when_a_matchup_roster_read_fails_with_nothing_stored(
 
     assert response.status_code == 503
     assert isinstance(response.json()["detail"], str)
+
+
+class AllStar:
+    """An app with the feeds router and the All-Star kind over the All-Star kit's fakes."""
+
+    def __init__(self, path: Path) -> None:
+        self.kit = AllStarKit(path)
+        asyncio.run(self.kit.discover())
+        self.app = FastAPI()
+        self.app.include_router(feeds_router.router)
+        self.app.state.settings = self.kit.settings
+        self.app.state.presence = Presence(clock=lambda: self.kit.clock[0])
+        self.app.state.games_job = self.kit.games
+        self.app.state.feed_cache = self.kit.cache
+
+
+@pytest.fixture
+def all_star(tmp_path: Path) -> Iterator[AllStar]:
+    with respx.mock:
+        yield AllStar(tmp_path)
+
+
+def test_serves_the_all_star_feed_with_cache_control_and_an_etag(
+    all_star: AllStar,
+) -> None:
+    with TestClient(all_star.app) as client:
+        response = client.get("/feeds/all-star.json")
+
+    assert response.status_code == 200
+    feed = AllStarFeed.model_validate_json(response.content)
+    assert feed.edition.date == ALL_STAR_DAY
+    assert len(feed.edition.games) == 4
+    assert response.headers["content-type"] == "application/json"
+    assert response.headers["cache-control"] == CACHE_CONTROL
+    etag = response.headers["etag"]
+    assert etag.startswith('"') and etag.endswith('"')
+
+
+def test_responds_304_when_the_all_star_etag_matches(all_star: AllStar) -> None:
+    with TestClient(all_star.app) as client:
+        first = client.get("/feeds/all-star.json")
+
+        response = client.get(
+            "/feeds/all-star.json", headers={"If-None-Match": first.headers["etag"]}
+        )
+
+    assert response.status_code == 304
+    assert response.content == b""
+
+
+def test_responds_503_when_the_all_star_day_read_fails_with_nothing_stored(
+    all_star: AllStar,
+) -> None:
+    all_star.kit.failing.add(f"day/{ALL_STAR_DAY.isoformat()}")
+    with TestClient(all_star.app) as client:
+        response = client.get("/feeds/all-star.json")
+
+    assert response.status_code == 503
+    assert isinstance(response.json()["detail"], str)
+
+
+def test_responds_503_before_the_season_the_rosters_or_the_discovery_are_known(
+    all_star: AllStar,
+) -> None:
+    with TestClient(all_star.app) as client:
+        all_star.kit.stars.season = None
+        assert client.get("/feeds/all-star.json").status_code == 503
+        all_star.kit.stars.season = 2027
+        all_star.kit.stars.ready = False
+        assert client.get("/feeds/all-star.json").status_code == 503
+        all_star.kit.stars.ready = True
+        all_star.kit.discovery._ready_season = None
+        assert client.get("/feeds/all-star.json").status_code == 503
+
+    assert all_star.kit.calls == []
+
+
+def test_keeps_serving_the_stored_all_star_feed_when_a_rebuild_fails(
+    all_star: AllStar,
+) -> None:
+    all_star.kit.days[ALL_STAR_DAY] = all_star.kit.days[ALL_STAR_DAY][:1]
+    with TestClient(all_star.app) as client:
+        first = client.get("/feeds/all-star.json")
+        all_star.kit.failing.add(f"day/{ALL_STAR_DAY.isoformat()}")
+        all_star.kit.clock[0] = all_star.kit.clock[0] + dt.timedelta(minutes=1)
+
+        response = client.get("/feeds/all-star.json")
+
+    assert response.status_code == 200
+    assert response.content == first.content

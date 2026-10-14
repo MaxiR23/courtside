@@ -1,0 +1,211 @@
+{
+  "events": [
+    {
+      "id": "8001",
+      "date": "2027-02-14T22:00Z",
+      "season": {
+        "type": 2
+      },
+      "status": {
+        "type": {
+          "name": "STATUS_FINAL"
+        },
+        "period": 4,
+        "displayClock": "0.0"
+      },
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "Example Arena"
+          },
+          "notes": [],
+          "type": {
+            "abbreviation": "STD"
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "team": {
+                "abbreviation": "AAA",
+                "id": "1",
+                "name": "Example AAA",
+                "isAllStar": false,
+                "location": "City AAA"
+              },
+              "score": "101"
+            },
+            {
+              "homeAway": "away",
+              "team": {
+                "abbreviation": "BBB",
+                "id": "2",
+                "name": "Example BBB",
+                "isAllStar": false,
+                "location": "City BBB"
+              },
+              "score": "99"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "9001",
+      "date": "2027-02-15T01:00Z",
+      "season": {
+        "type": 2
+      },
+      "status": {
+        "type": {
+          "name": "STATUS_FINAL",
+          "shortDetail": "Final"
+        },
+        "period": 1,
+        "displayClock": "0.0"
+      },
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "Example Arena"
+          },
+          "notes": [
+            {
+              "headline": "NBA All-Star - Round Robin"
+            }
+          ],
+          "type": {
+            "abbreviation": "ALLSTAR"
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "team": {
+                "abbreviation": "WAV",
+                "id": "902",
+                "name": "Team Waves",
+                "isAllStar": true
+              },
+              "score": "18"
+            },
+            {
+              "homeAway": "away",
+              "team": {
+                "abbreviation": "STR",
+                "id": "901",
+                "name": "Team Stripes",
+                "isAllStar": true
+              },
+              "score": "21"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "9002",
+      "date": "2027-02-15T02:00Z",
+      "season": {
+        "type": 2
+      },
+      "status": {
+        "type": {
+          "name": "STATUS_FINAL",
+          "shortDetail": "Final"
+        },
+        "period": 1,
+        "displayClock": "0.0"
+      },
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "Example Arena"
+          },
+          "notes": [
+            {
+              "headline": "NBA All-Star - Round Robin"
+            }
+          ],
+          "type": {
+            "abbreviation": "ALLSTAR"
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "team": {
+                "abbreviation": "STR",
+                "id": "901",
+                "name": "Team Stripes",
+                "isAllStar": true
+              },
+              "score": "20"
+            },
+            {
+              "homeAway": "away",
+              "team": {
+                "abbreviation": "PKS",
+                "id": "903",
+                "name": "Team Peaks",
+                "isAllStar": true,
+                "location": "Example City"
+              },
+              "score": "17"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "9003",
+      "date": "2027-02-15T03:00Z",
+      "season": {
+        "type": 2
+      },
+      "status": {
+        "type": {
+          "name": "STATUS_FINAL",
+          "shortDetail": "Final/OT"
+        },
+        "period": 2,
+        "displayClock": "0.0"
+      },
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "Example Arena"
+          },
+          "notes": [
+            {
+              "headline": "NBA All-Star - Championship"
+            }
+          ],
+          "type": {
+            "abbreviation": "ALLSTAR"
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "team": {
+                "abbreviation": "PKS",
+                "id": "903",
+                "name": "Team Peaks",
+                "isAllStar": true,
+                "location": "Example City"
+              },
+              "score": "25"
+            },
+            {
+              "homeAway": "away",
+              "team": {
+                "abbreviation": "WAV",
+                "id": "902",
+                "name": "Team Waves",
+                "isAllStar": true
+              },
+              "score": "26"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

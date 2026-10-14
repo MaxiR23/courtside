@@ -13,7 +13,8 @@
 // api/schemas/cup.schema.json, web/src/lib/contract/cup.ts,
 // api/schemas/cup-matchup.schema.json, web/src/lib/contract/cup-matchup.ts,
 // api/schemas/playoffs.schema.json, web/src/lib/contract/playoffs.ts,
-// api/schemas/playoffs-finals.schema.json, web/src/lib/contract/playoffs-finals.ts
+// api/schemas/playoffs-finals.schema.json, web/src/lib/contract/playoffs-finals.ts,
+// api/schemas/all-star.schema.json, web/src/lib/contract/all-star.ts
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -34,7 +35,8 @@ export const feeds = [
 	{ name: 'cup', rootName: 'CupFeed' },
 	{ name: 'cup-matchup', rootName: 'CupMatchupFeed' },
 	{ name: 'playoffs', rootName: 'PlayoffsFeed' },
-	{ name: 'playoffs-finals', rootName: 'PlayoffsFinalsFeed' }
+	{ name: 'playoffs-finals', rootName: 'PlayoffsFinalsFeed' },
+	{ name: 'all-star', rootName: 'AllStarFeed' }
 ].map((feed) => ({
 	...feed,
 	schemaPath: join(import.meta.dirname, `../../api/schemas/${feed.name}.schema.json`),

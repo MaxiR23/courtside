@@ -20,3 +20,4 @@ regenerated, with the TypeScript types, by `scripts/contract.sh`.
 - [`cup.md`](cup.md): the Cup feed.
 - [`cup-matchup.md`](cup-matchup.md): the Cup matchup feed.
 - [`playoffs.md`](playoffs.md): the playoffs feed and the playoffs finals feed.
+- [`all-star.md`](all-star.md): the All-Star feed.
