@@ -29,7 +29,6 @@
                 "abbreviation": "AAA",
                 "id": "1",
                 "name": "Example AAA",
-                "isAllStar": false,
                 "location": "City AAA"
               },
               "score": "101"
@@ -40,7 +39,6 @@
                 "abbreviation": "BBB",
                 "id": "2",
                 "name": "Example BBB",
-                "isAllStar": false,
                 "location": "City BBB"
               },
               "score": "99"
@@ -83,7 +81,7 @@
                 "abbreviation": "WAV",
                 "id": "902",
                 "name": "Team Waves",
-                "isAllStar": true
+                "location": "Team Waves"
               },
               "score": "18"
             },
@@ -93,7 +91,7 @@
                 "abbreviation": "STR",
                 "id": "901",
                 "name": "Team Stripes",
-                "isAllStar": true
+                "location": "Team Stripes"
               },
               "score": "21"
             }
@@ -135,7 +133,7 @@
                 "abbreviation": "STR",
                 "id": "901",
                 "name": "Team Stripes",
-                "isAllStar": true
+                "location": "Team Stripes"
               },
               "score": "20"
             },
@@ -145,8 +143,7 @@
                 "abbreviation": "PKS",
                 "id": "903",
                 "name": "Team Peaks",
-                "isAllStar": true,
-                "location": "Example City"
+                "location": "Team Peaks"
               },
               "score": "17"
             }
@@ -188,8 +185,7 @@
                 "abbreviation": "PKS",
                 "id": "903",
                 "name": "Team Peaks",
-                "isAllStar": true,
-                "location": "Example City"
+                "location": "Team Peaks"
               },
               "score": "25"
             },
@@ -199,7 +195,7 @@
                 "abbreviation": "WAV",
                 "id": "902",
                 "name": "Team Waves",
-                "isAllStar": true
+                "location": "Team Waves"
               },
               "score": "26"
             }

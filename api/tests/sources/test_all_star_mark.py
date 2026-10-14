@@ -18,11 +18,11 @@
 
 import pytest
 
-from app.sources.all_star_mark import all_star_mark, is_all_star
+from app.sources.all_star_mark import all_star_mark, is_an_all_star_game
 
 
 def test_tells_an_all_star_game_by_season_type_and_competition_type() -> None:
-    assert is_all_star(2, "ALLSTAR") is True
+    assert is_an_all_star_game(2, "ALLSTAR") is True
 
 
 @pytest.mark.parametrize(
@@ -32,7 +32,7 @@ def test_tells_an_all_star_game_by_season_type_and_competition_type() -> None:
 def test_is_not_all_star_for_another_type_or_none(
     season_type: int | None, competition_type: str | None
 ) -> None:
-    assert is_all_star(season_type, competition_type) is False
+    assert is_an_all_star_game(season_type, competition_type) is False
 
 
 def test_marks_a_round_robin_note() -> None:

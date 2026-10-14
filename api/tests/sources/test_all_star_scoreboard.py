@@ -3,10 +3,10 @@
 # Tests for the All-Star view of the scoreboard adapter.
 #
 # Tested:
-# - Maps the All-Star games of a day: the note, the sides with code and name, a null city when there is no location, the score, the period and the status text of a final game, and the tip-off time in UTC
+# - Maps the All-Star games of a day: the note, the sides read by code or name with no All-Star flag and a null city even with a location, the score, the period and the status text of a final game, and the tip-off time in UTC
 # - Ignores a regular game
 # - A day with no events is an empty list
-# - A side that is not an All-Star team is null in a scheduled game and raises the source error in a live or final game
+# - A side with neither a code nor a name is null in a scheduled game and raises the source error in a live or final game; a side with only a code or only a name is a team
 # - A live game keeps the status text and the period as sent and normalizes the clock like the games feed
 # - Raises the source error on an invalid payload, an unknown status, a live game with no score and a missing URL
 # - Raises the source error on an upstream 500 and on a timeout
@@ -104,7 +104,9 @@ async def test_maps_the_all_star_games_of_a_day(
     assert (first.away.code, first.away.name) == ("STR", "Team Stripes")
     assert (first.home.code, first.home.name) == ("WAV", "Team Waves")
     assert first.away.city is None
-    assert games[1].away is not None and games[1].away.city == "Example City"
+    for game in games:
+        assert game.away is not None and game.home is not None
+        assert game.away.city is None and game.home.city is None
     assert games[2].note == "NBA All-Star - Championship"
     assert games[2].period == 2 and games[2].status_text == "Final/OT"
 
@@ -144,10 +146,38 @@ async def test_a_day_with_no_events_is_an_empty_list(
 
 
 @pytest.mark.anyio
-async def test_a_scheduled_game_whose_sides_are_not_all_star_teams_has_null_sides(
-    mock: respx.MockRouter, settings: Settings
+@pytest.mark.parametrize(
+    ("removed", "code", "name"),
+    [("name", "STR", None), ("abbreviation", None, "Team Stripes")],
+    ids=["code only", "name only"],
+)
+async def test_a_side_with_only_a_code_or_only_a_name_is_a_team(
+    mock: respx.MockRouter,
+    settings: Settings,
+    removed: str,
+    code: str | None,
+    name: str | None,
+) -> None:
+    payload = load("live.json")
+    away = payload["events"][0]["competitions"][0]["competitors"][1]["team"]
+    del away[removed]
+    mock.get(URL).respond(json=payload)
+
+    game = (await fetch(settings))[0]
+
+    assert game.away is not None
+    assert (game.away.code, game.away.name, game.away.city) == (code, name, None)
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("empty", [False, True], ids=["absent", "empty strings"])
+async def test_a_scheduled_game_whose_sides_have_neither_a_code_nor_a_name_has_null_sides(
+    mock: respx.MockRouter, settings: Settings, empty: bool
 ) -> None:
     payload = load("tbd.json")
+    if empty:
+        for competitor in payload["events"][0]["competitions"][0]["competitors"]:
+            competitor["team"].update({"abbreviation": "", "name": ""})
     payload["events"][0]["competitions"][0]["type"] = {"abbreviation": "ALLSTAR"}
     mock.get(URL).respond(json=payload)
 
@@ -162,6 +192,25 @@ async def test_a_scheduled_game_whose_sides_are_not_all_star_teams_has_null_side
 
 
 @pytest.mark.anyio
+async def test_a_scheduled_game_with_one_undecided_side_keeps_the_other_team(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("live.json")
+    event = payload["events"][0]
+    event["status"]["type"]["name"] = "STATUS_SCHEDULED"
+    competitors = event["competitions"][0]["competitors"]
+    for competitor in competitors:
+        del competitor["score"]
+    competitors[0]["team"] = {"id": "0"}
+    mock.get(URL).respond(json=payload)
+
+    game = (await fetch(settings))[0]
+
+    assert game.home is None
+    assert game.away is not None and game.away.name == "Team Stripes"
+
+
+@pytest.mark.anyio
 @pytest.mark.parametrize("status", ["STATUS_IN_PROGRESS", "STATUS_FINAL"])
 async def test_raises_the_source_error_on_a_game_in_play_with_a_side_that_is_not_a_team(
     mock: respx.MockRouter, settings: Settings, status: str
@@ -169,7 +218,9 @@ async def test_raises_the_source_error_on_a_game_in_play_with_a_side_that_is_not
     payload = load("live.json")
     event = payload["events"][0]
     event["status"]["type"]["name"] = status
-    event["competitions"][0]["competitors"][0]["team"]["isAllStar"] = False
+    team = event["competitions"][0]["competitors"][0]["team"]
+    team.pop("abbreviation")
+    team.pop("name")
     mock.get(URL).respond(json=payload)
 
     with pytest.raises(SourceError) as raised:

@@ -1,6 +1,6 @@
 # 0038. All-Star marks in core feeds
 
-- Status: Accepted
+- Status: Superseded by 0039 for its All-Star team test only
 - Date: 2026-10-14
 
 ## Context

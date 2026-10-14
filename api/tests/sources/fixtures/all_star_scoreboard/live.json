@@ -34,7 +34,7 @@
                 "abbreviation": "WAV",
                 "id": "902",
                 "name": "Team Waves",
-                "isAllStar": true
+                "location": "Team Waves"
               },
               "score": "9"
             },
@@ -44,7 +44,7 @@
                 "abbreviation": "STR",
                 "id": "901",
                 "name": "Team Stripes",
-                "isAllStar": true
+                "location": "Team Stripes"
               },
               "score": "12"
             }

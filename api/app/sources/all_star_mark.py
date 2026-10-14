@@ -31,7 +31,7 @@ def parse_note(note: str | None) -> tuple[str | None, str | None]:
     return found.group("round"), found.group("suffix")
 
 
-def is_all_star(season_type: int | None, competition_type: str | None) -> bool:
+def is_an_all_star_game(season_type: int | None, competition_type: str | None) -> bool:
     """Whether a game is the All-Star game: a regular season game whose
     competition type is ALLSTAR."""
     return season_type == REGULAR_SEASON and competition_type == COMPETITION_TYPE
