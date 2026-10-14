@@ -12,6 +12,7 @@ from app.jobs.highlights import HighlightsJob
 from app.jobs.on_demand import FeedCache
 from app.jobs.player_feed import PlayerFeeds
 from app.jobs.playoffs_feed import PlayoffsFeeds
+from app.jobs.playoffs_finals_feed import PlayoffsFinalsFeeds
 from app.jobs.presence import Presence
 from app.jobs.scheduler import Scheduler
 from app.jobs.search_feed import SearchFeeds
@@ -76,7 +77,18 @@ def create_app(settings: Settings | None = None, *, run_jobs: bool = True) -> Fa
         CupMatchupFeeds(
             settings, store, client, feed_cache, games_job, stars_job, cup_feeds
         )
-        PlayoffsFeeds(settings, store, client, feed_cache, games_job, stars_job)
+        playoffs_feeds = PlayoffsFeeds(
+            settings, store, client, feed_cache, games_job, stars_job
+        )
+        PlayoffsFinalsFeeds(
+            settings,
+            store,
+            client,
+            feed_cache,
+            games_job,
+            stars_job,
+            playoffs_feeds,
+        )
         player_feeds = PlayerFeeds(
             settings, store, client, feed_cache, games_job, stars_job, team_feeds
         )

@@ -206,8 +206,7 @@ the repository. The shape each must return:
   {"categories": [{"stats": [{"name", "value"}]}]}}`, flattened by name. The names
   read are `avgPoints`, `avgRebounds`, `avgAssists`, `avgBlocks`, `avgSteals`,
   `fieldGoalPct`, `effectiveFGPct`, `technicalFouls` and `gamesPlayed`; a plus
-  minus statistic is never read. The playoffs feed does not read this setting; its
-  first reader is the finals feed.
+  minus statistic is never read. The playoffs feed does not read this setting; the finals feed reads it.
 - **`SEASON_AWARDS_URL`** (`{season}`): `{"awards": [{"name", "winners":
   [{"athlete": {"$ref"}, "team": {"$ref"}}]}]}`; `team` may be absent. The names
   read, compared ignoring case: `MVP`, `Defensive Player of the Year`, `Rookie of
@@ -270,5 +269,146 @@ a team with null colors.
 - It responds 503 with `{"detail": ...}` after a failed read with nothing
   stored, before the season or the rosters are known, and when the request's 20
   seconds end before a missing feed is built.
+- A stale stored feed is served at once and rebuilt in the background.
+- Every feed request records presence.
+
+# Finals feed
+
+The Finals: the games that are final with their leaders, the win probability of
+the curve team and its largest deficit, the Finals MVP, the road of each finalist,
+the head to head bars and the postseason averages of both rosters.
+
+## Schema
+
+[`api/schemas/playoffs-finals.schema.json`](../../api/schemas/playoffs-finals.schema.json),
+generated from the models in `api/app/feeds/playoffs_finals.py`. When this page
+and the models disagree, the models win. The route and the rules are decided in
+[ADR 0033](../adr/0033-playoffs-finals-feed.md); the feed is served at
+`/feeds/playoffs/finals.json`. The conventions are those of the playoffs feed
+above. Every list with one entry per finalist lists the Finals top side (the East
+team), then the bottom side.
+
+## Finals feed
+
+| Field          | Type                   | Meaning                                                              | Present |
+| -------------- | ---------------------- | -------------------------------------------------------------------- | ------- |
+| `season`       | season label          | Such as `2026-27`                                                    | always  |
+| `status`       | `SeriesStatus`        | `upcoming`, `in_progress`, `complete`: the status of the Finals series | always  |
+| `champion`     | team code / null      | The winner of the series                                             | set exactly when `status` is `complete` |
+| `curveTeam`    | team code             | The team of every win probability curve and deficit                  | always  |
+| `games`        | `FinalsGame[]`        | The Finals games that are final, in number order (up to 7)           | always, empty before a game is final |
+| `finalsMvp`    | `FinalsMvp` / null    | The Finals MVP                                                       | null when the playoffs feed has no `finals_mvp` award |
+| `road`         | `RoadTeam[]`          | Exactly 2                                                            | always  |
+| `headToHead`   | `HeadToHead`          | The records and the 8 bars                                           | always  |
+| `averages`     | `RosterAverages[]`    | Exactly 2                                                            | always  |
+
+## Nested objects
+
+| Object                      | Fields                                                                                                                                                                                         |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `FinalsGame`                | `game`: `SeriesGame` as the playoffs feed stores it (always final); `leaders`: `Leaders` / null; `winProbability`: `FinalsWinProbability` / null; `largestDeficit`: `LargestDeficit` / null; `highlights`: `Highlight[]` / null (set when served) |
+| `FinalsWinProbability`      | `points`: `TeamWinProbabilityPoint[]` (at least 1, not going back in time); `periods`: `WinProbabilityPeriods` as in the [game detail feed](game-detail.md)                                    |
+| `TeamWinProbabilityPoint`   | `elapsedSeconds`; `winProbability`: the curve team's chance, from 0 to 1                                                                                                                         |
+| `LargestDeficit`            | `points` (1 or more): the most points the curve team trailed by; `elapsedSeconds`: the game second of the first play at it                                                                      |
+| `FinalsMvp`                 | `playerId`; `name`; `photoUrl` (null); `teamCode` (null); `games`, `points`, `rebounds`, `assists`: the postseason averages of the season (null); `bestGame`: `BestGame` / null                  |
+| `BestGame`                  | `gameId`; `number` (1 to 7); `points`                                                                                                                                                            |
+| `RoadTeam`                  | `team`: `PlayoffTeam`; `seed` (null); `regularSeason`: record such as `60-22` (null); `postseason`: record (null); `series`: `RoadSeries[]` (up to 4, rounds increasing)                          |
+| `RoadSeries`                | `round` (1 to 4); `opponent`: `PlayoffTeam`; `opponentSeed` (null); `wins`, `losses` (0 to 4, null): the finalist's wins and the opponent's wins; `result`: `win`, `loss` or null while the series is not complete |
+| `HeadToHead`                | `records`: `FinalistRecord[]` (exactly 2): the postseason record of each finalist, as in `road` (`postseason`), null when the record read failed; `bars`: `HeadToHeadBar[]` (exactly 8, in the order of `HeadToHeadStat`)                      |
+| `HeadToHeadStat`            | `points`, `field_goal_pct`, `effective_fg_pct`, `assists`, `rebounds`, `blocks`, `steals`, `technical_fouls`                                                                                     |
+| `HeadToHeadBar`             | `stat`; `values`: `BarValue[]` (exactly 2, `teamCode` and `value`, null when the read failed); `better`: team code / null                                                                       |
+| `RosterAverages`            | `teamCode`; `players`: `PlayerPostseasonAverages[]`                                                                                                                                              |
+| `PlayerPostseasonAverages`  | `playerId`; `name`; `photoUrl` (null); `points`, `rebounds`, `assists`, `blocks` (null); `fieldGoalPct` (0 to 1, null)                                                                          |
+
+## Rules that live in the code
+
+1. **Games.** The Finals series games of the playoffs feed whose status is
+   `final`, in number order, each with its `SeriesGame` as stored: score,
+   `overtime`, `winner`, id and number. A live or scheduled game is not listed;
+   games 5 to 7 that are not played are absent.
+2. **Curve team.** The champion when the series is complete; else the side with
+   more series wins; with tied wins, the top side of the Finals series.
+3. **Curve.** The curve team's win probability at each point: the source's home
+   value when the curve team is home, one minus it otherwise, rounded to 3
+   decimals. The period boundaries are those of the game detail feed. Null when
+   the game has no win probability or the read failed.
+4. **Largest deficit.** The largest opponent score minus team score of the curve
+   team over the plays that carry both scores, with the elapsed seconds of the
+   first play that reached it. Null when the team never trailed, no play carries
+   both scores or the read failed.
+5. **Finals MVP.** The first winner of the playoffs feed's `finals_mvp` award. His
+   `games`, `points`, `rebounds` and `assists` come from the row of the feed's
+   season in the postseason player stats; all are null when there is no such row or
+   the read failed. `bestGame` is his line with the most points in the box scores of
+   the listed games, the earliest game on a tie; null when no box score has him.
+6. **Road.** `seed` is the Finals side's seed. `regularSeason` is `wins-losses`
+   from the finalist's row of the playoffs feed's picture, null without a row or a
+   record. `postseason` is the overall postseason record, null when the read
+   failed. `series` lists every bracket series, the Finals included, in which the
+   finalist is a side and the other side has a team, in round order.
+7. **Head to head.** Percentages are fractions (the source sends 0 to 100).
+   `technical_fouls` is the postseason total as the source sends it, not an
+   average. The higher value is better, except for `technical_fouls`, where the
+   lower is. `better` is null when either value is null or they are equal. A failed
+   statistics read leaves that team's values null.
+8. **Averages.** The roster of each finalist is the stars job's roster of the team,
+   without players whose latest roster is another team's, in jersey order. A
+   player with no postseason row of the season, or a failed read, has null values
+   and goes last.
+9. **Serve time.** `highlights` is the stored highlight of the game as a list of
+   one, else null, and `game.detailAvailable` is set from the games the games job
+   holds. Neither is ever stored.
+
+## The payload the finals feed reads
+
+- **`GAME_DETAIL_URL`** (existing): besides the fields the game detail feed reads,
+  the finals feed reads on each play `homeScore` and `awayScore` (integers). A play
+  without both, or with a clock that cannot be placed, is skipped.
+- **`PLAYER_STATS_URL`** (existing): read with the postseason query value, for the
+  rows of the postseason.
+- **`TEAM_POSTSEASON_STATS_URL`** and **`TEAM_POSTSEASON_RECORD_URL`**: as above;
+  the finals feed is the reader of the statistics. `technicalFouls` is a total over
+  the postseason.
+
+## Edge cases
+
+Valid feeds include: no game final yet (the route answers 404 only when the
+Finals has no game at all), games 5 to 7 not played, an overtime game, no
+highlights, no win probability curve, a team that never trailed, no Finals MVP,
+a player without postseason stats, a failed statistics or record read, and a road
+series without data.
+
+## Refresh behavior
+
+- The only id is `league`; the feed is stored at `feeds/playoffs-finals/league.json`.
+- Nothing is built without a request.
+- Built on request under rule G of [`docs/source-rules.md`](../source-rules.md):
+  the playoffs feed is built first when missing or stale. It expires 1 hour after a
+  postseason game that follows the build has a final time, when the playoffs feed
+  is rebuilt after it, and 7 days after the build. Once the Finals series is
+  complete it is kept while its season is the current one.
+- Each final game's detail, curve, box score and plays are one cached response with
+  the freshness of the game's final time when known, else 1 hour.
+- A player's stats are read once per build with the source's 1 hour freshness; the
+  bound of rule F holds through the feed's expiry.
+- A cold build reads up to 7 game details, 2 postseason records, 2 postseason
+  statistics and one player stats read per roster player (about 30).
+- The build fails and keeps the stored feed when the season is unknown, no playoffs
+  feed of the season is stored, the Finals has no game or a side with no team, or
+  the feed is invalid. Any other failed read only nulls its part.
+- A failed build is not retried for 10 minutes on request.
+- The builder is `build_finals_feed` and the feed kind is `PlayoffsFinalsFeeds`,
+  both in `api/app/jobs/playoffs_finals_feed.py`.
+
+## Endpoint
+
+- `GET /feeds/playoffs/finals.json` serves the feed through the on-demand cache
+  with `Cache-Control: public, max-age=10` and an `ETag`.
+- It responds 304 with no body when `If-None-Match` matches the current `ETag`.
+- It serves the playoffs feed first; it responds 503 with `{"detail": ...}` when
+  that feed is unavailable, and when the request's 20 seconds end before the finals
+  feed is built.
+- It responds 404 with `{"detail": ...}` when the Finals has no game, with no
+  source read.
 - A stale stored feed is served at once and rebuilt in the background.
 - Every feed request records presence.
