@@ -1,6 +1,6 @@
 # Design: Playoffs
 
-The visual, interaction and data specification of the playoffs page (`/playoffs`), the Playoffs link in the nav, the 16-team bracket and the play-in, the champion hero, the Finals MVP card, the Finals series, the road to the title, the head to head, the leaders, the awards, and the tournament tags and titles on the home card, the game page header and the team page header. It extends `docs/design.md` and `docs/design-cup.md`: every token, rule and shared component defined there applies here, and only new values are listed under "New tokens". The Cup bracket camera, nodes, connectors, matchup panel, player card, games list, header, stage strip and marks are reused (ADR 0030, ADR 0031); nothing in the Cup behavior changes.
+The visual, interaction and data specification of the playoffs page (`/playoffs`), the Playoffs link in the nav, the 16-team bracket and the play-in, the champion hero, the Finals MVP card, the Finals series, the road to the title, the head to head, the leaders, the awards, and the tournament tags and titles on the home card, the game page header and the team page header. It extends `docs/design.md` and `docs/design-cup.md`: every token, rule and shared component defined there applies here, and only new values are listed under "New tokens". The bracket camera is shared with the Cup (ADR 0034). The player card, games list, header, stage strip and marks are reused (ADR 0030, ADR 0031); nothing in the Cup behavior changes.
 
 ## Overview
 
@@ -29,7 +29,7 @@ Everything under "Implementation rules" in `docs/design.md` and `docs/design-cup
 - **Every user-facing string is translatable**, in English and Spanish. Long labels truncate with an ellipsis and never wrap in a table cell.
 - **A value that is missing renders `—`. A block that is missing hides its section. The bracket always shows its slots.**
 - **Pan and zoom of the bracket only write `style.transform`.**
-- **Shared components are reused:** nav row, `TeamMonogram`, `StatusTag`, `Kicker`, `BlueprintFrame`, `ClinchTag`, `StandingsTable` patterns, `StageStrip`, `CupBracket` camera, `BracketNode`, `MatchupPanel`, `PlayerCard`, `CupGames` list patterns, the loading skeletons and the footer. A game row or a "Game page →" link goes to `/game/{id}` only when the game exists.
+- **Shared components are reused:** nav row, `TeamMonogram`, `StatusTag`, `Kicker`, `BlueprintFrame`, `ClinchTag`, `StandingsTable` patterns, `StageStrip`, the shared bracket camera (ADR 0034), `PlayerCard`, `CupGames` list patterns, the loading skeletons and the footer. A game row or a "Game page →" link goes to `/game/{id}` only when the game exists.
 - **No headline and no story text** from any source is published. The page shows scores, leaders and numbers only.
 - **Counting animation:** the hero counts up and a timeout forces the final values; under reduced motion the final values show at once.
 
@@ -40,8 +40,9 @@ Everything under "Implementation rules" in `docs/design.md` and `docs/design-cup
 | `PlayoffsHeader` | Season tag, state line, h1 and stage strip (reuses `StageStrip`) |
 | `PlayoffPicture` | The two conference tables of the picture state, with the playoff and play-in lines |
 | `PlayInStrip` | One play-in card per conference |
-| `PlayoffBracket` | The 16-team bracket: camera, world, connectors, level switcher, controls (reuses the `CupBracket` camera) |
-| `SeriesNode` | One series card at level 1 and level 2 (reuses `BracketNode`) |
+| `PlayoffBracket` | The 16-team bracket: camera, world, connectors, level switcher, controls (reuses the shared bracket camera, ADR 0034) |
+| `SeriesNode` | One series card at level 1 and level 2 |
+| `SeriesGameLine` | One game row of a series: game number, home/away and score, used at level 2 and in the sheet |
 | `SeriesSheet` | The mobile bottom sheet of one series |
 | `ChampionHero` | The complete-state hero: tag, h1, champion, stats row, buttons, plate |
 | `TrophyDrawing` | The original line-drawn trophy |
@@ -170,7 +171,7 @@ Levels 1 and 2, as in the Cup, with 16 teams.
 - Row centers: round 1 at 105, 235, 365 and 495; the semifinals at 170 and 430; the conference finals and the Finals at 300.
 - **Series card:** two 33px rows. Each row: seed, a 4px team bar, the code and the wins. The loser is muted. The Finals card has an accent border and a "Champion" label when the series is complete.
 - **Connectors:** orthogonal SVG lines at ink 20%, with `vector-effect: non-scaling-stroke`. A connector whose feeder series is complete is drawn at accent.
-- Borders scale with `calc(var(--inv) * 1px)`.
+- Card frames, dashed frames and the focus ring are drawn in the connectors layer with `vector-effect: non-scaling-stroke`, as on the Cup nodes, so borders keep their width at every zoom.
 
 ### Camera
 
@@ -286,7 +287,7 @@ Same size, letter spacing and truncation as the Cup tag: 11px, .16em, uppercase,
 | Leader tabs | Switch the category |
 | Head to head tabs | Switch the finalist in the averages table |
 | Mobile series sheet | `translateY` over 0.5s, 60% scrim, body scroll locked |
-| Focus | `:focus-visible` as on the home |
+| Focus | `:focus-visible` as on the home. A Tab onto a card outside the level 2 view shifts the camera so the card is visible, as in the Cup. The arrow keys move the focus to the newly selected card. Every focus ring, the Finals game buttons included, stays 2px at any zoom |
 
 ## Responsive
 
@@ -336,6 +337,10 @@ To add to `web/src/lib/styles/tokens.css` in the implementing issue. Values not 
 | `--playoffs-sheet-max-height` | 86vh | Mobile sheet |
 | `--playoffs-sheet-scrim` | `rgba(0, 0, 0, .6)` | Mobile sheet scrim |
 | `--playoffs-sheet-row` | 44px | Mobile sheet game row |
+| `--playoffs-viewport-height` | `clamp(360px, 46vw, 650px)` | Bracket viewport (not in the design: plan choice) |
+| `--playoffs-game-row-height` | 8px | Level 2 game row, in world units (plan choice) |
+| `--playoffs-game-text-size` | 4px | Level 2 game text, in world units (plan choice) |
+| `--playoffs-games-gap` | 4px | Gap between a card and its games, in world units (plan choice) |
 
 Mapped to existing tokens: the divider is `--color-divider`; accent text is `--color-accent-light`; label size and spacing are `--label-size` and `--label-letter-spacing`; the 680px break is `--game-row-breakpoint`; ground text on the accent tag is the ground token.
 

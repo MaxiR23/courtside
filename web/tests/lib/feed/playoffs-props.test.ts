@@ -12,6 +12,8 @@
 // - The finals series: tabs, OT, the champion's wins, video, no chart for a missing or bad curve, the deficit marker
 // - The road to the title, the head to head bars, the postseason averages
 // - The leaders tabs and the awards cards, the All-NBA team names
+// - The bracket: 15 series and 16 round 1 slots in every state, slot labels, Currently and To be decided notes,
+//   the loser, rows from the top team's point of view, OT, scheduled games, missing values, the Champion flag
 // - Spanish copy
 //
 // What is covered:
@@ -36,6 +38,7 @@ const read = <T>(name: string): T =>
 const picture = () => read<PlayoffsFeed>('playoffs-picture.json');
 const playin = () => read<PlayoffsFeed>('playoffs-playin.json');
 const complete = () => read<PlayoffsFeed>('playoffs-complete.json');
+const bracket = () => read<PlayoffsFeed>('playoffs-bracket.json');
 const finalsFeed = () => read<PlayoffsFinalsFeed>('playoffs-finals.json');
 
 const view = (feed: PlayoffsFeed, finals: PlayoffsFinalsFeed | null = null): PlayoffsView =>
@@ -583,6 +586,149 @@ describe('toPlayoffsView leaders and awards', () => {
 		]);
 		f.awards = [{ ...base, team: null }];
 		expect(view(f).awards[0].name).toBe('—');
+	});
+});
+
+describe('toPlayoffsView bracket', () => {
+	const card = (id: string, feed = bracket()) =>
+		view(feed).bracket.series.find((series) => series.id === id)!;
+
+	it('has 15 series, 30 sides and 16 round 1 slots in every state', () => {
+		for (const feed of [picture(), playin(), bracket(), complete()]) {
+			const series = view(feed).bracket.series;
+			expect(series).toHaveLength(15);
+			expect(series.flatMap((entry) => [entry.top, entry.bottom])).toHaveLength(30);
+			expect(series.filter((entry) => entry.id.includes('-r1-'))).toHaveLength(8);
+		}
+	});
+
+	it('labels the slots of each key', () => {
+		expect(card('west-r1-1').bottom.label).toBe('West play-in winner');
+		expect(card('east-r2-1').bottom.label).toBe('Winner of East R1 2');
+		expect(card('east-r3').top.label).toBe('Winner of East semifinal 1');
+		expect(card('finals').top.label).toBe('Winner of East finals');
+		expect(card('west-r3').bottom.label).toBe('Winner of West semifinal 2');
+		expect(card('east-r2-2').top.label).toBe('Winner of East R1 3');
+		expect(view(playin()).bracket.series[0].top.label).toBe('East #1 seed');
+	});
+
+	it('writes a missing part of a slot label as a dash', () => {
+		const feed = bracket();
+		feed.bracket[11].top.label.seed = null;
+		expect(card('west-r1-1', feed).top.team).not.toBeNull();
+		feed.bracket[11].top.team = null;
+		expect(card('west-r1-1', feed).top.label).toBe('West #— seed');
+	});
+
+	it('names an undecided side Currently a team when the feed says so, else To be decided', () => {
+		const feed = playin();
+		feed.bracket[0].top.currently = feed.playIn[0].games[0].top.team;
+		const v = view(feed).bracket.series[0];
+		expect(v.top.note).toBe('Currently QXG');
+		expect(v.bottom.note).toBe('To be decided');
+		expect(card('east-r2-1').top.note).toBeNull();
+	});
+
+	it('marks the loser of a complete series only', () => {
+		const series = card('east-r1-1');
+		expect(series.top.loser).toBe(false);
+		expect(series.bottom.loser).toBe(true);
+		expect(card('east-r1-2').bottom.loser).toBe(false);
+		expect(card('east-r2-2').bottom.loser).toBe(false);
+	});
+
+	it('lists the games played and the next one, none for the games not scheduled', () => {
+		const series = card('east-r1-2');
+		expect(series.games).toHaveLength(5);
+		expect(series.score).toBe('Series tied 2-2');
+		expect(series.games.at(-1)?.final).toBe(false);
+		expect(card('east-r1-4').games).toEqual([]);
+	});
+
+	it('writes the wins, and a dash for a missing seed or wins', () => {
+		expect(card('east-r1-3').top.wins).toBe('0');
+		expect(card('east-r1-3').top.seed).toBe('3');
+		expect(card('east-r1-4').top.wins).toBe('—');
+		expect(card('east-r1-4').bottom.seed).toBe('—');
+		expect(card('east-r2-2').top.seed).toBe('');
+		expect(card('east-r2-2').top.wins).toBe('');
+	});
+
+	it('scores a series by its summary, else by the wins, else with a dash', () => {
+		expect(card('east-r1-1').score).toBe('QXA win 4-1');
+		expect(card('east-r1-3').score).toBe('0–0');
+		expect(card('east-r1-4').score).toBe('—');
+	});
+
+	it('flags the overtime game', () => {
+		const games = card('east-r1-1').games;
+		expect(games[2].overtime).toBe(true);
+		expect(games[0].overtime).toBe(false);
+	});
+
+	it('reads each row from the top team, vs at home and at away', () => {
+		const games = card('east-r1-1').games;
+		expect(games[0].label).toBe('G1 · vs QXH');
+		expect(games[2].label).toBe('G3 · at QXH');
+		expect(games[4].label).toBe('G5 · vs QXH');
+	});
+
+	it('mutes the losing side of a final game and writes its scores', () => {
+		const game = card('east-r1-1').games[0];
+		expect(game.away).toEqual({ code: 'QXH', score: '98', loser: true });
+		expect(game.home).toEqual({ code: 'QXA', score: '105', loser: false });
+		expect(game.when).toBeNull();
+	});
+
+	it('gives a scheduled game its date and venue, and no loser', () => {
+		const game = card('east-r1-2').games[4];
+		expect(game.final).toBe(false);
+		expect(game.when).toBe('Apr 28 · Example Arena');
+		expect(game.away.score).toBe('—');
+		expect(game.away.loser).toBe(false);
+		expect(game.home.loser).toBe(false);
+	});
+
+	it('writes a final game with no score as dashes', () => {
+		const finals = view(complete()).bracket.series.find((series) => series.final)!;
+		expect(finals.games[0].away.score).toBe('—');
+		expect(finals.games[0].home.score).toBe('—');
+	});
+
+	it('links a game only when the feed has its detail', () => {
+		const games = card('east-r1-2').games;
+		expect(games[0]).toMatchObject({ gameId: 'b201', linked: true });
+		expect(games[4]).toMatchObject({ gameId: 'b205', linked: false });
+	});
+
+	it('tells a series with two teams, one team and none apart', () => {
+		expect(card('east-r1-1').decided).toBe('both');
+		expect(card('east-r2-1').decided).toBe('one');
+		expect(card('east-r2-2').decided).toBe('none');
+		expect(card('west-r1-1').decided).toBe('one');
+	});
+
+	it('titles each round and names the card from its titles and sides', () => {
+		expect(card('east-r1-1').roundTitle).toBe('East · Round 1');
+		expect(card('west-r2-1').roundTitle).toBe('West · Conference semifinals');
+		expect(card('finals').roundTitle).toBe('NBA Finals');
+		expect(card('east-r1-1').name).toBe('East · Round 1 · QXA · QXH');
+	});
+
+	it('flags the Champion only for a complete Finals', () => {
+		const finals = (feed: PlayoffsFeed) =>
+			view(feed).bracket.series.find((series) => series.final)!;
+		expect(finals(complete()).champion).toBe(true);
+		expect(finals(bracket()).champion).toBe(false);
+		expect(card('east-r1-1').champion).toBe(false);
+		expect(card('east-r1-1').complete).toBe(true);
+	});
+
+	it('writes the bracket in Spanish', () => {
+		preferLanguages(['es-ES']);
+		expect(card('east-r1-1').games[0].label).toBe('P1 · ante QXH');
+		expect(card('east-r1-1').games[2].label).toBe('P3 · en QXH');
+		expect(card('west-r1-1').bottom.label).toBe('Ganador del play-in del Oeste');
 	});
 });
 

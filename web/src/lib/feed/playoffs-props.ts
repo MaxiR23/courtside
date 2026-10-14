@@ -14,7 +14,10 @@ import type {
 	PlayoffStageStatus,
 	PlayoffTeam,
 	PlayoffsFeed,
-	PlayoffsState
+	PlayoffsState,
+	Series,
+	SeriesGame,
+	SeriesSide
 } from '#lib/contract/playoffs.ts';
 import type {
 	FinalsGame,
@@ -55,10 +58,14 @@ import type {
 	PlayInView,
 	PlayoffsHeaderView,
 	PlayoffsSectionId,
+	PlayoffBracketView,
 	PlayoffsView,
 	PlayoffStageView,
 	RoadCardView,
-	SeriesGameView
+	SeriesCardView,
+	SeriesGameRowView,
+	SeriesGameView,
+	SeriesSideView
 } from '#lib/playoffs/types.ts';
 import { teamLabel, teamMark } from '#lib/team/mark.ts';
 
@@ -530,6 +537,115 @@ function seriesGame(entry: FinalsGame, champion: string | null): SeriesGameView 
 	};
 }
 
+function slotLabel(label: SeriesSide['label']): string {
+	const conference = CONFERENCE_TITLE[label.conference]();
+	const part = (value: number | null): string => orDash(value, integer);
+	switch (label.key) {
+		case 'seed':
+			return m.playoffs_slot_seed({ conference, seed: part(label.seed) });
+		case 'playin_winner':
+			return m.playoffs_slot_playin_winner({ conference });
+		case 'round_1_winner':
+			return m.playoffs_slot_r1_winner({ conference, n: part(label.series) });
+		case 'round_2_winner':
+			return m.playoffs_slot_r2_winner({ conference, n: part(label.series) });
+		case 'round_3_winner':
+			return m.playoffs_slot_r3_winner({ conference });
+	}
+}
+
+function seriesSide(side: SeriesSide, series: Series): SeriesSideView {
+	if (side.team) {
+		return {
+			team: teamMark(side.team),
+			seed: orDash(side.seed, integer),
+			wins: orDash(side.wins, integer),
+			strip: strip(side.team),
+			label: code(side.team),
+			note: null,
+			loser: series.winner !== null && side.team.code !== series.winner
+		};
+	}
+	return {
+		team: null,
+		seed: '',
+		wins: '',
+		strip: null,
+		label: slotLabel(side.label),
+		note: side.currently
+			? m.playoffs_currently({ team: teamLabel(teamMark(side.currently)) })
+			: m.playoffs_tbd_slot(),
+		loser: false
+	};
+}
+
+function roundTitle(series: Series): string {
+	if (series.conference === null) return ROUND_LABEL[4]();
+	const round = ROUND_LABEL[series.round]?.() ?? NO_VALUE;
+	return `${CONFERENCE_TITLE[series.conference]()}${SEPARATOR}${round}`;
+}
+
+const scoreText = (value: number | null): string => orDash(value, integer);
+
+// A row reads from the top team's point of view: "G1 · vs QXH" at home, "G3 · at QXH" away.
+function seriesGameRow(game: SeriesGame, topCode: string | null): SeriesGameRowView {
+	const final = game.status === 'final';
+	const n = formatNumber(game.number);
+	const topIsHome = topCode !== null && topCode === game.home.code;
+	const label = topIsHome
+		? m.playoffs_game_home({ n, team: code(game.away) })
+		: m.playoffs_game_at({ n, team: code(game.home) });
+	const decided = final && game.winner !== null;
+	return {
+		gameId: game.id,
+		linked: game.detailAvailable,
+		key: game.id,
+		label,
+		away: {
+			code: code(game.away),
+			score: scoreText(game.score?.away ?? null),
+			loser: decided && game.winner !== 'away'
+		},
+		home: {
+			code: code(game.home),
+			score: scoreText(game.score?.home ?? null),
+			loser: decided && game.winner !== 'home'
+		},
+		final,
+		overtime: game.overtime,
+		when: final ? null : `${feedDate(game.date, monthDay)}${SEPARATOR}${game.venue}`
+	};
+}
+
+function seriesCard(series: Series): SeriesCardView {
+	const top = seriesSide(series.top, series);
+	const bottom = seriesSide(series.bottom, series);
+	const teams = Number(series.top.team !== null) + Number(series.bottom.team !== null);
+	const final = series.conference === null;
+	const complete = series.status === 'complete';
+	return {
+		id: series.id,
+		name: [roundTitle(series), top.label, bottom.label].join(SEPARATOR),
+		roundTitle: roundTitle(series),
+		top,
+		bottom,
+		decided: teams === 2 ? 'both' : teams === 1 ? 'one' : 'none',
+		final,
+		complete,
+		champion: final && complete,
+		score:
+			series.summary ??
+			(series.top.wins !== null && series.bottom.wins !== null
+				? `${top.wins}–${bottom.wins}`
+				: NO_VALUE),
+		games: series.games.map((game) => seriesGameRow(game, series.top.team?.code ?? null))
+	};
+}
+
+function bracketView(feed: PlayoffsFeed): PlayoffBracketView {
+	return { series: feed.bracket.map(seriesCard) };
+}
+
 function roadCard(road: RoadTeam): RoadCardView {
 	const team = teamMark(road.team);
 	return {
@@ -725,6 +841,7 @@ export function toPlayoffsView(
 		finalsMvp,
 		conferenceMvps: conference,
 		series: finals ? finals.games.map((entry) => seriesGame(entry, finals.champion)) : [],
+		bracket: bracketView(feed),
 		road: finals ? finals.road.map(roadCard) : [],
 		headToHead: finals ? headToHeadView(finals) : null,
 		leaders: leaderTabs(feed),

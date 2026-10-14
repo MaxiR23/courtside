@@ -2,11 +2,12 @@
 // labels and the champion anchor, for the desktop world and the vertical mobile world. Pure, in world
 // units. The sizes mirror the --bracket-* tokens; tests/lib/cup/bracket-layout.test.ts pins them.
 
+import { elbowPath, type Point } from '#lib/bracket/geometry.ts';
 import type { SlotId } from '#lib/contract/cup.ts';
 
 export type WorldKind = 'desktop' | 'mobile';
 export type World = { kind: WorldKind; width: number; height: number };
-export type Point = { x: number; y: number };
+export type { Point } from '#lib/bracket/geometry.ts';
 export type RoundKey = 'quarterfinals' | 'semifinals' | 'championship';
 
 export const DESKTOP_WORLD: World = { kind: 'desktop', width: 6300, height: 1320 };
@@ -73,15 +74,6 @@ const FEEDERS: Feeder[] = [
 
 const isWest = (id: SlotId): boolean => id.startsWith('west');
 
-function desktopPath(from: Point, to: Point, west: boolean): string {
-	const y1 = from.y + NODE.height / 2;
-	const y2 = to.y + NODE.height / 2;
-	const x1 = west ? from.x : from.x + NODE.width;
-	const x2 = west ? to.x + NODE.width : to.x;
-	const xm = (x1 + x2) / 2;
-	return `M ${x1} ${y1} H ${xm} V ${y2} H ${x2}`;
-}
-
 function mobilePath(from: Point, to: Point, west: boolean): string {
 	const x1 = from.x + NODE.width / 2;
 	const x2 = to.x + NODE.width / 2;
@@ -94,7 +86,10 @@ function mobilePath(from: Point, to: Point, west: boolean): string {
 /** The 6 orthogonal connectors, in feeder order, each ending on the `side` of its `to` node. */
 export function connectors(world: World): Connector[] {
 	const nodes = nodesOf(world);
-	const path = world.kind === 'desktop' ? desktopPath : mobilePath;
+	const path =
+		world.kind === 'desktop'
+			? (from: Point, to: Point, west: boolean) => elbowPath(from, to, NODE, west)
+			: mobilePath;
 	return FEEDERS.map(({ from, to, side }) => ({
 		from,
 		to,

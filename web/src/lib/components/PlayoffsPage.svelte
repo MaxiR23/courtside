@@ -8,6 +8,7 @@
 	import HeadToHead from '#lib/components/HeadToHead.svelte';
 	import MessageRow from '#lib/components/MessageRow.svelte';
 	import PlayInStrip from '#lib/components/PlayInStrip.svelte';
+	import PlayoffBracket from '#lib/components/PlayoffBracket.svelte';
 	import PlayoffLeaders from '#lib/components/PlayoffLeaders.svelte';
 	import PlayoffPicture from '#lib/components/PlayoffPicture.svelte';
 	import PlayoffsHeader from '#lib/components/PlayoffsHeader.svelte';
@@ -33,6 +34,21 @@
 	let { state: page, allGamesHref, standingsHref, layout, teamHref, gameHref }: Props = $props();
 
 	const ROW_BONES = [0, 1, 2, 3, 4, 5];
+
+	// The Finals game selected in the series section, set by a click on a game of the bracket.
+	let finalsGame = $state(0);
+
+	// Scrolls like the section tabs: smooth, or at once under reduced motion.
+	function selectFinalsGame(id: string, series: { key: string }[]) {
+		const index = series.findIndex((game) => game.key === id);
+		if (index < 0) return;
+		finalsGame = index;
+		const reduced =
+			typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+		document
+			.getElementById('series')
+			?.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' });
+	}
 </script>
 
 {#if page.kind === 'ready'}
@@ -59,9 +75,13 @@
 					</div>
 				{:else if id === 'bracket'}
 					<SectionHead title={m.playoffs_bracket()} />
-					<BlueprintFrame>
-						<div class="bracket-placeholder" aria-hidden="true"></div>
-					</BlueprintFrame>
+					<PlayoffBracket
+						bracket={view.bracket}
+						{layout}
+						{gameHref}
+						finalsSelectable={view.sections.includes('series') ? view.series.map((g) => g.key) : []}
+						onFinalsGame={(id) => selectFinalsGame(id, view.series)}
+					/>
 				{:else if id === 'play-in'}
 					<SectionHead title={m.playoffs_playin_title()} />
 					<PlayInStrip
@@ -83,7 +103,13 @@
 					</div>
 				{:else if id === 'series'}
 					<SectionHead title={m.playoffs_series()} />
-					<FinalsSeries games={view.series} {layout} {teamHref} {gameHref} />
+					<FinalsSeries
+						bind:selected={finalsGame}
+						games={view.series}
+						{layout}
+						{teamHref}
+						{gameHref}
+					/>
 				{:else if id === 'road'}
 					<SectionHead title={m.playoffs_road()} />
 					<RoadToTitle road={view.road} {teamHref} />
@@ -159,10 +185,6 @@
 		gap: var(--game-list-gap);
 		align-content: start;
 		min-width: 0;
-	}
-
-	.bracket-placeholder {
-		min-height: var(--playoffs-bracket-placeholder-height);
 	}
 
 	.mvps {
