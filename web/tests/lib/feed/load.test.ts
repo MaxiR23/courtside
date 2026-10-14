@@ -13,6 +13,7 @@
 // - loadCupFeed returns the Cup feed and reports 503, network and body failures
 // - loadPlayoffsFeed returns the playoffs feed and reports 503, network and body failures
 // - loadPlayoffsFinalsFeed returns the finals feed, reports a 404 as not-found and every other failure
+// - loadAllStarFeed returns the All-Star feed and reports 503, network and body failures
 // - cupMatchupFeedUrl puts the encoded slot id in place of every {id}
 // - loadCupMatchupFeed returns the matchup feed with a no-cache request, reports a 404 as not-found and every other failure
 // - loadSearchFeed returns the search feed with a no-cache request and reports 503, network and body failures
@@ -35,6 +36,7 @@ import {
 	loadGamesFeed,
 	loadPlayerFeed,
 	loadPlayoffsFeed,
+	loadAllStarFeed,
 	loadPlayoffsFinalsFeed,
 	loadSearchFeed,
 	loadCupFeed,
@@ -460,6 +462,59 @@ describe('loadPlayoffsFinalsFeed', () => {
 		await expect(loadPlayoffsFinalsFeed(FINALS_URL, noRoad)).rejects.toMatchObject({
 			reason: 'body'
 		});
+	});
+});
+
+const ALL_STAR_URL = 'https://feeds.example.com/all-star.json';
+
+describe('loadAllStarFeed', () => {
+	it('returns the parsed All-Star feed on a 200, asking for JSON from the given URL', async () => {
+		const feed = { year: 2027, state: 'before', edition: { games: [] } };
+		const fetchFn = urlFetchAnswering(ALL_STAR_URL, () => json(feed));
+		await expect(loadAllStarFeed(ALL_STAR_URL, fetchFn)).resolves.toEqual(feed);
+		expect(fetchFn).toHaveBeenCalledWith(ALL_STAR_URL, {
+			headers: { accept: 'application/json' }
+		});
+	});
+
+	it('throws a status error on a 503 and on a 404', async () => {
+		for (const status of [503, 404]) {
+			const fetchFn = urlFetchAnswering(ALL_STAR_URL, () => json({ detail: 'no' }, status));
+			await expect(loadAllStarFeed(ALL_STAR_URL, fetchFn)).rejects.toMatchObject({
+				name: 'FeedLoadError',
+				reason: 'status'
+			});
+		}
+	});
+
+	it('throws a network error', async () => {
+		const fetchFn = urlFetchAnswering(ALL_STAR_URL, () =>
+			Promise.reject(new TypeError('Failed to fetch'))
+		);
+		await expect(loadAllStarFeed(ALL_STAR_URL, fetchFn)).rejects.toMatchObject({
+			reason: 'network'
+		});
+	});
+
+	it('throws a body error on a non-JSON body and on JSON without a state or edition games', async () => {
+		const html = urlFetchAnswering(ALL_STAR_URL, () =>
+			Promise.resolve(new Response('<html>', { status: 200 }))
+		);
+		await expect(loadAllStarFeed(ALL_STAR_URL, html)).rejects.toMatchObject({ reason: 'body' });
+		for (const body of [
+			null,
+			'x',
+			{ year: 1 },
+			{ state: 'live' },
+			{ state: 'live', edition: null }
+		]) {
+			const bad = urlFetchAnswering(ALL_STAR_URL, () => json(body));
+			await expect(loadAllStarFeed(ALL_STAR_URL, bad)).rejects.toMatchObject({ reason: 'body' });
+		}
+		const noGames = urlFetchAnswering(ALL_STAR_URL, () =>
+			json({ state: 'live', edition: { teams: [] } })
+		);
+		await expect(loadAllStarFeed(ALL_STAR_URL, noGames)).rejects.toMatchObject({ reason: 'body' });
 	});
 });
 

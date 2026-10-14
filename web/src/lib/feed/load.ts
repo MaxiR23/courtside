@@ -1,3 +1,4 @@
+import type { AllStarFeed } from '#lib/contract/all-star.ts';
 import type { GameDetailFeed } from '#lib/contract/game-detail.ts';
 import type { CupFeed } from '#lib/contract/cup.ts';
 import type { CupMatchupFeed } from '#lib/contract/cup-matchup.ts';
@@ -199,6 +200,30 @@ export async function loadPlayoffsFinalsFeed(
 		throw new FeedLoadError('body', 'The playoffs finals feed has no games or road');
 	}
 	return body as PlayoffsFinalsFeed;
+}
+
+/**
+ * Fetches the All-Star feed. The route answers 503 when it is not ready, never 404. The body is
+ * only checked for its shape: an object with a string `state` and an `edition` with a `games`
+ * array.
+ */
+export async function loadAllStarFeed(
+	url: string,
+	fetchFn: typeof fetch = fetch
+): Promise<AllStarFeed> {
+	const body = await fetchFeedBody(url, 'The All-Star feed', fetchFn);
+	const feed = body as AllStarFeed | null;
+	if (
+		typeof body !== 'object' ||
+		feed === null ||
+		typeof feed.state !== 'string' ||
+		typeof feed.edition !== 'object' ||
+		feed.edition === null ||
+		!Array.isArray(feed.edition.games)
+	) {
+		throw new FeedLoadError('body', 'The All-Star feed has no state or edition');
+	}
+	return feed;
 }
 
 /** The URL of one Cup matchup feed: the template with the encoded slot id in place of {id}. */

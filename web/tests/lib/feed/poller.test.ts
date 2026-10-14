@@ -14,6 +14,8 @@
 // - standingsPollInterval: 60 s; a FeedPoller with it polls again after 60 s, pauses while hidden
 // - cupPollInterval: 60 s; a FeedPoller with it polls again after 60 s, pauses while hidden
 // - playoffsPollInterval: 60 s
+// - allStarPollInterval: 30 s while the state is live, 60 s before, after and with no feed yet
+// - allStarPreviousPollInterval: 60 s
 // - playerPollInterval: 30 s while live, 60 s otherwise; slows down when live turns null
 //
 // What is covered:
@@ -28,7 +30,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { GameDetailFeed } from '../../../src/lib/contract/game-detail';
 import type { GameStatus, GamesFeed } from '../../../src/lib/contract/games';
 import type { PlayerFeed } from '../../../src/lib/contract/player';
+import type { AllStarFeed } from '../../../src/lib/contract/all-star';
 import {
+	allStarPollInterval,
+	allStarPreviousPollInterval,
 	cupPollInterval,
 	FeedPoller,
 	GamesFeedPoller,
@@ -447,5 +452,25 @@ describe('cupPollInterval', () => {
 describe('playoffsPollInterval', () => {
 	it('is 60 s', () => {
 		expect(playoffsPollInterval()).toBe(IDLE_POLL_MS);
+	});
+});
+
+describe('allStarPollInterval', () => {
+	const inState = (state: AllStarFeed['state']) => ({ state }) as unknown as AllStarFeed;
+
+	it('is 30 s while the state is live', () => {
+		expect(allStarPollInterval(inState('live'))).toBe(LIVE_POLL_MS);
+	});
+
+	it('is 60 s before, after and with no feed yet', () => {
+		expect(allStarPollInterval(inState('before'))).toBe(IDLE_POLL_MS);
+		expect(allStarPollInterval(inState('after'))).toBe(IDLE_POLL_MS);
+		expect(allStarPollInterval(null)).toBe(IDLE_POLL_MS);
+	});
+});
+
+describe('allStarPreviousPollInterval', () => {
+	it('is 60 s', () => {
+		expect(allStarPreviousPollInterval()).toBe(IDLE_POLL_MS);
 	});
 });

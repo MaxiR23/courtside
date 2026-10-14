@@ -1,4 +1,4 @@
-// web/tests/lib/playoffs/count-up.svelte.test.ts
+// web/tests/lib/count/count-up.svelte.test.ts
 //
 // Tests for the hero count-up controller.
 //
@@ -12,12 +12,12 @@
 // - The reactive module without mounting; fake timers
 // - Animation frames are driven by hand; no real frame or frame count is asserted (docs/testing.md)
 //
-// Run with: cd web && pnpm exec vitest run tests/lib/playoffs/count-up.svelte.test.ts
+// Run with: cd web && pnpm exec vitest run tests/lib/count/count-up.svelte.test.ts
 //
-// SEE: web/src/lib/playoffs/count-up.svelte.ts
+// SEE: web/src/lib/count/count-up.svelte.ts
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { CountUp } from '../../../src/lib/playoffs/count-up.svelte';
+import { CountUp } from '../../../src/lib/count/count-up.svelte';
 
 beforeEach(() => {
 	vi.useFakeTimers();

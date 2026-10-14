@@ -7,7 +7,10 @@
 # statistics, leaders and Top 5), the MVP with his game lines and day totals, and
 # the recap of the previous edition. The number of teams and rounds changes every
 # year: the feed is a list of games with a round label and N teams, never a fixed
-# bracket. Labels are keys and parts, never prose: the page writes the words. The
+# bracket. The previous edition is also carried whole, with its MVP, as its after
+# view. The edition also carries its counts, its default game and its next game, a
+# live game its leading side, a box score its top scorers and a team its result
+# rows, so the page counts and compares nothing. Labels are keys and parts, never prose: the page writes the words. The
 # format line is the one text, because the page shows it as sent.
 #
 # SEE: docs/api/all-star.md, docs/adr/0036-all-star-feed.md
@@ -89,11 +92,21 @@ class AllStarBoxPlayer(BoxScorePlayer):
     jersey: NonEmptyStr | None
     position: NonEmptyStr | None
     league_team: LeagueTeam | None
+    top_points: bool
 
 
 class AllStarTeamBox(FeedModel):
     players: list[AllStarBoxPlayer]
     totals: BoxScoreTotals
+
+    @model_validator(mode="after")
+    def _require_top_points_on_the_highest_points(self) -> AllStarTeamBox:
+        top = max((p.points for p in self.players), default=0)
+        if any(p.top_points != (top > 0 and p.points == top) for p in self.players):
+            raise ValueError(
+                "topPoints marks every player with the team's highest points"
+            )
+        return self
 
 
 class AllStarBoxScore(FeedModel):
@@ -152,10 +165,12 @@ class AllStarGame(FeedModel):
     score: Score | None
     overtime: bool
     winner: Side | None
+    leading: Side | None
     attendance: NonNegativeInt | None
     broadcasts: list[Broadcast]
     round_label: NonEmptyStr | None
     championship: bool
+    is_next: bool
     away: Opponent | None
     home: Opponent | None
     to_be_determined: bool
@@ -196,6 +211,25 @@ class AllStarGame(FeedModel):
         return self
 
     @model_validator(mode="after")
+    def _require_the_leading_side_of_a_live_game(self) -> AllStarGame:
+        expected: Side | None = None
+        if (
+            self.status is GameStatus.LIVE
+            and self.score is not None
+            and self.score.away != self.score.home
+        ):
+            expected = Side.AWAY if self.score.away > self.score.home else Side.HOME
+        if self.leading != expected:
+            raise ValueError("leading is the side with the higher score of a live game")
+        return self
+
+    @model_validator(mode="after")
+    def _require_a_next_game_not_in_play(self) -> AllStarGame:
+        if self.is_next and self.status in (GameStatus.LIVE, GameStatus.FINAL):
+            raise ValueError("a next game is neither live nor final")
+        return self
+
+    @model_validator(mode="after")
     def _require_overtime_only_in_play(self) -> AllStarGame:
         if self.overtime and self.status not in (GameStatus.LIVE, GameStatus.FINAL):
             raise ValueError("only a live or final game has overtime")
@@ -224,12 +258,52 @@ class RosterTile(FeedModel):
     league_team: LeagueTeam | None
 
 
+class AllStarTeamResult(FeedModel):
+    game_id: NonEmptyStr
+    round_label: NonEmptyStr | None
+    result: GameResult
+    team_score: NonNegativeInt
+    opponent_score: NonNegativeInt
+    opponent: Opponent
+    overtime: bool
+
+    @model_validator(mode="after")
+    def _require_the_result_of_the_scores(self) -> AllStarTeamResult:
+        if self.team_score == self.opponent_score:
+            raise ValueError("a result has a winner")
+        won = self.team_score > self.opponent_score
+        if (self.result is GameResult.WIN) != won:
+            raise ValueError("the result is a win exactly when the team scored more")
+        return self
+
+
 class AllStarTeam(FeedModel):
     team: Opponent
     wins: NonNegativeInt
     losses: NonNegativeInt
+    results: list[AllStarTeamResult]
     placement: Placement
     roster: list[RosterTile]
+
+    @model_validator(mode="after")
+    def _require_a_record_of_the_results(self) -> AllStarTeam:
+        wins = sum(r.result is GameResult.WIN for r in self.results)
+        if (self.wins, self.losses) != (wins, len(self.results) - wins):
+            raise ValueError("wins and losses are the numbers of win and loss results")
+        return self
+
+
+class AllStarCounts(FeedModel):
+    games: NonNegativeInt
+    teams: NonNegativeInt
+    final: NonNegativeInt
+    live: NonNegativeInt
+
+    @model_validator(mode="after")
+    def _require_final_and_live_within_the_games(self) -> AllStarCounts:
+        if self.final + self.live > self.games:
+            raise ValueError("final and live games are within the games")
+        return self
 
 
 class AllStarEdition(FeedModel):
@@ -238,12 +312,44 @@ class AllStarEdition(FeedModel):
     format_line: NonEmptyStr | None
     teams: list[AllStarTeam]
     games: list[AllStarGame]
+    counts: AllStarCounts
+    default_game_id: NonEmptyStr | None
 
     @model_validator(mode="after")
     def _require_at_most_one_champion_and_runner_up(self) -> AllStarEdition:
         for kind in (PlacementKind.CHAMPION, PlacementKind.RUNNER_UP):
             if sum(team.placement.kind is kind for team in self.teams) > 1:
                 raise ValueError(f"at most one team is the {kind}")
+        return self
+
+    @model_validator(mode="after")
+    def _require_the_counts_of_the_lists(self) -> AllStarEdition:
+        counts = self.counts
+        final = sum(g.status is GameStatus.FINAL for g in self.games)
+        live = sum(g.status is GameStatus.LIVE for g in self.games)
+        if (counts.games, counts.teams, counts.final, counts.live) != (
+            len(self.games),
+            len(self.teams),
+            final,
+            live,
+        ):
+            raise ValueError("counts are the sizes of the lists and the game statuses")
+        return self
+
+    @model_validator(mode="after")
+    def _require_a_default_game_of_the_list(self) -> AllStarEdition:
+        ids = [g.id for g in self.games]
+        if self.default_game_id is None:
+            if ids:
+                raise ValueError("a default game is required when there are games")
+        elif self.default_game_id not in ids:
+            raise ValueError("the default game must be the id of a game")
+        return self
+
+    @model_validator(mode="after")
+    def _require_one_next_game_at_most(self) -> AllStarEdition:
+        if sum(g.is_next for g in self.games) > 1:
+            raise ValueError("at most one game is the next game")
         return self
 
 
@@ -315,12 +421,36 @@ class AllStarRecap(FeedModel):
     mvp: AllStarMvp | None
 
 
+class AllStarPreviousEdition(AllStarEdition):
+    """The previous edition drawn as its after view: the edition and its MVP."""
+
+    mvp: AllStarMvp | None
+
+    @model_validator(mode="after")
+    def _require_a_finished_edition(self) -> AllStarPreviousEdition:
+        if self.date is None or not self.games:
+            raise ValueError("a previous edition has a date and games")
+        if any(g.status is not GameStatus.FINAL for g in self.games):
+            raise ValueError("every game of a previous edition is final")
+        return self
+
+
 class AllStarFeed(FeedModel):
     year: PositiveInt
     state: AllStarState
     edition: AllStarEdition
     mvp: AllStarMvp | None
     previous: AllStarRecap | None
+    previous_edition: AllStarPreviousEdition | None
+
+    @model_validator(mode="after")
+    def _require_the_recap_of_a_previous_edition(self) -> AllStarFeed:
+        edition = self.previous_edition
+        if edition is not None and (
+            self.previous is None or edition.date != self.previous.date
+        ):
+            raise ValueError("a previous edition has the recap with the same date")
+        return self
 
     @model_validator(mode="after")
     def _require_the_games_of_the_state(self) -> AllStarFeed:

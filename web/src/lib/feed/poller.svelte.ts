@@ -1,3 +1,4 @@
+import type { AllStarFeed } from '#lib/contract/all-star.ts';
 import type { GameDetailFeed } from '#lib/contract/game-detail.ts';
 import type { GamesFeed } from '#lib/contract/games.ts';
 import type { PlayerFeed } from '#lib/contract/player.ts';
@@ -36,6 +37,16 @@ export function cupPollInterval(): number {
 
 /** Issue 221, decision D2: the Cup page's interval, every 60 s. */
 export function playoffsPollInterval(): number {
+	return IDLE_POLL_MS;
+}
+
+/** ADR 0036: every 30 s while the day is live (the feed expires 30 s after the build), else 60 s. */
+export function allStarPollInterval(feed: AllStarFeed | null): number {
+	return feed?.state === 'live' ? LIVE_POLL_MS : IDLE_POLL_MS;
+}
+
+/** The previous edition is finished: every 60 s. */
+export function allStarPreviousPollInterval(): number {
 	return IDLE_POLL_MS;
 }
 

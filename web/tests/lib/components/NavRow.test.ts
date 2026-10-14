@@ -4,7 +4,7 @@
 //
 // Tested:
 // - Shows the brand name and hides the brand mark from assistive technology
-// - Home: Games, Standings, Cup, Playoffs, the date and the Spoiler-free toggle, in that order
+// - Home: Games, Standings, Cup, All-Star, Playoffs, the date and the Spoiler-free toggle, in that order
 // - Home: Games is the current page; Standings is not
 // - Detail pages: All games and Standings, nothing current, no date, no toggle
 // - Standings page: Standings is the current page; All games is not
@@ -15,7 +15,8 @@
 // - The search trigger is the last child of the nav on Home, the detail pages, the standings page, the Cup page and the playoffs page
 // - The mobile layout gives the search trigger its mobile class
 // - Spoiler-free toggle: off by default, pressed when on, calls its callback
-// - Spanish: Partidos, Clasificación, Copa, the date, Playoffs, Sin spoilers, Todos los partidos
+// - All-Star goes to /all-star; it is the current page on the All-Star page and nowhere else
+// - Spanish: Partidos, Clasificación, Copa, All-Star, the date, Playoffs, Sin spoilers, Todos los partidos
 //
 // What is covered:
 // - Every page state (home, standings, detail), both layouts, the toggle off and on, its click
@@ -48,6 +49,7 @@ const homeProps = {
 const detailProps = { ...homeProps, page: 'detail' as const, home: undefined };
 const standingsProps = { ...homeProps, page: 'standings' as const, home: undefined };
 const cupProps = { ...homeProps, page: 'cup' as const, home: undefined };
+const allStarProps = { ...homeProps, page: 'all-star' as const, home: undefined };
 const playoffsProps = { ...homeProps, page: 'playoffs' as const, home: undefined };
 const dateOptions: Intl.DateTimeFormatOptions = {
 	weekday: 'short',
@@ -67,7 +69,7 @@ describe('NavRow', () => {
 		expect(container.querySelector('.brand-mark')?.getAttribute('aria-hidden')).toBe('true');
 	});
 
-	it('shows Games, Standings, Cup, Playoffs, the date and the toggle in order on Home', () => {
+	it('shows Games, Standings, Cup, All-Star, Playoffs, the date and the toggle in order on Home', () => {
 		const { container } = render(NavRow, { props: homeProps });
 		const items = Array.from(container.querySelector('.links')?.children ?? []).map((el) =>
 			el.textContent?.trim()
@@ -76,6 +78,7 @@ describe('NavRow', () => {
 			'Games',
 			'Standings',
 			'Cup',
+			'All-Star',
 			'Playoffs',
 			'Sun, Oct 4, 2026',
 			'Spoiler-free'
@@ -91,6 +94,29 @@ describe('NavRow', () => {
 	it('links Cup to /cup', () => {
 		render(NavRow, { props: homeProps });
 		expect(screen.getByRole('link', { name: 'Cup' }).getAttribute('href')).toBe('/cup');
+	});
+
+	it('links All-Star to /all-star', () => {
+		render(NavRow, { props: homeProps });
+		expect(screen.getByRole('link', { name: 'All-Star' }).getAttribute('href')).toBe('/all-star');
+	});
+
+	it('marks All-Star current on the All-Star page and nothing else', () => {
+		const { container } = render(NavRow, { props: allStarProps });
+		const link = screen.getByRole('link', { name: 'All-Star' });
+		expect(link.getAttribute('aria-current')).toBe('page');
+		expect(link.classList.contains('current')).toBe(true);
+		expect(container.querySelectorAll('[aria-current]')).toHaveLength(1);
+	});
+
+	it('does not mark All-Star current on any other page', () => {
+		for (const props of [homeProps, standingsProps, cupProps, playoffsProps, detailProps]) {
+			const { unmount } = render(NavRow, { props });
+			const link = screen.getByRole('link', { name: 'All-Star' });
+			expect(link.getAttribute('aria-current')).toBeNull();
+			expect(link.classList.contains('current')).toBe(false);
+			unmount();
+		}
 	});
 
 	it('links Playoffs to /playoffs', () => {
@@ -207,6 +233,7 @@ describe('NavRow', () => {
 		expect(screen.getByRole('link', { name: 'Partidos' })).toBeTruthy();
 		expect(screen.getByRole('link', { name: 'Clasificación' })).toBeTruthy();
 		expect(screen.getByRole('link', { name: 'Copa' })).toBeTruthy();
+		expect(screen.getByRole('link', { name: 'All-Star' })).toBeTruthy();
 		expect(screen.getByRole('link', { name: 'Playoffs' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Sin spoilers' })).toBeTruthy();
 	});
@@ -218,7 +245,14 @@ describe('NavRow', () => {
 	});
 
 	it('ends the nav with the search trigger on Home, detail pages, the standings page, the Cup page and the playoffs page', () => {
-		for (const props of [homeProps, detailProps, standingsProps, cupProps, playoffsProps]) {
+		for (const props of [
+			homeProps,
+			detailProps,
+			standingsProps,
+			cupProps,
+			allStarProps,
+			playoffsProps
+		]) {
 			const { container, unmount } = render(NavRow, { props });
 			const nav = container.querySelector('nav');
 			expect(nav?.lastElementChild).toBe(screen.getByRole('button', { name: 'Search' }));

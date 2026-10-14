@@ -26,7 +26,11 @@
 # the All-Star MVP award, with one line per final game he has a box row in and the
 # day totals. The recap is the previous edition: the Championship result, the
 # date, the venue and its MVP, null when it was not discovered, its day could not
-# be read or its championship is not final. A failed detail, summary, extras, team
+# be read or its championship is not final. The previous edition is also carried
+# whole, as its after view, with its MVP, from the same reads and only when every
+# game of it is final. The edition also carries its counts, its default game and
+# its next game, a live game its leading side, a box score its top scorers and a
+# team its result rows, so the page counts and compares nothing. A failed detail, summary, extras, team
 # info, awards or previous edition read only nulls its part. The season unknown, a
 # failed current scoreboard day and an invalid feed fail the build.
 #
@@ -326,6 +330,64 @@ def placements(
     return result
 
 
+def edition_counts(games: Sequence[AllStarScoreboardGame]) -> dict[str, int]:
+    """The number of games and teams, and of final and live games."""
+    return {
+        "games": len(games),
+        "teams": len(team_order(games)),
+        "final": sum(g.status is GameStatus.FINAL for g in games),
+        "live": sum(g.status is GameStatus.LIVE for g in games),
+    }
+
+
+def default_game(
+    games: Sequence[AllStarScoreboardGame], state: AllStarState
+) -> str | None:
+    """The game selected by default: the Championship after, the first live game
+    while live; if neither exists, the first game not final, then the first game."""
+    if not games:
+        return None
+    if state is AllStarState.AFTER:
+        final = next((g for g in games if parse_note(g.note)[0] == CHAMPIONSHIP), None)
+        if final is not None:
+            return final.id
+    live = next((g for g in games if g.status is GameStatus.LIVE), None)
+    if live is not None:
+        return live.id
+    unplayed = next((g for g in games if g.status is not GameStatus.FINAL), None)
+    if unplayed is not None:
+        return unplayed.id
+    return games[0].id
+
+
+def next_game(
+    games: Sequence[AllStarScoreboardGame],
+    state: AllStarState,
+    default_id: str | None,
+) -> str | None:
+    """While live, the first game neither live nor final other than the default."""
+    if state is not AllStarState.LIVE:
+        return None
+    return next(
+        (
+            g.id
+            for g in games
+            if g.status not in (GameStatus.LIVE, GameStatus.FINAL)
+            and g.id != default_id
+        ),
+        None,
+    )
+
+
+def leading(game: AllStarScoreboardGame) -> Side | None:
+    """The side with the higher score of a live game, or none."""
+    if game.status is not GameStatus.LIVE or game.score is None:
+        return None
+    if game.score.away == game.score.home:
+        return None
+    return Side.AWAY if game.score.away > game.score.home else Side.HOME
+
+
 def top5(rows: Sequence[Top5Row]) -> list[Top5Row]:
     """The first 5 rows by points, then rebounds plus assists, both descending.
     The sort is stable, so ties keep the source order."""
@@ -417,7 +479,10 @@ def _box_rows(
 
 
 def _box_player(
-    sources: AllStarSources, game: AllStarScoreboardGame, player: BoxScorePlayer
+    sources: AllStarSources,
+    game: AllStarScoreboardGame,
+    player: BoxScorePlayer,
+    top_points: bool,
 ) -> dict[str, Any]:
     extras = sources.extras.get(game.id)
     return {
@@ -427,6 +492,7 @@ def _box_player(
         "league_team": league_team(
             player.player_id, sources.player_teams, sources.colors
         ),
+        "top_points": top_points,
     }
 
 
@@ -437,13 +503,17 @@ def _box_score(
     if found is None or found.box_score is None:
         return None
     box = found.box_score
-    return {
-        side: {
-            "players": [_box_player(sources, game, p) for p in team.players],
+    result: dict[str, Any] = {}
+    for side, team in (("away", box.away), ("home", box.home)):
+        top = max((p.points for p in team.players), default=0)
+        result[side] = {
+            "players": [
+                _box_player(sources, game, p, top > 0 and p.points == top)
+                for p in team.players
+            ],
             "totals": team.totals,
         }
-        for side, team in (("away", box.away), ("home", box.home))
-    }
+    return result
 
 
 def _top5_rows(sources: AllStarSources, game: AllStarScoreboardGame) -> list[Top5Row]:
@@ -466,7 +536,9 @@ def _top5_rows(sources: AllStarSources, game: AllStarScoreboardGame) -> list[Top
     )
 
 
-def _game(sources: AllStarSources, game: AllStarScoreboardGame) -> dict[str, Any]:
+def _game(
+    sources: AllStarSources, game: AllStarScoreboardGame, next_id: str | None
+) -> dict[str, Any]:
     label, _ = parse_note(game.note)
     extras = sources.extras.get(game.id)
     detail = sources.details.get(game.id)
@@ -480,10 +552,12 @@ def _game(sources: AllStarSources, game: AllStarScoreboardGame) -> dict[str, Any
         "score": game.score,
         "overtime": overtime(game, extras),
         "winner": winner(game),
+        "leading": leading(game),
         "attendance": None if extras is None else extras.attendance,
         "broadcasts": [] if extras is None else extras.broadcasts,
         "round_label": label,
         "championship": label == CHAMPIONSHIP,
+        "is_next": game.id == next_id,
         "away": _opponent(game.away),
         "home": _opponent(game.home),
         "to_be_determined": game.away is None or game.home is None,
@@ -503,6 +577,39 @@ def _line_format(
         if line is not None:
             return line
     return None
+
+
+def _results(
+    sources: AllStarSources, games: Sequence[AllStarScoreboardGame], key: str
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for game in games:
+        won = winner(game)
+        if won is None or game.score is None:
+            continue
+        for found, mine in _sides(game):
+            if team_key(mine) != key:
+                continue
+            other = game.home if found is Side.AWAY else game.away
+            if other is None:
+                continue
+            ours, theirs = (
+                (game.score.away, game.score.home)
+                if found is Side.AWAY
+                else (game.score.home, game.score.away)
+            )
+            rows.append(
+                {
+                    "game_id": game.id,
+                    "round_label": parse_note(game.note)[0],
+                    "result": GameResult.WIN if won is found else GameResult.LOSS,
+                    "team_score": ours,
+                    "opponent_score": theirs,
+                    "opponent": _opponent(other),
+                    "overtime": overtime(game, sources.extras.get(game.id)),
+                }
+            )
+    return rows
 
 
 def _teams(
@@ -537,6 +644,7 @@ def _teams(
                 "team": _opponent(side),
                 "wins": wins,
                 "losses": losses,
+                "results": _results(sources, games, key),
                 "placement": {"kind": kind, "round_label": label},
                 "roster": list(roster.values()),
             }
@@ -656,26 +764,54 @@ def _recap(previous: AllStarSources | None) -> dict[str, Any] | None:
     }
 
 
+def _edition(
+    sources: AllStarSources,
+    games: Sequence[AllStarScoreboardGame],
+    state: AllStarState,
+) -> dict[str, Any]:
+    before = state is AllStarState.BEFORE
+    shown = [] if before else list(games)
+    default_id = default_game(shown, state)
+    next_id = next_game(shown, state, default_id)
+    return {
+        "date": sources.edition_date,
+        "venue": _venue(sources, games),
+        "format_line": None if before else _line_format(sources, games),
+        "teams": [] if before else _teams(sources, games),
+        "games": [_game(sources, g, next_id) for g in shown],
+        "counts": edition_counts(shown),
+        "default_game_id": default_id,
+    }
+
+
+def previous_edition(previous: AllStarSources | None) -> dict[str, Any] | None:
+    """The previous edition as its after view with its MVP, or none when there is
+    no recap or a game of it is not final."""
+    if previous is None or _recap(previous) is None:
+        return None
+    games = edition_games(previous.games)
+    if edition_state(games) is not AllStarState.AFTER:
+        return None
+    return {
+        **_edition(previous, games, AllStarState.AFTER),
+        "mvp": mvp(previous, games),
+    }
+
+
 def build_all_star_feed(sources: AllStarSources) -> AllStarFeed:
     """Build the All-Star feed; raise AllStarBuildError when it is not valid."""
     games = edition_games(sources.games)
     state = edition_state(games)
     before = state is AllStarState.BEFORE
-    shown = [] if before else games
     try:
         return AllStarFeed.model_validate(
             {
                 "year": sources.year,
                 "state": state,
-                "edition": {
-                    "date": sources.edition_date,
-                    "venue": _venue(sources, games),
-                    "format_line": None if before else _line_format(sources, games),
-                    "teams": [] if before else _teams(sources, games),
-                    "games": [_game(sources, g) for g in shown],
-                },
+                "edition": _edition(sources, games, state),
                 "mvp": None if before else mvp(sources, games),
                 "previous": _recap(sources.previous),
+                "previous_edition": previous_edition(sources.previous),
             }
         )
     except ValidationError as error:
@@ -942,6 +1078,12 @@ class AllStarFeeds:
         highlights = self._store.highlights()
         data = feed.model_dump(by_alias=False)
         for game in data["edition"]["games"]:
+            found = highlights.get(game["id"])
+            game["highlights"] = (
+                None if found is None else [found.model_dump(by_alias=False)]
+            )
+        earlier = data["previous_edition"]
+        for game in [] if earlier is None else earlier["games"]:
             found = highlights.get(game["id"])
             game["highlights"] = (
                 None if found is None else [found.model_dump(by_alias=False)]

@@ -10,6 +10,8 @@
 # - Game contents: both box scores with jersey, position and league team, the six team statistics with the better side and a tie with none, the leaders, the Top 5 order with a tie keeping the source order, a player in no roster with a null league team, null colors on a failed team info read, the live status text, clock and period as the view returns them, the overtime flag
 # - MVP: from the All-Star MVP award with one line per game and the day totals, none without the award, with a failed awards read and with no box row
 # - Recap: the previous edition's champion, Championship score, MVP, date and venue; none when not discovered, when its day read failed and when its Championship is not final
+# - Counts, default game, next game, leading side, top points and team results: the pure functions and the fields of a before, live and after feed
+# - Previous edition: every game, its teams and MVP as the after view, none when the recap is none or a game is not final, no MVP without the award, carried by a before feed, highlights added when served and no read added
 # - The format line, venue and teams of a before feed
 # - Errors: an invalid feed is wrapped in a build error
 # - The kind: unknown for another id, not ready before the season, the rosters or the discovery when nothing is stored
@@ -85,11 +87,16 @@ from app.jobs.all_star_feed import (
     AllStarFeeds,
     AllStarSources,
     build_all_star_feed,
+    default_game,
+    edition_counts,
     edition_state,
     format_line,
+    leading,
     league_team,
+    next_game,
     parse_note,
     placements,
+    previous_edition,
     team_stats,
     top5,
     winner,
@@ -576,6 +583,106 @@ def test_a_team_without_a_round_label_is_not_eliminated() -> None:
     assert kinds(games)["PKS"] == (PlacementKind.SO_FAR, None)
 
 
+def live_day() -> list[AllStarScoreboardGame]:
+    """Semifinals: one final, one live, one scheduled, then a Championship."""
+    return [
+        game("s1", STR, WAV, note=SEMIFINALS, score=(40, 32), minutes=0),
+        game(
+            "s2",
+            PKS,
+            DNS,
+            note=SEMIFINALS,
+            status=GameStatus.LIVE,
+            score=(30, 12),
+            minutes=30,
+        ),
+        game(
+            "c1",
+            None,
+            None,
+            note=CHAMPIONSHIP,
+            status=GameStatus.SCHEDULED,
+            minutes=60,
+        ),
+    ]
+
+
+def test_edition_counts_count_games_teams_final_and_live() -> None:
+    assert edition_counts(round_robin(final=False)) == {
+        "games": 4,
+        "teams": 3,
+        "final": 3,
+        "live": 0,
+    }
+    assert edition_counts(live_day()) == {
+        "games": 3,
+        "teams": 4,
+        "final": 1,
+        "live": 1,
+    }
+    assert edition_counts([]) == {"games": 0, "teams": 0, "final": 0, "live": 0}
+
+
+def test_the_default_game_is_the_championship_after() -> None:
+    assert default_game(round_robin(), AllStarState.AFTER) == "g4"
+
+
+def test_the_default_game_is_the_first_live_game_while_live() -> None:
+    assert default_game(live_day(), AllStarState.LIVE) == "s2"
+
+
+def test_the_default_game_between_games_is_the_first_not_final() -> None:
+    games = [
+        game("a", STR, WAV),
+        game("b", PKS, STR, status=GameStatus.SCHEDULED, minutes=30),
+        game("c", WAV, PKS, status=GameStatus.SCHEDULED, minutes=60),
+    ]
+
+    assert default_game(games, AllStarState.LIVE) == "b"
+
+
+def test_the_default_game_without_a_championship_after_is_the_first_game() -> None:
+    games = [game("a", STR, WAV), game("b", PKS, STR, minutes=30)]
+
+    assert default_game(games, AllStarState.AFTER) == "a"
+
+
+def test_the_default_game_is_none_without_games() -> None:
+    assert default_game([], AllStarState.BEFORE) is None
+
+
+def test_the_next_game_is_the_first_scheduled_after_the_default_while_live() -> None:
+    games = live_day()
+
+    assert next_game(games, AllStarState.LIVE, "s2") == "c1"
+    between = [
+        game("a", STR, WAV),
+        game("b", PKS, STR, status=GameStatus.SCHEDULED, minutes=30),
+        game("c", WAV, PKS, status=GameStatus.SCHEDULED, minutes=60),
+    ]
+    assert next_game(between, AllStarState.LIVE, "b") == "c"
+
+
+def test_there_is_no_next_game_after_or_with_no_scheduled_game() -> None:
+    assert next_game(round_robin(), AllStarState.AFTER, "g4") is None
+    assert next_game(round_robin(), AllStarState.BEFORE, None) is None
+    only = [game("a", STR, WAV, status=GameStatus.LIVE)]
+    assert next_game(only, AllStarState.LIVE, "a") is None
+    solo = [game("a", STR, WAV, status=GameStatus.SCHEDULED)]
+    assert next_game(solo, AllStarState.LIVE, "a") is None
+
+
+def test_leading_is_the_higher_score_of_a_live_game_and_none_on_a_tie_or_final() -> (
+    None
+):
+    live = GameStatus.LIVE
+    assert leading(game("a", STR, WAV, status=live, score=(5, 3))) is Side.AWAY
+    assert leading(game("a", STR, WAV, status=live, score=(3, 5))) is Side.HOME
+    assert leading(game("a", STR, WAV, status=live, score=(4, 4))) is None
+    assert leading(game("a", STR, WAV, score=(5, 3))) is None
+    assert leading(game("a", STR, WAV, status=GameStatus.SCHEDULED)) is None
+
+
 def row(player_id: str, points: int, rebounds: int = 0, assists: int = 0) -> Top5Row:
     return Top5Row(
         player_id=player_id,
@@ -1036,6 +1143,209 @@ def test_the_recap_is_none_when_the_championship_is_not_final() -> None:
     previous = sources(games, year=2026, edition_date=PREVIOUS_DAY)
 
     assert build(round_robin(), previous=previous).previous is None
+
+
+def box_of(feed: AllStarFeed, game_id: str, side: str) -> list[tuple[str, bool]]:
+    found = next(g for g in feed.edition.games if g.id == game_id)
+    assert found.box_score is not None
+    team = getattr(found.box_score, side)
+    return [(p.player_id, p.top_points) for p in team.players]
+
+
+def test_top_points_marks_every_tied_top_scorer_of_each_team() -> None:
+    games = [game("g1", STR, WAV)]
+    tied = sections(
+        [line("1001", "Ada Example", 12), line("1002", "Ben Sample", 12)],
+        [line("2001", "Cy Placeholder", 15), line("2002", "Dee Invented", 5)],
+    )
+
+    feed = build(games, sections_by_id={"g1": tied})
+
+    assert box_of(feed, "g1", "away") == [("1001", True), ("1002", True)]
+    assert box_of(feed, "g1", "home") == [("2001", True), ("2002", False)]
+
+
+def test_top_points_marks_nobody_in_a_team_with_no_points() -> None:
+    games = [game("g1", STR, WAV)]
+    nothing = sections(
+        [line("1001", "Ada Example", 0), line("1002", "Ben Sample", 0)],
+        [line("2001", "Cy Placeholder", 3)],
+    )
+
+    feed = build(games, sections_by_id={"g1": nothing})
+
+    assert box_of(feed, "g1", "away") == [("1001", False), ("1002", False)]
+    assert box_of(feed, "g1", "home") == [("2001", True)]
+
+
+def results_of(feed: AllStarFeed, code: str) -> list[Any]:
+    found = next(t for t in feed.edition.teams if t.team.code == code)
+    return found.results
+
+
+def test_team_results_are_its_final_games_in_start_order_with_overtime() -> None:
+    games = round_robin()
+    games[3] = games[3].model_copy(update={"period": 2})
+
+    feed = build(games)
+
+    stripes = results_of(feed, "STR")
+    assert [(r.game_id, r.result, r.team_score, r.opponent_score) for r in stripes] == [
+        ("g1", GameResult.WIN, 21, 18),
+        ("g2", GameResult.WIN, 20, 17),
+        ("g4", GameResult.WIN, 25, 23),
+    ]
+    assert [r.round_label for r in stripes] == [
+        "Round Robin",
+        "Round Robin",
+        "Championship",
+    ]
+    assert [r.overtime for r in stripes] == [False, False, True]
+    assert [r.opponent.code for r in stripes] == ["WAV", "PKS", "WAV"]
+    peaks = results_of(feed, "PKS")
+    assert [(r.game_id, r.result) for r in peaks] == [
+        ("g2", GameResult.LOSS),
+        ("g3", GameResult.LOSS),
+    ]
+    teams = {t.team.code: t for t in feed.edition.teams}
+    assert (teams["STR"].wins, teams["STR"].losses) == (3, 0)
+    assert (teams["PKS"].wins, teams["PKS"].losses) == (0, 2)
+
+
+def test_team_results_skip_games_not_final() -> None:
+    feed = build(round_robin(final=False))
+
+    assert [r.game_id for r in results_of(feed, "STR")] == ["g1", "g2"]
+    assert [r.game_id for r in results_of(feed, "WAV")] == ["g1", "g3"]
+
+
+def test_a_before_feed_has_zero_counts_and_no_default_game() -> None:
+    games = [game("g1", None, None, status=GameStatus.SCHEDULED, note=CHAMPIONSHIP)]
+
+    feed = build(games)
+
+    assert feed.edition.counts.model_dump() == {
+        "games": 0,
+        "teams": 0,
+        "final": 0,
+        "live": 0,
+    }
+    assert feed.edition.default_game_id is None
+
+
+def test_a_live_feed_carries_counts_default_next_and_leading() -> None:
+    feed = build(live_day())
+
+    edition = feed.edition
+    assert edition.counts.model_dump() == {
+        "games": 3,
+        "teams": 4,
+        "final": 1,
+        "live": 1,
+    }
+    assert edition.default_game_id == "s2"
+    assert [g.is_next for g in edition.games] == [False, False, True]
+    assert [g.leading for g in edition.games] == [None, Side.AWAY, None]
+
+
+def test_an_after_feed_has_the_championship_as_default_and_no_next_game() -> None:
+    feed = build(round_robin())
+
+    assert feed.edition.default_game_id == "g4"
+    assert not any(g.is_next for g in feed.edition.games)
+
+
+def full_previous(**changes: Any) -> AllStarSources:
+    return previous_sources(**changes)
+
+
+def test_the_previous_edition_has_every_game_its_teams_and_its_mvp() -> None:
+    feed = build(round_robin(), previous=full_previous())
+
+    earlier = feed.previous_edition
+    assert earlier is not None
+    assert earlier.date == PREVIOUS_DAY
+    assert earlier.venue == Venue(name="Example Arena", city="Exampleton")
+    assert earlier.format_line == "1 period · 12 min"
+    assert [g.id for g in earlier.games] == ["p1", "p2"]
+    assert all(g.box_score is not None and g.top5 for g in earlier.games)
+    assert all(g.team_stats is not None for g in earlier.games)
+    kinds_of = {t.team.code: t.placement.kind for t in earlier.teams}
+    assert kinds_of == {
+        "STR": PlacementKind.ELIMINATED,
+        "WAV": PlacementKind.RUNNER_UP,
+        "PKS": PlacementKind.CHAMPION,
+    }
+    assert earlier.mvp is not None and feed.previous is not None
+    assert earlier.mvp == feed.previous.mvp
+    assert earlier.counts.model_dump() == {
+        "games": 2,
+        "teams": 3,
+        "final": 2,
+        "live": 0,
+    }
+
+
+def test_the_previous_edition_has_its_counts_default_game_and_results() -> None:
+    feed = build(round_robin(), previous=full_previous())
+
+    earlier = feed.previous_edition
+    assert earlier is not None
+    assert earlier.default_game_id == "p2"
+    wave = next(t for t in earlier.teams if t.team.code == "WAV")
+    assert [(r.game_id, r.result) for r in wave.results] == [
+        ("p1", GameResult.LOSS),
+        ("p2", GameResult.LOSS),
+    ]
+    assert not any(g.is_next for g in earlier.games)
+
+
+def test_the_previous_edition_is_none_when_the_recap_is_none() -> None:
+    assert build(round_robin(), previous=None).previous_edition is None
+    undiscovered = full_previous(edition_date=None)
+    assert build(round_robin(), previous=undiscovered).previous_edition is None
+    empty = sources([], year=2026, edition_date=PREVIOUS_DAY)
+    assert build(round_robin(), previous=empty).previous_edition is None
+    unplayed = [
+        game("p1", STR, WAV, score=(21, 18)),
+        game(
+            "p2", WAV, PKS, note=CHAMPIONSHIP, status=GameStatus.SCHEDULED, minutes=30
+        ),
+    ]
+    scheduled = sources(unplayed, year=2026, edition_date=PREVIOUS_DAY)
+    assert build(round_robin(), previous=scheduled).previous_edition is None
+    assert previous_edition(None) is None
+
+
+def test_the_previous_edition_is_none_when_a_game_is_not_final() -> None:
+    games = [
+        game("p1", STR, WAV, score=(21, 18)),
+        game("p2", WAV, PKS, note=CHAMPIONSHIP, score=(20, 22), minutes=30),
+        game("p3", STR, PKS, status=GameStatus.SCHEDULED, minutes=60),
+    ]
+    previous = sources(games, year=2026, edition_date=PREVIOUS_DAY)
+
+    feed = build(round_robin(), previous=previous)
+
+    assert feed.previous is not None
+    assert feed.previous_edition is None
+
+
+def test_the_previous_edition_has_no_mvp_without_the_award() -> None:
+    feed = build(round_robin(), previous=full_previous(awards=None))
+
+    assert feed.previous_edition is not None
+    assert feed.previous_edition.mvp is None
+
+
+def test_a_before_feed_carries_the_previous_edition() -> None:
+    games = [game("g1", None, None, status=GameStatus.SCHEDULED, note=CHAMPIONSHIP)]
+
+    feed = build(games, previous=full_previous())
+
+    assert feed.state is AllStarState.BEFORE
+    assert feed.previous_edition is not None
+    assert len(feed.previous_edition.games) == 2
 
 
 def test_an_invalid_feed_is_wrapped_in_a_build_error() -> None:
@@ -1529,6 +1839,46 @@ async def test_highlights_are_added_when_served_and_not_stored(
     stored = kit.stored()
     assert stored is not None
     assert all(g.highlights is None for g in stored.edition.games)
+
+
+@pytest.mark.anyio
+async def test_highlights_are_added_to_the_previous_edition_games_when_served(
+    kit: AllStarKit,
+) -> None:
+    clip = Highlight(
+        title="Example clip",
+        channel="Example channel",
+        thumbnail_url=HttpUrl("https://example.com/thumb.jpg"),
+        embed_url=HttpUrl("https://example.com/embed"),
+    )
+    kit.store.set_highlight("p2", clip)
+    await kit.discover()
+
+    body = await kit.serve()
+
+    served = AllStarFeed.model_validate_json(body)
+    assert served.previous_edition is not None
+    assert [g.highlights for g in served.previous_edition.games] == [None, [clip]]
+    stored = kit.stored()
+    assert stored is not None and stored.previous_edition is not None
+    assert all(g.highlights is None for g in stored.previous_edition.games)
+
+
+@pytest.mark.anyio
+async def test_the_previous_edition_adds_no_read(kit: AllStarKit) -> None:
+    await kit.discover()
+
+    body = await kit.serve()
+
+    feed = AllStarFeed.model_validate_json(body)
+    assert feed.previous_edition is not None
+    assert kit.called("day/") == 2
+    assert kit.called("detail/") == 6
+    assert kit.called("sections/") == 6
+    assert kit.called("extras/") == 6
+    assert kit.called("awards/") == 2
+    assert kit.called("info/") == 2
+    assert sum(1 for c in kit.calls if c == "sections/p2") == 1
 
 
 def test_the_cleanup_keeps_league(kit: AllStarKit) -> None:

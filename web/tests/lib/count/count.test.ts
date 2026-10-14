@@ -1,4 +1,4 @@
-// web/tests/lib/playoffs/count.test.ts
+// web/tests/lib/count/count.test.ts
 //
 // Tests for the text of the hero count-up.
 //
@@ -12,12 +12,12 @@
 // What is covered:
 // - Pure logic: happy path, edge cases (the bounds of the progress, no digits)
 //
-// Run with: cd web && pnpm exec vitest run tests/lib/playoffs/count.test.ts
+// Run with: cd web && pnpm exec vitest run tests/lib/count/count.test.ts
 //
-// SEE: web/src/lib/playoffs/count.ts
+// SEE: web/src/lib/count/count.ts
 import { describe, expect, it } from 'vitest';
 
-import { countText } from '../../../src/lib/playoffs/count';
+import { countText } from '../../../src/lib/count/count';
 
 describe('countText', () => {
 	it('counts every number in the text by the progress', () => {

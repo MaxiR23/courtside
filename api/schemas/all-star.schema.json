@@ -125,6 +125,9 @@
               "type": "null"
             }
           ]
+        },
+        "topPoints": {
+          "type": "boolean"
         }
       },
       "required": [
@@ -151,7 +154,8 @@
         "photoUrl",
         "jersey",
         "position",
-        "leagueTeam"
+        "leagueTeam",
+        "topPoints"
       ],
       "title": "AllStarBoxPlayer",
       "type": "object"
@@ -171,6 +175,35 @@
         "home"
       ],
       "title": "AllStarBoxScore",
+      "type": "object"
+    },
+    "AllStarCounts": {
+      "additionalProperties": false,
+      "properties": {
+        "games": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "teams": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "final": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "live": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "games",
+        "teams",
+        "final",
+        "live"
+      ],
+      "title": "AllStarCounts",
       "type": "object"
     },
     "AllStarEdition": {
@@ -219,6 +252,20 @@
             "$ref": "#/$defs/AllStarGame"
           },
           "type": "array"
+        },
+        "counts": {
+          "$ref": "#/$defs/AllStarCounts"
+        },
+        "defaultGameId": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -226,7 +273,9 @@
         "venue",
         "formatLine",
         "teams",
-        "games"
+        "games",
+        "counts",
+        "defaultGameId"
       ],
       "title": "AllStarEdition",
       "type": "object"
@@ -301,6 +350,16 @@
             }
           ]
         },
+        "leading": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Side"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "attendance": {
           "anyOf": [
             {
@@ -330,6 +389,9 @@
           ]
         },
         "championship": {
+          "type": "boolean"
+        },
+        "isNext": {
           "type": "boolean"
         },
         "away": {
@@ -419,10 +481,12 @@
         "score",
         "overtime",
         "winner",
+        "leading",
         "attendance",
         "broadcasts",
         "roundLabel",
         "championship",
+        "isNext",
         "away",
         "home",
         "toBeDetermined",
@@ -501,6 +565,92 @@
         "totals"
       ],
       "title": "AllStarMvp",
+      "type": "object"
+    },
+    "AllStarPreviousEdition": {
+      "additionalProperties": false,
+      "description": "The previous edition drawn as its after view: the edition and its MVP.",
+      "properties": {
+        "date": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "venue": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Venue"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "formatLine": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "teams": {
+          "items": {
+            "$ref": "#/$defs/AllStarTeam"
+          },
+          "type": "array"
+        },
+        "games": {
+          "items": {
+            "$ref": "#/$defs/AllStarGame"
+          },
+          "type": "array"
+        },
+        "counts": {
+          "$ref": "#/$defs/AllStarCounts"
+        },
+        "defaultGameId": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "mvp": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AllStarMvp"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "date",
+        "venue",
+        "formatLine",
+        "teams",
+        "games",
+        "counts",
+        "defaultGameId",
+        "mvp"
+      ],
+      "title": "AllStarPreviousEdition",
       "type": "object"
     },
     "AllStarRecap": {
@@ -605,6 +755,12 @@
           "minimum": 0,
           "type": "integer"
         },
+        "results": {
+          "items": {
+            "$ref": "#/$defs/AllStarTeamResult"
+          },
+          "type": "array"
+        },
         "placement": {
           "$ref": "#/$defs/Placement"
         },
@@ -619,6 +775,7 @@
         "team",
         "wins",
         "losses",
+        "results",
         "placement",
         "roster"
       ],
@@ -643,6 +800,54 @@
         "totals"
       ],
       "title": "AllStarTeamBox",
+      "type": "object"
+    },
+    "AllStarTeamResult": {
+      "additionalProperties": false,
+      "properties": {
+        "gameId": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "roundLabel": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "result": {
+          "$ref": "#/$defs/GameResult"
+        },
+        "teamScore": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "opponentScore": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "opponent": {
+          "$ref": "#/$defs/Opponent"
+        },
+        "overtime": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "gameId",
+        "roundLabel",
+        "result",
+        "teamScore",
+        "opponentScore",
+        "opponent",
+        "overtime"
+      ],
+      "title": "AllStarTeamResult",
       "type": "object"
     },
     "AllStarTeamStat": {
@@ -1384,6 +1589,16 @@
           "type": "null"
         }
       ]
+    },
+    "previousEdition": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/AllStarPreviousEdition"
+        },
+        {
+          "type": "null"
+        }
+      ]
     }
   },
   "required": [
@@ -1391,7 +1606,8 @@
     "state",
     "edition",
     "mvp",
-    "previous"
+    "previous",
+    "previousEdition"
   ],
   "title": "AllStarFeed",
   "type": "object"

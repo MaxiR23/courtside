@@ -2,7 +2,8 @@
 
 The All-Star weekend's game day: the edition (date, venue, format, teams and their
 placement, and every game with its box scores, team statistics, leaders and Top 5),
-the MVP and the recap of the previous edition, with every value ready to draw.
+the MVP, the recap of the previous edition and the previous edition as its after
+view, with every value ready to draw, including every count.
 
 ## Schema
 
@@ -34,27 +35,31 @@ Conventions:
 | `edition`  | `AllStarEdition`      | The current edition                                                   | always  |
 | `mvp`      | `AllStarMvp` / null   | The All-Star MVP                                                      | null in `before`, and when the award or his box row is missing |
 | `previous` | `AllStarRecap` / null | The recap of the previous edition                                     | null when not discovered, unreadable or without a final Championship |
+| `previousEdition` | `AllStarPreviousEdition` / null | The previous edition with every game, team and its MVP, drawn as its after view | null when `previous` is null or a game of that edition is not final |
 
 ## Nested objects
 
 | Object            | Fields                                                                                                                                                                                                                                                                  |
 | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `AllStarEdition`  | `date`: date / null; `venue`: `Venue` / null; `formatLine`: string / null; `teams`: `AllStarTeam[]`; `games`: `AllStarGame[]`. At most one team is `champion` and one `runner_up`                                                                                         |
-| `AllStarTeam`     | `team`: `Opponent` (a guest); `wins`, `losses`: from final games; `placement`: `Placement`; `roster`: `RosterTile[]`                                                                                                                                                     |
+| `AllStarEdition`  | `date`: date / null; `venue`: `Venue` / null; `formatLine`: string / null; `teams`: `AllStarTeam[]`; `games`: `AllStarGame[]`; `counts`: `AllStarCounts`; `defaultGameId`: string / null, null exactly when there are no games, else the id of one of them. At most one team is `champion` and one `runner_up`, and at most one game has `isNext`                                                                                         |
+| `AllStarTeam`     | `team`: `Opponent` (a guest); `wins`, `losses`: from final games, the numbers of win and loss `results`; `results`: `AllStarTeamResult[]`; `placement`: `Placement`; `roster`: `RosterTile[]`                                                                                                                                                     |
 | `Placement`       | `kind`: `champion`, `runner_up`, `eliminated`, `so_far`, `yet_to_play`; `roundLabel`: set exactly when `kind` is `eliminated`                                                                                                                                             |
 | `RosterTile`      | `playerId`; `name`; `photoUrl` (null); `leagueTeam`: `LeagueTeam` / null                                                                                                                                                                                                 |
 | `LeagueTeam`      | `code`: the standard team code; `colors`: `primary`, `secondary` (hex, null on a failed read)                                                                                                                                                                            |
-| `AllStarGame`     | `id`; `startTime`; `status`; `statusText`, `clock`, `period`: as the games feed sends them (null when absent); `score`: `Score` / null; `overtime`; `winner`: `away`, `home` / null; `attendance` (null); `broadcasts`: `Broadcast[]`; `roundLabel` (null); `championship`; `away`, `home`: `Opponent` / null; `toBeDetermined`; `boxScore`: `AllStarBoxScore` / null; `teamStats`: `AllStarTeamStat[]` / null; `leaders`: `Leaders` / null; `top5`: `Top5Row[]` (up to 5); `highlights`: `Highlight[]` / null (set when served) |
+| `AllStarGame`     | `id`; `startTime`; `status`; `statusText`, `clock`, `period`: as the games feed sends them (null when absent); `score`: `Score` / null; `overtime`; `winner`: `away`, `home` / null; `leading`: `away`, `home` / null; `attendance` (null); `broadcasts`: `Broadcast[]`; `roundLabel` (null); `championship`; `isNext`; `away`, `home`: `Opponent` / null; `toBeDetermined`; `boxScore`: `AllStarBoxScore` / null; `teamStats`: `AllStarTeamStat[]` / null; `leaders`: `Leaders` / null; `top5`: `Top5Row[]` (up to 5); `highlights`: `Highlight[]` / null (set when served) |
 | `Broadcast`       | `name`; `kind`: `tv` or `streaming`                                                                                                                                                                                                                                      |
 | `AllStarBoxScore` | `away`, `home`: `AllStarTeamBox`                                                                                                                                                                                                                                         |
-| `AllStarTeamBox`  | `players`: `AllStarBoxPlayer[]`; `totals`: `BoxScoreTotals` as in the [game detail feed](game-detail.md)                                                                                                                                                                 |
-| `AllStarBoxPlayer`| A `BoxScorePlayer` of the [game detail feed](game-detail.md) (id, name, starter flag, minutes, plus-minus, photo and the 14 stat columns) plus `jersey` (null), `position` (null) and `leagueTeam`: `LeagueTeam` / null                                                  |
+| `AllStarTeamBox`  | `players`: `AllStarBoxPlayer[]`; `totals`: `BoxScoreTotals` as in the [game detail feed](game-detail.md). `topPoints` is true on every player with the team's highest points, none when it is 0                                                                                                                                                                 |
+| `AllStarBoxPlayer`| A `BoxScorePlayer` of the [game detail feed](game-detail.md) (id, name, starter flag, minutes, plus-minus, photo and the 14 stat columns) plus `jersey` (null), `position` (null), `leagueTeam`: `LeagueTeam` / null and `topPoints`                                                  |
 | `AllStarTeamStat` | `stat`: `field_goal_pct`, `three_points_made`, `rebounds`, `assists`, `steals`, `blocks`; `away`, `home`: the values (percentages as fractions); `better`: `away`, `home` / null on a tie                                                                                  |
 | `Top5Row`         | `playerId`; `name`; `photoUrl` (null); `side`; `leagueTeam` (null); `points`, `rebounds`, `assists`                                                                                                                                                                       |
 | `AllStarMvp`      | `playerId`; `name`; `photoUrl` (null); `jersey` (null); `leagueTeam` (null); `lines`: `MvpLine[]` (at least 1); `totals`: `MvpTotals`                                                                                                                                     |
 | `MvpLine`         | `gameId`; `roundLabel` (null); `result`: `win` or `loss` (the player's side); `teamScore`, `opponentScore`; `opponent`: `Opponent`; `points`, `rebounds`, `assists`                                                                                                       |
 | `MvpTotals`       | `games`: the number of lines; `points`, `rebounds`, `assists`: the sums of the lines                                                                                                                                                                                      |
 | `AllStarRecap`    | `year`; `date`; `venue` (null); `championship`: `AllStarResult`; `mvp`: `AllStarMvp` / null                                                                                                                                                                               |
+| `AllStarPreviousEdition` | The fields of `AllStarEdition` plus `mvp`: `AllStarMvp` / null. Its `date` is always set and equals `previous.date`; it has at least one game and every game is final |
+| `AllStarCounts`   | `games`, `teams`: the lengths of `games` and `teams`; `final`, `live`: the numbers of final and live games |
+| `AllStarTeamResult` | `gameId`; `roundLabel` (null); `result`: `win` or `loss` (the team's side); `teamScore`, `opponentScore`; `opponent`: `Opponent`; `overtime` |
 | `AllStarResult`   | `gameId`; `away`, `home`: `Opponent`; `score`; `winner`; `overtime`                                                                                                                                                                                                       |
 
 ## Rules that live in the code
@@ -106,8 +111,24 @@ Conventions:
 14. **Recap.** The previous season's edition read the same way: the Championship
     result, the date, the venue and its MVP. Null when that edition was not
     discovered, its day could not be read, or its Championship is not final.
-15. **Serve time.** `highlights` is the stored highlight of the game as a list of
-    one, else null. It is never stored.
+15. **Counts.** The lengths of the shown games and teams, and the numbers of final
+    and live games; all 0 in `before`.
+16. **Default game.** In `after`, the game with `championship` true; else the first
+    live game; else the first game not final; else the first game. Null without
+    games.
+17. **Next game.** In `live` only, the first game in start order that is neither
+    live nor final, other than the default game.
+18. **Leading side.** On a live game, the side with the higher score; none on a tie.
+19. **Top points.** In each team box, every player with the highest points, when
+    above 0.
+20. **Team results.** Per team, its final games with a winner, in start order; the
+    same games that make `wins` and `losses`.
+21. **Previous edition.** The previous season's edition built with rules 1 to 13 and
+    15 to 20 from the reads of the recap (no other read), with its MVP, set exactly
+    when the recap is set and every game of that edition is final.
+22. **Serve time.** `highlights` is the stored highlight of the game as a list of
+    one, else null, on the games of the edition and of the previous edition. It is
+    never stored.
 
 ## The payload each setting must return
 
@@ -145,7 +166,9 @@ season change makes the run due at once.
 Valid feeds include: no edition discovered, an edition with only scheduled games,
 a Championship with no teams, a game with no box score or no team statistics, a
 failed leaders read, a player on no roster, a failed team info read, no award yet,
-an edition of two, three or four teams, an overtime game, and no previous edition.
+an edition of two, three or four teams, an overtime game, no previous edition, a previous edition with a recap but a game
+not final (no `previousEdition`), a live day between games (the default game is the
+next not final, no next game beyond it) and a points tie for the top of a team box.
 
 ## Refresh behavior
 

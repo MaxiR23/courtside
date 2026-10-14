@@ -7,6 +7,7 @@
 // - Initials with no photo, and after the image fails to load
 // - A new photo URL tries again after a failure
 // - The roster, leader, search, cup-card, playoffs-avatar and playoffs-card size classes
+// - The seven All-Star size classes
 //
 // What is covered:
 // - Each state the avatar shows, plus the error event
@@ -104,5 +105,23 @@ describe('PlayerAvatar', () => {
 		});
 		expect(container.querySelector('.avatar')?.classList.contains('playoffs-avatar')).toBe(true);
 		expect(screen.getByRole('img', { name: 'Ada Byrne' }).textContent).toBe('AB');
+	});
+
+	it('uses each All-Star size class', () => {
+		for (const size of [
+			'allstar-box',
+			'allstar-top5',
+			'allstar-top5-mobile',
+			'allstar-roster',
+			'allstar-roster-mobile',
+			'allstar-mvp',
+			'allstar-plate'
+		] as const) {
+			const { container, unmount } = render(PlayerAvatar, {
+				props: { name: 'A B', photo: null, size }
+			});
+			expect(container.querySelector('.avatar')?.classList.contains(size)).toBe(true);
+			unmount();
+		}
 	});
 });

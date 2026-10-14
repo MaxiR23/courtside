@@ -12,7 +12,7 @@
 		onSpoilerFreeToggle: () => void;
 	};
 	type Props = {
-		page: 'home' | 'standings' | 'cup' | 'playoffs' | 'detail'; // each current page marks its own link; detail: none
+		page: 'home' | 'standings' | 'cup' | 'all-star' | 'playoffs' | 'detail'; // each current page marks its own link; detail: none
 		gamesHref: ResolvedPathname; // Home: the schedule; every other page: Home
 		standingsHref: ResolvedPathname;
 		layout: RowLayout;
@@ -65,6 +65,15 @@
 			href={resolve('/cup')}
 		>
 			{m.nav_cup()}
+		</a>
+		<!-- The All-Star link resolves its own route so removing the All-Star touches only this file (ADR 0030). -->
+		<a
+			class="link"
+			class:current={page === 'all-star'}
+			aria-current={page === 'all-star' ? 'page' : undefined}
+			href={resolve('/all-star')}
+		>
+			{m.nav_all_star()}
 		</a>
 		<!-- The Playoffs link resolves its own route so removing the playoffs touches only this file (ADR 0030). -->
 		<a

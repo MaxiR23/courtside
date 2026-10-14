@@ -12,6 +12,11 @@
 # - An eliminated placement without a round label, or any other placement with one, is rejected
 # - Two champions are rejected
 # - MVP totals that differ from the lines are rejected
+# - A previous edition: accepted after and before, rejected with a game not final, without games, without a date, without the recap or with another date
+# - Counts that differ from the lists, final and live above the games, a default game missing, outside the list or with no games, and two next games are rejected
+# - A next game that is live or final, a leading side that is not the higher score of a live game or set on a final game are rejected; a tie has none
+# - Top points on every tied top scorer are accepted; on a player below the top, missing on the top scorer or on a team with no points they are rejected
+# - A team record that differs from its results and a result that does not match its scores are rejected
 #
 # What is covered:
 # - Feed models: a valid feed is accepted and an invalid one is rejected
@@ -26,7 +31,14 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from app.feeds.all_star import AllStarFeed, AllStarGame, AllStarMvp, TeamStatKind
+from app.feeds.all_star import (
+    AllStarFeed,
+    AllStarGame,
+    AllStarMvp,
+    AllStarTeamBox,
+    AllStarTeamResult,
+    TeamStatKind,
+)
 
 START = dt.datetime(2027, 2, 14, 0, 0, tzinfo=dt.UTC)
 STRIPES = {"code": "STR", "name": "Team Stripes", "city": None, "guest": True}
@@ -87,10 +99,12 @@ def game(status: str = "final", **changes: Any) -> dict[str, Any]:
         "score": {"away": 30, "home": 20} if played else None,
         "overtime": False,
         "winner": "away" if status == "final" else None,
+        "leading": "away" if status == "live" else None,
         "attendance": None,
         "broadcasts": [],
         "round_label": "Championship",
         "championship": True,
+        "is_next": False,
         "away": STRIPES,
         "home": WAVES,
         "to_be_determined": False,
@@ -111,9 +125,22 @@ def team(
         "team": {"code": code, "name": "Team", "city": None, "guest": True},
         "wins": 0,
         "losses": 0,
+        "results": [],
         "placement": {"kind": kind, "round_label": label},
         "roster": [],
     }
+
+
+def recount(edition: dict[str, Any]) -> None:
+    """Set the counts and the default game from the teams and games."""
+    games = edition["games"]
+    edition["counts"] = {
+        "games": len(games),
+        "teams": len(edition["teams"]),
+        "final": sum(g["status"] == "final" for g in games),
+        "live": sum(g["status"] == "live" for g in games),
+    }
+    edition["default_game_id"] = games[0]["id"] if games else None
 
 
 def feed(
@@ -128,12 +155,87 @@ def feed(
     }
     if state == "before":
         edition.update(teams=[], games=[] if games is None else games)
+    recount(edition)
     data: dict[str, Any] = {
         "year": 2027,
         "state": state,
         "edition": edition,
         "mvp": None,
         "previous": None,
+        "previous_edition": None,
+    }
+    data.update(changes)
+    return data
+
+
+def previous_edition(**changes: Any) -> dict[str, Any]:
+    edition: dict[str, Any] = {
+        "date": dt.date(2026, 2, 15),
+        "venue": {"name": "Example Arena", "city": "Exampleton"},
+        "format_line": "1 period · 12 min",
+        "teams": [team("STR", "champion"), team("WAV", "runner_up")],
+        "games": [game()],
+        "mvp": mvp(),
+    }
+    edition.update(changes)
+    recount(edition)
+    return edition
+
+
+def recap(**changes: Any) -> dict[str, Any]:
+    data: dict[str, Any] = {
+        "year": 2026,
+        "date": dt.date(2026, 2, 15),
+        "venue": None,
+        "championship": {
+            "game_id": "g1",
+            "away": STRIPES,
+            "home": WAVES,
+            "score": {"away": 30, "home": 20},
+            "winner": "away",
+            "overtime": False,
+        },
+        "mvp": None,
+    }
+    data.update(changes)
+    return data
+
+
+def box_player(points: int, top_points: bool, player_id: str = "p1") -> dict[str, Any]:
+    return {
+        "player_id": player_id,
+        "display_name": "Ada Example",
+        "starter": True,
+        "minutes": "10",
+        "plus_minus": 1,
+        "photo_url": None,
+        **line(),
+        "points": points,
+        "jersey": None,
+        "position": None,
+        "league_team": None,
+        "top_points": top_points,
+    }
+
+
+def box(*points: tuple[int, bool]) -> dict[str, Any]:
+    totals = {**line(), "field_goal_pct": 0.5, "three_point_pct": 0.5}
+    totals["free_throw_pct"] = 0.0
+    return {
+        "players": [box_player(p, top, f"p{n}") for n, (p, top) in enumerate(points)],
+        "totals": totals,
+    }
+
+
+def result(**changes: Any) -> dict[str, Any]:
+    data: dict[str, Any] = {
+        "game_id": "g1",
+        "round_label": "Championship",
+        "result": "win",
+        "team_score": 30,
+        "opponent_score": 20,
+        "opponent": WAVES,
+        "overtime": False,
     }
     data.update(changes)
     return data
@@ -300,6 +402,7 @@ def test_rejects_a_placement_with_a_round_label_that_does_not_fit(
 ) -> None:
     data = feed()
     data["edition"]["teams"] = [team("STR", kind, label)]
+    recount(data["edition"])
 
     with pytest.raises(ValidationError, match="round label"):
         AllStarFeed.model_validate(data)
@@ -308,6 +411,7 @@ def test_rejects_a_placement_with_a_round_label_that_does_not_fit(
 def test_accepts_an_eliminated_placement_with_a_round_label() -> None:
     data = feed()
     data["edition"]["teams"].append(team("PKS", "eliminated", "Round Robin"))
+    recount(data["edition"])
 
     assert len(AllStarFeed.model_validate(data).edition.teams) == 3
 
@@ -315,6 +419,7 @@ def test_accepts_an_eliminated_placement_with_a_round_label() -> None:
 def test_rejects_two_champions() -> None:
     data = feed()
     data["edition"]["teams"] = [team("STR", "champion"), team("WAV", "champion")]
+    recount(data["edition"])
 
     with pytest.raises(ValidationError, match="champion"):
         AllStarFeed.model_validate(data)
@@ -336,3 +441,234 @@ def test_rejects_an_mvp_without_lines() -> None:
 
     with pytest.raises(ValidationError):
         AllStarMvp.model_validate(mvp(lines=[], totals=totals))
+
+
+def with_previous(edition: dict[str, Any], state: str = "after") -> dict[str, Any]:
+    return feed(state, previous=recap(), previous_edition=edition)
+
+
+def test_accepts_a_feed_with_a_previous_edition() -> None:
+    parsed = AllStarFeed.model_validate(with_previous(previous_edition()))
+
+    assert parsed.previous_edition is not None
+    assert parsed.previous_edition.mvp is not None
+    assert parsed.previous_edition.counts.final == 1
+    assert parsed.previous_edition.default_game_id == "g1"
+
+
+def test_accepts_a_before_feed_with_a_previous_edition() -> None:
+    parsed = AllStarFeed.model_validate(with_previous(previous_edition(), "before"))
+
+    assert parsed.state == "before" and parsed.previous_edition is not None
+
+
+def test_accepts_a_previous_edition_without_an_mvp() -> None:
+    parsed = AllStarFeed.model_validate(with_previous(previous_edition(mvp=None)))
+
+    assert parsed.previous_edition is not None
+    assert parsed.previous_edition.mvp is None
+
+
+def test_rejects_a_previous_edition_with_a_game_not_final() -> None:
+    games = [game(), game("scheduled", id="g2", championship=False)]
+
+    with pytest.raises(ValidationError, match="every game of a previous edition"):
+        AllStarFeed.model_validate(with_previous(previous_edition(games=games)))
+
+
+def test_rejects_a_previous_edition_without_games() -> None:
+    with pytest.raises(ValidationError, match="date and games"):
+        AllStarFeed.model_validate(with_previous(previous_edition(games=[])))
+
+
+def test_rejects_a_previous_edition_without_a_date() -> None:
+    with pytest.raises(ValidationError, match="date and games"):
+        AllStarFeed.model_validate(with_previous(previous_edition(date=None)))
+
+
+def test_rejects_a_previous_edition_without_the_recap() -> None:
+    data = feed("after", previous_edition=previous_edition())
+
+    with pytest.raises(ValidationError, match="the recap"):
+        AllStarFeed.model_validate(data)
+
+
+def test_rejects_a_previous_edition_whose_date_differs_from_the_recap() -> None:
+    data = feed(
+        "after",
+        previous=recap(date=dt.date(2026, 2, 14)),
+        previous_edition=previous_edition(),
+    )
+
+    with pytest.raises(ValidationError, match="the recap"):
+        AllStarFeed.model_validate(data)
+
+
+def test_a_previous_edition_carries_its_counts_and_default_game() -> None:
+    games = [game(), game(id="g2", championship=False)]
+
+    parsed = AllStarFeed.model_validate(
+        with_previous(previous_edition(games=games))
+    ).previous_edition
+
+    assert parsed is not None
+    assert parsed.counts.games == 2 and parsed.default_game_id == "g1"
+
+
+@pytest.mark.parametrize("key", ["games", "teams", "final", "live"])
+def test_rejects_counts_that_differ_from_the_lists(key: str) -> None:
+    data = feed()
+    data["edition"]["counts"][key] += 1
+
+    with pytest.raises(ValidationError):
+        AllStarFeed.model_validate(data)
+
+
+def test_rejects_final_and_live_counts_above_the_games() -> None:
+    data = feed()
+    data["edition"]["counts"] = {"games": 1, "teams": 2, "final": 1, "live": 1}
+
+    with pytest.raises(ValidationError, match="within the games"):
+        AllStarFeed.model_validate(data)
+
+
+def test_accepts_a_before_feed_with_zero_counts_and_no_default_game() -> None:
+    parsed = AllStarFeed.model_validate(feed("before"))
+
+    assert parsed.edition.counts.games == 0
+    assert parsed.edition.default_game_id is None
+
+
+def test_rejects_a_default_game_that_is_not_in_the_games() -> None:
+    data = feed()
+    data["edition"]["default_game_id"] = "g9"
+
+    with pytest.raises(ValidationError, match="default game"):
+        AllStarFeed.model_validate(data)
+
+
+def test_rejects_a_default_game_with_no_games() -> None:
+    data = feed("before")
+    data["edition"]["default_game_id"] = "g1"
+
+    with pytest.raises(ValidationError, match="default game"):
+        AllStarFeed.model_validate(data)
+
+
+def test_rejects_no_default_game_with_games() -> None:
+    data = feed()
+    data["edition"]["default_game_id"] = None
+
+    with pytest.raises(ValidationError, match="default game"):
+        AllStarFeed.model_validate(data)
+
+
+def test_rejects_two_next_games() -> None:
+    games = [
+        game(),
+        game("scheduled", id="g2", championship=False, is_next=True),
+        game("scheduled", id="g3", championship=False, is_next=True),
+    ]
+
+    with pytest.raises(ValidationError, match="next game"):
+        AllStarFeed.model_validate(feed("live", games))
+
+
+def test_accepts_one_next_game_that_is_scheduled() -> None:
+    games = [game(), game("scheduled", id="g2", championship=False, is_next=True)]
+
+    parsed = AllStarFeed.model_validate(feed("live", games))
+
+    assert [g.is_next for g in parsed.edition.games] == [False, True]
+
+
+@pytest.mark.parametrize("status", ["live", "final"])
+def test_rejects_a_next_game_that_is_live_or_final(status: str) -> None:
+    changes: dict[str, Any] = {"is_next": True}
+    if status == "final":
+        changes["leading"] = None
+
+    with pytest.raises(ValidationError, match="next game"):
+        AllStarGame.model_validate(game(status, **changes))
+
+
+def test_accepts_a_leading_side_of_a_live_game_and_none_on_a_tie() -> None:
+    assert AllStarGame.model_validate(game("live")).leading == "away"
+    tie = game("live", score={"away": 20, "home": 20}, leading=None)
+
+    assert AllStarGame.model_validate(tie).leading is None
+
+
+def test_rejects_a_leading_side_on_a_final_game() -> None:
+    with pytest.raises(ValidationError, match="leading"):
+        AllStarGame.model_validate(game(leading="away"))
+
+
+def test_rejects_a_leading_side_that_is_not_the_higher_score() -> None:
+    with pytest.raises(ValidationError, match="leading"):
+        AllStarGame.model_validate(game("live", leading="home"))
+    with pytest.raises(ValidationError, match="leading"):
+        AllStarGame.model_validate(game("live", leading=None))
+
+
+def test_accepts_top_points_on_every_tied_top_scorer() -> None:
+    parsed = AllStarTeamBox.model_validate(box((20, True), (20, True), (5, False)))
+
+    assert [p.top_points for p in parsed.players] == [True, True, False]
+
+
+def test_rejects_top_points_on_a_player_below_the_top() -> None:
+    with pytest.raises(ValidationError, match="topPoints"):
+        AllStarTeamBox.model_validate(box((20, True), (5, True)))
+
+
+def test_rejects_top_points_missing_on_the_top_scorer() -> None:
+    with pytest.raises(ValidationError, match="topPoints"):
+        AllStarTeamBox.model_validate(box((20, False), (5, False)))
+
+
+def test_accepts_no_top_points_in_a_team_box_with_no_points() -> None:
+    parsed = AllStarTeamBox.model_validate(box((0, False), (0, False)))
+
+    assert not any(p.top_points for p in parsed.players)
+    assert AllStarTeamBox.model_validate(box()).players == []
+
+
+def test_rejects_top_points_on_a_team_with_no_points() -> None:
+    with pytest.raises(ValidationError, match="topPoints"):
+        AllStarTeamBox.model_validate(box((0, True)))
+
+
+def test_rejects_a_team_record_that_differs_from_its_results() -> None:
+    data = feed()
+    data["edition"]["teams"][0]["results"] = [result()]
+
+    with pytest.raises(ValidationError, match="wins and losses"):
+        AllStarFeed.model_validate(data)
+
+
+def test_accepts_a_team_record_that_matches_its_results() -> None:
+    data = feed()
+    stripes = data["edition"]["teams"][0]
+    stripes["results"] = [result(), result(game_id="g2", result="loss", team_score=1)]
+    stripes["wins"], stripes["losses"] = 1, 1
+    stripes["results"][1]["opponent_score"] = 5
+
+    parsed = AllStarFeed.model_validate(data)
+
+    assert len(parsed.edition.teams[0].results) == 2
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"result": "loss"},
+        {"result": "win", "team_score": 10, "opponent_score": 20},
+        {"team_score": 20, "opponent_score": 20},
+    ],
+)
+def test_rejects_a_result_that_does_not_match_its_scores(
+    changes: dict[str, Any],
+) -> None:
+    with pytest.raises(ValidationError):
+        AllStarTeamResult.model_validate(result(**changes))
