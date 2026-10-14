@@ -4,7 +4,8 @@
 //
 // Tested:
 // - Ready: each of the five states draws its sections in the design's order
-// - The bracket placeholder is in every state
+// - The bracket is in every state with its 15 series
+// - A click on a game in the Finals card selects that game in the series section and scrolls to it
 // - Without the finals feed only the four finals sections go
 // - Loading: the header and the skeleton are aria-busy
 // - Unavailable: the unavailable row under the nav; the footer in every state
@@ -17,7 +18,7 @@
 //
 // SEE: web/src/lib/components/PlayoffsPage.svelte
 import type { ResolvedPathname } from '$app/types';
-import { render, screen } from '@testing-library/svelte';
+import { fireEvent, render, screen } from '@testing-library/svelte';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -133,16 +134,34 @@ describe('PlayoffsPage', () => {
 		expect(screen.getByRole('button', { name: 'Relive the series' })).toBeTruthy();
 	});
 
-	it('ready: the bracket placeholder is in every state', () => {
+	it('ready: the bracket is in every state with its 15 series', () => {
 		for (const state of ['picture', 'playin', 'playoffs', 'finals', 'complete'] as const) {
 			const { container, unmount } = show(ready(state, state === 'finals' || state === 'complete'));
 			const section = container.querySelector('#bracket');
 			expect(section?.querySelector('h2')?.textContent).toBe('Bracket');
-			expect(section?.querySelector('.bracket-placeholder')?.getAttribute('aria-hidden')).toBe(
-				'true'
-			);
+			expect(section?.querySelectorAll('.series')).toHaveLength(15);
+			expect(section?.querySelector('.bracket-placeholder')).toBeNull();
 			unmount();
 		}
+	});
+
+	it('ready: a click on a Finals game in the bracket selects it in the series section', async () => {
+		const scrollIntoView = vi.fn();
+		Element.prototype.scrollIntoView = scrollIntoView;
+		const { container } = show(ready('complete'));
+		const tabs = () => [...container.querySelectorAll('#series .tab')];
+		expect(tabs()[0]?.getAttribute('aria-pressed')).toBe('true');
+		await fireEvent.click(
+			container.querySelector('#bracket .series.champion, #bracket .series:nth-child(1)')!
+		);
+		await fireEvent.click(screen.getByRole('button', { name: /NBA Finals/ }));
+		const rows = [...container.querySelectorAll('#bracket .games .game-button')];
+		expect(rows).toHaveLength(5);
+		await fireEvent.click(rows[3]);
+		expect(tabs()[3]?.getAttribute('aria-pressed')).toBe('true');
+		expect(tabs()[0]?.getAttribute('aria-pressed')).toBe('false');
+		expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'auto', block: 'start' });
+		delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
 	});
 
 	it('ready: collapses the play-in after round 1 starts', () => {

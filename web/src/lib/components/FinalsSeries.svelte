@@ -12,12 +12,12 @@
 		layout: RowLayout;
 		teamHref: (code: string) => ResolvedPathname;
 		gameHref: (id: string) => ResolvedPathname;
+		selected?: number; // $bindable, default 0: the index of the selected game
 	};
 
-	let { games, layout, teamHref, gameHref }: Props = $props();
+	let { games, layout, teamHref, gameHref, selected = $bindable(0) }: Props = $props();
 
 	// Not kept between visits.
-	let selected = $state(0);
 	let playing = $state<string | null>(null);
 	const current = $derived(games[selected] ?? games[0]);
 </script>

@@ -548,5 +548,18 @@
 	"playoffs_playin_to_seed": "{team} → n.º {seed}",
 	"playoffs_playin_out": "{team} eliminado",
 	"playoffs_playin_loser": "Perdedor de {game}",
-	"playoffs_playin_winner": "Ganador de {game}"
+	"playoffs_playin_winner": "Ganador de {game}",
+	"playoffs_level_1": "Cuadro",
+	"playoffs_level_2": "Serie",
+	"playoffs_prev": "Serie anterior",
+	"playoffs_next": "Serie siguiente",
+	"playoffs_champion": "Campeón",
+	"playoffs_slot_seed": "{conference} · cabeza de serie {seed}",
+	"playoffs_slot_r1_winner": "Ganador de la ronda 1 {n} del {conference}",
+	"playoffs_slot_r2_winner": "Ganador de la semifinal {n} del {conference}",
+	"playoffs_slot_r3_winner": "Ganador de la final del {conference}",
+	"playoffs_slot_playin_winner": "Ganador del play-in del {conference}",
+	"playoffs_game_at": "P{n} · en {team}",
+	"playoffs_game_home": "P{n} · ante {team}",
+	"playoffs_sheet_close": "Cerrar"
 }

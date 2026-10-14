@@ -5,7 +5,8 @@ import type {
 	LeaderCategory,
 	PlayInGameKind,
 	PlayoffStage,
-	PlayoffStageStatus
+	PlayoffStageStatus,
+	SeriesId
 } from '#lib/contract/playoffs.ts';
 import type { HeadToHeadStat } from '#lib/contract/playoffs-finals.ts';
 import type { ChartBoundaries, ChartPoint } from '#lib/game/win-probability.ts';
@@ -195,6 +196,42 @@ export type AwardView = {
 	winners: { id: string; name: string; photo: string | null; team: string }[];
 };
 
+export type SeriesSideView = {
+	team: TeamMarkTeam | null;
+	seed: string; // "1", or "—"; "" with no team
+	wins: string; // "3", or "—"; "" with no team
+	strip: { primary: string; secondary: string } | null;
+	label: string; // the team's code or name, or the slot label ("East #1 seed")
+	note: string | null; // an undecided side: "Currently QXA" or "To be decided"
+	loser: boolean;
+};
+
+export type SeriesGameRowView = GameLink & {
+	key: string; // the game id
+	label: string; // "G1 · at QXA"
+	away: { code: string; score: string; loser: boolean };
+	home: { code: string; score: string; loser: boolean };
+	final: boolean;
+	overtime: boolean;
+	when: string | null; // "Apr 19 · Example Arena" while the game is not final
+};
+
+export type SeriesCardView = {
+	id: SeriesId;
+	name: string; // the accessible name: "East · Round 1 · QXA · QXH"
+	roundTitle: string; // "East · Round 1", "NBA Finals"
+	top: SeriesSideView;
+	bottom: SeriesSideView;
+	decided: 'both' | 'one' | 'none';
+	final: boolean; // the NBA Finals card
+	complete: boolean;
+	champion: boolean; // final and complete: the accent border and the Champion label
+	score: string; // the summary, else "3–1" from the wins, else "—"
+	games: SeriesGameRowView[];
+};
+
+export type PlayoffBracketView = { series: SeriesCardView[] };
+
 export type PlayoffsView = {
 	header: PlayoffsHeaderView;
 	sections: PlayoffsSectionId[];
@@ -204,6 +241,7 @@ export type PlayoffsView = {
 	finalsMvp: FinalsMvpView;
 	conferenceMvps: ConferenceMvpView[];
 	series: SeriesGameView[];
+	bracket: PlayoffBracketView;
 	road: RoadCardView[];
 	headToHead: HeadToHeadView | null;
 	leaders: LeaderTabView[];

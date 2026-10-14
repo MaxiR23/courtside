@@ -8,6 +8,7 @@
 // - The highlight thumbnail, then the player on click; Highlights not available without a video
 // - No chart for a game without a curve, the score line, the leaders and the link still shown
 // - No game link when the game is not linked
+// - A bound selected index from the parent shows that game, and a tab click updates it
 //
 // What is covered:
 // - Each state the section shows, drawn from props with no fetch
@@ -128,5 +129,30 @@ describe('FinalsSeries', () => {
 			props: { games, layout: 'mobile' as const, teamHref, gameHref }
 		});
 		expect(container.querySelector('.finals-series')?.classList.contains('mobile')).toBe(true);
+	});
+});
+
+describe('FinalsSeries bound selection', () => {
+	it('shows the game the parent selects and reports a tab click back to it', async () => {
+		const finals = read<PlayoffsFinalsFeed>('playoffs-finals.json');
+		const games = toPlayoffsView(read<PlayoffsFeed>('playoffs-complete.json'), finals).series;
+		let selected = 2;
+		render(FinalsSeries, {
+			props: {
+				games,
+				layout: 'desktop' as const,
+				teamHref,
+				gameHref,
+				get selected() {
+					return selected;
+				},
+				set selected(value: number) {
+					selected = value;
+				}
+			}
+		});
+		expect(tabs()[2]?.getAttribute('aria-pressed')).toBe('true');
+		await fireEvent.click(tabs()[4]!);
+		expect(selected).toBe(4);
 	});
 });
