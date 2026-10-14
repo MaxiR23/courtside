@@ -17,7 +17,7 @@
 # api/schemas/game-detail.schema.json, api/schemas/player.schema.json,
 # api/schemas/team.schema.json, api/schemas/standings.schema.json,
 # api/schemas/search.schema.json, api/schemas/cup.schema.json,
-# api/schemas/cup-matchup.schema.json
+# api/schemas/cup-matchup.schema.json, api/schemas/playoffs.schema.json
 
 import json
 from pathlib import Path
@@ -31,6 +31,7 @@ from app.feeds.cup_matchup import CupMatchupFeed
 from app.feeds.game_detail import GameDetailFeed
 from app.feeds.games import GamesFeed
 from app.feeds.player import PlayerFeed
+from app.feeds.playoffs import PlayoffsFeed
 from app.feeds.schema import FEEDS, SCHEMA_DIR, render_schema, write_schemas
 from app.feeds.search import SearchFeed
 from app.feeds.standings import StandingsFeed
@@ -63,6 +64,7 @@ def test_writes_one_schema_file_per_feed(tmp_path: Path) -> None:
         tmp_path / "search.schema.json",
         tmp_path / "cup.schema.json",
         tmp_path / "cup-matchup.schema.json",
+        tmp_path / "playoffs.schema.json",
     ]
     assert written[0].read_text(encoding="utf-8") == render_schema(GamesFeed)
     assert written[1].read_text(encoding="utf-8") == render_schema(GameDetailFeed)
@@ -72,6 +74,7 @@ def test_writes_one_schema_file_per_feed(tmp_path: Path) -> None:
     assert written[5].read_text(encoding="utf-8") == render_schema(SearchFeed)
     assert written[6].read_text(encoding="utf-8") == render_schema(CupFeed)
     assert written[7].read_text(encoding="utf-8") == render_schema(CupMatchupFeed)
+    assert written[8].read_text(encoding="utf-8") == render_schema(PlayoffsFeed)
 
 
 def test_schema_forbids_unknown_fields() -> None:
@@ -122,3 +125,9 @@ def test_cup_matchup_schema_lists_nullable_fields_as_required() -> None:
     schema: dict[str, Any] = json.loads(render_schema(CupMatchupFeed))
 
     assert "game" in schema["required"]
+
+
+def test_playoffs_schema_lists_nullable_fields_as_required() -> None:
+    schema: dict[str, Any] = json.loads(render_schema(PlayoffsFeed))
+
+    assert "champion" in schema["required"]

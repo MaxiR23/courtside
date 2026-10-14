@@ -1,0 +1,1395 @@
+{
+  "$defs": {
+    "Award": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "$ref": "#/$defs/AwardCode"
+        },
+        "team": {
+          "anyOf": [
+            {
+              "maximum": 3,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "winners": {
+          "items": {
+            "$ref": "#/$defs/AwardWinner"
+          },
+          "maxItems": 5,
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "code",
+        "team",
+        "winners"
+      ],
+      "title": "Award",
+      "type": "object"
+    },
+    "AwardCode": {
+      "enum": [
+        "mvp",
+        "dpoy",
+        "roy",
+        "sixth_man",
+        "mip",
+        "cpoy",
+        "finals_mvp",
+        "east_finals_mvp",
+        "west_finals_mvp",
+        "all_star_mvp",
+        "cup_mvp",
+        "cup_all_tournament",
+        "all_nba",
+        "all_rookie",
+        "all_defensive",
+        "twyman_stokes"
+      ],
+      "title": "AwardCode",
+      "type": "string"
+    },
+    "AwardWinner": {
+      "additionalProperties": false,
+      "properties": {
+        "playerId": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "photoUrl": {
+          "anyOf": [
+            {
+              "format": "uri",
+              "maxLength": 2083,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "teamCode": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Z]{3}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "playerId",
+        "name",
+        "photoUrl",
+        "teamCode"
+      ],
+      "title": "AwardWinner",
+      "type": "object"
+    },
+    "Champion": {
+      "additionalProperties": false,
+      "properties": {
+        "team": {
+          "$ref": "#/$defs/PlayoffTeam"
+        },
+        "wins": {
+          "const": 4,
+          "type": "integer"
+        },
+        "losses": {
+          "maximum": 3,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "firstDate": {
+          "format": "date",
+          "type": "string"
+        },
+        "lastDate": {
+          "format": "date",
+          "type": "string"
+        },
+        "record": {
+          "anyOf": [
+            {
+              "pattern": "^\\d+-\\d+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "home": {
+          "anyOf": [
+            {
+              "pattern": "^\\d+-\\d+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "road": {
+          "anyOf": [
+            {
+              "pattern": "^\\d+-\\d+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pointDifferential": {
+          "$ref": "#/$defs/TotalDifferential"
+        }
+      },
+      "required": [
+        "team",
+        "wins",
+        "losses",
+        "firstDate",
+        "lastDate",
+        "record",
+        "home",
+        "road",
+        "pointDifferential"
+      ],
+      "title": "Champion",
+      "type": "object"
+    },
+    "Clinch": {
+      "enum": [
+        "*",
+        "z",
+        "y",
+        "x",
+        "xp",
+        "pb",
+        "e"
+      ],
+      "title": "Clinch",
+      "type": "string"
+    },
+    "Conference": {
+      "enum": [
+        "east",
+        "west"
+      ],
+      "title": "Conference",
+      "type": "string"
+    },
+    "DateSpan": {
+      "additionalProperties": false,
+      "properties": {
+        "firstDate": {
+          "format": "date",
+          "type": "string"
+        },
+        "lastDate": {
+          "format": "date",
+          "type": "string"
+        }
+      },
+      "required": [
+        "firstDate",
+        "lastDate"
+      ],
+      "title": "DateSpan",
+      "type": "object"
+    },
+    "GameStatus": {
+      "enum": [
+        "scheduled",
+        "live",
+        "final",
+        "delayed",
+        "postponed",
+        "canceled"
+      ],
+      "title": "GameStatus",
+      "type": "string"
+    },
+    "LeaderCategory": {
+      "enum": [
+        "points",
+        "rebounds",
+        "assists",
+        "steals",
+        "blocks",
+        "field_goal_pct",
+        "threes_made",
+        "double_doubles",
+        "minutes"
+      ],
+      "title": "LeaderCategory",
+      "type": "string"
+    },
+    "LeaderGroup": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "$ref": "#/$defs/LeaderCategory"
+        },
+        "leaders": {
+          "items": {
+            "$ref": "#/$defs/PlayoffLeader"
+          },
+          "maxItems": 5,
+          "type": "array"
+        }
+      },
+      "required": [
+        "category",
+        "leaders"
+      ],
+      "title": "LeaderGroup",
+      "type": "object"
+    },
+    "Opponent": {
+      "additionalProperties": false,
+      "description": "A team a game is played against: a league team or a guest.",
+      "properties": {
+        "code": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "city": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "guest": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "code",
+        "name",
+        "city",
+        "guest"
+      ],
+      "title": "Opponent",
+      "type": "object"
+    },
+    "PictureLine": {
+      "enum": [
+        "playoffs",
+        "playin"
+      ],
+      "title": "PictureLine",
+      "type": "string"
+    },
+    "PictureRow": {
+      "additionalProperties": false,
+      "properties": {
+        "seed": {
+          "anyOf": [
+            {
+              "maximum": 15,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "team": {
+          "$ref": "#/$defs/PlayoffTeam"
+        },
+        "wins": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "losses": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "gamesBehind": {
+          "anyOf": [
+            {
+              "pattern": "^\\d+\\.\\d$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "clinch": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Clinch"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "line": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PictureLine"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "seed",
+        "team",
+        "wins",
+        "losses",
+        "gamesBehind",
+        "clinch",
+        "line"
+      ],
+      "title": "PictureRow",
+      "type": "object"
+    },
+    "PictureTable": {
+      "additionalProperties": false,
+      "properties": {
+        "conference": {
+          "$ref": "#/$defs/Conference"
+        },
+        "rows": {
+          "items": {
+            "$ref": "#/$defs/PictureRow"
+          },
+          "maxItems": 10,
+          "type": "array"
+        }
+      },
+      "required": [
+        "conference",
+        "rows"
+      ],
+      "title": "PictureTable",
+      "type": "object"
+    },
+    "PlayIn": {
+      "additionalProperties": false,
+      "properties": {
+        "conference": {
+          "$ref": "#/$defs/Conference"
+        },
+        "games": {
+          "items": {
+            "$ref": "#/$defs/PlayInGame"
+          },
+          "maxItems": 3,
+          "minItems": 3,
+          "type": "array"
+        }
+      },
+      "required": [
+        "conference",
+        "games"
+      ],
+      "title": "PlayIn",
+      "type": "object"
+    },
+    "PlayInGame": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/PlayInGameKind"
+        },
+        "top": {
+          "$ref": "#/$defs/PlayInSlot"
+        },
+        "bottom": {
+          "$ref": "#/$defs/PlayInSlot"
+        },
+        "game": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PlayoffGame"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "outcome": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PlayInOutcome"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "top",
+        "bottom",
+        "game",
+        "outcome"
+      ],
+      "title": "PlayInGame",
+      "type": "object"
+    },
+    "PlayInGameKind": {
+      "enum": [
+        "seven_eight",
+        "nine_ten",
+        "eighth_seed"
+      ],
+      "title": "PlayInGameKind",
+      "type": "string"
+    },
+    "PlayInOutcome": {
+      "additionalProperties": false,
+      "properties": {
+        "seed": {
+          "anyOf": [
+            {
+              "enum": [
+                7,
+                8
+              ],
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "loserOut": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "seed",
+        "loserOut"
+      ],
+      "title": "PlayInOutcome",
+      "type": "object"
+    },
+    "PlayInSlot": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "$ref": "#/$defs/PlayInSlotLabel"
+        },
+        "team": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PlayoffTeam"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "currently": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PlayoffTeam"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "label",
+        "team",
+        "currently"
+      ],
+      "title": "PlayInSlot",
+      "type": "object"
+    },
+    "PlayInSlotKey": {
+      "enum": [
+        "place",
+        "loser_of",
+        "winner_of"
+      ],
+      "title": "PlayInSlotKey",
+      "type": "string"
+    },
+    "PlayInSlotLabel": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "$ref": "#/$defs/PlayInSlotKey"
+        },
+        "place": {
+          "anyOf": [
+            {
+              "maximum": 10,
+              "minimum": 7,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "game": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PlayInGameKind"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "key",
+        "place",
+        "game"
+      ],
+      "title": "PlayInSlotLabel",
+      "type": "object"
+    },
+    "PlayoffGame": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "date": {
+          "format": "date",
+          "type": "string"
+        },
+        "startTime": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "away": {
+          "$ref": "#/$defs/Opponent"
+        },
+        "home": {
+          "$ref": "#/$defs/Opponent"
+        },
+        "status": {
+          "$ref": "#/$defs/GameStatus"
+        },
+        "score": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Score"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "winner": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Side"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "overtime": {
+          "type": "boolean"
+        },
+        "venue": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "broadcast": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "detailAvailable": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "date",
+        "startTime",
+        "away",
+        "home",
+        "status",
+        "score",
+        "winner",
+        "overtime",
+        "venue",
+        "broadcast",
+        "detailAvailable"
+      ],
+      "title": "PlayoffGame",
+      "type": "object"
+    },
+    "PlayoffLeader": {
+      "additionalProperties": false,
+      "properties": {
+        "rank": {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        "playerId": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "photoUrl": {
+          "anyOf": [
+            {
+              "format": "uri",
+              "maxLength": 2083,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "teamCode": {
+          "pattern": "^[A-Z]{3}$",
+          "type": "string"
+        },
+        "value": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "rank",
+        "playerId",
+        "name",
+        "photoUrl",
+        "teamCode",
+        "value"
+      ],
+      "title": "PlayoffLeader",
+      "type": "object"
+    },
+    "PlayoffStage": {
+      "enum": [
+        "playin",
+        "round_1",
+        "round_2",
+        "round_3",
+        "finals"
+      ],
+      "title": "PlayoffStage",
+      "type": "string"
+    },
+    "PlayoffStageEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "stage": {
+          "$ref": "#/$defs/PlayoffStage"
+        },
+        "status": {
+          "$ref": "#/$defs/PlayoffStageStatus"
+        },
+        "firstDate": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "lastDate": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "stage",
+        "status",
+        "firstDate",
+        "lastDate"
+      ],
+      "title": "PlayoffStageEntry",
+      "type": "object"
+    },
+    "PlayoffStageStatus": {
+      "enum": [
+        "complete",
+        "in_progress",
+        "next",
+        "upcoming"
+      ],
+      "title": "PlayoffStageStatus",
+      "type": "string"
+    },
+    "PlayoffTeam": {
+      "additionalProperties": false,
+      "description": "A league team of the postseason with its colors.",
+      "properties": {
+        "code": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "city": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "guest": {
+          "default": false,
+          "type": "boolean"
+        },
+        "colors": {
+          "$ref": "#/$defs/StandingsColors"
+        }
+      },
+      "required": [
+        "code",
+        "name",
+        "city",
+        "guest",
+        "colors"
+      ],
+      "title": "PlayoffTeam",
+      "type": "object"
+    },
+    "PlayoffsState": {
+      "enum": [
+        "picture",
+        "playin",
+        "playoffs",
+        "finals",
+        "complete"
+      ],
+      "title": "PlayoffsState",
+      "type": "string"
+    },
+    "Score": {
+      "additionalProperties": false,
+      "properties": {
+        "away": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "home": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "away",
+        "home"
+      ],
+      "title": "Score",
+      "type": "object"
+    },
+    "Series": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/SeriesId"
+        },
+        "round": {
+          "maximum": 4,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "conference": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Conference"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "top": {
+          "$ref": "#/$defs/SeriesSide"
+        },
+        "bottom": {
+          "$ref": "#/$defs/SeriesSide"
+        },
+        "status": {
+          "$ref": "#/$defs/SeriesStatus"
+        },
+        "summary": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "winner": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Z]{3}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "games": {
+          "items": {
+            "$ref": "#/$defs/SeriesGame"
+          },
+          "maxItems": 7,
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "round",
+        "conference",
+        "top",
+        "bottom",
+        "status",
+        "summary",
+        "winner",
+        "games"
+      ],
+      "title": "Series",
+      "type": "object"
+    },
+    "SeriesGame": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "date": {
+          "format": "date",
+          "type": "string"
+        },
+        "startTime": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "away": {
+          "$ref": "#/$defs/Opponent"
+        },
+        "home": {
+          "$ref": "#/$defs/Opponent"
+        },
+        "status": {
+          "$ref": "#/$defs/GameStatus"
+        },
+        "score": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Score"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "winner": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Side"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "overtime": {
+          "type": "boolean"
+        },
+        "venue": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "broadcast": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "detailAvailable": {
+          "type": "boolean"
+        },
+        "number": {
+          "maximum": 7,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "date",
+        "startTime",
+        "away",
+        "home",
+        "status",
+        "score",
+        "winner",
+        "overtime",
+        "venue",
+        "broadcast",
+        "detailAvailable",
+        "number"
+      ],
+      "title": "SeriesGame",
+      "type": "object"
+    },
+    "SeriesId": {
+      "enum": [
+        "east-r1-1",
+        "east-r1-2",
+        "east-r1-3",
+        "east-r1-4",
+        "east-r2-1",
+        "east-r2-2",
+        "east-r3",
+        "finals",
+        "west-r3",
+        "west-r2-1",
+        "west-r2-2",
+        "west-r1-1",
+        "west-r1-2",
+        "west-r1-3",
+        "west-r1-4"
+      ],
+      "title": "SeriesId",
+      "type": "string"
+    },
+    "SeriesLabel": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "$ref": "#/$defs/SeriesLabelKey"
+        },
+        "conference": {
+          "$ref": "#/$defs/Conference"
+        },
+        "seed": {
+          "anyOf": [
+            {
+              "maximum": 8,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "series": {
+          "anyOf": [
+            {
+              "maximum": 4,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "key",
+        "conference",
+        "seed",
+        "series"
+      ],
+      "title": "SeriesLabel",
+      "type": "object"
+    },
+    "SeriesLabelKey": {
+      "enum": [
+        "seed",
+        "playin_winner",
+        "round_1_winner",
+        "round_2_winner",
+        "round_3_winner"
+      ],
+      "title": "SeriesLabelKey",
+      "type": "string"
+    },
+    "SeriesSide": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "$ref": "#/$defs/SeriesLabel"
+        },
+        "team": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PlayoffTeam"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "seed": {
+          "anyOf": [
+            {
+              "maximum": 15,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "wins": {
+          "anyOf": [
+            {
+              "maximum": 4,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "currently": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PlayoffTeam"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "label",
+        "team",
+        "seed",
+        "wins",
+        "currently"
+      ],
+      "title": "SeriesSide",
+      "type": "object"
+    },
+    "SeriesStatus": {
+      "enum": [
+        "upcoming",
+        "in_progress",
+        "complete"
+      ],
+      "title": "SeriesStatus",
+      "type": "string"
+    },
+    "Side": {
+      "enum": [
+        "away",
+        "home"
+      ],
+      "title": "Side",
+      "type": "string"
+    },
+    "StandingsColors": {
+      "additionalProperties": false,
+      "properties": {
+        "primary": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "secondary": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "primary",
+        "secondary"
+      ],
+      "title": "StandingsColors",
+      "type": "object"
+    },
+    "TotalDifferential": {
+      "additionalProperties": false,
+      "properties": {
+        "value": {
+          "pattern": "^([+\u2212][1-9]\\d*|0)$",
+          "type": "string"
+        },
+        "nonNegative": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "value",
+        "nonNegative"
+      ],
+      "title": "TotalDifferential",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "season": {
+      "pattern": "^\\d{4}-\\d{2}$",
+      "type": "string"
+    },
+    "state": {
+      "$ref": "#/$defs/PlayoffsState"
+    },
+    "postseasonDates": {
+      "$ref": "#/$defs/DateSpan"
+    },
+    "currentRound": {
+      "anyOf": [
+        {
+          "maximum": 3,
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "finalsGame": {
+      "anyOf": [
+        {
+          "maximum": 7,
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "finalsSummary": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "stages": {
+      "items": {
+        "$ref": "#/$defs/PlayoffStageEntry"
+      },
+      "maxItems": 5,
+      "minItems": 5,
+      "type": "array"
+    },
+    "picture": {
+      "items": {
+        "$ref": "#/$defs/PictureTable"
+      },
+      "maxItems": 2,
+      "minItems": 2,
+      "type": "array"
+    },
+    "playIn": {
+      "items": {
+        "$ref": "#/$defs/PlayIn"
+      },
+      "maxItems": 2,
+      "minItems": 2,
+      "type": "array"
+    },
+    "bracket": {
+      "items": {
+        "$ref": "#/$defs/Series"
+      },
+      "maxItems": 15,
+      "minItems": 15,
+      "type": "array"
+    },
+    "champion": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Champion"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "leaders": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/LeaderGroup"
+          },
+          "maxItems": 9,
+          "minItems": 9,
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "awards": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/Award"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "season",
+    "state",
+    "postseasonDates",
+    "currentRound",
+    "finalsGame",
+    "finalsSummary",
+    "stages",
+    "picture",
+    "playIn",
+    "bracket",
+    "champion",
+    "leaders",
+    "awards"
+  ],
+  "title": "PlayoffsFeed",
+  "type": "object"
+}

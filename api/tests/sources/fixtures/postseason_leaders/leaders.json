@@ -1,0 +1,395 @@
+{
+ "categories": [
+  {
+   "name": "pointsPerGame",
+   "leaders": [
+    {
+     "displayValue": "30.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/100?lang=en"
+     }
+    },
+    {
+     "displayValue": "29.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/101?lang=en"
+     }
+    },
+    {
+     "displayValue": "28.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/102?lang=en"
+     }
+    },
+    {
+     "displayValue": "27.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/103?lang=en"
+     }
+    },
+    {
+     "displayValue": "26.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/104?lang=en"
+     }
+    },
+    {
+     "displayValue": "25.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/105?lang=en"
+     }
+    }
+   ]
+  },
+  {
+   "name": "reboundsPerGame",
+   "leaders": [
+    {
+     "displayValue": "30.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/200?lang=en"
+     }
+    },
+    {
+     "displayValue": "29.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/201?lang=en"
+     }
+    },
+    {
+     "displayValue": "28.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/202?lang=en"
+     }
+    },
+    {
+     "displayValue": "27.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/203?lang=en"
+     }
+    },
+    {
+     "displayValue": "26.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/204?lang=en"
+     }
+    }
+   ]
+  },
+  {
+   "name": "assistsPerGame",
+   "leaders": [
+    {
+     "displayValue": "30.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/300?lang=en"
+     }
+    },
+    {
+     "displayValue": "29.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/301?lang=en"
+     }
+    },
+    {
+     "displayValue": "28.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/302?lang=en"
+     }
+    },
+    {
+     "displayValue": "27.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/303?lang=en"
+     }
+    },
+    {
+     "displayValue": "26.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/304?lang=en"
+     }
+    }
+   ]
+  },
+  {
+   "name": "stealsPerGame",
+   "leaders": [
+    {
+     "displayValue": "30.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/400?lang=en"
+     }
+    },
+    {
+     "displayValue": "29.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/401?lang=en"
+     }
+    },
+    {
+     "displayValue": "28.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/402?lang=en"
+     }
+    },
+    {
+     "displayValue": "27.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/403?lang=en"
+     }
+    },
+    {
+     "displayValue": "26.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/404?lang=en"
+     }
+    }
+   ]
+  },
+  {
+   "name": "blocksPerGame",
+   "leaders": [
+    {
+     "displayValue": "30.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/500?lang=en"
+     }
+    },
+    {
+     "displayValue": "29.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/501?lang=en"
+     }
+    },
+    {
+     "displayValue": "28.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/502?lang=en"
+     }
+    },
+    {
+     "displayValue": "27.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/503?lang=en"
+     }
+    },
+    {
+     "displayValue": "26.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/504?lang=en"
+     }
+    }
+   ]
+  },
+  {
+   "name": "fieldGoalPercentage",
+   "leaders": [
+    {
+     "displayValue": "30.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/600?lang=en"
+     }
+    },
+    {
+     "displayValue": "29.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/601?lang=en"
+     }
+    },
+    {
+     "displayValue": "28.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/602?lang=en"
+     }
+    },
+    {
+     "displayValue": "27.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/603?lang=en"
+     }
+    },
+    {
+     "displayValue": "26.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/604?lang=en"
+     }
+    }
+   ]
+  },
+  {
+   "name": "3PointsMadePerGame",
+   "leaders": [
+    {
+     "displayValue": "30.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/700?lang=en"
+     }
+    },
+    {
+     "displayValue": "29.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/701?lang=en"
+     }
+    },
+    {
+     "displayValue": "28.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/702?lang=en"
+     }
+    },
+    {
+     "displayValue": "27.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/703?lang=en"
+     }
+    },
+    {
+     "displayValue": "26.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/704?lang=en"
+     }
+    }
+   ]
+  },
+  {
+   "name": "doubleDouble",
+   "leaders": [
+    {
+     "displayValue": "30.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/800?lang=en"
+     }
+    },
+    {
+     "displayValue": "29.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/801?lang=en"
+     }
+    },
+    {
+     "displayValue": "28.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/802?lang=en"
+     }
+    },
+    {
+     "displayValue": "27.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/803?lang=en"
+     }
+    },
+    {
+     "displayValue": "26.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/804?lang=en"
+     }
+    }
+   ]
+  },
+  {
+   "name": "minutesPerGame",
+   "leaders": [
+    {
+     "displayValue": "30.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/900?lang=en"
+     }
+    },
+    {
+     "displayValue": "29.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/901?lang=en"
+     }
+    },
+    {
+     "displayValue": "28.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/902?lang=en"
+     }
+    },
+    {
+     "displayValue": "27.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/903?lang=en"
+     }
+    },
+    {
+     "displayValue": "26.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/904?lang=en"
+     }
+    }
+   ]
+  },
+  {
+   "name": "PER",
+   "leaders": [
+    {
+     "displayValue": "25.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/900?lang=en"
+     }
+    },
+    {
+     "displayValue": "24.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/901?lang=en"
+     }
+    },
+    {
+     "displayValue": "23.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/902?lang=en"
+     }
+    },
+    {
+     "displayValue": "22.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/903?lang=en"
+     }
+    },
+    {
+     "displayValue": "21.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/904?lang=en"
+     }
+    }
+   ]
+  },
+  {
+   "name": "3PointPct",
+   "leaders": [
+    {
+     "displayValue": "40.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/950?lang=en"
+     }
+    },
+    {
+     "displayValue": "39.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/951?lang=en"
+     }
+    },
+    {
+     "displayValue": "38.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/952?lang=en"
+     }
+    },
+    {
+     "displayValue": "37.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/953?lang=en"
+     }
+    },
+    {
+     "displayValue": "36.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/954?lang=en"
+     }
+    }
+   ]
+  }
+ ]
+}

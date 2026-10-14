@@ -32,6 +32,8 @@
 # - Serves a Cup matchup feed for each of the 7 slot ids with Cache-Control and ETag and answers 304 for a matching ETag
 # - Responds 404 with a JSON error for an id outside the 7 slots with no source request
 # - Responds 503 for a Cup matchup before the season is known and when a roster read fails with nothing stored
+# - Serves the playoffs feed with Cache-Control and ETag and answers 304 for a matching ETag
+# - Responds 503 with a JSON error for the playoffs feed when a season type read fails with nothing stored and before the season or the rosters are known, and keeps serving the stored feed when a rebuild fails
 #
 # What is covered:
 # - Success response, documented failures (503, 404), edge case of an invalid publish
@@ -56,6 +58,7 @@ from app.feeds.cup_matchup import CupMatchupFeed
 from app.feeds.game_detail import GameDetailFeed
 from app.feeds.games import GamesFeed, GameStatus, Star, Stars
 from app.feeds.player import PlayerFeed
+from app.feeds.playoffs import PlayoffsFeed
 from app.feeds.search import SearchFeed
 from app.feeds.standings import StandingsFeed
 from app.feeds.team import TeamFeed
@@ -79,6 +82,7 @@ from app.storage.state import StateStore
 from tests.jobs.test_cup_feed import CupKit
 from tests.jobs.test_cup_matchup_feed import MatchupKit
 from tests.jobs.test_player_feed import PlayerKit
+from tests.jobs.test_playoffs_feed import PlayoffsKit
 from tests.jobs.test_search_feed import SearchKit
 from tests.jobs.test_standings_feed import StandingsKit
 
@@ -952,6 +956,90 @@ def test_responds_503_before_the_season_is_known(cup: Cup) -> None:
 
     assert response.status_code == 503
     assert cup.kit.calls == []
+
+
+class Playoffs:
+    """An app with the feeds router and the playoffs kind over the playoffs kit's fakes."""
+
+    def __init__(self, path: Path) -> None:
+        self.kit = PlayoffsKit(path)
+        self.app = FastAPI()
+        self.app.include_router(feeds_router.router)
+        self.app.state.settings = self.kit.settings
+        self.app.state.presence = Presence(clock=lambda: self.kit.clock[0])
+        self.app.state.games_job = self.kit.games
+        self.app.state.feed_cache = self.kit.cache
+
+
+@pytest.fixture
+def playoffs(tmp_path: Path) -> Iterator[Playoffs]:
+    with respx.mock:
+        yield Playoffs(tmp_path)
+
+
+def test_serves_the_playoffs_feed_with_cache_control_and_an_etag(
+    playoffs: Playoffs,
+) -> None:
+    with TestClient(playoffs.app) as client:
+        response = client.get("/feeds/playoffs.json")
+
+    assert response.status_code == 200
+    feed = PlayoffsFeed.model_validate_json(response.content)
+    assert len(feed.bracket) == 15
+    assert response.headers["content-type"] == "application/json"
+    assert response.headers["cache-control"] == CACHE_CONTROL
+    etag = response.headers["etag"]
+    assert etag.startswith('"') and etag.endswith('"')
+
+
+def test_responds_304_when_the_playoffs_etag_matches(playoffs: Playoffs) -> None:
+    with TestClient(playoffs.app) as client:
+        first = client.get("/feeds/playoffs.json")
+
+        response = client.get(
+            "/feeds/playoffs.json", headers={"If-None-Match": first.headers["etag"]}
+        )
+
+    assert response.status_code == 304
+    assert response.content == b""
+
+
+def test_responds_503_when_a_season_type_read_fails_with_nothing_stored(
+    playoffs: Playoffs,
+) -> None:
+    playoffs.kit.failing.add("type/5")
+    with TestClient(playoffs.app) as client:
+        response = client.get("/feeds/playoffs.json")
+
+    assert response.status_code == 503
+    assert isinstance(response.json()["detail"], str)
+
+
+def test_responds_503_before_the_season_or_the_rosters_are_known(
+    playoffs: Playoffs,
+) -> None:
+    with TestClient(playoffs.app) as client:
+        playoffs.kit.stars.season = None
+        assert client.get("/feeds/playoffs.json").status_code == 503
+        playoffs.kit.stars.season = 2027
+        playoffs.kit.stars.ready = False
+        assert client.get("/feeds/playoffs.json").status_code == 503
+
+    assert playoffs.kit.calls == []
+
+
+def test_keeps_serving_the_stored_playoffs_feed_when_a_rebuild_fails(
+    playoffs: Playoffs,
+) -> None:
+    with TestClient(playoffs.app) as client:
+        first = client.get("/feeds/playoffs.json")
+        playoffs.kit.failing.add("standings")
+        playoffs.kit.clock[0] = playoffs.kit.clock[0] + FEED_LIFETIME
+
+        response = client.get("/feeds/playoffs.json")
+
+    assert response.status_code == 200
+    assert response.content == first.content
 
 
 class Matchup:

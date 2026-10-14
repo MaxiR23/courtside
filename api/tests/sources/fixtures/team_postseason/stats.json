@@ -1,0 +1,5 @@
+{"splits": {"categories": [
+  {"name": "offensive", "stats": [{"name": "avgPoints", "value": 112.4}, {"name": "avgAssists", "value": 25.1}, {"name": "fieldGoalPct", "value": 47.2}, {"name": "effectiveFGPct", "value": 54.9}]},
+  {"name": "general", "stats": [{"name": "avgRebounds", "value": 44.0}, {"name": "gamesPlayed", "value": 22}, {"name": "technicalFouls", "value": 3}, {"name": "plusMinus", "value": 77.0}]},
+  {"name": "defensive", "stats": [{"name": "avgBlocks", "value": 5.2}, {"name": "avgSteals", "value": 7.9}]}
+]}}

@@ -1,0 +1,274 @@
+# Playoffs feed
+
+The postseason: the picture tables, the play-in, the bracket of 15 series, the
+champion, the postseason leaders and the season awards, with every value ready
+to draw.
+
+## Schema
+
+[`api/schemas/playoffs.schema.json`](../../api/schemas/playoffs.schema.json),
+generated from the models in `api/app/feeds/playoffs.py`. When this page and the
+models disagree, the models win. The route and the rules are decided in
+[ADR 0032](../adr/0032-playoffs-feed.md); the feed is served at
+`/feeds/playoffs.json`. The design is [`design-playoffs.md`](../design-playoffs.md).
+
+Conventions:
+
+- Keys are camelCase.
+- No unknown fields are accepted.
+- Nullable fields are always present and `null` when absent.
+- Times are UTC, as ISO 8601 with a timezone; dates are US Eastern dates.
+- Labels are keys and parts (conference, seed, series number), never prose: the
+  page writes the words.
+- Every team is an `Opponent` of the league (never a guest) with its colors, as
+  in the [games feed](games.md) and the [standings feed](standings.md).
+
+## Feed
+
+| Field              | Type                  | Meaning                                                                                  | Present |
+| ------------------ | --------------------- | ---------------------------------------------------------------------------------------- | ------- |
+| `season`           | season label          | Such as `2026-27`                                                                        | always  |
+| `state`            | `PlayoffsState`       | `picture`, `playin`, `playoffs`, `finals`, `complete`                                    | always  |
+| `postseasonDates`  | `DateSpan`            | From the first day of the play-in window to the last day of the postseason window        | always  |
+| `currentRound`     | integer (1 to 3) / null | The round the page highlights                                                          | set exactly when `state` is `playoffs` |
+| `finalsGame`       | integer (1 to 7) / null | The number of the latest Finals game that is live or final                             | null before Finals game 1 and outside `finals` and `complete` |
+| `finalsSummary`    | string / null         | The series summary of that game, as the source sends it                                  | null with `finalsGame` |
+| `stages`           | `PlayoffStageEntry[]` | Exactly 5: `playin`, `round_1`, `round_2`, `round_3`, `finals`                           | always  |
+| `picture`          | `PictureTable[]`      | East then West                                                                           | always  |
+| `playIn`           | `PlayIn[]`            | East then West                                                                           | always  |
+| `bracket`          | `Series[]`            | Exactly 15, in the order of `SeriesId`                                                   | always  |
+| `champion`         | `Champion` / null     | The champion block                                                                       | set exactly when `state` is `complete` |
+| `leaders`          | `LeaderGroup[]` / null | Exactly 9, in the order of `LeaderCategory`                                             | null when the read failed or no category has a leader |
+| `awards`           | `Award[]` / null      | The awards with at least one winner on a current roster, in code order                   | null when the read failed or none has a winner |
+
+## Nested objects
+
+| Object               | Fields                                                                                                                                                                             |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DateSpan`           | `firstDate`, `lastDate`: the first is on or before the last                                                                                                                         |
+| `PlayoffStageEntry`  | `stage`: `PlayoffStage`; `status`: `PlayoffStageStatus` (`complete`, `in_progress`, `next`, `upcoming`); `firstDate`, `lastDate`: US Eastern dates of the stage's games, both set or both null |
+| `PlayoffTeam`        | An `Opponent` of the league plus `colors`: `StandingsColors` (`primary`, `secondary`, null when the team info read failed)                                                         |
+| `PictureTable`       | `conference`; `rows`: `PictureRow[]` (up to 10)                                                                                                                                     |
+| `PictureRow`         | `seed` (1 to 15, null); `team`: `PlayoffTeam`; `wins`, `losses` (null); `gamesBehind` (one decimal, null for the leader); `clinch`: `Clinch` / null; `line`: `playoffs` on row 6, `playin` on row 10, null on any other row |
+| `PlayIn`             | `conference`; `games`: `PlayInGame[]` (exactly 3, in the order `seven_eight`, `nine_ten`, `eighth_seed`)                                                                            |
+| `PlayInGame`         | `kind`: `PlayInGameKind`; `top`, `bottom`: `PlayInSlot`; `game`: `PlayoffGame` / null; `outcome`: `PlayInOutcome` / null (set exactly when the game is final with a winner)        |
+| `PlayInSlot`         | `label`: `PlayInSlotLabel`; `team`: `PlayoffTeam` / null; `currently`: `PlayoffTeam` / null (never both)                                                                            |
+| `PlayInSlotLabel`    | `key`: `place`, `loser_of` or `winner_of`; `place` (7 to 10, set exactly for `place`); `game`: `PlayInGameKind` (set exactly for `loser_of` and `winner_of`)                         |
+| `PlayInOutcome`      | `seed` (7, 8 or null); `loserOut`: true when the loser is out                                                                                                                       |
+| `PlayoffGame`        | `id`; `date` (US Eastern); `startTime`; `away`, `home`: `Opponent`; `status`: `GameStatus`; `score`: `Score` / null (set when final); `winner` (`away`, `home`, null; only when final); `overtime` (false before the game; true when the period is 5 or more); `venue`; `broadcast` (null); `detailAvailable` |
+| `SeriesGame`         | A `PlayoffGame` plus `number` (1 to 7), from the game note                                                                                                                          |
+| `Series`             | `id`: `SeriesId`; `round` (1 to 4); `conference` (null for the Finals only); `top`, `bottom`: `SeriesSide`; `status`: `upcoming`, `in_progress`, `complete`; `summary` (from the source, null); `winner` (team code, set exactly when complete); `games`: `SeriesGame[]` (up to 7, in start order, only the games the source lists) |
+| `SeriesId`           | `east-r1-1` to `east-r1-4`, `east-r2-1`, `east-r2-2`, `east-r3`, `finals`, `west-r3`, `west-r2-1`, `west-r2-2`, `west-r1-1` to `west-r1-4`                                          |
+| `SeriesSide`         | `label`: `SeriesLabel`; `team`: `PlayoffTeam` / null; `seed` (1 to 15, only with a team); `wins` (0 to 4, from the series object, null without one, only with a team); `currently`: `PlayoffTeam` / null (never both a team and `currently`) |
+| `SeriesLabel`        | `key`: `seed` (seeds 1 to 6), `playin_winner` (seeds 7 and 8), `round_1_winner`, `round_2_winner`, `round_3_winner`; `conference`; `seed` (1 to 8; for `seed` and `playin_winner`); `series` (1 to 4; for `round_1_winner` and `round_2_winner`) |
+| `Champion`           | `team`: `PlayoffTeam`; `wins` (always 4); `losses` (0 to 3); `firstDate`, `lastDate`: the Finals games; `record`, `home`, `road`: postseason records such as `16-6` (null when the record read failed); `pointDifferential`: `TotalDifferential` over the champion's final postseason games |
+| `LeaderCategory`     | `points`, `rebounds`, `assists`, `steals`, `blocks`, `field_goal_pct`, `threes_made`, `double_doubles`, `minutes`                                                                   |
+| `LeaderGroup`        | `category`; `leaders`: `PlayoffLeader[]` (up to 5)                                                                                                                                   |
+| `PlayoffLeader`      | `rank` (the position in the source list, so a left out leader leaves a gap); `playerId`; `name`; `photoUrl` (null); `teamCode`; `value` (text as the source sends it)               |
+| `Award`              | `code`: `AwardCode`; `team` (1 to 3 for `all_nba`, 1 to 2 for `all_rookie` and `all_defensive`, null for any other award); `winners`: `AwardWinner[]` (1 to 5)                      |
+| `AwardCode`          | `mvp`, `dpoy`, `roy`, `sixth_man`, `mip`, `cpoy`, `finals_mvp`, `east_finals_mvp`, `west_finals_mvp`, `all_star_mvp`, `cup_mvp`, `cup_all_tournament`, `all_nba`, `all_rookie`, `all_defensive`, `twyman_stokes` |
+| `AwardWinner`        | `playerId`; `name`; `photoUrl` (null); `teamCode` (the team of the award, else the player's roster team; null)                                                                     |
+
+`Opponent`, `Score`, `GameStatus`, `Clinch` and `TotalDifferential` are as in the
+[games feed](games.md) and the [standings feed](standings.md).
+
+## Rules that live in the code
+
+1. **Reads.** Before the first day of the play-in window (US Eastern) the build
+   reads no scoreboard day and the state is `picture`. From that day it reads every
+   US Eastern date of the play-in window and of the postseason window.
+2. **Games.** A game is a postseason game by the season type of its event: 5 is
+   the play-in and 3 is the postseason. A canceled game is dropped and a repeated
+   game id keeps one game. `date` is the US Eastern date of the start time;
+   `winner` is the side with more points of a final game; `overtime` is true for
+   a live or final game whose period is 5 or more.
+3. **State.** `complete` when the series object of a Finals game says completed;
+   else `finals` when any Finals game was read; else `playoffs` when any round 1
+   game is live or final; else `playin` on or after the first day of the play-in
+   window; else `picture`.
+4. **Stages.** The play-in is complete when its 6 games are final. A round or the
+   Finals is complete when all its series are complete (8, 4, 2 and 1). A stage is
+   `in_progress` when a game of it is live or final and it is not complete, `next`
+   when it is the first stage after the last one complete or in progress (the
+   play-in in `picture`), and `upcoming` otherwise. Stage dates are the first and
+   last US Eastern dates of its games.
+5. **Current round.** Set only in `playoffs`: the latest round (1 to 3) with a
+   live or final game; the round after it when that round is complete (at most 3);
+   1 when none has started.
+6. **Finals line.** `finalsGame` is the number of the latest Finals game that is
+   live or final and `finalsSummary` the series summary of that game.
+7. **Picture.** Per conference, the first 10 teams in seed order (a team with no
+   seed goes last, then the source's conference order). `gamesBehind` is the
+   conference games behind from wins and losses. When the standings are of
+   another season than the feed's or every team has 0 games (the preseason), the
+   rows keep the order but `seed`, `wins`, `losses`, `gamesBehind` and `clinch`
+   are null and no side carries `currently`.
+8. **Play-in notes.** A play-in game is placed by its note:
+
+   | Note                                                   | Conference | Kind          |
+   | ------------------------------------------------------ | ---------- | ------------- |
+   | `NBA Play-In - East - 7th Place vs 8th Place`          | East       | `seven_eight` |
+   | `NBA Play-In - East - 9th Place vs 10th Place`         | East       | `nine_ten`    |
+   | `NBA Play-In - East - 8th Seed Game`                   | East       | `eighth_seed` |
+   | the same three with `West`                             | West       | the same kinds |
+
+   A note that matches none, or a second game of one kind in a conference, fails
+   the build. A game not yet live or final with an undecided
+   side is ignored, and a live or final game with a team outside the league fails
+   the build.
+9. **Play-in slots.** In `seven_eight` and `nine_ten` the home team is the higher
+   place (7th hosts 8th, 9th hosts 10th) and sits on `top`. In `eighth_seed`, `top`
+   is the loser of `seven_eight` and `bottom` the winner of `nine_ten`, set once
+   those games are final. In `picture` (and not in the preseason) a place slot
+   carries `currently`, the team with that place in the standings. Outcomes are
+   set for a final game with a winner: `seven_eight` is seed 7 and not out,
+   `nine_ten` is out with no seed, `eighth_seed` is seed 8 and out.
+10. **Series.** A type 3 game is grouped by round and pair of teams. The round
+    comes from the competition type:
+
+    | Competition type | Round |
+    | ---------------- | ----- |
+    | `RD16`           | 1     |
+    | `QTR`            | 2     |
+    | `SEMI`           | 3     |
+    | `FINAL`          | 4     |
+
+    An unknown type fails the build. The game number comes from the end of the
+    note (` - Game N`); a note without it fails the build.
+11. **Placement.** Round 1 is placed by the seeds of the pair, the lower seed on
+    top; both teams must be of one conference:
+
+    | Series | Seeds |
+    | ------ | ----- |
+    | `r1-1` | 1 and 8 |
+    | `r1-2` | 4 and 5 |
+    | `r1-3` | 3 and 6 |
+    | `r1-4` | 2 and 7 |
+
+    Seeds 1 to 6 are the standings seeds. Seeds 7 and 8 are the winner of the
+    7th vs 8th game and the winner of the 8th seed game. Round 2 is placed by the
+    round 1 series its teams came from (`r1-1` and `r1-2` feed `r2-1`, `r1-3` and
+    `r1-4` feed `r2-2`), the top being the team of the upper feeder. Round 3 is
+    fed by `r2-1` and `r2-2` of its conference. The Finals is fed by the two round
+    3 series, the East team on top. A team that cannot be placed, a pair of seeds
+    outside the table, a live or final game with a team outside the league and two
+    series in one slot fail the build. A game not yet live or final with an undecided
+    side is ignored, so its slots keep their standings or label value.
+12. **Series values.** Taken from the series object of the latest live or final
+    game, else of the first game: `wins` per side, `summary`, and `status`
+    (`complete` when the object says completed, `in_progress` when any game is
+    live or final, else `upcoming`). Nothing is counted from the games. `winner`
+    is the side with more wins when complete; tied wins in a complete series fail
+    the build.
+13. **Undecided sides.** A slot with no game has the label of its place in the
+    bracket. Round 1: from `playin` on, seeds 1 to 6 carry their team and seeds 7
+    and 8 the team that won that seed once decided; in `picture` the side carries
+    `currently`, the team with that seed in the standings. Later rounds carry the
+    winner of the feeder series once it is complete.
+14. **Champion.** Set when complete: the team and its result from the Finals
+    series object, the dates of the Finals games, `record`, `home` and `road` from
+    the postseason record read, and the point differential summed over the
+    champion's final postseason games (type 3 only), with the minus sign U+2212
+    when negative. The champion block has no drawing flag.
+15. **Leaders.** The first five entries of each of the nine categories, with the
+    rank of their position in the source list. The name and photo come from the
+    rosters the stars job keeps; a leader on no current roster is left out.
+16. **Awards.** The awards the source lists with winners, matched by name
+    ignoring case (see below). Winners on no current roster are dropped, then the
+    awards left with no winner. The Finals MVP and the two conference finals MVPs
+    are awards. The Finals MVP averages ship with the finals feed.
+17. **Window.** `postseasonDates` runs from the US Eastern date of the start of
+    the play-in window to the US Eastern date of the end of the postseason window.
+
+## The payload each setting must return
+
+Each URL is a template configured in the backend settings; the value is never in
+the repository. The shape each must return:
+
+- **`SEASON_TYPE_URL`** (`{season}`, `{type}`): the object of one season type with
+  `startDate` and `endDate`, both timestamps with a timezone, the end after the
+  start. Type 2 is the regular season, 5 the play-in and 3 the postseason.
+- **`SCOREBOARD_URL`** (existing): besides the fields the games feed reads, the
+  postseason reads on each event `season.type`; on the first competition
+  `type.abbreviation` (the competition type), the first `notes[].headline`, and
+  `series`: `summary`, `completed`, `totalCompetitions` and `competitors[]` with
+  the team `id` and `wins`; and the `status.period` of a live or final game.
+- **`POSTSEASON_LEADERS_URL`** (`{season}`): `{"categories": [{"name", "leaders":
+  [{"displayValue", "athlete": {"$ref"}}]}]}`. The names read are
+  `pointsPerGame`, `reboundsPerGame`, `assistsPerGame`, `stealsPerGame`,
+  `blocksPerGame`, `fieldGoalPercentage`, `3PointsMadePerGame`, `doubleDouble` and
+  `minutesPerGame`; any other category is ignored. The athlete id is the path part
+  after `athletes` in the link, and the link is never followed.
+- **`TEAM_POSTSEASON_RECORD_URL`** (`{season}`, `{team_id}`): `{"items":
+  [{"name", "summary"}]}` with the names `overall`, `Home` and `Road` and a
+  summary such as `16-6`; anything else is null.
+- **`TEAM_POSTSEASON_STATS_URL`** (`{season}`, `{team_id}`): `{"splits":
+  {"categories": [{"stats": [{"name", "value"}]}]}}`, flattened by name. The names
+  read are `avgPoints`, `avgRebounds`, `avgAssists`, `avgBlocks`, `avgSteals`,
+  `fieldGoalPct`, `effectiveFGPct`, `technicalFouls` and `gamesPlayed`; a plus
+  minus statistic is never read. The playoffs feed does not read this setting; its
+  first reader is the finals feed.
+- **`SEASON_AWARDS_URL`** (`{season}`): `{"awards": [{"name", "winners":
+  [{"athlete": {"$ref"}, "team": {"$ref"}}]}]}`; `team` may be absent. The names
+  read, compared ignoring case: `MVP`, `Defensive Player of the Year`, `Rookie of
+  the Year`, `Sixth Man of the Year`, `Most Improved Player`, `Clutch Player of the
+  Year`, `Finals MVP`, `Eastern Conference Finals MVP`, `Western Conference Finals
+  MVP`, `All-Star MVP`, `NBA Cup MVP`, `NBA Cup All-Tournament Team`, `All-NBA 1st
+  Team`, `All-NBA 2nd Team`, `All-NBA 3rd Team`, `All-Rookie 1st Team`, `All-Rookie
+  2nd Team`, `All-Defensive 1st Team`, `All-Defensive 2nd Team` and
+  `Twyman-Stokes Teammate of the Year`. An award with no winners (the coach and the
+  executive of the year) is skipped; an unknown name with winners is skipped and
+  logged by name.
+
+## Edge cases
+
+Valid feeds include: the preseason (no record, seed or clinch), a `picture` with
+no game read, a play-in with no game scheduled, a series with games 5 to 7 not
+listed, a series with a summary and no game, a champion with no record, `leaders`
+or `awards` null, a category with fewer than five leaders, a leader rank gap, and
+a team with null colors.
+
+## Refresh behavior
+
+- The only id is `league`; the feed is stored at `feeds/playoffs/league.json`.
+- Nothing is built without a request: no job and no startup builds the feed.
+- The season is the end year of the latest roster the stars job fetched. When
+  none was fetched or not every roster is fetched, and nothing is stored, the
+  endpoint answers 503.
+- Built on request under rule G of [`docs/source-rules.md`](../source-rules.md)
+  and expiring as its table says: when any postseason game (a game of the feed, or
+  a final game of the games job dated inside `postseasonDates`) has a final time
+  plus 1 hour after the build; while the state is `picture`, also when any game
+  of the league has a final time plus 1 hour after the build; at the start of the
+  play-in window (US Eastern midnight) when the build precedes it; and in any case
+  7 days after the build. Once the Finals series is complete the feed is kept
+  while its season is the current one, and expires under the normal rules when
+  the season changes.
+- A cold build reads 2 season types, the division standings, 30 team infos, the
+  leaders and the awards, one scoreboard day per day of both windows from the first
+  day of the play-in window (about 70), and the champion's postseason record when
+  the Finals series is complete. Source freshness is 1 hour, except the scoreboard
+  days at 30 seconds, shared with the games job.
+- A failed season type, standings or scoreboard day read fails the build, and so
+  does a postseason game the build cannot place. A failed leaders read gives
+  `leaders: null`, a failed awards read `awards: null`, a failed team info read
+  null colors for that team and a failed record read null `record`, `home` and
+  `road`.
+- A failed build keeps the stored feed and is listed under `feeds` in `/health`;
+  it is not retried for 10 minutes on request.
+- `detailAvailable` is set when the feed is served, from the games the games job
+  holds, and is never stored as true.
+- The feed is never deleted.
+- The builder is `build_playoffs_feed` and the feed kind is `PlayoffsFeeds`, both
+  in `api/app/jobs/playoffs_feed.py`.
+
+## Endpoint
+
+- `GET /feeds/playoffs.json` serves the feed through the on-demand cache with
+  `Cache-Control: public, max-age=10` and an `ETag`.
+- It responds 304 with no body when `If-None-Match` matches the current `ETag`.
+- It responds 503 with `{"detail": ...}` after a failed read with nothing
+  stored, before the season or the rosters are known, and when the request's 20
+  seconds end before a missing feed is built.
+- A stale stored feed is served at once and rebuilt in the background.
+- Every feed request records presence.
