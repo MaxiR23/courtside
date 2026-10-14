@@ -7,14 +7,16 @@
 # - Keeps the winners of a team award in order, and a winner with no team link has a null team
 # - Skips an award with no winners without a log
 # - Skips an unknown award name with winners and logs its name only
-# - Maps an empty list of awards to no awards
-# - Raises the source error on a link without an id, an unknown team id, an invalid payload, a timeout, an error status and a missing URL
-# - Reuses a read for one hour
+# - Maps the paged index and its award documents, including the All-Star MVP and its winner, and a winner whose team link is not a league team (an All-Star side) has a null team
+# - Maps an empty index to no awards without reading a document
+# - Raises the source error on a link without an id, an invalid index, an invalid award document, a missing award document, a timeout, an error status and a missing URL
+# - Reuses the index and the documents for one hour
 #
 # What is covered:
 # - Valid responses mapped, invalid payloads rejected, upstream failures handled
 #
-# The fixtures are made-up payloads of the shape docs/api/playoffs.md documents.
+# The fixtures are a made-up paged index and award documents of the shape
+# docs/api/playoffs.md documents.
 #
 # Run with: cd api && .venv/bin/python -m pytest tests/sources/test_season_awards.py
 #
@@ -44,9 +46,20 @@ URL = "https://example.com/2027/awards"
 Payload = dict[str, Any]
 
 
-def load(name: str) -> Payload:
-    payload: Payload = json.loads((FIXTURES / name).read_text(encoding="utf-8"))
-    return payload
+def load(name: str) -> Any:
+    return json.loads((FIXTURES / name).read_text(encoding="utf-8"))
+
+
+def serve(
+    mock: respx.MockRouter,
+    index: Any = None,
+    documents: list[Payload] | None = None,
+) -> respx.Route:
+    """Register the index and each award document, and return the index route."""
+    route = mock.get(URL).respond(json=load("index.json") if index is None else index)
+    for document in load("awards.json") if documents is None else documents:
+        mock.get(document["$ref"]).respond(json=document)
+    return route
 
 
 @pytest.fixture
@@ -71,7 +84,7 @@ async def awards(settings: Settings, tmp_path: Path) -> SeasonAwards:
 async def test_maps_each_listed_award_name_to_its_code_and_team_number(
     mock: respx.MockRouter, settings: Settings, tmp_path: Path
 ) -> None:
-    route = mock.get(URL).respond(json=load("awards.json"))
+    route = serve(mock)
 
     result = await awards(settings, tmp_path)
 
@@ -100,6 +113,21 @@ async def test_maps_each_listed_award_name_to_its_code_and_team_number(
     ]
 
 
+@pytest.mark.anyio
+async def test_maps_the_all_star_mvp_and_its_winner_from_the_index_and_its_award_documents(
+    mock: respx.MockRouter, settings: Settings, tmp_path: Path
+) -> None:
+    serve(mock)
+
+    result = await awards(settings, tmp_path)
+
+    mvp = next(a for a in result.awards if a.code is AwardCode.ALL_STAR_MVP)
+    assert mvp.team is None
+    assert [(w.player_id, w.team_code) for w in mvp.winners] == [("10", None)]
+    requested = [str(call.request.url) for call in mock.calls]
+    assert requested == [URL, *(i["$ref"] for i in load("index.json")["items"])]
+
+
 def test_the_table_has_a_lower_case_name_for_every_award_code() -> None:
     assert all(name == name.casefold() for name in AWARDS)
     assert {code for code, _ in AWARDS.values()} == set(AwardCode)
@@ -109,7 +137,7 @@ def test_the_table_has_a_lower_case_name_for_every_award_code() -> None:
 async def test_keeps_the_winners_of_a_team_award_in_order_with_their_teams(
     mock: respx.MockRouter, settings: Settings, tmp_path: Path
 ) -> None:
-    mock.get(URL).respond(json=load("awards.json"))
+    serve(mock)
 
     result = await awards(settings, tmp_path)
 
@@ -130,7 +158,7 @@ async def test_keeps_the_winners_of_a_team_award_in_order_with_their_teams(
 async def test_a_winner_without_a_team_link_has_a_null_team(
     mock: respx.MockRouter, settings: Settings, tmp_path: Path
 ) -> None:
-    mock.get(URL).respond(json=load("awards.json"))
+    serve(mock)
 
     result = await awards(settings, tmp_path)
 
@@ -147,7 +175,7 @@ async def test_skips_an_award_with_no_winners_without_a_log(
     tmp_path: Path,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    mock.get(URL).respond(json=load("awards.json"))
+    serve(mock)
 
     with caplog.at_level(logging.WARNING):
         await awards(settings, tmp_path)
@@ -162,7 +190,7 @@ async def test_skips_an_unknown_award_with_winners_and_logs_its_name_only(
     tmp_path: Path,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    mock.get(URL).respond(json=load("awards.json"))
+    serve(mock)
 
     with caplog.at_level(logging.WARNING):
         result = await awards(settings, tmp_path)
@@ -176,7 +204,7 @@ async def test_skips_an_unknown_award_with_winners_and_logs_its_name_only(
 async def test_maps_an_empty_list_of_awards_to_no_awards(
     mock: respx.MockRouter, settings: Settings, tmp_path: Path
 ) -> None:
-    mock.get(URL).respond(json=load("empty.json"))
+    serve(mock, load("empty.json"), [])
 
     assert (await awards(settings, tmp_path)).awards == []
 
@@ -185,9 +213,9 @@ async def test_maps_an_empty_list_of_awards_to_no_awards(
 async def test_raises_the_source_error_on_a_link_without_an_id(
     mock: respx.MockRouter, settings: Settings, tmp_path: Path
 ) -> None:
-    payload = load("awards.json")
-    payload["awards"][0]["winners"][0]["athlete"]["$ref"] = "https://example.com/v2/x"
-    mock.get(URL).respond(json=payload)
+    documents = load("awards.json")
+    documents[0]["winners"][0]["athlete"]["$ref"] = "https://example.com/v2/x"
+    serve(mock, documents=documents)
 
     with pytest.raises(SourceError) as raised:
         await awards(settings, tmp_path)
@@ -196,25 +224,23 @@ async def test_raises_the_source_error_on_a_link_without_an_id(
 
 
 @pytest.mark.anyio
-async def test_raises_the_source_error_on_an_unknown_team_id(
+async def test_a_winner_whose_team_link_is_not_a_league_team_has_a_null_team(
     mock: respx.MockRouter, settings: Settings, tmp_path: Path
 ) -> None:
-    payload = load("awards.json")
-    payload["awards"][0]["winners"][0]["team"]["$ref"] = (
-        "https://example.com/v2/teams/999"
-    )
-    mock.get(URL).respond(json=payload)
+    documents = load("awards.json")
+    documents[0]["winners"][0]["team"]["$ref"] = "https://example.com/v2/teams/999"
+    serve(mock, documents=documents)
 
-    with pytest.raises(SourceError) as raised:
-        await awards(settings, tmp_path)
+    result = await awards(settings, tmp_path)
 
-    assert raised.value.reason == "unknown team id '999'"
+    assert result.awards[0].winners[0].team_code is None
+    assert len(result.awards) == 20
 
 
 @pytest.mark.anyio
 @pytest.mark.parametrize(
     "payload",
-    [[], {}, {"awards": 3}, {"awards": [{"name": "MVP", "winners": [{}]}]}],
+    [[], {}, {"items": 3}, {"items": [{}]}],
     ids=str,
 )
 async def test_raises_the_source_error_on_an_invalid_payload(
@@ -226,6 +252,50 @@ async def test_raises_the_source_error_on_an_invalid_payload(
         await awards(settings, tmp_path)
 
     assert raised.value.reason.startswith("invalid payload: ")
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "document",
+    [[], {}, {"winners": []}, {"name": "MVP", "winners": [{}]}],
+    ids=str,
+)
+async def test_raises_the_source_error_on_an_invalid_award_document(
+    mock: respx.MockRouter, settings: Settings, tmp_path: Path, document: Any
+) -> None:
+    serve(mock)
+    mock.get(load("awards.json")[0]["$ref"]).respond(json=document)
+
+    with pytest.raises(SourceError) as raised:
+        await awards(settings, tmp_path)
+
+    assert raised.value.reason.startswith("invalid award payload: ")
+
+
+@pytest.mark.anyio
+async def test_raises_the_source_error_on_a_missing_award_document(
+    mock: respx.MockRouter, settings: Settings, tmp_path: Path
+) -> None:
+    serve(mock)
+    mock.get(load("awards.json")[0]["$ref"]).respond(status_code=404)
+
+    with pytest.raises(SourceError) as raised:
+        await awards(settings, tmp_path)
+
+    assert raised.value.reason == "responded with status 404"
+
+
+@pytest.mark.anyio
+async def test_raises_the_source_error_on_a_timeout_of_an_award_document(
+    mock: respx.MockRouter, settings: Settings, tmp_path: Path
+) -> None:
+    serve(mock)
+    mock.get(load("awards.json")[0]["$ref"]).mock(side_effect=httpx.ReadTimeout("slow"))
+
+    with pytest.raises(SourceError) as raised:
+        await awards(settings, tmp_path)
+
+    assert raised.value.reason == "request timed out"
 
 
 @pytest.mark.anyio
@@ -272,15 +342,20 @@ async def test_reuses_a_read_for_one_hour(
 ) -> None:
     start = dt.datetime(2027, 6, 1, 12, 0, tzinfo=dt.UTC)
     clock = [start]
-    route = mock.get(URL).respond(json=load("awards.json"))
+    route = serve(mock)
+    first = load("awards.json")[0]["$ref"]
+
+    def document_calls() -> int:
+        return sum(str(call.request.url) == first for call in mock.calls)
+
     store = StateStore(tmp_path)
     store.migrate()
     async with create_client(store, clock=lambda: clock[0]) as client:
         await fetch_season_awards(client, 2027, settings)
         clock[0] = start + dt.timedelta(hours=1) - dt.timedelta(seconds=1)
         await fetch_season_awards(client, 2027, settings)
-        assert route.call_count == 1
+        assert (route.call_count, document_calls()) == (1, 1)
         clock[0] = start + dt.timedelta(hours=1)
         await fetch_season_awards(client, 2027, settings)
 
-    assert route.call_count == 2
+    assert (route.call_count, document_calls()) == (2, 2)

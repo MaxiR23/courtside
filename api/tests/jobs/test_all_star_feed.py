@@ -9,6 +9,8 @@
 # - Placements: 2 teams, 3 teams in a round robin with a Championship, 4 teams with semifinals, so far and yet to play while the Championship is not final, a team-less Championship flagged to be determined and not placed
 # - Game contents: both box scores with jersey, position and league team, the six team statistics with the better side and a tie with none, the leaders, the Top 5 order with a tie keeping the source order, a player in no roster with a null league team, null colors on a failed team info read, the live status text, clock and period as the view returns them, the overtime flag
 # - MVP: from the All-Star MVP award with one line per game and the day totals, none without the award, with a failed awards read and with no box row
+# - The kind: a warning with the season and the reason for a failed awards read, no award and no box row, once per edition in play, none for a before edition or a set MVP
+# - MVP null reason: a failed awards read, no All-Star MVP award with a winner and no box row
 # - Recap: the previous edition's champion, Championship score, MVP, date and venue; none when not discovered, when its day read failed and when its Championship is not final
 # - Counts, default game, next game, leading side, top points and team results: the pure functions and the fields of a before, live and after feed
 # - Previous edition: every game, its teams and MVP as the after view, none when the recap is none or a game is not final, no MVP without the award, carried by a before feed, highlights added when served and no read added
@@ -38,6 +40,7 @@
 
 import asyncio
 import datetime as dt
+import logging
 from collections.abc import Iterator, Mapping, Sequence
 from pathlib import Path
 from typing import Any, cast
@@ -93,6 +96,7 @@ from app.jobs.all_star_feed import (
     format_line,
     leading,
     league_team,
+    mvp_null_reason,
     next_game,
     placements,
     previous_edition,
@@ -1404,6 +1408,7 @@ class AllStarKit:
             ],
         }
         self.mvp_id = "1001"
+        self.mvp_code = AwardCode.ALL_STAR_MVP
         self.stars = FakeStars()
         self.games = FakeGames()
         self.cache = FeedCache(path, self.store, clock=lambda: self.clock[0])
@@ -1502,7 +1507,7 @@ class AllStarKit:
         self, client: SourceClient, season: int, settings: Settings
     ) -> SeasonAwards:
         self.read(f"awards/{season}")
-        return award(self.mvp_id if season == 2027 else "3001")
+        return award(self.mvp_id if season == 2027 else "3001", self.mvp_code)
 
     async def discover(self, at: dt.datetime | None = None) -> None:
         await self.discovery.run(at or self.clock[0])
@@ -1707,6 +1712,121 @@ async def test_any_other_failed_read_only_nulls_its_part(kit: AllStarKit) -> Non
     assert ada.league_team is not None and ada.league_team.colors.primary is None
     assert stored.mvp is None
     assert stored.previous is None
+
+
+def mvp_warnings(caplog: pytest.LogCaptureFixture) -> list[str]:
+    return [
+        record.getMessage()
+        for record in caplog.records
+        if record.name == "app.jobs.all_star_feed" and record.levelno == logging.WARNING
+    ]
+
+
+@pytest.mark.anyio
+async def test_a_failed_awards_read_logs_the_season_and_the_reason_of_the_null_mvp(
+    kit: AllStarKit, caplog: pytest.LogCaptureFixture
+) -> None:
+    kit.failing = {"awards/2027"}
+    await kit.discover()
+
+    with caplog.at_level(logging.WARNING):
+        await kit.serve()
+
+    assert mvp_warnings(caplog) == [
+        "all-star: MVP of season 2027 is null: awards read failed: awards/2027 is down"
+    ]
+
+
+@pytest.mark.anyio
+async def test_no_all_star_mvp_award_logs_the_season_and_the_reason_of_the_null_mvp(
+    kit: AllStarKit, caplog: pytest.LogCaptureFixture
+) -> None:
+    kit.mvp_code = AwardCode.MVP
+    await kit.discover()
+
+    with caplog.at_level(logging.WARNING):
+        await kit.serve()
+
+    assert sorted(mvp_warnings(caplog)) == [
+        "all-star: MVP of season 2026 is null: no All-Star MVP award with a winner",
+        "all-star: MVP of season 2027 is null: no All-Star MVP award with a winner",
+    ]
+
+
+@pytest.mark.anyio
+async def test_a_winner_without_a_box_row_logs_the_season_and_the_reason_of_the_null_mvp(
+    kit: AllStarKit, caplog: pytest.LogCaptureFixture
+) -> None:
+    kit.mvp_id = "9999"
+    await kit.discover()
+
+    with caplog.at_level(logging.WARNING):
+        await kit.serve()
+
+    assert mvp_warnings(caplog) == [
+        (
+            "all-star: MVP of season 2027 is null: "
+            "the winner has no box row in the edition's final games"
+        )
+    ]
+
+
+@pytest.mark.anyio
+async def test_a_previous_edition_with_a_failed_awards_read_logs_its_season(
+    kit: AllStarKit, caplog: pytest.LogCaptureFixture
+) -> None:
+    kit.failing = {"awards/2026"}
+    await kit.discover()
+
+    with caplog.at_level(logging.WARNING):
+        await kit.serve()
+
+    assert mvp_warnings(caplog) == [
+        "all-star: MVP of season 2026 is null: awards read failed: awards/2026 is down"
+    ]
+
+
+@pytest.mark.anyio
+async def test_no_warning_when_every_mvp_is_set(
+    kit: AllStarKit, caplog: pytest.LogCaptureFixture
+) -> None:
+    await kit.discover()
+
+    with caplog.at_level(logging.WARNING):
+        await kit.serve()
+
+    assert mvp_warnings(caplog) == []
+
+
+@pytest.mark.anyio
+async def test_no_warning_for_an_edition_before_the_games(
+    kit: AllStarKit, caplog: pytest.LogCaptureFixture
+) -> None:
+    kit.days[DAY] = [
+        game("g1", STR, WAV, status=GameStatus.SCHEDULED),
+        game(
+            "c", None, None, status=GameStatus.SCHEDULED, note=CHAMPIONSHIP, minutes=30
+        ),
+    ]
+    await kit.discover()
+
+    with caplog.at_level(logging.WARNING):
+        await kit.serve()
+
+    assert mvp_warnings(caplog) == []
+
+
+def test_the_null_mvp_reason_is_the_failed_read_the_missing_award_or_the_missing_box_row() -> (
+    None
+):
+    assert mvp_null_reason(None, "x") == "awards read failed: x"
+    no_award = "no All-Star MVP award with a winner"
+    assert mvp_null_reason(SeasonAwards(awards=[]), None) == no_award
+    assert mvp_null_reason(award("1001", AwardCode.MVP), None) == no_award
+    assert (
+        mvp_null_reason(award("1001"), None)
+        == "the winner has no box row in the edition's final games"
+    )
 
 
 @pytest.mark.anyio

@@ -31,7 +31,10 @@
 # game of it is final. The edition also carries its counts, its default game and
 # its next game, a live game its leading side, a box score its top scorers and a
 # team its result rows, so the page counts and compares nothing. A failed detail, summary, extras, team
-# info, awards or previous edition read only nulls its part. The season unknown, a
+# info, awards or previous edition read only nulls its part. The MVP of an edition
+# in play that comes out null is logged as a warning with the season and the reason
+# (the awards read failed, no All-Star MVP award with a winner, or no box row of
+# the winner in the final games), each time a build nulls it. The season unknown, a
 # failed current scoreboard day and an invalid feed fail the build.
 #
 # AllStarFeeds is the feed kind of the on-demand cache: the only id is "league",
@@ -53,6 +56,7 @@
 
 import asyncio
 import datetime as dt
+import logging
 import re
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
@@ -91,7 +95,7 @@ from app.sources.all_star_scoreboard import AllStarScoreboardGame, AllStarSide
 from app.sources.game_detail import GameDetail, GameDetailSections
 from app.sources.http import Freshness, SourceClient, SourceError
 from app.sources.scoreboard import FRESH_FOR
-from app.sources.season_awards import SeasonAwards
+from app.sources.season_awards import AwardWinnerRef, SeasonAwards
 from app.sources.team_info import TeamInfo
 from app.storage.feeds import read_by_id
 from app.storage.state import StateStore
@@ -102,6 +106,7 @@ UNPLAYED_FRESH = dt.timedelta(hours=1)
 FINAL_HOLD = dt.timedelta(hours=1)
 PREVIOUS_FRESH = dt.timedelta(hours=24)
 MAX_TOP5 = 5
+logger = logging.getLogger(__name__)
 FIRST_TO = re.compile(r"First team to (\d+) points wins")
 STAT_ORDER = (
     "field_goal_pct",
@@ -135,6 +140,7 @@ class _Reads:
     sections: dict[str, GameDetailSections | None]
     extras: dict[str, AllStarDetailExtras | None]
     awards: SeasonAwards | None
+    awards_error: str | None
 
 
 class AllStarBuildError(Exception):
@@ -640,19 +646,32 @@ def _teams(
     return teams
 
 
+def _mvp_winner(awards: SeasonAwards | None) -> AwardWinnerRef | None:
+    return next(
+        (
+            award.winners[0]
+            for award in (awards.awards if awards else [])
+            if award.code is AwardCode.ALL_STAR_MVP and award.winners
+        ),
+        None,
+    )
+
+
+def mvp_null_reason(awards: SeasonAwards | None, error: str | None) -> str:
+    """Why an in-play edition's MVP is null."""
+    if awards is None:
+        return f"awards read failed: {error}"
+    if _mvp_winner(awards) is None:
+        return "no All-Star MVP award with a winner"
+    return "the winner has no box row in the edition's final games"
+
+
 def mvp(
     sources: AllStarSources, games: Sequence[AllStarScoreboardGame]
 ) -> dict[str, Any] | None:
     """The All-Star MVP with one line per final game he has a box row in and the
     day totals, or none without the award or a box row of his."""
-    winner_ref = next(
-        (
-            award.winners[0]
-            for award in (sources.awards.awards if sources.awards else [])
-            if award.code is AwardCode.ALL_STAR_MVP and award.winners
-        ),
-        None,
-    )
+    winner_ref = _mvp_winner(sources.awards)
     if winner_ref is None:
         return None
     lines: list[dict[str, Any]] = []
@@ -930,12 +949,18 @@ class AllStarFeeds:
             dict(zip(ids, extras, strict=True)),
         )
 
-    async def _awards(self, season: int, in_play: bool) -> SeasonAwards | None:
+    async def _awards(
+        self, season: int, in_play: bool
+    ) -> tuple[SeasonAwards | None, str | None]:
         if not in_play:
-            return None
-        return await self._guard(
-            self._fetch_season_awards(self._client, season, self._settings)
-        )
+            return None, None
+        try:
+            awards = await self._fetch_season_awards(
+                self._client, season, self._settings
+            )
+        except SourceError as error:
+            return None, error.reason
+        return awards, None
 
     async def _day_of(
         self, season: int, fresh: Freshness
@@ -963,7 +988,7 @@ class AllStarFeeds:
         reads, awards = await asyncio.gather(
             self._reads(kept, fresh), self._awards(season, in_play)
         )
-        return _Reads(reads[0], reads[1], reads[2], awards)
+        return _Reads(reads[0], reads[1], reads[2], awards[0], awards[1])
 
     async def build(self, feed_id: str) -> AllStarFeed:
         season = self._stars.current_season()
@@ -1017,7 +1042,7 @@ class AllStarFeeds:
                 previous=None,
             )
         )
-        return build_all_star_feed(
+        feed = build_all_star_feed(
             AllStarSources(
                 year=season,
                 edition_date=None if record is None else record.game_date,
@@ -1030,6 +1055,18 @@ class AllStarFeeds:
                 awards=current.awards,
                 previous=previous,
             )
+        )
+        if feed.state is not AllStarState.BEFORE and feed.mvp is None:
+            self._log_null_mvp(season, current)
+        if feed.previous is not None and feed.previous.mvp is None:
+            self._log_null_mvp(season - 1, earlier)
+        return feed
+
+    def _log_null_mvp(self, year: int, reads: _Reads) -> None:
+        logger.warning(
+            "all-star: MVP of season %d is null: %s",
+            year,
+            mvp_null_reason(reads.awards, reads.awards_error),
         )
 
     def _held(self, feed: AllStarFeed, built_at: dt.datetime) -> bool:
