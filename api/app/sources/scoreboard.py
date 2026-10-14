@@ -11,8 +11,9 @@
 # read leniently: an unreadable or inconsistent value only leaves that game's
 # mark null, logged by event id, and never fails the event or its day. An
 # All-Star game (regular season type 2, competition type ALLSTAR) carries the
-# All-Star mark; its sides are guests without a city. A game with a placeholder
-# side (not an All-Star team) is skipped, and an All-Star event that cannot be
+# All-Star mark; its sides are guests without a city. A side is a team when it
+# has a code or a name, as for any game, and no All-Star flag is read (ADR
+# 0039). An All-Star event that cannot be
 # mapped (its note, status, sides or required fields) is skipped with a log line
 # by event id: it never fails the day (ADR 0038).
 #
@@ -47,7 +48,7 @@ from app.feeds.games import (
     UtcDatetime,
 )
 from app.settings import Settings
-from app.sources.all_star_mark import all_star_mark, is_all_star
+from app.sources.all_star_mark import all_star_mark, is_an_all_star_game
 from app.sources.cup import cup_round
 from app.sources.http import SourceClient, SourceError, get_json
 from app.sources.postseason_mark import postseason_mark
@@ -86,7 +87,6 @@ class _ProviderTeam(_ProviderModel):
     id: str | None = None
     name: str | None = None
     location: str | None = None
-    is_all_star: bool = False
 
 
 class _ProviderPeriod(_ProviderModel):
@@ -203,11 +203,11 @@ def _normalize_clock(display_clock: str | None) -> str | None:
     return None
 
 
-def _team(competitor: _ProviderCompetitor) -> dict[str, Any] | None:
+def _team(competitor: _ProviderCompetitor, *, all_star: bool) -> dict[str, Any] | None:
     team = competitor.team
-    return to_opponent(
-        team.abbreviation, team.id, team.name, team.location, source=SOURCE
-    )
+    # An All-Star team's location repeats its name: it is not a city (ADR 0039).
+    location = None if all_star else team.location
+    return to_opponent(team.abbreviation, team.id, team.name, location, source=SOURCE)
 
 
 def _points(competitor: _ProviderCompetitor) -> list[int]:
@@ -288,7 +288,7 @@ def _postseason(event: _ProviderEvent, game: ScoreboardGame) -> GamePostseason |
     return mark
 
 
-def _is_all_star_game(event: _ProviderEvent) -> bool:
+def _is_an_all_star_event(event: _ProviderEvent) -> bool:
     """Whether the event is the All-Star game. Never raises: an unreadable season
     or competition type is not All-Star."""
     try:
@@ -305,7 +305,7 @@ def _is_all_star_game(event: _ProviderEvent) -> bool:
                 competition.type, from_attributes=True
             )
         )
-        return is_all_star(
+        return is_an_all_star_game(
             season.type if season else None, kind.abbreviation if kind else None
         )
     except ValidationError, ValueError, TypeError, IndexError:
@@ -320,14 +320,13 @@ def _read_event(event: _ProviderEvent, *, all_star: bool) -> ScoreboardGame | No
     if set(sides) != {"home", "away"} or len(competition.competitors) != 2:
         raise SourceError(SOURCE, f"game {event.id} needs one home and one away team")
     away, home = sides["away"], sides["home"]
-    if all_star and not (away.team.is_all_star and home.team.is_all_star):
-        return None  # a placeholder side: the game has no teams yet (ADR 0038)
+    away_team = _team(away, all_star=all_star)
+    home_team = _team(home, all_star=all_star)
+    if away_team is None or home_team is None:
+        return None  # a side that is not a team (ADR 0026, ADR 0039)
     mark = all_star_mark(_first_note(competition)) if all_star else None
     if all_star and mark is None:
         raise SourceError(SOURCE, f"game {event.id} has an unreadable All-Star mark")
-    away_team, home_team = _team(away), _team(home)
-    if away_team is None or home_team is None:
-        return None
 
     provider_status = event.status.type.name
     if provider_status not in STATUSES:
@@ -369,7 +368,7 @@ def _read_event(event: _ProviderEvent, *, all_star: bool) -> ScoreboardGame | No
 def _map_event(event: _ProviderEvent) -> ScoreboardGame | None:
     """Map one event. An All-Star event that cannot be mapped is skipped with a
     log line and never fails the day (ADR 0038); any other event raises."""
-    if not _is_all_star_game(event):
+    if not _is_an_all_star_event(event):
         return _read_event(event, all_star=False)
     try:
         return _read_event(event, all_star=True)

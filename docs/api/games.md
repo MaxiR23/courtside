@@ -71,7 +71,7 @@ and `highlightsSearchUrl`; any other status has `winner` and
 | `GameAllStar` | `roundLabel` (the round as the source writes it: "Round Robin", "Semifinals", "Championship"; the format suffix is not part of it); `championship` (true for the round `Championship`) |
 | `Team`      | `code` (three capital letters), `name`, `city`                                                              |
 | `Opponent`  | `code` (null for a guest without one), `name`, `city` (null when the source sends none), `guest`; a league code is three capital letters, a guest code any non-empty string, and a guest has a code or a name |
-| `GameTeam`  | `Opponent` with a required `name`; `city` required for a league team, null for a guest the source sends without one (an All-Star team) |
+| `GameTeam`  | `Opponent` with a required `name`; `city` required for a league team, null for a guest the source sends without one and for an All-Star team |
 | `Player`    | `playerId`, `firstName`, `lastName`, `teamCode`, `photoUrl`                                                 |
 | `Leader`    | `playerId`, `displayName` (as the source gives it), `teamCode` (null for a guest without a code), `photoUrl`, `points`, `rebounds`, `assists`; `photoUrl` is null only for a guest player without a headshot |
 | `Star`      | `Player` fields plus `shortName`                                                                            |
@@ -102,8 +102,9 @@ Rules that live in the code:
   competition type) makes the mark null, logged by event id only.
 - An All-Star game ([ADR 0038](../adr/0038-all-star-marks-in-core-feeds.md)) is
   a regular season game (type 2) whose competition type is `ALLSTAR`. Its sides
-  are guests. A game with a side that is not an All-Star team (a placeholder) is
-  skipped until its teams are known. The `allStar` mark is read from the note
+  are guests with a null city, read by code or name like any side
+  ([ADR 0039](../adr/0039-all-star-sides-by-code-or-name.md)): a game with a
+  side that has neither is skipped. The `allStar` mark is read from the note
   `NBA All-Star - <round>` with an optional format suffix; `championship` is true
   for the round `Championship`. An All-Star event that cannot be mapped (an
   unreadable note, an unknown status, a side code the league owns, or a required

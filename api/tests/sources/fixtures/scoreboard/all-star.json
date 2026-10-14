@@ -111,7 +111,7 @@
                 "abbreviation": "WAV",
                 "name": "Team Waves",
                 "id": "902",
-                "isAllStar": true
+                "location": "Team Waves"
               },
               "linescores": [
                 {
@@ -127,7 +127,7 @@
                 "abbreviation": "STR",
                 "name": "Team Stripes",
                 "id": "901",
-                "isAllStar": true
+                "location": "Team Stripes"
               },
               "linescores": [
                 {
@@ -175,7 +175,7 @@
                 "abbreviation": "PKS",
                 "name": "Team Peaks",
                 "id": "903",
-                "isAllStar": true
+                "location": "Team Peaks"
               }
             },
             {
@@ -185,7 +185,7 @@
                 "abbreviation": "STR",
                 "name": "Team Stripes",
                 "id": "901",
-                "isAllStar": true
+                "location": "Team Stripes"
               }
             }
           ],
@@ -224,20 +224,14 @@
               "homeAway": "home",
               "score": "0",
               "team": {
-                "abbreviation": "TBD",
-                "id": "0",
-                "name": "TBD",
-                "isAllStar": false
+                "id": "0"
               }
             },
             {
               "homeAway": "away",
               "score": "0",
               "team": {
-                "abbreviation": "TBD",
-                "id": "0",
-                "name": "TBD",
-                "isAllStar": false
+                "id": "0"
               }
             }
           ],

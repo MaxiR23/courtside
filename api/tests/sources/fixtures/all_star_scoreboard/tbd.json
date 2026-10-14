@@ -29,19 +29,13 @@
             {
               "homeAway": "home",
               "team": {
-                "abbreviation": "TBD",
-                "id": "0",
-                "name": "TBD",
-                "isAllStar": false
+                "id": "0"
               }
             },
             {
               "homeAway": "away",
               "team": {
-                "abbreviation": "TBD",
-                "id": "0",
-                "name": "TBD",
-                "isAllStar": false
+                "id": "0"
               }
             }
           ]

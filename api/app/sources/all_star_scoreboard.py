@@ -6,10 +6,10 @@
 # freshness (30 seconds unless the caller passes another), so both share one
 # cached response. It adds what the All-Star feed
 # needs and a game of the games feed does not carry: the note, the status text
-# and the sides of a game between All-Star teams, which have a code and a name
-# and may have no location. It keeps only the games of the regular season (type
-# 2) whose competition type is ALLSTAR. A side whose team is not an All-Star
-# team is the placeholder of a game with no teams yet and is left null. Its
+# and the sides of a game between All-Star teams, which have a code or a name
+# and no city (their location repeats the name). It keeps only the games of the regular season (type
+# 2) whose competition type is ALLSTAR. A side with neither a code nor a name
+# is undecided and is left null (ADR 0039). Its
 # results never reach a core feed, and removing the All-Star section removes
 # this module.
 #
@@ -44,8 +44,6 @@ COMPETITION_TYPE = "ALLSTAR"
 class _AllStarTeam(_ProviderModel):
     abbreviation: str | None = None
     name: str | None = None
-    location: str | None = None
-    is_all_star: bool = False
 
 
 class _AllStarCompetitor(_ProviderModel):
@@ -120,7 +118,7 @@ class AllStarScoreboardGame(FeedModel):
     home: AllStarSide | None
 
 
-def _is_all_star(event: _AllStarEvent) -> bool:
+def _is_an_all_star_event(event: _AllStarEvent) -> bool:
     if (event.season.type if event.season else None) != REGULAR_SEASON:
         return False
     if not event.competitions:
@@ -130,12 +128,10 @@ def _is_all_star(event: _AllStarEvent) -> bool:
 
 
 def _side(team: _AllStarTeam) -> AllStarSide | None:
-    if not team.is_all_star:
-        return None
     code, name = team.abbreviation or None, team.name or None
     if code is None and name is None:
         return None
-    return AllStarSide(code=code, name=name, city=team.location or None)
+    return AllStarSide(code=code, name=name, city=None)
 
 
 def _map_event(event: _AllStarEvent) -> AllStarScoreboardGame:
@@ -211,4 +207,4 @@ async def fetch_all_star_games(
             SOURCE,
             f"invalid payload: {error.error_count()} errors, first at {location}",
         ) from None
-    return [_map_event(e) for e in scoreboard.events if _is_all_star(e)]
+    return [_map_event(e) for e in scoreboard.events if _is_an_all_star_event(e)]

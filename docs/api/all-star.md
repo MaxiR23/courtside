@@ -22,7 +22,7 @@ Conventions:
 - Labels are keys and parts (round label, placement kind), never prose: the page
   writes the words. The format line is the one text the page shows as sent.
 - An All-Star team is an `Opponent` that is a guest (as in the
-  [games feed](games.md)): it has a code and a name, usually no city, and no
+  [games feed](games.md)): it has a code or a name, no city, and no
   colors. The number of teams and rounds changes every year, so the feed is a list
   of games with a round label and N teams, never a fixed bracket.
 
@@ -136,9 +136,10 @@ Conventions:
   regular season is `2`), `status.type.name`, `status.type.shortDetail` (the status
   text), `status.period`, `status.displayClock`; in the first competition
   `type.abbreviation` (`ALLSTAR`), `notes[].headline`, `venue.fullName` and
-  `competitors[]` with `homeAway`, `score` and `team` (`abbreviation`, `name`,
-  `location`, `isAllStar`). A team without `isAllStar` true is the placeholder of a
-  game with no teams yet.
+  `competitors[]` with `homeAway`, `score` and `team` (`abbreviation`, `name`).
+  A team with a code or a name is an All-Star team, with a null city (its
+  `location` repeats its name and is not read); a team with neither is
+  undecided and its side is null.
 - **`GAME_DETAIL_URL`** (existing): besides the fields the game detail feed reads,
   `format.regulation.periods` and `format.regulation.clock` (seconds),
   `gameInfo.attendance`, `broadcasts[]` with `type.shortName` (`TV` or `Streaming`;
