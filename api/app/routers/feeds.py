@@ -4,13 +4,15 @@
 #
 # SEE: docs/api/games.md, docs/api/game-detail.md, docs/api/player.md, docs/api/team.md,
 # docs/api/standings.md, docs/api/search.md, docs/api/cup.md,
-# docs/api/cup-matchup.md, docs/api/playoffs.md
+# docs/api/cup-matchup.md, docs/api/playoffs.md, docs/api/all-star.md
 
 import asyncio
 import hashlib
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 
+from app.jobs.all_star_feed import FEED_ID as ALL_STAR_ID
+from app.jobs.all_star_feed import KIND as ALL_STAR_KIND
 from app.jobs.cup_feed import FEED_ID as CUP_ID
 from app.jobs.cup_feed import KIND as CUP_KIND
 from app.jobs.cup_matchup_feed import KIND as MATCHUP_KIND
@@ -122,6 +124,13 @@ async def read_playoffs_finals_feed(request: Request) -> Response:
         ) from None
     remaining = max(0.0, budget - (loop.time() - started))
     return await serve_on_demand(feeds, FINALS_KIND, FINALS_ID, request, wait=remaining)
+
+
+@router.get("/feeds/all-star.json")
+async def read_all_star_feed(request: Request) -> Response:
+    return await serve_on_demand(
+        request.app.state.feed_cache, ALL_STAR_KIND, ALL_STAR_ID, request
+    )
 
 
 @router.get("/feeds/cup/matchups/{slot_id}.json")

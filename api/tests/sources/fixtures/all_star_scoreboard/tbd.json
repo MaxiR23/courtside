@@ -1,0 +1,52 @@
+{
+  "events": [
+    {
+      "id": "9010",
+      "date": "2027-02-15T03:00Z",
+      "season": {
+        "type": 2
+      },
+      "status": {
+        "type": {
+          "name": "STATUS_SCHEDULED",
+          "shortDetail": "Scheduled"
+        }
+      },
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "Example Arena"
+          },
+          "notes": [
+            {
+              "headline": "NBA All-Star - Championship"
+            }
+          ],
+          "type": {
+            "abbreviation": "ALLSTAR"
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "team": {
+                "abbreviation": "TBD",
+                "id": "0",
+                "name": "TBD",
+                "isAllStar": false
+              }
+            },
+            {
+              "homeAway": "away",
+              "team": {
+                "abbreviation": "TBD",
+                "id": "0",
+                "name": "TBD",
+                "isAllStar": false
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

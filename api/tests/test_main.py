@@ -13,6 +13,7 @@
 # - Starts the scheduler with the app and stops it on shutdown, with the games and stars jobs each failing on its unconfigured source and the highlights job recording nothing without due games
 # - Starts and stops the stars scheduler with the games scheduler
 # - A stars run that never ends does not stop the games job
+# - Runs the All-Star discovery in the stars scheduler, after the stars job
 # - Does not start the schedulers when jobs are off
 # - Wires the stars and highlights providers and the stars readiness check into the games job
 # - Wires the games job, the feed cache, stars and highlights into the game detail feeds
@@ -39,6 +40,7 @@ import respx
 from fastapi.testclient import TestClient
 
 from app import main
+from app.jobs.all_star_discovery import AllStarDiscovery
 from app.jobs.game_detail_feed import GameDetailFeeds
 from app.jobs.games import GamesJob
 from app.jobs.highlights import HighlightsJob
@@ -165,6 +167,30 @@ def test_a_stars_run_that_never_ends_does_not_stop_the_games_job(
     assert [state.name for state in states] == ["games"]
     reason = states[0].last_failure_reason
     assert reason is not None and reason.startswith("scoreboard:")
+
+
+def test_runs_the_all_star_discovery_in_the_stars_scheduler_after_the_stars_job(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    order: list[str] = []
+
+    class RecordingStars(StarsJob):
+        async def run(self, now: Any) -> None:
+            order.append("stars")
+
+    class RecordingDiscovery(AllStarDiscovery):
+        async def run(self, now: Any) -> None:
+            order.append("all-star")
+
+    monkeypatch.setattr(main, "StarsJob", RecordingStars)
+    monkeypatch.setattr(main, "AllStarDiscovery", RecordingDiscovery)
+    settings = Settings(_env_file=None, data_dir=tmp_path)  # type: ignore[call-arg]
+    app = create_app(settings)
+
+    with respx.mock, TestClient(app):
+        pass
+
+    assert order == ["stars", "all-star"]
 
 
 def test_does_not_start_the_scheduler_when_jobs_are_off(tmp_path: Path) -> None:

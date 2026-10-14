@@ -4,6 +4,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.jobs.all_star_discovery import AllStarDiscovery
+from app.jobs.all_star_feed import AllStarFeeds
 from app.jobs.cup_feed import CupFeeds
 from app.jobs.cup_matchup_feed import CupMatchupFeeds
 from app.jobs.cup_titles import CupTitles
@@ -104,8 +106,19 @@ def create_app(settings: Settings | None = None, *, run_jobs: bool = True) -> Fa
         player_feeds = PlayerFeeds(
             settings, store, client, feed_cache, games_job, stars_job, team_feeds
         )
-        # The stars job runs in its own task so its fetches never delay the live refresh.
-        stars_scheduler = Scheduler([stars_job], store)
+        all_star_discovery = AllStarDiscovery(settings, store, client, stars_job)
+        AllStarFeeds(
+            settings,
+            store,
+            client,
+            feed_cache,
+            games_job,
+            stars_job,
+            all_star_discovery,
+        )
+        # The stars job runs in its own task so its fetches never delay the live refresh,
+        # and so does the All-Star discovery.
+        stars_scheduler = Scheduler([stars_job, all_star_discovery], store)
         scheduler = Scheduler([games_job, highlights_job], store)
         app.state.scheduler = scheduler
         app.state.stars_scheduler = stars_scheduler

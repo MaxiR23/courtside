@@ -53,6 +53,9 @@
 # - Keeps feed build state across store instances over the same data directory
 # - Recording a build twice leaves one row
 # - Migrating a database at the previous version deletes the game-detail job row and keeps the others
+# - Migrates a database at the previous version with its rows to the All-Star editions version
+# - Stores and reads an All-Star edition by season, upserts it and reports none for an unknown season
+# - Migrates a database at the All-Star editions version to the All-Star finals version, stores the first-seen-final time of an All-Star game once and never overwrites it
 #
 # What is covered:
 # - Happy path, edge cases (unknown game, repeat migration, restart, no jobs, no stars, pre-migration database), error case (naive time, failed migration)
@@ -887,14 +890,102 @@ def test_migrating_a_database_at_the_previous_version_deletes_the_game_detail_jo
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     real = state.MIGRATIONS
-    monkeypatch.setattr(state, "MIGRATIONS", real[:-1])
+    monkeypatch.setattr(state, "MIGRATIONS", real[:3])
     store = make_store(tmp_path)
     store.record_success("game-detail", NOON)
     store.record_success("games", NOON)
-    assert user_version(tmp_path) == len(real) - 1
+    assert user_version(tmp_path) == 3
     monkeypatch.setattr(state, "MIGRATIONS", real)
 
     store.migrate()
 
     assert user_version(tmp_path) == len(real)
     assert [job.name for job in store.job_states()] == ["games"]
+
+
+def test_migrating_a_database_at_the_previous_version_adds_the_all_star_editions_and_keeps_the_rows(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    real = state.MIGRATIONS
+    monkeypatch.setattr(state, "MIGRATIONS", real[:4])
+    store = make_store(tmp_path)
+    store.record_success("games", NOON)
+    store.record_build("players", "a", NOON)
+    assert user_version(tmp_path) == 4
+    monkeypatch.setattr(state, "MIGRATIONS", real)
+
+    store.migrate()
+
+    assert user_version(tmp_path) == len(real) == 6
+    assert [job.name for job in store.job_states()] == ["games"]
+    assert store.feed_build("players", "a") is not None
+    assert query(tmp_path, "SELECT COUNT(*) FROM all_star_editions") == [(0,)]
+
+
+def test_stores_and_reads_an_all_star_edition_by_season_and_upserts_it(
+    tmp_path: Path,
+) -> None:
+    store = make_store(tmp_path)
+
+    store.set_all_star_edition(2027, dt.date(2027, 2, 14), ["g1", "g2"])
+    store.set_all_star_edition(2026, dt.date(2026, 2, 15), ["g0"])
+    first = store.all_star_edition(2027)
+    store.set_all_star_edition(2027, dt.date(2027, 2, 15), ["g3"])
+    second = store.all_star_edition(2027)
+
+    assert first is not None
+    assert (first.season, first.game_date, first.game_ids) == (
+        2027,
+        dt.date(2027, 2, 14),
+        ["g1", "g2"],
+    )
+    assert second is not None
+    assert (second.game_date, second.game_ids) == (dt.date(2027, 2, 15), ["g3"])
+    assert query(tmp_path, "SELECT COUNT(*) FROM all_star_editions") == [(2,)]
+
+
+def test_reports_no_all_star_edition_for_an_unknown_season(tmp_path: Path) -> None:
+    store = make_store(tmp_path)
+    store.set_all_star_edition(2027, dt.date(2027, 2, 14), ["g1"])
+
+    assert store.all_star_edition(2026) is None
+
+
+def test_rejects_an_all_star_edition_without_game_ids(tmp_path: Path) -> None:
+    store = make_store(tmp_path)
+
+    with pytest.raises(ValueError):
+        store.set_all_star_edition(2027, dt.date(2027, 2, 14), [])
+
+
+def test_migrating_a_database_at_the_all_star_editions_version_adds_the_all_star_finals(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    real = state.MIGRATIONS
+    monkeypatch.setattr(state, "MIGRATIONS", real[:5])
+    store = make_store(tmp_path)
+    store.set_all_star_edition(2027, dt.date(2027, 2, 14), ["g1"])
+    assert user_version(tmp_path) == 5
+    monkeypatch.setattr(state, "MIGRATIONS", real)
+
+    store.migrate()
+
+    assert user_version(tmp_path) == len(real) == 6
+    assert store.all_star_edition(2027) is not None
+    assert query(tmp_path, "SELECT COUNT(*) FROM all_star_finals") == [(0,)]
+
+
+def test_stores_the_first_seen_final_time_of_an_all_star_game_and_never_overwrites_it(
+    tmp_path: Path,
+) -> None:
+    store = make_store(tmp_path)
+    later = NOON + dt.timedelta(hours=1)
+
+    assert store.all_star_final_time("g1") is None
+    store.record_all_star_final("g1", NOON)
+    store.record_all_star_final("g1", later)
+    store.record_all_star_final("g2", later)
+
+    assert store.all_star_final_time("g1") == NOON
+    assert store.all_star_final_time("g2") == later
+    assert query(tmp_path, "SELECT COUNT(*) FROM all_star_finals") == [(2,)]

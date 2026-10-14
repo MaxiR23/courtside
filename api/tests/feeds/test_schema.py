@@ -18,7 +18,7 @@
 # api/schemas/team.schema.json, api/schemas/standings.schema.json,
 # api/schemas/search.schema.json, api/schemas/cup.schema.json,
 # api/schemas/cup-matchup.schema.json, api/schemas/playoffs.schema.json,
-# api/schemas/playoffs-finals.schema.json
+# api/schemas/playoffs-finals.schema.json, api/schemas/all-star.schema.json
 
 import json
 from pathlib import Path
@@ -27,6 +27,7 @@ from typing import Any
 import pytest
 from pydantic import BaseModel
 
+from app.feeds.all_star import AllStarFeed
 from app.feeds.cup import CupFeed
 from app.feeds.cup_matchup import CupMatchupFeed
 from app.feeds.game_detail import GameDetailFeed
@@ -68,6 +69,7 @@ def test_writes_one_schema_file_per_feed(tmp_path: Path) -> None:
         tmp_path / "cup-matchup.schema.json",
         tmp_path / "playoffs.schema.json",
         tmp_path / "playoffs-finals.schema.json",
+        tmp_path / "all-star.schema.json",
     ]
     assert written[0].read_text(encoding="utf-8") == render_schema(GamesFeed)
     assert written[1].read_text(encoding="utf-8") == render_schema(GameDetailFeed)
@@ -79,6 +81,7 @@ def test_writes_one_schema_file_per_feed(tmp_path: Path) -> None:
     assert written[7].read_text(encoding="utf-8") == render_schema(CupMatchupFeed)
     assert written[8].read_text(encoding="utf-8") == render_schema(PlayoffsFeed)
     assert written[9].read_text(encoding="utf-8") == render_schema(PlayoffsFinalsFeed)
+    assert written[10].read_text(encoding="utf-8") == render_schema(AllStarFeed)
 
 
 def test_schema_forbids_unknown_fields() -> None:
@@ -135,3 +138,9 @@ def test_playoffs_schema_lists_nullable_fields_as_required() -> None:
     schema: dict[str, Any] = json.loads(render_schema(PlayoffsFeed))
 
     assert "champion" in schema["required"]
+
+
+def test_all_star_schema_lists_nullable_fields_as_required() -> None:
+    schema: dict[str, Any] = json.loads(render_schema(AllStarFeed))
+
+    assert "previous" in schema["required"]
