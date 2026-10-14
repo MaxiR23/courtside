@@ -47,7 +47,7 @@ The roster and leaders are fetched once a day per team. A player's individual av
 
 ## G. On demand
 
-Everything else is built on request only: pre-game game detail, team feeds, player feeds, the standings feed, the search feed, the Cup feed and the Cup matchup feeds. A feed nobody requests is never built, stored or fetched. A stored feed expires:
+Everything else is built on request only: pre-game game detail, team feeds, player feeds, the standings feed, the search feed, the Cup feed, the Cup matchup feeds and the playoffs feed. A feed nobody requests is never built, stored or fetched. A stored feed expires:
 
 | Feed | Expires |
 |---|---|
@@ -59,6 +59,7 @@ Everything else is built on request only: pre-game game detail, team feeds, play
 | Search feed | When any game of the league has a final time plus 1 hour after the build, when the stars job fetches a roster after the build, and in any case 7 days after the build |
 | Cup feed | When any Cup game has a final time plus 1 hour after the build, and in any case 7 days after the build; once the championship is final, kept while its season is the current one |
 | Cup matchup feed | When either of its teams has a final game whose final time plus 1 hour is after the build, when the Cup feed it read is rebuilt, and in any case 7 days after the build |
+| Playoffs feed | When any postseason game (a game of the feed, or a final game dated inside its postseason dates) has a final time plus 1 hour after the build; while its state is picture, also when any game of the league has a final time plus 1 hour after the build; at the start of the play-in window when the build precedes it; and in any case 7 days after the build; once the Finals series is complete, kept while its season is the current one |
 
 ## H. Serving
 

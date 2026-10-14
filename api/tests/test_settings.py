@@ -19,6 +19,7 @@
 # - Rejects a malformed template without showing it
 # - Accepts an empty template as unset
 # - Accepts, rejects and leaves unset the depth chart URL template
+# - Accepts, rejects and leaves unset the season type, postseason leaders, season awards and team postseason URL templates
 # - Leaves the player photo URL unset by default
 # - Reads the player photo URL from an environment variable
 # - Leaves the team roster URL unset by default
@@ -107,6 +108,11 @@ def clear_environment_variable(monkeypatch: pytest.MonkeyPatch) -> None:
             "cup_group_url",
             "cup_group_standings_url",
             "depth_chart_url",
+            "season_type_url",
+            "postseason_leaders_url",
+            "team_postseason_record_url",
+            "team_postseason_stats_url",
+            "season_awards_url",
             "highlights_source_url",
             "highlights_source_key",
             "video_embed_url",
@@ -737,3 +743,92 @@ def test_the_depth_chart_url_is_unset_by_default_and_empty_counts_as_unset(
     monkeypatch.setenv("DEPTH_CHART_URL", "")
 
     assert SettingsWithoutEnvFile().depth_chart_url == ""
+
+
+POSTSEASON_URLS = {
+    "POSTSEASON_LEADERS_URL": "postseason_leaders_url",
+    "SEASON_AWARDS_URL": "season_awards_url",
+}
+TEAM_POSTSEASON_URLS = {
+    "TEAM_POSTSEASON_RECORD_URL": "team_postseason_record_url",
+    "TEAM_POSTSEASON_STATS_URL": "team_postseason_stats_url",
+}
+# (variable, field, accepted template, placeholders it must have)
+POSTSEASON_TEMPLATES = (
+    [
+        (variable, field, "https://example.com/{season}/postseason", ("{season}",))
+        for variable, field in POSTSEASON_URLS.items()
+    ]
+    + [
+        (
+            variable,
+            field,
+            "https://example.com/{season}/teams/{team_id}/postseason",
+            ("{season}", "{team_id}"),
+        )
+        for variable, field in TEAM_POSTSEASON_URLS.items()
+    ]
+    + [
+        (
+            "SEASON_TYPE_URL",
+            "season_type_url",
+            "https://example.com/{season}/types/{type}",
+            ("{season}", "{type}"),
+        )
+    ]
+)
+
+
+@pytest.mark.parametrize(("variable", "field", "url", "names"), POSTSEASON_TEMPLATES)
+def test_accepts_a_postseason_url_with_exactly_its_placeholders(
+    monkeypatch: pytest.MonkeyPatch,
+    variable: str,
+    field: str,
+    url: str,
+    names: tuple[str, ...],
+) -> None:
+    monkeypatch.setenv(variable, url)
+
+    assert getattr(SettingsWithoutEnvFile(), field) == url
+
+
+@pytest.mark.parametrize(("variable", "field", "url", "names"), POSTSEASON_TEMPLATES)
+@pytest.mark.parametrize(
+    "wrong",
+    [
+        "https://example.com/hidden/path",
+        "https://example.com/hidden/{other}",
+        "https://example.com/hidden/{season}/{team_id}/{type}/{other}",
+    ],
+)
+def test_rejects_a_postseason_url_without_exactly_its_placeholders(
+    monkeypatch: pytest.MonkeyPatch,
+    variable: str,
+    field: str,
+    url: str,
+    names: tuple[str, ...],
+    wrong: str,
+) -> None:
+    monkeypatch.setenv(variable, wrong)
+
+    with pytest.raises(ValidationError) as raised:
+        SettingsWithoutEnvFile()
+
+    for name in names:
+        assert name in str(raised.value)
+    assert "example.com/hidden" not in str(raised.value)
+
+
+@pytest.mark.parametrize(("variable", "field", "url", "names"), POSTSEASON_TEMPLATES)
+def test_a_postseason_url_is_unset_by_default_and_empty_counts_as_unset(
+    monkeypatch: pytest.MonkeyPatch,
+    variable: str,
+    field: str,
+    url: str,
+    names: tuple[str, ...],
+) -> None:
+    assert getattr(SettingsWithoutEnvFile(), field) is None
+
+    monkeypatch.setenv(variable, "")
+
+    assert getattr(SettingsWithoutEnvFile(), field) == ""

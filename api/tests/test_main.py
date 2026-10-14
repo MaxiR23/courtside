@@ -17,7 +17,7 @@
 # - Wires the stars and highlights providers and the stars readiness check into the games job
 # - Wires the games job, the feed cache, stars and highlights into the game detail feeds
 # - Wires presence and the after-run hook into the games job
-# - Wires the team, player, standings, search, Cup and Cup matchup feed kinds into the feed cache, the player feeds into app.state, and the cleanup into the stars job's after-run hook
+# - Wires the team, player, standings, search, Cup, Cup matchup and playoffs feed kinds into the feed cache, the player feeds into app.state, and the cleanup into the stars job's after-run hook
 # - Closes the HTTP client when the scheduler fails to stop
 #
 # What is covered:
@@ -356,6 +356,7 @@ def test_wires_the_team_and_player_feed_kinds_and_the_cleanup_into_the_stars_job
             "search",
             "cup",
             "cup-matchups",
+            "playoffs",
         } <= set(app.state.feed_cache._kinds)
         assert app.state.player_feeds is built["players"]
         args = built["players_args"]

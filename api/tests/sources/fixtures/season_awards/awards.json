@@ -1,0 +1,366 @@
+{
+ "awards": [
+  {
+   "name": "MVP",
+   "winners": [
+    {
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/1?lang=en"
+     },
+     "team": {
+      "$ref": "https://example.com/v2/teams/1"
+     }
+    }
+   ]
+  },
+  {
+   "name": "Defensive Player of the Year",
+   "winners": [
+    {
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/2?lang=en"
+     },
+     "team": {
+      "$ref": "https://example.com/v2/teams/2"
+     }
+    }
+   ]
+  },
+  {
+   "name": "rookie of the year",
+   "winners": [
+    {
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/3?lang=en"
+     },
+     "team": {
+      "$ref": "https://example.com/v2/teams/3"
+     }
+    }
+   ]
+  },
+  {
+   "name": "Sixth Man of the Year",
+   "winners": [
+    {
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/4?lang=en"
+     },
+     "team": {
+      "$ref": "https://example.com/v2/teams/4"
+     }
+    }
+   ]
+  },
+  {
+   "name": "Most Improved Player",
+   "winners": [
+    {
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/5?lang=en"
+     },
+     "team": {
+      "$ref": "https://example.com/v2/teams/5"
+     }
+    }
+   ]
+  },
+  {
+   "name": "Clutch Player of the Year",
+   "winners": [
+    {
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/6?lang=en"
+     },
+     "team": {
+      "$ref": "https://example.com/v2/teams/6"
+     }
+    }
+   ]
+  },
+  {
+   "name": "Finals MVP",
+   "winners": [
+    {
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/7?lang=en"
+     },
+     "team": {
+      "$ref": "https://example.com/v2/teams/7"
+     }
+    }
+   ]
+  },
+  {
+   "name": "Eastern Conference Finals MVP",
+   "winners": [
+    {
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/8?lang=en"
+     },
+     "team": {
+      "$ref": "https://example.com/v2/teams/8"
+     }
+    }
+   ]
+  },
+  {
+   "name": "Western Conference Finals MVP",
+   "winners": [
+    {
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/9?lang=en"
+     },
+     "team": {
+      "$ref": "https://example.com/v2/teams/9"
+     }
+    }
+   ]
+  },
+  {
+   "name": "All-Star MVP",
+   "winners": [
+    {
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/10?lang=en"
+     },
+     "team": {
+      "$ref": "https://example.com/v2/teams/10"
+     }
+    }
+   ]
+  },
+  {
+   "name": "NBA Cup MVP",
+   "winners": [
+    {
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/11?lang=en"
+     },
+     "team": {
+      "$ref": "https://example.com/v2/teams/11"
+     }
+    }
+   ]
+  },
+  {
+   "name": "NBA Cup All-Tournament Team",
+   "winners": [
+    {
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/21?lang=en"
+     },
+     "team": {
+      "$ref": "https://example.com/v2/teams/1"
+     }
+    },
+    {
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/22?lang=en"
+     },
+     "team": {
+      "$ref": "https://example.com/v2/teams/2"
+     }
+    },
+    {
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/23?lang=en"
+     },
+     "team": {
+      "$ref": "https://example.com/v2/teams/3"
+     }
+    },
+    {
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/24?lang=en"
+     },
+     "team": {
+      "$ref": "https://example.com/v2/teams/4"
+     }
+    }
+   ]
+  },
+  {
+   "name": "All-NBA 1st Team",
+   "winners": [
+    {
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/31?lang=en"
+     },
+     "team": {
+      "$ref": "https://example.com/v2/teams/1"
+     }
+    },
+    {
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/32?lang=en"
+     },
+     "team": {
+      "$ref": "https://example.com/v2/teams/2"
+     }
+    },
+    {
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/33?lang=en"
+     },
+     "team": {
+      "$ref": "https://example.com/v2/teams/3"
+     }
+    },
+    {
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/34?lang=en"
+     },
+     "team": {
+      "$ref": "https://example.com/v2/teams/4"
+     }
+    },
+    {
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/35?lang=en"
+     },
+     "team": {
+      "$ref": "https://example.com/v2/teams/5"
+     }
+    }
+   ]
+  },
+  {
+   "name": "All-NBA 2nd Team",
+   "winners": [
+    {
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/41?lang=en"
+     },
+     "team": {
+      "$ref": "https://example.com/v2/teams/1"
+     }
+    },
+    {
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/42?lang=en"
+     },
+     "team": {
+      "$ref": "https://example.com/v2/teams/2"
+     }
+    },
+    {
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/43?lang=en"
+     },
+     "team": {
+      "$ref": "https://example.com/v2/teams/3"
+     }
+    },
+    {
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/44?lang=en"
+     },
+     "team": {
+      "$ref": "https://example.com/v2/teams/4"
+     }
+    },
+    {
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/45?lang=en"
+     }
+    }
+   ]
+  },
+  {
+   "name": "All-NBA 3rd Team",
+   "winners": [
+    {
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/51?lang=en"
+     },
+     "team": {
+      "$ref": "https://example.com/v2/teams/1"
+     }
+    }
+   ]
+  },
+  {
+   "name": "All-Rookie 1st Team",
+   "winners": [
+    {
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/61?lang=en"
+     },
+     "team": {
+      "$ref": "https://example.com/v2/teams/1"
+     }
+    }
+   ]
+  },
+  {
+   "name": "All-Rookie 2nd Team",
+   "winners": [
+    {
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/62?lang=en"
+     },
+     "team": {
+      "$ref": "https://example.com/v2/teams/1"
+     }
+    }
+   ]
+  },
+  {
+   "name": "All-Defensive 1st Team",
+   "winners": [
+    {
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/63?lang=en"
+     },
+     "team": {
+      "$ref": "https://example.com/v2/teams/1"
+     }
+    }
+   ]
+  },
+  {
+   "name": "All-Defensive 2nd Team",
+   "winners": [
+    {
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/64?lang=en"
+     },
+     "team": {
+      "$ref": "https://example.com/v2/teams/1"
+     }
+    }
+   ]
+  },
+  {
+   "name": "Twyman-Stokes Teammate of the Year",
+   "winners": [
+    {
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/65?lang=en"
+     },
+     "team": {
+      "$ref": "https://example.com/v2/teams/1"
+     }
+    }
+   ]
+  },
+  {
+   "name": "Coach of the Year",
+   "winners": []
+  },
+  {
+   "name": "Best Example Award",
+   "winners": [
+    {
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/99?lang=en"
+     },
+     "team": {
+      "$ref": "https://example.com/v2/teams/1"
+     }
+    }
+   ]
+  }
+ ]
+}

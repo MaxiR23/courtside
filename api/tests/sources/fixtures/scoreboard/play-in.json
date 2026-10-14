@@ -1,0 +1,136 @@
+{
+  "events": [
+    {
+      "id": "5001",
+      "date": "2027-04-14T23:30Z",
+      "season": {
+        "type": 5
+      },
+      "status": {
+        "period": 4,
+        "displayClock": "0.0",
+        "type": {
+          "name": "STATUS_FINAL"
+        }
+      },
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "Example Arena"
+          },
+          "broadcast": "Example Network",
+          "notes": [
+            {
+              "headline": "NBA Play-In - East - 7th Place vs 8th Place"
+            }
+          ],
+          "competitors": [
+            {
+              "homeAway": "home",
+              "team": {
+                "abbreviation": "PHI",
+                "id": "20",
+                "name": "Example PHI",
+                "location": "City PHI"
+              },
+              "score": "104",
+              "linescores": [
+                {
+                  "period": 1,
+                  "value": 26
+                },
+                {
+                  "period": 2,
+                  "value": 26
+                },
+                {
+                  "period": 3,
+                  "value": 26
+                },
+                {
+                  "period": 4,
+                  "value": 26
+                }
+              ]
+            },
+            {
+              "homeAway": "away",
+              "team": {
+                "abbreviation": "ORL",
+                "id": "19",
+                "name": "Example ORL",
+                "location": "City ORL"
+              },
+              "score": "98",
+              "linescores": [
+                {
+                  "period": 1,
+                  "value": 24
+                },
+                {
+                  "period": 2,
+                  "value": 24
+                },
+                {
+                  "period": 3,
+                  "value": 24
+                },
+                {
+                  "period": 4,
+                  "value": 26
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "5002",
+      "date": "2027-04-15T00:00Z",
+      "season": {
+        "type": 5
+      },
+      "status": {
+        "period": 0,
+        "displayClock": "0.0",
+        "type": {
+          "name": "STATUS_SCHEDULED"
+        }
+      },
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "Example Arena"
+          },
+          "broadcast": "Example Network",
+          "notes": [
+            {
+              "headline": "NBA Play-In - West - 9th Place vs 10th Place"
+            }
+          ],
+          "competitors": [
+            {
+              "homeAway": "home",
+              "team": {
+                "abbreviation": "POR",
+                "id": "22",
+                "name": "Example POR",
+                "location": "City POR"
+              }
+            },
+            {
+              "homeAway": "away",
+              "team": {
+                "abbreviation": "SAC",
+                "id": "23",
+                "name": "Example SAC",
+                "location": "City SAC"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
