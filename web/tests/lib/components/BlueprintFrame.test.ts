@@ -7,6 +7,7 @@
 // - Draws four registration marks, hidden from assistive technology
 // - Is a block frame by default and shrink-wraps its content when inline
 // - Has the active border when active, and not by default
+// - Uses the default marks unless asked for the All-Star marks
 // - Turns the border accent on hover only when hoverable
 //
 // What is covered:
@@ -72,6 +73,20 @@ describe('BlueprintFrame', () => {
 	it('has the active border when active', () => {
 		const { container } = renderFrame(false, true);
 		expect(container.querySelector('.blueprint-frame')?.classList.contains('active')).toBe(true);
+	});
+
+	it('draws the default marks unless asked for the All-Star marks', () => {
+		const plain = renderFrame().container.querySelector('.blueprint-frame');
+		expect(plain?.classList.contains('marks-allstar')).toBe(false);
+		const { container } = render(BlueprintFrame, {
+			props: {
+				marks: 'allstar',
+				children: createRawSnippet(() => ({ render: () => '<p>Inside</p>' }))
+			}
+		});
+		expect(container.querySelector('.blueprint-frame')?.classList.contains('marks-allstar')).toBe(
+			true
+		);
 	});
 
 	it('is not hoverable by default and is when asked', () => {

@@ -7,7 +7,7 @@
 	import TrophyDrawing from '#lib/components/TrophyDrawing.svelte';
 	import { parseMs } from '#lib/hero/motion.ts';
 	import { m } from '#lib/paraglide/messages.js';
-	import { CountUp } from '#lib/playoffs/count-up.svelte.ts';
+	import { CountUp } from '#lib/count/count-up.svelte.ts';
 	import type { ChampionHeroView } from '#lib/playoffs/types.ts';
 	import type { RowLayout } from '#lib/schedule/types.ts';
 

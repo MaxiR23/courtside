@@ -14,6 +14,7 @@
 // - CUP_FEED_URL: accepts an absolute URL; empty or missing is undefined; rejects a relative URL
 // - PLAYOFFS_FEED_URL: accepts an absolute URL; empty or missing is undefined; rejects a relative URL
 // - PLAYOFFS_FINALS_FEED_URL: accepts an absolute URL; empty or missing is undefined; rejects a relative URL
+// - ALL_STAR_FEED_URL: accepts an absolute URL; empty or missing is undefined; rejects a relative URL
 //
 // What is covered:
 // - Happy path, edge cases (empty, missing) and error cases, on the schema alone
@@ -37,7 +38,8 @@ const validate = (
 		| 'CUP_FEED_URL'
 		| 'CUP_MATCHUP_FEED_URL'
 		| 'PLAYOFFS_FEED_URL'
-		| 'PLAYOFFS_FINALS_FEED_URL',
+		| 'PLAYOFFS_FINALS_FEED_URL'
+		| 'ALL_STAR_FEED_URL',
 	value: string | undefined
 ): Outcome => (variables[name].schema as unknown as Validator)['~standard'].validate(value);
 
@@ -201,6 +203,24 @@ describe('PLAYOFFS_FINALS_FEED_URL', () => {
 	it('rejects a relative URL', () => {
 		expect(validate('PLAYOFFS_FINALS_FEED_URL', '/playoffs-finals.json')).toEqual({
 			issues: [{ message: 'PLAYOFFS_FINALS_FEED_URL must be an absolute URL' }]
+		});
+	});
+});
+
+describe('ALL_STAR_FEED_URL', () => {
+	it('accepts an absolute URL and returns it', () => {
+		const url = 'https://feeds.example.com/all-star.json';
+		expect(validate('ALL_STAR_FEED_URL', url)).toEqual({ value: url });
+	});
+
+	it('returns undefined for an empty or missing value', () => {
+		expect(validate('ALL_STAR_FEED_URL', '')).toEqual({ value: undefined });
+		expect(validate('ALL_STAR_FEED_URL', undefined)).toEqual({ value: undefined });
+	});
+
+	it('rejects a relative URL', () => {
+		expect(validate('ALL_STAR_FEED_URL', '/all-star.json')).toEqual({
+			issues: [{ message: 'ALL_STAR_FEED_URL must be an absolute URL' }]
 		});
 	});
 });

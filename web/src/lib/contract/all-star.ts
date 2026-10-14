@@ -4,13 +4,13 @@
  */
 
 export type AllStarState = 'before' | 'live' | 'after';
+export type GameResult = 'win' | 'loss';
 export type PlacementKind = 'champion' | 'runner_up' | 'eliminated' | 'so_far' | 'yet_to_play';
 export type GameStatus = 'scheduled' | 'live' | 'final' | 'delayed' | 'postponed' | 'canceled';
 export type Side = 'away' | 'home';
 export type BroadcastKind = 'tv' | 'streaming';
 export type TeamStatKind =
 	'field_goal_pct' | 'three_points_made' | 'rebounds' | 'assists' | 'steals' | 'blocks';
-export type GameResult = 'win' | 'loss';
 
 export interface AllStarFeed {
 	year: number;
@@ -18,6 +18,7 @@ export interface AllStarFeed {
 	edition: AllStarEdition;
 	mvp: AllStarMvp | null;
 	previous: AllStarRecap | null;
+	previousEdition: AllStarPreviousEdition | null;
 }
 export interface AllStarEdition {
 	date: string | null;
@@ -25,6 +26,8 @@ export interface AllStarEdition {
 	formatLine: string | null;
 	teams: AllStarTeam[];
 	games: AllStarGame[];
+	counts: AllStarCounts;
+	defaultGameId: string | null;
 }
 export interface Venue {
 	name: string;
@@ -35,6 +38,7 @@ export interface AllStarTeam {
 	team: Opponent;
 	wins: number;
 	losses: number;
+	results: AllStarTeamResult[];
 	placement: Placement;
 	roster: RosterTile[];
 }
@@ -46,6 +50,15 @@ export interface Opponent {
 	name: string | null;
 	city: string | null;
 	guest: boolean;
+}
+export interface AllStarTeamResult {
+	gameId: string;
+	roundLabel: string | null;
+	result: GameResult;
+	teamScore: number;
+	opponentScore: number;
+	opponent: Opponent;
+	overtime: boolean;
 }
 export interface Placement {
 	kind: PlacementKind;
@@ -78,10 +91,12 @@ export interface AllStarGame {
 	score: Score | null;
 	overtime: boolean;
 	winner: Side | null;
+	leading: Side | null;
 	attendance: number | null;
 	broadcasts: Broadcast[];
 	roundLabel: string | null;
 	championship: boolean;
+	isNext: boolean;
 	away: Opponent | null;
 	home: Opponent | null;
 	toBeDetermined: boolean;
@@ -141,6 +156,7 @@ export interface AllStarBoxPlayer {
 	jersey: string | null;
 	position: string | null;
 	leagueTeam: LeagueTeam | null;
+	topPoints: boolean;
 }
 export interface BoxScoreTotals {
 	points: number;
@@ -197,6 +213,12 @@ export interface Highlight {
 	thumbnailUrl: string;
 	embedUrl: string;
 }
+export interface AllStarCounts {
+	games: number;
+	teams: number;
+	final: number;
+	live: number;
+}
 export interface AllStarMvp {
 	playerId: string;
 	name: string;
@@ -240,4 +262,17 @@ export interface AllStarResult {
 	score: Score;
 	winner: Side;
 	overtime: boolean;
+}
+/**
+ * The previous edition drawn as its after view: the edition and its MVP.
+ */
+export interface AllStarPreviousEdition {
+	date: string | null;
+	venue: Venue | null;
+	formatLine: string | null;
+	teams: AllStarTeam[];
+	games: AllStarGame[];
+	counts: AllStarCounts;
+	defaultGameId: string | null;
+	mvp: AllStarMvp | null;
 }

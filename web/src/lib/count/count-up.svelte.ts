@@ -1,6 +1,6 @@
 import { cubicOut } from 'svelte/easing';
 
-import { countText } from '#lib/playoffs/count.ts';
+import { countText } from '#lib/count/count.ts';
 
 type Options = {
 	durationMs: number; // --playoffs-count-duration

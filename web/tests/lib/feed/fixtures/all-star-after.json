@@ -1,0 +1,2675 @@
+{
+	"year": 2027,
+	"state": "after",
+	"edition": {
+		"date": "2027-02-14",
+		"venue": {
+			"name": "Example Arena",
+			"city": "Exampleton",
+			"photoUrl": null
+		},
+		"formatLine": "1 period · 12 min",
+		"teams": [
+			{
+				"team": {
+					"code": "STR",
+					"name": "Team Stripes",
+					"city": null,
+					"guest": true
+				},
+				"wins": 3,
+				"losses": 0,
+				"results": [
+					{
+						"gameId": "g1",
+						"roundLabel": "Round Robin",
+						"result": "win",
+						"teamScore": 21,
+						"opponentScore": 18,
+						"opponent": {
+							"code": "WAV",
+							"name": "Team Waves",
+							"city": null,
+							"guest": true
+						},
+						"overtime": false
+					},
+					{
+						"gameId": "g2",
+						"roundLabel": "Round Robin",
+						"result": "win",
+						"teamScore": 20,
+						"opponentScore": 17,
+						"opponent": {
+							"code": "PKS",
+							"name": "Team Peaks",
+							"city": null,
+							"guest": true
+						},
+						"overtime": true
+					},
+					{
+						"gameId": "g4",
+						"roundLabel": "Championship",
+						"result": "win",
+						"teamScore": 25,
+						"opponentScore": 23,
+						"opponent": {
+							"code": "WAV",
+							"name": "Team Waves",
+							"city": null,
+							"guest": true
+						},
+						"overtime": false
+					}
+				],
+				"placement": {
+					"kind": "champion",
+					"roundLabel": null
+				},
+				"roster": [
+					{
+						"playerId": "1001",
+						"name": "Ada Example",
+						"photoUrl": "https://example.com/photos/1001.png",
+						"leagueTeam": {
+							"code": "HBR",
+							"colors": {
+								"primary": "#1d428a",
+								"secondary": "#ffc72c"
+							}
+						}
+					},
+					{
+						"playerId": "1002",
+						"name": "Ben Sample",
+						"photoUrl": "https://example.com/photos/1002.png",
+						"leagueTeam": {
+							"code": "RDG",
+							"colors": {
+								"primary": "#552583",
+								"secondary": "#fdb927"
+							}
+						}
+					}
+				]
+			},
+			{
+				"team": {
+					"code": "WAV",
+					"name": "Team Waves",
+					"city": null,
+					"guest": true
+				},
+				"wins": 1,
+				"losses": 2,
+				"results": [
+					{
+						"gameId": "g1",
+						"roundLabel": "Round Robin",
+						"result": "loss",
+						"teamScore": 18,
+						"opponentScore": 21,
+						"opponent": {
+							"code": "STR",
+							"name": "Team Stripes",
+							"city": null,
+							"guest": true
+						},
+						"overtime": false
+					},
+					{
+						"gameId": "g3",
+						"roundLabel": "Round Robin",
+						"result": "win",
+						"teamScore": 22,
+						"opponentScore": 19,
+						"opponent": {
+							"code": "PKS",
+							"name": "Team Peaks",
+							"city": null,
+							"guest": true
+						},
+						"overtime": false
+					},
+					{
+						"gameId": "g4",
+						"roundLabel": "Championship",
+						"result": "loss",
+						"teamScore": 23,
+						"opponentScore": 25,
+						"opponent": {
+							"code": "STR",
+							"name": "Team Stripes",
+							"city": null,
+							"guest": true
+						},
+						"overtime": false
+					}
+				],
+				"placement": {
+					"kind": "runner_up",
+					"roundLabel": null
+				},
+				"roster": [
+					{
+						"playerId": "2001",
+						"name": "Cy Placeholder",
+						"photoUrl": "https://example.com/photos/2001.png",
+						"leagueTeam": {
+							"code": "RDG",
+							"colors": {
+								"primary": "#552583",
+								"secondary": "#fdb927"
+							}
+						}
+					},
+					{
+						"playerId": "2002",
+						"name": "Dee Invented",
+						"photoUrl": null,
+						"leagueTeam": {
+							"code": "HBR",
+							"colors": {
+								"primary": "#1d428a",
+								"secondary": "#ffc72c"
+							}
+						}
+					}
+				]
+			},
+			{
+				"team": {
+					"code": "PKS",
+					"name": "Team Peaks",
+					"city": null,
+					"guest": true
+				},
+				"wins": 0,
+				"losses": 2,
+				"results": [
+					{
+						"gameId": "g2",
+						"roundLabel": "Round Robin",
+						"result": "loss",
+						"teamScore": 17,
+						"opponentScore": 20,
+						"opponent": {
+							"code": "STR",
+							"name": "Team Stripes",
+							"city": null,
+							"guest": true
+						},
+						"overtime": true
+					},
+					{
+						"gameId": "g3",
+						"roundLabel": "Round Robin",
+						"result": "loss",
+						"teamScore": 19,
+						"opponentScore": 22,
+						"opponent": {
+							"code": "WAV",
+							"name": "Team Waves",
+							"city": null,
+							"guest": true
+						},
+						"overtime": false
+					}
+				],
+				"placement": {
+					"kind": "eliminated",
+					"roundLabel": "Round Robin"
+				},
+				"roster": [
+					{
+						"playerId": "3001",
+						"name": "Eli Made-Up",
+						"photoUrl": "https://example.com/photos/3001.png",
+						"leagueTeam": null
+					},
+					{
+						"playerId": "3002",
+						"name": "Fay Sketch",
+						"photoUrl": "https://example.com/photos/3002.png",
+						"leagueTeam": {
+							"code": "HBR",
+							"colors": {
+								"primary": "#1d428a",
+								"secondary": "#ffc72c"
+							}
+						}
+					}
+				]
+			}
+		],
+		"games": [
+			{
+				"id": "g1",
+				"startTime": "2027-02-15T00:20:00Z",
+				"status": "final",
+				"statusText": null,
+				"clock": null,
+				"period": null,
+				"score": {
+					"away": 21,
+					"home": 18
+				},
+				"overtime": false,
+				"winner": "away",
+				"leading": null,
+				"attendance": 18500,
+				"broadcasts": [
+					{
+						"name": "Example Network",
+						"kind": "tv"
+					},
+					{
+						"name": "Example Stream",
+						"kind": "streaming"
+					}
+				],
+				"roundLabel": "Round Robin",
+				"championship": false,
+				"isNext": false,
+				"away": {
+					"code": "STR",
+					"name": "Team Stripes",
+					"city": null,
+					"guest": true
+				},
+				"home": {
+					"code": "WAV",
+					"name": "Team Waves",
+					"city": null,
+					"guest": true
+				},
+				"toBeDetermined": false,
+				"boxScore": {
+					"away": {
+						"players": [
+							{
+								"points": 12,
+								"fieldGoalsMade": 6,
+								"fieldGoalsAttempted": 9,
+								"threePointsMade": 1,
+								"threePointsAttempted": 3,
+								"freeThrowsMade": 0,
+								"freeThrowsAttempted": 0,
+								"offensiveRebounds": 1,
+								"defensiveRebounds": 3,
+								"rebounds": 4,
+								"assists": 3,
+								"turnovers": 1,
+								"steals": 1,
+								"blocks": 0,
+								"fouls": 1,
+								"playerId": "1001",
+								"displayName": "Ada Example",
+								"starter": true,
+								"minutes": "10:00",
+								"plusMinus": 5,
+								"photoUrl": "https://example.com/photos/1001.png",
+								"jersey": "7",
+								"position": "G",
+								"leagueTeam": {
+									"code": "HBR",
+									"colors": {
+										"primary": "#1d428a",
+										"secondary": "#ffc72c"
+									}
+								},
+								"topPoints": true
+							},
+							{
+								"points": 12,
+								"fieldGoalsMade": 6,
+								"fieldGoalsAttempted": 9,
+								"threePointsMade": 1,
+								"threePointsAttempted": 3,
+								"freeThrowsMade": 0,
+								"freeThrowsAttempted": 0,
+								"offensiveRebounds": 1,
+								"defensiveRebounds": 4,
+								"rebounds": 5,
+								"assists": 1,
+								"turnovers": 1,
+								"steals": 1,
+								"blocks": 0,
+								"fouls": 1,
+								"playerId": "1002",
+								"displayName": "Ben Sample",
+								"starter": false,
+								"minutes": "10:00",
+								"plusMinus": -3,
+								"photoUrl": "https://example.com/photos/1002.png",
+								"jersey": "11",
+								"position": "F",
+								"leagueTeam": {
+									"code": "RDG",
+									"colors": {
+										"primary": "#552583",
+										"secondary": "#fdb927"
+									}
+								},
+								"topPoints": true
+							}
+						],
+						"totals": {
+							"points": 24,
+							"fieldGoalsMade": 12,
+							"fieldGoalsAttempted": 18,
+							"threePointsMade": 2,
+							"threePointsAttempted": 6,
+							"freeThrowsMade": 0,
+							"freeThrowsAttempted": 0,
+							"offensiveRebounds": 2,
+							"defensiveRebounds": 6,
+							"rebounds": 9,
+							"assists": 4,
+							"turnovers": 2,
+							"steals": 2,
+							"blocks": 0,
+							"fouls": 2,
+							"fieldGoalPct": 0.5,
+							"threePointPct": 0.333,
+							"freeThrowPct": 0.0
+						}
+					},
+					"home": {
+						"players": [
+							{
+								"points": 15,
+								"fieldGoalsMade": 7,
+								"fieldGoalsAttempted": 10,
+								"threePointsMade": 1,
+								"threePointsAttempted": 3,
+								"freeThrowsMade": 0,
+								"freeThrowsAttempted": 0,
+								"offensiveRebounds": 1,
+								"defensiveRebounds": 1,
+								"rebounds": 2,
+								"assists": 2,
+								"turnovers": 1,
+								"steals": 1,
+								"blocks": 0,
+								"fouls": 1,
+								"playerId": "2001",
+								"displayName": "Cy Placeholder",
+								"starter": true,
+								"minutes": "10:00",
+								"plusMinus": 3,
+								"photoUrl": "https://example.com/photos/2001.png",
+								"jersey": "3",
+								"position": "C",
+								"leagueTeam": {
+									"code": "RDG",
+									"colors": {
+										"primary": "#552583",
+										"secondary": "#fdb927"
+									}
+								},
+								"topPoints": true
+							},
+							{
+								"points": 5,
+								"fieldGoalsMade": 2,
+								"fieldGoalsAttempted": 5,
+								"threePointsMade": 1,
+								"threePointsAttempted": 3,
+								"freeThrowsMade": 0,
+								"freeThrowsAttempted": 0,
+								"offensiveRebounds": 1,
+								"defensiveRebounds": 5,
+								"rebounds": 6,
+								"assists": 3,
+								"turnovers": 1,
+								"steals": 1,
+								"blocks": 0,
+								"fouls": 1,
+								"playerId": "2002",
+								"displayName": "Dee Invented",
+								"starter": false,
+								"minutes": "10:00",
+								"plusMinus": 0,
+								"photoUrl": null,
+								"jersey": "5",
+								"position": "G",
+								"leagueTeam": {
+									"code": "HBR",
+									"colors": {
+										"primary": "#1d428a",
+										"secondary": "#ffc72c"
+									}
+								},
+								"topPoints": false
+							}
+						],
+						"totals": {
+							"points": 20,
+							"fieldGoalsMade": 9,
+							"fieldGoalsAttempted": 15,
+							"threePointsMade": 2,
+							"threePointsAttempted": 6,
+							"freeThrowsMade": 0,
+							"freeThrowsAttempted": 0,
+							"offensiveRebounds": 2,
+							"defensiveRebounds": 6,
+							"rebounds": 8,
+							"assists": 5,
+							"turnovers": 2,
+							"steals": 2,
+							"blocks": 0,
+							"fouls": 2,
+							"fieldGoalPct": 0.5,
+							"threePointPct": 0.333,
+							"freeThrowPct": 0.0
+						}
+					}
+				},
+				"teamStats": [
+					{
+						"stat": "field_goal_pct",
+						"away": 0.5,
+						"home": 0.4,
+						"better": "away"
+					},
+					{
+						"stat": "three_points_made",
+						"away": 2.0,
+						"home": 2.0,
+						"better": null
+					},
+					{
+						"stat": "rebounds",
+						"away": 9.0,
+						"home": 8.0,
+						"better": "away"
+					},
+					{
+						"stat": "assists",
+						"away": 4.0,
+						"home": 5.0,
+						"better": "home"
+					},
+					{
+						"stat": "steals",
+						"away": 2.0,
+						"home": 2.0,
+						"better": null
+					},
+					{
+						"stat": "blocks",
+						"away": 0.0,
+						"home": 1.0,
+						"better": "home"
+					}
+				],
+				"leaders": {
+					"away": {
+						"playerId": "1001",
+						"displayName": "Ada Example",
+						"teamCode": "STR",
+						"photoUrl": "https://example.com/photos/1001.png",
+						"points": 12,
+						"rebounds": 4,
+						"assists": 3
+					},
+					"home": {
+						"playerId": "2001",
+						"displayName": "Cy Placeholder",
+						"teamCode": "WAV",
+						"photoUrl": "https://example.com/photos/2001.png",
+						"points": 15,
+						"rebounds": 2,
+						"assists": 2
+					}
+				},
+				"top5": [
+					{
+						"playerId": "2001",
+						"name": "Cy Placeholder",
+						"photoUrl": "https://example.com/photos/2001.png",
+						"side": "home",
+						"leagueTeam": {
+							"code": "RDG",
+							"colors": {
+								"primary": "#552583",
+								"secondary": "#fdb927"
+							}
+						},
+						"points": 15,
+						"rebounds": 2,
+						"assists": 2
+					},
+					{
+						"playerId": "1001",
+						"name": "Ada Example",
+						"photoUrl": "https://example.com/photos/1001.png",
+						"side": "away",
+						"leagueTeam": {
+							"code": "HBR",
+							"colors": {
+								"primary": "#1d428a",
+								"secondary": "#ffc72c"
+							}
+						},
+						"points": 12,
+						"rebounds": 4,
+						"assists": 3
+					},
+					{
+						"playerId": "1002",
+						"name": "Ben Sample",
+						"photoUrl": "https://example.com/photos/1002.png",
+						"side": "away",
+						"leagueTeam": {
+							"code": "RDG",
+							"colors": {
+								"primary": "#552583",
+								"secondary": "#fdb927"
+							}
+						},
+						"points": 12,
+						"rebounds": 5,
+						"assists": 1
+					},
+					{
+						"playerId": "2002",
+						"name": "Dee Invented",
+						"photoUrl": null,
+						"side": "home",
+						"leagueTeam": {
+							"code": "HBR",
+							"colors": {
+								"primary": "#1d428a",
+								"secondary": "#ffc72c"
+							}
+						},
+						"points": 5,
+						"rebounds": 6,
+						"assists": 3
+					}
+				],
+				"highlights": null
+			},
+			{
+				"id": "g2",
+				"startTime": "2027-02-15T00:50:00Z",
+				"status": "final",
+				"statusText": null,
+				"clock": null,
+				"period": null,
+				"score": {
+					"away": 17,
+					"home": 20
+				},
+				"overtime": true,
+				"winner": "home",
+				"leading": null,
+				"attendance": 18500,
+				"broadcasts": [
+					{
+						"name": "Example Network",
+						"kind": "tv"
+					},
+					{
+						"name": "Example Stream",
+						"kind": "streaming"
+					}
+				],
+				"roundLabel": "Round Robin",
+				"championship": false,
+				"isNext": false,
+				"away": {
+					"code": "PKS",
+					"name": "Team Peaks",
+					"city": null,
+					"guest": true
+				},
+				"home": {
+					"code": "STR",
+					"name": "Team Stripes",
+					"city": null,
+					"guest": true
+				},
+				"toBeDetermined": false,
+				"boxScore": {
+					"away": {
+						"players": [
+							{
+								"points": 9,
+								"fieldGoalsMade": 4,
+								"fieldGoalsAttempted": 7,
+								"threePointsMade": 1,
+								"threePointsAttempted": 3,
+								"freeThrowsMade": 0,
+								"freeThrowsAttempted": 0,
+								"offensiveRebounds": 1,
+								"defensiveRebounds": 3,
+								"rebounds": 4,
+								"assists": 3,
+								"turnovers": 1,
+								"steals": 1,
+								"blocks": 0,
+								"fouls": 1,
+								"playerId": "3001",
+								"displayName": "Eli Made-Up",
+								"starter": true,
+								"minutes": "10:00",
+								"plusMinus": 5,
+								"photoUrl": "https://example.com/photos/3001.png",
+								"jersey": null,
+								"position": null,
+								"leagueTeam": null,
+								"topPoints": true
+							},
+							{
+								"points": 8,
+								"fieldGoalsMade": 4,
+								"fieldGoalsAttempted": 7,
+								"threePointsMade": 1,
+								"threePointsAttempted": 3,
+								"freeThrowsMade": 0,
+								"freeThrowsAttempted": 0,
+								"offensiveRebounds": 1,
+								"defensiveRebounds": 4,
+								"rebounds": 5,
+								"assists": 1,
+								"turnovers": 1,
+								"steals": 1,
+								"blocks": 0,
+								"fouls": 1,
+								"playerId": "3002",
+								"displayName": "Fay Sketch",
+								"starter": false,
+								"minutes": "10:00",
+								"plusMinus": -3,
+								"photoUrl": "https://example.com/photos/3002.png",
+								"jersey": "9",
+								"position": "F",
+								"leagueTeam": {
+									"code": "HBR",
+									"colors": {
+										"primary": "#1d428a",
+										"secondary": "#ffc72c"
+									}
+								},
+								"topPoints": false
+							}
+						],
+						"totals": {
+							"points": 17,
+							"fieldGoalsMade": 8,
+							"fieldGoalsAttempted": 14,
+							"threePointsMade": 2,
+							"threePointsAttempted": 6,
+							"freeThrowsMade": 0,
+							"freeThrowsAttempted": 0,
+							"offensiveRebounds": 2,
+							"defensiveRebounds": 6,
+							"rebounds": 9,
+							"assists": 4,
+							"turnovers": 2,
+							"steals": 2,
+							"blocks": 0,
+							"fouls": 2,
+							"fieldGoalPct": 0.5,
+							"threePointPct": 0.333,
+							"freeThrowPct": 0.0
+						}
+					},
+					"home": {
+						"players": [
+							{
+								"points": 13,
+								"fieldGoalsMade": 6,
+								"fieldGoalsAttempted": 9,
+								"threePointsMade": 1,
+								"threePointsAttempted": 3,
+								"freeThrowsMade": 0,
+								"freeThrowsAttempted": 0,
+								"offensiveRebounds": 1,
+								"defensiveRebounds": 1,
+								"rebounds": 2,
+								"assists": 2,
+								"turnovers": 1,
+								"steals": 1,
+								"blocks": 0,
+								"fouls": 1,
+								"playerId": "1001",
+								"displayName": "Ada Example",
+								"starter": true,
+								"minutes": "10:00",
+								"plusMinus": 3,
+								"photoUrl": "https://example.com/photos/1001.png",
+								"jersey": "7",
+								"position": "G",
+								"leagueTeam": {
+									"code": "HBR",
+									"colors": {
+										"primary": "#1d428a",
+										"secondary": "#ffc72c"
+									}
+								},
+								"topPoints": true
+							},
+							{
+								"points": 7,
+								"fieldGoalsMade": 3,
+								"fieldGoalsAttempted": 6,
+								"threePointsMade": 1,
+								"threePointsAttempted": 3,
+								"freeThrowsMade": 0,
+								"freeThrowsAttempted": 0,
+								"offensiveRebounds": 1,
+								"defensiveRebounds": 5,
+								"rebounds": 6,
+								"assists": 3,
+								"turnovers": 1,
+								"steals": 1,
+								"blocks": 0,
+								"fouls": 1,
+								"playerId": "1002",
+								"displayName": "Ben Sample",
+								"starter": false,
+								"minutes": "10:00",
+								"plusMinus": 0,
+								"photoUrl": "https://example.com/photos/1002.png",
+								"jersey": "11",
+								"position": "F",
+								"leagueTeam": {
+									"code": "RDG",
+									"colors": {
+										"primary": "#552583",
+										"secondary": "#fdb927"
+									}
+								},
+								"topPoints": false
+							}
+						],
+						"totals": {
+							"points": 20,
+							"fieldGoalsMade": 9,
+							"fieldGoalsAttempted": 15,
+							"threePointsMade": 2,
+							"threePointsAttempted": 6,
+							"freeThrowsMade": 0,
+							"freeThrowsAttempted": 0,
+							"offensiveRebounds": 2,
+							"defensiveRebounds": 6,
+							"rebounds": 8,
+							"assists": 5,
+							"turnovers": 2,
+							"steals": 2,
+							"blocks": 0,
+							"fouls": 2,
+							"fieldGoalPct": 0.5,
+							"threePointPct": 0.333,
+							"freeThrowPct": 0.0
+						}
+					}
+				},
+				"teamStats": [
+					{
+						"stat": "field_goal_pct",
+						"away": 0.5,
+						"home": 0.4,
+						"better": "away"
+					},
+					{
+						"stat": "three_points_made",
+						"away": 2.0,
+						"home": 2.0,
+						"better": null
+					},
+					{
+						"stat": "rebounds",
+						"away": 9.0,
+						"home": 8.0,
+						"better": "away"
+					},
+					{
+						"stat": "assists",
+						"away": 4.0,
+						"home": 5.0,
+						"better": "home"
+					},
+					{
+						"stat": "steals",
+						"away": 2.0,
+						"home": 2.0,
+						"better": null
+					},
+					{
+						"stat": "blocks",
+						"away": 0.0,
+						"home": 1.0,
+						"better": "home"
+					}
+				],
+				"leaders": {
+					"away": {
+						"playerId": "3001",
+						"displayName": "Eli Made-Up",
+						"teamCode": "PKS",
+						"photoUrl": "https://example.com/photos/3001.png",
+						"points": 9,
+						"rebounds": 4,
+						"assists": 3
+					},
+					"home": {
+						"playerId": "1001",
+						"displayName": "Ada Example",
+						"teamCode": "STR",
+						"photoUrl": "https://example.com/photos/1001.png",
+						"points": 13,
+						"rebounds": 2,
+						"assists": 2
+					}
+				},
+				"top5": [
+					{
+						"playerId": "1001",
+						"name": "Ada Example",
+						"photoUrl": "https://example.com/photos/1001.png",
+						"side": "home",
+						"leagueTeam": {
+							"code": "HBR",
+							"colors": {
+								"primary": "#1d428a",
+								"secondary": "#ffc72c"
+							}
+						},
+						"points": 13,
+						"rebounds": 2,
+						"assists": 2
+					},
+					{
+						"playerId": "3001",
+						"name": "Eli Made-Up",
+						"photoUrl": "https://example.com/photos/3001.png",
+						"side": "away",
+						"leagueTeam": null,
+						"points": 9,
+						"rebounds": 4,
+						"assists": 3
+					},
+					{
+						"playerId": "3002",
+						"name": "Fay Sketch",
+						"photoUrl": "https://example.com/photos/3002.png",
+						"side": "away",
+						"leagueTeam": {
+							"code": "HBR",
+							"colors": {
+								"primary": "#1d428a",
+								"secondary": "#ffc72c"
+							}
+						},
+						"points": 8,
+						"rebounds": 5,
+						"assists": 1
+					},
+					{
+						"playerId": "1002",
+						"name": "Ben Sample",
+						"photoUrl": "https://example.com/photos/1002.png",
+						"side": "home",
+						"leagueTeam": {
+							"code": "RDG",
+							"colors": {
+								"primary": "#552583",
+								"secondary": "#fdb927"
+							}
+						},
+						"points": 7,
+						"rebounds": 6,
+						"assists": 3
+					}
+				],
+				"highlights": null
+			},
+			{
+				"id": "g3",
+				"startTime": "2027-02-15T01:20:00Z",
+				"status": "final",
+				"statusText": null,
+				"clock": null,
+				"period": null,
+				"score": {
+					"away": 22,
+					"home": 19
+				},
+				"overtime": false,
+				"winner": "away",
+				"leading": null,
+				"attendance": 18500,
+				"broadcasts": [
+					{
+						"name": "Example Network",
+						"kind": "tv"
+					},
+					{
+						"name": "Example Stream",
+						"kind": "streaming"
+					}
+				],
+				"roundLabel": "Round Robin",
+				"championship": false,
+				"isNext": false,
+				"away": {
+					"code": "WAV",
+					"name": "Team Waves",
+					"city": null,
+					"guest": true
+				},
+				"home": {
+					"code": "PKS",
+					"name": "Team Peaks",
+					"city": null,
+					"guest": true
+				},
+				"toBeDetermined": false,
+				"boxScore": {
+					"away": {
+						"players": [
+							{
+								"points": 14,
+								"fieldGoalsMade": 7,
+								"fieldGoalsAttempted": 10,
+								"threePointsMade": 1,
+								"threePointsAttempted": 3,
+								"freeThrowsMade": 0,
+								"freeThrowsAttempted": 0,
+								"offensiveRebounds": 1,
+								"defensiveRebounds": 3,
+								"rebounds": 4,
+								"assists": 3,
+								"turnovers": 1,
+								"steals": 1,
+								"blocks": 0,
+								"fouls": 1,
+								"playerId": "2001",
+								"displayName": "Cy Placeholder",
+								"starter": true,
+								"minutes": "10:00",
+								"plusMinus": 5,
+								"photoUrl": "https://example.com/photos/2001.png",
+								"jersey": "3",
+								"position": "C",
+								"leagueTeam": {
+									"code": "RDG",
+									"colors": {
+										"primary": "#552583",
+										"secondary": "#fdb927"
+									}
+								},
+								"topPoints": true
+							},
+							{
+								"points": 8,
+								"fieldGoalsMade": 4,
+								"fieldGoalsAttempted": 7,
+								"threePointsMade": 1,
+								"threePointsAttempted": 3,
+								"freeThrowsMade": 0,
+								"freeThrowsAttempted": 0,
+								"offensiveRebounds": 1,
+								"defensiveRebounds": 4,
+								"rebounds": 5,
+								"assists": 1,
+								"turnovers": 1,
+								"steals": 1,
+								"blocks": 0,
+								"fouls": 1,
+								"playerId": "2002",
+								"displayName": "Dee Invented",
+								"starter": false,
+								"minutes": "10:00",
+								"plusMinus": -3,
+								"photoUrl": null,
+								"jersey": "5",
+								"position": "G",
+								"leagueTeam": {
+									"code": "HBR",
+									"colors": {
+										"primary": "#1d428a",
+										"secondary": "#ffc72c"
+									}
+								},
+								"topPoints": false
+							}
+						],
+						"totals": {
+							"points": 22,
+							"fieldGoalsMade": 11,
+							"fieldGoalsAttempted": 17,
+							"threePointsMade": 2,
+							"threePointsAttempted": 6,
+							"freeThrowsMade": 0,
+							"freeThrowsAttempted": 0,
+							"offensiveRebounds": 2,
+							"defensiveRebounds": 6,
+							"rebounds": 9,
+							"assists": 4,
+							"turnovers": 2,
+							"steals": 2,
+							"blocks": 0,
+							"fouls": 2,
+							"fieldGoalPct": 0.5,
+							"threePointPct": 0.333,
+							"freeThrowPct": 0.0
+						}
+					},
+					"home": {
+						"players": [
+							{
+								"points": 10,
+								"fieldGoalsMade": 5,
+								"fieldGoalsAttempted": 8,
+								"threePointsMade": 1,
+								"threePointsAttempted": 3,
+								"freeThrowsMade": 0,
+								"freeThrowsAttempted": 0,
+								"offensiveRebounds": 1,
+								"defensiveRebounds": 1,
+								"rebounds": 2,
+								"assists": 2,
+								"turnovers": 1,
+								"steals": 1,
+								"blocks": 0,
+								"fouls": 1,
+								"playerId": "3001",
+								"displayName": "Eli Made-Up",
+								"starter": true,
+								"minutes": "10:00",
+								"plusMinus": 3,
+								"photoUrl": "https://example.com/photos/3001.png",
+								"jersey": null,
+								"position": null,
+								"leagueTeam": null,
+								"topPoints": true
+							},
+							{
+								"points": 9,
+								"fieldGoalsMade": 4,
+								"fieldGoalsAttempted": 7,
+								"threePointsMade": 1,
+								"threePointsAttempted": 3,
+								"freeThrowsMade": 0,
+								"freeThrowsAttempted": 0,
+								"offensiveRebounds": 1,
+								"defensiveRebounds": 5,
+								"rebounds": 6,
+								"assists": 3,
+								"turnovers": 1,
+								"steals": 1,
+								"blocks": 0,
+								"fouls": 1,
+								"playerId": "3002",
+								"displayName": "Fay Sketch",
+								"starter": false,
+								"minutes": "10:00",
+								"plusMinus": 0,
+								"photoUrl": "https://example.com/photos/3002.png",
+								"jersey": "9",
+								"position": "F",
+								"leagueTeam": {
+									"code": "HBR",
+									"colors": {
+										"primary": "#1d428a",
+										"secondary": "#ffc72c"
+									}
+								},
+								"topPoints": false
+							}
+						],
+						"totals": {
+							"points": 19,
+							"fieldGoalsMade": 9,
+							"fieldGoalsAttempted": 15,
+							"threePointsMade": 2,
+							"threePointsAttempted": 6,
+							"freeThrowsMade": 0,
+							"freeThrowsAttempted": 0,
+							"offensiveRebounds": 2,
+							"defensiveRebounds": 6,
+							"rebounds": 8,
+							"assists": 5,
+							"turnovers": 2,
+							"steals": 2,
+							"blocks": 0,
+							"fouls": 2,
+							"fieldGoalPct": 0.5,
+							"threePointPct": 0.333,
+							"freeThrowPct": 0.0
+						}
+					}
+				},
+				"teamStats": [
+					{
+						"stat": "field_goal_pct",
+						"away": 0.5,
+						"home": 0.4,
+						"better": "away"
+					},
+					{
+						"stat": "three_points_made",
+						"away": 2.0,
+						"home": 2.0,
+						"better": null
+					},
+					{
+						"stat": "rebounds",
+						"away": 9.0,
+						"home": 8.0,
+						"better": "away"
+					},
+					{
+						"stat": "assists",
+						"away": 4.0,
+						"home": 5.0,
+						"better": "home"
+					},
+					{
+						"stat": "steals",
+						"away": 2.0,
+						"home": 2.0,
+						"better": null
+					},
+					{
+						"stat": "blocks",
+						"away": 0.0,
+						"home": 1.0,
+						"better": "home"
+					}
+				],
+				"leaders": {
+					"away": {
+						"playerId": "2001",
+						"displayName": "Cy Placeholder",
+						"teamCode": "WAV",
+						"photoUrl": "https://example.com/photos/2001.png",
+						"points": 14,
+						"rebounds": 4,
+						"assists": 3
+					},
+					"home": {
+						"playerId": "3001",
+						"displayName": "Eli Made-Up",
+						"teamCode": "PKS",
+						"photoUrl": "https://example.com/photos/3001.png",
+						"points": 10,
+						"rebounds": 2,
+						"assists": 2
+					}
+				},
+				"top5": [
+					{
+						"playerId": "2001",
+						"name": "Cy Placeholder",
+						"photoUrl": "https://example.com/photos/2001.png",
+						"side": "away",
+						"leagueTeam": {
+							"code": "RDG",
+							"colors": {
+								"primary": "#552583",
+								"secondary": "#fdb927"
+							}
+						},
+						"points": 14,
+						"rebounds": 4,
+						"assists": 3
+					},
+					{
+						"playerId": "3001",
+						"name": "Eli Made-Up",
+						"photoUrl": "https://example.com/photos/3001.png",
+						"side": "home",
+						"leagueTeam": null,
+						"points": 10,
+						"rebounds": 2,
+						"assists": 2
+					},
+					{
+						"playerId": "3002",
+						"name": "Fay Sketch",
+						"photoUrl": "https://example.com/photos/3002.png",
+						"side": "home",
+						"leagueTeam": {
+							"code": "HBR",
+							"colors": {
+								"primary": "#1d428a",
+								"secondary": "#ffc72c"
+							}
+						},
+						"points": 9,
+						"rebounds": 6,
+						"assists": 3
+					},
+					{
+						"playerId": "2002",
+						"name": "Dee Invented",
+						"photoUrl": null,
+						"side": "away",
+						"leagueTeam": {
+							"code": "HBR",
+							"colors": {
+								"primary": "#1d428a",
+								"secondary": "#ffc72c"
+							}
+						},
+						"points": 8,
+						"rebounds": 5,
+						"assists": 1
+					}
+				],
+				"highlights": null
+			},
+			{
+				"id": "g4",
+				"startTime": "2027-02-15T01:50:00Z",
+				"status": "final",
+				"statusText": null,
+				"clock": null,
+				"period": null,
+				"score": {
+					"away": 25,
+					"home": 23
+				},
+				"overtime": false,
+				"winner": "away",
+				"leading": null,
+				"attendance": 18500,
+				"broadcasts": [
+					{
+						"name": "Example Network",
+						"kind": "tv"
+					},
+					{
+						"name": "Example Stream",
+						"kind": "streaming"
+					}
+				],
+				"roundLabel": "Championship",
+				"championship": true,
+				"isNext": false,
+				"away": {
+					"code": "STR",
+					"name": "Team Stripes",
+					"city": null,
+					"guest": true
+				},
+				"home": {
+					"code": "WAV",
+					"name": "Team Waves",
+					"city": null,
+					"guest": true
+				},
+				"toBeDetermined": false,
+				"boxScore": {
+					"away": {
+						"players": [
+							{
+								"points": 16,
+								"fieldGoalsMade": 8,
+								"fieldGoalsAttempted": 11,
+								"threePointsMade": 1,
+								"threePointsAttempted": 3,
+								"freeThrowsMade": 0,
+								"freeThrowsAttempted": 0,
+								"offensiveRebounds": 1,
+								"defensiveRebounds": 3,
+								"rebounds": 4,
+								"assists": 3,
+								"turnovers": 1,
+								"steals": 1,
+								"blocks": 0,
+								"fouls": 1,
+								"playerId": "1001",
+								"displayName": "Ada Example",
+								"starter": true,
+								"minutes": "10:00",
+								"plusMinus": 5,
+								"photoUrl": "https://example.com/photos/1001.png",
+								"jersey": "7",
+								"position": "G",
+								"leagueTeam": {
+									"code": "HBR",
+									"colors": {
+										"primary": "#1d428a",
+										"secondary": "#ffc72c"
+									}
+								},
+								"topPoints": true
+							},
+							{
+								"points": 9,
+								"fieldGoalsMade": 4,
+								"fieldGoalsAttempted": 7,
+								"threePointsMade": 1,
+								"threePointsAttempted": 3,
+								"freeThrowsMade": 0,
+								"freeThrowsAttempted": 0,
+								"offensiveRebounds": 1,
+								"defensiveRebounds": 4,
+								"rebounds": 5,
+								"assists": 1,
+								"turnovers": 1,
+								"steals": 1,
+								"blocks": 0,
+								"fouls": 1,
+								"playerId": "1002",
+								"displayName": "Ben Sample",
+								"starter": false,
+								"minutes": "10:00",
+								"plusMinus": -3,
+								"photoUrl": "https://example.com/photos/1002.png",
+								"jersey": "11",
+								"position": "F",
+								"leagueTeam": {
+									"code": "RDG",
+									"colors": {
+										"primary": "#552583",
+										"secondary": "#fdb927"
+									}
+								},
+								"topPoints": false
+							}
+						],
+						"totals": {
+							"points": 25,
+							"fieldGoalsMade": 12,
+							"fieldGoalsAttempted": 18,
+							"threePointsMade": 2,
+							"threePointsAttempted": 6,
+							"freeThrowsMade": 0,
+							"freeThrowsAttempted": 0,
+							"offensiveRebounds": 2,
+							"defensiveRebounds": 6,
+							"rebounds": 9,
+							"assists": 4,
+							"turnovers": 2,
+							"steals": 2,
+							"blocks": 0,
+							"fouls": 2,
+							"fieldGoalPct": 0.5,
+							"threePointPct": 0.333,
+							"freeThrowPct": 0.0
+						}
+					},
+					"home": {
+						"players": [
+							{
+								"points": 14,
+								"fieldGoalsMade": 7,
+								"fieldGoalsAttempted": 10,
+								"threePointsMade": 1,
+								"threePointsAttempted": 3,
+								"freeThrowsMade": 0,
+								"freeThrowsAttempted": 0,
+								"offensiveRebounds": 1,
+								"defensiveRebounds": 1,
+								"rebounds": 2,
+								"assists": 2,
+								"turnovers": 1,
+								"steals": 1,
+								"blocks": 0,
+								"fouls": 1,
+								"playerId": "2001",
+								"displayName": "Cy Placeholder",
+								"starter": true,
+								"minutes": "10:00",
+								"plusMinus": 3,
+								"photoUrl": "https://example.com/photos/2001.png",
+								"jersey": "3",
+								"position": "C",
+								"leagueTeam": {
+									"code": "RDG",
+									"colors": {
+										"primary": "#552583",
+										"secondary": "#fdb927"
+									}
+								},
+								"topPoints": true
+							},
+							{
+								"points": 9,
+								"fieldGoalsMade": 4,
+								"fieldGoalsAttempted": 7,
+								"threePointsMade": 1,
+								"threePointsAttempted": 3,
+								"freeThrowsMade": 0,
+								"freeThrowsAttempted": 0,
+								"offensiveRebounds": 1,
+								"defensiveRebounds": 5,
+								"rebounds": 6,
+								"assists": 3,
+								"turnovers": 1,
+								"steals": 1,
+								"blocks": 0,
+								"fouls": 1,
+								"playerId": "2002",
+								"displayName": "Dee Invented",
+								"starter": false,
+								"minutes": "10:00",
+								"plusMinus": 0,
+								"photoUrl": null,
+								"jersey": "5",
+								"position": "G",
+								"leagueTeam": {
+									"code": "HBR",
+									"colors": {
+										"primary": "#1d428a",
+										"secondary": "#ffc72c"
+									}
+								},
+								"topPoints": false
+							}
+						],
+						"totals": {
+							"points": 23,
+							"fieldGoalsMade": 11,
+							"fieldGoalsAttempted": 17,
+							"threePointsMade": 2,
+							"threePointsAttempted": 6,
+							"freeThrowsMade": 0,
+							"freeThrowsAttempted": 0,
+							"offensiveRebounds": 2,
+							"defensiveRebounds": 6,
+							"rebounds": 8,
+							"assists": 5,
+							"turnovers": 2,
+							"steals": 2,
+							"blocks": 0,
+							"fouls": 2,
+							"fieldGoalPct": 0.5,
+							"threePointPct": 0.333,
+							"freeThrowPct": 0.0
+						}
+					}
+				},
+				"teamStats": [
+					{
+						"stat": "field_goal_pct",
+						"away": 0.5,
+						"home": 0.4,
+						"better": "away"
+					},
+					{
+						"stat": "three_points_made",
+						"away": 2.0,
+						"home": 2.0,
+						"better": null
+					},
+					{
+						"stat": "rebounds",
+						"away": 9.0,
+						"home": 8.0,
+						"better": "away"
+					},
+					{
+						"stat": "assists",
+						"away": 4.0,
+						"home": 5.0,
+						"better": "home"
+					},
+					{
+						"stat": "steals",
+						"away": 2.0,
+						"home": 2.0,
+						"better": null
+					},
+					{
+						"stat": "blocks",
+						"away": 0.0,
+						"home": 1.0,
+						"better": "home"
+					}
+				],
+				"leaders": {
+					"away": {
+						"playerId": "1001",
+						"displayName": "Ada Example",
+						"teamCode": "STR",
+						"photoUrl": "https://example.com/photos/1001.png",
+						"points": 16,
+						"rebounds": 4,
+						"assists": 3
+					},
+					"home": {
+						"playerId": "2001",
+						"displayName": "Cy Placeholder",
+						"teamCode": "WAV",
+						"photoUrl": "https://example.com/photos/2001.png",
+						"points": 14,
+						"rebounds": 2,
+						"assists": 2
+					}
+				},
+				"top5": [
+					{
+						"playerId": "1001",
+						"name": "Ada Example",
+						"photoUrl": "https://example.com/photos/1001.png",
+						"side": "away",
+						"leagueTeam": {
+							"code": "HBR",
+							"colors": {
+								"primary": "#1d428a",
+								"secondary": "#ffc72c"
+							}
+						},
+						"points": 16,
+						"rebounds": 4,
+						"assists": 3
+					},
+					{
+						"playerId": "2001",
+						"name": "Cy Placeholder",
+						"photoUrl": "https://example.com/photos/2001.png",
+						"side": "home",
+						"leagueTeam": {
+							"code": "RDG",
+							"colors": {
+								"primary": "#552583",
+								"secondary": "#fdb927"
+							}
+						},
+						"points": 14,
+						"rebounds": 2,
+						"assists": 2
+					},
+					{
+						"playerId": "2002",
+						"name": "Dee Invented",
+						"photoUrl": null,
+						"side": "home",
+						"leagueTeam": {
+							"code": "HBR",
+							"colors": {
+								"primary": "#1d428a",
+								"secondary": "#ffc72c"
+							}
+						},
+						"points": 9,
+						"rebounds": 6,
+						"assists": 3
+					},
+					{
+						"playerId": "1002",
+						"name": "Ben Sample",
+						"photoUrl": "https://example.com/photos/1002.png",
+						"side": "away",
+						"leagueTeam": {
+							"code": "RDG",
+							"colors": {
+								"primary": "#552583",
+								"secondary": "#fdb927"
+							}
+						},
+						"points": 9,
+						"rebounds": 5,
+						"assists": 1
+					}
+				],
+				"highlights": [
+					{
+						"title": "Example highlights",
+						"channel": "Example channel",
+						"thumbnailUrl": "https://example.com/thumb.jpg",
+						"embedUrl": "https://example.com/embed/g"
+					}
+				]
+			}
+		],
+		"counts": {
+			"games": 4,
+			"teams": 3,
+			"final": 4,
+			"live": 0
+		},
+		"defaultGameId": "g4"
+	},
+	"mvp": {
+		"playerId": "1001",
+		"name": "Ada Example",
+		"photoUrl": "https://example.com/photos/1001.png",
+		"jersey": "7",
+		"leagueTeam": {
+			"code": "HBR",
+			"colors": {
+				"primary": "#1d428a",
+				"secondary": "#ffc72c"
+			}
+		},
+		"lines": [
+			{
+				"gameId": "g1",
+				"roundLabel": "Round Robin",
+				"result": "win",
+				"teamScore": 21,
+				"opponentScore": 18,
+				"opponent": {
+					"code": "WAV",
+					"name": "Team Waves",
+					"city": null,
+					"guest": true
+				},
+				"points": 12,
+				"rebounds": 4,
+				"assists": 3
+			},
+			{
+				"gameId": "g2",
+				"roundLabel": "Round Robin",
+				"result": "win",
+				"teamScore": 20,
+				"opponentScore": 17,
+				"opponent": {
+					"code": "PKS",
+					"name": "Team Peaks",
+					"city": null,
+					"guest": true
+				},
+				"points": 13,
+				"rebounds": 2,
+				"assists": 2
+			},
+			{
+				"gameId": "g4",
+				"roundLabel": "Championship",
+				"result": "win",
+				"teamScore": 25,
+				"opponentScore": 23,
+				"opponent": {
+					"code": "WAV",
+					"name": "Team Waves",
+					"city": null,
+					"guest": true
+				},
+				"points": 16,
+				"rebounds": 4,
+				"assists": 3
+			}
+		],
+		"totals": {
+			"games": 3,
+			"points": 41,
+			"rebounds": 10,
+			"assists": 8
+		}
+	},
+	"previous": {
+		"year": 2026,
+		"date": "2026-02-15",
+		"venue": {
+			"name": "Example Arena",
+			"city": "Exampleton",
+			"photoUrl": null
+		},
+		"championship": {
+			"gameId": "p2",
+			"away": {
+				"code": "PKS",
+				"name": "Team Peaks",
+				"city": null,
+				"guest": true
+			},
+			"home": {
+				"code": "DNS",
+				"name": "Team Dunes",
+				"city": null,
+				"guest": true
+			},
+			"score": {
+				"away": 20,
+				"home": 22
+			},
+			"winner": "home",
+			"overtime": true
+		},
+		"mvp": {
+			"playerId": "4001",
+			"name": "Gus Imagined",
+			"photoUrl": "https://example.com/photos/4001.png",
+			"jersey": "21",
+			"leagueTeam": {
+				"code": "RDG",
+				"colors": {
+					"primary": "#552583",
+					"secondary": "#fdb927"
+				}
+			},
+			"lines": [
+				{
+					"gameId": "p1",
+					"roundLabel": "Round Robin",
+					"result": "win",
+					"teamScore": 21,
+					"opponentScore": 18,
+					"opponent": {
+						"code": "PKS",
+						"name": "Team Peaks",
+						"city": null,
+						"guest": true
+					},
+					"points": 11,
+					"rebounds": 4,
+					"assists": 3
+				},
+				{
+					"gameId": "p2",
+					"roundLabel": "Championship",
+					"result": "win",
+					"teamScore": 22,
+					"opponentScore": 20,
+					"opponent": {
+						"code": "PKS",
+						"name": "Team Peaks",
+						"city": null,
+						"guest": true
+					},
+					"points": 13,
+					"rebounds": 2,
+					"assists": 2
+				}
+			],
+			"totals": {
+				"games": 2,
+				"points": 24,
+				"rebounds": 6,
+				"assists": 5
+			}
+		}
+	},
+	"previousEdition": {
+		"date": "2026-02-15",
+		"venue": {
+			"name": "Example Arena",
+			"city": "Exampleton",
+			"photoUrl": null
+		},
+		"formatLine": "1 period · 12 min",
+		"teams": [
+			{
+				"team": {
+					"code": "DNS",
+					"name": "Team Dunes",
+					"city": null,
+					"guest": true
+				},
+				"wins": 2,
+				"losses": 0,
+				"results": [
+					{
+						"gameId": "p1",
+						"roundLabel": "Round Robin",
+						"result": "win",
+						"teamScore": 21,
+						"opponentScore": 18,
+						"opponent": {
+							"code": "PKS",
+							"name": "Team Peaks",
+							"city": null,
+							"guest": true
+						},
+						"overtime": false
+					},
+					{
+						"gameId": "p2",
+						"roundLabel": "Championship",
+						"result": "win",
+						"teamScore": 22,
+						"opponentScore": 20,
+						"opponent": {
+							"code": "PKS",
+							"name": "Team Peaks",
+							"city": null,
+							"guest": true
+						},
+						"overtime": true
+					}
+				],
+				"placement": {
+					"kind": "champion",
+					"roundLabel": null
+				},
+				"roster": [
+					{
+						"playerId": "4001",
+						"name": "Gus Imagined",
+						"photoUrl": "https://example.com/photos/4001.png",
+						"leagueTeam": {
+							"code": "RDG",
+							"colors": {
+								"primary": "#552583",
+								"secondary": "#fdb927"
+							}
+						}
+					},
+					{
+						"playerId": "4002",
+						"name": "Hal Fictional",
+						"photoUrl": "https://example.com/photos/4002.png",
+						"leagueTeam": {
+							"code": "HBR",
+							"colors": {
+								"primary": "#1d428a",
+								"secondary": "#ffc72c"
+							}
+						}
+					}
+				]
+			},
+			{
+				"team": {
+					"code": "PKS",
+					"name": "Team Peaks",
+					"city": null,
+					"guest": true
+				},
+				"wins": 0,
+				"losses": 2,
+				"results": [
+					{
+						"gameId": "p1",
+						"roundLabel": "Round Robin",
+						"result": "loss",
+						"teamScore": 18,
+						"opponentScore": 21,
+						"opponent": {
+							"code": "DNS",
+							"name": "Team Dunes",
+							"city": null,
+							"guest": true
+						},
+						"overtime": false
+					},
+					{
+						"gameId": "p2",
+						"roundLabel": "Championship",
+						"result": "loss",
+						"teamScore": 20,
+						"opponentScore": 22,
+						"opponent": {
+							"code": "DNS",
+							"name": "Team Dunes",
+							"city": null,
+							"guest": true
+						},
+						"overtime": true
+					}
+				],
+				"placement": {
+					"kind": "runner_up",
+					"roundLabel": null
+				},
+				"roster": [
+					{
+						"playerId": "3001",
+						"name": "Eli Made-Up",
+						"photoUrl": "https://example.com/photos/3001.png",
+						"leagueTeam": null
+					},
+					{
+						"playerId": "3002",
+						"name": "Fay Sketch",
+						"photoUrl": "https://example.com/photos/3002.png",
+						"leagueTeam": {
+							"code": "HBR",
+							"colors": {
+								"primary": "#1d428a",
+								"secondary": "#ffc72c"
+							}
+						}
+					}
+				]
+			}
+		],
+		"games": [
+			{
+				"id": "p1",
+				"startTime": "2027-02-15T00:20:00Z",
+				"status": "final",
+				"statusText": null,
+				"clock": null,
+				"period": null,
+				"score": {
+					"away": 21,
+					"home": 18
+				},
+				"overtime": false,
+				"winner": "away",
+				"leading": null,
+				"attendance": 17000,
+				"broadcasts": [
+					{
+						"name": "Example Network",
+						"kind": "tv"
+					},
+					{
+						"name": "Example Stream",
+						"kind": "streaming"
+					}
+				],
+				"roundLabel": "Round Robin",
+				"championship": false,
+				"isNext": false,
+				"away": {
+					"code": "DNS",
+					"name": "Team Dunes",
+					"city": null,
+					"guest": true
+				},
+				"home": {
+					"code": "PKS",
+					"name": "Team Peaks",
+					"city": null,
+					"guest": true
+				},
+				"toBeDetermined": false,
+				"boxScore": {
+					"away": {
+						"players": [
+							{
+								"points": 11,
+								"fieldGoalsMade": 5,
+								"fieldGoalsAttempted": 8,
+								"threePointsMade": 1,
+								"threePointsAttempted": 3,
+								"freeThrowsMade": 0,
+								"freeThrowsAttempted": 0,
+								"offensiveRebounds": 1,
+								"defensiveRebounds": 3,
+								"rebounds": 4,
+								"assists": 3,
+								"turnovers": 1,
+								"steals": 1,
+								"blocks": 0,
+								"fouls": 1,
+								"playerId": "4001",
+								"displayName": "Gus Imagined",
+								"starter": true,
+								"minutes": "10:00",
+								"plusMinus": 5,
+								"photoUrl": "https://example.com/photos/4001.png",
+								"jersey": "21",
+								"position": "C",
+								"leagueTeam": {
+									"code": "RDG",
+									"colors": {
+										"primary": "#552583",
+										"secondary": "#fdb927"
+									}
+								},
+								"topPoints": true
+							},
+							{
+								"points": 6,
+								"fieldGoalsMade": 3,
+								"fieldGoalsAttempted": 6,
+								"threePointsMade": 1,
+								"threePointsAttempted": 3,
+								"freeThrowsMade": 0,
+								"freeThrowsAttempted": 0,
+								"offensiveRebounds": 1,
+								"defensiveRebounds": 4,
+								"rebounds": 5,
+								"assists": 1,
+								"turnovers": 1,
+								"steals": 1,
+								"blocks": 0,
+								"fouls": 1,
+								"playerId": "4002",
+								"displayName": "Hal Fictional",
+								"starter": false,
+								"minutes": "10:00",
+								"plusMinus": -3,
+								"photoUrl": "https://example.com/photos/4002.png",
+								"jersey": "1",
+								"position": "G",
+								"leagueTeam": {
+									"code": "HBR",
+									"colors": {
+										"primary": "#1d428a",
+										"secondary": "#ffc72c"
+									}
+								},
+								"topPoints": false
+							}
+						],
+						"totals": {
+							"points": 17,
+							"fieldGoalsMade": 8,
+							"fieldGoalsAttempted": 14,
+							"threePointsMade": 2,
+							"threePointsAttempted": 6,
+							"freeThrowsMade": 0,
+							"freeThrowsAttempted": 0,
+							"offensiveRebounds": 2,
+							"defensiveRebounds": 6,
+							"rebounds": 9,
+							"assists": 4,
+							"turnovers": 2,
+							"steals": 2,
+							"blocks": 0,
+							"fouls": 2,
+							"fieldGoalPct": 0.5,
+							"threePointPct": 0.333,
+							"freeThrowPct": 0.0
+						}
+					},
+					"home": {
+						"players": [
+							{
+								"points": 9,
+								"fieldGoalsMade": 4,
+								"fieldGoalsAttempted": 7,
+								"threePointsMade": 1,
+								"threePointsAttempted": 3,
+								"freeThrowsMade": 0,
+								"freeThrowsAttempted": 0,
+								"offensiveRebounds": 1,
+								"defensiveRebounds": 1,
+								"rebounds": 2,
+								"assists": 2,
+								"turnovers": 1,
+								"steals": 1,
+								"blocks": 0,
+								"fouls": 1,
+								"playerId": "3001",
+								"displayName": "Eli Made-Up",
+								"starter": true,
+								"minutes": "10:00",
+								"plusMinus": 3,
+								"photoUrl": "https://example.com/photos/3001.png",
+								"jersey": null,
+								"position": null,
+								"leagueTeam": null,
+								"topPoints": true
+							},
+							{
+								"points": 4,
+								"fieldGoalsMade": 2,
+								"fieldGoalsAttempted": 5,
+								"threePointsMade": 1,
+								"threePointsAttempted": 3,
+								"freeThrowsMade": 0,
+								"freeThrowsAttempted": 0,
+								"offensiveRebounds": 1,
+								"defensiveRebounds": 5,
+								"rebounds": 6,
+								"assists": 3,
+								"turnovers": 1,
+								"steals": 1,
+								"blocks": 0,
+								"fouls": 1,
+								"playerId": "3002",
+								"displayName": "Fay Sketch",
+								"starter": false,
+								"minutes": "10:00",
+								"plusMinus": 0,
+								"photoUrl": "https://example.com/photos/3002.png",
+								"jersey": "9",
+								"position": "F",
+								"leagueTeam": {
+									"code": "HBR",
+									"colors": {
+										"primary": "#1d428a",
+										"secondary": "#ffc72c"
+									}
+								},
+								"topPoints": false
+							}
+						],
+						"totals": {
+							"points": 13,
+							"fieldGoalsMade": 6,
+							"fieldGoalsAttempted": 12,
+							"threePointsMade": 2,
+							"threePointsAttempted": 6,
+							"freeThrowsMade": 0,
+							"freeThrowsAttempted": 0,
+							"offensiveRebounds": 2,
+							"defensiveRebounds": 6,
+							"rebounds": 8,
+							"assists": 5,
+							"turnovers": 2,
+							"steals": 2,
+							"blocks": 0,
+							"fouls": 2,
+							"fieldGoalPct": 0.5,
+							"threePointPct": 0.333,
+							"freeThrowPct": 0.0
+						}
+					}
+				},
+				"teamStats": [
+					{
+						"stat": "field_goal_pct",
+						"away": 0.5,
+						"home": 0.4,
+						"better": "away"
+					},
+					{
+						"stat": "three_points_made",
+						"away": 2.0,
+						"home": 2.0,
+						"better": null
+					},
+					{
+						"stat": "rebounds",
+						"away": 9.0,
+						"home": 8.0,
+						"better": "away"
+					},
+					{
+						"stat": "assists",
+						"away": 4.0,
+						"home": 5.0,
+						"better": "home"
+					},
+					{
+						"stat": "steals",
+						"away": 2.0,
+						"home": 2.0,
+						"better": null
+					},
+					{
+						"stat": "blocks",
+						"away": 0.0,
+						"home": 1.0,
+						"better": "home"
+					}
+				],
+				"leaders": {
+					"away": {
+						"playerId": "4001",
+						"displayName": "Gus Imagined",
+						"teamCode": "DNS",
+						"photoUrl": "https://example.com/photos/4001.png",
+						"points": 11,
+						"rebounds": 4,
+						"assists": 3
+					},
+					"home": {
+						"playerId": "3001",
+						"displayName": "Eli Made-Up",
+						"teamCode": "PKS",
+						"photoUrl": "https://example.com/photos/3001.png",
+						"points": 9,
+						"rebounds": 2,
+						"assists": 2
+					}
+				},
+				"top5": [
+					{
+						"playerId": "4001",
+						"name": "Gus Imagined",
+						"photoUrl": "https://example.com/photos/4001.png",
+						"side": "away",
+						"leagueTeam": {
+							"code": "RDG",
+							"colors": {
+								"primary": "#552583",
+								"secondary": "#fdb927"
+							}
+						},
+						"points": 11,
+						"rebounds": 4,
+						"assists": 3
+					},
+					{
+						"playerId": "3001",
+						"name": "Eli Made-Up",
+						"photoUrl": "https://example.com/photos/3001.png",
+						"side": "home",
+						"leagueTeam": null,
+						"points": 9,
+						"rebounds": 2,
+						"assists": 2
+					},
+					{
+						"playerId": "4002",
+						"name": "Hal Fictional",
+						"photoUrl": "https://example.com/photos/4002.png",
+						"side": "away",
+						"leagueTeam": {
+							"code": "HBR",
+							"colors": {
+								"primary": "#1d428a",
+								"secondary": "#ffc72c"
+							}
+						},
+						"points": 6,
+						"rebounds": 5,
+						"assists": 1
+					},
+					{
+						"playerId": "3002",
+						"name": "Fay Sketch",
+						"photoUrl": "https://example.com/photos/3002.png",
+						"side": "home",
+						"leagueTeam": {
+							"code": "HBR",
+							"colors": {
+								"primary": "#1d428a",
+								"secondary": "#ffc72c"
+							}
+						},
+						"points": 4,
+						"rebounds": 6,
+						"assists": 3
+					}
+				],
+				"highlights": null
+			},
+			{
+				"id": "p2",
+				"startTime": "2027-02-15T00:50:00Z",
+				"status": "final",
+				"statusText": null,
+				"clock": null,
+				"period": null,
+				"score": {
+					"away": 20,
+					"home": 22
+				},
+				"overtime": true,
+				"winner": "home",
+				"leading": null,
+				"attendance": 17250,
+				"broadcasts": [
+					{
+						"name": "Example Network",
+						"kind": "tv"
+					},
+					{
+						"name": "Example Stream",
+						"kind": "streaming"
+					}
+				],
+				"roundLabel": "Championship",
+				"championship": true,
+				"isNext": false,
+				"away": {
+					"code": "PKS",
+					"name": "Team Peaks",
+					"city": null,
+					"guest": true
+				},
+				"home": {
+					"code": "DNS",
+					"name": "Team Dunes",
+					"city": null,
+					"guest": true
+				},
+				"toBeDetermined": false,
+				"boxScore": {
+					"away": {
+						"players": [
+							{
+								"points": 10,
+								"fieldGoalsMade": 5,
+								"fieldGoalsAttempted": 8,
+								"threePointsMade": 1,
+								"threePointsAttempted": 3,
+								"freeThrowsMade": 0,
+								"freeThrowsAttempted": 0,
+								"offensiveRebounds": 1,
+								"defensiveRebounds": 3,
+								"rebounds": 4,
+								"assists": 3,
+								"turnovers": 1,
+								"steals": 1,
+								"blocks": 0,
+								"fouls": 1,
+								"playerId": "3001",
+								"displayName": "Eli Made-Up",
+								"starter": true,
+								"minutes": "10:00",
+								"plusMinus": 5,
+								"photoUrl": "https://example.com/photos/3001.png",
+								"jersey": null,
+								"position": null,
+								"leagueTeam": null,
+								"topPoints": true
+							},
+							{
+								"points": 8,
+								"fieldGoalsMade": 4,
+								"fieldGoalsAttempted": 7,
+								"threePointsMade": 1,
+								"threePointsAttempted": 3,
+								"freeThrowsMade": 0,
+								"freeThrowsAttempted": 0,
+								"offensiveRebounds": 1,
+								"defensiveRebounds": 4,
+								"rebounds": 5,
+								"assists": 1,
+								"turnovers": 1,
+								"steals": 1,
+								"blocks": 0,
+								"fouls": 1,
+								"playerId": "3002",
+								"displayName": "Fay Sketch",
+								"starter": false,
+								"minutes": "10:00",
+								"plusMinus": -3,
+								"photoUrl": "https://example.com/photos/3002.png",
+								"jersey": "9",
+								"position": "F",
+								"leagueTeam": {
+									"code": "HBR",
+									"colors": {
+										"primary": "#1d428a",
+										"secondary": "#ffc72c"
+									}
+								},
+								"topPoints": false
+							}
+						],
+						"totals": {
+							"points": 18,
+							"fieldGoalsMade": 9,
+							"fieldGoalsAttempted": 15,
+							"threePointsMade": 2,
+							"threePointsAttempted": 6,
+							"freeThrowsMade": 0,
+							"freeThrowsAttempted": 0,
+							"offensiveRebounds": 2,
+							"defensiveRebounds": 6,
+							"rebounds": 9,
+							"assists": 4,
+							"turnovers": 2,
+							"steals": 2,
+							"blocks": 0,
+							"fouls": 2,
+							"fieldGoalPct": 0.5,
+							"threePointPct": 0.333,
+							"freeThrowPct": 0.0
+						}
+					},
+					"home": {
+						"players": [
+							{
+								"points": 13,
+								"fieldGoalsMade": 6,
+								"fieldGoalsAttempted": 9,
+								"threePointsMade": 1,
+								"threePointsAttempted": 3,
+								"freeThrowsMade": 0,
+								"freeThrowsAttempted": 0,
+								"offensiveRebounds": 1,
+								"defensiveRebounds": 1,
+								"rebounds": 2,
+								"assists": 2,
+								"turnovers": 1,
+								"steals": 1,
+								"blocks": 0,
+								"fouls": 1,
+								"playerId": "4001",
+								"displayName": "Gus Imagined",
+								"starter": true,
+								"minutes": "10:00",
+								"plusMinus": 3,
+								"photoUrl": "https://example.com/photos/4001.png",
+								"jersey": "21",
+								"position": "C",
+								"leagueTeam": {
+									"code": "RDG",
+									"colors": {
+										"primary": "#552583",
+										"secondary": "#fdb927"
+									}
+								},
+								"topPoints": true
+							},
+							{
+								"points": 7,
+								"fieldGoalsMade": 3,
+								"fieldGoalsAttempted": 6,
+								"threePointsMade": 1,
+								"threePointsAttempted": 3,
+								"freeThrowsMade": 0,
+								"freeThrowsAttempted": 0,
+								"offensiveRebounds": 1,
+								"defensiveRebounds": 5,
+								"rebounds": 6,
+								"assists": 3,
+								"turnovers": 1,
+								"steals": 1,
+								"blocks": 0,
+								"fouls": 1,
+								"playerId": "4002",
+								"displayName": "Hal Fictional",
+								"starter": false,
+								"minutes": "10:00",
+								"plusMinus": 0,
+								"photoUrl": "https://example.com/photos/4002.png",
+								"jersey": "1",
+								"position": "G",
+								"leagueTeam": {
+									"code": "HBR",
+									"colors": {
+										"primary": "#1d428a",
+										"secondary": "#ffc72c"
+									}
+								},
+								"topPoints": false
+							}
+						],
+						"totals": {
+							"points": 20,
+							"fieldGoalsMade": 9,
+							"fieldGoalsAttempted": 15,
+							"threePointsMade": 2,
+							"threePointsAttempted": 6,
+							"freeThrowsMade": 0,
+							"freeThrowsAttempted": 0,
+							"offensiveRebounds": 2,
+							"defensiveRebounds": 6,
+							"rebounds": 8,
+							"assists": 5,
+							"turnovers": 2,
+							"steals": 2,
+							"blocks": 0,
+							"fouls": 2,
+							"fieldGoalPct": 0.5,
+							"threePointPct": 0.333,
+							"freeThrowPct": 0.0
+						}
+					}
+				},
+				"teamStats": [
+					{
+						"stat": "field_goal_pct",
+						"away": 0.5,
+						"home": 0.4,
+						"better": "away"
+					},
+					{
+						"stat": "three_points_made",
+						"away": 2.0,
+						"home": 2.0,
+						"better": null
+					},
+					{
+						"stat": "rebounds",
+						"away": 9.0,
+						"home": 8.0,
+						"better": "away"
+					},
+					{
+						"stat": "assists",
+						"away": 4.0,
+						"home": 5.0,
+						"better": "home"
+					},
+					{
+						"stat": "steals",
+						"away": 2.0,
+						"home": 2.0,
+						"better": null
+					},
+					{
+						"stat": "blocks",
+						"away": 0.0,
+						"home": 1.0,
+						"better": "home"
+					}
+				],
+				"leaders": {
+					"away": {
+						"playerId": "3001",
+						"displayName": "Eli Made-Up",
+						"teamCode": "PKS",
+						"photoUrl": "https://example.com/photos/3001.png",
+						"points": 10,
+						"rebounds": 4,
+						"assists": 3
+					},
+					"home": {
+						"playerId": "4001",
+						"displayName": "Gus Imagined",
+						"teamCode": "DNS",
+						"photoUrl": "https://example.com/photos/4001.png",
+						"points": 13,
+						"rebounds": 2,
+						"assists": 2
+					}
+				},
+				"top5": [
+					{
+						"playerId": "4001",
+						"name": "Gus Imagined",
+						"photoUrl": "https://example.com/photos/4001.png",
+						"side": "home",
+						"leagueTeam": {
+							"code": "RDG",
+							"colors": {
+								"primary": "#552583",
+								"secondary": "#fdb927"
+							}
+						},
+						"points": 13,
+						"rebounds": 2,
+						"assists": 2
+					},
+					{
+						"playerId": "3001",
+						"name": "Eli Made-Up",
+						"photoUrl": "https://example.com/photos/3001.png",
+						"side": "away",
+						"leagueTeam": null,
+						"points": 10,
+						"rebounds": 4,
+						"assists": 3
+					},
+					{
+						"playerId": "3002",
+						"name": "Fay Sketch",
+						"photoUrl": "https://example.com/photos/3002.png",
+						"side": "away",
+						"leagueTeam": {
+							"code": "HBR",
+							"colors": {
+								"primary": "#1d428a",
+								"secondary": "#ffc72c"
+							}
+						},
+						"points": 8,
+						"rebounds": 5,
+						"assists": 1
+					},
+					{
+						"playerId": "4002",
+						"name": "Hal Fictional",
+						"photoUrl": "https://example.com/photos/4002.png",
+						"side": "home",
+						"leagueTeam": {
+							"code": "HBR",
+							"colors": {
+								"primary": "#1d428a",
+								"secondary": "#ffc72c"
+							}
+						},
+						"points": 7,
+						"rebounds": 6,
+						"assists": 3
+					}
+				],
+				"highlights": [
+					{
+						"title": "Example highlights",
+						"channel": "Example channel",
+						"thumbnailUrl": "https://example.com/thumb.jpg",
+						"embedUrl": "https://example.com/embed/g"
+					}
+				]
+			}
+		],
+		"counts": {
+			"games": 2,
+			"teams": 2,
+			"final": 2,
+			"live": 0
+		},
+		"defaultGameId": "p2",
+		"mvp": {
+			"playerId": "4001",
+			"name": "Gus Imagined",
+			"photoUrl": "https://example.com/photos/4001.png",
+			"jersey": "21",
+			"leagueTeam": {
+				"code": "RDG",
+				"colors": {
+					"primary": "#552583",
+					"secondary": "#fdb927"
+				}
+			},
+			"lines": [
+				{
+					"gameId": "p1",
+					"roundLabel": "Round Robin",
+					"result": "win",
+					"teamScore": 21,
+					"opponentScore": 18,
+					"opponent": {
+						"code": "PKS",
+						"name": "Team Peaks",
+						"city": null,
+						"guest": true
+					},
+					"points": 11,
+					"rebounds": 4,
+					"assists": 3
+				},
+				{
+					"gameId": "p2",
+					"roundLabel": "Championship",
+					"result": "win",
+					"teamScore": 22,
+					"opponentScore": 20,
+					"opponent": {
+						"code": "PKS",
+						"name": "Team Peaks",
+						"city": null,
+						"guest": true
+					},
+					"points": 13,
+					"rebounds": 2,
+					"assists": 2
+				}
+			],
+			"totals": {
+				"games": 2,
+				"points": 24,
+				"rebounds": 6,
+				"assists": 5
+			}
+		}
+	}
+}

@@ -13,6 +13,7 @@
 // - Uses the cup-draw box in the Cup draw list and the cup-champion box in the Cup header
 // - Uses the playoffs-champion box in the playoffs hero
 // - Uses the cup-node box in a bracket node
+// - Uses the allstar-league box for a player's league team
 // - Links the code to the href when one is given, and renders a span without one
 //
 // What is covered:
@@ -106,5 +107,14 @@ describe('TeamMonogram', () => {
 	it('renders the playoffs-champion size', () => {
 		render(TeamMonogram, { props: { code: 'QXD', size: 'playoffs-champion' } });
 		expect(screen.getByText('QXD').classList.contains('playoffs-champion')).toBe(true);
+	});
+
+	it('renders the allstar-league size, linked to the team page', () => {
+		const { container } = render(TeamMonogram, {
+			props: { code: 'HBR', size: 'allstar-league', href: '/team/hbr' as ResolvedPathname }
+		});
+		const link = container.querySelector('a');
+		expect(link?.classList.contains('allstar-league')).toBe(true);
+		expect(link?.getAttribute('href')).toBe('/team/hbr');
 	});
 });
