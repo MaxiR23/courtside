@@ -72,6 +72,7 @@
 		align-content: start;
 		justify-items: start;
 		gap: var(--day-strip-gap);
+		box-sizing: border-box;
 		height: 100%;
 		padding: var(--panel-section-gap);
 	}
@@ -104,6 +105,7 @@
 		grid-template-columns: var(--allstar-sigla-size) 1fr;
 		gap: var(--panel-section-gap);
 		align-items: center;
+		box-sizing: border-box;
 		height: 100%;
 		padding: var(--panel-section-gap);
 		color: inherit;
