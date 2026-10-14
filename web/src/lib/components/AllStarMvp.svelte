@@ -237,6 +237,7 @@
 		align-content: space-between;
 		justify-items: start;
 		gap: var(--panel-section-gap);
+		box-sizing: border-box;
 		height: 100%;
 		padding: var(--panel-section-gap);
 	}
