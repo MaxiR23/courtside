@@ -49,7 +49,6 @@
 
 import asyncio
 import datetime as dt
-import re
 from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -57,13 +56,12 @@ from typing import Any
 from pydantic import ValidationError
 
 from app.feeds.game_detail import Conference
-from app.feeds.games import GameStatus
+from app.feeds.games import GameStatus, PlayInGameKind
 from app.feeds.opponent import Side
 from app.feeds.playoffs import (
     STAGES,
     AwardCode,
     LeaderCategory,
-    PlayInGameKind,
     PlayoffsFeed,
     PlayoffsState,
     PlayoffStage,
@@ -105,6 +103,12 @@ from app.sources import (
 from app.sources.division_standings import DivisionStandings
 from app.sources.http import SourceClient, SourceError
 from app.sources.postseason_leaders import PostseasonLeaders
+from app.sources.postseason_mark import (
+    GAME_NUMBER_NOTE,
+    PLAY_IN_KINDS,
+    PLAY_IN_NOTE,
+    ROUNDS,
+)
 from app.sources.postseason_scoreboard import PostseasonGame
 from app.sources.season_awards import SeasonAwards
 from app.sources.season_types import PLAY_IN, POSTSEASON, SeasonWindow
@@ -118,7 +122,6 @@ from app.storage.state import StateStore
 KIND = "playoffs"
 FEED_ID = "league"
 CODES = sorted(set(TEAM_CODES.values()))
-ROUNDS = {"RD16": 1, "QTR": 2, "SEMI": 3, "FINAL": 4}
 SERIES_OF_ROUND = {1: 8, 2: 4, 3: 2, 4: 1}
 SERIES_OF_SEEDS = {
     frozenset({1, 8}): 1,
@@ -129,19 +132,8 @@ SERIES_OF_SEEDS = {
 # The seeds of the top and the bottom side of the round 1 series 1 to 4.
 SEEDS_OF_SERIES = {1: (1, 8), 2: (4, 5), 3: (3, 6), 4: (2, 7)}
 CONFERENCES = (Conference.EAST, Conference.WEST)
-PLAY_IN_KINDS = {
-    "7th Place vs 8th Place": PlayInGameKind.SEVEN_EIGHT,
-    "9th Place vs 10th Place": PlayInGameKind.NINE_TEN,
-    "8th Seed Game": PlayInGameKind.EIGHTH_SEED,
-}
 MAX_LEADERS = 5
 OVERTIME_PERIOD = 5
-
-_PLAY_IN = re.compile(
-    r"^NBA Play-In - (East|West) - "
-    r"(7th Place vs 8th Place|9th Place vs 10th Place|8th Seed Game)$"
-)
-_GAME_NUMBER = re.compile(r" - Game ([1-7])$")
 
 FetchSeasonType = Callable[[SourceClient, int, int, Settings], Awaitable[SeasonWindow]]
 FetchPostseasonGames = Callable[
@@ -382,7 +374,7 @@ class _Builder:
     def _place_play_in(self) -> dict[tuple[Conference, PlayInGameKind], PostseasonGame]:
         placed: dict[tuple[Conference, PlayInGameKind], PostseasonGame] = {}
         for game in self.play_in_games:
-            match = _PLAY_IN.match(game.note or "")
+            match = PLAY_IN_NOTE.match(game.note or "")
             if match is None:
                 raise PlayoffsBuildError(
                     f"play-in game {game.game.id} has an unknown note"
@@ -446,7 +438,7 @@ class _Builder:
         }
 
     def series_game(self, game: PostseasonGame) -> dict[str, Any]:
-        match = _GAME_NUMBER.search(game.note or "")
+        match = GAME_NUMBER_NOTE.search(game.note or "")
         if match is None:
             raise PlayoffsBuildError(
                 f"game {game.game.id} has a note without a game number"
@@ -838,7 +830,7 @@ class _Builder:
         if not played:
             return None, None
         last = played[-1]
-        match = _GAME_NUMBER.search(last.note or "")
+        match = GAME_NUMBER_NOTE.search(last.note or "")
         if match is None:
             raise PlayoffsBuildError(
                 f"game {last.game.id} has a note without a game number"

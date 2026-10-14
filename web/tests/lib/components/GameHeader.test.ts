@@ -15,6 +15,7 @@
 // - A guest team: the monogram and name are plain text and no record is shown, on desktop and mobile
 // - A guest without a code shows the initials of its name in the monogram and its name as plain text, on desktop and mobile
 // - The Cup tag first in the status line, before the live badge, the date and the venue; none for a game without the mark
+// - The postseason mark first in the status line, before the live badge and the status text, for a scheduled and a live game; none for a regular game; the Cup tag unchanged
 //
 // What is covered:
 // - Each state the header shows
@@ -53,6 +54,7 @@ const scheduled: GameHeaderView = {
 	layout: 'pre-game',
 	status: { state: 'scheduled', text: 'Wednesday, October 7 · Chase Center' },
 	cupTag: null,
+	postseasonMark: null,
 	away,
 	home,
 	center: {
@@ -69,6 +71,7 @@ const live: GameHeaderView = {
 	layout: 'live',
 	status: { state: 'live', text: 'Q3 · 4:12 · Chase Center' },
 	cupTag: null,
+	postseasonMark: null,
 	away,
 	home,
 	center: { kind: 'score', away: 63, home: 62, loser: null },
@@ -79,6 +82,7 @@ const final: GameHeaderView = {
 	layout: 'final',
 	status: { state: 'final', text: 'Final · Wednesday, October 7 · Chase Center' },
 	cupTag: null,
+	postseasonMark: null,
 	away,
 	home,
 	center: { kind: 'score', away: 110, home: 98, loser: 'home' },
@@ -386,5 +390,42 @@ describe('GameHeader with the Cup mark', () => {
 	it('shows no Cup tag on a game that is not a Cup game', () => {
 		const { container } = show(scheduled);
 		expect(container.querySelector('.cup-tag')).toBeNull();
+	});
+});
+
+describe('GameHeader with the postseason mark', () => {
+	const mark = {
+		tag: 'NBA Finals',
+		finals: true,
+		context: 'Game 5 · NYK leads 3-1',
+		stakes: 'Can clinch'
+	};
+
+	it('shows the mark first in the status line of a scheduled game, before the status text', () => {
+		const { container } = show({ ...scheduled, postseasonMark: mark });
+		const line = container.querySelector('.status-line');
+		expect(line?.firstElementChild?.classList.contains('postseason-mark')).toBe(true);
+		expect(line?.querySelector('.tournament-tag')?.textContent).toBe('NBA Finals');
+		expect(line?.querySelector('.stakes-flag')?.textContent).toBe('Can clinch');
+		expect(line?.lastElementChild?.textContent).toBe('Wednesday, October 7 · Chase Center');
+	});
+
+	it('shows the mark before the live badge on a live game', () => {
+		const { container } = show({ ...live, postseasonMark: mark });
+		const line = container.querySelector('.status-line');
+		expect(line?.firstElementChild?.classList.contains('postseason-mark')).toBe(true);
+		expect(line?.children.length).toBe(3);
+	});
+
+	it('shows no mark on a regular game', () => {
+		const { container } = show(scheduled);
+		expect(container.querySelector('.postseason-mark')).toBeNull();
+	});
+
+	it('keeps the Cup tag unchanged first for a Cup game', () => {
+		const { container } = show({ ...scheduled, cupTag: 'NBA Cup · Group play' });
+		expect(
+			container.querySelector('.status-line')?.firstElementChild?.classList.contains('cup-tag')
+		).toBe(true);
 	});
 });

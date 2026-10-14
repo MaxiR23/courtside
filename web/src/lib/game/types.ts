@@ -1,5 +1,6 @@
 // Props of the game detail page. Components get pre-formatted strings and never a contract type.
 import type { Side } from '#lib/schedule/stats.ts';
+import type { PostseasonMarkView } from '#lib/playoffs/types.ts';
 import type { GameHighlights, PanelPlayer, TeamStatLine } from '#lib/schedule/types.ts';
 import type { TeamMarkTeam } from '#lib/team/mark.ts';
 
@@ -45,6 +46,7 @@ export type GameHeaderView = {
 	layout: GameLayout;
 	status: StatusLine;
 	cupTag: string | null; // "NBA Cup · Group play"; null: not a Cup game
+	postseasonMark: PostseasonMarkView | null; // null: neither a play-in nor a playoff game
 	away: HeaderTeam;
 	home: HeaderTeam;
 	center: ScoreboardCenter;

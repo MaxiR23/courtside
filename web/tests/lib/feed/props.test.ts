@@ -16,6 +16,7 @@
 // - Null network, no video platform name, no videos, a one-word display name
 // - A feed without seven days, and a live game without its fields or a final game without its winner or stats availability, cannot be shown
 // - The Cup mark of a game: the tag for each stage, none for a null mark
+// - The postseason mark of a game: filled from the feed's mark, null for a null mark
 //
 // What is covered:
 // - Pure logic on a recorded feed (tests/lib/feed/fixtures/games.json); no clock, no network
@@ -350,6 +351,23 @@ describe('toHomeView with the Cup mark', () => {
 
 	it('maps a game with a null Cup mark to no tag', () => {
 		expect(todayGame(view(), 'g-sched').cupTag).toBeNull();
+	});
+});
+
+describe('toHomeView with the postseason mark', () => {
+	it('fills the mark of a marked game from the feed', () => {
+		expect(todayGame(view(), 'g-sched').postseasonMark).toEqual({
+			tag: 'Playoffs',
+			finals: false,
+			context: 'West finals · Game 7',
+			stakes: 'Game 7'
+		});
+	});
+
+	it('maps a game with a null mark to no mark', () => {
+		const source = feed();
+		source.days[3].games[0].postseason = null;
+		expect(todayGame(view(source), 'g-sched').postseasonMark).toBeNull();
 	});
 });
 

@@ -13,6 +13,10 @@
 # - ScoreboardGame uses the same field types as the contract Game
 # - Marks a game with the Cup round of its note, and leaves any other note or none unmarked
 # - Reuses a fetched day for thirty seconds
+# - Marks the play-in and playoff games of a day with their postseason mark and each stake of a recorded day, and leaves a regular game unmarked
+# - A malformed series object, an unknown series competitor id, a missing note and an unknown competition type each give a null mark, log the event id only and still build the day
+# - The lenient mark shapes read the field names the strict postseason shapes read
+# - The playoffs adapter path reads the same mark as the core path and logs no unreadable mark warning
 #
 # What is covered:
 # - A valid response mapped, an invalid payload rejected, upstream failures handled
@@ -30,6 +34,7 @@
 import copy
 import datetime as dt
 import json
+import logging
 from collections.abc import Iterator
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -38,9 +43,11 @@ from typing import Any
 import httpx
 import pytest
 import respx
+from pydantic import BaseModel
 
-from app.feeds.games import CupRound, Game, GameStatus
+from app.feeds.games import CupRound, Game, GameStatus, PostseasonStage, Stakes
 from app.settings import Settings
+from app.sources import postseason_scoreboard, scoreboard
 from app.sources.http import SourceClient, SourceError, create_client
 from app.sources.scoreboard import ScoreboardGame, fetch_games
 from app.storage.state import StateStore
@@ -577,3 +584,187 @@ async def test_leaves_a_game_without_notes_unmarked(
     mock.get(URL).respond(json=load("day.json"))
 
     assert all(game.cup is None for game in await fetch(settings))
+
+
+@pytest.mark.anyio
+async def test_marks_the_play_in_and_playoff_games_of_a_day_with_their_postseason_mark(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    mock.get(URL).respond(json=load("play-in.json"))
+    play_in = await fetch(settings)
+    mock.get(URL).respond(json=load("playoffs.json"))
+    playoffs = await fetch(settings)
+
+    first, second = play_in[0].postseason, play_in[1].postseason
+    assert first is not None and second is not None
+    assert (first.conference, first.play_in, first.stakes) == (
+        "east",
+        "seven_eight",
+        None,
+    )
+    assert (second.conference, second.play_in, second.stakes) == (
+        "west",
+        "nine_ten",
+        Stakes.ELIMINATION,
+    )
+    round_one, semifinal, finals = (g.postseason for g in playoffs)
+    assert round_one is not None and semifinal is not None and finals is not None
+    assert (round_one.round, round_one.conference, round_one.number) == (1, "east", 1)
+    assert round_one.summary == "CLE leads series 1-0" and round_one.stakes is None
+    assert semifinal.summary is None and semifinal.stakes is None
+    assert (finals.stage, finals.number, finals.stakes) == (
+        PostseasonStage.FINALS,
+        6,
+        Stakes.CLINCHED,
+    )
+
+
+@pytest.mark.anyio
+async def test_marks_each_stake_of_a_recorded_postseason_day(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    mock.get(URL).respond(json=load("postseason-marks.json"))
+
+    games = {g.id: g for g in await fetch(settings)}
+
+    game_7, live_game, final_game, play_in = (
+        games[i].postseason for i in ("7001", "7002", "7003", "7004")
+    )
+    assert game_7 is not None and game_7.stakes is Stakes.GAME_7
+    assert (game_7.round, game_7.conference, game_7.number) == (3, "west", 7)
+    assert live_game is not None and live_game.stakes is Stakes.CAN_CLINCH
+    assert final_game is not None and final_game.stakes is Stakes.CAN_CLINCH
+    assert final_game.number == 5
+    assert play_in is not None and play_in.stakes is Stakes.ELIMINATION
+
+
+@pytest.mark.anyio
+async def test_leaves_a_postseason_game_with_an_unreadable_mark_unmarked_and_keeps_the_day(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("postseason-marks.json")
+    mock.get(URL).respond(json=payload)
+
+    games = await fetch(settings)
+
+    assert [g.id for g in games] == [e["id"] for e in payload["events"]]
+    unmarked = {g.id for g in games if g.postseason is None}
+    assert unmarked == {"7005", "7006", "7007", "7008", "7009", games[-1].id}
+
+
+@pytest.mark.anyio
+async def test_leaves_a_regular_game_unmarked(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    mock.get(URL).respond(json=load("day.json"))
+
+    assert all(game.postseason is None for game in await fetch(settings))
+
+
+async def unreadable_mark(
+    mock: respx.MockRouter,
+    settings: Settings,
+    caplog: pytest.LogCaptureFixture,
+    event_id: str,
+) -> None:
+    payload = load("postseason-marks.json")
+    mock.get(URL).respond(json=payload)
+
+    with caplog.at_level(logging.WARNING, logger="app.sources.scoreboard"):
+        games = await fetch(settings)
+
+    assert [g.id for g in games] == [e["id"] for e in payload["events"]]
+    game = next(g for g in games if g.id == event_id)
+    assert game.postseason is None
+    assert (game.venue, game.status) == ("Example Arena", GameStatus.SCHEDULED)
+    warned = [r for r in caplog.records if event_id in r.getMessage()]
+    assert len(warned) == 1
+    assert warned[0].getMessage() == (
+        f"scoreboard: event {event_id} has an unreadable postseason mark"
+    )
+
+
+@pytest.mark.anyio
+async def test_a_malformed_series_object_gives_a_null_mark_and_the_day_still_builds(
+    mock: respx.MockRouter, settings: Settings, caplog: pytest.LogCaptureFixture
+) -> None:
+    await unreadable_mark(mock, settings, caplog, "7007")
+
+
+@pytest.mark.anyio
+async def test_an_unknown_series_competitor_id_gives_a_null_mark_and_the_day_still_builds(
+    mock: respx.MockRouter, settings: Settings, caplog: pytest.LogCaptureFixture
+) -> None:
+    await unreadable_mark(mock, settings, caplog, "7008")
+
+
+@pytest.mark.anyio
+async def test_a_postseason_game_without_a_note_gives_a_null_mark_and_the_day_still_builds(
+    mock: respx.MockRouter, settings: Settings, caplog: pytest.LogCaptureFixture
+) -> None:
+    await unreadable_mark(mock, settings, caplog, "7009")
+
+
+@pytest.mark.anyio
+async def test_an_unknown_competition_type_gives_a_null_mark_and_the_day_still_builds(
+    mock: respx.MockRouter, settings: Settings, caplog: pytest.LogCaptureFixture
+) -> None:
+    await unreadable_mark(mock, settings, caplog, "7005")
+
+
+@pytest.mark.anyio
+async def test_a_regular_season_game_logs_nothing_for_the_mark(
+    mock: respx.MockRouter, settings: Settings, caplog: pytest.LogCaptureFixture
+) -> None:
+    mock.get(URL).respond(json=load("day.json"))
+
+    with caplog.at_level(logging.WARNING, logger="app.sources.scoreboard"):
+        await fetch(settings)
+
+    assert caplog.records == []
+
+
+def test_the_lenient_mark_reads_every_field_the_strict_postseason_shapes_read() -> None:
+    pairs: list[tuple[type[BaseModel], type[BaseModel]]] = [
+        (
+            scoreboard._MarkCompetitionType,
+            postseason_scoreboard._ProviderCompetitionType,
+        ),
+        (
+            scoreboard._MarkSeriesCompetitor,
+            postseason_scoreboard._ProviderSeriesCompetitor,
+        ),
+        (scoreboard._MarkSeries, postseason_scoreboard._ProviderSeries),
+        (scoreboard._MarkSeason, postseason_scoreboard._ProviderSeason),
+    ]
+    used = {"abbreviation", "type", "summary", "competitors", "id", "wins"}
+
+    for lenient, strict in pairs:
+        read = used & set(strict.model_fields)
+        assert read <= set(lenient.model_fields)
+        assert read
+    postseason_competition = postseason_scoreboard._PostseasonCompetition
+    postseason_event = postseason_scoreboard._PostseasonEvent
+    assert {"type", "series"} <= set(postseason_competition.model_fields)
+    assert {"type", "series"} <= set(scoreboard._ProviderCompetition.model_fields)
+    assert "season" in postseason_event.model_fields
+    assert "season" in scoreboard._ProviderEvent.model_fields
+
+
+@pytest.mark.parametrize("name", ["playoffs.json", "play-in.json"])
+def test_the_playoffs_adapter_path_reads_the_same_mark_as_the_core_path_and_logs_nothing(
+    name: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    payload = load(name)
+    core = scoreboard._ProviderScoreboard.model_validate(payload)
+    strict = postseason_scoreboard._PostseasonScoreboard.model_validate(payload)
+    assert len(core.events) == len(strict.events) > 0
+
+    with caplog.at_level(logging.WARNING, logger="app.sources.scoreboard"):
+        expected = [scoreboard._map_event(event) for event in core.events]
+        caplog.clear()
+        actual = [scoreboard._map_event(event) for event in strict.events]
+
+    assert caplog.records == []
+    assert all(game is not None and game.postseason for game in actual)
+    assert [g.postseason for g in actual if g] == [g.postseason for g in expected if g]

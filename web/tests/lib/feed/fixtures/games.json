@@ -88,7 +88,8 @@
 					},
 					"statsAvailability": "available",
 					"highlightsSearchUrl": "https://example.com/search?q=highlights",
-					"cup": null
+					"cup": null,
+					"postseason": null
 				}
 			]
 		},
@@ -183,7 +184,8 @@
 					},
 					"statsAvailability": "available",
 					"highlightsSearchUrl": "https://example.com/search?q=highlights",
-					"cup": null
+					"cup": null,
+					"postseason": null
 				}
 			]
 		},
@@ -234,7 +236,16 @@
 					"teamStats": null,
 					"statsAvailability": null,
 					"highlightsSearchUrl": null,
-					"cup": null
+					"cup": null,
+					"postseason": {
+						"stage": "playoffs",
+						"round": 3,
+						"conference": "west",
+						"number": 7,
+						"summary": "Series tied 3-3",
+						"playIn": null,
+						"stakes": "game_7"
+					}
 				},
 				{
 					"id": "g-live",
@@ -320,7 +331,8 @@
 					},
 					"statsAvailability": null,
 					"highlightsSearchUrl": null,
-					"cup": null
+					"cup": null,
+					"postseason": null
 				},
 				{
 					"id": "g-final",
@@ -419,7 +431,8 @@
 					},
 					"statsAvailability": "available",
 					"highlightsSearchUrl": "https://example.com/search?q=highlights",
-					"cup": null
+					"cup": null,
+					"postseason": null
 				},
 				{
 					"id": "g-delayed",
@@ -465,7 +478,8 @@
 					"teamStats": null,
 					"statsAvailability": null,
 					"highlightsSearchUrl": null,
-					"cup": null
+					"cup": null,
+					"postseason": null
 				},
 				{
 					"id": "g-postponed",
@@ -511,7 +525,8 @@
 					"teamStats": null,
 					"statsAvailability": null,
 					"highlightsSearchUrl": null,
-					"cup": null
+					"cup": null,
+					"postseason": null
 				},
 				{
 					"id": "g-canceled",
@@ -557,7 +572,8 @@
 					"teamStats": null,
 					"statsAvailability": null,
 					"highlightsSearchUrl": null,
-					"cup": null
+					"cup": null,
+					"postseason": null
 				}
 			]
 		},
@@ -648,7 +664,8 @@
 					},
 					"statsAvailability": null,
 					"highlightsSearchUrl": null,
-					"cup": null
+					"cup": null,
+					"postseason": null
 				},
 				{
 					"id": "g-nonet",
@@ -694,7 +711,8 @@
 					"teamStats": null,
 					"statsAvailability": null,
 					"highlightsSearchUrl": null,
-					"cup": null
+					"cup": null,
+					"postseason": null
 				}
 			]
 		},

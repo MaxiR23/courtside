@@ -16,6 +16,8 @@
 # - Builds a record with no streak or seed, with games behind from wins and losses
 # - Gives a division leader its games behind the conference leader, the conference leader 0 and a team before its first game null
 # - Ranks the division by entry order
+# - Builds a feed with the titles it is given, and with null titles by default
+# - The feed holds the titles the providers give for the team and the roster season, merged in title order, and is stale when either provider reports a rebuild after it, while the expiry the player feed reads is unchanged
 # - Tags every playoff round format, the NBA Finals, the cup and All-Star
 # - Keeps the playoffs kind with null fields for an unrecognized playoff note
 # - Gives a regular game with an unknown note no tag, and a preseason game the preseason kind and no tag
@@ -73,7 +75,14 @@ import respx
 from app.feeds.game_detail import Conference, GameResult, Injury, InjuryStatus
 from app.feeds.games import GameStatus, GameTeam, LineScore, Score
 from app.feeds.player import GameKind, GameTag, TagKind
-from app.feeds.team import CupGroupName, PlayoffStatus, TeamCup, TeamFeed
+from app.feeds.team import (
+    CupGroupName,
+    PlayoffStatus,
+    TeamCup,
+    TeamFeed,
+    TeamTitle,
+    TitleKind,
+)
 from app.jobs.games import GamesJob
 from app.jobs.on_demand import (
     RETRY_AFTER,
@@ -319,6 +328,7 @@ EMPTY = season()
 
 def build(
     *,
+    titles: list[TeamTitle] | None = None,
     entry: DivisionEntry | None = None,
     others: Sequence[DivisionEntry] = (),
     standings_season: int = 2026,
@@ -341,6 +351,7 @@ def build(
         playoffs,
         now=now,
         detail_ids=detail_ids,
+        titles=titles,
     )
 
 
@@ -1154,6 +1165,22 @@ def scoreboard(
     return ScoreboardGame.model_validate(data)
 
 
+class StubTitles:
+    """A titles provider of one section with titles and a rebuild time to set."""
+
+    def __init__(self) -> None:
+        self.given: list[TeamTitle] | None = None
+        self.calls: list[tuple[str, int]] = []
+        self.rebuilt_at: dt.datetime | None = None
+
+    def titles(self, team: str, season: int) -> list[TeamTitle] | None:
+        self.calls.append((team, season))
+        return self.given
+
+    def rebuilt_after(self, built_at: dt.datetime) -> bool:
+        return self.rebuilt_at is not None and self.rebuilt_at > built_at
+
+
 class TeamKit:
     """A games job, a feed cache and the team kind over one client and one clock.
 
@@ -1177,6 +1204,8 @@ class TeamKit:
         self.playoffs = EMPTY
         self.group_tables: dict[tuple[Conference, str], CupTable] = {}
         self.group_seasons: list[int] = []
+        self.first_titles = StubTitles()
+        self.second_titles = StubTitles()
         respx.get(url__startswith=SOURCE).mock(side_effect=self.answer)
         self.cache = FeedCache(path, self.store, clock=lambda: self.clock[0])
         self.games = GamesJob(
@@ -1202,6 +1231,7 @@ class TeamKit:
             fetch_league_injuries=self.fetch_league_injuries,
             fetch_season_schedule=self.fetch_season_schedule,
             fetch_group_table=self.fetch_group_table,
+            title_providers=(self.first_titles, self.second_titles),
         )
 
     async def fetch_group_table(
@@ -1575,3 +1605,79 @@ async def test_a_failed_group_table_read_leaves_cup_null_and_the_feed_built(
 
     assert feed.code == "OKC"
     assert feed.cup is None
+
+
+CHAMPIONS = TeamTitle(kind=TitleKind.NBA_CHAMPIONS, year=2027, conference=None)
+
+
+def test_builds_a_feed_with_the_titles_it_is_given_and_null_titles_by_default() -> None:
+    assert build(titles=[CHAMPIONS]).titles == [CHAMPIONS]
+    assert build().titles is None
+
+
+@pytest.mark.anyio
+async def test_the_feed_holds_the_titles_the_provider_gives_for_the_team_and_the_rosters_season(
+    kit: TeamKit,
+) -> None:
+    kit.first_titles.given = [CHAMPIONS]
+
+    feed = TeamFeed.model_validate_json(await kit.serve("okc"))
+
+    assert feed.titles == [CHAMPIONS]
+    assert kit.first_titles.calls == [("OKC", 2027)]
+    assert kit.second_titles.calls == [("OKC", 2027)]
+
+
+@pytest.mark.anyio
+async def test_a_stored_feed_is_stale_when_a_feed_the_titles_read_was_rebuilt_after_it(
+    kit: TeamKit,
+) -> None:
+    await kit.serve("okc")
+    kit.first_titles.rebuilt_at = NOW
+    await kit.serve("okc", NOW + HOUR)
+    assert kit.called("roster/OKC") == 1
+
+    kit.first_titles.rebuilt_at = NOW + SECOND
+    await kit.serve("okc", NOW + HOUR)
+
+    assert kit.called("roster/OKC") == 2
+
+
+CUP = TeamTitle(kind=TitleKind.NBA_CUP_CHAMPIONS, year=2026, conference=None)
+CONFERENCE = TeamTitle(
+    kind=TitleKind.CONFERENCE_CHAMPIONS, year=None, conference=Conference.WEST
+)
+
+
+@pytest.mark.anyio
+async def test_the_feed_merges_the_titles_of_every_provider_in_title_order(
+    kit: TeamKit,
+) -> None:
+    kit.first_titles.given = [CUP]
+    kit.second_titles.given = [CHAMPIONS, CONFERENCE]
+
+    feed = TeamFeed.model_validate_json(await kit.serve("okc"))
+
+    assert feed.titles == [CHAMPIONS, CUP, CONFERENCE]
+
+
+@pytest.mark.anyio
+async def test_a_stored_feed_is_stale_when_either_provider_reports_a_rebuild(
+    kit: TeamKit,
+) -> None:
+    await kit.serve("okc")
+    kit.second_titles.rebuilt_at = NOW + SECOND
+
+    await kit.serve("okc", NOW + HOUR)
+
+    assert kit.called("roster/OKC") == 2
+
+
+@pytest.mark.anyio
+async def test_the_titles_rebuild_does_not_change_the_expiry_the_player_feed_reads(
+    kit: TeamKit,
+) -> None:
+    kit.first_titles.rebuilt_at = NOW + HOUR
+
+    assert not kit.teams.expired("OKC", None, NOW, NOW + 2 * HOUR)
+    assert kit.teams.expired("OKC", None, NOW, NOW + FEED_LIFETIME)

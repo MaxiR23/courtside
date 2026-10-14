@@ -250,3 +250,17 @@ export type PlayoffsView = {
 
 export type PlayoffsPageState =
 	{ kind: 'loading' } | { kind: 'unavailable' } | { kind: 'ready'; view: PlayoffsView };
+
+// A postseason game's mark: its tag, context line and stakes flag, already written (ADR 0035).
+export type PostseasonMarkView = {
+	tag: string; // "Play-In", "Playoffs", "NBA Finals"
+	finals: boolean; // true: the solid accent tag
+	context: string; // "West finals · Game 7"
+	stakes: string | null; // "Can clinch"; null: no stakes
+};
+
+// A title badge on the team header, already written.
+export type TitleView = {
+	text: string; // "2027 NBA Champions"
+	solid: boolean; // true only for the NBA title
+};

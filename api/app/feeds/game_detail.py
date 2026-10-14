@@ -16,8 +16,10 @@ from pydantic import Field, HttpUrl, NonNegativeInt, PositiveInt, model_validato
 from pydantic.alias_generators import to_camel
 
 from app.feeds.games import (
+    Conference,
     FeedModel,
     GameCup,
+    GamePostseason,
     GameStatus,
     GameTeam,
     Highlight,
@@ -32,6 +34,9 @@ from app.feeds.games import (
     stars_match_sides,
 )
 from app.feeds.opponent import Opponent, Side
+
+# Conference lives in app.feeds.games; the other feed modules import it from here.
+__all__ = ["Conference"]
 
 
 class Record(FeedModel):
@@ -201,11 +206,6 @@ class LastGames(FeedModel):
         return self
 
 
-class Conference(StrEnum):
-    EAST = "east"
-    WEST = "west"
-
-
 class TeamStanding(FeedModel):
     conference: Conference
     conference_rank: PositiveInt
@@ -293,6 +293,7 @@ class GameDetailFeed(FeedModel):
     highlights: list[Highlight] | None = None
     highlights_search_url: HttpUrl | None = None
     cup: GameCup | None = None
+    postseason: GamePostseason | None = None
 
     @model_validator(mode="before")
     @classmethod

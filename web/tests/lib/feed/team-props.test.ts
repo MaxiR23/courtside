@@ -19,6 +19,7 @@
 // - The opponent of the next game and of a schedule row as a team and a side, for a league team and for a guest without a code
 // - Spanish copy
 // - The Cup mark: the header line, none for a null mark
+// - The titles: the header badges filled from the feed, none for null titles
 //
 // What is covered:
 // - Pure logic on a recorded feed (tests/lib/feed/fixtures/team.json); no clock, no network
@@ -44,6 +45,26 @@ const mariners = { code: null, name: 'Mariners', city: 'Harbor City', guest: tru
 
 afterEach(() => {
 	vi.restoreAllMocks();
+});
+
+describe('toTeamView titles', () => {
+	it('maps the titles of the feed to the header badges', () => {
+		const source: TeamFeed = {
+			...feed(),
+			titles: [
+				{ kind: 'nba_champions', year: 2027, conference: null },
+				{ kind: 'conference_champions', year: null, conference: 'west' }
+			]
+		};
+		expect(view(source).header.titles).toEqual([
+			{ text: '2027 NBA Champions', solid: true },
+			{ text: 'West Champions', solid: false }
+		]);
+	});
+
+	it('maps null titles to no badges', () => {
+		expect(view().header.titles).toBeNull();
+	});
 });
 
 describe('toTeamView Cup line', () => {

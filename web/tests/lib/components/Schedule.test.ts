@@ -37,6 +37,7 @@ const team = (code: string, name: string, city: string) => ({ code, name, city, 
 const game = (id: string, awayScore: number): ScheduleGame => ({
 	id,
 	cupTag: null,
+	postseasonMark: null,
 	away: team('GSW', 'Warriors', 'Golden State'),
 	home: team('LAL', 'Lakers', 'Los Angeles'),
 	status: { state: 'final', awayScore, homeScore: 100, winner: 'home' }

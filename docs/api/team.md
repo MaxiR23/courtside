@@ -39,6 +39,7 @@ The root is one team.
 | `nextGame`   | `NextGame` / null    | The next game, as in the [player feed](player.md)         | null when none         |
 | `schedule`   | `Schedule` / null    | Games grouped for display                                 | null when no data      |
 | `cup`        | `TeamCup` / null     | The team's Cup group and Cup record of the season         | null when no Cup group table has the team, and when a Cup read fails |
+| `titles`     | `TeamTitle[]` / null | The titles the team won in the current season, 1 to 3     | null when the team has no title; never an empty list |
 
 ## Nested objects
 
@@ -46,6 +47,7 @@ The root is one team.
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | `TeamColors`    | `primary`, `secondary`                                                                                                                      |
 | `TeamCup`       | `group`: `CupGroupName` (`conference`: `east`, `west`; `letter`: `A`, `B`, `C`), `wins`, `losses` (the Cup record, as in the [Cup feed](cup.md))  |
+| `TeamTitle`     | `kind` (`nba_champions`, `nba_cup_champions`, `conference_champions`); `year` (set exactly for the two championships); `conference` (`east`, `west`; set exactly for `conference_champions`) |
 | `Coach`         | `name`, `seasons` (null)                                                                                                                    |
 | `SplitRecord`   | `Record` fields (`wins`, `losses`) plus `winPct` (0 to 1)                                                                                   |
 | `TeamRecord`    | `SplitRecord` fields plus `season` (label of the standings season, such as `2025-26`; in the preseason it is the previous season), `home`, `away`, `lastTen`: `SplitRecord`; `streak`: `Streak` / null; `gamesBehind`: games behind the leader of the team's conference (0 for the leader), null before the team's first game; `conferenceRank` (1 to 15); `divisionRank` (1 to 5); `playoff`: `PlayoffPosition` / null before the first game or without a seed; `pointsFor`, `pointsAgainst`: `PointsTotal`; `differential`: `Differential` |
@@ -65,6 +67,17 @@ The root is one team.
 
 ## Rules that live in the code
 
+- `titles` ([ADR 0035](../adr/0035-playoffs-marks-in-core-feeds.md)) lists each
+  kind at most once, in the order `nba_champions`, `nba_cup_champions`,
+  `conference_champions`. `nba_champions` is set when the stored
+  [playoffs feed](playoffs.md) has the team as `champion`, with the year of the
+  champion's last date. `conference_champions` is set when the stored playoffs
+  feed's `east-r3` or `west-r3` series is complete with the team as winner, with
+  that series' conference. `nba_cup_champions` is set when the stored
+  [Cup feed](cup.md) has the team as `champion`, with the year of the date of the
+  `final` slot's game. Only a stored feed of the team feed's own season counts, so
+  past seasons carry no title. Titles read no source and build no feed; a missing
+  or invalid stored feed gives no title from it.
 - Win percentages are from 0 to 1; counts are not negative.
 - `record.gamesBehind` is half the gap between the best wins minus losses of
   the team's conference and the team's own. It is computed by the same
@@ -100,7 +113,8 @@ The root is one team.
   the build, and in any case 7 days after the build. The team's final games
   are the ones the games job holds and the games of the stored schedule that
   started after the build minus 1 day, so a game that already left the days
-  shown still expires the feed.
+  shown still expires the feed. It also expires when the stored playoffs feed or
+  the stored Cup feed was built after it.
 - The sources read are the roster and the season leaders (24-hour
   freshness) and the team information, division standings, league injuries
   and season schedules (1-hour freshness), all through the source cache.

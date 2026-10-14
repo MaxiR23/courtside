@@ -25,6 +25,7 @@
 // - Spanish copy and dates for an es browser
 // - A live game without its score cannot be shown
 // - The Cup mark: the header tag, none for a null mark
+// - The postseason mark: the header mark filled from the feed, none for a null mark
 //
 // What is covered:
 // - Pure logic on a recorded feed (tests/lib/feed/fixtures/game-detail.json); no clock, no network
@@ -88,6 +89,33 @@ describe('toGameView with the Cup mark', () => {
 
 	it('maps a null Cup mark to no tag', () => {
 		expect(view(feed()).header.cupTag).toBeNull();
+	});
+});
+
+describe('toGameView with the postseason mark', () => {
+	it('maps the postseason mark to the header mark', () => {
+		const source = {
+			...feed(),
+			postseason: {
+				stage: 'finals' as const,
+				round: 4,
+				conference: null,
+				number: 5,
+				summary: 'NYK leads 3-1',
+				playIn: null,
+				stakes: 'can_clinch' as const
+			}
+		};
+		expect(view(source).header.postseasonMark).toEqual({
+			tag: 'NBA Finals',
+			finals: true,
+			context: 'Game 5 · NYK leads 3-1',
+			stakes: 'Can clinch'
+		});
+	});
+
+	it('maps a null postseason mark to no mark', () => {
+		expect(view(feed()).header.postseasonMark).toBeNull();
 	});
 });
 

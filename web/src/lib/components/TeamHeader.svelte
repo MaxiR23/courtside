@@ -3,6 +3,7 @@
 	import CupTeamLine from '#lib/components/CupTeamLine.svelte';
 	import TeamMonogram from '#lib/components/TeamMonogram.svelte';
 	import NavRow from '#lib/components/NavRow.svelte';
+	import TeamTitles from '#lib/components/TeamTitles.svelte';
 	import { play } from '#lib/hero/motion.ts';
 	import { shimmer } from '#lib/skeleton/motion.ts';
 	import type { RowLayout } from '#lib/schedule/types.ts';
@@ -40,6 +41,7 @@
 					<h1 class="name">{header.name}</h1>
 					<span class="conference-line">{header.conferenceLine}</span>
 					{#if header.cupLine}<CupTeamLine line={header.cupLine} />{/if}
+					{#if header.titles}<TeamTitles titles={header.titles} />{/if}
 				</div>
 				<div class="standing">
 					<span class="record">{header.record}</span>

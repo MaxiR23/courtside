@@ -4,6 +4,7 @@
 #
 # Tested:
 # - Builds a scheduled game with records, standings, injuries and last games
+# - Carries the postseason mark of the game into the feed, and null without one
 # - Builds a final game with its winner, box score and season series
 # - Carries the win probability periods of the sections into the feed, or null
 # - Carries the win probability leader of the sections into the feed and fails the build when it does not match the latest point
@@ -61,15 +62,19 @@ from pydantic import HttpUrl
 
 from app.feeds.game_detail import GameDetailFeed, Injury, LastGame
 from app.feeds.games import (
+    Conference,
     CupRound,
     GameCup,
+    GamePostseason,
     GameStatus,
     GameTeam,
     Highlight,
     Leader,
     Leaders,
     LineScore,
+    PostseasonStage,
     Score,
+    Stakes,
     Star,
     Stars,
     TeamStats,
@@ -390,6 +395,22 @@ def test_carries_the_cup_mark_of_the_game_and_null_without_one() -> None:
 
     assert build(marked).cup == GameCup(stage=CupRound.SEMIFINALS)
     assert build(game("1", GameStatus.SCHEDULED)).cup is None
+
+
+def test_the_detail_feed_carries_the_postseason_mark_of_the_game() -> None:
+    mark = GamePostseason(
+        stage=PostseasonStage.PLAYOFFS,
+        round=2,
+        conference=Conference.EAST,
+        number=5,
+        summary="BOS leads series 3-1",
+        play_in=None,
+        stakes=Stakes.CAN_CLINCH,
+    )
+    marked = game("1", GameStatus.SCHEDULED).model_copy(update={"postseason": mark})
+
+    assert build(marked).postseason == mark
+    assert build(game("1", GameStatus.SCHEDULED)).postseason is None
 
 
 def test_builds_a_final_game_with_its_winner_box_score_and_season_series() -> None:

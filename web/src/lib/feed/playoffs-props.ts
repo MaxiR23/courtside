@@ -7,7 +7,6 @@ import type {
 	PictureTable,
 	PlayIn,
 	PlayInGame,
-	PlayInGameKind,
 	PlayInSlot,
 	PlayoffStage,
 	PlayoffStageEntry,
@@ -28,6 +27,7 @@ import type {
 	PlayoffsFinalsFeed,
 	RoadTeam
 } from '#lib/contract/playoffs-finals.ts';
+import { CONFERENCE_TITLE, PLAY_IN_TITLE } from '#lib/feed/postseason-mark-props.ts';
 import { leader, tipParts, video } from '#lib/feed/props.ts';
 import { clinchView } from '#lib/feed/standings-props.ts';
 import { feedDate } from '#lib/feed/team-props.ts';
@@ -107,14 +107,6 @@ const ROUND_LABEL: Record<number, () => string> = {
 	2: m.playoffs_round_2,
 	3: m.playoffs_round_3,
 	4: m.playoffs_round_4
-};
-
-const CONFERENCE_TITLE = { east: m.playoffs_east, west: m.playoffs_west };
-
-const PLAY_IN_TITLE: Record<PlayInGameKind, () => string> = {
-	seven_eight: m.playoffs_playin_7v8,
-	nine_ten: m.playoffs_playin_9v10,
-	eighth_seed: m.playoffs_playin_8th
 };
 
 const BAR_LABEL: Record<HeadToHeadStat, () => string> = {

@@ -53,6 +53,7 @@ Conventions:
 | `statsAvailability`   | `StatsAvailability` / null | `available`, `pending`, `unavailable`                        | required when `final`, null otherwise |
 | `highlightsSearchUrl` | URL / null             | Link to search for highlights                                    | required when `final`           |
 | `cup`                 | `GameCup` / null       | The Cup mark: the round the game belongs to                      | null when the game is not a Cup game |
+| `postseason`          | `GamePostseason` / null | The play-in or playoff mark                                     | null for a game that is neither a play-in nor a playoff game, and when the mark cannot be read |
 
 A `live` game requires `period`, `clock`, `lineScore`, `score`, `leaders`
 and `teamStats`. A `final` game requires `lineScore`, `score`, `winner`, `statsAvailability`
@@ -65,6 +66,7 @@ and `highlightsSearchUrl`; any other status has `winner` and
 | Object      | Fields                                                                                                      |
 | ----------- | ----------------------------------------------------------------------------------------------------------- |
 | `GameCup`   | `stage` (`group`, `quarterfinals`, `semifinals`, `championship`), taken from the game's note |
+| `GamePostseason` | `stage` (`playin`, `playoffs`, `finals`); `round` (1 to 4: 1 to 3 are `playoffs`, 4 is `finals`; null for `playin`); `conference` (`east`, `west`; null exactly for `finals`); `number` (game number 1 to 7; null exactly for `playin`); `summary` (the series summary; null when the source has none, always null for `playin`); `playIn` (`seven_eight`, `nine_ten`, `eighth_seed`; set exactly for `playin`); `stakes` (`game_7`, `elimination`, `can_clinch`, `clinched`; null for none) |
 | `Team`      | `code` (three capital letters), `name`, `city`                                                              |
 | `Opponent`  | `code` (null for a guest without one), `name`, `city` (null when the source sends none), `guest`; a league code is three capital letters, a guest code any non-empty string, and a guest has a code or a name |
 | `GameTeam`  | `Opponent` with a required `name` and `city` |
@@ -80,6 +82,22 @@ and `highlightsSearchUrl`; any other status has `winner` and
 
 Rules that live in the code:
 
+- The `postseason` mark ([ADR 0035](../adr/0035-playoffs-marks-in-core-feeds.md))
+  is read from the scoreboard. The stage comes from the season type (5 is
+  `playin`, 3 is a series game, any other value no mark), the round from the
+  competition type (the 4 round codes, 1 to 4), the play-in conference and kind
+  from the play-in note, the game number from the note's ` - Game N` ending, the
+  conference of rounds 1 to 3 from the note's first word, and the summary and wins
+  from the series object. The stakes are those the game had at tip-off, from the
+  series wins entering it (for a final game the winner's win in the series object
+  is subtracted). The first rule that matches applies: `game_7` for game number 7;
+  `clinched` for a final game whose winner has 4 wins; `can_clinch` when one side
+  has 3 entering wins and the other fewer; `elimination` when a side has 3
+  entering wins on a game that is not the seventh; otherwise null. In the play-in,
+  `nine_ten` and `eighth_seed` are `elimination` and `seven_eight` has none.
+  The mark never fails the feed: an unreadable or inconsistent postseason value
+  (a malformed series, an unknown competitor id, a missing note or an unknown
+  competition type) makes the mark null, logged by event id only.
 - A guest side is a team outside the 30 ([ADR 0025](../adr/0025-guest-teams.md)):
   `guest` is true and its code is the source's own, null when the source sends
   none ([ADR 0026](../adr/0026-one-guest-team-rule.md)). A side with neither a

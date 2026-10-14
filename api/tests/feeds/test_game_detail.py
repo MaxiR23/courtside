@@ -28,6 +28,7 @@
 # - Serialization uses camelCase keys
 # - Venue city: null or absent is accepted and serialized as null; an empty city is rejected
 # - Accepts a Cup mark of each round and a null or absent Cup mark, and rejects an unknown round
+# - Accepts a postseason mark and reads a stored feed without the key as null
 #
 # What is covered:
 # - A valid feed is accepted and an invalid one is rejected
@@ -974,3 +975,28 @@ def test_reads_a_game_without_a_cup_mark_as_null() -> None:
 def test_rejects_a_cup_mark_with_an_unknown_round() -> None:
     with pytest.raises(ValidationError):
         GameDetailFeed.model_validate(valid_game("scheduled", cup={"stage": "final"}))
+
+
+def test_accepts_a_detail_feed_with_a_postseason_mark() -> None:
+    mark = {
+        "stage": "playoffs",
+        "round": 2,
+        "conference": "west",
+        "number": 5,
+        "summary": "Series tied 2-2",
+        "playIn": None,
+        "stakes": None,
+    }
+
+    feed = GameDetailFeed.model_validate(valid_game("scheduled", postseason=mark))
+
+    assert feed.postseason is not None and feed.postseason.number == 5
+    assert feed.model_dump(mode="json")["postseason"] == mark
+
+
+def test_reads_a_stored_detail_feed_without_the_key_as_postseason_null() -> None:
+    absent = GameDetailFeed.model_validate(valid_game("scheduled"))
+    explicit = GameDetailFeed.model_validate(valid_game("scheduled", postseason=None))
+
+    assert absent.postseason is None and explicit.postseason is None
+    assert absent.model_dump(mode="json")["postseason"] is None

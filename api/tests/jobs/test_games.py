@@ -22,6 +22,8 @@
 # - A run with nothing due makes no request and records nothing
 # - The builder puts each game's highlights from the provider in the feed, and none without a provider
 # - The builder carries each game's Cup mark into the feed, and null for a game without one
+# - The builder carries each game's postseason mark into the feed, and null for a game without one
+# - A run over a day whose postseason data is unreadable publishes the day with null marks for those games
 # - Lists only the final games of the days held, in day order
 # - Lists no shown games before the first run or while a day shown failed to fetch, and the games of every day shown in day order
 # - Republishes the feed with no source call when a final game's highlights change, and not when they are unchanged
@@ -75,6 +77,7 @@ from pydantic import HttpUrl
 from app.feeds.games import (
     CupRound,
     GameCup,
+    GamePostseason,
     GamesFeed,
     GameStatus,
     GameTeam,
@@ -82,7 +85,9 @@ from app.feeds.games import (
     Leader,
     Leaders,
     LineScore,
+    PostseasonStage,
     Score,
+    Stakes,
     Star,
     Stars,
     StatsAvailability,
@@ -416,6 +421,27 @@ def test_builder_carries_the_cup_mark_of_each_game_and_null_without_one() -> Non
     first, second = feed.days[0].games
     assert first.cup == GameCup(stage=CupRound.GROUP)
     assert second.cup is None
+
+
+def test_the_games_feed_carries_the_postseason_mark_of_the_scoreboard_game() -> None:
+    mark = GamePostseason(
+        stage=PostseasonStage.FINALS,
+        round=4,
+        conference=None,
+        number=6,
+        summary=None,
+        play_in=None,
+        stakes=Stakes.CAN_CLINCH,
+    )
+    marked = game("1", GameStatus.FINAL).model_copy(update={"postseason": mark})
+
+    feed = build(
+        marked, game("2", GameStatus.FINAL), details={"1": DETAIL, "2": DETAIL}
+    )
+
+    first, second = feed.days[0].games
+    assert first.postseason == mark
+    assert second.postseason is None
 
 
 def test_builder_gives_no_highlights_without_a_provider() -> None:
@@ -1965,3 +1991,45 @@ async def test_a_league_side_without_a_star_still_makes_the_feed_invalid_on_a_gu
     assert read_feed(settings.data_dir, "games") == before
     failure = reason(store)
     assert failure is not None and failure.startswith("invalid feed:")
+
+
+@pytest.mark.anyio
+async def test_a_games_run_with_an_unreadable_postseason_mark_publishes_the_day(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    day = json.loads(
+        (SCOREBOARD_FIXTURES / "postseason-marks.json").read_text(encoding="utf-8")
+    )
+    scheduled = [
+        e for e in day["events"] if e["status"]["type"]["name"] == "STATUS_SCHEDULED"
+    ]
+    with_url = settings.model_copy(
+        update={"scoreboard_url": "https://example.com/scoreboard/{date}"}
+    )
+    with respx.mock(assert_all_called=False) as router:
+        router.get(url__regex=r"https://example\.com/scoreboard/\d{8}").respond(
+            json={"events": scheduled}
+        )
+        job = ClockedGamesJob(
+            with_url,
+            store,
+            fetch_games=scoreboard.fetch_games,
+            fetch_game_detail=sources.fetch_game_detail,
+            stars=lambda g: Stars(
+                away=star(g.away.code or ""), home=star(g.home.code or "")
+            ),
+            highlights_search_url=lambda _: SEARCH_URL,
+        )
+
+        await job.run(NOON)
+
+    published = read_feed(settings.data_dir, "games")
+    assert published is not None
+    feed = GamesFeed.model_validate_json(published)
+    games = {g.id: g for g in next(d.games for d in feed.days if d.date == TODAY)}
+    assert len(games) == len(scheduled)
+    unreadable = ("7005", "7006", "7007", "7008", "7009")
+    assert all(games[i].postseason is None for i in unreadable)
+    assert games["7001"].postseason is not None
+    assert games["7004"].postseason is not None
+    assert store.job_states()[0].last_success == NOON

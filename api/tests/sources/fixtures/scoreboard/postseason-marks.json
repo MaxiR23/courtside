@@ -1,0 +1,665 @@
+{
+  "events": [
+    {
+      "id": "7001",
+      "date": "2027-05-10T23:30Z",
+      "season": {
+        "type": 3
+      },
+      "status": {
+        "period": 0,
+        "displayClock": "0.0",
+        "type": {
+          "name": "STATUS_SCHEDULED"
+        }
+      },
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "Example Arena"
+          },
+          "broadcast": "Example TV",
+          "notes": [
+            {
+              "headline": "West Finals - Game 7"
+            }
+          ],
+          "competitors": [
+            {
+              "homeAway": "home",
+              "team": {
+                "abbreviation": "DEN",
+                "id": "7",
+                "name": "Example DEN",
+                "location": "City DEN"
+              }
+            },
+            {
+              "homeAway": "away",
+              "team": {
+                "abbreviation": "OKC",
+                "id": "25",
+                "name": "Example OKC",
+                "location": "City OKC"
+              }
+            }
+          ],
+          "type": {
+            "abbreviation": "SEMI"
+          },
+          "series": {
+            "summary": "Series tied 3-3",
+            "completed": false,
+            "totalCompetitions": 7,
+            "competitors": [
+              {
+                "id": "7",
+                "wins": 3
+              },
+              {
+                "id": "25",
+                "wins": 3
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "7002",
+      "date": "2027-05-10T23:30Z",
+      "season": {
+        "type": 3
+      },
+      "status": {
+        "period": 3,
+        "displayClock": "4:12",
+        "type": {
+          "name": "STATUS_IN_PROGRESS"
+        }
+      },
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "Example Arena"
+          },
+          "broadcast": "Example TV",
+          "notes": [
+            {
+              "headline": "East Semifinals - Game 5"
+            }
+          ],
+          "competitors": [
+            {
+              "homeAway": "home",
+              "team": {
+                "abbreviation": "BOS",
+                "id": "2",
+                "name": "Example BOS",
+                "location": "City BOS"
+              },
+              "score": "64",
+              "linescores": [
+                {
+                  "period": 1,
+                  "value": 16
+                },
+                {
+                  "period": 2,
+                  "value": 16
+                },
+                {
+                  "period": 3,
+                  "value": 16
+                }
+              ]
+            },
+            {
+              "homeAway": "away",
+              "team": {
+                "abbreviation": "NY",
+                "id": "18",
+                "name": "Example NY",
+                "location": "City NY"
+              },
+              "score": "60",
+              "linescores": [
+                {
+                  "period": 1,
+                  "value": 15
+                },
+                {
+                  "period": 2,
+                  "value": 15
+                },
+                {
+                  "period": 3,
+                  "value": 15
+                }
+              ]
+            }
+          ],
+          "type": {
+            "abbreviation": "QTR"
+          },
+          "series": {
+            "summary": "BOS leads series 3-1",
+            "completed": false,
+            "totalCompetitions": 7,
+            "competitors": [
+              {
+                "id": "2",
+                "wins": 3
+              },
+              {
+                "id": "18",
+                "wins": 1
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "7003",
+      "date": "2027-05-10T23:30Z",
+      "season": {
+        "type": 3
+      },
+      "status": {
+        "period": 5,
+        "displayClock": "0.0",
+        "type": {
+          "name": "STATUS_FINAL"
+        }
+      },
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "Example Arena"
+          },
+          "broadcast": "Example TV",
+          "notes": [
+            {
+              "headline": "East 1st Round - Game 5"
+            }
+          ],
+          "competitors": [
+            {
+              "homeAway": "home",
+              "team": {
+                "abbreviation": "CLE",
+                "id": "5",
+                "name": "Example CLE",
+                "location": "City CLE"
+              },
+              "score": "99",
+              "linescores": [
+                {
+                  "period": 1,
+                  "value": 24
+                },
+                {
+                  "period": 2,
+                  "value": 24
+                },
+                {
+                  "period": 3,
+                  "value": 24
+                },
+                {
+                  "period": 4,
+                  "value": 27
+                }
+              ]
+            },
+            {
+              "homeAway": "away",
+              "team": {
+                "abbreviation": "ORL",
+                "id": "19",
+                "name": "Example ORL",
+                "location": "City ORL"
+              },
+              "score": "104",
+              "linescores": [
+                {
+                  "period": 1,
+                  "value": 26
+                },
+                {
+                  "period": 2,
+                  "value": 26
+                },
+                {
+                  "period": 3,
+                  "value": 26
+                },
+                {
+                  "period": 4,
+                  "value": 26
+                }
+              ]
+            }
+          ],
+          "type": {
+            "abbreviation": "RD16"
+          },
+          "series": {
+            "summary": "CLE leads series 3-2",
+            "completed": false,
+            "totalCompetitions": 7,
+            "competitors": [
+              {
+                "id": "5",
+                "wins": 3
+              },
+              {
+                "id": "19",
+                "wins": 2
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "7004",
+      "date": "2027-05-10T23:30Z",
+      "season": {
+        "type": 5
+      },
+      "status": {
+        "period": 0,
+        "displayClock": "0.0",
+        "type": {
+          "name": "STATUS_SCHEDULED"
+        }
+      },
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "Example Arena"
+          },
+          "broadcast": "Example TV",
+          "notes": [
+            {
+              "headline": "NBA Play-In - West - 8th Seed Game"
+            }
+          ],
+          "competitors": [
+            {
+              "homeAway": "home",
+              "team": {
+                "abbreviation": "POR",
+                "id": "22",
+                "name": "Example POR",
+                "location": "City POR"
+              }
+            },
+            {
+              "homeAway": "away",
+              "team": {
+                "abbreviation": "SAC",
+                "id": "23",
+                "name": "Example SAC",
+                "location": "City SAC"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "7005",
+      "date": "2027-05-10T23:30Z",
+      "season": {
+        "type": 3
+      },
+      "status": {
+        "period": 0,
+        "displayClock": "0.0",
+        "type": {
+          "name": "STATUS_SCHEDULED"
+        }
+      },
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "Example Arena"
+          },
+          "broadcast": "Example TV",
+          "notes": [
+            {
+              "headline": "West 1st Round - Game 2"
+            }
+          ],
+          "competitors": [
+            {
+              "homeAway": "home",
+              "team": {
+                "abbreviation": "DEN",
+                "id": "7",
+                "name": "Example DEN",
+                "location": "City DEN"
+              }
+            },
+            {
+              "homeAway": "away",
+              "team": {
+                "abbreviation": "OKC",
+                "id": "25",
+                "name": "Example OKC",
+                "location": "City OKC"
+              }
+            }
+          ],
+          "type": {
+            "abbreviation": "XYZ"
+          },
+          "series": {
+            "summary": "Series tied 1-1",
+            "completed": false,
+            "totalCompetitions": 7,
+            "competitors": [
+              {
+                "id": "7",
+                "wins": 1
+              },
+              {
+                "id": "25",
+                "wins": 1
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "7006",
+      "date": "2027-05-10T23:30Z",
+      "season": {
+        "type": 3
+      },
+      "status": {
+        "period": 0,
+        "displayClock": "0.0",
+        "type": {
+          "name": "STATUS_SCHEDULED"
+        }
+      },
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "Example Arena"
+          },
+          "broadcast": "Example TV",
+          "notes": [
+            {
+              "headline": "West 1st Round"
+            }
+          ],
+          "competitors": [
+            {
+              "homeAway": "home",
+              "team": {
+                "abbreviation": "DEN",
+                "id": "7",
+                "name": "Example DEN",
+                "location": "City DEN"
+              }
+            },
+            {
+              "homeAway": "away",
+              "team": {
+                "abbreviation": "OKC",
+                "id": "25",
+                "name": "Example OKC",
+                "location": "City OKC"
+              }
+            }
+          ],
+          "type": {
+            "abbreviation": "RD16"
+          },
+          "series": {
+            "summary": "Series tied 1-1",
+            "completed": false,
+            "totalCompetitions": 7,
+            "competitors": [
+              {
+                "id": "7",
+                "wins": 1
+              },
+              {
+                "id": "25",
+                "wins": 1
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "7007",
+      "date": "2027-05-10T23:30Z",
+      "season": {
+        "type": 3
+      },
+      "status": {
+        "period": 0,
+        "displayClock": "0.0",
+        "type": {
+          "name": "STATUS_SCHEDULED"
+        }
+      },
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "Example Arena"
+          },
+          "broadcast": "Example TV",
+          "notes": [
+            {
+              "headline": "East 1st Round - Game 3"
+            }
+          ],
+          "competitors": [
+            {
+              "homeAway": "home",
+              "team": {
+                "abbreviation": "PHI",
+                "id": "20",
+                "name": "Example PHI",
+                "location": "City PHI"
+              }
+            },
+            {
+              "homeAway": "away",
+              "team": {
+                "abbreviation": "MIN",
+                "id": "16",
+                "name": "Example MIN",
+                "location": "City MIN"
+              }
+            }
+          ],
+          "type": {
+            "abbreviation": "RD16"
+          },
+          "series": {
+            "summary": "Series tied 1-1",
+            "completed": false,
+            "totalCompetitions": 7,
+            "competitors": "not a list"
+          }
+        }
+      ]
+    },
+    {
+      "id": "7008",
+      "date": "2027-05-10T23:30Z",
+      "season": {
+        "type": 3
+      },
+      "status": {
+        "period": 0,
+        "displayClock": "0.0",
+        "type": {
+          "name": "STATUS_SCHEDULED"
+        }
+      },
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "Example Arena"
+          },
+          "broadcast": "Example TV",
+          "notes": [
+            {
+              "headline": "East 1st Round - Game 3"
+            }
+          ],
+          "competitors": [
+            {
+              "homeAway": "home",
+              "team": {
+                "abbreviation": "PHI",
+                "id": "20",
+                "name": "Example PHI",
+                "location": "City PHI"
+              }
+            },
+            {
+              "homeAway": "away",
+              "team": {
+                "abbreviation": "MIN",
+                "id": "16",
+                "name": "Example MIN",
+                "location": "City MIN"
+              }
+            }
+          ],
+          "type": {
+            "abbreviation": "RD16"
+          },
+          "series": {
+            "summary": "Series tied 1-1",
+            "completed": false,
+            "totalCompetitions": 7,
+            "competitors": [
+              {
+                "id": "999",
+                "wins": 1
+              },
+              {
+                "id": "20",
+                "wins": 1
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "7009",
+      "date": "2027-05-10T23:30Z",
+      "season": {
+        "type": 3
+      },
+      "status": {
+        "period": 0,
+        "displayClock": "0.0",
+        "type": {
+          "name": "STATUS_SCHEDULED"
+        }
+      },
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "Example Arena"
+          },
+          "broadcast": "Example TV",
+          "notes": [],
+          "competitors": [
+            {
+              "homeAway": "home",
+              "team": {
+                "abbreviation": "PHI",
+                "id": "20",
+                "name": "Example PHI",
+                "location": "City PHI"
+              }
+            },
+            {
+              "homeAway": "away",
+              "team": {
+                "abbreviation": "MIN",
+                "id": "16",
+                "name": "Example MIN",
+                "location": "City MIN"
+              }
+            }
+          ],
+          "type": {
+            "abbreviation": "RD16"
+          },
+          "series": {
+            "summary": "Series tied 1-1",
+            "completed": false,
+            "totalCompetitions": 7,
+            "competitors": [
+              {
+                "id": "20",
+                "wins": 1
+              },
+              {
+                "id": "16",
+                "wins": 1
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "401898388",
+      "date": "2026-10-05T23:00Z",
+      "status": {
+        "period": 0,
+        "displayClock": "0.0",
+        "type": {
+          "name": "STATUS_SCHEDULED"
+        }
+      },
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "State Farm Arena"
+          },
+          "broadcast": "",
+          "competitors": [
+            {
+              "homeAway": "home",
+              "score": "0",
+              "team": {
+                "abbreviation": "ATL",
+                "name": "Hawks",
+                "location": "Atlanta"
+              }
+            },
+            {
+              "homeAway": "away",
+              "score": "0",
+              "team": {
+                "abbreviation": "MEM",
+                "name": "Grizzlies",
+                "location": "Memphis"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

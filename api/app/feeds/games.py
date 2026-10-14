@@ -49,6 +49,17 @@ class GameStatus(StrEnum):
     CANCELED = "canceled"
 
 
+class Conference(StrEnum):
+    EAST = "east"
+    WEST = "west"
+
+
+class PlayInGameKind(StrEnum):
+    SEVEN_EIGHT = "seven_eight"
+    NINE_TEN = "nine_ten"
+    EIGHTH_SEED = "eighth_seed"
+
+
 class CupRound(StrEnum):
     GROUP = "group"
     QUARTERFINALS = "quarterfinals"
@@ -60,6 +71,61 @@ class GameCup(FeedModel):
     """The mark of a Cup game: the round it belongs to."""
 
     stage: CupRound
+
+
+class PostseasonStage(StrEnum):
+    PLAYIN = "playin"
+    PLAYOFFS = "playoffs"
+    FINALS = "finals"
+
+
+class Stakes(StrEnum):
+    GAME_7 = "game_7"
+    ELIMINATION = "elimination"
+    CAN_CLINCH = "can_clinch"
+    CLINCHED = "clinched"
+
+
+class GamePostseason(FeedModel):
+    """The mark of a play-in or playoff game: its stage, place in the bracket and stakes."""
+
+    stage: PostseasonStage
+    round: Annotated[int, Field(ge=1, le=4)] | None
+    conference: Conference | None
+    number: Annotated[int, Field(ge=1, le=7)] | None
+    summary: NonEmptyStr | None
+    play_in: PlayInGameKind | None
+    stakes: Stakes | None
+
+    @model_validator(mode="after")
+    def _require_fields_of_stage(self) -> GamePostseason:
+        if self.stage is PostseasonStage.PLAYIN:
+            if self.round is not None or self.number is not None:
+                raise ValueError("a play-in mark has no round or number")
+            if self.summary is not None:
+                raise ValueError("a play-in mark has no summary")
+            if self.play_in is None or self.conference is None:
+                raise ValueError("a play-in mark requires playIn, conference")
+            if self.stakes not in (None, Stakes.ELIMINATION):
+                raise ValueError("a play-in mark has no stakes but elimination")
+            return self
+        if self.play_in is not None:
+            raise ValueError("a series mark has no playIn")
+        if self.number is None:
+            raise ValueError("a series mark requires number")
+        if self.stage is PostseasonStage.PLAYOFFS:
+            if self.round is None or self.round > 3:
+                raise ValueError("a playoffs mark is round 1 to 3")
+            if self.conference is None:
+                raise ValueError("a playoffs mark requires conference")
+        else:
+            if self.round != 4:
+                raise ValueError("a finals mark is round 4")
+            if self.conference is not None:
+                raise ValueError("a finals mark has no conference")
+        if self.stakes is Stakes.GAME_7 and self.number != 7:
+            raise ValueError("game_7 stakes require number 7")
+        return self
 
 
 class StatsAvailability(StrEnum):
@@ -187,6 +253,7 @@ class Game(FeedModel):
     stats_availability: StatsAvailability | None = None
     highlights_search_url: HttpUrl | None = None
     cup: GameCup | None = None
+    postseason: GamePostseason | None = None
 
     @model_validator(mode="after")
     def _require_fields_of_status(self) -> Game:

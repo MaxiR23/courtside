@@ -7,6 +7,7 @@
 	import LineScore from '#lib/components/LineScore.svelte';
 	import LiveBadge from '#lib/components/LiveBadge.svelte';
 	import PlayerPhoto from '#lib/components/PlayerPhoto.svelte';
+	import PostseasonMark from '#lib/components/PostseasonMark.svelte';
 	import TeamMark from '#lib/components/TeamMark.svelte';
 	import TeamStats from '#lib/components/TeamStats.svelte';
 	import { crossfade } from '#lib/hero/motion.ts';
@@ -102,6 +103,7 @@
 			</span>
 			<span class="center">
 				{#if game.cupTag}<CupMarkTag text={game.cupTag} />{/if}
+				{#if game.postseasonMark}<PostseasonMark mark={game.postseasonMark} />{/if}
 				{@render statusLine()}
 				{#if scores}
 					<span class="scores">
@@ -130,6 +132,7 @@
 			<span class="mobile-head">
 				<span class="mobile-status">
 					{#if game.cupTag}<CupMarkTag text={game.cupTag} />{/if}
+					{#if game.postseasonMark}<PostseasonMark mark={game.postseasonMark} />{/if}
 					{@render statusLine()}
 					{#if hidden}<span class="reveal">{m.schedule_tap_to_reveal()}</span>{/if}
 				</span>

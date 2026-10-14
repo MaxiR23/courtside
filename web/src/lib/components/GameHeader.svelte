@@ -4,6 +4,7 @@
 	import CupMarkTag from '#lib/components/CupMarkTag.svelte';
 	import LiveBadge from '#lib/components/LiveBadge.svelte';
 	import NavRow from '#lib/components/NavRow.svelte';
+	import PostseasonMark from '#lib/components/PostseasonMark.svelte';
 	import StatusTag from '#lib/components/StatusTag.svelte';
 	import TeamMark from '#lib/components/TeamMark.svelte';
 	import type { GameHeaderView, HeaderTeam, ScoreboardCenter } from '#lib/game/types.ts';
@@ -78,6 +79,7 @@
 		{#if header}
 			<p class="status-line">
 				{#if header.cupTag}<CupMarkTag text={header.cupTag} />{/if}
+				{#if header.postseasonMark}<PostseasonMark mark={header.postseasonMark} />{/if}
 				{#if header.status.state === 'live'}
 					<LiveBadge />
 				{:else if header.status.state === 'delayed' || header.status.state === 'postponed' || header.status.state === 'canceled'}

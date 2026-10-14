@@ -24,11 +24,12 @@ from pydantic import (
     model_validator,
 )
 
-from app.feeds.game_detail import Conference
 from app.feeds.games import (
+    Conference,
     FeedModel,
     GameStatus,
     NonEmptyStr,
+    PlayInGameKind,
     Score,
     TeamCode,
     UtcDatetime,
@@ -171,12 +172,6 @@ class PlayoffGame(FeedModel):
 
 class SeriesGame(PlayoffGame):
     number: Annotated[int, Field(ge=1, le=7)]
-
-
-class PlayInGameKind(StrEnum):
-    SEVEN_EIGHT = "seven_eight"
-    NINE_TEN = "nine_ten"
-    EIGHTH_SEED = "eighth_seed"
 
 
 class PlayInSlotKey(StrEnum):

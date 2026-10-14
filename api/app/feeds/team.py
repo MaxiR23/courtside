@@ -214,6 +214,29 @@ class Schedule(FeedModel):
         return self
 
 
+class TitleKind(StrEnum):
+    NBA_CHAMPIONS = "nba_champions"
+    NBA_CUP_CHAMPIONS = "nba_cup_champions"
+    CONFERENCE_CHAMPIONS = "conference_champions"
+
+
+class TeamTitle(FeedModel):
+    """A title the team won in the current season."""
+
+    kind: TitleKind
+    year: Annotated[int, Field(ge=1946)] | None
+    conference: Conference | None
+
+    @model_validator(mode="after")
+    def _require_fields_of_kind(self) -> TeamTitle:
+        is_conference = self.kind is TitleKind.CONFERENCE_CHAMPIONS
+        if (self.year is None) != is_conference:
+            raise ValueError("year is set exactly for a championship title")
+        if (self.conference is not None) != is_conference:
+            raise ValueError("conference is set exactly for a conference title")
+        return self
+
+
 def _roster_order(number: str | None) -> tuple[bool, int]:
     return (number is None, int(number or 0))
 
@@ -235,12 +258,23 @@ class TeamFeed(FeedModel):
     next_game: NextGame | None = None
     schedule: Schedule | None = None
     cup: TeamCup | None = None
+    titles: Annotated[list[TeamTitle], Field(min_length=1, max_length=3)] | None = None
 
     @model_validator(mode="after")
     def _require_roster_by_number(self) -> TeamFeed:
         keys = [_roster_order(player.number) for player in self.roster]
         if any(later < earlier for earlier, later in pairwise(keys)):
             raise ValueError("roster must be ordered by number, unnumbered last")
+        return self
+
+    @model_validator(mode="after")
+    def _require_unique_titles_in_kind_order(self) -> TeamFeed:
+        if self.titles is None:
+            return self
+        order = list(TitleKind)
+        positions = [order.index(title.kind) for title in self.titles]
+        if any(later <= earlier for earlier, later in pairwise(positions)):
+            raise ValueError("titles must be unique and in kind order")
         return self
 
     @model_validator(mode="after")
