@@ -108,7 +108,7 @@ function heroPlayer(star: Star, team: GameTeam): HeroPlayer {
 	};
 }
 
-function leader(entry: FeedLeader, team: GameTeam): Leader {
+export function leader(entry: FeedLeader, team: Parameters<typeof teamMark>[0]): Leader {
 	const space = entry.displayName.indexOf(' ');
 	return {
 		firstName: space === -1 ? entry.displayName : entry.displayName.slice(0, space),

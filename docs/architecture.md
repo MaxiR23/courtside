@@ -122,7 +122,7 @@ Sections such as All-Star or the Finals are temporary. Each one is self-containe
 - `.env` is never committed. `api/.env.example` lists every variable `Settings` reads.
 - Data source URLs and keys live only in configuration, never in code or documentation.
 - Recorded in [`adr/0003-api-tooling-and-configuration.md`](adr/0003-api-tooling-and-configuration.md).
-- The front end's build-time settings are declared in `web/src/env.ts` and listed in `web/.env.example`: the games feed URL, the standings feed URL, `STANDINGS_FEED_URL`, the search feed URL, `SEARCH_FEED_URL`, the Cup feed URL, `CUP_FEED_URL`, the Cup matchup feed URL, `CUP_MATCHUP_FEED_URL` (with an `{id}` placeholder), the game detail feed URL (with an `{id}` placeholder), the team feed URL, `TEAM_FEED_URL` (with a `{code}` placeholder), the player feed URL, `PLAYER_FEED_URL` (with an `{id}` placeholder), and the video platform's name.
+- The front end's build-time settings are declared in `web/src/env.ts` and listed in `web/.env.example`: the games feed URL, the standings feed URL, `STANDINGS_FEED_URL`, the search feed URL, `SEARCH_FEED_URL`, the Cup feed URL, `CUP_FEED_URL`, the Cup matchup feed URL, `CUP_MATCHUP_FEED_URL` (with an `{id}` placeholder), the playoffs feed URL, `PLAYOFFS_FEED_URL`, the playoffs finals feed URL, `PLAYOFFS_FINALS_FEED_URL`, the game detail feed URL (with an `{id}` placeholder), the team feed URL, `TEAM_FEED_URL` (with a `{code}` placeholder), the player feed URL, `PLAYER_FEED_URL` (with an `{id}` placeholder), and the video platform's name.
 - The deployment's domain, `API_DOMAIN`, is read by Docker Compose from the root `.env` and listed in the root `.env.example`; it is not a `Settings` variable, because `api/.env` holds only those.
 
 ## Repository layout

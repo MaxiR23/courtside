@@ -14,6 +14,7 @@
 			| 'search'
 			| 'cup-draw'
 			| 'cup-champion'
+			| 'playoffs-champion'
 			| 'cup-node';
 		href?: ResolvedPathname;
 	};
@@ -93,6 +94,12 @@
 	.cup-champion {
 		width: var(--cup-champion-mark);
 		height: var(--cup-champion-mark);
+		border-color: var(--color-accent);
+	}
+
+	.playoffs-champion {
+		width: var(--playoffs-champion-mark);
+		height: var(--playoffs-champion-mark);
 		border-color: var(--color-accent);
 	}
 

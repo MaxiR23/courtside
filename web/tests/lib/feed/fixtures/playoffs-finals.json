@@ -1,0 +1,797 @@
+{
+	"season": "2026-27",
+	"status": "complete",
+	"champion": "QXA",
+	"curveTeam": "QXA",
+	"games": [
+		{
+			"game": {
+				"id": "g101",
+				"date": "2027-06-04",
+				"startTime": "2027-06-04T23:30:00Z",
+				"away": {
+					"code": "QYA",
+					"name": "Wolves",
+					"city": "Summit",
+					"guest": false
+				},
+				"home": {
+					"code": "QXA",
+					"name": "Owls",
+					"city": "Harbor",
+					"guest": false
+				},
+				"status": "final",
+				"score": {
+					"away": 104,
+					"home": 112
+				},
+				"winner": "home",
+				"overtime": false,
+				"venue": "Example Arena",
+				"broadcast": null,
+				"detailAvailable": true,
+				"number": 1
+			},
+			"leaders": {
+				"away": {
+					"playerId": "la1",
+					"displayName": "Aaron Away1",
+					"teamCode": "QYA",
+					"photoUrl": "https://cdn.example.com/l/a1.png",
+					"points": 25,
+					"rebounds": 7,
+					"assists": 5
+				},
+				"home": {
+					"playerId": "lh1",
+					"displayName": "Bea Home1",
+					"teamCode": "QXA",
+					"photoUrl": null,
+					"points": 27,
+					"rebounds": 9,
+					"assists": 6
+				}
+			},
+			"winProbability": {
+				"points": [
+					{
+						"elapsedSeconds": 0,
+						"winProbability": 0.5
+					},
+					{
+						"elapsedSeconds": 600,
+						"winProbability": 0.55
+					},
+					{
+						"elapsedSeconds": 1500,
+						"winProbability": 0.62
+					},
+					{
+						"elapsedSeconds": 2200,
+						"winProbability": 0.8
+					},
+					{
+						"elapsedSeconds": 2880,
+						"winProbability": 1.0
+					}
+				],
+				"periods": {
+					"periods": [
+						{
+							"number": 1,
+							"startElapsedSeconds": 0
+						},
+						{
+							"number": 2,
+							"startElapsedSeconds": 720
+						},
+						{
+							"number": 3,
+							"startElapsedSeconds": 1440
+						},
+						{
+							"number": 4,
+							"startElapsedSeconds": 2160
+						}
+					],
+					"endElapsedSeconds": 2880
+				}
+			},
+			"largestDeficit": {
+				"points": 12,
+				"elapsedSeconds": 900
+			},
+			"highlights": null
+		},
+		{
+			"game": {
+				"id": "g102",
+				"date": "2027-06-06",
+				"startTime": "2027-06-06T23:30:00Z",
+				"away": {
+					"code": "QYA",
+					"name": "Wolves",
+					"city": "Summit",
+					"guest": false
+				},
+				"home": {
+					"code": "QXA",
+					"name": "Owls",
+					"city": "Harbor",
+					"guest": false
+				},
+				"status": "final",
+				"score": {
+					"away": 98,
+					"home": 107
+				},
+				"winner": "home",
+				"overtime": false,
+				"venue": "Example Arena",
+				"broadcast": null,
+				"detailAvailable": true,
+				"number": 2
+			},
+			"leaders": {
+				"away": {
+					"playerId": "la2",
+					"displayName": "Aaron Away2",
+					"teamCode": "QYA",
+					"photoUrl": "https://cdn.example.com/l/a2.png",
+					"points": 26,
+					"rebounds": 7,
+					"assists": 5
+				},
+				"home": {
+					"playerId": "lh2",
+					"displayName": "Bea Home2",
+					"teamCode": "QXA",
+					"photoUrl": null,
+					"points": 26,
+					"rebounds": 9,
+					"assists": 6
+				}
+			},
+			"winProbability": null,
+			"largestDeficit": {
+				"points": 12,
+				"elapsedSeconds": 900
+			},
+			"highlights": null
+		},
+		{
+			"game": {
+				"id": "g103",
+				"date": "2027-06-09",
+				"startTime": "2027-06-09T23:30:00Z",
+				"away": {
+					"code": "QXA",
+					"name": "Owls",
+					"city": "Harbor",
+					"guest": false
+				},
+				"home": {
+					"code": "QYA",
+					"name": "Wolves",
+					"city": "Summit",
+					"guest": false
+				},
+				"status": "final",
+				"score": {
+					"away": 110,
+					"home": 101
+				},
+				"winner": "away",
+				"overtime": false,
+				"venue": "Example Arena",
+				"broadcast": null,
+				"detailAvailable": true,
+				"number": 3
+			},
+			"leaders": {
+				"away": {
+					"playerId": "la3",
+					"displayName": "Aaron Away3",
+					"teamCode": "QXA",
+					"photoUrl": "https://cdn.example.com/l/a3.png",
+					"points": 27,
+					"rebounds": 7,
+					"assists": 5
+				},
+				"home": {
+					"playerId": "lh3",
+					"displayName": "Bea Home3",
+					"teamCode": "QYA",
+					"photoUrl": null,
+					"points": 25,
+					"rebounds": 9,
+					"assists": 6
+				}
+			},
+			"winProbability": {
+				"points": [
+					{
+						"elapsedSeconds": 0,
+						"winProbability": 0.5
+					},
+					{
+						"elapsedSeconds": 600,
+						"winProbability": 0.55
+					},
+					{
+						"elapsedSeconds": 1500,
+						"winProbability": 0.62
+					},
+					{
+						"elapsedSeconds": 2200,
+						"winProbability": 0.8
+					},
+					{
+						"elapsedSeconds": 2880,
+						"winProbability": 1.0
+					}
+				],
+				"periods": {
+					"periods": [
+						{
+							"number": 1,
+							"startElapsedSeconds": 0
+						},
+						{
+							"number": 2,
+							"startElapsedSeconds": 720
+						},
+						{
+							"number": 3,
+							"startElapsedSeconds": 1440
+						},
+						{
+							"number": 4,
+							"startElapsedSeconds": 2160
+						}
+					],
+					"endElapsedSeconds": 2880
+				}
+			},
+			"largestDeficit": {
+				"points": 12,
+				"elapsedSeconds": 900
+			},
+			"highlights": [
+				{
+					"title": "Example highlights G3",
+					"channel": "Example Channel",
+					"thumbnailUrl": "https://video.example.com/t/3.jpg",
+					"embedUrl": "https://video.example.com/embed/3"
+				}
+			]
+		},
+		{
+			"game": {
+				"id": "g104",
+				"date": "2027-06-12",
+				"startTime": "2027-06-12T23:30:00Z",
+				"away": {
+					"code": "QXA",
+					"name": "Owls",
+					"city": "Harbor",
+					"guest": false
+				},
+				"home": {
+					"code": "QYA",
+					"name": "Wolves",
+					"city": "Summit",
+					"guest": false
+				},
+				"status": "final",
+				"score": {
+					"away": 99,
+					"home": 102
+				},
+				"winner": "home",
+				"overtime": true,
+				"venue": "Example Arena",
+				"broadcast": null,
+				"detailAvailable": true,
+				"number": 4
+			},
+			"leaders": {
+				"away": {
+					"playerId": "la4",
+					"displayName": "Aaron Away4",
+					"teamCode": "QXA",
+					"photoUrl": "https://cdn.example.com/l/a4.png",
+					"points": 28,
+					"rebounds": 7,
+					"assists": 5
+				},
+				"home": {
+					"playerId": "lh4",
+					"displayName": "Bea Home4",
+					"teamCode": "QYA",
+					"photoUrl": null,
+					"points": 24,
+					"rebounds": 9,
+					"assists": 6
+				}
+			},
+			"winProbability": {
+				"points": [
+					{
+						"elapsedSeconds": 0,
+						"winProbability": 0.5
+					},
+					{
+						"elapsedSeconds": 600,
+						"winProbability": 0.55
+					},
+					{
+						"elapsedSeconds": 1500,
+						"winProbability": 0.62
+					},
+					{
+						"elapsedSeconds": 2200,
+						"winProbability": 0.8
+					},
+					{
+						"elapsedSeconds": 2880,
+						"winProbability": 1.0
+					}
+				],
+				"periods": {
+					"periods": [
+						{
+							"number": 1,
+							"startElapsedSeconds": 0
+						},
+						{
+							"number": 2,
+							"startElapsedSeconds": 720
+						},
+						{
+							"number": 3,
+							"startElapsedSeconds": 1440
+						},
+						{
+							"number": 4,
+							"startElapsedSeconds": 2160
+						}
+					],
+					"endElapsedSeconds": 2880
+				}
+			},
+			"largestDeficit": null,
+			"highlights": null
+		},
+		{
+			"game": {
+				"id": "g105",
+				"date": "2027-06-15",
+				"startTime": "2027-06-15T23:30:00Z",
+				"away": {
+					"code": "QYA",
+					"name": "Wolves",
+					"city": "Summit",
+					"guest": false
+				},
+				"home": {
+					"code": "QXA",
+					"name": "Owls",
+					"city": "Harbor",
+					"guest": false
+				},
+				"status": "final",
+				"score": {
+					"away": 94,
+					"home": 106
+				},
+				"winner": "home",
+				"overtime": false,
+				"venue": "Example Arena",
+				"broadcast": null,
+				"detailAvailable": true,
+				"number": 5
+			},
+			"leaders": null,
+			"winProbability": {
+				"points": [
+					{
+						"elapsedSeconds": 0,
+						"winProbability": 0.5
+					},
+					{
+						"elapsedSeconds": 600,
+						"winProbability": 0.55
+					},
+					{
+						"elapsedSeconds": 1500,
+						"winProbability": 0.62
+					},
+					{
+						"elapsedSeconds": 2200,
+						"winProbability": 0.8
+					},
+					{
+						"elapsedSeconds": 2880,
+						"winProbability": 1.0
+					}
+				],
+				"periods": {
+					"periods": [
+						{
+							"number": 1,
+							"startElapsedSeconds": 0
+						},
+						{
+							"number": 2,
+							"startElapsedSeconds": 720
+						},
+						{
+							"number": 3,
+							"startElapsedSeconds": 1440
+						},
+						{
+							"number": 4,
+							"startElapsedSeconds": 2160
+						}
+					],
+					"endElapsedSeconds": 2880
+				}
+			},
+			"largestDeficit": {
+				"points": 12,
+				"elapsedSeconds": 900
+			},
+			"highlights": null
+		}
+	],
+	"finalsMvp": {
+		"playerId": "a6",
+		"name": "Kai Lowe",
+		"photoUrl": "https://cdn.example.com/p/a6.png",
+		"teamCode": "QXA",
+		"games": 5,
+		"points": 27.46,
+		"rebounds": 8.2,
+		"assists": 6.84,
+		"bestGame": {
+			"gameId": "g103",
+			"number": 3,
+			"points": 41
+		}
+	},
+	"road": [
+		{
+			"team": {
+				"code": "QXA",
+				"name": "Owls",
+				"city": "Harbor",
+				"guest": false,
+				"colors": {
+					"primary": "#1d4e89",
+					"secondary": "#f2c14e"
+				}
+			},
+			"seed": 1,
+			"regularSeason": "64-18",
+			"postseason": "16-6",
+			"series": [
+				{
+					"round": 1,
+					"opponent": {
+						"code": "QXH",
+						"name": "Bison",
+						"city": "Prairie",
+						"guest": false,
+						"colors": {
+							"primary": "#6b4423",
+							"secondary": "#e0c097"
+						}
+					},
+					"opponentSeed": 8,
+					"wins": 4,
+					"losses": 0,
+					"result": "win"
+				},
+				{
+					"round": 2,
+					"opponent": {
+						"code": "QXD",
+						"name": "Lynxes",
+						"city": "Ridge",
+						"guest": false,
+						"colors": {
+							"primary": "#5a2a82",
+							"secondary": "#c0c0c0"
+						}
+					},
+					"opponentSeed": 4,
+					"wins": 4,
+					"losses": 2,
+					"result": "win"
+				},
+				{
+					"round": 3,
+					"opponent": {
+						"code": "QXB",
+						"name": "Foxes",
+						"city": "Marsh",
+						"guest": false,
+						"colors": {
+							"primary": "#8c1c13",
+							"secondary": "#e8e0d0"
+						}
+					},
+					"opponentSeed": 2,
+					"wins": 4,
+					"losses": 3,
+					"result": "win"
+				},
+				{
+					"round": 4,
+					"opponent": {
+						"code": "QYA",
+						"name": "Wolves",
+						"city": "Summit",
+						"guest": false,
+						"colors": {
+							"primary": "#2e4057",
+							"secondary": "#f6ae2d"
+						}
+					},
+					"opponentSeed": 2,
+					"wins": 4,
+					"losses": 1,
+					"result": "win"
+				}
+			]
+		},
+		{
+			"team": {
+				"code": "QYA",
+				"name": "Wolves",
+				"city": "Summit",
+				"guest": false,
+				"colors": {
+					"primary": "#2e4057",
+					"secondary": "#f6ae2d"
+				}
+			},
+			"seed": 2,
+			"regularSeason": "60-22",
+			"postseason": null,
+			"series": [
+				{
+					"round": 1,
+					"opponent": {
+						"code": "QYG",
+						"name": "Lions",
+						"city": "Savanna",
+						"guest": false,
+						"colors": {
+							"primary": "#b5651d",
+							"secondary": "#222222"
+						}
+					},
+					"opponentSeed": 7,
+					"wins": 4,
+					"losses": 2,
+					"result": "win"
+				},
+				{
+					"round": 2,
+					"opponent": {
+						"code": "QYC",
+						"name": "Rams",
+						"city": "Valley",
+						"guest": false,
+						"colors": {
+							"primary": "#0f4c5c",
+							"secondary": "#e36414"
+						}
+					},
+					"opponentSeed": 3,
+					"wins": 4,
+					"losses": 3,
+					"result": "win"
+				},
+				{
+					"round": 3,
+					"opponent": {
+						"code": "QYD",
+						"name": "Pumas",
+						"city": "Dune",
+						"guest": false,
+						"colors": {
+							"primary": "#9a031e",
+							"secondary": "#fb8b24"
+						}
+					},
+					"opponentSeed": 4,
+					"wins": 4,
+					"losses": 1,
+					"result": "win"
+				}
+			]
+		}
+	],
+	"headToHead": {
+		"records": [
+			{
+				"teamCode": "QXA",
+				"record": "16-6"
+			},
+			{
+				"teamCode": "QYA",
+				"record": null
+			}
+		],
+		"bars": [
+			{
+				"stat": "points",
+				"values": [
+					{
+						"teamCode": "QXA",
+						"value": 112.4
+					},
+					{
+						"teamCode": "QYA",
+						"value": 104.1
+					}
+				],
+				"better": "QXA"
+			},
+			{
+				"stat": "field_goal_pct",
+				"values": [
+					{
+						"teamCode": "QXA",
+						"value": 0.481
+					},
+					{
+						"teamCode": "QYA",
+						"value": 0.452
+					}
+				],
+				"better": "QXA"
+			},
+			{
+				"stat": "effective_fg_pct",
+				"values": [
+					{
+						"teamCode": "QXA",
+						"value": 0.55
+					},
+					{
+						"teamCode": "QYA",
+						"value": 0.53
+					}
+				],
+				"better": "QXA"
+			},
+			{
+				"stat": "assists",
+				"values": [
+					{
+						"teamCode": "QXA",
+						"value": 26.1
+					},
+					{
+						"teamCode": "QYA",
+						"value": null
+					}
+				],
+				"better": null
+			},
+			{
+				"stat": "rebounds",
+				"values": [
+					{
+						"teamCode": "QXA",
+						"value": 44.0
+					},
+					{
+						"teamCode": "QYA",
+						"value": 46.5
+					}
+				],
+				"better": "QYA"
+			},
+			{
+				"stat": "blocks",
+				"values": [
+					{
+						"teamCode": "QXA",
+						"value": 5.2
+					},
+					{
+						"teamCode": "QYA",
+						"value": 0.0
+					}
+				],
+				"better": "QXA"
+			},
+			{
+				"stat": "steals",
+				"values": [
+					{
+						"teamCode": "QXA",
+						"value": 7.5
+					},
+					{
+						"teamCode": "QYA",
+						"value": 8.1
+					}
+				],
+				"better": "QYA"
+			},
+			{
+				"stat": "technical_fouls",
+				"values": [
+					{
+						"teamCode": "QXA",
+						"value": 2
+					},
+					{
+						"teamCode": "QYA",
+						"value": 5
+					}
+				],
+				"better": "QXA"
+			}
+		]
+	},
+	"averages": [
+		{
+			"teamCode": "QXA",
+			"players": [
+				{
+					"playerId": "a6",
+					"name": "Kai Lowe",
+					"photoUrl": "https://cdn.example.com/p/a6.png",
+					"points": 27.46,
+					"rebounds": 8.2,
+					"assists": 6.84,
+					"blocks": 1.2,
+					"fieldGoalPct": 0.512
+				},
+				{
+					"playerId": "a10",
+					"name": "Lou Marsh",
+					"photoUrl": null,
+					"points": 15.0,
+					"rebounds": 4.0,
+					"assists": 3.5,
+					"blocks": 0.4,
+					"fieldGoalPct": 0.44
+				},
+				{
+					"playerId": "a11",
+					"name": "Ned Oakes",
+					"photoUrl": null,
+					"points": null,
+					"rebounds": null,
+					"assists": null,
+					"blocks": null,
+					"fieldGoalPct": null
+				}
+			]
+		},
+		{
+			"teamCode": "QYA",
+			"players": [
+				{
+					"playerId": "b1",
+					"name": "Moe Nash",
+					"photoUrl": null,
+					"points": 22.0,
+					"rebounds": 10.1,
+					"assists": 3.2,
+					"blocks": 2.0,
+					"fieldGoalPct": 0.47
+				}
+			]
+		}
+	]
+}

@@ -11,6 +11,8 @@
 // - loadTeamFeed returns the team feed, reports a 404 as not-found and every other failure
 // - loadStandingsFeed returns the standings feed and reports 503, 404, network and body failures
 // - loadCupFeed returns the Cup feed and reports 503, network and body failures
+// - loadPlayoffsFeed returns the playoffs feed and reports 503, network and body failures
+// - loadPlayoffsFinalsFeed returns the finals feed, reports a 404 as not-found and every other failure
 // - cupMatchupFeedUrl puts the encoded slot id in place of every {id}
 // - loadCupMatchupFeed returns the matchup feed with a no-cache request, reports a 404 as not-found and every other failure
 // - loadSearchFeed returns the search feed with a no-cache request and reports 503, network and body failures
@@ -32,6 +34,8 @@ import {
 	loadGameDetailFeed,
 	loadGamesFeed,
 	loadPlayerFeed,
+	loadPlayoffsFeed,
+	loadPlayoffsFinalsFeed,
 	loadSearchFeed,
 	loadCupFeed,
 	loadCupMatchupFeed,
@@ -363,6 +367,99 @@ describe('loadCupFeed', () => {
 		await expect(loadCupFeed(CUP_URL, empty)).rejects.toMatchObject({ reason: 'body' });
 		const noGroups = cupFetchAnswering(() => json({ stages: [] }));
 		await expect(loadCupFeed(CUP_URL, noGroups)).rejects.toMatchObject({ reason: 'body' });
+	});
+});
+
+const PLAYOFFS_URL = 'https://feeds.example.com/playoffs.json';
+const FINALS_URL = 'https://feeds.example.com/playoffs/finals.json';
+
+function urlFetchAnswering(expected: string, answer: () => Promise<Response>) {
+	return vi.fn((url: string | URL | Request) => {
+		if (url !== expected) throw new Error(`Unexpected URL ${String(url)}`);
+		return answer();
+	}) as unknown as typeof fetch & ReturnType<typeof vi.fn>;
+}
+
+describe('loadPlayoffsFeed', () => {
+	it('returns the parsed playoffs feed on a 200, asking for JSON from the given URL', async () => {
+		const feed = { season: '2026', stages: [], bracket: [] };
+		const fetchFn = urlFetchAnswering(PLAYOFFS_URL, () => json(feed));
+		await expect(loadPlayoffsFeed(PLAYOFFS_URL, fetchFn)).resolves.toEqual(feed);
+		expect(fetchFn).toHaveBeenCalledWith(PLAYOFFS_URL, {
+			headers: { accept: 'application/json' }
+		});
+	});
+
+	it('throws a status error on a 503', async () => {
+		const fetchFn = urlFetchAnswering(PLAYOFFS_URL, () => json({ detail: 'no' }, 503));
+		await expect(loadPlayoffsFeed(PLAYOFFS_URL, fetchFn)).rejects.toMatchObject({
+			name: 'FeedLoadError',
+			reason: 'status'
+		});
+	});
+
+	it('throws a network error', async () => {
+		const fetchFn = urlFetchAnswering(PLAYOFFS_URL, () =>
+			Promise.reject(new TypeError('Failed to fetch'))
+		);
+		const error = await loadPlayoffsFeed(PLAYOFFS_URL, fetchFn).catch((e: unknown) => e);
+		expect(error).toBeInstanceOf(FeedLoadError);
+		expect((error as FeedLoadError).reason).toBe('network');
+	});
+
+	it('throws a body error on a non-JSON body and on JSON without stages or bracket', async () => {
+		const html = urlFetchAnswering(PLAYOFFS_URL, () =>
+			Promise.resolve(new Response('<html>', { status: 200 }))
+		);
+		await expect(loadPlayoffsFeed(PLAYOFFS_URL, html)).rejects.toMatchObject({ reason: 'body' });
+		const empty = urlFetchAnswering(PLAYOFFS_URL, () => json({ season: 'x' }));
+		await expect(loadPlayoffsFeed(PLAYOFFS_URL, empty)).rejects.toMatchObject({ reason: 'body' });
+		const noBracket = urlFetchAnswering(PLAYOFFS_URL, () => json({ stages: [] }));
+		await expect(loadPlayoffsFeed(PLAYOFFS_URL, noBracket)).rejects.toMatchObject({
+			reason: 'body'
+		});
+	});
+});
+
+describe('loadPlayoffsFinalsFeed', () => {
+	it('returns the parsed finals feed on a 200', async () => {
+		const feed = { season: '2026', games: [], road: [] };
+		const fetchFn = urlFetchAnswering(FINALS_URL, () => json(feed));
+		await expect(loadPlayoffsFinalsFeed(FINALS_URL, fetchFn)).resolves.toEqual(feed);
+	});
+
+	it('reports a 404 as not-found', async () => {
+		const fetchFn = urlFetchAnswering(FINALS_URL, () => json({ detail: 'no' }, 404));
+		await expect(loadPlayoffsFinalsFeed(FINALS_URL, fetchFn)).rejects.toMatchObject({
+			reason: 'not-found'
+		});
+	});
+
+	it('throws a status error on a 503', async () => {
+		const fetchFn = urlFetchAnswering(FINALS_URL, () => json({ detail: 'no' }, 503));
+		await expect(loadPlayoffsFinalsFeed(FINALS_URL, fetchFn)).rejects.toMatchObject({
+			reason: 'status'
+		});
+	});
+
+	it('throws a network error', async () => {
+		const fetchFn = urlFetchAnswering(FINALS_URL, () =>
+			Promise.reject(new TypeError('Failed to fetch'))
+		);
+		await expect(loadPlayoffsFinalsFeed(FINALS_URL, fetchFn)).rejects.toMatchObject({
+			reason: 'network'
+		});
+	});
+
+	it('throws a body error on JSON without games or road', async () => {
+		const empty = urlFetchAnswering(FINALS_URL, () => json({ season: 'x' }));
+		await expect(loadPlayoffsFinalsFeed(FINALS_URL, empty)).rejects.toMatchObject({
+			reason: 'body'
+		});
+		const noRoad = urlFetchAnswering(FINALS_URL, () => json({ games: [] }));
+		await expect(loadPlayoffsFinalsFeed(FINALS_URL, noRoad)).rejects.toMatchObject({
+			reason: 'body'
+		});
 	});
 });
 

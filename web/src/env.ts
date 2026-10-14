@@ -55,6 +55,26 @@ export const variables = defineEnvVars({
 			return value;
 		}
 	},
+	PLAYOFFS_FEED_URL: {
+		public: true,
+		static: true,
+		description: 'Absolute URL of the playoffs feed, read at build time',
+		schema: (value) => {
+			if (!value) return undefined;
+			if (!URL.canParse(value)) throw new Error('PLAYOFFS_FEED_URL must be an absolute URL');
+			return value;
+		}
+	},
+	PLAYOFFS_FINALS_FEED_URL: {
+		public: true,
+		static: true,
+		description: 'Absolute URL of the playoffs finals feed, read at build time',
+		schema: (value) => {
+			if (!value) return undefined;
+			if (!URL.canParse(value)) throw new Error('PLAYOFFS_FINALS_FEED_URL must be an absolute URL');
+			return value;
+		}
+	},
 	GAME_DETAIL_FEED_URL: {
 		public: true,
 		static: true,

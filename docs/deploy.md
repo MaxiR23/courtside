@@ -36,13 +36,15 @@ domains below are placeholders.
    `SEARCH_FEED_URL=https://api.example.com/feeds/search.json`,
    `CUP_FEED_URL=https://api.example.com/feeds/cup.json`,
    `CUP_MATCHUP_FEED_URL=https://api.example.com/feeds/cup/matchups/{id}.json`,
+   `PLAYOFFS_FEED_URL=https://api.example.com/feeds/playoffs.json`,
+   `PLAYOFFS_FINALS_FEED_URL=https://api.example.com/feeds/playoffs/finals.json`,
    `GAME_DETAIL_FEED_URL=https://api.example.com/feeds/games/{id}.json`,
    `TEAM_FEED_URL=https://api.example.com/feeds/teams/{code}.json`,
    `PLAYER_FEED_URL=https://api.example.com/feeds/players/{id}.json` and
    `VIDEO_PLATFORM_NAME`.
 3. `cd web && pnpm install --frozen-lockfile && pnpm run build`
 4. Upload the contents of `web/build/` to the static host. Configure the static
-   host to serve `200.html` for `/standings`, `/cup` and for every `/game/*`, `/player/*` and `/team/*` path that is not a file (those pages
+   host to serve `200.html` for `/standings`, `/cup`, `/playoffs` and for every `/game/*`, `/player/*` and `/team/*` path that is not a file (those pages
    are rendered in the browser from it, ADR 0020 and ADR 0021).
 
 The settings are read at build time: changing them means rebuilding and

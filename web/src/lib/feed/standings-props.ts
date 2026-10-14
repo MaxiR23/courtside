@@ -41,7 +41,7 @@ const CLINCH_LABELS: Record<Clinch, () => string> = {
 
 const CLINCH_ORDER: Clinch[] = ['*', 'z', 'y', 'x', 'xp', 'pb', 'e'];
 
-function clinchView(code: Clinch): ClinchView {
+export function clinchView(code: Clinch): ClinchView {
 	return { code, tone: CLINCH_TONES[code] };
 }
 

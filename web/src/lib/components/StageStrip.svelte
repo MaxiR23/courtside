@@ -1,13 +1,20 @@
 <script lang="ts">
-	import type { StageView } from '#lib/cup/types.ts';
 	import type { RowLayout } from '#lib/schedule/types.ts';
 
-	type Props = { stages: StageView[]; layout: RowLayout };
+	type Stage = {
+		key: string;
+		label: string;
+		dates: string;
+		status: 'complete' | 'in_progress' | 'next' | 'upcoming';
+		statusLabel: string;
+	};
 
-	let { stages, layout }: Props = $props();
+	type Props = { stages: Stage[]; layout: RowLayout; columns?: 4 | 5 };
+
+	let { stages, layout, columns = 4 }: Props = $props();
 </script>
 
-<ol class="stage-strip" class:mobile={layout === 'mobile'}>
+<ol class="stage-strip" class:mobile={layout === 'mobile'} class:five={columns === 5}>
 	{#each stages as stage (stage.key)}
 		<li
 			class="stage"
@@ -33,6 +40,18 @@
 
 	.stage-strip.mobile {
 		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+
+	.stage-strip.five {
+		grid-template-columns: repeat(var(--playoffs-stage-columns), minmax(0, 1fr));
+	}
+
+	.stage-strip.five.mobile {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+
+	.stage-strip.five.mobile .stage:last-child {
+		grid-column: 1 / -1;
 	}
 
 	.stage {

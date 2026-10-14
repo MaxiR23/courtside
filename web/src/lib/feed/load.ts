@@ -3,6 +3,8 @@ import type { CupFeed } from '#lib/contract/cup.ts';
 import type { CupMatchupFeed } from '#lib/contract/cup-matchup.ts';
 import type { GamesFeed } from '#lib/contract/games.ts';
 import type { PlayerFeed } from '#lib/contract/player.ts';
+import type { PlayoffsFeed } from '#lib/contract/playoffs.ts';
+import type { PlayoffsFinalsFeed } from '#lib/contract/playoffs-finals.ts';
 import type { SearchFeed } from '#lib/contract/search.ts';
 import type { StandingsFeed } from '#lib/contract/standings.ts';
 import type { TeamFeed } from '#lib/contract/team.ts';
@@ -157,6 +159,46 @@ export async function loadCupFeed(url: string, fetchFn: typeof fetch = fetch): P
 		throw new FeedLoadError('body', 'The Cup feed has no stages or groups');
 	}
 	return body as CupFeed;
+}
+
+/**
+ * Fetches the playoffs feed. The body is only checked for its shape: an object with `stages`
+ * and `bracket` arrays.
+ */
+export async function loadPlayoffsFeed(
+	url: string,
+	fetchFn: typeof fetch = fetch
+): Promise<PlayoffsFeed> {
+	const body = await fetchFeedBody(url, 'The playoffs feed', fetchFn);
+	if (
+		typeof body !== 'object' ||
+		body === null ||
+		!Array.isArray((body as PlayoffsFeed).stages) ||
+		!Array.isArray((body as PlayoffsFeed).bracket)
+	) {
+		throw new FeedLoadError('body', 'The playoffs feed has no stages or bracket');
+	}
+	return body as PlayoffsFeed;
+}
+
+/**
+ * Fetches the playoffs finals feed. A 404 is its own reason: no Finals game exists yet. The
+ * body is only checked for its shape: an object with `games` and `road` arrays.
+ */
+export async function loadPlayoffsFinalsFeed(
+	url: string,
+	fetchFn: typeof fetch = fetch
+): Promise<PlayoffsFinalsFeed> {
+	const body = await fetchFeedBody(url, 'The playoffs finals feed', fetchFn, true);
+	if (
+		typeof body !== 'object' ||
+		body === null ||
+		!Array.isArray((body as PlayoffsFinalsFeed).games) ||
+		!Array.isArray((body as PlayoffsFinalsFeed).road)
+	) {
+		throw new FeedLoadError('body', 'The playoffs finals feed has no games or road');
+	}
+	return body as PlayoffsFinalsFeed;
 }
 
 /** The URL of one Cup matchup feed: the template with the encoded slot id in place of {id}. */
