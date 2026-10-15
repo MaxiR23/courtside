@@ -4,7 +4,7 @@
 #
 # Tested:
 # - A past game with two league sides and null stars is accepted
-# - A past game with a star, or with a highlight, is rejected
+# - A past game with a star is rejected; a highlight is accepted, because the stored one is added when served
 # - The other Game rules still apply to a past game
 # - A day feed with an empty games list is accepted
 # - A day feed carries its season and label with camelCase keys; a missing
@@ -94,7 +94,7 @@ def test_rejects_a_past_game_with_a_star() -> None:
         PastGame.model_validate(game(stars={"away": star, "home": None}))
 
 
-def test_rejects_a_past_game_with_a_highlight() -> None:
+def test_accepts_a_past_game_with_a_highlight_added_when_served() -> None:
     highlight = {
         "title": "Highlights",
         "channel": "Channel",
@@ -102,8 +102,9 @@ def test_rejects_a_past_game_with_a_highlight() -> None:
         "embedUrl": "https://example.com/embed",
     }
 
-    with pytest.raises(ValidationError):
-        PastGame.model_validate(game(highlights=[highlight]))
+    parsed = PastGame.model_validate(game(highlights=[highlight]))
+
+    assert parsed.highlights is not None and len(parsed.highlights) == 1
 
 
 def test_the_other_game_rules_still_apply() -> None:

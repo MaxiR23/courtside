@@ -1,6 +1,6 @@
 # 0040. Calendar and day feeds
 
-- Status: Accepted
+- Status: Superseded by 0048 for the day feed's highlights only
 - Date: 2026-10-15
 
 ## Context

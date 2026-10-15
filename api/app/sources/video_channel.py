@@ -5,7 +5,8 @@
 # due game's full game highlights are found by title or a page holds a video
 # older than the oldest due game (rule E of docs/source-rules.md), and takes the largest 16:9 thumbnail the API
 # lists for it that the image host serves, or the largest served one when none
-# is 16:9. Builds the embed and the search link from templates. The URLs and the key come from Settings; the key
+# is 16:9. It also reads one page at a time for the highlights backfill and
+# keeps each upload's publish time. Builds the embed and the search link from templates. The URLs and the key come from Settings; the key
 # goes only in a request header. Provider data never leaves this module.
 #
 # SEE: docs/adr/0007-backend-runtime-and-data-pipeline.md,
@@ -28,6 +29,7 @@ from pydantic import (
 )
 from pydantic.alias_generators import to_camel
 
+from app.feeds.base import UtcDatetime
 from app.feeds.games import FeedModel, Highlight, NonEmptyStr
 from app.settings import Settings
 from app.sources.http import SourceClient, SourceError, get_json, is_served
@@ -46,10 +48,18 @@ class ChannelVideo(FeedModel):
     video_id: NonEmptyStr
     title: NonEmptyStr
     channel: NonEmptyStr
+    published_at: UtcDatetime
     # The best thumbnail the image host serves, or None when it serves none.
     thumbnail_url: str | None
     # The thumbnails the API lists, best first; checked only once matched.
     thumbnail_candidates: tuple[str, ...] = ()
+
+
+class UploadsPage(FeedModel):
+    """One page of the channel's uploads, newest first. Never reaches the feed."""
+
+    videos: list[ChannelVideo]
+    next_page_token: NonEmptyStr | None
 
 
 def _title_date(day: dt.date) -> str:
@@ -186,6 +196,43 @@ async def _read_page(
         raise _invalid(error) from None
 
 
+def _videos(page: _ProviderPage) -> list[ChannelVideo]:
+    return [
+        ChannelVideo(
+            video_id=item.snippet.resource_id.video_id,
+            title=item.snippet.title,
+            channel=item.snippet.channel_title,
+            published_at=item.snippet.published_at.astimezone(dt.UTC),
+            thumbnail_url=None,
+            thumbnail_candidates=tuple(_ranked_thumbnails(item.snippet.thumbnails)),
+        )
+        for item in page.items
+    ]
+
+
+async def read_uploads_page(
+    client: SourceClient,
+    settings: Settings,
+    token: str | None,
+    listed_since: dt.datetime,
+) -> UploadsPage:
+    """Read one page of the channel's uploads, newest first, from the page
+    `token` (the newest page when None), fetched at or after `listed_since`.
+    Raises SourceError."""
+    if settings.highlights_source_url is None:
+        raise SourceError(SOURCE, "highlights source URL is not configured")
+    key = settings.highlights_source_key
+    if key is None or not key.get_secret_value():
+        raise SourceError(SOURCE, "highlights source key is not configured")
+    page = await _read_page(
+        client, settings, key.get_secret_value(), token, listed_since
+    )
+    try:
+        return UploadsPage(videos=_videos(page), next_page_token=page.next_page_token)
+    except ValidationError as error:
+        raise _invalid(error) from None
+
+
 async def list_uploads(
     client: SourceClient,
     games: Sequence[tuple[ScoreboardGame, dt.date]],
@@ -215,18 +262,7 @@ async def list_uploads(
             page = await _read_page(
                 client, settings, key.get_secret_value(), token, listed_since
             )
-            videos = [
-                ChannelVideo(
-                    video_id=item.snippet.resource_id.video_id,
-                    title=item.snippet.title,
-                    channel=item.snippet.channel_title,
-                    thumbnail_url=None,
-                    thumbnail_candidates=tuple(
-                        _ranked_thumbnails(item.snippet.thumbnails)
-                    ),
-                )
-                for item in page.items
-            ]
+            videos = _videos(page)
         except ValidationError as error:
             raise ListingError(_invalid(error), listed) from None
         except SourceError as error:
@@ -269,14 +305,19 @@ def _has_word(title: str, words: str) -> bool:
     return re.search(pattern, title, re.IGNORECASE) is not None
 
 
-def matches(title: str, game: ScoreboardGame, day: dt.date) -> bool:
+def title_matches(title: str, away: str, home: str, day: dt.date) -> bool:
     """True when the title names both teams, the label and the date of the day."""
     return (
-        _has_word(title, game.away.name)
-        and _has_word(title, game.home.name)
+        _has_word(title, away)
+        and _has_word(title, home)
         and _has_word(title, LABEL)
         and _has_word(title, _title_date(day))
     )
+
+
+def matches(title: str, game: ScoreboardGame, day: dt.date) -> bool:
+    """True when the title names both teams, the label and the date of the day."""
+    return title_matches(title, game.away.name, game.home.name, day)
 
 
 def find_video(

@@ -13,7 +13,7 @@
 # - MVP null reason: a failed awards read, no All-Star MVP award with a winner and no box row
 # - Recap: the previous edition's champion, Championship score, MVP, date and venue; none when not discovered, when its day read failed and when its Championship is not final
 # - Counts, default game, next game, leading side, top points and team results: the pure functions and the fields of a before, live and after feed
-# - Previous edition: every game, its teams and MVP as the after view, none when the recap is none or a game is not final, no MVP without the award, carried by a before feed, highlights added when served and no read added
+# - Previous edition: every game, its teams and MVP as the after view, none when the recap is none or a game is not final, no MVP without the award, carried by a before feed, the edition video added when served and no read added
 # - The format line, venue and teams of a before feed
 # - Errors: an invalid feed is wrapped in a build error
 # - The kind: unknown for another id, not ready before the season, the rosters or the discovery when nothing is stored
@@ -22,7 +22,7 @@
 # - The kind: the reads get the live interval, the first-seen-final time or 1 hour as freshness, and the previous edition's day and games 24 hours
 # - The kind: every game final with summaries cached while live, the kept feed comes from a read after the first-seen-final time
 # - The kind: the first-seen-final time is stored by the first build that sees the game final and never overwritten
-# - The kind: highlights are added when served and not stored
+# - The kind: no per-game highlight even with a stored one, and the edition video is added as editionHighlight on the edition, the recap and the previous edition when served, null without one, and not stored
 # - The kind: expiry (live 30 seconds and a stale request waits for the rebuild, the edition's date 30 seconds, before until the discovery runs, after held 30 seconds until a build 1 hour after the latest first-seen-final time and then kept while the season is current)
 # - The kind: the cleanup keeps league
 #
@@ -1939,49 +1939,61 @@ async def test_an_after_feed_is_held_30_seconds_until_a_build_one_hour_after_the
     assert kit.feeds.is_fresh(feed, kept_built, kept_built + dt.timedelta(days=30))
 
 
-@pytest.mark.anyio
-async def test_highlights_are_added_when_served_and_not_stored(
-    kit: AllStarKit,
-) -> None:
-    clip = Highlight(
-        title="Example clip",
+def example_clip(title: str = "Example clip") -> Highlight:
+    return Highlight(
+        title=title,
         channel="Example channel",
         thumbnail_url=HttpUrl("https://example.com/thumb.jpg"),
         embed_url=HttpUrl("https://example.com/embed"),
     )
-    kit.store.set_highlight("g2", clip)
+
+
+@pytest.mark.anyio
+async def test_no_game_carries_a_per_game_highlight_even_with_a_stored_one(
+    kit: AllStarKit,
+) -> None:
+    kit.store.set_highlight("g2", example_clip())
+    kit.store.set_highlight("p2", example_clip())
     await kit.discover()
 
     body = await kit.serve()
 
     served = AllStarFeed.model_validate_json(body)
-    assert [g.highlights for g in served.edition.games] == [None, [clip], None, None]
-    stored = kit.stored()
-    assert stored is not None
-    assert all(g.highlights is None for g in stored.edition.games)
-
-
-@pytest.mark.anyio
-async def test_highlights_are_added_to_the_previous_edition_games_when_served(
-    kit: AllStarKit,
-) -> None:
-    clip = Highlight(
-        title="Example clip",
-        channel="Example channel",
-        thumbnail_url=HttpUrl("https://example.com/thumb.jpg"),
-        embed_url=HttpUrl("https://example.com/embed"),
-    )
-    kit.store.set_highlight("p2", clip)
-    await kit.discover()
-
-    body = await kit.serve()
-
-    served = AllStarFeed.model_validate_json(body)
+    assert all(g.highlights is None for g in served.edition.games)
     assert served.previous_edition is not None
-    assert [g.highlights for g in served.previous_edition.games] == [None, [clip]]
+    assert all(g.highlights is None for g in served.previous_edition.games)
+
+
+@pytest.mark.anyio
+async def test_the_edition_video_is_added_when_served_and_not_stored(
+    kit: AllStarKit,
+) -> None:
+    kit.store.set_all_star_edition_highlight(2027, example_clip("current"))
+    kit.store.set_all_star_edition_highlight(2026, example_clip("previous"))
+    await kit.discover()
+
+    body = await kit.serve()
+
+    served = AllStarFeed.model_validate_json(body)
+    assert served.edition.edition_highlight == example_clip("current")
+    assert served.previous is not None
+    assert served.previous.edition_highlight == example_clip("previous")
+    assert served.previous_edition is not None
+    assert served.previous_edition.edition_highlight == example_clip("previous")
     stored = kit.stored()
     assert stored is not None and stored.previous_edition is not None
-    assert all(g.highlights is None for g in stored.previous_edition.games)
+    assert stored.edition.edition_highlight is None
+    assert stored.previous_edition.edition_highlight is None
+
+
+@pytest.mark.anyio
+async def test_the_edition_video_is_null_without_a_stored_one(kit: AllStarKit) -> None:
+    await kit.discover()
+
+    served = AllStarFeed.model_validate_json(await kit.serve())
+
+    assert served.edition.edition_highlight is None
+    assert served.previous is not None and served.previous.edition_highlight is None
 
 
 @pytest.mark.anyio

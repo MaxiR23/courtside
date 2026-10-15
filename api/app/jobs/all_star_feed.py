@@ -49,9 +49,11 @@
 # live interval). The first build that sees a game final stores that time, and the
 # reads of a final game are fresh only when made at or after it. The previous
 # edition is finished data: its scoreboard day and game details are read with a
-# 24-hour freshness. The stored highlights are added when served, never stored.
+# 24-hour freshness. The stored edition video is added when served as
+# editionHighlight, never stored; no game carries a per-game highlight (ADR 0048).
 #
 # SEE: docs/api/all-star.md, docs/adr/0036-all-star-feed.md,
+# docs/adr/0048-highlights-backfill-and-edition-video.md,
 # api/app/jobs/playoffs_finals_feed.py
 
 import asyncio
@@ -828,6 +830,19 @@ def build_all_star_feed(sources: AllStarSources) -> AllStarFeed:
         ) from None
 
 
+def with_edition_highlights(feed: AllStarFeed, store: StateStore) -> AllStarFeed:
+    """The feed with the stored edition video on the edition, and on the recap
+    and the previous edition when there are. Stores nothing."""
+    data = feed.model_dump(by_alias=False)
+    data["edition"]["edition_highlight"] = store.all_star_edition_highlight(feed.year)
+    if feed.previous is not None:
+        found = store.all_star_edition_highlight(feed.previous.year)
+        data["previous"]["edition_highlight"] = found
+        if data["previous_edition"] is not None:
+            data["previous_edition"]["edition_highlight"] = found
+    return AllStarFeed.model_validate(data)
+
+
 class AllStarFeeds:
     def __init__(
         self,
@@ -1100,20 +1115,7 @@ class AllStarFeeds:
         )
 
     def serve_with(self, feed_id: str, feed: AllStarFeed) -> AllStarFeed:
-        highlights = self._store.highlights()
-        data = feed.model_dump(by_alias=False)
-        for game in data["edition"]["games"]:
-            found = highlights.get(game["id"])
-            game["highlights"] = (
-                None if found is None else [found.model_dump(by_alias=False)]
-            )
-        earlier = data["previous_edition"]
-        for game in [] if earlier is None else earlier["games"]:
-            found = highlights.get(game["id"])
-            game["highlights"] = (
-                None if found is None else [found.model_dump(by_alias=False)]
-            )
-        return AllStarFeed.model_validate(data)
+        return with_edition_highlights(feed, self._store)
 
     def keep(self, feed_id: str) -> bool:
         return feed_id == FEED_ID

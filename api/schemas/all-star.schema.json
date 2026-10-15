@@ -266,6 +266,17 @@
               "type": "null"
             }
           ]
+        },
+        "editionHighlight": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Highlight"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -275,7 +286,8 @@
         "teams",
         "games",
         "counts",
-        "defaultGameId"
+        "defaultGameId",
+        "editionHighlight"
       ],
       "title": "AllStarEdition",
       "type": "object"
@@ -629,6 +641,17 @@
             }
           ]
         },
+        "editionHighlight": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Highlight"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "mvp": {
           "anyOf": [
             {
@@ -648,6 +671,7 @@
         "games",
         "counts",
         "defaultGameId",
+        "editionHighlight",
         "mvp"
       ],
       "title": "AllStarPreviousEdition",
@@ -686,6 +710,17 @@
               "type": "null"
             }
           ]
+        },
+        "editionHighlight": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Highlight"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -693,7 +728,8 @@
         "date",
         "venue",
         "championship",
-        "mvp"
+        "mvp",
+        "editionHighlight"
       ],
       "title": "AllStarRecap",
       "type": "object"

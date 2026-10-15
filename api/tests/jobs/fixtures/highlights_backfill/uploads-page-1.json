@@ -1,0 +1,39 @@
+{
+  "nextPageToken": "page-2",
+  "items": [
+    {
+      "snippet": {
+        "publishedAt": "2026-10-09T06:00:00Z",
+        "channelTitle": "Example Channel",
+        "title": "JAZZ at NUGGETS | FULL GAME HIGHLIGHTS | October 8, 2026",
+        "thumbnails": {
+          "maxres": {
+            "url": "https://example.com/thumbs/vid-new/maxres.jpg",
+            "width": 1280,
+            "height": 720
+          }
+        },
+        "resourceId": {
+          "videoId": "vid-new"
+        }
+      }
+    },
+    {
+      "snippet": {
+        "publishedAt": "2026-10-06T07:00:00Z",
+        "channelTitle": "Example Channel",
+        "title": "Player Scores 30 | Highlights | October 5, 2026",
+        "thumbnails": {
+          "maxres": {
+            "url": "https://example.com/thumbs/vid-clip/maxres.jpg",
+            "width": 1280,
+            "height": 720
+          }
+        },
+        "resourceId": {
+          "videoId": "vid-clip"
+        }
+      }
+    }
+  ]
+}

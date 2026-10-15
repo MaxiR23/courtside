@@ -3,7 +3,7 @@
 # Day feed builder and kind: the games of one past US Eastern day. The builder
 # is a pure function from the games the scoreboard adapter returned to the feed;
 # it reads no clock and no source. A game is the games feed's Game with the
-# past-day rules: no star, no highlight, and for a final game stats unavailable
+# past-day rules: no star, no stored highlight, and for a final game stats unavailable
 # (leaders and team stats are read from no source), with the search link as in
 # the games feed. A game that is not a valid PastGame is skipped with a log line
 # by event id. A day with no game is a valid day with an empty list. The feed
@@ -16,9 +16,12 @@
 # or with none stored the days the games job would show. It expires (rule G)
 # 6 hours after the build when a game is not final, and is kept when every game
 # is final or there is no game. It is never deleted, and it never enters the
-# games job, the hero, the highlights job or the live refresh (ADR 0040).
+# games job, the hero, the highlights job or the live refresh (ADR 0040). The
+# stored highlight of a final game is added when served, never stored (ADR
+# 0048); an All-Star game gets none.
 #
 # SEE: docs/api/days.md, docs/adr/0040-calendar-and-day-feeds.md,
+# docs/adr/0048-highlights-backfill-and-edition-video.md,
 # api/app/jobs/standings_feed.py
 
 import datetime as dt
@@ -175,6 +178,15 @@ class DayFeeds:
             return True
         return now - built_at < REBUILD_AFTER
 
+    def serve_with(self, feed_id: str, feed: DayFeed) -> DayFeed:
+        highlights = self._store.highlights()
+        data = feed.model_dump(by_alias=False)
+        for game in data["day"]["games"]:
+            found = highlights.get(game["id"])
+            if found is not None and game["all_star"] is None:
+                game["highlights"] = [found.model_dump(by_alias=False)]
+        return DayFeed.model_validate(data)
+
     def keep(self, feed_id: str) -> bool:
         return True
 
@@ -186,4 +198,5 @@ class DayFeeds:
             build=self.build,
             is_fresh=self.is_fresh,
             keep=self.keep,
+            serve_with=self.serve_with,
         )

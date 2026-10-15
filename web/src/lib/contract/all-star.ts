@@ -28,6 +28,7 @@ export interface AllStarEdition {
 	games: AllStarGame[];
 	counts: AllStarCounts;
 	defaultGameId: string | null;
+	editionHighlight: Highlight | null;
 }
 export interface Venue {
 	name: string;
@@ -254,6 +255,7 @@ export interface AllStarRecap {
 	venue: Venue | null;
 	championship: AllStarResult;
 	mvp: AllStarMvp | null;
+	editionHighlight: Highlight | null;
 }
 export interface AllStarResult {
 	gameId: string;
@@ -274,5 +276,6 @@ export interface AllStarPreviousEdition {
 	games: AllStarGame[];
 	counts: AllStarCounts;
 	defaultGameId: string | null;
+	editionHighlight: Highlight | null;
 	mvp: AllStarMvp | null;
 }

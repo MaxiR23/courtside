@@ -5,8 +5,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.jobs.all_star_discovery import AllStarDiscovery
+from app.jobs.all_star_edition_videos import AllStarEditionVideos
 from app.jobs.all_star_feed import AllStarFeeds
 from app.jobs.calendar_feed import CalendarFeeds
+from app.jobs.cup_backfill_games import cup_backfill_games
 from app.jobs.cup_feed import CupFeeds
 from app.jobs.cup_matchup_feed import CupMatchupFeeds
 from app.jobs.cup_titles import CupTitles
@@ -14,10 +16,12 @@ from app.jobs.day_feed import DayFeeds
 from app.jobs.game_detail_feed import GameDetailFeeds
 from app.jobs.games import GamesJob
 from app.jobs.highlights import HighlightsJob
+from app.jobs.highlights_backfill import HighlightsBackfill
 from app.jobs.on_demand import FeedCache
 from app.jobs.past_game_detail_feed import PastGameDetailFeeds
 from app.jobs.past_player_ids import PastPlayerIds
 from app.jobs.player_feed import PlayerFeeds
+from app.jobs.playoffs_backfill_games import playoffs_backfill_games
 from app.jobs.playoffs_feed import PlayoffsFeeds
 from app.jobs.playoffs_finals_feed import PlayoffsFinalsFeeds
 from app.jobs.playoffs_titles import PlayoffsTitles
@@ -158,12 +162,27 @@ def create_app(settings: Settings | None = None, *, run_jobs: bool = True) -> Fa
         calendar_feeds = CalendarFeeds(settings, store, client, feed_cache, stars_job)
         DayFeeds(settings, store, client, feed_cache)
         PastGameDetailFeeds(settings, store, client, feed_cache)
+        highlights_backfill = HighlightsBackfill(
+            settings,
+            store,
+            client,
+            highlights_job,
+            final_games=lambda: games_job.final_games(),
+            game_sources=(
+                lambda: cup_backfill_games(settings.data_dir),
+                lambda: playoffs_backfill_games(settings.data_dir),
+            ),
+            editions=AllStarEditionVideos(store),
+        )
         # The stars job runs in its own task so its fetches never delay the live refresh,
-        # and so does the All-Star discovery.
+        # and so does the All-Star discovery; the highlights backfill runs in a third
+        # task so its pages never delay the live refresh or the stars.
         stars_scheduler = Scheduler([stars_job, all_star_discovery], store)
+        backfill_scheduler = Scheduler([highlights_backfill], store)
         scheduler = Scheduler([games_job, highlights_job], store)
         app.state.scheduler = scheduler
         app.state.stars_scheduler = stars_scheduler
+        app.state.backfill_scheduler = backfill_scheduler
         app.state.presence = presence
         app.state.games_job = games_job
         app.state.feed_cache = feed_cache
@@ -178,6 +197,7 @@ def create_app(settings: Settings | None = None, *, run_jobs: bool = True) -> Fa
             if run_jobs:
                 stars_scheduler.start()
                 scheduler.start()
+                backfill_scheduler.start()
             yield
         finally:
             try:
@@ -186,7 +206,10 @@ def create_app(settings: Settings | None = None, *, run_jobs: bool = True) -> Fa
                 try:
                     await stars_scheduler.stop()
                 finally:
-                    await client.aclose()
+                    try:
+                        await backfill_scheduler.stop()
+                    finally:
+                        await client.aclose()
 
     app = FastAPI(lifespan=lifespan)
     app.state.settings = settings

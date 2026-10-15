@@ -30,6 +30,12 @@
 # - Checks the thumbnail of one video best first
 # - A listing raises the failed request of a later page
 # - A listing that fails on a later page carries the uploads of the pages read
+# - Reads one uploads page with the publish time in UTC and the next page token
+# - Sends the page token as pageToken and none for the first page
+# - Raises before any request when the source URL or the key is not set for a page read
+# - Rejects an invalid page and raises a failed request on a timeout and an error status for a page read
+# - Reads a page through the source cache, fetched at or after the given time
+# - Matches a title by the team names, the label and the date as the game matcher does
 #
 # What is covered:
 # - A valid response mapped, an invalid payload rejected, upstream failures handled
@@ -63,12 +69,15 @@ from app.sources.scoreboard import ScoreboardGame
 from app.sources.video_channel import (
     ChannelVideo,
     ListingError,
+    UploadsPage,
     check_thumbnail,
     find_video,
     list_uploads,
     lookup_video,
     matches,
+    read_uploads_page,
     search_url,
+    title_matches,
     to_highlight,
 )
 from app.storage.state import STATE_FILE, StateStore
@@ -77,6 +86,7 @@ FIXTURES = Path(__file__).parent / "fixtures" / "video_channel"
 SOURCE_URL = "https://example.com/uploads?list=example"
 KEY = "test-key-value"
 DAY = dt.date(2026, 10, 4)
+PUBLISHED = dt.datetime(2026, 10, 5, 12, 0, tzinfo=dt.UTC)
 # Before the fixed clock START the client reads, so every cached page counts as listed in the run.
 LISTED_SINCE = dt.datetime(2026, 1, 1, tzinfo=dt.UTC)
 START = dt.datetime(2026, 10, 5, 2, 0, tzinfo=dt.UTC)
@@ -587,10 +597,26 @@ def test_does_not_take_a_team_name_inside_a_longer_word() -> None:
 def test_finds_the_first_matching_video_in_order_and_none_otherwise() -> None:
     videos = [
         ChannelVideo(
-            video_id="a", title="Something else", channel="C", thumbnail_url=None
+            video_id="a",
+            title="Something else",
+            channel="C",
+            published_at=PUBLISHED,
+            thumbnail_url=None,
         ),
-        ChannelVideo(video_id="b", title=TITLE, channel="C", thumbnail_url=None),
-        ChannelVideo(video_id="c", title=TITLE, channel="C", thumbnail_url=None),
+        ChannelVideo(
+            video_id="b",
+            title=TITLE,
+            channel="C",
+            published_at=PUBLISHED,
+            thumbnail_url=None,
+        ),
+        ChannelVideo(
+            video_id="c",
+            title=TITLE,
+            channel="C",
+            published_at=PUBLISHED,
+            thumbnail_url=None,
+        ),
     ]
 
     found = find_video(videos, make_game(), DAY)
@@ -601,7 +627,11 @@ def test_finds_the_first_matching_video_in_order_and_none_otherwise() -> None:
 
 def video_with(thumbnail_url: str | None) -> ChannelVideo:
     return ChannelVideo(
-        video_id="abc", title="T", channel="C", thumbnail_url=thumbnail_url
+        video_id="abc",
+        title="T",
+        channel="C",
+        published_at=PUBLISHED,
+        thumbnail_url=thumbnail_url,
     )
 
 
@@ -785,6 +815,7 @@ async def test_checks_the_thumbnail_of_one_video_best_first(
         video_id="a",
         title="t",
         channel="c",
+        published_at=PUBLISHED,
         thumbnail_url=None,
         thumbnail_candidates=(first, second),
     )
@@ -840,3 +871,128 @@ async def test_a_listing_that_fails_on_a_later_page_carries_the_uploads_of_the_p
 
     assert raised.value.request_failed is False
     assert [v.video_id for v in raised.value.uploads] == ["vid-clip", "vid-other-game"]
+
+
+async def read_page(
+    tmp_path: Path, token: str | None = None, settings: Settings | None = None
+) -> UploadsPage:
+    async with clocked(tmp_path, [START]) as client:
+        return await read_uploads_page(
+            client, settings or configured(), token, LISTED_SINCE
+        )
+
+
+@pytest.mark.anyio
+async def test_reads_one_page_with_the_publish_time_in_utc_and_the_next_token(
+    tmp_path: Path,
+) -> None:
+    serve_pages()
+
+    result = await read_page(tmp_path)
+
+    assert result.next_page_token == "page-2"
+    assert result.videos[0].video_id == "vid-clip"
+    assert result.videos[0].published_at == dt.datetime(
+        2026, 10, 5, 7, 0, tzinfo=dt.UTC
+    )
+
+
+@pytest.mark.anyio
+async def test_converts_a_publish_time_with_an_offset_to_utc(tmp_path: Path) -> None:
+    body = {
+        "items": [item(publishedAt="2026-10-05T09:00:00+02:00")],
+    }
+    respx.get("https://example.com/uploads").mock(
+        return_value=httpx.Response(200, json=body)
+    )
+
+    result = await read_page(tmp_path)
+
+    assert result.videos[0].published_at == dt.datetime(
+        2026, 10, 5, 7, 0, tzinfo=dt.UTC
+    )
+    assert result.next_page_token is None
+
+
+@pytest.mark.anyio
+async def test_sends_the_page_token_only_when_given(tmp_path: Path) -> None:
+    seen = serve_pages()
+
+    await read_page(tmp_path)
+    await read_page(tmp_path, "page-2")
+
+    assert [r.url.params.get("pageToken") for r in seen] == [None, "page-2"]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("missing", ["url", "key"])
+async def test_a_page_read_raises_before_any_request_when_not_configured(
+    tmp_path: Path, missing: str
+) -> None:
+    route = respx.get("https://example.com/uploads")
+    settings = (
+        make_settings(highlights_source_key=KEY)
+        if missing == "url"
+        else make_settings(highlights_source_url=SOURCE_URL, highlights_source_key="")
+    )
+
+    with pytest.raises(SourceError) as raised:
+        await read_page(tmp_path, settings=settings)
+
+    assert raised.value.request_failed is False
+    assert route.call_count == 0
+
+
+@pytest.mark.anyio
+async def test_a_page_read_rejects_an_invalid_page(tmp_path: Path) -> None:
+    respx.get("https://example.com/uploads").mock(
+        return_value=httpx.Response(200, json={"items": [item(title="")]})
+    )
+
+    with pytest.raises(SourceError) as raised:
+        await read_page(tmp_path)
+
+    assert raised.value.reason.startswith("invalid payload")
+    assert raised.value.request_failed is False
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("effect", [httpx.ReadTimeout("slow"), httpx.Response(503)])
+async def test_a_page_read_raises_a_failed_request(
+    tmp_path: Path, effect: httpx.Response | Exception
+) -> None:
+    route = respx.get("https://example.com/uploads")
+    if isinstance(effect, Exception):
+        route.mock(side_effect=effect)
+    else:
+        route.mock(return_value=effect)
+
+    with pytest.raises(SourceError) as raised:
+        await read_page(tmp_path)
+
+    assert raised.value.request_failed is True
+    assert KEY not in str(raised.value)
+
+
+@pytest.mark.anyio
+async def test_a_page_read_goes_through_the_source_cache(tmp_path: Path) -> None:
+    seen = serve_pages()
+    store = StateStore(tmp_path)
+    store.migrate()
+    async with create_client(store, clock=lambda: START) as client:
+        await read_uploads_page(client, configured(), None, LISTED_SINCE)
+        await read_uploads_page(client, configured(), None, LISTED_SINCE)
+        await read_uploads_page(
+            client, configured(), None, START + dt.timedelta(minutes=1)
+        )
+
+    assert len(seen) == 2
+
+
+def test_title_matches_by_names_label_and_date() -> None:
+    assert title_matches(TITLE, "Warriors", "Clippers", DAY)
+    assert not title_matches(TITLE, "Warriors", "Nets", DAY)
+    assert not title_matches(TITLE, "Warriors", "Clippers", dt.date(2026, 10, 5))
+    assert not title_matches(
+        "Warriors Clippers October 4, 2026", "Warriors", "Clippers", DAY
+    )

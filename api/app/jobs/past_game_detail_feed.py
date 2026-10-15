@@ -7,7 +7,8 @@
 # winner, marks, sides and highlights search link. The sections give the venue,
 # box score, team stats, win probability and the season. Every block that would
 # describe today is null: injuries, last games, standings, stars, season
-# series, highlights and both records.
+# series and both records. The highlights are null in the built feed: the stored
+# highlight of the game is added when served (ADR 0048).
 #
 # PastGameDetailFeeds is the feed kind of the on-demand cache: the id is the
 # game id, the feed is stored at feeds/past-games/{id}.json only when requested.
@@ -17,6 +18,7 @@
 # or the highlights job, and never deleted (rule J).
 #
 # SEE: docs/api/game-detail.md, docs/adr/0041-past-game-detail.md,
+# docs/adr/0048-highlights-backfill-and-edition-video.md,
 # docs/source-rules.md, api/app/jobs/day_feed.py
 
 import datetime as dt
@@ -186,6 +188,14 @@ class PastGameDetailFeeds:
     ) -> bool:
         return True
 
+    def serve_with(self, game_id: str, feed: PastGameDetailFeed) -> PastGameDetailFeed:
+        found = self._store.highlights().get(game_id)
+        if found is None or feed.all_star is not None:
+            return feed
+        return PastGameDetailFeed.model_validate(
+            {**feed.model_dump(by_alias=False), "highlights": [found]}
+        )
+
     def keep(self, feed_id: str) -> bool:
         return True
 
@@ -197,4 +207,5 @@ class PastGameDetailFeeds:
             build=self.build,
             is_fresh=self.is_fresh,
             keep=self.keep,
+            serve_with=self.serve_with,
         )

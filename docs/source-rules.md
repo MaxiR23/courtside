@@ -39,7 +39,7 @@ A final game's detail is built once, at its final time with the ADR 0010 attempt
 
 ## E. Fixed-time work
 
-Unchanged cadences: the daily scoreboard fetch of the days shown at `DAILY_FETCH_TIME`, the stars once a day, and the highlight attempts at their times. The highlights job lists the channel uploads once per run and matches every due game against that one list. The All-Star discovery reads, once a day at `DAILY_FETCH_TIME`, the scoreboard days from February 1 to March 7 of the current season (then once of the previous season) until it finds All-Star games, stores their date and ids, and never scans a season again once found.
+Unchanged cadences: the daily scoreboard fetch of the days shown at `DAILY_FETCH_TIME`, the stars once a day, and the highlight attempts at their times. The highlights job lists the channel uploads once per run and matches every due game against that one list. The All-Star discovery reads, once a day at `DAILY_FETCH_TIME`, the scoreboard days from February 1 to March 7 of the current season (then once of the previous season) until it finds All-Star games, stores their date and ids, and never scans a season again once found. The highlights backfill runs once a day at `DAILY_FETCH_TIME` in its own task, after the games' live highlight attempts are over: it pages the channel uploads back from the newest, at most `HIGHLIGHTS_BACKFILL_PAGES` pages a day, continuing the next day from the stored page token and oldest upload reached, and never reads a page again for the same games; it also looks for each All-Star edition's video ([ADR 0048](adr/0048-highlights-backfill-and-edition-video.md)).
 
 ## F. Stars
 

@@ -11,9 +11,11 @@
 # view. The edition also carries its counts, its default game and its next game, a
 # live game its leading side, a box score its top scorers and a team its result
 # rows, so the page counts and compares nothing. Labels are keys and parts, never prose: the page writes the words. The
-# format line is the one text, because the page shows it as sent.
+# format line is the one text, because the page shows it as sent. Each edition
+# and the recap carry the edition video, added when served.
 #
-# SEE: docs/api/all-star.md, docs/adr/0036-all-star-feed.md
+# SEE: docs/api/all-star.md, docs/adr/0036-all-star-feed.md,
+# docs/adr/0048-highlights-backfill-and-edition-video.md
 
 import datetime as dt
 from enum import StrEnum
@@ -314,6 +316,7 @@ class AllStarEdition(FeedModel):
     games: list[AllStarGame]
     counts: AllStarCounts
     default_game_id: NonEmptyStr | None
+    edition_highlight: Highlight | None = None
 
     @model_validator(mode="after")
     def _require_at_most_one_champion_and_runner_up(self) -> AllStarEdition:
@@ -419,6 +422,7 @@ class AllStarRecap(FeedModel):
     venue: Venue | None
     championship: AllStarResult
     mvp: AllStarMvp | None
+    edition_highlight: Highlight | None = None
 
 
 class AllStarPreviousEdition(AllStarEdition):

@@ -47,6 +47,9 @@
 # - Reads the video embed URL from an environment variable
 # - Leaves the highlights search URL unset by default
 # - Reads the highlights search URL from an environment variable
+# - Defaults the highlights backfill pages to 200
+# - Reads the highlights backfill pages from an environment variable
+# - Rejects a highlights backfill pages value that is not a positive integer, without showing it
 # - Defaults the daily fetch time to six in the morning
 # - Reads the daily fetch time from an environment variable
 # - Rejects an invalid daily fetch time
@@ -440,6 +443,31 @@ def test_reads_the_highlights_search_url_from_the_environment_variable(
         SettingsWithoutEnvFile().highlights_search_url
         == "https://example.com/s?q={query}"
     )
+
+
+def test_defaults_the_highlights_backfill_pages_to_200() -> None:
+    assert SettingsWithoutEnvFile().highlights_backfill_pages == 200
+
+
+def test_reads_the_highlights_backfill_pages_from_an_environment_variable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("HIGHLIGHTS_BACKFILL_PAGES", "7")
+
+    assert SettingsWithoutEnvFile().highlights_backfill_pages == 7
+
+
+@pytest.mark.parametrize("value", ["0", "-1", "many"])
+def test_rejects_a_highlights_backfill_pages_value_that_is_not_positive(
+    monkeypatch: pytest.MonkeyPatch, value: str
+) -> None:
+    monkeypatch.setenv("HIGHLIGHTS_BACKFILL_PAGES", value)
+
+    with pytest.raises(ValidationError) as error:
+        SettingsWithoutEnvFile()
+
+    assert f"'{value}'" not in str(error.value)
+    assert f"input_value={value}" not in str(error.value)
 
 
 def test_defaults_the_daily_fetch_time_to_six_in_the_morning() -> None:

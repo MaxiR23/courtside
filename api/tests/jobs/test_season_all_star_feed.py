@@ -11,6 +11,7 @@
 # - Reads: a 404 nulls its part (detail, sections, extras, awards); any other failed read, calendar or day fails the build
 # - Previous edition: the recap and the whole edition; none for 1994
 # - No per-game highlight, null league teams and no team info read
+# - The edition video is served as editionHighlight on the edition, the recap and the previous edition, null when none, and not stored
 # - The kind: the cleanup keeps a past season feed
 #
 # What is covered:
@@ -455,6 +456,45 @@ async def test_no_per_game_highlight_is_set(kit: SeasonAllStarKit) -> None:
     assert feed.previous_edition is not None
     served = [*feed.edition.games, *feed.previous_edition.games]
     assert served and all(g.highlights is None for g in served)
+
+
+def edition_clip(title: str) -> Highlight:
+    return Highlight(
+        title=title,
+        channel="Example Channel",
+        thumbnail_url=HttpUrl("https://example.com/edition.jpg"),
+        embed_url=HttpUrl("https://example.com/embed/edition"),
+    )
+
+
+@pytest.mark.anyio
+async def test_the_edition_video_is_served_as_edition_highlight_and_not_stored(
+    kit: SeasonAllStarKit,
+) -> None:
+    kit.store.set_all_star_edition_highlight(2025, edition_clip("current"))
+    kit.store.set_all_star_edition_highlight(2024, edition_clip("earlier"))
+
+    feed = await kit.request()
+
+    assert feed.edition.edition_highlight == edition_clip("current")
+    assert feed.previous is not None
+    assert feed.previous.edition_highlight == edition_clip("earlier")
+    assert feed.previous_edition is not None
+    assert feed.previous_edition.edition_highlight == edition_clip("earlier")
+    stored = kit.stored_feed()
+    assert stored is not None and stored.previous_edition is not None
+    assert stored.edition.edition_highlight is None
+    assert stored.previous_edition.edition_highlight is None
+
+
+@pytest.mark.anyio
+async def test_the_edition_video_is_null_when_none_is_stored(
+    kit: SeasonAllStarKit,
+) -> None:
+    feed = await kit.request()
+
+    assert feed.edition.edition_highlight is None
+    assert feed.previous is not None and feed.previous.edition_highlight is None
 
 
 @pytest.mark.anyio

@@ -1,6 +1,6 @@
 # 0041. Past game detail
 
-- Status: Accepted
+- Status: Superseded by 0048 for the past game's highlights only
 - Date: 2026-10-15
 
 ## Context

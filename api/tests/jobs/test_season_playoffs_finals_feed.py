@@ -10,7 +10,7 @@
 # - The kind: any other failed read answers unavailable and stores nothing
 # - The kind: a season whose playoffs feed cannot be built answers unavailable
 # - The kind: the feed is stored under season-playoffs-finals and never rebuilt: a second request, a request years later and a restart serve with no source call
-# - The kind: detailAvailable is false and highlights are null; the cleanup keeps it
+# - The kind: detailAvailable is false and the stored highlights are added when served and not stored; the cleanup keeps it
 #
 # What is covered:
 # - Feed kind: success publishes a valid feed, 404 reads null their part, other failures leave nothing stored, kept for good
@@ -28,6 +28,7 @@ from typing import Any, cast
 
 import pytest
 
+from app.feeds.games import Highlight
 from app.feeds.playoffs import AwardCode
 from app.feeds.playoffs_finals import PlayoffsFinalsFeed
 from app.jobs.on_demand import FeedUnavailableError, IdStatus, UnknownFeedError
@@ -329,13 +330,31 @@ async def test_an_invalid_id_answers_unknown_with_no_source_request(
 
 
 @pytest.mark.anyio
-async def test_detail_is_never_available_and_there_are_no_highlights(
+async def test_detail_is_never_available_and_stored_highlights_are_added_when_served_and_not_stored(
     kit: FinalsKit,
 ) -> None:
+    first = PlayoffsFinalsFeed.model_validate_json(await kit.serve_finals("2025"))
+    assert all(g.highlights is None for g in first.games)
+    game_id = first.games[0].game.id
+    clip = Highlight.model_validate(
+        {
+            "title": "Example highlights",
+            "channel": "Example Channel",
+            "thumbnail_url": "https://example.com/t.jpg",
+            "embed_url": "https://example.com/e/v1",
+        }
+    )
+    kit.store.set_highlight(game_id, clip)
+
     feed = PlayoffsFinalsFeed.model_validate_json(await kit.serve_finals("2025"))
 
     assert all(g.game.detail_available is False for g in feed.games)
-    assert all(g.highlights is None for g in feed.games)
+    served = {g.game.id: g.highlights for g in feed.games}
+    assert served[game_id] == [clip]
+    assert all(v is None for k, v in served.items() if k != game_id)
+    stored = kit.stored_finals("2025")
+    assert stored is not None
+    assert all(g.highlights is None for g in stored.games)
 
 
 @pytest.mark.anyio
