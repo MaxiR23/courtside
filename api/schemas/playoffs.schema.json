@@ -1321,12 +1321,19 @@
       "type": "array"
     },
     "playIn": {
-      "items": {
-        "$ref": "#/$defs/PlayIn"
-      },
-      "maxItems": 2,
-      "minItems": 2,
-      "type": "array"
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/PlayIn"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "bracket": {
       "items": {

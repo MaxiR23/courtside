@@ -11,6 +11,7 @@
 # - Maps the provider team codes that differ from the standard ones
 # - Raises the source error on an invalid payload, a missing home or away team, a team without player stats, a missing team stat, a stat that is not a number, an empty display name, a timeout, an error status and a missing URL
 # - GameDetail uses the same field types as the contract Game
+# - With by_id_first (a past game) the leaders carry the code of the provider team id over a historical abbreviation; without it the abbreviation is a guest
 # - Maps a recorded scheduled game and a recorded final game to their detail sections: venue, box score, team stats, win probability, injuries and season series
 # - Maps a venue without an address, or an address without a city, to a null city
 # - Maps a recorded live game to a box score for both teams, the team stats with their leading side and win probability points not past the recorded clock
@@ -452,6 +453,31 @@ async def test_maps_the_leaders_and_team_stats_of_a_guest_game(
     assert detail.leaders.home.team_code == "LAC"
     assert detail.leaders.away.points == 12
     assert detail.team_stats.away.rebounds == 49
+
+
+@pytest.mark.anyio
+async def test_by_id_first_gives_the_leader_the_code_of_the_provider_id(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("final.json")
+    rename_team(payload, "GS")
+    box_team(payload, "away")["team"]["id"] = "9"
+    mock.get(URL).respond(json=payload)
+
+    with TemporaryDirectory() as directory:
+        store = StateStore(Path(directory))
+        store.migrate()
+        async with create_client(store) as client:
+            by_abbreviation = await fetch_game_detail(
+                client, GAME_ID, settings, dt.timedelta(hours=1)
+            )
+            by_id = await fetch_game_detail(
+                client, GAME_ID, settings, dt.timedelta(hours=1), by_id_first=True
+            )
+
+    assert by_abbreviation.leaders.away.team_code == "HCM"
+    assert by_id.leaders.away.team_code == "GSW"
+    assert by_id.leaders.home.team_code == "LAC"
 
 
 @pytest.mark.anyio

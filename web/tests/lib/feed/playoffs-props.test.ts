@@ -312,10 +312,19 @@ describe('toPlayoffsView play-in', () => {
 
 	it('links a play-in game only when its detail is available', () => {
 		const f = playin();
-		f.playIn[0].games[1].game!.detailAvailable = true;
+		f.playIn![0].games[1].game!.detailAvailable = true;
 		const games = view(f).playIn[0].games;
 		expect(games.map((g) => g.linked)).toEqual([false, true, false]);
 		expect(games[1].gameId).toBe('g2');
+	});
+
+	it('has no play-in section and no play-in view when the feed has none', () => {
+		const f = complete();
+		f.playIn = null;
+		const v = view(f);
+		expect(v.sections).not.toContain('play-in');
+		expect(v.playIn).toEqual([]);
+		expect(view(complete()).sections).toContain('play-in');
 	});
 
 	it('collapses the play-in after round 1 starts', () => {
@@ -622,7 +631,7 @@ describe('toPlayoffsView bracket', () => {
 
 	it('names an undecided side Currently a team when the feed says so, else To be decided', () => {
 		const feed = playin();
-		feed.bracket[0].top.currently = feed.playIn[0].games[0].top.team;
+		feed.bracket[0].top.currently = feed.playIn![0].games[0].top.team;
 		const v = view(feed).bracket.series[0];
 		expect(v.top.note).toBe('Currently QXG');
 		expect(v.bottom.note).toBe('To be decided');

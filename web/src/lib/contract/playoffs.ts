@@ -83,11 +83,7 @@ export interface PlayoffsFeed {
 	 * @maxItems 2
 	 */
 	picture: [PictureTable, PictureTable];
-	/**
-	 * @minItems 2
-	 * @maxItems 2
-	 */
-	playIn: [PlayIn, PlayIn];
+	playIn: [PlayIn, PlayIn] | null;
 	/**
 	 * @minItems 15
 	 * @maxItems 15

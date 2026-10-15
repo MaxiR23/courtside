@@ -8,6 +8,7 @@
 # - Raises the source error on a series competitor with an unknown team id of a final game, an invalid payload and a missing URL
 # - Leaves a series competitor with an unknown team id out of the wins of a scheduled game
 # - Shares one request per day with the games function of the scoreboard adapter
+# - With by_id_first a side whose abbreviation names another franchise maps to the code of its provider id; without it the abbreviation wins
 #
 # What is covered:
 # - Happy path, edge cases and error cases of the postseason mapping
@@ -221,3 +222,28 @@ async def test_the_games_and_postseason_functions_share_one_request_for_a_day(
         await fetch_postseason_games(client, DAY, settings)
 
     assert route.call_count == 1
+
+
+@pytest.mark.anyio
+async def test_by_id_first_maps_a_side_to_the_code_of_its_provider_id(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("playoffs.json")
+    team = payload["events"][0]["competitions"][0]["competitors"][0]["team"]
+    assert team["id"] == "5"
+    team["abbreviation"] = "DEN"
+    mock.get(URL).respond(json=payload)
+
+    with TemporaryDirectory() as directory:
+        store = StateStore(Path(directory))
+        store.migrate()
+        async with create_client(store) as client:
+            by_abbreviation = await fetch_postseason_games(client, DAY, settings)
+            by_id = await fetch_postseason_games(
+                client, DAY, settings, by_id_first=True
+            )
+
+    assert by_abbreviation[0].game.home.code == "DEN"
+    assert by_id[0].game.home.code == "CLE"
+    assert by_id[0].game.home.guest is False
+    assert mock.calls.call_count == 1
