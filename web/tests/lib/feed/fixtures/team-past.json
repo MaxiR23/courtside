@@ -1,0 +1,303 @@
+{
+	"cup": null,
+	"titles": null,
+	"code": "OKC",
+	"city": "Harbor City",
+	"name": "Mariners",
+	"conference": "west",
+	"division": "Northwest",
+	"colors": {
+		"primary": "#007AC1",
+		"secondary": "#EF3B24"
+	},
+	"arena": null,
+	"coach": null,
+	"season": "2004-05",
+	"record": {
+		"season": "2004-05",
+		"wins": 57,
+		"losses": 25,
+		"winPct": 0.695,
+		"home": {
+			"wins": 32,
+			"losses": 9,
+			"winPct": 0.78
+		},
+		"away": {
+			"wins": 25,
+			"losses": 16,
+			"winPct": 0.61
+		},
+		"lastTen": {
+			"wins": 8,
+			"losses": 2,
+			"winPct": 0.8
+		},
+		"streak": {
+			"kind": "win",
+			"count": 3
+		},
+		"gamesBehind": 0,
+		"conferenceRank": 1,
+		"divisionRank": 1,
+		"playoff": null,
+		"pointsFor": {
+			"perGame": 118.3,
+			"total": 9701
+		},
+		"pointsAgainst": {
+			"perGame": 109.9,
+			"total": 9012
+		},
+		"differential": {
+			"perGame": 8.4,
+			"total": 689
+		}
+	},
+	"leaders": {
+		"season": "2004-05",
+		"points": {
+			"playerId": "p-rivera",
+			"name": "Alex Rivera",
+			"number": "2",
+			"position": "Guard",
+			"photoUrl": null,
+			"value": 31.8
+		},
+		"rebounds": {
+			"playerId": "p-stone",
+			"name": "Blake Stone",
+			"number": null,
+			"position": "Forward-Center",
+			"photoUrl": null,
+			"value": 8.9
+		},
+		"assists": {
+			"playerId": "p-rivera",
+			"name": "Alex Rivera",
+			"number": "2",
+			"position": "Guard",
+			"photoUrl": null,
+			"value": 6.4
+		}
+	},
+	"roster": [
+		{
+			"id": "p-rivera",
+			"name": "Alex Rivera",
+			"number": "2",
+			"position": "G",
+			"height": "6-6",
+			"weight": 195,
+			"age": 27,
+			"birthDate": "1998-07-12",
+			"birthplace": "Toronto, Canada",
+			"college": "Kentucky",
+			"experience": 7,
+			"photoUrl": null,
+			"status": "active"
+		},
+		{
+			"id": "p-stone",
+			"name": "Blake Stone",
+			"number": "7",
+			"position": "F-C",
+			"height": "7-1",
+			"weight": 208,
+			"age": 23,
+			"birthDate": "2002-05-01",
+			"birthplace": "Minneapolis, USA",
+			"college": "Gonzaga",
+			"experience": 3,
+			"photoUrl": null,
+			"status": "active"
+		},
+		{
+			"id": "p-nolan",
+			"name": "Casey Nolan",
+			"number": "21",
+			"position": "G",
+			"height": "6-4",
+			"weight": 190,
+			"age": 20,
+			"birthDate": "2005-02-20",
+			"birthplace": "Belgrade, Serbia",
+			"college": null,
+			"experience": 0,
+			"photoUrl": null,
+			"status": "active"
+		},
+		{
+			"id": "p-hale",
+			"name": "Drew Hale",
+			"number": null,
+			"position": null,
+			"height": null,
+			"weight": null,
+			"age": null,
+			"birthDate": null,
+			"birthplace": null,
+			"college": null,
+			"experience": null,
+			"photoUrl": null,
+			"status": "active"
+		}
+	],
+	"injuries": null,
+	"nextGame": null,
+	"schedule": {
+		"groups": [
+			{
+				"key": "2004-10",
+				"games": [
+					{
+						"gameId": "g-won",
+						"startTime": "2004-10-23T23:00:00Z",
+						"opponent": {
+							"code": "HOU",
+							"name": null,
+							"city": null,
+							"guest": false
+						},
+						"isHome": true,
+						"kind": "regular",
+						"tag": null,
+						"result": "win",
+						"teamScore": 118,
+						"opponentScore": 104,
+						"broadcast": "Courtside TV",
+						"isNext": false,
+						"detailAvailable": true
+					}
+				]
+			},
+			{
+				"key": "2004-11",
+				"games": [
+					{
+						"gameId": "g-lost",
+						"startTime": "2004-11-02T00:30:00Z",
+						"opponent": {
+							"code": "DEN",
+							"name": null,
+							"city": null,
+							"guest": false
+						},
+						"isHome": false,
+						"kind": "regular",
+						"tag": null,
+						"result": "loss",
+						"teamScore": 99,
+						"opponentScore": 104,
+						"broadcast": null,
+						"isNext": false,
+						"detailAvailable": false
+					},
+					{
+						"gameId": "g-next",
+						"startTime": "2005-10-07T23:30:00Z",
+						"opponent": {
+							"code": "DEN",
+							"name": null,
+							"city": null,
+							"guest": false
+						},
+						"isHome": false,
+						"kind": "cup",
+						"tag": {
+							"kind": "cup",
+							"conference": null,
+							"round": null,
+							"game": null
+						},
+						"result": null,
+						"teamScore": null,
+						"opponentScore": null,
+						"broadcast": "Courtside TV",
+						"isNext": false,
+						"detailAvailable": false
+					},
+					{
+						"gameId": "g-later",
+						"startTime": "2004-11-20T01:00:00Z",
+						"opponent": {
+							"code": "LAL",
+							"name": null,
+							"city": null,
+							"guest": false
+						},
+						"isHome": true,
+						"kind": "regular",
+						"tag": null,
+						"result": null,
+						"teamScore": null,
+						"opponentScore": null,
+						"broadcast": null,
+						"isNext": false,
+						"detailAvailable": false
+					}
+				]
+			},
+			{
+				"key": "playoffs",
+				"games": [
+					{
+						"gameId": "g-playoff",
+						"startTime": "2005-04-24T00:00:00Z",
+						"opponent": {
+							"code": "LAC",
+							"name": null,
+							"city": null,
+							"guest": false
+						},
+						"isHome": true,
+						"kind": "playoffs",
+						"tag": {
+							"kind": "playoffs",
+							"conference": "west",
+							"round": 1,
+							"game": 3
+						},
+						"result": null,
+						"teamScore": null,
+						"opponentScore": null,
+						"broadcast": "Courtside TV",
+						"isNext": false,
+						"detailAvailable": true
+					}
+				]
+			}
+		],
+		"defaultGroup": "2004-11"
+	},
+	"names": [
+		{
+			"from": 1994,
+			"to": 2001,
+			"name": "Pilots",
+			"location": "Lakeview",
+			"code": "LKV"
+		},
+		{
+			"from": 2002,
+			"to": 2008,
+			"name": "Mariners",
+			"location": "Harbor City",
+			"code": "HCM"
+		},
+		{
+			"from": 2009,
+			"to": 2014,
+			"name": "Harbors",
+			"location": "Harbor City",
+			"code": "HCH"
+		},
+		{
+			"from": 2015,
+			"to": null,
+			"name": "Skippers",
+			"location": "Harbor City",
+			"code": "OKC"
+		}
+	]
+}

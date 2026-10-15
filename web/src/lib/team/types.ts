@@ -20,6 +20,7 @@ export type TeamHeaderView = {
 	winPct: string; // "69.5%"
 	recordSeason: string; // "2025-26 record", the season of the record
 	cells: InfoCell[]; // Conference, Streak, Last 10, Playoffs; a cell with no data is left out
+	tag?: string | null; // "Season 2004-05" on a past season; null or absent: no tag
 };
 
 export type GameLink = { gameId: string; linked: boolean }; // linked: the feed's detailAvailable
@@ -104,7 +105,18 @@ export type TeamSections = {
 	schedule: ScheduleSection | null; // null: hidden with its tab
 };
 
+// One run of the franchise's names. A run that ended links to its last season.
+export type NameRunView = {
+	key: string;
+	years: string; // "1994–2001", or "2015–" on the current run
+	name: string; // "Harbor City Mariners"
+	code: string; // "HCM", the run's code
+	season: number | null; // the run's last season; null on the current run
+};
+
 export type TeamView = {
+	past?: boolean; // a past season: no Overview and no Injuries, no status column
+	names?: NameRunView[] | null; // null: one run or none, the timeline is hidden
 	header: TeamHeaderView;
 	tabs: TeamTab[];
 	mini: string; // "OKC 57–25"
@@ -115,4 +127,5 @@ export type TeamPageState =
 	| { kind: 'loading' }
 	| { kind: 'unavailable' }
 	| { kind: 'not-found' }
+	| { kind: 'no-team' } // a past season the franchise had no team
 	| { kind: 'ready'; view: TeamView };

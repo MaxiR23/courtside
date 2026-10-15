@@ -3,8 +3,11 @@
 	import CupTeamLine from '#lib/components/CupTeamLine.svelte';
 	import TeamMonogram from '#lib/components/TeamMonogram.svelte';
 	import NavRow from '#lib/components/NavRow.svelte';
+	import SeasonSelect from '#lib/components/SeasonSelect.svelte';
+	import SeasonTag from '#lib/components/SeasonTag.svelte';
 	import TeamTitles from '#lib/components/TeamTitles.svelte';
 	import { play } from '#lib/hero/motion.ts';
+	import type { SeasonControl } from '#lib/season/types.ts';
 	import { shimmer } from '#lib/skeleton/motion.ts';
 	import type { RowLayout } from '#lib/schedule/types.ts';
 	import type { TeamHeaderView } from '#lib/team/types.ts';
@@ -15,9 +18,17 @@
 		standingsHref: ResolvedPathname;
 		layout: RowLayout;
 		loading?: boolean; // the first feed has not loaded yet: show the skeleton
+		seasonSelect?: SeasonControl | null; // null: no selector
 	};
 
-	let { header, allGamesHref, standingsHref, layout, loading = false }: Props = $props();
+	let {
+		header,
+		allGamesHref,
+		standingsHref,
+		layout,
+		loading = false,
+		seasonSelect = null
+	}: Props = $props();
 
 	const CELL_BONES = [0, 1, 2, 3];
 </script>
@@ -26,6 +37,9 @@
 	<div class="grid-bg" aria-hidden="true"></div>
 	<div class="content">
 		<NavRow page="detail" gamesHref={allGamesHref} {standingsHref} {layout} />
+		{#if seasonSelect && layout === 'desktop'}
+			<div class="season-row"><SeasonSelect {...seasonSelect} /></div>
+		{/if}
 
 		{#if header}
 			<div class="columns">
@@ -37,6 +51,7 @@
 							<span class="half" style:background-color={header.colors.secondary}></span>
 						</span>
 					</div>
+					{#if header.tag}<SeasonTag text={header.tag} />{/if}
 					<span class="city">{header.city}</span>
 					<h1 class="name">{header.name}</h1>
 					<span class="conference-line">{header.conferenceLine}</span>
@@ -74,6 +89,9 @@
 					</div>
 				</div>
 			</div>
+		{/if}
+		{#if seasonSelect && layout === 'mobile'}
+			<div class="season-row"><SeasonSelect {...seasonSelect} full /></div>
 		{/if}
 	</div>
 </header>
@@ -236,5 +254,10 @@
 
 	.cell-bone {
 		height: var(--hit-target-size);
+	}
+
+	.season-row {
+		display: flex;
+		justify-content: flex-end;
 	}
 </style>

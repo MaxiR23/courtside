@@ -325,3 +325,18 @@ export async function loadDayFeed(url: string, fetchFn: typeof fetch = fetch): P
 	}
 	return body as DayFeed;
 }
+
+/** The URL of a past season's standings feed: the template with the end year in place of {season}. */
+export function seasonStandingsFeedUrl(template: string, season: number): string {
+	return template.replaceAll('{season}', String(season));
+}
+
+/** The URL of a team's feed in a past season: the end year and the encoded code in place of the placeholders. */
+export function seasonTeamFeedUrl(template: string, season: number, code: string): string {
+	return seasonStandingsFeedUrl(template, season).replaceAll('{code}', encodeURIComponent(code));
+}
+
+/** The URL of a player's feed in a past season: the end year and the encoded id in place of the placeholders. */
+export function seasonPlayerFeedUrl(template: string, season: number, id: string): string {
+	return seasonStandingsFeedUrl(template, season).replaceAll('{id}', encodeURIComponent(id));
+}

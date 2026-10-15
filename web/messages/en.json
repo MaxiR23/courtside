@@ -719,5 +719,13 @@
 	"past_month_next": "Next month",
 	"past_weekdays": "S M T W T F S",
 	"past_day_prev": "Previous day",
-	"past_day_next": "Next day"
+	"past_day_next": "Next day",
+	"past_season_tag": "Season {label}",
+	"past_standings_final": "Final standings",
+	"past_names_title": "Names",
+	"past_names_current": "{from}–",
+	"past_names_run": "{from}–{to}",
+	"past_player_retired": "Retired",
+	"past_player_free_agent": "Free agent",
+	"past_team_no_season": "No team this season."
 }

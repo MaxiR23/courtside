@@ -4,11 +4,14 @@
 	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
 	import Kicker from '#lib/components/Kicker.svelte';
 	import NavRow from '#lib/components/NavRow.svelte';
+	import SeasonSelect from '#lib/components/SeasonSelect.svelte';
+	import SeasonTag from '#lib/components/SeasonTag.svelte';
 	import StatusTag from '#lib/components/StatusTag.svelte';
 	import { play } from '#lib/hero/motion.ts';
 	import type { RowLayout } from '#lib/schedule/types.ts';
 	import type { PlayerHeaderView } from '#lib/player/types.ts';
 	import { scrollFade } from '#lib/player/scroll-fade.ts';
+	import type { SeasonControl } from '#lib/season/types.ts';
 	import { shimmer } from '#lib/skeleton/motion.ts';
 
 	type Props = {
@@ -17,9 +20,17 @@
 		standingsHref: ResolvedPathname;
 		layout: RowLayout;
 		loading?: boolean; // the first feed has not loaded yet: show the skeleton
+		seasonSelect?: SeasonControl | null; // null: no selector
 	};
 
-	let { header, allGamesHref, standingsHref, layout, loading = false }: Props = $props();
+	let {
+		header,
+		allGamesHref,
+		standingsHref,
+		layout,
+		loading = false,
+		seasonSelect = null
+	}: Props = $props();
 
 	const CELL_BONES = [0, 1, 2, 3];
 
@@ -32,13 +43,19 @@
 	<div class="grid-bg" aria-hidden="true"></div>
 	<div class="content">
 		<NavRow page="detail" gamesHref={allGamesHref} {standingsHref} {layout} />
+		{#if seasonSelect && layout === 'desktop'}
+			<div class="season-row"><SeasonSelect {...seasonSelect} /></div>
+		{/if}
 
 		{#if header}
 			<div class="top">
 				<div class="text">
 					<div class="tags">
 						<StatusTag text={header.teamCode} />
-						<StatusTag text={header.status.label} accent={header.status.injured} />
+						{#if header.status}
+							<StatusTag text={header.status.label} accent={header.status.injured} />
+						{/if}
+						{#if header.tag}<SeasonTag text={header.tag} />{/if}
 						{#if header.allStarTag}<AllStarTag text={header.allStarTag} />{/if}
 					</div>
 					<span class="first-name">{header.firstName}</span>
@@ -87,6 +104,9 @@
 					<span class="bone cell-bone"></span>
 				{/each}
 			</div>
+		{/if}
+		{#if seasonSelect && layout === 'mobile'}
+			<div class="season-row"><SeasonSelect {...seasonSelect} full /></div>
 		{/if}
 	</div>
 </header>
@@ -256,5 +276,10 @@
 
 	.cell-bone {
 		height: var(--hit-target-size);
+	}
+
+	.season-row {
+		display: flex;
+		justify-content: flex-end;
 	}
 </style>

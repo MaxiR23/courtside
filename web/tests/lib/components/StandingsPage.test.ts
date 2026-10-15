@@ -9,6 +9,7 @@
 // - Unavailable: the unavailable row under the nav
 // - The footer in every state
 // - Spanish copy
+// - The season select reaches the header in the ready, loading and unavailable states, and is absent without the prop
 //
 // What is covered:
 // - Each page state, drawn from props with no fetch; the view comes from the recorded feed
@@ -112,5 +113,42 @@ describe('StandingsPage', () => {
 		expect(headings()).toEqual(['Conferencia Este', 'Conferencia Oeste']);
 		expect(screen.getByText('Leyenda')).toBeTruthy();
 		expect(screen.getByText('Temporada regular · 1180 partidos jugados')).toBeTruthy();
+	});
+});
+
+const seasonSelect = {
+	seasons: [
+		{ season: 2027, seasonLabel: '2026-27' },
+		{ season: 2005, seasonLabel: '2004-05' }
+	],
+	value: 2027,
+	onChange: () => {}
+};
+
+describe('StandingsPage season selector', () => {
+	const withSelect = (state: StandingsPageState) =>
+		render(StandingsPage, {
+			props: {
+				state,
+				allGamesHref: HOME,
+				standingsHref: STANDINGS,
+				layout: 'desktop',
+				teamHref,
+				seasonSelect
+			}
+		});
+
+	it.each([
+		['ready', ready()],
+		['loading', { kind: 'loading' } as StandingsPageState],
+		['unavailable', { kind: 'unavailable' } as StandingsPageState]
+	])('draws the select in the %s state', (_name, state) => {
+		withSelect(state);
+		expect(screen.getByRole('combobox', { name: 'Season' })).toBeTruthy();
+	});
+
+	it('draws no select without the prop', () => {
+		show(ready());
+		expect(screen.queryByRole('combobox')).toBeNull();
 	});
 });

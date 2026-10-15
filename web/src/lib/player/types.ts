@@ -10,7 +10,8 @@ export type PlayerTab = { id: PlayerSectionId; label: string };
 
 export type PlayerHeaderView = {
 	teamCode: string; // "OKC", the team tag
-	status: { label: string; injured: boolean }; // "Active", or the injury label in accent
+	status: { label: string; injured: boolean } | null; // "Active", or the injury label in accent; null: no status tag
+	tag?: string | null; // "Season 2004-05" on a past season; null or absent: no tag
 	firstName: string;
 	lastName: string;
 	line: string; // "#2 · Guard · Oklahoma City Thunder"; a null number is left out
@@ -44,6 +45,7 @@ export type ProfileSection = {
 	nextGame: NextGameView | null;
 	live: LiveGameView | null; // takes precedence over nextGame
 	recent: RecentGameRow[];
+	hideNext?: boolean; // a past season or no team: the next game card is not drawn
 };
 
 export type StatColumn = {

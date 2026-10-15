@@ -1,28 +1,74 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import StandingsPage from '#lib/components/StandingsPage.svelte';
-	import { standingsFeedUrl } from '#lib/feed/config.ts';
-	import { loadStandingsFeed } from '#lib/feed/load.ts';
+	import { calendarFeedUrl, seasonStandingsFeedUrl, standingsFeedUrl } from '#lib/feed/config.ts';
+	import {
+		calendarFeedUrl as calendarFeedUrlOf,
+		loadCalendarFeed,
+		loadStandingsFeed,
+		seasonStandingsFeedUrl as seasonStandingsFeedUrlOf
+	} from '#lib/feed/load.ts';
+	import { FeedOnce } from '#lib/feed/once.svelte.ts';
 	import { FeedPoller, standingsPollInterval } from '#lib/feed/poller.svelte.ts';
 	import { toStandingsView } from '#lib/feed/standings-props.ts';
 	import { wideViewport } from '#lib/schedule/layout.ts';
+	import { currentSeason, requestedSeason, seasonOnShow } from '#lib/season/seasons.ts';
+	import type { SeasonControl } from '#lib/season/types.ts';
 	import type { StandingsPageState } from '#lib/standings/types.ts';
 
-	const url = standingsFeedUrl;
-	const poller = url
-		? new FeedPoller(() => loadStandingsFeed(url), standingsPollInterval)
+	// The calendar is read once: it gives the selector's seasons and tells a past season from the current one (ADR 0044).
+	const calendarTemplate = calendarFeedUrl;
+	const calendar = calendarTemplate
+		? new FeedOnce(() => loadCalendarFeed(calendarFeedUrlOf(calendarTemplate, 'current')))
 		: undefined;
+	$effect(() => calendar?.start());
+	const settled = $derived(!calendar || calendar.feed !== null || calendar.failed);
 
-	$effect(() => poller?.start());
+	const requested = $derived(requestedSeason(page.url.searchParams.get('season')));
+	// A primitive, so the calendar arriving later does not rebuild the poller.
+	const shown = $derived(seasonOnShow(requested, calendar?.feed ?? null, settled));
+	const past = $derived(typeof shown === 'number');
 
-	const view = $derived(poller?.feed ? toStandingsView(poller.feed) : null);
+	const url = standingsFeedUrl;
+	const pastTemplate = seasonStandingsFeedUrl;
+	const source = $derived.by(() => {
+		if (shown === 'pending') return null;
+		if (typeof shown === 'number') {
+			return pastTemplate
+				? new FeedOnce(() => loadStandingsFeed(seasonStandingsFeedUrlOf(pastTemplate, shown)))
+				: undefined;
+		}
+		return url ? new FeedPoller(() => loadStandingsFeed(url), standingsPollInterval) : undefined;
+	});
+
+	$effect(() => source?.start());
+
+	const view = $derived(source?.feed ? toStandingsView(source.feed, { past }) : null);
 
 	// A feed that is in stays on screen when a later load fails, as on the home.
 	const pageState: StandingsPageState = $derived.by(() => {
-		if (!poller) return { kind: 'unavailable' };
+		if (source === undefined) return { kind: 'unavailable' };
+		if (source === null) return { kind: 'loading' };
 		if (view) return { kind: 'ready', view };
-		if (poller.failed) return { kind: 'unavailable' };
+		if (source.failed) return { kind: 'unavailable' };
 		return { kind: 'loading' };
+	});
+
+	const seasonHref = (season: number) =>
+		calendar?.feed && season === currentSeason(calendar.feed)
+			? resolve('/standings')
+			: resolve(`/standings?season=${season}`);
+
+	const seasonSelect: SeasonControl | null = $derived.by(() => {
+		const feed = calendar?.feed;
+		if (!feed) return null;
+		return {
+			seasons: [...feed.seasons],
+			value: typeof shown === 'number' ? shown : currentSeason(feed),
+			onChange: (season) => void goto(seasonHref(season))
+		};
 	});
 
 	const wide = wideViewport();
@@ -35,4 +81,5 @@
 	standingsHref={resolve('/standings')}
 	layout={wide.current ? 'desktop' : 'mobile'}
 	{teamHref}
+	{seasonSelect}
 />

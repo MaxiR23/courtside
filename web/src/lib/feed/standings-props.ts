@@ -99,18 +99,27 @@ function keyEntries(): StandingsKeyEntry[] {
 	return CLINCH_ORDER.map((code) => ({ clinch: clinchView(code), label: CLINCH_LABELS[code]() }));
 }
 
-/** Turns the standings feed into the page props. Rows and groups keep the feed's order. */
-export function toStandingsView(feed: StandingsFeed): StandingsView {
+type Options = { past?: boolean };
+
+/**
+ * Turns the standings feed into the page props. Rows and groups keep the feed's order. A past
+ * season shows its final standings with the season tag and no seed separator lines: no feed says
+ * whether that season had a play-in (ADR 0044).
+ */
+export function toStandingsView(feed: StandingsFeed, options: Options = {}): StandingsView {
+	const past = options.past ?? false;
 	return {
 		header: {
 			season: feed.season,
-			stateLine:
-				feed.state === 'final'
+			stateLine: past
+				? m.past_standings_final()
+				: feed.state === 'final'
 					? m.standings_state_final()
-					: m.standings_state_live({ count: feed.gamesPlayed })
+					: m.standings_state_live({ count: feed.gamesPlayed }),
+			...(past ? { tag: m.past_season_tag({ label: feed.season }) } : {})
 		},
 		conference: feed.conferences.map((c) => {
-			const lines = lineAfter(c.teams.map((t) => t.seed));
+			const lines = past ? c.teams.map(() => null) : lineAfter(c.teams.map((t) => t.seed));
 			return {
 				key: c.key,
 				title: CONFERENCE_LONG[c.key](),

@@ -15,6 +15,7 @@
 // - Spanish copy
 // - A null team leaves the team out of the header line and shows — as the team tag
 // - The All-Star tag of the header from allStarYear, none for null and for a recorded feed without the key
+// - Retired and free agent in the team tag; a past season: the tag, no status, no next game, the season row accented; Spanish
 //
 // What is covered:
 // - Pure logic on a recorded feed (tests/lib/feed/fixtures/player.json); no clock, no network
@@ -33,6 +34,9 @@ import { preferLanguages } from '../../prefer-languages';
 
 const feed = (): PlayerFeed =>
 	JSON.parse(readFileSync(join(__dirname, 'fixtures', 'player.json'), 'utf8')) as PlayerFeed;
+
+const pastFeed = (): PlayerFeed =>
+	JSON.parse(readFileSync(join(__dirname, 'fixtures', 'player-past.json'), 'utf8')) as PlayerFeed;
 
 const view = (source: PlayerFeed = feed()): PlayerView => toPlayerView(source);
 
@@ -94,12 +98,12 @@ describe('toPlayerView header', () => {
 		expect(header.injury).toBeNull();
 	});
 
-	it('leaves a null team out of the line and shows — as the team tag', () => {
+	it('leaves a null team out of the line and shows Free agent as the team tag', () => {
 		const source = feed();
 		source.team = null;
 		const { header } = view(source);
 		expect(header.line).toBe('#2 · Guard');
-		expect(header.teamCode).toBe('—');
+		expect(header.teamCode).toBe('Free agent');
 	});
 
 	it('leaves a null number out of the line', () => {
@@ -586,5 +590,70 @@ describe('toPlayerView with the All-Star year', () => {
 	it('gives no tag for null and for the recorded feed without the key', () => {
 		expect(view({ ...feed(), allStarYear: null }).header.allStarTag).toBeNull();
 		expect(view().header.allStarTag).toBeNull();
+	});
+});
+
+describe('toPlayerView retired, free agent and past season', () => {
+	it('shows Retired in the team tag for a retired player with no team', () => {
+		const v = view({ ...feed(), team: null, active: false });
+		expect(v.header.teamCode).toBe('Retired');
+		expect(v.header.status).toBeNull();
+		expect(v.sections.profile.hideNext).toBe(true);
+	});
+
+	it('shows Free agent for an active player with no team', () => {
+		const v = view({ ...feed(), team: null, active: true });
+		expect(v.header.teamCode).toBe('Free agent');
+		expect(v.header.status).toEqual({ label: 'Active', injured: false });
+		expect(v.sections.profile.hideNext).toBe(true);
+	});
+
+	it('keeps the status tag and the next game on the current feed', () => {
+		const v = view();
+		expect(v.header.status).toEqual({ label: 'Active', injured: false });
+		expect(v.header.tag).toBeNull();
+		expect(v.sections.profile.hideNext).toBe(false);
+	});
+
+	it('shows the team of the feed, the season tag and no status on a past season', () => {
+		const v = toPlayerView(pastFeed(), { past: true });
+		expect(v.header.teamCode).toBe('OKC');
+		expect(v.header.line).toContain('Harbor City Mariners');
+		expect(v.header.status).toBeNull();
+		expect(v.header.tag).toBe('Season 2004-05');
+		expect(v.sections.profile.hideNext).toBe(true);
+	});
+
+	it('accents only the row of the season label, in every season table', () => {
+		const seasons = toPlayerView(pastFeed(), { past: true }).sections.seasons;
+		const tables = [
+			seasons?.regular.perGame,
+			seasons?.regular.totals,
+			seasons?.playoffs?.perGame,
+			seasons?.playoffs?.totals
+		];
+		for (const table of tables) {
+			const accented = table?.rows.filter((row) => row.accent).map((row) => row.key);
+			expect(accented).toEqual(['2004-05']);
+		}
+	});
+
+	it('accents no season row when the label is null', () => {
+		const source = { ...pastFeed(), seasonLabel: null };
+		const seasons = toPlayerView(source, { past: true }).sections.seasons;
+		expect(seasons?.regular.perGame.rows.some((row) => row.accent)).toBe(false);
+		expect(toPlayerView(source, { past: true }).header.tag).toBeNull();
+	});
+
+	it('accents no season row on the current season', () => {
+		const seasons = view({ ...feed(), seasonLabel: '2025-26' }).sections.seasons;
+		expect(seasons?.regular.perGame.rows.some((row) => row.accent)).toBe(false);
+	});
+
+	it('speaks Spanish', () => {
+		preferLanguages(['es']);
+		expect(view({ ...feed(), team: null, active: false }).header.teamCode).toBe('Retirado');
+		expect(view({ ...feed(), team: null, active: true }).header.teamCode).toBe('Agente libre');
+		expect(toPlayerView(pastFeed(), { past: true }).header.tag).toBe('Temporada 2004-05');
 	});
 });

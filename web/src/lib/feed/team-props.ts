@@ -7,6 +7,7 @@ import type {
 	ScheduleGame,
 	ScheduleGroup,
 	SplitRecord,
+	NameRun,
 	TeamFeed,
 	TeamInjury,
 	TeamLeader
@@ -28,6 +29,7 @@ import type {
 	ScheduleGroupView,
 	ScheduleRowView,
 	ScheduleSection,
+	NameRunView,
 	TeamHeaderView,
 	TeamInjuryRow,
 	TeamSectionId,
@@ -387,8 +389,24 @@ function scheduleSection(feed: TeamFeed): ScheduleSection | null {
 	};
 }
 
+function nameRun(run: NameRun): NameRunView {
+	return {
+		key: String(run.from),
+		years:
+			run.to === null
+				? m.past_names_current({ from: String(run.from) })
+				: m.past_names_run({ from: String(run.from), to: String(run.to) }),
+		name: `${run.location} ${run.name}`,
+		code: run.code,
+		season: run.to
+	};
+}
+
+const PAST_HIDDEN: TeamSectionId[] = ['overview', 'injuries'];
+
 /** Turns the team feed into the team page props. Every value is formatted here. */
-export function toTeamView(feed: TeamFeed): TeamView {
+export function toTeamView(feed: TeamFeed, options: { past?: boolean } = {}): TeamView {
+	const past = options.past ?? false;
 	const sections = {
 		overview: overview(feed),
 		record: recordSection(feed),
@@ -397,12 +415,19 @@ export function toTeamView(feed: TeamFeed): TeamView {
 		injuries: (feed.injuries ?? []).map(injuryRow),
 		schedule: scheduleSection(feed)
 	};
-	const tabs: TeamTab[] = TAB_ORDER.filter((id) => sections[id] !== null).map((id) => ({
+	const tabs: TeamTab[] = TAB_ORDER.filter(
+		(id) => sections[id] !== null && !(past && PAST_HIDDEN.includes(id))
+	).map((id) => ({
 		id,
 		label: TEAM_TAB_LABELS[id]()
 	}));
 	return {
-		header: header(feed),
+		past,
+		names: feed.names.length > 1 ? feed.names.map(nameRun) : null,
+		header: {
+			...header(feed),
+			tag: past ? m.past_season_tag({ label: feed.season }) : null
+		},
 		tabs,
 		mini: `${feed.code} ${record(feed.record)}`,
 		sections

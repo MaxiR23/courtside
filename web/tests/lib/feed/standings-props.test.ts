@@ -9,6 +9,7 @@
 // - Clinch tones, the eliminated row, the accents and the plain tile for null colors
 // - The playoff and play-in lines (lineAfter): repeated seeds, missing seeds, null seeds, feed order
 // - The key's seven codes with their labels; the state line, final and regular, singular and plural
+// - A past season (option past): "Final standings", the season tag, the clinchers as sent, no seed separator lines; Spanish
 //
 // What is covered:
 // - Pure logic on a recorded feed (tests/lib/feed/fixtures/standings.json); no clock, no network
@@ -27,6 +28,11 @@ import { preferLanguages } from '../../prefer-languages';
 
 const feed = (): StandingsFeed =>
 	JSON.parse(readFileSync(join(__dirname, 'fixtures', 'standings.json'), 'utf8')) as StandingsFeed;
+
+const pastFeed = (): StandingsFeed =>
+	JSON.parse(
+		readFileSync(join(__dirname, 'fixtures', 'standings-past.json'), 'utf8')
+	) as StandingsFeed;
 
 const view = (source: StandingsFeed = feed()): StandingsView => toStandingsView(source);
 
@@ -228,5 +234,41 @@ describe('toStandingsView key and header', () => {
 			'Regular season · 1 game played'
 		);
 		expect(view({ ...feed(), state: 'final' }).header.stateLine).toBe('Final · regular season');
+	});
+});
+
+describe('toStandingsView past season', () => {
+	it('reads Final standings and the season tag from the feed', () => {
+		const v = toStandingsView(pastFeed(), { past: true });
+		expect(v.header.stateLine).toBe('Final standings');
+		expect(v.header.tag).toBe('Season 2004-05');
+		expect(v.header.season).toBe('2004-05');
+	});
+
+	it('keeps the clinchers as the feed sends them', () => {
+		const v = toStandingsView(pastFeed(), { past: true });
+		const clinch = v.conference[0]?.rows.map((r) => r.clinch?.code ?? null);
+		expect(clinch).toEqual(pastFeed().conferences[0]?.teams.map((t) => t.clinch ?? null));
+	});
+
+	it('draws no seed separator line after seed 6 or seed 10', () => {
+		const v = toStandingsView(pastFeed(), { past: true });
+		const lines = v.conference.flatMap((g) => g.rows.map((r) => r.lineAfter));
+		expect(lines.every((line) => line === null)).toBe(true);
+		// The same feed without the option still draws them.
+		const live = toStandingsView(pastFeed());
+		expect(live.conference[0]?.rows.map((r) => r.lineAfter)).toContain('playoff');
+		expect(live.conference[0]?.rows.map((r) => r.lineAfter)).toContain('play-in');
+	});
+
+	it('has no tag without the option', () => {
+		expect(view().header.tag ?? null).toBeNull();
+	});
+
+	it('speaks Spanish', () => {
+		preferLanguages(['es']);
+		const v = toStandingsView(pastFeed(), { past: true });
+		expect(v.header.stateLine).toBe('Clasificación final');
+		expect(v.header.tag).toBe('Temporada 2004-05');
 	});
 });

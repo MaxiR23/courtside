@@ -19,6 +19,7 @@
 	import { m } from '#lib/paraglide/messages.js';
 	import type { PlayerPageState } from '#lib/player/types.ts';
 	import type { RowLayout } from '#lib/schedule/types.ts';
+	import type { SeasonControl } from '#lib/season/types.ts';
 	import { shimmer } from '#lib/skeleton/motion.ts';
 
 	type Props = {
@@ -27,14 +28,22 @@
 		standingsHref: ResolvedPathname;
 		layout: RowLayout;
 		gameHref: (id: string) => ResolvedPathname;
+		seasonSelect?: SeasonControl | null; // null: no selector
 	};
 
 	// `state` is renamed so the `$state` rune is not read as a store of the prop.
-	let { state: page, allGamesHref, standingsHref, layout, gameHref }: Props = $props();
+	let {
+		state: page,
+		allGamesHref,
+		standingsHref,
+		layout,
+		gameHref,
+		seasonSelect = null
+	}: Props = $props();
 </script>
 
 {#if page.kind === 'ready'}
-	<PlayerHeader header={page.view.header} {allGamesHref} {standingsHref} {layout} />
+	<PlayerHeader header={page.view.header} {allGamesHref} {standingsHref} {layout} {seasonSelect} />
 	<SectionTabs tabs={page.view.tabs} mini={page.view.mini} />
 	{@const sections = page.view.sections}
 	{@const profile = sections.profile}
@@ -44,7 +53,9 @@
 			<div class="profile">
 				<ProfileCells cells={profile.cells} />
 				<div class="game-column">
-					<NextGameCard game={profile.nextGame} live={profile.live} {gameHref} />
+					{#if !profile.hideNext}
+						<NextGameCard game={profile.nextGame} live={profile.live} {gameHref} />
+					{/if}
 					{#if profile.recent.length > 0}
 						<div class="recent">
 							<h3 class="recent-title"><Kicker text={m.game_section_last_games()} /></h3>
@@ -86,7 +97,7 @@
 		{/if}
 	</div>
 {:else if page.kind === 'loading'}
-	<PlayerHeader header={null} loading {allGamesHref} {standingsHref} {layout} />
+	<PlayerHeader header={null} loading {allGamesHref} {standingsHref} {layout} {seasonSelect} />
 	<section class="page-section section-skeleton" aria-busy="true">
 		<div class="bones" aria-hidden="true" use:play={shimmer}>
 			<span class="bone heading-bone"></span>
@@ -94,12 +105,12 @@
 		</div>
 	</section>
 {:else if page.kind === 'unavailable'}
-	<PlayerHeader header={null} {allGamesHref} {standingsHref} {layout} />
+	<PlayerHeader header={null} {allGamesHref} {standingsHref} {layout} {seasonSelect} />
 	<section class="page-section">
 		<MessageRow text={m.feed_unavailable()} />
 	</section>
 {:else}
-	<PlayerHeader header={null} {allGamesHref} {standingsHref} {layout} />
+	<PlayerHeader header={null} {allGamesHref} {standingsHref} {layout} {seasonSelect} />
 	<section class="page-section">
 		<MessageRow
 			text={m.player_not_found()}

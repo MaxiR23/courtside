@@ -110,7 +110,7 @@ function numbered(feed: PlayerFeed, name: string): string {
 	return feed.number === null ? name : `#${feed.number} ${name}`;
 }
 
-function header(feed: PlayerFeed): PlayerHeaderView {
+function header(feed: PlayerFeed, past: boolean): PlayerHeaderView {
 	const parts = [
 		feed.number === null ? null : `#${feed.number}`,
 		feed.position,
@@ -134,10 +134,14 @@ function header(feed: PlayerFeed): PlayerHeaderView {
 		sub: rank === null ? null : m.player_rank({ rank })
 	});
 	return {
-		teamCode: feed.team?.code ?? NO_VALUE,
+		teamCode:
+			feed.team?.code ?? (feed.active ? m.past_player_free_agent() : m.past_player_retired()),
 		status: injury
 			? { label: INJURY_LABELS[injury.status](), injured: true }
-			: { label: m.team_status_active(), injured: false },
+			: past || !feed.active
+				? null
+				: { label: m.team_status_active(), injured: false },
+		tag: past && feed.seasonLabel !== null ? m.past_season_tag({ label: feed.seasonLabel }) : null,
 		firstName: feed.firstName,
 		lastName: feed.lastName,
 		line: parts.join(SEPARATOR),
@@ -263,12 +267,13 @@ function recentRow(game: GameLogEntry): RecentGameRow {
 	};
 }
 
-function profileSection(feed: PlayerFeed): ProfileSection {
+function profileSection(feed: PlayerFeed, past: boolean): ProfileSection {
 	return {
 		cells: profileCells(feed.profile),
 		nextGame: feed.nextGame ? nextGameView(feed.nextGame) : null,
 		live: feed.live ? liveView(feed.live) : null,
-		recent: feed.lastGames.map(recentRow)
+		recent: feed.lastGames.map(recentRow),
+		hideNext: past || feed.team === null
 	};
 }
 
@@ -380,12 +385,14 @@ function seasonCells(row: StatRow, totals: boolean): StatCell[] {
 function seasonTable(
 	rows: SeasonRow[],
 	career: StatRow | undefined,
-	totals: boolean
+	totals: boolean,
+	shown: string | null
 ): StatTableView {
 	const views: StatRowView[] = rows.map((row) => ({
 		key: row.season,
 		label: row.season,
 		sub: row.teams.join(SEPARATOR),
+		...(shown !== null && row.season === shown ? { accent: true } : {}),
 		cells: seasonCells(row, totals)
 	}));
 	if (career) {
@@ -399,17 +406,18 @@ function seasonTable(
 	return { columns: seasonColumns(totals), rows: views };
 }
 
-const splitTables = (split: SeasonSplit) => ({
-	perGame: seasonTable(split.perGame, split.career?.perGame, false),
-	totals: seasonTable(split.totals, split.career?.totals, true)
+const splitTables = (split: SeasonSplit, shown: string | null) => ({
+	perGame: seasonTable(split.perGame, split.career?.perGame, false, shown),
+	totals: seasonTable(split.totals, split.career?.totals, true, shown)
 });
 
-function seasonsSection(feed: PlayerFeed): SeasonsSection | null {
+function seasonsSection(feed: PlayerFeed, past: boolean): SeasonsSection | null {
+	const shown = past ? feed.seasonLabel : null; // the season row to highlight
 	const { regular, playoffs } = feed.seasons;
 	if (regular.perGame.length === 0) return null;
 	return {
-		regular: splitTables(regular),
-		playoffs: playoffs.perGame.length > 0 ? splitTables(playoffs) : null
+		regular: splitTables(regular, shown),
+		playoffs: playoffs.perGame.length > 0 ? splitTables(playoffs, shown) : null
 	};
 }
 
@@ -524,11 +532,12 @@ function awardsSection(feed: PlayerFeed): AwardView[] | null {
 }
 
 /** Turns the player feed into the player page props. Every value is formatted here. */
-export function toPlayerView(feed: PlayerFeed): PlayerView {
+export function toPlayerView(feed: PlayerFeed, options: { past?: boolean } = {}): PlayerView {
+	const past = options.past ?? false;
 	const sections: PlayerSections = {
-		profile: profileSection(feed),
+		profile: profileSection(feed, past),
 		averages: averagesSection(feed.averages),
-		seasons: seasonsSection(feed),
+		seasons: seasonsSection(feed, past),
 		milestones: milestonesSection(feed.milestones),
 		gameLog: gameLogSection(feed),
 		awards: awardsSection(feed)
@@ -538,7 +547,7 @@ export function toPlayerView(feed: PlayerFeed): PlayerView {
 		label: TAB_LABELS[id]()
 	}));
 	return {
-		header: header(feed),
+		header: header(feed, past),
 		tabs,
 		mini: numbered(feed, initialAndLast(feed)),
 		sections

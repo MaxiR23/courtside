@@ -94,23 +94,23 @@ Everything under "Implementation rules" in `docs/design.md`, `docs/design-cup.md
 
 ## Seasons on standings, team and player
 
-- **Season selector:** the same select styling, at the right of the page header on `/standings`, `/team/[code]` and `/player/[id]`. Changing it navigates to `?season=YYYY`; the current season has no parameter.
+- **Season selector:** the same select styling, at the right of the page header on `/standings`, `/team/[code]` and `/player/[id]`. Changing it navigates to `?season=YYYY`; the current season has no parameter. The seasons and labels are the `seasons` of the current calendar feed, whose first entry is the current season (ADR 0044): `/standings` lists every season, `/team/[code]` the seasons inside one of the feed's `names` runs, `/player/[id]` the seasons whose label matches a regular-season row plus the current season. When the calendar feed is unavailable the selector is hidden. On mobile it is full width under the header with a 44px hit target.
 - **Season tag:** a past season shows "Season 2004-05" in the header: outlined, accent border, accent-light text, Barlow Condensed 600, 12.5px, .12em, uppercase. A past season shows no live element.
 
 ### Standings of a past season
 
-- The same tables with the final records and the clinchers as the source sends them. The state line reads "Final standings".
+- The same tables with the final records and the clinchers as the source sends them. The state line reads "Final standings". The seed separator lines after seeds 6 and 10 are not drawn: no feed says whether that season had a play-in (ADR 0044).
 
 ### Team page of a past season
 
-- The record and the standing of that season, the schedule by month with results, the roster of that season (`RosterTable` without the injury column) and the leaders of that season. A block without data is hidden. No next game, no injuries, no depth chart, no Cup block, no titles.
+- The record and the standing of that season, the schedule by month with results, the roster of that season (`RosterTable` without the injury column) and the leaders of that season. A block without data is hidden. No next game, no injuries, no depth chart, no Cup block, no titles. The Overview and Injuries sections are hidden with their tabs. A franchise with no team that season (404) shows "No team this season." with the selector.
 
 ### Team page, every season: Names timeline
 
 - Shown under the header when the franchise has more than one run; a franchise with one run shows no timeline.
 - Horizontal runs separated by 1px dividers. Each run shows:
   - The years in Barlow Condensed 600, 14px ("1967–2008"; the current run reads "2008–").
-  - The name in 16px ink.
+  - The name in 16px ink: the run's location and name.
   - The code in a 34x24 outlined sigla box (the guest sigla box).
 - The current run is drawn in accent light. Each past run links to `/team/{code}?season={last end year of the run}`.
 - The runs come from the `names` block of the team feed. Historical runs use the neutral monogram.
@@ -118,8 +118,8 @@ Everything under "Implementation rules" in `docs/design.md`, `docs/design-cup.md
 ### Player page of a past season
 
 - The game log of the season, the season row highlighted in the seasons table, the averages of that season.
-- The header shows the team of that season as the game log names it. A retired player (`active` false) shows "Retired" instead of a current team. A player with no current team who is still active (`team` null, `active` true) shows "Free agent" instead of a current team.
-- A player with no game log that season shows the header and the seasons table, and hides the game log and the averages.
+- The header shows the team of that season as the game log names it. A retired player (`active` false) shows "Retired" in the team tag instead of a current team. A player with no current team who is still active (`team` null, `active` true) shows "Free agent" in the team tag instead of a current team. The team of the feed takes precedence when it has one.
+- A player with no game log that season shows the existing empty game log state (the game log section is hidden), the averages as the feed gives them, and the seasons table.
 
 ## Edge cases
 
@@ -140,11 +140,11 @@ Everything under "Implementation rules" in `docs/design.md`, `docs/design-cup.md
 | Team with four runs | The timeline shows four runs; on mobile it scrolls horizontally with scroll-snap; the current run is in accent light and each past run links to its last season |
 | Player retired | "Retired" instead of a current team; no next game and no injury status |
 | Player free agent | "Free agent" instead of a current team; no next game and no injury status |
-| Player with no game log that season | The game log and the averages are hidden; the seasons table still shows |
+| Player with no game log that season | The game log section is hidden (the existing empty state); the averages and the seasons table show as the feed gives them |
 | Headshot missing | The existing initials fallback |
 | A season with no data for a block (leaders, schedule) | The section is hidden |
 | Missing values | `—` in that cell |
-| Season outside 1994 to the current season, or a malformed `?season` | The unavailable state |
+| Season outside 1994 to the current season, or a malformed `?season` | The current season, as without `?season` |
 | Unavailable feed (503) | The nav row, then the home's 503 state: "Data isn't available right now. Check back later." Polling is not used for a past feed |
 | Spanish strings | Every string has a Spanish text; long labels truncate, never wrap in a table cell |
 
@@ -155,6 +155,7 @@ Everything under "Implementation rules" in `docs/design.md`, `docs/design-cup.md
 | Loading | Skeletons shaped like the day header and the first section (the game card list, or the first block of the page), with the home's shimmer, stopped under reduced motion |
 | Feed unavailable | See Edge cases |
 | Calendar feed unavailable | The calendar button stays; the sheet opens with the unavailable message; the day page shows its games without the previous and next arrows |
+| Calendar feed unavailable (season pages) | The selector is hidden and the page shows the current season |
 | Empty day | The existing empty-day message |
 | Past season | The "Season {label}" tag, no live element, hidden blocks without gap |
 
@@ -227,7 +228,7 @@ Mapped to existing tokens: the panel surface is `--color-surface`; the divider i
 | `past_day_next` | Next day | Día siguiente |
 | `past_day_games` | Games on {date} | Partidos del {date} |
 | `past_day_title` | Games | Partidos |
-| `past_unavailable` | Data isn't available right now. Check back later. | Los datos no están disponibles ahora. Vuelve más tarde. |
+| `past_unavailable` | The existing `feed_unavailable`: Data isn't available right now. Check back later. | Los datos no están disponibles ahora. Vuelve más tarde. |
 | `past_season_tag` | Season {label} | Temporada {label} |
 | `past_standings_final` | Final standings | Clasificación final |
 | `past_names_title` | Names | Nombres |
@@ -235,6 +236,7 @@ Mapped to existing tokens: the panel surface is `--color-surface`; the divider i
 | `past_names_run` | {from}–{to} | {from}–{to} |
 | `past_player_retired` | Retired | Retirado |
 | `past_player_free_agent` | Free agent | Agente libre |
+| `past_team_no_season` | No team this season. | Sin equipo esta temporada. |
 
 The date, the season label, the weekday, the month names, the team names and the names of the runs come from the feeds or from the browser's date formatting in the page language; the other keys are the fixed words around them. The empty-day message reuses the string already in production. The missing value is "—" in both languages.
 
