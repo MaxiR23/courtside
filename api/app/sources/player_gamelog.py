@@ -7,7 +7,9 @@
 # percentages stay from 0 to 100. An All-Star game has no opponent. An opponent
 # without a code is a guest; one with neither a code nor a name is not a team and
 # its game is skipped (ADR 0026). Only the events a season type references are
-# validated.
+# validated. A season read adds the season to the query, resolves opponents by
+# provider id first and reads no game log as an empty one (ADR 0043); each game
+# carries the provider id of the player's team.
 # The provider URL comes from Settings. Provider data never leaves this module.
 #
 # SEE: docs/api/player.md, api/app/sources/team_schedule.py
@@ -29,7 +31,7 @@ from pydantic.alias_generators import to_camel
 from app.feeds.games import FeedModel, NonEmptyStr, UtcDatetime
 from app.feeds.opponent import Opponent
 from app.settings import Settings
-from app.sources.http import SourceClient, SourceError, get_json
+from app.sources.http import SourceClient, SourceError, get_json, with_query
 from app.sources.teams import to_opponent
 
 SOURCE = "player_gamelog"
@@ -74,6 +76,8 @@ class _ProviderEvent(_ProviderModel):
     id: str
     at_vs: str
     game_date: UtcDatetime
+    home_team_id: str | None = None
+    away_team_id: str | None = None
     game_result: str
     home_team_score: NonNegativeInt
     away_team_score: NonNegativeInt
@@ -107,6 +111,7 @@ class GameLogGame(FeedModel):
     game_id: NonEmptyStr
     start_time: UtcDatetime
     is_home: bool
+    team_id: NonEmptyStr | None = None
     opponent: Opponent | None = None
     won: bool
     team_score: NonNegativeInt
@@ -146,7 +151,7 @@ def _invalid(reason: str) -> SourceError:
     return SourceError(SOURCE, f"invalid payload: {reason}")
 
 
-def _opponent(event: _ProviderEvent) -> dict[str, Any] | None:
+def _opponent(event: _ProviderEvent, by_id_first: bool) -> dict[str, Any] | None:
     opponent = event.opponent or _ProviderOpponent()
     return to_opponent(
         opponent.abbreviation,
@@ -154,6 +159,7 @@ def _opponent(event: _ProviderEvent) -> dict[str, Any] | None:
         opponent.name or opponent.display_name,
         opponent.location,
         source=SOURCE,
+        by_id_first=by_id_first,
     )
 
 
@@ -163,6 +169,7 @@ def _game(
     columns: dict[str, int],
     playoffs: bool,
     preseason: bool,
+    by_id_first: bool,
 ) -> dict[str, object] | None:
     stats = line.stats
     if len(stats) != len(columns) or any(label not in columns for label in LABELS):
@@ -175,13 +182,14 @@ def _game(
     all_star = note is not None and note.startswith("NBA All-Star")
     is_home = event.at_vs == "vs"
     home, away = event.home_team_score, event.away_team_score
-    opponent = None if all_star else _opponent(event)
+    opponent = None if all_star else _opponent(event, by_id_first)
     if opponent is None and not all_star:
         return None
     return {
         "game_id": event.id,
         "start_time": event.game_date,
         "is_home": is_home,
+        "team_id": (event.home_team_id if is_home else event.away_team_id) or None,
         "opponent": opponent,
         "won": event.game_result == "W",
         "team_score": home if is_home else away,
@@ -207,14 +215,26 @@ def _game(
 
 
 async def fetch_player_gamelog(
-    client: SourceClient, player_id: str, settings: Settings
+    client: SourceClient,
+    player_id: str,
+    settings: Settings,
+    *,
+    season: int | None = None,
 ) -> PlayerGameLog:
     """Return a player's regular season and postseason games, or raise
-    SourceError."""
+    SourceError. With a season (its end year), read that season, resolve the
+    opponents by provider id first, and give an empty log on a 404."""
     if settings.player_gamelog_url is None:
         raise SourceError(SOURCE, "player game log URL is not configured")
     url = settings.player_gamelog_url.format(player_id=player_id)
-    body = await get_json(client, url, source=SOURCE, fresh=FRESH_FOR)
+    if season is not None:
+        url = with_query(url, {"season": season})
+    try:
+        body = await get_json(client, url, source=SOURCE, fresh=FRESH_FOR)
+    except SourceError as error:
+        if season is not None and error.status_code == 404:
+            return PlayerGameLog(season=None, games=[])
+        raise
     try:
         provider = _ProviderGameLog.model_validate(body)
     except ValidationError as error:
@@ -223,13 +243,13 @@ async def fetch_player_gamelog(
         ) from None
 
     columns = {label: index for index, label in enumerate(provider.labels)}
-    season: str | None = None
+    label: str | None = None
     games: list[dict[str, object]] = []
     for season_type in provider.season_types:
         matched = _SEASON_TYPE.match(season_type.display_name)
         if matched is None:
             continue
-        season = season or matched.group(1)
+        label = label or matched.group(1)
         playoffs = matched.group(2) == "Postseason"
         preseason = matched.group(2) == "Preseason"
         for category in season_type.categories:
@@ -244,11 +264,13 @@ async def fetch_player_gamelog(
                         f"{error.error_count()} errors, first at"
                         f" events.{line.event_id}.{_location(error)}"
                     ) from None
-                game = _game(event, line, columns, playoffs, preseason)
+                game = _game(
+                    event, line, columns, playoffs, preseason, season is not None
+                )
                 if game is not None:
                     games.append(game)
     try:
-        return PlayerGameLog.model_validate({"season": season, "games": games})
+        return PlayerGameLog.model_validate({"season": label, "games": games})
     except ValidationError as error:
         first = error.errors()[0]
         raise SourceError(

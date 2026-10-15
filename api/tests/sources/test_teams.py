@@ -12,6 +12,7 @@
 # - An unknown provider team id raises the source error
 # - A provider team resolves by abbreviation, else by id, else it is a guest without a code
 # - An opponent has neither a code nor a name only when it is skipped (None); an empty abbreviation is absent
+# - PROVIDER_IDS maps each of the 30 standard codes to one provider id and inverts TEAM_IDS
 # - With by_id_first, a known id gives the standard code of that id with the provider's name and city, an unknown id resolves as before, and without the flag nothing changes
 #
 # What is covered:
@@ -27,6 +28,7 @@ from pydantic import TypeAdapter
 from app.feeds.games import TeamCode
 from app.sources.http import SourceError
 from app.sources.teams import (
+    PROVIDER_IDS,
     TEAM_CODES,
     TEAM_IDS,
     side_of,
@@ -226,3 +228,12 @@ def test_without_by_id_first_the_abbreviation_still_wins() -> None:
     assert opponent is not None
     assert opponent["code"] == "HCM"
     assert opponent["guest"] is True
+
+
+def test_provider_ids_map_each_standard_code_to_one_provider_id_and_invert_team_ids() -> (
+    None
+):
+    assert set(PROVIDER_IDS) == set(TEAM_CODES.values())
+    assert len(set(PROVIDER_IDS.values())) == 30
+    for team_id, provider_code in TEAM_IDS.items():
+        assert PROVIDER_IDS[TEAM_CODES[provider_code]] == team_id

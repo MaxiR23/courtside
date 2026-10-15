@@ -28,7 +28,7 @@ The root is one player.
 | `firstName`, `lastName` | string         | Identity                                                           | always                                   |
 | `number`       | `JerseyNumber` / null   | Jersey number as text (`00` and `0` differ)                        | null when unknown                        |
 | `position`     | string                  | Position name                                                      | always                                   |
-| `team`         | `Team`                  | `code`, `name`, `city`, as in the [games feed](games.md)           | always                                   |
+| `team`         | `Team` / null           | `code`, `name`, `city`, as in the [games feed](games.md)           | null for a player on no current roster, and on a past season with no game log |
 | `photoUrl`     | URL / null              | Photo                                                              | null when unknown                        |
 | `injury`       | `PlayerInjury` / null   | Current injury report                                              | null when healthy                        |
 | `profile`      | `Profile`               | Biographical data, each field null when unknown                    | always                                   |
@@ -41,6 +41,8 @@ The root is one player.
 | `milestones`   | `Milestones` / null     | Counts of notable events                                           | null when no data                        |
 | `gameLog`      | `GameLog` / null        | Every game of the season, newest first                             | null when no data                        |
 | `awards`       | `Award[]`               | Awards with their seasons                                          | always, may be empty                     |
+| `active`       | boolean                 | The active state of the athlete object                             | always; true when a stored feed was written before the field |
+| `seasonLabel`  | season label / null     | The season of a past season feed                                   | null on the current feed, set on a season feed |
 | `allStarYear`  | integer / null          | The year of the All-Star game in the season's game log             | null when the game log has no All-Star game, and when a stored feed was written before the field |
 
 ## Nested objects
@@ -76,6 +78,10 @@ The root is one player.
 
 ## Rules that live in the code
 
+- `team` is null for a player on no current roster ([ADR 0043](../adr/0043-season-feeds-and-franchise-names.md)),
+  active or not, and then `injury`, `nextGame` and `live` are null too. `active`
+  is the athlete object's, so a free agent has `active` true and a retired player
+  false.
 - `allStarYear` is the year of the date of the game log's All-Star entry
   ([ADR 0038](../adr/0038-all-star-marks-in-core-feeds.md)); it is null when the
   game log has no All-Star game, and when a stored feed was written before the field.
@@ -112,7 +118,11 @@ The root is one player.
 ## Refresh behavior
 
 - The id is a player of a roster the stars job fetched, with the team of the
-  latest roster that lists him. Nothing is built without a request: no job
+  latest roster that lists him, or a player on no roster who is in the roster of
+  a stored past team season feed or in the box score of a stored past game detail
+  (known once every roster is fetched). Such a player is built with no team, no
+  next game, no live block and no injury, with no team feed, roster or injuries
+  read, and its feed expires 7 days after the build. Nothing is built without a request: no job
   and no startup builds a player feed. The feed is stored at
   `feeds/players/{id}.json` when first requested.
 - Built on request under rule G of
@@ -146,9 +156,43 @@ The root is one player.
   with `Cache-Control: public, max-age=10` and an `ETag`.
 - It responds 304 with no body when `If-None-Match` matches the current
   `ETag`.
-- It responds 404 with `{"detail": ...}` for an id found in no roster once every roster has been fetched, with no source request.
+- It responds 404 with `{"detail": ...}` for an id found in no roster, no stored past roster and no stored past box score once every roster has been fetched, with no source request.
 - It responds 503 with `{"detail": ...}` before every roster has been fetched once, when the request's 20 seconds end
   before a missing feed is built and after a failed build.
 - A stale stored feed is served at once and rebuilt in the background. At
   most 4 feeds are built at once and one per feed.
 - Every feed request records presence.
+
+## Season feed
+
+One player in a past season ([ADR 0043](../adr/0043-season-feeds-and-franchise-names.md)),
+served at `/feeds/seasons/{season}/players/{id}.json` with `{season}` the end year
+(1994 to the season before the current one). The feed is a `PlayerFeed` (the same
+schema as above) validated by `PastPlayerFeed`.
+
+- The season values:
+  - `gameLog`, `lastGames` and `allStarYear` are those of that season's game log;
+    with no games `gameLog` is null and `lastGames` is empty.
+  - `summary` is that season's per game stats row with every `rank` null: the bio
+    takes no season.
+  - `averages` and `milestones` are that season's rows and the career's.
+  - `seasons`, `awards` and `profile.seasons` are the career. `profile.age` is on
+    February 1 of the end year.
+  - `team` is the team of the newest game of the log (an All-Star or preseason
+    game does not count), found by provider id, with its name and city of that
+    season; it is null with no such game.
+  - `active` is the athlete object's and `seasonLabel` is the season.
+- Null blocks: `injury`, `nextGame` and `live`.
+- Known ids: a player of a current roster, of a stored past team season roster or
+  of a stored past box score.
+- Refresh: built on request, stored at `feeds/season-players/{season}-{id}.json`,
+  kept for good: never refreshed and never deleted.
+- Endpoint: the same headers and 304 as the player feed. It responds 404 with no
+  source request for a season outside the range and for an id that is not known
+  once every roster is fetched. It responds 503 while the current season is not
+  known or the rosters are not all fetched, after a failed build with nothing
+  stored, and when the request's 20 seconds end before a missing feed is built.
+- The builder is `build_season_player_feed` and the kind is `SeasonPlayerFeeds`,
+  both in `api/app/jobs/season_player_feed.py`; the known ids come from
+  `PastPlayerIds` in `api/app/jobs/past_player_ids.py`.
+

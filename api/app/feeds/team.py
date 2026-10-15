@@ -127,7 +127,7 @@ class TeamRecord(SplitRecord):
     streak: Streak | None = None
     games_behind: NonNegativeFloat | None = None
     conference_rank: Annotated[int, Field(ge=1, le=15)]
-    division_rank: Annotated[int, Field(ge=1, le=5)]
+    division_rank: Annotated[int, Field(ge=1, le=8)]
     playoff: PlayoffPosition | None = None
     points_for: PointsTotal
     points_against: PointsTotal
@@ -237,6 +237,31 @@ class TeamTitle(FeedModel):
         return self
 
 
+class NameRun(FeedModel):
+    """One identity of the franchise: its name, city and code from one season to
+    another. `to` is null on the run that holds the current season."""
+
+    from_: Annotated[int, Field(ge=1994, alias="from")]
+    to: int | None
+    name: NonEmptyStr
+    location: NonEmptyStr
+    # A historical code may be any text, as a guest side's (ADR 0025).
+    code: NonEmptyStr
+
+    @model_validator(mode="after")
+    def _require_to_not_before_from(self) -> NameRun:
+        if self.to is not None and self.to < self.from_:
+            raise ValueError("a run ends in or after the season it starts")
+        return self
+
+
+class TeamNames(FeedModel):
+    """The stored names of one franchise (ADR 0043). The internal kind of the
+    names, not a public feed."""
+
+    runs: list[NameRun]
+
+
 def _roster_order(number: str | None) -> tuple[bool, int]:
     return (number is None, int(number or 0))
 
@@ -248,17 +273,37 @@ class TeamFeed(FeedModel):
     conference: Conference
     division: NonEmptyStr
     colors: TeamColors
-    arena: Venue
+    arena: Venue | None
     coach: Coach | None = None
     season: SeasonLabel
     record: TeamRecord
     leaders: TeamLeaders
     roster: list[RosterPlayer]
-    injuries: list[TeamInjury]
+    injuries: list[TeamInjury] | None
     next_game: NextGame | None = None
     schedule: Schedule | None = None
     cup: TeamCup | None = None
     titles: Annotated[list[TeamTitle], Field(min_length=1, max_length=3)] | None = None
+    # The franchise names, oldest first. The default reads a stored feed from
+    # before the field.
+    names: list[NameRun] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _require_the_blocks_of_the_current_season(self) -> TeamFeed:
+        if self.arena is None or self.injuries is None:
+            raise ValueError("the current season has an arena and injuries")
+        return self
+
+    @model_validator(mode="after")
+    def _require_names_oldest_first(self) -> TeamFeed:
+        for run, later in pairwise(self.names):
+            if later.from_ <= run.from_:
+                raise ValueError("names must be listed oldest first")
+            if run.to is None or later.from_ <= run.to:
+                raise ValueError(
+                    "only the last name run may be open, and runs do not overlap"
+                )
+        return self
 
     @model_validator(mode="after")
     def _require_roster_by_number(self) -> TeamFeed:
@@ -290,4 +335,24 @@ class TeamFeed(FeedModel):
         expected = [] if self.next_game is None else [self.next_game.game_id]
         if flagged != expected:
             raise ValueError("the schedule next game must be the next game")
+        return self
+
+
+# The team feed of a past season (ADR 0043): the team feed's shape, but no block
+# that describes today. The roster, record, leaders and schedule are the season's.
+class PastTeamFeed(TeamFeed):
+    @model_validator(mode="after")
+    def _require_the_blocks_of_the_current_season(self) -> PastTeamFeed:
+        # Same name as TeamFeed's validator: it replaces that rule.
+        blocks = (
+            ("arena", self.arena),
+            ("coach", self.coach),
+            ("injuries", self.injuries),
+            ("nextGame", self.next_game),
+            ("cup", self.cup),
+            ("titles", self.titles),
+        )
+        for name, block in blocks:
+            if block is not None:
+                raise ValueError(f"a past season has no {name}")
         return self

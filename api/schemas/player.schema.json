@@ -1591,7 +1591,14 @@
       "type": "string"
     },
     "team": {
-      "$ref": "#/$defs/Team"
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Team"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "photoUrl": {
       "anyOf": [
@@ -1706,6 +1713,22 @@
         }
       ],
       "default": null
+    },
+    "active": {
+      "default": true,
+      "type": "boolean"
+    },
+    "seasonLabel": {
+      "anyOf": [
+        {
+          "pattern": "^\\d{4}-\\d{2}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     }
   },
   "required": [
@@ -1727,7 +1750,9 @@
     "milestones",
     "gameLog",
     "awards",
-    "allStarYear"
+    "allStarYear",
+    "active",
+    "seasonLabel"
   ],
   "title": "PlayerFeed",
   "type": "object"

@@ -48,6 +48,8 @@
 # - Serves the game detail of a final game of a stored day through the game detail route with Cache-Control, ETag and a season label, and answers 304 for a matching ETag
 # - Responds 404 for a game id in no stored day and for a postponed game of a stored day, with no source request, and 503 for a past game whose build fails with nothing stored
 # - A game the games job has loaded takes the games path with a null season label even when a stored day lists it
+# - Serves the standings, team and player feed of a past season with Cache-Control and ETag, answers 304 for a matching ETag, 404 for 1993, the current season, a future season and a non-integer with no source request, 503 while the season is not known, and 404 for a franchise with no team that season
+# - The current player path serves a player on no roster who is known from a stored past feed
 #
 # What is covered:
 # - Success response, documented failures (503, 404), edge case of an invalid publish
@@ -61,6 +63,7 @@ import datetime as dt
 import hashlib
 from collections.abc import Iterator
 from pathlib import Path
+from typing import Any
 
 import pytest
 import respx
@@ -74,12 +77,12 @@ from app.feeds.cup_matchup import CupMatchupFeed
 from app.feeds.days import DayFeed
 from app.feeds.game_detail import GameDetailFeed, PastGameDetailFeed
 from app.feeds.games import GamesFeed, GameStatus, Star, Stars
-from app.feeds.player import PlayerFeed
+from app.feeds.player import PastPlayerFeed, PlayerFeed
 from app.feeds.playoffs import PlayoffsFeed
 from app.feeds.playoffs_finals import PlayoffsFinalsFeed
 from app.feeds.search import SearchFeed
 from app.feeds.standings import StandingsFeed
-from app.feeds.team import TeamFeed
+from app.feeds.team import PastTeamFeed, TeamFeed
 from app.jobs.day_feed import KIND as DAY_KIND
 from app.jobs.day_feed import build_day_feed
 from app.jobs.game_detail_feed import GameDetailFeeds
@@ -96,6 +99,7 @@ from app.settings import Settings
 from app.sources.game_detail import GameDetail, GameDetailSections
 from app.sources.http import SourceClient, create_client
 from app.sources.league_injuries import LeagueInjuries
+from app.sources.player_draft import PlayerAthlete
 from app.sources.scoreboard import ScoreboardGame
 from app.sources.standings import LeagueStandings
 from app.sources.team_schedule import TeamSchedule
@@ -110,10 +114,13 @@ from tests.jobs.test_day_feed import NOW as DAY_NOW
 from tests.jobs.test_day_feed import PAST, DayKit, search_url
 from tests.jobs.test_day_feed import game as day_game
 from tests.jobs.test_past_game_detail_feed import PastKit
-from tests.jobs.test_player_feed import PlayerKit
+from tests.jobs.test_player_feed import PlayerKit, player
 from tests.jobs.test_playoffs_feed import PlayoffsKit
 from tests.jobs.test_playoffs_finals_feed import FinalsKit, postseason
 from tests.jobs.test_search_feed import SearchKit
+from tests.jobs.test_season_player_feed import SeasonPlayerKit
+from tests.jobs.test_season_standings_feed import StandingsKit as SeasonStandingsKit
+from tests.jobs.test_season_team_feed import SeasonTeamKit
 from tests.jobs.test_standings_feed import StandingsKit
 
 
@@ -1683,3 +1690,151 @@ def test_a_game_the_games_job_has_loaded_takes_the_games_path_with_a_null_season
     assert feed.status is GameStatus.SCHEDULED and feed.venue.name == "Garden"
     assert feed.season_label is None
     assert calls == []
+
+
+class SeasonApp:
+    """An app with the feeds router over one season kit's cache."""
+
+    def __init__(self, kit: Any) -> None:
+        self.kit = kit
+        self.app = FastAPI()
+        self.app.include_router(feeds_router.router)
+        self.app.state.settings = kit.settings
+        self.app.state.presence = Presence(clock=lambda: kit.clock[0])
+        self.app.state.feed_cache = kit.cache
+
+
+@pytest.fixture
+def season_standings(tmp_path: Path) -> SeasonApp:
+    return SeasonApp(SeasonStandingsKit(tmp_path))
+
+
+@pytest.fixture
+def season_team(tmp_path: Path) -> SeasonApp:
+    return SeasonApp(SeasonTeamKit(tmp_path))
+
+
+@pytest.fixture
+def season_player(tmp_path: Path) -> SeasonApp:
+    return SeasonApp(SeasonPlayerKit(tmp_path))
+
+
+SEASON_PATHS = {
+    "standings": "/feeds/seasons/{season}/standings.json",
+    "team": "/feeds/seasons/{season}/teams/okc.json",
+    "player": "/feeds/seasons/{season}/players/77.json",
+}
+SEASON_FEEDS: dict[str, Any] = {
+    "standings": StandingsFeed,
+    "team": PastTeamFeed,
+    "player": PastPlayerFeed,
+}
+
+
+def season_app(request: pytest.FixtureRequest, kind: str) -> SeasonApp:
+    app: SeasonApp = request.getfixturevalue(f"season_{kind}")
+    return app
+
+
+@pytest.mark.parametrize("kind", SEASON_PATHS)
+def test_serves_a_past_season_feed_with_cache_control_and_an_etag_and_answers_304(
+    request: pytest.FixtureRequest, kind: str
+) -> None:
+    app = season_app(request, kind)
+    path = SEASON_PATHS[kind].format(season="2004")
+    with TestClient(app.app) as client:
+        response = client.get(path)
+        again = client.get(path, headers={"If-None-Match": response.headers["etag"]})
+
+    assert response.status_code == 200
+    SEASON_FEEDS[kind].model_validate_json(response.content)
+    assert response.headers["content-type"] == "application/json"
+    assert response.headers["cache-control"] == CACHE_CONTROL
+    etag = response.headers["etag"]
+    assert etag.startswith('"') and etag.endswith('"')
+    assert again.status_code == 304
+    assert again.content == b""
+
+
+@pytest.mark.parametrize("kind", SEASON_PATHS)
+@pytest.mark.parametrize("season", ["1993", "2027", "2028", "abc", "2004%0A", "02004"])
+def test_responds_404_for_a_season_before_1994_the_current_or_a_future_one_or_not_a_number(
+    request: pytest.FixtureRequest, kind: str, season: str
+) -> None:
+    app = season_app(request, kind)
+    with TestClient(app.app) as client:
+        response = client.get(SEASON_PATHS[kind].format(season=season))
+
+    assert response.status_code == 404
+    assert isinstance(response.json()["detail"], str)
+    assert app.kit.calls == []
+
+
+@pytest.mark.parametrize("kind", SEASON_PATHS)
+def test_responds_503_for_a_season_feed_while_the_current_season_is_not_known(
+    request: pytest.FixtureRequest, kind: str
+) -> None:
+    app = season_app(request, kind)
+    app.kit.stars.season = None
+    with TestClient(app.app) as client:
+        response = client.get(SEASON_PATHS[kind].format(season="2004"))
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == "feed is not available yet"
+    assert app.kit.calls == []
+
+
+@pytest.mark.parametrize("kind", SEASON_PATHS)
+def test_responds_503_for_a_season_feed_whose_build_fails_with_nothing_stored(
+    request: pytest.FixtureRequest, kind: str
+) -> None:
+    app = season_app(request, kind)
+    app.kit.failing = True
+    with TestClient(app.app) as client:
+        response = client.get(SEASON_PATHS[kind].format(season="2004"))
+
+    assert response.status_code == 503
+
+
+def test_responds_404_for_a_season_team_path_of_a_franchise_with_no_team_that_season(
+    season_team: SeasonApp,
+) -> None:
+    season_team.kit.missing = True
+    with TestClient(season_team.app) as client:
+        first = client.get("/feeds/seasons/2004/teams/okc.json")
+        reads = len(season_team.kit.calls)
+        second = client.get("/feeds/seasons/2004/teams/okc.json")
+
+    assert first.status_code == 404
+    assert second.status_code == 404
+    assert len(season_team.kit.calls) == reads
+
+
+def test_responds_404_for_an_upper_case_or_unknown_team_code_on_the_season_team_path(
+    season_team: SeasonApp,
+) -> None:
+    with TestClient(season_team.app) as client:
+        upper = client.get("/feeds/seasons/2004/teams/OKC.json")
+        unknown = client.get("/feeds/seasons/2004/teams/xyz.json")
+
+    assert upper.status_code == 404 and unknown.status_code == 404
+    assert season_team.kit.calls == []
+
+
+def test_the_current_player_path_serves_a_retired_player_known_from_a_past_feed(
+    profiles: Profiles,
+) -> None:
+    kit = profiles.kit
+    kit.past_known.add("retired1")
+    kit.athletes["retired1"] = PlayerAthlete(
+        active=False, entry=player("retired1", jersey=None)
+    )
+    with TestClient(profiles.app) as client:
+        client.portal.call(kit.run_stars)  # type: ignore[union-attr]
+        response = client.get("/feeds/players/retired1.json")
+        unknown = client.get("/feeds/players/nobody.json")
+
+    assert response.status_code == 200
+    feed = PlayerFeed.model_validate_json(response.content)
+    assert (feed.active, feed.team) == (False, None)
+    assert unknown.status_code == 404

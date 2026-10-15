@@ -4,7 +4,8 @@
 # provider's current season, its coach and each player's details, one team's
 # per-game season averages (the team leaders, with the previous season as a
 # fallback) and one player's per-game season averages, and maps them to
-# contract types. The provider URLs come from Settings.
+# contract types. It also reads the roster of one team in one season (ADR 0043).
+# The provider URLs come from Settings.
 # Provider data never leaves this module. A roster and the team leaders are kept
 # for 24 hours; a player's averages are kept as long as the caller's freshness
 # allows (rule F of docs/source-rules.md).
@@ -27,7 +28,7 @@ from pydantic.alias_generators import to_camel
 from app.feeds.games import FeedModel, NonEmptyStr, Star
 from app.settings import Settings
 from app.sources.http import Freshness, SourceClient, SourceError, get_json
-from app.sources.teams import TEAM_CODES
+from app.sources.teams import PROVIDER_IDS, TEAM_CODES
 
 SOURCE = "team_players"
 ROSTER_FRESH_FOR = dt.timedelta(hours=24)
@@ -113,6 +114,10 @@ class _ProviderRoster(_ProviderModel):
     team: _ProviderTeam
     athletes: list[_ProviderAthlete]
     coach: list[_ProviderCoach] = []
+
+
+class _ProviderSeasonRoster(_ProviderModel):
+    athletes: list[_ProviderAthlete]
 
 
 class _ProviderAthleteRef(_ProviderModel):
@@ -301,6 +306,55 @@ async def fetch_roster(
                 ],
                 "entries": [_entry(athlete) for athlete in provider.athletes],
                 "coach": _coach(provider.coach),
+            }
+        )
+    except ValidationError as error:
+        first = error.errors()[0]
+        raise SourceError(
+            SOURCE,
+            f"team {team_code} is invalid: {first['type']} at {_location(error)}",
+        ) from None
+
+
+async def fetch_season_roster(
+    client: SourceClient, team_code: str, season: int, settings: Settings
+) -> Roster:
+    """Return the roster of one team in one season (ADR 0043), or raise
+    SourceError. The season is the requested one."""
+    if settings.season_roster_url is None:
+        raise SourceError(SOURCE, "season roster URL is not configured")
+    if settings.player_photo_url is None:
+        raise SourceError(SOURCE, "player photo URL is not configured")
+    try:
+        team_id = PROVIDER_IDS[team_code]
+    except KeyError:
+        raise SourceError(SOURCE, f"unknown team code {team_code!r}") from None
+    url = settings.season_roster_url.format(season=season, team_id=team_id)
+    body = await get_json(client, url, source=SOURCE, fresh=ROSTER_FRESH_FOR)
+    try:
+        provider = _ProviderSeasonRoster.model_validate(body)
+    except ValidationError as error:
+        raise _invalid_payload(error) from None
+    try:
+        return Roster.model_validate(
+            {
+                "season": season,
+                "team_id": team_id,
+                "players": [
+                    {
+                        "player_id": athlete.id,
+                        "first_name": athlete.first_name,
+                        "last_name": athlete.last_name,
+                        "short_name": athlete.short_name,
+                        "team_code": team_code,
+                        "photo_url": settings.player_photo_url.format(
+                            player_id=athlete.id
+                        ),
+                    }
+                    for athlete in provider.athletes
+                ],
+                "entries": [_entry(athlete) for athlete in provider.athletes],
+                "coach": None,
             }
         )
     except ValidationError as error:

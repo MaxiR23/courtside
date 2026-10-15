@@ -5,7 +5,8 @@
 # SEE: docs/api/games.md, docs/api/game-detail.md, docs/api/player.md, docs/api/team.md,
 # docs/api/standings.md, docs/api/search.md, docs/api/cup.md,
 # docs/api/cup-matchup.md, docs/api/playoffs.md, docs/api/all-star.md,
-# docs/api/calendar.md, docs/api/days.md, docs/adr/0041-past-game-detail.md
+# docs/api/calendar.md, docs/api/days.md, docs/adr/0041-past-game-detail.md,
+# docs/adr/0043-season-feeds-and-franchise-names.md
 
 import asyncio
 import hashlib
@@ -34,6 +35,9 @@ from app.jobs.playoffs_finals_feed import FEED_ID as FINALS_ID
 from app.jobs.playoffs_finals_feed import KIND as FINALS_KIND
 from app.jobs.search_feed import FEED_ID as SEARCH_ID
 from app.jobs.search_feed import KIND as SEARCH_KIND
+from app.jobs.season_player_feed import KIND as SEASON_PLAYER_KIND
+from app.jobs.season_standings_feed import KIND as SEASON_STANDINGS_KIND
+from app.jobs.season_team_feed import KIND as SEASON_TEAM_KIND
 from app.jobs.standings_feed import FEED_ID as STANDINGS_ID
 from app.jobs.standings_feed import KIND as STANDINGS_KIND
 from app.jobs.team_feed import KIND as TEAM_KIND
@@ -193,6 +197,32 @@ async def read_calendar_feed(season: str, request: Request) -> Response:
         raise HTTPException(status_code=503, detail="feed is not available yet")
     return await serve_on_demand(
         request.app.state.feed_cache, CALENDAR_KIND, feed_id, request
+    )
+
+
+@router.get("/feeds/seasons/{season}/standings.json")
+async def read_season_standings_feed(season: str, request: Request) -> Response:
+    return await serve_on_demand(
+        request.app.state.feed_cache, SEASON_STANDINGS_KIND, season, request
+    )
+
+
+@router.get("/feeds/seasons/{season}/teams/{code}.json")
+async def read_season_team_feed(season: str, code: str, request: Request) -> Response:
+    return await serve_on_demand(
+        request.app.state.feed_cache, SEASON_TEAM_KIND, f"{season}-{code}", request
+    )
+
+
+@router.get("/feeds/seasons/{season}/players/{player_id}.json")
+async def read_season_player_feed(
+    season: str, player_id: str, request: Request
+) -> Response:
+    return await serve_on_demand(
+        request.app.state.feed_cache,
+        SEASON_PLAYER_KIND,
+        f"{season}-{player_id}",
+        request,
     )
 
 

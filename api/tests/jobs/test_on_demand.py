@@ -39,6 +39,7 @@
 # - A dependency inside its 10-minute backoff is not rebuilt and the dependent build still runs
 # - A dependency id its kind does not know is skipped with no build
 # - An exception raised while ensuring the dependency is recorded as a failed build of the dependent feed and never raised
+# - A build that raises UnknownFeedError after its check learns the id answers unknown and records no failure, and a later request answers unknown with no build
 # - status gives the kind's answer for an id with no build and None for a kind never registered
 # - refresh starts one build without waiting, joins one in flight and leaves no task referenced
 #
@@ -927,3 +928,32 @@ async def test_status_gives_the_kinds_answer_with_no_build_and_none_for_an_unreg
     assert fake.builds == 0
     assert setup.cache.in_flight == {}
     assert setup.store.feed_build("players", "p1") is None
+
+
+class LearnsUnknown(Fake):
+    """A kind whose build finds out that the id is unknown."""
+
+    async def build(self, feed_id: str) -> FakeFeed:
+        self.builds += 1
+        self.status = IdStatus.UNKNOWN
+        raise UnknownFeedError(feed_id)
+
+
+@pytest.mark.anyio
+async def test_a_build_that_learns_the_id_is_unknown_answers_unknown_and_records_no_failure(
+    tmp_path: Path,
+) -> None:
+    fake = LearnsUnknown()
+    setup = Setup(tmp_path, fake)
+
+    with pytest.raises(UnknownFeedError):
+        await setup.cache.serve("players", "p1")
+
+    assert fake.builds == 1
+    assert setup.store.feed_build("players", "p1") is None
+    assert setup.stored() is None
+
+    with pytest.raises(UnknownFeedError):
+        await setup.cache.serve("players", "p1")
+
+    assert fake.builds == 1

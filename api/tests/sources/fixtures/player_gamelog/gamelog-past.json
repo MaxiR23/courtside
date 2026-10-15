@@ -1,0 +1,104 @@
+{
+  "labels": [
+    "MIN",
+    "FG",
+    "FG%",
+    "3PT",
+    "3P%",
+    "FT",
+    "FT%",
+    "REB",
+    "AST",
+    "BLK",
+    "STL",
+    "PF",
+    "TO",
+    "PTS"
+  ],
+  "events": {
+    "200401001": {
+      "id": "200401001",
+      "atVs": "@",
+      "gameDate": "2003-11-02T03:00:00.000+00:00",
+      "homeTeamId": "25",
+      "awayTeamId": "29",
+      "homeTeamScore": "95",
+      "awayTeamScore": "101",
+      "gameResult": "W",
+      "opponent": {
+        "abbreviation": "SEA",
+        "id": "25",
+        "displayName": "Seattle Harbor Gulls",
+        "name": "Harbor Gulls",
+        "location": "Seattle"
+      }
+    },
+    "200401002": {
+      "id": "200401002",
+      "atVs": "vs",
+      "gameDate": "2003-11-05T01:00:00.000+00:00",
+      "homeTeamId": "29",
+      "awayTeamId": "17",
+      "homeTeamScore": "90",
+      "awayTeamScore": "99",
+      "gameResult": "L",
+      "opponent": {
+        "abbreviation": "NJ",
+        "id": "17",
+        "displayName": "Meadow Herons",
+        "name": "Herons",
+        "location": "Meadow"
+      }
+    }
+  },
+  "seasonTypes": [
+    {
+      "displayName": "2003-04 Regular Season",
+      "categories": [
+        {
+          "displayName": "November",
+          "events": [
+            {
+              "eventId": "200401002",
+              "stats": [
+                "43",
+                "12-21",
+                "57.1",
+                "2-5",
+                "40.0",
+                "9-11",
+                "81.8",
+                "4",
+                "9",
+                "1",
+                "3",
+                "1",
+                "3",
+                "35"
+              ]
+            },
+            {
+              "eventId": "200401001",
+              "stats": [
+                "43",
+                "12-21",
+                "57.1",
+                "2-5",
+                "40.0",
+                "9-11",
+                "81.8",
+                "4",
+                "9",
+                "1",
+                "3",
+                "1",
+                "3",
+                "35"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

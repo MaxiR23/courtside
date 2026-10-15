@@ -3,7 +3,8 @@
 # On-demand feed cache: builds a feed when it is requested, serves the stored feed when it is fresh,
 # and rebuilds a stale one in the background. The clock and the wait are injected so tests run without real time.
 # It must only be used from async code in the event loop. A kind may depend on another feed: that feed is
-# built first when missing or stale, before the build takes one of the build slots.
+# built first when missing or stale, before the build takes one of the build slots. A build may find that
+# its id is unknown: it raises UnknownFeedError after the kind's check learns it, and the request answers unknown.
 #
 # SEE: docs/source-rules.md, docs/adr/0020-source-rules.md
 
@@ -171,6 +172,8 @@ class FeedCache:
         except TimeoutError:
             raise FeedUnavailableError(f"{kind} {feed_id} is still building") from None
         if not ok:
+            if feed_kind.check(feed_id) is IdStatus.UNKNOWN:
+                raise UnknownFeedError(f"{kind} {feed_id}")
             raise FeedUnavailableError(f"{kind} {feed_id} build failed")
         body = read_by_id(self._data_dir, kind, feed_id)
         if body is None:
@@ -272,6 +275,8 @@ class FeedCache:
             reason: str
             try:
                 feed = await kind.build(feed_id)
+            except UnknownFeedError:
+                return False
             except SourceError as error:
                 reason = error.reason
             except Exception as error:  # noqa: BLE001 - a failed build must never escape

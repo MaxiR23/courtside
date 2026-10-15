@@ -16,6 +16,7 @@ from app.jobs.games import GamesJob
 from app.jobs.highlights import HighlightsJob
 from app.jobs.on_demand import FeedCache
 from app.jobs.past_game_detail_feed import PastGameDetailFeeds
+from app.jobs.past_player_ids import PastPlayerIds
 from app.jobs.player_feed import PlayerFeeds
 from app.jobs.playoffs_feed import PlayoffsFeeds
 from app.jobs.playoffs_finals_feed import PlayoffsFinalsFeeds
@@ -23,9 +24,13 @@ from app.jobs.playoffs_titles import PlayoffsTitles
 from app.jobs.presence import Presence
 from app.jobs.scheduler import Scheduler
 from app.jobs.search_feed import SearchFeeds
+from app.jobs.season_player_feed import SeasonPlayerFeeds
+from app.jobs.season_standings_feed import SeasonStandingsFeeds
+from app.jobs.season_team_feed import SeasonTeamFeeds
 from app.jobs.standings_feed import StandingsFeeds
 from app.jobs.stars import StarsJob
 from app.jobs.team_feed import TeamFeeds
+from app.jobs.team_names import TeamNamesFeeds
 from app.log import configure_logging
 from app.routers import feeds, health
 from app.settings import Settings, get_settings
@@ -86,12 +91,15 @@ def create_app(settings: Settings | None = None, *, run_jobs: bool = True) -> Fa
         playoffs_feeds = PlayoffsFeeds(
             settings, store, client, feed_cache, games_job, stars_job
         )
+        past_ids = PastPlayerIds(settings.data_dir)
+        team_names = TeamNamesFeeds(settings, store, client, feed_cache, stars_job)
         team_feeds = TeamFeeds(
             settings,
             store,
             client,
             feed_cache,
             games_job,
+            names=team_names,
             title_providers=(
                 CupTitles(store, cup_feeds),
                 PlayoffsTitles(store, playoffs_feeds),
@@ -107,8 +115,18 @@ def create_app(settings: Settings | None = None, *, run_jobs: bool = True) -> Fa
             playoffs_feeds,
         )
         player_feeds = PlayerFeeds(
-            settings, store, client, feed_cache, games_job, stars_job, team_feeds
+            settings,
+            store,
+            client,
+            feed_cache,
+            games_job,
+            stars_job,
+            team_feeds,
+            past_ids=past_ids,
         )
+        SeasonStandingsFeeds(settings, store, client, feed_cache, stars_job)
+        SeasonTeamFeeds(settings, store, client, feed_cache, stars_job, team_names)
+        SeasonPlayerFeeds(settings, store, client, feed_cache, stars_job, past_ids)
         all_star_discovery = AllStarDiscovery(settings, store, client, stars_job)
         AllStarFeeds(
             settings,

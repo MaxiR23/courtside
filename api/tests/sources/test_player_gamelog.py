@@ -14,6 +14,7 @@
 # - Raises the source error on a stat line whose labels are missing a column, an event the log does not describe, an event of an invalid shape that a season type references and a malformed stat
 # - Raises the source error on an invalid payload, a timeout, an error status and a missing URL
 # - Reuses a game log for one hour
+# - A season read sends the season, resolves the opponents by provider id and sets each game's team id; a current read sends no season, sets the team id from the home and away ids and still raises on a 404; a 404 on a season read is an empty log
 #
 # What is covered:
 # - A valid response mapped, an invalid payload rejected, upstream failures handled
@@ -396,3 +397,61 @@ async def test_reuses_a_game_log_for_one_hour(
         await fetch_player_gamelog(client, "4278073", settings)
 
     assert route.call_count == 2
+
+
+PAST_URL = "https://example.com/athletes/4278073/gamelog?season=2004"
+
+
+async def fetch_past(settings: Settings) -> PlayerGameLog:
+    with TemporaryDirectory() as directory:
+        store = StateStore(Path(directory))
+        store.migrate()
+        async with create_client(store) as client:
+            return await fetch_player_gamelog(client, "4278073", settings, season=2004)
+
+
+@pytest.mark.anyio
+async def test_a_season_read_sends_the_season_resolves_opponents_by_id_and_sets_the_team_id(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    route = mock.get(PAST_URL).respond(json=load("gamelog-past.json"))
+
+    log = await fetch_past(settings)
+
+    assert route.call_count == 1
+    assert log.season == "2003-04"
+    games = {game.game_id: game for game in log.games}
+    away, home = games["200401001"], games["200401002"]
+    assert away.opponent is not None and home.opponent is not None
+    assert (away.opponent.code, away.opponent.guest) == ("OKC", False)
+    assert (home.opponent.code, home.opponent.guest) == ("BKN", False)
+    assert (away.team_id, home.team_id) == ("29", "29")
+    assert (away.is_home, home.is_home) == (False, True)
+
+
+@pytest.mark.anyio
+async def test_a_current_read_sends_no_season_and_sets_the_team_id(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    route = mock.get(URL).respond(json=load())
+
+    log = await fetch(settings)
+
+    assert route.calls.last.request.url == httpx.URL(URL)
+    games = {game.game_id: game for game in log.games}
+    assert games["401811018"].team_id == "25"
+    assert games["401873203"].team_id == "25"
+
+
+@pytest.mark.anyio
+async def test_a_404_on_a_season_read_is_an_empty_log_and_on_a_current_read_raises(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    mock.get(PAST_URL).respond(status_code=404)
+    mock.get(URL).respond(status_code=404)
+
+    log = await fetch_past(settings)
+    error = await fetch_error(settings)
+
+    assert (log.season, log.games) == (None, [])
+    assert error.reason == "responded with status 404"

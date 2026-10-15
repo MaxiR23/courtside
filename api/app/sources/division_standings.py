@@ -14,7 +14,8 @@
 # unknown one is logged with the team code). The result tells whether it came
 # from the rule L second request (fallback). Streak, games behind and seed may
 # be null. The provider URL comes from Settings. Provider data never leaves
-# this module.
+# this module. A past season is read once with its season query value, with no
+# rule L fallback, and teams are resolved by provider id first.
 #
 # SEE: docs/api/team.md, docs/api/standings.md, docs/source-rules.md,
 # api/app/sources/standings.py
@@ -35,7 +36,7 @@ from app.feeds.games import FeedModel, NonEmptyStr, TeamCode
 from app.feeds.standings import Clinch
 from app.settings import Settings
 from app.sources.http import SourceClient, SourceError, get_json, with_query
-from app.sources.teams import to_team_code
+from app.sources.teams import TEAM_CODES, TEAM_IDS, to_team_code
 
 SOURCE = "division_standings"
 FRESH_FOR = dt.timedelta(hours=1)
@@ -60,6 +61,7 @@ class _ProviderModel(BaseModel):
 
 
 class _ProviderTeam(_ProviderModel):
+    id: str | None = None
     abbreviation: str
     location: str
     name: str
@@ -192,8 +194,14 @@ def _entry(
     division_order: int,
     conference_order: int,
     provider_order: int,
+    *,
+    by_id_first: bool = False,
 ) -> dict[str, object]:
-    code = to_team_code(entry.team.abbreviation, source=SOURCE)
+    team_id = entry.team.id
+    if by_id_first and team_id is not None and team_id in TEAM_IDS:
+        code = TEAM_CODES[TEAM_IDS[team_id]]
+    else:
+        code = to_team_code(entry.team.abbreviation, source=SOURCE)
     stats = {stat.type: stat for stat in entry.stats}
     seed = _optional_number(stats, "playoffseed")
     return {
@@ -252,15 +260,30 @@ def _season(provider: _ProviderLeague) -> tuple[int, int]:
 
 
 async def fetch_division_standings(
-    client: SourceClient, settings: Settings
+    client: SourceClient, settings: Settings, *, season: int | None = None
 ) -> DivisionStandings:
-    """Return the regular season standings of every team, or raise SourceError."""
+    """Return the regular season standings of every team, or raise SourceError.
+
+    With a season (the end year), read that past regular season once: no rule L
+    fallback, and each team resolved by provider id first (ADR 0043)."""
     if settings.division_standings_url is None:
         raise SourceError(SOURCE, "division standings URL is not configured")
-    provider = await _read(client, settings.division_standings_url)
+    requested = season
+    past = season is not None
+    if season is None:
+        provider = await _read(client, settings.division_standings_url)
+    else:
+        provider = await _read(
+            client, with_query(settings.division_standings_url, {"season": season})
+        )
     season, season_type = _season(provider)
     fallback = False
-    if season_type != REGULAR_SEASON:
+    if past:
+        if (season, season_type) != (requested, REGULAR_SEASON):
+            raise SourceError(
+                SOURCE, "standings are not of the requested regular season"
+            )
+    elif season_type != REGULAR_SEASON:
         offset = REGULAR_SEASON_OF.get(season_type)
         if offset is None:
             raise SourceError(SOURCE, "standings are not of the regular season")
@@ -295,6 +318,7 @@ async def fetch_division_standings(
                     division_order,
                     conference_order,
                     provider_order,
+                    by_id_first=past,
                 )
                 teams[str(mapped["code"])] = mapped
     if seen != set(Conference):

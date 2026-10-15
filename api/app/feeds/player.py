@@ -331,7 +331,7 @@ class PlayerFeed(FeedModel):
     last_name: NonEmptyStr
     number: JerseyNumber | None = None
     position: NonEmptyStr
-    team: Team
+    team: Team | None
     photo_url: HttpUrl | None = None
     injury: PlayerInjury | None = None
     profile: Profile
@@ -345,6 +345,22 @@ class PlayerFeed(FeedModel):
     game_log: GameLog | None = None
     awards: list[Award]
     all_star_year: PositiveInt | None = None
+    # False for a retired player. The default reads a stored feed from before.
+    active: bool = True
+    # Set exactly on the feed of a past season (ADR 0043).
+    season_label: SeasonLabel | None = None
+
+    @model_validator(mode="after")
+    def _require_the_blocks_of_the_current_season(self) -> PlayerFeed:
+        if self.season_label is not None:
+            raise ValueError("the current feed has no season label")
+        if self.team is None and (
+            self.injury is not None
+            or self.next_game is not None
+            or self.live is not None
+        ):
+            raise ValueError("a player on no team has no injury, next game or live")
+        return self
 
     @model_validator(mode="after")
     def _require_recent_games_newest_first_without_all_star(self) -> PlayerFeed:
@@ -379,4 +395,23 @@ class PlayerFeed(FeedModel):
             raise ValueError(
                 "profile.debutSeason must be the oldest regular season row"
             )
+        return self
+
+
+# The player feed of a past season (ADR 0043): the player feed's shape, but no
+# block that describes today. The team is null without a game that season.
+class PastPlayerFeed(PlayerFeed):
+    @model_validator(mode="after")
+    def _require_the_blocks_of_the_current_season(self) -> PastPlayerFeed:
+        # Same name as PlayerFeed's validator: it replaces that rule.
+        if self.season_label is None:
+            raise ValueError("a past season has a season label")
+        blocks = (
+            ("injury", self.injury),
+            ("nextGame", self.next_game),
+            ("live", self.live),
+        )
+        for name, block in blocks:
+            if block is not None:
+                raise ValueError(f"a past season has no {name}")
         return self

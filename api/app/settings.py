@@ -26,6 +26,8 @@ EXACT_PLACEHOLDERS: dict[str, frozenset[str]] = {
     "cup_group_url": frozenset({"season", "group"}),
     "cup_group_standings_url": frozenset({"season", "group"}),
     "depth_chart_url": frozenset({"season", "team_id"}),
+    "season_team_url": frozenset({"season", "team_id"}),
+    "season_roster_url": frozenset({"season", "team_id"}),
     "season_type_url": frozenset({"season", "type"}),
     "postseason_leaders_url": frozenset({"season"}),
     "team_postseason_record_url": frozenset({"season", "team_id"}),
@@ -91,6 +93,13 @@ class Settings(BaseSettings):
     # Template with {season}, the end year of the season, and {team_id}, the
     # provider's team id: the current depth chart of one team.
     depth_chart_url: str | None = None
+    # Template with {season}, the end year of the season, and {team_id}, the
+    # provider's team id: the team object of one season, with its abbreviation,
+    # display name, name, location and active state.
+    season_team_url: str | None = None
+    # Template with {season} and {team_id}: the roster collection of one team in
+    # one season.
+    season_roster_url: str | None = None
     # Template with {season}, the end year of the season, and {type}, the season
     # type (2 regular season, 5 play-in, 3 postseason): the start and end of that
     # season type.

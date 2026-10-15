@@ -114,7 +114,7 @@ function header(feed: PlayerFeed): PlayerHeaderView {
 	const parts = [
 		feed.number === null ? null : `#${feed.number}`,
 		feed.position,
-		`${feed.team.city} ${feed.team.name}`
+		feed.team ? `${feed.team.city} ${feed.team.name}` : null
 	].filter((part): part is string => part !== null);
 	const injury = feed.injury;
 	let updated = '';
@@ -134,7 +134,7 @@ function header(feed: PlayerFeed): PlayerHeaderView {
 		sub: rank === null ? null : m.player_rank({ rank })
 	});
 	return {
-		teamCode: feed.team.code,
+		teamCode: feed.team?.code ?? NO_VALUE,
 		status: injury
 			? { label: INJURY_LABELS[injury.status](), injured: true }
 			: { label: m.team_status_active(), injured: false },

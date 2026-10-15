@@ -5,7 +5,8 @@
 # or the playoffs. Shooting stays as "made-attempted" text and percentages stay
 # from 0 to 100. A season played for two teams has one row per team and a
 # combined row: the adapter keeps the combined row with the codes of the team
-# rows in their order. A player the provider has no stats for gives no rows.
+# rows in their order. A player the provider has no stats for gives no rows. A
+# season read adds the season to the query (ADR 0043).
 # The provider URL comes from Settings. Provider data never leaves this module.
 #
 # SEE: docs/api/player.md, api/app/sources/team_schedule.py
@@ -257,16 +258,26 @@ def _misc_lines(
 
 
 async def fetch_player_stats(
-    client: SourceClient, player_id: str, settings: Settings, *, playoffs: bool
+    client: SourceClient,
+    player_id: str,
+    settings: Settings,
+    *,
+    playoffs: bool,
+    season: int | None = None,
 ) -> PlayerStats:
     """Return a player's rows by season and the career rows of the regular
     season or the playoffs, empty when the provider has none, or raise
-    SourceError."""
+    SourceError. A season (its end year) is added to the query (ADR 0043)."""
     if settings.player_stats_url is None:
         raise SourceError(SOURCE, "player stats URL is not configured")
     url = settings.player_stats_url.format(player_id=player_id)
+    query: dict[str, str | int] = {}
+    if season is not None:
+        query["season"] = season
     if playoffs:
-        url = with_query(url, {"seasontype": PLAYOFFS_SEASON_TYPE})
+        query["seasontype"] = PLAYOFFS_SEASON_TYPE
+    if query:
+        url = with_query(url, query)
     try:
         body = await get_json(client, url, source=SOURCE, fresh=FRESH_FOR)
     except SourceError as error:

@@ -196,7 +196,9 @@ export function nextGameView(game: NextGame): NextGameView {
 
 function overview(feed: TeamFeed): OverviewSection {
 	return {
-		arena: { name: feed.arena.name, city: feed.arena.city, photo: feed.arena.photoUrl },
+		arena: feed.arena
+			? { name: feed.arena.name, city: feed.arena.city, photo: feed.arena.photoUrl }
+			: { name: NO_VALUE, city: null, photo: null },
 		coach: feed.coach
 			? {
 					label: m.team_coach_label(),
@@ -392,7 +394,7 @@ export function toTeamView(feed: TeamFeed): TeamView {
 		record: recordSection(feed),
 		leaders: leadersSection(feed),
 		roster: feed.roster.length > 0 ? feed.roster.map(rosterRow) : null,
-		injuries: feed.injuries.map(injuryRow),
+		injuries: (feed.injuries ?? []).map(injuryRow),
 		schedule: scheduleSection(feed)
 	};
 	const tabs: TeamTab[] = TAB_ORDER.filter((id) => sections[id] !== null).map((id) => ({

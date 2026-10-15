@@ -8,6 +8,7 @@
 # - Raises the source error on a draft link without a team id, an unknown team id, a pick that is not positive, an invalid payload, a timeout, an error status and a missing URL
 # - Requests the URL built from the player id
 # - Reuses a draft for one hour
+# - fetch_player_athlete maps the active state and the identity with a null college, maps a retired athlete with active false, shares one request with the draft, and raises the source error on an invalid payload, an error status and a missing URL
 #
 # What is covered:
 # - A valid response mapped (drafted and undrafted), an invalid payload rejected, upstream failures handled
@@ -32,7 +33,12 @@ import respx
 
 from app.settings import Settings
 from app.sources.http import SourceError, create_client
-from app.sources.player_draft import DraftPick, fetch_player_draft
+from app.sources.player_draft import (
+    DraftPick,
+    PlayerAthlete,
+    fetch_player_athlete,
+    fetch_player_draft,
+)
 from app.storage.state import StateStore
 
 FIXTURES = Path(__file__).parent / "fixtures" / "player_draft"
@@ -203,3 +209,117 @@ async def test_reuses_a_draft_for_one_hour(
         await fetch_player_draft(client, "4278073", settings)
 
     assert route.call_count == 2
+
+
+async def athlete_of(settings: Settings) -> PlayerAthlete:
+    with TemporaryDirectory() as directory:
+        store = StateStore(Path(directory))
+        store.migrate()
+        async with create_client(store) as client:
+            return await fetch_player_athlete(client, "4278073", settings)
+
+
+@pytest.mark.anyio
+async def test_the_athlete_maps_the_active_state_and_the_identity_with_a_null_college(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    mock.get(URL).respond(json=load("athlete-active.json"))
+
+    athlete = await athlete_of(settings)
+
+    assert athlete.active is True
+    entry = athlete.entry
+    assert (entry.player_id, entry.first_name, entry.last_name) == (
+        "4278073",
+        "Ada",
+        "Example",
+    )
+    assert (entry.jersey, entry.position_abbreviation) == ("7", "G")
+    assert (entry.height_inches, entry.display_height, entry.weight_lb) == (
+        75,
+        "6' 3\"",
+        190,
+    )
+    assert entry.birth_date == dt.date(1998, 3, 4)
+    assert (entry.birth_city, entry.birth_state, entry.birth_country) == (
+        "Springfield",
+        "IL",
+        "USA",
+    )
+    assert (entry.experience, entry.college) == (6, None)
+    assert entry.headshot_url == "https://example.com/h/ada.png"
+
+
+@pytest.mark.anyio
+async def test_a_retired_athlete_has_active_false_and_no_optional_identity(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    mock.get(URL).respond(json=load("athlete-retired.json"))
+
+    athlete = await athlete_of(settings)
+
+    assert athlete.active is False
+    assert (athlete.entry.jersey, athlete.entry.headshot_url) == (None, None)
+    assert athlete.entry.position_name == "Center"
+
+
+@pytest.mark.anyio
+async def test_the_draft_and_the_athlete_share_one_request(
+    mock: respx.MockRouter, settings: Settings, tmp_path: Path
+) -> None:
+    route = mock.get(URL).respond(json=load("athlete-active.json"))
+    store = StateStore(tmp_path)
+    store.migrate()
+    async with create_client(store) as client:
+        pick = await fetch_player_draft(client, "4278073", settings)
+        athlete = await fetch_player_athlete(client, "4278073", settings)
+
+    assert route.call_count == 1
+    assert pick is not None and pick.team_code == "CHA"
+    assert athlete.active is True
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "payload",
+    [[], {"firstName": "Ada", "lastName": "Example"}, {"active": True}],
+    ids=["not an object", "missing active", "missing names"],
+)
+async def test_the_athlete_raises_the_source_error_on_an_invalid_payload(
+    mock: respx.MockRouter, settings: Settings, payload: Any
+) -> None:
+    mock.get(URL).respond(json=payload)
+
+    with pytest.raises(SourceError) as raised:
+        await athlete_of(settings)
+
+    assert raised.value.reason.startswith("invalid payload: ")
+
+
+@pytest.mark.anyio
+async def test_the_athlete_raises_the_source_error_on_an_empty_name(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("athlete-active.json")
+    payload["firstName"] = ""
+    mock.get(URL).respond(json=payload)
+
+    with pytest.raises(SourceError) as raised:
+        await athlete_of(settings)
+
+    assert raised.value.reason.startswith("player 4278073 is invalid: ")
+
+
+@pytest.mark.anyio
+async def test_the_athlete_raises_the_source_error_on_an_error_status_and_a_missing_url(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    mock.get(URL).respond(status_code=500)
+    with pytest.raises(SourceError) as raised:
+        await athlete_of(settings)
+    assert raised.value.reason == "responded with status 500"
+
+    unset = Settings(_env_file=None, player_draft_url=None)  # type: ignore[call-arg]
+    with pytest.raises(SourceError) as missing:
+        await athlete_of(unset)
+    assert missing.value.reason == "player draft URL is not configured"

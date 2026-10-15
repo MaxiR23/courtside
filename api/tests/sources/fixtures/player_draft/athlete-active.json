@@ -1,0 +1,23 @@
+{
+  "active": true,
+  "firstName": "Ada",
+  "lastName": "Example",
+  "displayName": "Ada Example",
+  "jersey": "7",
+  "position": { "name": "Guard", "abbreviation": "G" },
+  "height": 75,
+  "displayHeight": "6' 3\"",
+  "weight": 190,
+  "dateOfBirth": "1998-03-04T08:00Z",
+  "birthPlace": { "city": "Springfield", "state": "IL", "country": "USA" },
+  "experience": { "years": 6 },
+  "headshot": { "href": "https://example.com/h/ada.png" },
+  "draft": {
+    "year": 2018,
+    "round": 1,
+    "selection": 11,
+    "team": {
+      "$ref": "https://example.com/v2/sports/basketball/leagues/nba/seasons/2018/teams/30?lang=en&region=us"
+    }
+  }
+}

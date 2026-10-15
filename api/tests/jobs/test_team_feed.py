@@ -49,6 +49,7 @@
 # - The kind: a failed build answers unavailable and is not retried for 10 minutes
 # - The kind: a failed rebuild of a stale feed keeps and serves the stored feed
 # - The kind: the cleanup keeps every standard code
+# - The kind with the names wired: a team build builds the missing franchise names first and stores them in the feed, fresh names are not rebuilt by a second team build, and serving sets the latest stored names
 # - The kind: the feed holds the team's Cup group and Cup record, read with the roster's season; null when no group table has the team, and null with the feed still built when a group table read fails
 #
 # What is covered:
@@ -65,7 +66,7 @@ import json
 from collections.abc import Iterator, Sequence
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Any
+from typing import Any, cast
 from zoneinfo import ZoneInfo
 
 import httpx
@@ -77,9 +78,11 @@ from app.feeds.games import GameStatus, GameTeam, LineScore, Score
 from app.feeds.player import GameKind, GameTag, TagKind
 from app.feeds.team import (
     CupGroupName,
+    NameRun,
     PlayoffStatus,
     TeamCup,
     TeamFeed,
+    TeamNames,
     TeamTitle,
     TitleKind,
 )
@@ -91,6 +94,7 @@ from app.jobs.on_demand import (
     IdStatus,
     UnknownFeedError,
 )
+from app.jobs.stars import StarsJob
 from app.jobs.team_feed import (
     FEED_LIFETIME,
     KIND,
@@ -114,6 +118,7 @@ from app.jobs.team_feed import (
     win_pct,
     with_team_detail,
 )
+from app.jobs.team_names import TeamNamesFeeds
 from app.settings import Settings
 from app.sources.cup import CupTable, CupTableRow
 from app.sources.division_standings import (
@@ -135,6 +140,7 @@ from app.sources.league_injuries import (
     fetch_league_injuries,
 )
 from app.sources.scoreboard import ScoreboardGame
+from app.sources.season_team import SeasonTeam
 from app.sources.team_info import TeamInfo, fetch_team_info
 from app.sources.team_players import (
     PlayerAverages,
@@ -485,6 +491,7 @@ def test_records_the_standing_with_converted_values() -> None:
     assert feed.colors.primary == "#007ac1"
     assert feed.colors.secondary == "#ef3b24"
     assert (feed.conference, feed.division) == (Conference.WEST, "Northwest")
+    assert feed.arena is not None
     assert (feed.arena.name, feed.arena.city) == ("Paycom Center", "Oklahoma City")
     assert feed.season == "2026-27"
 
@@ -899,6 +906,7 @@ def test_lists_only_team_injuries_with_an_athlete_id_and_a_date() -> None:
 
     feed = build(team_roster=roster(player("1", "2")), league=league)
 
+    assert feed.injuries is not None
     assert [(i.player_id, i.name) for i in feed.injuries] == [
         ("1", "On Roster"),
         ("77", "Off Roster"),
@@ -967,7 +975,7 @@ def test_fails_the_build_for_a_team_with_no_standings_entry() -> None:
 
 def test_wraps_an_invalid_feed_in_a_build_error() -> None:
     with pytest.raises(TeamBuildError) as raised:
-        build(entry=standing(division_order=6))
+        build(entry=standing(division_order=9))
 
     assert raised.value.reason.startswith("invalid feed: 1 errors, first at record")
 
@@ -1074,6 +1082,7 @@ async def test_builds_a_valid_team_feed_from_the_recorded_payloads(
     assert feed.leaders.points.player_id == "4278073"
     assert feed.coach is not None and feed.coach.name == "Mark Daigneault"
     assert len(feed.roster) == 21
+    assert feed.injuries is not None
     assert [row.player_id for row in feed.injuries] == ["5061603", "4433255"]
     assert feed.schedule is not None
     if schedule_season == 2027:
@@ -1681,3 +1690,133 @@ async def test_the_titles_rebuild_does_not_change_the_expiry_the_player_feed_rea
 
     assert not kit.teams.expired("OKC", None, NOW, NOW + 2 * HOUR)
     assert kit.teams.expired("OKC", None, NOW, NOW + FEED_LIFETIME)
+
+
+class FakeStars:
+    def current_season(self) -> int | None:
+        return 2027
+
+
+class NamedKit(TeamKit):
+    """The team kind wired to a names kind with a fake season team adapter."""
+
+    def __init__(self, path: Path) -> None:
+        self.name_reads: list[tuple[str, int]] = []
+        self.identity = ("Thunder", "Oklahoma City", "OKC")
+        super().__init__(path)
+
+    def make_teams(self) -> TeamFeeds:
+        self.names = TeamNamesFeeds(
+            self.settings,
+            self.store,
+            self.client,
+            self.cache,
+            cast(StarsJob, FakeStars()),
+            fetch_season_team=self.fetch_season_team,
+        )
+        return TeamFeeds(
+            self.settings,
+            self.store,
+            self.client,
+            self.cache,
+            self.games,
+            fetch_roster=self.fetch_roster,
+            fetch_team_leaders=self.fetch_team_leaders,
+            fetch_team_info=self.fetch_team_info,
+            fetch_division_standings=self.fetch_division_standings,
+            fetch_league_injuries=self.fetch_league_injuries,
+            fetch_season_schedule=self.fetch_season_schedule,
+            fetch_group_table=self.fetch_group_table,
+            title_providers=(self.first_titles, self.second_titles),
+            names=self.names,
+        )
+
+    async def fetch_season_team(
+        self, client: SourceClient, code: str, season: int, settings: Settings
+    ) -> SeasonTeam | None:
+        self.name_reads.append((code, season))
+        name, location, abbreviation = self.identity
+        return SeasonTeam(
+            team_id="25",
+            abbreviation=abbreviation,
+            display_name=f"{location} {name}",
+            name=name,
+            location=location,
+            active=True,
+        )
+
+
+@pytest.mark.anyio
+async def test_a_team_build_builds_the_missing_names_first_and_stores_them_in_the_feed(
+    tmp_path: Path,
+) -> None:
+    named = NamedKit(tmp_path)
+    named.regular = season(game("g1"))
+
+    body = await named.serve("okc")
+
+    assert len(named.name_reads) == 2027 - 1994 + 1
+    feed = TeamFeed.model_validate_json(body)
+    assert [(r.from_, r.to, r.name) for r in feed.names] == [(1994, None, "Thunder")]
+    stored = named.stored("okc")
+    assert stored is not None
+    assert stored.names == feed.names
+
+
+@pytest.mark.anyio
+async def test_stale_names_are_rebuilt_before_the_next_team_build(
+    tmp_path: Path,
+) -> None:
+    named = NamedKit(tmp_path)
+    named.regular = season(game("g1"))
+    await named.serve("okc")
+    reads = len(named.name_reads)
+
+    await named.serve("okc", NOW + FEED_LIFETIME)
+    await named.settle()
+
+    assert named.last_build("okc") == NOW + FEED_LIFETIME
+    assert len(named.name_reads) == 2 * reads
+
+
+@pytest.mark.anyio
+async def test_fresh_names_are_not_rebuilt_by_a_second_team_build(
+    tmp_path: Path,
+) -> None:
+    named = NamedKit(tmp_path)
+    named.regular = season(game("g1"))
+    await named.serve("okc")
+    reads = len(named.name_reads)
+    named.first_titles.rebuilt_at = NOW + HOUR
+
+    await named.serve("okc", NOW + 3 * HOUR)
+    await named.settle()
+
+    assert named.last_build("okc") == NOW + 3 * HOUR
+    assert len(named.name_reads) == reads
+
+
+@pytest.mark.anyio
+async def test_serving_sets_the_latest_stored_names(tmp_path: Path) -> None:
+    named = NamedKit(tmp_path)
+    named.regular = season(game("g1"))
+    await named.serve("okc")
+    newer = [
+        NameRun.model_validate(
+            {
+                "from": 1994,
+                "to": None,
+                "name": "Storm",
+                "location": "Oklahoma City",
+                "code": "OKC",
+            }
+        )
+    ]
+    publish_by_id(tmp_path, "team-names", TeamNames, "okc", TeamNames(runs=newer))
+
+    served = TeamFeed.model_validate_json(await named.serve("okc", NOW + SECOND))
+
+    assert [run.name for run in served.names] == ["Storm"]
+    stored = named.stored("okc")
+    assert stored is not None
+    assert [run.name for run in stored.names] == ["Thunder"]

@@ -157,6 +157,47 @@
       "title": "InjuryStatus",
       "type": "string"
     },
+    "NameRun": {
+      "additionalProperties": false,
+      "description": "One identity of the franchise: its name, city and code from one season to\nanother. `to` is null on the run that holds the current season.",
+      "properties": {
+        "from": {
+          "minimum": 1994,
+          "type": "integer"
+        },
+        "to": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "location": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "code": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "from",
+        "to",
+        "name",
+        "location",
+        "code"
+      ],
+      "title": "NameRun",
+      "type": "object"
+    },
     "NextGame": {
       "additionalProperties": false,
       "properties": {
@@ -965,7 +1006,7 @@
           "type": "integer"
         },
         "divisionRank": {
-          "maximum": 5,
+          "maximum": 8,
           "minimum": 1,
           "type": "integer"
         },
@@ -1124,7 +1165,14 @@
       "$ref": "#/$defs/TeamColors"
     },
     "arena": {
-      "$ref": "#/$defs/Venue"
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Venue"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "coach": {
       "anyOf": [
@@ -1154,10 +1202,17 @@
       "type": "array"
     },
     "injuries": {
-      "items": {
-        "$ref": "#/$defs/TeamInjury"
-      },
-      "type": "array"
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/TeamInjury"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "nextGame": {
       "anyOf": [
@@ -1207,6 +1262,12 @@
         }
       ],
       "default": null
+    },
+    "names": {
+      "items": {
+        "$ref": "#/$defs/NameRun"
+      },
+      "type": "array"
     }
   },
   "required": [
@@ -1226,7 +1287,8 @@
     "nextGame",
     "schedule",
     "cup",
-    "titles"
+    "titles",
+    "names"
   ],
   "title": "TeamFeed",
   "type": "object"
