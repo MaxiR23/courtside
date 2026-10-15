@@ -25,6 +25,8 @@
 # - Counts a player stat that is missing as zero
 # - Raises the source error on an invalid player averages payload, a player stat that is not a number, a negative player stat, a timeout, an error status and a missing player averages URL
 # - Raises the source error on an invalid roster payload, an invalid averages payload, an empty roster, an empty name, a stat that is not a number, a negative stat, an unknown team code, a timeout, an error status, a missing roster URL, a missing averages URL and a missing photo URL
+# - Maps a recorded season roster with the requested season and the provider team id, and requests the season roster URL
+# - Raises the source error on an invalid season roster payload, an error status, an unknown team code and a missing season roster URL
 # - Reuses a roster and the team leaders for twenty-four hours, and a player's averages while fetched at or after the time the caller gives
 #
 # What is covered:
@@ -63,6 +65,7 @@ from app.sources.team_players import (
     fetch_player_averages,
     fetch_roster,
     fetch_season_averages,
+    fetch_season_roster,
     fetch_team_leaders,
 )
 from app.storage.state import StateStore
@@ -842,3 +845,98 @@ async def test_reuses_a_players_averages_while_fetched_at_or_after_the_given_tim
         )
 
     assert route.call_count == 2
+
+
+SEASON_ROSTER_TEMPLATE = "https://example.com/seasons/{season}/teams/{team_id}/roster"
+SEASON_ROSTER_URL = "https://example.com/seasons/2004/teams/9/roster"
+
+
+@pytest.fixture
+def season_settings() -> Settings:
+    return Settings(  # type: ignore[call-arg]
+        _env_file=None,
+        season_roster_url=SEASON_ROSTER_TEMPLATE,
+        player_photo_url=PHOTO_TEMPLATE,
+    )
+
+
+async def season_roster_of(settings: Settings, code: str = "GSW") -> Roster:
+    with TemporaryDirectory() as directory:
+        store = StateStore(Path(directory))
+        store.migrate()
+        async with create_client(store) as client:
+            return await fetch_season_roster(client, code, 2004, settings)
+
+
+@pytest.mark.anyio
+async def test_maps_a_season_roster_with_the_requested_season_and_the_provider_team_id(
+    mock: respx.MockRouter, season_settings: Settings
+) -> None:
+    route = mock.get(SEASON_ROSTER_URL).respond(json=load("season-roster.json"))
+
+    roster = await season_roster_of(season_settings)
+
+    assert route.call_count == 1
+    assert (roster.season, roster.team_id) == (2004, "9")
+    assert [star.player_id for star in roster.players] == ["9001", "9002"]
+    assert roster.players[0].team_code == "GSW"
+    assert str(roster.players[0].photo_url) == "https://example.com/players/9001.png"
+    assert roster.coach is None
+    first = roster.entries[0]
+    assert (first.jersey, first.position_abbreviation) == ("7", "G")
+    assert first.birth_date == dt.date(1978, 3, 4)
+    assert roster.entries[1].jersey is None
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("payload", [{}, {"athletes": 3}, {"athletes": [{"id": "1"}]}])
+async def test_raises_the_source_error_on_an_invalid_season_roster_payload(
+    mock: respx.MockRouter, season_settings: Settings, payload: Any
+) -> None:
+    mock.get(SEASON_ROSTER_URL).respond(json=payload)
+
+    with pytest.raises(SourceError) as raised:
+        await season_roster_of(season_settings)
+
+    assert raised.value.reason.startswith("invalid payload: ")
+
+
+@pytest.mark.anyio
+async def test_raises_the_source_error_on_an_empty_season_roster(
+    mock: respx.MockRouter, season_settings: Settings
+) -> None:
+    mock.get(SEASON_ROSTER_URL).respond(json={"athletes": []})
+
+    with pytest.raises(SourceError) as raised:
+        await season_roster_of(season_settings)
+
+    assert raised.value.reason.startswith("team GSW is invalid: ")
+
+
+@pytest.mark.anyio
+async def test_raises_the_source_error_on_a_season_roster_error_status_and_unknown_code(
+    mock: respx.MockRouter, season_settings: Settings
+) -> None:
+    mock.get(SEASON_ROSTER_URL).respond(500)
+
+    with pytest.raises(SourceError) as raised:
+        await season_roster_of(season_settings)
+    assert raised.value.reason == "responded with status 500"
+
+    with pytest.raises(SourceError) as unknown:
+        await season_roster_of(season_settings, "XXX")
+    assert unknown.value.reason == "unknown team code 'XXX'"
+
+
+@pytest.mark.anyio
+async def test_raises_the_source_error_when_the_season_roster_url_is_not_configured(
+    mock: respx.MockRouter,
+) -> None:
+    unset = Settings(  # type: ignore[call-arg]
+        _env_file=None, season_roster_url=None, player_photo_url=PHOTO_TEMPLATE
+    )
+
+    with pytest.raises(SourceError) as raised:
+        await season_roster_of(unset)
+
+    assert raised.value.reason == "season roster URL is not configured"

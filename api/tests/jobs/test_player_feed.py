@@ -27,6 +27,10 @@
 # - Builds a valid player feed from the recorded payloads
 # - The live block is none with no live game or a game missing its period, clock or score, carries the game from the team's side and the player's box score line, and has a null line when the detail is missing, has no box score or does not list him
 # - Sets detailAvailable exactly for the ids given on the next game, last games and game log
+# - The kind: a roster player's feed has the active state of the athlete object
+# - The kind: a past-known id on no roster is known once the rosters are ready and not ready before, and an unknown id answers unknown with no source request
+# - The kind: a player on no roster builds with no team, next game, live block or injury, with no team feed, roster or injuries read, and with the active state of the athlete object whether it is true or false
+# - The kind: a feed with no team expires 7 days after its build
 # - The kind: before every roster is fetched a request answers unavailable, after it an id in no roster answers unknown, with no source request
 # - The kind: no player or team feed is built, stored or fetched by stars runs, games runs and the cleanup without a request
 # - The kind: a request builds the team feed first when it is missing or stale, then the player, and stores both
@@ -74,6 +78,7 @@ from app.jobs.on_demand import (
     IdStatus,
     UnknownFeedError,
 )
+from app.jobs.past_player_ids import PastPlayerIds
 from app.jobs.player_feed import (
     KIND,
     PlayerBuildError,
@@ -109,7 +114,7 @@ from app.sources.league_injuries import (
     fetch_league_injuries,
 )
 from app.sources.player_bio import PlayerBio, RankedValue, fetch_player_bio
-from app.sources.player_draft import DraftPick, fetch_player_draft
+from app.sources.player_draft import DraftPick, PlayerAthlete, fetch_player_draft
 from app.sources.player_gamelog import (
     GameLogGame,
     PlayerGameLog,
@@ -927,6 +932,7 @@ def test_names_the_team_and_the_player_from_the_roster_and_standings() -> None:
         "Gilgeous-Alexander",
     )
     assert (feed.number, feed.position) == ("2", "Guard")
+    assert feed.team is not None
     assert (feed.team.code, feed.team.name, feed.team.city) == (
         "OKC",
         "Thunder",
@@ -1085,6 +1091,7 @@ async def test_builds_a_valid_player_feed_from_the_recorded_payloads(
 
     dumped = feed.model_dump(mode="json")
     assert PlayerFeed.model_validate(dumped) == feed
+    assert feed.team is not None
     assert (feed.id, feed.team.code, feed.live) == ("4278073", "OKC", None)
     assert feed.summary is not None and feed.summary.season == "2025-26"
     assert feed.profile.draft is not None
@@ -1246,11 +1253,24 @@ def test_with_player_detail_sets_detail_availability_exactly_for_the_ids_given()
 # The kind
 
 
+class KnownIds(PastPlayerIds):
+    """The past player ids as a set the test fills."""
+
+    def __init__(self, ids: set[str]) -> None:
+        super().__init__(Path("unused"))
+        self._given = ids
+
+    def known(self, player_id: str) -> bool:
+        return player_id in self._given
+
+
 class PlayerKit(TeamKit):
     """The team kit plus the stars job, the player kind and a fake games kind."""
 
     def __init__(self, path: Path) -> None:
         super().__init__(path)
+        self.athletes: dict[str, PlayerAthlete] = {}
+        self.past_known: set[str] = set()
         self.roster_errors: set[str] = set()
         self.detail_builds = 0
         self.detail_feeds: dict[str, GameDetailFeed] = {}
@@ -1287,6 +1307,8 @@ class PlayerKit(TeamKit):
             fetch_league_injuries=self.fetch_league_injuries,
             fetch_player_bio=self.fetch_bio,
             fetch_player_draft=self.fetch_draft,
+            fetch_player_athlete=self.fetch_athlete,
+            past_ids=KnownIds(self.past_known),
             fetch_player_awards=self.fetch_awards,
             fetch_player_gamelog=self.fetch_gamelog,
             fetch_player_stats=self.fetch_stats,
@@ -1356,6 +1378,14 @@ class PlayerKit(TeamKit):
     ) -> DraftPick | None:
         await self.read(f"draft/{player_id}", HOUR)
         return None
+
+    async def fetch_athlete(
+        self, client: SourceClient, player_id: str, settings: Settings
+    ) -> PlayerAthlete:
+        await self.read(f"athlete/{player_id}", HOUR)
+        return self.athletes.get(
+            player_id, PlayerAthlete(active=True, entry=player(player_id))
+        )
 
     async def fetch_awards(
         self, client: SourceClient, player_id: str, settings: Settings
@@ -1758,3 +1788,94 @@ async def test_the_cleanup_after_a_stars_run_deletes_players_on_no_roster_with_n
     assert read_by_id(kit.path, KIND, "1") is not None
     assert kit.requests == [] and kit.calls == []
     assert len(set(TEAM_CODES.values())) == 30
+
+
+def retired(player_id: str = "retired1", *, active: bool = False) -> PlayerAthlete:
+    return PlayerAthlete(active=active, entry=player(player_id, jersey=None))
+
+
+@pytest.mark.anyio
+async def test_a_roster_players_feed_has_the_active_state_of_the_athlete_object(
+    kit: PlayerKit,
+) -> None:
+    await kit.run_stars()
+    first = PlayerFeed.model_validate_json(await kit.serve_player("1"))
+    kit.athletes["1"] = PlayerAthlete(active=False, entry=player("1"))
+
+    await kit.serve_player("1", NOW + FEED_LIFETIME)
+    second = PlayerFeed.model_validate_json(await kit.serve_player("1"))
+
+    assert (first.active, second.active) == (True, False)
+    assert first.team is not None and second.team is not None
+
+
+@pytest.mark.anyio
+async def test_a_past_known_id_on_no_roster_is_not_ready_before_the_rosters_and_known_after(
+    kit: PlayerKit,
+) -> None:
+    kit.past_known.add("retired1")
+    kit.roster_errors.add("BOS")
+    await kit.run_stars()
+
+    assert kit.players.check("retired1") is IdStatus.NOT_READY
+    kit.roster_errors.clear()
+    await kit.run_stars(NOW + RETRY)
+    assert kit.players.check("retired1") is IdStatus.KNOWN
+    assert kit.players.check("nobody") is IdStatus.UNKNOWN
+    with pytest.raises(UnknownFeedError):
+        await kit.cache.serve(KIND, "nobody")
+
+    assert kit.requests == [] and kit.calls == []
+
+
+@pytest.mark.anyio
+async def test_a_retired_player_builds_with_no_team_next_game_live_or_injury_and_no_team_reads(
+    kit: PlayerKit,
+) -> None:
+    kit.past_known.add("retired1")
+    kit.athletes["retired1"] = retired()
+    await kit.run_stars()
+
+    feed = PlayerFeed.model_validate_json(await kit.serve_player("retired1"))
+
+    assert feed.active is False
+    assert feed.team is None
+    assert (feed.injury, feed.next_game, feed.live) == (None, None, None)
+    assert feed.first_name == "Shai"
+    assert kit.called("roster/OKC") == 0
+    assert kit.called("injuries") == 0
+    assert kit.called("schedule/OKC/False") == 0
+    assert kit.stored("okc") is None
+    assert kit.called("athlete/retired1") == 1
+    assert kit.called("standings") == 1
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("active", [True, False])
+async def test_a_player_on_no_roster_is_served_whatever_the_athlete_active_state(
+    kit: PlayerKit, active: bool
+) -> None:
+    kit.past_known.add("agent1")
+    kit.athletes["agent1"] = retired("agent1", active=active)
+    await kit.run_stars()
+
+    feed = PlayerFeed.model_validate_json(await kit.serve_player("agent1"))
+
+    assert feed.team is None
+    assert feed.active is active
+
+
+@pytest.mark.anyio
+async def test_a_feed_with_no_team_is_fresh_before_7_days_and_stale_at_7_days(
+    kit: PlayerKit,
+) -> None:
+    kit.past_known.add("retired1")
+    kit.athletes["retired1"] = retired()
+    await kit.run_stars()
+    await kit.serve_player("retired1")
+
+    await kit.serve_player("retired1", NOW + FEED_LIFETIME - SECOND)
+    assert kit.called("bio/retired1") == 1
+    await kit.serve_player("retired1", NOW + FEED_LIFETIME)
+
+    assert kit.called("bio/retired1") == 2

@@ -1,0 +1,24 @@
+{
+  "athletes": [
+    {
+      "id": "9001",
+      "firstName": "Ada",
+      "lastName": "Example",
+      "shortName": "A. Example",
+      "displayName": "Ada Example",
+      "jersey": "7",
+      "position": { "name": "Guard", "abbreviation": "G" },
+      "height": 75,
+      "displayHeight": "6' 3\"",
+      "weight": 190,
+      "dateOfBirth": "1978-03-04T08:00Z",
+      "headshot": { "href": "https://example.com/h/9001.png" }
+    },
+    {
+      "id": "9002",
+      "firstName": "Bo",
+      "lastName": "Sample",
+      "shortName": "B. Sample"
+    }
+  ]
+}

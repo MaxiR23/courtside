@@ -35,7 +35,7 @@ from app.feeds.games import FeedModel, NonEmptyStr, UtcDatetime
 from app.feeds.opponent import Opponent
 from app.settings import Settings
 from app.sources.http import SourceClient, SourceError, get_json, with_query
-from app.sources.teams import TEAM_CODES, side_of, to_opponent
+from app.sources.teams import TEAM_CODES, TEAM_IDS, side_of, to_opponent
 
 SOURCE = "team_schedule"
 FRESH_FOR = dt.timedelta(hours=1)
@@ -179,25 +179,35 @@ def _location(error: ValidationError) -> str:
     return ".".join(str(part) for part in error.errors()[0]["loc"])
 
 
+def _code_of(competitor: _ProviderCompetitor, by_id_first: bool) -> str | None:
+    team = competitor.team
+    if by_id_first and team.id in TEAM_IDS:
+        return TEAM_CODES[TEAM_IDS[team.id]]
+    return side_of(team.abbreviation, team.id, source=SOURCE)[0]
+
+
 def _team_and_opponent(
-    team_code: str, event: _ProviderEvent
+    team_code: str, event: _ProviderEvent, by_id_first: bool = False
 ) -> tuple[_ProviderCompetitor, _ProviderCompetitor]:
     competitors = event.competitions[0].competitors
-    matches = [
-        c
-        for c in competitors
-        if side_of(c.team.abbreviation, c.team.id, source=SOURCE)[0] == team_code
-    ]
+    matches = [c for c in competitors if _code_of(c, by_id_first) == team_code]
     if len(competitors) != 2 or len(matches) != 1:
         raise SourceError(SOURCE, f"team {team_code} is missing from game {event.id}")
     team = matches[0]
     return team, next(c for c in competitors if c is not team)
 
 
-def _opponent_of(competitor: _ProviderCompetitor) -> dict[str, Any] | None:
+def _opponent_of(
+    competitor: _ProviderCompetitor, by_id_first: bool = False
+) -> dict[str, Any] | None:
     team = competitor.team
     return to_opponent(
-        team.abbreviation, team.id, team.name, team.location, source=SOURCE
+        team.abbreviation,
+        team.id,
+        team.name,
+        team.location,
+        source=SOURCE,
+        by_id_first=by_id_first,
     )
 
 
@@ -277,11 +287,11 @@ async def fetch_team_schedule(
 
 
 def _scheduled_game(
-    team_code: str, event: _ProviderEvent, *, playoffs: bool
+    team_code: str, event: _ProviderEvent, *, playoffs: bool, by_id_first: bool = False
 ) -> dict[str, Any] | None:
     competition = event.competitions[0]
-    team, opponent = _team_and_opponent(team_code, event)
-    opponent_team = _opponent_of(opponent)
+    team, opponent = _team_and_opponent(team_code, event, by_id_first)
+    opponent_team = _opponent_of(opponent, by_id_first)
     if opponent_team is None:
         return None
     played = (
@@ -328,9 +338,11 @@ async def fetch_season_schedule(
     settings: Settings,
     *,
     playoffs: bool,
+    by_id_first: bool = False,
 ) -> SeasonSchedule:
     """Return one team's games of a season (its end year) and season type, or
-    raise SourceError."""
+    raise SourceError. With by_id_first, a past season matches the teams by
+    provider id before the abbreviation (ADR 0043)."""
     if settings.team_schedule_url is None:
         raise SourceError(SOURCE, "team schedule URL is not configured")
     provider_code = _provider_code(team_code)
@@ -348,7 +360,9 @@ async def fetch_season_schedule(
         ) from None
     try:
         games = (
-            _scheduled_game(team_code, event, playoffs=playoffs)
+            _scheduled_game(
+                team_code, event, playoffs=playoffs, by_id_first=by_id_first
+            )
             for event in schedule.events
         )
         return SeasonSchedule.model_validate(

@@ -19,6 +19,7 @@
 # - Gives a 0-0 team null pct, streak and games behind in both groupings
 # - Builds colors from team info and null for a team without
 # - Labels the season, sums the wins and sets the state (fallback, 82 games, otherwise regular)
+# - A builder called with final true sets the state final with fewer than 82 games
 # - Wraps an invalid feed in a build error
 # - Builds a valid feed from the recorded standings, in season and before the first game
 # - The kind: an id other than league answers unknown
@@ -456,6 +457,13 @@ def test_labels_the_season_from_the_standings_end_year() -> None:
 
 def test_sets_the_state_final_from_the_fallback() -> None:
     assert built(fallback=True).state is StandingsState.FINAL
+
+
+def test_sets_the_state_final_with_fewer_than_82_games_when_final_is_true() -> None:
+    feed = build_standings_feed(league(*small(), season=1996), {}, final=True)
+
+    assert feed.state is StandingsState.FINAL
+    assert feed.season == "1995-96"
 
 
 def test_sets_the_state_final_when_every_team_has_82_games() -> None:

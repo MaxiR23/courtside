@@ -15,7 +15,9 @@
 # built first when missing or stale and the next game is the one of the stored
 # team feed, the feed expires with the player's team (rule G), the live block and
 # detailAvailable are added when it is served and never stored, and the feeds of
-# players on no roster are deleted after each stars run.
+# players on no roster are deleted after each stars run. A player on no roster is
+# known from the stored past feeds (ADR 0043) and is built with no team, next game,
+# live block or injury; its active state is the athlete object's.
 #
 # SEE: docs/api/player.md, docs/source-rules.md, api/app/jobs/team_feed.py, api/app/jobs/on_demand.py
 
@@ -41,6 +43,7 @@ from app.jobs.on_demand import (
     IdStatus,
     UnknownFeedError,
 )
+from app.jobs.past_player_ids import PastPlayerIds
 from app.jobs.stars import StarsJob
 from app.jobs.team_feed import (
     CM_PER_INCH,
@@ -51,6 +54,7 @@ from app.jobs.team_feed import (
     TeamFeeds,
     age_on,
     eastern_date,
+    feed_expired,
     game_kind_and_tag,
     season_label,
 )
@@ -70,7 +74,7 @@ from app.sources.division_standings import DivisionStandings
 from app.sources.http import SourceClient
 from app.sources.league_injuries import LeagueInjuries
 from app.sources.player_bio import PlayerBio, RankedValue
-from app.sources.player_draft import DraftPick
+from app.sources.player_draft import DraftPick, PlayerAthlete
 from app.sources.player_gamelog import GameLogGame, PlayerGameLog
 from app.sources.player_overview import ProviderAward
 from app.sources.player_stats import MiscLine, PlayerStats, StatLine
@@ -85,6 +89,7 @@ LAST_GAMES = 5
 FetchBio = Callable[[SourceClient, str, Settings], Awaitable[PlayerBio | None]]
 FetchDraft = Callable[[SourceClient, str, Settings], Awaitable[DraftPick | None]]
 FetchAwards = Callable[[SourceClient, str, Settings], Awaitable[list[ProviderAward]]]
+FetchAthlete = Callable[[SourceClient, str, Settings], Awaitable[PlayerAthlete]]
 FetchGameLog = Callable[[SourceClient, str, Settings], Awaitable[PlayerGameLog]]
 FetchStats = Callable[..., Awaitable[PlayerStats]]
 
@@ -371,10 +376,10 @@ def _birthplace(entry: RosterEntry) -> dict[str, Any] | None:
 
 def build_player_feed(
     player_id: str,
-    team_code: str,
-    roster: Roster,
+    team_code: str | None,
+    roster: Roster | None,
     standings: DivisionStandings,
-    injuries: LeagueInjuries,
+    injuries: LeagueInjuries | None,
     upcoming: NextGame | None,
     bio: PlayerBio | None,
     draft: DraftPick | None,
@@ -385,16 +390,24 @@ def build_player_feed(
     *,
     now: dt.datetime,
     detail_ids: AbstractSet[str],
+    active: bool = True,
+    entry: RosterEntry | None = None,
 ) -> PlayerFeed:
-    """Build the player feed from the fetched data, or raise PlayerBuildError."""
-    entry = next((p for p in roster.entries if p.player_id == player_id), None)
+    """Build the player feed from the fetched data, or raise PlayerBuildError.
+
+    The identity comes from `entry` when given, else from the roster. A player on
+    no team (team_code None) has no team, injury or next game."""
+    if entry is None and roster is not None:
+        entry = next((p for p in roster.entries if p.player_id == player_id), None)
     if entry is None:
         raise PlayerBuildError(f"player {player_id} is not on the roster")
     if entry.position_name is None:
         raise PlayerBuildError(f"player {player_id} has no position")
-    team = standings.teams.get(team_code)
-    if team is None:
-        raise PlayerBuildError(f"team {team_code} has no standing")
+    team = None
+    if team_code is not None:
+        team = standings.teams.get(team_code)
+        if team is None:
+            raise PlayerBuildError(f"team {team_code} has no standing")
     drafted = None
     if draft is not None:
         drafting = standings.teams.get(draft.team_code)
@@ -421,13 +434,15 @@ def build_player_feed(
                 "last_name": entry.last_name,
                 "number": entry.jersey,
                 "position": entry.position_name,
-                "team": {
-                    "code": team_code,
-                    "name": team.name,
-                    "city": team.location,
-                },
+                "team": (
+                    {"code": team_code, "name": team.name, "city": team.location}
+                    if team_code is not None and team is not None
+                    else None
+                ),
                 "photo_url": entry.headshot_url,
-                "injury": player_injury(player_id, injuries),
+                "injury": (
+                    player_injury(player_id, injuries) if injuries is not None else None
+                ),
                 "profile": {
                     "height": height(entry.height_inches, entry.display_height)
                     if entry.height_inches
@@ -453,6 +468,8 @@ def build_player_feed(
                 "game_log": log_feed,
                 "awards": awards(provided_awards),
                 "all_star_year": all_star_year(log_feed),
+                "active": active,
+                "season_label": None,
             }
         )
     except ValidationError as error:
@@ -521,9 +538,11 @@ class PlayerFeeds:
         fetch_league_injuries: FetchInjuries = league_injuries.fetch_league_injuries,
         fetch_player_bio: FetchBio = player_bio.fetch_player_bio,
         fetch_player_draft: FetchDraft = player_draft.fetch_player_draft,
+        fetch_player_athlete: FetchAthlete = player_draft.fetch_player_athlete,
         fetch_player_awards: FetchAwards = player_overview.fetch_player_awards,
         fetch_player_gamelog: FetchGameLog = player_gamelog.fetch_player_gamelog,
         fetch_player_stats: FetchStats = player_stats.fetch_player_stats,
+        past_ids: PastPlayerIds | None = None,
     ) -> None:
         self._settings = settings
         self._store = store
@@ -537,6 +556,8 @@ class PlayerFeeds:
         self._fetch_league_injuries = fetch_league_injuries
         self._fetch_player_bio = fetch_player_bio
         self._fetch_player_draft = fetch_player_draft
+        self._fetch_player_athlete = fetch_player_athlete
+        self._past_ids = past_ids
         self._fetch_player_awards = fetch_player_awards
         self._fetch_player_gamelog = fetch_player_gamelog
         self._fetch_player_stats = fetch_player_stats
@@ -547,6 +568,8 @@ class PlayerFeeds:
             return IdStatus.KNOWN
         if not self._stars.rosters_ready():
             return IdStatus.NOT_READY
+        if self._past_ids is not None and self._past_ids.known(player_id):
+            return IdStatus.KNOWN
         return IdStatus.UNKNOWN
 
     def depends_on(self, player_id: str) -> tuple[str, str] | None:
@@ -555,14 +578,21 @@ class PlayerFeeds:
 
     async def build(self, player_id: str) -> PlayerFeed:
         team = self._stars.player_team(player_id)
-        if team is None:
-            raise PlayerBuildError(f"player {player_id} is on no roster")
-        team_feed = self._teams.stored(team)
-        if team_feed is None:
-            raise PlayerBuildError(f"team {team} has no stored feed")
-        roster = await self._fetch_roster(self._client, team, self._settings)
+        team_feed = None
+        if team is not None:
+            team_feed = self._teams.stored(team)
+            if team_feed is None:
+                raise PlayerBuildError(f"team {team} has no stored feed")
+        athlete = await self._fetch_player_athlete(
+            self._client, player_id, self._settings
+        )
+        roster = None
+        injuries = None
+        if team is not None:
+            roster = await self._fetch_roster(self._client, team, self._settings)
         standings = await self._fetch_division_standings(self._client, self._settings)
-        injuries = await self._fetch_league_injuries(self._client, self._settings)
+        if team is not None:
+            injuries = await self._fetch_league_injuries(self._client, self._settings)
         bio = await self._fetch_player_bio(self._client, player_id, self._settings)
         draft = await self._fetch_player_draft(self._client, player_id, self._settings)
         provided = await self._fetch_player_awards(
@@ -581,7 +611,7 @@ class PlayerFeeds:
             roster,
             standings,
             injuries,
-            team_feed.next_game,
+            team_feed.next_game if team_feed is not None else None,
             bio,
             draft,
             provided,
@@ -590,15 +620,21 @@ class PlayerFeeds:
             playoffs,
             now=self._client.clock(),
             detail_ids=self._teams.detail_ids(),
+            active=athlete.active,
+            entry=athlete.entry if team is None else None,
         )
 
-    def _team_of(self, feed: PlayerFeed) -> str:
-        return self._stars.player_team(feed.id) or feed.team.code
+    def _team_of(self, feed: PlayerFeed) -> str | None:
+        return self._stars.player_team(feed.id) or (
+            feed.team.code if feed.team else None
+        )
 
     def is_fresh(
         self, feed: PlayerFeed, built_at: dt.datetime, now: dt.datetime
     ) -> bool:
         team = self._team_of(feed)
+        if team is None:
+            return not feed_expired(built_at, now, [])
         stored = self._teams.stored(team)
         return not self._teams.expired(
             team, stored.schedule if stored else None, built_at, now
@@ -616,7 +652,8 @@ class PlayerFeeds:
         )
 
     def serve_with(self, player_id: str, feed: PlayerFeed) -> PlayerFeed:
-        game = self.live_game(self._team_of(feed))
+        team = self._team_of(feed)
+        game = self.live_game(team) if team is not None else None
         detail: GameDetailFeed | None = None
         if game is not None:
             body = read_by_id(self._settings.data_dir, game_detail_feed.KIND, game.id)
@@ -626,7 +663,7 @@ class PlayerFeeds:
                 except ValidationError:
                     detail = None
         served = with_player_detail(feed, self._teams.detail_ids())
-        live = live_block(self._team_of(feed), player_id, game, detail)
+        live = live_block(team, player_id, game, detail) if team is not None else None
         return PlayerFeed.model_validate(
             {**served.model_dump(by_alias=False), "live": live}
         )

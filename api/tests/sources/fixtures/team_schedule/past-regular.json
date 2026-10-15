@@ -1,0 +1,106 @@
+{
+  "events": [
+    {
+      "id": "199601001",
+      "date": "2003-11-02T03:00Z",
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "Harbor Arena",
+            "address": {
+              "city": "Seattle"
+            }
+          },
+          "status": {
+            "type": {
+              "state": "post",
+              "completed": true
+            },
+            "period": 4
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "team": {
+                "id": "25",
+                "abbreviation": "SEA",
+                "name": "Harbor Gulls",
+                "location": "Seattle"
+              },
+              "score": {
+                "value": 101.0
+              },
+              "winner": true
+            },
+            {
+              "homeAway": "away",
+              "team": {
+                "id": "29",
+                "abbreviation": "VAN",
+                "name": "Lakeside Pines",
+                "location": "Vancouver"
+              },
+              "score": {
+                "value": 95.0
+              },
+              "winner": false
+            }
+          ],
+          "notes": [],
+          "broadcasts": []
+        }
+      ]
+    },
+    {
+      "id": "199601002",
+      "date": "2003-11-05T01:00Z",
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "Harbor Arena",
+            "address": {
+              "city": "Seattle"
+            }
+          },
+          "status": {
+            "type": {
+              "state": "post",
+              "completed": true
+            },
+            "period": 4
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "team": {
+                "id": "17",
+                "abbreviation": "NJ",
+                "name": "Meadow Herons",
+                "location": "Meadow"
+              },
+              "score": {
+                "value": 90.0
+              },
+              "winner": false
+            },
+            {
+              "homeAway": "away",
+              "team": {
+                "id": "25",
+                "abbreviation": "SEA",
+                "name": "Harbor Gulls",
+                "location": "Seattle"
+              },
+              "score": {
+                "value": 99.0
+              },
+              "winner": true
+            }
+          ],
+          "notes": [],
+          "broadcasts": []
+        }
+      ]
+    }
+  ]
+}

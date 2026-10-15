@@ -18,6 +18,9 @@
 # - Serialization uses camelCase keys
 # - Accepts titles in kind order, rejects an empty list, a repeated kind, a conference title without a conference or with a year and a championship title without a year, and reads a stored feed without the key as null titles
 # - Accepts a Cup mark with the group, wins and losses and a null or absent one, and rejects an unknown group letter, a missing record and a negative count
+# - Accepts names runs and rejects runs not oldest first, an open run before the last and an end before its start; serializes from as the key; reads a stored feed without names as empty
+# - Accepts a division rank of 8 and rejects 9
+# - TeamFeed rejects a null arena and null injuries; PastTeamFeed accepts every past block null, rejects each one when set, and has the team schema apart from its title
 #
 # What is covered:
 # - A valid feed is accepted and an invalid one is rejected
@@ -28,12 +31,14 @@
 #
 # SEE: api/app/feeds/team.py
 
+import json
 from typing import Any
 
 import pytest
 from pydantic import ValidationError
 
-from app.feeds.team import TeamFeed
+from app.feeds.schema import SCHEMA_DIR, render_schema
+from app.feeds.team import NameRun, PastTeamFeed, TeamFeed, TeamNames
 
 Payload = dict[str, Any]
 
@@ -542,3 +547,116 @@ def test_reads_a_stored_team_feed_without_the_key_as_titles_null() -> None:
 
     assert absent.titles is None and explicit.titles is None
     assert absent.model_dump(mode="json")["titles"] is None
+
+
+def run(start: int, end: int | None, code: str = "AAA") -> Payload:
+    return {
+        "from": start,
+        "to": end,
+        "name": "Name",
+        "location": "City",
+        "code": code,
+    }
+
+
+def test_accepts_names_runs_oldest_first_with_the_last_open() -> None:
+    team = TeamFeed.model_validate(
+        {**valid_team(), "names": [run(1994, 2000, "OLD"), run(2002, None)]}
+    )
+
+    assert [(r.from_, r.to) for r in team.names] == [(1994, 2000), (2002, None)]
+
+
+@pytest.mark.parametrize(
+    "names",
+    [
+        [run(2002, 2004), run(1994, 2000)],
+        [run(1994, None), run(2002, None)],
+        [run(1994, 2002), run(2002, None)],
+        [run(1994, 2003), run(2000, None)],
+    ],
+    ids=["not oldest first", "open before the last", "touching", "overlapping"],
+)
+def test_rejects_names_runs_out_of_order_or_open_before_the_last(
+    names: list[Payload],
+) -> None:
+    rejects({**valid_team(), "names": names})
+
+
+def test_rejects_a_run_that_ends_before_it_starts_or_starts_before_1994() -> None:
+    with pytest.raises(ValidationError):
+        NameRun.model_validate(run(2005, 2004))
+    with pytest.raises(ValidationError):
+        NameRun.model_validate(run(1993, None))
+
+
+def test_serializes_a_name_run_start_as_the_from_key() -> None:
+    dumped = TeamNames.model_validate({"runs": [run(1994, None)]}).model_dump(
+        mode="json"
+    )
+
+    assert dumped == {"runs": [run(1994, None)]}
+
+
+def test_reads_a_stored_team_feed_without_names_as_empty() -> None:
+    absent = TeamFeed.model_validate(valid_team())
+
+    assert absent.names == []
+    assert absent.model_dump(mode="json")["names"] == []
+
+
+@pytest.mark.parametrize(("rank", "valid"), [(8, True), (9, False), (0, False)])
+def test_accepts_a_division_rank_of_8_and_rejects_9(rank: int, valid: bool) -> None:
+    team = valid_team()
+    team["record"]["divisionRank"] = rank
+
+    if valid:
+        TeamFeed.model_validate(team)
+    else:
+        rejects(team)
+
+
+@pytest.mark.parametrize("name", ["arena", "injuries"])
+def test_rejects_a_null_arena_and_null_injuries_on_the_current_feed(name: str) -> None:
+    rejects({**valid_team(), name: None}, "current season")
+
+
+def past_team() -> Payload:
+    team = valid_team()
+    for name in PAST_NULL_BLOCKS:
+        team[name] = None
+    team["record"]["playoff"] = None
+    return team
+
+
+PAST_NULL_BLOCKS = ["arena", "coach", "injuries", "nextGame", "cup", "titles"]
+
+
+def test_accepts_a_past_team_with_every_past_block_null() -> None:
+    team = past_team()
+    team["schedule"]["groups"][1]["games"][0] = schedule_game(
+        "g2", "2026-01-15T00:30:00Z"
+    )
+    team["schedule"]["groups"][1]["games"][0]["isNext"] = False
+
+    PastTeamFeed.model_validate(team)
+
+
+@pytest.mark.parametrize("name", PAST_NULL_BLOCKS)
+def test_rejects_a_past_team_with_a_current_season_block(name: str) -> None:
+    team = past_team()
+    team[name] = {**valid_team(), "cup": CUP, "titles": [CUP_CHAMPIONS]}[name]
+
+    with pytest.raises(ValidationError, match=f"a past season has no {name}"):
+        PastTeamFeed.model_validate(team)
+
+
+def test_the_past_team_schema_equals_the_team_schema_apart_from_its_title() -> None:
+    past = json.loads(render_schema(PastTeamFeed))
+    committed = json.loads(
+        (SCHEMA_DIR / "team.schema.json").read_text(encoding="utf-8")
+    )
+
+    del past["title"]
+    del committed["title"]
+    assert past == committed

@@ -907,5 +907,7 @@
 			"count": 3,
 			"seasons": ["2022-23", "2023-24", "2024-25"]
 		}
-	]
+	],
+	"active": true,
+	"seasonLabel": null
 }

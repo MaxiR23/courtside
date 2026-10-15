@@ -19,6 +19,7 @@
 # - Rejects a malformed template without showing it
 # - Accepts an empty template as unset
 # - Accepts, rejects and leaves unset the depth chart URL template
+# - Accepts, rejects and leaves unset the season team and season roster URL templates
 # - Accepts, rejects and leaves unset the season type, postseason leaders, season awards and team postseason URL templates
 # - Leaves the player photo URL unset by default
 # - Reads the player photo URL from an environment variable
@@ -108,6 +109,8 @@ def clear_environment_variable(monkeypatch: pytest.MonkeyPatch) -> None:
             "cup_group_url",
             "cup_group_standings_url",
             "depth_chart_url",
+            "season_team_url",
+            "season_roster_url",
             "season_type_url",
             "postseason_leaders_url",
             "team_postseason_record_url",
@@ -743,6 +746,56 @@ def test_the_depth_chart_url_is_unset_by_default_and_empty_counts_as_unset(
     monkeypatch.setenv("DEPTH_CHART_URL", "")
 
     assert SettingsWithoutEnvFile().depth_chart_url == ""
+
+
+SEASON_URLS = {
+    "SEASON_TEAM_URL": "season_team_url",
+    "SEASON_ROSTER_URL": "season_roster_url",
+}
+
+
+@pytest.mark.parametrize("variable", SEASON_URLS)
+def test_accepts_a_season_url_with_the_season_and_team_id_placeholders(
+    monkeypatch: pytest.MonkeyPatch, variable: str
+) -> None:
+    url = "https://example.com/{season}/teams/{team_id}"
+    monkeypatch.setenv(variable, url)
+
+    assert getattr(SettingsWithoutEnvFile(), SEASON_URLS[variable]) == url
+
+
+@pytest.mark.parametrize("variable", SEASON_URLS)
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://example.com/hidden/{season}",
+        "https://example.com/hidden/{team_id}",
+        "https://example.com/hidden/{season}/{team_id}/{team}",
+        "https://example.com/hidden/path",
+    ],
+)
+def test_rejects_a_season_url_without_exactly_its_placeholders(
+    monkeypatch: pytest.MonkeyPatch, variable: str, url: str
+) -> None:
+    monkeypatch.setenv(variable, url)
+
+    with pytest.raises(ValidationError) as raised:
+        SettingsWithoutEnvFile()
+
+    assert "{season}" in str(raised.value)
+    assert "{team_id}" in str(raised.value)
+    assert "example.com/hidden" not in str(raised.value)
+
+
+@pytest.mark.parametrize("variable", SEASON_URLS)
+def test_a_season_url_is_unset_by_default_and_empty_counts_as_unset(
+    monkeypatch: pytest.MonkeyPatch, variable: str
+) -> None:
+    assert getattr(SettingsWithoutEnvFile(), SEASON_URLS[variable]) is None
+
+    monkeypatch.setenv(variable, "")
+
+    assert getattr(SettingsWithoutEnvFile(), SEASON_URLS[variable]) == ""
 
 
 POSTSEASON_URLS = {

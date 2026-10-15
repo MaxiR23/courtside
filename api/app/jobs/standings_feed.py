@@ -174,9 +174,13 @@ def _row(
 
 
 def build_standings_feed(
-    standings: DivisionStandings, colors: Mapping[str, TeamInfo | None]
+    standings: DivisionStandings,
+    colors: Mapping[str, TeamInfo | None],
+    *,
+    final: bool = False,
 ) -> StandingsFeed:
-    """Build the standings feed; raise StandingsBuildError when it is not valid."""
+    """Build the standings feed; raise StandingsBuildError when it is not valid.
+    A past season is final whatever the games played (ADR 0043)."""
     entries = list(standings.teams.values())
 
     conferences = []
@@ -226,8 +230,10 @@ def build_standings_feed(
         for (conference, name), members in groups.items()
     ]
 
-    final = standings.fallback or all(
-        entry.wins + entry.losses == REGULAR_SEASON_GAMES for entry in entries
+    final = (
+        final
+        or standings.fallback
+        or all(entry.wins + entry.losses == REGULAR_SEASON_GAMES for entry in entries)
     )
     try:
         return StandingsFeed.model_validate(

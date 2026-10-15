@@ -13,6 +13,7 @@
 // - The milestones, the game log filters and rows (with the opponent drawn after the date, and a Preseason filter listed last), the awards
 // - The opponent as a team and a side: the next game, the live card, the last 5 rows and the game log, for a league team and for a guest without a code
 // - Spanish copy
+// - A null team leaves the team out of the header line and shows — as the team tag
 // - The All-Star tag of the header from allStarYear, none for null and for a recorded feed without the key
 //
 // What is covered:
@@ -91,6 +92,14 @@ describe('toPlayerView header', () => {
 		expect(header.status).toEqual({ label: 'Active', injured: false });
 		expect(header.photo).toBe('https://example.com/players/p-2.png');
 		expect(header.injury).toBeNull();
+	});
+
+	it('leaves a null team out of the line and shows — as the team tag', () => {
+		const source = feed();
+		source.team = null;
+		const { header } = view(source);
+		expect(header.line).toBe('#2 · Guard');
+		expect(header.teamCode).toBe('—');
 	});
 
 	it('leaves a null number out of the line', () => {

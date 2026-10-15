@@ -29,17 +29,18 @@ The root is one team.
 | `conference` | `Conference`         | `east` or `west`                                          | always                 |
 | `division`   | string               | Division name                                             | always                 |
 | `colors`     | `TeamColors`         | `primary`, `secondary`: hex values such as `#112233`      | always                 |
-| `arena`      | `Venue`              | `name`, `city` (null), `photoUrl` (null), as in the [game detail feed](game-detail.md) | always |
+| `arena`      | `Venue` / null       | `name`, `city` (null), `photoUrl` (null), as in the [game detail feed](game-detail.md) | null on a past season |
 | `coach`      | `Coach` / null       | `name`, `seasons`                                         | null when unknown      |
 | `season`     | season label         | Such as `2026-27`                                         | always                 |
 | `record`     | `TeamRecord`         | Record, splits, rank, playoff position and points         | always                 |
 | `leaders`    | `TeamLeaders`        | Points, rebounds and assists leaders                      | always                 |
 | `roster`     | `RosterPlayer[]`     | Ordered by number, unnumbered players last                | always, may be empty   |
-| `injuries`   | `TeamInjury[]`       | Injury reports of the team                                | always, may be empty   |
+| `injuries`   | `TeamInjury[]` / null | Injury reports of the team                               | null on a past season; otherwise always, may be empty |
 | `nextGame`   | `NextGame` / null    | The next game, as in the [player feed](player.md)         | null when none         |
 | `schedule`   | `Schedule` / null    | Games grouped for display                                 | null when no data      |
 | `cup`        | `TeamCup` / null     | The team's Cup group and Cup record of the season         | null when no Cup group table has the team, and when a Cup read fails |
 | `titles`     | `TeamTitle[]` / null | The titles the team won in the current season, 1 to 3     | null when the team has no title; never an empty list |
+| `names`      | `NameRun[]`          | The identities of the franchise, oldest first             | always, may be empty   |
 
 ## Nested objects
 
@@ -49,8 +50,9 @@ The root is one team.
 | `TeamCup`       | `group`: `CupGroupName` (`conference`: `east`, `west`; `letter`: `A`, `B`, `C`), `wins`, `losses` (the Cup record, as in the [Cup feed](cup.md))  |
 | `TeamTitle`     | `kind` (`nba_champions`, `nba_cup_champions`, `conference_champions`); `year` (set exactly for the two championships); `conference` (`east`, `west`; set exactly for `conference_champions`) |
 | `Coach`         | `name`, `seasons` (null)                                                                                                                    |
+| `NameRun`       | `from`, `to` (null on the run that holds the current season): end years of seasons, `from` from 1994; `name`, `location`, `code` (the standard code, else the source's own) |
 | `SplitRecord`   | `Record` fields (`wins`, `losses`) plus `winPct` (0 to 1)                                                                                   |
-| `TeamRecord`    | `SplitRecord` fields plus `season` (label of the standings season, such as `2025-26`; in the preseason it is the previous season), `home`, `away`, `lastTen`: `SplitRecord`; `streak`: `Streak` / null; `gamesBehind`: games behind the leader of the team's conference (0 for the leader), null before the team's first game; `conferenceRank` (1 to 15); `divisionRank` (1 to 5); `playoff`: `PlayoffPosition` / null before the first game or without a seed; `pointsFor`, `pointsAgainst`: `PointsTotal`; `differential`: `Differential` |
+| `TeamRecord`    | `SplitRecord` fields plus `season` (label of the standings season, such as `2025-26`; in the preseason it is the previous season), `home`, `away`, `lastTen`: `SplitRecord`; `streak`: `Streak` / null; `gamesBehind`: games behind the leader of the team's conference (0 for the leader), null before the team's first game; `conferenceRank` (1 to 15); `divisionRank` (1 to 8: a division held up to 8 teams until 2003-04); `playoff`: `PlayoffPosition` / null before the first game, without a seed, and on a season before 2020-21; `pointsFor`, `pointsAgainst`: `PointsTotal`; `differential`: `Differential` |
 | `Streak`        | `kind` (`win`, `loss`), `count`                                                                                                             |
 | `PlayoffPosition` | `status` (`seed`, `playin`, `out`), `seed`                                                                                                |
 | `PointsTotal`   | `perGame`, `total`                                                                                                                          |
@@ -78,6 +80,11 @@ The root is one team.
   `final` slot's game. Only a stored feed of the team feed's own season counts, so
   past seasons carry no title. Titles read no source and build no feed; a missing
   or invalid stored feed gives no title from it.
+- `names` ([ADR 0043](../adr/0043-season-feeds-and-franchise-names.md)) is
+  oldest first: each `from` is after the previous `to`, and only the last run may
+  have `to` null. A run is a franchise identity: consecutive seasons with the
+  same `name`, `location` and `code` are one run, and a season the source could
+  not read or that has no active team is skipped without splitting a run.
 - Win percentages are from 0 to 1; counts are not negative.
 - `record.gamesBehind` is half the gap between the best wins minus losses of
   the team's conference and the team's own. It is computed by the same
@@ -125,6 +132,14 @@ The root is one team.
 - A failed build keeps the stored feed and is listed under `feeds` in
   `/health`; it is not retried for 10 minutes on request.
 - Team feeds are never deleted.
+- The `names` come from the names kind (`team-names/{code}`, not a public feed):
+  read once per team, one season team read per season from 1994 to the current
+  one, and kept for 7 days. The team feed depends on it: a missing or stale list
+  is built first, inside the request's 20 seconds, and a failed names build keeps
+  the stored list. A names build fails when the current season's team could not
+  be read (the read failed, or it has no active team); earlier seasons that fail
+  are skipped. The names are written into the stored feed and set again from
+  the stored list when the feed is served.
 - The builder is `build_team_feed` and the feed kind is `TeamFeeds`, both in
   `api/app/jobs/team_feed.py`.
 
@@ -140,3 +155,37 @@ The root is one team.
 - A stale stored feed is served at once and rebuilt in the background. At
   most 4 feeds are built at once and one per feed.
 - Every feed request records presence.
+
+## Season feed
+
+One team in a past season ([ADR 0043](../adr/0043-season-feeds-and-franchise-names.md)),
+served at `/feeds/seasons/{season}/teams/{code}.json` with `{season}` the end year
+(1994 to the season before the current one) and `{code}` the lowercase standard
+code. The feed is a `TeamFeed` (the same schema as above) validated by
+`PastTeamFeed`.
+
+- The season values:
+  - `city` and `name` are the team's in that season; `colors` are today's.
+  - `record` is that season's standing. `playoff` is null before 2020-21, when
+    the play-in began; `conferenceRank` still shows the place.
+  - `leaders` are that season's averages, with no previous-season fallback.
+  - `roster` is that season's roster, with every `status` `active` and ages on
+    February 1 of the end year.
+  - `schedule` has the regular season and the playoffs, with `detailAvailable`
+    false.
+  - `names` are the franchise names, as above.
+- Null blocks: `arena`, `coach`, `injuries`, `nextGame`, `cup` and `titles`.
+- Refresh: built on request, stored at `feeds/season-teams/{season}-{code}.json`,
+  kept for good: never refreshed and never deleted. The names are built first
+  and set again when the feed is served.
+- Endpoint: the same headers and 304 as the team feed. It responds 404 with no
+  source request for a season outside the range, a code that is not one of the 30
+  lowercase standard codes, and, after one read of the season team object, for a
+  franchise with no team that season (or an inactive one); that answer is
+  remembered in memory. It responds 503 while the current season is not known, after a
+  failed build with nothing stored, and when the request's 20 seconds end before
+  a missing feed is built.
+- The builder is `build_season_team_feed` and the kind is `SeasonTeamFeeds`, both
+  in `api/app/jobs/season_team_feed.py`; the names kind is `TeamNamesFeeds` in
+  `api/app/jobs/team_names.py`.
+

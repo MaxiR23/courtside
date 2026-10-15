@@ -10,6 +10,7 @@
 # - Returns no rows on a 404
 # - Raises the source error on a row whose column count does not match the labels, a row without a team, an unknown team id and a malformed stat
 # - Raises the source error on an invalid payload, a timeout, an error status and a missing URL
+# - A season read sends the season, with the playoffs season type too for the playoffs, and a current read is unchanged
 # - Reuses stats for one hour
 #
 # What is covered:
@@ -302,3 +303,38 @@ async def test_reuses_stats_for_one_hour(
         await fetch_player_stats(client, "3945274", settings, playoffs=False)
 
     assert route.call_count == 2
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("playoffs", "query"),
+    [(False, "region=us&season=2004"), (True, "region=us&season=2004&seasontype=3")],
+    ids=["regular", "playoffs"],
+)
+async def test_a_season_read_sends_the_season_and_for_the_playoffs_the_season_type(
+    mock: respx.MockRouter, settings: Settings, playoffs: bool, query: str
+) -> None:
+    route = mock.get(f"https://example.com/athletes/3945274/stats?{query}").respond(
+        json=load()
+    )
+
+    with TemporaryDirectory() as directory:
+        store = StateStore(Path(directory))
+        store.migrate()
+        async with create_client(store) as client:
+            await fetch_player_stats(
+                client, "3945274", settings, playoffs=playoffs, season=2004
+            )
+
+    assert route.call_count == 1
+
+
+@pytest.mark.anyio
+async def test_a_current_read_sends_no_season(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    route = mock.get(URL).respond(json=load())
+
+    await fetch(settings)
+
+    assert "season" not in route.calls.last.request.url.params

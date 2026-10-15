@@ -108,3 +108,30 @@ wins, and missing colors are all valid.
   built.
 - A stale stored feed is served at once and rebuilt in the background.
 - Every feed request records presence.
+
+## Season feed
+
+The standings of a past season ([ADR 0043](../adr/0043-season-feeds-and-franchise-names.md)),
+served at `/feeds/seasons/{season}/standings.json`, with the same schema and
+models as the feed above. `{season}` is the end year of the season, from 1994 to
+the season before the current one.
+
+- The season values: `state` is `final` whatever the games played, `clinch` is
+  the source's own code, and `colors` are today's. The division standings are
+  read once with the season query value, with no rule L fallback, and each team
+  is resolved by its provider id first, so a past abbreviation still gives the
+  team's standard code. A response that is not of the requested regular season
+  fails the build.
+- Refresh: built on request, stored at `feeds/season-standings/{season}.json`,
+  kept for good (rule G of [`docs/source-rules.md`](../source-rules.md)): never
+  refreshed and never deleted. A failed build with nothing stored is retried
+  after 10 minutes.
+- The kind is `SeasonStandingsFeeds` in
+  `api/app/jobs/season_standings_feed.py`.
+- Endpoint: it serves with `Cache-Control: public, max-age=10` and an `ETag`, and
+  responds 304 for a matching `If-None-Match`. It responds 404 with no source
+  request for a season that is not four digits, is before 1994, or is the current
+  season or later. It responds 503 while the current season is not known, after a
+  failed read with nothing stored, and when the request's 20 seconds end before a
+  missing feed is built.
+

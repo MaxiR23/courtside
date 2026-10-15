@@ -47,15 +47,15 @@ The roster and leaders are fetched once a day per team. A player's individual av
 
 ## G. On demand
 
-Everything else is built on request only: pre-game game detail, team feeds, player feeds, the standings feed, the search feed, the Cup feed, the Cup matchup feeds, the playoffs feed, the playoffs finals feed, the All-Star feed, the calendar feed, the day feed and the past game detail. A feed nobody requests is never built, stored or fetched. A stored feed expires:
+Everything else is built on request only: pre-game game detail, team feeds, player feeds, the standings feed, the search feed, the Cup feed, the Cup matchup feeds, the playoffs feed, the playoffs finals feed, the All-Star feed, the calendar feed, the day feed, the past game detail, and the standings, team and player feeds of a past season. A feed nobody requests is never built, stored or fetched. A stored feed expires:
 
 | Feed | Expires |
 |---|---|
 | Pre-game game detail, tip-off more than 48 hours away | 12 hours after the build |
 | Pre-game game detail, tip-off between 48 and 12 hours away | 6 hours after the build |
 | Pre-game game detail, tip-off under 12 hours away or passed | 3 hours after the build |
-| Team feed | When the team has a final game whose final time plus 1 hour is after the build, when the stored playoffs feed or the stored Cup feed is rebuilt after the build, and in any case 7 days after the build |
-| Player feed | When the team has a final game whose final time plus 1 hour is after the build, and in any case 7 days after the build |
+| Team feed | When the team has a final game whose final time plus 1 hour is after the build, when the stored playoffs feed or the stored Cup feed is rebuilt after the build, and in any case 7 days after the build. Its franchise names are read once per team and kept for 7 days |
+| Player feed | When the team has a final game whose final time plus 1 hour is after the build, and in any case 7 days after the build; a player on no roster: 7 days after the build |
 | Standings feed | When any game of the league has a final time plus 1 hour after the build, and in any case 7 days after the build |
 | Search feed | When any game of the league has a final time plus 1 hour after the build, when the stars job fetches a roster after the build, and in any case 7 days after the build |
 | Cup feed | When any Cup game has a final time plus 1 hour after the build, and in any case 7 days after the build; once the championship is final, kept while its season is the current one |
@@ -66,6 +66,7 @@ Everything else is built on request only: pre-game game detail, team feeds, play
 | Calendar feed | Current season: 24 hours after the build. A past season built after its last day: kept |
 | Day feed | Every game final, or no game: kept. A non-final game: 6 hours after the build |
 | Past game detail (a final game of a stored day feed) | Kept: built once (rule D) |
+| Standings, team and player feed of a past season | Kept: built once |
 
 ## H. Serving
 
@@ -78,7 +79,7 @@ Everything else is built on request only: pre-game game detail, team feeds, play
 
 ## I. Unknown ids
 
-Unknown ids answer 404 with no source request: game ids outside the days shown that are not a final game of a stored day feed, player ids not in the rosters the stars job fetches, codes outside the 30 standard codes, slot ids outside the 7 of the Cup bracket, calendar seasons that are neither `current` nor a four-digit end year from 1994 to the current season, and days that are not a `YYYY-MM-DD` date, are before 1993-10-01, are after today (US Eastern), or are a day of the stored games feed (with none stored, a day the games job would show). While the rosters are not fetched yet, player requests answer 503. While the current season is not known, calendar requests, `current` included, answer 503.
+Unknown ids answer 404 with no source request: game ids outside the days shown that are not a final game of a stored day feed, player ids neither in the rosters the stars job fetches, nor in the roster of a stored past team season feed, nor in the box score of a stored past game detail, codes outside the 30 standard codes, slot ids outside the 7 of the Cup bracket, calendar seasons that are neither `current` nor a four-digit end year from 1994 to the current season, days that are not a `YYYY-MM-DD` date, are before 1993-10-01, are after today (US Eastern), or are a day of the stored games feed (with none stored, a day the games job would show), season paths of the standings, team and player feeds that are not a four-digit end year from 1994 to the season before the current one, and a team code whose franchise has no team that season (after one read of its season team object). While the rosters are not fetched yet, player requests answer 503. While the current season is not known, calendar requests, `current` included, and season feed requests answer 503.
 
 ## J. Restart and cleanup
 

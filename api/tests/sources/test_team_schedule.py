@@ -23,6 +23,7 @@
 # - Maps an empty playoff schedule to no games
 # - Raises the source error on an invalid season schedule payload, a played game without a score, a team missing from a game, a timeout, an error status and a missing URL for a season schedule
 # - Reuses a season schedule for one hour
+# - With by_id_first, a past season finds the team and each opponent's code by provider id when the abbreviations are historical, and without it the same response fails
 #
 # What is covered:
 # - A valid response mapped, an invalid payload rejected, upstream failures handled
@@ -747,3 +748,39 @@ async def test_a_season_schedule_maps_a_guest_opponent_without_a_code_and_skips_
     assert schedule.games[0].opponent.code is None
     assert schedule.games[0].opponent.name == "Mariners"
     assert nameless["id"] not in [g.game_id for g in schedule.games]
+
+
+@pytest.mark.anyio
+async def test_by_id_first_finds_the_team_and_the_opponents_by_provider_id(
+    mock: respx.MockRouter, query_settings: Settings
+) -> None:
+    mock.get(season_url("OKC", 2004, 2)).respond(json=load("past-regular.json"))
+
+    with TemporaryDirectory() as directory:
+        store = StateStore(Path(directory))
+        store.migrate()
+        async with create_client(store) as client:
+            schedule = await fetch_season_schedule(
+                client, "OKC", 2004, query_settings, playoffs=False, by_id_first=True
+            )
+
+    first, second = schedule.games
+    assert first.is_home is True
+    assert (first.opponent.code, first.opponent.guest) == ("MEM", False)
+    assert (first.opponent.name, first.opponent.city) == ("Lakeside Pines", "Vancouver")
+    assert (first.won, first.team_score, first.opponent_score) == (True, 101, 95)
+    assert second.is_home is False
+    assert (second.opponent.code, second.opponent.guest) == ("BKN", False)
+    assert (second.won, second.team_score) == (True, 99)
+
+
+@pytest.mark.anyio
+async def test_without_by_id_first_a_historical_abbreviation_is_a_missing_team(
+    mock: respx.MockRouter, query_settings: Settings
+) -> None:
+    mock.get(season_url("OKC", 2004, 2)).respond(json=load("past-regular.json"))
+
+    with pytest.raises(SourceError) as raised:
+        await fetch_season(query_settings, season=2004)
+
+    assert raised.value.reason == "team OKC is missing from game 199601001"

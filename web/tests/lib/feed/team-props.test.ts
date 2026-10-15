@@ -14,6 +14,7 @@
 // - The leaders: order, a null number, a skipped null leader, a null section with three nulls
 // - The roster: formatting, rookie, UTC birth date, null details, status tones, an empty roster
 // - The injuries line with a missing number or position
+// - A null arena gives — as the arena name with a null city and photo; null injuries give an empty injuries section
 // - The schedule: group labels, default group, played and upcoming rows, the next row, links,
 //   every game tag; a null schedule
 // - The opponent of the next game and of a schedule row as a team and a side, for a league team and for a guest without a code
@@ -202,6 +203,12 @@ describe('toTeamView overview', () => {
 			value: 'Jordan Sample',
 			sub: null
 		});
+	});
+
+	it('shows — for a null arena and keeps the city and photo null', () => {
+		const source = feed();
+		source.arena = null;
+		expect(view(source).sections.overview.arena).toEqual({ name: '—', city: null, photo: null });
 	});
 
 	it('keeps the arena fields the feed leaves null', () => {
@@ -430,9 +437,15 @@ describe('toTeamView injuries', () => {
 		});
 	});
 
+	it('gives an empty injuries section for null injuries', () => {
+		const source = feed();
+		source.injuries = null;
+		expect(view(source).sections.injuries).toEqual([]);
+	});
+
 	it('has no line with neither a number nor a position, and an empty list stays empty', () => {
 		const source = feed();
-		source.injuries = [{ ...source.injuries[0]!, number: null, position: null }];
+		source.injuries = [{ ...source.injuries![0]!, number: null, position: null }];
 		expect(view(source).sections.injuries[0]?.line).toBeNull();
 		source.injuries = [];
 		expect(view(source).sections.injuries).toEqual([]);

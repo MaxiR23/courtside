@@ -19,7 +19,9 @@
 # or a read fails. It also carries the titles of the current season, given by
 # injected providers, one per section, that read no source and are merged in
 # title order, and it expires when a feed any provider reads was rebuilt after
-# it (ADR 0035). Team feeds are never deleted.
+# it (ADR 0035). It carries the franchise names of the names kind, built first
+# when missing or stale, and set again when served (ADR 0043). Team feeds are
+# never deleted.
 #
 # SEE: docs/api/team.md, docs/api/player.md, docs/source-rules.md, api/app/jobs/game_detail_feed.py
 
@@ -37,6 +39,7 @@ from app.feeds.game_detail import Conference, GameResult, InjuryStatus
 from app.feeds.player import GameKind, GameTag, NextGame, TagKind
 from app.feeds.team import (
     CupGroupName,
+    NameRun,
     PlayoffPosition,
     PlayoffStatus,
     Schedule,
@@ -49,6 +52,8 @@ from app.feeds.team import (
 )
 from app.jobs.games import GamesJob
 from app.jobs.on_demand import FeedCache, FeedKind, IdStatus
+from app.jobs.team_names import KIND as NAMES_KIND
+from app.jobs.team_names import TeamNamesFeeds
 from app.settings import Settings
 from app.sources import (
     division_standings,
@@ -463,6 +468,7 @@ def build_team_feed(
     detail_ids: AbstractSet[str],
     cup: TeamCup | None = None,
     titles: list[TeamTitle] | None = None,
+    names: list[NameRun] | None = None,
 ) -> TeamFeed:
     """Build the team feed from the fetched data, or raise TeamBuildError."""
     entry = standings.teams.get(team_code)
@@ -523,6 +529,7 @@ def build_team_feed(
                 ),
                 "cup": cup,
                 "titles": titles,
+                "names": names or [],
             }
         )
     except ValidationError as error:
@@ -552,6 +559,14 @@ def with_team_detail(feed: TeamFeed, ids: AbstractSet[str]) -> TeamFeed:
             for game in group["games"]:
                 game["detail_available"] = game["game_id"] in ids
     return TeamFeed.model_validate(data)
+
+
+def with_names[F: TeamFeed](feed: F, runs: list[NameRun]) -> F:
+    """The feed with the franchise names given. Used by the team feed of the
+    current season and of a past season (ADR 0043)."""
+    data = feed.model_dump(by_alias=False)
+    data["names"] = runs
+    return type(feed).model_validate(data)
 
 
 class TitleProvider(Protocol):
@@ -593,6 +608,7 @@ class TeamFeeds:
         fetch_season_schedule: FetchSeasonSchedule = team_schedule.fetch_season_schedule,
         fetch_group_table: FetchGroupTable = fetch_group_table,
         title_providers: Sequence[TitleProvider] = (),
+        names: TeamNamesFeeds | None = None,
     ) -> None:
         self._settings = settings
         self._store = store
@@ -607,10 +623,14 @@ class TeamFeeds:
         self._fetch_season_schedule = fetch_season_schedule
         self._fetch_group_table = fetch_group_table
         self._title_providers = tuple(title_providers)
+        self._names = names
         cache.register(self.kind())
 
     def check(self, code: str) -> IdStatus:
         return IdStatus.KNOWN if code in TEAM_IDS else IdStatus.UNKNOWN
+
+    def depends_on(self, code: str) -> tuple[str, str] | None:
+        return None if self._names is None else (NAMES_KIND, code)
 
     async def build(self, code: str) -> TeamFeed:
         team = code.upper()
@@ -641,6 +661,7 @@ class TeamFeeds:
                 provider.titles(team, roster.season)
                 for provider in self._title_providers
             ),
+            names=self._names.stored(code) if self._names else None,
         )
 
     async def _cup(self, team: str, season: int) -> TeamCup | None:
@@ -720,7 +741,9 @@ class TeamFeeds:
         return not self.expired(feed.code, feed.schedule, built_at, now)
 
     def serve_with(self, code: str, feed: TeamFeed) -> TeamFeed:
-        return with_team_detail(feed, self.detail_ids())
+        served = with_team_detail(feed, self.detail_ids())
+        runs = self._names.stored(code) if self._names else None
+        return served if runs is None else with_names(served, runs)
 
     def keep(self, code: str) -> bool:
         return code in TEAM_IDS
@@ -734,4 +757,5 @@ class TeamFeeds:
             is_fresh=self.is_fresh,
             keep=self.keep,
             serve_with=self.serve_with,
+            depends_on=self.depends_on,
         )

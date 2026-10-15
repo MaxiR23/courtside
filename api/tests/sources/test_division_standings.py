@@ -12,6 +12,7 @@
 # - Reports whether the standings came from the rule L fallback
 # - Raises the source error on a fallback that is not of the regular season, an unknown season type, mixed seasons, without both conferences, with an unknown conference, an unknown team code, a missing stat, an invalid payload, a timeout, an error status (on both requests) and a missing URL
 # - Reuses the standings and the fallback for one hour
+# - A past season read sends its season query value in one request, resolves a historical abbreviation by provider id, keeps the clinchers and the seven-team division, and rejects a response of another season or season type with no fallback
 #
 # What is covered:
 # - A valid response mapped, an invalid payload rejected, upstream failures handled
@@ -585,3 +586,90 @@ async def test_maps_an_unknown_clincher_to_null_and_logs_the_team_code(
     warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
     assert len(warnings) == 1
     assert "BOS" in warnings[0].getMessage()
+
+
+PAST_URL = "https://example.com/standings?level=3&seasontype=2&season=1996"
+
+
+async def fetch_past(settings: Settings, season: int = 1996) -> DivisionStandings:
+    with TemporaryDirectory() as directory:
+        store = StateStore(Path(directory))
+        store.migrate()
+        async with create_client(store) as client:
+            return await fetch_division_standings(client, settings, season=season)
+
+
+@pytest.mark.anyio
+async def test_a_past_read_sends_its_season_in_one_request_and_is_not_a_fallback(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    route = mock.get(PAST_URL).respond(json=load("past-1996.json"))
+
+    standings = await fetch_past(settings)
+
+    assert route.call_count == 1
+    assert len(mock.calls) == 1
+    assert (standings.season, standings.fallback) == (1996, False)
+
+
+@pytest.mark.anyio
+async def test_a_past_read_resolves_a_historical_abbreviation_by_provider_id(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    mock.get(PAST_URL).respond(json=load("past-1996.json"))
+
+    standings = await fetch_past(settings)
+
+    okc = standings.teams["OKC"]
+    assert (okc.location, okc.name) == ("Seattle", "Harbor Gulls")
+    assert standings.teams["BKN"].name == "Herons"
+    assert "SEA" not in standings.teams
+
+
+@pytest.mark.anyio
+async def test_a_current_read_does_not_resolve_a_historical_abbreviation(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    mock.get(URL).respond(json=load("past-1996.json"))
+
+    with pytest.raises(SourceError) as raised:
+        await fetch(settings)
+
+    assert "unknown team code" in raised.value.reason
+
+
+@pytest.mark.anyio
+async def test_a_past_read_keeps_the_clinchers_and_a_seven_team_division(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    mock.get(PAST_URL).respond(json=load("past-1996.json"))
+
+    standings = await fetch_past(settings)
+
+    assert standings.teams["BOS"].clinch is Clinch.DIVISION
+    assert standings.teams["CHI"].clinch is Clinch.PLAYOFFS
+    assert standings.teams["NYK"].clinch is Clinch.ELIMINATED
+    assert standings.teams["ATL"].division_order == 6
+    assert standings.teams["TOR"].division_order == 7
+    assert standings.teams["TOR"].division == "Central"
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("season", "season_type"), [(1997, 2), (1996, 3), (1996, 1)], ids=str
+)
+async def test_a_past_read_rejects_another_season_or_season_type_with_no_fallback(
+    mock: respx.MockRouter, settings: Settings, season: int, season_type: int
+) -> None:
+    payload = load("past-1996.json")
+    for conference in payload["children"]:
+        for found in conference["children"]:
+            found["standings"]["season"] = season
+            found["standings"]["seasonType"] = season_type
+    mock.get(PAST_URL).respond(json=payload)
+
+    with pytest.raises(SourceError) as raised:
+        await fetch_past(settings)
+
+    assert raised.value.reason == "standings are not of the requested regular season"
+    assert len(mock.calls) == 1

@@ -76,6 +76,11 @@ TEAM_IDS: dict[str, str] = {
     "30": "CHA",
 }
 
+# The provider's team id of each standard code, the reverse of TEAM_IDS.
+PROVIDER_IDS: dict[str, str] = {
+    TEAM_CODES[provider]: team_id for team_id, provider in TEAM_IDS.items()
+}
+
 
 def to_team_code(provider_code: str, *, source: str) -> str:
     """Return the standard code of a provider team code, or raise SourceError."""

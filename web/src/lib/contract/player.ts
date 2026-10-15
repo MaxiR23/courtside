@@ -15,7 +15,7 @@ export interface PlayerFeed {
 	lastName: string;
 	number: string | null;
 	position: string;
-	team: Team;
+	team: Team | null;
 	photoUrl: string | null;
 	injury: PlayerInjury | null;
 	profile: Profile;
@@ -38,6 +38,8 @@ export interface PlayerFeed {
 	gameLog: GameLog | null;
 	awards: Award[];
 	allStarYear: number | null;
+	active: boolean;
+	seasonLabel: string | null;
 }
 export interface Team {
 	code: string;

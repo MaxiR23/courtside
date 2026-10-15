@@ -18,17 +18,18 @@ export interface TeamFeed {
 	conference: Conference;
 	division: string;
 	colors: TeamColors;
-	arena: Venue;
+	arena: Venue | null;
 	coach: Coach | null;
 	season: string;
 	record: TeamRecord;
 	leaders: TeamLeaders;
 	roster: RosterPlayer[];
-	injuries: TeamInjury[];
+	injuries: TeamInjury[] | null;
 	nextGame: NextGame | null;
 	schedule: Schedule | null;
 	cup: TeamCup | null;
 	titles: [TeamTitle] | [TeamTitle, TeamTitle] | [TeamTitle, TeamTitle, TeamTitle] | null;
+	names: NameRun[];
 }
 export interface TeamColors {
 	primary: string;
@@ -196,4 +197,15 @@ export interface TeamTitle {
 	kind: TitleKind;
 	year: number | null;
 	conference: Conference | null;
+}
+/**
+ * One identity of the franchise: its name, city and code from one season to
+ * another. `to` is null on the run that holds the current season.
+ */
+export interface NameRun {
+	from: number;
+	to: number | null;
+	name: string;
+	location: string;
+	code: string;
 }

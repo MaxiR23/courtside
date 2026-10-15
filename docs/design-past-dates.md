@@ -118,7 +118,7 @@ Everything under "Implementation rules" in `docs/design.md`, `docs/design-cup.md
 ### Player page of a past season
 
 - The game log of the season, the season row highlighted in the seasons table, the averages of that season.
-- The header shows the team of that season as the game log names it. A retired player (`active` false) shows "Retired" instead of a current team.
+- The header shows the team of that season as the game log names it. A retired player (`active` false) shows "Retired" instead of a current team. A player with no current team who is still active (`team` null, `active` true) shows "Free agent" instead of a current team.
 - A player with no game log that season shows the header and the seasons table, and hides the game log and the averages.
 
 ## Edge cases
@@ -139,6 +139,7 @@ Everything under "Implementation rules" in `docs/design.md`, `docs/design-cup.md
 | Team with one name run | No "Names" timeline |
 | Team with four runs | The timeline shows four runs; on mobile it scrolls horizontally with scroll-snap; the current run is in accent light and each past run links to its last season |
 | Player retired | "Retired" instead of a current team; no next game and no injury status |
+| Player free agent | "Free agent" instead of a current team; no next game and no injury status |
 | Player with no game log that season | The game log and the averages are hidden; the seasons table still shows |
 | Headshot missing | The existing initials fallback |
 | A season with no data for a block (leaders, schedule) | The section is hidden |
@@ -233,6 +234,7 @@ Mapped to existing tokens: the panel surface is `--color-surface`; the divider i
 | `past_names_current` | {from}– | {from}– |
 | `past_names_run` | {from}–{to} | {from}–{to} |
 | `past_player_retired` | Retired | Retirado |
+| `past_player_free_agent` | Free agent | Agente libre |
 
 The date, the season label, the weekday, the month names, the team names and the names of the runs come from the feeds or from the browser's date formatting in the page language; the other keys are the fixed words around them. The empty-day message reuses the string already in production. The missing value is "—" in both languages.
 

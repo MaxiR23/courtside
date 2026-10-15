@@ -19,6 +19,10 @@
 # - Injury status, UTC time and unknown fields are validated
 # - Serialization uses camelCase keys
 # - Accepts the All-Star year set, null and absent, and rejects zero
+# - Accepts a player on no team with no injury, next game or live block, whatever its active state, and rejects one with any of them
+# - Rejects a season label on the current feed; PastPlayerFeed requires it and rejects an injury, a next game or a live block
+# - Reads a stored feed without active and season label as active with no label
+# - The past player schema equals the player schema apart from its title
 #
 # What is covered:
 # - A valid feed is accepted and an invalid one is rejected
@@ -30,12 +34,14 @@
 # SEE: api/app/feeds/player.py
 
 import copy
+import json
 from typing import Any
 
 import pytest
 from pydantic import ValidationError
 
-from app.feeds.player import GameTag, PlayerFeed
+from app.feeds.player import GameTag, PastPlayerFeed, PlayerFeed
+from app.feeds.schema import SCHEMA_DIR, render_schema
 
 Payload = dict[str, Any]
 
@@ -632,3 +638,78 @@ def test_rejects_an_all_star_year_of_zero() -> None:
 
     with pytest.raises(ValidationError):
         PlayerFeed.model_validate(player)
+
+
+def teamless(**overrides: Any) -> Payload:
+    player = valid_player()
+    player.update({"team": None, "injury": None, "nextGame": None, "live": None})
+    player.update(overrides)
+    return player
+
+
+@pytest.mark.parametrize("active", [True, False])
+def test_accepts_a_player_on_no_team_whatever_its_active_state(active: bool) -> None:
+    feed = PlayerFeed.model_validate(teamless(active=active))
+
+    assert feed.team is None
+    assert feed.active is active
+
+
+@pytest.mark.parametrize("name", ["injury", "nextGame", "live"])
+def test_rejects_a_player_on_no_team_with_an_injury_next_game_or_live(
+    name: str,
+) -> None:
+    player = teamless()
+    player[name] = valid_player()[name]
+
+    rejects(player, "no injury, next game or live")
+
+
+def test_rejects_a_season_label_on_the_current_feed() -> None:
+    rejects({**valid_player(), "seasonLabel": "2003-04"}, "no season label")
+
+
+def past_player() -> Payload:
+    return teamless(seasonLabel="2003-04")
+
+
+def test_accepts_a_past_player_with_a_team_or_none() -> None:
+    PastPlayerFeed.model_validate(past_player())
+    PastPlayerFeed.model_validate(
+        {**past_player(), "team": {"code": "AAA", "name": "Name", "city": "City"}}
+    )
+
+
+def test_rejects_a_past_player_without_a_season_label() -> None:
+    with pytest.raises(ValidationError, match="season label"):
+        PastPlayerFeed.model_validate(teamless())
+
+
+@pytest.mark.parametrize("name", ["injury", "nextGame", "live"])
+def test_rejects_a_past_player_with_a_current_season_block(name: str) -> None:
+    player = past_player()
+    player["team"] = {"code": "AAA", "name": "Name", "city": "City"}
+    player[name] = valid_player()[name]
+
+    with pytest.raises(ValidationError, match=f"a past season has no {name}"):
+        PastPlayerFeed.model_validate(player)
+
+
+def test_reads_a_stored_feed_without_active_and_season_label() -> None:
+    feed = PlayerFeed.model_validate(valid_player())
+
+    assert feed.active is True
+    assert feed.season_label is None
+    dumped = feed.model_dump(mode="json")
+    assert (dumped["active"], dumped["seasonLabel"]) == (True, None)
+
+
+def test_the_past_player_schema_equals_the_player_schema_apart_from_its_title() -> None:
+    past = json.loads(render_schema(PastPlayerFeed))
+    committed = json.loads(
+        (SCHEMA_DIR / "player.schema.json").read_text(encoding="utf-8")
+    )
+
+    del past["title"]
+    del committed["title"]
+    assert past == committed

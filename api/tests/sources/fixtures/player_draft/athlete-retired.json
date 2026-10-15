@@ -1,0 +1,11 @@
+{
+  "active": false,
+  "firstName": "Bo",
+  "lastName": "Sample",
+  "displayName": "Bo Sample",
+  "position": { "name": "Center", "abbreviation": "C" },
+  "height": 83,
+  "displayHeight": "6' 11\"",
+  "weight": 250,
+  "dateOfBirth": "1972-07-19T07:00Z"
+}
