@@ -40,6 +40,11 @@
 # - Serves the All-Star feed with Cache-Control and ETag and answers 304 for a matching ETag
 # - Responds 503 with a JSON error for the All-Star feed when the scoreboard day read fails with nothing stored and before the season, the rosters or the discovery are known, and keeps serving the stored feed when a rebuild fails
 #
+# - Serves the calendar feed with Cache-Control and ETag and answers 304 for a matching ETag
+# - Responds 404 for a calendar of 1993, the season after the current one and a season that is not a number or has a trailing newline with no source request, and 503 while the season is not known or when the read fails with nothing stored
+# - Serves the day feed with Cache-Control and ETag, with an empty games list for a day with no event, and answers 304 for a matching ETag
+# - Responds 404 for a day that is not a date, before 1993-10-01, tomorrow and a day of the stored games feed with no source request, and 503 when the read fails with nothing stored
+#
 # What is covered:
 # - Success response, documented failures (503, 404), edge case of an invalid publish
 #
@@ -59,8 +64,10 @@ from fastapi import FastAPI, Request, Response
 from fastapi.testclient import TestClient
 
 from app.feeds.all_star import AllStarFeed
+from app.feeds.calendar import CalendarFeed
 from app.feeds.cup import CupFeed, SlotId
 from app.feeds.cup_matchup import CupMatchupFeed
+from app.feeds.days import DayFeed
 from app.feeds.game_detail import GameDetailFeed
 from app.feeds.games import GamesFeed, GameStatus, Star, Stars
 from app.feeds.player import PlayerFeed
@@ -88,8 +95,10 @@ from app.storage.feeds import publish_by_id, publish_feed
 from app.storage.state import StateStore
 from tests.jobs.test_all_star_feed import DAY as ALL_STAR_DAY
 from tests.jobs.test_all_star_feed import AllStarKit
+from tests.jobs.test_calendar_feed import CalendarKit
 from tests.jobs.test_cup_feed import CupKit
 from tests.jobs.test_cup_matchup_feed import MatchupKit
+from tests.jobs.test_day_feed import DayKit
 from tests.jobs.test_player_feed import PlayerKit
 from tests.jobs.test_playoffs_feed import PlayoffsKit
 from tests.jobs.test_playoffs_finals_feed import FinalsKit, postseason
@@ -1306,3 +1315,153 @@ def test_keeps_serving_the_stored_all_star_feed_when_a_rebuild_fails(
 
     assert response.status_code == 200
     assert response.content == first.content
+
+
+class Calendar:
+    """An app with the feeds router and the calendar kind over the calendar kit's fakes."""
+
+    def __init__(self, path: Path) -> None:
+        self.kit = CalendarKit(path)
+        self.app = FastAPI()
+        self.app.include_router(feeds_router.router)
+        self.app.state.settings = self.kit.settings
+        self.app.state.presence = Presence(clock=lambda: self.kit.clock[0])
+        self.app.state.feed_cache = self.kit.cache
+
+
+@pytest.fixture
+def calendar(tmp_path: Path) -> Calendar:
+    return Calendar(tmp_path)
+
+
+def test_serves_the_calendar_feed_with_cache_control_and_an_etag(
+    calendar: Calendar,
+) -> None:
+    with TestClient(calendar.app) as client:
+        response = client.get("/feeds/seasons/2027/calendar.json")
+
+    assert response.status_code == 200
+    feed = CalendarFeed.model_validate_json(response.content)
+    assert feed.season == 2027
+    assert feed.season_label == "2026-27"
+    assert response.headers["content-type"] == "application/json"
+    assert response.headers["cache-control"] == CACHE_CONTROL
+    etag = response.headers["etag"]
+    assert etag.startswith('"') and etag.endswith('"')
+
+
+def test_responds_304_when_the_calendar_etag_matches(calendar: Calendar) -> None:
+    with TestClient(calendar.app) as client:
+        first = client.get("/feeds/seasons/2027/calendar.json")
+
+        response = client.get(
+            "/feeds/seasons/2027/calendar.json",
+            headers={"If-None-Match": first.headers["etag"]},
+        )
+
+    assert response.status_code == 304
+    assert response.content == b""
+
+
+@pytest.mark.parametrize("season", ["1993", "2028", "abc", "2027%0A"])
+def test_responds_404_for_a_calendar_season_that_does_not_exist(
+    calendar: Calendar, season: str
+) -> None:
+    with TestClient(calendar.app) as client:
+        response = client.get(f"/feeds/seasons/{season}/calendar.json")
+
+    assert response.status_code == 404
+    assert isinstance(response.json()["detail"], str)
+    assert calendar.kit.calls == []
+
+
+def test_responds_503_for_a_calendar_while_the_season_is_not_known(
+    calendar: Calendar,
+) -> None:
+    calendar.kit.stars.season = None
+    with TestClient(calendar.app) as client:
+        response = client.get("/feeds/seasons/2027/calendar.json")
+
+    assert response.status_code == 503
+    assert calendar.kit.calls == []
+
+
+def test_responds_503_for_a_calendar_when_the_read_fails_with_nothing_stored(
+    calendar: Calendar,
+) -> None:
+    calendar.kit.failing = True
+    with TestClient(calendar.app) as client:
+        response = client.get("/feeds/seasons/2027/calendar.json")
+
+    assert response.status_code == 503
+    assert isinstance(response.json()["detail"], str)
+
+
+class Day:
+    """An app with the feeds router and the day kind over the day kit's fakes."""
+
+    def __init__(self, path: Path) -> None:
+        self.kit = DayKit(path)
+        self.app = FastAPI()
+        self.app.include_router(feeds_router.router)
+        self.app.state.settings = self.kit.settings
+        self.app.state.presence = Presence(clock=lambda: self.kit.clock[0])
+        self.app.state.feed_cache = self.kit.cache
+
+
+@pytest.fixture
+def day(tmp_path: Path) -> Day:
+    return Day(tmp_path)
+
+
+def test_serves_the_day_feed_with_an_empty_games_list_for_a_day_with_no_event(
+    day: Day,
+) -> None:
+    with TestClient(day.app) as client:
+        response = client.get("/feeds/days/2026-09-01.json")
+
+    assert response.status_code == 200
+    feed = DayFeed.model_validate_json(response.content)
+    assert feed.day.date == dt.date(2026, 9, 1)
+    assert feed.day.games == []
+    assert response.headers["content-type"] == "application/json"
+    assert response.headers["cache-control"] == CACHE_CONTROL
+    etag = response.headers["etag"]
+    assert etag.startswith('"') and etag.endswith('"')
+
+
+def test_responds_304_when_the_day_etag_matches(day: Day) -> None:
+    with TestClient(day.app) as client:
+        first = client.get("/feeds/days/2026-09-01.json")
+
+        response = client.get(
+            "/feeds/days/2026-09-01.json",
+            headers={"If-None-Match": first.headers["etag"]},
+        )
+
+    assert response.status_code == 304
+    assert response.content == b""
+
+
+@pytest.mark.parametrize(
+    "feed_id", ["not-a-date", "1993-09-30", "2026-10-09", "2026-10-06"]
+)
+def test_responds_404_for_a_day_that_is_not_served(day: Day, feed_id: str) -> None:
+    day.kit.store_games_feed(dt.date(2026, 10, 6))
+    with TestClient(day.app) as client:
+        response = client.get(f"/feeds/days/{feed_id}.json")
+
+    assert response.status_code == 404
+    assert isinstance(response.json()["detail"], str)
+    assert day.kit.calls == []
+
+
+def test_responds_503_for_a_day_when_the_read_fails_with_nothing_stored(
+    day: Day,
+) -> None:
+    day.kit.failing = True
+    with TestClient(day.app) as client:
+        response = client.get("/feeds/days/2026-09-01.json")
+
+    assert response.status_code == 503
+    assert isinstance(response.json()["detail"], str)

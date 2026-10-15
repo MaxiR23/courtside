@@ -22,6 +22,7 @@
 # - Treats an unreadable season or competition type as not All-Star, and leaves a regular game with no All-Star flag unaffected
 # - Skips with one log line by event id an All-Star event without a line score, without a clock, with a league code, with a provider-key side without a city, with a note that is not an All-Star note or with an unknown status, and keeps the rest of the day
 # - Still raises the source error for an event with no competition
+# - The past-day path maps a day with sides by team id first with the name and city of the event and an unknown id as a guest, skips a final event without a line score and one with an unknown status with one log line by event id in provider order, reads an upper-case postseason note as the title-case mark and an empty or FINALS note as a null mark, gives [] for a day with no event, raises the source error for an invalid payload, a timeout, an error status and a missing URL, and leaves fetch_games failing on the same bad event
 #
 # What is covered:
 # - A valid response mapped, an invalid payload rejected, upstream failures handled
@@ -1054,3 +1055,107 @@ async def test_an_event_without_a_competition_still_raises_the_source_error(
     error = await fetch_error(settings)
 
     assert error.reason == "game 9100 has no competition"
+
+
+async def fetch_past(settings: Settings) -> list[ScoreboardGame]:
+    with TemporaryDirectory() as directory:
+        store = StateStore(Path(directory))
+        store.migrate()
+        async with create_client(store) as client:
+            return await scoreboard.fetch_past_games(client, DAY, settings)
+
+
+@pytest.mark.anyio
+async def test_the_past_day_path_resolves_sides_by_id_first_and_skips_bad_events(
+    mock: respx.MockRouter, settings: Settings, caplog: pytest.LogCaptureFixture
+) -> None:
+    mock.get(URL).respond(json=load("past-day.json"))
+
+    with caplog.at_level(logging.WARNING, logger="app.sources.scoreboard"):
+        games = await fetch_past(settings)
+
+    assert [g.id for g in games] == ["7001", "7004", "7005", "7006"]
+    first = games[0]
+    assert first.home.code == "OKC"
+    assert first.home.guest is False
+    assert first.home.name == "Pilots"
+    assert first.home.city == "Harbor City"
+    assert first.away.code == "HBR"
+    assert first.away.guest is True
+    assert first.away.name == "Mariners"
+    assert first.status is GameStatus.FINAL
+    skipped = [
+        r.getMessage()
+        for r in caplog.records
+        if r.getMessage().startswith("scoreboard: past event")
+    ]
+    assert len(skipped) == 2
+    assert skipped[0].startswith("scoreboard: past event 7002 skipped: ")
+    assert skipped[1].startswith("scoreboard: past event 7003 skipped: ")
+    assert "unknown game status" in skipped[1]
+
+
+@pytest.mark.anyio
+async def test_the_past_day_path_reads_an_upper_case_note_and_gives_no_mark_for_finals(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    mock.get(URL).respond(json=load("past-day.json"))
+
+    games = {g.id: g for g in await fetch_past(settings)}
+
+    marked = games["7005"].postseason
+    assert marked is not None
+    assert marked.stage is PostseasonStage.PLAYOFFS
+    assert marked.round == 1
+    assert marked.number == 1
+    assert games["7006"].postseason is None
+
+
+@pytest.mark.anyio
+async def test_the_past_day_path_gives_an_empty_list_for_a_day_with_no_event(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    mock.get(URL).respond(json=load("past-empty.json"))
+
+    assert await fetch_past(settings) == []
+
+
+@pytest.mark.anyio
+async def test_the_past_day_path_raises_the_source_error_for_an_invalid_payload(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    mock.get(URL).respond(json={"events": [{"id": "1"}]})
+
+    with pytest.raises(SourceError):
+        await fetch_past(settings)
+
+
+@pytest.mark.anyio
+async def test_the_past_day_path_raises_the_source_error_for_a_timeout_and_an_error_status(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    mock.get(URL).mock(side_effect=httpx.ReadTimeout("slow"))
+    with pytest.raises(SourceError, match="timed out"):
+        await fetch_past(settings)
+
+    mock.get(URL).respond(status_code=500)
+    with pytest.raises(SourceError, match="status 500"):
+        await fetch_past(settings)
+
+
+@pytest.mark.anyio
+async def test_the_past_day_path_raises_the_source_error_without_a_url() -> None:
+    unset = Settings(_env_file=None, scoreboard_url=None)  # type: ignore[call-arg]
+    with respx.mock, pytest.raises(SourceError, match="not configured"):
+        await fetch_past(unset)
+
+
+@pytest.mark.anyio
+async def test_fetch_games_still_fails_on_the_bad_event_of_a_past_day(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    mock.get(URL).respond(json=load("past-day.json"))
+
+    error = await fetch_error(settings)
+
+    assert error.reason.startswith("game 7002 is invalid")

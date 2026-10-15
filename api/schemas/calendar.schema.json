@@ -1,0 +1,51 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "generatedAt": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "season": {
+      "minimum": 1994,
+      "type": "integer"
+    },
+    "seasonLabel": {
+      "pattern": "^\\d{4}-\\d{2}$",
+      "type": "string"
+    },
+    "firstDay": {
+      "format": "date",
+      "type": "string"
+    },
+    "lastDay": {
+      "format": "date",
+      "type": "string"
+    },
+    "days": {
+      "items": {
+        "format": "date",
+        "type": "string"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "windowDays": {
+      "items": {
+        "format": "date",
+        "type": "string"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "generatedAt",
+    "season",
+    "seasonLabel",
+    "firstDay",
+    "lastDay",
+    "days",
+    "windowDays"
+  ],
+  "title": "CalendarFeed",
+  "type": "object"
+}

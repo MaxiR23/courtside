@@ -1,0 +1,408 @@
+{
+  "events": [
+    {
+      "id": "7001",
+      "date": "1999-02-05T00:30Z",
+      "status": {
+        "period": 4,
+        "displayClock": "0.0",
+        "type": {
+          "name": "STATUS_FINAL"
+        }
+      },
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "Example Arena"
+          },
+          "broadcast": "",
+          "competitors": [
+            {
+              "homeAway": "home",
+              "team": {
+                "abbreviation": "OLD",
+                "id": "25",
+                "name": "Pilots",
+                "location": "Harbor City"
+              },
+              "score": "100",
+              "linescores": [
+                {
+                  "period": 1,
+                  "value": 25
+                },
+                {
+                  "period": 2,
+                  "value": 25
+                },
+                {
+                  "period": 3,
+                  "value": 25
+                },
+                {
+                  "period": 4,
+                  "value": 25
+                }
+              ]
+            },
+            {
+              "homeAway": "away",
+              "team": {
+                "abbreviation": "HBR",
+                "id": "90001",
+                "name": "Mariners",
+                "location": "Bay Town"
+              },
+              "score": "90",
+              "linescores": [
+                {
+                  "period": 1,
+                  "value": 20
+                },
+                {
+                  "period": 2,
+                  "value": 20
+                },
+                {
+                  "period": 3,
+                  "value": 25
+                },
+                {
+                  "period": 4,
+                  "value": 25
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "7002",
+      "date": "1999-02-05T00:30Z",
+      "status": {
+        "period": 4,
+        "displayClock": "0.0",
+        "type": {
+          "name": "STATUS_FINAL"
+        }
+      },
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "Example Arena"
+          },
+          "broadcast": "",
+          "competitors": [
+            {
+              "homeAway": "home",
+              "team": {
+                "abbreviation": "DEN",
+                "id": "7",
+                "name": "Peaks",
+                "location": "Mile City"
+              },
+              "score": "80"
+            },
+            {
+              "homeAway": "away",
+              "team": {
+                "abbreviation": "HBR",
+                "id": "90001",
+                "name": "Mariners",
+                "location": "Bay Town"
+              },
+              "score": "70"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "7003",
+      "date": "1999-02-05T00:30Z",
+      "status": {
+        "period": 0,
+        "displayClock": "0.0",
+        "type": {
+          "name": "STATUS_UNKNOWN"
+        }
+      },
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "Example Arena"
+          },
+          "broadcast": "",
+          "competitors": [
+            {
+              "homeAway": "home",
+              "team": {
+                "abbreviation": "DEN",
+                "id": "7",
+                "name": "Peaks",
+                "location": "Mile City"
+              }
+            },
+            {
+              "homeAway": "away",
+              "team": {
+                "abbreviation": "HBR",
+                "id": "90001",
+                "name": "Mariners",
+                "location": "Bay Town"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "7004",
+      "date": "1999-02-05T00:30Z",
+      "status": {
+        "period": 0,
+        "displayClock": "0.0",
+        "type": {
+          "name": "STATUS_SCHEDULED"
+        }
+      },
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "Example Arena"
+          },
+          "broadcast": "",
+          "competitors": [
+            {
+              "homeAway": "home",
+              "team": {
+                "abbreviation": "DEN",
+                "id": "7",
+                "name": "Peaks",
+                "location": "Mile City"
+              },
+              "score": "0"
+            },
+            {
+              "homeAway": "away",
+              "team": {
+                "abbreviation": "LAL",
+                "id": "13",
+                "name": "Lakers",
+                "location": "Los Angeles"
+              },
+              "score": "0"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "7005",
+      "date": "1999-02-05T00:30Z",
+      "status": {
+        "period": 4,
+        "displayClock": "0.0",
+        "type": {
+          "name": "STATUS_FINAL"
+        }
+      },
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "Example Arena"
+          },
+          "broadcast": "",
+          "competitors": [
+            {
+              "homeAway": "home",
+              "team": {
+                "abbreviation": "CLE",
+                "id": "5",
+                "name": "Pilots",
+                "location": "Harbor City"
+              },
+              "score": "115",
+              "linescores": [
+                {
+                  "period": 1,
+                  "value": 28
+                },
+                {
+                  "period": 2,
+                  "value": 28
+                },
+                {
+                  "period": 3,
+                  "value": 28
+                },
+                {
+                  "period": 4,
+                  "value": 31
+                }
+              ]
+            },
+            {
+              "homeAway": "away",
+              "team": {
+                "abbreviation": "ORL",
+                "id": "19",
+                "name": "Mariners",
+                "location": "Bay Town"
+              },
+              "score": "109",
+              "linescores": [
+                {
+                  "period": 1,
+                  "value": 27
+                },
+                {
+                  "period": 2,
+                  "value": 27
+                },
+                {
+                  "period": 3,
+                  "value": 27
+                },
+                {
+                  "period": 4,
+                  "value": 28
+                }
+              ]
+            }
+          ],
+          "notes": [
+            {
+              "headline": "EAST 1ST ROUND - GAME 1"
+            }
+          ],
+          "type": {
+            "abbreviation": "RD16"
+          },
+          "series": {
+            "summary": "Pilots lead series 1-0",
+            "completed": false,
+            "totalCompetitions": 7,
+            "competitors": [
+              {
+                "id": "5",
+                "wins": 1
+              },
+              {
+                "id": "19",
+                "wins": 0
+              }
+            ]
+          }
+        }
+      ],
+      "season": {
+        "type": 3
+      }
+    },
+    {
+      "id": "7006",
+      "date": "1999-02-05T00:30Z",
+      "status": {
+        "period": 4,
+        "displayClock": "0.0",
+        "type": {
+          "name": "STATUS_FINAL"
+        }
+      },
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "Example Arena"
+          },
+          "broadcast": "",
+          "competitors": [
+            {
+              "homeAway": "home",
+              "team": {
+                "abbreviation": "CLE",
+                "id": "5",
+                "name": "Pilots",
+                "location": "Harbor City"
+              },
+              "score": "115",
+              "linescores": [
+                {
+                  "period": 1,
+                  "value": 28
+                },
+                {
+                  "period": 2,
+                  "value": 28
+                },
+                {
+                  "period": 3,
+                  "value": 28
+                },
+                {
+                  "period": 4,
+                  "value": 31
+                }
+              ]
+            },
+            {
+              "homeAway": "away",
+              "team": {
+                "abbreviation": "ORL",
+                "id": "19",
+                "name": "Mariners",
+                "location": "Bay Town"
+              },
+              "score": "109",
+              "linescores": [
+                {
+                  "period": 1,
+                  "value": 27
+                },
+                {
+                  "period": 2,
+                  "value": 27
+                },
+                {
+                  "period": 3,
+                  "value": 27
+                },
+                {
+                  "period": 4,
+                  "value": 28
+                }
+              ]
+            }
+          ],
+          "notes": [
+            {
+              "headline": "FINALS"
+            }
+          ],
+          "type": {
+            "abbreviation": "FINAL"
+          },
+          "series": {
+            "summary": "Pilots lead series 1-0",
+            "completed": false,
+            "totalCompetitions": 7,
+            "competitors": [
+              {
+                "id": "5",
+                "wins": 1
+              },
+              {
+                "id": "19",
+                "wins": 0
+              }
+            ]
+          }
+        }
+      ],
+      "season": {
+        "type": 3
+      }
+    }
+  ]
+}

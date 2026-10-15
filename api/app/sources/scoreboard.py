@@ -17,6 +17,10 @@
 # mapped (its note, status, sides or required fields) is skipped with a log line
 # by event id: it never fails the day (ADR 0038).
 #
+# The past-day path, fetch_past_games, reads the same payload as fetch_games but
+# resolves a side by its team id first and skips any event that cannot be mapped,
+# with a log line by event id, instead of failing the day (ADR 0040).
+#
 # SEE: docs/api/games.md, docs/adr/0007-backend-runtime-and-data-pipeline.md
 
 import datetime as dt
@@ -203,11 +207,20 @@ def _normalize_clock(display_clock: str | None) -> str | None:
     return None
 
 
-def _team(competitor: _ProviderCompetitor, *, all_star: bool) -> dict[str, Any] | None:
+def _team(
+    competitor: _ProviderCompetitor, *, all_star: bool, by_id_first: bool = False
+) -> dict[str, Any] | None:
     team = competitor.team
     # An All-Star team's location repeats its name: it is not a city (ADR 0039).
     location = None if all_star else team.location
-    return to_opponent(team.abbreviation, team.id, team.name, location, source=SOURCE)
+    return to_opponent(
+        team.abbreviation,
+        team.id,
+        team.name,
+        location,
+        source=SOURCE,
+        by_id_first=by_id_first,
+    )
 
 
 def _points(competitor: _ProviderCompetitor) -> list[int]:
@@ -312,7 +325,9 @@ def _is_an_all_star_event(event: _ProviderEvent) -> bool:
         return False
 
 
-def _read_event(event: _ProviderEvent, *, all_star: bool) -> ScoreboardGame | None:
+def _read_event(
+    event: _ProviderEvent, *, all_star: bool, by_id_first: bool = False
+) -> ScoreboardGame | None:
     if not event.competitions:
         raise SourceError(SOURCE, f"game {event.id} has no competition")
     competition = event.competitions[0]
@@ -320,8 +335,8 @@ def _read_event(event: _ProviderEvent, *, all_star: bool) -> ScoreboardGame | No
     if set(sides) != {"home", "away"} or len(competition.competitors) != 2:
         raise SourceError(SOURCE, f"game {event.id} needs one home and one away team")
     away, home = sides["away"], sides["home"]
-    away_team = _team(away, all_star=all_star)
-    home_team = _team(home, all_star=all_star)
+    away_team = _team(away, all_star=all_star, by_id_first=by_id_first)
+    home_team = _team(home, all_star=all_star, by_id_first=by_id_first)
     if away_team is None or home_team is None:
         return None  # a side that is not a team (ADR 0026, ADR 0039)
     mark = all_star_mark(_first_note(competition)) if all_star else None
@@ -365,13 +380,15 @@ def _read_event(event: _ProviderEvent, *, all_star: bool) -> ScoreboardGame | No
     return game.model_copy(update={"postseason": postseason}) if postseason else game
 
 
-def _map_event(event: _ProviderEvent) -> ScoreboardGame | None:
+def _map_event(
+    event: _ProviderEvent, *, by_id_first: bool = False
+) -> ScoreboardGame | None:
     """Map one event. An All-Star event that cannot be mapped is skipped with a
     log line and never fails the day (ADR 0038); any other event raises."""
     if not _is_an_all_star_event(event):
-        return _read_event(event, all_star=False)
+        return _read_event(event, all_star=False, by_id_first=by_id_first)
     try:
-        return _read_event(event, all_star=True)
+        return _read_event(event, all_star=True, by_id_first=by_id_first)
     except SourceError as error:
         logger.warning(
             "scoreboard: All-Star event %s skipped: %s", event.id, error.reason
@@ -379,16 +396,15 @@ def _map_event(event: _ProviderEvent) -> ScoreboardGame | None:
         return None
 
 
-async def fetch_games(
+async def _read_scoreboard(
     client: SourceClient, day: dt.date, settings: Settings
-) -> list[ScoreboardGame]:
-    """Return the games of a US Eastern day in provider order, or raise SourceError."""
+) -> _ProviderScoreboard:
     if settings.scoreboard_url is None:
         raise SourceError(SOURCE, "scoreboard URL is not configured")
     url = settings.scoreboard_url.format(date=day.strftime(DATE_FORMAT))
     body = await get_json(client, url, source=SOURCE, fresh=FRESH_FOR)
     try:
-        scoreboard = _ProviderScoreboard.model_validate(body)
+        return _ProviderScoreboard.model_validate(body)
     except ValidationError as error:
         first = error.errors()[0]
         location = ".".join(str(part) for part in first["loc"])
@@ -396,5 +412,33 @@ async def fetch_games(
             SOURCE,
             f"invalid payload: {error.error_count()} errors, first at {location}",
         ) from None
+
+
+async def fetch_games(
+    client: SourceClient, day: dt.date, settings: Settings
+) -> list[ScoreboardGame]:
+    """Return the games of a US Eastern day in provider order, or raise SourceError."""
+    scoreboard = await _read_scoreboard(client, day, settings)
     games = (_map_event(event) for event in scoreboard.events)
     return [game for game in games if game is not None]
+
+
+async def fetch_past_games(
+    client: SourceClient, day: dt.date, settings: Settings
+) -> list[ScoreboardGame]:
+    """Return the games of a past US Eastern day in provider order: sides by
+    team id first, and an event that cannot be mapped skipped with a log
+    line by event id (ADR 0040). Raises SourceError for the payload."""
+    scoreboard = await _read_scoreboard(client, day, settings)
+    games: list[ScoreboardGame] = []
+    for event in scoreboard.events:
+        try:
+            game = _map_event(event, by_id_first=True)
+        except SourceError as error:
+            logger.warning(
+                "scoreboard: past event %s skipped: %s", event.id, error.reason
+            )
+            continue
+        if game is not None:
+            games.append(game)
+    return games

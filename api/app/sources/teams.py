@@ -134,10 +134,16 @@ def to_opponent(
     location: str | None,
     *,
     source: str,
+    by_id_first: bool = False,
 ) -> dict[str, Any] | None:
     """Return the Opponent fields of a provider team, or None when it has neither
-    a code nor a name: the caller skips that game (ADR 0026)."""
-    code, guest = side_of(abbreviation, team_id, source=source)
+    a code nor a name: the caller skips that game (ADR 0026). With by_id_first, a
+    provider id of the 30 wins over the abbreviation (ADR 0040)."""
+    code: str | None
+    if by_id_first and team_id in TEAM_IDS:
+        code, guest = TEAM_CODES[TEAM_IDS[team_id]], False
+    else:
+        code, guest = side_of(abbreviation, team_id, source=source)
     name = name or None
     if code is None and name is None:
         return None

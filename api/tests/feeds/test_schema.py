@@ -18,7 +18,8 @@
 # api/schemas/team.schema.json, api/schemas/standings.schema.json,
 # api/schemas/search.schema.json, api/schemas/cup.schema.json,
 # api/schemas/cup-matchup.schema.json, api/schemas/playoffs.schema.json,
-# api/schemas/playoffs-finals.schema.json, api/schemas/all-star.schema.json
+# api/schemas/playoffs-finals.schema.json, api/schemas/all-star.schema.json,
+# api/schemas/calendar.schema.json, api/schemas/days.schema.json
 
 import json
 from pathlib import Path
@@ -28,8 +29,10 @@ import pytest
 from pydantic import BaseModel
 
 from app.feeds.all_star import AllStarFeed
+from app.feeds.calendar import CalendarFeed
 from app.feeds.cup import CupFeed
 from app.feeds.cup_matchup import CupMatchupFeed
+from app.feeds.days import DayFeed
 from app.feeds.game_detail import GameDetailFeed
 from app.feeds.games import GamesFeed
 from app.feeds.player import PlayerFeed
@@ -70,6 +73,8 @@ def test_writes_one_schema_file_per_feed(tmp_path: Path) -> None:
         tmp_path / "playoffs.schema.json",
         tmp_path / "playoffs-finals.schema.json",
         tmp_path / "all-star.schema.json",
+        tmp_path / "calendar.schema.json",
+        tmp_path / "days.schema.json",
     ]
     assert written[0].read_text(encoding="utf-8") == render_schema(GamesFeed)
     assert written[1].read_text(encoding="utf-8") == render_schema(GameDetailFeed)
@@ -82,6 +87,8 @@ def test_writes_one_schema_file_per_feed(tmp_path: Path) -> None:
     assert written[8].read_text(encoding="utf-8") == render_schema(PlayoffsFeed)
     assert written[9].read_text(encoding="utf-8") == render_schema(PlayoffsFinalsFeed)
     assert written[10].read_text(encoding="utf-8") == render_schema(AllStarFeed)
+    assert written[11].read_text(encoding="utf-8") == render_schema(CalendarFeed)
+    assert written[12].read_text(encoding="utf-8") == render_schema(DayFeed)
 
 
 def test_schema_forbids_unknown_fields() -> None:

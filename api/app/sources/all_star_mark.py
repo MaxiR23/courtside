@@ -19,7 +19,8 @@ COMPETITION_TYPE = "ALLSTAR"
 CHAMPIONSHIP = "Championship"
 NOTE = re.compile(
     r"^NBA All-Star - (?P<round>.+?)"
-    r"(?: (?P<suffix>First team to \d+ points wins.*))?$"
+    r"(?: (?P<suffix>First team to \d+ points wins.*))?$",
+    re.IGNORECASE,
 )
 
 
@@ -43,4 +44,6 @@ def all_star_mark(note: str | None) -> GameAllStar | None:
     label, _ = parse_note(note)
     if label is None:
         return None
-    return GameAllStar(round_label=label, championship=label == CHAMPIONSHIP)
+    return GameAllStar(
+        round_label=label, championship=label.casefold() == CHAMPIONSHIP.casefold()
+    )

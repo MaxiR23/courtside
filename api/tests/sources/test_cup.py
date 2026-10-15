@@ -3,6 +3,7 @@
 # Tests for the Cup adapter.
 #
 # Tested:
+# - Maps a Cup note in any letter case to the same round
 # - Maps the team links of a group to standard codes, and an empty collection to none
 # - Maps a Cup table row with every stat, each clinch letter to its tag, and missing stats to null
 # - Logs and nulls an unknown clinch letter
@@ -442,5 +443,19 @@ async def test_reuses_a_table_for_one_hour(
 )
 def test_maps_each_cup_note_to_its_round_and_any_other_to_none(
     note: str | None, expected: CupRound | None
+) -> None:
+    assert cup_round(note) is expected
+
+
+@pytest.mark.parametrize(
+    ("note", "expected"),
+    [
+        ("NBA CUP - GROUP PLAY", CupRound.GROUP),
+        ("nba cup - quarterfinals", CupRound.QUARTERFINALS),
+        ("NBA CUP CHAMPIONSHIP", CupRound.CHAMPIONSHIP),
+    ],
+)
+def test_maps_a_cup_note_in_any_letter_case_to_the_same_round(
+    note: str, expected: CupRound
 ) -> None:
     assert cup_round(note) is expected

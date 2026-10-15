@@ -13,8 +13,10 @@ from pydantic import BaseModel
 from pydantic.json_schema import GenerateJsonSchema
 
 from app.feeds.all_star import AllStarFeed
+from app.feeds.calendar import CalendarFeed
 from app.feeds.cup import CupFeed
 from app.feeds.cup_matchup import CupMatchupFeed
+from app.feeds.days import DayFeed
 from app.feeds.game_detail import GameDetailFeed
 from app.feeds.games import GamesFeed
 from app.feeds.player import PlayerFeed
@@ -38,6 +40,8 @@ FEEDS: dict[str, type[BaseModel]] = {
     "playoffs": PlayoffsFeed,
     "playoffs-finals": PlayoffsFinalsFeed,
     "all-star": AllStarFeed,
+    "calendar": CalendarFeed,
+    "days": DayFeed,
 }
 
 
