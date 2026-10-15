@@ -214,3 +214,27 @@ and a row with no clinch are all valid.
   before a missing feed is built.
 - A stale stored feed is served at once and rebuilt in the background.
 - Every feed request records presence.
+
+## Season feed
+
+The Cup of a past season ([ADR 0045](../adr/0045-season-competition-feeds.md)),
+served at `/feeds/seasons/{season}/cup.json`, with the same schema and models as
+the feed above. `{season}` is the end year of the season, from 2024 to the
+current season.
+
+- The current season serves the feed above: same stored file, body, ETag and
+  expiry.
+- A past season reads the same sources with the season value, and the schedules
+  by provider id first. It must build as `complete`, or the build fails and
+  nothing is stored. `detailAvailable` is false.
+- Refresh: built on request, stored at `feeds/season-cup/{season}.json`, kept for
+  good (rule G of [`docs/source-rules.md`](../source-rules.md)): never refreshed
+  and never deleted. A failed build with nothing stored is retried after 10
+  minutes.
+- The kind is `SeasonCupFeeds` in `api/app/jobs/season_cup_feed.py`.
+- Endpoint: it serves with `Cache-Control: public, max-age=10` and an `ETag`, and
+  responds 304 for a matching `If-None-Match`. It responds 404 with no source
+  request for a season that is not four digits, is before 2024 or is after the
+  current season. It responds 503 while the current season is not known, after a
+  failed read with nothing stored, and when the request's 20 seconds end before a
+  missing feed is built.

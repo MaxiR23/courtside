@@ -129,3 +129,29 @@ injuries and a player with no photo are all valid.
   before a missing feed is built.
 - A stale stored feed is served at once and rebuilt in the background.
 - Every feed request records presence.
+
+## Season feed
+
+The Cup matchup of a past season ([ADR 0045](../adr/0045-season-competition-feeds.md)),
+served at `/feeds/seasons/{season}/cup/matchups/{id}.json`, with the same schema
+and models as the feed above. `{season}` is the end year of the season, from 2024
+to the current season.
+
+- The current season serves the feed above: same stored file, body, ETag and
+  expiry.
+- A past season reads the stored season Cup feed, built first when missing, and
+  per team only the season schedule (by provider id first). `path` follows
+  rule 3; `injuries` and `roster` are empty lists, and no roster, injuries,
+  averages or depth chart is read.
+- Refresh: built on request, stored at `feeds/season-cup-matchups/{season}-{id}.json`,
+  kept for good (rule G of [`docs/source-rules.md`](../source-rules.md)): never
+  refreshed and never deleted. A failed build with nothing stored is retried
+  after 10 minutes.
+- The builder is `build_past_matchup_feed` and the kind is
+  `SeasonCupMatchupFeeds`, both in `api/app/jobs/season_cup_matchup_feed.py`.
+- Endpoint: it serves with `Cache-Control: public, max-age=10` and an `ETag`, and
+  responds 304 for a matching `If-None-Match`. It responds 404 with no source
+  request for an id outside the 7 slots or a season that is not four digits, is
+  before 2024 or is after the current season. It responds 503 while the current
+  season is not known, after a failed read with nothing stored, and when the
+  request's 20 seconds end before a missing feed is built.

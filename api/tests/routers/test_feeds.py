@@ -49,6 +49,10 @@
 # - Responds 404 for a game id in no stored day and for a postponed game of a stored day, with no source request, and 503 for a past game whose build fails with nothing stored
 # - A game the games job has loaded takes the games path with a null season label even when a stored day lists it
 # - Serves the standings, team and player feed of a past season with Cache-Control and ETag, answers 304 for a matching ETag, 404 for 1993, the current season, a future season and a non-integer with no source request, 503 while the season is not known, and 404 for a franchise with no team that season
+# - Serves the Cup and a Cup matchup of a past season with Cache-Control and ETag and answers 304 for a matching ETag
+# - Responds 404 with a JSON error and no source request on both season Cup paths for 2023, a season after the current one, a non-integer, a trailing newline and a leading zero, and for an unknown slot on a past and the current season
+# - The current season serves the current Cup and Cup matchup feeds with the same body and ETag and stores nothing under the season kinds
+# - Responds 503 on both season Cup paths while the current season is not known and when a past build fails with nothing stored
 # - The current player path serves a player on no roster who is known from a stored past feed
 #
 # What is covered:
@@ -118,6 +122,7 @@ from tests.jobs.test_player_feed import PlayerKit, player
 from tests.jobs.test_playoffs_feed import PlayoffsKit
 from tests.jobs.test_playoffs_finals_feed import FinalsKit, postseason
 from tests.jobs.test_search_feed import SearchKit
+from tests.jobs.test_season_cup_matchup_feed import SeasonMatchupKit
 from tests.jobs.test_season_player_feed import SeasonPlayerKit
 from tests.jobs.test_season_standings_feed import StandingsKit as SeasonStandingsKit
 from tests.jobs.test_season_team_feed import SeasonTeamKit
@@ -1211,7 +1216,9 @@ def test_responds_304_when_the_matchup_etag_matches(matchup: Matchup) -> None:
     assert response.content == b""
 
 
-@pytest.mark.parametrize("slot_id", ["east-qf-3", "league", "EAST-QF-1"])
+@pytest.mark.parametrize(
+    "slot_id", ["east-qf-3", "league", "EAST-QF-1", "east-qf-1%0A"]
+)
 def test_responds_404_for_an_unknown_slot_id_with_no_source_request(
     matchup: Matchup, slot_id: str
 ) -> None:
@@ -1838,3 +1845,122 @@ def test_the_current_player_path_serves_a_retired_player_known_from_a_past_feed(
     feed = PlayerFeed.model_validate_json(response.content)
     assert (feed.active, feed.team) == (False, None)
     assert unknown.status_code == 404
+
+
+class SeasonCup:
+    """An app with the feeds router and the Cup, Cup matchup and season Cup kinds
+    over the season matchup kit's fakes."""
+
+    def __init__(self, path: Path) -> None:
+        self.kit = SeasonMatchupKit(path)
+        self.app = FastAPI()
+        self.app.include_router(feeds_router.router)
+        self.app.state.settings = self.kit.settings
+        self.app.state.presence = Presence(clock=lambda: self.kit.clock[0])
+        self.app.state.games_job = self.kit.games
+        self.app.state.feed_cache = self.kit.cache
+        self.app.state.season_cup_feeds = self.kit.season_cups
+        self.app.state.season_cup_matchup_feeds = self.kit.season_matchups
+
+
+@pytest.fixture
+def season_cup(tmp_path: Path) -> Iterator[SeasonCup]:
+    with respx.mock:
+        yield SeasonCup(tmp_path)
+
+
+SEASON_CUP_PATHS = [
+    "/feeds/seasons/{season}/cup.json",
+    "/feeds/seasons/{season}/cup/matchups/east-qf-1.json",
+]
+
+
+@pytest.mark.parametrize("path", SEASON_CUP_PATHS)
+def test_serves_the_cup_feeds_of_a_past_season_with_cache_control_and_an_etag(
+    season_cup: SeasonCup, path: str
+) -> None:
+    url = path.format(season="2025")
+    with TestClient(season_cup.app) as client:
+        response = client.get(url)
+        again = client.get(url, headers={"If-None-Match": response.headers["etag"]})
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/json"
+    assert response.headers["cache-control"] == CACHE_CONTROL
+    assert again.status_code == 304 and again.content == b""
+    body = response.content
+    if path.endswith("cup.json"):
+        assert CupFeed.model_validate_json(body).season == "2024-25"
+    else:
+        assert CupMatchupFeed.model_validate_json(body).season == "2024-25"
+
+
+@pytest.mark.parametrize("path", SEASON_CUP_PATHS)
+@pytest.mark.parametrize("season", ["2023", "2028", "abc", "2025%0A", "02025"])
+def test_responds_404_for_a_season_outside_the_cup_seasons_with_no_source_request(
+    season_cup: SeasonCup, path: str, season: str
+) -> None:
+    with TestClient(season_cup.app) as client:
+        response = client.get(path.format(season=season))
+
+    assert response.status_code == 404
+    assert isinstance(response.json()["detail"], str)
+    assert season_cup.kit.calls == []
+
+
+@pytest.mark.parametrize("season", ["2025", "2027"])
+@pytest.mark.parametrize(
+    "slot_id", ["east-qf-3", "league", "EAST-QF-1", "east-qf-1%0A"]
+)
+def test_responds_404_for_an_unknown_slot_on_the_season_matchup_path(
+    season_cup: SeasonCup, season: str, slot_id: str
+) -> None:
+    with TestClient(season_cup.app) as client:
+        response = client.get(f"/feeds/seasons/{season}/cup/matchups/{slot_id}.json")
+
+    assert response.status_code == 404
+    assert season_cup.kit.calls == []
+
+
+def test_the_current_season_serves_the_current_cup_feeds_and_stores_no_season_feed(
+    season_cup: SeasonCup,
+) -> None:
+    kit = season_cup.kit
+    with TestClient(season_cup.app) as client:
+        season = client.get("/feeds/seasons/2027/cup.json")
+        current = client.get("/feeds/cup.json")
+        season_matchup = client.get("/feeds/seasons/2027/cup/matchups/east-qf-1.json")
+        current_matchup = client.get("/feeds/cup/matchups/east-qf-1.json")
+
+    assert season.status_code == 200 and season_matchup.status_code == 200
+    assert season.content == current.content
+    assert season.headers["etag"] == current.headers["etag"]
+    assert season_matchup.content == current_matchup.content
+    assert season_matchup.headers["etag"] == current_matchup.headers["etag"]
+    assert not (kit.path / "feeds" / "season-cup").exists()
+    assert not (kit.path / "feeds" / "season-cup-matchups").exists()
+
+
+@pytest.mark.parametrize("path", SEASON_CUP_PATHS)
+@pytest.mark.parametrize("season", ["2025", "2027"])
+def test_responds_503_on_the_season_cup_paths_while_the_season_is_not_known(
+    season_cup: SeasonCup, path: str, season: str
+) -> None:
+    season_cup.kit.stars.season = None
+    with TestClient(season_cup.app) as client:
+        response = client.get(path.format(season=season))
+
+    assert response.status_code == 503
+    assert season_cup.kit.calls == []
+
+
+@pytest.mark.parametrize("path", SEASON_CUP_PATHS)
+def test_responds_503_when_a_past_cup_build_fails_with_nothing_stored(
+    season_cup: SeasonCup, path: str
+) -> None:
+    season_cup.kit.failing.add("teams/eastA/2025")
+    with TestClient(season_cup.app) as client:
+        response = client.get(path.format(season="2025"))
+
+    assert response.status_code == 503
+    assert isinstance(response.json()["detail"], str)

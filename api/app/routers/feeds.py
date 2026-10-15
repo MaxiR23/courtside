@@ -6,7 +6,8 @@
 # docs/api/standings.md, docs/api/search.md, docs/api/cup.md,
 # docs/api/cup-matchup.md, docs/api/playoffs.md, docs/api/all-star.md,
 # docs/api/calendar.md, docs/api/days.md, docs/adr/0041-past-game-detail.md,
-# docs/adr/0043-season-feeds-and-franchise-names.md
+# docs/adr/0043-season-feeds-and-franchise-names.md,
+# docs/adr/0045-season-competition-feeds.md
 
 import asyncio
 import hashlib
@@ -224,6 +225,20 @@ async def read_season_player_feed(
         f"{season}-{player_id}",
         request,
     )
+
+
+@router.get("/feeds/seasons/{season}/cup.json")
+async def read_season_cup_feed(season: str, request: Request) -> Response:
+    kind, feed_id = request.app.state.season_cup_feeds.target(season)
+    return await serve_on_demand(request.app.state.feed_cache, kind, feed_id, request)
+
+
+@router.get("/feeds/seasons/{season}/cup/matchups/{slot_id}.json")
+async def read_season_cup_matchup_feed(
+    season: str, slot_id: str, request: Request
+) -> Response:
+    kind, feed_id = request.app.state.season_cup_matchup_feeds.target(season, slot_id)
+    return await serve_on_demand(request.app.state.feed_cache, kind, feed_id, request)
 
 
 @router.get("/feeds/days/{day}.json")

@@ -24,6 +24,8 @@ from app.jobs.playoffs_titles import PlayoffsTitles
 from app.jobs.presence import Presence
 from app.jobs.scheduler import Scheduler
 from app.jobs.search_feed import SearchFeeds
+from app.jobs.season_cup_feed import SeasonCupFeeds
+from app.jobs.season_cup_matchup_feed import SeasonCupMatchupFeeds
 from app.jobs.season_player_feed import SeasonPlayerFeeds
 from app.jobs.season_standings_feed import SeasonStandingsFeeds
 from app.jobs.season_team_feed import SeasonTeamFeeds
@@ -127,6 +129,10 @@ def create_app(settings: Settings | None = None, *, run_jobs: bool = True) -> Fa
         SeasonStandingsFeeds(settings, store, client, feed_cache, stars_job)
         SeasonTeamFeeds(settings, store, client, feed_cache, stars_job, team_names)
         SeasonPlayerFeeds(settings, store, client, feed_cache, stars_job, past_ids)
+        season_cups = SeasonCupFeeds(settings, store, client, feed_cache, stars_job)
+        season_cup_matchups = SeasonCupMatchupFeeds(
+            settings, store, client, feed_cache, stars_job, season_cups
+        )
         all_star_discovery = AllStarDiscovery(settings, store, client, stars_job)
         AllStarFeeds(
             settings,
@@ -151,6 +157,8 @@ def create_app(settings: Settings | None = None, *, run_jobs: bool = True) -> Fa
         app.state.feed_cache = feed_cache
         app.state.player_feeds = player_feeds
         app.state.calendar_feeds = calendar_feeds
+        app.state.season_cup_feeds = season_cups
+        app.state.season_cup_matchup_feeds = season_cup_matchups
         try:
             if run_jobs:
                 stars_scheduler.start()
