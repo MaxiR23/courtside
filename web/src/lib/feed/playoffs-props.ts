@@ -287,12 +287,16 @@ function heroView(champion: Champion): ChampionHeroView {
 	};
 }
 
-function headerView(feed: PlayoffsFeed): PlayoffsHeaderView {
+function headerView(feed: PlayoffsFeed, past: boolean): PlayoffsHeaderView {
 	return {
 		season: feed.season,
 		stateLine: stateLine(feed),
-		stages: feed.stages.map(stageView),
-		hero: feed.champion ? heroView(feed.champion) : null
+		// A feed with no play-in has a `playin` entry that must not be drawn (ADR 0046).
+		stages: feed.stages
+			.filter((entry) => entry.stage !== 'playin' || feed.playIn !== null)
+			.map(stageView),
+		hero: feed.champion ? heroView(feed.champion) : null,
+		tag: past ? m.past_season_tag({ label: feed.season }) : null
 	};
 }
 
@@ -546,11 +550,11 @@ function slotLabel(label: SeriesSide['label']): string {
 	}
 }
 
-function seriesSide(side: SeriesSide, series: Series): SeriesSideView {
+function seriesSide(side: SeriesSide, series: Series, past: boolean): SeriesSideView {
 	if (side.team) {
 		return {
 			team: teamMark(side.team),
-			seed: orDash(side.seed, integer),
+			seed: side.seed === null && past ? '' : orDash(side.seed, integer),
 			wins: orDash(side.wins, integer),
 			strip: strip(side.team),
 			label: code(side.team),
@@ -609,9 +613,9 @@ function seriesGameRow(game: SeriesGame, topCode: string | null): SeriesGameRowV
 	};
 }
 
-function seriesCard(series: Series): SeriesCardView {
-	const top = seriesSide(series.top, series);
-	const bottom = seriesSide(series.bottom, series);
+function seriesCard(series: Series, past: boolean): SeriesCardView {
+	const top = seriesSide(series.top, series, past);
+	const bottom = seriesSide(series.bottom, series, past);
 	const teams = Number(series.top.team !== null) + Number(series.bottom.team !== null);
 	const final = series.conference === null;
 	const complete = series.status === 'complete';
@@ -634,8 +638,8 @@ function seriesCard(series: Series): SeriesCardView {
 	};
 }
 
-function bracketView(feed: PlayoffsFeed): PlayoffBracketView {
-	return { series: feed.bracket.map(seriesCard) };
+function bracketView(feed: PlayoffsFeed, past: boolean): PlayoffBracketView {
+	return { series: feed.bracket.map((series) => seriesCard(series, past)) };
 }
 
 function roadCard(road: RoadTeam): RoadCardView {
@@ -809,8 +813,16 @@ function sectionOrder(state: PlayoffsState): PlayoffsSectionId[] {
  */
 export function toPlayoffsView(
 	feed: PlayoffsFeed,
-	finals: PlayoffsFinalsFeed | null
+	finals: PlayoffsFinalsFeed | null,
+	options: { past?: boolean } = {}
 ): PlayoffsView {
+	const past = options.past ?? false;
+	// Past seasons only (ADR 0049): the head to head needs a bar value, and a null seed draws no
+	// number. The current season keeps its rules: the head to head follows the finals feed, a null
+	// seed draws a dash.
+	const statistics =
+		finals !== null &&
+		(!past || finals.headToHead.bars.some((bar) => bar.values.some((v) => v.value !== null)));
 	const finalsMvp = finals ? finalsMvpView(finals.finalsMvp) : null;
 	const conference = conferenceMvps(feed.awards);
 	const present: Record<PlayoffsSectionId, boolean> = {
@@ -820,12 +832,12 @@ export function toPlayoffsView(
 		'finals-mvp': finals !== null && (finalsMvp !== null || conference.length > 0),
 		series: finals !== null && finals.games.length > 0,
 		road: finals !== null,
-		'head-to-head': finals !== null,
+		'head-to-head': statistics,
 		leaders: feed.leaders !== null,
 		awards: feed.awards !== null
 	};
 	return {
-		header: headerView(feed),
+		header: headerView(feed, past),
 		sections: sectionOrder(feed.state).filter((id) => present[id]),
 		picture: feed.picture.map(pictureView),
 		playIn: (feed.playIn ?? []).map(playInView),
@@ -833,9 +845,9 @@ export function toPlayoffsView(
 		finalsMvp,
 		conferenceMvps: conference,
 		series: finals ? finals.games.map((entry) => seriesGame(entry, finals.champion)) : [],
-		bracket: bracketView(feed),
+		bracket: bracketView(feed, past),
 		road: finals ? finals.road.map(roadCard) : [],
-		headToHead: finals ? headToHeadView(finals) : null,
+		headToHead: statistics && finals ? headToHeadView(finals) : null,
 		leaders: leaderTabs(feed),
 		awards: (feed.awards ?? []).map(awardView)
 	};

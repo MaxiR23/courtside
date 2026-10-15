@@ -16,6 +16,7 @@
 // - Undecided sides: To be decided, label, rule and the Currently line only with a projection
 // - Known sides: name, meta of seed, group and record, scores and winner on the right side, a missing standing leaves meta null
 // - The known map mirrors the feed; the champion's name only when complete
+// - The season tag: null on the current season, "Season 2026-27" on a past one, in both languages
 // - Spanish copy of the state line, a group title and a stage label
 //
 // What is covered:
@@ -542,5 +543,20 @@ describe('toCupView in Spanish', () => {
 		expect(v.groups[0]?.meta).toBe('6 de 10 partidos');
 		expect(v.header.stages[2]?.dates).toBe('Por definir');
 		expect(v.legend[0]?.label).toBe('Ganó el grupo');
+	});
+});
+
+describe('toCupView season tag', () => {
+	it('has no tag on the current season', () => {
+		expect(view().header.tag).toBeNull();
+	});
+
+	it('writes the season tag on a past season', () => {
+		expect(toCupView(feed(), { past: true }).header.tag).toBe('Season 2026-27');
+	});
+
+	it('writes the season tag in Spanish', () => {
+		preferLanguages(['es']);
+		expect(toCupView(feed(), { past: true }).header.tag).toBe('Temporada 2026-27');
 	});
 });

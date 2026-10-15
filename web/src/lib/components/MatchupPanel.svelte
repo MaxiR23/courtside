@@ -138,7 +138,7 @@
 			</div>
 		</BlueprintFrame>
 		{#each view.sides as side, i (i)}
-			<MatchupTeamBlock {side} {gameHref} onPlayer={playerOpener(i)} />
+			<MatchupTeamBlock {side} {gameHref} onPlayer={playerOpener(i)} rosterNote={view.rosterNote} />
 		{/each}
 		{#if view.note}<p class="note">{m.cup_final_note()}</p>{/if}
 	{/if}

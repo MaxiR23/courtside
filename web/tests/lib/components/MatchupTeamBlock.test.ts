@@ -10,6 +10,7 @@
 // - The leader values in the accent class
 // - A click on a player calls onPlayer with the row index
 // - A side with no team shows its label and no blocks
+// - With a roster note: the path and the note, and no roster, injuries or none line
 //
 // What is covered:
 // - Each state the block shows, drawn from props with no fetch
@@ -139,5 +140,28 @@ describe('MatchupTeamBlock with no team', () => {
 		expect(screen.getByText('Winner of West SF')).toBeTruthy();
 		expect(container.querySelector('table')).toBeNull();
 		expect(container.querySelector('.path')).toBeNull();
+	});
+});
+
+describe('MatchupTeamBlock roster note', () => {
+	const NOTE = 'Rosters are shown for the current season only';
+
+	it('shows the path and the note in place of the injuries and the roster', () => {
+		const { container } = render(MatchupTeamBlock, {
+			props: { side: sides()[0], gameHref, onPlayer: () => {}, rosterNote: NOTE }
+		});
+		expect(container.querySelectorAll('.path-row').length).toBe(3);
+		expect(screen.getByText(NOTE)).toBeTruthy();
+		expect(screen.queryByRole('heading', { name: 'Roster' })).toBeNull();
+		expect(container.querySelector('table')).toBeNull();
+		expect(screen.queryByText('Ankle sprain')).toBeNull();
+		expect(screen.queryByText('No injuries reported.')).toBeNull();
+	});
+
+	it('shows the roster and no note without it', () => {
+		const { container } = show(sides()[0]);
+		expect(screen.getByRole('heading', { name: 'Roster' })).toBeTruthy();
+		expect(container.querySelector('table')).not.toBeNull();
+		expect(screen.queryByText(NOTE)).toBeNull();
 	});
 });

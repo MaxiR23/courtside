@@ -18,6 +18,7 @@
 // - Teams: placements, eliminated round, result rows from the feed with W, L and OT, a team-less Championship
 // - The MVP, the scoreline with the winner first, and 2, 3 and 4 team days
 // - The previous view: the after view of previousEdition with the previous year, null without it
+// - The edition video on the current, after and previous views, null without it; the Last time video URL; the season tag from the label passed in
 //
 // What is covered:
 // - Recorded feeds (tests/lib/feed/fixtures/all-star-*.json) cloned and edited per case
@@ -28,10 +29,15 @@
 // SEE: web/src/lib/feed/all-star-props.ts
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { AllStarFeed, AllStarGame } from '../../../src/lib/contract/all-star';
 import { toAllStarView } from '../../../src/lib/feed/all-star-props';
+import { preferLanguages } from '../../prefer-languages';
+
+afterEach(() => {
+	vi.restoreAllMocks();
+});
 
 const fixture = (name: 'before' | 'live' | 'after'): AllStarFeed =>
 	JSON.parse(readFileSync(join(__dirname, 'fixtures', `all-star-${name}.json`), 'utf8'));
@@ -751,5 +757,72 @@ describe('the previous view', () => {
 		feed.previous = before().previous;
 		feed.previousEdition = before().previousEdition;
 		expect(toAllStarView(feed, 'previous')?.header.tag).toBe('All-Star 2026');
+	});
+});
+
+const highlight = (name: string) => ({
+	title: `${name} highlights`,
+	channel: 'Example Channel',
+	thumbnailUrl: `https://video.example.com/thumb/${name}.jpg`,
+	embedUrl: `https://video.example.com/embed/${name}`
+});
+
+describe('the edition video', () => {
+	it('is the edition highlight of an after feed, with the autoplay embed, and null without it', () => {
+		const feed = after();
+		feed.edition.editionHighlight = highlight('edition');
+		expect(current(feed).editionVideo).toEqual({
+			id: 'https://video.example.com/embed/edition',
+			title: 'edition highlights',
+			channel: 'Example Channel',
+			thumbnail: 'https://video.example.com/thumb/edition.jpg',
+			embedUrl: 'https://video.example.com/embed/edition?autoplay=1'
+		});
+		feed.edition.editionHighlight = null;
+		expect(current(feed).editionVideo).toBeNull();
+		delete (feed.edition as { editionHighlight?: unknown }).editionHighlight;
+		expect(current(feed).editionVideo).toBeNull();
+	});
+
+	it('is the highlight of previousEdition on the previous view, and null without it', () => {
+		const feed = before();
+		feed.previousEdition!.editionHighlight = highlight('earlier');
+		expect(toAllStarView(feed, 'previous')!.editionVideo?.title).toBe('earlier highlights');
+		feed.previousEdition!.editionHighlight = null;
+		expect(toAllStarView(feed, 'previous')!.editionVideo).toBeNull();
+	});
+});
+
+describe('the Last time video', () => {
+	it('is the embed URL of the previous edition highlight, null without it', () => {
+		const feed = before();
+		feed.previous!.editionHighlight = highlight('last');
+		expect(current(feed).lastTime?.video).toBe('https://video.example.com/embed/last');
+		feed.previous!.editionHighlight = null;
+		expect(current(feed).lastTime?.video).toBeNull();
+	});
+});
+
+describe('the season tag', () => {
+	it('is built from the label passed in and null without it', () => {
+		expect(toAllStarView(after(), 'current', { pastLabel: '2004-05' })!.header.seasonTag).toBe(
+			'Season 2004-05'
+		);
+		expect(current(after()).header.seasonTag).toBeNull();
+	});
+
+	it('is on every state of the header', () => {
+		for (const feed of [before(), live(), after()]) {
+			expect(toAllStarView(feed, 'current', { pastLabel: '2004-05' })!.header.seasonTag).toBe(
+				'Season 2004-05'
+			);
+		}
+	});
+
+	it('is written in Spanish', () => {
+		preferLanguages(['es']);
+		expect(toAllStarView(after(), 'current', { pastLabel: '2004-05' })!.header.seasonTag).toBe(
+			'Temporada 2004-05'
+		);
 	});
 });

@@ -126,7 +126,7 @@ function round(feed: CupMatchupFeed): string {
  * Turns the matchup feed into the panel props. Paths, injuries and rosters keep the feed's order
  * and every value is the feed's own: the page computes nothing.
  */
-export function toMatchupView(feed: CupMatchupFeed): MatchupView {
+export function toMatchupView(feed: CupMatchupFeed, options: { past?: boolean } = {}): MatchupView {
 	const { game } = feed;
 	return {
 		header: {
@@ -139,6 +139,7 @@ export function toMatchupView(feed: CupMatchupFeed): MatchupView {
 		},
 		sides: [sideView(feed.top, game), sideView(feed.bottom, game)],
 		status: statusView(game),
-		note: feed.round === 'championship'
+		note: feed.round === 'championship',
+		rosterNote: options.past ? m.seasons_cup_no_roster() : null
 	};
 }

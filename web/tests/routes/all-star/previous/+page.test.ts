@@ -9,6 +9,7 @@
 // - A feed with no previousEdition shows the unavailable row and polling continues
 // - A 503 shows the unavailable row, then the page after a successful poll
 // - It polls every 60 s
+// - The edition frame with its caption when previousEdition carries a video, the placeholder when not; no season selector
 //
 // What is covered:
 // - The page wired end to end with the recorded before feed (its previousEdition); the fetch mock fails for any other URL
@@ -165,5 +166,32 @@ describe('Previous edition page', () => {
 		expect(fetchMock).toHaveBeenCalledTimes(1);
 		await vi.advanceTimersByTimeAsync(1);
 		expect(fetchMock).toHaveBeenCalledTimes(2);
+	});
+});
+
+describe('Previous edition video', () => {
+	const highlight = {
+		title: 'Edition recap',
+		channel: 'Example Channel',
+		thumbnailUrl: 'https://video.example.com/thumb/edition.jpg',
+		embedUrl: 'https://video.example.com/embed/edition'
+	};
+
+	it('shows the edition frame with its caption and no season selector', async () => {
+		const feed = withPrevious();
+		feed.previousEdition!.editionHighlight = highlight;
+		stubFetch(answerWith(feed));
+		await renderPage();
+		expect(screen.getByText('Edition highlights')).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Play Edition recap' })).toBeTruthy();
+		expect(screen.queryByRole('combobox')).toBeNull();
+	});
+
+	it('shows the placeholder and no caption without a video', async () => {
+		const feed = withPrevious();
+		feed.previousEdition!.editionHighlight = null;
+		stubFetch(answerWith(feed));
+		await renderPage();
+		expect(screen.queryByText('Edition highlights')).toBeNull();
 	});
 });

@@ -17,15 +17,30 @@
 	let { lastTime, layout, playerHref }: Props = $props();
 </script>
 
+{#snippet champion()}
+	<Kicker text={lastTime.champion.kicker} />
+	<p class="champion-name">{lastTime.champion.name}</p>
+	<p class="meta">{lastTime.champion.meta}</p>
+	<p class="score">{lastTime.champion.score}</p>
+{/snippet}
+
 <div class="last-time" class:mobile={layout === 'mobile'}>
 	<div class="cards">
 		<BlueprintFrame marks="allstar">
-			<div class="champion-card">
-				<Kicker text={lastTime.champion.kicker} />
-				<p class="champion-name">{lastTime.champion.name}</p>
-				<p class="meta">{lastTime.champion.meta}</p>
-				<p class="score">{lastTime.champion.score}</p>
-			</div>
+			{#if lastTime.video}
+				<a
+					class="champion-card"
+					href={lastTime.video}
+					target="_blank"
+					rel="external noopener noreferrer"
+				>
+					{@render champion()}
+				</a>
+			{:else}
+				<div class="champion-card">
+					{@render champion()}
+				</div>
+			{/if}
 		</BlueprintFrame>
 		{#if lastTime.mvp}
 			{@const mvp = lastTime.mvp}
@@ -75,6 +90,8 @@
 		box-sizing: border-box;
 		height: 100%;
 		padding: var(--panel-section-gap);
+		color: inherit;
+		text-decoration: none;
 	}
 
 	.champion-name {

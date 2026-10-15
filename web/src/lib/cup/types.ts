@@ -22,6 +22,7 @@ export type CupHeaderView = {
 	stateLine: string;
 	champion: TeamMarkTeam | null; // only when the Cup is complete
 	stages: StageView[];
+	tag: string | null; // "Season 2023-24" on a past season
 };
 
 export type Signed = { value: string; accent: boolean }; // accent: a value of zero or more
@@ -200,6 +201,7 @@ export type MatchupView = {
 	sides: [MatchupSideView, MatchupSideView];
 	status: MatchupStatusView;
 	note: boolean; // the championship does not count toward the record
+	rosterNote: string | null; // a past season: the line shown in place of the injuries and the roster
 };
 
 export type MatchupPanelState =

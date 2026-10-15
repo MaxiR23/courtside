@@ -674,5 +674,7 @@
 	"past_names_run": "{from}–{to}",
 	"past_player_retired": "Retirado",
 	"past_player_free_agent": "Agente libre",
-	"past_team_no_season": "Sin equipo esta temporada."
+	"past_team_no_season": "Sin equipo esta temporada.",
+	"seasons_cup_no_roster": "Las plantillas solo se muestran de la temporada actual",
+	"seasons_edition_highlights": "Resumen de la edición"
 }

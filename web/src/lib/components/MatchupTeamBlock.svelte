@@ -10,9 +10,10 @@
 		side: MatchupSideView;
 		gameHref: (id: string) => ResolvedPathname;
 		onPlayer: (index: number, row: HTMLElement) => void;
+		rosterNote?: string | null; // a past season: shown in place of the injuries and the roster
 	};
 
-	let { side, gameHref, onPlayer }: Props = $props();
+	let { side, gameHref, onPlayer, rosterNote = null }: Props = $props();
 
 	const hasStarter = $derived(side.roster.some((player) => player.starter));
 </script>
@@ -42,58 +43,62 @@
 				</li>
 			{/each}
 		</ul>
-		<TeamInjuries injuries={side.injuries} />
-		<div class="roster-head">
-			<h4 class="heading">{m.cup_roster()}</h4>
-			{#if hasStarter}
-				<span class="legend"
-					><span class="starter-mark" aria-hidden="true"></span>{m.cup_starting_five()}</span
-				>
-			{/if}
-		</div>
-		<table class="roster">
-			<thead>
-				<tr>
-					<th class="number">{m.team_roster_number()}</th>
-					<th class="player"></th>
-					<th class="position"></th>
-					<th class="stat">{m.box_points()}</th>
-					<th class="stat">{m.box_rebounds()}</th>
-					<th class="stat">{m.box_assists()}</th>
-				</tr>
-			</thead>
-			<tbody>
-				{#each side.roster as player, i (player.id)}
+		{#if rosterNote}
+			<p class="label">{rosterNote}</p>
+		{:else}
+			<TeamInjuries injuries={side.injuries} />
+			<div class="roster-head">
+				<h4 class="heading">{m.cup_roster()}</h4>
+				{#if hasStarter}
+					<span class="legend"
+						><span class="starter-mark" aria-hidden="true"></span>{m.cup_starting_five()}</span
+					>
+				{/if}
+			</div>
+			<table class="roster">
+				<thead>
 					<tr>
-						<td class="number">{player.number ?? ''}</td>
-						<td class="player">
-							<span class="player-cell">
-								{#if player.starter}
-									<span class="starter-mark" role="img" aria-label={m.cup_starting_five()}></span>
-								{/if}
-								<button
-									type="button"
-									class="player-button"
-									onclick={(event) => onPlayer(i, event.currentTarget)}
-								>
-									{player.name}
-								</button>
-							</span>
-						</td>
-						<td class="position">
-							{#if player.injury}
-								<StatusTag injury={player.injury} />
-							{:else}
-								{player.position ?? ''}
-							{/if}
-						</td>
-						<td class="stat" class:leader={player.leader.points}>{player.points}</td>
-						<td class="stat" class:leader={player.leader.rebounds}>{player.rebounds}</td>
-						<td class="stat" class:leader={player.leader.assists}>{player.assists}</td>
+						<th class="number">{m.team_roster_number()}</th>
+						<th class="player"></th>
+						<th class="position"></th>
+						<th class="stat">{m.box_points()}</th>
+						<th class="stat">{m.box_rebounds()}</th>
+						<th class="stat">{m.box_assists()}</th>
 					</tr>
-				{/each}
-			</tbody>
-		</table>
+				</thead>
+				<tbody>
+					{#each side.roster as player, i (player.id)}
+						<tr>
+							<td class="number">{player.number ?? ''}</td>
+							<td class="player">
+								<span class="player-cell">
+									{#if player.starter}
+										<span class="starter-mark" role="img" aria-label={m.cup_starting_five()}></span>
+									{/if}
+									<button
+										type="button"
+										class="player-button"
+										onclick={(event) => onPlayer(i, event.currentTarget)}
+									>
+										{player.name}
+									</button>
+								</span>
+							</td>
+							<td class="position">
+								{#if player.injury}
+									<StatusTag injury={player.injury} />
+								{:else}
+									{player.position ?? ''}
+								{/if}
+							</td>
+							<td class="stat" class:leader={player.leader.points}>{player.points}</td>
+							<td class="stat" class:leader={player.leader.rebounds}>{player.rebounds}</td>
+							<td class="stat" class:leader={player.leader.assists}>{player.assists}</td>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+		{/if}
 	{/if}
 </section>
 

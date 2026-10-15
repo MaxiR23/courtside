@@ -14,6 +14,9 @@
 // - The leaders tabs and the awards cards, the All-NBA team names
 // - The bracket: 15 series and 16 round 1 slots in every state, slot labels, Currently and To be decided notes,
 //   the loser, rows from the top team's point of view, OT, scheduled games, missing values, the Champion flag
+// - Past seasons (the past option): the season tag; no play-in section or stage with a null play-in; the head to head only with a bar value; no seed number for a null seed
+// - The current season keeps the head to head of an all-null finals feed and the dash of a null seed
+// - Leaders and awards null, the Finals MVP absent: the sections close with no gap
 // - Spanish copy
 //
 // What is covered:
@@ -761,5 +764,120 @@ describe('toPlayoffsView Spanish', () => {
 		const finals = finalsFeed();
 		finals.road[1].series[0]!.result = 'loss';
 		expect(view(complete(), finals).road[1].series[0].result.endsWith(' P')).toBe(true);
+	});
+});
+
+describe('toPlayoffsView past seasons', () => {
+	const past = { past: true };
+	const emptyBars = (): PlayoffsFinalsFeed => {
+		const f = finalsFeed();
+		for (const bar of f.headToHead.bars) for (const entry of bar.values) entry.value = null;
+		return f;
+	};
+	const withSeedless = (): PlayoffsFeed => {
+		const f = complete();
+		const series = f.bracket.find((entry) => entry.top.team !== null);
+		if (!series) throw new Error('fixture');
+		series.top.seed = null;
+		series.bottom.seed = 3;
+		return f;
+	};
+	const topOf = (v: PlayoffsView, f: PlayoffsFeed) => {
+		const id = f.bracket.find((entry) => entry.top.team !== null)!.id;
+		return v.bracket.series.find((entry) => entry.id === id)!;
+	};
+
+	it('writes the season tag on a past season and none otherwise', () => {
+		expect(toPlayoffsView(complete(), null, past).header.tag).toBe('Season 2026-27');
+		expect(view(complete()).header.tag).toBeNull();
+	});
+
+	it('writes the season tag in Spanish', () => {
+		preferLanguages(['es']);
+		expect(toPlayoffsView(complete(), null, past).header.tag).toBe('Temporada 2026-27');
+	});
+
+	it('draws no play-in section and no play-in stage when the play-in is null', () => {
+		const f = complete();
+		f.playIn = null;
+		const v = toPlayoffsView(f, null, past);
+		expect(v.sections).not.toContain('play-in');
+		expect(v.header.stages.map((stage) => stage.key)).not.toContain('playin');
+		expect(v.header.stages).toHaveLength(4);
+		expect(view(complete()).header.stages).toHaveLength(5);
+	});
+
+	it('hides the head to head with no bar value on a past season, and keeps it with one', () => {
+		const none = toPlayoffsView(complete(), emptyBars(), past);
+		expect(none.sections).not.toContain('head-to-head');
+		expect(none.headToHead).toBeNull();
+		const one = emptyBars();
+		one.headToHead.bars[0]!.values[0]!.value = 1.5;
+		const kept = toPlayoffsView(complete(), one, past);
+		expect(kept.sections).toContain('head-to-head');
+		expect(kept.headToHead).not.toBeNull();
+	});
+
+	it('keeps the head to head of an all-null finals feed on the current season', () => {
+		const finals = emptyBars();
+		const v = view(complete(), finals);
+		expect(v.sections).toEqual([
+			'finals-mvp',
+			'series',
+			'road',
+			'head-to-head',
+			'leaders',
+			'bracket',
+			'play-in',
+			'awards'
+		]);
+		expect(v.headToHead).not.toBeNull();
+		expect(toPlayoffsView(complete(), finals, past).headToHead).toBeNull();
+	});
+
+	it('closes the sections with no gap when leaders, awards and the play-in are null', () => {
+		const f = complete();
+		f.leaders = null;
+		f.awards = null;
+		expect(toPlayoffsView(f, finalsFeed(), past).sections).toEqual([
+			'finals-mvp',
+			'series',
+			'road',
+			'head-to-head',
+			'bracket',
+			'play-in'
+		]);
+		f.playIn = null;
+		expect(toPlayoffsView(f, finalsFeed(), past).sections).toEqual([
+			'finals-mvp',
+			'series',
+			'road',
+			'head-to-head',
+			'bracket'
+		]);
+	});
+
+	it('has no finals MVP when neither the finals nor the awards carry one', () => {
+		const f = complete();
+		f.awards = (f.awards ?? []).filter((award) => !award.code.endsWith('finals_mvp'));
+		const finals = finalsFeed();
+		finals.finalsMvp = null;
+		const v = toPlayoffsView(f, finals, past);
+		expect(v.conferenceMvps).toEqual([]);
+		expect(v.sections).not.toContain('finals-mvp');
+	});
+
+	it('draws no seed number for a null seed on a past season, and the number otherwise', () => {
+		const f = withSeedless();
+		const v = toPlayoffsView(f, null, past);
+		expect(topOf(v, f).top.seed).toBe('');
+		expect(topOf(v, f).bottom.seed).toBe('3');
+	});
+
+	it('keeps the dash for a null seed on the current season', () => {
+		const f = withSeedless();
+		const v = view(f);
+		expect(topOf(v, f).top.seed).toBe('—');
+		expect(topOf(v, f).bottom.seed).toBe('3');
 	});
 });

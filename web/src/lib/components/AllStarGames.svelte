@@ -13,10 +13,13 @@
 	import type { GameSelection } from '#lib/all-star/selection.svelte.ts';
 	import type { AllStarView } from '#lib/all-star/types.ts';
 	import { m } from '#lib/paraglide/messages.js';
-	import type { RowLayout } from '#lib/schedule/types.ts';
+	import type { HighlightVideo, RowLayout } from '#lib/schedule/types.ts';
 
 	type Props = {
-		view: Pick<AllStarView, 'games' | 'details' | 'boxes' | 'formatLine' | 'defaultGame'>;
+		view: Pick<
+			AllStarView,
+			'games' | 'details' | 'boxes' | 'formatLine' | 'defaultGame' | 'editionVideo'
+		>;
 		kicker: string;
 		selection: GameSelection;
 		tick: LiveTick;
@@ -31,7 +34,10 @@
 	const detail = $derived(selected === null ? undefined : view.details[selected]);
 	const box = $derived(selected === null ? null : (view.boxes[selected] ?? null));
 
-	// Not kept between visits: the game whose highlight plays.
+	// The edition video replaces the media of the selected game and plays under this key.
+	const EDITION_KEY = 'edition';
+
+	// Not kept between visits: the game (or the edition) whose video plays.
 	let playing = $state<string | null>(null);
 
 	// The status text is re-read from the latest feed value every second; nothing counts down.
@@ -40,6 +46,29 @@
 		return detail?.scoreboard.status ?? '';
 	});
 </script>
+
+{#snippet player(video: HighlightVideo, key: string)}
+	{#if playing === key}
+		<iframe
+			src={video.embedUrl}
+			title={video.title}
+			allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+			allowfullscreen
+		></iframe>
+	{:else}
+		<button
+			type="button"
+			class="thumb"
+			aria-label={m.panel_highlights_play({ title: video.title })}
+			onclick={() => (playing = key)}
+		>
+			<img src={video.thumbnail} alt="" loading="lazy" />
+			<span class="play" aria-hidden="true">
+				<svg viewBox="0 0 24 24"><polygon points="6 3 20 12 6 21 6 3" /></svg>
+			</span>
+		</button>
+	{/if}
+{/snippet}
 
 <div class="all-star-games" class:mobile={layout === 'mobile'}>
 	<div class="head">
@@ -72,27 +101,10 @@
 					<div class="media-block">
 						<BlueprintFrame marks="allstar">
 							<div class="media">
-								{#if detail.video}
-									{#if playing === detail.id}
-										<iframe
-											src={detail.video.embedUrl}
-											title={detail.video.title}
-											allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-											allowfullscreen
-										></iframe>
-									{:else}
-										<button
-											type="button"
-											class="thumb"
-											aria-label={m.panel_highlights_play({ title: detail.video.title })}
-											onclick={() => (playing = detail.id)}
-										>
-											<img src={detail.video.thumbnail} alt="" loading="lazy" />
-											<span class="play" aria-hidden="true">
-												<svg viewBox="0 0 24 24"><polygon points="6 3 20 12 6 21 6 3" /></svg>
-											</span>
-										</button>
-									{/if}
+								{#if view.editionVideo}
+									{@render player(view.editionVideo, EDITION_KEY)}
+								{:else if detail.video}
+									{@render player(detail.video, detail.id)}
 								{:else}
 									<div class="placeholder" class:muted={detail.live}>
 										<span class="play outlined" aria-hidden="true">
@@ -103,6 +115,9 @@
 								{/if}
 							</div>
 						</BlueprintFrame>
+						{#if view.editionVideo}
+							<p class="caption">{m.seasons_edition_highlights()}</p>
+						{/if}
 					</div>
 					<dl class="venue-strip">
 						{#each detail.venueStrip as item (item.key)}
@@ -225,8 +240,21 @@
 		order: 1;
 	}
 
+	.media-block {
+		display: grid;
+		gap: var(--day-strip-gap);
+	}
+
 	.mobile .media-block {
 		order: 2;
+	}
+
+	.caption {
+		margin: 0;
+		font-size: var(--label-size);
+		letter-spacing: var(--label-letter-spacing);
+		text-transform: uppercase;
+		color: var(--color-muted);
 	}
 
 	.mobile .venue-strip {

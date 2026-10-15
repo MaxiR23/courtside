@@ -7,6 +7,7 @@
 // - The champion block only when complete, with the team link; a guest champion is not a link
 // - The nav with Cup current
 // - Only the nav and the h1 without a header; bones and aria-busy while loading
+// - The season tag when the header has one; the select on desktop (after the nav) and mobile (full), its onChange; none without the prop
 // - Spanish copy
 //
 // What is covered:
@@ -109,5 +110,46 @@ describe('CupHeader', () => {
 		render(CupHeader, { props: props() });
 		expect(screen.getByRole('heading', { level: 1, name: 'Copa NBA' })).toBeTruthy();
 		expect(screen.getByRole('link', { name: 'Copa' }).getAttribute('aria-current')).toBe('page');
+	});
+});
+
+describe('CupHeader season selector and tag', () => {
+	const seasonSelect = (onChange = vi.fn()) => ({
+		seasons: [
+			{ season: 2027, seasonLabel: '2026-27' },
+			{ season: 2025, seasonLabel: '2024-25' }
+		],
+		value: 2027,
+		onChange
+	});
+
+	it('draws the season tag only when the header has one', () => {
+		const tagged = { ...view().header, tag: 'Season 2024-25' };
+		const { unmount } = render(CupHeader, { props: props({ header: tagged }) });
+		expect(screen.getByText('Season 2024-25')).toBeTruthy();
+		unmount();
+		render(CupHeader, { props: props() });
+		expect(screen.queryByText('Season 2024-25')).toBeNull();
+	});
+
+	it('draws the select on desktop and calls onChange with the end year', () => {
+		const onChange = vi.fn();
+		render(CupHeader, { props: props({ seasonSelect: seasonSelect(onChange) }) });
+		const select = screen.getByRole('combobox', { name: 'Season' }) as HTMLSelectElement;
+		expect([...select.options].map((option) => option.textContent)).toEqual(['2026-27', '2024-25']);
+		expect(select.classList.contains('full')).toBe(false);
+		select.value = '2025';
+		select.dispatchEvent(new Event('change', { bubbles: true }));
+		expect(onChange).toHaveBeenCalledWith(2025);
+	});
+
+	it('draws the select full width on mobile', () => {
+		render(CupHeader, { props: props({ layout: 'mobile', seasonSelect: seasonSelect() }) });
+		expect(screen.getByRole('combobox', { name: 'Season' }).classList.contains('full')).toBe(true);
+	});
+
+	it('draws no select without the prop', () => {
+		render(CupHeader, { props: props() });
+		expect(screen.queryByRole('combobox')).toBeNull();
 	});
 });

@@ -15,6 +15,7 @@
 	import { play } from '#lib/hero/motion.ts';
 	import { m } from '#lib/paraglide/messages.js';
 	import type { RowLayout } from '#lib/schedule/types.ts';
+	import type { SeasonControl } from '#lib/season/types.ts';
 	import { shimmer } from '#lib/skeleton/motion.ts';
 
 	type Props = {
@@ -24,10 +25,19 @@
 		layout: RowLayout;
 		teamHref: (code: string) => ResolvedPathname;
 		playerHref: (id: string) => ResolvedPathname;
+		seasonSelect?: SeasonControl | null; // null: no selector
 	};
 
 	// `state` is renamed so the `$state` rune is not read as a store of the prop.
-	let { state: page, allGamesHref, standingsHref, layout, teamHref, playerHref }: Props = $props();
+	let {
+		state: page,
+		allGamesHref,
+		standingsHref,
+		layout,
+		teamHref,
+		playerHref,
+		seasonSelect = null
+	}: Props = $props();
 
 	const CARD_BONES = [0, 1, 2, 3];
 
@@ -64,6 +74,7 @@
 		{layout}
 		{tick}
 		onLive={showGame}
+		{seasonSelect}
 	/>
 	<div class="sections" class:mobile>
 		{#each view.sections as id (id)}
@@ -111,6 +122,7 @@
 		{layout}
 		{tick}
 		onLive={showGame}
+		{seasonSelect}
 	/>
 	<section class="page-section" class:mobile aria-busy="true">
 		<div class="bones" aria-hidden="true" use:play={shimmer}>
@@ -125,7 +137,15 @@
 		</div>
 	</section>
 {:else}
-	<AllStarHeader header={null} {allGamesHref} {standingsHref} {layout} {tick} onLive={showGame} />
+	<AllStarHeader
+		header={null}
+		{allGamesHref}
+		{standingsHref}
+		{layout}
+		{tick}
+		onLive={showGame}
+		{seasonSelect}
+	/>
 	<section class="page-section" class:mobile>
 		<MessageRow text={m.feed_unavailable()} />
 	</section>

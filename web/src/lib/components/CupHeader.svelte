@@ -1,6 +1,8 @@
 <script lang="ts">
 	import type { ResolvedPathname } from '$app/types';
 	import NavRow from '#lib/components/NavRow.svelte';
+	import SeasonSelect from '#lib/components/SeasonSelect.svelte';
+	import SeasonTag from '#lib/components/SeasonTag.svelte';
 	import StageStrip from '#lib/components/StageStrip.svelte';
 	import StatusTag from '#lib/components/StatusTag.svelte';
 	import TeamMark from '#lib/components/TeamMark.svelte';
@@ -8,6 +10,7 @@
 	import { play } from '#lib/hero/motion.ts';
 	import { m } from '#lib/paraglide/messages.js';
 	import type { RowLayout } from '#lib/schedule/types.ts';
+	import type { SeasonControl } from '#lib/season/types.ts';
 	import { shimmer } from '#lib/skeleton/motion.ts';
 
 	type Props = {
@@ -17,21 +20,34 @@
 		standingsHref: ResolvedPathname;
 		layout: RowLayout;
 		teamHref: (code: string) => ResolvedPathname;
+		seasonSelect?: SeasonControl | null; // null: no selector
 	};
 
-	let { header, loading = false, allGamesHref, standingsHref, layout, teamHref }: Props = $props();
+	let {
+		header,
+		loading = false,
+		allGamesHref,
+		standingsHref,
+		layout,
+		teamHref,
+		seasonSelect = null
+	}: Props = $props();
 </script>
 
 <header class="cup-header" aria-busy={loading && !header ? 'true' : undefined}>
 	<div class="grid-bg" aria-hidden="true"></div>
 	<div class="content">
 		<NavRow page="cup" gamesHref={allGamesHref} {standingsHref} {layout} />
+		{#if seasonSelect && layout === 'desktop'}
+			<div class="season-row"><SeasonSelect {...seasonSelect} /></div>
+		{/if}
 
 		{#if header}
 			<div class="columns">
 				<div class="intro">
 					<div class="season-line">
 						<StatusTag text={header.season} accent />
+						{#if header.tag}<SeasonTag text={header.tag} />{/if}
 						<span class="state-line">{header.stateLine}</span>
 					</div>
 					<h1>{m.cup_title()}</h1>
@@ -58,6 +74,9 @@
 					<span class="bone state-bone"></span>
 				</div>
 			{/if}
+		{/if}
+		{#if seasonSelect && layout === 'mobile'}
+			<div class="season-row"><SeasonSelect {...seasonSelect} full /></div>
 		{/if}
 	</div>
 </header>
@@ -165,5 +184,10 @@
 	.state-bone {
 		width: var(--skeleton-button-width);
 		height: var(--body-size-small);
+	}
+
+	.season-row {
+		display: flex;
+		justify-content: flex-end;
 	}
 </style>

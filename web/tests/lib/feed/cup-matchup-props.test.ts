@@ -11,6 +11,7 @@
 // - The injuries and none; the roster order, starters, leaders, a — for null averages, the injury in place of the position
 // - The player card fields: photo kept null, rookie, weight in pounds, hometown
 // - The note only for the championship; a side with no team has empty blocks
+// - The roster note: null on the current season, the "current season only" line on a past one, in both languages
 // - Spanish copy
 //
 // What is covered:
@@ -235,5 +236,24 @@ describe('toMatchupView in Spanish', () => {
 		expect(v.sides[0].label).toBe('Ganador de la semifinal del Este');
 		expect(v.sides[0].roster[1].card.experience).toBe('N');
 		expect(v.header.round).toBe('Final');
+	});
+});
+
+describe('toMatchupView roster note', () => {
+	it('has no roster note on the current season', () => {
+		expect(view().rosterNote).toBeNull();
+	});
+
+	it('writes the current-season-only line on a past season', () => {
+		expect(toMatchupView(feed(), { past: true }).rosterNote).toBe(
+			'Rosters are shown for the current season only'
+		);
+	});
+
+	it('writes the line in Spanish', () => {
+		preferLanguages(['es']);
+		expect(toMatchupView(feed(), { past: true }).rosterNote).toBe(
+			'Las plantillas solo se muestran de la temporada actual'
+		);
 	});
 });

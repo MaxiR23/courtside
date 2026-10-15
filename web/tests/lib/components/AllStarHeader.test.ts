@@ -10,6 +10,7 @@
 // - The stats count up from zero and show the final values when the timeout ends; the Championship cell is not counted
 // - Under reduced motion the final values show at once
 // - The skeleton while loading, and only the nav and the title without a header
+// - The season tag when the header has one, with no live dot or live stats on an after header; the select on desktop and mobile (full), its onChange
 // - No guest-rule text, headline, story or ticker
 //
 // What is covered:
@@ -259,5 +260,61 @@ describe('AllStarHeader, nav and states', () => {
 			}
 			unmount();
 		}
+	});
+});
+
+describe('AllStarHeader season selector and tag', () => {
+	const seasonSelect = (onChange = vi.fn()) => ({
+		seasons: [
+			{ season: 2027, seasonLabel: '2026-27' },
+			{ season: 2025, seasonLabel: '2024-25' }
+		],
+		value: 2027,
+		onChange
+	});
+
+	const render_ = (extra: Record<string, unknown> = {}) =>
+		render(AllStarHeader, {
+			props: {
+				header: { ...viewOf('after').header, seasonTag: 'Season 2024-25' },
+				allGamesHref: '/' as ResolvedPathname,
+				standingsHref: '/standings' as ResolvedPathname,
+				layout: 'desktop' as const,
+				tick: new LiveTick(),
+				onLive: () => {},
+				...extra
+			}
+		});
+
+	it('draws the season tag and no live dot or live stat on an after header', () => {
+		const { container } = render_();
+		expect(screen.getByText('Season 2024-25')).toBeTruthy();
+		expect(container.querySelector('.live-dot')).toBeNull();
+		expect(container.textContent?.toLowerCase().includes('live')).toBe(false);
+	});
+
+	it('draws no season tag when the header has none', () => {
+		render_({ header: viewOf('after').header });
+		expect(screen.queryByText('Season 2024-25')).toBeNull();
+	});
+
+	it('draws the select on desktop and calls onChange with the end year', () => {
+		const onChange = vi.fn();
+		render_({ seasonSelect: seasonSelect(onChange) });
+		const select = screen.getByRole('combobox', { name: 'Season' }) as HTMLSelectElement;
+		expect(select.classList.contains('full')).toBe(false);
+		select.value = '2025';
+		select.dispatchEvent(new Event('change', { bubbles: true }));
+		expect(onChange).toHaveBeenCalledWith(2025);
+	});
+
+	it('draws the select full width on mobile', () => {
+		render_({ layout: 'mobile', seasonSelect: seasonSelect() });
+		expect(screen.getByRole('combobox', { name: 'Season' }).classList.contains('full')).toBe(true);
+	});
+
+	it('draws no select without the prop', () => {
+		render_();
+		expect(screen.queryByRole('combobox')).toBeNull();
 	});
 });

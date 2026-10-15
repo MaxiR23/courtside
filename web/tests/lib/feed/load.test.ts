@@ -21,7 +21,7 @@
 // - loadPlayerFeed returns the player feed, reports a 404 as not-found and every other failure
 // - calendarFeedUrl and dayFeedUrl put the encoded season or date in place of every placeholder
 // - loadCalendarFeed and loadDayFeed return the feed, report a 404 as not-found, a 503 as status, a network failure and a bad shape as body
-// - seasonStandingsFeedUrl, seasonTeamFeedUrl and seasonPlayerFeedUrl put the season and the encoded code or id in place of every placeholder
+// - seasonStandingsFeedUrl, seasonTeamFeedUrl, seasonPlayerFeedUrl and seasonCupMatchupFeedUrl put the season and the encoded code or id in place of every placeholder
 //
 // What is covered:
 // - Happy path and every failure the page treats as "data unavailable"
@@ -56,6 +56,7 @@ import {
 } from '../../../src/lib/feed/load';
 
 import {
+	seasonCupMatchupFeedUrl,
 	seasonPlayerFeedUrl,
 	seasonStandingsFeedUrl,
 	seasonTeamFeedUrl
@@ -791,5 +792,21 @@ describe('season feed URLs', () => {
 				'x y'
 			)
 		).toBe('https://feeds.example.com/seasons/1999/players/x%20y.json');
+	});
+
+	it('puts the season and the encoded slot in place of the Cup matchup placeholders', () => {
+		expect(
+			seasonCupMatchupFeedUrl(
+				'https://feeds.example.com/seasons/{season}/cup/matchups/{slot}.json?s={season}',
+				2025,
+				'a/b c'
+			)
+		).toBe('https://feeds.example.com/seasons/2025/cup/matchups/a%2Fb%20c.json?s=2025');
+	});
+
+	it('replaces every {slot} and leaves {id} alone', () => {
+		expect(
+			seasonCupMatchupFeedUrl('https://feeds.example.com/{season}/{slot}/{slot}/{id}', 2025, 'q1')
+		).toBe('https://feeds.example.com/2025/q1/q1/{id}');
 	});
 });

@@ -56,6 +56,7 @@ export type PlayoffsHeaderView = {
 	stateLine: string;
 	stages: PlayoffStageView[];
 	hero: ChampionHeroView | null; // only when the postseason is complete
+	tag: string | null; // "Season 2004-05" on a past season
 };
 
 export type PictureRowView = {
@@ -198,7 +199,7 @@ export type AwardView = {
 
 export type SeriesSideView = {
 	team: TeamMarkTeam | null;
-	seed: string; // "1", or "—"; "" with no team
+	seed: string; // "1", or "—" (current season); "" with no team, or no seed on a past season
 	wins: string; // "3", or "—"; "" with no team
 	strip: { primary: string; secondary: string } | null;
 	label: string; // the team's code or name, or the slot label ("East #1 seed")
