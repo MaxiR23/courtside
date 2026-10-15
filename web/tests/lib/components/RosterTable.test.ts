@@ -9,6 +9,7 @@
 // - The status tone classes
 // - The mobile class with the mobile layout
 // - Each name links to its player page; the avatar is outside the link; no nested link
+// - status false drops the status header and the status cells; the default keeps them
 //
 // What is covered:
 // - Structure and classes; jsdom computes no layout, so widths are not asserted
@@ -161,5 +162,24 @@ describe('RosterTable', () => {
 		const block = /\.player\s*\{([^}]*)\}/.exec(source)?.[1] ?? '';
 		expect(block).toMatch(/position:\s*sticky;/);
 		expect(block).toMatch(/left:\s*0;/);
+	});
+
+	it('drops the status header and cells with status false', () => {
+		render(RosterTable, {
+			props: { roster: [full, empty], layout: 'desktop', playerHref, status: false }
+		});
+		const headers = screen.getAllByRole('columnheader').map((cell) => cell.textContent);
+		expect(headers).not.toContain('Status');
+		expect(headers).toHaveLength(10);
+		expect(screen.queryByText('Out')).toBeNull();
+		expect(screen.queryByText('Active')).toBeNull();
+		expect(screen.getAllByRole('row')).toHaveLength(3);
+		expect(screen.getAllByRole('row')[1]?.querySelectorAll('[role="cell"]')).toHaveLength(9);
+	});
+
+	it('keeps the status header and cells by default', () => {
+		show([full]);
+		expect(screen.getByText('Status')).toBeTruthy();
+		expect(screen.getByText('Out')).toBeTruthy();
 	});
 });

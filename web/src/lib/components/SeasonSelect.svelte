@@ -5,13 +5,15 @@
 		seasons: { season: number; seasonLabel: string }[]; // newest first
 		value: number; // the end year on show
 		onChange: (season: number) => void;
+		full?: boolean; // full width, with a hit target (the mobile header)
 	};
 
-	let { seasons, value, onChange }: Props = $props();
+	let { seasons, value, onChange, full = false }: Props = $props();
 </script>
 
 <select
 	class="select"
+	class:full
 	aria-label={m.past_season_select()}
 	{value}
 	onchange={(event) => onChange(Number(event.currentTarget.value))}
@@ -35,6 +37,11 @@
 		letter-spacing: var(--past-select-letter-spacing);
 		text-transform: uppercase;
 		cursor: pointer;
+	}
+
+	.full {
+		width: 100%;
+		height: var(--hit-target-size);
 	}
 
 	.select:hover {

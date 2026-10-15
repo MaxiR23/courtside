@@ -40,7 +40,7 @@ export type StandingsGroupView = {
 	rows: StandingsRowView[];
 };
 
-export type StandingsHeaderView = { season: string; stateLine: string };
+export type StandingsHeaderView = { season: string; stateLine: string; tag?: string | null }; // tag: "Season 2004-05" on a past season
 
 export type StandingsKeyEntry = { clinch: ClinchView; label: string };
 

@@ -10,6 +10,8 @@
 // - Loading: aria-busy and the section skeleton
 // - Unavailable: the unavailable row; Not found: "Player not found." and two All games links
 // - The footer in every state, no nested interactive element, Spanish
+// - The season select reaches the header in every state, and is absent without the prop
+// - hideNext renders no next game card and no "Season over."
 //
 // What is covered:
 // - Each page state, drawn from props with no fetch; the view comes from the recorded player feed
@@ -176,5 +178,53 @@ describe('PlayerPage other states', () => {
 		expect(screen.getByText('Player not found.')).toBeTruthy();
 		expect(screen.getAllByRole('link', { name: 'All games' })).toHaveLength(2);
 		expect(container.querySelector('footer')).toBeTruthy();
+	});
+});
+
+const seasonSelect = {
+	seasons: [
+		{ season: 2027, seasonLabel: '2026-27' },
+		{ season: 2005, seasonLabel: '2004-05' }
+	],
+	value: 2027,
+	onChange: () => {}
+};
+
+describe('PlayerPage season selector', () => {
+	it.each([
+		['ready', ready()],
+		['loading', { kind: 'loading' } as PlayerPageState],
+		['unavailable', { kind: 'unavailable' } as PlayerPageState],
+		['not-found', { kind: 'not-found' } as PlayerPageState]
+	])('draws the select in the %s state', (_name, state) => {
+		render(PlayerPage, {
+			props: {
+				state,
+				allGamesHref: HOME,
+				standingsHref: STANDINGS,
+				layout: 'desktop',
+				gameHref,
+				seasonSelect
+			}
+		});
+		expect(screen.getByRole('combobox', { name: 'Season' })).toBeTruthy();
+	});
+
+	it('draws no select without the prop', () => {
+		show(ready());
+		expect(screen.queryByRole('combobox')).toBeNull();
+	});
+});
+
+describe('PlayerPage next game card', () => {
+	it('draws "Season over." when the view has no next game and does not hide it', () => {
+		show(ready({ ...feed(), nextGame: null }));
+		expect(screen.getByText('Season over.')).toBeTruthy();
+	});
+
+	it('draws no next game card and no "Season over." with hideNext', () => {
+		show(ready({ ...feed(), nextGame: null, team: null, active: false }));
+		expect(screen.queryByText('Season over.')).toBeNull();
+		expect(screen.getByText('Retired')).toBeTruthy();
 	});
 });

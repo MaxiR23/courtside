@@ -8,6 +8,7 @@
 // - Only the nav row with no header; the skeleton and aria-busy while loading
 // - The Cup line after the conference line, linking to the Cup page; none without the mark
 // - Every title after the Cup line, one or more, none for null titles, never a link
+// - The season tag when the header has one; the select on desktop and mobile, with no header, and its onChange; none without the prop
 //
 // What is covered:
 // - Each state the header shows
@@ -231,5 +232,80 @@ describe('TeamHeader with titles', () => {
 			(child) => child.getAttribute('class')?.split(' ')[0]
 		);
 		expect(classes.slice(-2)).toEqual(['conference-line', 'cup-line']);
+	});
+});
+
+describe('TeamHeader season selector and tag', () => {
+	const seasonSelect = (onChange: (season: number) => void = () => {}) => ({
+		seasons: [
+			{ season: 2027, seasonLabel: '2026-27' },
+			{ season: 2005, seasonLabel: '2004-05' }
+		],
+		value: 2027,
+		onChange
+	});
+
+	it('draws the season tag only when the header has one', () => {
+		const { unmount } = render(TeamHeader, {
+			props: {
+				header: { ...header, tag: 'Season 2004-05' },
+				allGamesHref: HOME,
+				standingsHref: STANDINGS,
+				layout: 'desktop'
+			}
+		});
+		expect(screen.getByText('Season 2004-05')).toBeTruthy();
+		unmount();
+		render(TeamHeader, {
+			props: { header, allGamesHref: HOME, standingsHref: STANDINGS, layout: 'desktop' as const }
+		});
+		expect(screen.queryByText('Season 2004-05')).toBeNull();
+	});
+
+	it('draws the select on desktop without the full class and calls onChange with the end year', () => {
+		const calls: number[] = [];
+		const onChange = (season: number) => calls.push(season);
+		render(TeamHeader, {
+			props: {
+				...{ header, allGamesHref: HOME, standingsHref: STANDINGS, layout: 'desktop' as const },
+				layout: 'desktop',
+				seasonSelect: seasonSelect(onChange)
+			}
+		});
+		const select = screen.getByRole('combobox', { name: 'Season' }) as HTMLSelectElement;
+		expect([...select.options].map((option) => option.textContent)).toEqual(['2026-27', '2004-05']);
+		expect(select.classList.contains('full')).toBe(false);
+		select.value = '2005';
+		select.dispatchEvent(new Event('change', { bubbles: true }));
+		expect(calls).toEqual([2005]);
+	});
+
+	it('draws the select full width on mobile', () => {
+		render(TeamHeader, {
+			props: {
+				...{ header, allGamesHref: HOME, standingsHref: STANDINGS, layout: 'desktop' as const },
+				layout: 'mobile',
+				seasonSelect: seasonSelect()
+			}
+		});
+		expect(screen.getByRole('combobox', { name: 'Season' }).classList.contains('full')).toBe(true);
+	});
+
+	it('draws the select with no header, loading or not', () => {
+		render(TeamHeader, {
+			props: {
+				...{ header, allGamesHref: HOME, standingsHref: STANDINGS, layout: 'desktop' as const },
+				header: null,
+				seasonSelect: seasonSelect()
+			}
+		});
+		expect(screen.getByRole('combobox', { name: 'Season' })).toBeTruthy();
+	});
+
+	it('draws no select without the prop', () => {
+		render(TeamHeader, {
+			props: { header, allGamesHref: HOME, standingsHref: STANDINGS, layout: 'desktop' as const }
+		});
+		expect(screen.queryByRole('combobox')).toBeNull();
 	});
 });

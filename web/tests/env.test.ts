@@ -19,6 +19,8 @@
 // - CALENDAR_FEED_URL: rejects a relative URL and an absolute URL without {season}
 // - DAY_FEED_URL: accepts an absolute URL with {date}; empty or missing is undefined
 // - DAY_FEED_URL: rejects a relative URL and an absolute URL without {date}
+// - SEASON_STANDINGS_FEED_URL, SEASON_TEAM_FEED_URL, SEASON_PLAYER_FEED_URL: accept an absolute URL with
+//   their placeholders; empty or missing is undefined; reject a relative URL and a missing placeholder
 //
 // What is covered:
 // - Happy path, edge cases (empty, missing) and error cases, on the schema alone
@@ -35,6 +37,9 @@ type Validator = { '~standard': { validate: (value: unknown) => Outcome } };
 
 const validate = (
 	name:
+		| 'SEASON_STANDINGS_FEED_URL'
+		| 'SEASON_TEAM_FEED_URL'
+		| 'SEASON_PLAYER_FEED_URL'
 		| 'TEAM_FEED_URL'
 		| 'PLAYER_FEED_URL'
 		| 'STANDINGS_FEED_URL'
@@ -275,6 +280,51 @@ describe('DAY_FEED_URL', () => {
 	it('rejects an absolute URL without {date}', () => {
 		expect(validate('DAY_FEED_URL', 'https://feeds.example.com/feed.json')).toEqual({
 			issues: [{ message: 'DAY_FEED_URL must contain {date}' }]
+		});
+	});
+});
+
+describe.each([
+	{
+		name: 'SEASON_STANDINGS_FEED_URL' as const,
+		url: 'https://feeds.example.com/seasons/{season}/standings.json',
+		extra: null
+	},
+	{
+		name: 'SEASON_TEAM_FEED_URL' as const,
+		url: 'https://feeds.example.com/seasons/{season}/teams/{code}.json',
+		extra: '{code}'
+	},
+	{
+		name: 'SEASON_PLAYER_FEED_URL' as const,
+		url: 'https://feeds.example.com/seasons/{season}/players/{id}.json',
+		extra: '{id}'
+	}
+])('$name', ({ name, url, extra }) => {
+	it('accepts an absolute URL with its placeholders and returns it', () => {
+		expect(validate(name, url)).toEqual({ value: url });
+	});
+
+	it('returns undefined for an empty or missing value', () => {
+		expect(validate(name, '')).toEqual({ value: undefined });
+		expect(validate(name, undefined)).toEqual({ value: undefined });
+	});
+
+	it('rejects a relative URL', () => {
+		expect(validate(name, '/seasons/{season}.json')).toEqual({
+			issues: [{ message: `${name} must be an absolute URL` }]
+		});
+	});
+
+	it('rejects an absolute URL without {season}', () => {
+		expect(validate(name, 'https://feeds.example.com/seasons/2005.json')).toEqual({
+			issues: [{ message: `${name} must contain {season}` }]
+		});
+	});
+
+	it.runIf(extra !== null)('rejects an absolute URL without its second placeholder', () => {
+		expect(validate(name, 'https://feeds.example.com/seasons/{season}/x.json')).toEqual({
+			issues: [{ message: `${name} must contain ${extra}` }]
 		});
 	});
 });

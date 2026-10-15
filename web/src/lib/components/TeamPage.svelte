@@ -2,6 +2,7 @@
 	import type { ResolvedPathname } from '$app/types';
 	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
 	import MessageRow from '#lib/components/MessageRow.svelte';
+	import NamesTimeline from '#lib/components/NamesTimeline.svelte';
 	import RosterTable from '#lib/components/RosterTable.svelte';
 	import SectionHead from '#lib/components/SectionHead.svelte';
 	import SectionTabs from '#lib/components/SectionTabs.svelte';
@@ -15,6 +16,7 @@
 	import { play } from '#lib/hero/motion.ts';
 	import { m } from '#lib/paraglide/messages.js';
 	import type { RowLayout } from '#lib/schedule/types.ts';
+	import type { SeasonControl } from '#lib/season/types.ts';
 	import { shimmer } from '#lib/skeleton/motion.ts';
 	import type { TeamPageState } from '#lib/team/types.ts';
 
@@ -25,21 +27,37 @@
 		layout: RowLayout;
 		gameHref: (id: string) => ResolvedPathname;
 		playerHref: (id: string) => ResolvedPathname;
+		seasonSelect?: SeasonControl | null; // null: no selector
+		seasonHref?: (season: number) => string; // the names timeline's links
 	};
 
 	// `state` is renamed so the `$state` rune is not read as a store of the prop.
-	let { state: page, allGamesHref, standingsHref, layout, gameHref, playerHref }: Props = $props();
+	let {
+		state: page,
+		allGamesHref,
+		standingsHref,
+		layout,
+		gameHref,
+		playerHref,
+		seasonSelect = null,
+		seasonHref
+	}: Props = $props();
 </script>
 
 {#if page.kind === 'ready'}
-	<TeamHeader header={page.view.header} {allGamesHref} {standingsHref} {layout} />
+	<TeamHeader header={page.view.header} {allGamesHref} {standingsHref} {layout} {seasonSelect} />
+	{#if page.view.names && seasonHref}
+		<NamesTimeline runs={page.view.names} {layout} {seasonHref} />
+	{/if}
 	<SectionTabs tabs={page.view.tabs} mini={page.view.mini} />
 	{@const sections = page.view.sections}
 	<div class="sections">
-		<section id="overview">
-			<SectionHead title={m.team_tab_overview()} />
-			<TeamOverview overview={sections.overview} {gameHref} />
-		</section>
+		{#if !page.view.past}
+			<section id="overview">
+				<SectionHead title={m.team_tab_overview()} />
+				<TeamOverview overview={sections.overview} {gameHref} />
+			</section>
+		{/if}
 		<section id="record">
 			<SectionHead title={m.team_tab_record()} meta={sections.record.meta} />
 			<TeamRecord record={sections.record} />
@@ -53,13 +71,15 @@
 		{#if sections.roster}
 			<section id="roster">
 				<SectionHead title={m.team_tab_roster()} />
-				<RosterTable roster={sections.roster} {layout} {playerHref} />
+				<RosterTable roster={sections.roster} {layout} {playerHref} status={!page.view.past} />
 			</section>
 		{/if}
-		<section id="injuries">
-			<SectionHead title={m.game_tab_injuries()} meta={m.team_injuries_meta()} />
-			<TeamInjuries injuries={sections.injuries} />
-		</section>
+		{#if !page.view.past}
+			<section id="injuries">
+				<SectionHead title={m.game_tab_injuries()} meta={m.team_injuries_meta()} />
+				<TeamInjuries injuries={sections.injuries} />
+			</section>
+		{/if}
 		{#if sections.schedule}
 			<section id="schedule">
 				<SectionHead title={m.team_tab_schedule()} />
@@ -68,7 +88,7 @@
 		{/if}
 	</div>
 {:else if page.kind === 'loading'}
-	<TeamHeader header={null} loading {allGamesHref} {standingsHref} {layout} />
+	<TeamHeader header={null} loading {allGamesHref} {standingsHref} {layout} {seasonSelect} />
 	<section class="page-section section-skeleton" aria-busy="true">
 		<div class="bones" aria-hidden="true" use:play={shimmer}>
 			<span class="bone heading-bone"></span>
@@ -76,12 +96,17 @@
 		</div>
 	</section>
 {:else if page.kind === 'unavailable'}
-	<TeamHeader header={null} {allGamesHref} {standingsHref} {layout} />
+	<TeamHeader header={null} {allGamesHref} {standingsHref} {layout} {seasonSelect} />
 	<section class="page-section">
 		<MessageRow text={m.feed_unavailable()} />
 	</section>
+{:else if page.kind === 'no-team'}
+	<TeamHeader header={null} {allGamesHref} {standingsHref} {layout} {seasonSelect} />
+	<section class="page-section">
+		<MessageRow text={m.past_team_no_season()} />
+	</section>
 {:else}
-	<TeamHeader header={null} {allGamesHref} {standingsHref} {layout} />
+	<TeamHeader header={null} {allGamesHref} {standingsHref} {layout} {seasonSelect} />
 	<section class="page-section">
 		<MessageRow
 			text={m.team_not_found()}

@@ -10,6 +10,9 @@ import {
 	PLAYOFFS_FEED_URL,
 	PLAYOFFS_FINALS_FEED_URL,
 	SEARCH_FEED_URL,
+	SEASON_PLAYER_FEED_URL,
+	SEASON_STANDINGS_FEED_URL,
+	SEASON_TEAM_FEED_URL,
 	STANDINGS_FEED_URL,
 	TEAM_FEED_URL,
 	VIDEO_PLATFORM_NAME
@@ -29,4 +32,7 @@ export const teamFeedUrl: string | undefined = TEAM_FEED_URL;
 export const playerFeedUrl: string | undefined = PLAYER_FEED_URL;
 export const calendarFeedUrl: string | undefined = CALENDAR_FEED_URL;
 export const dayFeedUrl: string | undefined = DAY_FEED_URL;
+export const seasonStandingsFeedUrl: string | undefined = SEASON_STANDINGS_FEED_URL;
+export const seasonTeamFeedUrl: string | undefined = SEASON_TEAM_FEED_URL;
+export const seasonPlayerFeedUrl: string | undefined = SEASON_PLAYER_FEED_URL;
 export const videoPlatformName: string | undefined = VIDEO_PLATFORM_NAME;

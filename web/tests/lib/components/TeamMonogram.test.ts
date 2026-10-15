@@ -14,6 +14,7 @@
 // - Uses the playoffs-champion box in the playoffs hero
 // - Uses the cup-node box in a bracket node
 // - Uses the allstar-league box for a player's league team
+// - Uses the names box in the franchise names timeline
 // - Links the code to the href when one is given, and renders a span without one
 //
 // What is covered:
@@ -116,5 +117,11 @@ describe('TeamMonogram', () => {
 		const link = container.querySelector('a');
 		expect(link?.classList.contains('allstar-league')).toBe(true);
 		expect(link?.getAttribute('href')).toBe('/team/hbr');
+	});
+
+	it('renders the names size, not linked', () => {
+		const { container } = render(TeamMonogram, { props: { code: 'LKV', size: 'names' } });
+		expect(screen.getByText('LKV').classList.contains('names')).toBe(true);
+		expect(container.querySelector('a')).toBeNull();
 	});
 });

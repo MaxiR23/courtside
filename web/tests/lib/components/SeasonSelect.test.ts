@@ -8,6 +8,7 @@
 // - Changing the select calls onChange with the end year as a number
 // - Spanish name with a Spanish browser preference
 // - The select height, border and text size come from tokens in its source
+// - The full variant has the full class and a hit-target height from a token; without it the class is absent
 //
 // What is covered:
 // - The select drawn from props with no fetch; jsdom does no layout, so sizes are asserted in the source
@@ -67,5 +68,20 @@ describe('SeasonSelect', () => {
 		expect(source).toContain('border: var(--hairline) solid var(--past-select-border)');
 		expect(source).toContain('font-size: var(--past-select-size)');
 		expect(source).toContain('letter-spacing: var(--past-select-letter-spacing)');
+	});
+
+	it('has the full class and a hit-target height only with full', () => {
+		const { unmount } = render(SeasonSelect, {
+			props: { seasons, value: 2027, onChange: vi.fn(), full: true }
+		});
+		expect(screen.getByRole('combobox').classList.contains('full')).toBe(true);
+		unmount();
+		render(SeasonSelect, { props: { seasons, value: 2027, onChange: vi.fn() } });
+		expect(screen.getByRole('combobox').classList.contains('full')).toBe(false);
+		const source = readFileSync(
+			join(__dirname, '..', '..', '..', 'src', 'lib', 'components', 'SeasonSelect.svelte'),
+			'utf8'
+		);
+		expect(source).toContain('height: var(--hit-target-size)');
 	});
 });

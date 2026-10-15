@@ -21,6 +21,8 @@
 // - Spanish copy
 // - The Cup mark: the header line, none for a null mark
 // - The titles: the header badges filled from the feed, none for null titles
+// - A past season (option past): the season tag, no Overview and Injuries tabs, past true; Spanish
+// - names: null with zero or one run; four runs as years, name, code and last season; current run "2015–"
 //
 // What is covered:
 // - Pure logic on a recorded feed (tests/lib/feed/fixtures/team.json); no clock, no network
@@ -39,6 +41,9 @@ import { preferLanguages } from '../../prefer-languages';
 
 const feed = (): TeamFeed =>
 	JSON.parse(readFileSync(join(__dirname, 'fixtures', 'team.json'), 'utf8')) as TeamFeed;
+
+const pastFeed = (): TeamFeed =>
+	JSON.parse(readFileSync(join(__dirname, 'fixtures', 'team-past.json'), 'utf8')) as TeamFeed;
 
 const view = (source: TeamFeed = feed()): TeamView => toTeamView(source);
 const league = (code: string) => ({ code, name: null, city: null, guest: false });
@@ -598,5 +603,59 @@ describe('toTeamView with a guest opponent without a code', () => {
 			team: mariners,
 			isHome: true
 		});
+	});
+});
+
+describe('toTeamView past season', () => {
+	it('shows the season tag and marks the view past', () => {
+		const v = toTeamView(pastFeed(), { past: true });
+		expect(v.header.tag).toBe('Season 2004-05');
+		expect(v.past).toBe(true);
+	});
+
+	it('leaves Overview and Injuries out of the tabs', () => {
+		const ids = toTeamView(pastFeed(), { past: true }).tabs.map((tab) => tab.id);
+		expect(ids).toEqual(['record', 'leaders', 'roster', 'schedule']);
+	});
+
+	it('has no tag and keeps every tab on the current season', () => {
+		const v = view();
+		expect(v.header.tag).toBeNull();
+		expect(v.past).toBe(false);
+		expect(v.tabs.map((tab) => tab.id)).toContain('overview');
+		expect(v.tabs.map((tab) => tab.id)).toContain('injuries');
+	});
+
+	it('speaks Spanish', () => {
+		preferLanguages(['es']);
+		expect(toTeamView(pastFeed(), { past: true }).header.tag).toBe('Temporada 2004-05');
+	});
+});
+
+describe('toTeamView names', () => {
+	it('is null with no run and with one run', () => {
+		expect(view({ ...feed(), names: [] }).names).toBeNull();
+		const one = [{ from: 1994, to: null, name: 'Mariners', location: 'Harbor City', code: 'HCM' }];
+		expect(view({ ...feed(), names: one }).names).toBeNull();
+	});
+
+	it('maps four runs to years, name, code and last season', () => {
+		const names = toTeamView(pastFeed()).names;
+		expect(names).toEqual([
+			{ key: '1994', years: '1994–2001', name: 'Lakeview Pilots', code: 'LKV', season: 2001 },
+			{ key: '2002', years: '2002–2008', name: 'Harbor City Mariners', code: 'HCM', season: 2008 },
+			{ key: '2009', years: '2009–2014', name: 'Harbor City Harbors', code: 'HCH', season: 2014 },
+			{ key: '2015', years: '2015–', name: 'Harbor City Skippers', code: 'OKC', season: null }
+		]);
+	});
+
+	it('keeps the years unchanged in Spanish', () => {
+		preferLanguages(['es']);
+		expect(toTeamView(pastFeed()).names?.map((run) => run.years)).toEqual([
+			'1994–2001',
+			'2002–2008',
+			'2009–2014',
+			'2015–'
+		]);
 	});
 });

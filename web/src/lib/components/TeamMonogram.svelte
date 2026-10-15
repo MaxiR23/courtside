@@ -16,7 +16,8 @@
 			| 'cup-champion'
 			| 'playoffs-champion'
 			| 'cup-node'
-			| 'allstar-league';
+			| 'allstar-league'
+			| 'names';
 		href?: ResolvedPathname;
 	};
 
@@ -108,6 +109,11 @@
 		width: var(--bracket-tile-size);
 		height: var(--bracket-tile-size);
 		font-size: var(--bracket-meta-size);
+	}
+
+	.names {
+		width: var(--past-sigla-width);
+		height: var(--past-sigla-height);
 	}
 
 	.allstar-league {

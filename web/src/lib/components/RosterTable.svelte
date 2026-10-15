@@ -9,9 +9,10 @@
 		roster: RosterRow[];
 		layout: RowLayout;
 		playerHref: (id: string) => ResolvedPathname;
+		status?: boolean; // false: no status column (a past season)
 	};
 
-	let { roster, layout, playerHref }: Props = $props();
+	let { roster, layout, playerHref, status = true }: Props = $props();
 
 	type Field = Exclude<keyof RosterRow, 'id' | 'name' | 'photo' | 'status'>;
 
@@ -30,13 +31,15 @@
 </script>
 
 <div class="scroll">
-	<div class="table" class:mobile={layout === 'mobile'} role="table">
+	<div class="table" class:mobile={layout === 'mobile'} class:no-status={!status} role="table">
 		<div class="row head" role="row">
 			<span class="cell player" role="columnheader">{m.team_roster_player()}</span>
 			{#each columns as column (column.key)}
 				<span class="cell" role="columnheader">{column.label()}</span>
 			{/each}
-			<span class="cell" role="columnheader">{m.team_roster_status()}</span>
+			{#if status}
+				<span class="cell" role="columnheader">{m.team_roster_status()}</span>
+			{/if}
 		</div>
 		{#each roster as row (row.id)}
 			<div class="row body" role="row">
@@ -47,13 +50,15 @@
 				{#each columns as column (column.key)}
 					<span class="cell" role="cell">{row[column.key] ?? ''}</span>
 				{/each}
-				<span
-					class="cell status"
-					class:tone-out={row.status.tone === 'out'}
-					class:tone-ink={row.status.tone === 'ink'}
-					class:tone-muted={row.status.tone === 'muted'}
-					role="cell">{row.status.label}</span
-				>
+				{#if status}
+					<span
+						class="cell status"
+						class:tone-out={row.status.tone === 'out'}
+						class:tone-ink={row.status.tone === 'ink'}
+						class:tone-muted={row.status.tone === 'muted'}
+						role="cell">{row.status.label}</span
+					>
+				{/if}
 			</div>
 		{/each}
 	</div>
@@ -86,6 +91,20 @@
 			minmax(var(--roster-wide-column-min), 1fr)
 			repeat(2, minmax(var(--roster-text-column-min), 2fr)) minmax(var(--box-column-min), 1fr)
 			minmax(var(--roster-wide-column-min), 1fr);
+	}
+
+	.no-status .row {
+		grid-template-columns:
+			var(--roster-player-column) repeat(5, minmax(var(--box-column-min), 1fr))
+			minmax(var(--roster-wide-column-min), 1fr)
+			repeat(2, minmax(var(--roster-text-column-min), 2fr)) minmax(var(--box-column-min), 1fr);
+	}
+
+	.no-status.mobile .row {
+		grid-template-columns:
+			var(--roster-player-column-mobile) repeat(5, minmax(var(--box-column-min), 1fr))
+			minmax(var(--roster-wide-column-min), 1fr)
+			repeat(2, minmax(var(--roster-text-column-min), 2fr)) minmax(var(--box-column-min), 1fr);
 	}
 
 	.cell {

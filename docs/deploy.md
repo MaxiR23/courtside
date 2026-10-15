@@ -43,7 +43,10 @@ domains below are placeholders.
    `TEAM_FEED_URL=https://api.example.com/feeds/teams/{code}.json`,
    `PLAYER_FEED_URL=https://api.example.com/feeds/players/{id}.json`,
    `CALENDAR_FEED_URL=https://api.example.com/feeds/seasons/{season}/calendar.json`,
-   `DAY_FEED_URL=https://api.example.com/feeds/days/{date}.json` and
+   `DAY_FEED_URL=https://api.example.com/feeds/days/{date}.json`,
+   `SEASON_STANDINGS_FEED_URL=https://api.example.com/feeds/seasons/{season}/standings.json`,
+   `SEASON_TEAM_FEED_URL=https://api.example.com/feeds/seasons/{season}/teams/{code}.json`,
+   `SEASON_PLAYER_FEED_URL=https://api.example.com/feeds/seasons/{season}/players/{id}.json` and
    `VIDEO_PLATFORM_NAME`.
 3. `cd web && pnpm install --frozen-lockfile && pnpm run build`
 4. Upload the contents of `web/build/` to the static host. Configure the static

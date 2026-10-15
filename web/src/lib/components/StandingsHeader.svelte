@@ -1,16 +1,20 @@
 <script lang="ts">
 	import type { ResolvedPathname } from '$app/types';
 	import NavRow from '#lib/components/NavRow.svelte';
+	import SeasonSelect from '#lib/components/SeasonSelect.svelte';
+	import SeasonTag from '#lib/components/SeasonTag.svelte';
 	import StatusTag from '#lib/components/StatusTag.svelte';
 	import { play } from '#lib/hero/motion.ts';
 	import { m } from '#lib/paraglide/messages.js';
 	import type { RowLayout } from '#lib/schedule/types.ts';
+	import type { SeasonControl } from '#lib/season/types.ts';
 	import { shimmer } from '#lib/skeleton/motion.ts';
 	import type { StandingsGrouping, StandingsHeaderView } from '#lib/standings/types.ts';
 
 	type Props = {
 		header: StandingsHeaderView | null; // null: only the nav row and the title, or the bones while loading
 		loading?: boolean; // the first feed has not loaded yet: show the skeleton
+		seasonSelect?: SeasonControl | null; // null: no selector
 		allGamesHref: ResolvedPathname;
 		standingsHref: ResolvedPathname;
 		layout: RowLayout;
@@ -25,7 +29,8 @@
 		standingsHref,
 		layout,
 		grouping,
-		onGroupingChange
+		onGroupingChange,
+		seasonSelect = null
 	}: Props = $props();
 </script>
 
@@ -33,12 +38,16 @@
 	<div class="grid-bg" aria-hidden="true"></div>
 	<div class="content">
 		<NavRow page="standings" gamesHref={allGamesHref} {standingsHref} {layout} />
+		{#if seasonSelect && layout === 'desktop'}
+			<div class="season-row"><SeasonSelect {...seasonSelect} /></div>
+		{/if}
 
 		{#if header}
 			<div class="columns">
 				<div class="intro">
 					<div class="season-line">
 						<StatusTag text={header.season} accent />
+						{#if header.tag}<SeasonTag text={header.tag} />{/if}
 						<span class="state-line">{header.stateLine}</span>
 					</div>
 					<h1>{m.standings_title()}</h1>
@@ -74,6 +83,9 @@
 					<span class="bone toggle-bone"></span>
 				</div>
 			{/if}
+		{/if}
+		{#if seasonSelect && layout === 'mobile'}
+			<div class="season-row"><SeasonSelect {...seasonSelect} full /></div>
 		{/if}
 	</div>
 </header>
@@ -193,5 +205,10 @@
 	.toggle-bone {
 		width: var(--skeleton-button-width);
 		height: var(--hit-target-size);
+	}
+
+	.season-row {
+		display: flex;
+		justify-content: flex-end;
 	}
 </style>

@@ -16,6 +16,10 @@
 // - Pauses while the tab is hidden and loads at once when visible again
 // - Keeps the last feed on screen when a later poll fails
 // - Renders in English and in Spanish, including the live card with no line
+// - With ?season: loads the calendar, then only the season feed, once; no polling; loading, 503 and 404 states
+// - An invalid, unlisted or current ?season loads the current feed and polls it; a late calendar does not reload it
+// - Calendar 503 or no calendar URL: the current season and no select
+// - The select lists the right seasons and navigates with goto; Spanish
 //
 // What is covered:
 // - The page wired end to end: config, fetch, polling, props layer, header, tabs, footer
@@ -36,8 +40,32 @@ import { preferLanguages } from '../../../prefer-languages';
 
 import Page from '../../../../src/routes/player/[id]/+page.svelte';
 
+const seasonMocks = vi.hoisted(() => ({
+	calendar: undefined as string | undefined,
+	past: undefined as string | undefined,
+	url: new URL('http://localhost/'),
+	goto: vi.fn()
+}));
+vi.mock('$app/state', () => ({
+	page: {
+		get url() {
+			return seasonMocks.url;
+		}
+	}
+}));
+vi.mock('$app/navigation', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$app/navigation')>()),
+	goto: seasonMocks.goto
+}));
+
 const config = vi.hoisted(() => ({ url: undefined as string | undefined }));
 vi.mock('../../../../src/lib/feed/config', () => ({
+	get calendarFeedUrl() {
+		return seasonMocks.calendar;
+	},
+	get seasonPlayerFeedUrl() {
+		return seasonMocks.past;
+	},
 	get playerFeedUrl() {
 		return config.url;
 	}
@@ -288,5 +316,221 @@ describe('player page', () => {
 		expect(nav.textContent).toContain('Perfil');
 		expect(screen.getByText('Todavía no entró.')).toBeTruthy();
 		expect(screen.getByText('41.º en la NBA')).toBeTruthy();
+	});
+});
+
+const CAL_TEMPLATE = 'https://feeds.example.com/seasons/{season}/calendar.json';
+const CAL_URL = 'https://feeds.example.com/seasons/current/calendar.json';
+const CURRENT_URL = feedUrl('p-2');
+const PAST_TEMPLATE = 'https://feeds.example.com/seasons/{season}/players/{id}.json';
+const pastUrl = (season: number) => `https://feeds.example.com/seasons/${season}/players/p-2.json`;
+const fixtures = join(__dirname, '..', '..', '..', 'lib', 'feed', 'fixtures');
+const calendarFeed = () => JSON.parse(readFileSync(join(fixtures, 'calendar.json'), 'utf8'));
+const pastRecorded = (): PlayerFeed =>
+	JSON.parse(readFileSync(join(fixtures, 'player-past.json'), 'utf8')) as PlayerFeed;
+
+type Routes = Record<string, Answer[]>;
+let calls: string[];
+
+// Answers by URL; the last answer of a URL repeats; any other URL throws.
+function stubRoutes(routes: Routes) {
+	calls = [];
+	vi.stubGlobal(
+		'fetch',
+		vi.fn((url: string) => {
+			const list = routes[url];
+			if (!list) throw new Error(`Unexpected URL ${url}`);
+			calls.push(url);
+			const index = Math.min(calls.filter((call) => call === url).length - 1, list.length - 1);
+			return (list[index] as Answer)();
+		})
+	);
+}
+
+const answerJson =
+	(body: unknown): Answer =>
+	() =>
+		Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(body) });
+const never: Answer = () => new Promise(() => {});
+const countOf = (url: string) => calls.filter((call) => call === url).length;
+
+async function settleAll() {
+	for (let i = 0; i < 4; i++) await settle();
+}
+
+async function renderSeason(query: string) {
+	seasonMocks.url = new URL(`http://localhost/player/p-2${query}`);
+	const result = render(Page, { props: { params: { id: 'p-2' }, data: {} } });
+	await settleAll();
+	return result;
+}
+
+function choose(value: string) {
+	const select = screen.getByRole('combobox', { name: 'Season' }) as HTMLSelectElement;
+	select.value = value;
+	select.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+const optionLabels = () =>
+	[...(screen.getByRole('combobox', { name: 'Season' }) as HTMLSelectElement).options].map(
+		(option) => option.textContent
+	);
+
+describe('player page season selector', () => {
+	beforeEach(() => {
+		seasonMocks.calendar = CAL_TEMPLATE;
+		seasonMocks.past = PAST_TEMPLATE;
+		seasonMocks.goto.mockReset();
+	});
+
+	afterEach(() => {
+		seasonMocks.calendar = undefined;
+		seasonMocks.past = undefined;
+		seasonMocks.url = new URL('http://localhost/');
+	});
+
+	it('loads the calendar, then only the season feed, for ?season=2005', async () => {
+		stubRoutes({
+			[CAL_URL]: [answerJson(calendarFeed())],
+			[pastUrl(2005)]: [answerJson(pastRecorded())]
+		});
+		await renderSeason('?season=2005');
+		expect(calls).toEqual([CAL_URL, pastUrl(2005)]);
+		expect(screen.getByText('Season 2004-05')).toBeTruthy();
+	});
+
+	it('does not poll a past season', async () => {
+		stubRoutes({
+			[CAL_URL]: [answerJson(calendarFeed())],
+			[pastUrl(2005)]: [answerJson(pastRecorded())]
+		});
+		await renderSeason('?season=2005');
+		await vi.advanceTimersByTimeAsync(10 * 60_000);
+		expect(countOf(pastUrl(2005))).toBe(1);
+		expect(countOf(CAL_URL)).toBe(1);
+	});
+
+	it('shows the loading skeleton while the calendar is pending', async () => {
+		stubRoutes({ [CAL_URL]: [never] });
+		const { container } = await renderSeason('?season=2005');
+		expect(container.querySelector('[aria-busy="true"]')).toBeTruthy();
+		expect(calls).toEqual([CAL_URL]);
+	});
+
+	it('shows the loading skeleton and the select while the season feed is pending', async () => {
+		stubRoutes({ [CAL_URL]: [answerJson(calendarFeed())], [pastUrl(2005)]: [never] });
+		const { container } = await renderSeason('?season=2005');
+		expect(container.querySelector('[aria-busy="true"]')).toBeTruthy();
+		expect(screen.getByRole('combobox', { name: 'Season' })).toBeTruthy();
+	});
+
+	it('shows the unavailable row on a 503 of the season feed', async () => {
+		stubRoutes({ [CAL_URL]: [answerJson(calendarFeed())], [pastUrl(2005)]: [answerStatus(503)] });
+		await renderSeason('?season=2005');
+		expect(screen.getByText(UNAVAILABLE)).toBeTruthy();
+	});
+
+	it('shows Player not found. on a 404 of the season feed', async () => {
+		stubRoutes({ [CAL_URL]: [answerJson(calendarFeed())], [pastUrl(2005)]: [answerStatus(404)] });
+		await renderSeason('?season=2005');
+		expect(screen.getByText('Player not found.')).toBeTruthy();
+		expect(screen.getByRole('combobox', { name: 'Season' })).toBeTruthy();
+	});
+
+	it.each(['?season=abcd', '?season=1990', '?season=2027'])(
+		'loads the current feed and polls it for %s',
+		async (query) => {
+			stubRoutes({
+				[CAL_URL]: [answerJson(calendarFeed())],
+				[CURRENT_URL]: [answerJson(recorded())]
+			});
+			await renderSeason(query);
+			expect(calls).toEqual([CAL_URL, CURRENT_URL]);
+			await vi.advanceTimersByTimeAsync(60_000);
+			expect(countOf(CURRENT_URL)).toBe(2);
+		}
+	);
+
+	it('loads the current feed once when the calendar arrives later, then shows the select', async () => {
+		let release: () => void = () => {};
+		const late: Answer = () =>
+			new Promise((resolve) => {
+				release = () =>
+					resolve({ ok: true, status: 200, json: () => Promise.resolve(calendarFeed()) });
+			});
+		stubRoutes({ [CAL_URL]: [late], [CURRENT_URL]: [answerJson(recorded())] });
+		await renderSeason('');
+		expect(countOf(CURRENT_URL)).toBe(1);
+		expect(screen.queryByRole('combobox')).toBeNull();
+		release();
+		await settleAll();
+		expect(countOf(CURRENT_URL)).toBe(1);
+		expect(screen.getByRole('combobox', { name: 'Season' })).toBeTruthy();
+	});
+
+	it('shows the current season and no select when the calendar answers 503', async () => {
+		stubRoutes({ [CAL_URL]: [answerStatus(503)], [CURRENT_URL]: [answerJson(recorded())] });
+		await renderSeason('?season=2005');
+		expect(calls).toEqual([CAL_URL, CURRENT_URL]);
+		expect(screen.queryByRole('combobox')).toBeNull();
+	});
+
+	it('shows the current season and no select with no calendar URL', async () => {
+		seasonMocks.calendar = undefined;
+		stubRoutes({ [CURRENT_URL]: [answerJson(recorded())] });
+		await renderSeason('?season=2005');
+		expect(calls).toEqual([CURRENT_URL]);
+		expect(screen.queryByRole('combobox')).toBeNull();
+	});
+
+	it('lists the current season and the seasons of the regular-season rows', async () => {
+		stubRoutes({
+			[CAL_URL]: [answerJson(calendarFeed())],
+			[CURRENT_URL]: [answerJson(recorded())],
+			[pastUrl(2005)]: [answerJson(pastRecorded())]
+		});
+		const first = await renderSeason('');
+		expect(optionLabels()).toEqual(['2026-27', '2025-26', '2024-25', '2018-19']);
+		first.unmount();
+		await renderSeason('?season=2005');
+		expect(optionLabels()).toEqual(['2026-27', '2005-06', '2004-05', '2003-04']);
+	});
+
+	it('shows the past season with its tag, its team, the game log and no next game', async () => {
+		stubRoutes({
+			[CAL_URL]: [answerJson(calendarFeed())],
+			[pastUrl(2005)]: [answerJson(pastRecorded())]
+		});
+		const { container } = await renderSeason('?season=2005');
+		expect(screen.getByRole('heading', { level: 1, name: 'Rivera' })).toBeTruthy();
+		expect(screen.getByText('#2 · Guard · Harbor City Mariners')).toBeTruthy();
+		expect(container.querySelector('#game-log')).toBeTruthy();
+		expect(container.querySelector('#averages')).toBeTruthy();
+		expect(container.querySelector('#seasons .accent')?.textContent).toContain('2004-05');
+		expect(screen.queryByText('Season over.')).toBeNull();
+		expect(screen.queryByText('Active')).toBeNull();
+	});
+
+	it('goes to ?season=2019 when 2019 is chosen and to the bare route for the current season', async () => {
+		stubRoutes({
+			[CAL_URL]: [answerJson(calendarFeed())],
+			[CURRENT_URL]: [answerJson(recorded())]
+		});
+		await renderSeason('');
+		choose('2019');
+		expect(seasonMocks.goto).toHaveBeenLastCalledWith('/player/p-2?season=2019');
+		choose('2027');
+		expect(seasonMocks.goto).toHaveBeenLastCalledWith('/player/p-2');
+	});
+
+	it('renders in Spanish', async () => {
+		preferLanguages(['es']);
+		stubRoutes({
+			[CAL_URL]: [answerJson(calendarFeed())],
+			[pastUrl(2005)]: [answerJson(pastRecorded())]
+		});
+		await renderSeason('?season=2005');
+		expect(screen.getByText('Temporada 2004-05')).toBeTruthy();
+		expect(screen.getByRole('combobox', { name: 'Temporada' })).toBeTruthy();
 	});
 });

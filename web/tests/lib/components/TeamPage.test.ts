@@ -10,6 +10,9 @@
 // - Not found: "Team not found." and two All games links
 // - The footer in every state
 // - Links to the leader and roster player pages, with no nested interactive element
+// - The season select reaches the header in every state, and is absent without the prop
+// - A past view hides Overview, Injuries and the roster status column; no-team shows "No team this season."
+// - The names timeline renders under the header with four runs and not with none
 //
 // What is covered:
 // - Each page state, drawn from props with no fetch; the view comes from the recorded team feed
@@ -133,5 +136,110 @@ describe('TeamPage other states', () => {
 		expect(screen.getByText('Team not found.')).toBeTruthy();
 		expect(screen.getAllByRole('link', { name: 'All games' })).toHaveLength(2);
 		expect(container.querySelector('footer')).toBeTruthy();
+	});
+});
+
+const seasonSelect = {
+	seasons: [
+		{ season: 2027, seasonLabel: '2026-27' },
+		{ season: 2005, seasonLabel: '2004-05' }
+	],
+	value: 2027,
+	onChange: () => {}
+};
+
+const pastFeed = (): TeamFeed =>
+	JSON.parse(
+		readFileSync(join(__dirname, '..', 'feed', 'fixtures', 'team-past.json'), 'utf8')
+	) as TeamFeed;
+
+const seasonHref = (season: number) => `/team/okc?season=${season}`;
+
+const showWith = (state: TeamPageState, extra: Record<string, unknown> = {}) =>
+	render(TeamPage, {
+		props: {
+			state,
+			allGamesHref: HOME,
+			standingsHref: STANDINGS,
+			layout: 'desktop',
+			gameHref,
+			playerHref,
+			...extra
+		}
+	});
+
+describe('TeamPage season selector', () => {
+	it.each([
+		['ready', ready()],
+		['loading', { kind: 'loading' } as TeamPageState],
+		['unavailable', { kind: 'unavailable' } as TeamPageState],
+		['not-found', { kind: 'not-found' } as TeamPageState],
+		['no-team', { kind: 'no-team' } as TeamPageState]
+	])('draws the select in the %s state', (_name, state) => {
+		showWith(state, { seasonSelect });
+		expect(screen.getByRole('combobox', { name: 'Season' })).toBeTruthy();
+	});
+
+	it('draws no select without the prop', () => {
+		show(ready());
+		expect(screen.queryByRole('combobox')).toBeNull();
+	});
+});
+
+describe('TeamPage past season', () => {
+	const past: TeamPageState = { kind: 'ready', view: toTeamView(pastFeed(), { past: true }) };
+
+	it('renders no Overview and no Injuries section, and no such tabs', () => {
+		const { container } = showWith(past);
+		const ids = [...container.querySelectorAll('.sections > section')].map((s) => s.id);
+		expect(ids).toEqual(['record', 'leaders', 'roster', 'schedule']);
+		expect(container.querySelector('#overview')).toBeNull();
+		expect(container.querySelector('#injuries')).toBeNull();
+		const tabHrefs = screen
+			.getAllByRole('link')
+			.map((a) => a.getAttribute('href'))
+			.filter((href) => href?.startsWith('#'));
+		expect(tabHrefs).toEqual(ids.map((id) => `#${id}`));
+	});
+
+	it('renders the roster without the status column', () => {
+		showWith(past);
+		const headers = screen.getAllByRole('columnheader').map((cell) => cell.textContent);
+		expect(headers).not.toContain('Status');
+	});
+
+	it('shows the season tag', () => {
+		showWith(past);
+		expect(screen.getByText('Season 2004-05')).toBeTruthy();
+	});
+
+	it('shows No team this season. with the select on no-team', () => {
+		showWith({ kind: 'no-team' }, { seasonSelect });
+		expect(screen.getByText('No team this season.')).toBeTruthy();
+		expect(screen.getByRole('combobox')).toBeTruthy();
+	});
+});
+
+describe('TeamPage names timeline', () => {
+	it('renders the timeline under the header with four runs', () => {
+		const state: TeamPageState = { kind: 'ready', view: toTeamView(pastFeed(), { past: true }) };
+		const { container } = showWith(state, { seasonHref });
+		expect(screen.getByText('Names')).toBeTruthy();
+		expect(container.querySelectorAll('.runs li')).toHaveLength(4);
+		const header = container.querySelector('header');
+		const names = container.querySelector('.names');
+		expect(header && names && header.compareDocumentPosition(names)).toBe(
+			Node.DOCUMENT_POSITION_FOLLOWING
+		);
+	});
+
+	it('renders no timeline when the view has no names', () => {
+		showWith(ready(), { seasonHref });
+		expect(screen.queryByText('Names')).toBeNull();
+	});
+
+	it('renders no timeline without seasonHref', () => {
+		showWith({ kind: 'ready', view: toTeamView(pastFeed(), { past: true }) });
+		expect(screen.queryByText('Names')).toBeNull();
 	});
 });

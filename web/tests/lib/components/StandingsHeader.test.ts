@@ -8,6 +8,7 @@
 // - Only the nav and the h1 without a header
 // - Bones and aria-busy while loading; the shimmer, and not with reduced motion
 // - Spanish copy
+// - The season tag when the header has one; the select on desktop and mobile, with no header, and its onChange; none without the prop
 //
 // What is covered:
 // - Each state the header shows, drawn from props with no fetch
@@ -119,5 +120,56 @@ describe('StandingsHeader', () => {
 		expect(screen.getByRole('group', { name: 'Vista de la clasificación' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Conferencia' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'División' })).toBeTruthy();
+	});
+});
+
+describe('StandingsHeader season selector and tag', () => {
+	const seasonSelect = (onChange = vi.fn()) => ({
+		seasons: [
+			{ season: 2027, seasonLabel: '2026-27' },
+			{ season: 2005, seasonLabel: '2004-05' }
+		],
+		value: 2027,
+		onChange
+	});
+
+	it('draws the season tag only when the header has one', () => {
+		const { unmount } = render(StandingsHeader, {
+			props: props({ header: { ...header, tag: 'Season 2004-05' } })
+		});
+		expect(screen.getByText('Season 2004-05')).toBeTruthy();
+		unmount();
+		render(StandingsHeader, { props: props() });
+		expect(screen.queryByText('Season 2004-05')).toBeNull();
+	});
+
+	it('draws the select on desktop without the full class and calls onChange with the end year', () => {
+		const onChange = vi.fn();
+		render(StandingsHeader, {
+			props: { ...props(), layout: 'desktop', seasonSelect: seasonSelect(onChange) }
+		});
+		const select = screen.getByRole('combobox', { name: 'Season' }) as HTMLSelectElement;
+		expect([...select.options].map((option) => option.textContent)).toEqual(['2026-27', '2004-05']);
+		expect(select.classList.contains('full')).toBe(false);
+		select.value = '2005';
+		select.dispatchEvent(new Event('change', { bubbles: true }));
+		expect(onChange).toHaveBeenCalledWith(2005);
+	});
+
+	it('draws the select full width on mobile', () => {
+		render(StandingsHeader, {
+			props: { ...props(), layout: 'mobile', seasonSelect: seasonSelect() }
+		});
+		expect(screen.getByRole('combobox', { name: 'Season' }).classList.contains('full')).toBe(true);
+	});
+
+	it('draws the select with no header, loading or not', () => {
+		render(StandingsHeader, { props: { ...props(), header: null, seasonSelect: seasonSelect() } });
+		expect(screen.getByRole('combobox', { name: 'Season' })).toBeTruthy();
+	});
+
+	it('draws no select without the prop', () => {
+		render(StandingsHeader, { props: props() });
+		expect(screen.queryByRole('combobox')).toBeNull();
 	});
 });

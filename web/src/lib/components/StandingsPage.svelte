@@ -9,6 +9,7 @@
 	import { play } from '#lib/hero/motion.ts';
 	import { m } from '#lib/paraglide/messages.js';
 	import type { RowLayout } from '#lib/schedule/types.ts';
+	import type { SeasonControl } from '#lib/season/types.ts';
 	import { shimmer } from '#lib/skeleton/motion.ts';
 	import type { StandingsGrouping, StandingsPageState } from '#lib/standings/types.ts';
 
@@ -18,10 +19,18 @@
 		standingsHref: ResolvedPathname;
 		layout: RowLayout;
 		teamHref: (code: string) => ResolvedPathname;
+		seasonSelect?: SeasonControl | null; // null: no selector
 	};
 
 	// `state` is renamed so the `$state` rune is not read as a store of the prop.
-	let { state: page, allGamesHref, standingsHref, layout, teamHref }: Props = $props();
+	let {
+		state: page,
+		allGamesHref,
+		standingsHref,
+		layout,
+		teamHref,
+		seasonSelect = null
+	}: Props = $props();
 
 	// Not kept between visits.
 	let grouping = $state<StandingsGrouping>('conference');
@@ -37,6 +46,7 @@
 		{standingsHref}
 		{layout}
 		{grouping}
+		{seasonSelect}
 		onGroupingChange={(next) => (grouping = next)}
 	/>
 	<div class="groups">
@@ -53,6 +63,7 @@
 		{standingsHref}
 		{layout}
 		{grouping}
+		{seasonSelect}
 		onGroupingChange={noop}
 	/>
 	<section class="page-section table-skeleton" aria-busy="true">
@@ -74,6 +85,7 @@
 		{standingsHref}
 		{layout}
 		{grouping}
+		{seasonSelect}
 		onGroupingChange={noop}
 	/>
 	<section class="page-section">

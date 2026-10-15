@@ -145,6 +145,48 @@ export const variables = defineEnvVars({
 			return value;
 		}
 	},
+	SEASON_STANDINGS_FEED_URL: {
+		public: true,
+		static: true,
+		description:
+			"Absolute URL of the standings feed of a past season, with {season} where the season's end year goes, read at build time",
+		schema: (value) => {
+			if (!value) return undefined;
+			if (!URL.canParse(value))
+				throw new Error('SEASON_STANDINGS_FEED_URL must be an absolute URL');
+			if (!value.includes('{season}'))
+				throw new Error('SEASON_STANDINGS_FEED_URL must contain {season}');
+			return value;
+		}
+	},
+	SEASON_TEAM_FEED_URL: {
+		public: true,
+		static: true,
+		description:
+			"Absolute URL of a team's feed in a past season, with {season} where the season's end year goes and {code} where the lowercase team code goes, read at build time",
+		schema: (value) => {
+			if (!value) return undefined;
+			if (!URL.canParse(value)) throw new Error('SEASON_TEAM_FEED_URL must be an absolute URL');
+			if (!value.includes('{season}'))
+				throw new Error('SEASON_TEAM_FEED_URL must contain {season}');
+			if (!value.includes('{code}')) throw new Error('SEASON_TEAM_FEED_URL must contain {code}');
+			return value;
+		}
+	},
+	SEASON_PLAYER_FEED_URL: {
+		public: true,
+		static: true,
+		description:
+			"Absolute URL of a player's feed in a past season, with {season} where the season's end year goes and {id} where the player id goes, read at build time",
+		schema: (value) => {
+			if (!value) return undefined;
+			if (!URL.canParse(value)) throw new Error('SEASON_PLAYER_FEED_URL must be an absolute URL');
+			if (!value.includes('{season}'))
+				throw new Error('SEASON_PLAYER_FEED_URL must contain {season}');
+			if (!value.includes('{id}')) throw new Error('SEASON_PLAYER_FEED_URL must contain {id}');
+			return value;
+		}
+	},
 	VIDEO_PLATFORM_NAME: {
 		public: true,
 		static: true,

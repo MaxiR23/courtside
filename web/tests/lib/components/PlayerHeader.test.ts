@@ -9,6 +9,8 @@
 // - The four stat cells; no stats block with null stats
 // - Loading: aria-busy and the bones; a null header shows only the nav row
 // - The All-Star tag in the tags when the header has one, none without it, and it is not a link
+// - The season tag when the header has one; the select on desktop and mobile, with no header, and its onChange; none without the prop
+// - A null status draws no status tag
 //
 // What is covered:
 // - Each state, drawn from props with no fetch
@@ -177,5 +179,88 @@ describe('PlayerHeader with the All-Star tag', () => {
 	it('draws the tag as plain text, not a link', () => {
 		const { container } = show({ header: { ...header, allStarTag: 'All-Star 2027' } });
 		expect(container.querySelector('.allstar-mark a, .allstar-mark button')).toBeNull();
+	});
+});
+
+describe('PlayerHeader season selector and tag', () => {
+	const seasonSelect = (onChange: (season: number) => void = () => {}) => ({
+		seasons: [
+			{ season: 2027, seasonLabel: '2026-27' },
+			{ season: 2005, seasonLabel: '2004-05' }
+		],
+		value: 2027,
+		onChange
+	});
+
+	it('draws the season tag only when the header has one', () => {
+		const { unmount } = render(PlayerHeader, {
+			props: {
+				header: { ...header, tag: 'Season 2004-05' },
+				allGamesHref: HOME,
+				standingsHref: STANDINGS,
+				layout: 'desktop'
+			}
+		});
+		expect(screen.getByText('Season 2004-05')).toBeTruthy();
+		unmount();
+		render(PlayerHeader, {
+			props: { header, allGamesHref: HOME, standingsHref: STANDINGS, layout: 'desktop' as const }
+		});
+		expect(screen.queryByText('Season 2004-05')).toBeNull();
+	});
+
+	it('draws the select on desktop without the full class and calls onChange with the end year', () => {
+		const calls: number[] = [];
+		const onChange = (season: number) => calls.push(season);
+		render(PlayerHeader, {
+			props: {
+				...{ header, allGamesHref: HOME, standingsHref: STANDINGS, layout: 'desktop' as const },
+				layout: 'desktop',
+				seasonSelect: seasonSelect(onChange)
+			}
+		});
+		const select = screen.getByRole('combobox', { name: 'Season' }) as HTMLSelectElement;
+		expect([...select.options].map((option) => option.textContent)).toEqual(['2026-27', '2004-05']);
+		expect(select.classList.contains('full')).toBe(false);
+		select.value = '2005';
+		select.dispatchEvent(new Event('change', { bubbles: true }));
+		expect(calls).toEqual([2005]);
+	});
+
+	it('draws the select full width on mobile', () => {
+		render(PlayerHeader, {
+			props: {
+				...{ header, allGamesHref: HOME, standingsHref: STANDINGS, layout: 'desktop' as const },
+				layout: 'mobile',
+				seasonSelect: seasonSelect()
+			}
+		});
+		expect(screen.getByRole('combobox', { name: 'Season' }).classList.contains('full')).toBe(true);
+	});
+
+	it('draws the select with no header, loading or not', () => {
+		render(PlayerHeader, {
+			props: {
+				...{ header, allGamesHref: HOME, standingsHref: STANDINGS, layout: 'desktop' as const },
+				header: null,
+				seasonSelect: seasonSelect()
+			}
+		});
+		expect(screen.getByRole('combobox', { name: 'Season' })).toBeTruthy();
+	});
+
+	it('draws no select without the prop', () => {
+		render(PlayerHeader, {
+			props: { header, allGamesHref: HOME, standingsHref: STANDINGS, layout: 'desktop' as const }
+		});
+		expect(screen.queryByRole('combobox')).toBeNull();
+	});
+});
+
+describe('PlayerHeader with no status', () => {
+	it('draws the team tag and no status tag', () => {
+		show({ header: { ...header, status: null } });
+		expect(screen.getByText('OKC')).toBeTruthy();
+		expect(screen.queryByText('Active')).toBeNull();
 	});
 });

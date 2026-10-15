@@ -21,6 +21,7 @@
 // - loadPlayerFeed returns the player feed, reports a 404 as not-found and every other failure
 // - calendarFeedUrl and dayFeedUrl put the encoded season or date in place of every placeholder
 // - loadCalendarFeed and loadDayFeed return the feed, report a 404 as not-found, a 503 as status, a network failure and a bad shape as body
+// - seasonStandingsFeedUrl, seasonTeamFeedUrl and seasonPlayerFeedUrl put the season and the encoded code or id in place of every placeholder
 //
 // What is covered:
 // - Happy path and every failure the page treats as "data unavailable"
@@ -52,6 +53,12 @@ import {
 	dayFeedUrl,
 	loadCalendarFeed,
 	loadDayFeed
+} from '../../../src/lib/feed/load';
+
+import {
+	seasonPlayerFeedUrl,
+	seasonStandingsFeedUrl,
+	seasonTeamFeedUrl
 } from '../../../src/lib/feed/load';
 
 const URL_OK = 'https://feeds.example.com/games.json';
@@ -760,5 +767,29 @@ describe('loadDayFeed', () => {
 				fetchAt(DAY_URL, () => json(null))
 			)
 		).rejects.toMatchObject({ reason: 'body' });
+	});
+});
+
+describe('season feed URLs', () => {
+	it('puts the season in place of every {season}', () => {
+		expect(
+			seasonStandingsFeedUrl('https://feeds.example.com/seasons/{season}/s.json?y={season}', 2005)
+		).toBe('https://feeds.example.com/seasons/2005/s.json?y=2005');
+	});
+
+	it('puts the season and the encoded code in place of the placeholders', () => {
+		expect(
+			seasonTeamFeedUrl('https://feeds.example.com/seasons/{season}/teams/{code}.json', 2005, 'a/b')
+		).toBe('https://feeds.example.com/seasons/2005/teams/a%2Fb.json');
+	});
+
+	it('puts the season and the encoded id in place of the placeholders', () => {
+		expect(
+			seasonPlayerFeedUrl(
+				'https://feeds.example.com/seasons/{season}/players/{id}.json',
+				1999,
+				'x y'
+			)
+		).toBe('https://feeds.example.com/seasons/1999/players/x%20y.json');
 	});
 });
