@@ -7,7 +7,8 @@
 # docs/api/cup-matchup.md, docs/api/playoffs.md, docs/api/all-star.md,
 # docs/api/calendar.md, docs/api/days.md, docs/adr/0041-past-game-detail.md,
 # docs/adr/0043-season-feeds-and-franchise-names.md,
-# docs/adr/0045-season-competition-feeds.md
+# docs/adr/0045-season-competition-feeds.md,
+# docs/adr/0046-season-playoffs-feeds.md
 
 import asyncio
 import hashlib
@@ -133,6 +134,10 @@ async def read_playoffs_feed(request: Request) -> Response:
 
 @router.get("/feeds/playoffs/finals.json")
 async def read_playoffs_finals_feed(request: Request) -> Response:
+    return await _serve_current_finals(request)
+
+
+async def _serve_current_finals(request: Request) -> Response:
     feeds: FeedCache = request.app.state.feed_cache
     loop = asyncio.get_running_loop()
     started = loop.time()
@@ -238,6 +243,20 @@ async def read_season_cup_matchup_feed(
     season: str, slot_id: str, request: Request
 ) -> Response:
     kind, feed_id = request.app.state.season_cup_matchup_feeds.target(season, slot_id)
+    return await serve_on_demand(request.app.state.feed_cache, kind, feed_id, request)
+
+
+@router.get("/feeds/seasons/{season}/playoffs.json")
+async def read_season_playoffs_feed(season: str, request: Request) -> Response:
+    kind, feed_id = request.app.state.season_playoffs_feeds.target(season)
+    return await serve_on_demand(request.app.state.feed_cache, kind, feed_id, request)
+
+
+@router.get("/feeds/seasons/{season}/playoffs/finals.json")
+async def read_season_playoffs_finals_feed(season: str, request: Request) -> Response:
+    kind, feed_id = request.app.state.season_playoffs_finals_feeds.target(season)
+    if kind == FINALS_KIND:
+        return await _serve_current_finals(request)
     return await serve_on_demand(request.app.state.feed_cache, kind, feed_id, request)
 
 

@@ -47,7 +47,7 @@ The roster and leaders are fetched once a day per team. A player's individual av
 
 ## G. On demand
 
-Everything else is built on request only: pre-game game detail, team feeds, player feeds, the standings feed, the search feed, the Cup feed, the Cup matchup feeds, the playoffs feed, the playoffs finals feed, the All-Star feed, the calendar feed, the day feed, the past game detail, and the standings, team and player feeds of a past season, and the Cup and Cup matchup feeds of a past season. A feed nobody requests is never built, stored or fetched. A stored feed expires:
+Everything else is built on request only: pre-game game detail, team feeds, player feeds, the standings feed, the search feed, the Cup feed, the Cup matchup feeds, the playoffs feed, the playoffs finals feed, the All-Star feed, the calendar feed, the day feed, the past game detail, and the standings, team and player feeds of a past season, and the Cup and Cup matchup feeds of a past season, and the playoffs and playoffs finals feeds of a past season. A feed nobody requests is never built, stored or fetched. A stored feed expires:
 
 | Feed | Expires |
 |---|---|
@@ -68,6 +68,7 @@ Everything else is built on request only: pre-game game detail, team feeds, play
 | Past game detail (a final game of a stored day feed) | Kept: built once (rule D) |
 | Standings, team and player feed of a past season | Kept: built once |
 | Cup and Cup matchup feed of a past season | Kept: built once. The current season's path serves the current Cup and Cup matchup feeds, with their expiry |
+| Playoffs and playoffs finals feed of a past season | Kept: built once. The current season's path serves the current playoffs and playoffs finals feeds, with their expiry |
 
 ## H. Serving
 
@@ -80,7 +81,7 @@ Everything else is built on request only: pre-game game detail, team feeds, play
 
 ## I. Unknown ids
 
-Unknown ids answer 404 with no source request: game ids outside the days shown that are not a final game of a stored day feed, player ids neither in the rosters the stars job fetches, nor in the roster of a stored past team season feed, nor in the box score of a stored past game detail, codes outside the 30 standard codes, slot ids outside the 7 of the Cup bracket, on the current and the season matchup paths, calendar seasons that are neither `current` nor a four-digit end year from 1994 to the current season, days that are not a `YYYY-MM-DD` date, are before 1993-10-01, are after today (US Eastern), or are a day of the stored games feed (with none stored, a day the games job would show), season paths of the standings, team and player feeds that are not a four-digit end year from 1994 to the season before the current one, season paths of the Cup and Cup matchup feeds that are not a four-digit end year from 2024 to the current season (the current season serves the current Cup feeds), and a team code whose franchise has no team that season (after one read of its season team object). While the rosters are not fetched yet, player requests answer 503. While the current season is not known, calendar requests, `current` included, and season feed requests answer 503.
+Unknown ids answer 404 with no source request: game ids outside the days shown that are not a final game of a stored day feed, player ids neither in the rosters the stars job fetches, nor in the roster of a stored past team season feed, nor in the box score of a stored past game detail, codes outside the 30 standard codes, slot ids outside the 7 of the Cup bracket, on the current and the season matchup paths, calendar seasons that are neither `current` nor a four-digit end year from 1994 to the current season, days that are not a `YYYY-MM-DD` date, are before 1993-10-01, are after today (US Eastern), or are a day of the stored games feed (with none stored, a day the games job would show), season paths of the standings, team and player feeds that are not a four-digit end year from 1994 to the season before the current one, season paths of the Cup and Cup matchup feeds that are not a four-digit end year from 2024 to the current season (the current season serves the current Cup feeds), season paths of the playoffs and playoffs finals feeds that are not a four-digit end year from 1994 to the current season (the current season serves the current playoffs feeds), and a team code whose franchise has no team that season (after one read of its season team object). While the rosters are not fetched yet, player requests answer 503. While the current season is not known, calendar requests, `current` included, and season feed requests answer 503.
 
 ## J. Restart and cleanup
 

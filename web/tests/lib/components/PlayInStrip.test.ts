@@ -86,7 +86,7 @@ describe('PlayInStrip', () => {
 
 	it('links a game only when it is linked', () => {
 		show('playoffs-playin.json', false, (f) => {
-			f.playIn[0].games[0].game!.detailAvailable = true;
+			f.playIn![0].games[0].game!.detailAvailable = true;
 		});
 		const links = screen.getAllByRole('link', { name: 'Game page →' });
 		expect(links).toHaveLength(1);
@@ -95,7 +95,7 @@ describe('PlayInStrip', () => {
 
 	it('collapses to the titles and the outcome lines', () => {
 		const { container } = show('playoffs-playin.json', true, (f) => {
-			f.playIn[0].games[0].game!.detailAvailable = true;
+			f.playIn![0].games[0].game!.detailAvailable = true;
 		});
 		const games = [...container.querySelectorAll('.game')];
 		expect(games[0]!.classList.contains('collapsed')).toBe(true);

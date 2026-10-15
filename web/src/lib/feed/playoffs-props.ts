@@ -816,7 +816,7 @@ export function toPlayoffsView(
 	const present: Record<PlayoffsSectionId, boolean> = {
 		picture: feed.state === 'picture',
 		bracket: true,
-		'play-in': true,
+		'play-in': feed.playIn !== null,
 		'finals-mvp': finals !== null && (finalsMvp !== null || conference.length > 0),
 		series: finals !== null && finals.games.length > 0,
 		road: finals !== null,
@@ -828,7 +828,7 @@ export function toPlayoffsView(
 		header: headerView(feed),
 		sections: sectionOrder(feed.state).filter((id) => present[id]),
 		picture: feed.picture.map(pictureView),
-		playIn: feed.playIn.map(playInView),
+		playIn: (feed.playIn ?? []).map(playInView),
 		playInCollapsed: PLAY_IN_COLLAPSED.includes(feed.state),
 		finalsMvp,
 		conferenceMvps: conference,

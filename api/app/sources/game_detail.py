@@ -234,9 +234,15 @@ def _team_stats(game_id: str, team: _ProviderBoxTeam) -> dict[str, Any]:
 
 
 async def fetch_game_detail(
-    client: SourceClient, game_id: str, settings: Settings, fresh: Freshness
+    client: SourceClient,
+    game_id: str,
+    settings: Settings,
+    fresh: Freshness,
+    *,
+    by_id_first: bool = False,
 ) -> GameDetail:
     """Return the leaders and team stats of one game, or raise SourceError.
+    With by_id_first each side resolves by provider id first (a past game).
 
     `fresh` is the freshness of the game's state: 30 seconds live, the
     attempt's due time final, 1 hour otherwise."""
@@ -264,7 +270,7 @@ async def fetch_game_detail(
     leaders: dict[str, Any] = {}
     team_stats: dict[str, Any] = {}
     for side, team in sides.items():
-        code, guest = side_of(team.team.abbreviation, team.team.id, source=SOURCE)
+        code, guest = _resolve_side(team, past=by_id_first)
         players = next((p for p in box.players if _same_team(p.team, team.team)), None)
         if players is None:
             raise SourceError(

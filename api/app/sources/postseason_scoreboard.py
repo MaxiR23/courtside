@@ -7,8 +7,9 @@
 # needs and a game of the games feed does not carry: the season type, the
 # competition type, the first note, the period of a game in play or final and
 # the series object (summary, completion, total games and wins per team). The
-# side fields are mapped by the scoreboard adapter. Its results never reach a
-# core feed, and removing the playoffs section removes this module.
+# side fields are mapped by the scoreboard adapter. With by_id_first, a past
+# season's sides resolve by provider id first (ADR 0046). Its results never
+# reach a core feed, and removing the playoffs section removes this module.
 #
 # A series competitor with an unknown team id fails the read for a live or
 # final game and is left out of the wins of any other game, because a side
@@ -131,10 +132,11 @@ def _postseason_game(event: _PostseasonEvent, game: ScoreboardGame) -> Postseaso
 
 
 async def fetch_postseason_games(
-    client: SourceClient, day: dt.date, settings: Settings
+    client: SourceClient, day: dt.date, settings: Settings, *, by_id_first: bool = False
 ) -> list[PostseasonGame]:
     """Return the games of a US Eastern day with their postseason fields, in
-    provider order, or raise SourceError."""
+    provider order, or raise SourceError. With by_id_first the sides resolve by
+    provider id first (a past season)."""
     if settings.scoreboard_url is None:
         raise SourceError(SOURCE, "scoreboard URL is not configured")
     url = settings.scoreboard_url.format(date=day.strftime(DATE_FORMAT))
@@ -150,7 +152,7 @@ async def fetch_postseason_games(
         ) from None
     games: list[PostseasonGame] = []
     for event in scoreboard.events:
-        game = _map_event(event)
+        game = _map_event(event, by_id_first=by_id_first)
         if game is not None:
             games.append(_postseason_game(event, game))
     return games

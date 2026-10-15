@@ -44,8 +44,18 @@
 # day that fails fails the build; leaders, awards, team info and the champion's
 # record only null their part. The feed is never deleted.
 #
+# A past season (ADR 0046) is built from the same builder with two more inputs:
+# a season before 2021 has no play-in window, so its play-in block is null, its
+# seeds 1 to 8 are the standings seeds and its round 1 labels are all seeds; a
+# past postseason where no game has a known competition type gets its rounds
+# from derive_series (the k-th series of both teams, 8, 4, 2 and 1 series, the
+# Finals the only series across the conferences); a past season whose round 1
+# teams have no seed is placed by the round 2 series each one feeds, with null
+# side seeds; a past game whose note has no game number takes its position in
+# its series; and a past play-in note is read in any letter case.
+#
 # SEE: docs/api/playoffs.md, docs/adr/0032-playoffs-feed.md,
-# api/app/jobs/standings_feed.py
+# docs/adr/0046-season-playoffs-feeds.md, api/app/jobs/standings_feed.py
 
 import asyncio
 import datetime as dt
@@ -104,6 +114,8 @@ from app.sources.division_standings import DivisionStandings
 from app.sources.http import SourceClient, SourceError
 from app.sources.postseason_leaders import PostseasonLeaders
 from app.sources.postseason_mark import (
+    _PLAY_IN_KINDS_ANY_CASE,
+    _PLAY_IN_NOTE_ANY_CASE,
     GAME_NUMBER_NOTE,
     PLAY_IN_KINDS,
     PLAY_IN_NOTE,
@@ -132,6 +144,9 @@ SERIES_OF_SEEDS = {
 # The seeds of the top and the bottom side of the round 1 series 1 to 4.
 SEEDS_OF_SERIES = {1: (1, 8), 2: (4, 5), 3: (3, 6), 4: (2, 7)}
 CONFERENCES = (Conference.EAST, Conference.WEST)
+FINALS_ROUND = 4
+STANDINGS_SEEDS = 6
+STANDINGS_SEEDS_NO_PLAY_IN = 8
 MAX_LEADERS = 5
 OVERTIME_PERIOD = 5
 
@@ -160,7 +175,7 @@ class PlayoffsSources:
 
     season: int
     today: dt.date
-    play_in: SeasonWindow
+    play_in: SeasonWindow | None
     postseason: SeasonWindow
     standings: DivisionStandings
     colors: Mapping[str, TeamInfo | None]
@@ -169,6 +184,7 @@ class PlayoffsSources:
     leaders: PostseasonLeaders | None
     awards: SeasonAwards | None
     champion_record: TeamPostseasonRecord | None
+    past: bool = False
 
 
 def _feeders() -> dict[SeriesId, tuple[SeriesId, SeriesId]]:
@@ -199,10 +215,15 @@ def conference_of_series(series_id: SeriesId) -> Conference | None:
     return Conference(series_id.value.split("-")[0])
 
 
-def postseason_days(play_in: SeasonWindow, postseason: SeasonWindow) -> list[dt.date]:
-    """The US Eastern dates of both windows, sorted with no repeats."""
+def postseason_days(
+    play_in: SeasonWindow | None, postseason: SeasonWindow
+) -> list[dt.date]:
+    """The US Eastern dates of both windows, sorted with no repeats; a season
+    with no play-in window has the postseason's."""
     days: set[dt.date] = set()
     for window in (play_in, postseason):
+        if window is None:
+            continue
         day = eastern_date(window.start)
         last = eastern_date(window.end)
         while day <= last:
@@ -266,6 +287,60 @@ def group_series(
             )
         home, away = _codes(game)
         groups.setdefault((round_, frozenset({home, away})), []).append(game)
+    return groups
+
+
+def _start_key(games: Sequence[PostseasonGame], pair: frozenset[str]) -> Any:
+    return (games[0].game.start_time, sorted(pair))
+
+
+def derive_series(
+    games: Sequence[PostseasonGame], conferences: Mapping[str, Conference]
+) -> dict[tuple[int, frozenset[str]], list[PostseasonGame]]:
+    """The postseason games (season type 3) by round and pair of teams, in start
+    order, for a postseason where the games carry no round. A series is round k
+    when it is the k-th series of both teams; the Finals is the only series
+    across the conferences; the rounds have 8, 4, 2 and 1 series. Anything else
+    fails."""
+    by_pair: dict[frozenset[str], list[PostseasonGame]] = {}
+    for game in _unique_games(games):
+        if game.season_type != POSTSEASON:
+            continue
+        home, away = _codes(game)
+        by_pair.setdefault(frozenset({home, away}), []).append(game)
+    ordered = sorted(by_pair, key=lambda pair: _start_key(by_pair[pair], pair))
+    of_team: dict[str, list[frozenset[str]]] = {}
+    for pair in ordered:
+        for code in pair:
+            of_team.setdefault(code, []).append(pair)
+    groups: dict[tuple[int, frozenset[str]], list[PostseasonGame]] = {}
+    for pair in ordered:
+        first, second = sorted(pair)
+        number, other = of_team[first].index(pair) + 1, of_team[second].index(pair) + 1
+        if number != other:
+            raise PlayoffsBuildError(
+                f"series {first} {second} is series {number} of {first}"
+                f" and {other} of {second}"
+            )
+        groups[(number, pair)] = by_pair[pair]
+    across = []
+    for round_, pair in groups:
+        for code in pair:
+            if code not in conferences:
+                raise PlayoffsBuildError(f"team {code} has no standing")
+        if len({conferences[code] for code in pair}) > 1:
+            across.append(round_)
+    if across != [FINALS_ROUND]:
+        raise PlayoffsBuildError(
+            "the Finals is not the only series across the conferences"
+        )
+    counts = [sum(1 for key in groups if key[0] == r) for r in (1, 2, 3, 4)]
+    extra = sum(1 for key in groups if key[0] > FINALS_ROUND)
+    if counts != list(SERIES_OF_ROUND.values()) or extra:
+        raise PlayoffsBuildError(
+            f"derived rounds give {'-'.join(str(c) for c in counts)} series,"
+            " not 8-4-2-1"
+        )
     return groups
 
 
@@ -374,12 +449,20 @@ class _Builder:
     def _place_play_in(self) -> dict[tuple[Conference, PlayInGameKind], PostseasonGame]:
         placed: dict[tuple[Conference, PlayInGameKind], PostseasonGame] = {}
         for game in self.play_in_games:
-            match = PLAY_IN_NOTE.match(game.note or "")
+            if self.sources.past:
+                match = _PLAY_IN_NOTE_ANY_CASE.match(game.note or "")
+                kinds = _PLAY_IN_KINDS_ANY_CASE
+            else:
+                match = PLAY_IN_NOTE.match(game.note or "")
+                kinds = PLAY_IN_KINDS
             if match is None:
                 raise PlayoffsBuildError(
                     f"play-in game {game.game.id} has an unknown note"
                 )
-            key = (Conference(match.group(1).lower()), PLAY_IN_KINDS[match.group(2)])
+            kind_name = (
+                match.group(2).casefold() if self.sources.past else match.group(2)
+            )
+            key = (Conference(match.group(1).lower()), kinds[kind_name])
             if key in placed:
                 raise PlayoffsBuildError(
                     f"two play-in games of the kind {key[1].value} in the {key[0].value}"
@@ -392,7 +475,12 @@ class _Builder:
         seeds: dict[str, int | None] = {}
         for code, entry in self.entries.items():
             seed = seed_of(entry)
-            seeds[code] = seed if seed is not None and seed <= 6 else None
+            limit = (
+                STANDINGS_SEEDS
+                if self.sources.play_in is not None
+                else STANDINGS_SEEDS_NO_PLAY_IN
+            )
+            seeds[code] = seed if seed is not None and seed <= limit else None
         for (_, kind), (winner, _loser) in self.outcomes.items():
             if kind is PlayInGameKind.SEVEN_EIGHT:
                 seeds[winner] = 7
@@ -437,18 +525,37 @@ class _Builder:
             "detail_available": False,
         }
 
-    def series_game(self, game: PostseasonGame) -> dict[str, Any]:
+    def game_number(self, game: PostseasonGame, games: Sequence[PostseasonGame]) -> int:
+        """The game number of the note, else (a past season) the 1-based position
+        of the game in its series; a note without a number fails otherwise."""
         match = GAME_NUMBER_NOTE.search(game.note or "")
-        if match is None:
+        if match is not None:
+            return int(match.group(1))
+        if not self.sources.past:
             raise PlayoffsBuildError(
                 f"game {game.game.id} has a note without a game number"
             )
-        return {**self.game(game), "number": int(match.group(1))}
+        return games.index(game) + 1
+
+    def series_game(
+        self, game: PostseasonGame, games: Sequence[PostseasonGame]
+    ) -> dict[str, Any]:
+        return {**self.game(game), "number": self.game_number(game, games)}
 
     # Series placement
 
     def _place_series(self, games: Sequence[PostseasonGame]) -> dict[SeriesId, _Placed]:
-        groups = group_series(games)
+        if self.sources.past and not any(
+            ROUNDS.get(g.competition_type or "")
+            for g in _unique_games(games)
+            if g.season_type == POSTSEASON
+        ):
+            groups = derive_series(
+                games, {code: e.conference for code, e in self.entries.items()}
+            )
+        else:
+            groups = group_series(games)
+        slots = self._seedless_slots(groups)
         placed: dict[SeriesId, _Placed] = {}
         of_team: dict[str, SeriesId] = {}
         for round_ in (1, 2, 3, 4):
@@ -462,7 +569,10 @@ class _Builder:
             )
             for key in ordered:
                 codes = sorted(key[1])
-                series_id, top, bottom = self._slot(round_, codes, of_team)
+                if slots is not None and round_ == 1:
+                    series_id, (top, bottom) = slots[key[1]], codes
+                else:
+                    series_id, top, bottom = self._slot(round_, codes, of_team)
                 if series_id in placed:
                     raise PlayoffsBuildError(
                         f"two series in the slot {series_id.value}"
@@ -472,6 +582,50 @@ class _Builder:
                     this_round[code] = series_id
             of_team = this_round
         return placed
+
+    def _seedless_slots(
+        self, groups: Mapping[tuple[int, frozenset[str]], list[PostseasonGame]]
+    ) -> dict[frozenset[str], SeriesId] | None:
+        """For a past season where a round 1 team has no seed, the slot of each
+        round 1 series from the round 2 series it feeds; none when every round 1
+        team has a seed."""
+        round_one = [pair for round_, pair in groups if round_ == 1]
+        if not self.sources.past or all(
+            self.seeds.get(code) is not None for pair in round_one for code in pair
+        ):
+            return None
+        slots: dict[frozenset[str], SeriesId] = {}
+        for conference in CONFERENCES:
+            second = sorted(
+                (
+                    key
+                    for key in groups
+                    if key[0] == 2 and self.entry(min(key[1])).conference is conference
+                ),
+                key=lambda key: _start_key(groups[key], key[1]),
+            )
+            if len(second) != 2:
+                raise PlayoffsBuildError(
+                    f"the {conference.value} has {len(second)} round 2 series, not 2"
+                )
+            for index, (_, pair) in enumerate(second):
+                for offset, code in enumerate(sorted(pair)):
+                    feeder = next((p for p in round_one if code in p), None)
+                    if feeder is None:
+                        raise PlayoffsBuildError(f"team {code} has no round 1 series")
+                    if feeder in slots:
+                        raise PlayoffsBuildError(
+                            f"round 1 series {' '.join(sorted(feeder))} is placed twice"
+                        )
+                    slots[feeder] = SeriesId(
+                        f"{conference.value}-r1-{2 * index + offset + 1}"
+                    )
+        for pair in round_one:
+            if pair not in slots:
+                raise PlayoffsBuildError(
+                    f"round 1 series {' '.join(sorted(pair))} feeds no round 2 series"
+                )
+        return slots
 
     def _slot(
         self, round_: int, codes: list[str], of_team: Mapping[str, SeriesId]
@@ -558,7 +712,8 @@ class _Builder:
             for game in placed.games
         ):
             return PlayoffsState.PLAYOFFS
-        if self.sources.today >= eastern_date(self.sources.play_in.start):
+        play_in = self.sources.play_in
+        if play_in is not None and self.sources.today >= eastern_date(play_in.start):
             return PlayoffsState.PLAYIN
         return PlayoffsState.PICTURE
 
@@ -615,7 +770,9 @@ class _Builder:
             "currently": None if code is not None else currently,
         }
 
-    def play_in_feed(self) -> list[dict[str, Any]]:
+    def play_in_feed(self) -> list[dict[str, Any]] | None:
+        if self.sources.play_in is None:
+            return None
         result = []
         for conference in CONFERENCES:
             games = []
@@ -685,7 +842,9 @@ class _Builder:
             number = int(series_id.value[-1])
             seed = SEEDS_OF_SERIES[number][side]
             label["key"] = (
-                SeriesLabelKey.SEED if seed <= 6 else SeriesLabelKey.PLAYIN_WINNER
+                SeriesLabelKey.SEED
+                if seed <= STANDINGS_SEEDS or self.sources.play_in is None
+                else SeriesLabelKey.PLAYIN_WINNER
             )
             label["seed"] = seed
         elif round_ == 2:
@@ -749,7 +908,7 @@ class _Builder:
             "winner": None if info is None else info.winner,
             "games": []
             if placed is None
-            else [self.series_game(g) for g in placed.games],
+            else [self.series_game(g, placed.games) for g in placed.games],
         }
 
     # Stages
@@ -830,12 +989,8 @@ class _Builder:
         if not played:
             return None, None
         last = played[-1]
-        match = GAME_NUMBER_NOTE.search(last.note or "")
-        if match is None:
-            raise PlayoffsBuildError(
-                f"game {last.game.id} has a note without a game number"
-            )
-        return int(match.group(1)), None if last.series is None else last.series.summary
+        number = self.game_number(last, finals.games)
+        return number, None if last.series is None else last.series.summary
 
     # Champion
 
@@ -937,13 +1092,14 @@ class _Builder:
     def build(self) -> PlayoffsFeed:
         finals_game, finals_summary = self.finals_line()
         sources = self.sources
+        first_window = sources.play_in or sources.postseason
         try:
             return PlayoffsFeed.model_validate(
                 {
                     "season": season_label(sources.season),
                     "state": self.state,
                     "postseason_dates": {
-                        "first_date": eastern_date(sources.play_in.start),
+                        "first_date": eastern_date(first_window.start),
                         "last_date": eastern_date(sources.postseason.end),
                     },
                     "current_round": self.current_round(),
@@ -1122,7 +1278,7 @@ class PlayoffsFeeds:
             for game in self._games.final_games()
             if first <= eastern_date(game.start_time) <= last
         }
-        for play_in in feed.play_in:
+        for play_in in feed.play_in or []:
             ids |= {g.game.id for g in play_in.games if g.game is not None}
         for series in feed.bracket:
             ids |= {g.id for g in series.games}
@@ -1150,7 +1306,7 @@ class PlayoffsFeeds:
     def serve_with(self, feed_id: str, feed: PlayoffsFeed) -> PlayoffsFeed:
         ids = {game.id for game in self._games.loaded_games()}
         data = feed.model_dump(by_alias=False)
-        for play_in in data["play_in"]:
+        for play_in in data["play_in"] or []:
             for entry in play_in["games"]:
                 if entry["game"] is not None:
                     entry["game"]["detail_available"] = entry["game"]["id"] in ids

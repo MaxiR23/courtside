@@ -17,6 +17,7 @@
 # - Picture: rows in conference order with games behind, no record, seed or clinch in the preseason
 # - Helpers: postseason_days, reads_days, group_series, finals_winner
 # - Errors: an invalid feed is wrapped in a build error
+# - Past season (past=True, ADR 0046): no play-in window gives a null play-in, seeds 1 to 8 from the standings, seed labels for 7 and 8 and the dates of the postseason window; derive_series (15 series in rounds 8-4-2-1, the Finals the only series across the conferences, and each failure with its reason); a postseason with no competition type builds through the derivation while a current one still fails; round 1 placed by the round 2 series with null seeds, failing on a conference without 2 round 2 series; game numbers by order when the note has none; play-in and game notes in any letter case
 # - The kind: an id other than league answers unknown with no build; not ready with no season or rosters; no build without a request; a request builds and stores and a second reads storage
 # - The kind: no scoreboard day is read before the play-in window and every day of both windows inside it
 # - The kind: a failed season type, standings or scoreboard day answers unavailable and is not retried for 10 minutes; a failed rebuild keeps and serves the stored feed
@@ -72,6 +73,7 @@ from app.jobs.playoffs_feed import (
     PlayoffsFeeds,
     PlayoffsSources,
     build_playoffs_feed,
+    derive_series,
     finals_winner,
     group_series,
     postseason_days,
@@ -461,10 +463,10 @@ def test_the_state_is_picture_in_the_regular_season_with_seeds_and_currently() -
         "playin_winner",
         8,
     )
-    slot = feed.play_in[1].games[0].top
+    slot = feed.play_in[1].games[0].top  # type: ignore[index]
     assert slot.team is None and slot.currently is not None
     assert (slot.label.place, slot.currently.code) == (7, seed(WEST, 7))
-    assert feed.play_in[0].games[1].bottom.currently is not None
+    assert feed.play_in[0].games[1].bottom.currently is not None  # type: ignore[index]
 
 
 def test_the_state_is_playin_on_the_first_day_of_the_window_with_no_game_played() -> (
@@ -1109,16 +1111,16 @@ def test_before_any_game_the_play_in_slots_carry_places_7_to_10_and_the_games_th
 
     feed = build(games)
 
-    first = feed.play_in[0].games[0]
+    first = feed.play_in[0].games[0]  # type: ignore[index]
     assert (first.top.label.place, first.bottom.label.place) == (7, 8)
     assert (first.top.team.code if first.top.team else None) == seed(EAST, 7)
     assert first.game is not None and first.game.date == dt.date(2027, 4, 14)
     assert first.game.start_time == PLAY_IN_DAY
     assert first.outcome is None
-    second = feed.play_in[0].games[1]
+    second = feed.play_in[0].games[1]  # type: ignore[index]
     assert (second.top.label.place, second.bottom.label.place) == (9, 10)
     assert second.game is None and second.top.team is None
-    eighth = feed.play_in[0].games[2]
+    eighth = feed.play_in[0].games[2]  # type: ignore[index]
     assert [
         eighth.top.label.key.value,
         eighth.top.label.game.value if eighth.top.label.game else None,
@@ -1133,7 +1135,7 @@ def test_before_any_game_the_play_in_slots_carry_places_7_to_10_and_the_games_th
 def test_after_each_game_the_play_in_has_its_outcome() -> None:
     feed = build(play_ins())
 
-    games = feed.play_in[0].games
+    games = feed.play_in[0].games  # type: ignore[index]
     assert [
         (g.outcome.seed, g.outcome.loser_out) if g.outcome else None for g in games
     ] == [
@@ -1148,7 +1150,7 @@ def test_the_8th_seed_game_takes_the_loser_of_7th_vs_8th_and_the_winner_of_9th_v
 ):
     feed = build(play_ins())
 
-    eighth = feed.play_in[0].games[2]
+    eighth = feed.play_in[0].games[2]  # type: ignore[index]
     assert eighth.top.team is not None and eighth.top.team.code == seed(EAST, 8)
     assert eighth.bottom.team is not None and eighth.bottom.team.code == seed(EAST, 9)
     assert eighth.game is not None and eighth.game.home.code == seed(EAST, 8)
@@ -1167,7 +1169,7 @@ def test_the_8th_seed_slots_stay_empty_until_their_feeder_game_is_final() -> Non
         ),
     ]
 
-    eighth = build(games).play_in[0].games[2]
+    eighth = build(games).play_in[0].games[2]  # type: ignore[index]
 
     assert eighth.top.team is not None
     assert eighth.bottom.team is None
@@ -1830,7 +1832,7 @@ async def test_a_failed_champion_record_read_only_nulls_the_record(
 def a_game_id(kit: PlayoffsKit) -> str:
     stored = kit.stored()
     assert stored is not None
-    return stored.play_in[0].games[0].game.id  # type: ignore[union-attr]
+    return stored.play_in[0].games[0].game.id  # type: ignore[union-attr, index]
 
 
 @pytest.mark.anyio
@@ -1967,8 +1969,8 @@ async def test_detail_available_is_set_from_the_loaded_games_and_not_stored(
     stored = kit.stored()
     assert stored is not None
     assert bracket(stored)[SeriesId.EAST_R1_1].games[0].detail_available is False
-    assert body.play_in[0].games[0].game is not None
-    assert body.play_in[0].games[0].game.detail_available is False
+    assert body.play_in[0].games[0].game is not None  # type: ignore[index]
+    assert body.play_in[0].games[0].game.detail_available is False  # type: ignore[index]
 
 
 @pytest.mark.anyio
@@ -1983,3 +1985,210 @@ async def test_the_cleanup_keeps_league_and_stored_reads_the_stored_feed(
     assert kit.playoffs.stored() == kit.stored()
     (kit.path / "feeds" / KIND / "league.json").write_text("{}", encoding="utf-8")
     assert kit.playoffs.stored() is None
+
+
+# Past season (ADR 0046)
+
+
+def past_games() -> list[PostseasonGame]:
+    return both(round_one) + both(round_two) + both(round_three) + finals("TTBTT")
+
+
+def past_build(games: list[PostseasonGame], **changes: Any) -> PlayoffsFeed:
+    return build(games, play_in=None, past=True, **changes)
+
+
+def without_rounds(games: list[PostseasonGame]) -> list[PostseasonGame]:
+    return [g.model_copy(update={"competition_type": None}) for g in games]
+
+
+def without_notes(games: list[PostseasonGame]) -> list[PostseasonGame]:
+    return [g.model_copy(update={"note": None}) for g in games]
+
+
+def conferences() -> dict[str, Conference]:
+    return {code: entry.conference for code, entry in standings().teams.items()}
+
+
+def no_seeds() -> DivisionStandings:
+    return standings(changes={code: {"playoff_seed": None} for code in ALL})
+
+
+def test_a_past_postseason_with_no_play_in_window_has_a_null_play_in_and_seeds_1_to_8() -> (
+    None
+):
+    feed = past_build(past_games())
+
+    assert feed.play_in is None
+    assert feed.state is PlayoffsState.COMPLETE
+    assert feed.postseason_dates.first_date == dt.date(2027, 4, 18)
+    assert feed.postseason_dates.last_date == dt.date(2027, 6, 21)
+    series = bracket(feed)[SeriesId("east-r1-1")]
+    assert series.bottom.seed == 8 and series.bottom.label.key == "seed"
+    series = bracket(feed)[SeriesId("west-r1-4")]
+    assert series.bottom.seed == 7 and series.bottom.label.key == "seed"
+    assert {
+        side.label.key
+        for s in feed.bracket
+        if s.round == 1
+        for side in (s.top, s.bottom)
+    } == {"seed"}
+
+
+def test_a_past_postseason_with_a_play_in_window_keeps_the_play_in() -> None:
+    feed = build(play_ins() + past_games(), past=True)
+
+    assert feed.play_in is not None and len(feed.play_in) == 2
+    assert bracket(feed)[SeriesId("east-r1-1")].bottom.label.key == "playin_winner"
+
+
+def test_derive_series_gives_15_series_in_rounds_8_4_2_1() -> None:
+    groups = derive_series(without_rounds(play_ins() + past_games()), conferences())
+
+    assert len(groups) == 15
+    assert [sum(1 for key in groups if key[0] == r) for r in (1, 2, 3, 4)] == [
+        8,
+        4,
+        2,
+        1,
+    ]
+    across = [
+        key for key in groups if len({conferences()[code] for code in key[1]}) > 1
+    ]
+    assert [key[0] for key in across] == [4]
+
+
+def test_derive_series_fails_on_a_series_that_is_not_the_same_number_for_both_teams() -> (
+    None
+):
+    games = round_one(EAST) + series_games(
+        seed(EAST, 8), seed(EAST, 9), 2, "T", key="x"
+    )
+
+    with pytest.raises(PlayoffsBuildError, match=r"is series 2 of \w+ and 1 of \w+"):
+        derive_series(without_rounds(games), conferences())
+
+
+def test_derive_series_fails_on_a_cross_conference_series_before_the_last_round() -> (
+    None
+):
+    games = series_games(seed(EAST, 9), seed(WEST, 9), 1, "T", key="x")
+
+    with pytest.raises(PlayoffsBuildError, match="not the only series across"):
+        derive_series(without_rounds(games), conferences())
+
+
+def test_derive_series_fails_on_rounds_that_do_not_count_8_4_2_1() -> None:
+    games = past_games() + series_games(seed(EAST, 9), seed(EAST, 10), 1, "T", key="x")
+
+    with pytest.raises(
+        PlayoffsBuildError, match="derived rounds give 9-4-2-1 series, not 8-4-2-1"
+    ):
+        derive_series(without_rounds(games), conferences())
+
+
+def test_a_past_postseason_with_no_competition_types_builds_through_the_derivation() -> (
+    None
+):
+    typed = past_build(past_games())
+    derived = past_build(without_rounds(past_games()))
+
+    assert derived == typed
+    assert derived.state is PlayoffsState.COMPLETE
+
+
+def test_a_current_postseason_with_no_competition_types_still_fails() -> None:
+    failing(without_rounds(everything()), "unknown competition type None")
+
+
+def test_a_past_postseason_with_some_competition_types_still_fails() -> None:
+    games = past_games()
+    games[0] = games[0].model_copy(update={"competition_type": None})
+
+    with pytest.raises(PlayoffsBuildError, match="unknown competition type"):
+        past_build(games)
+
+
+def test_a_past_postseason_without_seeds_places_round_one_by_its_round_two_series() -> (
+    None
+):
+    feed = past_build(without_rounds(past_games()), standing=no_seeds())
+
+    placed = bracket(feed)
+    assert {
+        codes(placed[SeriesId("east-r1-1")].top),
+        codes(placed[SeriesId("east-r1-1")].bottom),
+    } == {
+        seed(EAST, 1),
+        seed(EAST, 8),
+    }
+    assert {
+        codes(placed[SeriesId("east-r1-3")].top),
+        codes(placed[SeriesId("east-r1-3")].bottom),
+    } == {
+        seed(EAST, 2),
+        seed(EAST, 7),
+    }
+    assert codes(placed[SeriesId("east-r1-1")].top) == seed(EAST, 1)
+    assert all(
+        side.seed is None
+        for series in feed.bracket
+        for side in (series.top, series.bottom)
+    )
+    assert feed.state is PlayoffsState.COMPLETE
+
+
+def test_a_past_postseason_without_seeds_fails_on_a_conference_without_2_round_2_series() -> (
+    None
+):
+    games = round_one(EAST) + round_two(EAST)[:4]
+
+    with pytest.raises(PlayoffsBuildError, match="east has 1 round 2 series, not 2"):
+        past_build(games, standing=no_seeds())
+
+
+def test_a_past_game_without_a_game_number_takes_its_position_in_its_series() -> None:
+    feed = past_build(without_notes(past_games()))
+
+    for series in feed.bracket:
+        assert [game.number for game in series.games] == list(
+            range(1, len(series.games) + 1)
+        )
+    assert feed.finals_game == 5
+
+
+def test_a_current_game_without_a_game_number_still_fails() -> None:
+    failing(play_ins() + without_notes(past_games()), "note without a game number")
+
+
+def test_play_in_and_game_notes_in_any_letter_case_build_in_a_past_postseason() -> None:
+    games = [
+        g.model_copy(update={"note": (g.note or "").upper() or None})
+        if g.season_type == 5
+        else g.model_copy(update={"note": (g.note or "").lower()})
+        for g in play_ins() + past_games()
+    ]
+
+    feed = build(games, past=True)
+
+    assert feed.state is PlayoffsState.COMPLETE
+    assert feed.play_in is not None
+    assert bracket(feed)[SeriesId.FINALS].games[0].number == 1
+
+
+def test_a_play_in_note_in_another_letter_case_fails_in_a_current_postseason() -> None:
+    games = [
+        g.model_copy(update={"note": (g.note or "").upper()})
+        if g.season_type == 5
+        else g
+        for g in everything()
+    ]
+
+    failing(games, "unknown note")
+
+
+def test_postseason_days_skip_a_missing_play_in_window() -> None:
+    days = postseason_days(None, POSTSEASON_WINDOW)
+
+    assert days[0] == dt.date(2027, 4, 18)
+    assert days[-1] == dt.date(2027, 6, 21)

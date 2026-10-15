@@ -35,7 +35,7 @@ Conventions:
 | `finalsSummary`    | string / null         | The series summary of that game, as the source sends it                                  | null with `finalsGame` |
 | `stages`           | `PlayoffStageEntry[]` | Exactly 5: `playin`, `round_1`, `round_2`, `round_3`, `finals`                           | always  |
 | `picture`          | `PictureTable[]`      | East then West                                                                           | always  |
-| `playIn`           | `PlayIn[]`            | East then West                                                                           | always  |
+| `playIn`           | `PlayIn[]` / null     | East then West; null for a season without a play-in (before 2021)                        | null only in a season feed |
 | `bracket`          | `Series[]`            | Exactly 15, in the order of `SeriesId`                                                   | always  |
 | `champion`         | `Champion` / null     | The champion block                                                                       | set exactly when `state` is `complete` |
 | `leaders`          | `LeaderGroup[]` / null | Exactly 9, in the order of `LeaderCategory`                                             | null when the read failed or no category has a leader |
@@ -59,8 +59,8 @@ Conventions:
 | `SeriesGame`         | A `PlayoffGame` plus `number` (1 to 7), from the game note                                                                                                                          |
 | `Series`             | `id`: `SeriesId`; `round` (1 to 4); `conference` (null for the Finals only); `top`, `bottom`: `SeriesSide`; `status`: `upcoming`, `in_progress`, `complete`; `summary` (from the source, null); `winner` (team code, set exactly when complete); `games`: `SeriesGame[]` (up to 7, in start order, only the games the source lists) |
 | `SeriesId`           | `east-r1-1` to `east-r1-4`, `east-r2-1`, `east-r2-2`, `east-r3`, `finals`, `west-r3`, `west-r2-1`, `west-r2-2`, `west-r1-1` to `west-r1-4`                                          |
-| `SeriesSide`         | `label`: `SeriesLabel`; `team`: `PlayoffTeam` / null; `seed` (1 to 15, only with a team); `wins` (0 to 4, from the series object, null without one, only with a team); `currently`: `PlayoffTeam` / null (never both a team and `currently`) |
-| `SeriesLabel`        | `key`: `seed` (seeds 1 to 6), `playin_winner` (seeds 7 and 8), `round_1_winner`, `round_2_winner`, `round_3_winner`; `conference`; `seed` (1 to 8; for `seed` and `playin_winner`); `series` (1 to 4; for `round_1_winner` and `round_2_winner`) |
+| `SeriesSide`         | `label`: `SeriesLabel`; `team`: `PlayoffTeam` / null; `seed` (1 to 15, only with a team; null with a team in a season feed without seeds); `wins` (0 to 4, from the series object, null without one, only with a team); `currently`: `PlayoffTeam` / null (never both a team and `currently`) |
+| `SeriesLabel`        | `key`: `seed` (seeds 1 to 6; 1 to 8 in a season feed before 2021; in a season without seeds, the slot's nominal seed), `playin_winner` (seeds 7 and 8, only with a play-in), `round_1_winner`, `round_2_winner`, `round_3_winner`; `conference`; `seed` (1 to 8; for `seed` and `playin_winner`); `series` (1 to 4; for `round_1_winner` and `round_2_winner`) |
 | `Champion`           | `team`: `PlayoffTeam`; `wins` (always 4); `losses` (0 to 3); `firstDate`, `lastDate`: the Finals games; `record`, `home`, `road`: postseason records such as `16-6` (null when the record read failed); `pointDifferential`: `TotalDifferential` over the champion's final postseason games |
 | `LeaderCategory`     | `points`, `rebounds`, `assists`, `steals`, `blocks`, `field_goal_pct`, `threes_made`, `double_doubles`, `minutes`                                                                   |
 | `LeaderGroup`        | `category`; `leaders`: `PlayoffLeader[]` (up to 5)                                                                                                                                   |
@@ -287,6 +287,50 @@ a team with null colors.
 - A stale stored feed is served at once and rebuilt in the background.
 - Every feed request records presence.
 
+## Season feed
+
+The playoffs of a past season ([ADR 0046](../adr/0046-season-playoffs-feeds.md)),
+served at `/feeds/seasons/{season}/playoffs.json`, with the same schema and models
+as the feed above. `{season}` is the end year of the season, from 1994 to the
+current season.
+
+- The current season serves the feed above: same stored file, body, ETag and
+  expiry.
+- A past season reads the same sources with the season value, and the sides of
+  games resolved by provider id first. The names of leaders and award winners come
+  from that season's rosters, one read per team.
+- A season before 2021 has no play-in: the window is not requested, `playIn` is
+  null, seeds 1 to 8 are the standings seeds and every round 1 label is a seed.
+  Its `playin` stage entry is `upcoming` with null dates, and a page does not draw
+  it.
+- When no postseason game has a known competition type, the rounds are derived
+  from the series: a series is round k when it is the k-th series of both teams,
+  the Finals is the only series across the conferences, and the rounds have 8, 4,
+  2 and 1 series. Anything else fails the build and the reason is logged. A
+  postseason where only some games have a type fails as the current feed does.
+- A round 1 team with no seed places its series by the round 2 series it feeds,
+  and the side seeds are null. Each round 1 label keeps the nominal seed of its slot (1/8, 4/5, 3/6,
+  2/7), which the label model requires; a page does not draw the label when a team
+  is placed.
+- A game whose note has no game number takes its position in its series in start
+  order. Play-in and game notes are read in any letter case.
+- The leaders, the awards and the champion's record are null only when the source
+  answers 404. Any other failed read fails the build. A team info that fails only
+  nulls the colors.
+- It must build as `complete`, or the build fails and nothing is stored.
+  `detailAvailable` is false.
+- Refresh: built on request, stored at `feeds/season-playoffs/{season}.json`, kept
+  for good (rule G of [`docs/source-rules.md`](../source-rules.md)): never
+  refreshed and never deleted. A failed build with nothing stored is retried after
+  10 minutes.
+- The kind is `SeasonPlayoffsFeeds` in `api/app/jobs/season_playoffs_feed.py`.
+- Endpoint: it serves with `Cache-Control: public, max-age=10` and an `ETag`, and
+  responds 304 for a matching `If-None-Match`. It responds 404 with no source
+  request for a season that is not four digits, is before 1994 or is after the
+  current season. It responds 503 while the current season is not known, after a
+  failed read with nothing stored, and when the request's 20 seconds end before a
+  missing feed is built.
+
 # Finals feed
 
 The Finals: the games that are final with their leaders, the win probability of
@@ -427,3 +471,33 @@ series without data.
   source read.
 - A stale stored feed is served at once and rebuilt in the background.
 - Every feed request records presence.
+
+## Season Finals feed
+
+The Finals of a past season ([ADR 0046](../adr/0046-season-playoffs-feeds.md)),
+served at `/feeds/seasons/{season}/playoffs/finals.json`, with the same schema and
+models as the feed above. `{season}` is the end year of the season, from 1994 to
+the current season.
+
+- The current season serves the feed above: same stored file, body, ETag and
+  expiry.
+- A past season builds from the stored season playoffs feed, built first when
+  missing, so a season whose playoffs feed cannot be built answers 503.
+- The averages list the finalists' rosters of that season. A roster the source
+  has not (404) gives an empty `players` list. The game details resolve the sides
+  by provider id first.
+- A detail, sections, plays, team record or team statistics read that answers 404
+  nulls its part: `leaders`, `winProbability`, `largestDeficit`, the postseason
+  record and the bar values. Any other failed read fails the build.
+- There are no highlights and `detailAvailable` is false.
+- Refresh: built on request, stored at `feeds/season-playoffs-finals/{season}.json`,
+  kept for good (rule G of [`docs/source-rules.md`](../source-rules.md)). A failed
+  build with nothing stored is retried after 10 minutes.
+- The kind is `SeasonPlayoffsFinalsFeeds` in
+  `api/app/jobs/season_playoffs_finals_feed.py`.
+- Endpoint: it serves with `Cache-Control: public, max-age=10` and an `ETag`, and
+  responds 304 for a matching `If-None-Match`. It responds 404 with no source
+  request for a season that is not four digits, is before 1994 or is after the
+  current season. It responds 503 while the current season is not known, after a
+  failed read with nothing stored, and when the request's 20 seconds end before a
+  missing feed is built.

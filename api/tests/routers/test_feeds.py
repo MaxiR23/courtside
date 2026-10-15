@@ -54,6 +54,10 @@
 # - The current season serves the current Cup and Cup matchup feeds with the same body and ETag and stores nothing under the season kinds
 # - Responds 503 on both season Cup paths while the current season is not known and when a past build fails with nothing stored
 # - The current player path serves a player on no roster who is known from a stored past feed
+# - Serves the playoffs and the playoffs finals feed of a past season with Cache-Control and ETag and answers 304 for a matching ETag
+# - Responds 404 with a JSON error and no source request on both season playoffs paths for 1993, a season after the current one, a non-integer, a trailing newline and a leading zero
+# - The current season serves the current playoffs and playoffs finals feeds with the same body and ETag and stores nothing under the season kinds
+# - Responds 503 on both season playoffs paths while the current season is not known, with no source request, and when a past build fails with nothing stored
 #
 # What is covered:
 # - Success response, documented failures (503, 404), edge case of an invalid publish
@@ -67,7 +71,7 @@ import datetime as dt
 import hashlib
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 import respx
@@ -94,7 +98,10 @@ from app.jobs.games import GamesJob
 from app.jobs.on_demand import MISSING_WAIT_SECONDS, FeedCache, FeedKind, IdStatus
 from app.jobs.past_game_detail_feed import KIND as PAST_KIND
 from app.jobs.past_game_detail_feed import PastGameDetailFeeds
+from app.jobs.playoffs_feed import PlayoffsFeeds
+from app.jobs.playoffs_finals_feed import PlayoffsFinalsFeeds
 from app.jobs.presence import Presence
+from app.jobs.stars import StarsJob
 from app.jobs.team_feed import FEED_LIFETIME
 from app.main import create_app
 from app.routers import feeds as feeds_router
@@ -119,11 +126,17 @@ from tests.jobs.test_day_feed import PAST, DayKit, search_url
 from tests.jobs.test_day_feed import game as day_game
 from tests.jobs.test_past_game_detail_feed import PastKit
 from tests.jobs.test_player_feed import PlayerKit, player
-from tests.jobs.test_playoffs_feed import PlayoffsKit
+from tests.jobs.test_playoffs_feed import (
+    FakeGames,
+    PlayoffsKit,
+    past_games,
+    play_ins,
+)
 from tests.jobs.test_playoffs_finals_feed import FinalsKit, postseason
 from tests.jobs.test_search_feed import SearchKit
 from tests.jobs.test_season_cup_matchup_feed import SeasonMatchupKit
 from tests.jobs.test_season_player_feed import SeasonPlayerKit
+from tests.jobs.test_season_playoffs_finals_feed import FinalsKit as SeasonFinalsKit
 from tests.jobs.test_season_standings_feed import StandingsKit as SeasonStandingsKit
 from tests.jobs.test_season_team_feed import SeasonTeamKit
 from tests.jobs.test_standings_feed import StandingsKit
@@ -1960,6 +1973,145 @@ def test_responds_503_when_a_past_cup_build_fails_with_nothing_stored(
 ) -> None:
     season_cup.kit.failing.add("teams/eastA/2025")
     with TestClient(season_cup.app) as client:
+        response = client.get(path.format(season="2025"))
+
+    assert response.status_code == 503
+    assert isinstance(response.json()["detail"], str)
+
+
+class SeasonPlayoffs:
+    """An app with the feeds router, the current playoffs and playoffs finals
+    kinds and the season kinds over the season Finals kit's fakes."""
+
+    def __init__(self, path: Path) -> None:
+        self.kit = SeasonFinalsKit(path)
+        kit = self.kit
+        kit.load(play_ins() + past_games())
+        games = FakeGames()
+        current = PlayoffsFeeds(
+            kit.settings,
+            kit.store,
+            kit.client,
+            kit.cache,
+            cast(GamesJob, games),
+            cast(StarsJob, kit.stars),
+            fetch_season_type=kit.fetch_season_type,
+            fetch_postseason_games=kit.fetch_postseason_games,
+            fetch_division_standings=kit.fetch_division_standings,
+            fetch_team_info=kit.fetch_team_info,
+            fetch_postseason_leaders=kit.fetch_postseason_leaders,
+            fetch_season_awards=kit.fetch_season_awards,
+            fetch_team_postseason_record=kit.fetch_team_postseason_record,
+        )
+        PlayoffsFinalsFeeds(
+            kit.settings,
+            kit.store,
+            kit.client,
+            kit.cache,
+            cast(GamesJob, games),
+            cast(StarsJob, kit.stars),
+            current,
+            fetch_game_detail=kit.fetch_game_detail,
+            fetch_game_detail_sections=kit.fetch_game_detail_sections,
+            fetch_play_scores=kit.fetch_play_scores,
+            fetch_player_stats=kit.fetch_player_stats,
+            fetch_team_postseason_record=kit.fetch_finals_record,
+            fetch_team_postseason_stats=kit.fetch_team_postseason_stats,
+        )
+        self.app = FastAPI()
+        self.app.include_router(feeds_router.router)
+        self.app.state.settings = kit.settings
+        self.app.state.presence = Presence(clock=lambda: kit.clock[0])
+        self.app.state.games_job = games
+        self.app.state.feed_cache = kit.cache
+        self.app.state.season_playoffs_feeds = kit.season_playoffs
+        self.app.state.season_playoffs_finals_feeds = kit.season_finals
+
+
+@pytest.fixture
+def season_playoffs(tmp_path: Path) -> Iterator[SeasonPlayoffs]:
+    with respx.mock:
+        yield SeasonPlayoffs(tmp_path)
+
+
+SEASON_PLAYOFFS_PATHS = [
+    "/feeds/seasons/{season}/playoffs.json",
+    "/feeds/seasons/{season}/playoffs/finals.json",
+]
+
+
+@pytest.mark.parametrize("path", SEASON_PLAYOFFS_PATHS)
+def test_serves_the_playoffs_feeds_of_a_past_season_with_cache_control_and_an_etag(
+    season_playoffs: SeasonPlayoffs, path: str
+) -> None:
+    url = path.format(season="2025")
+    with TestClient(season_playoffs.app) as client:
+        response = client.get(url)
+        again = client.get(url, headers={"If-None-Match": response.headers["etag"]})
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/json"
+    assert response.headers["cache-control"] == CACHE_CONTROL
+    assert again.status_code == 304 and again.content == b""
+    if path.endswith("finals.json"):
+        assert PlayoffsFinalsFeed.model_validate_json(response.content).season == (
+            "2024-25"
+        )
+    else:
+        assert PlayoffsFeed.model_validate_json(response.content).season == "2024-25"
+
+
+@pytest.mark.parametrize("path", SEASON_PLAYOFFS_PATHS)
+@pytest.mark.parametrize("season", ["1993", "2028", "abc", "2025%0A", "02025"])
+def test_responds_404_for_a_season_outside_the_playoffs_seasons_with_no_source_request(
+    season_playoffs: SeasonPlayoffs, path: str, season: str
+) -> None:
+    with TestClient(season_playoffs.app) as client:
+        response = client.get(path.format(season=season))
+
+    assert response.status_code == 404
+    assert isinstance(response.json()["detail"], str)
+    assert season_playoffs.kit.calls == []
+
+
+def test_the_current_season_serves_the_current_playoffs_feeds_and_stores_no_season_feed(
+    season_playoffs: SeasonPlayoffs,
+) -> None:
+    kit = season_playoffs.kit
+    with TestClient(season_playoffs.app) as client:
+        season = client.get("/feeds/seasons/2027/playoffs.json")
+        current = client.get("/feeds/playoffs.json")
+        season_finals = client.get("/feeds/seasons/2027/playoffs/finals.json")
+        current_finals = client.get("/feeds/playoffs/finals.json")
+
+    assert season.status_code == 200 and season_finals.status_code == 200
+    assert season.content == current.content
+    assert season.headers["etag"] == current.headers["etag"]
+    assert season_finals.content == current_finals.content
+    assert season_finals.headers["etag"] == current_finals.headers["etag"]
+    assert not (kit.path / "feeds" / "season-playoffs").exists()
+    assert not (kit.path / "feeds" / "season-playoffs-finals").exists()
+
+
+@pytest.mark.parametrize("path", SEASON_PLAYOFFS_PATHS)
+@pytest.mark.parametrize("season", ["2025", "2027"])
+def test_responds_503_on_the_season_playoffs_paths_while_the_season_is_not_known(
+    season_playoffs: SeasonPlayoffs, path: str, season: str
+) -> None:
+    season_playoffs.kit.stars.season = None
+    with TestClient(season_playoffs.app) as client:
+        response = client.get(path.format(season=season))
+
+    assert response.status_code == 503
+    assert season_playoffs.kit.calls == []
+
+
+@pytest.mark.parametrize("path", SEASON_PLAYOFFS_PATHS)
+def test_responds_503_when_a_past_playoffs_build_fails_with_nothing_stored(
+    season_playoffs: SeasonPlayoffs, path: str
+) -> None:
+    season_playoffs.kit.failing.add("standings/2025")
+    with TestClient(season_playoffs.app) as client:
         response = client.get(path.format(season="2025"))
 
     assert response.status_code == 503

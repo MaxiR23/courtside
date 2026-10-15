@@ -4,8 +4,9 @@
 # JSON Schema and the TypeScript types are generated from these models. The feed
 # has the state of the postseason, the five stages with their dates and status,
 # the picture tables (seeds 1 to 10 of each conference), the play-in (three games
-# per conference), the bracket of 15 series, the champion block when the Finals
-# series is complete, the postseason leaders and the season awards. Labels are
+# per conference, null for a season without one), the bracket of 15 series, the
+# champion block when the Finals series is complete, the postseason leaders and
+# the season awards. Labels are
 # keys and parts, never prose: the page writes the words. Every team is an
 # Opponent with its colors. The stage status is this feed's own enum.
 #
@@ -468,7 +469,7 @@ class PlayoffsFeed(FeedModel):
     finals_summary: NonEmptyStr | None
     stages: Annotated[list[PlayoffStageEntry], Field(min_length=5, max_length=5)]
     picture: Annotated[list[PictureTable], Field(min_length=2, max_length=2)]
-    play_in: Annotated[list[PlayIn], Field(min_length=2, max_length=2)]
+    play_in: Annotated[list[PlayIn], Field(min_length=2, max_length=2)] | None
     bracket: Annotated[list[Series], Field(min_length=15, max_length=15)]
     champion: Champion | None
     leaders: Annotated[list[LeaderGroup], Field(min_length=9, max_length=9)] | None
@@ -504,7 +505,10 @@ class PlayoffsFeed(FeedModel):
         east_west = [Conference.EAST, Conference.WEST]
         if [table.conference for table in self.picture] != east_west:
             raise ValueError("picture tables must be east then west")
-        if [play_in.conference for play_in in self.play_in] != east_west:
+        if (
+            self.play_in is not None
+            and [play_in.conference for play_in in self.play_in] != east_west
+        ):
             raise ValueError("play-in must be east then west")
         if [series.id for series in self.bracket] != list(SeriesId):
             raise ValueError("bracket series must follow the order of the series ids")
