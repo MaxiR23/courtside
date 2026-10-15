@@ -16,6 +16,8 @@
 // - Shows the data unavailable row when the feed cannot be loaded or no feed URL is configured, in English and Spanish
 // - Keeps the last feed on screen when a later poll fails
 // - Shows the not-affiliated line in Spanish for es-ES and es-419 and in English for fr-FR
+// - Selects the DayStrip day of ?day= after a navigation; an unknown or malformed day keeps today; a later poll does not move the selection
+// - The calendar sheet links a day of the feed to /?day=YYYY-MM-DD and a day outside the feed to /day/YYYY-MM-DD
 //
 // What is covered:
 // - The page wired end to end: config, fetch, polling, props layer, hero, schedule, footer
@@ -31,18 +33,32 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { CalendarFeed } from '../../src/lib/contract/calendar';
 import type { GamesFeed } from '../../src/lib/contract/games';
 import { preferLanguages } from '../prefer-languages';
 
 import Page from '../../src/routes/+page.svelte';
 
+const navigation = vi.hoisted(() => ({
+	callbacks: [] as Array<(navigation: { to: { url: URL } | null }) => void>
+}));
+vi.mock('$app/navigation', () => ({
+	afterNavigate: (cb: (navigation: { to: { url: URL } | null }) => void) => {
+		navigation.callbacks.push(cb);
+	}
+}));
+
 const config = vi.hoisted(() => ({
 	url: undefined as string | undefined,
+	calendarUrl: undefined as string | undefined,
 	platform: undefined as string | undefined
 }));
 vi.mock('../../src/lib/feed/config', () => ({
 	get gamesFeedUrl() {
 		return config.url;
+	},
+	get calendarFeedUrl() {
+		return config.calendarUrl;
 	},
 	get videoPlatformName() {
 		return config.platform;
@@ -50,6 +66,19 @@ vi.mock('../../src/lib/feed/config', () => ({
 }));
 
 const FEED_URL = 'https://feeds.example.com/games.json';
+const CALENDAR_TEMPLATE = 'https://feeds.example.com/seasons/{season}/calendar.json';
+const CALENDAR_URL = 'https://feeds.example.com/seasons/current/calendar.json';
+// The current season: two days of the games feed and one day outside it.
+const calendar = (): CalendarFeed => ({
+	...(JSON.parse(
+		readFileSync(join(__dirname, '..', 'lib', 'feed', 'fixtures', 'calendar.json'), 'utf8')
+	) as CalendarFeed),
+	season: 2027,
+	seasonLabel: '2026-27',
+	firstDay: '2026-09-30',
+	lastDay: '2026-10-20',
+	days: ['2026-09-30', '2026-10-04', '2026-10-20']
+});
 const recorded = (): GamesFeed =>
 	JSON.parse(
 		readFileSync(join(__dirname, '..', 'lib', 'feed', 'fixtures', 'games.json'), 'utf8')
@@ -76,6 +105,9 @@ const withoutLive = (): GamesFeed => {
 function stubFetch(...next: Answer[]) {
 	answers = next;
 	fetchMock = vi.fn((url: string) => {
+		if (url === CALENDAR_URL) {
+			return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(calendar()) });
+		}
 		if (url !== FEED_URL) throw new Error(`Unexpected URL ${url}`);
 		const answer = answers.length > 1 ? answers.shift() : answers[0];
 		return (answer as Answer)();
@@ -102,6 +134,8 @@ beforeEach(() => {
 	// Five minutes after the recorded feed was generated.
 	vi.setSystemTime(new Date('2026-10-04T23:05:00Z'));
 	config.url = FEED_URL;
+	config.calendarUrl = undefined;
+	navigation.callbacks = [];
 	config.platform = 'Video platform';
 	Element.prototype.scrollIntoView = vi.fn();
 });
@@ -240,7 +274,7 @@ describe('home page with a feed', () => {
 		expect(playoffs.textContent?.trim()).toBe('Playoffs');
 		expect(playoffs.getAttribute('href')).toBe('/playoffs');
 		expect(playoffs.getAttribute('aria-current')).toBeNull();
-		expect(links.children[5]?.tagName).toBe('TIME');
+		expect(links.children[5]?.querySelector('time')?.textContent).toBe('Sun, Oct 4, 2026');
 	});
 
 	it('toggles spoiler-free mode from the nav row', async () => {
@@ -484,5 +518,70 @@ describe('home page language', () => {
 				'Personal project. Not affiliated with the NBA.'
 			)
 		).toBeTruthy();
+	});
+});
+
+function navigate(search: string) {
+	for (const callback of navigation.callbacks) {
+		callback({ to: { url: new URL(`https://app.example.com/${search}`) } });
+	}
+}
+
+const selectedDay = (container: HTMLElement) =>
+	[...container.querySelectorAll<HTMLElement>('button.day')].findIndex(
+		(day) => day.getAttribute('aria-current') === 'true'
+	);
+
+describe('home page with a requested day', () => {
+	it('selects the DayStrip day of ?day= after a navigation', async () => {
+		stubFetch(answerWith(recorded()));
+		const { container } = await renderPage();
+		expect(selectedDay(container)).toBe(3);
+		navigate('?day=2026-10-06');
+		await settle();
+		expect(selectedDay(container)).toBe(5);
+	});
+
+	it('keeps today selected for a day outside the feed or a malformed day', async () => {
+		stubFetch(answerWith(recorded()));
+		const { container } = await renderPage();
+		navigate('?day=1999-02-05');
+		await settle();
+		expect(selectedDay(container)).toBe(3);
+		navigate('?day=not-a-day');
+		await settle();
+		expect(selectedDay(container)).toBe(3);
+		navigate('');
+		await settle();
+		expect(selectedDay(container)).toBe(3);
+	});
+
+	it('does not move the selection on a later poll', async () => {
+		stubFetch(answerWith(recorded()));
+		const { container } = await renderPage();
+		navigate('?day=2026-10-06');
+		await settle();
+		await vi.advanceTimersByTimeAsync(61_000);
+		await settle();
+		expect(fetchMock.mock.calls.length).toBeGreaterThan(1);
+		expect(selectedDay(container)).toBe(5);
+	});
+});
+
+describe('home page calendar sheet', () => {
+	it('links a day of the feed to /?day= and another day to /day/', async () => {
+		config.calendarUrl = CALENDAR_TEMPLATE;
+		stubFetch(answerWith(recorded()));
+		await renderPage();
+		await fireEvent.click(screen.getByRole('button', { name: /Oct 4, 2026/ }));
+		await settle();
+		const dialog = screen.getByRole('dialog', { name: 'Calendar' });
+		expect(within(dialog).getByRole('link', { name: 'October 4, 2026' }).getAttribute('href')).toBe(
+			'/?day=2026-10-04'
+		);
+		expect(
+			within(dialog).getByRole('link', { name: 'October 20, 2026' }).getAttribute('href')
+		).toBe('/day/2026-10-20');
+		expect(fetchMock).toHaveBeenCalledWith(CALENDAR_URL, expect.anything());
 	});
 });

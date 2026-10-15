@@ -22,6 +22,8 @@ Conventions:
 | Field         | Type      | Meaning                                                                          | Present |
 | ------------- | --------- | -------------------------------------------------------------------------------- | ------- |
 | `generatedAt` | datetime  | When the feed was built                                                          | always  |
+| `season`      | integer   | The end year of the day's season, as the scoreboard response gives it            | always  |
+| `seasonLabel` | season label | Such as `1998-99`                                                             | always  |
 | `day`         | `PastDay` | The requested US Eastern day: `date` and `games`                                 | always  |
 
 `games` holds `PastGame` objects in the provider's order. `PastGame` and
@@ -54,6 +56,8 @@ from their names, so a day of this feed is valid against the games feed's
   [`docs/source-rules.md`](../source-rules.md): a day whose games are all final,
   or with no game, is kept. A day with any game that is not final expires 6
   hours after the build.
+- A scoreboard response without a readable season fails the build
+  ([ADR 0042](../adr/0042-calendar-seasons-and-day-season.md)).
 - A failed build keeps the stored feed and is listed under `feeds` in
   `/health`; it is not retried for 10 minutes on request.
 - The feed is never deleted, and its games never enter the games job, the hero,

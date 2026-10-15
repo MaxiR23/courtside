@@ -489,6 +489,34 @@
 	--search-players-cap: 8;
 	--search-z-index: 2;
 
+	/* Past dates */
+	--past-panel-width: 360px;
+	--past-select-height: 36px;
+	--past-select-border: rgba(235, 232, 227, 0.25);
+	--past-select-size: 14px;
+	--past-select-letter-spacing: 0.08em;
+	--past-arrow-size: 36px;
+	--past-month-size: 18px;
+	--past-weekday-size: 12px;
+	--past-weekday-letter-spacing: 0.1em;
+	--past-day-cell: 40px;
+	--past-day-cell-mobile: 36px;
+	--past-day-size: 16px;
+	--past-day-mark: 4px;
+	--past-day-off-ink: rgba(235, 232, 227, 0.3);
+	--past-day-title-size: clamp(28px, 4vw, 40px);
+	--past-chevron-size: 12px;
+	--past-tag-size: 12.5px;
+	--past-tag-letter-spacing: 0.12em;
+	--past-names-year-size: 14px;
+	--past-names-name-size: 16px;
+	--past-sigla-width: 34px;
+	--past-sigla-height: 24px;
+	--past-panel-z-index: 2;
+	--past-sheet-duration: 0.5s;
+	--past-sheet-max-height: 86vh;
+	--past-sheet-scrim: rgba(0, 0, 0, 0.6);
+
 	/* Focus */
 	--focus-ring-width: 2px;
 	--focus-ring-offset: 2px;

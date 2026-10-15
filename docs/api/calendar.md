@@ -30,6 +30,7 @@ Conventions:
 | `lastDay`     | date           | The last of `days`                                                                                                       | always  |
 | `days`        | date[]         | The US Eastern days with games, sorted and unique; at least one                                                          | always  |
 | `windowDays`  | date[]         | The days of the games feed stored at build time; may be stale on a kept calendar; empty when none was stored             | always  |
+| `seasons`     | `{season, seasonLabel}[]` | The current season down to 1994, newest first; set again at serve time ([ADR 0042](../adr/0042-calendar-seasons-and-day-season.md)) | always  |
 
 A lockout season starts in February. A season played in July and August keeps
 the gap between its days.
@@ -56,6 +57,9 @@ the gap between its days.
 
 - `GET /feeds/seasons/{season}/calendar.json` serves the feed through the
   on-demand cache with `Cache-Control: public, max-age=10` and an `ETag`.
+- `current` in place of the season answers the current season's calendar with
+  the same body, `Cache-Control` and `ETag` as its end-year path, and 503 while
+  the season is not known.
 - It responds 304 with no body when `If-None-Match` matches the current `ETag`.
 - It responds 404 with `{"detail": ...}`, with no source request, for a season
   that is not four digits, is before 1994 or is after the current season.

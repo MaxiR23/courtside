@@ -755,12 +755,22 @@
       "format": "date-time",
       "type": "string"
     },
+    "season": {
+      "minimum": 1994,
+      "type": "integer"
+    },
+    "seasonLabel": {
+      "pattern": "^\\d{4}-\\d{2}$",
+      "type": "string"
+    },
     "day": {
       "$ref": "#/$defs/PastDay"
     }
   },
   "required": [
     "generatedAt",
+    "season",
+    "seasonLabel",
     "day"
   ],
   "title": "DayFeed",

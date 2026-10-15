@@ -17,6 +17,8 @@
 // - Spoiler-free toggle: off by default, pressed when on, calls its callback
 // - All-Star goes to /all-star; it is the current page on the All-Star page and nowhere else
 // - Spanish: Partidos, Clasificación, Copa, All-Star, the date, Playoffs, Sin spoilers, Todos los partidos
+// - With home.calendar the date is a button with aria-haspopup="dialog" in the same place; without it the date stays a plain time
+// - With no selected day the sheet opens on the month of the date shown
 //
 // What is covered:
 // - Every page state (home, standings, detail), both layouts, the toggle off and on, its click
@@ -28,12 +30,16 @@
 // SEE: web/src/lib/components/NavRow.svelte
 import type { ResolvedPathname } from '$app/types';
 import { fireEvent, render, screen } from '@testing-library/svelte';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { formatDate } from '../../../src/lib/format/locale';
 import { preferLanguages } from '../../prefer-languages';
 
 import NavRow from '../../../src/lib/components/NavRow.svelte';
+
+vi.mock('$app/navigation', () => ({ afterNavigate: () => {} }));
 
 const today = new Date(2026, 9, 4, 12);
 const gamesHref = '/#schedule' as ResolvedPathname;
@@ -60,6 +66,46 @@ const dateOptions: Intl.DateTimeFormatOptions = {
 
 afterEach(() => {
 	vi.restoreAllMocks();
+});
+
+describe('NavRow with a calendar', () => {
+	const calendar = {
+		load: undefined,
+		season: 'current',
+		selectedDay: '2026-10-04',
+		today: '2026-10-04',
+		dayHref: (date: string) => `/day/${date}` as ResolvedPathname
+	};
+
+	it('draws the date as a button that opens a dialog, before the toggle', () => {
+		const { container } = render(NavRow, {
+			props: { ...homeProps, home: { ...home, calendar } }
+		});
+		const button = screen.getByRole('button', { name: formatDate(today, dateOptions) });
+		expect(button.getAttribute('aria-haspopup')).toBe('dialog');
+		expect(container.querySelector('time')?.getAttribute('datetime')).toBe('2026-10-04');
+		const links = container.querySelector('.links') as HTMLElement;
+		expect(links.children[5]?.contains(button)).toBe(true);
+		expect(links.children[6]?.textContent?.trim()).toBe('Spoiler-free');
+	});
+
+	it('opens the sheet on the month of the date shown when no day is selected', async () => {
+		const feed = JSON.parse(
+			readFileSync(join(__dirname, '..', 'feed', 'fixtures', 'calendar.json'), 'utf8')
+		);
+		const load = () => Promise.resolve({ ...feed, firstDay: '2026-09-01', lastDay: '2027-06-20' });
+		render(NavRow, {
+			props: { ...homeProps, home: { ...home, calendar: { ...calendar, load, selectedDay: null } } }
+		});
+		await fireEvent.click(screen.getByRole('button', { name: formatDate(today, dateOptions) }));
+		expect((await screen.findByRole('heading', { level: 2 })).textContent).toBe('October 2026');
+	});
+
+	it('keeps a plain time without a calendar', () => {
+		const { container } = render(NavRow, { props: homeProps });
+		expect(container.querySelector('time.date')).not.toBeNull();
+		expect(screen.queryByRole('button', { name: formatDate(today, dateOptions) })).toBeNull();
+	});
 });
 
 describe('NavRow', () => {

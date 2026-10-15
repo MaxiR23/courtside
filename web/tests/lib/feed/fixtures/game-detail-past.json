@@ -1,0 +1,51 @@
+{
+	"cup": null,
+	"postseason": null,
+	"id": "7001",
+	"status": "final",
+	"startTime": "1999-02-06T00:30:00Z",
+	"venue": {
+		"name": "Harbor Arena",
+		"city": "Lakeside",
+		"photoUrl": null
+	},
+	"away": {
+		"code": "DEN",
+		"name": "Pilots",
+		"city": "Harbor City",
+		"guest": false,
+		"record": null
+	},
+	"home": {
+		"code": null,
+		"name": "Mariners",
+		"city": "Lakeside",
+		"guest": true,
+		"record": null
+	},
+	"broadcast": null,
+	"period": null,
+	"clock": null,
+	"lineScore": {
+		"away": [20, 22, 23, 23],
+		"home": [24, 21, 25, 25]
+	},
+	"score": {
+		"away": 88,
+		"home": 95
+	},
+	"winner": "home",
+	"teamStats": null,
+	"stars": null,
+	"boxScore": null,
+	"winProbability": null,
+	"winProbabilityLeader": null,
+	"winProbabilityPeriods": null,
+	"injuries": null,
+	"lastGames": null,
+	"standings": null,
+	"seasonSeries": null,
+	"highlights": null,
+	"highlightsSearchUrl": "https://example.com/search?q=x",
+	"seasonLabel": "1998-99"
+}

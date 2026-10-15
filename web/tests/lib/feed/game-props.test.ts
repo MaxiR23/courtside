@@ -24,6 +24,8 @@
 // - A guest game without a code: a null code on the header, mini score, line score, win probability and box score teams; the guest named by its name in the win probability meta; stat leads and the loser from the feed sides
 // - Spanish copy and dates for an es browser
 // - A live game without its score cannot be shown
+// - The season label sits next to the date on a final game and on any other status, and a null label leaves the line unchanged
+// - A past game (null stars, injuries, last games, standings, season series, highlights, box score, win probability and records) shows the score tab only, with its sections and records null
 // - The Cup mark: the header tag, none for a null mark
 // - The postseason mark: the header mark filled from the feed, none for a null mark
 // - The All-Star mark: the header mark filled from the feed, none for a null mark and a feed without the key; a guest side without a city maps to a header team with a null city
@@ -80,6 +82,47 @@ const league = (code: string) => ({ code, name: null, city: null, guest: false }
 
 afterEach(() => {
 	vi.restoreAllMocks();
+});
+
+const pastFeed = (): GameDetailFeed =>
+	JSON.parse(
+		readFileSync(join(__dirname, 'fixtures', 'game-detail-past.json'), 'utf8')
+	) as GameDetailFeed;
+
+describe('toGameView with a season label', () => {
+	it('puts the label next to the date of a final game', () => {
+		const source = { ...asFinal(feed()), seasonLabel: '1998-99' };
+		expect(view(source).header.status.text).toBe(
+			'Final · Wednesday, October 7 · 1998-99 · Chase Center'
+		);
+	});
+
+	it('puts the label next to the date of a scheduled game', () => {
+		const source = { ...asStatus('scheduled'), seasonLabel: '1998-99' };
+		expect(view(source).header.status.text).toBe('Wednesday, October 7 · 1998-99 · Chase Center');
+	});
+
+	it('leaves the line unchanged for a null label', () => {
+		const source = { ...asFinal(feed()), seasonLabel: null };
+		expect(view(source).header.status.text).toBe('Final · Wednesday, October 7 · Chase Center');
+	});
+
+	it('shows only the score tab for a past game and hides its null sections and records', () => {
+		const v = view(pastFeed());
+		expect(v.header.status.text).toBe('Final · Friday, February 5 · 1998-99 · Harbor Arena');
+		expect(ids(v)).toEqual(['score']);
+		expect(v.header.away.record).toBeNull();
+		expect(v.header.home.record).toBeNull();
+		expect(v.sections.players).toBeNull();
+		expect(v.sections.score).not.toBeNull();
+		expect(v.sections.injuries).toBeNull();
+		expect(v.sections.lastGames).toBeNull();
+		expect(v.sections.standings).toBeNull();
+		expect(v.sections.seasonSeries).toBeNull();
+		expect(v.sections.highlights).toBeNull();
+		expect(v.sections.boxScore).toBeNull();
+		expect(v.sections.winProbability).toBeNull();
+	});
 });
 
 describe('toGameView with the Cup mark', () => {

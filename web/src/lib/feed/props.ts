@@ -34,6 +34,7 @@ export type HomeView = {
 	today: Date; // days[3], the middle day
 	heroGames: HeroGame[]; // the games of today in feed order, without postponed, canceled and guest games
 	days: ScheduleDay[]; // seven days
+	dayIds: string[]; // the feed's day.date strings, in order
 	updatedMinutesAgo: number;
 };
 
@@ -264,6 +265,16 @@ function heroGame(game: Game): HeroGame {
 	};
 }
 
+/** The cards of a list of games, or null when a game lacks a field its status requires. */
+export function scheduleGames(games: Game[], options: Options): ScheduleGame[] | null {
+	try {
+		return games.map((game) => scheduleGame(game, options));
+	} catch (error) {
+		if (error instanceof IncompleteGame) return null;
+		throw error;
+	}
+}
+
 /** Turns the games feed into the home page props, or null when it cannot be shown. */
 export function toHomeView(feed: GamesFeed, receivedAt: Date, options: Options): HomeView | null {
 	if (feed.days.length !== DAYS) return null;
@@ -280,6 +291,7 @@ export function toHomeView(feed: GamesFeed, receivedAt: Date, options: Options):
 				.filter((game) => !OFF_HERO.has(game.status) && !hasGuest(game))
 				.map(heroGame),
 			days,
+			dayIds: feed.days.map((day) => day.date),
 			updatedMinutesAgo: Math.max(0, Math.floor((receivedAt.getTime() - generatedAt) / 60_000))
 		};
 	} catch (error) {

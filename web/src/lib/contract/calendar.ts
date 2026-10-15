@@ -14,4 +14,12 @@ export interface CalendarFeed {
 	 */
 	days: [string, ...string[]];
 	windowDays: string[];
+	/**
+	 * @minItems 1
+	 */
+	seasons: [CalendarSeason, ...CalendarSeason[]];
+}
+export interface CalendarSeason {
+	season: number;
+	seasonLabel: string;
 }

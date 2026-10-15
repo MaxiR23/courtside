@@ -121,6 +121,30 @@ export const variables = defineEnvVars({
 			return value;
 		}
 	},
+	CALENDAR_FEED_URL: {
+		public: true,
+		static: true,
+		description:
+			"Absolute URL of a season's calendar feed, with {season} where the season's end year or `current` goes, read at build time",
+		schema: (value) => {
+			if (!value) return undefined;
+			if (!URL.canParse(value)) throw new Error('CALENDAR_FEED_URL must be an absolute URL');
+			if (!value.includes('{season}')) throw new Error('CALENDAR_FEED_URL must contain {season}');
+			return value;
+		}
+	},
+	DAY_FEED_URL: {
+		public: true,
+		static: true,
+		description:
+			"Absolute URL of a day's feed, with {date} where the YYYY-MM-DD date goes, read at build time",
+		schema: (value) => {
+			if (!value) return undefined;
+			if (!URL.canParse(value)) throw new Error('DAY_FEED_URL must be an absolute URL');
+			if (!value.includes('{date}')) throw new Error('DAY_FEED_URL must contain {date}');
+			return value;
+		}
+	},
 	VIDEO_PLATFORM_NAME: {
 		public: true,
 		static: true,

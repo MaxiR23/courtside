@@ -3,15 +3,19 @@
 # Feed models for the day feed: the single source of truth for its shape.
 # The JSON Schema and the TypeScript types are generated from these models.
 # A day is a past US Eastern day with the games feed's Game shape, except that
-# no star of a past season exists.
+# no star of a past season exists. It carries the end year of the day's season
+# and its label.
 #
 # SEE: docs/api/days.md, docs/adr/0040-calendar-and-day-feeds.md
 
 import datetime as dt
+from typing import Annotated
 
-from pydantic import model_validator
+from pydantic import Field, model_validator
 
+from app.feeds.calendar import FIRST_SEASON
 from app.feeds.games import FeedModel, Game, UtcDatetime
+from app.feeds.player import SeasonLabel
 
 
 # A game of a past day: the games feed's Game, but no star of a past season
@@ -35,4 +39,6 @@ class PastDay(FeedModel):
 
 class DayFeed(FeedModel):
     generated_at: UtcDatetime
+    season: Annotated[int, Field(ge=FIRST_SEASON)]
+    season_label: SeasonLabel
     day: PastDay

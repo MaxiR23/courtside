@@ -6,7 +6,8 @@
 # past-day rules: no star, no highlight, and for a final game stats unavailable
 # (leaders and team stats are read from no source), with the search link as in
 # the games feed. A game that is not a valid PastGame is skipped with a log line
-# by event id. A day with no game is a valid day with an empty list.
+# by event id. A day with no game is a valid day with an empty list. The feed
+# carries the season the scoreboard gave for the day and its label (ADR 0042).
 #
 # DayFeeds is the feed kind of the on-demand cache: the id is the date
 # (YYYY-MM-DD), the feed is stored at feeds/days/{date}.json only when requested.
@@ -33,10 +34,11 @@ from app.feeds.days import DayFeed, PastGame
 from app.feeds.games import GamesFeed, GameStatus, StatsAvailability
 from app.jobs.games import days_shown, eastern_date, final_winner
 from app.jobs.on_demand import FeedCache, FeedKind, IdStatus
+from app.jobs.team_feed import season_label
 from app.settings import Settings
 from app.sources import scoreboard, video_channel
 from app.sources.http import SourceClient
-from app.sources.scoreboard import ScoreboardGame
+from app.sources.scoreboard import PastScoreboardDay, ScoreboardGame
 from app.storage.feeds import read_feed
 from app.storage.state import StateStore
 
@@ -47,9 +49,7 @@ FIRST_DAY = dt.date(1993, 10, 1)
 REBUILD_AFTER = dt.timedelta(hours=6)
 _DAY_ID = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
-FetchPastGames = Callable[
-    [SourceClient, dt.date, Settings], Awaitable[list[ScoreboardGame]]
-]
+FetchPastDay = Callable[[SourceClient, dt.date, Settings], Awaitable[PastScoreboardDay]]
 SearchUrl = Callable[[ScoreboardGame], str | None]
 
 
@@ -86,6 +86,7 @@ def parse_day(feed_id: str) -> dt.date | None:
 def build_day_feed(
     generated_at: dt.datetime,
     day: dt.date,
+    season: int,
     games: Sequence[ScoreboardGame],
     highlights_search_url: SearchUrl,
 ) -> DayFeed:
@@ -113,7 +114,12 @@ def build_day_feed(
         built.append(data)
     try:
         return DayFeed.model_validate(
-            {"generated_at": generated_at, "day": {"date": day, "games": built}}
+            {
+                "generated_at": generated_at,
+                "season": season,
+                "season_label": season_label(season),
+                "day": {"date": day, "games": built},
+            }
         )
     except ValidationError as error:
         location = ".".join(str(part) for part in error.errors()[0]["loc"])
@@ -130,12 +136,12 @@ class DayFeeds:
         client: SourceClient,
         cache: FeedCache,
         *,
-        fetch_past_games: FetchPastGames = scoreboard.fetch_past_games,
+        fetch_past_day: FetchPastDay = scoreboard.fetch_past_day,
     ) -> None:
         self._settings = settings
         self._store = store
         self._client = client
-        self._fetch_past_games = fetch_past_games
+        self._fetch_past_day = fetch_past_day
         cache.register(self.kind())
 
     def check(self, feed_id: str) -> IdStatus:
@@ -159,8 +165,10 @@ class DayFeeds:
         day = parse_day(feed_id)
         if day is None:
             raise DayBuildError(f"{feed_id!r} is not a day")
-        games = await self._fetch_past_games(self._client, day, self._settings)
-        return build_day_feed(self._client.clock(), day, games, self._search_url)
+        past = await self._fetch_past_day(self._client, day, self._settings)
+        return build_day_feed(
+            self._client.clock(), day, past.season, past.games, self._search_url
+        )
 
     def is_fresh(self, feed: DayFeed, built_at: dt.datetime, now: dt.datetime) -> bool:
         if all(game.status is GameStatus.FINAL for game in feed.day.games):

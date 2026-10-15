@@ -9,7 +9,7 @@ export function lockBodyScroll(body: HTMLElement): () => void {
 	};
 }
 
-const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled])';
+const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled])';
 
 /** Keeps Tab and Shift+Tab inside the container: they wrap from the last to the first. */
 export function keepFocusInside(event: KeyboardEvent, container: HTMLElement): void {

@@ -1,0 +1,94 @@
+{
+	"generatedAt": "2026-10-15T12:00:00Z",
+	"season": 1999,
+	"seasonLabel": "1998-99",
+	"day": {
+		"date": "1999-02-06",
+		"games": [
+			{
+				"id": "7001",
+				"away": {
+					"code": "DEN",
+					"name": "Pilots",
+					"city": "Harbor City",
+					"guest": false
+				},
+				"home": {
+					"code": "OKC",
+					"name": "Mariners",
+					"city": "Lakeside",
+					"guest": false
+				},
+				"status": "final",
+				"startTime": "1999-02-06T00:30:00Z",
+				"venue": "Harbor Arena",
+				"stars": {
+					"away": null,
+					"home": null
+				},
+				"highlights": [],
+				"broadcast": null,
+				"period": null,
+				"clock": null,
+				"lineScore": {
+					"away": [20, 22, 23, 23],
+					"home": [24, 21, 25, 25]
+				},
+				"score": {
+					"away": 88,
+					"home": 95
+				},
+				"winner": "home",
+				"leaders": null,
+				"teamStats": null,
+				"statsAvailability": "unavailable",
+				"highlightsSearchUrl": "https://example.com/search?q=x",
+				"cup": null,
+				"postseason": null,
+				"allStar": null
+			},
+			{
+				"id": "7002",
+				"away": {
+					"code": null,
+					"name": "Rovers",
+					"city": "Northgate",
+					"guest": true
+				},
+				"home": {
+					"code": "POR",
+					"name": "Foxes",
+					"city": "Riverton",
+					"guest": false
+				},
+				"status": "final",
+				"startTime": "1999-02-06T00:30:00Z",
+				"venue": "Harbor Arena",
+				"stars": {
+					"away": null,
+					"home": null
+				},
+				"highlights": [],
+				"broadcast": null,
+				"period": null,
+				"clock": null,
+				"lineScore": {
+					"away": [25, 25, 25, 26],
+					"home": [24, 25, 25, 25]
+				},
+				"score": {
+					"away": 101,
+					"home": 99
+				},
+				"winner": "away",
+				"leaders": null,
+				"teamStats": null,
+				"statsAvailability": "unavailable",
+				"highlightsSearchUrl": "https://example.com/search?q=x",
+				"cup": null,
+				"postseason": null,
+				"allStar": null
+			}
+		]
+	}
+}
