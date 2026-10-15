@@ -18,7 +18,7 @@
 # - Wires the stars and highlights providers and the stars readiness check into the games job
 # - Wires the games job, the feed cache, stars and highlights into the game detail feeds
 # - Wires presence and the after-run hook into the games job
-# - Wires the team, player, standings, search, Cup, Cup matchup, playoffs, playoffs finals, season Cup, season Cup matchup, season playoffs and season playoffs finals feed kinds into the feed cache, the season Cup and season playoffs feeds into app.state, the player feeds into app.state, and the cleanup into the stars job's after-run hook
+# - Wires the team, player, standings, search, Cup, Cup matchup, playoffs, playoffs finals, season Cup, season Cup matchup, season playoffs, season playoffs finals and season All-Star feed kinds into the feed cache, the season Cup, season playoffs and season All-Star feeds into app.state, the player feeds into app.state, and the cleanup into the stars job's after-run hook
 # - Wires the past game detail kind into the feed cache
 # - Closes the HTTP client when the scheduler fails to stop
 #
@@ -399,11 +399,13 @@ def test_wires_the_team_and_player_feed_kinds_and_the_cleanup_into_the_stars_job
             "season-cup-matchups",
             "season-playoffs",
             "season-playoffs-finals",
+            "season-all-star",
         } <= set(app.state.feed_cache._kinds)
         assert app.state.season_cup_feeds is not None
         assert app.state.season_cup_matchup_feeds is not None
         assert app.state.season_playoffs_feeds is not None
         assert app.state.season_playoffs_finals_feeds is not None
+        assert app.state.season_all_star_feeds is not None
         assert app.state.player_feeds is built["players"]
         args = built["players_args"]
         assert args[3] is app.state.feed_cache

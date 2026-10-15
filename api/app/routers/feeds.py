@@ -8,7 +8,8 @@
 # docs/api/calendar.md, docs/api/days.md, docs/adr/0041-past-game-detail.md,
 # docs/adr/0043-season-feeds-and-franchise-names.md,
 # docs/adr/0045-season-competition-feeds.md,
-# docs/adr/0046-season-playoffs-feeds.md
+# docs/adr/0046-season-playoffs-feeds.md,
+# docs/adr/0047-season-all-star-feed.md
 
 import asyncio
 import hashlib
@@ -257,6 +258,12 @@ async def read_season_playoffs_finals_feed(season: str, request: Request) -> Res
     kind, feed_id = request.app.state.season_playoffs_finals_feeds.target(season)
     if kind == FINALS_KIND:
         return await _serve_current_finals(request)
+    return await serve_on_demand(request.app.state.feed_cache, kind, feed_id, request)
+
+
+@router.get("/feeds/seasons/{season}/all-star.json")
+async def read_season_all_star_feed(season: str, request: Request) -> Response:
+    kind, feed_id = request.app.state.season_all_star_feeds.target(season)
     return await serve_on_demand(request.app.state.feed_cache, kind, feed_id, request)
 
 

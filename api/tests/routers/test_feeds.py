@@ -58,6 +58,10 @@
 # - Responds 404 with a JSON error and no source request on both season playoffs paths for 1993, a season after the current one, a non-integer, a trailing newline and a leading zero
 # - The current season serves the current playoffs and playoffs finals feeds with the same body and ETag and stores nothing under the season kinds
 # - Responds 503 on both season playoffs paths while the current season is not known, with no source request, and when a past build fails with nothing stored
+# - Serves the All-Star feed of a past season with Cache-Control and ETag and answers 304 for a matching ETag
+# - Responds 404 with a JSON error and no source request on the season All-Star path for an out of range or malformed season, and for a season with no edition, not read again
+# - The current season serves the current All-Star feed with the same body and ETag and stores nothing under the season kind
+# - Responds 503 on the season All-Star path while the current season is not known, with no source request, and when a past build fails with nothing stored
 #
 # What is covered:
 # - Success response, documented failures (503, 404), edge case of an invalid publish
@@ -134,6 +138,7 @@ from tests.jobs.test_playoffs_feed import (
 )
 from tests.jobs.test_playoffs_finals_feed import FinalsKit, postseason
 from tests.jobs.test_search_feed import SearchKit
+from tests.jobs.test_season_all_star_feed import SeasonAllStarKit
 from tests.jobs.test_season_cup_matchup_feed import SeasonMatchupKit
 from tests.jobs.test_season_player_feed import SeasonPlayerKit
 from tests.jobs.test_season_playoffs_finals_feed import FinalsKit as SeasonFinalsKit
@@ -2116,3 +2121,109 @@ def test_responds_503_when_a_past_playoffs_build_fails_with_nothing_stored(
 
     assert response.status_code == 503
     assert isinstance(response.json()["detail"], str)
+
+
+class SeasonAllStar:
+    """An app with the feeds router, the All-Star kind and the season All-Star kind
+    over the season All-Star kit's fakes."""
+
+    def __init__(self, path: Path) -> None:
+        self.kit = SeasonAllStarKit(path)
+        asyncio.run(self.kit.discover())
+        self.kit.calls.clear()
+        self.app = FastAPI()
+        self.app.include_router(feeds_router.router)
+        self.app.state.settings = self.kit.settings
+        self.app.state.presence = Presence(clock=lambda: self.kit.clock[0])
+        self.app.state.games_job = self.kit.games
+        self.app.state.feed_cache = self.kit.cache
+        self.app.state.season_all_star_feeds = self.kit.season_feeds
+
+
+@pytest.fixture
+def season_all_star(tmp_path: Path) -> Iterator[SeasonAllStar]:
+    with respx.mock:
+        yield SeasonAllStar(tmp_path)
+
+
+def test_serves_a_past_season_all_star_feed_with_cache_control_and_an_etag(
+    season_all_star: SeasonAllStar,
+) -> None:
+    with TestClient(season_all_star.app) as client:
+        response = client.get("/feeds/seasons/2025/all-star.json")
+
+        assert response.status_code == 200
+        feed = AllStarFeed.model_validate_json(response.content)
+        assert feed.year == 2025
+        assert response.headers["cache-control"] == CACHE_CONTROL
+        etag = response.headers["etag"]
+        assert etag.startswith('"') and etag.endswith('"')
+
+        again = client.get(
+            "/feeds/seasons/2025/all-star.json", headers={"If-None-Match": etag}
+        )
+
+    assert again.status_code == 304
+
+
+@pytest.mark.parametrize("season", ["1993", "2028", "abc", "2025%0A", "02025"])
+def test_responds_404_on_the_season_all_star_path_for_an_invalid_season(
+    season_all_star: SeasonAllStar, season: str
+) -> None:
+    with TestClient(season_all_star.app) as client:
+        response = client.get(f"/feeds/seasons/{season}/all-star.json")
+
+    assert response.status_code == 404
+    assert season_all_star.kit.calls == []
+
+
+def test_the_current_season_path_serves_the_current_all_star_feed(
+    season_all_star: SeasonAllStar,
+) -> None:
+    kit = season_all_star.kit
+    with TestClient(season_all_star.app) as client:
+        season = client.get("/feeds/seasons/2027/all-star.json")
+        current = client.get("/feeds/all-star.json")
+
+    assert season.status_code == 200
+    assert season.content == current.content
+    assert season.headers["etag"] == current.headers["etag"]
+    assert not (kit.path / "feeds" / "season-all-star").exists()
+
+
+@pytest.mark.parametrize("season", ["2025", "2027"])
+def test_responds_503_on_the_season_all_star_path_while_the_season_is_not_known(
+    season_all_star: SeasonAllStar, season: str
+) -> None:
+    season_all_star.kit.stars.season = None
+    with TestClient(season_all_star.app) as client:
+        response = client.get(f"/feeds/seasons/{season}/all-star.json")
+
+    assert response.status_code == 503
+    assert season_all_star.kit.calls == []
+
+
+def test_responds_404_for_a_season_with_no_edition_and_reads_nothing_again(
+    season_all_star: SeasonAllStar,
+) -> None:
+    kit = season_all_star.kit
+    kit.days = {}
+    with TestClient(season_all_star.app) as client:
+        first = client.get("/feeds/seasons/2025/all-star.json")
+        calls = len(kit.calls)
+        second = client.get("/feeds/seasons/2025/all-star.json")
+
+    assert first.status_code == 404 and second.status_code == 404
+    assert calls > 0 and len(kit.calls) == calls
+
+
+def test_responds_503_when_a_past_all_star_build_fails_with_nothing_stored(
+    season_all_star: SeasonAllStar,
+) -> None:
+    season_all_star.kit.failing.add("awards/2025")
+    with TestClient(season_all_star.app) as client:
+        response = client.get("/feeds/seasons/2025/all-star.json")
+
+    assert response.status_code == 503
+    assert isinstance(response.json()["detail"], str)
+    assert season_all_star.kit.stored_feed() is None

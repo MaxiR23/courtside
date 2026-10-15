@@ -20,6 +20,6 @@ regenerated, with the TypeScript types, by `scripts/contract.sh`.
 - [`cup.md`](cup.md): the Cup feed.
 - [`cup-matchup.md`](cup-matchup.md): the Cup matchup feed.
 - [`playoffs.md`](playoffs.md): the playoffs feed and the playoffs finals feed, and their season feeds.
-- [`all-star.md`](all-star.md): the All-Star feed.
+- [`all-star.md`](all-star.md): the All-Star feed and its season feed.
 - [`calendar.md`](calendar.md): the calendar feed of a season.
 - [`days.md`](days.md): the day feed of a past day.
