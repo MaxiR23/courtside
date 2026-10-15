@@ -5,7 +5,7 @@
 # models.
 #
 # SEE: docs/api/game-detail.md, docs/adr/0019-game-detail-route-and-feed.md,
-# docs/adr/0027-no-game-videos-section.md
+# docs/adr/0027-no-game-videos-section.md, docs/adr/0041-past-game-detail.md
 
 import datetime as dt
 from enum import StrEnum
@@ -15,6 +15,7 @@ from typing import Annotated, Any
 from pydantic import Field, HttpUrl, NonNegativeInt, PositiveInt, model_validator
 from pydantic.alias_generators import to_camel
 
+from app.feeds.base import SeasonLabel
 from app.feeds.games import (
     Conference,
     FeedModel,
@@ -296,6 +297,7 @@ class GameDetailFeed(FeedModel):
     cup: GameCup | None = None
     postseason: GamePostseason | None = None
     all_star: GameAllStar | None = None
+    season_label: SeasonLabel | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -426,4 +428,31 @@ class GameDetailFeed(FeedModel):
         )
         if series.leader != expected:
             raise ValueError("series leader must be the team with more wins")
+        return self
+
+
+# The detail of a final game of a past day (ADR 0041): the game detail feed's
+# shape, but no block that describes today. No star, standing, injury, last
+# game or record of a past season exists, so they are null on a league side too.
+class PastGameDetailFeed(GameDetailFeed):
+    @model_validator(mode="after")
+    def _require_league_data_of_league_sides(self) -> PastGameDetailFeed:
+        # Same name as GameDetailFeed's validator: it replaces that rule.
+        if self.status is not GameStatus.FINAL:
+            raise ValueError("a past game is final")
+        if self.season_label is None:
+            raise ValueError("a past game has a season label")
+        if any(
+            team.guest and team.record is not None for team in (self.away, self.home)
+        ):
+            raise ValueError("a guest side has no record")
+        blocks = (
+            ("stars", self.stars),
+            ("injuries", self.injuries),
+            ("lastGames", self.last_games),
+            ("standings", self.standings),
+        )
+        for name, block in blocks:
+            if block is not None:
+                raise ValueError(f"a past game has no {name}")
         return self

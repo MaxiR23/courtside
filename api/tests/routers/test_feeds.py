@@ -44,6 +44,9 @@
 # - Responds 404 for a calendar of 1993, the season after the current one and a season that is not a number or has a trailing newline with no source request, and 503 while the season is not known or when the read fails with nothing stored
 # - Serves the day feed with Cache-Control and ETag, with an empty games list for a day with no event, and answers 304 for a matching ETag
 # - Responds 404 for a day that is not a date, before 1993-10-01, tomorrow and a day of the stored games feed with no source request, and 503 when the read fails with nothing stored
+# - Serves the game detail of a final game of a stored day through the game detail route with Cache-Control, ETag and a season label, and answers 304 for a matching ETag
+# - Responds 404 for a game id in no stored day and for a postponed game of a stored day, with no source request, and 503 for a past game whose build fails with nothing stored
+# - A game the games job has loaded takes the games path with a null season label even when a stored day lists it
 #
 # What is covered:
 # - Success response, documented failures (503, 404), edge case of an invalid publish
@@ -68,7 +71,7 @@ from app.feeds.calendar import CalendarFeed
 from app.feeds.cup import CupFeed, SlotId
 from app.feeds.cup_matchup import CupMatchupFeed
 from app.feeds.days import DayFeed
-from app.feeds.game_detail import GameDetailFeed
+from app.feeds.game_detail import GameDetailFeed, PastGameDetailFeed
 from app.feeds.games import GamesFeed, GameStatus, Star, Stars
 from app.feeds.player import PlayerFeed
 from app.feeds.playoffs import PlayoffsFeed
@@ -76,9 +79,13 @@ from app.feeds.playoffs_finals import PlayoffsFinalsFeed
 from app.feeds.search import SearchFeed
 from app.feeds.standings import StandingsFeed
 from app.feeds.team import TeamFeed
+from app.jobs.day_feed import KIND as DAY_KIND
+from app.jobs.day_feed import build_day_feed
 from app.jobs.game_detail_feed import GameDetailFeeds
 from app.jobs.games import GamesJob
 from app.jobs.on_demand import MISSING_WAIT_SECONDS, FeedCache, FeedKind, IdStatus
+from app.jobs.past_game_detail_feed import KIND as PAST_KIND
+from app.jobs.past_game_detail_feed import PastGameDetailFeeds
 from app.jobs.presence import Presence
 from app.jobs.team_feed import FEED_LIFETIME
 from app.main import create_app
@@ -98,7 +105,10 @@ from tests.jobs.test_all_star_feed import AllStarKit
 from tests.jobs.test_calendar_feed import CalendarKit
 from tests.jobs.test_cup_feed import CupKit
 from tests.jobs.test_cup_matchup_feed import MatchupKit
-from tests.jobs.test_day_feed import DayKit
+from tests.jobs.test_day_feed import NOW as DAY_NOW
+from tests.jobs.test_day_feed import PAST, DayKit, search_url
+from tests.jobs.test_day_feed import game as day_game
+from tests.jobs.test_past_game_detail_feed import PastKit
 from tests.jobs.test_player_feed import PlayerKit
 from tests.jobs.test_playoffs_feed import PlayoffsKit
 from tests.jobs.test_playoffs_finals_feed import FinalsKit, postseason
@@ -1465,3 +1475,162 @@ def test_responds_503_for_a_day_when_the_read_fails_with_nothing_stored(
 
     assert response.status_code == 503
     assert isinstance(response.json()["detail"], str)
+
+
+class PastDetail:
+    """An app with the feeds router, the day, game detail and past game detail
+    kinds and a games job with no game, so it has loaded none."""
+
+    def __init__(self, path: Path) -> None:
+        self.kit = PastKit(path)
+
+        async def no_games(
+            client: SourceClient, day: dt.date, settings: Settings
+        ) -> list[ScoreboardGame]:
+            return []
+
+        self.job = GamesJob(
+            self.kit.settings,
+            self.kit.store,
+            self.kit.client,
+            fetch_games=no_games,
+            present=lambda now: True,
+        )
+        GameDetailFeeds(
+            self.kit.settings,
+            self.kit.store,
+            self.kit.client,
+            self.kit.cache,
+            self.job,
+        )
+        self.app = FastAPI()
+        self.app.include_router(feeds_router.router)
+        self.app.state.settings = self.kit.settings
+        self.app.state.presence = Presence(clock=lambda: self.kit.clock[0])
+        self.app.state.games_job = self.job
+        self.app.state.feed_cache = self.kit.cache
+
+    def store_day(self, client: TestClient, *games: ScoreboardGame) -> None:
+        client.portal.call(self.job.run, DAY_NOW)  # type: ignore[union-attr]
+        client.portal.call(self.kit.store_day, *games)  # type: ignore[union-attr]
+
+
+@pytest.fixture
+def past(tmp_path: Path) -> PastDetail:
+    return PastDetail(tmp_path)
+
+
+def test_serves_a_past_game_detail_with_status_final_and_a_season_label_with_cache_control_and_etag(
+    past: PastDetail,
+) -> None:
+    with TestClient(past.app) as client:
+        past.store_day(client, day_game("1", GameStatus.FINAL))
+
+        response = client.get("/feeds/games/1.json")
+
+    assert response.status_code == 200
+    feed = PastGameDetailFeed.model_validate_json(response.content)
+    assert feed.id == "1" and feed.status is GameStatus.FINAL
+    assert feed.season_label == "2004-05"
+    assert response.headers["content-type"] == "application/json"
+    assert response.headers["cache-control"] == CACHE_CONTROL
+    etag = response.headers["etag"]
+    assert etag.startswith('"') and etag.endswith('"')
+    assert past.kit.section_calls == ["1"]
+
+
+def test_responds_304_when_the_past_game_detail_etag_matches(past: PastDetail) -> None:
+    with TestClient(past.app) as client:
+        past.store_day(client, day_game("1", GameStatus.FINAL))
+        first = client.get("/feeds/games/1.json")
+
+        response = client.get(
+            "/feeds/games/1.json", headers={"If-None-Match": first.headers["etag"]}
+        )
+
+    assert response.status_code == 304
+    assert response.content == b""
+    assert past.kit.section_calls == ["1"]
+
+
+def test_responds_404_for_an_id_in_no_stored_day_and_outside_the_days_shown_with_no_source_request(
+    past: PastDetail,
+) -> None:
+    with TestClient(past.app) as client:
+        past.store_day(client, day_game("1", GameStatus.FINAL))
+
+        response = client.get("/feeds/games/999.json")
+
+    assert response.status_code == 404
+    assert isinstance(response.json()["detail"], str)
+    assert past.kit.section_calls == []
+
+
+def test_responds_404_for_a_postponed_game_of_a_stored_day_with_no_source_request(
+    past: PastDetail,
+) -> None:
+    with TestClient(past.app) as client:
+        past.store_day(
+            client,
+            day_game("1", GameStatus.FINAL),
+            day_game("2", GameStatus.POSTPONED),
+        )
+
+        response = client.get("/feeds/games/2.json")
+
+    assert response.status_code == 404
+    assert past.kit.section_calls == []
+
+
+def test_responds_503_for_a_past_game_whose_build_fails_with_nothing_stored(
+    past: PastDetail,
+) -> None:
+    with TestClient(past.app) as client:
+        past.store_day(client, day_game("1", GameStatus.FINAL))
+        past.kit.sections_failing = True
+
+        response = client.get("/feeds/games/1.json")
+
+    assert response.status_code == 503
+    assert isinstance(response.json()["detail"], str)
+
+
+def test_a_game_the_games_job_has_loaded_takes_the_games_path_with_a_null_season_label(
+    tmp_path: Path,
+) -> None:
+    detail = Detail(tmp_path, GameStatus.SCHEDULED)
+    settings = detail.app.state.settings
+    store = StateStore(tmp_path)
+    store.migrate()
+    calls: list[str] = []
+
+    async def sections(
+        client: SourceClient, game_id: str, settings: Settings, fresh: object
+    ) -> GameDetailSections:
+        calls.append(game_id)
+        return GameDetailSections.model_validate(
+            {"venue": {"name": "Old"}, "season": 2005}
+        )
+
+    PastGameDetailFeeds(
+        settings,
+        store,
+        create_client(store),
+        detail.app.state.feed_cache,
+        fetch_sections=sections,
+    )
+    stored = build_day_feed(
+        DAY_NOW, PAST, [day_game("401", GameStatus.FINAL)], search_url
+    )
+    publish_by_id(tmp_path, DAY_KIND, DayFeed, PAST.isoformat(), stored)
+    with TestClient(detail.app) as client:
+        client.portal.call(detail.job.run, NOW)  # type: ignore[union-attr]
+        assert detail.app.state.feed_cache.status(PAST_KIND, "401") is IdStatus.KNOWN
+
+        response = client.get("/feeds/games/401.json")
+
+    assert response.status_code == 200
+    feed = GameDetailFeed.model_validate_json(response.content)
+    assert feed.status is GameStatus.SCHEDULED and feed.venue.name == "Garden"
+    assert feed.season_label is None
+    assert calls == []

@@ -22,6 +22,7 @@ from pydantic import (
     model_validator,
 )
 
+from app.feeds.base import SeasonLabel
 from app.feeds.game_detail import (
     BoxScorePlayer,
     Conference,
@@ -38,7 +39,10 @@ from app.feeds.games import (
 )
 from app.feeds.opponent import Opponent
 
-SeasonLabel = Annotated[str, StringConstraints(pattern=r"^\d{4}-\d{2}$")]
+# The base definitions live in app.feeds.base; the other feed modules import
+# them from here.
+__all__ = ["SeasonLabel"]
+
 JerseyNumber = Annotated[str, StringConstraints(pattern=r"^\d{1,2}$")]
 
 

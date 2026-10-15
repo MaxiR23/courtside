@@ -10,7 +10,8 @@ generated from the models in `api/app/feeds/game_detail.py`. When this page
 and the models disagree, the models win. The route is decided in
 [ADR 0019](../adr/0019-game-detail-route-and-feed.md) and kept by
 [ADR 0020](../adr/0020-source-rules.md); its refresh and serving follow
-[`docs/source-rules.md`](../source-rules.md).
+[`docs/source-rules.md`](../source-rules.md). The detail of a past game follows
+[ADR 0041](../adr/0041-past-game-detail.md); its schema is this one.
 
 Conventions:
 
@@ -51,6 +52,7 @@ The root is one game.
 | `cup`                 | `GameCup` / null          | The Cup mark, as in the [games feed](games.md)                   | null when the game is not a Cup game  |
 | `postseason`          | `GamePostseason` / null   | The play-in or playoff mark, as in the [games feed](games.md)    | null when the game is neither, and when a stored feed was written before the mark |
 | `allStar`             | `GameAllStar` / null      | The All-Star mark, as in the [games feed](games.md)              | null when the game is not an All-Star game, and when a stored feed was written before the mark |
+| `seasonLabel`         | string / null             | The game's season label, such as `2004-05`                       | set on a past game, null on a game of the days shown, and when a stored feed was written before the field |
 
 For every optional section, `null` means the source has no data for it: the
 page hides the section and its tab (`docs/design-game-detail.md`, "A section
@@ -131,6 +133,26 @@ builds the feed.
   provider's game format. The number of periods is the regulation count or
   the highest period played, whichever is higher.
 
+## Past games
+
+A final game of a stored [day feed](days.md) that the games job has not loaded
+is served on the same route, with the same schema
+([ADR 0041](../adr/0041-past-game-detail.md)). Any other id keeps the rules
+above. A game of a day feed that is not final answers 404.
+
+- The game's status, start time, broadcast, line score, score, winner, marks
+  (`cup`, `postseason`, `allStar`), sides and `highlightsSearchUrl` come from the
+  stored day feed. The sides are resolved by team id first, with the event's name
+  and city; an unknown id is a guest. The marks are those of the day feed.
+- The `venue`, `boxScore`, `teamStats`, `winProbability`,
+  `winProbabilityLeader` and `winProbabilityPeriods` come from one game detail
+  summary. Each is null when the summary lacks it.
+- `seasonLabel` is set from the summary's season. A summary without a readable
+  season fails the build.
+- `stars`, `injuries`, `lastGames`, `standings`, `seasonSeries` and
+  `highlights` are null, and so is each side's `record`: they describe today,
+  and the source reads no record of a past game.
+
 ## Known cases
 
 A completed series event without a winner flag fails that game's build, and
@@ -156,6 +178,10 @@ recorded response that shows it.
   ([ADR 0010](../adr/0010-final-game-attempts.md)). It is stored and never
   built again. The last stored feed stays served until then, and a request
   answers 503 when none is stored.
+- A past game's feed is built once on request, stored as its own kind and kept.
+  It is never refreshed or cleaned up, and the games job never touches it. A
+  failed build answers 503 while nothing is stored and is not retried for 10
+  minutes.
 - Standings, league injuries and team schedules are read through the source
   cache with a 1-hour freshness.
 - Stars, highlights and the highlights search URL are added when the feed is
@@ -171,11 +197,12 @@ recorded response that shows it.
   with `Cache-Control: public, max-age=10` and an `ETag`.
 - It responds 304 with no body when `If-None-Match` matches the current
   `ETag`.
-- It responds 404 with `{"detail": ...}` for an id outside the days shown,
-  with no source request.
+- It responds 404 with `{"detail": ...}` for an id outside the days shown that
+  is not a final game of a stored day feed, with no source request.
 - It responds 503 with `{"detail": ...}` before the days shown are loaded,
   when the request's 20 seconds end before a missing feed is built, after a
-  failed build, and for a final game with no stored feed.
+  failed build, and for a final game with no stored feed. It also responds 503
+  for a past game whose build failed or is still running.
 - After a day change whose new-day fetch fails, the games already loaded (the
   previous days shown and any new day fetched) keep being served, stored
   finals included. An id not loaded answers 503 until every day shown is

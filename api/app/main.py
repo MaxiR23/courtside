@@ -15,6 +15,7 @@ from app.jobs.game_detail_feed import GameDetailFeeds
 from app.jobs.games import GamesJob
 from app.jobs.highlights import HighlightsJob
 from app.jobs.on_demand import FeedCache
+from app.jobs.past_game_detail_feed import PastGameDetailFeeds
 from app.jobs.player_feed import PlayerFeeds
 from app.jobs.playoffs_feed import PlayoffsFeeds
 from app.jobs.playoffs_finals_feed import PlayoffsFinalsFeeds
@@ -120,6 +121,7 @@ def create_app(settings: Settings | None = None, *, run_jobs: bool = True) -> Fa
         )
         CalendarFeeds(settings, store, client, feed_cache, stars_job)
         DayFeeds(settings, store, client, feed_cache)
+        PastGameDetailFeeds(settings, store, client, feed_cache)
         # The stars job runs in its own task so its fetches never delay the live refresh,
         # and so does the All-Star discovery.
         stars_scheduler = Scheduler([stars_job, all_star_discovery], store)

@@ -1,0 +1,113 @@
+{
+  "header": {
+    "season": {
+      "year": 2005,
+      "type": 2
+    }
+  },
+  "format": {
+    "regulation": {
+      "periods": 4,
+      "clock": 720.0
+    },
+    "overtime": {
+      "clock": 300.0
+    }
+  },
+  "gameInfo": {
+    "venue": {
+      "id": "1",
+      "fullName": "Harbor Arena",
+      "address": {
+        "city": "Harbor City"
+      },
+      "images": []
+    }
+  },
+  "boxscore": {
+    "teams": [
+      {
+        "homeAway": "away",
+        "team": {
+          "abbreviation": "OLD",
+          "id": "25"
+        },
+        "statistics": [
+          {
+            "name": "fieldGoalPct",
+            "displayValue": "50.0"
+          },
+          {
+            "name": "threePointFieldGoalPct",
+            "displayValue": "33.3"
+          },
+          {
+            "name": "freeThrowPct",
+            "displayValue": "66.7"
+          },
+          {
+            "name": "totalRebounds",
+            "displayValue": "8"
+          },
+          {
+            "name": "assists",
+            "displayValue": "5"
+          },
+          {
+            "name": "turnovers",
+            "displayValue": "3"
+          },
+          {
+            "name": "steals",
+            "displayValue": "2"
+          },
+          {
+            "name": "blocks",
+            "displayValue": "1"
+          }
+        ]
+      },
+      {
+        "homeAway": "home",
+        "team": {
+          "abbreviation": "HBR",
+          "id": "90001"
+        },
+        "statistics": [
+          {
+            "name": "fieldGoalPct",
+            "displayValue": "47.4"
+          },
+          {
+            "name": "threePointFieldGoalPct",
+            "displayValue": "20.0"
+          },
+          {
+            "name": "freeThrowPct",
+            "displayValue": "75.0"
+          },
+          {
+            "name": "totalRebounds",
+            "displayValue": "7"
+          },
+          {
+            "name": "assists",
+            "displayValue": "3"
+          },
+          {
+            "name": "turnovers",
+            "displayValue": "5"
+          },
+          {
+            "name": "steals",
+            "displayValue": "3"
+          },
+          {
+            "name": "blocks",
+            "displayValue": "1"
+          }
+        ]
+      }
+    ]
+  }
+}

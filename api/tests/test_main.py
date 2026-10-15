@@ -19,6 +19,7 @@
 # - Wires the games job, the feed cache, stars and highlights into the game detail feeds
 # - Wires presence and the after-run hook into the games job
 # - Wires the team, player, standings, search, Cup, Cup matchup, playoffs and playoffs finals feed kinds into the feed cache, the player feeds into app.state, and the cleanup into the stars job's after-run hook
+# - Wires the past game detail kind into the feed cache
 # - Closes the HTTP client when the scheduler fails to stop
 #
 # What is covered:
@@ -343,6 +344,16 @@ def test_wires_presence_and_the_after_run_hook_into_the_games_job(
         kwargs["after_run"]()
 
     assert built["detail"].hook_calls == 1
+
+
+def test_wires_the_past_game_detail_kind_into_the_feed_cache(tmp_path: Path) -> None:
+    app = create_app(
+        Settings(_env_file=None, data_dir=tmp_path),  # type: ignore[call-arg]
+        run_jobs=False,
+    )
+
+    with TestClient(app):
+        assert "past-games" in app.state.feed_cache._kinds
 
 
 def test_wires_the_team_and_player_feed_kinds_and_the_cleanup_into_the_stars_job(

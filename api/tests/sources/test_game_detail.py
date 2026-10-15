@@ -31,6 +31,9 @@
 # - The sections and the detail of one game share one cached response
 # - A guest team without an abbreviation is matched to its box score players by its provider id; its leaders have a null code and its stat and win probability leaders are sides
 # - A guest team keeps its provider code in the leaders, team stats and box score; a guest player photo is the box score headshot or null; a guest game has no season series and may have no win probability
+# - The past path (ADR 0041) resolves a side by its team id first, so a historical abbreviation with a known id is a league side with template photos and an unknown id is a guest; it reads the event's season end year from the header, reads no injuries or season series (and does not fail on them), and gives null win probability and null box score or team stats when the summary lacks plays or players
+# - A summary without a header, or with an unreadable season, gives a null season
+# - The past path raises the source error on an invalid payload, a timeout, an error status and a missing URL
 #
 # What is covered:
 # - A valid response mapped, an invalid payload rejected, upstream failures handled
@@ -49,6 +52,11 @@
 # of summary-final.json was given a play id that matches no play, to cover the
 # dropped point. No overtime summary was recorded: the overtime cases edit
 # summary-final.json in the test.
+#
+# summary-past-final.json and summary-past-no-box-score.json are not recorded.
+# They are built with invented clubs and example data only: a header with the
+# season, a historical abbreviation with a known id, an unknown id, an injury
+# with an unknown status and a season series of other teams.
 #
 # summary-out-of-order-win-probability.json is not recorded. It is built with
 # example data only. Its win probability entries go back in game time in the
@@ -78,6 +86,7 @@ from app.sources.game_detail import (
     SeriesMeeting,
     fetch_game_detail,
     fetch_game_detail_sections,
+    fetch_past_game_detail_sections,
 )
 from app.sources.http import SourceClient, SourceError, create_client
 from app.storage.state import StateStore
@@ -1668,3 +1677,147 @@ async def test_raises_the_source_error_when_a_side_has_no_players_by_id_or_abbre
     error = await sections_error(settings)
 
     assert error.reason == f"game {GAME_ID} has no players for 90001"
+
+
+# Past game detail sections (ADR 0041)
+
+
+async def fetch_past_sections(
+    settings: Settings, game_id: str = GAME_ID
+) -> GameDetailSections:
+    with TemporaryDirectory() as directory:
+        store = StateStore(Path(directory))
+        store.migrate()
+        async with create_client(store) as client:
+            return await fetch_past_game_detail_sections(
+                client, game_id, settings, dt.timedelta(hours=1)
+            )
+
+
+async def past_sections_of(
+    mock: respx.MockRouter, settings: Settings, payload: Payload
+) -> GameDetailSections:
+    mock.get(URL).respond(json=payload)
+    return await fetch_past_sections(settings)
+
+
+@pytest.mark.anyio
+async def test_the_past_path_maps_a_known_id_as_a_league_side_with_template_photos_and_an_unknown_id_as_a_guest(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    detail = await past_sections_of(mock, settings, load("summary-past-final.json"))
+
+    assert detail.box_score is not None and detail.team_stats is not None
+    away = detail.box_score.away.players
+    home = detail.box_score.home.players
+    assert [str(p.photo_url) for p in away] == [
+        "https://example.com/players/9001.png",
+        "https://example.com/players/9002.png",
+    ]
+    assert [str(p.photo_url) if p.photo_url else None for p in home] == [
+        "https://example.com/head/9101.png",
+        None,
+    ]
+    assert (detail.venue.name, detail.venue.city) == ("Harbor Arena", "Harbor City")
+    assert detail.team_stats.away.field_goal_pct == 0.5
+
+
+@pytest.mark.anyio
+async def test_the_current_path_reads_a_historical_abbreviation_as_a_guest_without_template_photos(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("summary-past-final.json")
+    payload["injuries"] = []
+
+    detail = await sections_of(mock, settings, payload, GAME_ID)
+
+    assert detail.box_score is not None
+    assert [p.photo_url for p in detail.box_score.away.players] == [None, None]
+
+
+@pytest.mark.anyio
+async def test_the_past_path_reads_the_season_end_year_from_the_header(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    detail = await past_sections_of(mock, settings, load("summary-past-final.json"))
+
+    assert detail.season == 2005
+
+
+@pytest.mark.anyio
+async def test_the_past_path_reads_no_injuries_or_season_series_and_does_not_fail_on_them(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("summary-past-final.json")
+    assert payload["injuries"] and payload["seasonseries"]
+
+    detail = await past_sections_of(mock, settings, payload)
+
+    assert detail.injuries is None
+    assert detail.season_series is None
+
+
+@pytest.mark.anyio
+async def test_the_past_path_gives_null_win_probability_leader_and_periods_without_plays(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    detail = await past_sections_of(mock, settings, load("summary-past-final.json"))
+
+    assert detail.win_probability is None
+    assert detail.win_probability_leader is None
+    assert detail.win_probability_periods is None
+
+
+@pytest.mark.anyio
+async def test_the_past_path_gives_null_box_score_and_team_stats_without_players(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    detail = await past_sections_of(
+        mock, settings, load("summary-past-no-box-score.json")
+    )
+
+    assert detail.box_score is None
+    assert detail.team_stats is None
+    assert detail.season == 2005
+
+
+@pytest.mark.anyio
+async def test_a_summary_without_a_header_or_with_an_unreadable_season_gives_a_null_season(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    final = await sections_of(
+        mock, settings, load("summary-final.json"), SERIES_GAME_ID
+    )
+    assert final.season is None
+
+    for header in (
+        {"season": "2005"},
+        {"season": {"year": "x"}},
+        {"season": {"year": 0}},
+        "x",
+    ):
+        payload = load("summary-past-no-box-score.json")
+        payload["header"] = header
+        detail = await past_sections_of(mock, settings, payload)
+        assert detail.season is None
+
+
+@pytest.mark.anyio
+async def test_the_past_path_raises_the_source_error_on_an_invalid_payload_a_timeout_an_error_status_and_a_missing_url(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    mock.get(URL).respond(json={"unexpected": True})
+    with pytest.raises(SourceError, match="invalid payload"):
+        await fetch_past_sections(settings)
+
+    mock.get(URL).mock(side_effect=httpx.TimeoutException("slow"))
+    with pytest.raises(SourceError):
+        await fetch_past_sections(settings)
+
+    mock.get(URL).respond(status_code=500)
+    with pytest.raises(SourceError):
+        await fetch_past_sections(settings)
+
+    no_url = Settings(_env_file=None, player_photo_url=PHOTO_TEMPLATE)  # type: ignore[call-arg]
+    with pytest.raises(SourceError, match="not configured"):
+        await fetch_past_sections(no_url)

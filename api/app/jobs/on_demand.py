@@ -98,6 +98,12 @@ class FeedCache:
             raise ValueError(f"feed kind already registered: {kind.name}")
         self._kinds[kind.name] = kind
 
+    def status(self, kind: str, feed_id: str) -> IdStatus | None:
+        """The kind's status of an id, or None when no such kind is registered.
+        Builds nothing and reads no source."""
+        feed_kind = self._kinds.get(kind)
+        return None if feed_kind is None else feed_kind.check(feed_id)
+
     @property
     def wait(self) -> float:
         """The configured wait of a request, in seconds."""

@@ -6,11 +6,15 @@
 # its period boundaries, injuries and season series. The provider URLs come from Settings.
 # Provider data never leaves this module.
 #
+# The past path (ADR 0041) reads the sections of a final game of a past day:
+# sides by team id first, no injuries or season series, and the event's season.
+#
 # A team is matched to its box score players by id when both sides send one,
 # else by abbreviation. A team without an abbreviation is resolved by id or is a
 # guest without a code (ADR 0026). Stat and win probability leaders are sides.
 #
-# SEE: docs/api/games.md, api/app/sources/scoreboard.py
+# SEE: docs/api/games.md, docs/adr/0041-past-game-detail.md,
+# api/app/sources/scoreboard.py
 
 import datetime as dt
 from typing import Annotated, Any
@@ -48,7 +52,7 @@ from app.feeds.games import (
 from app.feeds.opponent import Side
 from app.settings import Settings
 from app.sources.http import Freshness, SourceClient, SourceError, get_json
-from app.sources.teams import side_of, to_team_code
+from app.sources.teams import TEAM_CODES, TEAM_IDS, side_of, to_team_code
 
 SOURCE = "game_detail"
 EASTERN = ZoneInfo("America/New_York")
@@ -388,7 +392,18 @@ class _SummarySeries(_ProviderModel):
     events: list[_SummarySeriesEvent] = []
 
 
+class _SummarySeason(_ProviderModel):
+    year: int | None = None
+
+
+class _SummaryHeader(_ProviderModel):
+    season: _SummarySeason | None = None
+
+
 class _ProviderSummary(_ProviderModel):
+    # The header is read apart and leniently: an unexpected shape is no season,
+    # never a failed read.
+    header: Any = None
     format: _SummaryFormat
     game_info: _SummaryGameInfo
     boxscore: _SummaryBoxscore
@@ -421,7 +436,8 @@ class SeriesMeetings(FeedModel):
 
 
 class GameDetailSections(FeedModel):
-    """A game's detail sections as the game summary knows them."""
+    """A game's detail sections as the game summary knows them, and the event's
+    season end year when the summary gives it."""
 
     venue: Venue
     team_stats: DetailGameTeamStats | None = None
@@ -433,6 +449,7 @@ class GameDetailSections(FeedModel):
     win_probability_periods: WinProbabilityPeriods | None = None
     injuries: Injuries | None = None
     season_series: SeriesMeetings | None = None
+    season: PositiveInt | None = None
 
 
 def _stat_leader(
@@ -750,6 +767,17 @@ def _season_series(
     }
 
 
+def _season(summary: _ProviderSummary) -> int | None:
+    # The season end year (2005 for 2004-05), or None when the summary has no
+    # readable one. Never raises.
+    try:
+        header = _SummaryHeader.model_validate(summary.header)
+    except ValidationError:
+        return None
+    year = header.season.year if header.season else None
+    return year if year is not None and year > 0 else None
+
+
 async def fetch_game_detail_sections(
     client: SourceClient, game_id: str, settings: Settings, fresh: Freshness
 ) -> GameDetailSections:
@@ -757,6 +785,34 @@ async def fetch_game_detail_sections(
 
     `fresh` is the freshness of the game's state: 30 seconds live, the
     attempt's due time final, 1 hour otherwise."""
+    return await _fetch_sections(client, game_id, settings, fresh, past=False)
+
+
+async def fetch_past_game_detail_sections(
+    client: SourceClient, game_id: str, settings: Settings, fresh: Freshness
+) -> GameDetailSections:
+    """The detail sections of a final game of a past day (ADR 0041): sides by
+    team id first, as the past day's scoreboard (ADR 0040), and no injuries
+    or season series, which a past game never shows. Raises SourceError."""
+    return await _fetch_sections(client, game_id, settings, fresh, past=True)
+
+
+def _resolve_side(team: _ProviderBoxTeam, *, past: bool) -> tuple[str | None, bool]:
+    # A past game's team id of the 30 wins over the abbreviation, which may be
+    # a historical one (ADR 0040).
+    if past and team.team.id in TEAM_IDS:
+        return TEAM_CODES[TEAM_IDS[team.team.id]], False
+    return side_of(team.team.abbreviation, team.team.id, source=SOURCE)
+
+
+async def _fetch_sections(
+    client: SourceClient,
+    game_id: str,
+    settings: Settings,
+    fresh: Freshness,
+    *,
+    past: bool,
+) -> GameDetailSections:
     if settings.game_detail_url is None:
         raise SourceError(SOURCE, "game detail URL is not configured")
     if settings.player_photo_url is None:
@@ -778,10 +834,7 @@ async def fetch_game_detail_sections(
     if set(sides) != {"home", "away"} or len(box.teams) != 2:
         raise SourceError(SOURCE, f"game {game_id} needs one home and one away team")
     abbreviations = {side: team.team.abbreviation for side, team in sides.items()}
-    resolved = {
-        side: side_of(team.team.abbreviation, team.team.id, source=SOURCE)
-        for side, team in sides.items()
-    }
+    resolved = {side: _resolve_side(team, past=past) for side, team in sides.items()}
     guests = {side: guest for side, (_, guest) in resolved.items()}
 
     venue = summary.game_info.venue
@@ -826,18 +879,24 @@ async def fetch_game_detail_sections(
     sections["win_probability_periods"] = (
         _win_probability_periods(summary) if points else None
     )
-    if summary.injuries:
-        sections["injuries"] = _injuries(game_id, summary, abbreviations)
-    # A guest game has no season series (ADR 0025).
-    sections["season_series"] = (
-        None
-        if any(guests.values())
-        else _season_series(
-            game_id,
-            summary,
-            {side: code for side, (code, _) in resolved.items() if code is not None},
+    sections["season"] = _season(summary)
+    if not past:
+        if summary.injuries:
+            sections["injuries"] = _injuries(game_id, summary, abbreviations)
+        # A guest game has no season series (ADR 0025).
+        sections["season_series"] = (
+            None
+            if any(guests.values())
+            else _season_series(
+                game_id,
+                summary,
+                {
+                    side: code
+                    for side, (code, _) in resolved.items()
+                    if code is not None
+                },
+            )
         )
-    )
 
     try:
         return GameDetailSections.model_validate(sections)

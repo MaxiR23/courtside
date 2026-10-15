@@ -41,6 +41,7 @@ export interface GameDetailFeed {
 	cup: GameCup | null;
 	postseason: GamePostseason | null;
 	allStar: GameAllStar | null;
+	seasonLabel: string | null;
 }
 export interface Venue {
 	name: string;

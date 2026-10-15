@@ -5,7 +5,7 @@
 # SEE: docs/api/games.md, docs/api/game-detail.md, docs/api/player.md, docs/api/team.md,
 # docs/api/standings.md, docs/api/search.md, docs/api/cup.md,
 # docs/api/cup-matchup.md, docs/api/playoffs.md, docs/api/all-star.md,
-# docs/api/calendar.md, docs/api/days.md
+# docs/api/calendar.md, docs/api/days.md, docs/adr/0041-past-game-detail.md
 
 import asyncio
 import hashlib
@@ -20,7 +20,13 @@ from app.jobs.cup_feed import KIND as CUP_KIND
 from app.jobs.cup_matchup_feed import KIND as MATCHUP_KIND
 from app.jobs.day_feed import KIND as DAY_KIND
 from app.jobs.game_detail_feed import KIND
-from app.jobs.on_demand import FeedCache, FeedUnavailableError, UnknownFeedError
+from app.jobs.on_demand import (
+    FeedCache,
+    FeedUnavailableError,
+    IdStatus,
+    UnknownFeedError,
+)
+from app.jobs.past_game_detail_feed import KIND as PAST_KIND
 from app.jobs.player_feed import KIND as PLAYER_KIND
 from app.jobs.playoffs_feed import FEED_ID as PLAYOFFS_ID
 from app.jobs.playoffs_feed import KIND as PLAYOFFS_KIND
@@ -72,6 +78,13 @@ async def read_games_feed(request: Request) -> Response:
 @router.get("/feeds/games/{game_id}.json")
 async def read_game_detail_feed(game_id: str, request: Request) -> Response:
     feeds: FeedCache = request.app.state.feed_cache
+    # A final game of a stored day feed that the games job has not loaded is a
+    # past game (ADR 0041); every other id keeps the games path.
+    if (
+        request.app.state.games_job.loaded_game(game_id) is None
+        and feeds.status(PAST_KIND, game_id) is IdStatus.KNOWN
+    ):
+        return await serve_on_demand(feeds, PAST_KIND, game_id, request)
     loop = asyncio.get_running_loop()
     started = loop.time()
     budget = feeds.wait

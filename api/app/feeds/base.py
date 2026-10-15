@@ -27,6 +27,7 @@ def _require_utc(value: dt.datetime) -> dt.datetime:
 UtcDatetime = Annotated[AwareDatetime, AfterValidator(_require_utc)]
 TeamCode = Annotated[str, StringConstraints(pattern=r"^[A-Z]{3}$")]
 NonEmptyStr = Annotated[str, StringConstraints(min_length=1)]
+SeasonLabel = Annotated[str, StringConstraints(pattern=r"^\d{4}-\d{2}$")]
 # A guest side keeps the provider's own code, whatever it looks like (ADR 0025).
 SideCode = NonEmptyStr
 Percentage = Annotated[float, Field(ge=0, le=1)]

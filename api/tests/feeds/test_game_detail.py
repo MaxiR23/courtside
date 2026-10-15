@@ -31,6 +31,8 @@
 # - Accepts a postseason mark and reads a stored feed without the key as null
 # - Accepts an All-Star mark and reads a stored feed without the key as null
 # - Accepts a guest side with a null city and rejects a league side with a null city
+# - The season label is null by default, accepted as YYYY-YY and rejected otherwise
+# - A past game detail: final, a season label, null records, stars, injuries, last games and standings; the other rules still apply; its schema equals the game detail schema apart from its title
 #
 # What is covered:
 # - A valid feed is accepted and an invalid one is rejected
@@ -47,7 +49,8 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from app.feeds.game_detail import GameDetailFeed
+from app.feeds.game_detail import GameDetailFeed, PastGameDetailFeed
+from app.feeds.schema import SCHEMA_DIR, render_schema
 
 Payload = dict[str, Any]
 
@@ -1040,3 +1043,100 @@ def test_rejects_a_league_detail_side_with_a_null_city() -> None:
         GameDetailFeed.model_validate(
             valid_game("scheduled", away={**team("AAA"), "city": None})
         )
+
+
+def test_a_game_detail_has_a_null_season_label_by_default_and_accepts_one() -> None:
+    plain = GameDetailFeed.model_validate(valid_game("final"))
+    labeled = GameDetailFeed.model_validate(valid_game("final", seasonLabel="2004-05"))
+
+    assert plain.model_dump(mode="json")["seasonLabel"] is None
+    assert labeled.model_dump(mode="json")["seasonLabel"] == "2004-05"
+
+
+@pytest.mark.parametrize("label", ["2005", "04-05", "2004-5"])
+def test_rejects_a_season_label_that_is_not_a_label(label: str) -> None:
+    with pytest.raises(ValidationError, match="seasonLabel"):
+        GameDetailFeed.model_validate(valid_game("final", seasonLabel=label))
+
+
+def past_detail(**overrides: object) -> Payload:
+    """A final game of a past day: league sides without records or today's blocks."""
+    game = full_game()
+    game.update(
+        away={**team("AAA"), "record": None},
+        home={**team("HHH"), "record": None},
+        stars=None,
+        injuries=None,
+        lastGames=None,
+        standings=None,
+        seasonSeries=None,
+        highlights=None,
+        seasonLabel="2004-05",
+    )
+    game.update(overrides)
+    return game
+
+
+def test_a_past_game_detail_with_null_records_on_league_sides_is_accepted() -> None:
+    feed = PastGameDetailFeed.model_validate(past_detail())
+
+    assert feed.away.record is None and feed.home.record is None
+    assert feed.season_label == "2004-05"
+    assert feed.stars is None and feed.injuries is None
+    assert feed.last_games is None and feed.standings is None
+
+
+def test_a_past_game_detail_rejects_a_guest_side_with_a_record() -> None:
+    game = past_detail(away={**team("HCM"), "guest": True, "record": record()})
+    game["boxScore"]["away"]["players"][0]["photoUrl"] = None
+
+    with pytest.raises(ValidationError, match="a guest side has no record"):
+        PastGameDetailFeed.model_validate(game)
+
+
+@pytest.mark.parametrize("name", ["stars", "injuries", "lastGames", "standings"])
+def test_a_past_game_detail_rejects_stars_injuries_last_games_or_standings(
+    name: str,
+) -> None:
+    value = pair(star("AAA"), star("HHH")) if name == "stars" else full_game()[name]
+
+    with pytest.raises(ValidationError, match=name):
+        PastGameDetailFeed.model_validate(past_detail(**{name: value}))
+
+
+def test_a_past_game_detail_rejects_a_game_that_is_not_final_or_has_no_season_label() -> (
+    None
+):
+    live = valid_game("live", seasonLabel="2004-05")
+    for game in (live, past_detail(seasonLabel=None)):
+        with pytest.raises(ValidationError):
+            PastGameDetailFeed.model_validate(game)
+
+
+def test_the_other_game_detail_rules_still_apply_to_a_past_game() -> None:
+    no_winner = past_detail()
+    del no_winner["winner"]
+    no_photo = past_detail()
+    no_photo["boxScore"]["away"]["players"][0]["photoUrl"] = None
+
+    for game in (no_winner, no_photo, past_detail(home=team("AAA"))):
+        with pytest.raises(ValidationError):
+            PastGameDetailFeed.model_validate(game)
+
+
+def test_game_detail_still_rejects_a_null_record_on_a_league_side() -> None:
+    with pytest.raises(ValidationError, match="record"):
+        GameDetailFeed.model_validate(past_detail())
+
+
+def test_the_past_game_detail_schema_equals_the_game_detail_schema_apart_from_its_title() -> (
+    None
+):
+    past = json.loads(render_schema(PastGameDetailFeed))
+    committed = json.loads(
+        (SCHEMA_DIR / "game-detail.schema.json").read_text(encoding="utf-8")
+    )
+
+    del past["title"]
+    del committed["title"]
+    assert past == committed

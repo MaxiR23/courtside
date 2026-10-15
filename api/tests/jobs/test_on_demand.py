@@ -39,6 +39,7 @@
 # - A dependency inside its 10-minute backoff is not rebuilt and the dependent build still runs
 # - A dependency id its kind does not know is skipped with no build
 # - An exception raised while ensuring the dependency is recorded as a failed build of the dependent feed and never raised
+# - status gives the kind's answer for an id with no build and None for a kind never registered
 # - refresh starts one build without waiting, joins one in flight and leaves no task referenced
 #
 # What is covered:
@@ -908,3 +909,21 @@ async def test_an_error_ensuring_the_dependency_is_recorded_as_a_failed_build_an
     assert state is not None
     assert state.last_failure_reason == "unexpected error: RuntimeError"
     assert dep.setup.stored("p1") is None
+
+
+@pytest.mark.anyio
+async def test_status_gives_the_kinds_answer_with_no_build_and_none_for_an_unregistered_kind(
+    tmp_path: Path,
+) -> None:
+    fake = Fake()
+    setup = Setup(tmp_path, fake)
+
+    known = setup.cache.status("players", "p1")
+    fake.status = IdStatus.UNKNOWN
+    unknown = setup.cache.status("players", "p1")
+    missing = setup.cache.status("nobody", "p1")
+
+    assert (known, unknown, missing) == (IdStatus.KNOWN, IdStatus.UNKNOWN, None)
+    assert fake.builds == 0
+    assert setup.cache.in_flight == {}
+    assert setup.store.feed_build("players", "p1") is None

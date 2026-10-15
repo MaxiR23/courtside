@@ -1616,6 +1616,18 @@
         }
       ],
       "default": null
+    },
+    "seasonLabel": {
+      "anyOf": [
+        {
+          "pattern": "^\\d{4}-\\d{2}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     }
   },
   "required": [
@@ -1645,7 +1657,8 @@
     "highlightsSearchUrl",
     "cup",
     "postseason",
-    "allStar"
+    "allStar",
+    "seasonLabel"
   ],
   "title": "GameDetailFeed",
   "type": "object"
