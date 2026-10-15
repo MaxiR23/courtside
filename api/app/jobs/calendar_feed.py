@@ -14,7 +14,10 @@
 # answer is not ready (503). It expires (rule G) 24 hours after the build, and is
 # kept once its season is past and it was built after the season's last day (the
 # last day guard keeps a calendar stored while its season was current from being
-# frozen at the season change). It is never deleted (ADR 0040).
+# frozen at the season change). It is never deleted (ADR 0040). The id current
+# resolves to the current season's end year before the cache, so it serves the
+# same stored file (503 while the season is unknown). The feed's seasons run from
+# the current season down to 1994 and are set again at serve time (ADR 0042).
 #
 # SEE: docs/api/calendar.md, docs/adr/0040-calendar-and-day-feeds.md,
 # api/app/jobs/standings_feed.py
@@ -37,6 +40,7 @@ from app.sources.http import SourceClient
 from app.storage.state import StateStore
 
 KIND = "calendars"
+CURRENT_ID = "current"
 CURRENT_FRESH_FOR = dt.timedelta(hours=24)
 _SEASON_ID = re.compile(r"\d{4}")
 
@@ -53,11 +57,20 @@ class CalendarBuildError(Exception):
         self.reason = reason
 
 
+def seasons_until(current_season: int) -> list[dict[str, object]]:
+    """The seasons from the current one down to 1994, newest first."""
+    return [
+        {"season": s, "season_label": season_label(s)}
+        for s in range(current_season, FIRST_SEASON - 1, -1)
+    ]
+
+
 def build_calendar_feed(
     generated_at: dt.datetime,
     season: int,
     moments: Sequence[dt.datetime],
     window_days: Sequence[dt.date],
+    current_season: int,
 ) -> CalendarFeed:
     """Build the calendar feed; raise CalendarBuildError when it is not valid."""
     days = sorted({eastern_date(moment) for moment in moments})
@@ -71,6 +84,7 @@ def build_calendar_feed(
                 "last_day": days[-1] if days else None,
                 "days": days,
                 "window_days": sorted(window_days),
+                "seasons": seasons_until(current_season),
             }
         )
     except ValidationError as error:
@@ -114,7 +128,28 @@ class CalendarFeeds:
             self._client, season, self._settings
         )
         window = stored_window_days(self._settings.data_dir) or []
-        return build_calendar_feed(self._client.clock(), season, moments, window)
+        current = self._stars.current_season()
+        if current is None:
+            raise CalendarBuildError("current season is not known")
+        return build_calendar_feed(
+            self._client.clock(), season, moments, window, current
+        )
+
+    def feed_id(self, season: str) -> str | None:
+        """The id a route season maps to: current resolves to the current
+        season's end year, or None while it is not known."""
+        if season != CURRENT_ID:
+            return season
+        current = self._stars.current_season()
+        return None if current is None else str(current)
+
+    def serve_with(self, feed_id: str, feed: CalendarFeed) -> CalendarFeed:
+        current = self._stars.current_season()
+        if current is None:
+            return feed
+        return CalendarFeed.model_validate(
+            {**feed.model_dump(by_alias=False), "seasons": seasons_until(current)}
+        )
 
     def is_fresh(
         self, feed: CalendarFeed, built_at: dt.datetime, now: dt.datetime
@@ -139,4 +174,5 @@ class CalendarFeeds:
             build=self.build,
             is_fresh=self.is_fresh,
             keep=self.keep,
+            serve_with=self.serve_with,
         )

@@ -1,0 +1,147 @@
+{
+	"generatedAt": "2026-10-15T12:00:00Z",
+	"season": 1999,
+	"seasonLabel": "1998-99",
+	"firstDay": "1999-02-05",
+	"lastDay": "1999-05-05",
+	"days": ["1999-02-05", "1999-02-06", "1999-02-07", "1999-02-09", "1999-03-01", "1999-05-05"],
+	"windowDays": [],
+	"seasons": [
+		{
+			"season": 2027,
+			"seasonLabel": "2026-27"
+		},
+		{
+			"season": 2026,
+			"seasonLabel": "2025-26"
+		},
+		{
+			"season": 2025,
+			"seasonLabel": "2024-25"
+		},
+		{
+			"season": 2024,
+			"seasonLabel": "2023-24"
+		},
+		{
+			"season": 2023,
+			"seasonLabel": "2022-23"
+		},
+		{
+			"season": 2022,
+			"seasonLabel": "2021-22"
+		},
+		{
+			"season": 2021,
+			"seasonLabel": "2020-21"
+		},
+		{
+			"season": 2020,
+			"seasonLabel": "2019-20"
+		},
+		{
+			"season": 2019,
+			"seasonLabel": "2018-19"
+		},
+		{
+			"season": 2018,
+			"seasonLabel": "2017-18"
+		},
+		{
+			"season": 2017,
+			"seasonLabel": "2016-17"
+		},
+		{
+			"season": 2016,
+			"seasonLabel": "2015-16"
+		},
+		{
+			"season": 2015,
+			"seasonLabel": "2014-15"
+		},
+		{
+			"season": 2014,
+			"seasonLabel": "2013-14"
+		},
+		{
+			"season": 2013,
+			"seasonLabel": "2012-13"
+		},
+		{
+			"season": 2012,
+			"seasonLabel": "2011-12"
+		},
+		{
+			"season": 2011,
+			"seasonLabel": "2010-11"
+		},
+		{
+			"season": 2010,
+			"seasonLabel": "2009-10"
+		},
+		{
+			"season": 2009,
+			"seasonLabel": "2008-09"
+		},
+		{
+			"season": 2008,
+			"seasonLabel": "2007-08"
+		},
+		{
+			"season": 2007,
+			"seasonLabel": "2006-07"
+		},
+		{
+			"season": 2006,
+			"seasonLabel": "2005-06"
+		},
+		{
+			"season": 2005,
+			"seasonLabel": "2004-05"
+		},
+		{
+			"season": 2004,
+			"seasonLabel": "2003-04"
+		},
+		{
+			"season": 2003,
+			"seasonLabel": "2002-03"
+		},
+		{
+			"season": 2002,
+			"seasonLabel": "2001-02"
+		},
+		{
+			"season": 2001,
+			"seasonLabel": "2000-01"
+		},
+		{
+			"season": 2000,
+			"seasonLabel": "1999-00"
+		},
+		{
+			"season": 1999,
+			"seasonLabel": "1998-99"
+		},
+		{
+			"season": 1998,
+			"seasonLabel": "1997-98"
+		},
+		{
+			"season": 1997,
+			"seasonLabel": "1996-97"
+		},
+		{
+			"season": 1996,
+			"seasonLabel": "1995-96"
+		},
+		{
+			"season": 1995,
+			"seasonLabel": "1994-95"
+		},
+		{
+			"season": 1994,
+			"seasonLabel": "1993-94"
+		}
+	]
+}

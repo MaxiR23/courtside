@@ -1,13 +1,19 @@
 <script lang="ts">
+	import { afterNavigate } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { onMount, tick } from 'svelte';
+	import { onMount, tick, untrack } from 'svelte';
 	import Hero from '#lib/components/Hero.svelte';
 	import MessageRow from '#lib/components/MessageRow.svelte';
 	import Schedule from '#lib/components/Schedule.svelte';
 	import ScheduleSkeleton from '#lib/components/ScheduleSkeleton.svelte';
 	import SiteFooter from '#lib/components/SiteFooter.svelte';
-	import { gamesFeedUrl, videoPlatformName } from '#lib/feed/config.ts';
-	import { loadGamesFeed } from '#lib/feed/load.ts';
+	import type { DateCalendar } from '#lib/calendar/types.ts';
+	import { calendarFeedUrl, gamesFeedUrl, videoPlatformName } from '#lib/feed/config.ts';
+	import {
+		calendarFeedUrl as calendarFeedUrlOf,
+		loadCalendarFeed,
+		loadGamesFeed
+	} from '#lib/feed/load.ts';
 	import { GamesFeedPoller } from '#lib/feed/poller.svelte.ts';
 	import { toHomeView } from '#lib/feed/props.ts';
 	import { m } from '#lib/paraglide/messages.js';
@@ -46,8 +52,40 @@
 	});
 	const today = $derived(view?.today ?? clockToday);
 
-	let selected = $state(3);
+	const TODAY_INDEX = 3; // the middle of the seven days, as in DayStrip
+	let selected = $state(TODAY_INDEX);
 	let openId = $state<string | null>(null);
+
+	// The calendar sheet links a day of the feed to /?day=YYYY-MM-DD. The route is prerendered, so
+	// the query is read after each navigation, in the browser, and a new object marks every one.
+	let requested = $state.raw<{ day: string | null }>({ day: null });
+	afterNavigate(({ to }) => {
+		requested = { day: to?.url.searchParams.get('day') ?? null };
+	});
+	const hasView = $derived(view !== null);
+	// Runs on a navigation and when the first feed arrives, not on a poll: a later feed does not
+	// move the day the visitor chose. A day outside the feed's seven keeps today selected.
+	$effect(() => {
+		const { day } = requested;
+		if (!hasView) return;
+		const index = day === null ? -1 : (untrack(() => view?.dayIds.indexOf(day)) ?? -1);
+		selected = index >= 0 ? index : TODAY_INDEX;
+	});
+
+	const calendarTemplate = calendarFeedUrl;
+	const loadCalendar = calendarTemplate
+		? (season: string) => loadCalendarFeed(calendarFeedUrlOf(calendarTemplate, season))
+		: undefined;
+	// A day of the games feed is on the home; any other day has its own page.
+	const dayHref = (date: string) =>
+		view?.dayIds.includes(date) ? resolve(`/?day=${date}`) : resolve('/day/[date]', { date });
+	const calendar: DateCalendar = $derived({
+		load: loadCalendar,
+		season: 'current',
+		selectedDay: view?.dayIds[selected] ?? null,
+		today: view?.dayIds[TODAY_INDEX] ?? null,
+		dayHref
+	});
 
 	async function matchDetails(id: string) {
 		selected = 3;
@@ -72,6 +110,7 @@
 		spoilerFree={spoilerFree.on}
 		onSpoilerFreeToggle={() => spoilerFree.toggle()}
 		{teamHref}
+		{calendar}
 	/>
 {/if}
 

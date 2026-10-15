@@ -17,9 +17,11 @@
 # mapped (its note, status, sides or required fields) is skipped with a log line
 # by event id: it never fails the day (ADR 0038).
 #
-# The past-day path, fetch_past_games, reads the same payload as fetch_games but
+# The past-day path, fetch_past_day, reads the same payload as fetch_games but
 # resolves a side by its team id first and skips any event that cannot be mapped,
-# with a log line by event id, instead of failing the day (ADR 0040).
+# with a log line by event id, instead of failing the day (ADR 0040). It also
+# returns the day's season, read from leagues[0].season.year of the payload; a
+# day whose season cannot be read fails (ADR 0042).
 #
 # SEE: docs/api/games.md, docs/adr/0007-backend-runtime-and-data-pipeline.md
 
@@ -161,6 +163,20 @@ class _MarkSeason(_ProviderModel):
 
 class _ProviderScoreboard(_ProviderModel):
     events: list[_ProviderEvent]
+    # Raw leagues, read only by the past-day path for the season (ADR 0042).
+    leagues: Any = None
+
+
+class _SeasonYear(_ProviderModel):
+    year: int | None = None
+
+
+class _SeasonLeague(_ProviderModel):
+    season: _SeasonYear | None = None
+
+
+class _SeasonLeagues(_ProviderModel):
+    leagues: list[_SeasonLeague] = []
 
 
 class ScoreboardGame(FeedModel):
@@ -192,6 +208,13 @@ class ScoreboardGame(FeedModel):
         if missing:
             raise ValueError(f"a {self.status} game requires {', '.join(missing)}")
         return self
+
+
+class PastScoreboardDay(FeedModel):
+    """A past day as the scoreboard knows it: its season and its games."""
+
+    season: PositiveInt
+    games: list[ScoreboardGame]
 
 
 def _normalize_clock(display_clock: str | None) -> str | None:
@@ -423,13 +446,28 @@ async def fetch_games(
     return [game for game in games if game is not None]
 
 
-async def fetch_past_games(
+def _read_season(scoreboard: _ProviderScoreboard, day: dt.date) -> int:
+    year: int | None = None
+    try:
+        leagues = _SeasonLeagues.model_validate({"leagues": scoreboard.leagues or []})
+        if leagues.leagues and leagues.leagues[0].season is not None:
+            year = leagues.leagues[0].season.year
+    except ValidationError:
+        year = None
+    if year is None or year <= 0:
+        raise SourceError(SOURCE, f"day {day} has no readable season")
+    return year
+
+
+async def fetch_past_day(
     client: SourceClient, day: dt.date, settings: Settings
-) -> list[ScoreboardGame]:
-    """Return the games of a past US Eastern day in provider order: sides by
-    team id first, and an event that cannot be mapped skipped with a log
-    line by event id (ADR 0040). Raises SourceError for the payload."""
+) -> PastScoreboardDay:
+    """Return a past US Eastern day: its season and its games in provider order,
+    sides by team id first, and an event that cannot be mapped skipped with a
+    log line by event id (ADR 0040). Raises SourceError for the payload or a
+    season that cannot be read (ADR 0042)."""
     scoreboard = await _read_scoreboard(client, day, settings)
+    season = _read_season(scoreboard, day)
     games: list[ScoreboardGame] = []
     for event in scoreboard.events:
         try:
@@ -441,4 +479,4 @@ async def fetch_past_games(
             continue
         if game is not None:
             games.append(game)
-    return games
+    return PastScoreboardDay(season=season, games=games)

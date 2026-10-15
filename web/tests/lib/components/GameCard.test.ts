@@ -22,6 +22,7 @@
 // - The postseason mark (tag, context line, stakes flag) on a scheduled, a live and a final game on desktop and on the mobile row, none for a regular game, and the Cup tag unchanged for a Cup game
 // - The All-Star mark (tag and round) before the status line on the desktop row and first in the mobile status row, the solid tag for the Championship, none for a game without the mark
 // - A guest side without a city shows no city and its tile is not a link
+// - A past game from the day feed (final, stats unavailable, no highlights, no stars) renders its score and line score, the stats notice and no Leaders, TeamStats or highlights, with a panel grid of exactly 2 children
 //
 // What is covered:
 // - Each card state on each row layout
@@ -31,8 +32,12 @@
 // SEE: web/src/lib/components/GameCard.svelte
 import type { ResolvedPathname } from '$app/types';
 import { fireEvent, render, screen } from '@testing-library/svelte';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import type { DayFeed } from '../../../src/lib/contract/days';
+import { toDayView } from '../../../src/lib/feed/day-props';
 import type { GameDetails, ScheduleGame } from '../../../src/lib/schedule/types';
 import { preferLanguages } from '../../prefer-languages';
 
@@ -1049,5 +1054,51 @@ describe('GameCard with the All-Star mark', () => {
 			expect(screen.getAllByText('Team Stripes').length).toBeGreaterThan(0);
 			unmount();
 		}
+	});
+});
+
+describe('GameCard with a past game', () => {
+	const pastGame = (): ScheduleGame => {
+		const feed = JSON.parse(
+			readFileSync(join(__dirname, '..', 'feed', 'fixtures', 'day.json'), 'utf8')
+		) as DayFeed;
+		const view = toDayView(feed);
+		if (!view) throw new Error('The fixture day must be showable');
+		return view.games[0];
+	};
+	const teamHref = (code: string) => `/team/${code.toLowerCase()}` as ResolvedPathname;
+
+	it('draws the score and line score without leaders, team stats or highlights', () => {
+		const { container } = render(GameCard, {
+			props: { game: pastGame(), layout: 'desktop', open: true, onToggle: vi.fn(), teamHref }
+		});
+		expect([...container.querySelectorAll('.score')].map((e) => e.textContent)).toEqual([
+			'88',
+			'95'
+		]);
+		expect(container.querySelector('.line-score')).not.toBeNull();
+		expect(screen.queryByText('Highlights')).toBeNull();
+		expect(container.querySelector('.panel-highlights')).toBeNull();
+		expect(screen.queryByText('Leaders')).toBeNull();
+		expect(container.querySelector('.stats-column .stats-notice')).not.toBeNull();
+		expect(container.querySelectorAll('.panel-grid > *')).toHaveLength(2);
+	});
+
+	it('shows the stats notice and a panel grid with no empty column', () => {
+		const { container } = render(GameCard, {
+			props: {
+				game: pastGame(),
+				layout: 'desktop',
+				open: true,
+				onToggle: vi.fn(),
+				detailHref: '/game/7001' as ResolvedPathname,
+				teamHref
+			}
+		});
+		expect(screen.getByText(/stats aren.t available/i)).toBeTruthy();
+		expect(container.querySelector('.panel-grid')?.children).toHaveLength(2);
+		expect(screen.getByRole('link', { name: 'Game center' }).getAttribute('href')).toBe(
+			'/game/7001'
+		);
 	});
 });

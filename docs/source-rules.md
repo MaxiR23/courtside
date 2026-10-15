@@ -78,7 +78,7 @@ Everything else is built on request only: pre-game game detail, team feeds, play
 
 ## I. Unknown ids
 
-Unknown ids answer 404 with no source request: game ids outside the days shown that are not a final game of a stored day feed, player ids not in the rosters the stars job fetches, codes outside the 30 standard codes, slot ids outside the 7 of the Cup bracket, calendar seasons that are not a four-digit end year from 1994 to the current season, and days that are not a `YYYY-MM-DD` date, are before 1993-10-01, are after today (US Eastern), or are a day of the stored games feed (with none stored, a day the games job would show). While the rosters are not fetched yet, player requests answer 503. While the current season is not known, calendar requests answer 503.
+Unknown ids answer 404 with no source request: game ids outside the days shown that are not a final game of a stored day feed, player ids not in the rosters the stars job fetches, codes outside the 30 standard codes, slot ids outside the 7 of the Cup bracket, calendar seasons that are neither `current` nor a four-digit end year from 1994 to the current season, and days that are not a `YYYY-MM-DD` date, are before 1993-10-01, are after today (US Eastern), or are a day of the stored games feed (with none stored, a day the games job would show). While the rosters are not fetched yet, player requests answer 503. While the current season is not known, calendar requests, `current` included, answer 503.
 
 ## J. Restart and cleanup
 

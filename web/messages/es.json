@@ -658,5 +658,13 @@
 	"allstar_select_game": "Partidos",
 	"allstar_box_tabs": "Equipos de la estadística",
 	"allstar_box_player": "Jugador",
-	"allstar_top5_line": "PTS · {rebounds} REB · {assists} AST"
+	"allstar_top5_line": "PTS · {rebounds} REB · {assists} AST",
+	"past_calendar_title": "Calendario",
+	"past_calendar_close": "Cerrar",
+	"past_season_select": "Temporada",
+	"past_month_prev": "Mes anterior",
+	"past_month_next": "Mes siguiente",
+	"past_weekdays": "D L M X J V S",
+	"past_day_prev": "Día anterior",
+	"past_day_next": "Día siguiente"
 }

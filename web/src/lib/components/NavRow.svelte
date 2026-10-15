@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import type { ResolvedPathname } from '$app/types';
+	import DateButton from '#lib/components/DateButton.svelte';
 	import NavSearchTrigger from '#lib/components/NavSearchTrigger.svelte';
+	import type { DateCalendar } from '#lib/calendar/types.ts';
 	import { formatDate } from '#lib/format/locale.ts';
 	import { m } from '#lib/paraglide/messages.js';
 	import type { RowLayout } from '#lib/schedule/types.ts';
@@ -10,6 +12,7 @@
 		today: Date;
 		spoilerFree: boolean;
 		onSpoilerFreeToggle: () => void;
+		calendar?: DateCalendar; // set: the date opens the calendar sheet
 	};
 	type Props = {
 		page: 'home' | 'standings' | 'cup' | 'all-star' | 'playoffs' | 'detail'; // each current page marks its own link; detail: none
@@ -32,6 +35,11 @@
 		home
 			? `${home.today.getFullYear()}-${String(home.today.getMonth() + 1).padStart(2, '0')}-${String(home.today.getDate()).padStart(2, '0')}`
 			: ''
+	);
+
+	// With no day selected (the games feed is not in) the sheet opens on the month of the date shown.
+	const calendar = $derived(
+		home?.calendar ? { ...home.calendar, selectedDay: home.calendar.selectedDay ?? iso } : undefined
 	);
 </script>
 
@@ -85,7 +93,11 @@
 			{m.nav_playoffs()}
 		</a>
 		{#if home}
-			<time class="date" datetime={iso}>{formatDate(home.today, dateOptions)}</time>
+			{#if calendar}
+				<DateButton text={formatDate(home.today, dateOptions)} datetime={iso} {calendar} {layout} />
+			{:else}
+				<time class="date" datetime={iso}>{formatDate(home.today, dateOptions)}</time>
+			{/if}
 			<button
 				type="button"
 				class="spoiler-free"

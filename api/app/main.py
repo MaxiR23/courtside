@@ -119,7 +119,7 @@ def create_app(settings: Settings | None = None, *, run_jobs: bool = True) -> Fa
             stars_job,
             all_star_discovery,
         )
-        CalendarFeeds(settings, store, client, feed_cache, stars_job)
+        calendar_feeds = CalendarFeeds(settings, store, client, feed_cache, stars_job)
         DayFeeds(settings, store, client, feed_cache)
         PastGameDetailFeeds(settings, store, client, feed_cache)
         # The stars job runs in its own task so its fetches never delay the live refresh,
@@ -132,6 +132,7 @@ def create_app(settings: Settings | None = None, *, run_jobs: bool = True) -> Fa
         app.state.games_job = games_job
         app.state.feed_cache = feed_cache
         app.state.player_feeds = player_feeds
+        app.state.calendar_feeds = calendar_feeds
         try:
             if run_jobs:
                 stars_scheduler.start()

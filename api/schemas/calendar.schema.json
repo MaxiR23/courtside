@@ -1,4 +1,25 @@
 {
+  "$defs": {
+    "CalendarSeason": {
+      "additionalProperties": false,
+      "properties": {
+        "season": {
+          "minimum": 1994,
+          "type": "integer"
+        },
+        "seasonLabel": {
+          "pattern": "^\\d{4}-\\d{2}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "season",
+        "seasonLabel"
+      ],
+      "title": "CalendarSeason",
+      "type": "object"
+    }
+  },
   "additionalProperties": false,
   "properties": {
     "generatedAt": {
@@ -35,6 +56,13 @@
         "type": "string"
       },
       "type": "array"
+    },
+    "seasons": {
+      "items": {
+        "$ref": "#/$defs/CalendarSeason"
+      },
+      "minItems": 1,
+      "type": "array"
     }
   },
   "required": [
@@ -44,7 +72,8 @@
     "firstDay",
     "lastDay",
     "days",
-    "windowDays"
+    "windowDays",
+    "seasons"
   ],
   "title": "CalendarFeed",
   "type": "object"

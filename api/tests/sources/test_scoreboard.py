@@ -22,6 +22,7 @@
 # - Treats an unreadable season or competition type as not All-Star, and leaves a regular game with no All-Star flag unaffected
 # - Skips with one log line by event id an All-Star event without a line score, without a clock, with a league code, with a provider-key side without a city, with a note that is not an All-Star note or with an unknown status, and keeps the rest of the day
 # - Still raises the source error for an event with no competition
+# - The past-day path returns the day's season from leagues[0].season.year and raises the source error when it is missing or unreadable, and fetch_games ignores leagues
 # - The past-day path maps a day with sides by team id first with the name and city of the event and an unknown id as a guest, skips a final event without a line score and one with an unknown status with one log line by event id in provider order, reads an upper-case postseason note as the title-case mark and an empty or FINALS note as a null mark, gives [] for a day with no event, raises the source error for an invalid payload, a timeout, an error status and a missing URL, and leaves fetch_games failing on the same bad event
 #
 # What is covered:
@@ -1057,12 +1058,12 @@ async def test_an_event_without_a_competition_still_raises_the_source_error(
     assert error.reason == "game 9100 has no competition"
 
 
-async def fetch_past(settings: Settings) -> list[ScoreboardGame]:
+async def fetch_past_day(settings: Settings) -> scoreboard.PastScoreboardDay:
     with TemporaryDirectory() as directory:
         store = StateStore(Path(directory))
         store.migrate()
         async with create_client(store) as client:
-            return await scoreboard.fetch_past_games(client, DAY, settings)
+            return await scoreboard.fetch_past_day(client, DAY, settings)
 
 
 @pytest.mark.anyio
@@ -1072,8 +1073,11 @@ async def test_the_past_day_path_resolves_sides_by_id_first_and_skips_bad_events
     mock.get(URL).respond(json=load("past-day.json"))
 
     with caplog.at_level(logging.WARNING, logger="app.sources.scoreboard"):
-        games = await fetch_past(settings)
+        past = await fetch_past_day(settings)
+    games = past.games
+    season = past.season
 
+    assert season == 1999
     assert [g.id for g in games] == ["7001", "7004", "7005", "7006"]
     first = games[0]
     assert first.home.code == "OKC"
@@ -1101,7 +1105,7 @@ async def test_the_past_day_path_reads_an_upper_case_note_and_gives_no_mark_for_
 ) -> None:
     mock.get(URL).respond(json=load("past-day.json"))
 
-    games = {g.id: g for g in await fetch_past(settings)}
+    games = {g.id: g for g in (await fetch_past_day(settings)).games}
 
     marked = games["7005"].postseason
     assert marked is not None
@@ -1117,7 +1121,45 @@ async def test_the_past_day_path_gives_an_empty_list_for_a_day_with_no_event(
 ) -> None:
     mock.get(URL).respond(json=load("past-empty.json"))
 
-    assert await fetch_past(settings) == []
+    past = await fetch_past_day(settings)
+
+    assert past.season == 1999
+    assert past.games == []
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "leagues",
+    [
+        None,
+        [],
+        [{"season": {"year": "abc"}}],
+        [{"season": {"year": 0}}],
+        [{"season": None}],
+        "x",
+    ],
+)
+async def test_the_past_day_path_raises_the_source_error_without_a_readable_season(
+    mock: respx.MockRouter, settings: Settings, leagues: object
+) -> None:
+    payload = load("past-no-season.json")
+    if leagues is not None:
+        payload["leagues"] = leagues
+    mock.get(URL).respond(json=payload)
+
+    with pytest.raises(SourceError, match="has no readable season"):
+        await fetch_past_day(settings)
+
+
+@pytest.mark.anyio
+async def test_fetch_games_ignores_the_leagues_of_a_payload(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("day.json")
+    payload["leagues"] = "not a list"
+    mock.get(URL).respond(json=payload)
+
+    assert len(await fetch(settings)) > 0
 
 
 @pytest.mark.anyio
@@ -1127,7 +1169,7 @@ async def test_the_past_day_path_raises_the_source_error_for_an_invalid_payload(
     mock.get(URL).respond(json={"events": [{"id": "1"}]})
 
     with pytest.raises(SourceError):
-        await fetch_past(settings)
+        await fetch_past_day(settings)
 
 
 @pytest.mark.anyio
@@ -1136,18 +1178,18 @@ async def test_the_past_day_path_raises_the_source_error_for_a_timeout_and_an_er
 ) -> None:
     mock.get(URL).mock(side_effect=httpx.ReadTimeout("slow"))
     with pytest.raises(SourceError, match="timed out"):
-        await fetch_past(settings)
+        await fetch_past_day(settings)
 
     mock.get(URL).respond(status_code=500)
     with pytest.raises(SourceError, match="status 500"):
-        await fetch_past(settings)
+        await fetch_past_day(settings)
 
 
 @pytest.mark.anyio
 async def test_the_past_day_path_raises_the_source_error_without_a_url() -> None:
     unset = Settings(_env_file=None, scoreboard_url=None)  # type: ignore[call-arg]
     with respx.mock, pytest.raises(SourceError, match="not configured"):
-        await fetch_past(unset)
+        await fetch_past_day(unset)
 
 
 @pytest.mark.anyio

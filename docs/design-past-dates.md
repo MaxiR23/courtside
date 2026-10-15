@@ -24,7 +24,7 @@ The visual, interaction and data specification of browsing past dates and past s
 
 Everything under "Implementation rules" in `docs/design.md`, `docs/design-cup.md` and `docs/design-playoffs.md` applies, plus:
 
-- **`/web` computes nothing.** The days with games, the first and last day, which days are in the games feed window, the previous and next day with games, the season label, the weekday, the franchise name runs, the "retired" flag, the record, the standing and every value shown come ready from a feed. The page writes the fixed words around them. The exception that stays: the month grid lays the days of a month out in weeks from the dates the calendar feed sends.
+- **`/web` computes nothing.** The days with games, the first and last day, which days are in the games feed window, the season label, the weekday, the franchise name runs, the "retired" flag, the record, the standing and every value shown come ready from a feed. The page writes the fixed words around them. The exceptions that stay: the month grid lays the days of a month out in weeks from the dates the calendar feed sends, and the previous and next day with games are looked up in that feed's `days`.
 - **A value that is missing renders `—`. A block that is missing hides its section** and leaves no gap.
 - **Nothing is hardcoded in `/web`:** no team, season list, date or franchise name. No data source name, video platform or URL is written in `/web`.
 - **Every user-facing string is translatable**, in English and Spanish. Long labels truncate with an ellipsis and never wrap in a table cell.
@@ -65,21 +65,21 @@ Everything under "Implementation rules" in `docs/design.md`, `docs/design-cup.md
 - **Mobile (under 680px):** a bottom sheet, the pattern of the Cup and playoffs sheets: `translateY` slide of 0.5s `cubic-bezier(.2, .7, .1, 1)`, a maximum height of 86vh, a 60% scrim, the body scroll locked. Esc and a tap on the scrim close it.
 - **Sheet header:**
   - A season selector: a select styled as the existing filter chips (Barlow Condensed 600, 14px, .08em, uppercase, a 1px border of ink at 25%, 36px tall). It lists "1993-94" to the current season, newest first.
-  - A month row: previous and next arrows (36px, outlined) and the month name (Barlow Condensed 600, 18px, uppercase). The months outside the season's first and last day are not navigable; the arrows are disabled at the ends.
+  - A month row: previous and next arrows (36px, outlined) and the month name (Barlow Condensed 600, 18px, uppercase). The months outside the season's first and last day are not navigable; the arrows are disabled at the ends of the season's months.
 - **Month grid:** 7 columns; a row of weekday initials (12px, .1em, muted); day cells of 40px (36px on mobile) with the day number in Barlow Condensed 600, 16px.
   - A day with games: ink text and a 4px accent square under the number. It is a link.
   - A day without games: ink at 30%, not clickable, not focusable.
   - Today: a 1px outline in accent light.
   - The selected day: accent fill with ground text.
 - **Where a day goes:** a day inside the games feed window links to `/` with that day selected in the `DayStrip`; any other day links to `/day/{date}`.
-- Opening the sheet selects the season of the day being shown and the month of that day.
+- Opening the sheet selects the season of the day being shown and the month of that day. With no day selected (the games feed is not in) it opens on the month of the date in the nav row.
 
 ### Day page (`/day/[date]`)
 
 - The header and the nav of the home. The `DayStrip` is replaced by a day header:
   - The date, Barlow Condensed 600, `clamp(28px, 4vw, 40px)`.
   - The season label and the weekday, 12px, uppercase, muted.
-  - Previous and next day arrows that skip the days without games, from the calendar feed. An arrow is disabled at the first and last day with games of the season.
+  - Previous and next day arrows that skip the days without games, looked up in the `days` of the season's calendar feed. An arrow is hidden, not disabled, at the first and last day with games of the season.
   - The calendar button (the same `DateButton` behavior).
 - Below the header, the same `GameCard` list as the home. Every game is final. A day with no game shows the existing empty-day message. Each game links to `/game/{id}`.
 - A date that is inside the games feed window is not served by the day feed (it answers 404 for it): the page uses the games feed for it. A date before 1993-10-01 or after today is a 404 page state: the unavailable state of the home.
@@ -164,7 +164,7 @@ Everything under "Implementation rules" in `docs/design.md`, `docs/design-cup.md
 | Date button | Opens the calendar; `aria-expanded`; focus moves into the sheet and returns to the button on close |
 | Desktop panel | Opens anchored below the label; Esc and a click outside close it |
 | Mobile sheet | `translateY` over 0.5s `cubic-bezier(.2, .7, .1, 1)`, a maximum height of 86vh, a 60% scrim, the body scroll locked; Esc and a tap on the scrim close it |
-| Season select | Changes the season in the sheet and moves to the last month with games of the season; on a page it navigates to `?season=YYYY` |
+| Season select | Changes the season in the sheet and moves to the month of the selected day when it is in that season, else to the first month of the season; on a page it navigates to `?season=YYYY` |
 | Month arrows | Move one month; disabled at the first and last month of the season |
 | Day cell | A day with games navigates; a day without games does nothing |
 | Day page arrows | Go to the previous or next day with games |
@@ -205,8 +205,11 @@ To add to `web/src/lib/styles/tokens.css` in the implementing issue. Values not 
 | `--past-names-name-size` | 16px | Names timeline name |
 | `--past-sigla-width` | 34px | Names timeline sigla box |
 | `--past-sigla-height` | 24px | Names timeline sigla box |
+| `--past-sheet-duration` | 0.5s | Calendar sheet slide |
+| `--past-sheet-max-height` | 86vh | Calendar sheet maximum height |
+| `--past-sheet-scrim` | black at 60% | Calendar sheet scrim |
 
-Mapped to existing tokens: the panel surface is `--color-surface`; the divider is `--color-divider`; accent is `--color-accent`; the outline of today and the current run is `--color-accent-light`; muted is `--color-muted`; the hit target is `--hit-target-size`; the sheet motion, the maximum height and the scrim are `--playoffs-sheet-duration`, `--ease`, `--playoffs-sheet-max-height` and `--playoffs-sheet-scrim`; the 680px break is `--game-row-breakpoint`; the focus ring is `--focus-ring-width` and `--focus-ring-offset`; the heading and body fonts are `--font-heading` and `--font-body`.
+Mapped to existing tokens: the panel surface is `--color-surface`; the divider is `--color-divider`; accent is `--color-accent`; the outline of today and the current run is `--color-accent-light`; muted is `--color-muted`; the hit target is `--hit-target-size`; the sheet motion easing is `--ease`; the 680px break is `--game-row-breakpoint`; the focus ring is `--focus-ring-width` and `--focus-ring-offset`; the heading and body fonts are `--font-heading` and `--font-body`.
 
 ## Strings
 

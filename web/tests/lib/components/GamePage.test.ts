@@ -14,6 +14,7 @@
 // - The win probability marker pulses on a live game and not on a final one
 // - A final game has no Videos section and keeps its highlights
 // - The not-found row in Spanish with a Spanish browser preference
+// - A past game (fixtures/game-detail-past.json): the season label next to the date, the side with a code links to its team page, the guest side is not a link, and no hidden section renders a heading or an empty section
 //
 // What is covered:
 // - Each page state, drawn from props with no fetch
@@ -23,9 +24,13 @@
 // SEE: web/src/lib/components/GamePage.svelte
 import type { ResolvedPathname } from '$app/types';
 import { render, screen } from '@testing-library/svelte';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import GamePage from '../../../src/lib/components/GamePage.svelte';
+import type { GameDetailFeed } from '../../../src/lib/contract/game-detail';
+import { toGameView } from '../../../src/lib/feed/game-props';
 import type { BoxRow, GamePageState, GameSections, GameView } from '../../../src/lib/game/types';
 import { preferLanguages } from '../../prefer-languages';
 
@@ -443,5 +448,54 @@ describe('GamePage', () => {
 		show({ kind: 'not-found' });
 		expect(screen.getByText('Partido no encontrado.')).toBeTruthy();
 		expect(screen.getAllByRole('link', { name: 'Todos los partidos' }).length).toBe(2);
+	});
+});
+
+describe('GamePage with a past game', () => {
+	const pastView = (): GameView => {
+		const feed = JSON.parse(
+			readFileSync(join(__dirname, '..', 'feed', 'fixtures', 'game-detail-past.json'), 'utf8')
+		) as GameDetailFeed;
+		const result = toGameView(feed, {});
+		if (!result) throw new Error('The past fixture must be showable');
+		return result;
+	};
+	const show = () =>
+		render(GamePage, {
+			props: {
+				state: { kind: 'ready', view: pastView() } as GamePageState,
+				allGamesHref: HOME,
+				standingsHref: STANDINGS,
+				layout: 'desktop' as const,
+				teamHref,
+				playerHref
+			}
+		});
+
+	it('shows the season label next to the date', () => {
+		const { container } = show();
+		expect(container.querySelector('.status-line')?.textContent).toContain(
+			'Friday, February 5 · 1998-99 · Harbor Arena'
+		);
+	});
+
+	it('links the side with a code to its team page and leaves the guest unlinked', () => {
+		const { container } = show();
+		const names = container.querySelectorAll('.scoreboard .name');
+		expect(names[0].querySelector('a')?.getAttribute('href')).toBe('/team/den');
+		expect(names[1].querySelector('a')).toBeNull();
+		expect(names[1].textContent?.trim()).toBe('Mariners');
+	});
+
+	it('renders no hidden section: only the score section is in the page', () => {
+		const { container } = show();
+		const sections = [...container.querySelectorAll('section')];
+		expect(sections.map((section) => section.id)).toEqual(['score']);
+		for (const section of sections) {
+			expect(section.textContent?.trim()).not.toBe('');
+		}
+		expect(
+			screen.queryByRole('heading', { name: /Injuries|Box score|Last games|Standings|Highlights/ })
+		).toBeNull();
 	});
 });

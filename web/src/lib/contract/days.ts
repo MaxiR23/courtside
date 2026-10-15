@@ -14,6 +14,8 @@ export type Stakes = 'game_7' | 'elimination' | 'can_clinch' | 'clinched';
 
 export interface DayFeed {
 	generatedAt: string;
+	season: number;
+	seasonLabel: string;
 	day: PastDay;
 }
 export interface PastDay {

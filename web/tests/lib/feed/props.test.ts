@@ -18,6 +18,7 @@
 // - The Cup mark of a game: the tag for each stage, none for a null mark
 // - The postseason mark of a game: filled from the feed's mark, null for a null mark
 // - The All-Star mark of a game: filled from the feed's mark, null for a null mark and for a feed without the key; a game whose guest sides have no city maps with a null city; an All-Star game is never a hero game and the league games stay
+// - The feed's seven day.date strings, in order, as dayIds
 //
 // What is covered:
 // - Pure logic on a recorded feed (tests/lib/feed/fixtures/games.json); no clock, no network
@@ -51,6 +52,12 @@ const todayGame = (v: HomeView, id: string): ScheduleGame => {
 };
 
 describe('toHomeView', () => {
+	it('sets dayIds to the seven feed dates in order', () => {
+		const source = feed();
+		expect(view(source).dayIds).toEqual(source.days.map((day) => day.date));
+		expect(view(source).dayIds).toHaveLength(7);
+	});
+
 	it('maps the seven days with today in the middle', () => {
 		const v = view();
 		expect(v.days).toHaveLength(7);

@@ -711,5 +711,13 @@
 	"allstar_select_game": "Games",
 	"allstar_box_tabs": "Box score teams",
 	"allstar_box_player": "Player",
-	"allstar_top5_line": "PTS · {rebounds} REB · {assists} AST"
+	"allstar_top5_line": "PTS · {rebounds} REB · {assists} AST",
+	"past_calendar_title": "Calendar",
+	"past_calendar_close": "Close",
+	"past_season_select": "Season",
+	"past_month_prev": "Previous month",
+	"past_month_next": "Next month",
+	"past_weekdays": "S M T W T F S",
+	"past_day_prev": "Previous day",
+	"past_day_next": "Next day"
 }

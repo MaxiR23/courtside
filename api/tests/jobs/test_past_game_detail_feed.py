@@ -104,7 +104,9 @@ def full_sections() -> GameDetailSections:
 def past_game(
     game_id: str = "1", status: GameStatus = GameStatus.FINAL, **changes: Any
 ) -> PastGame:
-    feed = build_day_feed(NOW, PAST, [game(game_id, status, **changes)], search_url)
+    feed = build_day_feed(
+        NOW, PAST, 2026, [game(game_id, status, **changes)], search_url
+    )
     return feed.day.games[0]
 
 
@@ -390,7 +392,7 @@ async def test_the_games_job_never_refreshes_or_deletes_a_past_game_detail(
         harness.cache,
         fetch_sections=fetch_sections,
     )
-    day = build_day_feed(NOW, PAST, [game("p1", GameStatus.FINAL)], search_url)
+    day = build_day_feed(NOW, PAST, 2026, [game("p1", GameStatus.FINAL)], search_url)
     publish_by_id(tmp_path, DAY_KIND, DayFeed, PAST.isoformat(), day)
     harness.games = [
         live_game("1", GameStatus.SCHEDULED, start=NOON + 5 * dt.timedelta(hours=1))
@@ -419,8 +421,8 @@ async def test_an_upper_case_postseason_note_gives_the_title_case_mark_and_a_fin
     )
     payload = json.loads((FIXTURES / "past-day.json").read_text(encoding="utf-8"))
     respx.get("https://example.com/scoreboard/19990204").respond(json=payload)
-    games = await scoreboard.fetch_past_games(kit.client, day, scoreboard_settings)
-    stored = build_day_feed(NOW, day, games, search_url)
+    past = await scoreboard.fetch_past_day(kit.client, day, scoreboard_settings)
+    stored = build_day_feed(NOW, day, past.season, past.games, search_url)
     publish_by_id(kit.path, DAY_KIND, DayFeed, day.isoformat(), stored)
     by_id = {g.id: g for g in stored.day.games}
 

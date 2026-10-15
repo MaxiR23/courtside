@@ -13,6 +13,9 @@
 # - The kind: a past season built after its last day is fresh years later, and one built while it was current is rebuilt after 24 hours
 # - The kind: a failed read with nothing stored answers unavailable, and a failed rebuild keeps the stored feed
 # - The kind: the cleanup keeps every calendar
+# - seasons_until runs from the current season down to 1994, labelled, and the builder sets seasons from the current season
+# - A past calendar stored while 2027 was current is served with seasons from 2028 once the stars report 2028, with no rebuild and no source call
+# - feed_id resolves current to the current season, to None while it is unknown, and leaves an end year unchanged
 #
 # What is covered:
 # - Pure conversions: happy path, edges and errors; the built feed validates
@@ -37,6 +40,7 @@ from app.jobs.calendar_feed import (
     CalendarBuildError,
     CalendarFeeds,
     build_calendar_feed,
+    seasons_until,
 )
 from app.jobs.on_demand import (
     FeedCache,
@@ -67,7 +71,7 @@ def test_an_entry_at_0330z_is_the_previous_eastern_day_sorted_and_unique() -> No
         at(1999, 2, 5),
     ]
 
-    feed = build_calendar_feed(NOW, 1999, moments, [])
+    feed = build_calendar_feed(NOW, 1999, moments, [], 2027)
 
     assert feed.days == [dt.date(1999, 2, 5), dt.date(1999, 2, 7)]
     assert feed.first_day == dt.date(1999, 2, 5)
@@ -79,7 +83,7 @@ def test_an_entry_at_0330z_is_the_previous_eastern_day_sorted_and_unique() -> No
 
 
 def test_a_lockout_season_starts_in_february() -> None:
-    feed = build_calendar_feed(NOW, 1999, [at(1999, 2, 5), at(1999, 5, 5)], [])
+    feed = build_calendar_feed(NOW, 1999, [at(1999, 2, 5), at(1999, 5, 5)], [], 2027)
 
     assert feed.first_day == dt.date(1999, 2, 5)
 
@@ -87,7 +91,7 @@ def test_a_lockout_season_starts_in_february() -> None:
 def test_a_july_and_august_season_keeps_the_gap() -> None:
     moments = [at(2020, 3, 10), at(2020, 3, 11), at(2020, 7, 31), at(2020, 8, 1)]
 
-    feed = build_calendar_feed(NOW, 2020, moments, [])
+    feed = build_calendar_feed(NOW, 2020, moments, [], 2027)
 
     assert feed.days == [
         dt.date(2020, 3, 10),
@@ -101,18 +105,35 @@ def test_a_july_and_august_season_keeps_the_gap() -> None:
 def test_the_window_days_are_sorted() -> None:
     window = [dt.date(2026, 10, 9), dt.date(2026, 10, 8)]
 
-    feed = build_calendar_feed(NOW, 2026, [at(2026, 10, 8)], window)
+    feed = build_calendar_feed(NOW, 2026, [at(2026, 10, 8)], window, 2026)
 
     assert feed.window_days == sorted(window)
 
 
 def test_an_invalid_feed_is_wrapped_in_a_build_error() -> None:
     with pytest.raises(CalendarBuildError) as raised:
-        build_calendar_feed(NOW, 2026, [], [])
+        build_calendar_feed(NOW, 2026, [], [], 2026)
     with pytest.raises(CalendarBuildError):
-        build_calendar_feed(NOW, 1993, [at(1993, 2, 5)], [])
+        build_calendar_feed(NOW, 1993, [at(1993, 2, 5)], [], 2026)
 
     assert raised.value.reason.startswith("invalid feed: ")
+
+
+def test_seasons_until_runs_newest_first_down_to_1994() -> None:
+    seasons = seasons_until(2027)
+
+    assert seasons[0] == {"season": 2027, "season_label": "2026-27"}
+    assert seasons[-1] == {"season": 1994, "season_label": "1993-94"}
+    assert [item["season"] for item in seasons] == list(range(2027, 1993, -1))
+    assert seasons_until(1994) == [{"season": 1994, "season_label": "1993-94"}]
+
+
+def test_the_builder_sets_the_seasons_from_the_current_season() -> None:
+    feed = build_calendar_feed(NOW, 1999, [at(1999, 2, 5)], [], 2028)
+
+    assert feed.seasons[0].season == 2028
+    assert feed.seasons[0].season_label == "2027-28"
+    assert feed.seasons[-1].season == 1994
 
 
 class FakeStars:
@@ -325,3 +346,31 @@ async def test_a_failed_rebuild_keeps_and_serves_the_stored_feed(
 async def test_the_cleanup_keeps_every_calendar(kit: CalendarKit) -> None:
     assert kit.calendars.keep("1999") is True
     assert kit.calendars.keep("2027") is True
+
+
+@pytest.mark.anyio
+async def test_a_kept_past_calendar_is_served_with_the_newer_season_list(
+    kit: CalendarKit,
+) -> None:
+    kit.moments = [at(2020, 3, 10), at(2020, 8, 1)]
+    await kit.serve(2020)
+    kit.stars.season = 2028
+
+    body = await kit.serve(2020, NOW + 10 * YEAR)
+
+    served = CalendarFeed.model_validate_json(body)
+    assert served.seasons[0].season == 2028
+    stored = kit.stored_calendar(2020)
+    assert stored is not None
+    assert stored.seasons[0].season == 2027
+    assert kit.calls == [2020]
+
+
+def test_feed_id_resolves_current_and_leaves_an_end_year_alone(
+    kit: CalendarKit,
+) -> None:
+    assert kit.calendars.feed_id("current") == "2027"
+    assert kit.calendars.feed_id("1999") == "1999"
+    kit.stars.season = None
+    assert kit.calendars.feed_id("current") is None
+    assert kit.calendars.feed_id("1999") == "1999"

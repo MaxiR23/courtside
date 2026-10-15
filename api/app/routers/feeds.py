@@ -188,8 +188,11 @@ async def serve_on_demand(
 
 @router.get("/feeds/seasons/{season}/calendar.json")
 async def read_calendar_feed(season: str, request: Request) -> Response:
+    feed_id = request.app.state.calendar_feeds.feed_id(season)
+    if feed_id is None:
+        raise HTTPException(status_code=503, detail="feed is not available yet")
     return await serve_on_demand(
-        request.app.state.feed_cache, CALENDAR_KIND, season, request
+        request.app.state.feed_cache, CALENDAR_KIND, feed_id, request
     )
 
 

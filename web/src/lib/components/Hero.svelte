@@ -7,6 +7,7 @@
 	import NavRow from '#lib/components/NavRow.svelte';
 	import PlayerCutout from '#lib/components/PlayerCutout.svelte';
 	import StatusTag from '#lib/components/StatusTag.svelte';
+	import type { DateCalendar } from '#lib/calendar/types.ts';
 	import {
 		crossfade,
 		type CrossfadeParams,
@@ -35,6 +36,7 @@
 		autoplay?: boolean;
 		teamHref: (code: string) => ResolvedPathname;
 		loading?: boolean; // the first feed has not loaded yet: show the skeleton
+		calendar?: DateCalendar; // the date opens the calendar sheet
 	};
 
 	let {
@@ -48,7 +50,8 @@
 		onSpoilerFreeToggle,
 		autoplay = true,
 		teamHref,
-		loading = false
+		loading = false,
+		calendar
 	}: Props = $props();
 
 	const watermarkFade = (active: boolean): CrossfadeParams => ({
@@ -148,7 +151,7 @@
 			gamesHref={scheduleHref}
 			{standingsHref}
 			{layout}
-			home={{ today, spoilerFree, onSpoilerFreeToggle }}
+			home={{ today, spoilerFree, onSpoilerFreeToggle, calendar }}
 		/>
 
 		{#if game}

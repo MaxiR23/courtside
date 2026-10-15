@@ -6,6 +6,7 @@
 // - The scroll lock sets overflow hidden and restores the previous inline value
 // - Tab from the last focusable element goes to the first; Shift+Tab from the first to the last
 // - Tab in the middle is left alone
+// - A select is a wrap end: Shift+Tab from a first select goes to the last, and a disabled select is skipped
 //
 // What is covered:
 // - DOM behavior in jsdom; no layout
@@ -74,6 +75,19 @@ describe('keepFocusInside', () => {
 		keepFocusInside(event, box);
 		expect(event.defaultPrevented).toBe(false);
 		expect(document.activeElement).toBe(b);
+	});
+
+	it('counts a select as focusable, so Shift+Tab from a first select wraps to the last', () => {
+		document.body.innerHTML = `<div id="box"><select id="s"><option>1</option></select>
+			<select id="off" disabled><option>2</option></select><button id="z">z</button></div>`;
+		const box = document.getElementById('box') as HTMLElement;
+		const s = document.getElementById('s') as HTMLElement;
+		const z = document.getElementById('z') as HTMLElement;
+		s.focus();
+		const event = tab(true);
+		keepFocusInside(event, box);
+		expect(event.defaultPrevented).toBe(true);
+		expect(document.activeElement).toBe(z);
 	});
 
 	it('ignores other keys', () => {

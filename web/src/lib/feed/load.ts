@@ -1,5 +1,7 @@
 import type { AllStarFeed } from '#lib/contract/all-star.ts';
 import type { GameDetailFeed } from '#lib/contract/game-detail.ts';
+import type { CalendarFeed } from '#lib/contract/calendar.ts';
+import type { DayFeed } from '#lib/contract/days.ts';
 import type { CupFeed } from '#lib/contract/cup.ts';
 import type { CupMatchupFeed } from '#lib/contract/cup-matchup.ts';
 import type { GamesFeed } from '#lib/contract/games.ts';
@@ -279,4 +281,47 @@ export async function loadSearchFeed(
 		throw new FeedLoadError('body', 'The search feed has no teams or players');
 	}
 	return body as SearchFeed;
+}
+
+/** The URL of a season's calendar feed: the template with the encoded season (end year or `current`). */
+export function calendarFeedUrl(template: string, season: string): string {
+	return template.replaceAll('{season}', encodeURIComponent(season));
+}
+
+/**
+ * Fetches a season's calendar feed. A 404 is its own reason: the season does not exist. The body
+ * is only checked for its shape: an object with `days` and `seasons` arrays.
+ */
+export async function loadCalendarFeed(
+	url: string,
+	fetchFn: typeof fetch = fetch
+): Promise<CalendarFeed> {
+	const body = await fetchFeedBody(url, 'The calendar feed', fetchFn, true);
+	if (
+		typeof body !== 'object' ||
+		body === null ||
+		!Array.isArray((body as CalendarFeed).days) ||
+		!Array.isArray((body as CalendarFeed).seasons)
+	) {
+		throw new FeedLoadError('body', 'The calendar feed has no days or seasons');
+	}
+	return body as CalendarFeed;
+}
+
+/** The URL of a day's feed: the template with the encoded YYYY-MM-DD date in place of {date}. */
+export function dayFeedUrl(template: string, date: string): string {
+	return template.replaceAll('{date}', encodeURIComponent(date));
+}
+
+/**
+ * Fetches a day's feed. A 404 is its own reason: the date is not a past day. The body is only
+ * checked for its shape: an object whose `day` holds a `games` array.
+ */
+export async function loadDayFeed(url: string, fetchFn: typeof fetch = fetch): Promise<DayFeed> {
+	const body = await fetchFeedBody(url, 'The day feed', fetchFn, true);
+	const day = typeof body === 'object' && body !== null ? (body as DayFeed).day : undefined;
+	if (typeof day !== 'object' || day === null || !Array.isArray(day.games)) {
+		throw new FeedLoadError('body', 'The day feed has no games');
+	}
+	return body as DayFeed;
 }

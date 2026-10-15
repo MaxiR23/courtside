@@ -90,6 +90,11 @@ export function periodText(period: number, clock: string): string {
 	return `${periodLabel(period)}${SEPARATOR}${clock}`;
 }
 
+// The season label sits next to the date; it is null on every game of the games feed days.
+function joinParts(parts: (string | null)[]): string {
+	return parts.filter((part) => typeof part === 'string').join(SEPARATOR);
+}
+
 function statusLine(feed: GameDetailFeed): StatusLine {
 	const arena = feed.venue.name;
 	switch (feed.status) {
@@ -101,10 +106,13 @@ function statusLine(feed: GameDetailFeed): StatusLine {
 		case 'final':
 			return {
 				state: 'final',
-				text: [m.status_final(), dateText(feed.startTime), arena].join(SEPARATOR)
+				text: joinParts([m.status_final(), dateText(feed.startTime), feed.seasonLabel, arena])
 			};
 		default:
-			return { state: feed.status, text: [dateText(feed.startTime), arena].join(SEPARATOR) };
+			return {
+				state: feed.status,
+				text: joinParts([dateText(feed.startTime), feed.seasonLabel, arena])
+			};
 	}
 }
 

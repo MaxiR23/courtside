@@ -7,6 +7,8 @@
 # - A past game with a star, or with a highlight, is rejected
 # - The other Game rules still apply to a past game
 # - A day feed with an empty games list is accepted
+# - A day feed carries its season and label with camelCase keys; a missing
+#   season, a season before 1994 and a bad label are rejected
 # - Game still rejects null stars on a league side (the override is local)
 # - The committed days schema holds PastGame and PastDay equal to Game and Day
 #   of the games schema, apart from their names
@@ -60,6 +62,8 @@ def game(status: str = "scheduled", **overrides: object) -> Payload:
 def feed(*games: Payload) -> Payload:
     return {
         "generatedAt": "2026-01-15T12:00:00Z",
+        "season": 1999,
+        "seasonLabel": "1998-99",
         "day": {"date": "1999-02-05", "games": list(games)},
     }
 
@@ -120,6 +124,25 @@ def test_accepts_a_day_with_no_games() -> None:
 
 def test_accepts_a_day_with_a_past_game() -> None:
     assert len(DayFeed.model_validate(feed(game("final"))).day.games) == 1
+
+
+def test_serializes_the_season_with_camel_case_keys() -> None:
+    body = DayFeed.model_validate(feed()).model_dump(mode="json", by_alias=True)
+
+    assert body["season"] == 1999
+    assert body["seasonLabel"] == "1998-99"
+
+
+def test_rejects_a_missing_season_a_season_before_1994_and_a_bad_label() -> None:
+    missing = feed()
+    del missing["season"]
+
+    with pytest.raises(ValidationError):
+        DayFeed.model_validate(missing)
+    with pytest.raises(ValidationError):
+        DayFeed.model_validate({**feed(), "season": 1993, "seasonLabel": "1992-93"})
+    with pytest.raises(ValidationError):
+        DayFeed.model_validate({**feed(), "seasonLabel": "1999"})
 
 
 def test_game_still_rejects_null_stars_on_a_league_side() -> None:

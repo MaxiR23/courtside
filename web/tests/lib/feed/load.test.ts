@@ -19,6 +19,8 @@
 // - loadSearchFeed returns the search feed with a no-cache request and reports 503, network and body failures
 // - playerFeedUrl puts the encoded player id in place of {id}
 // - loadPlayerFeed returns the player feed, reports a 404 as not-found and every other failure
+// - calendarFeedUrl and dayFeedUrl put the encoded season or date in place of every placeholder
+// - loadCalendarFeed and loadDayFeed return the feed, report a 404 as not-found, a 503 as status, a network failure and a bad shape as body
 //
 // What is covered:
 // - Happy path and every failure the page treats as "data unavailable"
@@ -45,7 +47,11 @@ import {
 	loadStandingsFeed,
 	playerFeedUrl,
 	loadTeamFeed,
-	teamFeedUrl
+	teamFeedUrl,
+	calendarFeedUrl,
+	dayFeedUrl,
+	loadCalendarFeed,
+	loadDayFeed
 } from '../../../src/lib/feed/load';
 
 const URL_OK = 'https://feeds.example.com/games.json';
@@ -638,5 +644,121 @@ describe('loadSearchFeed', () => {
 		await expect(loadSearchFeed(SEARCH_URL, noPlayers)).rejects.toMatchObject({ reason: 'body' });
 		const noTeams = searchFetchAnswering(() => json({ players: [] }));
 		await expect(loadSearchFeed(SEARCH_URL, noTeams)).rejects.toMatchObject({ reason: 'body' });
+	});
+});
+
+const CALENDAR_TEMPLATE = 'https://feeds.example.com/seasons/{season}/calendar.json';
+const CALENDAR_URL = 'https://feeds.example.com/seasons/1999/calendar.json';
+const DAY_TEMPLATE = 'https://feeds.example.com/days/{date}.json';
+const DAY_URL = 'https://feeds.example.com/days/1999-02-05.json';
+
+function fetchAt(expected: string, answer: () => Promise<Response>) {
+	return vi.fn((url: string | URL | Request) => {
+		if (url !== expected) throw new Error(`Unexpected URL ${String(url)}`);
+		return answer();
+	}) as unknown as typeof fetch & ReturnType<typeof vi.fn>;
+}
+
+describe('calendarFeedUrl and dayFeedUrl', () => {
+	it('put the encoded value in place of every placeholder', () => {
+		expect(calendarFeedUrl(CALENDAR_TEMPLATE, '1999')).toBe(CALENDAR_URL);
+		expect(calendarFeedUrl(CALENDAR_TEMPLATE, 'current')).toBe(
+			'https://feeds.example.com/seasons/current/calendar.json'
+		);
+		expect(calendarFeedUrl('https://feeds.example.com/{season}/{season}', 'a/b')).toBe(
+			'https://feeds.example.com/a%2Fb/a%2Fb'
+		);
+		expect(dayFeedUrl(DAY_TEMPLATE, '1999-02-05')).toBe(DAY_URL);
+		expect(dayFeedUrl('https://feeds.example.com/{date}/{date}', 'a b')).toBe(
+			'https://feeds.example.com/a%20b/a%20b'
+		);
+	});
+});
+
+describe('loadCalendarFeed', () => {
+	it('returns the parsed feed on a 200, asking for JSON from the given URL', async () => {
+		const feed = { season: 1999, days: ['1999-02-05'], seasons: [{ season: 1999 }] };
+		const fetchFn = fetchAt(CALENDAR_URL, () => json(feed));
+		await expect(loadCalendarFeed(CALENDAR_URL, fetchFn)).resolves.toEqual(feed);
+		expect(fetchFn).toHaveBeenCalledWith(CALENDAR_URL, {
+			headers: { accept: 'application/json' }
+		});
+	});
+
+	it('reports a 404 as not-found', async () => {
+		const fetchFn = fetchAt(CALENDAR_URL, () => json({ detail: 'no season' }, 404));
+		const error = await loadCalendarFeed(CALENDAR_URL, fetchFn).catch((e: unknown) => e);
+		expect(error).toBeInstanceOf(FeedLoadError);
+		expect((error as FeedLoadError).reason).toBe('not-found');
+	});
+
+	it('reports a 503, a network failure and a bad shape', async () => {
+		await expect(
+			loadCalendarFeed(
+				CALENDAR_URL,
+				fetchAt(CALENDAR_URL, () => json({}, 503))
+			)
+		).rejects.toMatchObject({ reason: 'status' });
+		await expect(
+			loadCalendarFeed(
+				CALENDAR_URL,
+				fetchAt(CALENDAR_URL, () => Promise.reject(new TypeError('Failed to fetch')))
+			)
+		).rejects.toMatchObject({ reason: 'network' });
+		await expect(
+			loadCalendarFeed(
+				CALENDAR_URL,
+				fetchAt(CALENDAR_URL, () => json({ days: [] }))
+			)
+		).rejects.toMatchObject({ reason: 'body' });
+		await expect(
+			loadCalendarFeed(
+				CALENDAR_URL,
+				fetchAt(CALENDAR_URL, () => json(null))
+			)
+		).rejects.toMatchObject({ reason: 'body' });
+	});
+});
+
+describe('loadDayFeed', () => {
+	it('returns the parsed feed on a 200, asking for JSON from the given URL', async () => {
+		const feed = { season: 1999, day: { date: '1999-02-05', games: [] } };
+		const fetchFn = fetchAt(DAY_URL, () => json(feed));
+		await expect(loadDayFeed(DAY_URL, fetchFn)).resolves.toEqual(feed);
+		expect(fetchFn).toHaveBeenCalledWith(DAY_URL, { headers: { accept: 'application/json' } });
+	});
+
+	it('reports a 404 as not-found', async () => {
+		const fetchFn = fetchAt(DAY_URL, () => json({ detail: 'no day' }, 404));
+		const error = await loadDayFeed(DAY_URL, fetchFn).catch((e: unknown) => e);
+		expect(error).toBeInstanceOf(FeedLoadError);
+		expect((error as FeedLoadError).reason).toBe('not-found');
+	});
+
+	it('reports a 503, a network failure and a bad shape', async () => {
+		await expect(
+			loadDayFeed(
+				DAY_URL,
+				fetchAt(DAY_URL, () => json({}, 503))
+			)
+		).rejects.toMatchObject({ reason: 'status' });
+		await expect(
+			loadDayFeed(
+				DAY_URL,
+				fetchAt(DAY_URL, () => Promise.reject(new TypeError('Failed to fetch')))
+			)
+		).rejects.toMatchObject({ reason: 'network' });
+		await expect(
+			loadDayFeed(
+				DAY_URL,
+				fetchAt(DAY_URL, () => json({ day: {} }))
+			)
+		).rejects.toMatchObject({ reason: 'body' });
+		await expect(
+			loadDayFeed(
+				DAY_URL,
+				fetchAt(DAY_URL, () => json(null))
+			)
+		).rejects.toMatchObject({ reason: 'body' });
 	});
 });

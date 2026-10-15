@@ -1,7 +1,9 @@
 import {
 	ALL_STAR_FEED_URL,
+	CALENDAR_FEED_URL,
 	CUP_FEED_URL,
 	CUP_MATCHUP_FEED_URL,
+	DAY_FEED_URL,
 	GAME_DETAIL_FEED_URL,
 	GAMES_FEED_URL,
 	PLAYER_FEED_URL,
@@ -25,4 +27,6 @@ export const allStarFeedUrl: string | undefined = ALL_STAR_FEED_URL;
 export const gameDetailFeedUrl: string | undefined = GAME_DETAIL_FEED_URL;
 export const teamFeedUrl: string | undefined = TEAM_FEED_URL;
 export const playerFeedUrl: string | undefined = PLAYER_FEED_URL;
+export const calendarFeedUrl: string | undefined = CALENDAR_FEED_URL;
+export const dayFeedUrl: string | undefined = DAY_FEED_URL;
 export const videoPlatformName: string | undefined = VIDEO_PLATFORM_NAME;

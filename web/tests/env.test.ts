@@ -15,6 +15,10 @@
 // - PLAYOFFS_FEED_URL: accepts an absolute URL; empty or missing is undefined; rejects a relative URL
 // - PLAYOFFS_FINALS_FEED_URL: accepts an absolute URL; empty or missing is undefined; rejects a relative URL
 // - ALL_STAR_FEED_URL: accepts an absolute URL; empty or missing is undefined; rejects a relative URL
+// - CALENDAR_FEED_URL: accepts an absolute URL with {season}; empty or missing is undefined
+// - CALENDAR_FEED_URL: rejects a relative URL and an absolute URL without {season}
+// - DAY_FEED_URL: accepts an absolute URL with {date}; empty or missing is undefined
+// - DAY_FEED_URL: rejects a relative URL and an absolute URL without {date}
 //
 // What is covered:
 // - Happy path, edge cases (empty, missing) and error cases, on the schema alone
@@ -39,7 +43,9 @@ const validate = (
 		| 'CUP_MATCHUP_FEED_URL'
 		| 'PLAYOFFS_FEED_URL'
 		| 'PLAYOFFS_FINALS_FEED_URL'
-		| 'ALL_STAR_FEED_URL',
+		| 'ALL_STAR_FEED_URL'
+		| 'CALENDAR_FEED_URL'
+		| 'DAY_FEED_URL',
 	value: string | undefined
 ): Outcome => (variables[name].schema as unknown as Validator)['~standard'].validate(value);
 
@@ -221,6 +227,54 @@ describe('ALL_STAR_FEED_URL', () => {
 	it('rejects a relative URL', () => {
 		expect(validate('ALL_STAR_FEED_URL', '/all-star.json')).toEqual({
 			issues: [{ message: 'ALL_STAR_FEED_URL must be an absolute URL' }]
+		});
+	});
+});
+
+describe('CALENDAR_FEED_URL', () => {
+	it('accepts an absolute URL containing {season} and returns it', () => {
+		const url = 'https://feeds.example.com/seasons/{season}/calendar.json';
+		expect(validate('CALENDAR_FEED_URL', url)).toEqual({ value: url });
+	});
+
+	it('returns undefined for an empty or missing value', () => {
+		expect(validate('CALENDAR_FEED_URL', '')).toEqual({ value: undefined });
+		expect(validate('CALENDAR_FEED_URL', undefined)).toEqual({ value: undefined });
+	});
+
+	it('rejects a relative URL', () => {
+		expect(validate('CALENDAR_FEED_URL', '/seasons/{season}/calendar.json')).toEqual({
+			issues: [{ message: 'CALENDAR_FEED_URL must be an absolute URL' }]
+		});
+	});
+
+	it('rejects an absolute URL without {season}', () => {
+		expect(validate('CALENDAR_FEED_URL', 'https://feeds.example.com/feed.json')).toEqual({
+			issues: [{ message: 'CALENDAR_FEED_URL must contain {season}' }]
+		});
+	});
+});
+
+describe('DAY_FEED_URL', () => {
+	it('accepts an absolute URL containing {date} and returns it', () => {
+		const url = 'https://feeds.example.com/days/{date}.json';
+		expect(validate('DAY_FEED_URL', url)).toEqual({ value: url });
+	});
+
+	it('returns undefined for an empty or missing value', () => {
+		expect(validate('DAY_FEED_URL', '')).toEqual({ value: undefined });
+		expect(validate('DAY_FEED_URL', undefined)).toEqual({ value: undefined });
+	});
+
+	it('rejects a relative URL', () => {
+		expect(validate('DAY_FEED_URL', '/days/{date}.json')).toEqual({
+			issues: [{ message: 'DAY_FEED_URL must be an absolute URL' }]
+		});
+	});
+
+	it('rejects an absolute URL without {date}', () => {
+		expect(validate('DAY_FEED_URL', 'https://feeds.example.com/feed.json')).toEqual({
+			issues: [{ message: 'DAY_FEED_URL must contain {date}' }]
 		});
 	});
 });

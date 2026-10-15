@@ -5,6 +5,7 @@
 # Tested:
 # - The builder sets null stars, empty highlights, the search link, the winner and unavailable stats on a final game, and nulls on scheduled and postponed games
 # - The builder skips a game that is not a valid past game with a log line by event id, and keeps the others
+# - The builder sets the season 1999 and the label 1998-99
 # - The builder gives an empty day for no event, and wraps an invalid feed in a build error
 # - The day id: a real YYYY-MM-DD date only
 # - The kind: 2024-13-01, 20240101, abc, 1993-09-30, tomorrow and a day of the stored games feed answer unknown with no source request
@@ -51,7 +52,7 @@ from app.jobs.on_demand import (
 )
 from app.settings import Settings
 from app.sources.http import SourceClient, SourceError, create_client
-from app.sources.scoreboard import ScoreboardGame
+from app.sources.scoreboard import PastScoreboardDay, ScoreboardGame
 from app.storage.feeds import publish_feed, read_by_id
 from app.storage.state import StateStore
 
@@ -88,7 +89,7 @@ def search_url(_: ScoreboardGame) -> str | None:
 
 
 def build(*games: ScoreboardGame, url: Any = search_url) -> DayFeed:
-    return build_day_feed(NOW, PAST, games, url)
+    return build_day_feed(NOW, PAST, 1999, games, url)
 
 
 def test_a_final_game_has_null_stars_no_highlights_unavailable_stats_and_a_winner() -> (
@@ -133,6 +134,13 @@ def test_a_game_that_is_not_a_valid_past_game_is_skipped_with_a_log_line(
     assert caplog.records[0].getMessage().startswith("days: game 2 skipped: ")
 
 
+def test_the_builder_sets_the_season_and_its_label() -> None:
+    feed = build()
+
+    assert feed.season == 1999
+    assert feed.season_label == "1998-99"
+
+
 def test_no_event_gives_an_empty_day() -> None:
     feed = build()
 
@@ -144,7 +152,7 @@ def test_an_invalid_feed_is_wrapped_in_a_build_error() -> None:
     naive = NOW.replace(tzinfo=None)
 
     with pytest.raises(DayBuildError) as raised:
-        build_day_feed(naive, PAST, [], search_url)
+        build_day_feed(naive, PAST, 1999, [], search_url)
 
     assert raised.value.reason.startswith("invalid feed: ")
 
@@ -189,16 +197,16 @@ class DayKit:
             self.store,
             self.client,
             self.cache,
-            fetch_past_games=self.fetch_past_games,
+            fetch_past_day=self.fetch_past_day,
         )
 
-    async def fetch_past_games(
+    async def fetch_past_day(
         self, client: SourceClient, day: dt.date, settings: Settings
-    ) -> list[ScoreboardGame]:
+    ) -> PastScoreboardDay:
         self.calls.append(day)
         if self.failing:
             raise SourceError("test", "scoreboard is down")
-        return list(self.days.get(day, []))
+        return PastScoreboardDay(season=1999, games=list(self.days.get(day, [])))
 
     async def settle(self) -> None:
         while self.cache.in_flight:
