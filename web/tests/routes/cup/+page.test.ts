@@ -14,6 +14,12 @@
 // - Opens a node: loads its matchup with a no-cache request, shows the panel, polls it again at 60 s while open and stops after Esc
 // - A failed matchup shows the unavailable line inside the panel while the bracket stays
 // - Renders in Spanish
+// - With ?season: loads the calendar, then only the season Cup feed, once; no polling; the tag; no live badge or current stage; 503 and 404 states
+// - A malformed or current ?season loads the current feed and polls it
+// - A ?season before 2024 requests its season feed, shows the unavailable row and the select, and does not poll
+// - A season change or an unmount closes the current matchup poller of an open node
+// - The select lists the calendar seasons from 2024 and navigates with goto
+// - A past matchup loads once from the season URL, shows the path and the current-season-only line, and no roster; Spanish
 //
 // What is covered:
 // - The page wired end to end: config, fetch, polling, props layer, header, tables, footer
@@ -25,6 +31,7 @@
 // SEE: web/src/routes/cup/+page.svelte
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { tick } from 'svelte';
+import { SvelteURL } from 'svelte/reactivity';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -34,11 +41,39 @@ import { preferLanguages } from '../../prefer-languages';
 
 import Page from '../../../src/routes/cup/+page.svelte';
 
+const seasonMocks = vi.hoisted(() => ({
+	calendar: undefined as string | undefined,
+	past: undefined as string | undefined,
+	pastMatchup: undefined as string | undefined,
+	url: new URL('http://localhost/'),
+	goto: vi.fn()
+}));
+vi.mock('$app/state', () => ({
+	page: {
+		get url() {
+			return seasonMocks.url;
+		}
+	}
+}));
+vi.mock('$app/navigation', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$app/navigation')>()),
+	goto: seasonMocks.goto
+}));
+
 const config = vi.hoisted(() => ({
 	url: undefined as string | undefined,
 	matchup: undefined as string | undefined
 }));
 vi.mock('../../../src/lib/feed/config', () => ({
+	get calendarFeedUrl() {
+		return seasonMocks.calendar;
+	},
+	get seasonCupFeedUrl() {
+		return seasonMocks.past;
+	},
+	get seasonCupMatchupFeedUrl() {
+		return seasonMocks.pastMatchup;
+	},
 	get cupFeedUrl() {
 		return config.url;
 	},
@@ -292,5 +327,250 @@ describe('Cup page', () => {
 			screen.getAllByText('Fase de grupos · 16 de 60 partidos jugados').length
 		).toBeGreaterThan(0);
 		expect(screen.getByRole('link', { name: 'Todos los partidos' })).toBeTruthy();
+	});
+});
+
+const CAL_TEMPLATE = 'https://feeds.example.com/seasons/{season}/calendar.json';
+const CAL_URL = 'https://feeds.example.com/seasons/current/calendar.json';
+const PAST_TEMPLATE = 'https://feeds.example.com/seasons/{season}/cup.json';
+const PAST_MATCHUP_TEMPLATE = 'https://feeds.example.com/seasons/{season}/cup/matchups/{slot}.json';
+const pastUrl = (season: number) => `https://feeds.example.com/seasons/${season}/cup.json`;
+const pastMatchupUrl = (season: number, slot: string) =>
+	`https://feeds.example.com/seasons/${season}/cup/matchups/${slot}.json`;
+const fixtures = join(__dirname, '..', '..', 'lib', 'feed', 'fixtures');
+const calendarFeed = () => JSON.parse(readFileSync(join(fixtures, 'calendar.json'), 'utf8'));
+const pastRecorded = (): CupFeed =>
+	JSON.parse(readFileSync(join(fixtures, 'cup-complete.json'), 'utf8')) as CupFeed;
+
+type Routes = Record<string, Answer[]>;
+let calls: string[];
+
+// Answers by URL; the last answer of a URL repeats; any other URL throws.
+function stubRoutes(routes: Routes) {
+	calls = [];
+	vi.stubGlobal(
+		'fetch',
+		vi.fn((url: string) => {
+			const list = routes[url];
+			if (!list) throw new Error(`Unexpected URL ${url}`);
+			calls.push(url);
+			const index = Math.min(calls.filter((call) => call === url).length - 1, list.length - 1);
+			return (list[index] as Answer)();
+		})
+	);
+}
+
+const answerJson =
+	(body: unknown): Answer =>
+	() =>
+		Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(body) });
+const never: Answer = () => new Promise(() => {});
+const countOf = (url: string) => calls.filter((call) => call === url).length;
+
+async function settleAll() {
+	for (let i = 0; i < 4; i++) await settle();
+}
+
+async function renderSeason(query: string) {
+	seasonMocks.url = new URL(`http://localhost/cup${query}`);
+	const result = render(Page);
+	await settleAll();
+	return result;
+}
+
+function choose(value: string) {
+	const select = screen.getByRole('combobox', { name: 'Season' }) as HTMLSelectElement;
+	select.value = value;
+	select.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+describe('Cup page season selector', () => {
+	beforeEach(() => {
+		seasonMocks.calendar = CAL_TEMPLATE;
+		seasonMocks.past = PAST_TEMPLATE;
+		seasonMocks.pastMatchup = PAST_MATCHUP_TEMPLATE;
+		seasonMocks.goto.mockReset();
+	});
+
+	afterEach(() => {
+		seasonMocks.calendar = undefined;
+		seasonMocks.past = undefined;
+		seasonMocks.pastMatchup = undefined;
+		seasonMocks.url = new URL('http://localhost/');
+	});
+
+	it('loads the calendar, then only the season feed, for ?season=2025', async () => {
+		stubRoutes({
+			[CAL_URL]: [answerJson(calendarFeed())],
+			[pastUrl(2025)]: [answerJson(pastRecorded())]
+		});
+		const { container } = await renderSeason('?season=2025');
+		expect(calls).toEqual([CAL_URL, pastUrl(2025)]);
+		expect(screen.getByText('Season 2026-27')).toBeTruthy();
+		expect(container.querySelector('.live-badge')).toBeNull();
+		expect(container.querySelector('.stage-strip .current')).toBeNull();
+	});
+
+	it('does not poll a past season', async () => {
+		stubRoutes({
+			[CAL_URL]: [answerJson(calendarFeed())],
+			[pastUrl(2025)]: [answerJson(pastRecorded())]
+		});
+		await renderSeason('?season=2025');
+		await vi.advanceTimersByTimeAsync(10 * 60_000);
+		expect(countOf(pastUrl(2025))).toBe(1);
+		expect(countOf(CAL_URL)).toBe(1);
+	});
+
+	it('shows the loading skeleton and the select while the season feed is pending', async () => {
+		stubRoutes({ [CAL_URL]: [answerJson(calendarFeed())], [pastUrl(2025)]: [never] });
+		const { container } = await renderSeason('?season=2025');
+		expect(container.querySelector('[aria-busy="true"]')).toBeTruthy();
+		expect(screen.getByRole('combobox', { name: 'Season' })).toBeTruthy();
+	});
+
+	it.each([503, 404])(
+		'shows the unavailable row and the select on a %s of the season feed',
+		async (status) => {
+			stubRoutes({
+				[CAL_URL]: [answerJson(calendarFeed())],
+				[pastUrl(2025)]: [answerStatus(status)]
+			});
+			await renderSeason('?season=2025');
+			expect(screen.getByText(UNAVAILABLE)).toBeTruthy();
+			expect(screen.getByRole('combobox', { name: 'Season' })).toBeTruthy();
+		}
+	);
+
+	it.each(['?season=abcd', '?season=2027'])(
+		'loads the current feed and polls it for %s',
+		async (query) => {
+			stubRoutes({
+				[CAL_URL]: [answerJson(calendarFeed())],
+				[FEED_URL]: [answerJson(recorded())]
+			});
+			await renderSeason(query);
+			expect(calls).toEqual([CAL_URL, FEED_URL]);
+			await vi.advanceTimersByTimeAsync(60_000);
+			expect(countOf(FEED_URL)).toBe(2);
+		}
+	);
+
+	it.each([2023, 1999])(
+		'requests the season feed and shows the unavailable row for ?season=%i',
+		async (season) => {
+			stubRoutes({
+				[CAL_URL]: [answerJson(calendarFeed())],
+				[pastUrl(season)]: [answerStatus(404)],
+				[FEED_URL]: [answerJson(recorded())]
+			});
+			await renderSeason(`?season=${season}`);
+			expect(calls).toEqual([CAL_URL, pastUrl(season)]);
+			expect(countOf(FEED_URL)).toBe(0);
+			expect(screen.getByText(UNAVAILABLE)).toBeTruthy();
+			expect(screen.getByRole('combobox', { name: 'Season' })).toBeTruthy();
+			await vi.advanceTimersByTimeAsync(10 * 60_000);
+			expect(countOf(pastUrl(season))).toBe(1);
+		}
+	);
+
+	it('stops the current matchup poller when the season changes', async () => {
+		stubRoutes({
+			[CAL_URL]: [answerJson(calendarFeed())],
+			[FEED_URL]: [answerJson(recorded())],
+			[MATCHUP_URL]: [answerJson(matchupFeed())],
+			[pastUrl(2025)]: [answerJson(pastRecorded())]
+		});
+		const reactive = new SvelteURL('http://localhost/cup');
+		seasonMocks.url = reactive;
+		render(Page);
+		await settleAll();
+		await fireEvent.click(screen.getByRole('button', { name: /^Championship ·/ }));
+		await settleAll();
+		const before = countOf(MATCHUP_URL);
+		expect(before).toBeGreaterThan(0);
+		reactive.search = '?season=2025';
+		await settleAll();
+		expect(countOf(pastUrl(2025))).toBe(1);
+		await vi.advanceTimersByTimeAsync(180_000);
+		expect(countOf(MATCHUP_URL)).toBe(before);
+	});
+
+	it('stops the current matchup poller when the page unmounts', async () => {
+		stubRoutes({
+			[CAL_URL]: [answerJson(calendarFeed())],
+			[FEED_URL]: [answerJson(recorded())],
+			[MATCHUP_URL]: [answerJson(matchupFeed())]
+		});
+		const { unmount } = await renderSeason('');
+		await fireEvent.click(screen.getByRole('button', { name: /^Championship ·/ }));
+		await settleAll();
+		const before = countOf(MATCHUP_URL);
+		unmount();
+		await vi.advanceTimersByTimeAsync(180_000);
+		expect(countOf(MATCHUP_URL)).toBe(before);
+	});
+
+	it('shows the current season and no select when the calendar answers 503', async () => {
+		stubRoutes({ [CAL_URL]: [answerStatus(503)], [FEED_URL]: [answerJson(recorded())] });
+		await renderSeason('?season=2025');
+		expect(calls).toEqual([CAL_URL, FEED_URL]);
+		expect(screen.queryByRole('combobox')).toBeNull();
+	});
+
+	it('lists the calendar seasons from 2023-24 only', async () => {
+		stubRoutes({ [CAL_URL]: [answerJson(calendarFeed())], [FEED_URL]: [answerJson(recorded())] });
+		await renderSeason('');
+		const select = screen.getByRole('combobox', { name: 'Season' }) as HTMLSelectElement;
+		expect([...select.options].map((option) => option.textContent)).toEqual([
+			'2026-27',
+			'2025-26',
+			'2024-25',
+			'2023-24'
+		]);
+		expect(select.value).toBe('2027');
+	});
+
+	it('goes to ?season=2025 when 2025 is chosen and to the bare route for the current season', async () => {
+		stubRoutes({ [CAL_URL]: [answerJson(calendarFeed())], [FEED_URL]: [answerJson(recorded())] });
+		await renderSeason('');
+		choose('2025');
+		expect(seasonMocks.goto).toHaveBeenLastCalledWith('/cup?season=2025');
+		choose('2027');
+		expect(seasonMocks.goto).toHaveBeenLastCalledWith('/cup');
+	});
+
+	it('opens a node of a past season: loads the season matchup once, shows the path and the note, no roster', async () => {
+		stubRoutes({
+			[CAL_URL]: [answerJson(calendarFeed())],
+			[pastUrl(2025)]: [answerJson(pastRecorded())],
+			[pastMatchupUrl(2025, 'final')]: [answerJson(matchupFeed())]
+		});
+		await renderSeason('?season=2025');
+		await fireEvent.click(screen.getByRole('button', { name: /^Championship ·/ }));
+		await settleAll();
+		expect(countOf(pastMatchupUrl(2025, 'final'))).toBe(1);
+		const panel = screen.getByRole('dialog', { name: 'Championship' });
+		expect(panel.textContent).toContain('Path');
+		expect(panel.textContent).toContain('Rosters are shown for the current season only');
+		expect(panel.querySelector('table')).toBeNull();
+		await vi.advanceTimersByTimeAsync(180_000);
+		expect(countOf(pastMatchupUrl(2025, 'final'))).toBe(1);
+	});
+
+	it('renders in Spanish', async () => {
+		preferLanguages(['es']);
+		stubRoutes({
+			[CAL_URL]: [answerJson(calendarFeed())],
+			[pastUrl(2025)]: [answerJson(pastRecorded())],
+			[pastMatchupUrl(2025, 'final')]: [answerJson(matchupFeed())]
+		});
+		await renderSeason('?season=2025');
+		expect(screen.getByText('Temporada 2026-27')).toBeTruthy();
+		await fireEvent.click(screen.getByRole('button', { name: /^Final ·/ }));
+		await settleAll();
+		expect(screen.getByRole('dialog').textContent).toContain(
+			'Las plantillas solo se muestran de la temporada actual'
+		);
 	});
 });

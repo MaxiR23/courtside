@@ -15,6 +15,7 @@
 	import { play } from '#lib/hero/motion.ts';
 	import { m } from '#lib/paraglide/messages.js';
 	import type { RowLayout } from '#lib/schedule/types.ts';
+	import type { SeasonControl } from '#lib/season/types.ts';
 	import { shimmer } from '#lib/skeleton/motion.ts';
 
 	type Props = {
@@ -26,6 +27,7 @@
 		gameHref: (id: string) => ResolvedPathname;
 		playerHref: (id: string) => ResolvedPathname;
 		matchup: CupMatchupStore;
+		seasonSelect?: SeasonControl | null; // null: no selector
 	};
 
 	// `state` is renamed so the `$state` rune is not read as a store of the prop.
@@ -37,7 +39,8 @@
 		teamHref,
 		gameHref,
 		playerHref,
-		matchup
+		matchup,
+		seasonSelect = null
 	}: Props = $props();
 
 	// One toggle widens every group card. Not kept between visits.
@@ -48,7 +51,14 @@
 
 {#if page.kind === 'ready'}
 	{@const view = page.view}
-	<CupHeader header={view.header} {allGamesHref} {standingsHref} {layout} {teamHref} />
+	<CupHeader
+		header={view.header}
+		{allGamesHref}
+		{standingsHref}
+		{layout}
+		{teamHref}
+		{seasonSelect}
+	/>
 	<div class="sections">
 		{#each view.sections as id (id)}
 			<section {id} class="cup-section">
@@ -95,7 +105,15 @@
 		{/each}
 	</div>
 {:else if page.kind === 'loading'}
-	<CupHeader header={null} loading {allGamesHref} {standingsHref} {layout} {teamHref} />
+	<CupHeader
+		header={null}
+		loading
+		{allGamesHref}
+		{standingsHref}
+		{layout}
+		{teamHref}
+		{seasonSelect}
+	/>
 	<section class="page-section table-skeleton" aria-busy="true">
 		<div class="bones" aria-hidden="true" use:play={shimmer}>
 			<span class="bone heading-bone"></span>
@@ -109,7 +127,7 @@
 		</div>
 	</section>
 {:else}
-	<CupHeader header={null} {allGamesHref} {standingsHref} {layout} {teamHref} />
+	<CupHeader header={null} {allGamesHref} {standingsHref} {layout} {teamHref} {seasonSelect} />
 	<section class="page-section">
 		<MessageRow text={m.feed_unavailable()} />
 	</section>

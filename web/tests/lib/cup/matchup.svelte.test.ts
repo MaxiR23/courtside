@@ -8,6 +8,7 @@
 // - A failed load sets failed and keeps polling
 // - Opening another node drops the first node's feed
 // - With no loader an open node is failed at once
+// - A past season loads the matchup once and never polls it
 //
 // What is covered:
 // - The reactive module without mounting; fake timers and a fake document
@@ -29,8 +30,8 @@ const page = {
 	removeEventListener: () => {}
 };
 
-const store = (load: ((id: SlotId) => Promise<CupMatchupFeed>) | undefined) =>
-	new CupMatchupStore(load, { visibility: () => page as unknown as Document });
+const store = (load: ((id: SlotId) => Promise<CupMatchupFeed>) | undefined, past = false) =>
+	new CupMatchupStore(load, { visibility: () => page as unknown as Document, past });
 
 beforeEach(() => {
 	vi.useFakeTimers();
@@ -114,5 +115,23 @@ describe('CupMatchupStore', () => {
 		expect(matchups.failed).toBe(true);
 		expect(matchups.loading).toBe(false);
 		expect(matchups.feed).toBeNull();
+	});
+});
+
+describe('CupMatchupStore on a past season', () => {
+	it('is past and loads the opened node once, never polling it', async () => {
+		const load = vi.fn((id: SlotId) => Promise.resolve(feedOf(id)));
+		const matchups = store(load, true);
+		expect(matchups.past).toBe(true);
+		matchups.open('final');
+		await vi.advanceTimersByTimeAsync(0);
+		expect(matchups.feed?.id).toBe('final');
+		await vi.advanceTimersByTimeAsync(180_000);
+		expect(load).toHaveBeenCalledTimes(1);
+		matchups.close();
+	});
+
+	it('is not past by default', () => {
+		expect(store(vi.fn()).past).toBe(false);
 	});
 });

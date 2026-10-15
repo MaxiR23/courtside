@@ -76,6 +76,7 @@ export type AllStarHeaderView = {
 	rows: { key: 'date' | 'venue' | 'format'; label: string; value: string }[]; // before only
 	buttons: HeaderButtonView[];
 	plate: PlateView;
+	seasonTag: string | null; // "Season 2004-05" on a past season
 };
 
 export type GameCardView = {
@@ -222,6 +223,7 @@ export type LastTimeView = {
 		league: LeagueMarkView | null;
 		summary: string;
 	} | null;
+	video: string | null; // the previous edition's video URL; null: the card does not link
 	link: string; // "Every game, box score and highlight from 2026 →"
 };
 
@@ -237,6 +239,7 @@ export type AllStarView = {
 	boxes: Record<string, GameBoxView | null>;
 	defaultGame: string | null; // the feed's defaultGameId
 	teams: TeamCardView[];
+	editionVideo: HighlightVideo | null; // replaces the selected game's media when present
 };
 
 export type AllStarPageState =

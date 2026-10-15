@@ -1,35 +1,111 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import CupPage from '#lib/components/CupPage.svelte';
 	import { CupMatchupStore } from '#lib/cup/matchup.svelte.ts';
+	import { cupSeasons } from '#lib/cup/seasons.ts';
 	import type { CupPageState } from '#lib/cup/types.ts';
-	import { cupFeedUrl, cupMatchupFeedUrl as matchupTemplate } from '#lib/feed/config.ts';
+	import {
+		calendarFeedUrl,
+		cupFeedUrl,
+		cupMatchupFeedUrl as matchupTemplate,
+		seasonCupFeedUrl,
+		seasonCupMatchupFeedUrl as seasonMatchupTemplate
+	} from '#lib/feed/config.ts';
 	import { toCupView } from '#lib/feed/cup-props.ts';
-	import { cupMatchupFeedUrl, loadCupFeed, loadCupMatchupFeed } from '#lib/feed/load.ts';
+	import {
+		calendarFeedUrl as calendarFeedUrlOf,
+		cupMatchupFeedUrl,
+		loadCalendarFeed,
+		loadCupFeed,
+		loadCupMatchupFeed,
+		seasonCupMatchupFeedUrl,
+		seasonStandingsFeedUrl as seasonFeedUrlOf
+	} from '#lib/feed/load.ts';
+	import { FeedOnce } from '#lib/feed/once.svelte.ts';
 	import { cupPollInterval, FeedPoller } from '#lib/feed/poller.svelte.ts';
 	import { wideViewport } from '#lib/schedule/layout.ts';
+	import { currentSeason, requestedSeason, seasonOnShow } from '#lib/season/seasons.ts';
+	import type { SeasonControl } from '#lib/season/types.ts';
+
+	// The calendar is read once: it gives the selector's seasons and tells a past season from the current one (ADR 0044).
+	const calendarTemplate = calendarFeedUrl;
+	const calendar = calendarTemplate
+		? new FeedOnce(() => loadCalendarFeed(calendarFeedUrlOf(calendarTemplate, 'current')))
+		: undefined;
+	$effect(() => calendar?.start());
+	const settled = $derived(!calendar || calendar.feed !== null || calendar.failed);
+
+	const requested = $derived(requestedSeason(page.url.searchParams.get('season')));
+	// A primitive, so the calendar arriving later does not rebuild the poller.
+	const shown = $derived(seasonOnShow(requested, calendar?.feed ?? null, settled));
+	const past = $derived(typeof shown === 'number');
 
 	const url = cupFeedUrl;
-	const poller = url ? new FeedPoller(() => loadCupFeed(url), cupPollInterval) : undefined;
+	const pastTemplate = seasonCupFeedUrl;
+	const source = $derived.by(() => {
+		if (shown === 'pending') return null;
+		if (typeof shown === 'number') {
+			return pastTemplate
+				? new FeedOnce(() => loadCupFeed(seasonFeedUrlOf(pastTemplate, shown)))
+				: undefined;
+		}
+		return url ? new FeedPoller(() => loadCupFeed(url), cupPollInterval) : undefined;
+	});
 
-	$effect(() => poller?.start());
+	$effect(() => source?.start());
 
-	// The matchup of the open node loads when it opens and polls while the panel stays open.
+	// The matchup of the open node loads when it opens; a current season polls it while the panel
+	// stays open, a past season loads it once.
 	const template = matchupTemplate;
-	const matchup = new CupMatchupStore(
-		template ? (id) => loadCupMatchupFeed(cupMatchupFeedUrl(template, id)) : undefined
-	);
+	const matchup = $derived.by(() => {
+		if (shown === 'pending') return new CupMatchupStore(undefined);
+		if (typeof shown === 'number') {
+			const season = shown;
+			const pastMatchup = seasonMatchupTemplate;
+			return new CupMatchupStore(
+				pastMatchup
+					? (id) => loadCupMatchupFeed(seasonCupMatchupFeedUrl(pastMatchup, season, id))
+					: undefined,
+				{ past: true }
+			);
+		}
+		return new CupMatchupStore(
+			template ? (id) => loadCupMatchupFeed(cupMatchupFeedUrl(template, id)) : undefined
+		);
+	});
 
-	$effect(() => () => matchup.close());
+	// Reads the store in the body, so the effect re-runs on each new store and closes the previous one.
+	$effect(() => {
+		const store = matchup;
+		return () => store.close();
+	});
 
-	const view = $derived(poller?.feed ? toCupView(poller.feed) : null);
+	const view = $derived(source?.feed ? toCupView(source.feed, { past }) : null);
 
 	// A feed that is in stays on screen when a later load fails, as on the home.
 	const pageState: CupPageState = $derived.by(() => {
-		if (!poller) return { kind: 'unavailable' };
+		if (source === undefined) return { kind: 'unavailable' };
+		if (source === null) return { kind: 'loading' };
 		if (view) return { kind: 'ready', view };
-		if (poller.failed) return { kind: 'unavailable' };
+		if (source.failed) return { kind: 'unavailable' };
 		return { kind: 'loading' };
+	});
+
+	const seasonHref = (season: number) =>
+		calendar?.feed && season === currentSeason(calendar.feed)
+			? resolve('/cup')
+			: resolve(`/cup?season=${season}`);
+
+	const seasonSelect: SeasonControl | null = $derived.by(() => {
+		const feed = calendar?.feed;
+		if (!feed) return null;
+		return {
+			seasons: cupSeasons(feed),
+			value: typeof shown === 'number' ? shown : currentSeason(feed),
+			onChange: (season) => void goto(seasonHref(season))
+		};
 	});
 
 	const wide = wideViewport();
@@ -47,4 +123,5 @@
 	{gameHref}
 	{playerHref}
 	{matchup}
+	{seasonSelect}
 />

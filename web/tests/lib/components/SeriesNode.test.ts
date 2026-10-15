@@ -5,6 +5,7 @@
 // Tested:
 // - A decided series: seeds, codes, wins and the team strip colors
 // - The loser row is muted
+// - A side with an empty seed draws no seed number
 // - An undecided side: the slot label and the note; a one-sided series has one team row and one undecided row
 // - The framed (mobile) card is dashed for no teams and dashes the empty row for one team
 // - The Finals champion class
@@ -132,5 +133,14 @@ describe('SeriesNode interaction', () => {
 		vi.spyOn(button, 'matches').mockReturnValue(false);
 		button.focus();
 		expect(onFocusChange).toHaveBeenLastCalledWith(false);
+	});
+});
+
+describe('SeriesNode seed', () => {
+	it('draws no seed number for an empty seed', () => {
+		const series = card('east-r1-2');
+		series.top = { ...series.top, seed: '' };
+		const { container } = show(series);
+		expect(container.querySelector('.row .seed')?.textContent).toBe('');
 	});
 });

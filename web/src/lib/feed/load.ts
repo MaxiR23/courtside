@@ -340,3 +340,8 @@ export function seasonTeamFeedUrl(template: string, season: number, code: string
 export function seasonPlayerFeedUrl(template: string, season: number, id: string): string {
 	return seasonStandingsFeedUrl(template, season).replaceAll('{id}', encodeURIComponent(id));
 }
+
+/** The URL of a Cup matchup feed of a past season: the end year and the encoded slot id in place of the placeholders. */
+export function seasonCupMatchupFeedUrl(template: string, season: number, slot: string): string {
+	return seasonStandingsFeedUrl(template, season).replaceAll('{slot}', encodeURIComponent(slot));
+}

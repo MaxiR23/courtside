@@ -1,45 +1,107 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import PlayoffsPage from '#lib/components/PlayoffsPage.svelte';
-	import { playoffsFeedUrl, playoffsFinalsFeedUrl } from '#lib/feed/config.ts';
-	import { loadPlayoffsFeed, loadPlayoffsFinalsFeed } from '#lib/feed/load.ts';
+	import {
+		calendarFeedUrl,
+		playoffsFeedUrl,
+		playoffsFinalsFeedUrl,
+		seasonPlayoffsFeedUrl,
+		seasonPlayoffsFinalsFeedUrl
+	} from '#lib/feed/config.ts';
+	import {
+		calendarFeedUrl as calendarFeedUrlOf,
+		loadCalendarFeed,
+		loadPlayoffsFeed,
+		loadPlayoffsFinalsFeed,
+		seasonStandingsFeedUrl as seasonFeedUrlOf
+	} from '#lib/feed/load.ts';
+	import { FeedOnce } from '#lib/feed/once.svelte.ts';
 	import { toPlayoffsView } from '#lib/feed/playoffs-props.ts';
 	import { FeedPoller, playoffsPollInterval } from '#lib/feed/poller.svelte.ts';
 	import type { PlayoffsPageState } from '#lib/playoffs/types.ts';
 	import { wideViewport } from '#lib/schedule/layout.ts';
+	import { currentSeason, requestedSeason, seasonOnShow } from '#lib/season/seasons.ts';
+	import type { SeasonControl } from '#lib/season/types.ts';
+
+	// The calendar is read once: it gives the selector's seasons and tells a past season from the current one (ADR 0044).
+	const calendarTemplate = calendarFeedUrl;
+	const calendar = calendarTemplate
+		? new FeedOnce(() => loadCalendarFeed(calendarFeedUrlOf(calendarTemplate, 'current')))
+		: undefined;
+	$effect(() => calendar?.start());
+	const settled = $derived(!calendar || calendar.feed !== null || calendar.failed);
+
+	const requested = $derived(requestedSeason(page.url.searchParams.get('season')));
+	// A primitive, so the calendar arriving later does not rebuild the poller.
+	const shown = $derived(seasonOnShow(requested, calendar?.feed ?? null, settled));
+	const past = $derived(typeof shown === 'number');
 
 	const url = playoffsFeedUrl;
-	const poller = url
-		? new FeedPoller(() => loadPlayoffsFeed(url), playoffsPollInterval)
-		: undefined;
+	const pastTemplate = seasonPlayoffsFeedUrl;
+	const source = $derived.by(() => {
+		if (shown === 'pending') return null;
+		if (typeof shown === 'number') {
+			return pastTemplate
+				? new FeedOnce(() => loadPlayoffsFeed(seasonFeedUrlOf(pastTemplate, shown)))
+				: undefined;
+		}
+		return url ? new FeedPoller(() => loadPlayoffsFeed(url), playoffsPollInterval) : undefined;
+	});
 
-	$effect(() => poller?.start());
+	$effect(() => source?.start());
 
 	// The finals feed answers 404 before any Finals game: it is polled only once the playoffs
-	// feed says the Finals are on, and stopped otherwise.
+	// feed says the Finals are on, and stopped otherwise. A past season reads it once.
 	const finalsUrl = playoffsFinalsFeedUrl;
-	const finalsPoller = finalsUrl
-		? new FeedPoller(() => loadPlayoffsFinalsFeed(finalsUrl), playoffsPollInterval)
-		: undefined;
+	const pastFinalsTemplate = seasonPlayoffsFinalsFeedUrl;
+	const finalsSource = $derived.by(() => {
+		if (shown === 'pending') return null;
+		if (typeof shown === 'number') {
+			return pastFinalsTemplate
+				? new FeedOnce(() => loadPlayoffsFinalsFeed(seasonFeedUrlOf(pastFinalsTemplate, shown)))
+				: undefined;
+		}
+		return finalsUrl
+			? new FeedPoller(() => loadPlayoffsFinalsFeed(finalsUrl), playoffsPollInterval)
+			: undefined;
+	});
 	const wantsFinals = $derived(
-		poller?.feed?.state === 'finals' || poller?.feed?.state === 'complete'
+		source?.feed?.state === 'finals' || source?.feed?.state === 'complete'
 	);
 
-	$effect(() => (wantsFinals ? finalsPoller?.start() : undefined));
+	$effect(() => (wantsFinals ? finalsSource?.start() : undefined));
 
 	// Any failure of the finals feed hides the finals sections and nothing else.
 	const finals = $derived(
-		wantsFinals && finalsPoller && !finalsPoller.failed ? finalsPoller.feed : null
+		wantsFinals && finalsSource && !finalsSource.failed ? finalsSource.feed : null
 	);
 
-	const view = $derived(poller?.feed ? toPlayoffsView(poller.feed, finals) : null);
+	const view = $derived(source?.feed ? toPlayoffsView(source.feed, finals, { past }) : null);
 
 	// A feed that is in stays on screen when a later load fails, as on the home.
 	const pageState: PlayoffsPageState = $derived.by(() => {
-		if (!poller) return { kind: 'unavailable' };
+		if (source === undefined) return { kind: 'unavailable' };
+		if (source === null) return { kind: 'loading' };
 		if (view) return { kind: 'ready', view };
-		if (poller.failed) return { kind: 'unavailable' };
+		if (source.failed) return { kind: 'unavailable' };
 		return { kind: 'loading' };
+	});
+
+	const seasonHref = (season: number) =>
+		calendar?.feed && season === currentSeason(calendar.feed)
+			? resolve('/playoffs')
+			: resolve(`/playoffs?season=${season}`);
+
+	const seasonSelect: SeasonControl | null = $derived.by(() => {
+		const feed = calendar?.feed;
+		if (!feed) return null;
+		return {
+			seasons: [...feed.seasons],
+			value: typeof shown === 'number' ? shown : currentSeason(feed),
+			onChange: (season) => void goto(seasonHref(season))
+		};
 	});
 
 	const wide = wideViewport();
@@ -54,4 +116,5 @@
 	layout={wide.current ? 'desktop' : 'mobile'}
 	{teamHref}
 	{gameHref}
+	{seasonSelect}
 />

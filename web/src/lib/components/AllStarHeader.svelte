@@ -3,6 +3,8 @@
 	import AllStarPlate from '#lib/components/AllStarPlate.svelte';
 	import Kicker from '#lib/components/Kicker.svelte';
 	import NavRow from '#lib/components/NavRow.svelte';
+	import SeasonSelect from '#lib/components/SeasonSelect.svelte';
+	import SeasonTag from '#lib/components/SeasonTag.svelte';
 	import StatusTag from '#lib/components/StatusTag.svelte';
 	import type { LiveTick } from '#lib/all-star/live-tick.svelte.ts';
 	import type { AllStarHeaderView, StatCellView } from '#lib/all-star/types.ts';
@@ -11,6 +13,7 @@
 	import { m } from '#lib/paraglide/messages.js';
 	import { CountUp } from '#lib/count/count-up.svelte.ts';
 	import type { RowLayout } from '#lib/schedule/types.ts';
+	import type { SeasonControl } from '#lib/season/types.ts';
 	import { shimmer } from '#lib/skeleton/motion.ts';
 
 	type Props = {
@@ -21,6 +24,7 @@
 		layout: RowLayout;
 		tick: LiveTick;
 		onLive: (gameId: string) => void;
+		seasonSelect?: SeasonControl | null; // null: no selector
 	};
 
 	let {
@@ -30,7 +34,8 @@
 		standingsHref,
 		layout,
 		tick,
-		onLive
+		onLive,
+		seasonSelect = null
 	}: Props = $props();
 
 	const mobile = $derived(layout === 'mobile');
@@ -70,6 +75,9 @@
 	<div class="nav" class:sticky={mobile}>
 		<div class="nav-inner">
 			<NavRow page="all-star" gamesHref={allGamesHref} {standingsHref} {layout} />
+			{#if seasonSelect && !mobile}
+				<div class="season-row"><SeasonSelect {...seasonSelect} /></div>
+			{/if}
 		</div>
 	</div>
 	<div class="grid-bg" aria-hidden="true"></div>
@@ -79,6 +87,7 @@
 				<div class="copy">
 					<div class="tag-line">
 						<StatusTag text={header.tag} accent />
+						{#if header.seasonTag}<SeasonTag text={header.seasonTag} />{/if}
 						{#if header.meta}<span class="meta">{header.meta}</span>{/if}
 					</div>
 					<Kicker text={header.kicker} />
@@ -134,6 +143,9 @@
 					<span class="bone state-bone"></span>
 				</div>
 			{/if}
+		{/if}
+		{#if seasonSelect && mobile}
+			<div class="season-row"><SeasonSelect {...seasonSelect} full /></div>
 		{/if}
 	</div>
 </header>
@@ -377,5 +389,10 @@
 	.state-bone {
 		width: var(--skeleton-button-width);
 		height: var(--body-size-small);
+	}
+
+	.season-row {
+		display: flex;
+		justify-content: flex-end;
 	}
 </style>

@@ -167,12 +167,13 @@ function stageView(entry: StageEntry): StageView {
 	};
 }
 
-function headerView(feed: CupFeed): CupHeaderView {
+function headerView(feed: CupFeed, past: boolean): CupHeaderView {
 	return {
 		season: feed.season,
 		stateLine: stateLine(feed),
 		champion: feed.stage === 'complete' && feed.champion ? teamMark(feed.champion) : null,
-		stages: feed.stages.map(stageView)
+		stages: feed.stages.map(stageView),
+		tag: past ? m.past_season_tag({ label: feed.season }) : null
 	};
 }
 
@@ -375,8 +376,8 @@ function filters(feed: CupFeed): CupFilterView[] {
  * Turns the Cup feed into the page props. Groups, rows and days keep the feed's order and
  * every value is the feed's own: the page computes nothing.
  */
-export function toCupView(feed: CupFeed): CupView {
-	const header = headerView(feed);
+export function toCupView(feed: CupFeed, options: { past?: boolean } = {}): CupView {
+	const header = headerView(feed, options.past ?? false);
 	return {
 		header,
 		sections: feed.stage === 'draw' || feed.stage === 'group' ? GROUP_SECTIONS : KNOCKOUT_SECTIONS,

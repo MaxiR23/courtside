@@ -11,6 +11,8 @@
 // - A scheduled game shows the one centered card and no box score
 // - The leaders on desktop and none on mobile; the strip class on mobile
 // - The status is re-read on each tick
+// - The edition video replaces the game's media, plays on a click, is kept across a game change and has a caption; without it the placeholder shows
+// - No game card holds a video, a thumbnail or a highlight label
 //
 // What is covered:
 // - Each state the section shows, drawn from the recorded feeds with a real selection and tick
@@ -22,18 +24,29 @@ import { fireEvent, render, screen } from '@testing-library/svelte';
 import { tick as flush } from 'svelte';
 import { describe, expect, it } from 'vitest';
 
+import type { HighlightVideo } from '../../../src/lib/schedule/types';
+
 import { LiveTick } from '../../../src/lib/all-star/live-tick.svelte';
 import { GameSelection } from '../../../src/lib/all-star/selection.svelte';
 import AllStarGames from '../../../src/lib/components/AllStarGames.svelte';
 import { playerHref, teamHref, viewOf } from '../all-star/views';
 
+const EDITION: HighlightVideo = {
+	id: 'https://video.example.com/embed/edition',
+	title: 'Edition recap',
+	channel: 'Example Channel',
+	thumbnail: 'https://video.example.com/thumb/edition.jpg',
+	embedUrl: 'https://video.example.com/embed/edition?autoplay=1'
+};
+
 function show(
 	name: 'live' | 'after' = 'after',
 	layout: 'desktop' | 'mobile' = 'desktop',
 	selection = new GameSelection(),
-	tick = new LiveTick()
+	tick = new LiveTick(),
+	editionVideo: HighlightVideo | null = null
 ) {
-	const view = viewOf(name);
+	const view = { ...viewOf(name), editionVideo };
 	const result = render(AllStarGames, {
 		props: { view, kicker: view.header.tag, selection, tick, layout, teamHref, playerHref }
 	});
@@ -152,5 +165,39 @@ describe('AllStarGames', () => {
 		const { container, selection } = show();
 		await fireEvent.click(container.querySelectorAll('.game-card')[0]);
 		expect(selection.selected).toBe('g1');
+	});
+});
+
+describe('AllStarGames edition video', () => {
+	it('shows the edition play button and caption in place of the placeholder, and plays on a click', async () => {
+		const { container } = show('after', 'desktop', new GameSelection(), new LiveTick(), EDITION);
+		expect(container.querySelector('.placeholder')).toBeNull();
+		expect(screen.getByText('Edition highlights')).toBeTruthy();
+		expect(container.querySelector('iframe')).toBeNull();
+		await fireEvent.click(screen.getByRole('button', { name: 'Play Edition recap' }));
+		expect(container.querySelector('iframe')?.getAttribute('src')).toBe(EDITION.embedUrl);
+	});
+
+	it('keeps the edition frame, playing, when another game is selected', async () => {
+		const { container } = show('after', 'desktop', new GameSelection(), new LiveTick(), EDITION);
+		await fireEvent.click(screen.getByRole('button', { name: 'Play Edition recap' }));
+		await fireEvent.click(container.querySelectorAll('.game-card')[0]);
+		expect(container.querySelector('iframe')?.getAttribute('src')).toBe(EDITION.embedUrl);
+		expect(screen.getByText('Edition highlights')).toBeTruthy();
+	});
+
+	it('shows the placeholder and no caption without an edition video', async () => {
+		const { container } = show();
+		await fireEvent.click(container.querySelectorAll('.game-card')[0]);
+		expect(screen.getByText('Highlights not available')).toBeTruthy();
+		expect(screen.queryByText('Edition highlights')).toBeNull();
+	});
+
+	it('draws no video, thumbnail or highlight label on the game cards', () => {
+		const { container } = show('after', 'desktop', new GameSelection(), new LiveTick(), EDITION);
+		for (const card of container.querySelectorAll('.game-card')) {
+			expect(card.querySelector('iframe, video, img, button.thumb')).toBeNull();
+			expect(card.textContent?.toLowerCase()).not.toContain('highlight');
+		}
 	});
 });

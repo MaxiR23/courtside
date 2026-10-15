@@ -727,5 +727,7 @@
 	"past_names_run": "{from}–{to}",
 	"past_player_retired": "Retired",
 	"past_player_free_agent": "Free agent",
-	"past_team_no_season": "No team this season."
+	"past_team_no_season": "No team this season.",
+	"seasons_cup_no_roster": "Rosters are shown for the current season only",
+	"seasons_edition_highlights": "Edition highlights"
 }

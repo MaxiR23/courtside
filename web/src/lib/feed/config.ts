@@ -10,7 +10,12 @@ import {
 	PLAYOFFS_FEED_URL,
 	PLAYOFFS_FINALS_FEED_URL,
 	SEARCH_FEED_URL,
+	SEASON_ALL_STAR_FEED_URL,
+	SEASON_CUP_FEED_URL,
+	SEASON_CUP_MATCHUP_FEED_URL,
 	SEASON_PLAYER_FEED_URL,
+	SEASON_PLAYOFFS_FEED_URL,
+	SEASON_PLAYOFFS_FINALS_FEED_URL,
 	SEASON_STANDINGS_FEED_URL,
 	SEASON_TEAM_FEED_URL,
 	STANDINGS_FEED_URL,
@@ -35,4 +40,9 @@ export const dayFeedUrl: string | undefined = DAY_FEED_URL;
 export const seasonStandingsFeedUrl: string | undefined = SEASON_STANDINGS_FEED_URL;
 export const seasonTeamFeedUrl: string | undefined = SEASON_TEAM_FEED_URL;
 export const seasonPlayerFeedUrl: string | undefined = SEASON_PLAYER_FEED_URL;
+export const seasonCupFeedUrl: string | undefined = SEASON_CUP_FEED_URL;
+export const seasonCupMatchupFeedUrl: string | undefined = SEASON_CUP_MATCHUP_FEED_URL;
+export const seasonPlayoffsFeedUrl: string | undefined = SEASON_PLAYOFFS_FEED_URL;
+export const seasonPlayoffsFinalsFeedUrl: string | undefined = SEASON_PLAYOFFS_FINALS_FEED_URL;
+export const seasonAllStarFeedUrl: string | undefined = SEASON_ALL_STAR_FEED_URL;
 export const videoPlatformName: string | undefined = VIDEO_PLATFORM_NAME;

@@ -50,7 +50,7 @@
 
 	const panelState = $derived<MatchupPanelState>(
 		matchup.feed
-			? { kind: 'ready', view: toMatchupView(matchup.feed) }
+			? { kind: 'ready', view: toMatchupView(matchup.feed, { past: matchup.past }) }
 			: matchup.failed
 				? { kind: 'unavailable' }
 				: { kind: 'loading' }

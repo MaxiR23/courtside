@@ -7,6 +7,8 @@
 // - The season tag, the state line and the five stages with dates, TBD and status labels
 // - The Playoffs title in every state but complete; the champion hero instead of it in complete
 // - Loading: bones and aria-busy; a null header shows only the nav and the title
+// - The season tag when the header has one; the select on desktop and mobile (full), its onChange; none without the prop
+// - Four stages draw a four-column strip
 // - Spanish copy
 //
 // What is covered:
@@ -109,5 +111,60 @@ describe('PlayoffsHeader', () => {
 		show({ header: header('playoffs-picture.json') });
 		expect(screen.getByText('Panorama de playoffs')).toBeTruthy();
 		expect(screen.getAllByText('Por definir').length).toBe(5);
+	});
+});
+
+describe('PlayoffsHeader season selector and tag', () => {
+	const seasonSelect = (onChange = vi.fn()) => ({
+		seasons: [
+			{ season: 2027, seasonLabel: '2026-27' },
+			{ season: 2025, seasonLabel: '2024-25' }
+		],
+		value: 2027,
+		onChange
+	});
+
+	it('draws the season tag only when the header has one', () => {
+		const tagged = { ...header('playoffs-picture.json'), tag: 'Season 2024-25' };
+		const { unmount } = show({ header: tagged });
+		expect(screen.getByText('Season 2024-25')).toBeTruthy();
+		unmount();
+		show({ header: header('playoffs-picture.json') });
+		expect(screen.queryByText('Season 2024-25')).toBeNull();
+	});
+
+	it('draws the select on desktop and calls onChange with the end year', () => {
+		const onChange = vi.fn();
+		show({ header: header('playoffs-picture.json'), seasonSelect: seasonSelect(onChange) });
+		const select = screen.getByRole('combobox', { name: 'Season' }) as HTMLSelectElement;
+		expect(select.classList.contains('full')).toBe(false);
+		select.value = '2025';
+		select.dispatchEvent(new Event('change', { bubbles: true }));
+		expect(onChange).toHaveBeenCalledWith(2025);
+	});
+
+	it('draws the select full width on mobile', () => {
+		show({
+			header: header('playoffs-picture.json'),
+			layout: 'mobile',
+			seasonSelect: seasonSelect()
+		});
+		expect(screen.getByRole('combobox', { name: 'Season' }).classList.contains('full')).toBe(true);
+	});
+
+	it('draws no select without the prop', () => {
+		show({ header: header('playoffs-picture.json') });
+		expect(screen.queryByRole('combobox')).toBeNull();
+	});
+
+	it('draws a four-column strip when the header has four stages', () => {
+		const four = header('playoffs-picture.json');
+		const { container } = show({ header: { ...four, stages: four.stages.slice(0, 4) } });
+		expect(container.querySelector('.stage-strip')?.classList.contains('five')).toBe(false);
+	});
+
+	it('draws a five-column strip with five stages', () => {
+		const { container } = show({ header: header('playoffs-picture.json') });
+		expect(container.querySelector('.stage-strip')?.classList.contains('five')).toBe(true);
 	});
 });

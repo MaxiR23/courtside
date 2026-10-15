@@ -402,7 +402,8 @@ function livePlate(drawn: Drawn): PlateView | null {
 
 function header(
 	drawn: Drawn,
-	view: Pick<AllStarView, 'mvp' | 'scoreline' | 'sections'>
+	view: Pick<AllStarView, 'mvp' | 'scoreline' | 'sections'>,
+	seasonTag: string | null
 ): AllStarHeaderView {
 	const { edition, state, mvp } = drawn;
 	const tag = m.allstar_tag({ year: String(drawn.year) });
@@ -432,7 +433,8 @@ function header(
 				row('format', m.allstar_row_format(), edition.formatLine)
 			],
 			buttons,
-			plate: { kind: 'year', year: String(drawn.year) }
+			plate: { kind: 'year', year: String(drawn.year) },
+			seasonTag
 		};
 	}
 	if (state === 'live') {
@@ -460,7 +462,8 @@ function header(
 			],
 			rows: [],
 			buttons,
-			plate: livePlate(drawn) ?? { kind: 'year', year: String(drawn.year) }
+			plate: livePlate(drawn) ?? { kind: 'year', year: String(drawn.year) },
+			seasonTag
 		};
 	}
 	const champion = edition.teams.find((team) => team.placement.kind === 'champion');
@@ -525,7 +528,8 @@ function header(
 				}
 			: view.scoreline
 				? { kind: 'score', rows: view.scoreline.rows }
-				: { kind: 'year', year: String(drawn.year) }
+				: { kind: 'year', year: String(drawn.year) },
+		seasonTag
 	};
 }
 
@@ -553,6 +557,7 @@ function lastTime(feed: AllStarFeed): LastTimeView | null {
 					})
 				}
 			: null,
+		video: previous.editionHighlight?.embedUrl ?? null,
 		link: m.allstar_last_link({ prev: String(previous.year) })
 	};
 }
@@ -575,14 +580,14 @@ function sectionsOf(
 	return sections;
 }
 
-function build(drawn: Drawn, last: LastTimeView | null): AllStarView {
+function build(drawn: Drawn, last: LastTimeView | null, seasonTag: string | null): AllStarView {
 	const { edition } = drawn;
 	const shown = drawn.state !== 'before';
 	const mvp = shown && drawn.mvp ? mvpView(drawn.mvp, edition.games) : null;
 	const line = drawn.state === 'after' ? scoreline(edition.games) : null;
 	const sections = sectionsOf(drawn, last, mvp, line);
 	return {
-		header: header(drawn, { mvp, scoreline: line, sections }),
+		header: header(drawn, { mvp, scoreline: line, sections }, seasonTag),
 		sections,
 		lastTime: last,
 		mvp: drawn.state === 'after' ? mvp : null,
@@ -592,24 +597,32 @@ function build(drawn: Drawn, last: LastTimeView | null): AllStarView {
 		details: Object.fromEntries(edition.games.map((game) => [game.id, detail(game, edition)])),
 		boxes: Object.fromEntries(edition.games.map((game) => [game.id, boxView(game)])),
 		defaultGame: edition.defaultGameId,
-		teams: edition.teams.map(teamCard)
+		teams: edition.teams.map(teamCard),
+		editionVideo: edition.editionHighlight ? video(edition.editionHighlight) : null
 	};
 }
 
 /**
  * The view of the All-Star page. `current` is the edition of the season in its state;
  * `previous` is the previous edition drawn as its after view, null when the feed has none.
+ * `pastLabel` is the calendar's label of a past season: it adds the season tag.
  */
 export function toAllStarView(
 	feed: AllStarFeed,
-	which: 'current' | 'previous'
+	which: 'current' | 'previous',
+	options: { pastLabel?: string } = {}
 ): AllStarView | null {
 	if (which === 'previous') {
 		const earlier = feed.previousEdition;
 		if (!earlier || !feed.previous) return null;
 		const { mvp, ...edition } = earlier;
-		return build({ year: feed.previous.year, state: 'after', edition, mvp }, null);
+		return build({ year: feed.previous.year, state: 'after', edition, mvp }, null, null);
 	}
 	const last = feed.state === 'before' ? lastTime(feed) : null;
-	return build({ year: feed.year, state: feed.state, edition: feed.edition, mvp: feed.mvp }, last);
+	const seasonTag = options.pastLabel ? m.past_season_tag({ label: options.pastLabel }) : null;
+	return build(
+		{ year: feed.year, state: feed.state, edition: feed.edition, mvp: feed.mvp },
+		last,
+		seasonTag
+	);
 }

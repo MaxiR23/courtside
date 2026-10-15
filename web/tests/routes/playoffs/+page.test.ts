@@ -15,6 +15,10 @@
 // - Pauses polling while the tab is hidden and loads at once when visible again
 // - Keeps the last playoffs feed on screen when a later poll fails
 // - Renders in Spanish
+// - With ?season: loads the calendar, then the season playoffs and finals feeds, once each; no polling; the tag; 503 and 404 states
+// - A malformed, unlisted or current ?season loads the current feeds and polls them; the select lists every calendar season and navigates with goto
+// - A past feed with no play-in, no head to head values, no leaders and no awards closes the sections with no gap; a null seed draws no number
+// - The current season keeps the head to head of all-null bars and the dash of a null seed
 //
 // What is covered:
 // - The page wired end to end: config, fetch, polling, props layer, header, sections, footer
@@ -36,11 +40,39 @@ import { preferLanguages } from '../../prefer-languages';
 
 import Page from '../../../src/routes/playoffs/+page.svelte';
 
+const seasonMocks = vi.hoisted(() => ({
+	calendar: undefined as string | undefined,
+	past: undefined as string | undefined,
+	pastFinals: undefined as string | undefined,
+	url: new URL('http://localhost/'),
+	goto: vi.fn()
+}));
+vi.mock('$app/state', () => ({
+	page: {
+		get url() {
+			return seasonMocks.url;
+		}
+	}
+}));
+vi.mock('$app/navigation', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$app/navigation')>()),
+	goto: seasonMocks.goto
+}));
+
 const config = vi.hoisted(() => ({
 	url: undefined as string | undefined,
 	finals: undefined as string | undefined
 }));
 vi.mock('../../../src/lib/feed/config', () => ({
+	get calendarFeedUrl() {
+		return seasonMocks.calendar;
+	},
+	get seasonPlayoffsFeedUrl() {
+		return seasonMocks.past;
+	},
+	get seasonPlayoffsFinalsFeedUrl() {
+		return seasonMocks.pastFinals;
+	},
 	get playoffsFeedUrl() {
 		return config.url;
 	},
@@ -288,5 +320,242 @@ describe('Playoffs page', () => {
 		expect(screen.getByRole('heading', { level: 1, name: 'Playoffs' })).toBeTruthy();
 		expect(screen.getAllByText('Panorama de playoffs').length).toBeGreaterThan(0);
 		expect(screen.getByRole('link', { name: 'Todos los partidos' })).toBeTruthy();
+	});
+});
+
+const CAL_TEMPLATE = 'https://feeds.example.com/seasons/{season}/calendar.json';
+const CAL_URL = 'https://feeds.example.com/seasons/current/calendar.json';
+const PAST_TEMPLATE = 'https://feeds.example.com/seasons/{season}/playoffs.json';
+const PAST_FINALS_TEMPLATE = 'https://feeds.example.com/seasons/{season}/playoffs/finals.json';
+const pastUrl = (season: number) => `https://feeds.example.com/seasons/${season}/playoffs.json`;
+const pastFinalsUrl = (season: number) =>
+	`https://feeds.example.com/seasons/${season}/playoffs/finals.json`;
+const calendarFeed = () => fixture<{ seasons: unknown[] }>('calendar.json');
+const finalsFeed = () => fixture<PlayoffsFinalsFeed>('playoffs-finals.json');
+const emptyBars = (): PlayoffsFinalsFeed => {
+	const finals = finalsFeed();
+	for (const bar of finals.headToHead.bars) for (const entry of bar.values) entry.value = null;
+	return finals;
+};
+const seedless = (): PlayoffsFeed => {
+	const feed = inState('complete');
+	const finals = feed.bracket.find((series) => series.id === 'finals')!;
+	finals.top.seed = null;
+	return feed;
+};
+const seedTexts = (container: HTMLElement) =>
+	[...container.querySelectorAll('.row .seed')].map((seed) => seed.textContent);
+
+type Routes = Record<string, Answer[]>;
+let calls: string[];
+
+// Answers by URL; the last answer of a URL repeats; any other URL throws.
+function stubRoutes(routes: Routes) {
+	calls = [];
+	vi.stubGlobal(
+		'fetch',
+		vi.fn((url: string) => {
+			const list = routes[url];
+			if (!list) throw new Error(`Unexpected URL ${url}`);
+			calls.push(url);
+			const index = Math.min(calls.filter((call) => call === url).length - 1, list.length - 1);
+			return (list[index] as Answer)();
+		})
+	);
+}
+
+const never: Answer = () => new Promise(() => {});
+const countOf = (url: string) => calls.filter((call) => call === url).length;
+
+async function settleAll() {
+	for (let i = 0; i < 4; i++) await settle();
+}
+
+async function renderSeason(query: string) {
+	seasonMocks.url = new URL(`http://localhost/playoffs${query}`);
+	const result = render(Page);
+	await settleAll();
+	return result;
+}
+
+function choose(value: string) {
+	const select = screen.getByRole('combobox', { name: 'Season' }) as HTMLSelectElement;
+	select.value = value;
+	select.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+describe('Playoffs page season selector', () => {
+	beforeEach(() => {
+		seasonMocks.calendar = CAL_TEMPLATE;
+		seasonMocks.past = PAST_TEMPLATE;
+		seasonMocks.pastFinals = PAST_FINALS_TEMPLATE;
+		seasonMocks.goto.mockReset();
+	});
+
+	afterEach(() => {
+		seasonMocks.calendar = undefined;
+		seasonMocks.past = undefined;
+		seasonMocks.pastFinals = undefined;
+		seasonMocks.url = new URL('http://localhost/');
+	});
+
+	it('loads the calendar, then the season feed and its finals once each, for ?season=2005', async () => {
+		stubRoutes({
+			[CAL_URL]: [answerWith(calendarFeed())],
+			[pastUrl(2005)]: [answerWith(inState('complete'))],
+			[pastFinalsUrl(2005)]: [answerWith(finalsFeed())]
+		});
+		const { container } = await renderSeason('?season=2005');
+		expect(calls).toEqual([CAL_URL, pastUrl(2005), pastFinalsUrl(2005)]);
+		expect(screen.getByText('Season 2026-27')).toBeTruthy();
+		expect(container.querySelector('.stage-strip .current')).toBeNull();
+		await vi.advanceTimersByTimeAsync(10 * 60_000);
+		expect(countOf(pastUrl(2005))).toBe(1);
+		expect(countOf(pastFinalsUrl(2005))).toBe(1);
+		expect(countOf(CAL_URL)).toBe(1);
+	});
+
+	it('requests no finals feed of a past season that has not reached the Finals', async () => {
+		stubRoutes({
+			[CAL_URL]: [answerWith(calendarFeed())],
+			[pastUrl(2005)]: [answerWith(inState('playoffs'))]
+		});
+		await renderSeason('?season=2005');
+		expect(calls).toEqual([CAL_URL, pastUrl(2005)]);
+	});
+
+	it('shows the loading skeleton and the select while the season feed is pending', async () => {
+		stubRoutes({ [CAL_URL]: [answerWith(calendarFeed())], [pastUrl(2005)]: [never] });
+		const { container } = await renderSeason('?season=2005');
+		expect(container.querySelector('[aria-busy="true"]')).toBeTruthy();
+		expect(screen.getByRole('combobox', { name: 'Season' })).toBeTruthy();
+	});
+
+	it.each([503, 404])(
+		'shows the unavailable row and the select on a %s of the season feed',
+		async (status) => {
+			stubRoutes({
+				[CAL_URL]: [answerWith(calendarFeed())],
+				[pastUrl(2005)]: [answerStatus(status)]
+			});
+			await renderSeason('?season=2005');
+			expect(screen.getByText(UNAVAILABLE)).toBeTruthy();
+			expect(screen.getByRole('combobox', { name: 'Season' })).toBeTruthy();
+		}
+	);
+
+	it.each(['?season=abcd', '?season=1990', '?season=2027'])(
+		'loads the current feed and polls it for %s',
+		async (query) => {
+			stubRoutes({
+				[CAL_URL]: [answerWith(calendarFeed())],
+				[FEED_URL]: [answerWith(picture())]
+			});
+			await renderSeason(query);
+			expect(calls).toEqual([CAL_URL, FEED_URL]);
+			await vi.advanceTimersByTimeAsync(60_000);
+			expect(countOf(FEED_URL)).toBe(2);
+		}
+	);
+
+	it('lists every season of the calendar and navigates with goto', async () => {
+		stubRoutes({ [CAL_URL]: [answerWith(calendarFeed())], [FEED_URL]: [answerWith(picture())] });
+		await renderSeason('');
+		const select = screen.getByRole('combobox', { name: 'Season' }) as HTMLSelectElement;
+		expect(select.options).toHaveLength(calendarFeed().seasons.length);
+		expect(select.options[0]?.textContent).toBe('2026-27');
+		expect(select.options[select.options.length - 1]?.textContent).toBe('1993-94');
+		choose('2005');
+		expect(seasonMocks.goto).toHaveBeenLastCalledWith('/playoffs?season=2005');
+		choose('2027');
+		expect(seasonMocks.goto).toHaveBeenLastCalledWith('/playoffs');
+	});
+
+	it('shows no play-in section and no play-in stage for a past feed with no play-in', async () => {
+		const feed = inState('complete');
+		feed.playIn = null;
+		stubRoutes({
+			[CAL_URL]: [answerWith(calendarFeed())],
+			[pastUrl(2005)]: [answerWith(feed)],
+			[pastFinalsUrl(2005)]: [answerWith(finalsFeed())]
+		});
+		const { container } = await renderSeason('?season=2005');
+		expect(ids(container)).not.toContain('play-in');
+		expect(screen.queryByRole('heading', { name: 'Play-In' })).toBeNull();
+		expect(container.querySelectorAll('.stage-strip .stage')).toHaveLength(4);
+	});
+
+	it('shows no head to head heading for a past finals feed with all-null bars', async () => {
+		stubRoutes({
+			[CAL_URL]: [answerWith(calendarFeed())],
+			[pastUrl(2005)]: [answerWith(inState('complete'))],
+			[pastFinalsUrl(2005)]: [answerWith(emptyBars())]
+		});
+		await renderSeason('?season=2005');
+		expect(screen.queryByRole('heading', { name: 'Head to head' })).toBeNull();
+	});
+
+	it('still shows the head to head heading of a current finals feed with all-null bars', async () => {
+		stubRoutes({
+			[CAL_URL]: [answerWith(calendarFeed())],
+			[FEED_URL]: [answerWith(inState('complete'))],
+			[FINALS_URL]: [answerWith(emptyBars())]
+		});
+		await renderSeason('');
+		expect(screen.getByRole('heading', { name: 'Head to head' })).toBeTruthy();
+	});
+
+	it('shows neither leaders nor awards for a past feed that has none, with no gap', async () => {
+		const feed = inState('complete');
+		feed.leaders = null;
+		feed.awards = null;
+		stubRoutes({
+			[CAL_URL]: [answerWith(calendarFeed())],
+			[pastUrl(2005)]: [answerWith(feed)],
+			[pastFinalsUrl(2005)]: [answerWith(finalsFeed())]
+		});
+		const { container } = await renderSeason('?season=2005');
+		expect(ids(container)).toEqual([
+			'finals-mvp',
+			'series',
+			'road',
+			'head-to-head',
+			'bracket',
+			'play-in'
+		]);
+		expect(screen.queryByRole('heading', { name: 'Leaders' })).toBeNull();
+		expect(screen.queryByRole('heading', { name: 'Awards' })).toBeNull();
+	});
+
+	it('draws no seed digit for a null seed of a past season', async () => {
+		stubRoutes({
+			[CAL_URL]: [answerWith(calendarFeed())],
+			[pastUrl(2005)]: [answerWith(seedless())],
+			[pastFinalsUrl(2005)]: [answerWith(finalsFeed())]
+		});
+		const { container } = await renderSeason('?season=2005');
+		expect(seedTexts(container)).not.toContain('—');
+		expect(seedTexts(container)).toContain('');
+	});
+
+	it('still draws the dash for a null seed of the current season', async () => {
+		stubRoutes({
+			[CAL_URL]: [answerWith(calendarFeed())],
+			[FEED_URL]: [answerWith(seedless())],
+			[FINALS_URL]: [answerWith(finalsFeed())]
+		});
+		const { container } = await renderSeason('');
+		expect(seedTexts(container)).toContain('—');
+	});
+
+	it('renders in Spanish', async () => {
+		preferLanguages(['es']);
+		stubRoutes({
+			[CAL_URL]: [answerWith(calendarFeed())],
+			[pastUrl(2005)]: [answerWith(inState('complete'))],
+			[pastFinalsUrl(2005)]: [answerWith(finalsFeed())]
+		});
+		await renderSeason('?season=2005');
+		expect(screen.getByText('Temporada 2026-27')).toBeTruthy();
 	});
 });

@@ -7,6 +7,7 @@
 // - The MVP card: name, league team and summary, linking to the player
 // - No MVP card without an MVP
 // - The link text and its href /all-star/previous
+// - The champion card links to the edition video in a new tab when there is one, and is not a link otherwise
 //
 // What is covered:
 // - Each state the section shows, drawn from the recorded feeds
@@ -66,5 +67,30 @@ describe('AllStarLastTime', () => {
 	it('adds the mobile class with the mobile layout', () => {
 		const { container } = show(lastTime(), 'mobile');
 		expect(container.querySelector('.last-time')?.classList.contains('mobile')).toBe(true);
+	});
+});
+
+describe('AllStarLastTime edition video', () => {
+	const URL_ = 'https://video.example.com/embed/last';
+
+	it('links the champion card to the video in a new tab', () => {
+		const { container } = show({ ...lastTime(), video: URL_ });
+		const card = container.querySelector('a.champion-card')!;
+		expect(card.getAttribute('href')).toBe(URL_);
+		expect(card.getAttribute('target')).toBe('_blank');
+		expect(card.getAttribute('rel')).toContain('noopener');
+		expect(card.textContent).toContain('Team Dunes');
+		expect(screen.getByRole('link', { name: /Every game/ }).getAttribute('href')).toBe(
+			'/all-star/previous'
+		);
+	});
+
+	it('draws the champion card as a plain block without a video', () => {
+		const { container } = show({ ...lastTime(), video: null });
+		expect(container.querySelector('a.champion-card')).toBeNull();
+		expect(container.querySelector('div.champion-card')?.textContent).toContain('Team Dunes');
+		expect(screen.getByRole('link', { name: /Every game/ }).getAttribute('href')).toBe(
+			'/all-star/previous'
+		);
 	});
 });

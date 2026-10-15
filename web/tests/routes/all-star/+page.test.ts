@@ -13,6 +13,10 @@
 // - Pauses polling while the tab is hidden and loads at once when visible again
 // - Keeps the last feed on screen when a later poll fails
 // - Renders in Spanish
+// - With ?season: loads the calendar, then only the season All-Star feed, once; no polling; the tag from the calendar's label; no live dot; 503 and 404 states
+// - A malformed, unlisted or current ?season loads the current feed and polls it; the select lists every calendar season and navigates with goto
+// - The edition frame with its caption when the feed carries an edition video (past and current after), the placeholder when not
+// - The Last time champion card linked when the previous edition has a video, not linked otherwise
 //
 // What is covered:
 // - The page wired end to end: config, fetch, polling, props layer, header, sections, footer
@@ -33,8 +37,32 @@ import { preferLanguages } from '../../prefer-languages';
 
 import Page from '../../../src/routes/all-star/+page.svelte';
 
+const seasonMocks = vi.hoisted(() => ({
+	calendar: undefined as string | undefined,
+	past: undefined as string | undefined,
+	url: new URL('http://localhost/'),
+	goto: vi.fn()
+}));
+vi.mock('$app/state', () => ({
+	page: {
+		get url() {
+			return seasonMocks.url;
+		}
+	}
+}));
+vi.mock('$app/navigation', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$app/navigation')>()),
+	goto: seasonMocks.goto
+}));
+
 const config = vi.hoisted(() => ({ url: undefined as string | undefined }));
 vi.mock('../../../src/lib/feed/config', () => ({
+	get calendarFeedUrl() {
+		return seasonMocks.calendar;
+	},
+	get seasonAllStarFeedUrl() {
+		return seasonMocks.past;
+	},
 	get allStarFeedUrl() {
 		return config.url;
 	}
@@ -250,5 +278,198 @@ describe('All-Star page', () => {
 		expect(screen.getByText('Campeones del día')).toBeTruthy();
 		expect(screen.getByRole('link', { name: 'Todos los partidos' })).toBeTruthy();
 		expect(screen.getByText('Partidos', { selector: 'h2' })).toBeTruthy();
+	});
+});
+
+const CAL_TEMPLATE = 'https://feeds.example.com/seasons/{season}/calendar.json';
+const CAL_URL = 'https://feeds.example.com/seasons/current/calendar.json';
+const PAST_TEMPLATE = 'https://feeds.example.com/seasons/{season}/all-star.json';
+const pastUrl = (season: number) => `https://feeds.example.com/seasons/${season}/all-star.json`;
+const calendarFeed = () =>
+	JSON.parse(
+		readFileSync(join(__dirname, '..', '..', 'lib', 'feed', 'fixtures', 'calendar.json'), 'utf8')
+	);
+const highlight = {
+	title: 'Edition recap',
+	channel: 'Example Channel',
+	thumbnailUrl: 'https://video.example.com/thumb/edition.jpg',
+	embedUrl: 'https://video.example.com/embed/edition'
+};
+
+type Routes = Record<string, Answer[]>;
+let calls: string[];
+
+// Answers by URL; the last answer of a URL repeats; any other URL throws.
+function stubRoutes(routes: Routes) {
+	calls = [];
+	vi.stubGlobal(
+		'fetch',
+		vi.fn((url: string) => {
+			const list = routes[url];
+			if (!list) throw new Error(`Unexpected URL ${url}`);
+			calls.push(url);
+			const index = Math.min(calls.filter((call) => call === url).length - 1, list.length - 1);
+			return (list[index] as Answer)();
+		})
+	);
+}
+
+const never: Answer = () => new Promise(() => {});
+const countOf = (url: string) => calls.filter((call) => call === url).length;
+
+async function settleAll() {
+	for (let i = 0; i < 4; i++) await settle();
+}
+
+async function renderSeason(query: string) {
+	seasonMocks.url = new URL(`http://localhost/all-star${query}`);
+	const result = render(Page);
+	await settleAll();
+	return result;
+}
+
+function choose(value: string) {
+	const select = screen.getByRole('combobox', { name: 'Season' }) as HTMLSelectElement;
+	select.value = value;
+	select.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+describe('All-Star page season selector', () => {
+	beforeEach(() => {
+		seasonMocks.calendar = CAL_TEMPLATE;
+		seasonMocks.past = PAST_TEMPLATE;
+		seasonMocks.goto.mockReset();
+	});
+
+	afterEach(() => {
+		seasonMocks.calendar = undefined;
+		seasonMocks.past = undefined;
+		seasonMocks.url = new URL('http://localhost/');
+	});
+
+	it('loads the calendar, then only the season feed, for ?season=2005, and tags it from the calendar', async () => {
+		stubRoutes({
+			[CAL_URL]: [answerWith(calendarFeed())],
+			[pastUrl(2005)]: [answerWith(fixture('after'))]
+		});
+		const { container } = await renderSeason('?season=2005');
+		expect(calls).toEqual([CAL_URL, pastUrl(2005)]);
+		expect(screen.getByText('Season 2004-05')).toBeTruthy();
+		expect(container.querySelector('.live-dot')).toBeNull();
+		expect((screen.getByRole('combobox', { name: 'Season' }) as HTMLSelectElement).value).toBe(
+			'2005'
+		);
+	});
+
+	it('does not poll a past season', async () => {
+		stubRoutes({
+			[CAL_URL]: [answerWith(calendarFeed())],
+			[pastUrl(2005)]: [answerWith(fixture('after'))]
+		});
+		await renderSeason('?season=2005');
+		await vi.advanceTimersByTimeAsync(10 * 60_000);
+		expect(countOf(pastUrl(2005))).toBe(1);
+		expect(countOf(CAL_URL)).toBe(1);
+	});
+
+	it('shows the loading skeleton and the select while the season feed is pending', async () => {
+		stubRoutes({ [CAL_URL]: [answerWith(calendarFeed())], [pastUrl(2005)]: [never] });
+		const { container } = await renderSeason('?season=2005');
+		expect(container.querySelector('[aria-busy="true"]')).toBeTruthy();
+		expect(screen.getByRole('combobox', { name: 'Season' })).toBeTruthy();
+	});
+
+	it.each([503, 404])(
+		'shows the unavailable row and the select on a %s of the season feed',
+		async (status) => {
+			stubRoutes({
+				[CAL_URL]: [answerWith(calendarFeed())],
+				[pastUrl(2005)]: [answerStatus(status)]
+			});
+			await renderSeason('?season=2005');
+			expect(screen.getByText(UNAVAILABLE)).toBeTruthy();
+			expect(screen.getByRole('combobox', { name: 'Season' })).toBeTruthy();
+		}
+	);
+
+	it.each(['?season=abcd', '?season=1990', '?season=2027'])(
+		'loads the current feed and polls it for %s',
+		async (query) => {
+			stubRoutes({
+				[CAL_URL]: [answerWith(calendarFeed())],
+				[FEED_URL]: [answerWith(fixture('after'))]
+			});
+			const { container } = await renderSeason(query);
+			expect(calls).toEqual([CAL_URL, FEED_URL]);
+			expect(container.textContent).not.toContain('Season 20');
+			await vi.advanceTimersByTimeAsync(60_000);
+			expect(countOf(FEED_URL)).toBe(2);
+		}
+	);
+
+	it('lists every season of the calendar and navigates with goto', async () => {
+		stubRoutes({
+			[CAL_URL]: [answerWith(calendarFeed())],
+			[FEED_URL]: [answerWith(fixture('after'))]
+		});
+		await renderSeason('');
+		const select = screen.getByRole('combobox', { name: 'Season' }) as HTMLSelectElement;
+		expect(select.options).toHaveLength(calendarFeed().seasons.length);
+		choose('2005');
+		expect(seasonMocks.goto).toHaveBeenLastCalledWith('/all-star?season=2005');
+		choose('2027');
+		expect(seasonMocks.goto).toHaveBeenLastCalledWith('/all-star');
+	});
+
+	it('shows the edition frame with its caption on a past season that has an edition video', async () => {
+		const feed = fixture('after');
+		feed.edition.editionHighlight = highlight;
+		stubRoutes({ [CAL_URL]: [answerWith(calendarFeed())], [pastUrl(2005)]: [answerWith(feed)] });
+		await renderSeason('?season=2005');
+		expect(screen.getByText('Edition highlights')).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Play Edition recap' })).toBeTruthy();
+	});
+
+	it('shows the placeholder and no caption on a past season with no edition video', async () => {
+		const feed = fixture('after');
+		feed.edition.editionHighlight = null;
+		stubRoutes({ [CAL_URL]: [answerWith(calendarFeed())], [pastUrl(2005)]: [answerWith(feed)] });
+		await renderSeason('?season=2005');
+		expect(screen.queryByText('Edition highlights')).toBeNull();
+	});
+
+	it('shows the edition frame on the current after state', async () => {
+		const feed = fixture('after');
+		feed.edition.editionHighlight = highlight;
+		stubRoutes({ [CAL_URL]: [answerWith(calendarFeed())], [FEED_URL]: [answerWith(feed)] });
+		await renderSeason('');
+		expect(screen.getByText('Edition highlights')).toBeTruthy();
+	});
+
+	it('links the Last time champion card when the previous edition has a video, not otherwise', async () => {
+		const feed = fixture('before');
+		feed.previous!.editionHighlight = highlight;
+		stubRoutes({ [CAL_URL]: [answerWith(calendarFeed())], [FEED_URL]: [answerWith(feed)] });
+		const linked = await renderSeason('');
+		const card = linked.container.querySelector('a.champion-card');
+		expect(card?.getAttribute('href')).toBe(highlight.embedUrl);
+		expect(card?.getAttribute('target')).toBe('_blank');
+		linked.unmount();
+
+		feed.previous!.editionHighlight = null;
+		stubRoutes({ [CAL_URL]: [answerWith(calendarFeed())], [FEED_URL]: [answerWith(feed)] });
+		const plain = await renderSeason('');
+		expect(plain.container.querySelector('a.champion-card')).toBeNull();
+		expect(plain.container.querySelector('.champion-card')).not.toBeNull();
+	});
+
+	it('renders in Spanish', async () => {
+		preferLanguages(['es']);
+		const feed = fixture('after');
+		feed.edition.editionHighlight = highlight;
+		stubRoutes({ [CAL_URL]: [answerWith(calendarFeed())], [pastUrl(2005)]: [answerWith(feed)] });
+		await renderSeason('?season=2005');
+		expect(screen.getByText('Temporada 2004-05')).toBeTruthy();
+		expect(screen.getByText('Resumen de la edición')).toBeTruthy();
 	});
 });

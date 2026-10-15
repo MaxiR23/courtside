@@ -19,7 +19,9 @@
 // - CALENDAR_FEED_URL: rejects a relative URL and an absolute URL without {season}
 // - DAY_FEED_URL: accepts an absolute URL with {date}; empty or missing is undefined
 // - DAY_FEED_URL: rejects a relative URL and an absolute URL without {date}
-// - SEASON_STANDINGS_FEED_URL, SEASON_TEAM_FEED_URL, SEASON_PLAYER_FEED_URL: accept an absolute URL with
+// - SEASON_STANDINGS_FEED_URL, SEASON_TEAM_FEED_URL, SEASON_PLAYER_FEED_URL, SEASON_CUP_FEED_URL,
+//   SEASON_CUP_MATCHUP_FEED_URL, SEASON_PLAYOFFS_FEED_URL, SEASON_PLAYOFFS_FINALS_FEED_URL,
+//   SEASON_ALL_STAR_FEED_URL: accept an absolute URL with
 //   their placeholders; empty or missing is undefined; reject a relative URL and a missing placeholder
 //
 // What is covered:
@@ -40,6 +42,11 @@ const validate = (
 		| 'SEASON_STANDINGS_FEED_URL'
 		| 'SEASON_TEAM_FEED_URL'
 		| 'SEASON_PLAYER_FEED_URL'
+		| 'SEASON_CUP_FEED_URL'
+		| 'SEASON_CUP_MATCHUP_FEED_URL'
+		| 'SEASON_PLAYOFFS_FEED_URL'
+		| 'SEASON_PLAYOFFS_FINALS_FEED_URL'
+		| 'SEASON_ALL_STAR_FEED_URL'
 		| 'TEAM_FEED_URL'
 		| 'PLAYER_FEED_URL'
 		| 'STANDINGS_FEED_URL'
@@ -299,6 +306,31 @@ describe.each([
 		name: 'SEASON_PLAYER_FEED_URL' as const,
 		url: 'https://feeds.example.com/seasons/{season}/players/{id}.json',
 		extra: '{id}'
+	},
+	{
+		name: 'SEASON_CUP_FEED_URL' as const,
+		url: 'https://feeds.example.com/seasons/{season}/cup.json',
+		extra: null
+	},
+	{
+		name: 'SEASON_CUP_MATCHUP_FEED_URL' as const,
+		url: 'https://feeds.example.com/seasons/{season}/cup/matchups/{slot}.json',
+		extra: '{slot}'
+	},
+	{
+		name: 'SEASON_PLAYOFFS_FEED_URL' as const,
+		url: 'https://feeds.example.com/seasons/{season}/playoffs.json',
+		extra: null
+	},
+	{
+		name: 'SEASON_PLAYOFFS_FINALS_FEED_URL' as const,
+		url: 'https://feeds.example.com/seasons/{season}/playoffs/finals.json',
+		extra: null
+	},
+	{
+		name: 'SEASON_ALL_STAR_FEED_URL' as const,
+		url: 'https://feeds.example.com/seasons/{season}/all-star.json',
+		extra: null
 	}
 ])('$name', ({ name, url, extra }) => {
 	it('accepts an absolute URL with its placeholders and returns it', () => {

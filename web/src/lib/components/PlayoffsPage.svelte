@@ -19,6 +19,7 @@
 	import { m } from '#lib/paraglide/messages.js';
 	import type { PlayoffsPageState } from '#lib/playoffs/types.ts';
 	import type { RowLayout } from '#lib/schedule/types.ts';
+	import type { SeasonControl } from '#lib/season/types.ts';
 	import { shimmer } from '#lib/skeleton/motion.ts';
 
 	type Props = {
@@ -28,10 +29,19 @@
 		layout: RowLayout;
 		teamHref: (code: string) => ResolvedPathname;
 		gameHref: (id: string) => ResolvedPathname;
+		seasonSelect?: SeasonControl | null; // null: no selector
 	};
 
 	// `state` is renamed so the `$state` rune is not read as a store of the prop.
-	let { state: page, allGamesHref, standingsHref, layout, teamHref, gameHref }: Props = $props();
+	let {
+		state: page,
+		allGamesHref,
+		standingsHref,
+		layout,
+		teamHref,
+		gameHref,
+		seasonSelect = null
+	}: Props = $props();
 
 	const ROW_BONES = [0, 1, 2, 3, 4, 5];
 
@@ -60,6 +70,7 @@
 		{layout}
 		{teamHref}
 		showRelive={view.sections.includes('series')}
+		{seasonSelect}
 	/>
 	<div class="sections">
 		{#each view.sections as id (id)}
@@ -129,7 +140,15 @@
 		{/each}
 	</div>
 {:else if page.kind === 'loading'}
-	<PlayoffsHeader header={null} loading {allGamesHref} {standingsHref} {layout} {teamHref} />
+	<PlayoffsHeader
+		header={null}
+		loading
+		{allGamesHref}
+		{standingsHref}
+		{layout}
+		{teamHref}
+		{seasonSelect}
+	/>
 	<section class="page-section table-skeleton" aria-busy="true">
 		<div class="bones" aria-hidden="true" use:play={shimmer}>
 			<span class="bone heading-bone"></span>
@@ -143,7 +162,7 @@
 		</div>
 	</section>
 {:else}
-	<PlayoffsHeader header={null} {allGamesHref} {standingsHref} {layout} {teamHref} />
+	<PlayoffsHeader header={null} {allGamesHref} {standingsHref} {layout} {teamHref} {seasonSelect} />
 	<section class="page-section">
 		<MessageRow text={m.feed_unavailable()} />
 	</section>
