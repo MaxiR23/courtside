@@ -21,7 +21,8 @@
 # championship is final the feed is kept while its season is the current one,
 # the season of the stars job's latest roster. A schedule that fails is skipped
 # only when every drawn team still has its 4 group games among the games read.
-# The feed is never deleted.
+# The feed is never deleted. read_cup_sources reads the sources of one season;
+# the past season kind (season_cup_feed.py) uses it too.
 #
 # SEE: docs/api/cup.md, docs/adr/0028-cup-feed.md, api/app/jobs/standings_feed.py
 
@@ -748,6 +749,75 @@ def build_cup_feed(sources: CupSources) -> CupFeed:
     return _Builder(sources).build()
 
 
+async def read_cup_sources(
+    client: SourceClient,
+    settings: Settings,
+    season: int,
+    *,
+    fetch_group_teams: FetchGroupTeams,
+    fetch_group_table: FetchGroupTable,
+    fetch_conference_table: FetchConferenceTable,
+    fetch_season_schedule: FetchSeasonSchedule,
+) -> CupSources:
+    """Read the Cup sources of one season (its end year), or raise SourceError.
+    A failed schedule is skipped only when every drawn team still has its 4
+    group games and the group round is not decided."""
+    keys = list(GROUP_IDS)
+    teams, tables, conferences = await asyncio.gather(
+        asyncio.gather(
+            *(
+                fetch_group_teams(client, season, conference, letter, settings)
+                for conference, letter in keys
+            )
+        ),
+        asyncio.gather(
+            *(
+                fetch_group_table(client, season, conference, letter, settings)
+                for conference, letter in keys
+            )
+        ),
+        asyncio.gather(
+            *(
+                fetch_conference_table(client, season, conference, settings)
+                for conference in CONFERENCES
+            )
+        ),
+    )
+    results = await asyncio.gather(
+        *(
+            fetch_season_schedule(client, code, season, settings, playoffs=False)
+            for code in CODES
+        ),
+        return_exceptions=True,
+    )
+    schedules: dict[str, SeasonSchedule] = {}
+    failures: list[tuple[str, SourceError]] = []
+    for code, result in zip(CODES, results, strict=True):
+        if isinstance(result, SourceError):
+            failures.append((code, result))
+        elif isinstance(result, BaseException):
+            raise result
+        else:
+            schedules[code] = result
+    group_teams = dict(zip(keys, teams, strict=True))
+    group_tables = dict(zip(keys, tables, strict=True))
+    if failures and (
+        not covers_the_group_games(
+            {key: codes for key, codes in group_teams.items()}, schedules
+        )
+        or group_round_is_decided(group_tables, schedules)
+    ):
+        raise failures[0][1]
+    return CupSources(
+        season=season,
+        group_teams=group_teams,
+        group_tables=group_tables,
+        conference_tables=dict(zip(CONFERENCES, conferences, strict=True)),
+        schedules=schedules,
+        failed_schedules=frozenset(code for code, _ in failures),
+    )
+
+
 class CupFeeds:
     def __init__(
         self,
@@ -798,67 +868,15 @@ class CupFeeds:
         season = self._stars.current_season()
         if season is None:
             raise CupBuildError("season not known yet")
-        client, settings = self._client, self._settings
-        keys = list(GROUP_IDS)
-        teams, tables, conferences = await asyncio.gather(
-            asyncio.gather(
-                *(
-                    self._fetch_group_teams(
-                        client, season, conference, letter, settings
-                    )
-                    for conference, letter in keys
-                )
-            ),
-            asyncio.gather(
-                *(
-                    self._fetch_group_table(
-                        client, season, conference, letter, settings
-                    )
-                    for conference, letter in keys
-                )
-            ),
-            asyncio.gather(
-                *(
-                    self._fetch_conference_table(client, season, conference, settings)
-                    for conference in CONFERENCES
-                )
-            ),
-        )
-        results = await asyncio.gather(
-            *(
-                self._fetch_season_schedule(
-                    client, code, season, settings, playoffs=False
-                )
-                for code in CODES
-            ),
-            return_exceptions=True,
-        )
-        schedules: dict[str, SeasonSchedule] = {}
-        failures: list[tuple[str, SourceError]] = []
-        for code, result in zip(CODES, results, strict=True):
-            if isinstance(result, SourceError):
-                failures.append((code, result))
-            elif isinstance(result, BaseException):
-                raise result
-            else:
-                schedules[code] = result
-        group_teams = dict(zip(keys, teams, strict=True))
-        group_tables = dict(zip(keys, tables, strict=True))
-        if failures and (
-            not covers_the_group_games(
-                {key: codes for key, codes in group_teams.items()}, schedules
-            )
-            or group_round_is_decided(group_tables, schedules)
-        ):
-            raise failures[0][1]
         return build_cup_feed(
-            CupSources(
-                season=season,
-                group_teams=group_teams,
-                group_tables=group_tables,
-                conference_tables=dict(zip(CONFERENCES, conferences, strict=True)),
-                schedules=schedules,
-                failed_schedules=frozenset(code for code, _ in failures),
+            await read_cup_sources(
+                self._client,
+                self._settings,
+                season,
+                fetch_group_teams=self._fetch_group_teams,
+                fetch_group_table=self._fetch_group_table,
+                fetch_conference_table=self._fetch_conference_table,
+                fetch_season_schedule=self._fetch_season_schedule,
             )
         )
 
