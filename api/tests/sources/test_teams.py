@@ -12,6 +12,7 @@
 # - An unknown provider team id raises the source error
 # - A provider team resolves by abbreviation, else by id, else it is a guest without a code
 # - An opponent has neither a code nor a name only when it is skipped (None); an empty abbreviation is absent
+# - With by_id_first, a known id gives the standard code of that id with the provider's name and city, an unknown id resolves as before, and without the flag nothing changes
 #
 # What is covered:
 # - Happy path for all 30 teams, edge case of the codes that differ, error case of an unknown code
@@ -182,3 +183,46 @@ def test_a_guest_opponent_without_a_code_keeps_its_name() -> None:
 def test_an_opponent_with_neither_a_code_nor_a_name_is_none() -> None:
     assert to_opponent(None, "90001", None, "Harbor City", source="test") is None
     assert to_opponent("", None, "", None, source="test") is None
+
+
+def test_by_id_first_a_known_id_gives_its_code_with_the_name_and_city_of_the_event() -> (
+    None
+):
+    opponent = to_opponent(
+        "OLD", "25", "Pilots", "Harbor City", source="test", by_id_first=True
+    )
+
+    assert opponent == {
+        "code": "OKC",
+        "name": "Pilots",
+        "city": "Harbor City",
+        "guest": False,
+    }
+
+
+def test_by_id_first_a_known_id_wins_over_a_different_league_abbreviation() -> None:
+    opponent = to_opponent("DEN", "25", None, None, source="test", by_id_first=True)
+
+    assert opponent is not None
+    assert opponent["code"] == "OKC"
+    assert opponent["guest"] is False
+
+
+def test_by_id_first_an_unknown_id_resolves_as_before() -> None:
+    guest = to_opponent(
+        "HCM", "90001", "Mariners", None, source="test", by_id_first=True
+    )
+    league = to_opponent("DEN", "90001", None, None, source="test", by_id_first=True)
+    absent = to_opponent(None, None, "Mariners", None, source="test", by_id_first=True)
+
+    assert guest is not None and guest["code"] == "HCM" and guest["guest"] is True
+    assert league is not None and league["code"] == "DEN" and league["guest"] is False
+    assert absent is not None and absent["code"] is None and absent["guest"] is True
+
+
+def test_without_by_id_first_the_abbreviation_still_wins() -> None:
+    opponent = to_opponent("HCM", "25", "Pilots", None, source="test")
+
+    assert opponent is not None
+    assert opponent["code"] == "HCM"
+    assert opponent["guest"] is True

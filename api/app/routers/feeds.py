@@ -4,7 +4,8 @@
 #
 # SEE: docs/api/games.md, docs/api/game-detail.md, docs/api/player.md, docs/api/team.md,
 # docs/api/standings.md, docs/api/search.md, docs/api/cup.md,
-# docs/api/cup-matchup.md, docs/api/playoffs.md, docs/api/all-star.md
+# docs/api/cup-matchup.md, docs/api/playoffs.md, docs/api/all-star.md,
+# docs/api/calendar.md, docs/api/days.md
 
 import asyncio
 import hashlib
@@ -13,9 +14,11 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 
 from app.jobs.all_star_feed import FEED_ID as ALL_STAR_ID
 from app.jobs.all_star_feed import KIND as ALL_STAR_KIND
+from app.jobs.calendar_feed import KIND as CALENDAR_KIND
 from app.jobs.cup_feed import FEED_ID as CUP_ID
 from app.jobs.cup_feed import KIND as CUP_KIND
 from app.jobs.cup_matchup_feed import KIND as MATCHUP_KIND
+from app.jobs.day_feed import KIND as DAY_KIND
 from app.jobs.game_detail_feed import KIND
 from app.jobs.on_demand import FeedCache, FeedUnavailableError, UnknownFeedError
 from app.jobs.player_feed import KIND as PLAYER_KIND
@@ -168,3 +171,15 @@ async def serve_on_demand(
             status_code=503, detail="feed is not available yet"
         ) from None
     return _serve(body, request)
+
+
+@router.get("/feeds/seasons/{season}/calendar.json")
+async def read_calendar_feed(season: str, request: Request) -> Response:
+    return await serve_on_demand(
+        request.app.state.feed_cache, CALENDAR_KIND, season, request
+    )
+
+
+@router.get("/feeds/days/{day}.json")
+async def read_day_feed(day: str, request: Request) -> Response:
+    return await serve_on_demand(request.app.state.feed_cache, DAY_KIND, day, request)

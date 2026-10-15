@@ -35,8 +35,10 @@ PLAY_IN_NOTE = re.compile(
     r"^NBA Play-In - (East|West) - "
     r"(7th Place vs 8th Place|9th Place vs 10th Place|8th Seed Game)$"
 )
-GAME_NUMBER_NOTE = re.compile(r" - Game ([1-7])$")
-_SERIES_CONFERENCE = re.compile(r"^(East|West) ")
+_PLAY_IN_NOTE_ANY_CASE = re.compile(PLAY_IN_NOTE.pattern, re.IGNORECASE)
+_PLAY_IN_KINDS_ANY_CASE = {key.casefold(): kind for key, kind in PLAY_IN_KINDS.items()}
+GAME_NUMBER_NOTE = re.compile(r" - Game ([1-7])$", re.IGNORECASE)
+_SERIES_CONFERENCE = re.compile(r"^(East|West) ", re.IGNORECASE)
 
 WINS_TO_CLINCH = 4
 GAME_7 = 7
@@ -102,10 +104,10 @@ def postseason_mark(
 
 
 def _play_in_mark(note: str | None) -> GamePostseason | None:
-    match = PLAY_IN_NOTE.match(note or "")
+    match = _PLAY_IN_NOTE_ANY_CASE.match(note or "")
     if match is None:
         return None
-    kind = PLAY_IN_KINDS[match.group(2)]
+    kind = _PLAY_IN_KINDS_ANY_CASE[match.group(2).casefold()]
     return GamePostseason(
         stage=PostseasonStage.PLAYIN,
         round=None,

@@ -3,6 +3,7 @@
 # Tests for the postseason mark of a scoreboard game.
 #
 # Tested:
+# - Gives the same mark for an upper-case note as for its title case, in the play-in and series paths, and none for an empty note or FINALS
 # - Marks a seventh game as game_7 in any status, a final game that gives a side four wins as clinched, and a game entering with three wins against fewer as can_clinch
 # - Keeps the entering stake on a final game the leader lost or that tied the series, and marks three wins each on a game that is not the seventh as elimination
 # - Marks the nine-ten and eighth-seed play-in games as elimination and the seven-eight game with no stakes
@@ -242,3 +243,27 @@ def test_gives_no_mark_for_an_unknown_competition_type_a_note_without_a_game_num
 def test_gives_no_mark_for_an_unknown_play_in_note() -> None:
     assert play_in("NBA Play-In - East - Tournament") is None
     assert play_in(None) is None
+
+
+def test_an_upper_case_play_in_note_gives_the_mark_of_its_title_case() -> None:
+    note = "NBA Play-In - West - 9th Place vs 10th Place"
+
+    assert play_in(note.upper()) == play_in(note)
+    assert play_in(note.upper()) is not None
+
+
+def test_an_upper_case_series_note_gives_the_mark_of_its_title_case() -> None:
+    wins = {AWAY: 1, HOME: 1}
+
+    upper = series_mark(1, wins, note="EAST 1ST ROUND - GAME 3")
+    title = series_mark(1, wins, note="East 1st Round - Game 3")
+
+    assert upper is not None
+    assert upper == title
+    assert upper.conference == Conference.EAST
+    assert upper.number == 3
+
+
+@pytest.mark.parametrize("note", ["", "FINALS", None])
+def test_an_empty_note_or_finals_gives_no_series_mark(note: str | None) -> None:
+    assert series_mark(1, None, note=note) is None

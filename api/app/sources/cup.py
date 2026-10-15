@@ -127,9 +127,12 @@ class CupTable(FeedModel):
     rows: list[CupTableRow]
 
 
+_CUP_NOTES_ANY_CASE = {key.casefold(): value for key, value in CUP_NOTES.items()}
+
+
 def cup_round(note: str | None) -> CupRound | None:
-    """The Cup round of a game note; none for any other note."""
-    return None if note is None else CUP_NOTES.get(note)
+    """The Cup round of a game note, in any letter case; none for any other note."""
+    return None if note is None else _CUP_NOTES_ANY_CASE.get(note.casefold())
 
 
 def _location(error: ValidationError) -> str:

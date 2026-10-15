@@ -6,9 +6,11 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.jobs.all_star_discovery import AllStarDiscovery
 from app.jobs.all_star_feed import AllStarFeeds
+from app.jobs.calendar_feed import CalendarFeeds
 from app.jobs.cup_feed import CupFeeds
 from app.jobs.cup_matchup_feed import CupMatchupFeeds
 from app.jobs.cup_titles import CupTitles
+from app.jobs.day_feed import DayFeeds
 from app.jobs.game_detail_feed import GameDetailFeeds
 from app.jobs.games import GamesJob
 from app.jobs.highlights import HighlightsJob
@@ -116,6 +118,8 @@ def create_app(settings: Settings | None = None, *, run_jobs: bool = True) -> Fa
             stars_job,
             all_star_discovery,
         )
+        CalendarFeeds(settings, store, client, feed_cache, stars_job)
+        DayFeeds(settings, store, client, feed_cache)
         # The stars job runs in its own task so its fetches never delay the live refresh,
         # and so does the All-Star discovery.
         stars_scheduler = Scheduler([stars_job, all_star_discovery], store)
