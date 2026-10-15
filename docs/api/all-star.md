@@ -215,3 +215,36 @@ next not final, no next game beyond it) and a points tie for the top of a team b
   the state is `live` or the edition's date is today, when the request waits for the
   rebuild.
 - Every feed request records presence.
+
+## Season feed
+
+- `GET /feeds/seasons/{season}/all-star.json` serves the All-Star feed of a season
+  from 1994, with the schema above (`schemas/all-star.schema.json`).
+- The current season serves the feed above: the same stored file, body, `ETag` and
+  expiry. Only a season before the current one is built as described here.
+- The edition of a past season is the stored one, else the first February day
+  (US Eastern) of that season's calendar that has All-Star games, which is then
+  stored. A season with none answers 404, and is not scanned again until the
+  backend restarts.
+- The previous edition (`previous` and `previousEdition`) is found the same way and
+  is null before 1994 or when it is not found.
+- A game detail, sections, extras or awards read that answers 404 only nulls its
+  part (the MVP is null when there is none). Any other failed read fails the build.
+- The feed must build in the `after` state, or the build fails with a logged reason
+  and nothing is stored.
+- `leagueTeam` is null on every row, and `highlights` is null on every game.
+- The feed is built once on request, stored at
+  `feeds/season-all-star/{season}.json` and kept: it is never refreshed or deleted.
+  A failed build is not retried for 10 minutes on request.
+- The feed kind is `SeasonAllStarFeeds` in `api/app/jobs/season_all_star_feed.py`.
+
+### Endpoint
+
+- It responds 200 with `Cache-Control: public, max-age=10` and an `ETag`, and 304
+  with no body when `If-None-Match` matches.
+- It responds 404 for a season that is not a four-digit end year from 1994 to the
+  current season, and for a past season with no edition found, with no source
+  request for the former.
+- It responds 503 with `{"detail": ...}` while the current season is not known,
+  when the build fails with nothing stored, or the request's 20 seconds end before
+  it is built.

@@ -24,6 +24,7 @@ from app.jobs.playoffs_titles import PlayoffsTitles
 from app.jobs.presence import Presence
 from app.jobs.scheduler import Scheduler
 from app.jobs.search_feed import SearchFeeds
+from app.jobs.season_all_star_feed import SeasonAllStarFeeds
 from app.jobs.season_cup_feed import SeasonCupFeeds
 from app.jobs.season_cup_matchup_feed import SeasonCupMatchupFeeds
 from app.jobs.season_player_feed import SeasonPlayerFeeds
@@ -151,6 +152,9 @@ def create_app(settings: Settings | None = None, *, run_jobs: bool = True) -> Fa
             stars_job,
             all_star_discovery,
         )
+        season_all_star = SeasonAllStarFeeds(
+            settings, store, client, feed_cache, stars_job
+        )
         calendar_feeds = CalendarFeeds(settings, store, client, feed_cache, stars_job)
         DayFeeds(settings, store, client, feed_cache)
         PastGameDetailFeeds(settings, store, client, feed_cache)
@@ -169,6 +173,7 @@ def create_app(settings: Settings | None = None, *, run_jobs: bool = True) -> Fa
         app.state.season_cup_matchup_feeds = season_cup_matchups
         app.state.season_playoffs_feeds = season_playoffs
         app.state.season_playoffs_finals_feeds = season_playoffs_finals
+        app.state.season_all_star_feeds = season_all_star
         try:
             if run_jobs:
                 stars_scheduler.start()
