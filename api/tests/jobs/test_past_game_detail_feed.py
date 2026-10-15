@@ -5,7 +5,7 @@
 # Tested:
 # - The builder takes the id, status, time, score, winner, marks, sides and search link from the stored day game, and the venue, box score, team stats and win probability from the sections
 # - The builder sets the season label from the sections' season end year
-# - The builder leaves injuries, last games, standings, stars, the season series, highlights and both records null
+# - The builder leaves injuries, last games, standings, stars, the season series, highlights and both records null; the stored highlight is added when served (ADR 0048)
 # - The builder leaves the box score, team stats and win probability null when the sections lack them
 # - A side by a known id keeps its standard code and the event's name and city, and an unknown id is a guest
 # - The builder fails for a game that is not final and for sections without a season, and wraps an invalid feed
@@ -16,6 +16,7 @@
 # - The kind: the stored feed is fresh after a year
 # - The kind: a failed build answers unavailable and is not retried for 10 minutes
 # - The kind: a summary without a season fails the build and stores nothing
+# - The kind: the stored highlight is added when served as a list of one, null without one and on an All-Star game, and is not stored
 # - The kind: the cleanup keeps every past game detail
 # - The kind: the games job, its day change and its cleanup never refresh or delete a past game detail
 # - The kind: an upper-case postseason note gives the title-case mark and a finals note gives none
@@ -39,7 +40,7 @@ import respx
 
 from app.feeds.days import DayFeed, PastGame
 from app.feeds.game_detail import PastGameDetailFeed
-from app.feeds.games import GameStatus, PostseasonStage
+from app.feeds.games import GameAllStar, GameStatus, Highlight, PostseasonStage
 from app.jobs.day_feed import KIND as DAY_KIND
 from app.jobs.day_feed import build_day_feed
 from app.jobs.on_demand import (
@@ -435,3 +436,43 @@ async def test_an_upper_case_postseason_note_gives_the_title_case_mark_and_a_fin
     assert (marked.postseason.round, marked.postseason.number) == (1, 1)
     assert finals.postseason is None and by_id["7006"].postseason is None
     assert kit.section_calls == ["7005", "7006"]
+
+
+def clip() -> Highlight:
+    return Highlight.model_validate(
+        {
+            "title": "Example highlights",
+            "channel": "Example Channel",
+            "thumbnail_url": "https://example.com/t.jpg",
+            "embed_url": "https://example.com/e/v1",
+        }
+    )
+
+
+@pytest.mark.anyio
+async def test_the_stored_highlight_is_added_when_served_as_a_list_of_one_and_not_stored(
+    kit: PastKit,
+) -> None:
+    await kit.store_day(game("1", GameStatus.FINAL), game("2", GameStatus.FINAL))
+    kit.store.set_highlight("1", clip())
+
+    with_clip = PastGameDetailFeed.model_validate_json(await kit.serve_past("1"))
+    without = PastGameDetailFeed.model_validate_json(await kit.serve_past("2"))
+
+    assert with_clip.highlights == [clip()]
+    assert without.highlights is None
+    stored = read_by_id(kit.path, KIND, "1")
+    assert stored is not None
+    assert PastGameDetailFeed.model_validate_json(stored).highlights is None
+
+
+@pytest.mark.anyio
+async def test_an_all_star_game_gets_no_highlight_when_served(kit: PastKit) -> None:
+    mark = GameAllStar(round_label="Final", championship=True)
+    await kit.store_day(game("1", GameStatus.FINAL, all_star=mark))
+    kit.store.set_highlight("1", clip())
+
+    served = PastGameDetailFeed.model_validate_json(await kit.serve_past("1"))
+
+    assert served.all_star is not None
+    assert served.highlights is None

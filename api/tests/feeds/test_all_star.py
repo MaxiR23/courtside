@@ -17,6 +17,7 @@
 # - A next game that is live or final, a leading side that is not the higher score of a live game or set on a final game are rejected; a tie has none
 # - Top points on every tied top scorer are accepted; on a player below the top, missing on the top scorer or on a team with no points they are rejected
 # - A team record that differs from its results and a result that does not match its scores are rejected
+# - An edition, a previous edition and a recap accept an edition highlight or null; a feed without the key reads it as null; an invalid edition highlight is rejected
 #
 # What is covered:
 # - Feed models: a valid feed is accepted and an invalid one is rejected
@@ -672,3 +673,49 @@ def test_rejects_a_result_that_does_not_match_its_scores(
 ) -> None:
     with pytest.raises(ValidationError):
         AllStarTeamResult.model_validate(result(**changes))
+
+
+EDITION_HIGHLIGHT = {
+    "title": "Example All-Star Game Highlights",
+    "channel": "Example Channel",
+    "thumbnail_url": "https://example.com/t.jpg",
+    "embed_url": "https://example.com/e/v1",
+}
+
+
+def test_accepts_an_edition_highlight_on_the_edition_the_previous_edition_and_the_recap() -> (
+    None
+):
+    data = with_previous(previous_edition(edition_highlight=EDITION_HIGHLIGHT), "after")
+    data["edition"]["edition_highlight"] = EDITION_HIGHLIGHT
+    data["previous"]["edition_highlight"] = EDITION_HIGHLIGHT
+
+    parsed = AllStarFeed.model_validate(data)
+
+    assert parsed.edition.edition_highlight is not None
+    assert parsed.previous is not None and parsed.previous.edition_highlight is not None
+    assert parsed.previous_edition is not None
+    assert parsed.previous_edition.edition_highlight is not None
+    assert parsed.edition.edition_highlight.title == EDITION_HIGHLIGHT["title"]
+
+
+def test_reads_a_stored_feed_without_an_edition_highlight_as_null() -> None:
+    data = with_previous(previous_edition())
+
+    parsed = AllStarFeed.model_validate(data)
+
+    assert parsed.edition.edition_highlight is None
+    assert parsed.previous is not None and parsed.previous.edition_highlight is None
+    assert parsed.previous_edition is not None
+    assert parsed.previous_edition.edition_highlight is None
+
+
+def test_rejects_an_invalid_edition_highlight() -> None:
+    data = feed()
+    data["edition"]["edition_highlight"] = {
+        **EDITION_HIGHLIGHT,
+        "thumbnail_url": "not a url",
+    }
+
+    with pytest.raises(ValidationError):
+        AllStarFeed.model_validate(data)

@@ -149,9 +149,11 @@ above. A game of a day feed that is not final answers 404.
   summary. Each is null when the summary lacks it.
 - `seasonLabel` is set from the summary's season. A summary without a readable
   season fails the build.
-- `stars`, `injuries`, `lastGames`, `standings`, `seasonSeries` and
-  `highlights` are null, and so is each side's `record`: they describe today,
-  and the source reads no record of a past game.
+- `stars`, `injuries`, `lastGames`, `standings` and `seasonSeries` are null,
+  and so is each side's `record`: they describe today, and the source reads no
+  record of a past game. `highlights` is the stored highlight added when
+  served, as a list of one, and null without one or on an All-Star game
+  ([ADR 0048](../adr/0048-highlights-backfill-and-edition-video.md)).
 
 ## Known cases
 

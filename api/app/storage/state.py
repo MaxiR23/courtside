@@ -1,6 +1,6 @@
 # api/app/storage/state.py
 #
-# Job state in SQLite: game dates, final times and whether they were first seen, highlight attempts, failed stats attempts, matched highlights, team stars, discovered All-Star editions and the time each All-Star game was first seen final, source cache entries, feed build times and failures and per-job outcomes.
+# Job state in SQLite: game dates, final times and whether they were first seen, highlight attempts, failed stats attempts, matched highlights, team stars, discovered All-Star editions, the video of each edition and the time each All-Star game was first seen final, the highlights backfill's resume point, the targets the running sweep reads for and swept targets, source cache entries, feed build times and failures and per-job outcomes.
 # Schema versioned with PRAGMA user_version; MIGRATIONS run once each on startup.
 # One connection per operation, so sync endpoints can use it from the threadpool.
 #
@@ -10,6 +10,7 @@ import datetime as dt
 import json
 import logging
 import sqlite3
+from collections.abc import Iterable
 from contextlib import closing
 from pathlib import Path
 from typing import Annotated
@@ -81,6 +82,28 @@ MIGRATIONS: tuple[Migration, ...] = (
             "game_id TEXT PRIMARY KEY, seen_at TEXT NOT NULL)"
         ),
     ),
+    # The highlights backfill and the All-Star edition video (ADR 0048).
+    (
+        (
+            "CREATE TABLE all_star_edition_highlights ("
+            "season INTEGER PRIMARY KEY, highlight TEXT NOT NULL)"
+        ),
+        (
+            "CREATE TABLE highlights_backfill ("
+            "id INTEGER PRIMARY KEY CHECK (id = 1), "
+            "page_token TEXT NOT NULL, oldest TEXT NOT NULL)"
+        ),
+        (
+            "CREATE TABLE highlights_backfill_swept ("
+            "kind TEXT NOT NULL, target_id TEXT NOT NULL, "
+            "PRIMARY KEY (kind, target_id))"
+        ),
+        (
+            "CREATE TABLE highlights_backfill_members ("
+            "kind TEXT NOT NULL, target_id TEXT NOT NULL, "
+            "PRIMARY KEY (kind, target_id))"
+        ),
+    ),
 )
 
 
@@ -109,6 +132,14 @@ class AllStarEditionRecord(FeedModel):
     season: int
     game_date: dt.date
     game_ids: Annotated[list[NonEmptyStr], Field(min_length=1)]
+
+
+class BackfillSweep(FeedModel):
+    """The running sweep of the highlights backfill: the page token to continue
+    from and the oldest upload time reached. Never reaches a feed."""
+
+    page_token: NonEmptyStr
+    oldest: UtcDatetime
 
 
 class SourceEntry(FeedModel):
@@ -463,3 +494,95 @@ class StateStore:
                 "SELECT seen_at FROM all_star_finals WHERE game_id = ?", (game_id,)
             ).fetchone()
         return _from_text(row[0]) if row else None
+
+    def set_all_star_edition_highlight(self, season: int, highlight: Highlight) -> None:
+        with self._connect() as connection, connection:
+            connection.execute(
+                "INSERT INTO all_star_edition_highlights (season, highlight) "
+                "VALUES (?, ?) ON CONFLICT(season) DO UPDATE SET "
+                "highlight = excluded.highlight",
+                (season, highlight.model_dump_json()),
+            )
+
+    def all_star_edition_highlight(self, season: int) -> Highlight | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT highlight FROM all_star_edition_highlights WHERE season = ?",
+                (season,),
+            ).fetchone()
+        return Highlight.model_validate_json(row[0]) if row else None
+
+    def all_star_editions(self) -> list[AllStarEditionRecord]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT season, game_date, game_ids FROM all_star_editions "
+                "ORDER BY season"
+            ).fetchall()
+        return [
+            AllStarEditionRecord(
+                season=season,
+                game_date=dt.date.fromisoformat(game_date),
+                game_ids=json.loads(game_ids),
+            )
+            for season, game_date, game_ids in rows
+        ]
+
+    def backfill_sweep(self) -> BackfillSweep | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT page_token, oldest FROM highlights_backfill WHERE id = 1"
+            ).fetchone()
+        if row is None:
+            return None
+        oldest = _from_text(row[1])
+        assert oldest is not None
+        return BackfillSweep(page_token=row[0], oldest=oldest)
+
+    def set_backfill_sweep(
+        self,
+        page_token: str,
+        oldest: dt.datetime,
+        members: Iterable[tuple[str, str]],
+    ) -> None:
+        text = _to_text(oldest)
+        with self._connect() as connection, connection:
+            connection.execute(
+                "INSERT INTO highlights_backfill (id, page_token, oldest) "
+                "VALUES (1, ?, ?) ON CONFLICT(id) DO UPDATE SET "
+                "page_token = excluded.page_token, oldest = excluded.oldest",
+                (page_token, text),
+            )
+            connection.execute("DELETE FROM highlights_backfill_members")
+            connection.executemany(
+                "INSERT OR IGNORE INTO highlights_backfill_members "
+                "(kind, target_id) VALUES (?, ?)",
+                list(members),
+            )
+
+    def backfill_members(self) -> set[tuple[str, str]]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT kind, target_id FROM highlights_backfill_members"
+            ).fetchall()
+        return {(row[0], row[1]) for row in rows}
+
+    def end_backfill_sweep(self) -> None:
+        with self._connect() as connection, connection:
+            connection.execute("DELETE FROM highlights_backfill")
+            connection.execute("DELETE FROM highlights_backfill_members")
+
+    def mark_backfill_swept(self, kind: str, target_ids: Iterable[str]) -> None:
+        with self._connect() as connection, connection:
+            connection.executemany(
+                "INSERT OR IGNORE INTO highlights_backfill_swept (kind, target_id) "
+                "VALUES (?, ?)",
+                [(kind, target_id) for target_id in target_ids],
+            )
+
+    def backfill_swept(self, kind: str) -> set[str]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT target_id FROM highlights_backfill_swept WHERE kind = ?",
+                (kind,),
+            ).fetchall()
+        return {row[0] for row in rows}

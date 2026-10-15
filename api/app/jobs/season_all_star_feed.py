@@ -10,7 +10,8 @@
 # same way and is null before 1994 or when not found. A game detail, sections,
 # extras or season awards read that answers 404 only nulls its part; any other
 # failed read fails the build, because the feed is kept for good. League teams
-# are null (no roster of that season is read) and no per-game highlight is set.
+# are null (no roster of that season is read) and no per-game highlight is set;
+# the stored edition video is added when served as editionHighlight (ADR 0048).
 # A past All-Star feed is stored only when it builds as after: any other state
 # fails the build, logs the reason and stores nothing.
 #
@@ -22,6 +23,7 @@
 # (rule G): it is never refreshed and never deleted.
 #
 # SEE: docs/api/all-star.md, docs/adr/0047-season-all-star-feed.md,
+# docs/adr/0048-highlights-backfill-and-edition-video.md,
 # api/app/jobs/all_star_feed.py
 
 import asyncio
@@ -287,6 +289,9 @@ class SeasonAllStarFeeds:
     def keep(self, feed_id: str) -> bool:
         return True
 
+    def serve_with(self, feed_id: str, feed: AllStarFeed) -> AllStarFeed:
+        return all_star_feed.with_edition_highlights(feed, self._store)
+
     def kind(self) -> FeedKind[AllStarFeed]:
         return FeedKind(
             KIND,
@@ -295,4 +300,5 @@ class SeasonAllStarFeeds:
             build=self.build,
             is_fresh=self.is_fresh,
             keep=self.keep,
+            serve_with=self.serve_with,
         )

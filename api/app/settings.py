@@ -5,7 +5,13 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal, Self
 
-from pydantic import SecretStr, ValidationInfo, field_validator, model_validator
+from pydantic import (
+    PositiveInt,
+    SecretStr,
+    ValidationInfo,
+    field_validator,
+    model_validator,
+)
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 API_DIR = Path(__file__).resolve().parent.parent
@@ -122,6 +128,8 @@ class Settings(BaseSettings):
     video_embed_url: str | None = None
     # Template with {query}, the search words, already URL-encoded.
     highlights_search_url: str | None = None
+    # Pages of channel uploads the highlights backfill reads per day.
+    highlights_backfill_pages: PositiveInt = 200
     # US Eastern time of the daily schedule fetch.
     daily_fetch_time: dt.time = dt.time(6, 0)
     data_dir: Path = API_DIR / "data"

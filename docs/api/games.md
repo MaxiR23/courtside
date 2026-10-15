@@ -206,6 +206,17 @@ a failure, 2, 4 and 6 hours after the final time.
   ([ADR 0018](../adr/0018-highlight-request-failures.md)). An error status
   on a thumbnail check means the thumbnail is not served, not a failed
   request.
+- Highlights backfill: once a day at `DAILY_FETCH_TIME`, in its own task, a
+  job pages the channel's uploads back from the newest for the final games
+  whose highlight attempts are over and that have no highlight, at most
+  `HIGHLIGHTS_BACKFILL_PAGES` pages a day. The next day it continues from the
+  stored page token and never reads a page again for the same games. A match
+  is stored like the live ones, so this feed and the game detail serve it; the
+  first match in channel order is kept and never replaced (a re-upload does not
+  change it). A failed page read stops the day's step, is recorded in the job's
+  health and keeps every match and the resume point
+  ([source rules](../source-rules.md), rule E, and [ADR 0048](../adr/0048-highlights-backfill-and-edition-video.md)).
+- An All-Star game has empty `highlights` in this feed and in the game detail.
 - The stats attempts of a final game are at its final time and 2, 4 and 6
   hours after it. Failed attempts are stored, so they survive a restart. After
   the fourth failure the game is `unavailable` and never fetched again.

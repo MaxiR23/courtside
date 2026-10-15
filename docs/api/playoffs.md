@@ -489,7 +489,8 @@ the current season.
 - A detail, sections, plays, team record or team statistics read that answers 404
   nulls its part: `leaders`, `winProbability`, `largestDeficit`, the postseason
   record and the bar values. Any other failed read fails the build.
-- There are no highlights and `detailAvailable` is false.
+- `highlights` is the stored highlight added when served, null without one;
+  `detailAvailable` is false ([ADR 0048](../adr/0048-highlights-backfill-and-edition-video.md)).
 - Refresh: built on request, stored at `feeds/season-playoffs-finals/{season}.json`,
   kept for good (rule G of [`docs/source-rules.md`](../source-rules.md)). A failed
   build with nothing stored is retried after 10 minutes.

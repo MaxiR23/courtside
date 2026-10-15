@@ -34,6 +34,10 @@
 # - A failed listing uses up no attempt of any due game and retries each no sooner than ten minutes
 # - A listing with another error uses up one attempt of each due game
 # - A successful listing counts each due game as its own lookup did
+# - Serves no per-game highlight for an All-Star game even when one is stored
+# - add_highlight stores and serves a backfilled highlight and makes the game not due
+# - add_highlight keeps an existing match and returns False
+# - Attempts are over with no final time or after the third attempt, and not before
 #
 # What is covered:
 # - Job: a successful run gives the games job its data, a failed run keeps the last valid state
@@ -56,7 +60,7 @@ import httpx
 import pytest
 import respx
 
-from app.feeds.games import GameStatus, GameTeam
+from app.feeds.games import GameAllStar, GameStatus, GameTeam, Highlight
 from app.jobs.highlights import JOB, RETRY, HighlightsJob
 from app.settings import Settings
 from app.sources.http import SourceError, create_client
@@ -70,12 +74,14 @@ START = dt.datetime(2026, 10, 4, 23, 0, tzinfo=dt.UTC)
 # The US Eastern date of START.
 GAME_DATE = dt.date(2026, 10, 4)
 HOUR = dt.timedelta(hours=1)
+PUBLISHED = dt.datetime(2026, 10, 5, 12, 0, tzinfo=dt.UTC)
 TITLE = "WARRIORS at CLIPPERS | FULL GAME HIGHLIGHTS | October 4, 2026"
 FIXTURES = Path(__file__).parent / "fixtures" / "highlights"
 MATCH = ChannelVideo(
     video_id="vid1",
     title=TITLE,
     channel="Channel",
+    published_at=PUBLISHED,
     thumbnail_url="https://example.com/t/vid1.jpg",
 )
 REQUEST_FAILED = SourceError("video_channel", "request timed out", request_failed=True)
@@ -83,6 +89,7 @@ OTHER = ChannelVideo(
     video_id="vid2",
     title="Something else",
     channel="Channel",
+    published_at=PUBLISHED,
     thumbnail_url="https://example.com/t/vid2.jpg",
 )
 
@@ -917,6 +924,7 @@ async def test_a_successful_listing_counts_each_due_game_as_its_own_lookup_did(
             video_id=video_id,
             title=f"{name} | FULL GAME HIGHLIGHTS | October 4, 2026",
             channel="Channel",
+            published_at=PUBLISHED,
             thumbnail_url="https://example.com/t/x.jpg" if thumbnail else None,
         )
 
@@ -949,3 +957,71 @@ async def test_a_successful_listing_counts_each_due_game_as_its_own_lookup_did(
 
     assert lookup.calls[1] == [("g4", GAME_DATE)]
     assert store.highlight_attempts("g4") == 1
+
+
+def stored_highlight() -> Highlight:
+    return Highlight.model_validate(
+        {
+            "title": TITLE,
+            "channel": "Channel",
+            "thumbnail_url": "https://example.com/t/vid1.jpg",
+            "embed_url": "https://example.com/e/vid1",
+        }
+    )
+
+
+def test_serves_no_per_game_highlight_for_an_all_star_game_even_when_one_is_stored(
+    tmp_path: Path, store: StateStore, lookup: FakeLookup
+) -> None:
+    store.set_highlight("g1", stored_highlight())
+    job = make_job(tmp_path, store, lookup, [])
+    game = make_game().model_copy(
+        update={"all_star": GameAllStar(round_label="Final", championship=True)}
+    )
+
+    assert job.highlights_of(game) == []
+    assert job.highlights_of(make_game()) == [stored_highlight()]
+
+
+@pytest.mark.anyio
+async def test_add_highlight_stores_and_serves_it_and_makes_the_game_not_due(
+    tmp_path: Path, store: StateStore, lookup: FakeLookup
+) -> None:
+    store.set_final_time("g1", GAME_DATE, FINAL_TIME)
+    lookup.default = MATCH
+    job = make_job(tmp_path, store, lookup, [make_game()])
+
+    assert job.add_highlight("g1", stored_highlight()) is True
+    await job.run(FINAL_TIME + HOUR)
+
+    assert job.highlights_of(make_game()) == [stored_highlight()]
+    assert store.highlights() == {"g1": stored_highlight()}
+    assert lookup.calls == []
+
+
+def test_add_highlight_keeps_an_existing_match(
+    tmp_path: Path, store: StateStore, lookup: FakeLookup
+) -> None:
+    job = make_job(tmp_path, store, lookup, [])
+    other = stored_highlight().model_copy(update={"title": "Another"})
+
+    assert job.add_highlight("g1", stored_highlight()) is True
+    assert job.add_highlight("g1", other) is False
+
+    assert job.highlights_of(make_game()) == [stored_highlight()]
+    assert store.highlights() == {"g1": stored_highlight()}
+
+
+def test_attempts_are_over_with_no_final_time_or_after_the_third_attempt(
+    tmp_path: Path, store: StateStore, lookup: FakeLookup
+) -> None:
+    job = make_job(tmp_path, store, lookup, [])
+    assert job.attempts_over("g1") is True
+
+    store.set_final_time("g1", GAME_DATE, FINAL_TIME)
+    assert job.attempts_over("g1") is False
+    store.record_highlight_attempt("g1", GAME_DATE)
+    store.record_highlight_attempt("g1", GAME_DATE)
+    assert job.attempts_over("g1") is False
+    store.record_highlight_attempt("g1", GAME_DATE)
+    assert job.attempts_over("g1") is True

@@ -14,7 +14,10 @@
 # - Starts and stops the stars scheduler with the games scheduler
 # - A stars run that never ends does not stop the games job
 # - Runs the All-Star discovery in the stars scheduler, after the stars job
+# - Starts and stops the highlights backfill scheduler with the app
+# - A highlights backfill run that never ends does not stop the games job
 # - Does not start the schedulers when jobs are off
+# - Wires the highlights job, the final games, and the Cup, playoffs and All-Star edition providers into the highlights backfill
 # - Wires the stars and highlights providers and the stars readiness check into the games job
 # - Wires the games job, the feed cache, stars and highlights into the game detail feeds
 # - Wires presence and the after-run hook into the games job
@@ -42,9 +45,11 @@ from fastapi.testclient import TestClient
 
 from app import main
 from app.jobs.all_star_discovery import AllStarDiscovery
+from app.jobs.all_star_edition_videos import AllStarEditionVideos
 from app.jobs.game_detail_feed import GameDetailFeeds
 from app.jobs.games import GamesJob
 from app.jobs.highlights import HighlightsJob
+from app.jobs.highlights_backfill import HighlightsBackfill
 from app.jobs.player_feed import PlayerFeeds
 from app.jobs.presence import Presence
 from app.jobs.scheduler import Scheduler
@@ -140,9 +145,11 @@ def test_starts_the_scheduler_with_the_app_and_stops_it_on_shutdown(
     with respx.mock, TestClient(app):
         assert app.state.scheduler.running
         assert app.state.stars_scheduler.running
+        assert app.state.backfill_scheduler.running
 
     assert not app.state.scheduler.running
     assert not app.state.stars_scheduler.running
+    assert not app.state.backfill_scheduler.running
     states = StateStore(tmp_path).job_states()
     assert [state.name for state in states] == ["games", "stars"]
     games, stars = (state.last_failure_reason for state in states)
@@ -168,6 +175,59 @@ def test_a_stars_run_that_never_ends_does_not_stop_the_games_job(
     assert [state.name for state in states] == ["games"]
     reason = states[0].last_failure_reason
     assert reason is not None and reason.startswith("scoreboard:")
+
+
+def test_a_highlights_backfill_run_that_never_ends_does_not_stop_the_games_job(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class NeverEndingBackfill(HighlightsBackfill):
+        async def run(self, now: Any) -> None:
+            await asyncio.Event().wait()
+
+    monkeypatch.setattr(main, "HighlightsBackfill", NeverEndingBackfill)
+    settings = Settings(_env_file=None, data_dir=tmp_path)  # type: ignore[call-arg]
+    app = create_app(settings)
+
+    with respx.mock, TestClient(app):
+        pass
+
+    states = StateStore(tmp_path).job_states()
+    assert [state.name for state in states] == ["games", "stars"]
+
+
+def test_wires_the_highlights_job_the_final_games_and_the_section_providers_into_the_highlights_backfill(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    built: dict[str, Any] = {}
+    sentinel: list[Any] = []
+
+    class RecordingBackfill(HighlightsBackfill):
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            super().__init__(*args, **kwargs)
+            built["args"] = args
+            built["kwargs"] = kwargs
+
+    class RecordingGames(GamesJob):
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            super().__init__(*args, **kwargs)
+            built["games"] = self
+
+    class RecordingHighlights(HighlightsJob):
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            super().__init__(*args, **kwargs)
+            built["highlights"] = self
+
+    monkeypatch.setattr(main, "HighlightsBackfill", RecordingBackfill)
+    monkeypatch.setattr(main, "GamesJob", RecordingGames)
+    monkeypatch.setattr(main, "HighlightsJob", RecordingHighlights)
+
+    with make_client(tmp_path, []):
+        monkeypatch.setattr(built["games"], "final_games", lambda: sentinel)
+        kwargs = built["kwargs"]
+        assert built["args"][3] is built["highlights"]
+        assert kwargs["final_games"]() is sentinel
+        assert [source() for source in kwargs["game_sources"]] == [[], []]
+        assert isinstance(kwargs["editions"], AllStarEditionVideos)
 
 
 def test_runs_the_all_star_discovery_in_the_stars_scheduler_after_the_stars_job(
@@ -201,6 +261,7 @@ def test_does_not_start_the_scheduler_when_jobs_are_off(tmp_path: Path) -> None:
     with TestClient(app):
         assert not app.state.scheduler.running
         assert not app.state.stars_scheduler.running
+        assert not app.state.backfill_scheduler.running
 
     assert StateStore(tmp_path).job_states() == []
 

@@ -6,8 +6,8 @@
 # of that season (empty when the source has none); the game details resolve the
 # sides by provider id first; the details, sections, plays, team records and team
 # statistics are null when the source answers 404 and any other failed read
-# fails the build, because the feed is kept for good. There are no highlights
-# and detailAvailable is false.
+# fails the build, because the feed is kept for good. Stored highlights are added
+# when served, never stored (ADR 0048), and detailAvailable is false.
 #
 # SeasonPlayoffsFinalsFeeds is the feed kind of the on-demand cache: the id is
 # the season's end year, the feed is stored at
@@ -17,6 +17,7 @@
 # is built once and kept (rule G): it is never refreshed and never deleted.
 #
 # SEE: docs/api/playoffs.md, docs/adr/0046-season-playoffs-feeds.md,
+# docs/adr/0048-highlights-backfill-and-edition-video.md,
 # api/app/jobs/playoffs_finals_feed.py
 
 import asyncio
@@ -224,6 +225,16 @@ class SeasonPlayoffsFinalsFeeds:
     ) -> bool:
         return True
 
+    def serve_with(self, feed_id: str, feed: PlayoffsFinalsFeed) -> PlayoffsFinalsFeed:
+        highlights = self._store.highlights()
+        data = feed.model_dump(by_alias=False)
+        for entry in data["games"]:
+            found = highlights.get(entry["game"]["id"])
+            entry["highlights"] = (
+                None if found is None else [found.model_dump(by_alias=False)]
+            )
+        return PlayoffsFinalsFeed.model_validate(data)
+
     def keep(self, feed_id: str) -> bool:
         return True
 
@@ -235,5 +246,6 @@ class SeasonPlayoffsFinalsFeeds:
             build=self.build,
             is_fresh=self.is_fresh,
             keep=self.keep,
+            serve_with=self.serve_with,
             depends_on=self.depends_on,
         )

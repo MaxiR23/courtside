@@ -13,12 +13,15 @@
 # thumbnail check affects only its game.
 # Matches are kept in the job state. The games job reads the
 # highlights through highlights_of and the search URL through search_url_of.
+# The highlights backfill stores its matches through add_highlight and reads
+# attempts_over; an All-Star game is served no per-game highlight (ADR 0048).
 #
 # SEE: docs/adr/0007-backend-runtime-and-data-pipeline.md,
 # docs/adr/0010-final-game-attempts.md,
 # docs/adr/0015-highlights-source.md,
 # docs/adr/0018-highlight-request-failures.md,
-# docs/adr/0020-source-rules.md, docs/source-rules.md
+# docs/adr/0020-source-rules.md, docs/adr/0048-highlights-backfill-and-edition-video.md,
+# docs/source-rules.md
 
 import datetime as dt
 import logging
@@ -189,7 +192,26 @@ class HighlightsJob:
         else:
             self._store.record_success(JOB, now)
 
+    def add_highlight(self, game_id: str, highlight: Highlight) -> bool:
+        """Store a highlight found by the backfill. A stored match is kept:
+        returns False and changes nothing when the game has one."""
+        if game_id in self._highlights:
+            return False
+        self._store.set_highlight(game_id, highlight)
+        self._highlights[game_id] = highlight
+        return True
+
+    def attempts_over(self, game_id: str) -> bool:
+        """True when the live attempts of the game are over: no final time is
+        stored or all the attempts are used."""
+        return (
+            self._store.final_time(game_id) is None
+            or self._store.highlight_attempts(game_id) >= MAX_ATTEMPTS
+        )
+
     def highlights_of(self, game: ScoreboardGame) -> list[Highlight]:
+        if game.all_star is not None:
+            return []
         found = self._highlights.get(game.id)
         return [] if found is None else [found]
 

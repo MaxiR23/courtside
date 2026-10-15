@@ -19,15 +19,14 @@ from app.feeds.player import SeasonLabel
 
 
 # A game of a past day: the games feed's Game, but no star of a past season
-# exists, so both stars are null, and no highlight is matched.
+# exists, so both stars are null. No highlight is stored; the stored one is
+# added when the feed is served (ADR 0048).
 class PastGame(Game):
     @model_validator(mode="after")
     def _require_stars_of_the_league_sides(self) -> PastGame:
         # Same name as Game's validator: it replaces that rule.
         if self.stars.away is not None or self.stars.home is not None:
             raise ValueError("a game of a past day has no star")
-        if self.highlights:
-            raise ValueError("a game of a past day has no highlights")
         return self
 
 

@@ -13,6 +13,7 @@
 # - The kind: a request builds and stores a valid feed and a second request reads storage
 # - The kind: an all-final day and an empty day are fresh after a year, a day with a postponed or scheduled game is fresh before 6 hours and stale at 6 hours
 # - The kind: a failed read with nothing stored answers unavailable, and a failed rebuild keeps the stored feed
+# - The kind: the stored highlight of a final game is added when served and not stored, and an All-Star game gets none
 # - The kind: the cleanup keeps every day
 #
 # What is covered:
@@ -32,7 +33,15 @@ from typing import Any
 import pytest
 
 from app.feeds.days import DayFeed
-from app.feeds.games import GamesFeed, GameStatus, LineScore, Score, StatsAvailability
+from app.feeds.games import (
+    GameAllStar,
+    GamesFeed,
+    GameStatus,
+    Highlight,
+    LineScore,
+    Score,
+    StatsAvailability,
+)
 from app.feeds.opponent import Side
 from app.jobs.day_feed import (
     FIRST_DAY,
@@ -361,3 +370,42 @@ async def test_a_failed_rebuild_keeps_and_serves_the_stored_feed(kit: DayKit) ->
 async def test_the_cleanup_keeps_every_day(kit: DayKit) -> None:
     assert kit.days_kind.keep("2026-09-01") is True
     assert kit.days_kind.keep("1993-10-01") is True
+
+
+def clip() -> Highlight:
+    return Highlight.model_validate(
+        {
+            "title": "Example highlights",
+            "channel": "Example Channel",
+            "thumbnail_url": "https://example.com/t.jpg",
+            "embed_url": "https://example.com/e/v1",
+        }
+    )
+
+
+@pytest.mark.anyio
+async def test_the_stored_highlight_of_a_final_game_is_added_when_served_and_not_stored(
+    kit: DayKit,
+) -> None:
+    kit.days[PAST] = [game("1", GameStatus.FINAL), game("2", GameStatus.FINAL)]
+    kit.store.set_highlight("1", clip())
+
+    served = DayFeed.model_validate_json(await kit.serve(PAST))
+
+    assert [g.highlights for g in served.day.games] == [[clip()], []]
+    stored = read_by_id(kit.path, KIND, PAST.isoformat())
+    assert stored is not None
+    assert all(
+        g.highlights == [] for g in DayFeed.model_validate_json(stored).day.games
+    )
+
+
+@pytest.mark.anyio
+async def test_an_all_star_game_gets_no_highlight_when_served(kit: DayKit) -> None:
+    mark = GameAllStar(round_label="Final", championship=True)
+    kit.days[PAST] = [game("1", GameStatus.FINAL, all_star=mark)]
+    kit.store.set_highlight("1", clip())
+
+    served = DayFeed.model_validate_json(await kit.serve(PAST))
+
+    assert served.day.games[0].highlights == []
