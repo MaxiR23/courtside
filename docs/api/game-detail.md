@@ -34,7 +34,7 @@ The root is one game.
 | `broadcast`           | string / null             | Broadcaster                                                      | null when unknown                     |
 | `period`              | integer / null            | Current period, 5 and up are overtimes                           | required when `live`                  |
 | `clock`               | string / null             | Game clock                                                       | required when `live`                  |
-| `lineScore`           | `LineScore` / null        | Points per period for each team                                  | required when `live` or `final`       |
+| `lineScore`           | `LineScore` / null        | Points per period for each team                                  | required when `live` or `final`, except a `final` All-Star game, which may have none ([ADR 0051](../adr/0051-all-star-notes-and-untimed-games.md)) |
 | `score`               | `Score` / null            | Current or final points                                          | required when `live` or `final`       |
 | `winner`              | `away` / `home` / null    | The side with more points                                        | required when `final`, null otherwise |
 | `teamStats`           | `DetailGameTeamStats` / null | Team statistics and the leader of each row                    | required when `live`                  |
@@ -59,7 +59,8 @@ page hides the section and its tab (`docs/design-game-detail.md`, "A section
 with no data is hidden, together with its tab").
 
 A `live` game requires `period`, `clock`, `lineScore`, `score` and
-`teamStats`. A `final` game requires `lineScore`, `score` and `winner`. Any
+`teamStats`. A `final` game requires `lineScore` (not a final All-Star game),
+`score` and `winner`. Any
 other status has `winner` null. Every stat leader is a side, `away` or
 `home`.
 
@@ -73,13 +74,13 @@ other status has `winner` null. Every stat leader is a side, `away` or
 | `Record`              | `wins`, `losses`                                                                                                                             |
 | `DetailTeam`          | `GameTeam` fields (`code`, null for a guest without one, `name`, `city`, `guest`; `city` is null for a guest the source sends without one, such as an All-Star team) plus `record` (null for a guest)                                                         |
 | `Venue`               | `name`, `city` (null when the source has no city), `photoUrl` (null when unknown)                                                                                        |
-| `DetailTeamStats`     | `TeamStats` fields (`fieldGoalPct`, `threePointPct`, `rebounds`, `assists`, `turnovers`) plus `freeThrowPct` (0 to 1), `steals`, `blocks`    |
+| `DetailTeamStats`     | `TeamStats` fields (`fieldGoalPct`, `threePointPct`, `rebounds`, `assists`, `turnovers`) plus `freeThrowPct` (0 to 1), `steals`, `blocks`; the three percentages are null when the source sends none |
 | `TeamStatLeaders`     | one side (`away` or `home`) or null per row: `fieldGoalPct`, `threePointPct`, `freeThrowPct`, `rebounds`, `assists`, `turnovers`, `steals`, `blocks`       |
 | `DetailGameTeamStats` | `away`, `home`: `DetailTeamStats`; `leaders`: `TeamStatLeaders`                                                                              |
 | `BoxScore`            | `away`, `home`: `TeamBoxScore`                                                                                                               |
 | `TeamBoxScore`        | `players`: `BoxScorePlayer[]`; `totals`: `BoxScoreTotals`                                                                                    |
-| `BoxScorePlayer`      | `playerId`, `displayName`, `starter`, `minutes` (text), `plusMinus`, `photoUrl` (null only for a guest player without a headshot) plus the counting stats of `BoxScoreTotals`                   |
-| `BoxScoreTotals`      | `points`, `fieldGoalsMade`, `fieldGoalsAttempted`, `threePointsMade`, `threePointsAttempted`, `freeThrowsMade`, `freeThrowsAttempted`, `offensiveRebounds`, `defensiveRebounds`, `rebounds`, `assists`, `turnovers`, `steals`, `blocks`, `fouls`, plus `fieldGoalPct`, `threePointPct`, `freeThrowPct` (0 to 1) |
+| `BoxScorePlayer`      | `playerId`, `displayName`, `starter`, `minutes` (text), `plusMinus` (null on every row of a game whose players all have 0), `photoUrl` (null only for a guest player without a headshot) plus the counting stats of `BoxScoreTotals`                   |
+| `BoxScoreTotals`      | `points`, `fieldGoalsMade`, `fieldGoalsAttempted`, `threePointsMade`, `threePointsAttempted`, `freeThrowsMade`, `freeThrowsAttempted`, `offensiveRebounds`, `defensiveRebounds`, `rebounds`, `assists`, `turnovers`, `steals`, `blocks`, `fouls`, plus `fieldGoalPct`, `threePointPct`, `freeThrowPct` (0 to 1; null when the source sends none) |
 | `WinProbabilityPoint` | `elapsedSeconds`, `homeWinProbability` (0 to 1)                                                                                              |
 | `WinProbabilityLeader` | `side` (`away` or `home`), `winProbability` (0 to 1, above 0.5) |
 | `GamePeriod`          | `number`, `startElapsedSeconds`                                                                                                              |
@@ -115,8 +116,16 @@ builds the feed.
   completed.
 - `seasonSeries.leader` is the team with more wins, null on equal wins.
 - No completed game is a first meeting.
-- `teamStats.leaders.<row>` is `null` on a tie; for `turnovers` the lower
-  value leads.
+- `teamStats.leaders.<row>` is `null` on a tie, and when either team's value is
+  null; for `turnovers` the lower value leads.
+- Team turnovers, in `teamStats` and `boxScore.totals.turnovers`, are the team's
+  `totalTurnovers` when the source sends it, else `turnovers`
+  ([ADR 0052](../adr/0052-box-score-reading.md)).
+- When every player of both teams has a plus-minus of 0, `plusMinus` is `null`
+  on every row, and the game page hides the column. One non-zero value keeps
+  every value as sent.
+- A team percentage the source does not send is null in `teamStats` and
+  `boxScore.totals`. A missing count stat still fails the build.
 - On a `final` game, `teamStats` and `boxScore` are null together when
   the source had no player statistics when the feed was built. A final
   game is never rebuilt after a successful build, also after a restart, so

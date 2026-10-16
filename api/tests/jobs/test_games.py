@@ -23,7 +23,7 @@
 # - The builder puts each game's highlights from the provider in the feed, and none without a provider
 # - The builder carries each game's Cup mark into the feed, and null for a game without one
 # - The builder carries each game's postseason mark into the feed, and null for a game without one
-# - A run over a day whose postseason data is unreadable publishes the day with null marks for those games
+# - A run over a day whose postseason data is unreadable publishes the day with a playoffs mark, its unreadable values null, for those games (ADR 0050)
 # - Lists only the final games of the days held, in day order
 # - Lists no shown games before the first run or while a day shown failed to fetch, and the games of every day shown in day order
 # - Republishes the feed with no source call when a final game's highlights change, and not when they are unchanged
@@ -1998,7 +1998,7 @@ async def test_a_league_side_without_a_star_still_makes_the_feed_invalid_on_a_gu
 
 
 @pytest.mark.anyio
-async def test_a_games_run_with_an_unreadable_postseason_mark_publishes_the_day(
+async def test_a_games_run_with_unreadable_postseason_values_publishes_the_day_with_marks(
     settings: Settings, store: StateStore, sources: FakeSources
 ) -> None:
     day = json.loads(
@@ -2033,7 +2033,10 @@ async def test_a_games_run_with_an_unreadable_postseason_mark_publishes_the_day(
     games = {g.id: g for g in next(d.games for d in feed.days if d.date == TODAY)}
     assert len(games) == len(scheduled)
     unreadable = ("7005", "7006", "7007", "7008", "7009")
-    assert all(games[i].postseason is None for i in unreadable)
+    assert all(games[i].postseason is not None for i in unreadable)
+    no_round = games["7009"].postseason
+    assert no_round is not None
+    assert (no_round.round, no_round.conference, no_round.number) == (None, None, None)
     assert games["7001"].postseason is not None
     assert games["7004"].postseason is not None
     assert store.job_states()[0].last_success == NOON

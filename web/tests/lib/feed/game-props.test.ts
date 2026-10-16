@@ -15,6 +15,7 @@
 // - The sections: built from the feed, null with their tab, leaders from the feed, the win
 //   probability meta from the feed leader, 'Even' with none or with a feed built before the
 //   field, box score split and formatting, highlights on a final game
+// - The box score: plusMinus true when any row has a plus-minus and false when every row is null, whose rows show a dash; a null totals percentage shows a dash; null team stat percentages pass through to the score section (ADR 0052)
 // - The final layout has no Videos tab or section, even from a stored feed that still has videos
 // - The pre-game sections: players by side (with the player id), injuries (with the player id, null for a feed without the key), last games (strip order, row format), standings,
 //   the season series summary (leader from the feed) and meta, the "This game" row and the dimmed
@@ -533,6 +534,56 @@ describe('toGameView sections', () => {
 		const rows = view(source).sections.boxScore?.away.starters ?? [];
 		expect(rows.map((r) => r.plusMinus)).toEqual(['+4', '0', '-3']);
 		expect(rows.map((r) => r.plusMinusPositive)).toEqual([true, false, false]);
+	});
+
+	it('shows the box score plus-minus when any row has one', () => {
+		const section = view(feed()).sections.boxScore;
+		expect(section?.plusMinus).toBe(true);
+	});
+
+	it('hides the plus-minus and shows a dash on every row when each row has none', () => {
+		const source = feed();
+		if (!source.boxScore) throw new Error('The fixture has a box score');
+		for (const side of [source.boxScore.away, source.boxScore.home]) {
+			side.players = side.players.map((p) => ({ ...p, plusMinus: null }));
+		}
+		const section = view(source).sections.boxScore;
+		expect(section?.plusMinus).toBe(false);
+		const rows = [...(section?.away.starters ?? []), ...(section?.away.bench ?? [])];
+		expect(rows.length).toBeGreaterThan(0);
+		expect(rows.map((r) => r.plusMinus)).toEqual(rows.map(() => '—'));
+		expect(rows.every((r) => !r.plusMinusPositive)).toBe(true);
+	});
+
+	it('shows a dash for a totals percentage the feed has as null', () => {
+		const source = feed();
+		if (!source.boxScore) throw new Error('The fixture has a box score');
+		source.boxScore.away.totals = {
+			...source.boxScore.away.totals,
+			fieldGoalPct: null,
+			threePointPct: null,
+			freeThrowPct: null
+		};
+		const totals = view(source).sections.boxScore?.away.totals;
+		expect([totals?.fieldGoalPct, totals?.threePointPct, totals?.freeThrowPct]).toEqual([
+			'—',
+			'—',
+			'—'
+		]);
+		expect(view(source).sections.boxScore?.home.totals.fieldGoalPct).toMatch(/^\d+\.\d%$/);
+	});
+
+	it('passes a null team stat percentage through to the score section', () => {
+		const source = feed();
+		if (!source.teamStats) throw new Error('The fixture has team stats');
+		source.teamStats = {
+			...source.teamStats,
+			away: { ...source.teamStats.away, fieldGoalPct: null, freeThrowPct: null }
+		};
+		const stats = view(source).sections.score?.stats;
+		expect(stats?.away.fieldGoalPct).toBeNull();
+		expect(stats?.away.freeThrowPct).toBeNull();
+		expect(stats?.home.fieldGoalPct).not.toBeNull();
 	});
 
 	it("maps highlights with the home's autoplay embed URLs on a final game", () => {

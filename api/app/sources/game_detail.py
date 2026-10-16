@@ -13,8 +13,14 @@
 # else by abbreviation. A team without an abbreviation is resolved by id or is a
 # guest without a code (ADR 0026). Stat and win probability leaders are sides.
 #
+# Three reading rules for the box score (ADR 0052). Team turnovers are the
+# team's totalTurnovers when the provider sends it, else turnovers. A team
+# percentage the provider does not send is null. When every player of both
+# teams has a plus-minus of 0, the provider sent none, so every plus-minus is
+# null.
+#
 # SEE: docs/api/games.md, docs/adr/0041-past-game-detail.md,
-# api/app/sources/scoreboard.py
+# docs/adr/0052-box-score-reading.md, api/app/sources/scoreboard.py
 
 import datetime as dt
 from typing import Annotated, Any
@@ -78,6 +84,7 @@ STAT_ROWS = {
     "blocks": "blocks",
 }
 PERCENT_ROWS = {"field_goal_pct", "three_point_pct", "free_throw_pct"}
+TOTAL_TURNOVERS = "totalTurnovers"
 
 
 class _ProviderModel(BaseModel):
@@ -217,6 +224,19 @@ def _leader(
     }
 
 
+def _turnovers_stat(by_name: dict[str, str]) -> str:
+    # Rule: ADR 0052. totalTurnovers counts the team's turnovers too.
+    return TOTAL_TURNOVERS if TOTAL_TURNOVERS in by_name else "turnovers"
+
+
+def _percent(game_id: str, by_name: dict[str, str], name: str) -> float | None:
+    # Rule: ADR 0052. A percentage the provider does not send is null.
+    if name not in by_name:
+        return None
+    value: float = _number(game_id, by_name[name], float)
+    return value / 100
+
+
 def _team_stats(game_id: str, team: _ProviderBoxTeam) -> dict[str, Any]:
     by_name = {stat.name: stat.display_value for stat in team.statistics}
 
@@ -227,8 +247,10 @@ def _team_stats(game_id: str, team: _ProviderBoxTeam) -> dict[str, Any]:
 
     stats: dict[str, Any] = {}
     for field, name in PERCENT_STATS.items():
-        stats[field] = _number(game_id, lookup(name), float) / 100
+        stats[field] = _percent(game_id, by_name, name)
     for field, name in COUNT_STATS.items():
+        if field == "turnovers":
+            name = _turnovers_stat(by_name)
         stats[field] = _number(game_id, lookup(name), int)
     return stats
 
@@ -460,11 +482,12 @@ class GameDetailSections(FeedModel):
 
 def _stat_leader(
     row: str,
-    away_value: float,
-    home_value: float,
+    away_value: float | None,
+    home_value: float | None,
 ) -> Side | None:
     # Rule: docs/api/game-detail.md. A tie has no leader; turnovers go to the lower.
-    if away_value == home_value:
+    # A value the provider did not send gives no leader.
+    if away_value is None or home_value is None or away_value == home_value:
         return None
     away_leads = (
         away_value < home_value if row == "turnovers" else away_value > home_value
@@ -603,10 +626,9 @@ def _team_box_score(
     by_name = {stat.name: stat.display_value for stat in team.statistics}
     totals = _box_line(game_id, group.keys, group.totals, wanted)
     for field in ("field_goal_pct", "three_point_pct", "free_throw_pct"):
-        name = STAT_ROWS[field]
-        if name not in by_name:
-            raise SourceError(SOURCE, f"game {game_id} has no {name} stat")
-        totals[field] = _number(game_id, by_name[name], float) / 100
+        totals[field] = _percent(game_id, by_name, STAT_ROWS[field])
+    if TOTAL_TURNOVERS in by_name:
+        totals["turnovers"] = _number(game_id, by_name[TOTAL_TURNOVERS], int)
     return {"players": lines, "totals": totals}
 
 
@@ -614,13 +636,24 @@ def _detail_team_stats(game_id: str, team: _ProviderBoxTeam) -> dict[str, Any]:
     by_name = {stat.name: stat.display_value for stat in team.statistics}
     stats: dict[str, Any] = {}
     for field, name in STAT_ROWS.items():
+        if field in PERCENT_ROWS:
+            stats[field] = _percent(game_id, by_name, name)
+            continue
+        if field == "turnovers":
+            name = _turnovers_stat(by_name)
         if name not in by_name:
             raise SourceError(SOURCE, f"game {game_id} has no {name} stat")
-        if field in PERCENT_ROWS:
-            stats[field] = _number(game_id, by_name[name], float) / 100
-        else:
-            stats[field] = _number(game_id, by_name[name], int)
+        stats[field] = _number(game_id, by_name[name], int)
     return stats
+
+
+def _without_plus_minus(box_score: dict[str, Any]) -> None:
+    # Rule: ADR 0052. A game whose players all have a plus-minus of 0 came
+    # without one from the provider, so no row carries it.
+    lines = [line for side in ("away", "home") for line in box_score[side]["players"]]
+    if lines and all(line["plus_minus"] == 0 for line in lines):
+        for line in lines:
+            line["plus_minus"] = None
 
 
 def _win_probability(summary: _ProviderSummary) -> list[dict[str, Any]]:
@@ -876,6 +909,7 @@ async def _fetch_sections(
             )
             for row in STAT_ROWS
         }
+        _without_plus_minus(box_score)
         sections["box_score"] = box_score
         sections["team_stats"] = team_stats
 

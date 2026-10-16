@@ -14,16 +14,18 @@
 # - Marks a game with the Cup round of its note, and leaves any other note or none unmarked
 # - Reuses a fetched day for thirty seconds
 # - Marks the play-in and playoff games of a day with their postseason mark and each stake of a recorded day, and leaves a regular game unmarked
-# - A malformed series object, an unknown series competitor id, a missing note and an unknown competition type each give a null mark, log the event id only and still build the day
+# - A season type 3 game always has a mark (ADR 0050): a malformed series object, an unknown series competitor id, a missing note, a note without a game number and an unknown or malformed competition type each give a mark with the unreadable values null and log nothing; the day still builds
 # - The lenient mark shapes read the field names the strict postseason shapes read
 # - The playoffs adapter path reads the same mark as the core path and logs no unreadable mark warning
 # - Maps an All-Star day: the All-Star games carry the round mark with the suffix dropped, their sides are guests read by code or name with no All-Star flag and a null city even with a location, and the league game keeps its city, score and no mark
 # - Skips silently an All-Star game with a side that has neither a code nor a name (both, one, or empty strings) and keeps the other games, and marks the Championship when its sides have a code or a name
 # - Treats an unreadable season or competition type as not All-Star, and leaves a regular game with no All-Star flag unaffected
-# - Skips with one log line by event id an All-Star event without a line score, without a clock, with a league code, with a provider-key side without a city, with a note that is not an All-Star note or with an unknown status, and keeps the rest of the day
+# - Keeps a final All-Star game with a score and no line score, with a null line score (ADR 0051), and still skips a final one without a score
+# - Marks the notes ALL STAR GAME and NBA All-Star Game as the round All-Star Game
+# - Skips with one log line by event id an All-Star event without a clock, with a league code, with a provider-key side without a city, with a note that is not an All-Star note or with an unknown status, and keeps the rest of the day
 # - Still raises the source error for an event with no competition
 # - The past-day path returns the day's season from leagues[0].season.year and raises the source error when it is missing or unreadable, and fetch_games ignores leagues
-# - The past-day path maps a day with sides by team id first with the name and city of the event and an unknown id as a guest, skips a final event without a line score and one with an unknown status with one log line by event id in provider order, reads an upper-case postseason note as the title-case mark and an empty or FINALS note as a null mark, gives [] for a day with no event, raises the source error for an invalid payload, a timeout, an error status and a missing URL, and leaves fetch_games failing on the same bad event
+# - The past-day path maps a day with sides by team id first with the name and city of the event and an unknown id as a guest, skips a final event without a line score and one with an unknown status with one log line by event id in provider order, reads an upper-case postseason note as the title-case mark and a FINALS note as a Finals mark without a number, gives [] for a day with no event, raises the source error for an invalid payload, a timeout, an error status and a missing URL, and leaves fetch_games failing on the same bad event
 #
 # What is covered:
 # - A valid response mapped, an invalid payload rejected, upstream failures handled
@@ -52,7 +54,14 @@ import pytest
 import respx
 from pydantic import BaseModel
 
-from app.feeds.games import CupRound, Game, GameStatus, PostseasonStage, Stakes
+from app.feeds.games import (
+    CupRound,
+    Game,
+    GamePostseason,
+    GameStatus,
+    PostseasonStage,
+    Stakes,
+)
 from app.settings import Settings
 from app.sources import postseason_scoreboard, scoreboard
 from app.sources.http import SourceClient, SourceError, create_client
@@ -646,7 +655,7 @@ async def test_marks_each_stake_of_a_recorded_postseason_day(
 
 
 @pytest.mark.anyio
-async def test_leaves_a_postseason_game_with_an_unreadable_mark_unmarked_and_keeps_the_day(
+async def test_marks_every_postseason_game_of_the_day_even_with_unreadable_values(
     mock: respx.MockRouter, settings: Settings
 ) -> None:
     payload = load("postseason-marks.json")
@@ -655,8 +664,7 @@ async def test_leaves_a_postseason_game_with_an_unreadable_mark_unmarked_and_kee
     games = await fetch(settings)
 
     assert [g.id for g in games] == [e["id"] for e in payload["events"]]
-    unmarked = {g.id for g in games if g.postseason is None}
-    assert unmarked == {"7005", "7006", "7007", "7008", "7009", games[-1].id}
+    assert [g.id for g in games if g.postseason is None] == [games[-1].id]
 
 
 @pytest.mark.anyio
@@ -668,12 +676,12 @@ async def test_leaves_a_regular_game_unmarked(
     assert all(game.postseason is None for game in await fetch(settings))
 
 
-async def unreadable_mark(
+async def mark_of(
     mock: respx.MockRouter,
     settings: Settings,
     caplog: pytest.LogCaptureFixture,
     event_id: str,
-) -> None:
+) -> GamePostseason:
     payload = load("postseason-marks.json")
     mock.get(URL).respond(json=payload)
 
@@ -682,41 +690,81 @@ async def unreadable_mark(
 
     assert [g.id for g in games] == [e["id"] for e in payload["events"]]
     game = next(g for g in games if g.id == event_id)
-    assert game.postseason is None
     assert (game.venue, game.status) == ("Example Arena", GameStatus.SCHEDULED)
-    warned = [r for r in caplog.records if event_id in r.getMessage()]
-    assert len(warned) == 1
-    assert warned[0].getMessage() == (
-        f"scoreboard: event {event_id} has an unreadable postseason mark"
-    )
+    assert [r for r in caplog.records if event_id in r.getMessage()] == []
+    assert game.postseason is not None
+    return game.postseason
 
 
 @pytest.mark.anyio
-async def test_a_malformed_series_object_gives_a_null_mark_and_the_day_still_builds(
+async def test_a_malformed_series_object_gives_a_mark_without_summary_or_stakes_and_logs_nothing(
     mock: respx.MockRouter, settings: Settings, caplog: pytest.LogCaptureFixture
 ) -> None:
-    await unreadable_mark(mock, settings, caplog, "7007")
+    mark = await mark_of(mock, settings, caplog, "7007")
+
+    assert (mark.round, mark.conference, mark.number) == (1, "east", 3)
+    assert (mark.summary, mark.stakes) == (None, None)
 
 
 @pytest.mark.anyio
-async def test_an_unknown_series_competitor_id_gives_a_null_mark_and_the_day_still_builds(
+async def test_an_unknown_series_competitor_id_gives_a_mark_without_stakes_and_logs_nothing(
     mock: respx.MockRouter, settings: Settings, caplog: pytest.LogCaptureFixture
 ) -> None:
-    await unreadable_mark(mock, settings, caplog, "7008")
+    mark = await mark_of(mock, settings, caplog, "7008")
+
+    assert (mark.round, mark.conference, mark.number) == (1, "east", 3)
+    assert mark.stakes is None
 
 
 @pytest.mark.anyio
-async def test_a_postseason_game_without_a_note_gives_a_null_mark_and_the_day_still_builds(
+async def test_a_postseason_game_without_a_note_gives_a_mark_without_round_or_number_and_logs_nothing(
     mock: respx.MockRouter, settings: Settings, caplog: pytest.LogCaptureFixture
 ) -> None:
-    await unreadable_mark(mock, settings, caplog, "7009")
+    mark = await mark_of(mock, settings, caplog, "7009")
+
+    assert mark.stage is PostseasonStage.PLAYOFFS
+    assert (mark.round, mark.conference, mark.number) == (None, None, None)
 
 
 @pytest.mark.anyio
-async def test_an_unknown_competition_type_gives_a_null_mark_and_the_day_still_builds(
+@pytest.mark.parametrize("bad_type", ["FINAL", {"abbreviation": 4}])
+async def test_a_malformed_competition_type_object_keeps_the_mark_of_a_postseason_game(
+    mock: respx.MockRouter,
+    settings: Settings,
+    caplog: pytest.LogCaptureFixture,
+    bad_type: object,
+) -> None:
+    payload = load("postseason-marks.json")
+    event = next(e for e in payload["events"] if e["id"] == "7005")
+    event["competitions"][0]["type"] = bad_type
+    mock.get(URL).respond(json=payload)
+
+    with caplog.at_level(logging.WARNING, logger="app.sources.scoreboard"):
+        games = await fetch(settings)
+
+    game = next(g for g in games if g.id == "7005")
+    assert game.postseason is not None
+    assert game.postseason.stage is PostseasonStage.PLAYOFFS
+    assert [r for r in caplog.records if "7005" in r.getMessage()] == []
+
+
+@pytest.mark.anyio
+async def test_an_unknown_competition_type_gives_the_round_of_its_note_and_logs_nothing(
     mock: respx.MockRouter, settings: Settings, caplog: pytest.LogCaptureFixture
 ) -> None:
-    await unreadable_mark(mock, settings, caplog, "7005")
+    mark = await mark_of(mock, settings, caplog, "7005")
+
+    assert (mark.round, mark.conference, mark.number) == (1, "west", 2)
+
+
+@pytest.mark.anyio
+async def test_a_note_without_a_game_number_gives_a_mark_without_number_and_logs_nothing(
+    mock: respx.MockRouter, settings: Settings, caplog: pytest.LogCaptureFixture
+) -> None:
+    mark = await mark_of(mock, settings, caplog, "7006")
+
+    assert (mark.round, mark.conference, mark.number) == (1, "west", None)
+    assert mark.stakes is None
 
 
 @pytest.mark.anyio
@@ -965,16 +1013,53 @@ async def skipped_all_star(
 
 
 @pytest.mark.anyio
-async def test_skips_a_final_all_star_game_without_a_line_score(
+async def test_keeps_a_final_all_star_game_with_a_score_and_no_line_score(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("all-star.json")
+    for side in all_star_sides(all_star_event(payload, "9101")):
+        del side["linescores"]
+    mock.get(URL).respond(json=payload)
+
+    games = await fetch(settings)
+
+    kept = next(g for g in games if g.id == "9101")
+    assert kept.status is GameStatus.FINAL
+    assert kept.line_score is None
+    assert kept.score is not None
+    assert kept.all_star is not None
+
+
+@pytest.mark.anyio
+async def test_skips_a_final_all_star_game_without_a_score(
     mock: respx.MockRouter, settings: Settings, caplog: pytest.LogCaptureFixture
 ) -> None:
     payload = load("all-star.json")
     for side in all_star_sides(all_star_event(payload, "9101")):
         del side["linescores"]
+        del side["score"]
 
     message = await skipped_all_star(mock, settings, caplog, payload, "9101")
 
     assert "is invalid: value_error" in message
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "note", ["ALL STAR GAME", "NBA All-Star Game", "nba all-star game"]
+)
+async def test_marks_an_all_star_game_whose_note_is_only_the_game_name(
+    mock: respx.MockRouter, settings: Settings, note: str
+) -> None:
+    payload = load("all-star.json")
+    all_star_event(payload, "9101")["competitions"][0]["notes"] = [{"headline": note}]
+    mock.get(URL).respond(json=payload)
+
+    game = next(g for g in await fetch(settings) if g.id == "9101")
+
+    assert game.all_star is not None
+    assert game.all_star.round_label == "All-Star Game"
+    assert game.all_star.championship is False
 
 
 @pytest.mark.anyio
@@ -1100,7 +1185,7 @@ async def test_the_past_day_path_resolves_sides_by_id_first_and_skips_bad_events
 
 
 @pytest.mark.anyio
-async def test_the_past_day_path_reads_an_upper_case_note_and_gives_no_mark_for_finals(
+async def test_the_past_day_path_reads_an_upper_case_note_and_gives_finals_a_mark_without_number(
     mock: respx.MockRouter, settings: Settings
 ) -> None:
     mock.get(URL).respond(json=load("past-day.json"))
@@ -1112,7 +1197,10 @@ async def test_the_past_day_path_reads_an_upper_case_note_and_gives_no_mark_for_
     assert marked.stage is PostseasonStage.PLAYOFFS
     assert marked.round == 1
     assert marked.number == 1
-    assert games["7006"].postseason is None
+    finals = games["7006"].postseason
+    assert finals is not None
+    assert finals.stage is PostseasonStage.FINALS
+    assert (finals.round, finals.number) == (4, None)
 
 
 @pytest.mark.anyio

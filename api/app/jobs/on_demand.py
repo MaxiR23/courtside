@@ -93,7 +93,7 @@ class FeedCache:
         self._kinds: dict[str, FeedKind[Any]] = {}
 
     def register(self, kind: FeedKind[Any]) -> None:
-        if not GAME_ID.match(kind.name):
+        if not GAME_ID.fullmatch(kind.name):
             raise ValueError(f"feed kind name is not a safe id: {kind.name!r}")
         if kind.name in self._kinds:
             raise ValueError(f"feed kind already registered: {kind.name}")

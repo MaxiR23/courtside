@@ -259,7 +259,8 @@ const full: GameSections = {
 	},
 	boxScore: {
 		away: { team: mark('LAL', 'Lakers', 'Los Angeles'), starters: [row], bench: [], totals },
-		home: { team: mark('GSW', 'Warriors', 'Golden State'), starters: [row], bench: [], totals }
+		home: { team: mark('GSW', 'Warriors', 'Golden State'), starters: [row], bench: [], totals },
+		plusMinus: true
 	}
 };
 const withSections = (sections: GameSections): GameView => ({ ...view, sections });

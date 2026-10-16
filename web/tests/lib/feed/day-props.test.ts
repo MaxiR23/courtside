@@ -7,7 +7,7 @@
 // - The season and its label are copied; the date, title and weekday are formatted from the feed date
 // - The title and weekday are in English and in Spanish for an es browser
 // - A day with no game gives an empty list
-// - A final game without a line score cannot be shown
+// - A final All-Star game without a line score (untimed, ADR 0051) gives a card without details and the day is still shown
 //
 // What is covered:
 // - Pure logic on a recorded feed (tests/lib/feed/fixtures/day.json); no clock, no network
@@ -67,9 +67,14 @@ describe('toDayView', () => {
 		expect(toDayView(source)?.games).toEqual([]);
 	});
 
-	it('returns null for a final game without a line score', () => {
+	it('gives a final All-Star game without a line score a card without details and keeps the day', () => {
 		const source = feed();
 		source.day.games[0].lineScore = null;
-		expect(toDayView(source)).toBeNull();
+		source.day.games[0].allStar = { roundLabel: 'All-Star Game', championship: false };
+		const view = toDayView(source);
+		expect(view?.games).toHaveLength(2);
+		expect(view?.games[0].status).toMatchObject({ state: 'final' });
+		expect(view?.games[0].details).toBeUndefined();
+		expect(view?.games[1].details).toBeDefined();
 	});
 });

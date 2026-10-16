@@ -591,6 +591,8 @@ def test_rejects_a_second_kind_with_the_same_name_and_a_kind_name_that_is_not_a_
         setup.cache.register(Fake().kind())
     with pytest.raises(ValueError, match="safe id"):
         setup.cache.register(Fake("../x").kind())
+    with pytest.raises(ValueError, match="safe id"):
+        setup.cache.register(Fake("days\n").kind())
 
 
 def waiting(setup: Setup, value: bool = True) -> None:

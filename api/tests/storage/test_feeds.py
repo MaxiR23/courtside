@@ -194,6 +194,14 @@ def test_refuses_a_feed_id_or_a_directory_that_is_not_a_safe_id(
         assert (
             publish_by_id(tmp_path, "../x", GameDetailFeed, "7", detail_feed()) is False
         )
+        assert (
+            publish_by_id(tmp_path, "players", GameDetailFeed, "a\n", detail_feed())
+            is False
+        )
+        assert (
+            publish_by_id(tmp_path, "players\n", GameDetailFeed, "7", detail_feed())
+            is False
+        )
 
     assert "invalid id" in caplog.text
     assert not (tmp_path / "feeds").exists()
@@ -205,6 +213,8 @@ def test_reads_nothing_for_an_unknown_or_unsafe_id(tmp_path: Path) -> None:
     assert read_by_id(tmp_path, "players", "8") is None
     assert read_by_id(tmp_path, "players", "..") is None
     assert read_by_id(tmp_path, "players", "a.b") is None
+    assert read_by_id(tmp_path, "players", "7\n") is None
+    assert read_by_id(tmp_path, "players\n", "7") is None
     assert read_by_id(tmp_path, "..", "7") is None
 
 

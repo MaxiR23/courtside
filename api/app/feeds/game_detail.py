@@ -33,6 +33,7 @@ from app.feeds.games import (
     TeamCode,
     TeamStats,
     UtcDatetime,
+    required_fields,
     stars_match_sides,
 )
 from app.feeds.opponent import Opponent, Side
@@ -57,7 +58,7 @@ class Venue(FeedModel):
 
 
 class DetailTeamStats(TeamStats):
-    free_throw_pct: Percentage
+    free_throw_pct: Percentage | None
     steals: NonNegativeInt
     blocks: NonNegativeInt
 
@@ -102,14 +103,14 @@ class BoxScorePlayer(BoxScoreLine):
     display_name: NonEmptyStr
     starter: bool
     minutes: NonEmptyStr
-    plus_minus: int
+    plus_minus: int | None
     photo_url: HttpUrl | None
 
 
 class BoxScoreTotals(BoxScoreLine):
-    field_goal_pct: Percentage
-    three_point_pct: Percentage
-    free_throw_pct: Percentage
+    field_goal_pct: Percentage | None
+    three_point_pct: Percentage | None
+    free_throw_pct: Percentage | None
 
 
 class TeamBoxScore(FeedModel):
@@ -308,7 +309,9 @@ class GameDetailFeed(FeedModel):
 
     @model_validator(mode="after")
     def _require_fields_of_status(self) -> GameDetailFeed:
-        required = REQUIRED_BY_STATUS.get(self.status, ())
+        required = required_fields(
+            REQUIRED_BY_STATUS, self.status, all_star=self.all_star is not None
+        )
         missing = [name for name in required if getattr(self, name) is None]
         if missing:
             aliases = ", ".join(to_camel(name) for name in missing)

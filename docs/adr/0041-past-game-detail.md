@@ -1,6 +1,6 @@
 # 0041. Past game detail
 
-- Status: Superseded by 0048 for the past game's highlights only
+- Status: Superseded by 0048 for the past game's highlights only, and by 0052 for the values inside the box score and team stats only
 - Date: 2026-10-15
 
 ## Context

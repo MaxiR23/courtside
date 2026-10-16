@@ -5,6 +5,8 @@
 # Tested:
 # - The builder sets null stars, empty highlights, the search link, the winner and unavailable stats on a final game, and nulls on scheduled and postponed games
 # - The builder skips a game that is not a valid past game with a log line by event id, and keeps the others
+# - The builder lists a day whose All-Star games are final with scores and no line score, with a null line score and unavailable stats (ADR 0051)
+# - The day id also refuses a trailing newline
 # - The builder sets the season 1999 and the label 1998-99
 # - The builder gives an empty day for no event, and wraps an invalid feed in a build error
 # - The day id: a real YYYY-MM-DD date only
@@ -114,6 +116,28 @@ def test_a_final_game_has_null_stars_no_highlights_unavailable_stats_and_a_winne
     assert built.winner is Side.HOME
     assert str(built.highlights_search_url) == "https://example.com/search?q=x"
     assert feed.day.date == PAST
+
+
+def test_a_day_of_untimed_final_all_star_games_lists_them_without_a_line_score() -> (
+    None
+):
+    mark = GameAllStar(round_label="All-Star Game", championship=False)
+    untimed = game("1", GameStatus.FINAL, all_star=mark).model_copy(
+        update={"line_score": None}
+    )
+
+    feed = build(
+        untimed,
+        game("2", GameStatus.FINAL, all_star=mark).model_copy(
+            update={"line_score": None}
+        ),
+    )
+
+    assert [g.id for g in feed.day.games] == ["1", "2"]
+    for built in feed.day.games:
+        assert built.line_score is None
+        assert built.score is not None
+        assert built.stats_availability is StatsAvailability.UNAVAILABLE
 
 
 def test_scheduled_and_postponed_games_have_no_search_link_stats_or_winner() -> None:
@@ -245,7 +269,7 @@ def kit(tmp_path: Path) -> DayKit:
 @pytest.mark.anyio
 @pytest.mark.parametrize(
     "feed_id",
-    ["2024-13-01", "20240101", "abc", "1993-09-30", "2026-10-09"],
+    ["2024-13-01", "20240101", "abc", "1993-09-30", "2026-10-09", "2026-10-01\n"],
 )
 async def test_an_invalid_early_or_future_day_is_unknown_with_no_source_request(
     kit: DayKit, feed_id: str

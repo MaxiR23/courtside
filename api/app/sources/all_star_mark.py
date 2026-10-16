@@ -6,9 +6,11 @@
 # section's piece of the scoreboard adapter, and removing the section removes it.
 # It also holds the note parsing the All-Star feed reads, so both read a note the
 # same way. It owns no source URL and never raises: input it cannot read gives no
-# mark.
+# mark. A note that is only "ALL STAR GAME" or "NBA All-Star Game", in any case,
+# is the round "All-Star Game" (ADR 0051).
 #
-# SEE: docs/api/games.md, docs/adr/0038-all-star-marks-in-core-feeds.md
+# SEE: docs/api/games.md, docs/adr/0038-all-star-marks-in-core-feeds.md,
+# docs/adr/0051-all-star-notes-and-untimed-games.md
 
 import re
 
@@ -17,6 +19,8 @@ from app.sources.season_types import REGULAR_SEASON
 
 COMPETITION_TYPE = "ALLSTAR"
 CHAMPIONSHIP = "Championship"
+ALL_STAR_GAME = "All-Star Game"
+_SINGLE_GAME_NOTES = {"all star game", "nba all-star game"}
 NOTE = re.compile(
     r"^NBA All-Star - (?P<round>.+?)"
     r"(?: (?P<suffix>First team to \d+ points wins.*))?$",
@@ -26,6 +30,8 @@ NOTE = re.compile(
 
 def parse_note(note: str | None) -> tuple[str | None, str | None]:
     """The round label and the format suffix of a game note, or none of them."""
+    if note and note.casefold() in _SINGLE_GAME_NOTES:
+        return ALL_STAR_GAME, None
     found = NOTE.match(note) if note else None
     if found is None:
         return None, None

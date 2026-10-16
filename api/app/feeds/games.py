@@ -6,6 +6,7 @@
 # SEE: docs/api/games.md, docs/adr/0008-contract-generation.md
 
 import datetime as dt
+from collections.abc import Mapping
 from enum import StrEnum
 from typing import Annotated
 
@@ -119,13 +120,17 @@ class GamePostseason(FeedModel):
             return self
         if self.play_in is not None:
             raise ValueError("a series mark has no playIn")
-        if self.number is None:
-            raise ValueError("a series mark requires number")
         if self.stage is PostseasonStage.PLAYOFFS:
-            if self.round is None or self.round > 3:
-                raise ValueError("a playoffs mark is round 1 to 3")
-            if self.conference is None:
-                raise ValueError("a playoffs mark requires conference")
+            if self.round is None:
+                if self.conference is not None:
+                    raise ValueError(
+                        "a playoffs mark without a round has no conference"
+                    )
+            else:
+                if self.round > 3:
+                    raise ValueError("a playoffs mark is round 1 to 3")
+                if self.conference is None:
+                    raise ValueError("a playoffs mark requires conference")
         else:
             if self.round != 4:
                 raise ValueError("a finals mark is round 4")
@@ -184,8 +189,8 @@ class Star(Player):
 
 
 class TeamStats(FeedModel):
-    field_goal_pct: Percentage
-    three_point_pct: Percentage
+    field_goal_pct: Percentage | None
+    three_point_pct: Percentage | None
     rebounds: NonNegativeInt
     assists: NonNegativeInt
     turnovers: NonNegativeInt
@@ -247,6 +252,20 @@ REQUIRED_BY_STATUS: dict[GameStatus, tuple[str, ...]] = {
 }
 
 
+def required_fields(
+    table: Mapping[GameStatus, tuple[str, ...]], status: GameStatus, *, all_star: bool
+) -> tuple[str, ...]:
+    """The fields a game of this status requires, from a status table.
+
+    A final All-Star game of the untimed format has a score but no line score
+    (ADR 0051), so it does not require one.
+    """
+    required = table.get(status, ())
+    if status is GameStatus.FINAL and all_star:
+        return tuple(name for name in required if name != "line_score")
+    return required
+
+
 class Game(FeedModel):
     id: NonEmptyStr
     away: GameTeam
@@ -272,7 +291,9 @@ class Game(FeedModel):
 
     @model_validator(mode="after")
     def _require_fields_of_status(self) -> Game:
-        required = REQUIRED_BY_STATUS.get(self.status, ())
+        required = required_fields(
+            REQUIRED_BY_STATUS, self.status, all_star=self.all_star is not None
+        )
         missing = [name for name in required if getattr(self, name) is None]
         if missing:
             aliases = ", ".join(to_camel(name) for name in missing)

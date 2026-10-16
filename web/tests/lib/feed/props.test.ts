@@ -18,6 +18,7 @@
 // - The Cup mark of a game: the tag for each stage, none for a null mark
 // - The postseason mark of a game: filled from the feed's mark, null for a null mark
 // - The All-Star mark of a game: filled from the feed's mark, null for a null mark and for a feed without the key; a game whose guest sides have no city maps with a null city; an All-Star game is never a hero game and the league games stay
+// - A final All-Star game without a line score (untimed, ADR 0051) maps to a card without details and the home view is still shown
 // - The feed's seven day.date strings, in order, as dayIds
 //
 // What is covered:
@@ -501,6 +502,24 @@ describe('toHomeView with the All-Star mark', () => {
 		const game = todayGame(view(withAllStar()), 'g-sched');
 		expect(game.away).toEqual({ ...stripes });
 		expect(game.home).toEqual({ ...waves });
+	});
+
+	it('maps a final All-Star game without a line score to a card without details', () => {
+		const source = withAllStar();
+		const final = source.days[3].games.find((g) => g.id === 'g-final');
+		if (!final) throw new Error('The fixture has a final game');
+		final.away = stripes;
+		final.home = waves;
+		final.stars = { away: null, home: null };
+		final.allStar = { roundLabel: 'All-Star Game', championship: false };
+		final.lineScore = null;
+		final.leaders = null;
+		final.teamStats = null;
+		final.statsAvailability = 'unavailable';
+		const game = todayGame(view(source), 'g-final');
+		expect(game.status).toMatchObject({ state: 'final' });
+		expect(game.details).toBeUndefined();
+		expect(game.allStarMark).not.toBeNull();
 	});
 
 	it('never puts an All-Star game in the hero and keeps the league games', () => {

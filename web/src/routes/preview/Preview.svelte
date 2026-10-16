@@ -402,7 +402,8 @@
 	});
 	const sampleBox = (away: number, home: number): BoxScoreSection => ({
 		away: boxTeam(headerAway, ['Stephen Curry', 'Draymond Green', 'Jonathan Kuminga'], away),
-		home: boxTeam(headerHome, ['LeBron James', 'Anthony Davis', 'Austin Reaves'], home)
+		home: boxTeam(headerHome, ['LeBron James', 'Anthony Davis', 'Austin Reaves'], home),
+		plusMinus: true
 	});
 	const liveBox = sampleBox(63, 62);
 	const finalBox = sampleBox(112, 104);

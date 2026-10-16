@@ -7,7 +7,9 @@
 # - Requests the URL built from the template and the game id
 # - Picks the top scorer of each team, breaking a tie on points by rebounds plus assists and then by provider order, skipping players without a stat line
 # - Builds photo URLs from the template and keeps the display name exactly as the provider gives it
-# - Converts shooting percentages to fractions and takes team turnovers from the box score
+# - Converts shooting percentages to fractions and takes team turnovers from totalTurnovers when sent, else from turnovers (ADR 0052)
+# - A team percentage the provider does not send is null in the team stats, the box score totals and the leaders, on the live and past paths; a missing count stat still raises
+# - Every plus-minus of 0 on both teams gives a null plus-minus on every row; one non-zero value keeps the values as sent
 # - Maps the provider team codes that differ from the standard ones
 # - Raises the source error on an invalid payload, a missing home or away team, a team without player stats, a missing team stat, a stat that is not a number, an empty display name, a timeout, an error status and a missing URL
 # - GameDetail uses the same field types as the contract Game
@@ -204,7 +206,7 @@ async def test_maps_a_recorded_final_game_to_leaders_and_team_stats(
     assert (stats.home.rebounds, stats.home.assists, stats.home.turnovers) == (
         52,
         18,
-        21,
+        22,
     )
 
 
@@ -363,12 +365,12 @@ async def test_converts_shooting_percentages_to_a_fraction(
 
     assert detail.team_stats.away.field_goal_pct == pytest.approx(0.39)
     for side in (detail.team_stats.away, detail.team_stats.home):
-        assert 0 <= side.field_goal_pct <= 1
-        assert 0 <= side.three_point_pct <= 1
+        assert side.field_goal_pct is not None and 0 <= side.field_goal_pct <= 1
+        assert side.three_point_pct is not None and 0 <= side.three_point_pct <= 1
 
 
 @pytest.mark.anyio
-async def test_takes_team_turnovers_from_the_box_score(
+async def test_takes_team_turnovers_from_total_turnovers_when_sent(
     mock: respx.MockRouter, settings: Settings
 ) -> None:
     payload = load("final.json")
@@ -376,6 +378,24 @@ async def test_takes_team_turnovers_from_the_box_score(
         s["name"]: s["displayValue"] for s in box_team(payload, "home")["statistics"]
     }
     assert home["turnovers"] != home["totalTurnovers"]
+    mock.get(URL).respond(json=payload)
+
+    detail = await fetch(settings)
+
+    assert detail.team_stats.home.turnovers == int(home["totalTurnovers"])
+    assert detail.team_stats.home.turnovers == 22
+
+
+@pytest.mark.anyio
+async def test_takes_team_turnovers_from_turnovers_without_total_turnovers(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("final.json")
+    team = box_team(payload, "home")
+    home = {s["name"]: s["displayValue"] for s in team["statistics"]}
+    team["statistics"] = [
+        s for s in team["statistics"] if s["name"] != "totalTurnovers"
+    ]
     mock.get(URL).respond(json=payload)
 
     detail = await fetch(settings)
@@ -547,10 +567,7 @@ async def test_raises_the_source_error_when_a_team_has_no_player_list(
 
 
 @pytest.mark.anyio
-@pytest.mark.parametrize(
-    "name",
-    ["fieldGoalPct", "threePointFieldGoalPct", "totalRebounds", "assists", "turnovers"],
-)
+@pytest.mark.parametrize("name", ["totalRebounds", "assists"])
 async def test_raises_the_source_error_on_a_missing_team_stat(
     mock: respx.MockRouter, settings: Settings, name: str
 ) -> None:
@@ -562,6 +579,41 @@ async def test_raises_the_source_error_on_a_missing_team_stat(
     error = await fetch_error(settings)
 
     assert error.reason == f"game {GAME_ID} has no {name} stat"
+
+
+@pytest.mark.anyio
+async def test_raises_the_source_error_on_a_team_without_either_turnovers_stat(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("final.json")
+    team = box_team(payload, "home")
+    team["statistics"] = [
+        s
+        for s in team["statistics"]
+        if s["name"] not in ("turnovers", "totalTurnovers")
+    ]
+    mock.get(URL).respond(json=payload)
+
+    error = await fetch_error(settings)
+
+    assert error.reason == f"game {GAME_ID} has no turnovers stat"
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("name", ["fieldGoalPct", "threePointFieldGoalPct"])
+async def test_gives_a_null_percentage_on_a_team_without_it(
+    mock: respx.MockRouter, settings: Settings, name: str
+) -> None:
+    payload = load("final.json")
+    team = box_team(payload, "home")
+    team["statistics"] = [s for s in team["statistics"] if s["name"] != name]
+    mock.get(URL).respond(json=payload)
+
+    detail = await fetch(settings)
+
+    field = "field_goal_pct" if name == "fieldGoalPct" else "three_point_pct"
+    assert getattr(detail.team_stats.home, field) is None
+    assert getattr(detail.team_stats.away, field) is not None
 
 
 @pytest.mark.anyio
@@ -1167,6 +1219,7 @@ async def test_marks_no_leader_on_a_tied_row(
     payload = load("summary-final.json")
     set_team_stat(payload, "home", "assists", "22")
     set_team_stat(payload, "home", "turnovers", "19")
+    set_team_stat(payload, "home", "totalTurnovers", "19")
 
     detail = await sections_of(mock, settings, payload)
 
@@ -1433,7 +1486,7 @@ async def test_raises_the_source_error_on_a_summary_missing_a_used_field(
 
 
 @pytest.mark.anyio
-@pytest.mark.parametrize("name", ["freeThrowPct", "steals", "blocks"])
+@pytest.mark.parametrize("name", ["steals", "blocks"])
 async def test_raises_the_source_error_on_a_missing_detail_team_stat(
     mock: respx.MockRouter, settings: Settings, name: str
 ) -> None:
@@ -1705,6 +1758,123 @@ async def test_raises_the_source_error_when_a_side_has_no_players_by_id_or_abbre
     assert error.reason == f"game {GAME_ID} has no players for 90001"
 
 
+@pytest.mark.anyio
+async def test_serves_total_turnovers_in_the_team_stats_totals_and_leader(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("summary-final.json")
+    set_team_stat(payload, "home", "turnovers", "0")
+    set_team_stat(payload, "home", "totalTurnovers", "12")
+
+    detail = await sections_of(mock, settings, payload)
+
+    assert detail.team_stats is not None and detail.box_score is not None
+    assert detail.team_stats.home.turnovers == 12
+    assert detail.box_score.home.totals.turnovers == 12
+    assert detail.box_score.away.totals.turnovers == 19
+    assert detail.team_stats.leaders.turnovers == "home"
+
+
+@pytest.mark.anyio
+async def test_serves_turnovers_and_the_group_total_without_total_turnovers(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("summary-final.json")
+    for side in ("home", "away"):
+        team = box_team(payload, side)
+        team["statistics"] = [
+            s for s in team["statistics"] if s["name"] != "totalTurnovers"
+        ]
+    set_team_stat(payload, "home", "turnovers", "12")
+
+    detail = await sections_of(mock, settings, payload)
+
+    assert detail.team_stats is not None and detail.box_score is not None
+    assert detail.team_stats.home.turnovers == 12
+    assert detail.box_score.home.totals.turnovers == 17
+    assert detail.team_stats.leaders.turnovers == "home"
+
+
+def zero_plus_minus(payload: Payload) -> None:
+    for abbreviation in ("ORL", "BOS"):
+        group = team_players(payload, abbreviation)
+        for line in group["athletes"]:
+            if line["stats"]:
+                set_stat(line, group, "plusMinus", "0")
+
+
+@pytest.mark.anyio
+async def test_gives_a_null_plus_minus_on_every_row_when_all_are_zero(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("summary-final.json")
+    zero_plus_minus(payload)
+
+    detail = await sections_of(mock, settings, payload)
+
+    assert detail.box_score is not None
+    players = [*detail.box_score.away.players, *detail.box_score.home.players]
+    assert len(players) > 0
+    assert all(p.plus_minus is None for p in players)
+
+
+@pytest.mark.anyio
+async def test_keeps_every_plus_minus_as_sent_when_one_is_not_zero(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("summary-final.json")
+    zero_plus_minus(payload)
+    group = team_players(payload, "BOS")
+    first = next(line for line in group["athletes"] if line["stats"])
+    set_stat(first, group, "plusMinus", "+3")
+
+    detail = await sections_of(mock, settings, payload)
+
+    assert detail.box_score is not None
+    values = [p.plus_minus for p in detail.box_score.away.players]
+    assert values == [0] * len(values)
+    assert detail.box_score.home.players[0].plus_minus == 3
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("name", "field"),
+    [
+        ("fieldGoalPct", "field_goal_pct"),
+        ("threePointFieldGoalPct", "three_point_pct"),
+        ("freeThrowPct", "free_throw_pct"),
+    ],
+)
+async def test_gives_a_null_percentage_and_leader_for_a_team_without_the_stat(
+    mock: respx.MockRouter, settings: Settings, name: str, field: str
+) -> None:
+    payload = load("summary-final.json")
+    stats = box_team(payload, "away")["statistics"]
+    stats[:] = [s for s in stats if s["name"] != name]
+
+    detail = await sections_of(mock, settings, payload)
+
+    assert detail.team_stats is not None and detail.box_score is not None
+    assert getattr(detail.team_stats.away, field) is None
+    assert getattr(detail.team_stats.home, field) is not None
+    assert getattr(detail.team_stats.leaders, field) is None
+    assert getattr(detail.box_score.away.totals, field) is None
+    assert getattr(detail.box_score.home.totals, field) is not None
+
+
+@pytest.mark.anyio
+async def test_still_raises_the_source_error_on_a_missing_count_stat_of_the_sections(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("summary-final.json")
+    stats = box_team(payload, "away")["statistics"]
+    stats[:] = [s for s in stats if s["name"] != "assists"]
+
+    error = await sections_error_of(mock, settings, payload)
+
+    assert error.reason == f"game {GAME_ID} has no assists stat"
+
+
 # Past game detail sections (ADR 0041)
 
 
@@ -1847,3 +2017,21 @@ async def test_the_past_path_raises_the_source_error_on_an_invalid_payload_a_tim
     no_url = Settings(_env_file=None, player_photo_url=PHOTO_TEMPLATE)  # type: ignore[call-arg]
     with pytest.raises(SourceError, match="not configured"):
         await fetch_past_sections(no_url)
+
+
+@pytest.mark.anyio
+async def test_the_past_path_gives_a_null_percentage_and_serves_turnovers_without_total_turnovers(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("summary-past-final.json")
+    stats = box_team(payload, "away")["statistics"]
+    stats[:] = [s for s in stats if s["name"] != "fieldGoalPct"]
+
+    detail = await past_sections_of(mock, settings, payload)
+
+    assert detail.team_stats is not None and detail.box_score is not None
+    assert detail.team_stats.away.field_goal_pct is None
+    assert detail.team_stats.leaders.field_goal_pct is None
+    assert detail.box_score.away.totals.field_goal_pct is None
+    assert detail.team_stats.home.turnovers == 5
+    assert detail.box_score.home.totals.turnovers == 1

@@ -50,7 +50,7 @@ logger = logging.getLogger(__name__)
 KIND = "days"
 FIRST_DAY = dt.date(1993, 10, 1)
 REBUILD_AFTER = dt.timedelta(hours=6)
-_DAY_ID = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+_DAY_ID = re.compile(r"\d{4}-\d{2}-\d{2}")
 
 FetchPastDay = Callable[[SourceClient, dt.date, Settings], Awaitable[PastScoreboardDay]]
 SearchUrl = Callable[[ScoreboardGame], str | None]
@@ -78,7 +78,7 @@ def stored_window_days(data_dir: Path) -> list[dt.date] | None:
 
 def parse_day(feed_id: str) -> dt.date | None:
     """The date of a YYYY-MM-DD id, or None when it is not a real date."""
-    if _DAY_ID.match(feed_id) is None:
+    if _DAY_ID.fullmatch(feed_id) is None:
         return None
     try:
         return dt.date.fromisoformat(feed_id)

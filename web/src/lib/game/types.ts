@@ -78,7 +78,7 @@ export type MiniScore = {
 export type LineScoreTeam = { team: TeamMarkTeam; periods: number[]; total: number };
 
 export type DetailTeamStatLine = TeamStatLine & {
-	freeThrowPct: number;
+	freeThrowPct: number | null; // 0 to 1; null: the source sent none
 	steals: number;
 	blocks: number;
 };
@@ -114,7 +114,7 @@ export type BoxRow = {
 	steals: string;
 	blocks: string;
 	fouls: string;
-	plusMinus: string; // "+4", "0", "-3"
+	plusMinus: string; // "+4", "0", "-3"; "—" when the feed has none
 	plusMinusPositive: boolean;
 	guest?: boolean; // a player of a guest team: no link
 };
@@ -132,7 +132,11 @@ export type BoxScoreTeam = {
 	bench: BoxRow[];
 	totals: BoxTotals;
 };
-export type BoxScoreSection = { away: BoxScoreTeam; home: BoxScoreTeam };
+export type BoxScoreSection = {
+	away: BoxScoreTeam;
+	home: BoxScoreTeam;
+	plusMinus: boolean; // false: no row has a plus-minus; the column is hidden
+};
 
 export type StarCard = PanelPlayer & { id: string; teamName: string }; // id: the player id; teamName: "Golden State Warriors"
 export type PlayersSection = { away: StarCard | null; home: StarCard | null }; // null: a guest team has no star

@@ -6,6 +6,7 @@
 // - The Play-In tag and its context line, in English and in Spanish
 // - The Playoffs tag and the context line of a round 1 to 3 game, in English and in Spanish
 // - The NBA Finals tag as the finals tag, with the series summary, and the Finals game without a summary
+// - A Playoffs mark with no round, conference or number gives the Playoffs tag and a null context, in English and in Spanish; a Finals mark without a number or summary gives a null context; a round without a number gives the round text only; a number without a round gives the game
 // - Each of the four stakes flags, and none for null stakes
 // - No mark for a null mark and for a feed without the key
 // - Each title with its tone, the order of the feed kept, none for null titles and for a feed without the key
@@ -107,6 +108,45 @@ describe('postseasonMark', () => {
 		expect(postseasonMark({ ...finals, number: 1, summary: null, stakes: null })?.context).toBe(
 			'Game 1'
 		);
+	});
+
+	it('writes the Playoffs tag and no context for a mark with no round, conference or number', () => {
+		const bare: GamePostseason = {
+			...series,
+			round: null,
+			conference: null,
+			number: null,
+			stakes: null
+		};
+		expect(postseasonMark(bare)).toEqual({
+			tag: 'Playoffs',
+			finals: false,
+			context: null,
+			stakes: null
+		});
+		preferLanguages(['es-ES']);
+		expect(postseasonMark(bare)).toEqual({
+			tag: 'Playoffs',
+			finals: false,
+			context: null,
+			stakes: null
+		});
+	});
+
+	it('writes the game alone for a Playoffs mark with a number and no round', () => {
+		const mark: GamePostseason = { ...series, round: null, conference: null, stakes: null };
+		expect(postseasonMark(mark)?.context).toBe('Game 7');
+	});
+
+	it('writes the round alone for a Playoffs mark with a round and no number', () => {
+		const mark: GamePostseason = { ...series, number: null, stakes: null };
+		expect(postseasonMark(mark)?.context).toBe('West finals');
+	});
+
+	it('writes no context for a Finals mark with no number and no summary, and the summary alone with no number', () => {
+		const mark: GamePostseason = { ...finals, number: null, summary: null, stakes: null };
+		expect(postseasonMark(mark)?.context).toBeNull();
+		expect(postseasonMark({ ...mark, summary: 'NYK leads 3-1' })?.context).toBe('NYK leads 3-1');
 	});
 
 	it('writes each stakes flag, and none for null stakes', () => {

@@ -18,13 +18,14 @@
 	const percent = (v: number) =>
 		formatNumber(v, { style: 'percent', minimumFractionDigits: 1, maximumFractionDigits: 1 });
 	const count = (v: number) => formatNumber(v);
+	const NO_VALUE = '—';
 
 	type Row = {
 		key: string;
 		field: keyof DetailTeamStatLine;
 		label: string;
-		a: number;
-		h: number;
+		a: number | null;
+		h: number | null;
 		format: (v: number) => string;
 		lowerIsBetter: boolean;
 	};
@@ -101,12 +102,19 @@
 		];
 	});
 
+	// A stat the source did not send shows a dash, leads no side and draws no bar.
 	const rows = $derived(
-		(leads ? detailRows : baseRows).map((row) => ({
-			...row,
-			lead: leads ? leads[row.field] : leadingSide(row.a, row.h, row.lowerIsBetter),
-			shares: barShares(row.a, row.h)
-		}))
+		(leads ? detailRows : baseRows).map((row) => {
+			const { a, h } = row;
+			const missing = a === null || h === null;
+			return {
+				...row,
+				away: a === null ? NO_VALUE : row.format(a),
+				home: h === null ? NO_VALUE : row.format(h),
+				lead: leads ? leads[row.field] : missing ? null : leadingSide(a, h, row.lowerIsBetter),
+				shares: missing ? { away: 0, home: 0 } : barShares(a, h)
+			};
+		})
 	);
 </script>
 
@@ -114,9 +122,9 @@
 	{#each rows as row (row.key)}
 		<div class="stat">
 			<div class="stat-head">
-				<span class="stat-value away" class:lead={row.lead === 'away'}>{row.format(row.a)}</span>
+				<span class="stat-value away" class:lead={row.lead === 'away'}>{row.away}</span>
 				<span class="stat-label">{row.label}</span>
-				<span class="stat-value home" class:lead={row.lead === 'home'}>{row.format(row.h)}</span>
+				<span class="stat-value home" class:lead={row.lead === 'home'}>{row.home}</span>
 			</div>
 			<div class="bars">
 				<span class="half away">

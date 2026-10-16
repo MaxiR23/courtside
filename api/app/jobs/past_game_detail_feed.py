@@ -168,7 +168,7 @@ class PastGameDetailFeeds:
         )
 
     def check(self, game_id: str) -> IdStatus:
-        if GAME_ID.match(game_id) is None or self._day_of(game_id) is None:
+        if GAME_ID.fullmatch(game_id) is None or self._day_of(game_id) is None:
             return IdStatus.UNKNOWN
         return IdStatus.KNOWN
 

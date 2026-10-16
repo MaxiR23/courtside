@@ -55,6 +55,7 @@ import { teamLabel, teamMark } from '#lib/team/mark.ts';
 const TIME_ZONE = 'America/New_York';
 const SEPARATOR = ' · ';
 const FIRST_OVERTIME = 5; // periods 1 to 4 are quarters
+const NO_VALUE = '—';
 
 type Options = { videoPlatformName?: string };
 
@@ -322,8 +323,11 @@ function boxRow(player: BoxScorePlayer, team: DetailTeam): BoxRow {
 		steals: formatNumber(player.steals),
 		blocks: formatNumber(player.blocks),
 		fouls: formatNumber(player.fouls),
-		plusMinus: formatNumber(player.plusMinus, { signDisplay: 'exceptZero' }),
-		plusMinusPositive: player.plusMinus > 0,
+		plusMinus:
+			player.plusMinus === null
+				? NO_VALUE
+				: formatNumber(player.plusMinus, { signDisplay: 'exceptZero' }),
+		plusMinusPositive: (player.plusMinus ?? 0) > 0,
 		...(team.guest === true ? { guest: true } : {})
 	};
 }
@@ -342,9 +346,9 @@ function boxTotals(totals: BoxScoreTotals): BoxTotals {
 		steals: formatNumber(totals.steals),
 		blocks: formatNumber(totals.blocks),
 		fouls: formatNumber(totals.fouls),
-		fieldGoalPct: percent(totals.fieldGoalPct),
-		threePointPct: percent(totals.threePointPct),
-		freeThrowPct: percent(totals.freeThrowPct)
+		fieldGoalPct: totals.fieldGoalPct === null ? NO_VALUE : percent(totals.fieldGoalPct),
+		threePointPct: totals.threePointPct === null ? NO_VALUE : percent(totals.threePointPct),
+		freeThrowPct: totals.freeThrowPct === null ? NO_VALUE : percent(totals.freeThrowPct)
 	};
 }
 
@@ -359,7 +363,11 @@ function boxTeam(team: DetailTeam, box: BoxScore['away']): BoxScoreTeam {
 
 function boxScoreSection(feed: GameDetailFeed): BoxScoreSection {
 	const box = required(feed.boxScore);
-	return { away: boxTeam(feed.away, box.away), home: boxTeam(feed.home, box.home) };
+	return {
+		away: boxTeam(feed.away, box.away),
+		home: boxTeam(feed.home, box.home),
+		plusMinus: [...box.away.players, ...box.home.players].some((p) => p.plusMinus !== null)
+	};
 }
 
 // A contract date has no time: "2026-10-05" is UTC midnight, so it is formatted in UTC to keep the day.

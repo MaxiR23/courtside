@@ -7,7 +7,7 @@
 # - The builder sets the arena, coach, injuries, next game, Cup and titles to null, and the feed validates as a past team feed
 # - The builder fails for a team with no standing
 # - The kind: a missing and an inactive season team answer unknown after one read, and a second request answers unknown with no read
-# - The kind: 1993-okc, the current season, a future season, abc-okc, 2004-OKC and an unknown team answer unknown with no source request, and an unknown current season is not ready
+# - The kind: 1993-okc, 2004-okc with a trailing newline, the current season, a future season, abc-okc, 2004-OKC and an unknown team answer unknown with no source request, and an unknown current season is not ready
 # - The kind: the season is sent to the season reads, the schedules are read by id first and the leaders have no fallback
 # - The kind: the names are built first and the stored feed carries them; serving sets the latest stored names
 # - The kind: the feed is never rebuilt, also after a simulated restart and years later
@@ -375,7 +375,17 @@ async def test_a_missing_or_inactive_season_team_answers_unknown_after_one_read_
 @pytest.mark.anyio
 @pytest.mark.parametrize(
     "feed_id",
-    ["1993-okc", "2027-okc", "2028-okc", "abc-okc", "2004-OKC", "2004-xyz", "2004", ""],
+    [
+        "1993-okc",
+        "2027-okc",
+        "2028-okc",
+        "abc-okc",
+        "2004-OKC",
+        "2004-xyz",
+        "2004",
+        "",
+        "2004-okc\n",
+    ],
 )
 async def test_an_invalid_early_current_future_or_unknown_id_answers_unknown_with_no_source_request(
     kit: SeasonTeamKit, feed_id: str

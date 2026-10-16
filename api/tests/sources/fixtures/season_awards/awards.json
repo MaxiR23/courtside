@@ -142,7 +142,7 @@
   {
     "$ref": "https://example.com/v2/seasons/2027/awards/108?lang=en",
     "id": "108",
-    "name": "Eastern Conference Finals MVP",
+    "name": "NBA Eastern Conference Finals MVP",
     "description": "A made-up award description.",
     "season": {
       "$ref": "https://example.com/v2/seasons/2027"
@@ -162,7 +162,7 @@
   {
     "$ref": "https://example.com/v2/seasons/2027/awards/109?lang=en",
     "id": "109",
-    "name": "Western Conference Finals MVP",
+    "name": "NBA Western Conference Finals MVP",
     "description": "A made-up award description.",
     "season": {
       "$ref": "https://example.com/v2/seasons/2027"
@@ -467,7 +467,7 @@
   {
     "$ref": "https://example.com/v2/seasons/2027/awards/120?lang=en",
     "id": "120",
-    "name": "Twyman-Stokes Teammate of the Year",
+    "name": "Twyman-Stokes Teammate of the Year Award",
     "description": "A made-up award description.",
     "season": {
       "$ref": "https://example.com/v2/seasons/2027"

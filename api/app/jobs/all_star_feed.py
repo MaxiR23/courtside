@@ -397,6 +397,9 @@ def team_stats(sections: GameDetailSections | None) -> list[dict[str, Any]] | No
     if sections is None or sections.team_stats is None or sections.box_score is None:
         return None
     away, home = sections.team_stats.away, sections.team_stats.home
+    # A missing field goal percentage leaves the block null (ADR 0052).
+    if away.field_goal_pct is None or home.field_goal_pct is None:
+        return None
     values = {
         "field_goal_pct": (away.field_goal_pct, home.field_goal_pct),
         "three_points_made": (

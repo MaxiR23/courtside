@@ -69,7 +69,7 @@ from app.storage.state import StateStore
 
 KIND = "season-teams"
 FIRST_PLAYIN_SEASON = 2021
-_ID = re.compile(r"^([0-9]{4})-([a-z]{3})$")
+_ID = re.compile(r"([0-9]{4})-([a-z]{3})")
 
 FetchSeasonTeam = Callable[
     [SourceClient, str, int, Settings], Awaitable[SeasonTeam | None]
@@ -182,7 +182,7 @@ class SeasonTeamFeeds:
         cache.register(self.kind())
 
     def check(self, feed_id: str) -> IdStatus:
-        match = _ID.match(feed_id)
+        match = _ID.fullmatch(feed_id)
         if match is None or match[2] not in TEAM_IDS:
             return IdStatus.UNKNOWN
         status = past_season_status(match[1], self._stars.current_season())
@@ -193,11 +193,11 @@ class SeasonTeamFeeds:
         return IdStatus.KNOWN
 
     def depends_on(self, feed_id: str) -> tuple[str, str] | None:
-        match = _ID.match(feed_id)
+        match = _ID.fullmatch(feed_id)
         return None if match is None else (team_names.KIND, match[2])
 
     async def build(self, feed_id: str) -> PastTeamFeed:
-        match = _ID.match(feed_id)
+        match = _ID.fullmatch(feed_id)
         if match is None:
             raise TeamBuildError(f"{feed_id} is not a season and a team")
         season, code = int(match[1]), match[2]
@@ -238,7 +238,7 @@ class SeasonTeamFeeds:
         )
 
     def serve_with(self, feed_id: str, feed: PastTeamFeed) -> PastTeamFeed:
-        match = _ID.match(feed_id)
+        match = _ID.fullmatch(feed_id)
         runs = None if match is None else self._names.stored(match[2])
         return feed if runs is None else with_names(feed, runs)
 

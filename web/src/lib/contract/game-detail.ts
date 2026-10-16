@@ -79,12 +79,12 @@ export interface DetailGameTeamStats {
 	leaders: TeamStatLeaders;
 }
 export interface DetailTeamStats {
-	fieldGoalPct: number;
-	threePointPct: number;
+	fieldGoalPct: number | null;
+	threePointPct: number | null;
 	rebounds: number;
 	assists: number;
 	turnovers: number;
-	freeThrowPct: number;
+	freeThrowPct: number | null;
 	steals: number;
 	blocks: number;
 }
@@ -138,7 +138,7 @@ export interface BoxScorePlayer {
 	displayName: string;
 	starter: boolean;
 	minutes: string;
-	plusMinus: number;
+	plusMinus: number | null;
 	photoUrl: string | null;
 }
 export interface BoxScoreTotals {
@@ -157,9 +157,9 @@ export interface BoxScoreTotals {
 	steals: number;
 	blocks: number;
 	fouls: number;
-	fieldGoalPct: number;
-	threePointPct: number;
-	freeThrowPct: number;
+	fieldGoalPct: number | null;
+	threePointPct: number | null;
+	freeThrowPct: number | null;
 }
 export interface WinProbabilityPoint {
 	elapsedSeconds: number;

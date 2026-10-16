@@ -5,9 +5,14 @@
 # note and the series wins. It is the playoffs section's piece of the scoreboard
 # adapter, and removing the section removes it. It also holds the note and round
 # tables the playoffs feed reads, so both read a note the same way. It owns no
-# source URL and never raises: input it cannot complete gives no mark.
+# source URL and never raises.
 #
-# SEE: docs/api/games.md, docs/adr/0035-playoffs-marks-in-core-feeds.md
+# A season type 3 game always has a mark (ADR 0050): the round and number come
+# from the note, else the round from the competition type, and what cannot be
+# read is null. A play-in note that cannot be read still gives no mark.
+#
+# SEE: docs/api/games.md, docs/adr/0035-playoffs-marks-in-core-feeds.md,
+# docs/adr/0050-postseason-mark-of-every-series-game.md
 
 import re
 from collections.abc import Mapping
@@ -39,6 +44,12 @@ _PLAY_IN_NOTE_ANY_CASE = re.compile(PLAY_IN_NOTE.pattern, re.IGNORECASE)
 _PLAY_IN_KINDS_ANY_CASE = {key.casefold(): kind for key, kind in PLAY_IN_KINDS.items()}
 GAME_NUMBER_NOTE = re.compile(r" - Game ([1-7])$", re.IGNORECASE)
 _SERIES_CONFERENCE = re.compile(r"^(East|West) ", re.IGNORECASE)
+# The note shapes of the team feed, read in any case (ADR 0050).
+_ROUND_NOTE = re.compile(
+    r"^(East|West) (1st Round|Semifinals|Finals) - Game [1-7]$", re.IGNORECASE
+)
+_NOTE_ROUNDS = {"1st round": 1, "semifinals": 2, "finals": 3}
+_FINALS_NOTE = re.compile(r"^NBA Finals - Game [1-7]$", re.IGNORECASE)
 
 WINS_TO_CLINCH = 4
 GAME_7 = 7
@@ -90,7 +101,8 @@ def postseason_mark(
     home: str | None,
     score: Score | None,
 ) -> GamePostseason | None:
-    """The mark of a play-in or playoff game, or None when it cannot be read."""
+    """The mark of a play-in or playoff game. A series game always has one; a
+    play-in note that cannot be read gives None."""
     try:
         if season_type == PLAY_IN:
             return _play_in_mark(note)
@@ -119,6 +131,29 @@ def _play_in_mark(note: str | None) -> GamePostseason | None:
     )
 
 
+def _series_round(
+    competition_type: str | None, note: str | None
+) -> tuple[int | None, Conference | None]:
+    """The round and conference of a series game: the note first, else the
+    competition type with the conference from the note's first word."""
+    text = note or ""
+    if _FINALS_NOTE.match(text):
+        return FINALS_ROUND, None
+    in_note = _ROUND_NOTE.match(text)
+    if in_note is not None:
+        return (
+            _NOTE_ROUNDS[in_note.group(2).casefold()],
+            Conference(in_note.group(1).lower()),
+        )
+    round_ = ROUNDS.get(competition_type or "")
+    if round_ is None or round_ == FINALS_ROUND:
+        return round_, None
+    side = _SERIES_CONFERENCE.match(text)
+    if side is None:
+        return None, None
+    return round_, Conference(side.group(1).lower())
+
+
 def _series_mark(
     competition_type: str | None,
     note: str | None,
@@ -128,26 +163,20 @@ def _series_mark(
     away: str | None,
     home: str | None,
     score: Score | None,
-) -> GamePostseason | None:
-    round_ = ROUNDS.get(competition_type or "")
-    number = GAME_NUMBER_NOTE.search(note or "")
-    if round_ is None or number is None:
-        return None
-    conference: Conference | None = None
-    if round_ != FINALS_ROUND:
-        side = _SERIES_CONFERENCE.match(note or "")
-        if side is None:
-            return None
-        conference = Conference(side.group(1).lower())
-    game = int(number.group(1))
+) -> GamePostseason:
+    round_, conference = _series_round(competition_type, note)
+    found = GAME_NUMBER_NOTE.search(note or "")
+    number = int(found.group(1)) if found is not None else None
     return GamePostseason(
         stage=PostseasonStage.FINALS
         if round_ == FINALS_ROUND
         else PostseasonStage.PLAYOFFS,
         round=round_,
         conference=conference,
-        number=game,
+        number=number,
         summary=summary or None,
         play_in=None,
-        stakes=stakes_of(game, wins, away, home, status, score),
+        stakes=None
+        if number is None
+        else stakes_of(number, wins, away, home, status, score),
     )

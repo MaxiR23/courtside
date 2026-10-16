@@ -151,7 +151,7 @@ export interface BoxScorePlayer {
 	displayName: string;
 	starter: boolean;
 	minutes: string;
-	plusMinus: number;
+	plusMinus: number | null;
 	photoUrl: string | null;
 }
 export interface GameLogEntry {

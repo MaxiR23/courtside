@@ -28,8 +28,8 @@ export type Leader = Omit<PanelPlayer, 'teamCode'> & {
 };
 
 export type TeamStatLine = {
-	fieldGoalPct: number; // 0 to 1
-	threePointPct: number; // 0 to 1
+	fieldGoalPct: number | null; // 0 to 1; null: the source sent none
+	threePointPct: number | null; // 0 to 1; null: the source sent none
 	rebounds: number;
 	assists: number;
 	turnovers: number;

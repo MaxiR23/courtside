@@ -256,10 +256,10 @@ function boxRow(player: AllStarBoxPlayer): BoxRowView {
 		blocks: integer(player.blocks),
 		fieldGoals: `${player.fieldGoalsMade}-${player.fieldGoalsAttempted}`,
 		threePoints: `${player.threePointsMade}-${player.threePointsAttempted}`,
-		plusMinus: signed(player.plusMinus),
+		plusMinus: player.plusMinus === null ? NO_VALUE : signed(player.plusMinus),
 		starter: player.starter,
 		topPoints: player.topPoints,
-		negative: player.plusMinus < 0,
+		negative: (player.plusMinus ?? 0) < 0,
 		photo: player.photoUrl,
 		league: league(player.leagueTeam),
 		mobileMeta: [

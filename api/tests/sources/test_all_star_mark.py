@@ -8,6 +8,7 @@
 # - Gives the Championship round with the flag true
 # - Drops the format suffix from a Semifinals note
 # - Gives the label as written and the Championship flag for an upper-case note
+# - Gives the round All-Star Game, with the Championship flag false, for the notes ALL STAR GAME and NBA All-Star Game in any case (ADR 0051), and none for All-Star Game Extra
 # - Gives no mark for a note that is not an All-Star note, an empty note and no note
 #
 # What is covered:
@@ -19,7 +20,7 @@
 
 import pytest
 
-from app.sources.all_star_mark import all_star_mark, is_an_all_star_game
+from app.sources.all_star_mark import all_star_mark, is_an_all_star_game, parse_note
 
 
 def test_tells_an_all_star_game_by_season_type_and_competition_type() -> None:
@@ -78,3 +79,28 @@ def test_marks_an_upper_case_championship() -> None:
     assert mark is not None
     assert mark.round_label == "CHAMPIONSHIP"
     assert mark.championship is True
+
+
+@pytest.mark.parametrize(
+    "note", ["ALL STAR GAME", "NBA All-Star Game", "nba all-star game", "All Star Game"]
+)
+def test_reads_the_single_game_notes_as_the_all_star_game_round(note: str) -> None:
+    assert parse_note(note) == ("All-Star Game", None)
+    mark = all_star_mark(note)
+    assert mark is not None
+    assert mark.round_label == "All-Star Game"
+    assert mark.championship is False
+
+
+def test_reads_the_semifinals_note_with_its_suffix_as_before() -> None:
+    note = "NBA All-Star - Semifinals First team to 40 points wins - Untimed"
+
+    assert parse_note(note) == (
+        "Semifinals",
+        "First team to 40 points wins - Untimed",
+    )
+
+
+def test_gives_no_mark_for_a_single_game_note_with_extra_words() -> None:
+    assert parse_note("All-Star Game Extra") == (None, None)
+    assert all_star_mark("All-Star Game Extra") is None

@@ -256,7 +256,7 @@ export type PlayoffsPageState =
 export type PostseasonMarkView = {
 	tag: string; // "Play-In", "Playoffs", "NBA Finals"
 	finals: boolean; // true: the solid accent tag
-	context: string; // "West finals · Game 7"
+	context: string | null; // "West finals · Game 7"; null: nothing to add to the tag
 	stakes: string | null; // "Can clinch"; null: no stakes
 };
 

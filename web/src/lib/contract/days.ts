@@ -105,8 +105,8 @@ export interface GameTeamStats {
 	home: TeamStats;
 }
 export interface TeamStats {
-	fieldGoalPct: number;
-	threePointPct: number;
+	fieldGoalPct: number | null;
+	threePointPct: number | null;
 	rebounds: number;
 	assists: number;
 	turnovers: number;
