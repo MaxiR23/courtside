@@ -32,20 +32,27 @@ const FLAG: Record<Stakes, () => string> = {
 	clinched: m.playoffs_flag_clinched
 };
 
-function context(mark: GamePostseason): string {
+// The context line of a mark: null when the feed gives nothing to add to the tag (ADR 0050).
+function context(mark: GamePostseason): string | null {
 	const conference = mark.conference ? CONFERENCE_TITLE[mark.conference]() : '';
 	if (mark.stage === 'playin') {
 		const game = mark.playIn ? PLAY_IN_TITLE[mark.playIn]() : '';
 		return m.playoffs_context_playin({ conference, game });
 	}
-	const n = formatNumber(mark.number ?? 0);
+	const n = mark.number === null ? null : formatNumber(mark.number);
 	if (mark.stage === 'finals') {
-		return mark.summary
-			? m.playoffs_context_finals({ n, summary: mark.summary })
-			: m.playoffs_context_game({ n });
+		if (n !== null) {
+			return mark.summary
+				? m.playoffs_context_finals({ n, summary: mark.summary })
+				: m.playoffs_context_game({ n });
+		}
+		return mark.summary || null;
 	}
-	const round = SERIES_ROUND[mark.round ?? 0]?.({ conference }) ?? '';
-	return m.playoffs_context_series({ round, n });
+	const round = mark.round === null ? undefined : SERIES_ROUND[mark.round]?.({ conference });
+	if (round !== undefined) {
+		return n === null ? round : m.playoffs_context_series({ round, n });
+	}
+	return n === null ? null : m.playoffs_context_game({ n });
 }
 
 // A feed recorded before the mark has no key: not a play-in or playoff game.

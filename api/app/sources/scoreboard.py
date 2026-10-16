@@ -7,15 +7,16 @@
 # A team outside the 30 is a guest side with the provider's code when it sends
 # one. A side with neither a code nor a name is not a team: its game is skipped
 # (ADR 0026). A game whose note names a Cup round carries the Cup mark. A play-in
-# or playoff game carries the postseason mark (ADR 0035). The postseason fields are
-# read leniently: an unreadable or inconsistent value only leaves that game's
-# mark null, logged by event id, and never fails the event or its day. An
-# All-Star game (regular season type 2, competition type ALLSTAR) carries the
-# All-Star mark; its sides are guests without a city. A side is a team when it
-# has a code or a name, as for any game, and no All-Star flag is read (ADR
-# 0039). An All-Star event that cannot be
-# mapped (its note, status, sides or required fields) is skipped with a log line
-# by event id: it never fails the day (ADR 0038).
+# or playoff game carries the postseason mark (ADR 0035). A playoff game (season
+# type 3) always carries a playoffs mark: what cannot be read is null inside it
+# (ADR 0050). An unreadable play-in mark is null, logged by event id, and never
+# fails the event or its day. An All-Star game (regular season type 2,
+# competition type ALLSTAR) carries the All-Star mark; its sides are guests
+# without a city. A side is a team when it has a code or a name, as for any
+# game, and no All-Star flag is read (ADR 0039). An All-Star event that cannot
+# be mapped (its note, status, sides or required fields) is skipped with a log
+# line by event id: it never fails the day (ADR 0038). A final All-Star game
+# with a score and no line score is kept with a null line score (ADR 0051).
 #
 # The past-day path, fetch_past_day, reads the same payload as fetch_games but
 # resolves a side by its team id first and skips any event that cannot be mapped,
@@ -52,6 +53,7 @@ from app.feeds.games import (
     NonEmptyStr,
     Score,
     UtcDatetime,
+    required_fields,
 )
 from app.settings import Settings
 from app.sources.all_star_mark import all_star_mark, is_an_all_star_game
@@ -199,7 +201,9 @@ class ScoreboardGame(FeedModel):
 
     @model_validator(mode="after")
     def _require_fields_of_status(self) -> ScoreboardGame:
-        required = REQUIRED_BY_STATUS.get(self.status, ())
+        required = required_fields(
+            REQUIRED_BY_STATUS, self.status, all_star=self.all_star is not None
+        )
         missing = [
             to_camel(name)
             for name in required
@@ -292,24 +296,33 @@ def _postseason(event: _ProviderEvent, game: ScoreboardGame) -> GamePostseason |
         season_type = season.type if season else None
         if season_type not in (PLAY_IN, POSTSEASON):
             return None
-        kind = (
-            None
-            if competition.type is None
-            else _MarkCompetitionType.model_validate(
-                competition.type, from_attributes=True
-            )
-        )
-        series = (
-            None
-            if competition.series is None
-            else _MarkSeries.model_validate(competition.series, from_attributes=True)
-        )
+        # An unreadable competition type only nulls the type (ADR 0050).
+        kind: _MarkCompetitionType | None = None
+        try:
+            if competition.type is not None:
+                kind = _MarkCompetitionType.model_validate(
+                    competition.type, from_attributes=True
+                )
+        except ValidationError, ValueError, TypeError, KeyError:
+            kind = None
+        # An unreadable series only nulls the summary and the stakes (ADR 0050).
+        series: _MarkSeries | None = None
+        wins: dict[str, int] | None = None
+        try:
+            if competition.series is not None:
+                series = _MarkSeries.model_validate(
+                    competition.series, from_attributes=True
+                )
+            wins = _series_wins(series)
+        except ValidationError, ValueError, TypeError, KeyError:
+            series = None
+            wins = None
         mark = postseason_mark(
             season_type=season_type,
             competition_type=kind.abbreviation if kind else None,
             note=_first_note(competition),
             summary=series.summary if series else None,
-            wins=_series_wins(series),
+            wins=wins,
             status=game.status,
             away=game.away.code,
             home=game.home.code,

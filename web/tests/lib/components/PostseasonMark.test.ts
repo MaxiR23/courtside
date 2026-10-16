@@ -5,6 +5,7 @@
 // Tested:
 // - Draws the tag, then the context line, then the stakes flag
 // - Draws no flag when the stakes are null
+// - Draws no context element when the context is null
 // - Passes the finals variant to the tag
 //
 // What is covered:
@@ -46,6 +47,15 @@ describe('PostseasonMark', () => {
 		const { container } = render(PostseasonMark, { props: { mark: { ...mark, stakes: null } } });
 		expect(container.querySelector('.stakes-flag')).toBeNull();
 		expect(container.querySelector('.postseason-mark')?.children.length).toBe(2);
+	});
+
+	it('draws no context element when the context is null', () => {
+		const { container } = render(PostseasonMark, {
+			props: { mark: { ...mark, context: null, stakes: null } }
+		});
+		expect(container.querySelector('.context')).toBeNull();
+		expect(container.querySelector('.tournament-tag')?.textContent).toBe('Playoffs');
+		expect(container.querySelector('.postseason-mark')?.children.length).toBe(1);
 	});
 
 	it('draws the finals tag for a Finals game', () => {

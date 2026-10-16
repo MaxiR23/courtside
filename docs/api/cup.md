@@ -157,8 +157,12 @@ The note of a game maps to its round:
 | `NBA Cup - Quarterfinals` | `quarterfinals` |
 | `NBA Cup - Semifinals`    | `semifinals`    |
 | `NBA Cup Championship`    | `championship`  |
+| `NBA In-Season Tournament - Quarterfinals` | `quarterfinals` |
+| `NBA In-Season Tournament - Semifinals`    | `semifinals`    |
+| `NBA In-Season Tournament Championship`    | `championship`  |
 
-Any other note is not a Cup game. The `cup` mark of the games, game detail and
+The last three are the first edition's notes (2023-24). Notes are read in any
+letter case. Any other note is not a Cup game. The `cup` mark of the games, game detail and
 team feeds uses the same round values.
 
 The two Cup settings must return these payloads:

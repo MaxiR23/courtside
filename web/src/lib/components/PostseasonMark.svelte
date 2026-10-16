@@ -12,7 +12,7 @@
 	piece so each core component renders it behind one condition. -->
 <span class="postseason-mark">
 	<TournamentTag text={mark.tag} finals={mark.finals} />
-	<span class="context">{mark.context}</span>
+	{#if mark.context}<span class="context">{mark.context}</span>{/if}
 	{#if mark.stakes}<StakesFlag text={mark.stakes} />{/if}
 </span>
 

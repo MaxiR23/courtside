@@ -32,7 +32,7 @@ The root is one player.
 | `photoUrl`     | URL / null              | Photo                                                              | null when unknown                        |
 | `injury`       | `PlayerInjury` / null   | Current injury report                                              | null when healthy                        |
 | `profile`      | `Profile`               | Biographical data, each field null when unknown                    | always                                   |
-| `summary`      | `Summary` / null        | Season averages with their league rank                             | null when no data                        |
+| `summary`      | `Summary` / null        | Season averages with their league rank                             | null when no data, and when the bio's stats summary names no season |
 | `nextGame`     | `NextGame` / null       | The team's next game                                               | null shows "Season over."                |
 | `live`         | `PlayerLive` / null     | The live game of the player's team                                 | null when the team has no live game      |
 | `lastGames`    | `GameLogEntry[]`        | Up to five games, newest first, All-Star and preseason excluded    | always, may be empty                     |

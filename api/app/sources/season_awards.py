@@ -40,8 +40,8 @@ AWARDS: dict[str, tuple[AwardCode, int | None]] = {
     "most improved player": (AwardCode.MIP, None),
     "clutch player of the year": (AwardCode.CPOY, None),
     "finals mvp": (AwardCode.FINALS_MVP, None),
-    "eastern conference finals mvp": (AwardCode.EAST_FINALS_MVP, None),
-    "western conference finals mvp": (AwardCode.WEST_FINALS_MVP, None),
+    "nba eastern conference finals mvp": (AwardCode.EAST_FINALS_MVP, None),
+    "nba western conference finals mvp": (AwardCode.WEST_FINALS_MVP, None),
     "all-star mvp": (AwardCode.ALL_STAR_MVP, None),
     "nba cup mvp": (AwardCode.CUP_MVP, None),
     "nba cup all-tournament team": (AwardCode.CUP_ALL_TOURNAMENT, None),
@@ -52,7 +52,7 @@ AWARDS: dict[str, tuple[AwardCode, int | None]] = {
     "all-rookie 2nd team": (AwardCode.ALL_ROOKIE, 2),
     "all-defensive 1st team": (AwardCode.ALL_DEFENSIVE, 1),
     "all-defensive 2nd team": (AwardCode.ALL_DEFENSIVE, 2),
-    "twyman-stokes teammate of the year": (AwardCode.TWYMAN_STOKES, None),
+    "twyman-stokes teammate of the year award": (AwardCode.TWYMAN_STOKES, None),
 }
 
 logger = logging.getLogger(__name__)

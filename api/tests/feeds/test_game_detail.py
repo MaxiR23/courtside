@@ -30,6 +30,8 @@
 # - Accepts a Cup mark of each round and a null or absent Cup mark, and rejects an unknown round
 # - Accepts a postseason mark and reads a stored feed without the key as null
 # - Accepts an All-Star mark and reads a stored feed without the key as null
+# - Accepts a null freeThrowPct in the team stats, null percentages in the box score totals and a null plusMinus (ADR 0052)
+# - Accepts a final All-Star detail without a lineScore (ADR 0051) and rejects a final league detail without it
 # - Accepts a guest side with a null city and rejects a league side with a null city
 # - The season label is null by default, accepted as YYYY-YY and rejected otherwise
 # - A past game detail: final, a season label, null records, stars, injuries, last games and standings; the other rules still apply; its schema equals the game detail schema apart from its title
@@ -1140,3 +1142,55 @@ def test_the_past_game_detail_schema_equals_the_game_detail_schema_apart_from_it
     del past["title"]
     del committed["title"]
     assert past == committed
+
+
+def test_accepts_a_null_free_throw_pct_in_the_team_stats() -> None:
+    game = valid_game("final")
+    game["teamStats"]["away"]["freeThrowPct"] = None
+
+    feed = GameDetailFeed.model_validate(game)
+
+    assert feed.team_stats is not None
+    assert feed.team_stats.away.free_throw_pct is None
+
+
+def test_accepts_null_percentages_in_the_box_score_totals_and_a_null_plus_minus() -> (
+    None
+):
+    game = full_game()
+    for key in ("fieldGoalPct", "threePointPct", "freeThrowPct"):
+        game["boxScore"]["away"]["totals"][key] = None
+    game["boxScore"]["home"]["players"][0]["plusMinus"] = None
+
+    feed = GameDetailFeed.model_validate(game)
+
+    assert feed.box_score is not None
+    totals = feed.box_score.away.totals
+    assert (totals.field_goal_pct, totals.three_point_pct, totals.free_throw_pct) == (
+        None,
+        None,
+        None,
+    )
+    assert feed.box_score.home.players[0].plus_minus is None
+
+
+def test_accepts_a_final_all_star_game_without_a_line_score() -> None:
+    game = valid_game(
+        "final", allStar={"roundLabel": "All-Star Game", "championship": False}
+    )
+    del game["lineScore"]
+
+    feed = GameDetailFeed.model_validate(game)
+
+    assert feed.line_score is None
+
+
+def test_rejects_a_final_all_star_game_without_a_score() -> None:
+    game = valid_game(
+        "final", allStar={"roundLabel": "All-Star Game", "championship": False}
+    )
+    del game["lineScore"]
+    del game["score"]
+
+    with pytest.raises(ValidationError, match="score"):
+        GameDetailFeed.model_validate(game)

@@ -218,11 +218,11 @@ the repository. The shape each must return:
   fails the read like an invalid index. The names
   read, compared ignoring case: `MVP`, `Defensive Player of the Year`, `Rookie of
   the Year`, `Sixth Man of the Year`, `Most Improved Player`, `Clutch Player of the
-  Year`, `Finals MVP`, `Eastern Conference Finals MVP`, `Western Conference Finals
-  MVP`, `All-Star MVP`, `NBA Cup MVP`, `NBA Cup All-Tournament Team`, `All-NBA 1st
+  Year`, `Finals MVP`, `NBA Eastern Conference Finals MVP`, `NBA Western Conference
+  Finals MVP`, `All-Star MVP`, `NBA Cup MVP`, `NBA Cup All-Tournament Team`, `All-NBA 1st
   Team`, `All-NBA 2nd Team`, `All-NBA 3rd Team`, `All-Rookie 1st Team`, `All-Rookie
   2nd Team`, `All-Defensive 1st Team`, `All-Defensive 2nd Team` and
-  `Twyman-Stokes Teammate of the Year`. An award with no winners (the coach and the
+  `Twyman-Stokes Teammate of the Year Award`. An award with no winners (the coach and the
   executive of the year) is skipped; an unknown name with winners is skipped and
   logged by name.
 

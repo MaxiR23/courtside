@@ -251,7 +251,14 @@
           "type": "string"
         },
         "plusMinus": {
-          "type": "integer"
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "photoUrl": {
           "anyOf": [

@@ -73,7 +73,7 @@ from app.sources.teams import TEAM_CODES, TEAM_IDS
 from app.storage.state import StateStore
 
 KIND = "season-players"
-_ID = re.compile(r"^([0-9]{4})-([A-Za-z0-9]+)$")
+_ID = re.compile(r"([0-9]{4})-([A-Za-z0-9]+)")
 
 FetchSeasonGameLog = Callable[..., Awaitable[PlayerGameLog]]
 FetchSeasonTeam = Callable[
@@ -258,7 +258,7 @@ class SeasonPlayerFeeds:
         cache.register(self.kind())
 
     def check(self, feed_id: str) -> IdStatus:
-        match = _ID.match(feed_id)
+        match = _ID.fullmatch(feed_id)
         if match is None:
             return IdStatus.UNKNOWN
         status = past_season_status(match[1], self._stars.current_season())
@@ -283,7 +283,7 @@ class SeasonPlayerFeeds:
         return Team(code=code, name=found.name, city=found.location)
 
     async def build(self, feed_id: str) -> PastPlayerFeed:
-        match = _ID.match(feed_id)
+        match = _ID.fullmatch(feed_id)
         if match is None:
             raise PlayerBuildError(f"{feed_id} is not a season and a player")
         season, player_id = int(match[1]), match[2]

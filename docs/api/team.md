@@ -105,6 +105,8 @@ The root is one team.
   `isNext`.
 - When `schedule` is not null, the `isNext` game and `nextGame` agree: both
   absent, or the same `gameId`.
+- A game whose note starts with `NBA Cup` or `NBA In-Season Tournament` (the
+  first edition's prefix) has the `cup` kind and tag.
 - A `GameTag` whose note format is not recognized keeps its `kind` with
   null `conference`, `round` and `game`. The builder applies this rule.
 

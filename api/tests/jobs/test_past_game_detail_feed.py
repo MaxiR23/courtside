@@ -4,6 +4,7 @@
 #
 # Tested:
 # - The builder takes the id, status, time, score, winner, marks, sides and search link from the stored day game, and the venue, box score, team stats and win probability from the sections
+# - The builder builds a past All-Star final without a line score (ADR 0051) and a game whose sections carry null percentages (ADR 0052)
 # - The builder sets the season label from the sections' season end year
 # - The builder leaves injuries, last games, standings, stars, the season series, highlights and both records null; the stored highlight is added when served (ADR 0048)
 # - The builder leaves the box score, team stats and win probability null when the sections lack them
@@ -19,7 +20,7 @@
 # - The kind: the stored highlight is added when served as a list of one, null without one and on an All-Star game, and is not stored
 # - The kind: the cleanup keeps every past game detail
 # - The kind: the games job, its day change and its cleanup never refresh or delete a past game detail
-# - The kind: an upper-case postseason note gives the title-case mark and a finals note gives none
+# - The kind: an upper-case postseason note gives the title-case mark and a finals note gives a finals mark without a number
 #
 # What is covered:
 # - Pure conversions: happy path, edges and errors; the built feed validates
@@ -149,6 +150,41 @@ def test_builds_a_final_past_game_with_the_day_games_score_marks_sides_and_searc
     assert feed.win_probability_periods is not None
 
 
+def test_builds_a_past_all_star_final_without_a_line_score() -> None:
+    mark = GameAllStar(round_label="All-Star Game", championship=False)
+    day_game = past_game(all_star=mark, line_score=None)
+
+    feed = build_past_game_detail_feed(day_game, full_sections())
+
+    assert feed.line_score is None
+    assert feed.score == day_game.score
+    assert feed.all_star == mark
+    assert PastGameDetailFeed.model_validate_json(feed.model_dump_json()) == feed
+
+
+def test_builds_a_game_whose_sections_have_null_percentages() -> None:
+    missing = {**stats(), "fieldGoalPct": None, "freeThrowPct": None}
+    box = box_team()
+    box["totals"]["fieldGoalPct"] = None
+    box["players"][0]["plusMinus"] = None
+    found = sections(
+        team_stats={
+            **pair(missing, stats()),
+            "leaders": {**leaders(), "fieldGoalPct": None},
+        },
+        box_score=pair(box, box_team()),
+    )
+
+    feed = build_past_game_detail_feed(past_game(), found)
+
+    assert feed.team_stats is not None and feed.box_score is not None
+    assert feed.team_stats.away.field_goal_pct is None
+    assert feed.team_stats.away.free_throw_pct is None
+    assert feed.box_score.away.totals.field_goal_pct is None
+    assert feed.box_score.away.players[0].plus_minus is None
+    assert PastGameDetailFeed.model_validate_json(feed.model_dump_json()) == feed
+
+
 def test_sets_the_season_label_from_the_sections_season() -> None:
     feed = build_past_game_detail_feed(past_game(), sections(season=2005))
 
@@ -267,7 +303,7 @@ async def test_a_final_game_of_a_stored_day_is_known_and_any_other_id_is_unknown
     await kit.store_day(game("1", GameStatus.FINAL), game("2", GameStatus.POSTPONED))
 
     assert kit.past_kind.check("1") is IdStatus.KNOWN
-    for unknown in ("2", "nowhere", "a.b"):
+    for unknown in ("2", "nowhere", "a.b", "1\n"):
         assert kit.past_kind.check(unknown) is IdStatus.UNKNOWN
         with pytest.raises(UnknownFeedError):
             await kit.cache.serve(KIND, unknown)
@@ -413,7 +449,7 @@ async def test_the_games_job_never_refreshes_or_deletes_a_past_game_detail(
 
 
 @pytest.mark.anyio
-async def test_an_upper_case_postseason_note_gives_the_title_case_mark_and_a_finals_note_gives_none(
+async def test_an_upper_case_postseason_note_gives_the_title_case_mark_and_a_finals_note_gives_a_finals_mark_without_a_number(
     kit: PastKit,
 ) -> None:
     day = dt.date(1999, 2, 4)
@@ -434,7 +470,10 @@ async def test_an_upper_case_postseason_note_gives_the_title_case_mark_and_a_fin
     assert marked.postseason == by_id["7005"].postseason
     assert marked.postseason.stage is PostseasonStage.PLAYOFFS
     assert (marked.postseason.round, marked.postseason.number) == (1, 1)
-    assert finals.postseason is None and by_id["7006"].postseason is None
+    assert finals.postseason is not None
+    assert finals.postseason == by_id["7006"].postseason
+    assert finals.postseason.stage is PostseasonStage.FINALS
+    assert (finals.postseason.round, finals.postseason.number) == (4, None)
     assert kit.section_calls == ["7005", "7006"]
 
 

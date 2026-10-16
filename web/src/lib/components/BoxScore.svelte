@@ -23,7 +23,7 @@
 	type Column = { key: StatKey; label: () => string; muted?: boolean; shooting?: boolean };
 
 	// MIN and PTS, the shooting columns, then the counting stats and +/-.
-	const columns: Column[] = [
+	const COLUMNS: Column[] = [
 		{ key: 'minutes', label: m.box_minutes, muted: true },
 		{ key: 'points', label: m.box_points },
 		{ key: 'fieldGoals', label: m.box_field_goals, shooting: true },
@@ -39,6 +39,9 @@
 		{ key: 'fouls', label: m.box_fouls },
 		{ key: 'plusMinus', label: m.box_plus_minus }
 	];
+
+	// A game whose rows have no plus-minus hides the column.
+	const columns = $derived(box.plusMinus ? COLUMNS : COLUMNS.filter((c) => c.key !== 'plusMinus'));
 
 	const groups = $derived(
 		[
@@ -74,7 +77,7 @@
 	</div>
 
 	<div class="scroll">
-		<div class="table" role="table">
+		<div class="table" class:no-plus-minus={!box.plusMinus} role="table">
 			<div class="row head" role="row">
 				<span class="cell player" role="columnheader"
 					><span class="hidden">{m.box_player()}</span></span
@@ -175,6 +178,13 @@
 			repeat(9, minmax(var(--box-column-min), 1fr));
 		align-items: baseline;
 		border-bottom: var(--hairline) solid var(--color-row-rule);
+	}
+
+	.no-plus-minus .row {
+		grid-template-columns:
+			minmax(var(--box-player-column-min), 2fr) minmax(var(--box-column-min), 1fr)
+			minmax(var(--box-column-min), 1fr) repeat(3, minmax(var(--box-shooting-column-min), 1fr))
+			repeat(8, minmax(var(--box-column-min), 1fr));
 	}
 
 	.cell {

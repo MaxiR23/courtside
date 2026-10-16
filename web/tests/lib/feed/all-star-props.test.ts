@@ -13,7 +13,8 @@
 // - Statuses: Final, Final · OT, live with the status text and clock as sent, "—", and the tip-off
 // - The selected game's detail: placeholders (final, live, scheduled), the venue strip with "—", Top 5 in
 //   feed order, the scheduled card, leaders and team statistics
-// - The box score: topPoints from the feed (a tie marks both, none marks none), negative plus-minus, a
+// - The box score: topPoints from the feed (a tie marks both, none marks none), negative plus-minus, a null
+//   plus-minus as "—" that is not negative, a
 //   player with no league team or photo, mobileMeta with "—"
 // - Teams: placements, eliminated round, result rows from the feed with W, L and OT, a team-less Championship
 // - The MVP, the scoreline with the winner first, and 2, 3 and 4 team days
@@ -555,6 +556,14 @@ describe('the box score', () => {
 		const rows = current(after()).boxes.g1!.away.rows;
 		expect(rows.map((r) => r.negative)).toEqual([false, true]);
 		expect(rows[1].plusMinus).toBe('-3');
+	});
+
+	it('shows a dash for a null plus-minus and does not mute it', () => {
+		const feed = after();
+		game(feed, 'g1').boxScore!.away.players[1].plusMinus = null;
+		const rows = current(feed).boxes.g1!.away.rows;
+		expect(rows[1].plusMinus).toBe('—');
+		expect(rows[1].negative).toBe(false);
 	});
 
 	it('has no league monogram for a player with no league team, and "—" for missing parts', () => {

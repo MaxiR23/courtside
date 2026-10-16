@@ -10,6 +10,7 @@
 // - The bars grow when the panel opens
 // - The labels in Spanish with a Spanish browser preference
 // - Detail mode: eight stats in order, the leading side from the feed, Spanish labels
+// - A null percentage shows a dash, leads no side and draws empty bars, on the home card and on the detail page with feed leads
 //
 // What is covered:
 // - Each leading case, the tie, the open motion and Spanish
@@ -121,6 +122,23 @@ describe('TeamStats', () => {
 		expect(container.querySelector('.stat-value')?.textContent).toMatch(/^47,8\s%$/);
 	});
 
+	it('shows a dash with no lead and empty bars for a null percentage on the home card', () => {
+		const { container } = render(TeamStats, {
+			props: { away: { ...away, fieldGoalPct: null }, home, open: true }
+		});
+		const [fg, tp] = stats(container);
+		expect([...fg.querySelectorAll('.stat-head > span')].map((e) => e.textContent)).toEqual([
+			'—',
+			'FG%',
+			'45.2%'
+		]);
+		expect(leads(fg)).toEqual({ away: false, home: false, awayBar: false, homeBar: false });
+		for (const bar of fg.querySelectorAll<HTMLElement>('.bar')) {
+			expect(bar.style.getPropertyValue('--share')).toBe('0');
+		}
+		expect(leads(tp).home).toBe(true);
+	});
+
 	describe('detail mode', () => {
 		const detailAway: DetailTeamStatLine = {
 			...away,
@@ -199,6 +217,27 @@ describe('TeamStats', () => {
 				'Robos',
 				'Tapones'
 			]);
+		});
+
+		it('shows a dash for a null percentage, with the feed lead and empty bars', () => {
+			const { container } = render(TeamStats, {
+				props: {
+					away: { ...detailAway, freeThrowPct: null },
+					home: detailHome,
+					open: true,
+					leads: noLeads
+				}
+			});
+			const ft = stats(container)[2];
+			expect([...ft.querySelectorAll('.stat-head > span')].map((e) => e.textContent)).toEqual([
+				'—',
+				'FT%',
+				'75.0%'
+			]);
+			expect(leads(ft)).toEqual({ away: false, home: false, awayBar: false, homeBar: false });
+			for (const bar of ft.querySelectorAll<HTMLElement>('.bar')) {
+				expect(bar.style.getPropertyValue('--share')).toBe('0');
+			}
 		});
 	});
 });

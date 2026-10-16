@@ -103,6 +103,7 @@ PLAYOFFS_KEY = "playoffs"
 ROUNDS = {"1st Round": 1, "Semifinals": 2, "Finals": 3}
 CONFERENCES = {"East": Conference.EAST, "West": Conference.WEST}
 LEADER_CATEGORIES = ("points", "rebounds", "assists")
+CUP_NOTE_PREFIXES = ("NBA Cup", "NBA In-Season Tournament")
 
 _ROUND_NOTE = re.compile(r"^(East|West) (1st Round|Semifinals|Finals) - Game (\d+)$")
 _FINALS_NOTE = re.compile(r"^NBA Finals - Game (\d+)$")
@@ -209,7 +210,7 @@ def game_kind_and_tag(
                 kind=TagKind.PLAYOFFS, round=4, game=int(finals[1])
             )
         return GameKind.PLAYOFFS, GameTag(kind=TagKind.PLAYOFFS)
-    if note is not None and note.startswith("NBA Cup"):
+    if note is not None and note.startswith(CUP_NOTE_PREFIXES):
         return GameKind.CUP, GameTag(kind=TagKind.CUP)
     if note is not None and note.startswith("NBA All-Star"):
         return GameKind.ALLSTAR, GameTag(kind=TagKind.ALLSTAR)

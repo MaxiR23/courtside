@@ -1,6 +1,6 @@
 # 0035. Playoffs marks in core feeds
 
-- Status: Accepted
+- Status: Superseded by 0050 for the reading of a series game's mark only
 - Date: 2026-10-14
 
 ## Context

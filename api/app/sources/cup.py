@@ -54,6 +54,10 @@ CUP_NOTES: dict[str, CupRound] = {
     "NBA Cup - Quarterfinals": CupRound.QUARTERFINALS,
     "NBA Cup - Semifinals": CupRound.SEMIFINALS,
     "NBA Cup Championship": CupRound.CHAMPIONSHIP,
+    # The first edition (2023-24) was the In-Season Tournament.
+    "NBA In-Season Tournament - Quarterfinals": CupRound.QUARTERFINALS,
+    "NBA In-Season Tournament - Semifinals": CupRound.SEMIFINALS,
+    "NBA In-Season Tournament Championship": CupRound.CHAMPIONSHIP,
 }
 CLINCH_TAGS: dict[str, CupTag] = {
     "y": CupTag.WON_GROUP,

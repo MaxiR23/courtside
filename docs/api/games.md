@@ -45,7 +45,7 @@ Conventions:
 | `broadcast`           | string / null          | Broadcaster                                                      | null when unknown               |
 | `period`              | integer / null         | Current period, 5 and up are overtimes                           | required when `live`            |
 | `clock`               | string / null          | Game clock                                                       | required when `live`            |
-| `lineScore`           | `LineScore` / null     | Points per period for each team                                  | required when `live` or `final` |
+| `lineScore`           | `LineScore` / null     | Points per period for each team                                  | required when `live` or `final`, except a `final` All-Star game, which may have none ([ADR 0051](../adr/0051-all-star-notes-and-untimed-games.md)) |
 | `score`               | `Score` / null         | Current or final points                                          | required when `live` or `final` |
 | `winner`              | `away` / `home` / null | The side with more points; a side, not a code, so a guest without a code can win | required when `final`, null otherwise |
 | `leaders`             | `Leaders` / null       | Top scorer of each team                                          | required when `live`; when `final`, set when `statsAvailability` is `available`, null otherwise |
@@ -53,11 +53,11 @@ Conventions:
 | `statsAvailability`   | `StatsAvailability` / null | `available`, `pending`, `unavailable`                        | required when `final`, null otherwise |
 | `highlightsSearchUrl` | URL / null             | Link to search for highlights                                    | required when `final`           |
 | `cup`                 | `GameCup` / null       | The Cup mark: the round the game belongs to                      | null when the game is not a Cup game |
-| `postseason`          | `GamePostseason` / null | The play-in or playoff mark                                     | null for a game that is neither a play-in nor a playoff game, and when the mark cannot be read |
+| `postseason`          | `GamePostseason` / null | The play-in or playoff mark                                     | null for a game that is neither a play-in nor a playoff game, and for a play-in game whose note cannot be read; a playoff game always has a mark ([ADR 0050](../adr/0050-postseason-mark-of-every-series-game.md)) |
 | `allStar`             | `GameAllStar` / null   | The All-Star mark                                                | null for a game that is not an All-Star game |
 
 A `live` game requires `period`, `clock`, `lineScore`, `score`, `leaders`
-and `teamStats`. A `final` game requires `lineScore`, `score`, `winner`, `statsAvailability`
+and `teamStats`. A `final` game requires `lineScore` (not a final All-Star game, which has a score and may have no line score), `score`, `winner`, `statsAvailability`
 and `highlightsSearchUrl`; any other status has `winner` and
 `statsAvailability` null. A final game has `leaders` and `teamStats` only when
 `statsAvailability` is `available`. The other statuses add nothing.
@@ -67,15 +67,15 @@ and `highlightsSearchUrl`; any other status has `winner` and
 | Object      | Fields                                                                                                      |
 | ----------- | ----------------------------------------------------------------------------------------------------------- |
 | `GameCup`   | `stage` (`group`, `quarterfinals`, `semifinals`, `championship`), taken from the game's note |
-| `GamePostseason` | `stage` (`playin`, `playoffs`, `finals`); `round` (1 to 4: 1 to 3 are `playoffs`, 4 is `finals`; null for `playin`); `conference` (`east`, `west`; null exactly for `finals`); `number` (game number 1 to 7; null exactly for `playin`); `summary` (the series summary; null when the source has none, always null for `playin`); `playIn` (`seven_eight`, `nine_ten`, `eighth_seed`; set exactly for `playin`); `stakes` (`game_7`, `elimination`, `can_clinch`, `clinched`; null for none) |
-| `GameAllStar` | `roundLabel` (the round as the source writes it: "Round Robin", "Semifinals", "Championship"; the format suffix is not part of it); `championship` (true for the round `Championship`) |
+| `GamePostseason` | `stage` (`playin`, `playoffs`, `finals`); `round` (1 to 4: 1 to 3 are `playoffs`, 4 is `finals`; null for `playin` and for a `playoffs` game whose round cannot be read); `conference` (`east`, `west`; null for `finals`, for `playin` it is set, and for a `playoffs` game it is null exactly when `round` is); `number` (game number 1 to 7; null for `playin` and when the note gives none); `summary` (the series summary; null when the source has none, always null for `playin`); `playIn` (`seven_eight`, `nine_ten`, `eighth_seed`; set exactly for `playin`); `stakes` (`game_7`, `elimination`, `can_clinch`, `clinched`; null for none) |
+| `GameAllStar` | `roundLabel` (the round as the source writes it: "Round Robin", "Semifinals", "Championship"; the format suffix is not part of it; "All-Star Game" for the notes "ALL STAR GAME" and "NBA All-Star Game"); `championship` (true for the round `Championship`) |
 | `Team`      | `code` (three capital letters), `name`, `city`                                                              |
 | `Opponent`  | `code` (null for a guest without one), `name`, `city` (null when the source sends none), `guest`; a league code is three capital letters, a guest code any non-empty string, and a guest has a code or a name |
 | `GameTeam`  | `Opponent` with a required `name`; `city` required for a league team, null for a guest the source sends without one and for an All-Star team |
 | `Player`    | `playerId`, `firstName`, `lastName`, `teamCode`, `photoUrl`                                                 |
 | `Leader`    | `playerId`, `displayName` (as the source gives it), `teamCode` (null for a guest without a code), `photoUrl`, `points`, `rebounds`, `assists`; `photoUrl` is null only for a guest player without a headshot |
 | `Star`      | `Player` fields plus `shortName`                                                                            |
-| `TeamStats` | `fieldGoalPct`, `threePointPct` (0 to 1), `rebounds`, `assists`, `turnovers`                                |
+| `TeamStats` | `fieldGoalPct`, `threePointPct` (0 to 1; null when the source sends none), `rebounds`, `assists`, `turnovers` |
 | `Highlight` | `title`, `channel`, `thumbnailUrl`, `embedUrl`                                                              |
 | `LineScore` | `away`, `home`: points per period, at least one, overtimes appended                                         |
 | `Score`     | `away`, `home`: points                                                                                      |
@@ -84,31 +84,42 @@ and `highlightsSearchUrl`; any other status has `winner` and
 
 Rules that live in the code:
 
-- The `postseason` mark ([ADR 0035](../adr/0035-playoffs-marks-in-core-feeds.md))
+- The `postseason` mark ([ADR 0035](../adr/0035-playoffs-marks-in-core-feeds.md),
+  [ADR 0050](../adr/0050-postseason-mark-of-every-series-game.md))
   is read from the scoreboard. The stage comes from the season type (5 is
-  `playin`, 3 is a series game, any other value no mark), the round from the
-  competition type (the 4 round codes, 1 to 4), the play-in conference and kind
-  from the play-in note, the game number from the note's ` - Game N` ending, the
-  conference of rounds 1 to 3 from the note's first word, and the summary and wins
-  from the series object. The stakes are those the game had at tip-off, from the
+  `playin`, 3 is a series game, any other value no mark). A series game always
+  has a mark and what cannot be read is null inside it. The round and
+  conference come first from the note, in any letter case: `NBA Finals - Game N`
+  is round 4 and `<East|West> <1st Round|Semifinals|Finals> - Game N` is rounds 1
+  to 3. Otherwise the round comes from the competition type (the 4 round codes,
+  1 to 4) and the conference of rounds 1 to 3 from the note's first word; a round
+  1 to 3 without a conference is no round. A mark with no round is stage
+  `playoffs` with a null `round` and `conference`. The play-in conference and
+  kind come from the play-in note, the game number from the note's ` - Game N`
+  ending (null when absent), and the summary and wins from the series object. The
+  stakes are those the game had at tip-off, from the
   series wins entering it (for a final game the winner's win in the series object
-  is subtracted). The first rule that matches applies: `game_7` for game number 7;
+  is subtracted); they are null without a game number. The first rule that
+  matches applies: `game_7` for game number 7;
   `clinched` for a final game whose winner has 4 wins; `can_clinch` when one side
   has 3 entering wins and the other fewer; `elimination` when a side has 3
   entering wins on a game that is not the seventh; otherwise null. In the play-in,
   `nine_ten` and `eighth_seed` are `elimination` and `seven_eight` has none.
-  The mark never fails the feed: an unreadable or inconsistent postseason value
-  (a malformed series, an unknown competitor id, a missing note or an unknown
-  competition type) makes the mark null, logged by event id only.
+  The mark never fails the feed: an unreadable series object or an unknown
+  competitor id only nulls the summary and the stakes, and a play-in note that
+  cannot be read makes the mark null, logged by event id only.
 - An All-Star game ([ADR 0038](../adr/0038-all-star-marks-in-core-feeds.md)) is
   a regular season game (type 2) whose competition type is `ALLSTAR`. Its sides
   are guests with a null city, read by code or name like any side
   ([ADR 0039](../adr/0039-all-star-sides-by-code-or-name.md)): a game with a
   side that has neither is skipped. The `allStar` mark is read from the note
-  `NBA All-Star - <round>` with an optional format suffix; `championship` is true
-  for the round `Championship`. An All-Star event that cannot be mapped (an
+  `NBA All-Star - <round>` with an optional format suffix, or is the whole note
+  "ALL STAR GAME" or "NBA All-Star Game" in any case, which is the round
+  "All-Star Game" ([ADR 0051](../adr/0051-all-star-notes-and-untimed-games.md));
+  `championship` is true for the round `Championship`. A final All-Star game with
+  a score and no line score is kept with a null `lineScore`. An All-Star event that cannot be mapped (an
   unreadable note, an unknown status, a side code the league owns, or a required
-  field missing for its status, such as a final without line score or a live game
+  field missing for its status, such as a final without a score or a live game
   without clock) is skipped with a log line by event id, and so is an All-Star
   game whose live detail cannot be fetched or that fails the game rules. Neither
   fails the day or the feed. Any other game that fails still fails the day, as
@@ -125,8 +136,9 @@ Rules that live in the code:
   the tied player with the most rebounds plus assists, and a tie on both
   to the first of them in the provider's order
   ([ADR 0009](../adr/0009-game-leader-selection.md)).
-- `TeamStats.turnovers` counts the players' turnovers. Turnovers charged to
-  the team are not included.
+- `TeamStats.turnovers` is the team's `totalTurnovers` when the source sends it,
+  which includes turnovers charged to the team, else its `turnovers`
+  ([ADR 0052](../adr/0052-box-score-reading.md)).
 - Stars: the order is the current season's leaders, then the current
   roster players' individual averages for the current season, then the
   previous season's leaders, then the individual averages for the previous

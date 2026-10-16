@@ -3,13 +3,16 @@
 # Tests for the postseason mark of a scoreboard game.
 #
 # Tested:
-# - Gives the same mark for an upper-case note as for its title case, in the play-in and series paths, and none for an empty note or FINALS
+# - Gives the same mark for an upper-case note as for its title case, in the play-in and series paths
 # - Marks a seventh game as game_7 in any status, a final game that gives a side four wins as clinched, and a game entering with three wins against fewer as can_clinch
 # - Keeps the entering stake on a final game the leader lost or that tied the series, and marks three wins each on a game that is not the seventh as elimination
 # - Marks the nine-ten and eighth-seed play-in games as elimination and the seven-eight game with no stakes
 # - Gives no stakes without three entering wins, without a series object, without both sides in its wins or when the final winner has no win
 # - Maps a play-in note, a round 1 to 3 game and a Finals game to their stage, round, conference, number and summary
-# - Gives no mark to a regular season game, an unknown competition type, a note without a game number or a conference, or an unknown play-in note
+# - Gives no mark to a regular season game or an unknown play-in note
+# - A season type 3 game always has a mark (ADR 0050): a FINALS note gives a Finals mark without a number, an empty note with no known competition type gives a playoffs mark without round, conference or number, and a note without a game number or a conference leaves only that value null
+# - Reads the round from the note first, in any case, and from the competition type otherwise; NBA Finals - Game 6 is Finals round 4 game 6
+# - Gives no stakes without a game number
 #
 # What is covered:
 # - Happy path, edge cases and error cases of the pure mark function
@@ -224,20 +227,37 @@ def test_gives_no_mark_to_a_regular_season_game() -> None:
     assert series_mark(1, None, season_type=None) is None
 
 
-@pytest.mark.parametrize(
-    "overrides",
-    [
-        {"competition_type": "XYZ"},
-        {"competition_type": None},
-        {"note": "East Semifinals"},
-        {"note": None},
-        {"note": "Semifinals - Game 2"},
-    ],
-)
-def test_gives_no_mark_for_an_unknown_competition_type_a_note_without_a_game_number_or_a_series_note_without_a_conference(
-    overrides: dict[str, Any],
-) -> None:
-    assert series_mark(2, {AWAY: 1, HOME: 1}, **overrides) is None
+def test_gives_a_mark_with_null_values_for_an_unknown_competition_type_whose_note_names_the_round() -> (
+    None
+):
+    for overrides in ({"competition_type": "XYZ"}, {"competition_type": None}):
+        mark = series_mark(2, {AWAY: 1, HOME: 1}, **overrides)
+
+        assert mark is not None
+        assert mark.stage is PostseasonStage.PLAYOFFS
+        assert (mark.round, mark.conference, mark.number) == (2, Conference.EAST, 2)
+
+
+def test_gives_a_mark_without_a_number_or_stakes_for_a_note_without_a_game_number() -> (
+    None
+):
+    mark = series_mark(2, {AWAY: 3, HOME: 3}, note="East Semifinals")
+
+    assert mark is not None
+    assert (mark.round, mark.conference, mark.number) == (2, Conference.EAST, None)
+    assert mark.stakes is None
+
+
+def test_gives_a_mark_without_a_round_for_a_competition_type_with_no_conference_in_the_note() -> (
+    None
+):
+    for note in (None, "Semifinals - Game 2"):
+        mark = series_mark(2, {AWAY: 1, HOME: 1}, note=note)
+
+        assert mark is not None
+        assert mark.stage is PostseasonStage.PLAYOFFS
+        assert (mark.round, mark.conference) == (None, None)
+        assert mark.number == (2 if note else None)
 
 
 def test_gives_no_mark_for_an_unknown_play_in_note() -> None:
@@ -264,6 +284,50 @@ def test_an_upper_case_series_note_gives_the_mark_of_its_title_case() -> None:
     assert upper.number == 3
 
 
+def test_an_empty_note_with_no_known_competition_type_gives_a_playoffs_mark_without_round() -> (
+    None
+):
+    for note in ("", None):
+        mark = series_mark(1, None, note=note, competition_type=None)
+
+        assert mark is not None
+        assert mark.stage is PostseasonStage.PLAYOFFS
+        assert (mark.round, mark.conference, mark.number) == (None, None, None)
+        assert mark.stakes is None
+
+
 @pytest.mark.parametrize("note", ["", "FINALS", None])
-def test_an_empty_note_or_finals_gives_no_series_mark(note: str | None) -> None:
-    assert series_mark(1, None, note=note) is None
+def test_a_finals_competition_type_with_an_empty_or_finals_note_gives_finals_without_a_number(
+    note: str | None,
+) -> None:
+    mark = series_mark(1, None, note=note, competition_type="FINAL")
+
+    assert mark is not None
+    assert mark.stage is PostseasonStage.FINALS
+    assert (mark.round, mark.conference, mark.number) == (4, None, None)
+    assert mark.stakes is None
+
+
+def test_an_upper_case_finals_note_gives_finals_round_4_and_its_number() -> None:
+    for note in ("NBA FINALS - GAME 6", "NBA Finals - Game 6"):
+        mark = series_mark(6, None, note=note, competition_type=None)
+
+        assert mark is not None
+        assert mark.stage is PostseasonStage.FINALS
+        assert (mark.round, mark.conference, mark.number) == (4, None, 6)
+
+
+def test_a_note_round_wins_over_a_different_competition_type() -> None:
+    mark = series_mark(1, None, note="West 1st Round - Game 1", competition_type="SEMI")
+
+    assert mark is not None
+    assert (mark.round, mark.conference) == (1, Conference.WEST)
+
+
+def test_a_game_7_without_a_number_has_no_stakes_even_in_a_three_all_series() -> None:
+    mark = series_mark(
+        7, {AWAY: 3, HOME: 3}, note="East Semifinals", competition_type="SEMI"
+    )
+
+    assert mark is not None
+    assert mark.stakes is None

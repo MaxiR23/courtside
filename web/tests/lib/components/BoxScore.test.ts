@@ -7,6 +7,8 @@
 // - The toggle switches to the home team; team names on desktop, codes on mobile
 // - FG%, 3P% and FT% sit under the shooting columns in the totals
 // - A positive plus-minus keeps its sign and is marked; zero and negative are not
+// - Without a plus-minus in the feed (plusMinus false) the +/- header and cells are not drawn and the table takes the eight-column class
+// - A totals percentage that is a dash renders
 // - A team with no bench shows no bench group
 // - Each player name links to its player page, and the team toggle holds no link
 // - The column labels in Spanish with a Spanish browser preference
@@ -77,7 +79,7 @@ const home: BoxScoreTeam = {
 	bench: [],
 	totals: { ...totals, points: '62' }
 };
-const box: BoxScoreSection = { away, home };
+const box: BoxScoreSection = { away, home, plusMinus: true };
 
 const playerHref = (id: string) => `/player/${id}` as ResolvedPathname;
 
@@ -197,7 +199,8 @@ describe('BoxScore with a guest team', () => {
 			starters: [{ ...row('g1', 'Casey Marin', '+1', true), guest: true }],
 			bench: []
 		},
-		home
+		home,
+		plusMinus: true
 	};
 
 	it('shows guest player names as plain text', () => {
@@ -221,7 +224,8 @@ describe('BoxScore with a guest team without a code', () => {
 			...away,
 			team: { code: null, name: 'Mariners', city: 'Harbor City', guest: true }
 		},
-		home
+		home,
+		plusMinus: true
 	};
 
 	it('names the guest by its name in the toggle on desktop and on mobile', () => {
@@ -234,5 +238,48 @@ describe('BoxScore with a guest team without a code', () => {
 			expect(container.querySelector('.toggle a')).toBeNull();
 			unmount();
 		}
+	});
+});
+
+describe('BoxScore without a plus-minus', () => {
+	const noPlusMinus: BoxScoreSection = {
+		away: {
+			...away,
+			starters: [row('a1', 'LeBron James', '—')],
+			bench: [],
+			totals: { ...totals, fieldGoalPct: '—' }
+		},
+		home,
+		plusMinus: false
+	};
+
+	it('draws no +/- header and no plus-minus cell', () => {
+		const { container } = render(BoxScore, {
+			props: { box: noPlusMinus, layout: 'desktop', playerHref }
+		});
+		const header = container.querySelector('.head');
+		expect(header?.textContent).not.toContain('+/-');
+		expect(container.querySelectorAll('.plus-minus')).toHaveLength(0);
+		expect(container.querySelector('.table')?.classList.contains('no-plus-minus')).toBe(true);
+		const columns = (el: Element | null) => el?.querySelectorAll('[role="columnheader"]').length;
+		expect(columns(header)).toBe(14);
+		expect(container.querySelector('.body')?.children).toHaveLength(14);
+	});
+
+	it('renders a dash as a totals percentage', () => {
+		const { container } = render(BoxScore, {
+			props: { box: noPlusMinus, layout: 'desktop', playerHref }
+		});
+		const percentages = container.querySelector('.percentages');
+		expect(percentages?.textContent).toContain('—');
+	});
+
+	it('draws the column when the feed has a plus-minus', () => {
+		const { container } = render(BoxScore, {
+			props: { box, layout: 'desktop', playerHref }
+		});
+		expect(container.querySelector('.head')?.textContent).toContain('+/-');
+		expect(container.querySelector('.table')?.classList.contains('no-plus-minus')).toBe(false);
+		expect(container.querySelector('.body')?.children).toHaveLength(15);
 	});
 });

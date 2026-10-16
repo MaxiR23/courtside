@@ -594,6 +594,10 @@ def test_tags_the_cup_and_all_star_games() -> None:
         GameKind.CUP,
         GameTag(kind=TagKind.CUP),
     )
+    assert game_kind_and_tag("NBA In-Season Tournament - Quarterfinals", False) == (
+        GameKind.CUP,
+        GameTag(kind=TagKind.CUP),
+    )
     assert game_kind_and_tag("NBA All-Star - Championship", False) == (
         GameKind.ALLSTAR,
         GameTag(kind=TagKind.ALLSTAR),

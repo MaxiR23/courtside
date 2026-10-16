@@ -18,7 +18,7 @@ from app.feeds.schema import FEEDS
 logger = logging.getLogger(__name__)
 
 FEED_DIR = "feeds"
-GAME_ID = re.compile(r"^[A-Za-z0-9-]+$")
+GAME_ID = re.compile(r"[A-Za-z0-9-]+")
 
 
 def _feed_path(data_dir: Path, name: str) -> Path:
@@ -79,7 +79,7 @@ def publish_by_id(
     feed_id: str,
     feed: BaseModel,
 ) -> bool:
-    if not GAME_ID.match(directory) or not GAME_ID.match(feed_id):
+    if not GAME_ID.fullmatch(directory) or not GAME_ID.fullmatch(feed_id):
         logger.error("feed %s %s not published: invalid id", directory, feed_id)
         return False
     return _publish(
@@ -91,7 +91,7 @@ def publish_by_id(
 
 
 def read_by_id(data_dir: Path, directory: str, feed_id: str) -> bytes | None:
-    if not GAME_ID.match(directory) or not GAME_ID.match(feed_id):
+    if not GAME_ID.fullmatch(directory) or not GAME_ID.fullmatch(feed_id):
         return None
     try:
         return (_by_id_dir(data_dir, directory) / f"{feed_id}.json").read_bytes()
@@ -100,16 +100,16 @@ def read_by_id(data_dir: Path, directory: str, feed_id: str) -> bytes | None:
 
 
 def published_ids(data_dir: Path, directory: str) -> set[str]:
-    if not GAME_ID.match(directory):
+    if not GAME_ID.fullmatch(directory):
         return set()
     folder = _by_id_dir(data_dir, directory)
     if not folder.is_dir():
         return set()
-    return {path.stem for path in folder.glob("*.json") if GAME_ID.match(path.stem)}
+    return {path.stem for path in folder.glob("*.json") if GAME_ID.fullmatch(path.stem)}
 
 
 def delete_by_id(data_dir: Path, directory: str, feed_id: str) -> None:
-    if not GAME_ID.match(directory) or not GAME_ID.match(feed_id):
+    if not GAME_ID.fullmatch(directory) or not GAME_ID.fullmatch(feed_id):
         return
     try:
         (_by_id_dir(data_dir, directory) / f"{feed_id}.json").unlink(missing_ok=True)

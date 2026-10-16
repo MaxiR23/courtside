@@ -8,7 +8,7 @@
 # - A season with no game log has a null game log, no last games and a null team, and the feed still validates
 # - The newest team id skips an All-Star game, a preseason game and a team outside the 30
 # - The kind: the game log and the stats of the season carry the season, the career stats do not, and the team is read for the season of the newest game
-# - The kind: an id on a current roster or in the stored past feeds is known; any other id, 1993, the current season, a future season and an ill-formed id answer unknown with no source request; an unknown current season and rosters not yet fetched are not ready
+# - The kind: an id on a current roster or in the stored past feeds is known; any other id, an id with a trailing newline, 1993, the current season, a future season and an ill-formed id answer unknown with no source request; an unknown current season and rosters not yet fetched are not ready
 # - The kind: the feed is built once and kept across a simulated restart and years later
 # - The kind: a failed build with nothing stored answers unavailable
 #
@@ -418,7 +418,17 @@ async def test_an_id_on_a_roster_or_in_the_past_feeds_is_known(
 @pytest.mark.anyio
 @pytest.mark.parametrize(
     "feed_id",
-    ["1993-77", "2027-77", "2028-77", "abc-77", "2004", "2004-", "2004-7-7", ""],
+    [
+        "1993-77",
+        "2027-77",
+        "2028-77",
+        "abc-77",
+        "2004",
+        "2004-",
+        "2004-7-7",
+        "",
+        "2004-77\n",
+    ],
 )
 async def test_an_invalid_early_current_or_future_id_answers_unknown_with_no_source_request(
     kit: SeasonPlayerKit, feed_id: str

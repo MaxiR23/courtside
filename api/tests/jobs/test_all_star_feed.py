@@ -3,10 +3,12 @@
 # Tests for the All-Star feed builder and its feed kind.
 #
 # Tested:
-# - parse_note: the round with and without a format suffix, and an unknown note
+# - parse_note: the round with and without a format suffix, the single game notes as the round All-Star Game, and an unknown note
 # - format_line: "1 period · 12 min", "4 periods · 12 min", "First to 40 · Untimed", "First to 40", none
 # - edition_state: before with no games and with scheduled games only, live with one live game and with one final and one scheduled, after with all final, a canceled game ignored
 # - Placements: 2 teams, 3 teams in a round robin with a Championship, 4 teams with semifinals, so far and yet to play while the Championship is not final, a team-less Championship flagged to be determined and not placed
+# - A box score row keeps a null plus-minus
+# - The team statistics block is none when either side has no field goal percentage (ADR 0052)
 # - Game contents: both box scores with jersey, position and league team, the six team statistics with the better side and a tie with none, the leaders, the Top 5 order with a tie keeping the source order, a player in no roster with a null league team, null colors on a failed team info read, the live status text, clock and period as the view returns them, the overtime flag
 # - MVP: from the All-Star MVP award with one line per game and the day totals, none without the award, with a failed awards read and with no box row
 # - The kind: a warning with the season and the reason for a failed awards read, no award and no box row, once per edition in play, none for a before edition or a set MVP
@@ -450,6 +452,11 @@ def test_parse_note_gives_the_round_and_the_format_suffix() -> None:
     )
 
 
+def test_parse_note_gives_the_all_star_game_round_for_the_single_game_notes() -> None:
+    assert parse_note("ALL STAR GAME") == ("All-Star Game", None)
+    assert parse_note("NBA All-Star Game") == ("All-Star Game", None)
+
+
 def test_parse_note_of_an_unknown_note_or_no_note_is_none() -> None:
     assert parse_note("East 1st Round - Game 1") == (None, None)
     assert parse_note("") == (None, None)
@@ -735,6 +742,19 @@ def test_team_stats_has_the_six_stats_with_the_better_side_and_none_on_a_tie() -
     ]
 
 
+@pytest.mark.parametrize("side", ["away", "home"])
+def test_team_stats_is_none_when_a_side_has_no_field_goal_percentage(side: str) -> None:
+    missing = stat(field_goal_pct=None)
+    found = sections(
+        [line("1", "A")],
+        [line("2", "B")],
+        away_stats=missing if side == "away" else None,
+        home_stats=missing if side == "home" else None,
+    )
+
+    assert team_stats(found) is None
+
+
 def test_team_stats_is_none_without_the_sections_or_the_box_score() -> None:
     bare = GameDetailSections(venue=Venue(name="Example Arena"))
 
@@ -911,6 +931,27 @@ def test_a_box_score_player_in_no_roster_has_a_null_league_team() -> None:
     assert box.away.players[1].player_id == "1002"
     assert box.away.players[1].league_team is None
     assert box.away.players[1].jersey is None and box.away.players[1].position is None
+
+
+def test_a_box_score_row_keeps_a_null_plus_minus() -> None:
+    games = round_robin()
+
+    def without_plus_minus(match: AllStarScoreboardGame) -> GameDetailSections:
+        return sections(
+            [p.model_copy(update={"plus_minus": None}) for p in players_of(match.away)],
+            [p.model_copy(update={"plus_minus": None}) for p in players_of(match.home)],
+        )
+
+    feed = build(
+        games,
+        sections_by_id={
+            g.id: without_plus_minus(g) for g in games if g.away and g.home
+        },
+    )
+
+    box = feed.edition.games[0].box_score
+    assert box is not None
+    assert all(p.plus_minus is None for p in box.away.players + box.home.players)
 
 
 def test_colors_are_null_when_the_team_info_read_failed() -> None:

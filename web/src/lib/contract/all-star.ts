@@ -152,7 +152,7 @@ export interface AllStarBoxPlayer {
 	displayName: string;
 	starter: boolean;
 	minutes: string;
-	plusMinus: number;
+	plusMinus: number | null;
 	photoUrl: string | null;
 	jersey: string | null;
 	position: string | null;
@@ -175,9 +175,9 @@ export interface BoxScoreTotals {
 	steals: number;
 	blocks: number;
 	fouls: number;
-	fieldGoalPct: number;
-	threePointPct: number;
-	freeThrowPct: number;
+	fieldGoalPct: number | null;
+	threePointPct: number | null;
+	freeThrowPct: number | null;
 }
 export interface AllStarTeamStat {
 	stat: TeamStatKind;

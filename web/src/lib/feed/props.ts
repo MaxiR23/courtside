@@ -236,7 +236,8 @@ function scheduleGame(game: Game, options: Options): ScheduleGame {
 					homeScore: score.home,
 					winner: required(game.winner)
 				},
-				details: finalDetails(game, highlights)
+				// A final All-Star game of the untimed format has no line score: its card does not expand (ADR 0051).
+				details: game.lineScore === null ? undefined : finalDetails(game, highlights)
 			};
 		}
 		default:

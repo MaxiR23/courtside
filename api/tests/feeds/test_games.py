@@ -15,6 +15,9 @@
 # - Serialization uses camelCase keys and carries unknown values as null
 # - Accepts a game with a Cup mark of each round and with a null or absent Cup mark, and rejects an unknown round
 # - Accepts a game with a postseason mark of each stage and a null or absent one, and rejects a mark whose round, conference, number, play-in kind or stakes do not fit its stage
+# - Accepts a series mark with a null number, and a playoffs mark with a null round, conference and number (ADR 0050); rejects a playoffs mark with a round and no conference or with no round and a conference
+# - Accepts a team stats with null shooting percentages
+# - Accepts a final All-Star game without a lineScore (ADR 0051) and rejects a final league game without it
 # - Accepts a game with an All-Star mark, a null mark and no key, and rejects a mark with an empty round or without the Championship flag
 # - Accepts a guest side with a null city and rejects a league side with a null city
 #
@@ -624,13 +627,84 @@ def test_rejects_a_play_in_mark_with_a_round_or_a_number(change: Payload) -> Non
 
 @pytest.mark.parametrize(
     "change",
-    [{"conference": None}, {"round": 4}, {"number": None}, {"playIn": "nine_ten"}],
+    [{"conference": None}, {"round": 4}, {"playIn": "nine_ten"}],
 )
 def test_rejects_a_playoffs_mark_without_a_conference_or_with_round_4(
     change: Payload,
 ) -> None:
     with pytest.raises(ValidationError):
         marked(**change)
+
+
+def test_accepts_a_series_mark_without_a_number() -> None:
+    mark = marked(number=None, stakes=None).days[0].games[0].postseason
+
+    assert mark is not None
+    assert (mark.round, mark.number) == (3, None)
+
+
+def test_accepts_a_playoffs_mark_without_round_conference_or_number() -> None:
+    mark = (
+        marked(round=None, conference=None, number=None, stakes=None)
+        .days[0]
+        .games[0]
+        .postseason
+    )
+
+    assert mark is not None
+    assert (mark.round, mark.conference, mark.number) == (None, None, None)
+
+
+def test_rejects_a_playoffs_mark_without_a_round_but_with_a_conference() -> None:
+    with pytest.raises(ValidationError):
+        marked(round=None, number=None, stakes=None)
+
+
+def test_rejects_game_7_stakes_without_a_number() -> None:
+    with pytest.raises(ValidationError):
+        marked(number=None)
+
+
+def test_accepts_team_stats_with_null_shooting_percentages() -> None:
+    bad = {**stats(), "fieldGoalPct": None, "threePointPct": None}
+
+    feed = GamesFeed.model_validate(
+        valid_feed(valid_game("live", teamStats=pair(bad, stats())))
+    )
+
+    away = feed.days[0].games[0].team_stats
+    assert away is not None
+    assert (away.away.field_goal_pct, away.away.three_point_pct) == (None, None)
+
+
+def test_accepts_a_final_all_star_game_without_a_line_score() -> None:
+    game = valid_game(
+        "final", allStar={"roundLabel": "All-Star Game", "championship": False}
+    )
+    del game["lineScore"]
+
+    feed = GamesFeed.model_validate(valid_feed(game))
+
+    assert feed.days[0].games[0].line_score is None
+
+
+def test_rejects_a_final_all_star_game_without_a_score() -> None:
+    game = valid_game(
+        "final", allStar={"roundLabel": "All-Star Game", "championship": False}
+    )
+    del game["lineScore"]
+    del game["score"]
+
+    with pytest.raises(ValidationError, match="score"):
+        GamesFeed.model_validate(valid_feed(game))
+
+
+def test_rejects_a_final_league_game_without_a_line_score() -> None:
+    game = valid_game("final")
+    del game["lineScore"]
+
+    with pytest.raises(ValidationError, match="lineScore"):
+        GamesFeed.model_validate(valid_feed(game))
 
 
 def test_rejects_a_finals_mark_with_a_conference() -> None:

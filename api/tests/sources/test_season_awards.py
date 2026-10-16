@@ -3,7 +3,7 @@
 # Tests for the season awards adapter.
 #
 # Tested:
-# - Maps each listed award name to its code and team number, ignoring case
+# - Maps each listed award name to its code and team number, ignoring case; the conference finals MVPs and the Twyman-Stokes award are named as the provider sends them (NBA Eastern Conference Finals MVP, NBA Western Conference Finals MVP, Twyman-Stokes Teammate of the Year Award)
 # - Keeps the winners of a team award in order, and a winner with no team link has a null team
 # - Skips an award with no winners without a log
 # - Skips an unknown award name with winners and logs its name only

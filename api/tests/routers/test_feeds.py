@@ -44,7 +44,8 @@
 # - Serves current as the current season's calendar with the same body and ETag as its end-year path, answers 304 for that ETag and 503 while the season is not known, and responds 404 for Current and currentx
 # - Responds 404 for a calendar of 1993, the season after the current one and a season that is not a number or has a trailing newline with no source request, and 503 while the season is not known or when the read fails with nothing stored
 # - Serves the day feed with Cache-Control and ETag, with its season and label and an empty games list for a day with no event, and answers 304 for a matching ETag
-# - Responds 404 for a day that is not a date, before 1993-10-01, tomorrow and a day of the stored games feed with no source request, and 503 when the read fails with nothing stored
+# - Responds 404 for a game id, a season team code and a season player id with a trailing newline, with no source request
+# - Responds 404 for a day that is not a date, a day with a trailing newline, before 1993-10-01, tomorrow and a day of the stored games feed with no source request, and 503 when the read fails with nothing stored
 # - Serves the game detail of a final game of a stored day through the game detail route with Cache-Control, ETag and a season label, and answers 304 for a matching ETag
 # - Responds 404 for a game id in no stored day and for a postponed game of a stored day, with no source request, and 503 for a past game whose build fails with nothing stored
 # - A game the games job has loaded takes the games path with a null season label even when a stored day lists it
@@ -1535,7 +1536,8 @@ def test_responds_304_when_the_day_etag_matches(day: Day) -> None:
 
 
 @pytest.mark.parametrize(
-    "feed_id", ["not-a-date", "1993-09-30", "2026-10-09", "2026-10-06"]
+    "feed_id",
+    ["not-a-date", "1993-09-30", "2026-10-09", "2026-10-06", "2026-10-01%0A"],
 )
 def test_responds_404_for_a_day_that_is_not_served(day: Day, feed_id: str) -> None:
     day.kit.store_games_feed(dt.date(2026, 10, 6))
@@ -1641,6 +1643,19 @@ def test_responds_404_for_an_id_in_no_stored_day_and_outside_the_days_shown_with
         past.store_day(client, day_game("1", GameStatus.FINAL))
 
         response = client.get("/feeds/games/999.json")
+
+    assert response.status_code == 404
+    assert isinstance(response.json()["detail"], str)
+    assert past.kit.section_calls == []
+
+
+def test_responds_404_for_a_game_id_with_a_trailing_newline_with_no_source_request(
+    past: PastDetail,
+) -> None:
+    with TestClient(past.app) as client:
+        past.store_day(client, day_game("1", GameStatus.FINAL))
+
+        response = client.get("/feeds/games/1%0A.json")
 
     assert response.status_code == 404
     assert isinstance(response.json()["detail"], str)
@@ -1833,6 +1848,24 @@ def test_responds_404_for_a_season_team_path_of_a_franchise_with_no_team_that_se
     assert first.status_code == 404
     assert second.status_code == 404
     assert len(season_team.kit.calls) == reads
+
+
+@pytest.mark.parametrize(
+    ("kind", "path"),
+    [
+        ("team", "/feeds/seasons/2004/teams/okc%0A.json"),
+        ("player", "/feeds/seasons/2004/players/77%0A.json"),
+    ],
+)
+def test_responds_404_for_a_season_team_or_player_id_with_a_trailing_newline(
+    request: pytest.FixtureRequest, kind: str, path: str
+) -> None:
+    app = season_app(request, kind)
+    with TestClient(app.app) as client:
+        response = client.get(path)
+
+    assert response.status_code == 404
+    assert app.kit.calls == []
 
 
 def test_responds_404_for_an_upper_case_or_unknown_team_code_on_the_season_team_path(

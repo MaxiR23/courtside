@@ -6,6 +6,7 @@
 # - A past game with two league sides and null stars is accepted
 # - A past game with a star is rejected; a highlight is accepted, because the stored one is added when served
 # - The other Game rules still apply to a past game
+# - A final All-Star past game without a lineScore is accepted (ADR 0051), and a final league past game without it is rejected
 # - A day feed with an empty games list is accepted
 # - A day feed carries its season and label with camelCase keys; a missing
 #   season, a season before 1994 and a bad label are rejected
@@ -117,6 +118,18 @@ def test_the_other_game_rules_still_apply() -> None:
         PastGame.model_validate(game(winner="home"))
     with pytest.raises(ValidationError):
         PastGame.model_validate(game(home=team("AAA")))
+
+
+def test_accepts_a_final_all_star_past_game_without_a_line_score() -> None:
+    final = game(
+        "final", allStar={"roundLabel": "All-Star Game", "championship": False}
+    )
+    del final["lineScore"]
+
+    parsed = PastGame.model_validate(final)
+
+    assert parsed.line_score is None
+    assert parsed.score is not None
 
 
 def test_accepts_a_day_with_no_games() -> None:
