@@ -35,6 +35,7 @@
 # - Accepts a final All-Star detail without a lineScore (ADR 0051) and rejects a final league detail without it
 # - Accepts a guest side with a null city and rejects a league side with a null city
 # - The season label is null by default, accepted as YYYY-YY and rejected otherwise
+# - The leaders of each side: accepted when set, null or absent (a stored feed from before the field), a null value kept; a league leader with no photo is rejected and a guest leader with none is accepted (ADR 0057)
 # - A past game detail: final, a season label, null records, stars, injuries, last games and standings; the other rules still apply; its schema equals the game detail schema apart from its title
 #
 # What is covered:
@@ -60,6 +61,7 @@ Payload = dict[str, Any]
 STATUSES = ["scheduled", "live", "final", "delayed", "postponed", "canceled"]
 OPTIONAL_SECTIONS = [
     "stars",
+    "leaders",
     "boxScore",
     "winProbability",
     "winProbabilityLeader",
@@ -225,6 +227,25 @@ def valid_game(status: str, **overrides: object) -> Payload:
     return game
 
 
+def leader_of(code: str | None, photo: str | None, player: str = "p1") -> Payload:
+    return {
+        "playerId": player,
+        "displayName": "Ada Quill",
+        "teamCode": code,
+        "photoUrl": photo,
+        "points": 20,
+        "rebounds": None,
+        "assists": 5,
+    }
+
+
+def leaders_of_game() -> Payload:
+    return pair(
+        leader_of("AAA", "https://example.com/players/p1.png"),
+        leader_of("HHH", "https://example.com/players/p2.png", "p2"),
+    )
+
+
 def full_game() -> Payload:
     return valid_game(
         "final",
@@ -235,6 +256,7 @@ def full_game() -> Payload:
             "photoUrl": "https://example.com/arena.png",
         },
         stars=pair(star("AAA"), star("HHH")),
+        leaders=leaders_of_game(),
         boxScore=pair(box_team(), box_team()),
         winProbability=[{"elapsedSeconds": 0, "homeWinProbability": 0.5}],
         winProbabilityLeader=None,
@@ -1219,3 +1241,40 @@ def test_rejects_a_final_all_star_game_without_a_score() -> None:
 
     with pytest.raises(ValidationError, match="score"):
         GameDetailFeed.model_validate(game)
+
+
+def test_accepts_leaders_and_keeps_a_null_value() -> None:
+    feed = GameDetailFeed.model_validate(full_game())
+
+    assert feed.leaders is not None
+    assert feed.leaders.away.rebounds is None
+    assert feed.leaders.home.player_id == "p2"
+    assert "leaders" in feed.model_fields_set
+
+
+def test_reads_leaders_null_and_absent_as_none() -> None:
+    absent = GameDetailFeed.model_validate(valid_game("final"))
+    null = GameDetailFeed.model_validate(valid_game("final", leaders=None))
+
+    assert absent.leaders is None and "leaders" not in absent.model_fields_set
+    assert null.leaders is None and "leaders" in null.model_fields_set
+    assert null.model_dump(by_alias=True)["leaders"] is None
+
+
+def test_rejects_a_league_leader_without_a_photo() -> None:
+    game = full_game()
+    game["leaders"]["away"]["photoUrl"] = None
+
+    with pytest.raises(ValidationError, match="a league leader has a photo"):
+        GameDetailFeed.model_validate(game)
+
+
+def test_accepts_a_guest_leader_without_a_photo() -> None:
+    game = guest_detail()
+    game["leaders"] = pair(
+        leader_of("HCM", None), leader_of("HHH", "https://example.com/players/p2.png")
+    )
+
+    feed = GameDetailFeed.model_validate(game)
+
+    assert feed.leaders is not None and feed.leaders.away.photo_url is None

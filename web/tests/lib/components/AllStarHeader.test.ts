@@ -9,6 +9,7 @@
 // - The buttons scroll to #games, #mvp and #last-time
 // - The stats count up from zero and show the final values when the timeout ends; the Championship cell is not counted
 // - Under reduced motion the final values show at once
+// - The Season tag of a past season whose feed is unavailable, none while loading or without a tag
 // - The skeleton while loading, and only the nav and the title without a header
 // - The season tag when the header has one, with no live dot or live stats on an after header; the select on desktop and mobile (full), its onChange
 // - No guest-rule text, headline, story or ticker
@@ -243,6 +244,27 @@ describe('AllStarHeader, nav and states', () => {
 		expect(screen.getByRole('heading', { level: 1, name: 'All-Star' })).toBeTruthy();
 		expect(container.querySelector('.bones')).toBeNull();
 		expect(container.querySelector('header')?.getAttribute('aria-busy')).toBeNull();
+	});
+
+	it('shows the season tag of a past season with no header, and none while loading', () => {
+		const props = {
+			allGamesHref: '/' as ResolvedPathname,
+			standingsHref: '/standings' as ResolvedPathname,
+			layout: 'desktop' as const,
+			tick: new LiveTick(),
+			onLive: () => {}
+		};
+		const { container, unmount } = render(AllStarHeader, {
+			props: { ...props, header: null, seasonTag: 'Season 2004-05' }
+		});
+		expect(container.querySelector('.season-line')?.textContent).toContain('Season 2004-05');
+		unmount();
+		const loading = render(AllStarHeader, {
+			props: { ...props, header: null, loading: true, seasonTag: 'Season 2004-05' }
+		});
+		expect(loading.container.querySelector('.season-line')).toBeNull();
+		loading.unmount();
+		expect(show(null).container.querySelector('.season-line')).toBeNull();
 	});
 
 	it('shows the skeleton while loading', () => {

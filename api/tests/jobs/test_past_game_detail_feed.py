@@ -5,6 +5,7 @@
 # Tested:
 # - The builder takes the id, status, time, score, winner, marks, sides and search link from the stored day game, and the venue, box score, team stats and win probability from the sections
 # - The builder builds a past All-Star final without a line score (ADR 0051) and a game whose sections carry null percentages (ADR 0052)
+# - The builder carries the leaders of the sections and always writes the key, null or not (ADR 0057)
 # - The builder sets the season label from the sections' season end year
 # - The builder leaves injuries, last games, standings, stars, the season series, highlights and both records null; the stored highlight is added when served (ADR 0048)
 # - The builder leaves the box score, team stats and win probability null when the sections lack them
@@ -16,6 +17,7 @@
 # - The kind: a request builds and stores a valid feed and a second request makes no source request
 # - The kind: after a restart the stored feed is served with no source request
 # - The kind: the stored feed is fresh after a year
+# - The kind: a stored detail without the leaders key is rebuilt before it is served (the request waits); one with a null leaders block of the current version is fresh; a failed rebuild keeps serving the stored one (ADR 0057)
 # - The kind: a stored detail without the current build version is served, then rebuilt from a day made current first; one of the current version is served as stored (ADR 0053)
 # - The kind: a failed build answers unavailable and is not retried for 10 minutes
 # - The kind: a summary without a season fails the build and stores nothing
@@ -64,8 +66,14 @@ from app.settings import Settings
 from app.sources import scoreboard
 from app.sources.game_detail import GameDetailSections
 from app.sources.http import Freshness, SourceClient, SourceError
-from app.storage.feeds import publish_by_id, read_by_id
-from tests.feeds.test_game_detail import box_team, leaders, pair, stats
+from app.storage.feeds import _by_id_dir, publish_by_id, read_by_id
+from tests.feeds.test_game_detail import (
+    box_team,
+    leaders,
+    leaders_of_game,
+    pair,
+    stats,
+)
 from tests.jobs.test_day_feed import NOW, PAST, SECOND, YEAR, DayKit, game, search_url
 from tests.jobs.test_game_detail_feed import AFTER_MIDNIGHT, Harness
 from tests.jobs.test_game_detail_feed import game as live_game
@@ -152,6 +160,19 @@ def test_builds_a_final_past_game_with_the_day_games_score_marks_sides_and_searc
     assert feed.win_probability is not None and len(feed.win_probability) == 2
     assert feed.win_probability_leader is not None
     assert feed.win_probability_periods is not None
+
+
+def test_builds_the_leaders_of_the_sections_and_always_writes_the_key() -> None:
+    with_leaders = build_past_game_detail_feed(
+        past_game(), sections(leaders=leaders_of_game())
+    )
+    without = build_past_game_detail_feed(past_game(), sections())
+
+    assert with_leaders.leaders is not None
+    assert with_leaders.leaders.away.player_id == "p1"
+    assert without.leaders is None
+    assert "leaders" in without.model_fields_set
+    assert '"leaders":null' in without.model_dump_json(by_alias=True)
 
 
 def test_builds_a_past_all_star_final_without_a_line_score() -> None:
@@ -267,6 +288,7 @@ class PastKit(DayKit):
         self.section_calls: list[str] = []
         self.sections_failing = False
         self.season: int | None = 2005
+        self.leaders: Any = None
         self.past_kind = PastGameDetailFeeds(
             self.settings,
             self.store,
@@ -281,7 +303,7 @@ class PastKit(DayKit):
         self.section_calls.append(game_id)
         if self.sections_failing:
             raise SourceError("test", "game detail is down")
-        return sections(season=self.season)
+        return sections(season=self.season, leaders=self.leaders)
 
     async def store_day(self, *games: Any) -> None:
         self.days[PAST] = list(games)
@@ -613,3 +635,83 @@ async def test_an_all_star_game_gets_no_highlight_when_served(kit: PastKit) -> N
 
     assert served.all_star is not None
     assert served.highlights is None
+
+
+def without_leaders_key(kit: PastKit) -> bytes:
+    """Rewrites the stored detail as it was before the field: no leaders key."""
+    body = json.loads(read_by_id(kit.path, KIND, "1") or b"")
+    del body["leaders"]
+    raw = json.dumps(body).encode()
+    (_by_id_dir(kit.path, KIND) / "1.json").write_bytes(raw)
+    return raw
+
+
+@pytest.mark.anyio
+async def test_a_stored_detail_without_the_leaders_key_is_rebuilt_before_it_is_served(
+    kit: PastKit,
+) -> None:
+    await kit.store_day(game("1", GameStatus.FINAL))
+    await kit.serve_past("1")
+    old = without_leaders_key(kit)
+    assert "leaders" not in PastGameDetailFeed.model_validate_json(old).model_fields_set
+    kit.leaders = leaders_of_game()
+
+    served = PastGameDetailFeed.model_validate_json(
+        await kit.serve_past("1", NOW + YEAR)
+    )
+
+    assert served.leaders is not None
+    assert served.leaders.away.player_id == "p1"
+    rebuilt = PastGameDetailFeed.model_validate_json(
+        read_by_id(kit.path, KIND, "1") or b""
+    )
+    assert "leaders" in rebuilt.model_fields_set
+    assert kit.section_calls == ["1", "1"]
+
+
+@pytest.mark.anyio
+async def test_a_stored_detail_of_an_old_build_version_with_the_leaders_key_is_not_waited_for(
+    kit: PastKit,
+) -> None:
+    await kit.store_day(game("1", GameStatus.FINAL))
+    await kit.serve_past("1")
+    stale = PastGameDetailFeed.model_validate_json(
+        read_by_id(kit.path, KIND, "1") or b""
+    ).model_copy(update={"build_version": None})
+    assert publish_by_id(kit.path, KIND, PastGameDetailFeed, "1", stale)
+
+    assert not kit.past_kind.wait_when_stale("1")
+    assert not kit.past_kind.wait_when_stale("2")
+    without_leaders_key(kit)
+    assert kit.past_kind.wait_when_stale("1")
+
+
+@pytest.mark.anyio
+async def test_a_stored_detail_with_a_null_leaders_block_of_the_current_version_is_fresh(
+    kit: PastKit,
+) -> None:
+    await kit.store_day(game("1", GameStatus.FINAL))
+    first = await kit.serve_past("1")
+    assert PastGameDetailFeed.model_validate_json(first).leaders is None
+
+    again = await kit.serve_past("1", NOW + YEAR)
+
+    assert again == first
+    assert kit.section_calls == ["1"]
+
+
+@pytest.mark.anyio
+async def test_a_failed_rebuild_of_a_detail_without_the_leaders_key_keeps_serving_it(
+    kit: PastKit,
+) -> None:
+    await kit.store_day(game("1", GameStatus.FINAL))
+    await kit.serve_past("1")
+    old = without_leaders_key(kit)
+    kit.sections_failing = True
+
+    first = await kit.serve_past("1", NOW + YEAR)
+    second = await kit.serve_past("1", NOW + YEAR + RETRY_AFTER * 2)
+
+    for body in (first, second):
+        assert PastGameDetailFeed.model_validate_json(body).id == "1"
+    assert read_by_id(kit.path, KIND, "1") == old

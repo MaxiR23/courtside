@@ -6,6 +6,7 @@
 // - The kicker, the heading and the format line; one card per game with the default one selected
 // - Clicking a card updates the detail and resets the box score tab to the first team
 // - The embed with a stored highlight: a thumbnail that plays an iframe
+// - A past edition with no highlights and no edition video (the 2024-25 shape) draws the media frame with the unavailable placeholder, not muted, on both layouts, even for a game that was not final
 // - The placeholder texts for a final game without highlights and a live game
 // - The venue strip, the Top 5, the scoreboard and the team statistics
 // - A scheduled game shows the one centered card and no box score
@@ -29,7 +30,8 @@ import type { HighlightVideo } from '../../../src/lib/schedule/types';
 import { LiveTick } from '../../../src/lib/all-star/live-tick.svelte';
 import { GameSelection } from '../../../src/lib/all-star/selection.svelte';
 import AllStarGames from '../../../src/lib/components/AllStarGames.svelte';
-import { playerHref, teamHref, viewOf } from '../all-star/views';
+import { toAllStarView } from '../../../src/lib/feed/all-star-props';
+import { feedOf, playerHref, teamHref, viewOf } from '../all-star/views';
 
 const EDITION: HighlightVideo = {
 	id: 'https://video.example.com/embed/edition',
@@ -55,6 +57,32 @@ function show(
 
 const pressed = (container: HTMLElement) =>
 	[...container.querySelectorAll('.game-card')].map((c) => c.getAttribute('aria-pressed'));
+
+describe('AllStarGames in a past edition with no highlights', () => {
+	it.each(['desktop', 'mobile'] as const)(
+		'draws the media frame with the unavailable placeholder on %s',
+		(layout) => {
+			const view = toAllStarView(feedOf('live'), 'current', { pastLabel: '2024-25' })!;
+			view.editionVideo = null;
+			const { container } = render(AllStarGames, {
+				props: {
+					view,
+					kicker: view.header.tag,
+					selection: new GameSelection(),
+					tick: new LiveTick(),
+					layout,
+					teamHref,
+					playerHref
+				}
+			});
+			const placeholder = container.querySelector('.media .placeholder');
+			expect(placeholder?.textContent).toContain('Highlights not available');
+			expect(placeholder?.classList.contains('muted')).toBe(false);
+			expect(container.querySelector('.scheduled')).toBeNull();
+			expect(screen.queryByText('Highlights post after the final buzzer')).toBeNull();
+		}
+	);
+});
 
 describe('AllStarGames', () => {
 	it('draws every frame with the All-Star corner marks', () => {

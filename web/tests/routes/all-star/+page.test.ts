@@ -14,6 +14,7 @@
 // - Keeps the last feed on screen when a later poll fails
 // - Renders in Spanish
 // - With ?season: loads the calendar, then only the season All-Star feed, once; no polling; the tag from the calendar's label; no live dot; 503 and 404 states
+// - A past season whose feed answers 503 or 404 keeps its Season tag, in English and in Spanish; a past feed with no edition video shows the unavailable placeholder
 // - A calendar that answers 503 shows the current season and no select; a past season on a 390px layout renders the mobile classes (ADR 0054)
 // - A malformed, unlisted or current ?season loads the current feed and polls it; the select lists every calendar season and navigates with goto
 // - The edition frame with its caption when the feed carries an edition video (past and current after), the placeholder when not
@@ -390,6 +391,20 @@ describe('All-Star page season selector', () => {
 			await renderSeason('?season=2005');
 			expect(screen.getByText(UNAVAILABLE)).toBeTruthy();
 			expect(screen.getByRole('combobox', { name: 'Season' })).toBeTruthy();
+			expect(screen.getByText('Season 2004-05')).toBeTruthy();
+		}
+	);
+
+	it.each([503, 404])(
+		'keeps the Season tag in Spanish on a %s of the season feed',
+		async (status) => {
+			preferLanguages(['es']);
+			stubRoutes({
+				[CAL_URL]: [answerWith(calendarFeed())],
+				[pastUrl(2005)]: [answerStatus(status)]
+			});
+			await renderSeason('?season=2005');
+			expect(screen.getByText('Temporada 2004-05')).toBeTruthy();
 		}
 	);
 
@@ -455,9 +470,11 @@ describe('All-Star page season selector', () => {
 	it('shows the placeholder and no caption on a past season with no edition video', async () => {
 		const feed = fixture('after');
 		feed.edition.editionHighlight = null;
+		for (const game of feed.edition.games) game.highlights = null;
 		stubRoutes({ [CAL_URL]: [answerWith(calendarFeed())], [pastUrl(2005)]: [answerWith(feed)] });
 		await renderSeason('?season=2005');
 		expect(screen.queryByText('Edition highlights')).toBeNull();
+		expect(screen.getByText('Highlights not available')).toBeTruthy();
 	});
 
 	it('shows the edition frame on the current after state', async () => {

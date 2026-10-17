@@ -39,6 +39,7 @@
 # - The past path (ADR 0041) resolves a side by its team id first, so a historical abbreviation with a known id is a league side with template photos and an unknown id is a guest; it reads the event's season end year from the header, reads no injuries or season series (and does not fail on them), and gives null win probability and null box score or team stats when the summary lacks plays or players
 # - A summary without a header, or with an unreadable season, gives a null season
 # - The past path raises the source error on an invalid payload, a timeout, an error status and a missing URL
+# - The past sections carry the leader of each side by the rule of ADR 0009 (points, then rebounds plus assists, then the first in provider order), with the template photo of a league side, the box score headshot of a guest side and its provider code; the current sections never carry leaders; a side with no stat line leaves the leaders null without failing the build; a missing points column is a null value (ADR 0055); a row with no player id is skipped and logged (ADR 0057)
 # - fetch_past_game_players (ADR 0053) lists each league side's players with a stat line, by provider id first; reads the jersey and position of the box score and null when absent; reads a jersey that is not one or two digits as null; leaves out a player with no stat line and a guest side; gives no teams for a summary without box score players; rejects an invalid payload; raises the source error on an error status, a timeout and a missing URL
 #
 # What is covered:
@@ -2411,3 +2412,126 @@ async def test_a_row_with_an_id_and_no_name_still_raises(
 
     with pytest.raises(SourceError):
         await fetch(settings)
+
+
+# Past leaders (ADR 0057)
+
+
+@pytest.mark.anyio
+async def test_past_sections_carry_each_sides_top_scorer(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("summary-past-final.json")
+    group = team_players(payload, "OLD")
+    set_stat(group["athletes"][1], group, "points", "30")
+    set_stat(group["athletes"][1], group, "rebounds", "12")
+    set_stat(group["athletes"][0], group, "points", "30")
+    set_stat(group["athletes"][0], group, "rebounds", "2")
+
+    detail = await past_sections_of(mock, settings, payload)
+
+    assert detail.leaders is not None
+    away = detail.leaders.away
+    assert (away.player_id, away.display_name) == ("9002", "Sam Rower")
+    assert str(away.photo_url) == "https://example.com/players/9002.png"
+    assert detail.leaders.home.display_name == "Bay Walker"
+
+
+@pytest.mark.anyio
+async def test_past_sections_keep_the_first_player_on_a_full_tie(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("summary-past-final.json")
+    group = team_players(payload, "OLD")
+    for line in group["athletes"][:2]:
+        for key, value in (("points", "10"), ("rebounds", "3"), ("assists", "4")):
+            set_stat(line, group, key, value)
+
+    detail = await past_sections_of(mock, settings, payload)
+
+    assert detail.leaders is not None
+    assert detail.leaders.away.display_name == "Alex Pilot"
+
+
+@pytest.mark.anyio
+async def test_a_guest_sides_past_leader_takes_the_box_score_headshot_and_its_provider_code(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    detail = await past_sections_of(mock, settings, load("summary-past-final.json"))
+
+    assert detail.leaders is not None
+    assert detail.leaders.home.team_code == "HBR"
+    assert str(detail.leaders.home.photo_url) == "https://example.com/head/9101.png"
+    assert detail.leaders.away.team_code is not None
+
+
+@pytest.mark.anyio
+async def test_current_sections_have_no_leaders(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    detail = await sections_of(mock, settings, load("summary-final.json"))
+
+    assert detail.box_score is not None
+    assert detail.leaders is None
+
+
+@pytest.mark.anyio
+async def test_past_sections_have_null_leaders_when_a_side_has_no_stat_line(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("summary-past-final.json")
+    for line in team_players(payload, "HBR")["athletes"]:
+        line["stats"] = []
+
+    detail = await past_sections_of(mock, settings, payload)
+
+    assert detail.leaders is None
+    assert detail.box_score is not None
+
+
+@pytest.mark.anyio
+async def test_past_sections_without_players_have_null_leaders(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    detail = await past_sections_of(
+        mock, settings, load("summary-past-no-box-score.json")
+    )
+
+    assert detail.leaders is None
+
+
+@pytest.mark.anyio
+async def test_a_past_leader_with_no_points_column_has_a_null_value(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("summary-past-final.json")
+    drop_column(team_players(payload, "OLD"), "points")
+
+    detail = await past_sections_of(mock, settings, payload)
+
+    assert detail.leaders is not None
+    assert detail.leaders.away.points is None
+    assert detail.leaders.away.display_name == "Alex Pilot"
+    assert detail.leaders.home.points is not None
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("row_id", [None, "", NO_ATHLETE])
+async def test_a_past_leader_row_with_no_player_id_is_skipped(
+    mock: respx.MockRouter,
+    settings: Settings,
+    caplog: pytest.LogCaptureFixture,
+    row_id: str | None,
+) -> None:
+    payload = load("summary-past-final.json")
+    group = team_players(payload, "OLD")
+    add_row_without_id(group, row_id)
+    caplog.clear()
+
+    with caplog.at_level(logging.WARNING, logger="app.sources.game_detail"):
+        detail = await past_sections_of(mock, settings, payload)
+
+    assert detail.leaders is not None
+    assert detail.leaders.away.display_name == "Alex Pilot"
+    assert len(warnings_of(caplog)) == 1
+    assert GAME_ID in warnings_of(caplog)[0]

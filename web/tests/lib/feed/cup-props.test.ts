@@ -7,6 +7,7 @@
 // - The champion only when the Cup is complete
 // - The four stages: a single date, a range, "TBD", and their status labels
 // - The section order per stage (groups first in draw and group play, the bracket first after)
+// - Group rows are drawn by position whatever the feed order; a null position goes after the numbered rows in feed order
 // - Group titles and the three metas; rows in feed order with every column, a — for each null
 // - The streak and the accents; tags y, x, e, the eliminated row and no tag for null; the legend
 // - The wild card tables: titles, the line only after rank 1, a — for a missing group
@@ -197,6 +198,24 @@ describe('toCupView groups', () => {
 		const f = feed();
 		f.groups[2].teams = [f.groups[2].teams[0]!];
 		expect(view(f).groups[2]?.meta).toBe('1 team');
+	});
+
+	it('draws the group rows by position whatever the feed order, null positions last in feed order', () => {
+		const source = feed();
+		const rows = source.groups[0]!.rows;
+		const shuffled = [rows[2]!, rows[0]!, rows[4]!, rows[1]!, rows[3]!];
+		shuffled[0] = { ...shuffled[0]!, position: 3 };
+		shuffled[1] = { ...shuffled[1]!, position: 1 };
+		shuffled[2] = { ...shuffled[2]!, position: null };
+		shuffled[3] = { ...shuffled[3]!, position: 2 };
+		shuffled[4] = { ...shuffled[4]!, position: null };
+		source.groups[0]!.rows = shuffled as typeof rows;
+		const drawn = view(source).groups[0]!.rows;
+		expect(drawn.map((r) => r.position)).toEqual(['1', '2', '3', '—', '—']);
+		expect(drawn.slice(3).map((r) => r.team.code)).toEqual([
+			shuffled[2]!.team.code,
+			shuffled[4]!.team.code
+		]);
 	});
 
 	it('keeps the draw list for a group without rows and no rows', () => {

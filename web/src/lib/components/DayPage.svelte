@@ -7,10 +7,12 @@
 	import MessageRow from '#lib/components/MessageRow.svelte';
 	import SiteFooter from '#lib/components/SiteFooter.svelte';
 	import type { DateCalendar } from '#lib/calendar/types.ts';
+	import type { DayCardStats } from '#lib/day/card-stats.svelte.ts';
 	import type { DayPageState } from '#lib/day/types.ts';
+	import { cardDetails, withCardDetails } from '#lib/feed/day-props.ts';
 	import { play } from '#lib/hero/motion.ts';
 	import { m } from '#lib/paraglide/messages.js';
-	import type { RowLayout } from '#lib/schedule/types.ts';
+	import type { RowLayout, ScheduleGame } from '#lib/schedule/types.ts';
 	import { shimmer } from '#lib/skeleton/motion.ts';
 
 	type Props = {
@@ -23,6 +25,7 @@
 		layout: RowLayout;
 		gameHref: (id: string) => ResolvedPathname;
 		teamHref: (code: string) => ResolvedPathname;
+		detailReads: DayCardStats; // the game detail reads of the cards opened
 	};
 
 	// `state` is renamed so the `$state` rune is not read as a store of the prop.
@@ -35,15 +38,30 @@
 		calendar,
 		layout,
 		gameHref,
-		teamHref
+		teamHref,
+		detailReads
 	}: Props = $props();
+
+	function cardDetailsOf(id: string) {
+		const read = detailReads.feed(id);
+		return read ? cardDetails(read) : null;
+	}
 
 	const CARDS = [0, 1, 2]; // placeholder game cards
 	let openId = $state<string | null>(null);
 	let playingId = $state<string | null>(null);
 
-	function toggle(id: string) {
-		openId = openId === id ? null : id;
+	function toggle(id: string, game: ScheduleGame) {
+		const opening = openId !== id;
+		openId = opening ? id : null;
+		const details = game.details;
+		if (
+			opening &&
+			details?.kind === 'final-without-stats' &&
+			details.statsAvailability === 'available'
+		) {
+			detailReads.open(id);
+		}
 		playingId = null;
 	}
 </script>
@@ -65,11 +83,11 @@
 				{#each page.view.games as game (game.id)}
 					<li>
 						<GameCard
-							{game}
+							game={withCardDetails(game, cardDetailsOf(game.id))}
 							{layout}
 							spoilerFree={false}
 							open={openId === game.id}
-							onToggle={() => toggle(game.id)}
+							onToggle={() => toggle(game.id, game)}
 							playingVideoId={openId === game.id ? playingId : null}
 							onPlay={(videoId) => (playingId = videoId)}
 							detailHref={gameHref(game.id)}

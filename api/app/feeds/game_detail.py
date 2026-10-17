@@ -25,6 +25,7 @@ from app.feeds.games import (
     GameStatus,
     GameTeam,
     Highlight,
+    Leaders,
     LineScore,
     NonEmptyStr,
     Percentage,
@@ -282,6 +283,9 @@ class GameDetailFeed(FeedModel):
     score: Score | None = None
     winner: Side | None = None
     team_stats: DetailGameTeamStats | None = None
+    # The leader of each side, by the rule of ADR 0009; set on a past game only
+    # (ADR 0057), null on a current one.
+    leaders: Leaders | None = None
     stars: Stars | None = None
     box_score: BoxScore | None = None
     win_probability: (
@@ -327,6 +331,18 @@ class GameDetailFeed(FeedModel):
             return self
         if self.status is not GameStatus.FINAL:
             raise ValueError(f"a {self.status} game has no winner")
+        return self
+
+    @model_validator(mode="after")
+    def _require_photos_of_league_leaders(self) -> GameDetailFeed:
+        if self.leaders is None:
+            return self
+        for leader, team in (
+            (self.leaders.away, self.away),
+            (self.leaders.home, self.home),
+        ):
+            if leader.photo_url is None and not team.guest:
+                raise ValueError("a league leader has a photo")
         return self
 
     @model_validator(mode="after")

@@ -92,6 +92,7 @@ def build_past_game_detail_feed(
         "venue": sections.venue,
         "team_stats": sections.team_stats,
         "box_score": sections.box_score,
+        "leaders": sections.leaders,
         "win_probability": sections.win_probability,
         "win_probability_leader": sections.win_probability_leader,
         "win_probability_periods": sections.win_probability_periods,
@@ -218,7 +219,22 @@ class PastGameDetailFeeds:
     def is_fresh(
         self, feed: PastGameDetailFeed, built_at: dt.datetime, now: dt.datetime
     ) -> bool:
-        return is_current_build(feed)
+        # ADR 0057: a stored feed without the leaders key predates the field and
+        # is rebuilt on its next request; a stored null is fresh.
+        return is_current_build(feed) and "leaders" in feed.model_fields_set
+
+    def wait_when_stale(self, game_id: str) -> bool:
+        # ADR 0057: a stored detail without the leaders key is rebuilt before it
+        # is served, so the day card's first read carries the leaders. Any other
+        # stale reason is served as stored while it is rebuilt.
+        body = read_by_id(self._settings.data_dir, KIND, game_id)
+        if body is None:
+            return False
+        try:
+            feed = PastGameDetailFeed.model_validate_json(body)
+        except ValidationError:
+            return False
+        return "leaders" not in feed.model_fields_set
 
     def serve_with(self, game_id: str, feed: PastGameDetailFeed) -> PastGameDetailFeed:
         found = self._store.highlights().get(game_id)
@@ -239,6 +255,7 @@ class PastGameDetailFeeds:
             build=self.build,
             is_fresh=self.is_fresh,
             keep=self.keep,
+            wait_when_stale=self.wait_when_stale,
             serve_with=self.serve_with,
             depends_on=self.depends_on,
         )

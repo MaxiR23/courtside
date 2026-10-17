@@ -27,7 +27,7 @@ import type {
 	PlayoffsFinalsFeed,
 	RoadTeam
 } from '#lib/contract/playoffs-finals.ts';
-import { CONFERENCE_TITLE, PLAY_IN_TITLE } from '#lib/feed/postseason-mark-props.ts';
+import { CONFERENCE_TITLE, PLAY_IN_TITLE, seriesSummary } from '#lib/feed/postseason-mark-props.ts';
 import { leader, tipParts, video } from '#lib/feed/props.ts';
 import { clinchView } from '#lib/feed/standings-props.ts';
 import { feedDate } from '#lib/feed/team-props.ts';
@@ -143,6 +143,10 @@ const LEADER_LABEL: Record<LeaderCategory, () => string> = {
 	minutes: m.playoffs_leader_min
 };
 
+// The code a row draws: that season's code, else today's (ADR 0055).
+const drawn = (entry: { teamCode: string | null; seasonCode: string | null }): string =>
+	entry.seasonCode ?? entry.teamCode ?? NO_VALUE;
+
 const PLAYER_AWARD_NAME: Partial<Record<AwardCode, () => string>> = {
 	mvp: m.playoffs_award_mvp,
 	dpoy: m.playoffs_award_dpoy,
@@ -185,6 +189,18 @@ const TEAM_AWARD_NAME: Partial<Record<AwardCode, Record<number, () => string>>> 
 	all_defensive: { 1: m.playoffs_award_all_defense_1, 2: m.playoffs_award_all_defense_2 }
 };
 
+/** The name of an award written from its code and team number in the page language; null for a code the page does not know. */
+export function awardName(code: AwardCode, team: number | null): string | null {
+	const teamNames = TEAM_AWARD_NAME[code];
+	if (teamNames) return teamNames[team ?? 0]?.() ?? null;
+	return PLAYER_AWARD_NAME[code]?.() ?? null;
+}
+
+/** The short code of a player award in the page language; null when it has none. */
+export function awardShortCode(code: AwardCode): string | null {
+	return AWARD_CODE[code]?.() ?? null;
+}
+
 // A historical side has no team color: it is drawn as the guest sigla box (ADR 0054).
 const strip = (team: PlayoffTeam): { primary: string; secondary: string } | null =>
 	!team.historical && team.colors.primary !== null && team.colors.secondary !== null
@@ -224,6 +240,33 @@ function stageView(entry: PlayoffStageEntry): PlayoffStageView {
 	};
 }
 
+// The Finals series is the bracket entry with no conference; its summary is composed from its wins (ADR 0055).
+function finalsStateLine(feed: PlayoffsFeed): string {
+	const finals = feed.bracket.find((series) => series.conference === null);
+	const summary = finals ? seriesSummaryOf(finals) : null;
+	return feed.finalsGame !== null && summary !== null
+		? m.playoffs_state_finals_game({ n: formatNumber(feed.finalsGame), summary })
+		: m.playoffs_state_finals();
+}
+
+function seriesSummaryOf(series: Series): string | null {
+	const topCode = series.top.team?.code ?? null;
+	const bottomCode = series.bottom.team?.code ?? null;
+	const winner =
+		series.winner === null
+			? null
+			: series.winner === topCode
+				? 'first'
+				: series.winner === bottomCode
+					? 'second'
+					: null;
+	return seriesSummary(
+		{ label: series.top.team ? code(series.top.team) : NO_VALUE, wins: series.top.wins },
+		{ label: series.bottom.team ? code(series.bottom.team) : NO_VALUE, wins: series.bottom.wins },
+		winner
+	);
+}
+
 function stateLine(feed: PlayoffsFeed): string {
 	switch (feed.state) {
 		case 'picture':
@@ -236,12 +279,7 @@ function stateLine(feed: PlayoffsFeed): string {
 				m.playoffs_title()
 			);
 		case 'finals':
-			return feed.finalsGame !== null && feed.finalsSummary !== null
-				? m.playoffs_state_finals_game({
-						n: formatNumber(feed.finalsGame),
-						summary: feed.finalsSummary
-					})
-				: m.playoffs_state_finals();
+			return finalsStateLine(feed);
 		case 'complete':
 			return m.playoffs_state_complete();
 	}
@@ -417,7 +455,7 @@ function finalsMvpView(mvp: FinalsMvp | null): FinalsMvpView {
 	return {
 		name: mvp.name,
 		photo: mvp.photoUrl,
-		team: mvp.teamCode ?? NO_VALUE,
+		team: drawn(mvp),
 		stats: [
 			{
 				key: 'ppg',
@@ -461,7 +499,7 @@ function conferenceMvps(awards: Award[] | null): ConferenceMvpView[] {
 						name: winner.name,
 						photo: winner.photoUrl,
 						label: source.label(),
-						team: winner.teamCode ?? NO_VALUE
+						team: drawn(winner)
 					}
 				]
 			: [];
@@ -635,11 +673,7 @@ function seriesCard(series: Series, past: boolean): SeriesCardView {
 		final,
 		complete,
 		champion: final && complete,
-		score:
-			series.summary ??
-			(series.top.wins !== null && series.bottom.wins !== null
-				? `${top.wins}–${bottom.wins}`
-				: NO_VALUE),
+		score: seriesSummaryOf(series) ?? NO_VALUE,
 		games: series.games.map((game) => seriesGameRow(game, series.top.team?.code ?? null))
 	};
 }
@@ -725,13 +759,13 @@ function averageRow(player: PlayerPostseasonAverages): AverageRowView {
 function headToHeadView(finals: PlayoffsFinalsFeed): HeadToHeadView {
 	return {
 		records: finals.headToHead.records.map((entry) => ({
-			team: entry.teamCode,
+			team: drawn(entry),
 			record: entry.record ?? NO_VALUE
 		})),
 		bars: finals.headToHead.bars.map((bar) => barView(bar, finals)),
 		averages: finals.averages.map((roster) => ({
 			key: roster.teamCode,
-			label: roster.teamCode,
+			label: drawn(roster),
 			rows: roster.players.map(averageRow)
 		}))
 	};
@@ -744,7 +778,7 @@ function leaderTabs(feed: PlayoffsFeed): LeaderTabView[] {
 			rank: String(entry.rank),
 			name: entry.name,
 			photo: entry.photoUrl,
-			team: entry.teamCode,
+			team: drawn(entry),
 			value: entry.value
 		}));
 		return {
@@ -761,13 +795,12 @@ function awardView(award: Award): AwardView {
 		id: winner.playerId,
 		name: winner.name,
 		photo: winner.photoUrl,
-		team: winner.teamCode ?? NO_VALUE
+		team: drawn(winner)
 	}));
-	const teamNames = TEAM_AWARD_NAME[award.code];
-	if (teamNames) {
+	if (TEAM_AWARD_NAME[award.code]) {
 		return {
 			key: `${award.code}-${award.team ?? 0}`,
-			name: teamNames[award.team ?? 0]?.() ?? NO_VALUE,
+			name: awardName(award.code, award.team) ?? NO_VALUE,
 			code: null,
 			kind: 'team',
 			winners
@@ -775,8 +808,8 @@ function awardView(award: Award): AwardView {
 	}
 	return {
 		key: award.code,
-		name: PLAYER_AWARD_NAME[award.code]?.() ?? NO_VALUE,
-		code: AWARD_CODE[award.code]?.() ?? null,
+		name: awardName(award.code, award.team) ?? NO_VALUE,
+		code: awardShortCode(award.code),
 		kind: 'player',
 		winners: winners.slice(0, 1)
 	};

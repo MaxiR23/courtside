@@ -26,6 +26,7 @@
 		teamHref: (code: string) => ResolvedPathname;
 		playerHref: (id: string) => ResolvedPathname;
 		seasonSelect?: SeasonControl | null; // null: no selector
+		seasonTag?: string | null; // the Season tag of a past season whose feed is unavailable
 	};
 
 	// `state` is renamed so the `$state` rune is not read as a store of the prop.
@@ -36,7 +37,8 @@
 		layout,
 		teamHref,
 		playerHref,
-		seasonSelect = null
+		seasonSelect = null,
+		seasonTag = null
 	}: Props = $props();
 
 	const CARD_BONES = [0, 1, 2, 3];
@@ -145,6 +147,7 @@
 		{tick}
 		onLive={showGame}
 		{seasonSelect}
+		{seasonTag}
 	/>
 	<section class="page-section" class:mobile>
 		<MessageRow text={m.feed_unavailable()} />

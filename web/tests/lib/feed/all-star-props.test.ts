@@ -11,6 +11,7 @@
 // - The live plate is the default game: live with the leading row in ink and the other muted, or the tip-off
 //   plate; Next comes from isNext and is absent without it
 // - Statuses: Final, Final · OT, live with the status text and clock as sent, "—", and the tip-off
+// - A past edition's detail: no scheduled card, the "Highlights not available" placeholder and live false for a game that is not final; a current edition is unchanged
 // - The selected game's detail: placeholders (final, live, scheduled), the venue strip with "—", Top 5 in
 //   feed order, the scheduled card, leaders and team statistics
 // - The box score: topPoints from the feed (a tie marks both, none marks none), negative plus-minus, a null
@@ -419,6 +420,23 @@ describe('the detail of a game', () => {
 		const detail = current(live()).details.s2;
 		expect(detail.placeholder).toBe('Highlights post after the final buzzer');
 		expect(detail.live).toBe(true);
+	});
+
+	it('shows no live element in a past edition: no scheduled card, the unavailable placeholder, not live', () => {
+		const past = toAllStarView(live(), 'current', { pastLabel: '2024-25' })!;
+		expect(past.details.c1.scheduled).toBeNull();
+		expect(past.details.c1.placeholder).toBe('Highlights not available');
+		expect(past.details.c1.live).toBe(false);
+		expect(past.details.s2.placeholder).toBe('Highlights not available');
+		expect(past.details.s2.live).toBe(false);
+		expect(current(live()).details.s2.live).toBe(true);
+		expect(current(live()).details.c1.scheduled).not.toBeNull();
+	});
+
+	it('keeps the video of a past edition game that has one', () => {
+		const past = toAllStarView(after(), 'current', { pastLabel: '2024-25' })!;
+		expect(past.details.g4.video).not.toBeNull();
+		expect(past.details.g4.placeholder).toBeNull();
 	});
 
 	it('has the one centered card for a game not started', () => {

@@ -5,11 +5,13 @@
 	import DayPage from '#lib/components/DayPage.svelte';
 	import { easternToday, neighbours } from '#lib/calendar/month.ts';
 	import type { DateCalendar } from '#lib/calendar/types.ts';
+	import { DayCardStats } from '#lib/day/card-stats.svelte.ts';
 	import { DayLoader } from '#lib/day/loader.svelte.ts';
 	import type { DayPageState } from '#lib/day/types.ts';
 	import {
 		calendarFeedUrl,
 		dayFeedUrl,
+		gameDetailFeedUrl,
 		gamesFeedUrl,
 		videoPlatformName
 	} from '#lib/feed/config.ts';
@@ -17,8 +19,10 @@
 	import {
 		calendarFeedUrl as calendarFeedUrlOf,
 		dayFeedUrl as dayFeedUrlOf,
+		gameFeedUrl,
 		loadCalendarFeed,
 		loadDayFeed,
+		loadGameDetailFeed,
 		loadGamesFeed
 	} from '#lib/feed/load.ts';
 	import { wideViewport } from '#lib/schedule/layout.ts';
@@ -49,6 +53,17 @@
 	);
 
 	$effect(() => loader?.start(params.date));
+
+	// A past card reads its game detail when first opened, once per game (ADR 0057).
+	const detailTemplate = gameDetailFeedUrl;
+	const detailReads = $derived(
+		new DayCardStats(
+			detailTemplate
+				? (id: string) => loadGameDetailFeed(gameFeedUrl(detailTemplate, id))
+				: undefined
+		)
+	);
+	$effect(() => () => detailReads.stop());
 
 	const view = $derived(loader?.feed ? toDayView(loader.feed, { videoPlatformName }) : null);
 
@@ -96,4 +111,5 @@
 	layout={wide.current ? 'desktop' : 'mobile'}
 	{gameHref}
 	{teamHref}
+	{detailReads}
 />

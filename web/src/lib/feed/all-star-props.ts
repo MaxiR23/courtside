@@ -222,25 +222,27 @@ function broadcast(game: AllStarGame): string {
 	return [tv?.name, streaming?.name].filter(Boolean).join(SEPARATOR) || NO_VALUE;
 }
 
-function detail(game: AllStarGame, edition: AllStarEdition): GameDetailView {
+// A past edition shows no live element: never the scheduled card nor the after-the-buzzer text (docs/design-seasons.md).
+function detail(game: AllStarGame, edition: AllStarEdition, past: boolean): GameDetailView {
 	const played = game.status === 'live' || game.status === 'final';
 	const first = game.highlights?.[0];
 	const venue = [edition.venue?.name, edition.venue?.city].filter(Boolean).join(', ');
 	return {
 		id: game.id,
-		scheduled: played
-			? null
-			: {
-					title: m.allstar_scheduled_title({ time: tipText(game.startTime) }),
-					body: m.allstar_scheduled_body()
-				},
+		scheduled:
+			played || past
+				? null
+				: {
+						title: m.allstar_scheduled_title({ time: tipText(game.startTime) }),
+						body: m.allstar_scheduled_body()
+					},
 		video: first ? video(first) : null,
 		placeholder: first
 			? null
-			: game.status === 'final'
+			: past || game.status === 'final'
 				? m.allstar_highlights_unavailable()
 				: m.allstar_highlights_after_buzzer(),
-		live: game.status !== 'final',
+		live: !past && game.status !== 'final',
 		venueStrip: [
 			{ key: 'venue', label: m.allstar_venue(), value: orDash(venue) },
 			{
@@ -621,7 +623,9 @@ function build(drawn: Drawn, last: LastTimeView | null, seasonTag: string | null
 		scoreline: line,
 		formatLine: formatLine(edition.format),
 		games: edition.games.map(card),
-		details: Object.fromEntries(edition.games.map((game) => [game.id, detail(game, edition)])),
+		details: Object.fromEntries(
+			edition.games.map((game) => [game.id, detail(game, edition, seasonTag !== null)])
+		),
 		boxes: Object.fromEntries(edition.games.map((game) => [game.id, boxView(game)])),
 		defaultGame: edition.defaultGameId,
 		teams: edition.teams.map(teamCard),

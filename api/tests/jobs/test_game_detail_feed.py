@@ -7,6 +7,7 @@
 # - Carries the postseason mark of the game into the feed, and null without one
 # - Carries the All-Star mark of the game into the feed, and null without one, and builds the detail of an All-Star game with two guest sides without a city
 # - Builds a final game with its winner, box score and season series
+# - The current builder never writes the leaders key: a scheduled, a live and a final feed serve leaders null (ADR 0057)
 # - Carries the win probability periods of the sections into the feed, or null
 # - Carries the win probability leader of the sections into the feed and fails the build when it does not match the latest point
 # - Takes each series arena from the team schedules and this game's venue
@@ -426,6 +427,13 @@ def test_builds_a_final_game_with_its_winner_box_score_and_season_series() -> No
     assert feed.season_series is not None
     assert feed.season_series.games[0].arena == "Garden"
     assert feed.win_probability_periods is None
+
+
+def test_a_current_feed_serves_null_leaders_and_never_writes_the_key() -> None:
+    for status in (GameStatus.SCHEDULED, GameStatus.LIVE, GameStatus.FINAL):
+        feed = build(game("1", status), sections(status))
+        assert feed.leaders is None
+        assert "leaders" not in feed.model_fields_set
 
 
 def test_builds_a_final_game_with_its_win_probability_periods() -> None:
