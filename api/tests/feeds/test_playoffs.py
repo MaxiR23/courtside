@@ -5,6 +5,8 @@
 # Tested:
 # - A valid picture feed and a valid complete feed are accepted and serialized with camelCase keys
 # - Rejects a champion outside complete, no champion when complete, a current round outside the playoffs, a finals game or summary before the finals, stages, picture, play-in, bracket or leaders out of order or of the wrong count, a line on a row other than 6 and 10, a series winner that is not a side, a winner of a series that is not complete, a conference on the finals or none on another series, a round that does not match the id, a side with both a team and currently, wins without a team, an outcome on a game that is not final, a game without an outcome that is final, a team award without its team number, a player award with one, a guest playoff team, a winner on a game that is not final, more than five leaders, ranks that do not increase, a stage status outside the four, stage dates with only one end set, a date span that runs backwards, series games out of start order and an unknown field
+# - An award takes as many winners as the source sends, six included (ADR 0055)
+# - A complete series without the wins of both sides is rejected (ADR 0055)
 # - A null play-in (a season before 2021) is accepted, while a play-in of one table or in the wrong order is still rejected
 # - A feed with a build version is accepted, one with zero is rejected, and a stored feed without the field reads with a null version
 #
@@ -469,6 +471,19 @@ def test_rejects_a_series_winner_that_is_not_a_side() -> None:
     rejected(feed)
 
 
+def test_rejects_a_complete_series_without_the_wins_of_both_sides() -> None:
+    feed = picture_feed()
+    feed["bracket"][0] = series(
+        "east-r1-1",
+        top=side(team=team("ATL"), seed=1, wins=4),
+        bottom=side(team=team("BOS"), seed=8, wins=None),
+        status="complete",
+        winner="ATL",
+    )
+
+    rejected(feed)
+
+
 def test_rejects_a_winner_of_a_series_that_is_not_complete() -> None:
     feed = picture_feed()
     feed["bracket"][0] = series(
@@ -648,6 +663,17 @@ def test_rejects_ranks_that_do_not_increase() -> None:
     feed["leaders"][0]["leaders"] = [leader, copy.deepcopy(leader)]
 
     rejected(feed)
+
+
+def test_accepts_an_award_with_six_winners_a_tie_included() -> None:
+    feed = complete_feed()
+    winner = feed["awards"][0]["winners"][0]
+    feed["awards"][0]["winners"] = [{**winner, "playerId": str(n)} for n in range(1, 7)]
+
+    parsed = PlayoffsFeed.model_validate(feed)
+
+    assert parsed.awards is not None
+    assert [w.player_id for w in parsed.awards[0].winners] == list("123456")
 
 
 def test_rejects_an_award_without_winners() -> None:

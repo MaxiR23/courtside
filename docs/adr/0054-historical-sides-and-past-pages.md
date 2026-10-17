@@ -1,6 +1,6 @@
 # 0054. Historical sides and past pages
 
-- Status: Accepted
+- Status: Superseded by 0055 for the season code of a historical identity only
 - Date: 2026-10-17
 
 ## Context

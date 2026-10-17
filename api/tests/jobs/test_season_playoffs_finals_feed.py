@@ -5,6 +5,8 @@
 # Tested:
 # - check: 1993, abc, 02025, 2025 with a trailing newline, the current season and a future season are unknown; 1994 and the season before the current one are known; an unknown current season is not ready
 # - target: the current season maps to the current playoffs finals feed, a past season to the season kind
+# - The kind: the Finals MVP, the records and the averages carry the season code of their team (ADR 0055)
+# - The kind: the Finals build over a stored playoffs feed with a six-winner award (ADR 0055)
 # - The kind: the league sides are named by the season team object with the season code and the historical flag (ADR 0054)
 # - The kind: a past season builds a valid Finals feed after the season playoffs feed (built first through depends_on), with the finalists' box-score rosters, the game details by provider id first and the season on the team reads
 # - The kind: a detail, sections, plays, record or statistics read that answers 404 nulls or empties its part (leaders, curve, largest deficit, records, bar values)
@@ -33,7 +35,7 @@ from typing import Any, cast
 import pytest
 
 from app.feeds.games import Highlight
-from app.feeds.playoffs import AwardCode
+from app.feeds.playoffs import AwardCode, PlayoffsFeed
 from app.feeds.playoffs_finals import PlayoffsFinalsFeed
 from app.jobs.on_demand import (
     SEASON_BUILD_VERSION,
@@ -113,7 +115,9 @@ class FinalsKit(SeasonPlayoffsKit):
         self, client: SourceClient, season: int, settings: Settings
     ) -> SeasonAwards:
         self.read(f"awards/{season}")
-        return SeasonAwards(awards=[award(AwardCode.FINALS_MVP, ["101"])])
+        return self.awards_source or SeasonAwards(
+            awards=[award(AwardCode.FINALS_MVP, ["101"])]
+        )
 
     def box_players(self, code: str) -> list[RosterEntry]:
         return [*super().box_players(code), *PLAYERS.get(code, [])]
@@ -242,6 +246,43 @@ async def test_a_past_season_builds_a_valid_finals_feed_after_the_season_playoff
     assert feed.games[0].leaders is not None
     assert feed.games[0].win_probability is not None
     assert feed.games[0].largest_deficit is not None
+
+
+@pytest.mark.anyio
+async def test_the_mvp_the_records_and_the_averages_carry_the_season_code_of_their_team(
+    kit: FinalsKit,
+) -> None:
+    kit.season_teams.by_season[2025] = season_team("Harbor Gulls", "Seattle", "SEA")
+    kit.season_teams.by_season[2027] = season_team("Thunder", "Oklahoma City", "OKC")
+
+    feed = PlayoffsFinalsFeed.model_validate_json(await kit.serve_finals("2025"))
+
+    assert feed.finals_mvp is not None and feed.finals_mvp.team_code is not None
+    assert feed.finals_mvp.season_code == "SEA"
+    records = feed.head_to_head.records
+    assert {r.season_code for r in records} == {"SEA"}
+    assert {a.season_code for a in feed.averages} == {"SEA"}
+
+
+@pytest.mark.anyio
+async def test_the_finals_build_over_a_playoffs_feed_with_a_six_winner_award(
+    kit: FinalsKit,
+) -> None:
+    kit.awards_source = SeasonAwards(
+        awards=[
+            award(AwardCode.FINALS_MVP, ["101"]),
+            award(AwardCode.ALL_DEFENSIVE, ["1", "2", "3", "4", "5", "6"], 2),
+        ]
+    )
+
+    feed = PlayoffsFinalsFeed.model_validate_json(await kit.serve_finals("2025"))
+
+    stored = read_by_id(kit.path, PLAYOFFS_KIND, "2025")
+    assert stored is not None
+    assert [
+        len(a.winners) for a in PlayoffsFeed.model_validate_json(stored).awards or []
+    ] == [1, 6]
+    assert feed.finals_mvp is not None and feed.finals_mvp.player_id == "101"
 
 
 @pytest.mark.anyio

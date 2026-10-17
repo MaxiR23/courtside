@@ -8,6 +8,26 @@ export type TagKind = 'cup' | 'playoffs' | 'allstar';
 export type Conference = 'east' | 'west';
 export type GameKind = 'regular' | 'cup' | 'playoffs' | 'allstar' | 'preseason';
 export type GameResult = 'win' | 'loss';
+/**
+ * The kind of a season award, shared by the playoffs and the player feeds.
+ */
+export type AwardCode =
+	| 'mvp'
+	| 'dpoy'
+	| 'roy'
+	| 'sixth_man'
+	| 'mip'
+	| 'cpoy'
+	| 'finals_mvp'
+	| 'east_finals_mvp'
+	| 'west_finals_mvp'
+	| 'all_star_mvp'
+	| 'cup_mvp'
+	| 'cup_all_tournament'
+	| 'all_nba'
+	| 'all_rookie'
+	| 'all_defensive'
+	| 'twyman_stokes';
 
 export interface PlayerFeed {
 	id: string;
@@ -46,6 +66,7 @@ export interface Team {
 	code: string;
 	name: string;
 	city: string;
+	seasonCode: string | null;
 }
 export interface PlayerInjury {
 	status: InjuryStatus;
@@ -135,25 +156,25 @@ export interface PlayerLive {
 	line: BoxScorePlayer | null;
 }
 export interface BoxScorePlayer {
-	points: number;
-	fieldGoalsMade: number;
-	fieldGoalsAttempted: number;
-	threePointsMade: number;
-	threePointsAttempted: number;
-	freeThrowsMade: number;
-	freeThrowsAttempted: number;
-	offensiveRebounds: number;
-	defensiveRebounds: number;
-	rebounds: number;
-	assists: number;
-	turnovers: number;
-	steals: number;
-	blocks: number;
-	fouls: number;
+	points: number | null;
+	fieldGoalsMade: number | null;
+	fieldGoalsAttempted: number | null;
+	threePointsMade: number | null;
+	threePointsAttempted: number | null;
+	freeThrowsMade: number | null;
+	freeThrowsAttempted: number | null;
+	offensiveRebounds: number | null;
+	defensiveRebounds: number | null;
+	rebounds: number | null;
+	assists: number | null;
+	turnovers: number | null;
+	steals: number | null;
+	blocks: number | null;
+	fouls: number | null;
 	playerId: string;
 	displayName: string;
 	starter: boolean;
-	minutes: string;
+	minutes: string | null;
 	plusMinus: number | null;
 	photoUrl: string | null;
 }
@@ -256,6 +277,7 @@ export interface SeasonRow {
 	 * @minItems 1
 	 */
 	teams: [string, ...string[]];
+	seasonCodes: (string | null)[] | null;
 }
 export interface CareerRows {
 	perGame: StatRow;
@@ -305,6 +327,8 @@ export interface GameLog {
 }
 export interface Award {
 	name: string;
+	code: AwardCode | null;
+	team: number | null;
 	count: number;
 	/**
 	 * @minItems 1

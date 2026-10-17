@@ -31,6 +31,7 @@
 # - Accepts a postseason mark and reads a stored feed without the key as null
 # - Accepts an All-Star mark and reads a stored feed without the key as null
 # - Accepts a null freeThrowPct in the team stats, null percentages in the box score totals and a null plusMinus (ADR 0052)
+# - Accepts null team stat counts, null box score values and a null minutes, stats the source does not send (ADR 0055)
 # - Accepts a final All-Star detail without a lineScore (ADR 0051) and rejects a final league detail without it
 # - Accepts a guest side with a null city and rejects a league side with a null city
 # - The season label is null by default, accepted as YYYY-YY and rejected otherwise
@@ -993,6 +994,9 @@ def test_accepts_a_detail_feed_with_a_postseason_mark() -> None:
         "summary": "Series tied 2-2",
         "playIn": None,
         "stakes": None,
+        "awayWins": None,
+        "homeWins": None,
+        "seriesWinner": None,
     }
 
     feed = GameDetailFeed.model_validate(valid_game("scheduled", postseason=mark))
@@ -1172,6 +1176,27 @@ def test_accepts_null_percentages_in_the_box_score_totals_and_a_null_plus_minus(
         None,
     )
     assert feed.box_score.home.players[0].plus_minus is None
+
+
+def test_accepts_null_counts_in_the_team_stats_and_null_values_in_the_box_score() -> (
+    None
+):
+    game = full_game()
+    for key in ("rebounds", "assists", "turnovers", "steals", "blocks"):
+        game["teamStats"]["away"][key] = None
+    player = game["boxScore"]["home"]["players"][0]
+    for key in ("points", "rebounds", "fieldGoalsMade", "fouls"):
+        player[key] = None
+    player["minutes"] = None
+    game["boxScore"]["away"]["totals"]["rebounds"] = None
+
+    feed = GameDetailFeed.model_validate(game)
+
+    assert feed.team_stats is not None and feed.box_score is not None
+    assert feed.team_stats.away.steals is None
+    assert feed.box_score.home.players[0].minutes is None
+    assert feed.box_score.home.players[0].points is None
+    assert feed.box_score.away.totals.rebounds is None
 
 
 def test_accepts_a_final_all_star_game_without_a_line_score() -> None:

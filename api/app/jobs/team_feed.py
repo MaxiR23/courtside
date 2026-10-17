@@ -20,8 +20,9 @@
 # injected providers, one per section, that read no source and are merged in
 # title order, and it expires when a feed any provider reads was rebuilt after
 # it (ADR 0035). It carries the franchise names of the names kind, built first
-# when missing or stale, and set again when served (ADR 0043). Team feeds are
-# never deleted.
+# when missing or stale, and set again when served (ADR 0043). A team feed is also
+# stale while its stored names are of another build version, which rebuilds the
+# names first (ADR 0055). Team feeds are never deleted.
 #
 # SEE: docs/api/team.md, docs/api/player.md, docs/source-rules.md, api/app/jobs/game_detail_feed.py
 
@@ -741,6 +742,10 @@ class TeamFeeds:
 
     def is_fresh(self, feed: TeamFeed, built_at: dt.datetime, now: dt.datetime) -> bool:
         if any(p.rebuilt_after(built_at) for p in self._title_providers):
+            return False
+        # A stored names list of another build is stale, so the rebuild starts it
+        # (ADR 0055).
+        if self._names is not None and self._names.outdated(feed.code.lower()):
             return False
         return not self.expired(feed.code, feed.schedule, built_at, now)
 

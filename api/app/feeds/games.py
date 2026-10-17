@@ -105,6 +105,23 @@ class GamePostseason(FeedModel):
     summary: NonEmptyStr | None
     play_in: PlayInGameKind | None
     stakes: Stakes | None
+    # The series wins of the game's two sides and the side that won the series, from
+    # the series object (ADR 0032, ADR 0055). The winner is set only when the
+    # series is complete. Null on a play-in mark and when the source gives none.
+    away_wins: Annotated[int, Field(ge=0, le=4)] | None = None
+    home_wins: Annotated[int, Field(ge=0, le=4)] | None = None
+    series_winner: Side | None = None
+
+    @model_validator(mode="after")
+    def _require_wins_for_a_series_winner(self) -> GamePostseason:
+        if self.series_winner is None:
+            return self
+        if self.away_wins is None or self.home_wins is None:
+            raise ValueError("a series winner requires the wins of both sides")
+        ahead = Side.AWAY if self.away_wins > self.home_wins else Side.HOME
+        if self.away_wins == self.home_wins or self.series_winner is not ahead:
+            raise ValueError("the series winner is the side with more wins")
+        return self
 
     @model_validator(mode="after")
     def _require_fields_of_stage(self) -> GamePostseason:
@@ -113,6 +130,12 @@ class GamePostseason(FeedModel):
                 raise ValueError("a play-in mark has no round or number")
             if self.summary is not None:
                 raise ValueError("a play-in mark has no summary")
+            if (
+                self.away_wins is not None
+                or self.home_wins is not None
+                or self.series_winner is not None
+            ):
+                raise ValueError("a play-in mark has no series wins or winner")
             if self.play_in is None or self.conference is None:
                 raise ValueError("a play-in mark requires playIn, conference")
             if self.stakes not in (None, Stakes.ELIMINATION):
@@ -151,6 +174,9 @@ class Team(FeedModel):
     code: TeamCode
     name: NonEmptyStr
     city: NonEmptyStr
+    # The team's abbreviation in this past season, from that season's team object
+    # (ADR 0055). Null on a current feed.
+    season_code: SideCode | None = None
 
 
 class GameTeam(Opponent):
@@ -179,9 +205,9 @@ class Leader(FeedModel):
     display_name: NonEmptyStr
     team_code: SideCode | None
     photo_url: HttpUrl | None
-    points: NonNegativeInt
-    rebounds: NonNegativeInt
-    assists: NonNegativeInt
+    points: NonNegativeInt | None
+    rebounds: NonNegativeInt | None
+    assists: NonNegativeInt | None
 
 
 class Star(Player):
@@ -191,9 +217,9 @@ class Star(Player):
 class TeamStats(FeedModel):
     field_goal_pct: Percentage | None
     three_point_pct: Percentage | None
-    rebounds: NonNegativeInt
-    assists: NonNegativeInt
-    turnovers: NonNegativeInt
+    rebounds: NonNegativeInt | None
+    assists: NonNegativeInt | None
+    turnovers: NonNegativeInt | None
 
 
 class Highlight(FeedModel):

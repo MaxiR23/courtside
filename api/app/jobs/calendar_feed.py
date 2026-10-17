@@ -14,7 +14,8 @@
 # answer is not ready (503). It expires (rule G) 24 hours after the build, and is
 # kept once its season is past and it was built after the season's last day (the
 # last day guard keeps a calendar stored while its season was current from being
-# frozen at the season change). It is never deleted (ADR 0040). The id current
+# frozen at the season change) and while its build version is the current one
+# (ADR 0055). It is never deleted (ADR 0040). The id current
 # resolves to the current season's end year before the cache, so it serves the
 # same stored file (503 while the season is unknown). The feed's seasons run from
 # the current season down to 1994 and are set again at serve time (ADR 0042).
@@ -31,7 +32,13 @@ from pydantic import ValidationError
 from app.feeds.calendar import FIRST_SEASON, CalendarFeed
 from app.jobs.day_feed import stored_window_days
 from app.jobs.games import eastern_date
-from app.jobs.on_demand import FeedCache, FeedKind, IdStatus
+from app.jobs.on_demand import (
+    FeedCache,
+    FeedKind,
+    IdStatus,
+    is_current_build,
+    with_build_version,
+)
 from app.jobs.stars import StarsJob
 from app.jobs.team_feed import season_label
 from app.settings import Settings
@@ -131,8 +138,8 @@ class CalendarFeeds:
         current = self._stars.current_season()
         if current is None:
             raise CalendarBuildError("current season is not known")
-        return build_calendar_feed(
-            self._client.clock(), season, moments, window, current
+        return with_build_version(
+            build_calendar_feed(self._client.clock(), season, moments, window, current)
         )
 
     def feed_id(self, season: str) -> str | None:
@@ -159,6 +166,7 @@ class CalendarFeeds:
             current is not None
             and feed.season < current
             and eastern_date(built_at) > feed.last_day
+            and is_current_build(feed)
         ):
             return True
         return now - built_at < CURRENT_FRESH_FOR

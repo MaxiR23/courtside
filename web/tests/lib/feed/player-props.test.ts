@@ -6,7 +6,7 @@
 // - The header: line, status tag, injury card, hero stats (rank sub-line, null rank, null summary)
 // - The tabs in order and the mini name; sections without data leave with their tab
 // - The profile cells: formatting, sub-lines, a null draft, null fields leaving their cell
-// - The next game, the live card view and its null line
+// - The next game, the live card view, its null line and a live line value the feed has as null (ADR 0055)
 // - The last 5 rows: result, date, opponent, score, tag, points line and links
 // - The averages: season sub-lines, a null row, the Career accent, formatting
 // - Season by season: columns, combined teams, the Career row, playoffs, made–attempted
@@ -307,6 +307,19 @@ describe('toPlayerView next game and live', () => {
 				{ label: 'FG', value: '7–15', sub: null }
 			]
 		});
+	});
+
+	it('shows a dash for a live line value the feed has as null', () => {
+		const line = {
+			...LINE,
+			points: null,
+			rebounds: null,
+			fieldGoalsMade: null,
+			fieldGoalsAttempted: null,
+			minutes: null
+		};
+		const { live } = view(liveFeed(3, line as unknown as typeof LINE)).sections.profile;
+		expect(live?.line?.map((cell) => cell.value)).toEqual(['—', '—', '—', '5', '—']);
 	});
 
 	it('shows overtime periods in the clock', () => {

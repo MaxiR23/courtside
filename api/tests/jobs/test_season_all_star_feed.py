@@ -12,6 +12,7 @@
 # - Previous edition: the recap and the whole edition; none for 1994
 # - No per-game highlight, null league teams and no team info read
 # - The edition video is served as editionHighlight on the edition, the recap and the previous edition, null when none, and not stored
+# - A 2004-05-shaped edition whose summaries lack totalRebounds and fieldGoalPct builds, with a null team statistics block (ADR 0055)
 # - A single-game edition builds as after with a champion, and the next season's recap carries the MVP this season's feed carries (ADR 0053)
 # - The built feed carries the current build version, a stored feed of an older or missing version is rebuilt on its next request, and one of the current version is served with no source request (ADR 0053)
 # - The kind: the cleanup keeps a past season feed
@@ -28,6 +29,7 @@
 # SEE: api/app/jobs/season_all_star_feed.py
 
 import datetime as dt
+import json
 import logging
 from collections.abc import Iterator
 from pathlib import Path
@@ -53,6 +55,7 @@ from app.settings import Settings
 from app.sources.all_star_detail import AllStarDetailExtras
 from app.sources.all_star_scoreboard import AllStarScoreboardGame
 from app.sources.game_detail import GameDetail, GameDetailSections
+from app.sources.game_detail import fetch_game_detail_sections as real_sections
 from app.sources.http import Freshness, SourceClient, SourceError
 from app.sources.season_awards import SeasonAwards
 from app.storage.feeds import publish_by_id, read_by_id
@@ -71,6 +74,7 @@ from tests.jobs.test_all_star_feed import (
     single_game,
 )
 
+SUMMARY_FIXTURES = Path(__file__).parent.parent / "sources" / "fixtures" / "game_detail"
 EDITION = dt.date(2025, 2, 16)
 EARLIER = dt.date(2024, 2, 18)
 
@@ -125,6 +129,7 @@ class SeasonAllStarKit(AllStarKit):
     def __init__(self, path: Path) -> None:
         super().__init__(path)
         self.missing: set[str] = set()
+        self.sections_override: GameDetailSections | None = None
         self.calendars: dict[int, list[dt.datetime]] = {
             2025: [at(1, 20), at(2, 9), at(2, 16), at(3, 3)],
             2024: [at(2, 5, 2024), at(2, 18, 2024)],
@@ -171,6 +176,8 @@ class SeasonAllStarKit(AllStarKit):
         self, client: SourceClient, game_id: str, settings: Settings, fresh: Freshness
     ) -> GameDetailSections:
         self.read(f"sections/{game_id}")
+        if self.sections_override is not None:
+            return self.sections_override
         return sections_of(self.find(game_id))
 
     async def fetch_all_star_extras(
@@ -283,6 +290,39 @@ async def test_a_season_with_no_edition_is_unknown_stored_nowhere_and_not_scanne
     assert kit.store.all_star_edition(2025) is None
     assert kit.store.feed_build(KIND, "2025") is None
     assert not (tmp_path / "feeds" / KIND).exists()
+
+
+@pytest.mark.anyio
+async def test_a_2004_05_shaped_edition_with_no_rebounds_and_no_field_goal_percentage_builds(
+    kit: SeasonAllStarKit,
+) -> None:
+    payload = json.loads(
+        (SUMMARY_FIXTURES / "summary-final.json").read_text(encoding="utf-8")
+    )
+    for team in payload["boxscore"]["teams"]:
+        team["statistics"] = [
+            stat
+            for stat in team["statistics"]
+            if stat["name"] not in ("totalRebounds", "fieldGoalPct")
+        ]
+    template = "https://example.com/games/{game_id}"
+    settings = Settings(  # type: ignore[call-arg]
+        _env_file=None,
+        game_detail_url=template,
+        player_photo_url="https://example.com/players/{player_id}.png",
+    )
+    respx.get(template.format(game_id="s1")).respond(json=payload)
+    kit.sections_override = await real_sections(
+        kit.client, "s1", settings, dt.timedelta(hours=1)
+    )
+
+    feed = await kit.request()
+
+    assert feed.state is AllStarState.AFTER
+    final = feed.edition.games[-1]
+    assert final.team_stats is None
+    assert final.box_score is not None
+    assert all(p.rebounds is not None for p in final.box_score.away.players)
 
 
 @pytest.mark.anyio

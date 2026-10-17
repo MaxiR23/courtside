@@ -9,6 +9,7 @@
 # - Marks the nine-ten and eighth-seed play-in games as elimination and the seven-eight game with no stakes
 # - Gives no stakes without three entering wins, without a series object, without both sides in its wins or when the final winner has no win
 # - Maps a play-in note, a round 1 to 3 game and a Finals game to their stage, round, conference, number and summary
+# - Gives the series wins of both sides and, for a series the source says is completed, the winner side; none for an in-progress, unreadable or tied series and none on a play-in mark (ADR 0055)
 # - Gives no mark to a regular season game or an unknown play-in note
 # - A season type 3 game always has a mark (ADR 0050): a FINALS note gives a Finals mark without a number, an empty note with no known competition type gives a playoffs mark without round, conference or number, and a note without a game number or a conference leaves only that value null
 # - Reads the round from the note first, in any case, and from the competition type otherwise; NBA Finals - Game 6 is Finals round 4 game 6
@@ -35,6 +36,7 @@ from app.feeds.games import (
     Score,
     Stakes,
 )
+from app.feeds.opponent import Side
 from app.sources.postseason_mark import postseason_mark, stakes_of
 
 AWAY, HOME = "BOS", "NYK"
@@ -194,12 +196,53 @@ def test_maps_a_round_1_to_3_game_to_playoffs_with_round_conference_number_and_s
         summary="BOS leads series 3-1",
         play_in=None,
         stakes=Stakes.CAN_CLINCH,
+        away_wins=3,
+        home_wins=1,
+        series_winner=None,
     )
     west = series_mark(
         2, None, competition_type="RD16", note="West 1st Round - Game 2", summary=None
     )
     assert west is not None
     assert (west.round, west.conference, west.summary) == (1, Conference.WEST, None)
+
+
+def test_gives_the_wins_of_both_sides_and_the_winner_of_a_completed_series() -> None:
+    done = series_mark(6, {AWAY: 2, HOME: 4}, GameStatus.FINAL, completed=True)
+    live = series_mark(5, {AWAY: 3, HOME: 1}, completed=False)
+    unknown = series_mark(5, {AWAY: 3, HOME: 1}, completed=None)
+
+    assert done is not None and live is not None and unknown is not None
+    assert (done.away_wins, done.home_wins, done.series_winner) == (2, 4, Side.HOME)
+    assert (live.away_wins, live.home_wins, live.series_winner) == (3, 1, None)
+    assert unknown.series_winner is None
+
+
+def test_gives_the_away_side_as_the_winner_when_it_has_more_wins() -> None:
+    mark = series_mark(6, {AWAY: 4, HOME: 2}, GameStatus.FINAL, completed=True)
+
+    assert mark is not None and mark.series_winner is Side.AWAY
+
+
+def test_gives_no_wins_without_both_sides_in_the_series_and_no_winner_on_equal_wins() -> (
+    None
+):
+    unreadable = series_mark(2, None, completed=True)
+    one_side = series_mark(2, {AWAY: 1}, completed=True)
+    equal = series_mark(2, {AWAY: 2, HOME: 2}, completed=True)
+
+    assert unreadable is not None and one_side is not None and equal is not None
+    assert (unreadable.away_wins, unreadable.series_winner) == (None, None)
+    assert (one_side.away_wins, one_side.home_wins) == (1, None)
+    assert one_side.series_winner is None
+    assert (equal.away_wins, equal.home_wins, equal.series_winner) == (2, 2, None)
+
+
+def test_a_play_in_mark_has_no_wins_or_winner() -> None:
+    mark = play_in("NBA Play-In - West - 9th Place vs 10th Place")
+
+    assert mark is not None
+    assert (mark.away_wins, mark.home_wins, mark.series_winner) == (None, None, None)
 
 
 def test_maps_a_finals_game_to_round_4_with_no_conference() -> None:

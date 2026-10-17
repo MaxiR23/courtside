@@ -15,7 +15,7 @@
 // - The sections: built from the feed, null with their tab, leaders from the feed, the win
 //   probability meta from the feed leader, 'Even' with none or with a feed built before the
 //   field, box score split and formatting, highlights on a final game
-// - The box score: plusMinus true when any row has a plus-minus and false when every row is null, whose rows show a dash; a null totals percentage shows a dash; null team stat percentages pass through to the score section (ADR 0052)
+// - The box score: plusMinus true when any row has a plus-minus and false when every row is null, whose rows show a dash; a null totals percentage, count, shooting split or minutes shows a dash (ADR 0055); null team stat percentages pass through to the score section (ADR 0052)
 // - The final layout has no Videos tab or section, even from a stored feed that still has videos
 // - The pre-game sections: players by side (with the player id), injuries (with the player id, null for a feed without the key), last games (strip order, row format), standings,
 //   the season series summary (leader from the feed) and meta, the "This game" row and the dimmed
@@ -148,7 +148,10 @@ describe('toGameView with the postseason mark', () => {
 				number: 5,
 				summary: 'NYK leads 3-1',
 				playIn: null,
-				stakes: 'can_clinch' as const
+				stakes: 'can_clinch' as const,
+				awayWins: null,
+				homeWins: null,
+				seriesWinner: null
 			}
 		};
 		expect(view(source).header.postseasonMark).toEqual({
@@ -571,6 +574,28 @@ describe('toGameView sections', () => {
 			'—'
 		]);
 		expect(view(source).sections.boxScore?.home.totals.fieldGoalPct).toMatch(/^\d+\.\d%$/);
+	});
+
+	it('shows a dash for a box score count, a shooting split and minutes the feed has as null', () => {
+		const source = feed();
+		if (!source.boxScore) throw new Error('The fixture has a box score');
+		source.boxScore.away.players = source.boxScore.away.players.map((p) => ({
+			...p,
+			points: null,
+			rebounds: null,
+			fieldGoalsMade: null,
+			fieldGoalsAttempted: null,
+			minutes: null
+		}));
+		source.boxScore.away.totals = { ...source.boxScore.away.totals, assists: null };
+		const section = view(source).sections.boxScore;
+		const rows = [...(section?.away.starters ?? []), ...(section?.away.bench ?? [])];
+		expect(rows.length).toBeGreaterThan(0);
+		for (const row of rows) {
+			expect([row.points, row.rebounds, row.fieldGoals, row.minutes]).toEqual(['—', '—', '—', '—']);
+		}
+		expect(section?.away.totals.assists).toBe('—');
+		expect(section?.home.totals.assists).toMatch(/^\d+$/);
 	});
 
 	it('passes a null team stat percentage through to the score section', () => {

@@ -49,6 +49,7 @@
 # - The kind: a failed build answers unavailable and is not retried for 10 minutes
 # - The kind: a failed rebuild of a stale feed keeps and serves the stored feed
 # - The kind: the cleanup keeps every standard code
+# - The kind with the names wired: a names list of another or no version makes a fresh team feed stale, the rebuild builds the names first and the next served feed has both runs of a relocated franchise; a list of the current version leaves it fresh (ADR 0055)
 # - The kind with the names wired: a team build builds the missing franchise names first and stores them in the feed, fresh names are not rebuilt by a second team build, and serving sets the latest stored names
 # - The kind: the feed holds the team's Cup group and Cup record, read with the roster's season; null when no group table has the team, and null with the feed still built when a group table read fails
 #
@@ -93,6 +94,7 @@ from app.jobs.on_demand import (
     FeedUnavailableError,
     IdStatus,
     UnknownFeedError,
+    with_build_version,
 )
 from app.jobs.stars import StarsJob
 from app.jobs.team_feed import (
@@ -1707,6 +1709,8 @@ class NamedKit(TeamKit):
     def __init__(self, path: Path) -> None:
         self.name_reads: list[tuple[str, int]] = []
         self.identity = ("Thunder", "Oklahoma City", "OKC")
+        # The identity of the seasons up to 2008, when the franchise was relocated.
+        self.earlier: tuple[str, str, str] | None = None
         super().__init__(path)
 
     def make_teams(self) -> TeamFeeds:
@@ -1740,6 +1744,8 @@ class NamedKit(TeamKit):
     ) -> SeasonTeam | None:
         self.name_reads.append((code, season))
         name, location, abbreviation = self.identity
+        if self.earlier is not None and season <= 2008:
+            name, location, abbreviation = self.earlier
         return SeasonTeam(
             team_id="25",
             abbreviation=abbreviation,
@@ -1815,7 +1821,13 @@ async def test_serving_sets_the_latest_stored_names(tmp_path: Path) -> None:
             }
         )
     ]
-    publish_by_id(tmp_path, "team-names", TeamNames, "okc", TeamNames(runs=newer))
+    publish_by_id(
+        tmp_path,
+        "team-names",
+        TeamNames,
+        "okc",
+        with_build_version(TeamNames(runs=newer)),
+    )
 
     served = TeamFeed.model_validate_json(await named.serve("okc", NOW + SECOND))
 
@@ -1823,3 +1835,55 @@ async def test_serving_sets_the_latest_stored_names(tmp_path: Path) -> None:
     stored = named.stored("okc")
     assert stored is not None
     assert [run.name for run in stored.names] == ["Thunder"]
+
+
+OLD_NAMES = [
+    NameRun.model_validate(
+        {
+            "from": 2009,
+            "to": None,
+            "name": "Thunder",
+            "location": "Oklahoma City",
+            "code": "OKC",
+        }
+    )
+]
+
+
+@pytest.mark.anyio
+async def test_a_names_list_of_another_version_makes_a_fresh_team_feed_stale_and_is_rebuilt_first(
+    tmp_path: Path,
+) -> None:
+    named = NamedKit(tmp_path)
+    named.regular = season(game("g1"))
+    await named.serve("okc")
+    named.earlier = ("Harbor Gulls", "Seattle", "SEA")
+    publish_by_id(tmp_path, "team-names", TeamNames, "okc", TeamNames(runs=OLD_NAMES))
+    assert named.names.outdated("okc")
+    first = TeamFeed.model_validate_json(await named.serve("okc", NOW + DAY))
+
+    assert named.last_build("okc") == NOW + DAY
+    stored_names = named.names.stored("okc")
+    assert stored_names is not None and named.names.outdated("okc") is False
+    assert [(r.from_, r.to, r.name, r.code) for r in stored_names] == [
+        (1994, 2008, "Harbor Gulls", "SEA"),
+        (2009, None, "Thunder", "OKC"),
+    ]
+    assert [run.name for run in first.names] == ["Thunder"]
+    served = TeamFeed.model_validate_json(await named.serve("okc", NOW + DAY + SECOND))
+    assert [run.name for run in served.names] == ["Harbor Gulls", "Thunder"]
+
+
+@pytest.mark.anyio
+async def test_a_names_list_of_the_current_version_leaves_a_fresh_team_feed_fresh(
+    tmp_path: Path,
+) -> None:
+    named = NamedKit(tmp_path)
+    named.regular = season(game("g1"))
+    await named.serve("okc")
+    reads = len(named.name_reads)
+
+    await named.serve("okc", NOW + DAY)
+
+    assert named.last_build("okc") == NOW
+    assert len(named.name_reads) == reads

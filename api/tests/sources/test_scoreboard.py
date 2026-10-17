@@ -14,6 +14,7 @@
 # - Marks a game with the Cup round of its note, and leaves any other note or none unmarked
 # - Reuses a fetched day for thirty seconds
 # - Marks the play-in and playoff games of a day with their postseason mark and each stake of a recorded day, and leaves a regular game unmarked
+# - A postseason mark carries the series wins of both sides and, for a series the source says is completed, the winner side; a play-in or unreadable series has none (ADR 0055)
 # - A season type 3 game always has a mark (ADR 0050): a malformed series object, an unknown series competitor id, a missing note, a note without a game number and an unknown or malformed competition type each give a mark with the unreadable values null and log nothing; the day still builds
 # - The lenient mark shapes read the field names the strict postseason shapes read
 # - The playoffs adapter path reads the same mark as the core path and logs no unreadable mark warning
@@ -633,6 +634,10 @@ async def test_marks_the_play_in_and_playoff_games_of_a_day_with_their_postseaso
         6,
         Stakes.CLINCHED,
     )
+    assert (finals.away_wins, finals.home_wins, finals.series_winner) == (2, 4, "home")
+    assert (round_one.away_wins, round_one.home_wins) == (0, 1)
+    assert round_one.series_winner is None
+    assert (first.away_wins, first.home_wins, first.series_winner) == (None,) * 3
 
 
 @pytest.mark.anyio
@@ -704,6 +709,7 @@ async def test_a_malformed_series_object_gives_a_mark_without_summary_or_stakes_
 
     assert (mark.round, mark.conference, mark.number) == (1, "east", 3)
     assert (mark.summary, mark.stakes) == (None, None)
+    assert (mark.away_wins, mark.home_wins, mark.series_winner) == (None, None, None)
 
 
 @pytest.mark.anyio

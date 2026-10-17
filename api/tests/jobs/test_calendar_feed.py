@@ -11,6 +11,7 @@
 # - The kind: a request builds and stores a valid feed and a second request reads storage
 # - The kind: the current season is fresh before 24 hours and stale at 24 hours
 # - The kind: a past season built after its last day is fresh years later, and one built while it was current is rebuilt after 24 hours
+# - The kind: the built calendar carries the current build version, a kept past calendar of an older or missing version is rebuilt on its next request and one of the current version is not (ADR 0055)
 # - The kind: a failed read with nothing stored answers unavailable, and a failed rebuild keeps the stored feed
 # - The kind: the cleanup keeps every calendar
 # - seasons_until runs from the current season down to 1994, labelled, and the builder sets seasons from the current season
@@ -43,6 +44,7 @@ from app.jobs.calendar_feed import (
     seasons_until,
 )
 from app.jobs.on_demand import (
+    SEASON_BUILD_VERSION,
     FeedCache,
     FeedUnavailableError,
     IdStatus,
@@ -51,7 +53,7 @@ from app.jobs.on_demand import (
 from app.jobs.stars import StarsJob
 from app.settings import Settings
 from app.sources.http import SourceClient, SourceError, create_client
-from app.storage.feeds import publish_feed, read_by_id
+from app.storage.feeds import publish_by_id, publish_feed, read_by_id
 from app.storage.state import StateStore
 
 NOW = dt.datetime(2026, 10, 8, 15, 0, tzinfo=dt.UTC)
@@ -300,6 +302,52 @@ async def test_a_past_season_built_after_its_last_day_is_never_rebuilt(
     kit.moments = [at(2020, 3, 10), at(2020, 8, 1)]
 
     await kit.serve(2020)
+    await kit.serve(2020, NOW + 10 * YEAR)
+
+    assert kit.calls == [2020]
+
+
+@pytest.mark.anyio
+async def test_the_built_calendar_carries_the_current_build_version(
+    kit: CalendarKit,
+) -> None:
+    await kit.serve(2027)
+
+    stored = kit.stored_calendar(2027)
+    assert stored is not None and stored.build_version == SEASON_BUILD_VERSION
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("version", [None, SEASON_BUILD_VERSION + 1])
+async def test_a_kept_past_calendar_of_an_older_or_missing_version_is_rebuilt_on_its_next_request(
+    kit: CalendarKit, version: int | None
+) -> None:
+    kit.moments = [at(2020, 3, 10), at(2020, 8, 1)]
+    await kit.serve(2020)
+    stored = kit.stored_calendar(2020)
+    assert stored is not None
+    publish_by_id(
+        kit.path,
+        KIND,
+        CalendarFeed,
+        "2020",
+        stored.model_copy(update={"build_version": version}),
+    )
+
+    await kit.serve(2020, NOW + 10 * YEAR)
+
+    assert kit.calls == [2020, 2020]
+    rebuilt = kit.stored_calendar(2020)
+    assert rebuilt is not None and rebuilt.build_version == SEASON_BUILD_VERSION
+
+
+@pytest.mark.anyio
+async def test_a_kept_past_calendar_of_the_current_version_is_not_rebuilt(
+    kit: CalendarKit,
+) -> None:
+    kit.moments = [at(2020, 3, 10), at(2020, 8, 1)]
+    await kit.serve(2020)
+
     await kit.serve(2020, NOW + 10 * YEAR)
 
     assert kit.calls == [2020]

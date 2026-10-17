@@ -11,7 +11,8 @@
 # a franchise. A game is read once and kept in the state database (past_games),
 # so the opponent's roster, and the same team of another feed, read no request;
 # a stored past game detail is reused with no request too (its players carry no
-# jersey or position). The dates of the final games are registered in the same
+# jersey or position). A stored body or past game detail of another or no
+# build version is read again (ADR 0055). The dates of the final games are registered in the same
 # table, which makes their past game detail reachable (ADR 0041, ADR 0053).
 # At most MAX_GAME_READS summaries are read at once, and a failed read fails the
 # roster.
@@ -28,6 +29,7 @@ from pydantic import ValidationError
 
 from app.feeds.game_detail import PastGameDetailFeed, TeamBoxScore
 from app.jobs import past_game_detail_feed
+from app.jobs.on_demand import is_current_build, with_build_version
 from app.jobs.team_feed import _played, eastern_date, roster_order
 from app.settings import Settings
 from app.sources import game_detail, team_schedule
@@ -53,7 +55,7 @@ def _stored_detail_players(settings: Settings, game_id: str) -> GamePlayers | No
         feed = PastGameDetailFeed.model_validate_json(body)
     except ValidationError:
         return None
-    if feed.box_score is None:
+    if feed.box_score is None or not is_current_build(feed):
         return None
 
     def players(side: TeamBoxScore) -> list[BoxScoreRosterEntry]:
@@ -174,9 +176,12 @@ class SeasonRosters:
         body = self._store.past_game_players(game_id)
         if body is not None:
             try:
-                return GamePlayers.model_validate_json(body)
+                stored = GamePlayers.model_validate_json(body)
             except ValidationError:
                 pass
+            else:
+                if is_current_build(stored):
+                    return stored
         players = _stored_detail_players(self._settings, game_id)
         if players is None:
             async with self._reads:
@@ -186,5 +191,6 @@ class SeasonRosters:
                     self._settings,
                     past_game_detail_feed.PAST_FRESH,
                 )
+        players = with_build_version(players)
         self._store.set_past_game_players(game_id, game_date, players.model_dump_json())
         return players

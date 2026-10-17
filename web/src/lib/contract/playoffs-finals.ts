@@ -94,9 +94,9 @@ export interface Leader {
 	displayName: string;
 	teamCode: string | null;
 	photoUrl: string | null;
-	points: number;
-	rebounds: number;
-	assists: number;
+	points: number | null;
+	rebounds: number | null;
+	assists: number | null;
 }
 export interface FinalsWinProbability {
 	/**
@@ -135,6 +135,7 @@ export interface FinalsMvp {
 	name: string;
 	photoUrl: string | null;
 	teamCode: string | null;
+	seasonCode: string | null;
 	games: number | null;
 	points: number | null;
 	rebounds: number | null;
@@ -208,6 +209,7 @@ export interface HeadToHead {
 }
 export interface FinalistRecord {
 	teamCode: string;
+	seasonCode: string | null;
 	record: string | null;
 }
 export interface HeadToHeadBar {
@@ -225,6 +227,7 @@ export interface BarValue {
 }
 export interface RosterAverages {
 	teamCode: string;
+	seasonCode: string | null;
 	players: PlayerPostseasonAverages[];
 }
 export interface PlayerPostseasonAverages {

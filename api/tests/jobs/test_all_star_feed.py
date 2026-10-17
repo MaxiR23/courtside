@@ -8,7 +8,8 @@
 # - edition_state: before with no games and with scheduled games only, live with one live game and with one final and one scheduled, after with all final, a canceled game ignored
 # - Placements: 2 teams, 3 teams in a round robin with a Championship, 4 teams with semifinals, so far and yet to play while the Championship is not final, a team-less Championship flagged to be determined and not placed
 # - A box score row keeps a null plus-minus
-# - The team statistics block is none when either side has no field goal percentage (ADR 0052)
+# - The team statistics block is none when either side has no field goal percentage (ADR 0052) or any other null value (ADR 0055)
+# - The Top 5 orders a missing value as 0; the MVP totals are null when a line value is null (ADR 0055)
 # - Game contents: both box scores with jersey, position and league team, the six team statistics with the better side and a tie with none, the leaders, the Top 5 order with a tie keeping the source order, a player in no roster with a null league team, null colors on a failed team info read, the live status text, clock and period as the view returns them, the overtime flag
 # - MVP: from the All-Star MVP award with one line per game and the day totals, none without the award, with a failed awards read and with no box row
 # - The kind: a warning with the season and the reason for a failed awards read, no award and no box row, once per edition in play, none for a before edition or a set MVP
@@ -736,6 +737,13 @@ def test_top5_sorts_by_points_then_rebounds_plus_assists() -> None:
     assert [r.player_id for r in top5(rows)] == ["b", "c", "a", "d"]
 
 
+def test_top5_orders_a_missing_value_as_zero() -> None:
+    blank = row("a", 10).model_copy(update={"rebounds": None, "assists": None})
+    rows = [blank, row("b", 10, 1, 0), row("c", 0).model_copy(update={"points": None})]
+
+    assert [r.player_id for r in top5(rows)] == ["b", "a", "c"]
+
+
 def test_top5_keeps_the_source_order_on_a_tie_and_the_first_five() -> None:
     rows = [row(str(n), 10, 2, 2) for n in range(7)]
 
@@ -773,6 +781,31 @@ def test_team_stats_is_none_when_a_side_has_no_field_goal_percentage(side: str) 
         [line("2", "B")],
         away_stats=missing if side == "away" else None,
         home_stats=missing if side == "home" else None,
+    )
+
+    assert team_stats(found) is None
+
+
+@pytest.mark.parametrize("name", ["rebounds", "assists", "steals", "blocks"])
+def test_team_stats_is_none_when_a_side_has_a_null_count(name: str) -> None:
+    found = sections(
+        [line("1", "A")],
+        [line("2", "B")],
+        home_stats=stat(**{name: None}),
+    )
+
+    assert team_stats(found) is None
+
+
+def test_team_stats_is_none_when_a_side_has_a_null_three_points_made() -> None:
+    found = sections([line("1", "A")], [line("2", "B")])
+    assert found.box_score is not None
+    home = found.box_score.home
+    nulled = home.model_copy(
+        update={"totals": home.totals.model_copy(update={"three_points_made": None})}
+    )
+    found = found.model_copy(
+        update={"box_score": found.box_score.model_copy(update={"home": nulled})}
     )
 
     assert team_stats(found) is None
@@ -1137,6 +1170,34 @@ def test_the_mvp_is_none_without_the_award_with_another_award_and_with_a_failed_
     assert build(round_robin()).mvp is None
     assert build(round_robin(), awards=award("1001", AwardCode.MVP)).mvp is None
     assert build(round_robin(), awards=SeasonAwards(awards=[])).mvp is None
+
+
+def test_the_mvp_totals_are_null_when_a_line_value_is_null() -> None:
+    games = round_robin()
+    base = sections_of(games[1])
+    assert base.box_score is not None
+    players = [
+        p.model_copy(update={"rebounds": None}) if p.player_id == "1001" else p
+        for p in base.box_score.home.players
+    ]
+    nulled = base.model_copy(
+        update={
+            "box_score": base.box_score.model_copy(
+                update={
+                    "home": base.box_score.home.model_copy(update={"players": players})
+                }
+            )
+        }
+    )
+    by_id = {g.id: sections_of(g) for g in games}
+    by_id["g2"] = nulled
+
+    feed = build(games, awards=award("1001"), sections_by_id=by_id)
+
+    assert feed.mvp is not None
+    assert feed.mvp.totals.rebounds is None
+    assert feed.mvp.totals.points == 36
+    assert [line.rebounds for line in feed.mvp.lines].count(None) == 1
 
 
 def test_the_mvp_is_none_when_he_has_no_box_row() -> None:

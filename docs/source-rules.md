@@ -54,8 +54,8 @@ Everything else is built on request only: pre-game game detail, team feeds, play
 | Pre-game game detail, tip-off more than 48 hours away | 12 hours after the build |
 | Pre-game game detail, tip-off between 48 and 12 hours away | 6 hours after the build |
 | Pre-game game detail, tip-off under 12 hours away or passed | 3 hours after the build |
-| Team feed | When the team has a final game whose final time plus 1 hour is after the build, when the stored playoffs feed or the stored Cup feed is rebuilt after the build, and in any case 7 days after the build. Its franchise names are read once per team and kept for 7 days |
-| Player feed | When the team has a final game whose final time plus 1 hour is after the build, and in any case 7 days after the build; a player on no roster: 7 days after the build |
+| Team feed | When the team has a final game whose final time plus 1 hour is after the build, when the stored playoffs feed or the stored Cup feed is rebuilt after the build, and in any case 7 days after the build. Its franchise names are read once per team and kept for 7 days or until `SEASON_BUILD_VERSION` changes; a team feed is stale while its stored names are of another version |
+| Player feed | When the team has a final game whose final time plus 1 hour is after the build, and in any case 7 days after the build; a player on no roster: 7 days after the build. The season codes of its career rows are set when served from the stored franchise names; a missing or outdated names list is built in the background |
 | Standings feed | When any game of the league has a final time plus 1 hour after the build, and in any case 7 days after the build |
 | Search feed | When any game of the league has a final time plus 1 hour after the build, when the stars job fetches a roster after the build, and in any case 7 days after the build |
 | Cup feed | When any Cup game has a final time plus 1 hour after the build, and in any case 7 days after the build; once the championship is final, kept while its season is the current one |
@@ -63,10 +63,10 @@ Everything else is built on request only: pre-game game detail, team feeds, play
 | Playoffs feed | When any postseason game (a game of the feed, or a final game dated inside its postseason dates) has a final time plus 1 hour after the build; while its state is picture, also when any game of the league has a final time plus 1 hour after the build; at the start of the play-in window when the build precedes it; and in any case 7 days after the build; once the Finals series is complete, kept while its season is the current one |
 | Playoffs finals feed | When any postseason game (a game of the playoffs feed it read, or a final game dated inside its postseason dates) has a final time plus 1 hour after the build, when the playoffs feed it read is rebuilt, and in any case 7 days after the build; once the Finals series is complete, kept while its season is the current one |
 | All-Star feed | While its state is live or its edition's date is today (US Eastern), 30 seconds after the build (rule C), and a request that finds it stale waits for the rebuild; before the edition, when the All-Star discovery runs after the build; once every game of the edition is final, kept while its season is the current one, but only when built at least 1 hour after the latest time the feed first saw one of its games final (before that, 30 seconds after the build) |
-| Calendar feed | Current season: 24 hours after the build. A past season built after its last day: kept |
+| Calendar feed | Current season: 24 hours after the build. A past season built after its last day: kept while its `buildVersion` is the current one |
 | Day feed | Every game final, or no game: kept. A non-final game: 6 hours after the build |
 | Past game detail (a final game of a stored day feed) | Kept: built once (rule D) |
-| Standings, team and player feed of a past season | Kept: built once |
+| Standings, team and player feed of a past season | Kept: built once (rebuilt only when its `buildVersion` is not the current one, ADR 0053). The season codes of a past player's career rows are set when served |
 | Cup and Cup matchup feed of a past season | Kept: built once. The current season's path serves the current Cup and Cup matchup feeds, with their expiry |
 | Playoffs and playoffs finals feed of a past season | Kept: built once. The current season's path serves the current playoffs and playoffs finals feeds, with their expiry |
 | All-Star feed of a past season | Kept: built once. The current season's path serves the current All-Star feed, with its expiry |
@@ -95,3 +95,7 @@ Feed responses keep `Cache-Control: public, max-age=10` and the ETag. The CDN in
 ## L. Previous season
 
 A source read for the current season that has no regular season data is read once more for the regular season it has. The season leaders and averages fall back to the previous season when the current one has none (the team feed's leaders and the stars job). The division standings, when the response is not of the regular season, are requested once more with the `season` query value: a preseason response of season `Y` reads `Y - 1`, a postseason response of season `Y` reads `Y`. That request is cached under its own URL (rule A), and a fallback that is not of the regular season fails the read.
+
+## M. Missing stats
+
+A missing stat is null, never a failure. A team or player stat the source does not carry is null in the feed, in every adapter; the page hides it. A stat is a counted or rated value of a team's or a player's performance (box score columns, team statistics, leader values); the fields that identify a record (ids, codes, a standings row's record and seed, the Cup table's wins and losses) are not stats. A value that is sent and is not a number still fails the read. A box score row with no player id is skipped and logged once per game read, in every reader (ADR 0055).

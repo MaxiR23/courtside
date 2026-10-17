@@ -6,7 +6,7 @@
 # - past_cup_season_status: 2023, 1994, abc, 02025, 2025 with a trailing newline, the current season and a future season are unknown; 2024 and the season before the current one are known; an unknown current season is not ready for a well-formed id from 2024 and a season before 2024 stays unknown
 # - target: the current season maps to the current Cup feed, a past season to the season kind, and an unknown current season to the season kind
 # - The kind: a past season builds a valid complete feed with the champion and the bracket scores, reading the sources with the season and the schedules by provider id first
-# - The kind: season 2024 with In-Season Tournament notes and two quarterfinals sharing a seed builds as complete, the quarterfinals placed by start time (ADR 0053)
+# - The kind: season 2024 with In-Season Tournament notes (group play included, every group game counted) and two quarterfinals sharing a seed builds as complete, the quarterfinals placed by start time (ADR 0053)
 # - The kind: the built feed carries the current build version, a stored feed of an older or missing version is rebuilt on its next request, and one of the current version is served with no source request (ADR 0053)
 # - The kind: the feed is stored under season-cup and rebuilt only for another version: a second request, a request years later and a restart all serve with no source call
 # - The kind: the league sides are named by the season team object with the season code and the historical flag (ADR 0054)
@@ -37,8 +37,9 @@ from typing import cast
 import pytest
 import respx
 
-from app.feeds.cup import CupFeed, CupStage
+from app.feeds.cup import CupFeed, CupStage, StageStatus
 from app.feeds.game_detail import Conference
+from app.feeds.games import CupRound
 from app.jobs.cup_feed import FEED_ID as CUP_FEED_ID
 from app.jobs.cup_feed import KIND as CUP_KIND
 from app.jobs.on_demand import (
@@ -335,6 +336,7 @@ async def test_the_cleanup_keeps_the_feed(kit: SeasonCupKit) -> None:
 
 
 IN_SEASON_NOTES = {
+    "NBA Cup - Group Play": "NBA In-Season Tournament - Group Play",
     "NBA Cup - Quarterfinals": "NBA In-Season Tournament - Quarterfinals",
     "NBA Cup - Semifinals": "NBA In-Season Tournament - Semifinals",
     "NBA Cup Championship": "NBA In-Season Tournament Championship",
@@ -370,6 +372,8 @@ async def test_season_2024_with_in_season_tournament_notes_builds_as_complete(
     assert qf1.game is not None and qf1.game.id == "qeA"
     assert qf2.game is not None and qf2.game.id == "qeB"
     assert qf1.top.label.seed is None
+    group_stage = next(e for e in feed.stages if e.stage is CupRound.GROUP)
+    assert group_stage.status is StageStatus.COMPLETE
 
 
 @pytest.mark.anyio

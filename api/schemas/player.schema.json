@@ -124,6 +124,30 @@
           "minLength": 1,
           "type": "string"
         },
+        "code": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AwardCode"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "team": {
+          "anyOf": [
+            {
+              "maximum": 3,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "count": {
           "exclusiveMinimum": 0,
           "type": "integer"
@@ -139,11 +163,36 @@
       },
       "required": [
         "name",
+        "code",
+        "team",
         "count",
         "seasons"
       ],
       "title": "Award",
       "type": "object"
+    },
+    "AwardCode": {
+      "description": "The kind of a season award, shared by the playoffs and the player feeds.",
+      "enum": [
+        "mvp",
+        "dpoy",
+        "roy",
+        "sixth_man",
+        "mip",
+        "cpoy",
+        "finals_mvp",
+        "east_finals_mvp",
+        "west_finals_mvp",
+        "all_star_mvp",
+        "cup_mvp",
+        "cup_all_tournament",
+        "all_nba",
+        "all_rookie",
+        "all_defensive",
+        "twyman_stokes"
+      ],
+      "title": "AwardCode",
+      "type": "string"
     },
     "Birthplace": {
       "additionalProperties": false,
@@ -176,64 +225,169 @@
       "additionalProperties": false,
       "properties": {
         "points": {
-          "minimum": 0,
-          "type": "integer"
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "fieldGoalsMade": {
-          "minimum": 0,
-          "type": "integer"
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "fieldGoalsAttempted": {
-          "minimum": 0,
-          "type": "integer"
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "threePointsMade": {
-          "minimum": 0,
-          "type": "integer"
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "threePointsAttempted": {
-          "minimum": 0,
-          "type": "integer"
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "freeThrowsMade": {
-          "minimum": 0,
-          "type": "integer"
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "freeThrowsAttempted": {
-          "minimum": 0,
-          "type": "integer"
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "offensiveRebounds": {
-          "minimum": 0,
-          "type": "integer"
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "defensiveRebounds": {
-          "minimum": 0,
-          "type": "integer"
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "rebounds": {
-          "minimum": 0,
-          "type": "integer"
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "assists": {
-          "minimum": 0,
-          "type": "integer"
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "turnovers": {
-          "minimum": 0,
-          "type": "integer"
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "steals": {
-          "minimum": 0,
-          "type": "integer"
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "blocks": {
-          "minimum": 0,
-          "type": "integer"
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "fouls": {
-          "minimum": 0,
-          "type": "integer"
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "playerId": {
           "minLength": 1,
@@ -247,8 +401,15 @@
           "type": "boolean"
         },
         "minutes": {
-          "minLength": 1,
-          "type": "string"
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "plusMinus": {
           "anyOf": [
@@ -1295,6 +1456,28 @@
           },
           "minItems": 1,
           "type": "array"
+        },
+        "seasonCodes": {
+          "anyOf": [
+            {
+              "items": {
+                "anyOf": [
+                  {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -1320,7 +1503,8 @@
         "turnovers",
         "points",
         "season",
-        "teams"
+        "teams",
+        "seasonCodes"
       ],
       "title": "SeasonRow",
       "type": "object"
@@ -1555,12 +1739,25 @@
         "city": {
           "minLength": 1,
           "type": "string"
+        },
+        "seasonCode": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
         "code",
         "name",
-        "city"
+        "city",
+        "seasonCode"
       ],
       "title": "Team",
       "type": "object"

@@ -94,6 +94,8 @@ const twoDecimals: Intl.NumberFormatOptions = {
 const one = (v: number) => formatNumber(v, oneDecimal);
 const whole = (v: number) => formatNumber(v, { maximumFractionDigits: 0 });
 const range = (made: string, attempted: string) => `${made}–${attempted}`;
+// A count the source did not send shows the no-value mark (ADR 0055).
+const stat = (value: number | null): string => (value === null ? NO_VALUE : formatNumber(value));
 
 const score = (team: number, opponent: number) => `${formatNumber(team)}–${formatNumber(opponent)}`;
 
@@ -232,13 +234,16 @@ function liveView(live: PlayerLive): LiveGameView {
 		clock: periodText(live.period, live.clock),
 		line: line
 			? [
-					{ label: m.box_minutes(), value: line.minutes, sub: null },
-					{ label: m.box_points(), value: formatNumber(line.points), sub: null },
-					{ label: m.box_rebounds(), value: formatNumber(line.rebounds), sub: null },
-					{ label: m.box_assists(), value: formatNumber(line.assists), sub: null },
+					{ label: m.box_minutes(), value: line.minutes ?? NO_VALUE, sub: null },
+					{ label: m.box_points(), value: stat(line.points), sub: null },
+					{ label: m.box_rebounds(), value: stat(line.rebounds), sub: null },
+					{ label: m.box_assists(), value: stat(line.assists), sub: null },
 					{
 						label: m.box_field_goals(),
-						value: range(formatNumber(line.fieldGoalsMade), formatNumber(line.fieldGoalsAttempted)),
+						value:
+							line.fieldGoalsMade === null || line.fieldGoalsAttempted === null
+								? NO_VALUE
+								: range(formatNumber(line.fieldGoalsMade), formatNumber(line.fieldGoalsAttempted)),
 						sub: null
 					}
 				]

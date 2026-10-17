@@ -2,7 +2,9 @@
 #
 # Player overview adapter: fetches one player's overview from the provider and
 # maps its awards to a name, a count text such as "3x" and the season end years.
-# An overview with no awards gives an empty list.
+# An overview with no awards gives an empty list. An award whose name is in the
+# season awards table also carries its code and team number; any other name
+# carries none (ADR 0055).
 # The provider URL comes from Settings. Provider data never leaves this module.
 #
 # SEE: docs/api/player.md, api/app/sources/player_draft.py
@@ -18,9 +20,11 @@ from pydantic import (
 )
 from pydantic.alias_generators import to_camel
 
+from app.feeds.base import AwardCode
 from app.feeds.games import FeedModel, NonEmptyStr
 from app.settings import Settings
 from app.sources.http import SourceClient, SourceError, get_json
+from app.sources.season_awards import AWARDS
 
 SOURCE = "player_overview"
 FRESH_FOR = dt.timedelta(hours=1)
@@ -52,6 +56,8 @@ class ProviderAward(FeedModel):
     name: NonEmptyStr
     display_count: DisplayCount
     seasons: list[int]
+    code: AwardCode | None = None
+    team: int | None = None
 
 
 def _location(error: ValidationError) -> str:
@@ -73,11 +79,16 @@ async def fetch_player_awards(
             SOURCE,
             f"invalid payload: {error.error_count()} errors, first at {_location(error)}",
         ) from None
-    return [
-        ProviderAward(
-            name=award.name,
-            display_count=award.display_count,
-            seasons=[int(year) for year in award.seasons],
+    awards: list[ProviderAward] = []
+    for award in provider.awards:
+        code, team = AWARDS.get(award.name.casefold(), (None, None))
+        awards.append(
+            ProviderAward(
+                name=award.name,
+                display_count=award.display_count,
+                seasons=[int(year) for year in award.seasons],
+                code=code,
+                team=team,
+            )
         )
-        for award in provider.awards
-    ]
+    return awards

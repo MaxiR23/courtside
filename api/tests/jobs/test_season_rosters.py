@@ -8,6 +8,7 @@
 # - Each entry carries the start of its newest game
 # - A game stored in the state is reused with no read
 # - A stored past game detail is reused with no read and its players have no jersey
+# - A stored game and a stored past game detail of an older or missing build version are read again, and a stored game carries the current version (ADR 0055)
 # - A game read for one team is not read again for its opponent, also when both rosters are asked at once
 # - A failed game read fails the roster, and a failed schedule read too
 # - The dates of the final games are registered, and only the final ones
@@ -29,6 +30,7 @@ from typing import Any, cast
 import pytest
 
 from app.jobs import past_game_detail_feed
+from app.jobs.on_demand import SEASON_BUILD_VERSION, with_build_version
 from app.jobs.season_rosters import MAX_GAME_READS, SeasonRosters
 from app.settings import Settings
 from app.sources.game_detail import BoxScoreRosterEntry, GamePlayers
@@ -194,8 +196,10 @@ async def test_a_game_stored_in_the_state_is_reused_with_no_read(kit: Kit) -> No
 async def test_a_stored_past_game_detail_is_reused_with_no_read_and_its_players_have_no_jersey(
     kit: Kit,
 ) -> None:
-    detail = past_game_detail_feed.build_past_game_detail_feed(
-        past_game("g1"), full_sections()
+    detail = with_build_version(
+        past_game_detail_feed.build_past_game_detail_feed(
+            past_game("g1"), full_sections()
+        )
     )
     assert publish_by_id(
         kit.path, past_game_detail_feed.KIND, type(detail), "g1", detail
@@ -211,6 +215,57 @@ async def test_a_stored_past_game_detail_is_reused_with_no_read_and_its_players_
     assert by_id["p1"].headshot_url == "https://example.com/photo.png"
     stored = kit.store.past_game_players("g1")
     assert stored is not None and "First Last" in stored
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("version", [None, SEASON_BUILD_VERSION + 1])
+async def test_a_stored_past_game_detail_of_an_older_or_missing_version_is_not_reused(
+    kit: Kit, version: int | None
+) -> None:
+    detail = past_game_detail_feed.build_past_game_detail_feed(
+        past_game("g1"), full_sections()
+    ).model_copy(update={"build_version": version})
+    assert publish_by_id(
+        kit.path, past_game_detail_feed.KIND, type(detail), "g1", detail
+    )
+
+    await kit.rosters().roster("OKC", 2004)
+
+    assert sorted(kit.reads) == ["g1", "g2", "g3"]
+
+
+@pytest.mark.anyio
+async def test_a_stored_game_carries_the_current_build_version(kit: Kit) -> None:
+    await kit.rosters().roster("OKC", 2004)
+
+    stored = kit.store.past_game_players("g1")
+    assert stored is not None
+    assert GamePlayers.model_validate_json(stored).build_version == SEASON_BUILD_VERSION
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("version", [None, SEASON_BUILD_VERSION + 1])
+async def test_a_stored_game_of_an_older_or_missing_version_is_read_again(
+    kit: Kit, version: int | None
+) -> None:
+    await kit.rosters().roster("OKC", 2004)
+    for game_id in ("g1", "g2", "g3"):
+        stored = kit.store.past_game_players(game_id)
+        assert stored is not None
+        old = GamePlayers.model_validate_json(stored).model_copy(
+            update={"build_version": version}
+        )
+        kit.store.set_past_game_players(
+            game_id, dt.date(2004, 1, 1), old.model_dump_json()
+        )
+    kit.reads.clear()
+
+    await kit.rosters().roster("OKC", 2004)
+
+    assert sorted(kit.reads) == ["g1", "g2", "g3"]
+    stored = kit.store.past_game_players("g1")
+    assert stored is not None
+    assert GamePlayers.model_validate_json(stored).build_version == SEASON_BUILD_VERSION
 
 
 @pytest.mark.anyio

@@ -18,6 +18,7 @@ export interface CalendarFeed {
 	 * @minItems 1
 	 */
 	seasons: [CalendarSeason, ...CalendarSeason[]];
+	buildVersion: number | null;
 }
 export interface CalendarSeason {
 	season: number;

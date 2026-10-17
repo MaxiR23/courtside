@@ -4,6 +4,7 @@
 //
 // Tested:
 // - Each team's top performer with team code, name and stat line
+// - A stat the source did not send shows a dash (ADR 0055)
 // - Each team code links to the team page
 // - A placeholder in place of a photo that fails to load, keeping the other photo
 // - The stat line in Spanish with a Spanish browser preference
@@ -63,6 +64,15 @@ describe('Leaders', () => {
 		expect(leaders[1].querySelector('.leader-line')?.textContent?.trim()).toBe(
 			'29 PTS · 9 REB · 7 AST'
 		);
+	});
+
+	it('shows a dash for a stat the source did not send', () => {
+		const { container } = render(Leaders, {
+			props: { away: { ...away, points: null, rebounds: null }, home, teamHref }
+		});
+		const lines = [...container.querySelectorAll('.leader-line')];
+		expect(lines[0].textContent?.trim()).toBe('— PTS · — REB · 8 AST');
+		expect(lines[1].textContent?.trim()).toBe('29 PTS · 9 REB · 7 AST');
 	});
 
 	it('shows a placeholder in place of a photo that fails to load and keeps the other photo', async () => {

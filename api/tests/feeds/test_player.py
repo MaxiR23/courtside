@@ -5,6 +5,7 @@
 # Tested:
 # - A player with every section is accepted; every nullable field may be null
 #   and is serialized as null
+# - A season row's seasonCodes accept a null entry and reject another length than its teams; an award accepts a code and a team number up to three (ADR 0055)
 # - A game tag keeps its kind with null conference, round and game; its round
 #   is 1 to 4 and its kind is known
 # - The live block: the line may be null, and is the line of the player
@@ -478,6 +479,42 @@ def test_rejects_a_repeated_season_row() -> None:
     player["profile"]["debutSeason"] = "2025-26"
 
     rejects(player, "newest first")
+
+
+def test_accepts_season_codes_with_a_null_entry_and_a_stored_row_without_them() -> None:
+    player = valid_player()
+    row = player["seasons"]["regular"]["perGame"][0]
+    row["teams"] = ["AAA", "BBB"]
+    row["seasonCodes"] = ["AAA", None]
+
+    parsed = PlayerFeed.model_validate(player)
+
+    assert parsed.seasons.regular.per_game[0].season_codes == ["AAA", None]
+    assert parsed.seasons.regular.per_game[1].season_codes is None
+
+
+@pytest.mark.parametrize("codes", [[], ["AAA", "BBB"]])
+def test_rejects_season_codes_of_another_length_than_the_teams(
+    codes: list[str],
+) -> None:
+    player = valid_player()
+    player["seasons"]["regular"]["perGame"][0]["seasonCodes"] = codes
+
+    rejects(player, "seasonCodes")
+
+
+def test_accepts_an_award_with_a_code_and_a_team_number_and_rejects_a_team_above_three() -> (
+    None
+):
+    player = valid_player()
+    player["awards"][0].update({"code": "all_nba", "team": 3})
+
+    parsed = PlayerFeed.model_validate(player)
+
+    assert (parsed.awards[0].code, parsed.awards[0].team) == ("all_nba", 3)
+    assert PlayerFeed.model_validate(valid_player()).awards[0].code is None
+    player["awards"][0]["team"] = 4
+    rejects(player)
 
 
 def test_rejects_game_log_entries_not_newest_first() -> None:

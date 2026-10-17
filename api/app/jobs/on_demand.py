@@ -37,8 +37,10 @@ RETRY_AFTER = dt.timedelta(minutes=10)
 
 # The rules version of the kept season feeds (ADR 0053). Bump it in any change to
 # the rules a past season is built by: a stored feed of another or no version is
-# then stale, rebuilt on its next request, and served as stored until then.
-SEASON_BUILD_VERSION = 2
+# then stale, rebuilt on its next request, and served as stored until then. The
+# franchise names, the past calendars and the stored past game players carry it too
+# (ADR 0055).
+SEASON_BUILD_VERSION = 3
 
 
 def with_build_version[M: BaseModel](feed: M) -> M:
@@ -205,6 +207,33 @@ class FeedCache:
         """Starts a build of the feed unless one is in flight; never waits."""
         if (kind, feed_id) not in self.in_flight:
             self._start(self._kinds[kind], feed_id)
+
+    def warm(self, kind: str, feed_id: str) -> None:
+        """Starts a build of the feed when it is stored with no fresh copy, or
+        missing, unless one is in flight or the last failure is inside the retry
+        window; never waits."""
+        feed_kind = self._kinds[kind]
+        if feed_kind.check(feed_id) is not IdStatus.KNOWN:
+            return
+        if (kind, feed_id) in self.in_flight:
+            return
+        now = self._clock()
+        state = self._store.feed_build(kind, feed_id)
+        feed = self._stored_model(feed_kind, feed_id)
+        last_build = state.last_build if state else None
+        if (
+            feed is not None
+            and last_build is not None
+            and feed_kind.is_fresh(feed, last_build, now)
+        ):
+            return
+        if (
+            state is not None
+            and state.last_failure is not None
+            and now - state.last_failure < RETRY_AFTER
+        ):
+            return
+        self._start(feed_kind, feed_id)
 
     def _respond(
         self, kind: FeedKind[Any], feed_id: str, feed: BaseModel, body: bytes

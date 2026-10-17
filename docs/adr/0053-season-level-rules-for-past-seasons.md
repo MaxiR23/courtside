@@ -1,6 +1,6 @@
 # 0053. Season level rules for past seasons
 
-- Status: Accepted
+- Status: Superseded by 0055 for the reuse of stored past game players only
 - Date: 2026-10-17
 
 ## Context

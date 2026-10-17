@@ -42,6 +42,9 @@ export type LeaderCategory =
 	| 'threes_made'
 	| 'double_doubles'
 	| 'minutes';
+/**
+ * The kind of a season award, shared by the playoffs and the player feeds.
+ */
 export type AwardCode =
 	| 'mvp'
 	| 'dpoy'
@@ -347,6 +350,7 @@ export interface PlayoffLeader {
 	name: string;
 	photoUrl: string | null;
 	teamCode: string;
+	seasonCode: string | null;
 	value: string;
 }
 export interface Award {
@@ -354,18 +358,13 @@ export interface Award {
 	team: number | null;
 	/**
 	 * @minItems 1
-	 * @maxItems 5
 	 */
-	winners:
-		| [AwardWinner]
-		| [AwardWinner, AwardWinner]
-		| [AwardWinner, AwardWinner, AwardWinner]
-		| [AwardWinner, AwardWinner, AwardWinner, AwardWinner]
-		| [AwardWinner, AwardWinner, AwardWinner, AwardWinner, AwardWinner];
+	winners: [AwardWinner, ...AwardWinner[]];
 }
 export interface AwardWinner {
 	playerId: string;
 	name: string;
 	photoUrl: string | null;
 	teamCode: string | null;
+	seasonCode: string | null;
 }

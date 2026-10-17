@@ -4,6 +4,7 @@
 #
 # Tested:
 # - A valid calendar is accepted and serialized with camelCase keys
+# - A build version is accepted, zero is rejected and a stored feed without it reads as null (ADR 0055)
 # - Rejects unsorted days, a repeated day, empty days, a season before 1994, a
 #   bad season label, a firstDay or lastDay that is not the first or last day
 #   and an unknown field
@@ -55,7 +56,17 @@ def test_accepts_a_valid_calendar_and_serializes_camel_case() -> None:
     calendar = CalendarFeed.model_validate(feed())
 
     assert calendar.season == 1999
-    assert set(calendar.model_dump(mode="json", by_alias=True)) == set(feed())
+    assert set(calendar.model_dump(mode="json", by_alias=True)) == {
+        *feed(),
+        "buildVersion",
+    }
+    assert calendar.build_version is None
+
+
+def test_accepts_a_build_version_and_rejects_zero() -> None:
+    assert CalendarFeed.model_validate(feed(buildVersion=3)).build_version == 3
+    with pytest.raises(ValidationError):
+        CalendarFeed.model_validate(feed(buildVersion=0))
 
 
 def test_serializes_the_seasons_newest_first() -> None:

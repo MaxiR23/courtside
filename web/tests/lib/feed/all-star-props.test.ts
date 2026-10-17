@@ -17,6 +17,7 @@
 //   plus-minus as "—" that is not negative, a
 //   player with no league team or photo, mobileMeta with "—"
 // - Teams: placements, eliminated round, result rows from the feed with W, L and OT, a team-less Championship
+// - A Top 5 value, a box score count and a shooting split the feed has as null show a dash (ADR 0055)
 // - The MVP, the scoreline with the winner first, and 2, 3 and 4 team days
 // - The previous view: the after view of previousEdition with the previous year, null without it
 // - The edition video on the current, after and previous views, null without it; the Last time video URL; the season tag from the label passed in
@@ -461,6 +462,18 @@ describe('the detail of a game', () => {
 			line: 'PTS · 4 REB · 3 AST'
 		});
 		expect(rows[2]).toMatchObject({ photo: null, top: false });
+	});
+
+	it('shows a dash for a Top 5 value, a box score count and a shooting split the feed has as null', () => {
+		const feed = after();
+		Object.assign(game(feed, 'g4').top5[0]!, { points: null, rebounds: null });
+		const player = game(feed, 'g1').boxScore!.away.players[0];
+		Object.assign(player, { points: null, fieldGoalsMade: null, fieldGoalsAttempted: null });
+		const top = current(feed).details.g4.top5[0];
+		expect(top.points).toBe('—');
+		expect(top.line).toContain('—');
+		const row = current(feed).boxes.g1!.away.rows[0];
+		expect([row.points, row.fieldGoals]).toEqual(['—', '—']);
 	});
 
 	it('keeps the order the feed sends for the Top 5', () => {

@@ -146,25 +146,25 @@ export interface AllStarTeamBox {
 	totals: BoxScoreTotals;
 }
 export interface AllStarBoxPlayer {
-	points: number;
-	fieldGoalsMade: number;
-	fieldGoalsAttempted: number;
-	threePointsMade: number;
-	threePointsAttempted: number;
-	freeThrowsMade: number;
-	freeThrowsAttempted: number;
-	offensiveRebounds: number;
-	defensiveRebounds: number;
-	rebounds: number;
-	assists: number;
-	turnovers: number;
-	steals: number;
-	blocks: number;
-	fouls: number;
+	points: number | null;
+	fieldGoalsMade: number | null;
+	fieldGoalsAttempted: number | null;
+	threePointsMade: number | null;
+	threePointsAttempted: number | null;
+	freeThrowsMade: number | null;
+	freeThrowsAttempted: number | null;
+	offensiveRebounds: number | null;
+	defensiveRebounds: number | null;
+	rebounds: number | null;
+	assists: number | null;
+	turnovers: number | null;
+	steals: number | null;
+	blocks: number | null;
+	fouls: number | null;
 	playerId: string;
 	displayName: string;
 	starter: boolean;
-	minutes: string;
+	minutes: string | null;
 	plusMinus: number | null;
 	photoUrl: string | null;
 	jersey: string | null;
@@ -173,21 +173,21 @@ export interface AllStarBoxPlayer {
 	topPoints: boolean;
 }
 export interface BoxScoreTotals {
-	points: number;
-	fieldGoalsMade: number;
-	fieldGoalsAttempted: number;
-	threePointsMade: number;
-	threePointsAttempted: number;
-	freeThrowsMade: number;
-	freeThrowsAttempted: number;
-	offensiveRebounds: number;
-	defensiveRebounds: number;
-	rebounds: number;
-	assists: number;
-	turnovers: number;
-	steals: number;
-	blocks: number;
-	fouls: number;
+	points: number | null;
+	fieldGoalsMade: number | null;
+	fieldGoalsAttempted: number | null;
+	threePointsMade: number | null;
+	threePointsAttempted: number | null;
+	freeThrowsMade: number | null;
+	freeThrowsAttempted: number | null;
+	offensiveRebounds: number | null;
+	defensiveRebounds: number | null;
+	rebounds: number | null;
+	assists: number | null;
+	turnovers: number | null;
+	steals: number | null;
+	blocks: number | null;
+	fouls: number | null;
 	fieldGoalPct: number | null;
 	threePointPct: number | null;
 	freeThrowPct: number | null;
@@ -207,9 +207,9 @@ export interface Leader {
 	displayName: string;
 	teamCode: string | null;
 	photoUrl: string | null;
-	points: number;
-	rebounds: number;
-	assists: number;
+	points: number | null;
+	rebounds: number | null;
+	assists: number | null;
 }
 export interface Top5Row {
 	playerId: string;
@@ -217,9 +217,9 @@ export interface Top5Row {
 	photoUrl: string | null;
 	side: Side;
 	leagueTeam: LeagueTeam | null;
-	points: number;
-	rebounds: number;
-	assists: number;
+	points: number | null;
+	rebounds: number | null;
+	assists: number | null;
 }
 export interface Highlight {
 	title: string;
@@ -252,15 +252,15 @@ export interface MvpLine {
 	teamScore: number;
 	opponentScore: number;
 	opponent: Opponent;
-	points: number;
-	rebounds: number;
-	assists: number;
+	points: number | null;
+	rebounds: number | null;
+	assists: number | null;
 }
 export interface MvpTotals {
 	games: number;
-	points: number;
-	rebounds: number;
-	assists: number;
+	points: number | null;
+	rebounds: number | null;
+	assists: number | null;
 }
 export interface AllStarRecap {
 	year: number;

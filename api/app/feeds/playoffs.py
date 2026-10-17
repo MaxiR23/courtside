@@ -25,6 +25,7 @@ from pydantic import (
     model_validator,
 )
 
+from app.feeds.base import AwardCode
 from app.feeds.games import (
     Conference,
     FeedModel,
@@ -32,6 +33,7 @@ from app.feeds.games import (
     NonEmptyStr,
     PlayInGameKind,
     Score,
+    SideCode,
     TeamCode,
     UtcDatetime,
 )
@@ -44,6 +46,9 @@ from app.feeds.standings import (
     StandingsColors,
     TotalDifferential,
 )
+
+# AwardCode lives in app.feeds.base; the other modules import it from here.
+__all__ = ["AwardCode"]
 
 Round = Annotated[int, Field(ge=1, le=4)]
 
@@ -358,6 +363,14 @@ class Series(FeedModel):
         return self
 
     @model_validator(mode="after")
+    def _require_the_wins_of_a_complete_series(self) -> Series:
+        if self.status is SeriesStatus.COMPLETE and (
+            self.top.wins is None or self.bottom.wins is None
+        ):
+            raise ValueError("a complete series has the wins of both sides")
+        return self
+
+    @model_validator(mode="after")
     def _require_the_games_in_start_order(self) -> Series:
         times = [game.start_time for game in self.games]
         if times != sorted(times):
@@ -395,6 +408,9 @@ class PlayoffLeader(FeedModel):
     name: NonEmptyStr
     photo_url: HttpUrl | None
     team_code: TeamCode
+    # The team's abbreviation in this past season, from that season's team object
+    # (ADR 0055). Null on a current feed.
+    season_code: SideCode | None = None
     value: NonEmptyStr
 
 
@@ -410,25 +426,6 @@ class LeaderGroup(FeedModel):
         return self
 
 
-class AwardCode(StrEnum):
-    MVP = "mvp"
-    DPOY = "dpoy"
-    ROY = "roy"
-    SIXTH_MAN = "sixth_man"
-    MIP = "mip"
-    CPOY = "cpoy"
-    FINALS_MVP = "finals_mvp"
-    EAST_FINALS_MVP = "east_finals_mvp"
-    WEST_FINALS_MVP = "west_finals_mvp"
-    ALL_STAR_MVP = "all_star_mvp"
-    CUP_MVP = "cup_mvp"
-    CUP_ALL_TOURNAMENT = "cup_all_tournament"
-    ALL_NBA = "all_nba"
-    ALL_ROOKIE = "all_rookie"
-    ALL_DEFENSIVE = "all_defensive"
-    TWYMAN_STOKES = "twyman_stokes"
-
-
 # The highest team number of each award that has teams.
 TEAM_NUMBERS: dict[AwardCode, int] = {
     AwardCode.ALL_NBA: 3,
@@ -442,12 +439,15 @@ class AwardWinner(FeedModel):
     name: NonEmptyStr
     photo_url: HttpUrl | None
     team_code: TeamCode | None
+    # The team's abbreviation in this past season, from that season's team object
+    # (ADR 0055). Null on a current feed.
+    season_code: SideCode | None = None
 
 
 class Award(FeedModel):
     code: AwardCode
     team: Annotated[int, Field(ge=1, le=3)] | None
-    winners: Annotated[list[AwardWinner], Field(min_length=1, max_length=5)]
+    winners: Annotated[list[AwardWinner], Field(min_length=1)]
 
     @model_validator(mode="after")
     def _require_the_team_number_of_a_team_award(self) -> Award:

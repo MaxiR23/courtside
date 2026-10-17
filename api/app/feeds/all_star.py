@@ -18,6 +18,7 @@
 # docs/adr/0048-highlights-backfill-and-edition-video.md
 
 import datetime as dt
+from collections.abc import Sequence
 from enum import StrEnum
 from itertools import pairwise
 from typing import Annotated
@@ -104,8 +105,10 @@ class AllStarTeamBox(FeedModel):
 
     @model_validator(mode="after")
     def _require_top_points_on_the_highest_points(self) -> AllStarTeamBox:
-        top = max((p.points for p in self.players), default=0)
-        if any(p.top_points != (top > 0 and p.points == top) for p in self.players):
+        top = max((p.points or 0 for p in self.players), default=0)
+        if any(
+            p.top_points != (top > 0 and (p.points or 0) == top) for p in self.players
+        ):
             raise ValueError(
                 "topPoints marks every player with the team's highest points"
             )
@@ -149,13 +152,14 @@ class Top5Row(FeedModel):
     photo_url: HttpUrl | None
     side: Side
     league_team: LeagueTeam | None
-    points: NonNegativeInt
-    rebounds: NonNegativeInt
-    assists: NonNegativeInt
+    points: NonNegativeInt | None
+    rebounds: NonNegativeInt | None
+    assists: NonNegativeInt | None
 
 
 def _top5_key(row: Top5Row) -> tuple[int, int]:
-    return (row.points, row.rebounds + row.assists)
+    # A missing value counts as 0 for the order only (ADR 0055).
+    return (row.points or 0, (row.rebounds or 0) + (row.assists or 0))
 
 
 class AllStarGame(FeedModel):
@@ -379,6 +383,13 @@ class AllStarEdition(FeedModel):
         return self
 
 
+def null_sum(values: Sequence[int | None]) -> int | None:
+    """The sum of the values, or none when any of them is none (ADR 0055)."""
+    if any(value is None for value in values):
+        return None
+    return sum(value for value in values if value is not None)
+
+
 class MvpLine(FeedModel):
     game_id: NonEmptyStr
     round_label: NonEmptyStr | None
@@ -386,16 +397,16 @@ class MvpLine(FeedModel):
     team_score: NonNegativeInt
     opponent_score: NonNegativeInt
     opponent: Opponent
-    points: NonNegativeInt
-    rebounds: NonNegativeInt
-    assists: NonNegativeInt
+    points: NonNegativeInt | None
+    rebounds: NonNegativeInt | None
+    assists: NonNegativeInt | None
 
 
 class MvpTotals(FeedModel):
     games: PositiveInt
-    points: NonNegativeInt
-    rebounds: NonNegativeInt
-    assists: NonNegativeInt
+    points: NonNegativeInt | None
+    rebounds: NonNegativeInt | None
+    assists: NonNegativeInt | None
 
 
 class AllStarMvp(FeedModel):
@@ -412,9 +423,9 @@ class AllStarMvp(FeedModel):
         totals = self.totals
         sums = (
             len(self.lines),
-            sum(line.points for line in self.lines),
-            sum(line.rebounds for line in self.lines),
-            sum(line.assists for line in self.lines),
+            null_sum([line.points for line in self.lines]),
+            null_sum([line.rebounds for line in self.lines]),
+            null_sum([line.assists for line in self.lines]),
         )
         if (totals.games, totals.points, totals.rebounds, totals.assists) != sums:
             raise ValueError("totals are the sums of the lines")

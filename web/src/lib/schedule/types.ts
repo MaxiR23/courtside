@@ -21,18 +21,18 @@ export type PanelPlayer = Pick<HeroPlayer, 'firstName' | 'lastName' | 'teamCode'
 };
 
 export type Leader = Omit<PanelPlayer, 'teamCode'> & {
-	points: number;
-	rebounds: number;
-	assists: number;
+	points: number | null; // null: the source sent none
+	rebounds: number | null; // null: the source sent none
+	assists: number | null; // null: the source sent none
 	team: TeamMarkTeam; // the player's team: a guest has no link (ADR 0025)
 };
 
 export type TeamStatLine = {
 	fieldGoalPct: number | null; // 0 to 1; null: the source sent none
 	threePointPct: number | null; // 0 to 1; null: the source sent none
-	rebounds: number;
-	assists: number;
-	turnovers: number;
+	rebounds: number | null; // null: the source sent none
+	assists: number | null; // null: the source sent none
+	turnovers: number | null; // null: the source sent none
 };
 
 export type HighlightVideo = {

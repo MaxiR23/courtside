@@ -78,6 +78,7 @@ from app.feeds.all_star import (
     LeagueTeam,
     PlacementKind,
     Top5Row,
+    null_sum,
 )
 from app.feeds.game_detail import BoxScorePlayer, GameResult, Venue
 from app.feeds.games import GameStatus
@@ -424,7 +425,11 @@ def leading(game: AllStarScoreboardGame) -> Side | None:
 def top5(rows: Sequence[Top5Row]) -> list[Top5Row]:
     """The first 5 rows by points, then rebounds plus assists, both descending.
     The sort is stable, so ties keep the source order."""
-    ordered = sorted(rows, key=lambda r: (-r.points, -(r.rebounds + r.assists)))
+    # A missing value counts as 0 for the order only (ADR 0055).
+    ordered = sorted(
+        rows,
+        key=lambda r: (-(r.points or 0), -((r.rebounds or 0) + (r.assists or 0))),
+    )
     return ordered[:MAX_TOP5]
 
 
@@ -434,9 +439,7 @@ def team_stats(sections: GameDetailSections | None) -> list[dict[str, Any]] | No
     if sections is None or sections.team_stats is None or sections.box_score is None:
         return None
     away, home = sections.team_stats.away, sections.team_stats.home
-    # A missing field goal percentage leaves the block null (ADR 0052).
-    if away.field_goal_pct is None or home.field_goal_pct is None:
-        return None
+    # A missing value leaves the block null (ADR 0052, ADR 0055).
     values = {
         "field_goal_pct": (away.field_goal_pct, home.field_goal_pct),
         "three_points_made": (
@@ -448,9 +451,14 @@ def team_stats(sections: GameDetailSections | None) -> list[dict[str, Any]] | No
         "steals": (away.steals, home.steals),
         "blocks": (away.blocks, home.blocks),
     }
+    numbers: dict[str, tuple[float, float]] = {}
+    for stat, (away_value, home_value) in values.items():
+        if away_value is None or home_value is None:
+            return None
+        numbers[stat] = (away_value, home_value)
     rows: list[dict[str, Any]] = []
     for stat in STAT_ORDER:
-        first, second = values[stat]
+        first, second = numbers[stat]
         better = (
             None if first == second else (Side.AWAY if first > second else Side.HOME)
         )
@@ -548,10 +556,10 @@ def _box_score(
     box = found.box_score
     result: dict[str, Any] = {}
     for side, team in (("away", box.away), ("home", box.home)):
-        top = max((p.points for p in team.players), default=0)
+        top = max((p.points or 0 for p in team.players), default=0)
         result[side] = {
             "players": [
-                _box_player(sources, game, p, top > 0 and p.points == top)
+                _box_player(sources, game, p, top > 0 and (p.points or 0) == top)
                 for p in team.players
             ],
             "totals": team.totals,
@@ -786,9 +794,9 @@ def mvp(
         "lines": lines,
         "totals": {
             "games": len(lines),
-            "points": sum(line["points"] for line in lines),
-            "rebounds": sum(line["rebounds"] for line in lines),
-            "assists": sum(line["assists"] for line in lines),
+            "points": null_sum([line["points"] for line in lines]),
+            "rebounds": null_sum([line["rebounds"] for line in lines]),
+            "assists": null_sum([line["assists"] for line in lines]),
         },
     }
 

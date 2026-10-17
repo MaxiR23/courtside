@@ -12,7 +12,7 @@ import datetime as dt
 from itertools import pairwise
 from typing import Annotated
 
-from pydantic import Field, model_validator
+from pydantic import Field, PositiveInt, model_validator
 
 from app.feeds.games import FeedModel, UtcDatetime
 from app.feeds.player import SeasonLabel
@@ -34,6 +34,9 @@ class CalendarFeed(FeedModel):
     days: Annotated[list[dt.date], Field(min_length=1)]
     window_days: list[dt.date]
     seasons: Annotated[list[CalendarSeason], Field(min_length=1)]
+    # The rules version of a kept past calendar (ADR 0053, ADR 0055); null on a
+    # current calendar and on a stored feed from before the field.
+    build_version: PositiveInt | None = None
 
     @model_validator(mode="after")
     def _require_sorted_unique_days(self) -> CalendarFeed:

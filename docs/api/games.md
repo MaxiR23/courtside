@@ -67,15 +67,15 @@ and `highlightsSearchUrl`; any other status has `winner` and
 | Object      | Fields                                                                                                      |
 | ----------- | ----------------------------------------------------------------------------------------------------------- |
 | `GameCup`   | `stage` (`group`, `quarterfinals`, `semifinals`, `championship`), taken from the game's note |
-| `GamePostseason` | `stage` (`playin`, `playoffs`, `finals`); `round` (1 to 4: 1 to 3 are `playoffs`, 4 is `finals`; null for `playin` and for a `playoffs` game whose round cannot be read); `conference` (`east`, `west`; null for `finals`, for `playin` it is set, and for a `playoffs` game it is null exactly when `round` is); `number` (game number 1 to 7; null for `playin` and when the note gives none); `summary` (the series summary; null when the source has none, always null for `playin`); `playIn` (`seven_eight`, `nine_ten`, `eighth_seed`; set exactly for `playin`); `stakes` (`game_7`, `elimination`, `can_clinch`, `clinched`; null for none) |
+| `GamePostseason` | `stage` (`playin`, `playoffs`, `finals`); `round` (1 to 4: 1 to 3 are `playoffs`, 4 is `finals`; null for `playin` and for a `playoffs` game whose round cannot be read); `conference` (`east`, `west`; null for `finals`, for `playin` it is set, and for a `playoffs` game it is null exactly when `round` is); `number` (game number 1 to 7; null for `playin` and when the note gives none); `summary` (the series summary; null when the source has none, always null for `playin`); `playIn` (`seven_eight`, `nine_ten`, `eighth_seed`; set exactly for `playin`); `stakes` (`game_7`, `elimination`, `can_clinch`, `clinched`; null for none); `awayWins`, `homeWins` (0 to 4: the series wins of the game's two sides, from the series object; null for `playin` and when the source gives none); `seriesWinner` (`away`, `home`: the side that won the series, set only when the series object says it is complete and the wins differ; [ADR 0055](../adr/0055-past-season-reading-rules-and-versioned-stored-data.md)) |
 | `GameAllStar` | `roundLabel` (the round as the source writes it: "Round Robin", "Semifinals", "Championship"; the format suffix is not part of it; "All-Star Game" for the notes "ALL STAR GAME" and "NBA All-Star Game"); `championship` (true for the round `Championship`) |
-| `Team`      | `code` (three capital letters), `name`, `city`                                                              |
+| `Team`      | `code` (three capital letters), `name`, `city`, `seasonCode` (the team's abbreviation in a past season, null otherwise; [ADR 0055](../adr/0055-past-season-reading-rules-and-versioned-stored-data.md)) |
 | `Opponent`  | `code` (null for a guest without one), `name`, `city` (null when the source sends none), `guest`, `seasonCode` (null; that season's abbreviation on a past feed, from the season team object), `historical` (false; true when that season's name, city or code differs from today's, [ADR 0054](../adr/0054-historical-sides-and-past-pages.md)); a league code is three capital letters, a guest code any non-empty string, and a guest has a code or a name and neither `seasonCode` nor `historical` |
 | `GameTeam`  | `Opponent` with a required `name`; `city` required for a league team, null for a guest the source sends without one and for an All-Star team |
 | `Player`    | `playerId`, `firstName`, `lastName`, `teamCode`, `photoUrl`                                                 |
-| `Leader`    | `playerId`, `displayName` (as the source gives it), `teamCode` (null for a guest without a code), `photoUrl`, `points`, `rebounds`, `assists`; `photoUrl` is null only for a guest player without a headshot |
+| `Leader`    | `playerId`, `displayName` (as the source gives it), `teamCode` (null for a guest without a code), `photoUrl`, `points`, `rebounds`, `assists` (each null when the source sends none, [ADR 0055](../adr/0055-past-season-reading-rules-and-versioned-stored-data.md)); `photoUrl` is null only for a guest player without a headshot |
 | `Star`      | `Player` fields plus `shortName`                                                                            |
-| `TeamStats` | `fieldGoalPct`, `threePointPct` (0 to 1; null when the source sends none), `rebounds`, `assists`, `turnovers` |
+| `TeamStats` | `fieldGoalPct`, `threePointPct` (0 to 1; null when the source sends none), `rebounds`, `assists`, `turnovers` (each null when the source sends none, [ADR 0055](../adr/0055-past-season-reading-rules-and-versioned-stored-data.md)) |
 | `Highlight` | `title`, `channel`, `thumbnailUrl`, `embedUrl`                                                              |
 | `LineScore` | `away`, `home`: points per period, at least one, overtimes appended                                         |
 | `Score`     | `away`, `home`: points                                                                                      |
@@ -135,7 +135,10 @@ Rules that live in the code:
 - The leader is the team's top scorer by points. A tie on points goes to
   the tied player with the most rebounds plus assists, and a tie on both
   to the first of them in the provider's order
-  ([ADR 0009](../adr/0009-game-leader-selection.md)).
+  ([ADR 0009](../adr/0009-game-leader-selection.md)). A missing points,
+  rebounds or assists column counts as 0 for the order only; the leader's value
+  itself is null, and with every value missing the first player in the
+  provider's order leads ([ADR 0055](../adr/0055-past-season-reading-rules-and-versioned-stored-data.md)).
 - `TeamStats.turnovers` is the team's `totalTurnovers` when the source sends it,
   which includes turnovers charged to the team, else its `turnovers`
   ([ADR 0052](../adr/0052-box-score-reading.md)).

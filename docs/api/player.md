@@ -28,7 +28,7 @@ The root is one player.
 | `firstName`, `lastName` | string         | Identity                                                           | always                                   |
 | `number`       | `JerseyNumber` / null   | Jersey number as text (`00` and `0` differ)                        | null when unknown                        |
 | `position`     | string                  | Position name                                                      | always                                   |
-| `team`         | `Team` / null           | `code`, `name`, `city`, as in the [games feed](games.md)           | null for a player on no current roster, and on a past season with no game log |
+| `team`         | `Team` / null           | `code`, `name`, `city`, as in the [games feed](games.md)           | null for a player on no current roster, and on a past season with no game log; on a past season it also carries `seasonCode` |
 | `photoUrl`     | URL / null              | Photo                                                              | null when unknown                        |
 | `injury`       | `PlayerInjury` / null   | Current injury report                                              | null when healthy                        |
 | `profile`      | `Profile`               | Biographical data, each field null when unknown                    | always                                   |
@@ -70,10 +70,10 @@ The root is one player.
 | `SeasonSplit`      | `perGame`, `totals`: `SeasonRow[]`; `career`: `CareerRows` / null (null without rows)                                                          |
 | `CareerRows`       | `perGame`, `totals`: `StatRow`                                                                                                                 |
 | `StatRow`          | `gamesPlayed`, `gamesStarted`, `minutes` (null in totals), `fieldGoalsMade`, `fieldGoalsAttempted`, `fieldGoalPct`, `threePointsMade`, `threePointsAttempted`, `threePointPct`, `freeThrowsMade`, `freeThrowsAttempted`, `freeThrowPct`, `offensiveRebounds`, `defensiveRebounds`, `rebounds`, `assists`, `blocks`, `steals`, `fouls`, `turnovers`, `points` |
-| `SeasonRow`        | `StatRow` fields plus `season` (such as `2025-26`) and `teams` (at least one code)                                                             |
+| `SeasonRow`        | `StatRow` fields plus `season` (such as `2025-26`), `teams` (at least one code) and `seasonCodes` (the code each of `teams` had in that season, in order, from the franchise names, set when the feed is served; an entry is null when no names run holds the season, and the field is null when the names are not applied; [ADR 0055](../adr/0055-past-season-reading-rules-and-versioned-stored-data.md)) |
 | `Milestones`       | `season`, `current`, `career`: `MilestoneCounts`                                                                                               |
 | `MilestoneCounts`  | `doubleDoubles`, `tripleDoubles`, `disqualifications`, `ejections`, `technicals`, `flagrants`, `assistTurnoverRatio`, `stealTurnoverRatio`      |
-| `Award`            | `name`, `count`, `seasons` (labels, at least one)                                                                                              |
+| `Award`            | `name`, `code` (`AwardCode` of the [playoffs feed](playoffs.md); null when the name is not one the awards table knows), `team` (1 to 3 for a team award, null otherwise), `count`, `seasons` (labels, at least one) |
 
 `GameTag` and `NextGame` are shared with the [team feed](team.md).
 

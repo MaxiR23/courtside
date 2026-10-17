@@ -23,7 +23,8 @@
 # after that one read, remembered in memory. The franchise names are built first
 # (the names kind) and set again when served. A feed is built once and kept
 # (rule G): it is never deleted, and rebuilt only when its build version is not
-# the current one (ADR 0053).
+# the current one (ADR 0053) or its stored names are of another build version, in
+# which case the names are rebuilt first (ADR 0055).
 #
 # SEE: docs/api/team.md, docs/adr/0043-season-feeds-and-franchise-names.md,
 # docs/adr/0053-season-level-rules-for-past-seasons.md, api/app/jobs/team_feed.py
@@ -329,7 +330,9 @@ class SeasonTeamFeeds:
     def is_fresh(
         self, feed: PastTeamFeed, built_at: dt.datetime, now: dt.datetime
     ) -> bool:
-        return is_current_build(feed)
+        # A stored names list of another build also makes the feed stale, so its
+        # rebuild starts the names first (ADR 0055).
+        return is_current_build(feed) and not self._names.outdated(feed.code.lower())
 
     def keep(self, feed_id: str) -> bool:
         return True

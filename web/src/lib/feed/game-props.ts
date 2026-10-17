@@ -302,27 +302,31 @@ function winProbabilitySection(feed: GameDetailFeed): WinProbabilitySection {
 	};
 }
 
-type Shooting = { made: number; attempted: number };
+type Shooting = { made: number | null; attempted: number | null };
 const shooting = ({ made, attempted }: Shooting) =>
-	`${formatNumber(made)}-${formatNumber(attempted)}`;
+	made === null || attempted === null
+		? NO_VALUE
+		: `${formatNumber(made)}-${formatNumber(attempted)}`;
+// A count the source did not send shows the no-value mark (ADR 0055).
+const count = (value: number | null): string => (value === null ? NO_VALUE : formatNumber(value));
 
 function boxRow(player: BoxScorePlayer, team: DetailTeam): BoxRow {
 	return {
 		id: player.playerId,
 		name: player.displayName,
-		minutes: player.minutes,
-		points: formatNumber(player.points),
+		minutes: player.minutes ?? NO_VALUE,
+		points: count(player.points),
 		fieldGoals: shooting({ made: player.fieldGoalsMade, attempted: player.fieldGoalsAttempted }),
 		threePoints: shooting({ made: player.threePointsMade, attempted: player.threePointsAttempted }),
 		freeThrows: shooting({ made: player.freeThrowsMade, attempted: player.freeThrowsAttempted }),
-		offensiveRebounds: formatNumber(player.offensiveRebounds),
-		defensiveRebounds: formatNumber(player.defensiveRebounds),
-		rebounds: formatNumber(player.rebounds),
-		assists: formatNumber(player.assists),
-		turnovers: formatNumber(player.turnovers),
-		steals: formatNumber(player.steals),
-		blocks: formatNumber(player.blocks),
-		fouls: formatNumber(player.fouls),
+		offensiveRebounds: count(player.offensiveRebounds),
+		defensiveRebounds: count(player.defensiveRebounds),
+		rebounds: count(player.rebounds),
+		assists: count(player.assists),
+		turnovers: count(player.turnovers),
+		steals: count(player.steals),
+		blocks: count(player.blocks),
+		fouls: count(player.fouls),
 		plusMinus:
 			player.plusMinus === null
 				? NO_VALUE
@@ -334,18 +338,18 @@ function boxRow(player: BoxScorePlayer, team: DetailTeam): BoxRow {
 
 function boxTotals(totals: BoxScoreTotals): BoxTotals {
 	return {
-		points: formatNumber(totals.points),
+		points: count(totals.points),
 		fieldGoals: shooting({ made: totals.fieldGoalsMade, attempted: totals.fieldGoalsAttempted }),
 		threePoints: shooting({ made: totals.threePointsMade, attempted: totals.threePointsAttempted }),
 		freeThrows: shooting({ made: totals.freeThrowsMade, attempted: totals.freeThrowsAttempted }),
-		offensiveRebounds: formatNumber(totals.offensiveRebounds),
-		defensiveRebounds: formatNumber(totals.defensiveRebounds),
-		rebounds: formatNumber(totals.rebounds),
-		assists: formatNumber(totals.assists),
-		turnovers: formatNumber(totals.turnovers),
-		steals: formatNumber(totals.steals),
-		blocks: formatNumber(totals.blocks),
-		fouls: formatNumber(totals.fouls),
+		offensiveRebounds: count(totals.offensiveRebounds),
+		defensiveRebounds: count(totals.defensiveRebounds),
+		rebounds: count(totals.rebounds),
+		assists: count(totals.assists),
+		turnovers: count(totals.turnovers),
+		steals: count(totals.steals),
+		blocks: count(totals.blocks),
+		fouls: count(totals.fouls),
 		fieldGoalPct: totals.fieldGoalPct === null ? NO_VALUE : percent(totals.fieldGoalPct),
 		threePointPct: totals.threePointPct === null ? NO_VALUE : percent(totals.threePointPct),
 		freeThrowPct: totals.freeThrowPct === null ? NO_VALUE : percent(totals.freeThrowPct)

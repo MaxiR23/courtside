@@ -75,13 +75,13 @@ other status has `winner` null. Every stat leader is a side, `away` or
 | `Record`              | `wins`, `losses`                                                                                                                             |
 | `DetailTeam`          | `GameTeam` fields (`code`, null for a guest without one, `name`, `city`, `guest`; `city` is null for a guest the source sends without one, such as an All-Star team) plus `record` (null for a guest)                                                         |
 | `Venue`               | `name`, `city` (null when the source has no city), `photoUrl` (null when unknown)                                                                                        |
-| `DetailTeamStats`     | `TeamStats` fields (`fieldGoalPct`, `threePointPct`, `rebounds`, `assists`, `turnovers`) plus `freeThrowPct` (0 to 1), `steals`, `blocks`; the three percentages are null when the source sends none |
+| `DetailTeamStats`     | `TeamStats` fields (`fieldGoalPct`, `threePointPct`, `rebounds`, `assists`, `turnovers`) plus `freeThrowPct` (0 to 1), `steals`, `blocks`; the three percentages and every count are null when the source sends none ([ADR 0055](../adr/0055-past-season-reading-rules-and-versioned-stored-data.md)) |
 | `TeamStatLeaders`     | one side (`away` or `home`) or null per row: `fieldGoalPct`, `threePointPct`, `freeThrowPct`, `rebounds`, `assists`, `turnovers`, `steals`, `blocks`       |
 | `DetailGameTeamStats` | `away`, `home`: `DetailTeamStats`; `leaders`: `TeamStatLeaders`                                                                              |
 | `BoxScore`            | `away`, `home`: `TeamBoxScore`                                                                                                               |
 | `TeamBoxScore`        | `players`: `BoxScorePlayer[]`; `totals`: `BoxScoreTotals`                                                                                    |
-| `BoxScorePlayer`      | `playerId`, `displayName`, `starter`, `minutes` (text), `plusMinus` (null on every row of a game whose players all have 0), `photoUrl` (null only for a guest player without a headshot) plus the counting stats of `BoxScoreTotals`                   |
-| `BoxScoreTotals`      | `points`, `fieldGoalsMade`, `fieldGoalsAttempted`, `threePointsMade`, `threePointsAttempted`, `freeThrowsMade`, `freeThrowsAttempted`, `offensiveRebounds`, `defensiveRebounds`, `rebounds`, `assists`, `turnovers`, `steals`, `blocks`, `fouls`, plus `fieldGoalPct`, `threePointPct`, `freeThrowPct` (0 to 1; null when the source sends none) |
+| `BoxScorePlayer`      | `playerId`, `displayName`, `starter`, `minutes` (text), `plusMinus` (null on every row of a game whose players all have 0), `photoUrl` (null only for a guest player without a headshot) plus the counting stats of `BoxScoreTotals`; `minutes` is null when the source has no minutes column                   |
+| `BoxScoreTotals`      | `points`, `fieldGoalsMade`, `fieldGoalsAttempted`, `threePointsMade`, `threePointsAttempted`, `freeThrowsMade`, `freeThrowsAttempted`, `offensiveRebounds`, `defensiveRebounds`, `rebounds`, `assists`, `turnovers`, `steals`, `blocks`, `fouls` (each null when the source sends none, [ADR 0055](../adr/0055-past-season-reading-rules-and-versioned-stored-data.md)), plus `fieldGoalPct`, `threePointPct`, `freeThrowPct` (0 to 1; null when the source sends none) |
 | `WinProbabilityPoint` | `elapsedSeconds`, `homeWinProbability` (0 to 1)                                                                                              |
 | `WinProbabilityLeader` | `side` (`away` or `home`), `winProbability` (0 to 1, above 0.5) |
 | `GamePeriod`          | `number`, `startElapsedSeconds`                                                                                                              |
@@ -224,3 +224,10 @@ recorded response that shows it.
   loaded, and 404 after that.
 - An invalid feed is never published: the previous valid one stays served.
 - Every feed request records presence.
+
+## Missing stats and rows without an id
+
+A team or player stat the source does not carry is null, never a failure; a value
+that is sent and is not a number still fails the read. A box score row with no
+player id is skipped and logged once per game read, in the live, the past and the
+past-players readers ([ADR 0055](../adr/0055-past-season-reading-rules-and-versioned-stored-data.md)).

@@ -53,7 +53,7 @@ The root is one team.
 | `TeamCup`       | `group`: `CupGroupName` (`conference`: `east`, `west`; `letter`: `A`, `B`, `C`), `wins`, `losses` (the Cup record, as in the [Cup feed](cup.md))  |
 | `TeamTitle`     | `kind` (`nba_champions`, `nba_cup_champions`, `conference_champions`); `year` (set exactly for the two championships); `conference` (`east`, `west`; set exactly for `conference_champions`) |
 | `Coach`         | `name`, `seasons` (null)                                                                                                                    |
-| `NameRun`       | `from`, `to` (null on the run that holds the current season): end years of seasons, `from` from 1994; `name`, `location`, `code` (the standard code, else the source's own) |
+| `NameRun`       | `from`, `to` (null on the run that holds the current season): end years of seasons, `from` from 1994; `name`, `location`, `code` (the standard code for a current franchise; a historical run keeps the source's own abbreviation, ADR 0055) |
 | `SplitRecord`   | `Record` fields (`wins`, `losses`) plus `winPct` (0 to 1)                                                                                   |
 | `TeamRecord`    | `SplitRecord` fields plus `season` (label of the standings season, such as `2025-26`; in the preseason it is the previous season), `home`, `away`, `lastTen`: `SplitRecord`; `streak`: `Streak` / null; `gamesBehind`: games behind the leader of the team's conference (0 for the leader), null before the team's first game; `conferenceRank` (1 to 15); `divisionRank` (1 to 8: a division held up to 8 teams until 2003-04); `playoff`: `PlayoffPosition` / null before the first game, without a seed, and on a season before 2020-21; `pointsFor`, `pointsAgainst`: `PointsTotal`; `differential`: `Differential` |
 | `Streak`        | `kind` (`win`, `loss`), `count`                                                                                                             |
@@ -139,7 +139,10 @@ The root is one team.
 - Team feeds are never deleted.
 - The `names` come from the names kind (`team-names/{code}`, not a public feed):
   read once per team, one season team read per season from 1994 to the current
-  one, and kept for 7 days. The team feed depends on it: a missing or stale list
+  one, and kept for 7 days or until `SEASON_BUILD_VERSION` changes (the list
+  carries a `buildVersion`, [ADR 0055](../adr/0055-past-season-reading-rules-and-versioned-stored-data.md)).
+  A team feed is stale while its stored list is of another version. The team
+  feed depends on it: a missing or stale list
   is built first, inside the request's 20 seconds, and a failed names build keeps
   the stored list. A names build fails when the current season's team could not
   be read (the read failed, or it has no active team); earlier seasons that fail

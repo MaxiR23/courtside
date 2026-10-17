@@ -17,7 +17,10 @@
 # detailAvailable are added when it is served and never stored, and the feeds of
 # players on no roster are deleted after each stars run. A player on no roster is
 # known from the stored past feeds (ADR 0043) and is built with no team, next game,
-# live block or injury; its active state is the athlete object's.
+# live block or injury; its active state is the athlete object's. When it is
+# served, the season rows get the season code of each team from the stored
+# franchise names, never from a read per row; a list that is missing or outdated is
+# built in the background (ADR 0055).
 #
 # SEE: docs/api/player.md, docs/source-rules.md, api/app/jobs/team_feed.py, api/app/jobs/on_demand.py
 
@@ -59,6 +62,7 @@ from app.jobs.team_feed import (
     season_label,
 )
 from app.jobs.team_feed import KIND as TEAM_KIND
+from app.jobs.team_names import TeamNamesFeeds, career_team_codes, with_career_codes
 from app.settings import Settings
 from app.sources import (
     division_standings,
@@ -323,6 +327,8 @@ def awards(provided: list[ProviderAward]) -> list[dict[str, Any]]:
     return [
         {
             "name": award.name,
+            "code": award.code,
+            "team": award.team,
             "count": int(award.display_count.removesuffix("x")),
             "seasons": [season_label(year) for year in award.seasons],
         }
@@ -530,6 +536,7 @@ class PlayerFeeds:
         games: GamesJob,
         stars: StarsJob,
         teams: TeamFeeds,
+        names: TeamNamesFeeds | None = None,
         *,
         fetch_roster: FetchRoster = team_players.fetch_roster,
         fetch_division_standings: FetchDivisionStandings = (
@@ -551,6 +558,7 @@ class PlayerFeeds:
         self._games = games
         self._stars = stars
         self._teams = teams
+        self._names = names
         self._fetch_roster = fetch_roster
         self._fetch_division_standings = fetch_division_standings
         self._fetch_league_injuries = fetch_league_injuries
@@ -664,8 +672,13 @@ class PlayerFeeds:
                     detail = None
         served = with_player_detail(feed, self._teams.detail_ids())
         live = live_block(team, player_id, game, detail) if team is not None else None
-        return PlayerFeed.model_validate(
+        result = PlayerFeed.model_validate(
             {**served.model_dump(by_alias=False), "live": live}
+        )
+        if self._names is None:
+            return result
+        return with_career_codes(
+            result, self._names.career_runs(career_team_codes(result))
         )
 
     def keep(self, player_id: str) -> bool:

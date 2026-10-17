@@ -343,8 +343,11 @@ def _best_game(
             continue
         for side in (found.box_score.away, found.box_score.home):
             for line in side.players:
-                if line.player_id == player_id and (
-                    best is None or line.points > best["points"]
+                # A line with no points is not a best game (ADR 0055).
+                if (
+                    line.player_id == player_id
+                    and line.points is not None
+                    and (best is None or line.points > best["points"])
                 ):
                     best = {
                         "game_id": game.id,

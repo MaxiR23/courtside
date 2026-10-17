@@ -5,6 +5,7 @@
 # SEE: docs/adr/0008-contract-generation.md
 
 import datetime as dt
+from enum import StrEnum
 from typing import Annotated
 
 from pydantic import (
@@ -31,6 +32,27 @@ SeasonLabel = Annotated[str, StringConstraints(pattern=r"^\d{4}-\d{2}$")]
 # A guest side keeps the provider's own code, whatever it looks like (ADR 0025).
 SideCode = NonEmptyStr
 Percentage = Annotated[float, Field(ge=0, le=1)]
+
+
+class AwardCode(StrEnum):
+    """The kind of a season award, shared by the playoffs and the player feeds."""
+
+    MVP = "mvp"
+    DPOY = "dpoy"
+    ROY = "roy"
+    SIXTH_MAN = "sixth_man"
+    MIP = "mip"
+    CPOY = "cpoy"
+    FINALS_MVP = "finals_mvp"
+    EAST_FINALS_MVP = "east_finals_mvp"
+    WEST_FINALS_MVP = "west_finals_mvp"
+    ALL_STAR_MVP = "all_star_mvp"
+    CUP_MVP = "cup_mvp"
+    CUP_ALL_TOURNAMENT = "cup_all_tournament"
+    ALL_NBA = "all_nba"
+    ALL_ROOKIE = "all_rookie"
+    ALL_DEFENSIVE = "all_defensive"
+    TWYMAN_STOKES = "twyman_stokes"
 
 
 class FeedModel(BaseModel):

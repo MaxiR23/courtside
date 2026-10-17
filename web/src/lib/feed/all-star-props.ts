@@ -56,7 +56,9 @@ const NO_VALUE = '—';
 const SEPARATOR = ' · ';
 const SCORE_SEPARATOR = '–';
 
-const integer = (value: number): string => formatNumber(value);
+const integer = (value: number | null): string => (value === null ? NO_VALUE : formatNumber(value));
+const shots = (made: number | null, attempted: number | null): string =>
+	made === null || attempted === null ? NO_VALUE : `${made}-${attempted}`;
 const percent = (value: number): string =>
 	formatNumber(value, { style: 'percent', minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const signed = (value: number): string => formatNumber(value, { signDisplay: 'exceptZero' });
@@ -275,8 +277,8 @@ function boxRow(player: AllStarBoxPlayer): BoxRowView {
 		assists: integer(player.assists),
 		steals: integer(player.steals),
 		blocks: integer(player.blocks),
-		fieldGoals: `${player.fieldGoalsMade}-${player.fieldGoalsAttempted}`,
-		threePoints: `${player.threePointsMade}-${player.threePointsAttempted}`,
+		fieldGoals: shots(player.fieldGoalsMade, player.fieldGoalsAttempted),
+		threePoints: shots(player.threePointsMade, player.threePointsAttempted),
 		plusMinus: player.plusMinus === null ? NO_VALUE : signed(player.plusMinus),
 		starter: player.starter,
 		topPoints: player.topPoints,
@@ -299,8 +301,8 @@ function boxTotals(box: AllStarTeamBox): BoxTotalsView {
 		assists: integer(totals.assists),
 		steals: integer(totals.steals),
 		blocks: integer(totals.blocks),
-		fieldGoals: `${totals.fieldGoalsMade}-${totals.fieldGoalsAttempted}`,
-		threePoints: `${totals.threePointsMade}-${totals.threePointsAttempted}`
+		fieldGoals: shots(totals.fieldGoalsMade, totals.fieldGoalsAttempted),
+		threePoints: shots(totals.threePointsMade, totals.threePointsAttempted)
 	};
 }
 
