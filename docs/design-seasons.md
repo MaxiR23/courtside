@@ -11,7 +11,7 @@ The visual, interaction and data specification of the Cup, playoffs and All-Star
 | All-Star | `/all-star?season=YYYY` | `/feeds/seasons/{season}/all-star.json` | The existing All-Star feed |
 
 - A season is identified by its end year. The label is "2023-24", written as `season_label` writes it.
-- **Season ranges:** the Cup feeds exist for seasons 2024 to the current one; the playoffs and All-Star feeds exist for seasons 1994 to the current one. Any other season is a 404.
+- **Season ranges:** the Cup feeds exist for seasons 2024 to the season before the current one; the playoffs and All-Star feeds exist for seasons 1994 to the season before the current one. The current season is served by the existing feeds. Any other season is a 404.
 - Without `?season`, a page shows the current season as today and uses the existing feeds. With `?season` equal to the current season the page also uses the existing feeds. For a past season it uses the season feeds.
 - A past season is complete: the Cup and the playoffs are in their final state and the All-Star is in its after state. The page has no live element.
 - All routes are rendered in the browser from the fallback page (ADR 0020, ADR 0021).
@@ -24,7 +24,7 @@ Everything under "Implementation rules" in `docs/design.md`, `docs/design-cup.md
 - **A value that is missing renders `—`. A block that is missing hides its section** and leaves no gap.
 - **Nothing is hardcoded in `/web`:** no team, season list, date or series. No data source name, video platform or URL is written in `/web`.
 - **Every user-facing string is translatable**, in English and Spanish. Long labels truncate with an ellipsis and never wrap in a table cell.
-- **Today's colors and logos only**, as in `docs/design-past-dates.md`.
+- **Today's colors and logos only**, as in `docs/design-past-dates.md`: a historical side (the `historical` flag) is drawn with the neutral sigla box showing its season abbreviation, and a past Cup, playoffs or Finals side is named by that season's team object (ADR 0054).
 - **No live element on a past season:** no live dot, no countdown, no "today" strip, no live badge.
 - **Web settings** (one per feed, with the placeholders in braces):
 
@@ -42,7 +42,7 @@ Everything under "Implementation rules" in `docs/design.md`, `docs/design-cup.md
 ## Season selector and routes
 
 - **Routes:** `/cup`, `/playoffs` and `/all-star` accept `?season=YYYY`. Without it, the current season as today. A season outside the range of the page, or a malformed value, is the current season, as without `?season`.
-- **Selector:** the same select as `docs/design-past-dates.md` (`SeasonSelect`), at the right of the Cup, playoffs and All-Star headers. The Cup lists 2023-24 to the current season; the playoffs and the All-Star list 1993-94 to the current one, newest first. Changing it navigates to `?season=YYYY`; the current season has no parameter.
+- **Selector:** the same select as `docs/design-past-dates.md` (`SeasonSelect`), at the right of the Cup, playoffs and All-Star headers. The Cup lists the calendar's seasons from 2023-24 and the season on show (ADR 0054); the playoffs and the All-Star list 1993-94 to the current one, newest first. Changing it navigates to `?season=YYYY`; the current season has no parameter.
 - **Season tag:** a past season shows the "Season YYYY-YY" tag (`SeasonTag`) in the header and no live element.
 - **Mobile:** the selector is full width under the header with a 44px hit target, as on the other pages.
 
@@ -52,17 +52,19 @@ Keys are camelCase. Nullable fields are always present and `null` when absent. T
 
 | Path | What it carries | Seasons |
 |---|---|---|
-| `/feeds/seasons/{season}/cup.json` | The Cup of that season in its complete state | 2024 to the current |
-| `/feeds/seasons/{season}/cup/matchups/{slot}.json` | The matchup of that slot with the path of each team and no roster | 2024 to the current |
-| `/feeds/seasons/{season}/playoffs.json` | The playoffs of that season, complete | 1994 to the current |
-| `/feeds/seasons/{season}/playoffs/finals.json` | The Finals of that season, game by game | 1994 to the current |
-| `/feeds/seasons/{season}/all-star.json` | The All-Star edition of that season in its after state | 1994 to the current |
+| `/feeds/seasons/{season}/cup.json` | The Cup of that season in its complete state | 2024 to the season before the current one |
+| `/feeds/seasons/{season}/cup/matchups/{slot}.json` | The matchup of that slot with the path of each team and no roster | 2024 to the season before the current one |
+| `/feeds/seasons/{season}/playoffs.json` | The playoffs of that season, complete | 1994 to the season before the current one |
+| `/feeds/seasons/{season}/playoffs/finals.json` | The Finals of that season, game by game | 1994 to the season before the current one |
+| `/feeds/seasons/{season}/all-star.json` | The All-Star edition of that season in its after state | 1994 to the season before the current one |
 
 - **Statuses:** a season outside the range of the feed is a 404. An All-Star season whose edition is not found is a 404.
 - **Expiry:** a past season's feed is built once and kept, as the past-dates feeds. The current season keeps its existing feeds and routes; the page picks them when the season is the current one.
-- **Cup:** a past season's Cup is in its complete state. Its matchup feed carries the path of each team and no roster: rosters, depth charts and injuries are current-season only.
+- **Cup:** a past season's Cup is in its complete state. The first edition's notes (the In-Season Tournament name) read as the same Cup rounds. The two quarterfinals of a conference are placed by start time, then id, with no seed and a seedless label (the page draws no seed label for such a side); a third quarterfinal in a conference fails the build (ADR 0053). Its matchup feed carries the path of each team and no roster: rosters, depth charts and injuries are current-season only.
 - **Playoffs:** a past season is complete. The play-in block is `null` for seasons before 2021. The leaders, the team postseason record and statistics, the awards and the largest deficit are `null` when the source has none for that season, and the page hides them.
-- **All-Star:** the edition of that season in its after state, discovered through the February days with games of the season calendar. No edition found is a 404. The previous-edition recap stays as it is in the current feed.
+- **All-Star:** the edition of that season in its after state, discovered through the February days with games of the season calendar. No edition found is a 404. The previous-edition recap stays as it is in the current feed and carries its MVP. An edition with a single game has it as its championship, whatever its round: its winner is the champion and its loser the runner-up. An untimed final game (a score and no line score) is part of the edition. Two sides sharing a name are drawn with their code and name, "EAST All-Stars". The format reaches the page as parts (`targetPoints`, `untimed`, `periods`, `minutes`) that the page words in its language (ADR 0054).
+- **Playoffs and Finals:** the leaders, the award winners and the Finals averages are named from the box-score rosters of that season (`docs/design-past-dates.md`); a failed roster read fails the build. A player on two rosters of a season has, in the leaders and awards, the team of his newest final game (ADR 0053).
+- **Build version:** the kept season feeds carry `buildVersion`; a stored feed of another or no version is served as stored and rebuilt on its next request (ADR 0053, ADR 0054).
 - **`editionHighlight`:** the All-Star feeds (current and season) carry `editionHighlight`, a Highlight of the same shape as the game highlight, or `null`.
 
 ### Rounds for seasons without round notes (1994 to 2007)
@@ -122,7 +124,7 @@ The complete state, in this order, each block hidden without a gap when it has n
 
 ## Past highlights in the pages
 
-No new UI. A past game whose highlight has been found shows it in the game page and in the Finals series as today. The day page cards show the existing highlight mark when the stored game has one.
+No new UI. A past game whose highlight has been found shows it in the game page and in the Finals series as today. The day page cards show the existing highlights block in the expanded panel and play it as the home does, when the stored game has one.
 
 ## Edge cases
 

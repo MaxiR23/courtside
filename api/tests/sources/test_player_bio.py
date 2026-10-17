@@ -5,7 +5,7 @@
 # Tested:
 # - Maps the season summary with values, ranks and the season the summary names
 # - Gives a stat without a rank a null rank
-# - Returns no summary when the bio has none, or when its summary names no season
+# - Returns no summary when the bio has none, or when its summary names no season or has no name
 # - Raises the source error on an invalid payload, a summary missing a statistic, a timeout, an error status and a missing URL
 # - Reuses a bio for one hour
 #
@@ -138,6 +138,22 @@ async def test_returns_no_bio_when_the_summary_names_no_season(
 ) -> None:
     payload = load()
     payload["athlete"]["statsSummary"]["displayName"] = "regular season stats"
+    mock.get(URL).respond(json=payload)
+
+    assert await fetch(settings) is None
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("name", [None, ""], ids=str)
+async def test_returns_no_bio_when_the_summary_has_no_name(
+    mock: respx.MockRouter, settings: Settings, name: str | None
+) -> None:
+    payload = load()
+    summary = payload["athlete"]["statsSummary"]
+    if name is None:
+        del summary["displayName"]
+    else:
+        summary["displayName"] = name
     mock.get(URL).respond(json=payload)
 
     assert await fetch(settings) is None
