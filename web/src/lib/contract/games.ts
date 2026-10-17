@@ -96,9 +96,9 @@ export interface Leader {
 	displayName: string;
 	teamCode: string | null;
 	photoUrl: string | null;
-	points: number;
-	rebounds: number;
-	assists: number;
+	points: number | null;
+	rebounds: number | null;
+	assists: number | null;
 }
 export interface GameTeamStats {
 	away: TeamStats;
@@ -107,9 +107,9 @@ export interface GameTeamStats {
 export interface TeamStats {
 	fieldGoalPct: number | null;
 	threePointPct: number | null;
-	rebounds: number;
-	assists: number;
-	turnovers: number;
+	rebounds: number | null;
+	assists: number | null;
+	turnovers: number | null;
 }
 /**
  * The mark of a Cup game: the round it belongs to.
@@ -128,6 +128,9 @@ export interface GamePostseason {
 	summary: string | null;
 	playIn: PlayInGameKind | null;
 	stakes: Stakes | null;
+	awayWins: number | null;
+	homeWins: number | null;
+	seriesWinner: Side | null;
 }
 /**
  * The mark of an All-Star game: its round as the source writes it, and

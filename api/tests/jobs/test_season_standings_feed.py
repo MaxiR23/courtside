@@ -8,6 +8,7 @@
 # - The kind: the feed is stored and rebuilt only for another version: a second request, a request years later and a new cache over the same data directory (a restart) all serve with no source call
 # - The kind: a failed build with nothing stored answers unavailable
 # - The kind: an invalid id answers unknown and a not ready season answers unavailable, with no source request
+# - The kind: a historical row carries the source's own abbreviation as its season code and an unchanged one the standard code (ADR 0055)
 # - The kind: the colors are today's and null when a team info read fails
 # - The kind: each row is named by that season's team object with today's code
 # - The kind: the built feed carries the current build version, a stored feed of an older or missing version is rebuilt on its next request, and one of the current version is served with no source request (ADR 0053)
@@ -156,6 +157,8 @@ class StandingsKit:
         self.season_names: dict[str, tuple[str, str]] = {}
         # The current season's team object by code, when it differs.
         self.current_names: dict[str, tuple[str, str]] = {}
+        # The abbreviation of the season team object by code; the default is "OLD".
+        self.abbreviations: dict[str, str] = {}
         self.start()
 
     def start(self) -> None:
@@ -188,7 +191,7 @@ class StandingsKit:
         name, city = names.get(code, ("Team", code.title()))
         return SeasonTeam(
             team_id="1",
-            abbreviation="OLD",
+            abbreviation=self.abbreviations.get(code, "OLD"),
             display_name=f"{city} {name}",
             name=name,
             location=city,
@@ -269,6 +272,21 @@ async def test_each_row_is_named_by_that_seasons_team_object_with_todays_code(
     divisional = {row.code: row for row in feed.divisions[0].teams}
     assert divisional["AAA"].historical is True
     assert "season-team/AAA/1996" in kit.calls
+
+
+@pytest.mark.anyio
+async def test_a_historical_row_has_the_source_abbreviation_and_an_unchanged_one_the_standard_code(
+    kit: StandingsKit,
+) -> None:
+    kit.season_names = {"AAA": ("Delta Herons", "New Orleans")}
+    kit.current_names = {"AAA": ("River Kings", "New Orleans")}
+    kit.abbreviations = {"AAA": "NO", "BBB": "NO"}
+
+    feed = StandingsFeed.model_validate_json(await kit.serve("2005"))
+
+    east = {row.code: row for row in feed.conferences[0].teams}
+    assert (east["AAA"].season_code, east["AAA"].historical) == ("NO", True)
+    assert (east["BBB"].season_code, east["BBB"].historical) == ("NOP", False)
 
 
 @pytest.mark.anyio

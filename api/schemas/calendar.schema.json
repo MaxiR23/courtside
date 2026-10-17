@@ -63,6 +63,18 @@
       },
       "minItems": 1,
       "type": "array"
+    },
+    "buildVersion": {
+      "anyOf": [
+        {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     }
   },
   "required": [
@@ -73,7 +85,8 @@
     "lastDay",
     "days",
     "windowDays",
-    "seasons"
+    "seasons",
+    "buildVersion"
   ],
   "title": "CalendarFeed",
   "type": "object"

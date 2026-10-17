@@ -22,7 +22,7 @@ from pydantic import (
     model_validator,
 )
 
-from app.feeds.base import SeasonLabel
+from app.feeds.base import AwardCode, SeasonLabel, SideCode
 from app.feeds.game_detail import (
     BoxScorePlayer,
     Conference,
@@ -261,6 +261,17 @@ class StatRow(ShootingLine):
 class SeasonRow(StatRow):
     season: SeasonLabel
     teams: Annotated[list[TeamCode], Field(min_length=1)]
+    # The code each of the teams had in this season, in the same order, from the
+    # franchise names when the feed is served (ADR 0055). An entry is null when no
+    # names run holds the season; the whole field is null when the names are not
+    # applied.
+    season_codes: list[SideCode | None] | None = None
+
+    @model_validator(mode="after")
+    def _require_a_season_code_for_each_team(self) -> SeasonRow:
+        if self.season_codes is not None and len(self.season_codes) != len(self.teams):
+            raise ValueError("seasonCodes has one entry for each team")
+        return self
 
 
 class CareerRows(FeedModel):
@@ -321,6 +332,10 @@ class Milestones(FeedModel):
 
 class Award(FeedModel):
     name: NonEmptyStr
+    # The kind of the award and, for a team award, its team number, from the award
+    # name (ADR 0055). Null when the name is not one the award table knows.
+    code: AwardCode | None = None
+    team: Annotated[int, Field(ge=1, le=3)] | None = None
     count: PositiveInt
     seasons: Annotated[list[SeasonLabel], Field(min_length=1)]
 

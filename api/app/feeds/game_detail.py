@@ -59,8 +59,8 @@ class Venue(FeedModel):
 
 class DetailTeamStats(TeamStats):
     free_throw_pct: Percentage | None
-    steals: NonNegativeInt
-    blocks: NonNegativeInt
+    steals: NonNegativeInt | None
+    blocks: NonNegativeInt | None
 
 
 class TeamStatLeaders(FeedModel):
@@ -81,28 +81,28 @@ class DetailGameTeamStats(FeedModel):
 
 
 class BoxScoreLine(FeedModel):
-    points: NonNegativeInt
-    field_goals_made: NonNegativeInt
-    field_goals_attempted: NonNegativeInt
-    three_points_made: NonNegativeInt
-    three_points_attempted: NonNegativeInt
-    free_throws_made: NonNegativeInt
-    free_throws_attempted: NonNegativeInt
-    offensive_rebounds: NonNegativeInt
-    defensive_rebounds: NonNegativeInt
-    rebounds: NonNegativeInt
-    assists: NonNegativeInt
-    turnovers: NonNegativeInt
-    steals: NonNegativeInt
-    blocks: NonNegativeInt
-    fouls: NonNegativeInt
+    points: NonNegativeInt | None
+    field_goals_made: NonNegativeInt | None
+    field_goals_attempted: NonNegativeInt | None
+    three_points_made: NonNegativeInt | None
+    three_points_attempted: NonNegativeInt | None
+    free_throws_made: NonNegativeInt | None
+    free_throws_attempted: NonNegativeInt | None
+    offensive_rebounds: NonNegativeInt | None
+    defensive_rebounds: NonNegativeInt | None
+    rebounds: NonNegativeInt | None
+    assists: NonNegativeInt | None
+    turnovers: NonNegativeInt | None
+    steals: NonNegativeInt | None
+    blocks: NonNegativeInt | None
+    fouls: NonNegativeInt | None
 
 
 class BoxScorePlayer(BoxScoreLine):
     player_id: NonEmptyStr
     display_name: NonEmptyStr
     starter: bool
-    minutes: NonEmptyStr
+    minutes: NonEmptyStr | None
     plus_minus: int | None
     photo_url: HttpUrl | None
 

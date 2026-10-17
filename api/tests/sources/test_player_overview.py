@@ -4,6 +4,7 @@
 #
 # Tested:
 # - Maps the recorded awards with count text and season end years
+# - Gives each recorded award its code and team number, and an award the table does not know neither (ADR 0055)
 # - Returns no awards when the overview has none
 # - Raises the source error on an award with a season that is not a year or a count that is not a number of times
 # - Raises the source error on an invalid payload, a timeout, an error status and a missing URL
@@ -29,6 +30,7 @@ import httpx
 import pytest
 import respx
 
+from app.feeds.base import AwardCode
 from app.settings import Settings
 from app.sources.http import SourceError, create_client
 from app.sources.player_overview import ProviderAward, fetch_player_awards
@@ -86,6 +88,37 @@ async def test_maps_the_recorded_awards_with_count_text_and_season_end_years(
         ("All-NBA 1st Team", "4x", [2026, 2025, 2024, 2023]),
     ]
     assert len(awards) == 7
+
+
+@pytest.mark.anyio
+async def test_gives_each_recorded_award_its_code_and_team_number(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    mock.get(URL).respond(json=load())
+
+    awards = await fetch(settings)
+
+    assert all(a.code is not None for a in awards)
+    by_name = {a.name: (a.code, a.team) for a in awards}
+    assert by_name["MVP"] == (AwardCode.MVP, None)
+    assert by_name["All-NBA 1st Team"] == (AwardCode.ALL_NBA, 1)
+
+
+@pytest.mark.anyio
+async def test_gives_an_award_the_table_does_not_know_no_code_and_no_team(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load()
+    payload["awards"][0]["name"] = "Invented Award"
+    mock.get(URL).respond(json=payload)
+
+    awards = await fetch(settings)
+
+    assert (awards[0].name, awards[0].code, awards[0].team) == (
+        "Invented Award",
+        None,
+        None,
+    )
 
 
 @pytest.mark.anyio

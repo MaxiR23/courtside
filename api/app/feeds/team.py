@@ -261,6 +261,9 @@ class TeamNames(FeedModel):
     names, not a public feed."""
 
     runs: list[NameRun]
+    # The rules version of the stored list (ADR 0053, ADR 0055); null on a list
+    # from before the field.
+    build_version: PositiveInt | None = None
 
 
 def _roster_order(number: str | None) -> tuple[bool, int]:

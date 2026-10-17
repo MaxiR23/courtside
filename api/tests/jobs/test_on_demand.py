@@ -42,6 +42,7 @@
 # - A build that raises UnknownFeedError after its check learns the id answers unknown and records no failure, and a later request answers unknown with no build
 # - status gives the kind's answer for an id with no build and None for a kind never registered
 # - refresh starts one build without waiting, joins one in flight and leaves no task referenced
+# - warm starts one build for a missing or stale feed without waiting, and none for a fresh feed, one in flight, an unknown id or a failure inside the 10-minute window (ADR 0055)
 # - with_build_version stamps the current rules version of the kept season feeds, and is_current_build is true only for that version (ADR 0053)
 #
 # What is covered:
@@ -726,6 +727,95 @@ async def test_refresh_starts_one_build_without_waiting_and_joins_one_in_flight(
     await setup.settle()
     assert setup.stored() == body_of(1)
     assert setup.cache.in_flight == {}
+
+
+@pytest.mark.anyio
+async def test_warm_starts_one_build_for_a_missing_feed_without_waiting(
+    tmp_path: Path,
+) -> None:
+    fake = Fake()
+    fake.gate = asyncio.Event()
+    setup = Setup(tmp_path, fake)
+
+    setup.cache.warm("players", "p1")
+    setup.cache.warm("players", "p1")
+    for _ in range(3):
+        await asyncio.sleep(0)
+
+    assert fake.builds == 1
+    assert setup.stored() is None
+    fake.gate.set()
+    await setup.settle()
+    assert setup.stored() == body_of(1)
+
+
+@pytest.mark.anyio
+async def test_warm_starts_no_build_for_a_fresh_feed(tmp_path: Path) -> None:
+    fake = Fake()
+    setup = Setup(tmp_path, fake)
+    await setup.cache.serve("players", "p1")
+    setup.now[0] = T + dt.timedelta(minutes=5)
+
+    setup.cache.warm("players", "p1")
+    await setup.settle()
+
+    assert fake.builds == 1
+
+
+@pytest.mark.anyio
+async def test_warm_starts_one_build_for_a_stale_feed_and_keeps_serving_the_stored_one(
+    tmp_path: Path,
+) -> None:
+    fake = Fake()
+    setup = Setup(tmp_path, fake)
+    await setup.cache.serve("players", "p1")
+    setup.now[0] = T + 2 * HOUR
+    fake.version = 2
+
+    setup.cache.warm("players", "p1")
+    assert setup.stored() == body_of(1)
+    await setup.settle()
+
+    assert fake.builds == 2
+    assert setup.stored() == body_of(2)
+
+
+@pytest.mark.anyio
+async def test_warm_starts_no_build_inside_the_retry_window_of_a_failure_and_one_after(
+    tmp_path: Path,
+) -> None:
+    fake = Fake()
+    fake.fail = SourceError("src", "down")
+    setup = Setup(tmp_path, fake)
+    setup.cache.warm("players", "p1")
+    await setup.settle()
+    assert fake.builds == 1
+
+    setup.now[0] = T + RETRY_AFTER - dt.timedelta(seconds=1)
+    setup.cache.warm("players", "p1")
+    await setup.settle()
+    assert fake.builds == 1
+
+    setup.now[0] = T + RETRY_AFTER
+    fake.fail = None
+    setup.cache.warm("players", "p1")
+    await setup.settle()
+    assert fake.builds == 2
+    assert setup.stored() == body_of(1)
+
+
+@pytest.mark.anyio
+async def test_warm_starts_nothing_for_an_id_its_kind_does_not_know(
+    tmp_path: Path,
+) -> None:
+    fake = Fake()
+    fake.status = IdStatus.UNKNOWN
+    setup = Setup(tmp_path, fake)
+
+    setup.cache.warm("players", "p1")
+    await setup.settle()
+
+    assert fake.builds == 0
 
 
 @pytest.mark.anyio

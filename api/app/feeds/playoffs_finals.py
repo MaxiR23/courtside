@@ -33,6 +33,7 @@ from app.feeds.games import (
     Leaders,
     NonEmptyStr,
     Percentage,
+    SideCode,
     TeamCode,
 )
 from app.feeds.player import SeasonLabel
@@ -94,6 +95,9 @@ class FinalsMvp(FeedModel):
     name: NonEmptyStr
     photo_url: HttpUrl | None
     team_code: TeamCode | None
+    # The team's abbreviation in this past season, from that season's team object
+    # (ADR 0055). Null on a current feed.
+    season_code: SideCode | None = None
     games: NonNegativeInt | None
     points: NonNegativeFloat | None
     rebounds: NonNegativeFloat | None
@@ -127,6 +131,9 @@ class RoadTeam(FeedModel):
 
 class FinalistRecord(FeedModel):
     team_code: TeamCode
+    # The team's abbreviation in this past season, from that season's team object
+    # (ADR 0055). Null on a current feed.
+    season_code: SideCode | None = None
     record: RecordText | None
 
 
@@ -186,6 +193,9 @@ class PlayerPostseasonAverages(FeedModel):
 
 class RosterAverages(FeedModel):
     team_code: TeamCode
+    # The team's abbreviation in this past season, from that season's team object
+    # (ADR 0055). Null on a current feed.
+    season_code: SideCode | None = None
     players: list[PlayerPostseasonAverages]
 
 

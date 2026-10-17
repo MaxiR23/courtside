@@ -21,6 +21,8 @@
 # - A format: a target score with untimed, periods and minutes, both shapes or neither rejected, untimed without a target score rejected, the retired formatLine key rejected
 # - A feed with a build version is accepted, one with zero is rejected, and a stored feed without the field reads with a null version
 #
+# - Accepts null Top 5 values, null MVP values and totals that are null when any line is null, and rejects a total that is not null then (ADR 0055)
+#
 # What is covered:
 # - Feed models: a valid feed is accepted and an invalid one is rejected
 #
@@ -447,6 +449,31 @@ def test_rejects_two_champions() -> None:
 
 def test_accepts_an_mvp_whose_totals_are_the_sums_of_the_lines() -> None:
     assert AllStarMvp.model_validate(mvp()).totals.games == 2
+
+
+def test_accepts_null_top5_values_ordered_with_a_missing_value_as_zero() -> None:
+    row = {**top5(10), "rebounds": None, "assists": None}
+    rows = [top5(10, 1, 1), row]
+
+    assert len(AllStarGame.model_validate(game(top5=rows)).top5) == 2
+
+
+def test_accepts_an_mvp_with_a_null_line_value_and_a_null_total() -> None:
+    data = mvp()
+    data["lines"][1]["rebounds"] = None
+    data["totals"]["rebounds"] = None
+
+    parsed = AllStarMvp.model_validate(data)
+
+    assert parsed.totals.rebounds is None and parsed.totals.points == 30
+
+
+def test_rejects_an_mvp_total_that_is_not_null_when_a_line_is_null() -> None:
+    data = mvp()
+    data["lines"][1]["rebounds"] = None
+
+    with pytest.raises(ValidationError, match="totals"):
+        AllStarMvp.model_validate(data)
 
 
 def test_rejects_mvp_totals_that_differ_from_the_lines() -> None:

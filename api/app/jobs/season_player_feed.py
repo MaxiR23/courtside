@@ -14,7 +14,9 @@
 # jersey of that team's box scores of the season (SeasonRosters), else null,
 # never the athlete's. The opponents of the game log are named by that season's
 # team object, and every game of the log has detail available: its date is
-# registered so its past game detail can be built (ADR 0053).
+# registered so its past game detail can be built (ADR 0053). The season code of
+# each team of a season row is set when the feed is served, from the stored
+# franchise names (ADR 0055).
 #
 # SeasonPlayerFeeds is the feed kind of the on-demand cache: the id is
 # {season}-{player id}, the feed is stored at feeds/season-players/{id}.json only
@@ -70,7 +72,13 @@ from app.jobs.team_feed import (
     eastern_date,
     season_label,
 )
-from app.jobs.team_names import SeasonIdentity, TeamNamesFeeds, season_named
+from app.jobs.team_names import (
+    SeasonIdentity,
+    TeamNamesFeeds,
+    career_team_codes,
+    season_named,
+    with_career_codes,
+)
 from app.settings import Settings
 from app.sources import (
     division_standings,
@@ -305,10 +313,10 @@ class SeasonPlayerFeeds:
         if team_id is None:
             return None
         code = TEAM_CODES[TEAM_IDS[team_id]]
-        found = await self._names.season_identity(code, season)
+        found = (await self._names.season_names([code], season)).get(code)
         if found is None:
             return None
-        return Team(code=code, name=found[0], city=found[1])
+        return Team(code=code, name=found.name, city=found.city, season_code=found.code)
 
     async def build(self, feed_id: str) -> PastPlayerFeed:
         match = _ID.fullmatch(feed_id)
@@ -377,6 +385,9 @@ class SeasonPlayerFeeds:
     ) -> bool:
         return is_current_build(feed)
 
+    def serve_with(self, feed_id: str, feed: PastPlayerFeed) -> PastPlayerFeed:
+        return with_career_codes(feed, self._names.career_runs(career_team_codes(feed)))
+
     def keep(self, feed_id: str) -> bool:
         return True
 
@@ -388,4 +399,5 @@ class SeasonPlayerFeeds:
             build=self.build,
             is_fresh=self.is_fresh,
             keep=self.keep,
+            serve_with=self.serve_with,
         )

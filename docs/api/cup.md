@@ -158,6 +158,7 @@ The note of a game maps to its round:
 | `NBA Cup - Quarterfinals` | `quarterfinals` |
 | `NBA Cup - Semifinals`    | `semifinals`    |
 | `NBA Cup Championship`    | `championship`  |
+| `NBA In-Season Tournament - Group Play`    | `group`         |
 | `NBA In-Season Tournament - Quarterfinals` | `quarterfinals` |
 | `NBA In-Season Tournament - Semifinals`    | `semifinals`    |
 | `NBA In-Season Tournament Championship`    | `championship`  |

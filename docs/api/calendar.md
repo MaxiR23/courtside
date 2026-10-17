@@ -30,6 +30,7 @@ Conventions:
 | `lastDay`     | date           | The last of `days`                                                                                                       | always  |
 | `days`        | date[]         | The US Eastern days with games, sorted and unique; at least one                                                          | always  |
 | `windowDays`  | date[]         | The days of the games feed stored at build time; may be stale on a kept calendar; empty when none was stored             | always  |
+| `buildVersion` | integer / null | The rules version of a kept past calendar ([ADR 0055](../adr/0055-past-season-reading-rules-and-versioned-stored-data.md)) | null on a current calendar and on a stored feed from before the field |
 | `seasons`     | `{season, seasonLabel}[]` | The current season down to 1994, newest first; set again at serve time ([ADR 0042](../adr/0042-calendar-seasons-and-day-season.md)) | always  |
 
 A lockout season starts in February. A season played in July and August keeps
@@ -46,7 +47,8 @@ the gap between its days.
   empty calendar fails the build.
 - Built on request under rule G of
   [`docs/source-rules.md`](../source-rules.md): the current season expires 24
-  hours after the build. A past season built after its last day is kept. A
+  hours after the build. A past season built after its last day is kept while its `buildVersion` is the current one
+  ([ADR 0055](../adr/0055-past-season-reading-rules-and-versioned-stored-data.md)). A
   calendar stored while its season was current is rebuilt after 24 hours until
   it is built after its last day.
 - A failed build keeps the stored feed and is listed under `feeds` in

@@ -7,6 +7,9 @@
 # tables the playoffs feed reads, so both read a note the same way. It owns no
 # source URL and never raises.
 #
+# The mark also carries the series wins of the game's two sides and, once the
+# series object says it is complete, the side that won it (ADR 0032, ADR 0055).
+#
 # A season type 3 game always has a mark (ADR 0050): the round and number come
 # from the note, else the round from the competition type, and what cannot be
 # read is null. A play-in note that cannot be read still gives no mark.
@@ -28,6 +31,7 @@ from app.feeds.games import (
     Score,
     Stakes,
 )
+from app.feeds.opponent import Side
 from app.sources.season_types import PLAY_IN, POSTSEASON
 
 ROUNDS = {"RD16": 1, "QTR": 2, "SEMI": 3, "FINAL": 4}
@@ -100,15 +104,25 @@ def postseason_mark(
     away: str | None,
     home: str | None,
     score: Score | None,
+    completed: bool | None = None,
 ) -> GamePostseason | None:
     """The mark of a play-in or playoff game. A series game always has one; a
-    play-in note that cannot be read gives None."""
+    play-in note that cannot be read gives None. `completed` is the series
+    object's flag."""
     try:
         if season_type == PLAY_IN:
             return _play_in_mark(note)
         if season_type == POSTSEASON:
             return _series_mark(
-                competition_type, note, summary, wins, status, away, home, score
+                competition_type,
+                note,
+                summary,
+                wins,
+                status,
+                away,
+                home,
+                score,
+                completed,
             )
     except ValidationError:
         return None
@@ -163,10 +177,21 @@ def _series_mark(
     away: str | None,
     home: str | None,
     score: Score | None,
+    completed: bool | None,
 ) -> GamePostseason:
     round_, conference = _series_round(competition_type, note)
     found = GAME_NUMBER_NOTE.search(note or "")
     number = int(found.group(1)) if found is not None else None
+    away_wins = None if wins is None or away is None else wins.get(away)
+    home_wins = None if wins is None or home is None else wins.get(home)
+    series_winner = None
+    if (
+        completed
+        and away_wins is not None
+        and home_wins is not None
+        and away_wins != home_wins
+    ):
+        series_winner = Side.AWAY if away_wins > home_wins else Side.HOME
     return GamePostseason(
         stage=PostseasonStage.FINALS
         if round_ == FINALS_ROUND
@@ -179,4 +204,7 @@ def _series_mark(
         stakes=None
         if number is None
         else stakes_of(number, wins, away, home, status, score),
+        away_wins=away_wins,
+        home_wins=home_wins,
+        series_winner=series_winner,
     )

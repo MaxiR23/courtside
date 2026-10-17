@@ -8,10 +8,12 @@
 # - Picks the top scorer of each team, breaking a tie on points by rebounds plus assists and then by provider order, skipping players without a stat line
 # - Builds photo URLs from the template and keeps the display name exactly as the provider gives it
 # - Converts shooting percentages to fractions and takes team turnovers from totalTurnovers when sent, else from turnovers (ADR 0052)
-# - A team percentage the provider does not send is null in the team stats, the box score totals and the leaders, on the live and past paths; a missing count stat still raises
+# - A team percentage the provider does not send is null in the team stats, the box score totals and the leaders, on the live and past paths
+# - A team or player stat the provider does not send is null, never a failure (ADR 0055): a missing team count, a missing leader column (ordered with the missing value as 0, the first player when all are missing), a missing box score column, a missing minutes or plus-minus column; a value that is sent and is not a number still raises
+# - A box score row with no player id (missing, empty or no athlete object) is skipped and logged once with the game id, by fetch_game_detail, the sections of both paths and fetch_past_game_players (ADR 0055); a row with an id and no name still raises
 # - Every plus-minus of 0 on both teams gives a null plus-minus on every row; one non-zero value keeps the values as sent
 # - Maps the provider team codes that differ from the standard ones
-# - Raises the source error on an invalid payload, a missing home or away team, a team without player stats, a missing team stat, a stat that is not a number, an empty display name, a timeout, an error status and a missing URL
+# - Raises the source error on an invalid payload, a missing home or away team, a team without player stats, a stat that is not a number, an empty display name, a timeout, an error status and a missing URL
 # - GameDetail uses the same field types as the contract Game
 # - With by_id_first (a past game) the leaders carry the code of the provider team id over a historical abbreviation; without it the abbreviation is a guest
 # - Maps a recorded scheduled game and a recorded final game to their detail sections: venue, box score, team stats, win probability, injuries and season series
@@ -25,7 +27,7 @@
 # - Marks the leading side of each team stat row: the lower value leads turnovers and a tie has no leader
 # - Drops players without a stat line, splits made and attempted shots, reads plus-minus with its sign and builds photo URLs from the template
 # - Counts the series wins of the away and home team and dates series games on the US Eastern day
-# - Raises the source error on an unknown injury status, a series game of other teams, a summary missing a used field, a missing detail team stat, a box score stat that is not a number, a timeout, an error status and a missing URL
+# - Raises the source error on an unknown injury status, a series game of other teams, a summary missing a used field, a box score stat that is not a number, a timeout, an error status and a missing URL
 # - Marks this game in the season series, before and after it is played, with its winner and score only once it is completed
 # - Gives each completed series game its winner and the series a leader, or none on a tie
 # - Raises the source error on a completed series game without exactly one winner
@@ -76,6 +78,7 @@
 
 import datetime as dt
 import json
+import logging
 from collections.abc import Iterator
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -574,22 +577,25 @@ async def test_raises_the_source_error_when_a_team_has_no_player_list(
 
 
 @pytest.mark.anyio
-@pytest.mark.parametrize("name", ["totalRebounds", "assists"])
-async def test_raises_the_source_error_on_a_missing_team_stat(
-    mock: respx.MockRouter, settings: Settings, name: str
+@pytest.mark.parametrize(
+    ("name", "field"), [("totalRebounds", "rebounds"), ("assists", "assists")]
+)
+async def test_gives_a_null_count_on_a_team_without_it(
+    mock: respx.MockRouter, settings: Settings, name: str, field: str
 ) -> None:
     payload = load("final.json")
     team = box_team(payload, "home")
     team["statistics"] = [s for s in team["statistics"] if s["name"] != name]
     mock.get(URL).respond(json=payload)
 
-    error = await fetch_error(settings)
+    detail = await fetch(settings)
 
-    assert error.reason == f"game {GAME_ID} has no {name} stat"
+    assert getattr(detail.team_stats.home, field) is None
+    assert getattr(detail.team_stats.away, field) is not None
 
 
 @pytest.mark.anyio
-async def test_raises_the_source_error_on_a_team_without_either_turnovers_stat(
+async def test_gives_null_turnovers_on_a_team_without_either_turnovers_stat(
     mock: respx.MockRouter, settings: Settings
 ) -> None:
     payload = load("final.json")
@@ -601,9 +607,68 @@ async def test_raises_the_source_error_on_a_team_without_either_turnovers_stat(
     ]
     mock.get(URL).respond(json=payload)
 
-    error = await fetch_error(settings)
+    detail = await fetch(settings)
 
-    assert error.reason == f"game {GAME_ID} has no turnovers stat"
+    assert detail.team_stats.home.turnovers is None
+    assert detail.team_stats.away.turnovers == 16
+
+
+def drop_column(group: Payload, key: str) -> None:
+    """Removes a box score column from the keys, every player line and the totals."""
+    index = group["keys"].index(key)
+    del group["keys"][index]
+    for line in group["athletes"]:
+        if line["stats"]:
+            del line["stats"][index]
+    if group.get("totals"):
+        del group["totals"][index]
+
+
+@pytest.mark.anyio
+async def test_gives_null_leader_values_for_a_missing_column_and_orders_by_the_rest(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("final.json")
+    drop_column(team_players(payload, "GS"), "points")
+    mock.get(URL).respond(json=payload)
+
+    detail = await fetch(settings)
+
+    away = detail.leaders.away
+    assert away.points is None
+    assert (away.rebounds, away.assists) != (None, None)
+    group = team_players(payload, "GS")
+    totals = [
+        int(line["stats"][group["keys"].index("rebounds")])
+        + int(line["stats"][group["keys"].index("assists")])
+        for line in group["athletes"]
+        if line["stats"]
+    ]
+    expected = totals.index(max(totals))
+    played = [line for line in group["athletes"] if line["stats"]]
+    assert away.player_id == played[expected]["athlete"]["id"]
+    assert detail.leaders.home.points == 21
+
+
+@pytest.mark.anyio
+async def test_picks_the_first_player_when_every_leader_column_is_missing(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("final.json")
+    group = team_players(payload, "GS")
+    for key in ("points", "rebounds", "assists"):
+        drop_column(group, key)
+    mock.get(URL).respond(json=payload)
+
+    detail = await fetch(settings)
+
+    first = next(line for line in group["athletes"] if line["stats"])
+    assert detail.leaders.away.player_id == first["athlete"]["id"]
+    assert (
+        detail.leaders.away.points,
+        detail.leaders.away.rebounds,
+        detail.leaders.away.assists,
+    ) == (None, None, None)
 
 
 @pytest.mark.anyio
@@ -1494,16 +1559,19 @@ async def test_raises_the_source_error_on_a_summary_missing_a_used_field(
 
 @pytest.mark.anyio
 @pytest.mark.parametrize("name", ["steals", "blocks"])
-async def test_raises_the_source_error_on_a_missing_detail_team_stat(
+async def test_gives_a_null_detail_team_stat_when_the_provider_does_not_send_it(
     mock: respx.MockRouter, settings: Settings, name: str
 ) -> None:
     payload = load("summary-final.json")
     stats = box_team(payload, "away")["statistics"]
     stats[:] = [s for s in stats if s["name"] != name]
 
-    error = await sections_error_of(mock, settings, payload)
+    detail = await sections_of(mock, settings, payload)
 
-    assert error.reason == f"game {GAME_ID} has no {name} stat"
+    assert detail.team_stats is not None
+    assert getattr(detail.team_stats.away, name) is None
+    assert getattr(detail.team_stats.home, name) is not None
+    assert getattr(detail.team_stats.leaders, name) is None
 
 
 @pytest.mark.anyio
@@ -1645,7 +1713,8 @@ async def test_maps_the_box_score_team_stats_and_quarters_of_both_sides_of_a_gue
 
     assert detail.box_score is not None and detail.team_stats is not None
     assert detail.box_score.away.players and detail.box_score.home.players
-    assert detail.team_stats.away.rebounds > 0 and detail.team_stats.home.rebounds > 0
+    assert (detail.team_stats.away.rebounds or 0) > 0
+    assert (detail.team_stats.home.rebounds or 0) > 0
     leaders = detail.team_stats.leaders.model_dump().values()
     assert set(leaders) <= {"away", "home", None}
     assert detail.injuries is not None
@@ -1870,16 +1939,75 @@ async def test_gives_a_null_percentage_and_leader_for_a_team_without_the_stat(
 
 
 @pytest.mark.anyio
-async def test_still_raises_the_source_error_on_a_missing_count_stat_of_the_sections(
+async def test_gives_a_null_count_stat_of_the_sections_with_no_leader(
     mock: respx.MockRouter, settings: Settings
 ) -> None:
     payload = load("summary-final.json")
     stats = box_team(payload, "away")["statistics"]
     stats[:] = [s for s in stats if s["name"] != "assists"]
 
+    detail = await sections_of(mock, settings, payload)
+
+    assert detail.team_stats is not None
+    assert detail.team_stats.away.assists is None
+    assert detail.team_stats.leaders.assists is None
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("past", [False, True])
+async def test_gives_null_box_score_values_for_a_missing_column_on_both_paths(
+    mock: respx.MockRouter, settings: Settings, past: bool
+) -> None:
+    payload = load("summary-past-final.json" if past else "summary-final.json")
+    abbreviation = "OLD" if past else "BOS"
+    group = team_players(payload, abbreviation)
+    for key in ("rebounds", "minutes", "plusMinus"):
+        drop_column(group, key)
+    if past:
+        detail = await past_sections_of(mock, settings, payload)
+    else:
+        detail = await sections_of(mock, settings, payload)
+
+    assert detail.box_score is not None
+    side = detail.box_score.away if past else detail.box_score.home
+    other = detail.box_score.home if past else detail.box_score.away
+    assert side.players
+    assert all(p.rebounds is None and p.minutes is None for p in side.players)
+    assert all(p.plus_minus is None for p in side.players)
+    assert side.totals.rebounds is None
+    assert all(p.minutes is not None for p in other.players)
+    assert all(p.points is not None for p in side.players)
+
+
+@pytest.mark.anyio
+async def test_gives_null_made_and_attempted_for_a_missing_shot_column(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("summary-final.json")
+    drop_column(
+        team_players(payload, "BOS"),
+        "threePointFieldGoalsMade-threePointFieldGoalsAttempted",
+    )
+
+    detail = await sections_of(mock, settings, payload)
+
+    assert detail.box_score is not None
+    for player in detail.box_score.home.players:
+        assert (player.three_points_made, player.three_points_attempted) == (None, None)
+        assert player.field_goals_made is not None
+
+
+@pytest.mark.anyio
+async def test_a_box_score_value_that_is_sent_and_is_not_a_number_still_raises(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("summary-final.json")
+    group = team_players(payload, "BOS")
+    set_stat(group["athletes"][0], group, "rebounds", "lots")
+
     error = await sections_error_of(mock, settings, payload)
 
-    assert error.reason == f"game {GAME_ID} has no assists stat"
+    assert error.reason == f"game {GAME_ID} has a stat that is not a number"
 
 
 # Past game detail sections (ADR 0041)
@@ -2162,3 +2290,124 @@ async def test_past_game_players_raises_the_source_error_on_an_error_status_a_ti
     no_url = Settings(_env_file=None, player_photo_url=PHOTO_TEMPLATE)  # type: ignore[call-arg]
     with pytest.raises(SourceError, match="not configured"):
         await fetch_players(no_url)
+
+
+# A box score row with no player id (ADR 0055)
+
+NO_ID_WARNING = "has a box score row with no player id, skipped"
+NO_ATHLETE = "<no athlete object>"
+
+
+def add_row_without_id(group: Payload, row_id: str | None) -> None:
+    """Adds the top-scoring line again as a row with no id and no name, first in
+    the group so it would lead if it were read."""
+    played = [line for line in group["athletes"] if line["stats"]]
+    row = json.loads(json.dumps(played[0]))
+    row["athlete"].pop("id", None)
+    row["athlete"].pop("displayName", None)
+    if row_id == NO_ATHLETE:
+        del row["athlete"]
+    elif row_id is not None:
+        row["athlete"]["id"] = row_id
+    group["athletes"].insert(0, row)
+
+
+def warnings_of(caplog: pytest.LogCaptureFixture) -> list[str]:
+    return [
+        record.getMessage()
+        for record in caplog.records
+        if record.levelno == logging.WARNING and NO_ID_WARNING in record.getMessage()
+    ]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("row_id", [None, "", NO_ATHLETE])
+async def test_fetch_game_detail_skips_a_row_with_no_player_id_and_logs_it_once(
+    mock: respx.MockRouter,
+    settings: Settings,
+    caplog: pytest.LogCaptureFixture,
+    row_id: str | None,
+) -> None:
+    mock.get(URL).respond(json=load("final.json"))
+    expected = await fetch(settings)
+    payload = load("final.json")
+    add_row_without_id(team_players(payload, "GS"), row_id)
+    mock.get(URL).respond(json=payload)
+    caplog.clear()
+
+    with caplog.at_level(logging.WARNING, logger="app.sources.game_detail"):
+        detail = await fetch(settings)
+
+    assert detail.leaders == expected.leaders
+    assert len(warnings_of(caplog)) == 1
+    assert GAME_ID in warnings_of(caplog)[0]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("row_id", [None, "", NO_ATHLETE])
+@pytest.mark.parametrize("past", [False, True])
+async def test_the_sections_skip_a_row_with_no_player_id_and_log_it_once(
+    mock: respx.MockRouter,
+    settings: Settings,
+    caplog: pytest.LogCaptureFixture,
+    row_id: str | None,
+    past: bool,
+) -> None:
+    name = "summary-past-final.json" if past else "summary-final.json"
+    abbreviation = "OLD" if past else "BOS"
+    payload = load(name)
+    add_row_without_id(team_players(payload, abbreviation), row_id)
+    caplog.clear()
+
+    with caplog.at_level(logging.WARNING, logger="app.sources.game_detail"):
+        if past:
+            detail = await past_sections_of(mock, settings, payload)
+        else:
+            detail = await sections_of(mock, settings, payload)
+
+    plain = load(name)
+    expected = [
+        line["athlete"]["id"]
+        for line in team_players(plain, abbreviation)["athletes"]
+        if line["stats"]
+    ]
+    assert detail.box_score is not None
+    side = detail.box_score.away if past else detail.box_score.home
+    assert [p.player_id for p in side.players] == expected
+    assert len(warnings_of(caplog)) == 1
+    assert GAME_ID in warnings_of(caplog)[0]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("row_id", [None, "", NO_ATHLETE])
+async def test_past_game_players_skips_a_row_with_no_player_id_and_logs_it_once(
+    mock: respx.MockRouter,
+    settings: Settings,
+    caplog: pytest.LogCaptureFixture,
+    row_id: str | None,
+) -> None:
+    mock.get(URL).respond(json=load("summary-past-box-players.json"))
+    expected = await fetch_players(settings)
+    payload = load("summary-past-box-players.json")
+    add_row_without_id(team_players(payload, "SEA"), row_id)
+    mock.get(URL).respond(json=payload)
+    caplog.clear()
+
+    with caplog.at_level(logging.WARNING, logger="app.sources.game_detail"):
+        players = await fetch_players(settings)
+
+    assert players == expected
+    assert len(warnings_of(caplog)) == 1
+    assert GAME_ID in warnings_of(caplog)[0]
+
+
+@pytest.mark.anyio
+async def test_a_row_with_an_id_and_no_name_still_raises(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("final.json")
+    athlete(payload, "GS", "Charles Bassey")["athlete"].pop("displayName")
+    mock.get(URL).respond(json=payload)
+
+    with pytest.raises(SourceError):
+        await fetch(settings)

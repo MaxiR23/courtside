@@ -58,6 +58,18 @@
           "pattern": "^[A-Z]{3}$",
           "type": "string"
         },
+        "seasonCode": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "record": {
           "anyOf": [
             {
@@ -72,6 +84,7 @@
       },
       "required": [
         "teamCode",
+        "seasonCode",
         "record"
       ],
       "title": "FinalistRecord",
@@ -172,6 +185,18 @@
             }
           ]
         },
+        "seasonCode": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "games": {
           "anyOf": [
             {
@@ -232,6 +257,7 @@
         "name",
         "photoUrl",
         "teamCode",
+        "seasonCode",
         "games",
         "points",
         "rebounds",
@@ -464,16 +490,37 @@
           ]
         },
         "points": {
-          "minimum": 0,
-          "type": "integer"
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "rebounds": {
-          "minimum": 0,
-          "type": "integer"
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "assists": {
-          "minimum": 0,
-          "type": "integer"
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -875,6 +922,18 @@
           "pattern": "^[A-Z]{3}$",
           "type": "string"
         },
+        "seasonCode": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "players": {
           "items": {
             "$ref": "#/$defs/PlayerPostseasonAverages"
@@ -884,6 +943,7 @@
       },
       "required": [
         "teamCode",
+        "seasonCode",
         "players"
       ],
       "title": "RosterAverages",

@@ -575,8 +575,8 @@ describe('toPlayoffsView leaders and awards', () => {
 	it('shows only the first winner of a player award', () => {
 		const f = picture();
 		f.awards![0].winners = [
-			{ playerId: 'x1', name: 'One', photoUrl: null, teamCode: 'QXA' },
-			{ playerId: 'x2', name: 'Two', photoUrl: null, teamCode: null }
+			{ playerId: 'x1', name: 'One', photoUrl: null, teamCode: 'QXA', seasonCode: null },
+			{ playerId: 'x2', name: 'Two', photoUrl: null, teamCode: null, seasonCode: null }
 		];
 		expect(view(f).awards[0].winners.map((w) => w.name)).toEqual(['One']);
 	});

@@ -1,6 +1,6 @@
 # 0052. Box score reading
 
-- Status: Accepted
+- Status: Superseded by 0055 for missing count stats only
 - Date: 2026-10-16
 
 ## Context

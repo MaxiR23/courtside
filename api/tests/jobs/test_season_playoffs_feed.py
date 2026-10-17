@@ -7,6 +7,9 @@
 # - target: the current season maps to the current playoffs feed, a past season to the season kind, and an unknown current season to the season kind
 # - The kind: a past season builds a valid complete feed, reading every source with the season, the days by provider id first and the season rosters, and the leaders and awards name players of those rosters
 # - The kind: the league sides are named by the season team object with the season code and the historical flag (ADR 0054)
+# - The kind: the leaders and award winners carry the season code of their team (ADR 0055)
+# - The kind: an award of six winners, a tie, is stored with all six in the source order (ADR 0055)
+# - The kind: a box score row with no player id leaves no entry in the leaders or awards and is logged once for the game (ADR 0055)
 # - The kind: a player on two rosters belongs, in leaders and awards, to the team of his newest game, whatever the code order
 # - The kind: the leader and award names come from the box-score rosters, and a roster read that fails, also with a 404, fails the build
 # - The kind: the built feed carries the current build version, a stored feed of an older or missing version is rebuilt on its next request, and one of the current version is served with no source request (ADR 0053)
@@ -58,6 +61,7 @@ from app.jobs.stars import StarsJob
 from app.jobs.team_feed import player_name
 from app.jobs.team_names import TeamNamesFeeds
 from app.settings import Settings
+from app.sources import game_detail
 from app.sources.division_standings import DivisionStandings
 from app.sources.game_detail import BoxScoreRosterEntry
 from app.sources.http import SourceClient, SourceError, create_client
@@ -68,6 +72,7 @@ from app.sources.season_types import SeasonWindow
 from app.sources.team_info import TeamInfo
 from app.sources.team_players import RosterEntry
 from app.sources.team_postseason import TeamPostseasonRecord
+from app.sources.team_schedule import SeasonSchedule
 from app.storage.feeds import publish_by_id, read_by_id
 from app.storage.state import StateStore
 from tests.jobs.fake_season_teams import FakeSeasonTeams, league_sides, season_team
@@ -88,9 +93,10 @@ from tests.jobs.test_playoffs_feed import (
     standings,
     without_rounds,
 )
-from tests.jobs.test_team_feed import info
+from tests.jobs.test_team_feed import info, played, season
 
 YEARS = dt.timedelta(days=365 * 5)
+PLAYED_AT = dt.datetime(2025, 4, 20, 1, 0, tzinfo=dt.UTC)
 CHAMPION = seed(EAST, 1)
 
 
@@ -139,6 +145,7 @@ class SeasonPlayoffsKit:
         self.not_found: set[str] = set()
         self.days: dict[dt.date, list[PostseasonGame]] = {}
         self.standing: DivisionStandings | None = None
+        self.awards_source: SeasonAwards | None = None
         self.stars = FakeStars()
         self.cache = FeedCache(path, self.store, clock=lambda: self.clock[0])
         self.season_teams = FakeSeasonTeams()
@@ -236,7 +243,7 @@ class SeasonPlayoffsKit:
         self, client: SourceClient, season: int, settings: Settings
     ) -> SeasonAwards:
         self.read(f"awards/{season}")
-        return SeasonAwards(awards=[award(AwardCode.MVP, ["1"])])
+        return self.awards_source or SeasonAwards(awards=[award(AwardCode.MVP, ["1"])])
 
     async def fetch_team_postseason_record(
         self, client: SourceClient, team: str, season: int, settings: Settings
@@ -329,6 +336,23 @@ async def test_the_league_sides_are_named_by_the_season_team_object_with_the_sea
     for side in sides:
         assert (side["name"], side["city"]) == ("Harbor Gulls", "Seattle")
         assert (side["seasonCode"], side["historical"]) == ("SEA", True)
+
+
+@pytest.mark.anyio
+async def test_the_leaders_and_award_winners_carry_the_season_code_of_their_team(
+    kit: SeasonPlayoffsKit,
+) -> None:
+    kit.season_teams.by_season[2025] = season_team("Harbor Gulls", "Seattle", "SEA")
+    kit.season_teams.by_season[2027] = season_team("Thunder", "Oklahoma City", "OKC")
+
+    feed = PlayoffsFeed.model_validate_json(await kit.serve_season("2025"))
+
+    assert feed.leaders is not None and feed.awards is not None
+    leaders = [row for group in feed.leaders for row in group.leaders]
+    winners = [w for award in feed.awards for w in award.winners]
+    assert leaders and winners
+    assert {row.season_code for row in leaders} == {"SEA"}
+    assert {w.season_code for w in winners if w.team_code} == {"SEA"}
 
 
 @pytest.mark.anyio
@@ -466,6 +490,87 @@ async def test_leader_and_award_names_come_from_the_box_score_rosters(
     names += [w.name for a in feed.awards for w in a.winners]
     assert names and all(name.startswith("Box ") for name in names)
     assert feed.build_version == SEASON_BUILD_VERSION
+
+
+@pytest.mark.anyio
+async def test_an_award_of_six_winners_a_tie_is_stored_with_all_six_in_the_source_order(
+    kit: SeasonPlayoffsKit,
+) -> None:
+    ids = ["3", "1", "2", "6", "5", "4"]
+    kit.awards_source = SeasonAwards(awards=[award(AwardCode.ALL_DEFENSIVE, ids, 2)])
+
+    feed = PlayoffsFeed.model_validate_json(await kit.serve_season("2025"))
+
+    assert feed.awards is not None
+    assert [w.player_id for w in feed.awards[0].winners] == ids
+
+
+BOX_PLAYERS = (
+    Path(__file__).parent.parent
+    / "sources"
+    / "fixtures"
+    / "game_detail"
+    / "summary-past-box-players.json"
+)
+
+
+@pytest.mark.anyio
+async def test_a_box_score_row_with_no_player_id_leaves_no_entry_in_leaders_or_awards_and_is_logged(
+    kit: SeasonPlayoffsKit, caplog: pytest.LogCaptureFixture
+) -> None:
+    kit.settings = Settings(  # type: ignore[call-arg]
+        _env_file=None,
+        data_dir=kit.path,
+        game_detail_url="https://example.com/games/{game_id}",
+        player_photo_url="https://example.com/players/{player_id}.png",
+    )
+    text = BOX_PLAYERS.read_text(encoding="utf-8")
+    for old, new in (("9001", "1"), ("9002", "2"), ("9003", "3"), ("9004", "4")):
+        text = text.replace(f'"{old}"', f'"{new}"')
+    for old, new in (("9101", "5"), ("9102", "6")):
+        text = text.replace(f'"{old}"', f'"{new}"')
+    body = json.loads(text)
+    group = next(
+        p["statistics"][0]
+        for p in body["boxscore"]["players"]
+        if p["team"]["abbreviation"] == "SEA"
+    )
+    nameless = json.loads(json.dumps(group["athletes"][0]))
+    nameless["athlete"] = {}
+    group["athletes"].insert(0, nameless)
+
+    async def schedule(
+        client: SourceClient,
+        code: str,
+        end_year: int,
+        settings: Settings,
+        *,
+        playoffs: bool,
+        by_id_first: bool = False,
+    ) -> SeasonSchedule:
+        return season(played("pg1", PLAYED_AT)) if not playoffs else season()
+
+    kit.season_playoffs._rosters = SeasonRosters(
+        kit.settings,
+        kit.store,
+        kit.client,
+        fetch_season_schedule=schedule,
+        fetch_game_players=game_detail.fetch_past_game_players,
+    )
+
+    with respx.mock as mock:
+        mock.get("https://example.com/games/pg1").respond(json=body)
+        with caplog.at_level(logging.WARNING, logger="app.sources.game_detail"):
+            feed = PlayoffsFeed.model_validate_json(await kit.serve_season("2025"))
+
+    assert feed.leaders is not None and feed.awards is not None
+    ids = {row.player_id for group in feed.leaders for row in group.leaders}
+    ids |= {w.player_id for award in feed.awards for w in award.winners}
+    assert ids and all(player_id in "123456" for player_id in ids)
+    messages = [
+        r.getMessage() for r in caplog.records if "no player id" in r.getMessage()
+    ]
+    assert len(messages) == 1 and "pg1" in messages[0]
 
 
 class TradedRosters:

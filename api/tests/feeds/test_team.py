@@ -16,6 +16,7 @@
 # - Hex colors, group keys, UTC time and unknown fields are validated
 # - A schedule game or the next game may be against a guest opponent, with or without a code
 # - Serialization uses camelCase keys
+# - The stored names carry a build version, zero is rejected and a list without it reads as null (ADR 0055)
 # - Accepts titles in kind order, rejects an empty list, a repeated kind, a conference title without a conference or with a year and a championship title without a year, and reads a stored feed without the key as null titles
 # - Accepts a Cup mark with the group, wins and losses and a null or absent one, and rejects an unknown group letter, a missing record and a negative count
 # - Accepts names runs and rejects runs not oldest first, an open run before the last and an end before its start; serializes from as the key; reads a stored feed without names as empty
@@ -598,7 +599,15 @@ def test_serializes_a_name_run_start_as_the_from_key() -> None:
         mode="json"
     )
 
-    assert dumped == {"runs": [run(1994, None)]}
+    assert dumped == {"runs": [run(1994, None)], "buildVersion": None}
+
+
+def test_the_stored_names_carry_a_build_version_and_reject_zero() -> None:
+    versioned = TeamNames.model_validate({"runs": [run(1994, None)], "buildVersion": 3})
+
+    assert versioned.build_version == 3
+    with pytest.raises(ValidationError):
+        TeamNames.model_validate({"runs": [run(1994, None)], "buildVersion": 0})
 
 
 def test_reads_a_stored_team_feed_without_names_as_empty() -> None:

@@ -132,6 +132,7 @@ def create_app(settings: Settings | None = None, *, run_jobs: bool = True) -> Fa
             games_job,
             stars_job,
             team_feeds,
+            names=team_names,
             past_ids=past_ids,
         )
         season_rosters = SeasonRosters(settings, store, client)

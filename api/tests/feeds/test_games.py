@@ -13,7 +13,9 @@
 # - A guest side (outside the league) is accepted with a null star and a leader without a photo, and may win; its code is optional
 # - A league side needs a star, a three-letter code and a leader photo; a guest side has no star; the two sides differ; a guest code is any non-empty string
 # - Serialization uses camelCase keys and carries unknown values as null
+# - Accepts null leader values and null team stat counts, a stat the source does not send (ADR 0055)
 # - Accepts a game with a Cup mark of each round and with a null or absent Cup mark, and rejects an unknown round
+# - Accepts the series wins of both sides and a series winner on a mark, and rejects a winner without both wins or without more wins, wins above four and wins on a play-in mark (ADR 0055)
 # - Accepts a game with a postseason mark of each stage and a null or absent one, and rejects a mark whose round, conference, number, play-in kind or stakes do not fit its stage
 # - Accepts a series mark with a null number, and a playoffs mark with a null round, conference and number (ADR 0050); rejects a playoffs mark with a round and no conference or with no round and a conference
 # - Accepts a team stats with null shooting percentages
@@ -375,6 +377,26 @@ def test_accepts_overtime_periods_in_the_line_score() -> None:
     assert len(away_line.away) == 6
 
 
+def test_accepts_null_leader_values_and_null_team_stat_counts() -> None:
+    nulls = {"points": None, "rebounds": None, "assists": None}
+    game = valid_game(
+        "live",
+        leaders=pair({**leader("AAA"), **nulls}, leader("HHH")),
+        teamStats=pair(
+            {**stats(), "rebounds": None, "assists": None, "turnovers": None},
+            stats(),
+        ),
+    )
+
+    feed = GamesFeed.model_validate(valid_feed(game))
+
+    day_game = feed.days[0].games[0]
+    assert day_game.leaders is not None and day_game.team_stats is not None
+    assert day_game.leaders.away.points is None
+    assert day_game.team_stats.away.turnovers is None
+    assert day_game.team_stats.home.turnovers == 10
+
+
 def test_rejects_a_leader_with_an_empty_display_name() -> None:
     bad = {**leader("AAA"), "displayName": ""}
     game = valid_game("live", leaders=pair(bad, leader("HHH")))
@@ -580,6 +602,9 @@ PLAY_IN_MARK = {
     "summary": None,
     "playIn": "nine_ten",
     "stakes": "elimination",
+    "awayWins": None,
+    "homeWins": None,
+    "seriesWinner": None,
 }
 PLAYOFFS_MARK = {
     "stage": "playoffs",
@@ -589,6 +614,9 @@ PLAYOFFS_MARK = {
     "summary": "Series tied 3-3",
     "playIn": None,
     "stakes": "game_7",
+    "awayWins": None,
+    "homeWins": None,
+    "seriesWinner": None,
 }
 FINALS_MARK = {
     "stage": "finals",
@@ -598,6 +626,9 @@ FINALS_MARK = {
     "summary": None,
     "playIn": None,
     "stakes": "can_clinch",
+    "awayWins": None,
+    "homeWins": None,
+    "seriesWinner": None,
 }
 
 
@@ -634,6 +665,42 @@ def test_rejects_a_playoffs_mark_without_a_conference_or_with_round_4(
 ) -> None:
     with pytest.raises(ValidationError):
         marked(**change)
+
+
+def test_accepts_the_wins_and_the_winner_of_a_series_mark() -> None:
+    mark = marked(awayWins=2, homeWins=4, seriesWinner="home").days[0].games[0]
+
+    assert mark.postseason is not None
+    assert (
+        mark.postseason.away_wins,
+        mark.postseason.home_wins,
+        mark.postseason.series_winner,
+    ) == (2, 4, "home")
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"seriesWinner": "home"},
+        {"awayWins": 4, "homeWins": 2, "seriesWinner": "home"},
+        {"awayWins": 3, "homeWins": 3, "seriesWinner": "away"},
+        {"awayWins": 5},
+    ],
+)
+def test_rejects_a_series_winner_without_more_wins_and_wins_above_four(
+    change: Payload,
+) -> None:
+    with pytest.raises(ValidationError):
+        marked(**change)
+
+
+def test_rejects_wins_or_a_winner_on_a_play_in_mark() -> None:
+    with pytest.raises(ValidationError):
+        GamesFeed.model_validate(
+            valid_feed(
+                valid_game("scheduled", postseason={**PLAY_IN_MARK, "awayWins": 1})
+            )
+        )
 
 
 def test_accepts_a_series_mark_without_a_number() -> None:

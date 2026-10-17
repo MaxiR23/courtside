@@ -14,6 +14,9 @@
 
 	let { away, home, teamHref }: Props = $props();
 
+	const NO_VALUE = '—';
+	const stat = (value: number | null): string => (value === null ? NO_VALUE : formatNumber(value));
+
 	const leaders = $derived(
 		[
 			{ side: 'away', leader: away },
@@ -22,9 +25,9 @@
 			side,
 			...leader,
 			line: m.panel_leader_line({
-				points: formatNumber(leader.points),
-				rebounds: formatNumber(leader.rebounds),
-				assists: formatNumber(leader.assists)
+				points: stat(leader.points),
+				rebounds: stat(leader.rebounds),
+				assists: stat(leader.assists)
 			})
 		}))
 	);

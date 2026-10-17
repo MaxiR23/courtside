@@ -13,6 +13,7 @@
 # - The opponents of the game log are named by that season's team object, and every log game has detail available and is registered
 # - The kind: the feed is built once and kept across a simulated restart and years later
 # - The kind: the built feed carries the current build version, a stored feed of an older or missing version is rebuilt on its next request, and one of the current version is served with no source request (ADR 0053)
+# - The kind: the career rows carry the season codes of the stored franchise names when served, with no season team read per row; a list stored later reaches the next serve with no player rebuild; a missing list gives null entries and starts its build in the background (ADR 0055)
 # - The kind: a failed build with nothing stored answers unavailable
 #
 # What is covered:
@@ -32,12 +33,14 @@ import pytest
 
 from app.feeds.games import Team
 from app.feeds.player import PastPlayerFeed
+from app.feeds.team import NameRun, TeamNames
 from app.jobs.on_demand import (
     SEASON_BUILD_VERSION,
     FeedCache,
     FeedUnavailableError,
     IdStatus,
     UnknownFeedError,
+    with_build_version,
 )
 from app.jobs.past_player_ids import PastPlayerIds
 from app.jobs.player_feed import PlayerBuildError
@@ -49,6 +52,7 @@ from app.jobs.season_player_feed import (
 )
 from app.jobs.season_rosters import SeasonRosters
 from app.jobs.stars import StarsJob
+from app.jobs.team_names import KIND as NAMES_KIND
 from app.jobs.team_names import SeasonIdentity, TeamNamesFeeds
 from app.settings import Settings
 from app.sources.division_standings import DivisionStandings
@@ -122,8 +126,10 @@ def season_log() -> PlayerGameLog:
     return PlayerGameLog(season=LABEL, games=games)
 
 
-def team() -> Team:
-    return Team(code="MEM", name="Lakeside Pines", city="Vancouver")
+def team(season_code: str | None = None) -> Team:
+    return Team(
+        code="MEM", name="Lakeside Pines", city="Vancouver", season_code=season_code
+    )
 
 
 def build(
@@ -367,6 +373,17 @@ class SeasonPlayerKit:
             fetch_player_stats=self.fetch_stats,
         )
 
+    def publish_names(self, code: str, runs: list[NameRun]) -> None:
+        """Stores a fresh names list of the current build for a franchise."""
+        publish_by_id(
+            self.path,
+            NAMES_KIND,
+            TeamNames,
+            code.lower(),
+            with_build_version(TeamNames(runs=runs)),
+        )
+        self.store.record_build(NAMES_KIND, code.lower(), self.clock[0])
+
     async def fetch_athlete(
         self, client: SourceClient, player_id: str, settings: Settings
     ) -> PlayerAthlete:
@@ -486,7 +503,7 @@ async def test_the_game_log_and_the_stats_of_the_season_carry_the_season_and_the
     feed = PastPlayerFeed.model_validate_json(await kit.serve("2004-77"))
 
     assert feed.season_label == LABEL
-    assert feed.team == team()
+    assert feed.team == team("VAN")
     assert "gamelog/2004" in kit.calls
     assert "stats/False/2004" in kit.calls and "stats/True/2004" in kit.calls
     assert "stats/False/None" in kit.calls and "stats/True/None" in kit.calls
@@ -550,15 +567,86 @@ async def test_an_unknown_current_season_or_rosters_not_fetched_are_not_ready(
 async def test_the_feed_is_built_once_and_kept_across_a_restart_and_years_later(
     kit: SeasonPlayerKit,
 ) -> None:
-    first = await kit.serve("2004-77")
+    await kit.serve("2004-77")
+    stored = read_by_id(kit.path, KIND, "2004-77")
     calls = len(kit.calls)
     await kit.serve("2004-77", NOW + YEARS)
     kit.start()
-    again = await kit.serve("2004-77", NOW + 2 * YEARS)
+    await kit.serve("2004-77", NOW + 2 * YEARS)
 
-    assert again == first
+    assert stored is not None
     assert len(kit.calls) == calls
-    assert read_by_id(kit.path, KIND, "2004-77") == first
+    assert read_by_id(kit.path, KIND, "2004-77") == stored
+
+
+def runs_of(code: str, middle: int = 2008) -> list[NameRun]:
+    return [
+        NameRun(
+            from_=1994,
+            to=middle,
+            name="Harbor Gulls",
+            location="Seattle",
+            code=code,
+        ),
+        NameRun(
+            from_=middle + 1,
+            to=None,
+            name="Thunder",
+            location="Oklahoma City",
+            code="OKC",
+        ),
+    ]
+
+
+def career_codes(feed: PastPlayerFeed) -> list[list[str | None] | None]:
+    rows = [*feed.seasons.regular.per_game, *feed.seasons.playoffs.per_game]
+    return [row.season_codes for row in rows]
+
+
+@pytest.mark.anyio
+async def test_the_career_rows_carry_the_season_codes_of_the_stored_names_with_no_season_team_read(
+    kit: SeasonPlayerKit,
+) -> None:
+    kit.publish_names("okc", runs_of("SEA"))
+
+    feed = PastPlayerFeed.model_validate_json(await kit.serve("2004-77"))
+
+    codes = career_codes(feed)
+    assert codes and all(c == ["SEA"] for c in codes)
+    assert not any(call.startswith("season-team/OKC") for call in kit.calls)
+    assert kit.cache.in_flight == {}
+
+
+@pytest.mark.anyio
+async def test_a_names_list_stored_later_reaches_the_next_serve_with_no_player_rebuild(
+    kit: SeasonPlayerKit,
+) -> None:
+    kit.publish_names("okc", runs_of("SEA"))
+    await kit.serve("2004-77")
+    stored = read_by_id(kit.path, KIND, "2004-77")
+    calls = len(kit.calls)
+
+    kit.publish_names("okc", runs_of("NJ"))
+    feed = PastPlayerFeed.model_validate_json(await kit.serve("2004-77"))
+
+    assert all(c == ["NJ"] for c in career_codes(feed))
+    assert len(kit.calls) == calls
+    assert read_by_id(kit.path, KIND, "2004-77") == stored
+
+
+@pytest.mark.anyio
+async def test_a_row_is_null_without_stored_names_and_the_names_build_starts_in_the_background(
+    kit: SeasonPlayerKit,
+) -> None:
+    body = await kit.cache.serve(KIND, "2004-77")
+    first = PastPlayerFeed.model_validate_json(body)
+    await kit.settle()
+
+    assert career_codes(first) and all(c == [None] for c in career_codes(first))
+    assert "season-team/OKC/1994" in kit.calls
+    assert kit.names.stored("okc") is not None
+    second = PastPlayerFeed.model_validate_json(await kit.serve("2004-77"))
+    assert all(c is not None and c != [None] for c in career_codes(second))
 
 
 @pytest.mark.anyio
@@ -575,11 +663,13 @@ async def test_a_failed_build_with_nothing_stored_answers_unavailable(
 
 @pytest.mark.anyio
 async def test_the_cleanup_keeps_the_feed(kit: SeasonPlayerKit) -> None:
-    body = await kit.serve("2004-77")
+    await kit.serve("2004-77")
+    stored = read_by_id(kit.path, KIND, "2004-77")
 
     kit.cache.cleanup()
 
-    assert read_by_id(kit.path, KIND, "2004-77") == body
+    assert stored is not None
+    assert read_by_id(kit.path, KIND, "2004-77") == stored
 
 
 @pytest.mark.anyio
@@ -613,7 +703,7 @@ async def test_the_team_and_the_opponents_are_named_by_that_seasons_team_object(
 
     feed = PastPlayerFeed.model_validate_json(await kit.serve("2004-77"))
 
-    assert feed.team == team()
+    assert feed.team == team("VAN")
     assert feed.game_log is not None
     assert {
         (e.opponent.code, e.opponent.name, e.opponent.city, e.opponent.historical)

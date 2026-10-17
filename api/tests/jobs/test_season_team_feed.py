@@ -15,9 +15,11 @@
 # - The kind: 1993-okc, 2004-okc with a trailing newline, the current season, a future season, abc-okc, 2004-OKC and an unknown team answer unknown with no source request, and an unknown current season is not ready
 # - The kind: the season is sent to the season reads, the schedules are read by id first and the leaders have no fallback
 # - The kind: the names are built first and the stored feed carries them; serving sets the latest stored names
+# - The kind: a names list of another or no version makes the feed stale and is rebuilt first; one of the current version leaves it fresh (ADR 0055)
 # - The kind: the feed is never rebuilt, also after a simulated restart and years later
 # - The kind: the built feed carries the current build version, a stored feed of an older or missing version is rebuilt on its next request, and one of the current version is served with no source request (ADR 0053)
 # - The kind: the roster comes from the box scores of the final games, each read once
+# - The kind: a box score row with no player id is left out of the roster and logged once per game read (ADR 0055)
 # - The kind: a failed build with nothing stored answers unavailable
 #
 # What is covered:
@@ -31,6 +33,7 @@
 import asyncio
 import datetime as dt
 import json
+import logging
 from pathlib import Path
 from typing import Any, cast
 
@@ -44,6 +47,7 @@ from app.jobs.on_demand import (
     FeedUnavailableError,
     IdStatus,
     UnknownFeedError,
+    with_build_version,
 )
 from app.jobs.season_rosters import SeasonRosters
 from app.jobs.season_team_feed import (
@@ -55,6 +59,7 @@ from app.jobs.stars import StarsJob
 from app.jobs.team_feed import TeamBuildError
 from app.jobs.team_names import SeasonIdentity, TeamNamesFeeds
 from app.settings import Settings
+from app.sources import game_detail
 from app.sources import season_team as season_team_adapter
 from app.sources.division_standings import DivisionStandings
 from app.sources.game_detail import BoxScoreRosterEntry, GamePlayers
@@ -596,13 +601,61 @@ async def test_serving_sets_the_latest_stored_names(kit: SeasonTeamKit) -> None:
             {"from": 1994, "to": None, "name": "Storm", "location": "S", "code": "SEA"}
         )
     ]
-    publish_by_id(kit.path, "team-names", TeamNames, "okc", TeamNames(runs=newer))
+    publish_by_id(
+        kit.path,
+        "team-names",
+        TeamNames,
+        "okc",
+        with_build_version(TeamNames(runs=newer)),
+    )
 
     served = PastTeamFeed.model_validate_json(await kit.serve("2004-okc"))
 
     assert [r.name for r in served.names] == ["Storm"]
     stored = kit.stored("2004-okc")
     assert stored is not None and [r.name for r in stored.names] == ["Harbor Gulls"]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("version", [None, SEASON_BUILD_VERSION + 1])
+async def test_a_names_list_of_another_version_makes_the_feed_stale_and_is_rebuilt_first(
+    kit: SeasonTeamKit, version: int | None
+) -> None:
+    await kit.serve("2004-okc")
+    old = [
+        NameRun.model_validate(
+            {"from": 1994, "to": None, "name": "Storm", "location": "S", "code": "SEA"}
+        )
+    ]
+    publish_by_id(
+        kit.path,
+        "team-names",
+        TeamNames,
+        "okc",
+        TeamNames(runs=old, build_version=version),
+    )
+    kit.calls.clear()
+
+    await kit.serve("2004-okc", NOW + dt.timedelta(days=1))
+
+    assert any(call.startswith("season-team/") for call in kit.calls)
+    assert kit.names.outdated("okc") is False
+    names = kit.names.stored("okc")
+    assert names is not None and [r.name for r in names] == ["Harbor Gulls"]
+    stored = kit.stored("2004-okc")
+    assert stored is not None and [r.name for r in stored.names] == ["Harbor Gulls"]
+
+
+@pytest.mark.anyio
+async def test_a_names_list_of_the_current_version_leaves_the_feed_fresh(
+    kit: SeasonTeamKit,
+) -> None:
+    await kit.serve("2004-okc")
+    kit.calls.clear()
+
+    await kit.serve("2004-okc", NOW + dt.timedelta(days=1))
+
+    assert kit.calls == []
 
 
 @pytest.mark.anyio
@@ -672,6 +725,50 @@ async def test_an_inactive_team_object_answers_the_feed_with_that_seasons_name_c
         feed = PastTeamFeed.model_validate_json(await kit.serve("2004-okc"))
 
     assert (feed.city, feed.name, feed.code) == ("Seattle", "Harbor Gulls", "OKC")
+
+
+BOX_PLAYERS = (
+    Path(__file__).parent.parent
+    / "sources"
+    / "fixtures"
+    / "game_detail"
+    / "summary-past-box-players.json"
+)
+
+
+@pytest.mark.anyio
+async def test_a_box_score_row_with_no_player_id_is_left_out_of_the_roster_and_logged(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    kit = SeasonTeamKit(tmp_path)
+    kit.settings = Settings(  # type: ignore[call-arg]
+        _env_file=None,
+        data_dir=tmp_path,
+        game_detail_url="https://example.com/games/{game_id}",
+        player_photo_url="https://example.com/players/{player_id}.png",
+    )
+    kit.fetch_game_players = game_detail.fetch_past_game_players  # type: ignore[method-assign]
+    kit.start()
+    body = json.loads(BOX_PLAYERS.read_text(encoding="utf-8"))
+    group = next(
+        p["statistics"][0]
+        for p in body["boxscore"]["players"]
+        if p["team"]["abbreviation"] == "SEA"
+    )
+    nameless = json.loads(json.dumps(group["athletes"][0]))
+    nameless["athlete"] = {}
+    group["athletes"].insert(0, nameless)
+
+    with respx.mock as mock:
+        mock.get(url__regex=r"https://example\.com/games/g\d").respond(json=body)
+        with caplog.at_level(logging.WARNING, logger="app.sources.game_detail"):
+            feed = PastTeamFeed.model_validate_json(await kit.serve("2004-okc"))
+
+    assert sorted(p.id for p in feed.roster) == ["9001", "9002", "9003", "9004"]
+    messages = [
+        r.getMessage() for r in caplog.records if "no player id" in r.getMessage()
+    ]
+    assert sorted(m.split()[3] for m in messages) == ["g1", "g2"]
 
 
 @pytest.mark.anyio

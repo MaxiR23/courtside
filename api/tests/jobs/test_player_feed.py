@@ -12,7 +12,7 @@
 # - Takes totals games played and started from the per game row and leaves totals minutes null
 # - Counts the regular seasons and takes the oldest as the debut
 # - Gives an undrafted player a null draft and names the drafting team from the standings
-# - Labels award seasons and reads the count
+# - Labels award seasons and reads the count, and passes the award code and team number on (ADR 0055)
 # - Excludes All-Star games from the last five games and keeps them in the game log with no opponent
 # - Gives the year of the All-Star game of the game log, none for a log without one and for no log, and the built feed carries it with the All-Star game out of the last five games
 # - Tags the game log entries and converts their numbers
@@ -43,6 +43,7 @@
 # - The kind: live is added while the team plays a guest without a code
 # - The kind: a live player request refreshes the game and serves its detail feed within the wait, and makes no request for an unknown id
 # - The kind: detailAvailable is true exactly for the games inside the days shown when served
+# - The kind: the career rows carry the season codes of the stored franchise names when served, read from no source; a franchise with no stored list gives a null entry and starts one names build; a second request inside the retry window of a failed names build starts none (ADR 0055)
 # - The kind: after a stars run the cleanup deletes the feeds of players on no roster with no source request, and nothing while the rosters are not all fetched
 #
 # What is covered:
@@ -63,6 +64,7 @@ from typing import Any
 import pytest
 import respx
 
+from app.feeds.base import AwardCode
 from app.feeds.game_detail import (
     Conference,
     GameDetailFeed,
@@ -72,12 +74,14 @@ from app.feeds.game_detail import (
 )
 from app.feeds.games import GameStatus, GameTeam, Star
 from app.feeds.player import GameKind, NextGame, PlayerFeed, TagKind
+from app.feeds.team import NameRun, TeamNames
 from app.jobs import game_detail_feed
 from app.jobs.on_demand import (
     FeedKind,
     FeedUnavailableError,
     IdStatus,
     UnknownFeedError,
+    with_build_version,
 )
 from app.jobs.past_player_ids import PastPlayerIds
 from app.jobs.player_feed import (
@@ -101,6 +105,8 @@ from app.jobs.player_feed import (
 from app.jobs.stars import RETRY, StarsJob
 from app.jobs.team_feed import FEED_LIFETIME, next_game
 from app.jobs.team_feed import KIND as TEAM_KIND
+from app.jobs.team_names import KIND as NAMES_KIND
+from app.jobs.team_names import TeamNamesFeeds
 from app.settings import Settings
 from app.sources.division_standings import (
     DivisionEntry,
@@ -129,6 +135,7 @@ from app.sources.player_stats import (
     fetch_player_stats,
 )
 from app.sources.scoreboard import ScoreboardGame
+from app.sources.season_team import SeasonTeam
 from app.sources.team_players import (
     PlayerAverages,
     Roster,
@@ -564,9 +571,37 @@ def test_labels_award_seasons_and_reads_the_count() -> None:
     )
 
     assert result == [
-        {"name": "MVP", "count": 2, "seasons": ["2025-26", "2024-25"]},
-        {"name": "All-Rookie", "count": 1, "seasons": ["1999-00"]},
+        {
+            "name": "MVP",
+            "code": None,
+            "team": None,
+            "count": 2,
+            "seasons": ["2025-26", "2024-25"],
+        },
+        {
+            "name": "All-Rookie",
+            "code": None,
+            "team": None,
+            "count": 1,
+            "seasons": ["1999-00"],
+        },
     ]
+
+
+def test_passes_the_award_code_and_team_number_to_the_feed() -> None:
+    result = awards(
+        [
+            ProviderAward(
+                name="All-NBA 1st Team",
+                display_count="1x",
+                seasons=[2026],
+                code=AwardCode.ALL_NBA,
+                team=1,
+            )
+        ]
+    )
+
+    assert (result[0]["code"], result[0]["team"]) == (AwardCode.ALL_NBA, 1)
 
 
 def test_excludes_all_star_games_from_the_last_five_games_and_keeps_them_in_the_log() -> (
@@ -1110,6 +1145,10 @@ async def test_builds_a_valid_player_feed_from_the_recorded_payloads(
     assert len(feed.last_games) == 5
     assert [award.name for award in feed.awards][:2] == ["MVP", "All-NBA 1st Team"]
     assert feed.awards[0].count == 2
+    assert [(a.code, a.team) for a in feed.awards][:2] == [
+        (AwardCode.MVP, None),
+        (AwardCode.ALL_NBA, 1),
+    ]
     assert feed.next_game is not None
 
 
@@ -1275,6 +1314,7 @@ class PlayerKit(TeamKit):
         self.roster_errors: set[str] = set()
         self.detail_builds = 0
         self.detail_feeds: dict[str, GameDetailFeed] = {}
+        self.career: PlayerStats | None = None
         self.stars = StarsJob(
             self.settings,
             self.store,
@@ -1412,7 +1452,9 @@ class PlayerKit(TeamKit):
         playoffs: bool,
     ) -> PlayerStats:
         await self.read(f"stats/{player_id}/{playoffs}", HOUR)
-        return PlayerStats() if playoffs else stats()
+        if playoffs:
+            return PlayerStats()
+        return self.career or stats()
 
     async def run_stars(self, at: dt.datetime | None = None) -> None:
         if at is not None:
@@ -1849,6 +1891,148 @@ async def test_a_retired_player_builds_with_no_team_next_game_live_or_injury_and
     assert kit.stored("okc") is None
     assert kit.called("athlete/retired1") == 1
     assert kit.called("standings") == 1
+
+
+def two_team_career() -> PlayerStats:
+    teams = ["TOR", "BKN"]
+    return PlayerStats(
+        per_game=[line("2004-05", teams=teams)],
+        totals=[totals_line("2004-05", teams=teams)],
+        misc=[misc("2004-05")],
+        career_per_game=line(None, games_played=514, games_started=514),
+        career_totals=totals_line(None, field_goals="5052-10778"),
+        career_misc=misc(None, double_doubles=273),
+    )
+
+
+def runs_for(code: str, historical: str | None) -> list[NameRun]:
+    """The runs of a franchise: one open run, or a historical code until 2012."""
+    if historical is None:
+        return [
+            NameRun(from_=1994, to=None, name="Harbor Nets", location="Home", code=code)
+        ]
+    return [
+        NameRun(
+            from_=1994,
+            to=2012,
+            name="Harbor Nets",
+            location="New Jersey",
+            code=historical,
+        ),
+        NameRun(
+            from_=2013, to=None, name="Harbor Nets", location="Brooklyn", code=code
+        ),
+    ]
+
+
+class NamesWiring:
+    """The names kind of the player kit, over a fake season team adapter that
+    records its reads and can fail."""
+
+    def __init__(self, kit: PlayerKit) -> None:
+        self.kit = kit
+        self.reads: list[tuple[str, int]] = []
+        self.failing = False
+        self.feeds = TeamNamesFeeds(
+            kit.settings,
+            kit.store,
+            kit.client,
+            kit.cache,
+            kit.stars,
+            fetch_season_team=self.fetch_season_team,
+        )
+        kit.players._names = self.feeds
+
+    async def fetch_season_team(
+        self, client: SourceClient, code: str, season: int, settings: Settings
+    ) -> SeasonTeam | None:
+        self.reads.append((code, season))
+        if self.failing:
+            raise SourceError("test", "season team is down")
+        return SeasonTeam(
+            team_id="25",
+            abbreviation=code,
+            display_name=f"Home {code}",
+            name="Harbor Nets",
+            location="Home",
+        )
+
+    def store(self, code: str, runs: list[NameRun]) -> None:
+        publish_by_id(
+            self.kit.path,
+            NAMES_KIND,
+            TeamNames,
+            code.lower(),
+            with_build_version(TeamNames(runs=runs)),
+        )
+        self.kit.store.record_build(NAMES_KIND, code.lower(), self.kit.clock[0])
+
+
+async def serve_retired_career(kit: PlayerKit) -> PlayerFeed:
+    kit.past_known.add("retired1")
+    kit.athletes["retired1"] = retired()
+    kit.career = two_team_career()
+    await kit.run_stars()
+    return PlayerFeed.model_validate_json(await kit.serve_player("retired1"))
+
+
+@pytest.mark.anyio
+async def test_a_retired_players_career_rows_carry_the_season_codes_of_the_stored_names_with_no_season_team_read(
+    kit: PlayerKit,
+) -> None:
+    names = NamesWiring(kit)
+    names.store("BKN", runs_for("BKN", "NJ"))
+    names.store("TOR", runs_for("TOR", None))
+
+    feed = await serve_retired_career(kit)
+
+    row = feed.seasons.regular.per_game[0]
+    assert row.teams == ["TOR", "BKN"]
+    assert row.season_codes == ["TOR", "NJ"]
+    assert feed.seasons.regular.totals[0].season_codes == ["TOR", "NJ"]
+    assert names.reads == []
+    stored = kit.stored_player("retired1")
+    assert stored is not None
+    assert stored.seasons.regular.per_game[0].season_codes is None
+
+
+@pytest.mark.anyio
+async def test_a_career_franchise_with_no_stored_names_gives_a_null_entry_and_starts_one_names_build(
+    kit: PlayerKit,
+) -> None:
+    names = NamesWiring(kit)
+    names.store("TOR", runs_for("TOR", None))
+
+    feed = await serve_retired_career(kit)
+
+    assert feed.seasons.regular.per_game[0].season_codes == ["TOR", None]
+    assert {code for code, _ in names.reads} == {"BKN"}
+    assert kit.store.feed_build(NAMES_KIND, "bkn") is not None
+    assert kit.store.feed_build(NAMES_KIND, "tor").last_build == NOW  # type: ignore[union-attr]
+    again = PlayerFeed.model_validate_json(await kit.serve_player("retired1"))
+    assert again.seasons.regular.per_game[0].season_codes is not None
+    assert None not in again.seasons.regular.per_game[0].season_codes
+
+
+@pytest.mark.anyio
+async def test_a_second_request_inside_the_retry_window_of_a_failed_names_build_starts_none(
+    kit: PlayerKit,
+) -> None:
+    names = NamesWiring(kit)
+    names.failing = True
+    names.store("TOR", runs_for("TOR", None))
+
+    first = await serve_retired_career(kit)
+    reads = len(names.reads)
+    second = PlayerFeed.model_validate_json(
+        await kit.serve_player("retired1", NOW + 5 * SECOND)
+    )
+
+    assert reads > 0
+    assert first.seasons.regular.per_game[0].season_codes == ["TOR", None]
+    assert second.seasons.regular.per_game[0].season_codes == ["TOR", None]
+    assert len(names.reads) == reads
+    assert kit.store.feed_build(NAMES_KIND, "bkn").last_failure is not None  # type: ignore[union-attr]
 
 
 @pytest.mark.anyio

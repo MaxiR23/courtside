@@ -22,7 +22,6 @@
           "items": {
             "$ref": "#/$defs/AwardWinner"
           },
-          "maxItems": 5,
           "minItems": 1,
           "type": "array"
         }
@@ -36,6 +35,7 @@
       "type": "object"
     },
     "AwardCode": {
+      "description": "The kind of a season award, shared by the playoffs and the player feeds.",
       "enum": [
         "mvp",
         "dpoy",
@@ -91,13 +91,26 @@
               "type": "null"
             }
           ]
+        },
+        "seasonCode": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
         "playerId",
         "name",
         "photoUrl",
-        "teamCode"
+        "teamCode",
+        "seasonCode"
       ],
       "title": "AwardWinner",
       "type": "object"
@@ -744,6 +757,18 @@
           "pattern": "^[A-Z]{3}$",
           "type": "string"
         },
+        "seasonCode": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "value": {
           "minLength": 1,
           "type": "string"
@@ -755,6 +780,7 @@
         "name",
         "photoUrl",
         "teamCode",
+        "seasonCode",
         "value"
       ],
       "title": "PlayoffLeader",

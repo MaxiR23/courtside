@@ -1,6 +1,6 @@
 # 0043. Season feeds and franchise names
 
-- Status: Superseded by 0053 for team existence, past rosters and the names of past sides only
+- Status: Superseded by 0053 for team existence, past rosters and the names of past sides only, and by 0055 for the names' freshness only
 - Date: 2026-10-15
 
 ## Context

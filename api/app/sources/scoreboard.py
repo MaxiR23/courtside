@@ -156,6 +156,7 @@ class _MarkSeriesCompetitor(_ProviderModel):
 
 class _MarkSeries(_ProviderModel):
     summary: str | None = None
+    completed: bool | None = None
     competitors: list[_MarkSeriesCompetitor] | None = None
 
 
@@ -327,6 +328,7 @@ def _postseason(event: _ProviderEvent, game: ScoreboardGame) -> GamePostseason |
             away=game.away.code,
             home=game.home.code,
             score=game.score,
+            completed=series.completed if series else None,
         )
     except ValidationError, ValueError, TypeError, KeyError:
         mark = None

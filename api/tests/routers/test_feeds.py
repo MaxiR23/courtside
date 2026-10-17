@@ -96,7 +96,7 @@ from app.feeds.playoffs import PlayoffsFeed
 from app.feeds.playoffs_finals import PlayoffsFinalsFeed
 from app.feeds.search import SearchFeed
 from app.feeds.standings import StandingsFeed
-from app.feeds.team import PastTeamFeed, TeamFeed
+from app.feeds.team import NameRun, PastTeamFeed, TeamFeed
 from app.jobs.day_feed import KIND as DAY_KIND
 from app.jobs.day_feed import build_day_feed
 from app.jobs.game_detail_feed import GameDetailFeeds
@@ -1770,7 +1770,22 @@ def season_team(tmp_path: Path) -> SeasonApp:
 
 @pytest.fixture
 def season_player(tmp_path: Path) -> SeasonApp:
-    return SeasonApp(SeasonPlayerKit(tmp_path))
+    kit = SeasonPlayerKit(tmp_path)
+    # The career rows are served with the codes of the stored names, so a list
+    # stored first keeps the body, and its ETag, the same on every request.
+    kit.publish_names(
+        "okc",
+        [
+            NameRun(
+                from_=1994,
+                to=None,
+                name="Thunder",
+                location="Oklahoma City",
+                code="OKC",
+            )
+        ],
+    )
+    return SeasonApp(kit)
 
 
 SEASON_PATHS = {

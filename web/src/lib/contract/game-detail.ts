@@ -84,12 +84,12 @@ export interface DetailGameTeamStats {
 export interface DetailTeamStats {
 	fieldGoalPct: number | null;
 	threePointPct: number | null;
-	rebounds: number;
-	assists: number;
-	turnovers: number;
+	rebounds: number | null;
+	assists: number | null;
+	turnovers: number | null;
 	freeThrowPct: number | null;
-	steals: number;
-	blocks: number;
+	steals: number | null;
+	blocks: number | null;
 }
 export interface TeamStatLeaders {
 	fieldGoalPct: Side | null;
@@ -122,44 +122,44 @@ export interface TeamBoxScore {
 	totals: BoxScoreTotals;
 }
 export interface BoxScorePlayer {
-	points: number;
-	fieldGoalsMade: number;
-	fieldGoalsAttempted: number;
-	threePointsMade: number;
-	threePointsAttempted: number;
-	freeThrowsMade: number;
-	freeThrowsAttempted: number;
-	offensiveRebounds: number;
-	defensiveRebounds: number;
-	rebounds: number;
-	assists: number;
-	turnovers: number;
-	steals: number;
-	blocks: number;
-	fouls: number;
+	points: number | null;
+	fieldGoalsMade: number | null;
+	fieldGoalsAttempted: number | null;
+	threePointsMade: number | null;
+	threePointsAttempted: number | null;
+	freeThrowsMade: number | null;
+	freeThrowsAttempted: number | null;
+	offensiveRebounds: number | null;
+	defensiveRebounds: number | null;
+	rebounds: number | null;
+	assists: number | null;
+	turnovers: number | null;
+	steals: number | null;
+	blocks: number | null;
+	fouls: number | null;
 	playerId: string;
 	displayName: string;
 	starter: boolean;
-	minutes: string;
+	minutes: string | null;
 	plusMinus: number | null;
 	photoUrl: string | null;
 }
 export interface BoxScoreTotals {
-	points: number;
-	fieldGoalsMade: number;
-	fieldGoalsAttempted: number;
-	threePointsMade: number;
-	threePointsAttempted: number;
-	freeThrowsMade: number;
-	freeThrowsAttempted: number;
-	offensiveRebounds: number;
-	defensiveRebounds: number;
-	rebounds: number;
-	assists: number;
-	turnovers: number;
-	steals: number;
-	blocks: number;
-	fouls: number;
+	points: number | null;
+	fieldGoalsMade: number | null;
+	fieldGoalsAttempted: number | null;
+	threePointsMade: number | null;
+	threePointsAttempted: number | null;
+	freeThrowsMade: number | null;
+	freeThrowsAttempted: number | null;
+	offensiveRebounds: number | null;
+	defensiveRebounds: number | null;
+	rebounds: number | null;
+	assists: number | null;
+	turnovers: number | null;
+	steals: number | null;
+	blocks: number | null;
+	fouls: number | null;
 	fieldGoalPct: number | null;
 	threePointPct: number | null;
 	freeThrowPct: number | null;
@@ -281,6 +281,9 @@ export interface GamePostseason {
 	summary: string | null;
 	playIn: PlayInGameKind | null;
 	stakes: Stakes | null;
+	awayWins: number | null;
+	homeWins: number | null;
+	seriesWinner: Side | null;
 }
 /**
  * The mark of an All-Star game: its round as the source writes it, and

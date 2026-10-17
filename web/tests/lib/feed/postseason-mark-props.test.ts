@@ -35,7 +35,10 @@ const playIn: GamePostseason = {
 	number: null,
 	summary: null,
 	playIn: 'seven_eight',
-	stakes: null
+	stakes: null,
+	awayWins: null,
+	homeWins: null,
+	seriesWinner: null
 };
 const series: GamePostseason = {
 	stage: 'playoffs',
@@ -44,7 +47,10 @@ const series: GamePostseason = {
 	number: 7,
 	summary: 'Series tied 3-3',
 	playIn: null,
-	stakes: 'game_7'
+	stakes: 'game_7',
+	awayWins: null,
+	homeWins: null,
+	seriesWinner: null
 };
 const finals: GamePostseason = {
 	stage: 'finals',
@@ -53,7 +59,10 @@ const finals: GamePostseason = {
 	number: 5,
 	summary: 'NYK leads 3-1',
 	playIn: null,
-	stakes: 'can_clinch'
+	stakes: 'can_clinch',
+	awayWins: null,
+	homeWins: null,
+	seriesWinner: null
 };
 
 describe('postseasonMark', () => {

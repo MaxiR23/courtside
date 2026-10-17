@@ -79,8 +79,8 @@ export type LineScoreTeam = { team: TeamMarkTeam; periods: number[]; total: numb
 
 export type DetailTeamStatLine = TeamStatLine & {
 	freeThrowPct: number | null; // 0 to 1; null: the source sent none
-	steals: number;
-	blocks: number;
+	steals: number | null; // null: the source sent none
+	blocks: number | null; // null: the source sent none
 };
 export type StatLeads = Record<keyof DetailTeamStatLine, Side | null>; // from the feed's leaders
 

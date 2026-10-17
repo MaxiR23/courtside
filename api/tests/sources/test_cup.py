@@ -9,7 +9,7 @@
 # - Logs and nulls an unknown clinch letter
 # - Maps a table with no rows to none and a conference table in seeding order
 # - Requests the URL built from the season and the group id
-# - Maps each Cup note, the first edition In-Season Tournament notes included, to its round and any other note to none
+# - Maps each Cup note, the first edition In-Season Tournament notes (group play included), to its round and any other note to none
 # - Raises the source error on an unknown team id, a link without a team id, a table that is not the Cup table, a row without the in-season record or without wins, an invalid payload, a timeout, an error status and a missing URL
 # - Reuses a read for one hour
 #
@@ -436,6 +436,7 @@ async def test_reuses_a_table_for_one_hour(
         ("NBA Cup - Quarterfinals", CupRound.QUARTERFINALS),
         ("NBA Cup - Semifinals", CupRound.SEMIFINALS),
         ("NBA Cup Championship", CupRound.CHAMPIONSHIP),
+        ("NBA In-Season Tournament - Group Play", CupRound.GROUP),
         ("NBA In-Season Tournament - Quarterfinals", CupRound.QUARTERFINALS),
         ("NBA In-Season Tournament - Semifinals", CupRound.SEMIFINALS),
         ("NBA In-Season Tournament Championship", CupRound.CHAMPIONSHIP),
@@ -457,6 +458,7 @@ def test_maps_each_cup_note_to_its_round_and_any_other_to_none(
         ("nba cup - quarterfinals", CupRound.QUARTERFINALS),
         ("NBA CUP CHAMPIONSHIP", CupRound.CHAMPIONSHIP),
         ("NBA IN-SEASON TOURNAMENT - SEMIFINALS", CupRound.SEMIFINALS),
+        ("NBA IN-SEASON TOURNAMENT - GROUP PLAY", CupRound.GROUP),
     ],
 )
 def test_maps_a_cup_note_in_any_letter_case_to_the_same_round(

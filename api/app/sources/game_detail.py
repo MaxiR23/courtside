@@ -18,17 +18,21 @@
 # stat line, with the jersey and the position of that game's box score, leniently
 # read (a missing key or a jersey that is not one or two digits is null).
 #
-# Three reading rules for the box score (ADR 0052). Team turnovers are the
+# Reading rules for the box score (ADR 0052, ADR 0055). Team turnovers are the
 # team's totalTurnovers when the provider sends it, else turnovers. A team
 # percentage the provider does not send is null. When every player of both
 # teams has a plus-minus of 0, the provider sent none, so every plus-minus is
-# null.
+# null. A team or player stat the provider does not send is null, never a
+# failure; a value that is sent and is not a number still fails. A box score row
+# with no player id is skipped and logged once, in every reader.
 #
 # SEE: docs/api/games.md, docs/adr/0041-past-game-detail.md,
-# docs/adr/0052-box-score-reading.md, docs/adr/0053-season-level-rules-for-past-seasons.md, api/app/sources/scoreboard.py
+# docs/adr/0052-box-score-reading.md, docs/adr/0055-past-season-reading-rules-and-versioned-stored-data.md, docs/adr/0053-season-level-rules-for-past-seasons.md, api/app/sources/scoreboard.py
 
 import datetime as dt
+import logging
 import re
+from collections.abc import Sequence
 from typing import Annotated, Any
 from zoneinfo import ZoneInfo
 
@@ -66,6 +70,8 @@ from app.feeds.player import JerseyNumber
 from app.settings import Settings
 from app.sources.http import Freshness, SourceClient, SourceError, get_json
 from app.sources.teams import TEAM_CODES, TEAM_IDS, side_of, to_team_code
+
+logger = logging.getLogger(__name__)
 
 SOURCE = "game_detail"
 EASTERN = ZoneInfo("America/New_York")
@@ -132,13 +138,16 @@ class _ProviderHeadshot(_ProviderModel):
 
 
 class _ProviderAthlete(_ProviderModel):
-    id: str
-    display_name: str
+    # A row with no id is skipped by every reader (ADR 0055); a row with an id
+    # and no name fails when the feed validates it.
+    id: str | None = None
+    display_name: str | None = None
     headshot: _ProviderHeadshot | None = None
 
 
 class _ProviderAthleteLine(_ProviderModel):
-    athlete: _ProviderAthlete
+    # A row with no athlete object reads as an athlete with no id: skipped.
+    athlete: _ProviderAthlete = _ProviderAthlete()
     stats: list[str]
 
 
@@ -177,6 +186,22 @@ def _number(game_id: str, value: str, kind: type[int | float]) -> Any:
         ) from None
 
 
+def _with_player_id[L: (_ProviderAthleteLine, _SummaryAthleteLine, _PlayersLine)](
+    game_id: str, lines: Sequence[L]
+) -> list[L]:
+    # Rule: ADR 0055. A box score row with no player id is skipped and logged.
+    kept = []
+    for line in lines:
+        if not line.athlete.id:
+            logger.warning(
+                "game detail: game %s has a box score row with no player id, skipped",
+                game_id,
+            )
+            continue
+        kept.append(line)
+    return kept
+
+
 def _photo(athlete: _ProviderAthlete, photo_url: str, guest: bool) -> str | None:
     # A league player's photo comes from the template; a guest player has only
     # the box score headshot, if any.
@@ -196,29 +221,33 @@ def _leader(
     if not players.statistics:
         raise SourceError(SOURCE, f"game {game_id} has no player stats for {label}")
     group = players.statistics[0]
-    columns: dict[str, int] = {}
-    for key in ("points", "rebounds", "assists"):
-        if key not in group.keys:
-            raise SourceError(SOURCE, f"game {game_id} has no {key} column")
-        columns[key] = group.keys.index(key)
-    played = [line for line in group.athletes if line.stats]
+    # Rule: ADR 0055. A column the provider does not send is a null value.
+    columns: dict[str, int | None] = {
+        key: group.keys.index(key) if key in group.keys else None
+        for key in ("points", "rebounds", "assists")
+    }
+    played = [line for line in _with_player_id(game_id, group.athletes) if line.stats]
     if not played:
         raise SourceError(SOURCE, f"game {game_id} has no player stats for {label}")
     try:
         values = [
-            {key: _number(game_id, line.stats[i], int) for key, i in columns.items()}
+            {
+                key: None if i is None else _number(game_id, line.stats[i], int)
+                for key, i in columns.items()
+            }
             for line in played
         ]
     except IndexError:
         raise SourceError(
             SOURCE, f"game {game_id} has a stat line shorter than its columns"
         ) from None
-    # Rule: docs/adr/0009-game-leader-selection.md. max keeps the first on a full tie.
+    # Rule: docs/adr/0009-game-leader-selection.md. max keeps the first on a full
+    # tie. A missing value counts as 0 for the order only (ADR 0055).
     top = max(
         range(len(played)),
         key=lambda i: (
-            values[i]["points"],
-            values[i]["rebounds"] + values[i]["assists"],
+            values[i]["points"] or 0,
+            (values[i]["rebounds"] or 0) + (values[i]["assists"] or 0),
         ),
     )
     athlete = played[top].athlete
@@ -247,18 +276,14 @@ def _percent(game_id: str, by_name: dict[str, str], name: str) -> float | None:
 def _team_stats(game_id: str, team: _ProviderBoxTeam) -> dict[str, Any]:
     by_name = {stat.name: stat.display_value for stat in team.statistics}
 
-    def lookup(name: str) -> str:
-        if name not in by_name:
-            raise SourceError(SOURCE, f"game {game_id} has no {name} stat")
-        return by_name[name]
-
     stats: dict[str, Any] = {}
     for field, name in PERCENT_STATS.items():
         stats[field] = _percent(game_id, by_name, name)
     for field, name in COUNT_STATS.items():
         if field == "turnovers":
             name = _turnovers_stat(by_name)
-        stats[field] = _number(game_id, lookup(name), int)
+        # Rule: ADR 0055. A count the provider does not send is null.
+        stats[field] = _number(game_id, by_name[name], int) if name in by_name else None
     return stats
 
 
@@ -353,7 +378,7 @@ class _SummaryGameInfo(_ProviderModel):
 
 
 class _SummaryAthleteLine(_ProviderModel):
-    athlete: _ProviderAthlete
+    athlete: _ProviderAthlete = _ProviderAthlete()
     starter: bool
     stats: list[str]
 
@@ -572,20 +597,24 @@ BOX_FIELDS = {
 def _box_line(
     game_id: str, keys: list[str], values: list[str], wanted: tuple[str, ...]
 ) -> dict[str, Any]:
-    for key in wanted:
-        if key not in keys:
-            raise SourceError(SOURCE, f"game {game_id} has no {key} column")
+    # Rule: ADR 0055. A column the provider does not send is a null value.
     try:
-        by_key = {key: values[keys.index(key)] for key in wanted}
+        by_key = {
+            key: values[keys.index(key)] if key in keys else None for key in wanted
+        }
     except IndexError:
         raise SourceError(
             SOURCE, f"game {game_id} has a stat line shorter than its columns"
         ) from None
     line: dict[str, Any] = {}
     for field, key in BOX_FIELDS.items():
-        line[field] = _number(game_id, by_key[key], int)
+        value = by_key[key]
+        line[field] = None if value is None else _number(game_id, value, int)
     for field, key in BOX_SHOTS.items():
-        made, attempted = _made_attempted(game_id, by_key[key])
+        shot = by_key[key]
+        made, attempted = (
+            (None, None) if shot is None else _made_attempted(game_id, shot)
+        )
         line[f"{field}_made"] = made
         line[f"{field}_attempted"] = attempted
     return line
@@ -605,16 +634,21 @@ def _team_box_score(
     group = players.statistics[0]
     wanted = (*BOX_COLUMNS, *BOX_SHOTS.values())
     lines = []
-    for line in group.athletes:
+    for line in _with_player_id(game_id, group.athletes):
         if not line.stats:
             continue
         values = _box_line(game_id, group.keys, line.stats, wanted)
-        for key in ("minutes", "plusMinus"):
-            if key not in group.keys:
-                raise SourceError(SOURCE, f"game {game_id} has no {key} column")
         try:
-            minutes = line.stats[group.keys.index("minutes")]
-            plus_minus = line.stats[group.keys.index("plusMinus")]
+            minutes = (
+                line.stats[group.keys.index("minutes")]
+                if "minutes" in group.keys
+                else None
+            )
+            plus_minus = (
+                line.stats[group.keys.index("plusMinus")]
+                if "plusMinus" in group.keys
+                else None
+            )
         except IndexError:
             raise SourceError(
                 SOURCE, f"game {game_id} has a stat line shorter than its columns"
@@ -625,7 +659,9 @@ def _team_box_score(
                 "display_name": line.athlete.display_name,
                 "starter": line.starter,
                 "minutes": minutes,
-                "plus_minus": _number(game_id, plus_minus, int),
+                "plus_minus": (
+                    None if plus_minus is None else _number(game_id, plus_minus, int)
+                ),
                 "photo_url": _photo(line.athlete, photo_url, guest),
                 **values,
             }
@@ -648,9 +684,8 @@ def _detail_team_stats(game_id: str, team: _ProviderBoxTeam) -> dict[str, Any]:
             continue
         if field == "turnovers":
             name = _turnovers_stat(by_name)
-        if name not in by_name:
-            raise SourceError(SOURCE, f"game {game_id} has no {name} stat")
-        stats[field] = _number(game_id, by_name[name], int)
+        # Rule: ADR 0055. A count the provider does not send is null.
+        stats[field] = _number(game_id, by_name[name], int) if name in by_name else None
     return stats
 
 
@@ -658,7 +693,8 @@ def _without_plus_minus(box_score: dict[str, Any]) -> None:
     # Rule: ADR 0052. A game whose players all have a plus-minus of 0 came
     # without one from the provider, so no row carries it.
     lines = [line for side in ("away", "home") for line in box_score[side]["players"]]
-    if lines and all(line["plus_minus"] == 0 for line in lines):
+    sent = [line["plus_minus"] for line in lines if line["plus_minus"] is not None]
+    if sent and all(value == 0 for value in sent):
         for line in lines:
             line["plus_minus"] = None
 
@@ -977,6 +1013,9 @@ class GamePlayers(FeedModel):
     """The players of a past game by standard team code, league sides only."""
 
     teams: dict[str, list[BoxScoreRosterEntry]]
+    # The rules version of the stored body (ADR 0053, ADR 0055); null on a body
+    # from before the field.
+    build_version: PositiveInt | None = None
 
 
 class _PlayersPosition(_ProviderModel):
@@ -989,7 +1028,7 @@ class _PlayersAthlete(_ProviderAthlete):
 
 
 class _PlayersLine(_ProviderModel):
-    athlete: _PlayersAthlete
+    athlete: _PlayersAthlete = _PlayersAthlete()
     stats: list[str] = []
 
 
@@ -1062,7 +1101,7 @@ async def fetch_past_game_players(
                         ),
                     }
                 )
-                for line in players.statistics[0].athletes
+                for line in _with_player_id(game_id, players.statistics[0].athletes)
                 if line.stats
             ]
         return GamePlayers(teams=teams)
