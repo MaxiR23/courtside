@@ -10,7 +10,7 @@
 #
 # SEE: docs/api/cup-matchup.md, docs/adr/0029-cup-matchup-feed.md
 
-from pydantic import NonNegativeFloat, NonNegativeInt, model_validator
+from pydantic import NonNegativeFloat, NonNegativeInt, PositiveInt, model_validator
 
 from app.feeds.cup import CupGame, SlotId, SlotLabel, SlotRule
 from app.feeds.game_detail import Conference, GameResult
@@ -124,6 +124,9 @@ class CupMatchupFeed(FeedModel):
     game: CupGame | None
     top: MatchupSide
     bottom: MatchupSide
+    # The rules version of a kept season feed (ADR 0053); null on a current feed
+    # and on a stored feed from before the field.
+    build_version: PositiveInt | None = None
 
     @model_validator(mode="after")
     def _require_no_conference_for_the_final(self) -> CupMatchupFeed:

@@ -19,6 +19,7 @@ export interface AllStarFeed {
 	mvp: AllStarMvp | null;
 	previous: AllStarRecap | null;
 	previousEdition: AllStarPreviousEdition | null;
+	buildVersion: number | null;
 }
 export interface AllStarEdition {
 	date: string | null;

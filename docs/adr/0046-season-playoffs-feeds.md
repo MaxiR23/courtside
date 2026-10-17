@@ -1,6 +1,6 @@
 # 0046. Season playoffs feeds
 
-- Status: Superseded by 0048 for the past Finals' highlights only
+- Status: Superseded by 0048 for the past Finals' highlights only, and by 0053 for the past rosters only
 - Date: 2026-10-15
 
 ## Context

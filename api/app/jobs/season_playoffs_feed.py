@@ -3,8 +3,9 @@
 # Playoffs feed of a past season (ADR 0046): the playoffs feed's shape, built by
 # the playoffs feed builder from the sources of that season, with the
 # scoreboard days resolving the sides by provider id first as the past season
-# feeds do (ADR 0043). The names of leaders and award winners come from that season's
-# rosters. A season before 2021 has no play-in, so that window is not read and the play-in
+# feeds do (ADR 0043). The names of leaders and award winners come from that
+# season's box-score rosters (SeasonRosters, ADR 0053); a failed roster read fails
+# the build. A season before 2021 has no play-in, so that window is not read and the play-in
 # block is null. Leaders, awards and the champion's record are null only when the
 # source answers 404; any other failed read fails the build, because the feed is
 # kept for good. A team info that fails only nulls its colors. A past playoffs
@@ -17,7 +18,8 @@
 # only when requested. A season is valid from 1994 to the season before the
 # current one (past_season_status). The current season is resolved before the
 # cache (target) to the current playoffs feed (ADR 0042). A feed is built once
-# and kept (rule G): it is never refreshed and never deleted.
+# and kept (rule G): it is never deleted, and rebuilt only when its build version
+# is not the current one (ADR 0053).
 #
 # SEE: docs/api/playoffs.md, docs/adr/0046-season-playoffs-feeds.md,
 # api/app/jobs/playoffs_feed.py
@@ -33,7 +35,13 @@ from pydantic import ValidationError
 
 from app.feeds.playoffs import PlayoffsFeed, PlayoffsState
 from app.jobs import playoffs_feed
-from app.jobs.on_demand import FeedCache, FeedKind, IdStatus
+from app.jobs.on_demand import (
+    FeedCache,
+    FeedKind,
+    IdStatus,
+    is_current_build,
+    with_build_version,
+)
 from app.jobs.playoffs_feed import (
     CODES,
     FetchAwards,
@@ -46,6 +54,7 @@ from app.jobs.playoffs_feed import (
     finals_winner,
     postseason_days,
 )
+from app.jobs.season_rosters import SeasonRosters
 from app.jobs.season_standings_feed import past_season_status
 from app.jobs.stars import StarsJob
 from app.jobs.team_feed import FetchInfo, eastern_date
@@ -57,9 +66,9 @@ from app.sources import (
     season_awards,
     season_types,
     team_info,
-    team_players,
     team_postseason,
 )
+from app.sources.game_detail import BoxScoreRosterEntry
 from app.sources.http import SourceClient, SourceError
 from app.sources.postseason_scoreboard import PostseasonGame
 from app.sources.season_types import PLAY_IN, POSTSEASON
@@ -96,6 +105,7 @@ class SeasonPlayoffsFeeds:
         client: SourceClient,
         cache: FeedCache,
         stars: StarsJob,
+        rosters: SeasonRosters,
         *,
         fetch_season_type: FetchSeasonType = season_types.fetch_season_type,
         fetch_postseason_games: FetchSeasonGames = (
@@ -103,7 +113,6 @@ class SeasonPlayoffsFeeds:
         ),
         fetch_division_standings: Any = division_standings.fetch_division_standings,
         fetch_team_info: FetchInfo = team_info.fetch_team_info,
-        fetch_season_roster: Any = team_players.fetch_season_roster,
         fetch_postseason_leaders: FetchLeaders = (
             postseason_leaders.fetch_postseason_leaders
         ),
@@ -116,11 +125,11 @@ class SeasonPlayoffsFeeds:
         self._store = store
         self._client = client
         self._stars = stars
+        self._rosters = rosters
         self._fetch_season_type = fetch_season_type
         self._fetch_postseason_games = fetch_postseason_games
         self._fetch_division_standings = fetch_division_standings
         self._fetch_team_info = fetch_team_info
-        self._fetch_season_roster = fetch_season_roster
         self._fetch_postseason_leaders = fetch_postseason_leaders
         self._fetch_season_awards = fetch_season_awards
         self._fetch_team_postseason_record = fetch_team_postseason_record
@@ -168,18 +177,17 @@ class SeasonPlayoffsFeeds:
                     for day in postseason_days(play_in, postseason)
                 )
             ),
-            asyncio.gather(
-                *(
-                    none_on_404(self._fetch_season_roster(client, code, year, settings))
-                    for code in codes
-                )
-            ),
+            asyncio.gather(*(self._rosters.roster(code, year) for code in codes)),
         )
         games = [game for day in days for game in day]
-        players: dict[str, tuple[str, RosterEntry]] = {}
+        players: dict[str, tuple[str, RosterEntry | BoxScoreRosterEntry]] = {}
         for code, roster in zip(codes, rosters, strict=True):
-            for entry in [] if roster is None else roster.entries:
-                players[entry.player_id] = (code, entry)
+            for entry in roster:
+                known = players.get(entry.player_id)
+                # A player traded during the season is on two rosters: the team
+                # of his newest game wins (ADR 0053).
+                if known is None or _newer(entry, known[1]):
+                    players[entry.player_id] = (code, entry)
         winner = finals_winner(games)
         record = (
             None
@@ -211,7 +219,7 @@ class SeasonPlayoffsFeeds:
         except PlayoffsBuildError as error:
             logger.warning("season playoffs: %s not built: %s", season, error.reason)
             raise
-        return feed
+        return with_build_version(feed)
 
     def stored(self, season: str) -> PlayoffsFeed | None:
         """The stored playoffs feed of a season, or none when missing or invalid."""
@@ -226,7 +234,7 @@ class SeasonPlayoffsFeeds:
     def is_fresh(
         self, feed: PlayoffsFeed, built_at: dt.datetime, now: dt.datetime
     ) -> bool:
-        return True
+        return is_current_build(feed)
 
     def keep(self, feed_id: str) -> bool:
         return True
@@ -240,6 +248,13 @@ class SeasonPlayoffsFeeds:
             is_fresh=self.is_fresh,
             keep=self.keep,
         )
+
+
+def _newer(
+    entry: BoxScoreRosterEntry, known: RosterEntry | BoxScoreRosterEntry
+) -> bool:
+    last = getattr(known, "last_played", None)
+    return entry.last_played is not None and (last is None or entry.last_played > last)
 
 
 async def _none() -> None:

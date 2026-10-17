@@ -14,6 +14,9 @@
 # - The kind: a warning with the season and the reason for a failed awards read, no award and no box row, once per edition in play, none for a before edition or a set MVP
 # - MVP null reason: a failed awards read, no All-Star MVP award with a winner and no box row
 # - Recap: the previous edition's champion, Championship score, MVP, date and venue; none when not discovered, when its day read failed and when its Championship is not final
+# - A single-game edition has its game as the championship, its winner champion and its loser runner-up, whatever its round (ADR 0053)
+# - Sides that share a name are drawn with their code and name, and sides with distinct names are not renamed (ADR 0053)
+# - The recap of a single-game previous edition carries its MVP
 # - Counts, default game, next game, leading side, top points and team results: the pure functions and the fields of a before, live and after feed
 # - Previous edition: every game, its teams and MVP as the after view, none when the recap is none or a game is not final, no MVP without the award, carried by a before feed, the edition video added when served and no read added
 # - The format line, venue and teams of a before feed
@@ -1188,6 +1191,81 @@ def test_the_recap_is_none_when_the_championship_is_not_final() -> None:
     previous = sources(games, year=2026, edition_date=PREVIOUS_DAY)
 
     assert build(round_robin(), previous=previous).previous is None
+
+
+SINGLE_GAME = "NBA All-Star Game"
+EAST = AllStarSide(code="EAST", name="All-Stars", city=None)
+WEST = AllStarSide(code="WEST", name="All-Stars", city=None)
+SIDE_PLAYERS["EAST"] = SIDE_PLAYERS["STR"]
+SIDE_PLAYERS["WEST"] = SIDE_PLAYERS["WAV"]
+
+
+def single_game(**changes: Any) -> list[AllStarScoreboardGame]:
+    return [game("s1", EAST, WEST, note=SINGLE_GAME, score=(21, 18), **changes)]
+
+
+def test_a_single_game_edition_has_its_game_as_the_championship_its_winner_champion_and_its_loser_runner_up() -> (
+    None
+):
+    feed = build(single_game())
+
+    assert [g.championship for g in feed.edition.games] == [True]
+    assert feed.edition.games[0].round_label == "All-Star Game"
+    assert feed.edition.default_game_id == "s1"
+    placed = {t.team.code: t.placement.kind for t in feed.edition.teams}
+    assert placed == {"EAST": PlacementKind.CHAMPION, "WEST": PlacementKind.RUNNER_UP}
+
+
+def test_a_game_of_a_multi_game_edition_is_the_championship_only_by_its_round() -> None:
+    games = [
+        game("a", STR, WAV, note=SINGLE_GAME, score=(21, 18)),
+        game("b", WAV, PKS, note=SINGLE_GAME, score=(20, 22), minutes=30),
+    ]
+
+    feed = build(games)
+
+    assert [g.championship for g in feed.edition.games] == [False, False]
+
+
+def test_sides_that_share_a_name_are_drawn_with_their_code_and_name() -> None:
+    feed = build(single_game())
+
+    game_ = feed.edition.games[0]
+    assert game_.away is not None and game_.home is not None
+    assert (game_.away.name, game_.home.name) == ("EAST All-Stars", "WEST All-Stars")
+    assert [t.team.name for t in feed.edition.teams] == [
+        "EAST All-Stars",
+        "WEST All-Stars",
+    ]
+    assert [r.opponent.name for r in feed.edition.teams[0].results] == [
+        "WEST All-Stars"
+    ]
+    assert (game_.away.code, game_.home.code) == ("EAST", "WEST")
+
+
+def test_sides_with_distinct_names_are_not_renamed() -> None:
+    feed = build(round_robin())
+
+    assert [t.team.name for t in feed.edition.teams] == [
+        "Team Stripes",
+        "Team Waves",
+        "Team Peaks",
+    ]
+
+
+def test_the_recap_of_a_single_game_previous_edition_carries_its_mvp() -> None:
+    previous = sources(
+        single_game(), year=2026, edition_date=PREVIOUS_DAY, awards=award("1001")
+    )
+
+    feed = build(round_robin(), previous=previous)
+
+    assert feed.previous is not None
+    assert feed.previous.championship.game_id == "s1"
+    assert feed.previous.championship.away.name == "EAST All-Stars"
+    assert feed.previous.mvp is not None and feed.previous.mvp.player_id == "1001"
+    assert feed.previous_edition is not None
+    assert feed.previous_edition.mvp == feed.previous.mvp
 
 
 def box_of(feed: AllStarFeed, game_id: str, side: str) -> list[tuple[str, bool]]:

@@ -60,6 +60,7 @@ export interface CupFeed {
 		BracketSlot
 	];
 	games: CupGames;
+	buildVersion: number | null;
 }
 /**
  * A team a game is played against: a league team or a guest.

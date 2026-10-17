@@ -446,6 +446,9 @@ class AllStarFeed(FeedModel):
     mvp: AllStarMvp | None
     previous: AllStarRecap | None
     previous_edition: AllStarPreviousEdition | None
+    # The rules version of a kept season feed (ADR 0053); null on a current feed
+    # and on a stored feed from before the field.
+    build_version: PositiveInt | None = None
 
     @model_validator(mode="after")
     def _require_the_recap_of_a_previous_edition(self) -> AllStarFeed:

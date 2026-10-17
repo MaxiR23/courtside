@@ -42,6 +42,7 @@
 # - A build that raises UnknownFeedError after its check learns the id answers unknown and records no failure, and a later request answers unknown with no build
 # - status gives the kind's answer for an id with no build and None for a kind never registered
 # - refresh starts one build without waiting, joins one in flight and leaves no task referenced
+# - with_build_version stamps the current rules version of the kept season feeds, and is_current_build is true only for that version (ADR 0053)
 #
 # What is covered:
 # - Happy path (fresh, missing built), edge cases (stale, concurrent, semaphore, restart, no build time, invalid stored file), error cases (failed build, timeout, unknown and not ready)
@@ -57,17 +58,21 @@ from pathlib import Path
 
 import pytest
 import respx
+from pydantic import BaseModel
 
 from app.feeds.games import FeedModel
 from app.jobs.on_demand import (
     MAX_BUILDS,
     MISSING_WAIT_SECONDS,
     RETRY_AFTER,
+    SEASON_BUILD_VERSION,
     FeedCache,
     FeedKind,
     FeedUnavailableError,
     IdStatus,
     UnknownFeedError,
+    is_current_build,
+    with_build_version,
 )
 from app.sources.http import SourceError
 from app.storage.feeds import publish_by_id, published_ids, read_by_id
@@ -959,3 +964,21 @@ async def test_a_build_that_learns_the_id_is_unknown_answers_unknown_and_records
         await setup.cache.serve("players", "p1")
 
     assert fake.builds == 1
+
+
+class Versioned(BaseModel):
+    build_version: int | None = None
+
+
+def test_with_build_version_stamps_the_current_version_and_is_current_build_accepts_only_it() -> (
+    None
+):
+    unstamped = Versioned()
+
+    stamped = with_build_version(unstamped)
+
+    assert unstamped.build_version is None
+    assert stamped.build_version == SEASON_BUILD_VERSION
+    assert is_current_build(stamped) is True
+    assert is_current_build(unstamped) is False
+    assert is_current_build(Versioned(build_version=SEASON_BUILD_VERSION + 1)) is False

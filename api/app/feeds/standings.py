@@ -112,6 +112,9 @@ class StandingsFeed(FeedModel):
     games_played: NonNegativeInt
     conferences: list[ConferenceGroup]
     divisions: list[DivisionGroup]
+    # The rules version of a kept season feed (ADR 0053); null on a current feed
+    # and on a stored feed from before the field.
+    build_version: PositiveInt | None = None
 
     @model_validator(mode="after")
     def _require_east_then_west(self) -> StandingsFeed:

@@ -53,6 +53,7 @@ The root is one game.
 | `postseason`          | `GamePostseason` / null   | The play-in or playoff mark, as in the [games feed](games.md)    | null when the game is neither, and when a stored feed was written before the mark |
 | `allStar`             | `GameAllStar` / null      | The All-Star mark, as in the [games feed](games.md)              | null when the game is not an All-Star game, and when a stored feed was written before the mark |
 | `seasonLabel`         | string / null             | The game's season label, such as `2004-05`                       | set on a past game, null on a game of the days shown, and when a stored feed was written before the field |
+| `buildVersion`        | integer / null            | The rules version of a kept past game detail ([ADR 0053](../adr/0053-season-level-rules-for-past-seasons.md)) | null on a current game and on a stored feed from before the field |
 
 For every optional section, `null` means the source has no data for it: the
 page hides the section and its tab (`docs/design-game-detail.md`, "A section
@@ -147,7 +148,10 @@ builds the feed.
 A final game of a stored [day feed](days.md) that the games job has not loaded
 is served on the same route, with the same schema
 ([ADR 0041](../adr/0041-past-game-detail.md)). Any other id keeps the rules
-above. A game of a day feed that is not final answers 404.
+above. A game of a day feed that is not final answers 404. A game that a past
+team or player feed registered with its date is known too: the day feed of that
+date is built first, and a game that day does not list as final answers 503
+([ADR 0053](../adr/0053-season-level-rules-for-past-seasons.md)).
 
 - The game's status, start time, broadcast, line score, score, winner, marks
   (`cup`, `postseason`, `allStar`), sides and `highlightsSearchUrl` come from the

@@ -17,6 +17,7 @@ export interface DayFeed {
 	season: number;
 	seasonLabel: string;
 	day: PastDay;
+	buildVersion: number | null;
 }
 export interface PastDay {
 	date: string;

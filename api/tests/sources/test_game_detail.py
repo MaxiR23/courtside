@@ -37,6 +37,7 @@
 # - The past path (ADR 0041) resolves a side by its team id first, so a historical abbreviation with a known id is a league side with template photos and an unknown id is a guest; it reads the event's season end year from the header, reads no injuries or season series (and does not fail on them), and gives null win probability and null box score or team stats when the summary lacks plays or players
 # - A summary without a header, or with an unreadable season, gives a null season
 # - The past path raises the source error on an invalid payload, a timeout, an error status and a missing URL
+# - fetch_past_game_players (ADR 0053) lists each league side's players with a stat line, by provider id first; reads the jersey and position of the box score and null when absent; reads a jersey that is not one or two digits as null; leaves out a player with no stat line and a guest side; gives no teams for a summary without box score players; rejects an invalid payload; raises the source error on an error status, a timeout and a missing URL
 #
 # What is covered:
 # - A valid response mapped, an invalid payload rejected, upstream failures handled
@@ -60,6 +61,10 @@
 # They are built with invented clubs and example data only: a header with the
 # season, a historical abbreviation with a known id, an unknown id, an injury
 # with an unknown status and a season series of other teams.
+#
+# summary-past-box-players.json is not recorded. It is built with invented
+# players: one with no jersey, one with no position, one with a jersey that is
+# not a number, one with an empty position and one with no stat line.
 #
 # summary-out-of-order-win-probability.json is not recorded. It is built with
 # example data only. Its win probability entries go back in game time in the
@@ -86,10 +91,12 @@ from app.settings import Settings
 from app.sources.game_detail import (
     GameDetail,
     GameDetailSections,
+    GamePlayers,
     SeriesMeeting,
     fetch_game_detail,
     fetch_game_detail_sections,
     fetch_past_game_detail_sections,
+    fetch_past_game_players,
 )
 from app.sources.http import SourceClient, SourceError, create_client
 from app.storage.state import StateStore
@@ -2035,3 +2042,123 @@ async def test_the_past_path_gives_a_null_percentage_and_serves_turnovers_withou
     assert detail.box_score.away.totals.field_goal_pct is None
     assert detail.team_stats.home.turnovers == 5
     assert detail.box_score.home.totals.turnovers == 1
+
+
+# Past game players (ADR 0053)
+
+
+async def fetch_players(settings: Settings) -> GamePlayers:
+    with TemporaryDirectory() as directory:
+        store = StateStore(Path(directory))
+        store.migrate()
+        async with create_client(store) as client:
+            return await fetch_past_game_players(
+                client, GAME_ID, settings, dt.timedelta(hours=1)
+            )
+
+
+@pytest.mark.anyio
+async def test_past_game_players_lists_each_league_sides_players_with_a_stat_line_by_provider_id_first(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    mock.get(URL).respond(json=load("summary-past-box-players.json"))
+
+    players = await fetch_players(settings)
+
+    assert sorted(players.teams) == ["BOS", "OKC"]
+    assert [p.player_id for p in players.teams["OKC"]] == [
+        "9001",
+        "9002",
+        "9003",
+        "9004",
+    ]
+    assert [p.player_id for p in players.teams["BOS"]] == ["9101", "9102"]
+    first = players.teams["OKC"][0]
+    assert first.display_name == "Alex Pilot"
+    assert first.headshot_url == "https://example.com/players/9001.png"
+
+
+@pytest.mark.anyio
+async def test_past_game_players_reads_the_jersey_and_position_of_the_box_score_and_null_when_absent(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    mock.get(URL).respond(json=load("summary-past-box-players.json"))
+
+    players = await fetch_players(settings)
+
+    by_id = {p.player_id: p for p in players.teams["OKC"] + players.teams["BOS"]}
+    assert (by_id["9001"].jersey, by_id["9001"].position_abbreviation) == ("7", "PG")
+    assert (by_id["9003"].jersey, by_id["9003"].position_abbreviation) == (None, "C")
+    assert (by_id["9004"].jersey, by_id["9004"].position_abbreviation) == (None, None)
+    assert (by_id["9101"].jersey, by_id["9101"].position_abbreviation) == ("0", "PF")
+    assert by_id["9102"].position_abbreviation is None
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("jersey", ["A1", "123", "", "1a"])
+async def test_past_game_players_reads_a_jersey_that_is_not_one_or_two_digits_as_null(
+    mock: respx.MockRouter, settings: Settings, jersey: str
+) -> None:
+    payload = load("summary-past-box-players.json")
+    athlete(payload, "SEA", "Alex Pilot")["athlete"]["jersey"] = jersey
+    mock.get(URL).respond(json=payload)
+
+    players = await fetch_players(settings)
+
+    assert players.teams["OKC"][0].jersey is None
+
+
+@pytest.mark.anyio
+async def test_past_game_players_leaves_out_a_player_with_no_stat_line_and_a_guest_side(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("summary-past-box-players.json")
+    rename_team(payload, "BOS", "HCM")
+    for team in payload["boxscore"]["teams"]:
+        if team["team"]["abbreviation"] == "HCM":
+            team["team"]["id"] = "9999"
+    for group in payload["boxscore"]["players"]:
+        if group["team"]["abbreviation"] == "HCM":
+            group["team"]["id"] = "9999"
+    mock.get(URL).respond(json=payload)
+
+    players = await fetch_players(settings)
+
+    assert list(players.teams) == ["OKC"]
+    assert "9005" not in [p.player_id for p in players.teams["OKC"]]
+
+
+@pytest.mark.anyio
+async def test_past_game_players_gives_no_teams_for_a_summary_without_box_score_players(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    mock.get(URL).respond(json=load("summary-past-no-box-score.json"))
+
+    assert (await fetch_players(settings)).teams == {}
+
+
+@pytest.mark.anyio
+async def test_past_game_players_rejects_an_invalid_payload(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    mock.get(URL).respond(json={"boxscore": {"players": [{"statistics": []}]}})
+
+    with pytest.raises(SourceError, match="invalid payload"):
+        await fetch_players(settings)
+
+
+@pytest.mark.anyio
+async def test_past_game_players_raises_the_source_error_on_an_error_status_a_timeout_and_a_missing_url(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    mock.get(URL).mock(side_effect=httpx.TimeoutException("slow"))
+    with pytest.raises(SourceError):
+        await fetch_players(settings)
+
+    mock.get(URL).respond(status_code=500)
+    with pytest.raises(SourceError):
+        await fetch_players(settings)
+
+    no_url = Settings(_env_file=None, player_photo_url=PHOTO_TEMPLATE)  # type: ignore[call-arg]
+    with pytest.raises(SourceError, match="not configured"):
+        await fetch_players(no_url)

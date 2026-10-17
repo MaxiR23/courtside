@@ -11,7 +11,9 @@
 # SeasonStandingsFeeds is the feed kind of the on-demand cache: the id is the
 # season's end year, the feed is stored at feeds/season-standings/{season}.json
 # only when requested. A feed is built once and kept (rule G): it is never
-# refreshed and never deleted.
+# deleted, and rebuilt only when its build version is not the current one (ADR
+# 0053). Each row is named by that season's team object (city and name) with
+# today's code (ADR 0053).
 #
 # SEE: docs/api/standings.md, docs/adr/0043-season-feeds-and-franchise-names.md,
 # api/app/jobs/standings_feed.py
@@ -23,10 +25,17 @@ from collections.abc import Awaitable, Callable
 
 from app.feeds.calendar import FIRST_SEASON
 from app.feeds.standings import StandingsFeed
-from app.jobs.on_demand import FeedCache, FeedKind, IdStatus
+from app.jobs.on_demand import (
+    FeedCache,
+    FeedKind,
+    IdStatus,
+    is_current_build,
+    with_build_version,
+)
 from app.jobs.standings_feed import build_standings_feed
 from app.jobs.stars import StarsJob
 from app.jobs.team_feed import FetchInfo
+from app.jobs.team_names import TeamNamesFeeds
 from app.settings import Settings
 from app.sources import division_standings, team_info
 from app.sources.division_standings import DivisionStandings
@@ -58,6 +67,7 @@ class SeasonStandingsFeeds:
         client: SourceClient,
         cache: FeedCache,
         stars: StarsJob,
+        names: TeamNamesFeeds,
         *,
         fetch_division_standings: FetchSeasonStandings = (
             division_standings.fetch_division_standings
@@ -68,6 +78,7 @@ class SeasonStandingsFeeds:
         self._store = store
         self._client = client
         self._stars = stars
+        self._names = names
         self._fetch_division_standings = fetch_division_standings
         self._fetch_team_info = fetch_team_info
         cache.register(self.kind())
@@ -87,14 +98,32 @@ class SeasonStandingsFeeds:
         )
         codes = list(standings.teams)
         infos = await asyncio.gather(*(self._info(code) for code in codes))
-        return build_standings_feed(
-            standings, dict(zip(codes, infos, strict=True)), final=True
+        season_names = await self._names.season_names(codes, int(season))
+        named = standings.model_copy(
+            update={
+                "teams": {
+                    code: entry
+                    if code not in season_names
+                    else entry.model_copy(
+                        update={
+                            "name": season_names[code][0],
+                            "location": season_names[code][1],
+                        }
+                    )
+                    for code, entry in standings.teams.items()
+                }
+            }
+        )
+        return with_build_version(
+            build_standings_feed(
+                named, dict(zip(codes, infos, strict=True)), final=True
+            )
         )
 
     def is_fresh(
         self, feed: StandingsFeed, built_at: dt.datetime, now: dt.datetime
     ) -> bool:
-        return True
+        return is_current_build(feed)
 
     def keep(self, season: str) -> bool:
         return True

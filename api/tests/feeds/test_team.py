@@ -21,6 +21,8 @@
 # - Accepts names runs and rejects runs not oldest first, an open run before the last and an end before its start; serializes from as the key; reads a stored feed without names as empty
 # - Accepts a division rank of 8 and rejects 9
 # - TeamFeed rejects a null arena and null injuries; PastTeamFeed accepts every past block null, rejects each one when set, and has the team schema apart from its title
+# - A feed with a build version is accepted, one with zero is rejected, and a stored feed without the field reads with a null version
+# - A leader with a null position is accepted
 #
 # What is covered:
 # - A valid feed is accepted and an invalid one is rejected
@@ -660,3 +662,20 @@ def test_the_past_team_schema_equals_the_team_schema_apart_from_its_title() -> N
     del past["title"]
     del committed["title"]
     assert past == committed
+
+
+def test_accepts_a_build_version_and_rejects_zero_and_reads_none_as_null() -> None:
+    stored = valid_team()
+    assert TeamFeed.model_validate(stored).build_version is None
+
+    assert TeamFeed.model_validate({**stored, "buildVersion": 1}).build_version == 1
+    with pytest.raises(ValidationError):
+        TeamFeed.model_validate({**stored, "buildVersion": 0})
+
+
+def test_accepts_a_leader_with_a_null_position() -> None:
+    team = valid_team()
+    team["leaders"]["points"]["position"] = None
+
+    assert TeamFeed.model_validate(team).leaders.points is not None
+    assert TeamFeed.model_validate(team).leaders.points.position is None  # type: ignore[union-attr]

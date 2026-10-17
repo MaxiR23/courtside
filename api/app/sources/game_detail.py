@@ -13,6 +13,11 @@
 # else by abbreviation. A team without an abbreviation is resolved by id or is a
 # guest without a code (ADR 0026). Stat and win probability leaders are sides.
 #
+# fetch_past_game_players reads the same summary for the players of a final
+# game of a past season (ADR 0053): for each league side, the players with a
+# stat line, with the jersey and the position of that game's box score, leniently
+# read (a missing key or a jersey that is not one or two digits is null).
+#
 # Three reading rules for the box score (ADR 0052). Team turnovers are the
 # team's totalTurnovers when the provider sends it, else turnovers. A team
 # percentage the provider does not send is null. When every player of both
@@ -20,9 +25,10 @@
 # null.
 #
 # SEE: docs/api/games.md, docs/adr/0041-past-game-detail.md,
-# docs/adr/0052-box-score-reading.md, api/app/sources/scoreboard.py
+# docs/adr/0052-box-score-reading.md, docs/adr/0053-season-level-rules-for-past-seasons.md, api/app/sources/scoreboard.py
 
 import datetime as dt
+import re
 from typing import Annotated, Any
 from zoneinfo import ZoneInfo
 
@@ -56,6 +62,7 @@ from app.feeds.games import (
     TeamCode,
 )
 from app.feeds.opponent import Side
+from app.feeds.player import JerseyNumber
 from app.settings import Settings
 from app.sources.http import Freshness, SourceClient, SourceError, get_json
 from app.sources.teams import TEAM_CODES, TEAM_IDS, side_of, to_team_code
@@ -836,12 +843,16 @@ async def fetch_past_game_detail_sections(
     return await _fetch_sections(client, game_id, settings, fresh, past=True)
 
 
-def _resolve_side(team: _ProviderBoxTeam, *, past: bool) -> tuple[str | None, bool]:
+def _resolve_ref(ref: _ProviderTeamRef, *, past: bool) -> tuple[str | None, bool]:
     # A past game's team id of the 30 wins over the abbreviation, which may be
     # a historical one (ADR 0040).
-    if past and team.team.id in TEAM_IDS:
-        return TEAM_CODES[TEAM_IDS[team.team.id]], False
-    return side_of(team.team.abbreviation, team.team.id, source=SOURCE)
+    if past and ref.id in TEAM_IDS:
+        return TEAM_CODES[TEAM_IDS[ref.id]], False
+    return side_of(ref.abbreviation, ref.id, source=SOURCE)
+
+
+def _resolve_side(team: _ProviderBoxTeam, *, past: bool) -> tuple[str | None, bool]:
+    return _resolve_ref(team.team, past=past)
 
 
 async def _fetch_sections(
@@ -945,4 +956,120 @@ async def _fetch_sections(
         location = ".".join(str(part) for part in first["loc"])
         raise SourceError(
             SOURCE, f"game {game_id} is invalid: {first['type']} at {location}"
+        ) from None
+
+
+class BoxScoreRosterEntry(FeedModel):
+    """A player with a stat line in the box score of one past game. Never reaches
+    a feed."""
+
+    player_id: NonEmptyStr
+    display_name: NonEmptyStr
+    jersey: JerseyNumber | None
+    position_abbreviation: NonEmptyStr | None
+    headshot_url: NonEmptyStr | None
+    # Start of the newest final game of the season the player played for the
+    # team; set by SeasonRosters only, so stored GamePlayers bodies still validate.
+    last_played: dt.datetime | None = None
+
+
+class GamePlayers(FeedModel):
+    """The players of a past game by standard team code, league sides only."""
+
+    teams: dict[str, list[BoxScoreRosterEntry]]
+
+
+class _PlayersPosition(_ProviderModel):
+    abbreviation: str | None = None
+
+
+class _PlayersAthlete(_ProviderAthlete):
+    jersey: str | None = None
+    position: _PlayersPosition | None = None
+
+
+class _PlayersLine(_ProviderModel):
+    athlete: _PlayersAthlete
+    stats: list[str] = []
+
+
+class _PlayersGroup(_ProviderModel):
+    athletes: list[_PlayersLine] = []
+
+
+class _PlayersBox(_ProviderModel):
+    team: _ProviderTeamRef
+    statistics: list[_PlayersGroup] = []
+
+
+class _PlayersTeam(_ProviderModel):
+    team: _ProviderTeamRef
+
+
+class _PlayersBoxscore(_ProviderModel):
+    teams: list[_PlayersTeam] = []
+    players: list[_PlayersBox] = []
+
+
+class _PlayersSummary(_ProviderModel):
+    boxscore: _PlayersBoxscore
+
+
+_JERSEY = re.compile(r"\d{1,2}")
+
+
+async def fetch_past_game_players(
+    client: SourceClient, game_id: str, settings: Settings, fresh: Freshness
+) -> GamePlayers:
+    """The players with a stat line of each league side of a final game of a past
+    season, with the jersey and position of its box score (ADR 0053), or raise
+    SourceError. A summary without box score players gives no teams."""
+    if settings.game_detail_url is None:
+        raise SourceError(SOURCE, "game detail URL is not configured")
+    if settings.player_photo_url is None:
+        raise SourceError(SOURCE, "player photo URL is not configured")
+    url = settings.game_detail_url.format(game_id=game_id)
+    body = await get_json(client, url, source=SOURCE, fresh=fresh)
+    try:
+        summary = _PlayersSummary.model_validate(body)
+        teams: dict[str, list[BoxScoreRosterEntry]] = {}
+        for side in summary.boxscore.teams:
+            code, guest = _resolve_ref(side.team, past=True)
+            players = next(
+                (p for p in summary.boxscore.players if _same_team(p.team, side.team)),
+                None,
+            )
+            if guest or code is None or players is None or not players.statistics:
+                continue
+            teams[code] = [
+                BoxScoreRosterEntry.model_validate(
+                    {
+                        "player_id": line.athlete.id,
+                        "display_name": line.athlete.display_name,
+                        "jersey": (
+                            line.athlete.jersey
+                            if line.athlete.jersey
+                            and _JERSEY.fullmatch(line.athlete.jersey)
+                            else None
+                        ),
+                        "position_abbreviation": (
+                            line.athlete.position.abbreviation or None
+                            if line.athlete.position
+                            else None
+                        ),
+                        "headshot_url": _photo(
+                            line.athlete, settings.player_photo_url, guest=False
+                        ),
+                    }
+                )
+                for line in players.statistics[0].athletes
+                if line.stats
+            ]
+        return GamePlayers(teams=teams)
+    except ValidationError as error:
+        first = error.errors()[0]
+        location = ".".join(str(part) for part in first["loc"])
+        raise SourceError(
+            SOURCE,
+            f"invalid payload: {error.error_count()} errors, first at {location}",
         ) from None

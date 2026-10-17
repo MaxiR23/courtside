@@ -64,6 +64,7 @@ from app.sources import (
 )
 from app.sources.cup import GROUP_IDS, CupTable, fetch_group_table
 from app.sources.division_standings import DivisionEntry, DivisionStandings
+from app.sources.game_detail import BoxScoreRosterEntry
 from app.sources.http import SourceClient, SourceError
 from app.sources.league_injuries import LeagueInjuries
 from app.sources.team_info import TeamInfo
@@ -346,7 +347,9 @@ def birthplace_text(entry: RosterEntry) -> str | None:
     return entry.birth_city
 
 
-def player_name(entry: RosterEntry) -> str:
+def player_name(entry: RosterEntry | BoxScoreRosterEntry) -> str:
+    if isinstance(entry, BoxScoreRosterEntry):
+        return entry.display_name
     return entry.display_name or f"{entry.first_name} {entry.last_name}"
 
 

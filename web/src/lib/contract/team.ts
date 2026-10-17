@@ -30,6 +30,7 @@ export interface TeamFeed {
 	cup: TeamCup | null;
 	titles: [TeamTitle] | [TeamTitle, TeamTitle] | [TeamTitle, TeamTitle, TeamTitle] | null;
 	names: NameRun[];
+	buildVersion: number | null;
 }
 export interface TeamColors {
 	primary: string;
@@ -92,7 +93,7 @@ export interface TeamLeader {
 	playerId: string;
 	name: string;
 	number: string | null;
-	position: string;
+	position: string | null;
 	photoUrl: string | null;
 	value: number;
 }

@@ -42,6 +42,7 @@ export interface GameDetailFeed {
 	postseason: GamePostseason | null;
 	allStar: GameAllStar | null;
 	seasonLabel: string | null;
+	buildVersion: number | null;
 }
 export interface Venue {
 	name: string;

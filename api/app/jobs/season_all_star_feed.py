@@ -20,7 +20,8 @@
 # only when requested. A season is valid from 1994 to the season before the
 # current one (past_season_status). The current season is resolved before the
 # cache (target) to the current All-Star feed. A feed is built once and kept
-# (rule G): it is never refreshed and never deleted.
+# (rule G): it is never deleted, and rebuilt only when its build version is not
+# the current one (ADR 0053).
 #
 # SEE: docs/api/all-star.md, docs/adr/0047-season-all-star-feed.md,
 # docs/adr/0048-highlights-backfill-and-edition-video.md,
@@ -51,7 +52,14 @@ from app.jobs.all_star_feed import (
 )
 from app.jobs.calendar_feed import FetchSeasonCalendar
 from app.jobs.games import eastern_date
-from app.jobs.on_demand import FeedCache, FeedKind, IdStatus, UnknownFeedError
+from app.jobs.on_demand import (
+    FeedCache,
+    FeedKind,
+    IdStatus,
+    UnknownFeedError,
+    is_current_build,
+    with_build_version,
+)
 from app.jobs.season_standings_feed import past_season_status
 from app.jobs.stars import StarsJob
 from app.settings import Settings
@@ -269,7 +277,7 @@ class SeasonAllStarFeeds:
         except AllStarBuildError as error:
             logger.warning("season all-star: %s not built: %s", season, error.reason)
             raise
-        return feed
+        return with_build_version(feed)
 
     def stored(self, season: str) -> AllStarFeed | None:
         """The stored All-Star feed of a season, or none when missing or invalid."""
@@ -284,7 +292,7 @@ class SeasonAllStarFeeds:
     def is_fresh(
         self, feed: AllStarFeed, built_at: dt.datetime, now: dt.datetime
     ) -> bool:
-        return True
+        return is_current_build(feed)
 
     def keep(self, feed_id: str) -> bool:
         return True

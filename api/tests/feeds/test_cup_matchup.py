@@ -6,6 +6,7 @@
 # - A valid feed is accepted and serialized with camelCase keys
 # - A slot with no game and a side with no team are accepted, and so are a projected side and a player with no averages or card fields
 # - Rejects a side with a team and no details, a side with details and no team, a projected side without a team, more than five starters, a leader without averages, a path game with a result or scores before it is final, a final path game without its result and scores, a path out of start order, a final slot with a conference, a conference slot without a conference, a championship that counts in the standings and an unknown field
+# - A feed with a build version is accepted, one with zero is rejected, and a stored feed without the field reads with a null version
 #
 # What is covered:
 # - A valid feed is accepted and an invalid one is rejected
@@ -293,3 +294,14 @@ def test_rejects_an_unknown_field() -> None:
     feed["extra"] = 1
 
     rejects(feed)
+
+
+def test_accepts_a_build_version_and_rejects_zero_and_reads_none_as_null() -> None:
+    stored = valid_feed()
+    assert CupMatchupFeed.model_validate(stored).build_version is None
+
+    assert (
+        CupMatchupFeed.model_validate({**stored, "buildVersion": 1}).build_version == 1
+    )
+    with pytest.raises(ValidationError):
+        CupMatchupFeed.model_validate({**stored, "buildVersion": 0})

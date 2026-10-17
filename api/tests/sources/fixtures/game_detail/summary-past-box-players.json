@@ -1,0 +1,295 @@
+{
+  "header": {
+    "season": {
+      "year": 2005,
+      "type": 2
+    }
+  },
+  "boxscore": {
+    "teams": [
+      {
+        "homeAway": "away",
+        "team": {
+          "abbreviation": "SEA",
+          "id": "25"
+        },
+        "statistics": [
+          {
+            "name": "fieldGoalPct",
+            "displayValue": "50.0"
+          }
+        ]
+      },
+      {
+        "homeAway": "home",
+        "team": {
+          "abbreviation": "BOS",
+          "id": "2"
+        },
+        "statistics": [
+          {
+            "name": "fieldGoalPct",
+            "displayValue": "50.0"
+          }
+        ]
+      }
+    ],
+    "players": [
+      {
+        "team": {
+          "abbreviation": "SEA",
+          "id": "25"
+        },
+        "statistics": [
+          {
+            "keys": [
+              "minutes",
+              "fieldGoalsMade-fieldGoalsAttempted",
+              "threePointFieldGoalsMade-threePointFieldGoalsAttempted",
+              "freeThrowsMade-freeThrowsAttempted",
+              "offensiveRebounds",
+              "defensiveRebounds",
+              "rebounds",
+              "assists",
+              "steals",
+              "blocks",
+              "turnovers",
+              "fouls",
+              "plusMinus",
+              "points"
+            ],
+            "totals": [],
+            "athletes": [
+              {
+                "athlete": {
+                  "id": "9001",
+                  "displayName": "Alex Pilot",
+                  "headshot": {
+                    "href": "https://example.com/heads/9001.png"
+                  },
+                  "jersey": "7",
+                  "position": {
+                    "abbreviation": "PG",
+                    "displayName": "PG"
+                  }
+                },
+                "starter": true,
+                "stats": [
+                  "30",
+                  "5-10",
+                  "1-3",
+                  "0-0",
+                  "1",
+                  "4",
+                  "5",
+                  "3",
+                  "1",
+                  "0",
+                  "2",
+                  "3",
+                  "+2",
+                  "11"
+                ]
+              },
+              {
+                "athlete": {
+                  "id": "9002",
+                  "displayName": "Sam Rower",
+                  "headshot": {
+                    "href": "https://example.com/heads/9002.png"
+                  },
+                  "jersey": "12",
+                  "position": {
+                    "abbreviation": "SF",
+                    "displayName": "SF"
+                  }
+                },
+                "starter": true,
+                "stats": [
+                  "30",
+                  "5-10",
+                  "1-3",
+                  "0-0",
+                  "1",
+                  "4",
+                  "5",
+                  "3",
+                  "1",
+                  "0",
+                  "2",
+                  "3",
+                  "+2",
+                  "11"
+                ]
+              },
+              {
+                "athlete": {
+                  "id": "9003",
+                  "displayName": "No Number",
+                  "headshot": {
+                    "href": "https://example.com/heads/9003.png"
+                  },
+                  "position": {
+                    "abbreviation": "C",
+                    "displayName": "C"
+                  }
+                },
+                "starter": true,
+                "stats": [
+                  "30",
+                  "5-10",
+                  "1-3",
+                  "0-0",
+                  "1",
+                  "4",
+                  "5",
+                  "3",
+                  "1",
+                  "0",
+                  "2",
+                  "3",
+                  "+2",
+                  "11"
+                ]
+              },
+              {
+                "athlete": {
+                  "id": "9004",
+                  "displayName": "No Position",
+                  "headshot": {
+                    "href": "https://example.com/heads/9004.png"
+                  },
+                  "jersey": "A1"
+                },
+                "starter": true,
+                "stats": [
+                  "30",
+                  "5-10",
+                  "1-3",
+                  "0-0",
+                  "1",
+                  "4",
+                  "5",
+                  "3",
+                  "1",
+                  "0",
+                  "2",
+                  "3",
+                  "+2",
+                  "11"
+                ]
+              },
+              {
+                "athlete": {
+                  "id": "9005",
+                  "displayName": "Idle Player",
+                  "headshot": {
+                    "href": "https://example.com/heads/9005.png"
+                  },
+                  "jersey": "3",
+                  "position": {
+                    "abbreviation": "SG",
+                    "displayName": "SG"
+                  }
+                },
+                "starter": true,
+                "stats": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "team": {
+          "abbreviation": "BOS",
+          "id": "2"
+        },
+        "statistics": [
+          {
+            "keys": [
+              "minutes",
+              "fieldGoalsMade-fieldGoalsAttempted",
+              "threePointFieldGoalsMade-threePointFieldGoalsAttempted",
+              "freeThrowsMade-freeThrowsAttempted",
+              "offensiveRebounds",
+              "defensiveRebounds",
+              "rebounds",
+              "assists",
+              "steals",
+              "blocks",
+              "turnovers",
+              "fouls",
+              "plusMinus",
+              "points"
+            ],
+            "totals": [],
+            "athletes": [
+              {
+                "athlete": {
+                  "id": "9101",
+                  "displayName": "Bo Stone",
+                  "headshot": {
+                    "href": "https://example.com/heads/9101.png"
+                  },
+                  "jersey": "0",
+                  "position": {
+                    "abbreviation": "PF",
+                    "displayName": "PF"
+                  }
+                },
+                "starter": true,
+                "stats": [
+                  "30",
+                  "5-10",
+                  "1-3",
+                  "0-0",
+                  "1",
+                  "4",
+                  "5",
+                  "3",
+                  "1",
+                  "0",
+                  "2",
+                  "3",
+                  "+2",
+                  "11"
+                ]
+              },
+              {
+                "athlete": {
+                  "id": "9102",
+                  "displayName": "Cy Reed",
+                  "headshot": {
+                    "href": "https://example.com/heads/9102.png"
+                  },
+                  "jersey": "23",
+                  "position": {
+                    "abbreviation": "",
+                    "displayName": ""
+                  }
+                },
+                "starter": true,
+                "stats": [
+                  "30",
+                  "5-10",
+                  "1-3",
+                  "0-0",
+                  "1",
+                  "4",
+                  "5",
+                  "3",
+                  "1",
+                  "0",
+                  "2",
+                  "3",
+                  "+2",
+                  "11"
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

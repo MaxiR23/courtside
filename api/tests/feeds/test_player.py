@@ -23,6 +23,7 @@
 # - Rejects a season label on the current feed; PastPlayerFeed requires it and rejects an injury, a next game or a live block
 # - Reads a stored feed without active and season label as active with no label
 # - The past player schema equals the player schema apart from its title
+# - A feed with a build version is accepted, one with zero is rejected, and a stored feed without the field reads with a null version
 #
 # What is covered:
 # - A valid feed is accepted and an invalid one is rejected
@@ -713,3 +714,12 @@ def test_the_past_player_schema_equals_the_player_schema_apart_from_its_title() 
     del past["title"]
     del committed["title"]
     assert past == committed
+
+
+def test_accepts_a_build_version_and_rejects_zero_and_reads_none_as_null() -> None:
+    stored = valid_player()
+    assert PlayerFeed.model_validate(stored).build_version is None
+
+    assert PlayerFeed.model_validate({**stored, "buildVersion": 1}).build_version == 1
+    with pytest.raises(ValidationError):
+        PlayerFeed.model_validate({**stored, "buildVersion": 0})

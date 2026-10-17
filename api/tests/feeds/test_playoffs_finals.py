@@ -16,6 +16,7 @@
 # - Road series whose rounds do not increase, or more than 4, are rejected
 # - An unknown field is rejected
 # - The dump has camelCase keys
+# - A feed with a build version is accepted, one with zero is rejected, and a stored feed without the field reads with a null version
 #
 # What is covered:
 # - A valid feed is accepted and an invalid one is rejected
@@ -224,3 +225,15 @@ def test_rejects_an_invalid_feed(change: Callable[[Data], None]) -> None:
 
     with pytest.raises(ValidationError):
         check(data)
+
+
+def test_accepts_a_build_version_and_rejects_zero_and_reads_none_as_null() -> None:
+    stored = valid()
+    assert PlayoffsFinalsFeed.model_validate(stored).build_version is None
+
+    assert (
+        PlayoffsFinalsFeed.model_validate({**stored, "buildVersion": 1}).build_version
+        == 1
+    )
+    with pytest.raises(ValidationError):
+        PlayoffsFinalsFeed.model_validate({**stored, "buildVersion": 0})

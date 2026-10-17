@@ -14,6 +14,7 @@ export interface StandingsFeed {
 	gamesPlayed: number;
 	conferences: ConferenceGroup[];
 	divisions: DivisionGroup[];
+	buildVersion: number | null;
 }
 export interface ConferenceGroup {
 	key: Conference;

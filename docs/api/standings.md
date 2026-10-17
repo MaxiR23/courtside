@@ -27,6 +27,7 @@ Conventions:
 | `gamesPlayed` | integer              | The sum of the wins of every team                              | always  |
 | `conferences` | `ConferenceGroup[]`  | East then West                                                 | always  |
 | `divisions`   | `DivisionGroup[]`    | Every division, in the order the provider sends them           | always  |
+| `buildVersion` | integer / null | The rules version of a kept season feed ([ADR 0053](../adr/0053-season-level-rules-for-past-seasons.md)) | null on a current feed and on a stored feed from before the field |
 
 ## Nested objects
 
@@ -121,10 +122,12 @@ the season before the current one.
   read once with the season query value, with no rule L fallback, and each team
   is resolved by its provider id first, so a past abbreviation still gives the
   team's standard code. A response that is not of the requested regular season
-  fails the build.
+  fails the build. Each row's `city` and `name` are the season team object's,
+  with today's code ([ADR 0053](../adr/0053-season-level-rules-for-past-seasons.md)).
 - Refresh: built on request, stored at `feeds/season-standings/{season}.json`,
   kept for good (rule G of [`docs/source-rules.md`](../source-rules.md)): never
-  refreshed and never deleted. A failed build with nothing stored is retried
+  deleted, and rebuilt on its next request when its `buildVersion` is not the
+  current one. A failed build with nothing stored is retried
   after 10 minutes.
 - The kind is `SeasonStandingsFeeds` in
   `api/app/jobs/season_standings_feed.py`.

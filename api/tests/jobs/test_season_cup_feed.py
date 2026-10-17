@@ -6,7 +6,9 @@
 # - past_cup_season_status: 2023, 1994, abc, 02025, 2025 with a trailing newline, the current season and a future season are unknown; 2024 and the season before the current one are known; an unknown current season is not ready for a well-formed id from 2024 and a season before 2024 stays unknown
 # - target: the current season maps to the current Cup feed, a past season to the season kind, and an unknown current season to the season kind
 # - The kind: a past season builds a valid complete feed with the champion and the bracket scores, reading the sources with the season and the schedules by provider id first
-# - The kind: the feed is stored under season-cup and never rebuilt: a second request, a request years later and a restart all serve with no source call
+# - The kind: season 2024 with In-Season Tournament notes and two quarterfinals sharing a seed builds as complete, the quarterfinals placed by start time (ADR 0053)
+# - The kind: the built feed carries the current build version, a stored feed of an older or missing version is rebuilt on its next request, and one of the current version is served with no source request (ADR 0053)
+# - The kind: the feed is stored under season-cup and rebuilt only for another version: a second request, a request years later and a restart all serve with no source call
 # - The kind: building it writes nothing under the current Cup feed
 # - The kind: a Cup that is not complete answers unavailable and stores nothing
 # - The kind: a failed read with nothing stored answers unavailable
@@ -38,6 +40,7 @@ from app.feeds.game_detail import Conference
 from app.jobs.cup_feed import FEED_ID as CUP_FEED_ID
 from app.jobs.cup_feed import KIND as CUP_KIND
 from app.jobs.on_demand import (
+    SEASON_BUILD_VERSION,
     FeedCache,
     FeedUnavailableError,
     IdStatus,
@@ -52,14 +55,15 @@ from app.jobs.stars import StarsJob
 from app.settings import Settings
 from app.sources.cup import CupTable
 from app.sources.http import SourceClient
-from app.sources.team_schedule import SeasonSchedule
-from app.storage.feeds import read_by_id
+from app.sources.team_schedule import ScheduledGame, SeasonSchedule
+from app.storage.feeds import publish_by_id, read_by_id
 from tests.jobs.test_cup_feed import (
     NOW,
     all_final,
     group_pairs,
     knockouts,
     schedules_of,
+    shared_seed_cup,
 )
 from tests.jobs.test_cup_matchup_feed import MatchupKit
 
@@ -298,3 +302,86 @@ async def test_the_cleanup_keeps_the_feed(kit: SeasonCupKit) -> None:
     kit.cache.cleanup()
 
     assert read_by_id(kit.path, KIND, "2025") == body
+
+
+IN_SEASON_NOTES = {
+    "NBA Cup - Quarterfinals": "NBA In-Season Tournament - Quarterfinals",
+    "NBA Cup - Semifinals": "NBA In-Season Tournament - Semifinals",
+    "NBA Cup Championship": "NBA In-Season Tournament Championship",
+}
+
+
+def in_season_tournament(
+    pairs: list[dict[str, ScheduledGame]],
+) -> list[dict[str, ScheduledGame]]:
+    return [
+        {
+            code: view.model_copy(
+                update={"note": IN_SEASON_NOTES.get(view.note or "", view.note)}
+            )
+            for code, view in views.items()
+        }
+        for views in pairs
+    ]
+
+
+@pytest.mark.anyio
+async def test_season_2024_with_in_season_tournament_notes_builds_as_complete(
+    kit: SeasonCupKit,
+) -> None:
+    kit.pairs = in_season_tournament(shared_seed_cup())
+
+    feed = CupFeed.model_validate_json(await kit.serve_season("2024"))
+
+    assert feed.season == "2023-24"
+    assert feed.stage is CupStage.COMPLETE
+    qf1 = next(s for s in feed.bracket if s.id.value == "east-qf-1")
+    qf2 = next(s for s in feed.bracket if s.id.value == "east-qf-2")
+    assert qf1.game is not None and qf1.game.id == "qeA"
+    assert qf2.game is not None and qf2.game.id == "qeB"
+    assert qf1.top.label.seed is None
+
+
+@pytest.mark.anyio
+async def test_the_built_feed_carries_the_current_build_version(
+    kit: SeasonCupKit,
+) -> None:
+    feed = CupFeed.model_validate_json(await kit.serve_season("2025"))
+
+    assert feed.build_version == SEASON_BUILD_VERSION
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("version", [None, SEASON_BUILD_VERSION + 1])
+async def test_a_stored_feed_with_an_older_or_missing_version_is_rebuilt_on_its_next_request(
+    kit: SeasonCupKit, version: int | None
+) -> None:
+    await kit.serve_season("2025")
+    stored = CupFeed.model_validate_json(read_by_id(kit.path, KIND, "2025") or b"")
+    publish_by_id(
+        kit.path,
+        KIND,
+        CupFeed,
+        "2025",
+        stored.model_copy(update={"build_version": version}),
+    )
+    kit.calls.clear()
+
+    served = CupFeed.model_validate_json(await kit.serve_season("2025", NOW + YEARS))
+
+    assert served.build_version == version
+    assert kit.called("teams/") == 6
+    rebuilt = CupFeed.model_validate_json(read_by_id(kit.path, KIND, "2025") or b"")
+    assert rebuilt.build_version == SEASON_BUILD_VERSION
+
+
+@pytest.mark.anyio
+async def test_a_stored_feed_with_the_current_version_is_served_with_no_source_request(
+    kit: SeasonCupKit,
+) -> None:
+    await kit.serve_season("2025")
+    kit.calls.clear()
+
+    await kit.serve_season("2025", NOW + YEARS)
+
+    assert kit.calls == []

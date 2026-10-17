@@ -2,8 +2,9 @@
 #
 # Playoffs finals feed of a past season (ADR 0046): the playoffs finals feed's
 # shape, built by the playoffs finals builder from the stored season playoffs
-# feed and the reads of that season. The roster of each finalist is the roster
-# of that season (empty when the source has none); the game details resolve the
+# feed and the reads of that season. The roster of each finalist is the box-score
+# roster of that season (SeasonRosters, ADR 0053); a failed roster read fails the
+# build; the game details resolve the
 # sides by provider id first; the details, sections, plays, team records and team
 # statistics are null when the source answers 404 and any other failed read
 # fails the build, because the feed is kept for good. Stored highlights are added
@@ -14,7 +15,8 @@
 # feeds/season-playoffs-finals/{season}.json only when requested and the season
 # playoffs feed is built first when it is missing. The current season is
 # resolved before the cache (target) to the current playoffs finals feed. A feed
-# is built once and kept (rule G): it is never refreshed and never deleted.
+# is built once and kept (rule G): it is never deleted, and rebuilt only when its
+# build version is not the current one (ADR 0053).
 #
 # SEE: docs/api/playoffs.md, docs/adr/0046-season-playoffs-feeds.md,
 # docs/adr/0048-highlights-backfill-and-edition-video.md,
@@ -28,7 +30,13 @@ from collections.abc import Awaitable, Callable
 from app.feeds.games import GameStatus
 from app.feeds.playoffs_finals import PlayoffsFinalsFeed
 from app.jobs import playoffs_finals_feed, season_playoffs_feed
-from app.jobs.on_demand import FeedCache, FeedKind, IdStatus
+from app.jobs.on_demand import (
+    FeedCache,
+    FeedKind,
+    IdStatus,
+    is_current_build,
+    with_build_version,
+)
 from app.jobs.playoffs_finals_feed import (
     UNPLAYED_FRESH,
     FetchPlays,
@@ -43,6 +51,7 @@ from app.jobs.playoffs_finals_feed import (
     mvp_id,
 )
 from app.jobs.season_playoffs_feed import SeasonPlayoffsFeeds, none_on_404
+from app.jobs.season_rosters import SeasonRosters
 from app.jobs.season_standings_feed import past_season_status
 from app.jobs.stars import StarsJob
 from app.jobs.team_feed import season_label
@@ -51,19 +60,17 @@ from app.sources import (
     finals_plays,
     game_detail,
     player_stats,
-    team_players,
     team_postseason,
 )
-from app.sources.game_detail import GameDetail
+from app.sources.game_detail import BoxScoreRosterEntry, GameDetail
 from app.sources.http import SourceClient
-from app.sources.team_players import Roster, RosterEntry
+from app.sources.team_players import RosterEntry
 from app.storage.feeds import read_by_id
 from app.storage.state import StateStore
 
 KIND = "season-playoffs-finals"
 
 FetchSeasonDetail = Callable[..., Awaitable[GameDetail]]
-FetchSeasonRoster = Callable[..., Awaitable[Roster]]
 
 
 class SeasonPlayoffsFinalsFeeds:
@@ -75,6 +82,7 @@ class SeasonPlayoffsFinalsFeeds:
         cache: FeedCache,
         stars: StarsJob,
         playoffs: SeasonPlayoffsFeeds,
+        rosters: SeasonRosters,
         *,
         fetch_game_detail: FetchSeasonDetail = game_detail.fetch_game_detail,
         fetch_game_detail_sections: FetchSections = (
@@ -82,7 +90,6 @@ class SeasonPlayoffsFinalsFeeds:
         ),
         fetch_play_scores: FetchPlays = finals_plays.fetch_play_scores,
         fetch_player_stats: FetchStats = player_stats.fetch_player_stats,
-        fetch_season_roster: FetchSeasonRoster = (team_players.fetch_season_roster),
         fetch_team_postseason_record: FetchRecord = (
             team_postseason.fetch_team_postseason_record
         ),
@@ -95,11 +102,11 @@ class SeasonPlayoffsFinalsFeeds:
         self._client = client
         self._stars = stars
         self._playoffs = playoffs
+        self._rosters = rosters
         self._fetch_game_detail = fetch_game_detail
         self._fetch_game_detail_sections = fetch_game_detail_sections
         self._fetch_play_scores = fetch_play_scores
         self._fetch_player_stats = fetch_player_stats
-        self._fetch_season_roster = fetch_season_roster
         self._fetch_team_postseason_record = fetch_team_postseason_record
         self._fetch_team_postseason_stats = fetch_team_postseason_stats
         cache.register(self.kind())
@@ -133,14 +140,10 @@ class SeasonPlayoffsFinalsFeeds:
         client, settings = self._client, self._settings
         detail = functools.partial(self._fetch_game_detail, by_id_first=True)
         found = await asyncio.gather(
-            *(
-                none_on_404(self._fetch_season_roster(client, code, year, settings))
-                for code in codes
-            )
+            *(self._rosters.roster(code, year) for code in codes)
         )
-        rosters: dict[str, list[RosterEntry]] = {
-            code: [] if roster is None else list(roster.entries)
-            for code, roster in zip(codes, found, strict=True)
+        rosters: dict[str, list[RosterEntry | BoxScoreRosterEntry]] = {
+            code: list(roster) for code, roster in zip(codes, found, strict=True)
         }
         mvp = mvp_id(stored)
         player_ids = list(
@@ -197,16 +200,18 @@ class SeasonPlayoffsFinalsFeeds:
                 )
             ),
         )
-        return build_finals_feed(
-            FinalsSources(
-                playoffs=stored,
-                rosters=rosters,
-                details=dict(zip(game_ids, details, strict=True)),
-                sections=dict(zip(game_ids, sections, strict=True)),
-                plays=dict(zip(game_ids, plays, strict=True)),
-                player_stats=dict(zip(player_ids, stats, strict=True)),
-                records=dict(zip(codes, records, strict=True)),
-                team_stats=dict(zip(codes, team_stats, strict=True)),
+        return with_build_version(
+            build_finals_feed(
+                FinalsSources(
+                    playoffs=stored,
+                    rosters=rosters,
+                    details=dict(zip(game_ids, details, strict=True)),
+                    sections=dict(zip(game_ids, sections, strict=True)),
+                    plays=dict(zip(game_ids, plays, strict=True)),
+                    player_stats=dict(zip(player_ids, stats, strict=True)),
+                    records=dict(zip(codes, records, strict=True)),
+                    team_stats=dict(zip(codes, team_stats, strict=True)),
+                )
             )
         )
 
@@ -223,7 +228,7 @@ class SeasonPlayoffsFinalsFeeds:
     def is_fresh(
         self, feed: PlayoffsFinalsFeed, built_at: dt.datetime, now: dt.datetime
     ) -> bool:
-        return True
+        return is_current_build(feed)
 
     def serve_with(self, feed_id: str, feed: PlayoffsFinalsFeed) -> PlayoffsFinalsFeed:
         highlights = self._store.highlights()

@@ -345,6 +345,18 @@
         "$ref": "#/$defs/DivisionGroup"
       },
       "type": "array"
+    },
+    "buildVersion": {
+      "anyOf": [
+        {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     }
   },
   "required": [
@@ -352,7 +364,8 @@
     "state",
     "gamesPlayed",
     "conferences",
-    "divisions"
+    "divisions",
+    "buildVersion"
   ],
   "title": "StandingsFeed",
   "type": "object"

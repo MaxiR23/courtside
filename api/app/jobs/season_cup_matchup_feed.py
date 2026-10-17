@@ -14,7 +14,8 @@
 # season Cup feed is built first when it is missing. The current season is
 # resolved before the cache (target) to the current Cup matchup feed. A failed
 # schedule read fails the build. A feed is built once and kept (rule G): it is
-# never refreshed and never deleted.
+# never deleted, and rebuilt only when its build version is not the current one
+# (ADR 0053).
 #
 # SEE: docs/api/cup-matchup.md, docs/adr/0045-season-competition-feeds.md,
 # api/app/jobs/cup_matchup_feed.py
@@ -38,7 +39,13 @@ from app.jobs.cup_matchup_feed import (
     _path,
     side_team,
 )
-from app.jobs.on_demand import FeedCache, FeedKind, IdStatus
+from app.jobs.on_demand import (
+    FeedCache,
+    FeedKind,
+    IdStatus,
+    is_current_build,
+    with_build_version,
+)
 from app.jobs.season_cup_feed import SeasonCupFeeds, past_cup_season_status
 from app.jobs.stars import StarsJob
 from app.jobs.team_feed import season_label
@@ -162,12 +169,12 @@ class SeasonCupMatchupFeeds:
             )
         )
         schedules = dict(zip(codes, found, strict=True))
-        return build_past_matchup_feed(cup.season, slot, schedules)
+        return with_build_version(build_past_matchup_feed(cup.season, slot, schedules))
 
     def is_fresh(
         self, feed: CupMatchupFeed, built_at: dt.datetime, now: dt.datetime
     ) -> bool:
-        return True
+        return is_current_build(feed)
 
     def keep(self, feed_id: str) -> bool:
         return True

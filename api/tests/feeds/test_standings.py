@@ -10,6 +10,7 @@
 #   decimal, a color without "#", an unknown clinch, a record that is not
 #   W-L, a seed of 0 or 16, a team count that differs from its teams,
 #   conferences out of order and an unknown field
+# - A feed with a build version is accepted, one with zero is rejected, and a stored feed without the field reads with a null version
 #
 # What is covered:
 # - A valid feed is accepted and an invalid one is rejected
@@ -88,7 +89,7 @@ def with_row(change: Payload) -> Payload:
 def test_accepts_a_valid_feed_and_dumps_camel_case_keys() -> None:
     dumped = StandingsFeed.model_validate(feed()).model_dump(mode="json", by_alias=True)
 
-    assert dumped == feed()
+    assert dumped == {**feed(), "buildVersion": None}
     team = dumped["divisions"][0]["teams"][0]
     assert {"gamesBehind", "lastTen", "pointsFor"} <= set(team)
     assert "nonNegative" in team["differential"]
@@ -177,3 +178,14 @@ def test_rejects_an_unknown_field() -> None:
 
     with pytest.raises(ValidationError):
         StandingsFeed.model_validate(payload)
+
+
+def test_accepts_a_build_version_and_rejects_zero_and_reads_none_as_null() -> None:
+    stored = feed()
+    assert StandingsFeed.model_validate(stored).build_version is None
+
+    assert (
+        StandingsFeed.model_validate({**stored, "buildVersion": 1}).build_version == 1
+    )
+    with pytest.raises(ValidationError):
+        StandingsFeed.model_validate({**stored, "buildVersion": 0})

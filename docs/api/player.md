@@ -44,6 +44,7 @@ The root is one player.
 | `active`       | boolean                 | The active state of the athlete object                             | always; true when a stored feed was written before the field |
 | `seasonLabel`  | season label / null     | The season of a past season feed                                   | null on the current feed, set on a season feed |
 | `allStarYear`  | integer / null          | The year of the All-Star game in the season's game log             | null when the game log has no All-Star game, and when a stored feed was written before the field |
+| `buildVersion` | integer / null         | The rules version of a kept season feed ([ADR 0053](../adr/0053-season-level-rules-for-past-seasons.md)) | null on a current feed and on a stored feed from before the field |
 
 ## Nested objects
 
@@ -180,13 +181,19 @@ schema as above) validated by `PastPlayerFeed`.
     February 1 of the end year.
   - `team` is the team of the newest game of the log (an All-Star or preseason
     game does not count), found by provider id, with its name and city of that
-    season; it is null with no such game.
+    season (from the season team object); it is null with no such game.
+  - `number` is the jersey of that team's box scores of the season, else null;
+    the athlete object's number is not used (ADR 0053).
+  - The opponents of the game log are named by that season's team object, and
+    every log game has `detailAvailable` true; their dates are registered so the
+    detail can be built.
   - `active` is the athlete object's and `seasonLabel` is the season.
 - Null blocks: `injury`, `nextGame` and `live`.
 - Known ids: a player of a current roster, of a stored past team season roster or
   of a stored past box score.
 - Refresh: built on request, stored at `feeds/season-players/{season}-{id}.json`,
-  kept for good: never refreshed and never deleted.
+  kept for good: never deleted, and rebuilt on its next request when its
+  `buildVersion` is not the current one.
 - Endpoint: the same headers and 304 as the player feed. It responds 404 with no
   source request for a season outside the range and for an id that is not known
   once every roster is fetched. It responds 503 while the current season is not

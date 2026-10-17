@@ -13,11 +13,13 @@
 # requested. A season is valid from 2024 to the season before the current one
 # (past_cup_season_status). The current season is resolved before the cache
 # (target) to the current Cup feed, as the calendar's current is (ADR 0042). A
-# feed is built once and kept (rule G): it is never refreshed and never deleted.
+# feed is built once and kept (rule G): it is never deleted, and rebuilt only when
+# its build version is not the current one (ADR 0053).
 #
 # SEE: docs/api/cup.md, docs/adr/0045-season-competition-feeds.md,
 # api/app/jobs/cup_feed.py
 
+import dataclasses
 import datetime as dt
 import functools
 
@@ -32,7 +34,13 @@ from app.jobs.cup_feed import (
     build_cup_feed,
     read_cup_sources,
 )
-from app.jobs.on_demand import FeedCache, FeedKind, IdStatus
+from app.jobs.on_demand import (
+    FeedCache,
+    FeedKind,
+    IdStatus,
+    is_current_build,
+    with_build_version,
+)
 from app.jobs.season_standings_feed import past_season_status
 from app.jobs.stars import StarsJob
 from app.settings import Settings
@@ -100,10 +108,10 @@ class SeasonCupFeeds:
                 self._fetch_season_schedule, by_id_first=True
             ),
         )
-        feed = build_cup_feed(sources)
+        feed = build_cup_feed(dataclasses.replace(sources, past=True))
         if feed.stage is not CupStage.COMPLETE:
             raise CupBuildError(f"the {season} Cup is not complete")
-        return feed
+        return with_build_version(feed)
 
     def stored(self, season: str) -> CupFeed | None:
         """The stored Cup feed of a season, or none when missing or invalid."""
@@ -116,7 +124,7 @@ class SeasonCupFeeds:
             return None
 
     def is_fresh(self, feed: CupFeed, built_at: dt.datetime, now: dt.datetime) -> bool:
-        return True
+        return is_current_build(feed)
 
     def keep(self, feed_id: str) -> bool:
         return True

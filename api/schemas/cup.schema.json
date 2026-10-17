@@ -1064,6 +1064,18 @@
     },
     "games": {
       "$ref": "#/$defs/CupGames"
+    },
+    "buildVersion": {
+      "anyOf": [
+        {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     }
   },
   "required": [
@@ -1078,7 +1090,8 @@
     "groups",
     "wildCard",
     "bracket",
-    "games"
+    "games",
+    "buildVersion"
   ],
   "title": "CupFeed",
   "type": "object"

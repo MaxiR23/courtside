@@ -299,6 +299,9 @@ class GameDetailFeed(FeedModel):
     postseason: GamePostseason | None = None
     all_star: GameAllStar | None = None
     season_label: SeasonLabel | None = None
+    # The rules version of a kept past game detail (ADR 0053); null on a current
+    # game and on a stored feed from before the field.
+    build_version: PositiveInt | None = None
 
     @model_validator(mode="before")
     @classmethod

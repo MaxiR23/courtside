@@ -289,6 +289,9 @@ class CupFeed(FeedModel):
     wild_card: Annotated[list[WildCardTable], Field(min_length=2, max_length=2)]
     bracket: Annotated[list[BracketSlot], Field(min_length=7, max_length=7)]
     games: CupGames
+    # The rules version of a kept season feed (ADR 0053); null on a current feed
+    # and on a stored feed from before the field.
+    build_version: PositiveInt | None = None
 
     @model_validator(mode="after")
     def _require_the_champion_when_complete(self) -> CupFeed:

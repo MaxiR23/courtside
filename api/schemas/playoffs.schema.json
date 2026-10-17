@@ -1380,6 +1380,18 @@
           "type": "null"
         }
       ]
+    },
+    "buildVersion": {
+      "anyOf": [
+        {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     }
   },
   "required": [
@@ -1395,7 +1407,8 @@
     "bracket",
     "champion",
     "leaders",
-    "awards"
+    "awards",
+    "buildVersion"
   ],
   "title": "PlayoffsFeed",
   "type": "object"

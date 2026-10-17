@@ -120,6 +120,7 @@ export interface PlayoffsFeed {
 		  ]
 		| null;
 	awards: Award[] | null;
+	buildVersion: number | null;
 }
 export interface DateSpan {
 	firstDate: string;

@@ -1113,6 +1113,18 @@
       "maxItems": 2,
       "minItems": 2,
       "type": "array"
+    },
+    "buildVersion": {
+      "anyOf": [
+        {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     }
   },
   "required": [
@@ -1124,7 +1136,8 @@
     "finalsMvp",
     "road",
     "headToHead",
-    "averages"
+    "averages",
+    "buildVersion"
   ],
   "title": "PlayoffsFinalsFeed",
   "type": "object"

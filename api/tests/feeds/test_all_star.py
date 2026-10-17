@@ -18,6 +18,7 @@
 # - Top points on every tied top scorer are accepted; on a player below the top, missing on the top scorer or on a team with no points they are rejected
 # - A team record that differs from its results and a result that does not match its scores are rejected
 # - An edition, a previous edition and a recap accept an edition highlight or null; a feed without the key reads it as null; an invalid edition highlight is rejected
+# - A feed with a build version is accepted, one with zero is rejected, and a stored feed without the field reads with a null version
 #
 # What is covered:
 # - Feed models: a valid feed is accepted and an invalid one is rejected
@@ -719,3 +720,12 @@ def test_rejects_an_invalid_edition_highlight() -> None:
 
     with pytest.raises(ValidationError):
         AllStarFeed.model_validate(data)
+
+
+def test_accepts_a_build_version_and_rejects_zero_and_reads_none_as_null() -> None:
+    stored = feed("after")
+    assert AllStarFeed.model_validate(stored).build_version is None
+
+    assert AllStarFeed.model_validate({**stored, "buildVersion": 1}).build_version == 1
+    with pytest.raises(ValidationError):
+        AllStarFeed.model_validate({**stored, "buildVersion": 0})

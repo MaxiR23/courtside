@@ -111,6 +111,7 @@ from app.sources import (
     team_postseason,
 )
 from app.sources.division_standings import DivisionStandings
+from app.sources.game_detail import BoxScoreRosterEntry
 from app.sources.http import SourceClient, SourceError
 from app.sources.postseason_leaders import PostseasonLeaders
 from app.sources.postseason_mark import (
@@ -180,7 +181,7 @@ class PlayoffsSources:
     standings: DivisionStandings
     colors: Mapping[str, TeamInfo | None]
     games: Sequence[PostseasonGame]
-    players: Mapping[str, tuple[str, RosterEntry]]
+    players: Mapping[str, tuple[str, RosterEntry | BoxScoreRosterEntry]]
     leaders: PostseasonLeaders | None
     awards: SeasonAwards | None
     champion_record: TeamPostseasonRecord | None
