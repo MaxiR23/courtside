@@ -3,8 +3,8 @@
 # Tests for the season team adapter.
 #
 # Tested:
-# - Maps a recorded season team's abbreviation, names, location and active state
-# - Keeps an inactive team with active false
+# - Maps a recorded season team's abbreviation, names and location
+# - Maps a season team whose isActive is false, and a body without isActive
 # - Returns None on a 404
 # - Requests the season and the provider team id of the code
 # - Raises the source error on an invalid payload, an unknown team code, a timeout, an error status and a missing URL
@@ -83,11 +83,10 @@ async def test_maps_a_recorded_season_team(
     assert team.abbreviation == "OKC"
     assert team.display_name == "Oklahoma City Thunder"
     assert (team.location, team.name) == ("Oklahoma City", "Thunder")
-    assert team.active is True
 
 
 @pytest.mark.anyio
-async def test_keeps_an_inactive_team_with_active_false(
+async def test_maps_a_season_team_whose_is_active_is_false(
     mock: respx.MockRouter, settings: Settings
 ) -> None:
     mock.get(URL).respond(json=load("inactive"))
@@ -95,8 +94,22 @@ async def test_keeps_an_inactive_team_with_active_false(
     team = await fetch(settings)
 
     assert team is not None
-    assert team.active is False
     assert team.abbreviation == "SEA"
+    assert (team.location, team.name) == ("Seattle", "Harbor Gulls")
+
+
+@pytest.mark.anyio
+async def test_maps_a_body_without_is_active(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    body = load()
+    del body["isActive"]
+    mock.get(URL).respond(json=body)
+
+    team = await fetch(settings)
+
+    assert team is not None
+    assert team.name == "Thunder"
 
 
 @pytest.mark.anyio

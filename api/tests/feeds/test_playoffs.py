@@ -6,6 +6,7 @@
 # - A valid picture feed and a valid complete feed are accepted and serialized with camelCase keys
 # - Rejects a champion outside complete, no champion when complete, a current round outside the playoffs, a finals game or summary before the finals, stages, picture, play-in, bracket or leaders out of order or of the wrong count, a line on a row other than 6 and 10, a series winner that is not a side, a winner of a series that is not complete, a conference on the finals or none on another series, a round that does not match the id, a side with both a team and currently, wins without a team, an outcome on a game that is not final, a game without an outcome that is final, a team award without its team number, a player award with one, a guest playoff team, a winner on a game that is not final, more than five leaders, ranks that do not increase, a stage status outside the four, stage dates with only one end set, a date span that runs backwards, series games out of start order and an unknown field
 # - A null play-in (a season before 2021) is accepted, while a play-in of one table or in the wrong order is still rejected
+# - A feed with a build version is accepted, one with zero is rejected, and a stored feed without the field reads with a null version
 #
 # What is covered:
 # - A valid feed is accepted and an invalid one is rejected
@@ -661,3 +662,12 @@ def test_rejects_an_unknown_field() -> None:
     feed["extra"] = 1
 
     rejected(feed)
+
+
+def test_accepts_a_build_version_and_rejects_zero_and_reads_none_as_null() -> None:
+    stored = complete_feed()
+    assert PlayoffsFeed.model_validate(stored).build_version is None
+
+    assert PlayoffsFeed.model_validate({**stored, "buildVersion": 1}).build_version == 1
+    with pytest.raises(ValidationError):
+        PlayoffsFeed.model_validate({**stored, "buildVersion": 0})

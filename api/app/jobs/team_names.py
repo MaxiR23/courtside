@@ -12,10 +12,16 @@
 # feeds/team-names/{code}.json, read once per team and kept for 7 days, and the
 # team feeds of the current and of a past season depend on it, so a missing or
 # stale list is built first. One season team read per season; a read that fails
-# or finds no active team is skipped with a log line that carries the code and the
-# season, never a URL. A build fails and the stored list is kept (rule H) when the
-# current season could not be read (its read failed, or it has no active team),
-# since the current run could not be left open; earlier seasons stay skippable.
+# or finds no team object is skipped with a log line that carries the code and the
+# season, never a URL. A team exists in a season when its object answers: isActive
+# is never read (ADR 0053). A build fails and the stored list is kept (rule H) when
+# the current season could not be read (its read failed, or it has no team
+# object), since the current run could not be left open; earlier seasons stay
+# skippable.
+#
+# season_identity and season_names answer the name and city a team had in a past
+# season, always from the season team object and never from the stored runs;
+# season_named puts them on a league side (ADR 0053).
 #
 # SEE: docs/api/team.md, docs/adr/0043-season-feeds-and-franchise-names.md,
 # api/app/jobs/team_feed.py
@@ -23,11 +29,12 @@
 import asyncio
 import datetime as dt
 import logging
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
 
 from pydantic import ValidationError
 
 from app.feeds.calendar import FIRST_SEASON
+from app.feeds.opponent import Opponent
 from app.feeds.team import NameRun, TeamNames
 from app.jobs.on_demand import FeedCache, FeedKind, IdStatus
 from app.jobs.stars import StarsJob
@@ -48,6 +55,15 @@ logger = logging.getLogger(__name__)
 FetchSeasonTeam = Callable[
     [SourceClient, str, int, Settings], Awaitable[SeasonTeam | None]
 ]
+
+
+def season_named[O: Opponent](side: O, names: Mapping[str, tuple[str, str]]) -> O:
+    """The side with the name and city of its season, when it is a league side
+    the names know; any other side as it is."""
+    if side.guest or side.code is None or side.code not in names:
+        return side
+    name, city = names[side.code]
+    return side.model_copy(update={"name": name, "city": city})
 
 
 class TeamNamesBuildError(Exception):
@@ -122,7 +138,7 @@ class TeamNamesFeeds:
                 "team names: %s season %d skipped: %s", code, season, error.reason
             )
             return None
-        if found is None or not found.active:
+        if found is None:
             logger.warning("team names: %s season %d skipped: no team", code, season)
             return None
         return season, found
@@ -146,6 +162,31 @@ class TeamNamesFeeds:
             raise TeamNamesBuildError(
                 f"invalid names: {error.error_count()} errors, first at {location}"
             ) from None
+
+    async def season_identity(self, code: str, season: int) -> tuple[str, str] | None:
+        """The (name, city) a team had in a season, always from that season's team
+        object (the source cache serves a repeat read), never from a stored
+        franchise-names list. None when the season has no such team; a SourceError
+        propagates."""
+        found = await self._fetch_season_team(
+            self._client, code.upper(), season, self._settings
+        )
+        return None if found is None else (found.name, found.location)
+
+    async def season_names(
+        self, codes: Iterable[str], season: int
+    ) -> dict[str, tuple[str, str]]:
+        """The (name, city) of each distinct code in a season, without the codes
+        that have no team that season."""
+        distinct = sorted(set(codes))
+        found = await asyncio.gather(
+            *(self.season_identity(code, season) for code in distinct)
+        )
+        return {
+            code: identity
+            for code, identity in zip(distinct, found, strict=True)
+            if identity is not None
+        }
 
     def stored(self, code: str) -> list[NameRun] | None:
         body = read_by_id(self._settings.data_dir, KIND, code.lower())

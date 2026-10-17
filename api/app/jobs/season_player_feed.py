@@ -10,28 +10,39 @@
 # rows and the awards are the career's. The age is on February 1 of the end
 # year. The injury, the next game and the live block are null, and the season
 # label is set. The team is the one of the season's newest game, named as it
-# was that season, and null for a season with no game log.
+# was that season, and null for a season with no game log. The number is the
+# jersey of that team's box scores of the season (SeasonRosters), else null,
+# never the athlete's. The opponents of the game log are named by that season's
+# team object, and every game of the log has detail available: its date is
+# registered so its past game detail can be built (ADR 0053).
 #
 # SeasonPlayerFeeds is the feed kind of the on-demand cache: the id is
 # {season}-{player id}, the feed is stored at feeds/season-players/{id}.json only
 # when requested. A season is valid from 1994 to the season before the current
 # one (past_season_status). A player is known from a current roster or from a
 # stored past roster or box score (503 until the rosters are all fetched). A feed
-# is built once and kept (rule G): it is never refreshed and never deleted.
+# is built once and kept (rule G): it is never deleted, and rebuilt only when its
+# build version is not the current one (ADR 0053).
 #
 # SEE: docs/api/player.md, docs/adr/0043-season-feeds-and-franchise-names.md,
 # api/app/jobs/player_feed.py
 
 import datetime as dt
 import re
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from typing import Any
 
 from pydantic import ValidationError
 
 from app.feeds.games import Team
 from app.feeds.player import PastPlayerFeed
-from app.jobs.on_demand import FeedCache, FeedKind, IdStatus
+from app.jobs.on_demand import (
+    FeedCache,
+    FeedKind,
+    IdStatus,
+    is_current_build,
+    with_build_version,
+)
 from app.jobs.past_player_ids import PastPlayerIds
 from app.jobs.player_feed import (
     FetchAthlete,
@@ -50,9 +61,16 @@ from app.jobs.player_feed import (
     season_split,
     weight,
 )
+from app.jobs.season_rosters import SeasonRosters
 from app.jobs.season_standings_feed import past_season_status
 from app.jobs.stars import StarsJob
-from app.jobs.team_feed import FetchDivisionStandings, age_on, season_label
+from app.jobs.team_feed import (
+    FetchDivisionStandings,
+    age_on,
+    eastern_date,
+    season_label,
+)
+from app.jobs.team_names import TeamNamesFeeds, season_named
 from app.settings import Settings
 from app.sources import (
     division_standings,
@@ -60,7 +78,6 @@ from app.sources import (
     player_gamelog,
     player_overview,
     player_stats,
-    season_team,
 )
 from app.sources.division_standings import DivisionStandings
 from app.sources.http import SourceClient
@@ -68,7 +85,6 @@ from app.sources.player_draft import DraftPick, PlayerAthlete
 from app.sources.player_gamelog import GameLogGame, PlayerGameLog
 from app.sources.player_overview import ProviderAward
 from app.sources.player_stats import PlayerStats, StatLine
-from app.sources.season_team import SeasonTeam
 from app.sources.teams import TEAM_CODES, TEAM_IDS
 from app.storage.state import StateStore
 
@@ -76,9 +92,6 @@ KIND = "season-players"
 _ID = re.compile(r"([0-9]{4})-([A-Za-z0-9]+)")
 
 FetchSeasonGameLog = Callable[..., Awaitable[PlayerGameLog]]
-FetchSeasonTeam = Callable[
-    [SourceClient, str, int, Settings], Awaitable[SeasonTeam | None]
-]
 
 
 def _season_line(stats: PlayerStats, label: str) -> StatLine | None:
@@ -143,6 +156,8 @@ def build_season_player_feed(
     career_playoffs: PlayerStats,
     season_regular: PlayerStats,
     season_playoffs: PlayerStats,
+    jersey: str | None = None,
+    opponent_names: Mapping[str, tuple[str, str]] | None = None,
 ) -> PastPlayerFeed:
     """Build the player feed of a past season, or raise PlayerBuildError."""
     entry = athlete.entry
@@ -165,14 +180,27 @@ def build_season_player_feed(
         "playoffs": season_split(career_playoffs),
     }
     rows = seasons["regular"]["per_game"]
-    log_feed, recent = game_log(log, frozenset())
+    named = opponent_names or {}
+    log = log.model_copy(
+        update={
+            "games": [
+                game
+                if game.opponent is None
+                else game.model_copy(
+                    update={"opponent": season_named(game.opponent, named)}
+                )
+                for game in log.games
+            ]
+        }
+    )
+    log_feed, recent = game_log(log, frozenset(game.game_id for game in log.games))
     try:
         return PastPlayerFeed.model_validate(
             {
                 "id": entry.player_id,
                 "first_name": entry.first_name,
                 "last_name": entry.last_name,
-                "number": entry.jersey,
+                "number": jersey,
                 "position": entry.position_name,
                 "team": team,
                 "photo_url": entry.headshot_url,
@@ -232,6 +260,8 @@ class SeasonPlayerFeeds:
         cache: FeedCache,
         stars: StarsJob,
         past_ids: PastPlayerIds,
+        names: TeamNamesFeeds,
+        rosters: SeasonRosters,
         *,
         fetch_player_athlete: FetchAthlete = player_draft.fetch_player_athlete,
         fetch_division_standings: FetchDivisionStandings = (
@@ -241,20 +271,20 @@ class SeasonPlayerFeeds:
         fetch_player_awards: FetchAwards = player_overview.fetch_player_awards,
         fetch_player_gamelog: FetchSeasonGameLog = player_gamelog.fetch_player_gamelog,
         fetch_player_stats: FetchStats = player_stats.fetch_player_stats,
-        fetch_season_team: FetchSeasonTeam = season_team.fetch_season_team,
     ) -> None:
         self._settings = settings
         self._store = store
         self._client = client
         self._stars = stars
         self._past_ids = past_ids
+        self._names = names
+        self._rosters = rosters
         self._fetch_player_athlete = fetch_player_athlete
         self._fetch_division_standings = fetch_division_standings
         self._fetch_player_draft = fetch_player_draft
         self._fetch_player_awards = fetch_player_awards
         self._fetch_player_gamelog = fetch_player_gamelog
         self._fetch_player_stats = fetch_player_stats
-        self._fetch_season_team = fetch_season_team
         cache.register(self.kind())
 
     def check(self, feed_id: str) -> IdStatus:
@@ -275,12 +305,10 @@ class SeasonPlayerFeeds:
         if team_id is None:
             return None
         code = TEAM_CODES[TEAM_IDS[team_id]]
-        found = await self._fetch_season_team(
-            self._client, code, season, self._settings
-        )
+        found = await self._names.season_identity(code, season)
         if found is None:
             return None
-        return Team(code=code, name=found.name, city=found.location)
+        return Team(code=code, name=found[0], city=found[1])
 
     async def build(self, feed_id: str) -> PastPlayerFeed:
         match = _ID.fullmatch(feed_id)
@@ -307,25 +335,47 @@ class SeasonPlayerFeeds:
         season_playoffs = await self._fetch_player_stats(
             client, player_id, settings, playoffs=True, season=season
         )
-        return build_season_player_feed(
-            player_id,
-            season,
-            athlete,
-            await self._team(log, season),
-            standings,
-            draft,
-            provided,
-            log,
-            career_regular,
-            career_playoffs,
-            season_regular,
-            season_playoffs,
+        team_id = newest_team_id(log)
+        jersey = None
+        if team_id is not None:
+            roster = await self._rosters.roster(TEAM_CODES[TEAM_IDS[team_id]], season)
+            jersey = next((e.jersey for e in roster if e.player_id == player_id), None)
+        codes = sorted(
+            {
+                game.opponent.code
+                for game in log.games
+                if game.opponent is not None
+                and not game.opponent.guest
+                and game.opponent.code is not None
+            }
+        )
+        opponent_names = await self._names.season_names(codes, season)
+        self._store.set_past_game_dates(
+            {game.game_id: eastern_date(game.start_time) for game in log.games}
+        )
+        return with_build_version(
+            build_season_player_feed(
+                player_id,
+                season,
+                athlete,
+                await self._team(log, season),
+                standings,
+                draft,
+                provided,
+                log,
+                career_regular,
+                career_playoffs,
+                season_regular,
+                season_playoffs,
+                jersey,
+                opponent_names,
+            )
         )
 
     def is_fresh(
         self, feed: PastPlayerFeed, built_at: dt.datetime, now: dt.datetime
     ) -> bool:
-        return True
+        return is_current_build(feed)
 
     def keep(self, feed_id: str) -> bool:
         return True

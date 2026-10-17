@@ -32,6 +32,7 @@ Conventions:
 | `game`       | `CupGame` / null    | The slot's game, as the Cup feed stores it           | null when no game is scheduled |
 | `top`        | `MatchupSide`       | The top side of the slot                             | always  |
 | `bottom`     | `MatchupSide`       | The bottom side of the slot                          | always  |
+| `buildVersion` | integer / null    | The rules version of a kept season feed ([ADR 0053](../adr/0053-season-level-rules-for-past-seasons.md)) | null on a current feed and on a stored feed from before the field |
 
 ## Nested objects
 
@@ -145,8 +146,10 @@ to the current season.
   averages or depth chart is read.
 - Refresh: built on request, stored at `feeds/season-cup-matchups/{season}-{id}.json`,
   kept for good (rule G of [`docs/source-rules.md`](../source-rules.md)): never
-  refreshed and never deleted. A failed build with nothing stored is retried
-  after 10 minutes.
+  deleted, and rebuilt on its next request when its `buildVersion` is not the
+  current one (the stale season Cup is rebuilt first). A past quarterfinal side
+  carries the null `seed` label of its slot. A failed build with nothing stored
+  is retried after 10 minutes.
 - The builder is `build_past_matchup_feed` and the kind is
   `SeasonCupMatchupFeeds`, both in `api/app/jobs/season_cup_matchup_feed.py`.
 - Endpoint: it serves with `Cache-Control: public, max-age=10` and an `ETag`, and

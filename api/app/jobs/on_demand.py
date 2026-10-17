@@ -35,6 +35,21 @@ MISSING_WAIT_SECONDS = 20.0
 MAX_BUILDS = 4
 RETRY_AFTER = dt.timedelta(minutes=10)
 
+# The rules version of the kept season feeds (ADR 0053). Bump it in any change to
+# the rules a past season is built by: a stored feed of another or no version is
+# then stale, rebuilt on its next request, and served as stored until then.
+SEASON_BUILD_VERSION = 1
+
+
+def with_build_version[M: BaseModel](feed: M) -> M:
+    """The season feed stamped with the current rules version."""
+    return feed.model_copy(update={"build_version": SEASON_BUILD_VERSION})
+
+
+def is_current_build(feed: BaseModel) -> bool:
+    """Whether a kept season feed was built by the current rules."""
+    return getattr(feed, "build_version", None) == SEASON_BUILD_VERSION
+
 
 class IdStatus(StrEnum):
     KNOWN = "known"

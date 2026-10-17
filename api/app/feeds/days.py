@@ -11,7 +11,7 @@
 import datetime as dt
 from typing import Annotated
 
-from pydantic import Field, model_validator
+from pydantic import Field, PositiveInt, model_validator
 
 from app.feeds.calendar import FIRST_SEASON
 from app.feeds.games import FeedModel, Game, UtcDatetime
@@ -41,3 +41,6 @@ class DayFeed(FeedModel):
     season: Annotated[int, Field(ge=FIRST_SEASON)]
     season_label: SeasonLabel
     day: PastDay
+    # The rules version of a kept past day (ADR 0053); null on a day not yet
+    # final and on a stored feed from before the field.
+    build_version: PositiveInt | None = None

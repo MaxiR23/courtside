@@ -9,6 +9,8 @@
 # - target: the current season maps to the current matchup feed, a past season to the season kind
 # - The kind: an id outside the seven slots, a season outside 2024 to the season before the current one and an ill-formed id answer unknown with no read, and an unknown current season answers not ready
 # - The kind: a request builds the season Cup first, then the matchup of each of the seven slots, reading only the two teams' season schedules by provider id first and no roster, injuries, averages or depth chart
+# - A past quarterfinal matchup carries the null seed label of its slot (ADR 0053)
+# - The kind: the built feed carries the current build version, a stored feed of an older or missing version is rebuilt on its next request and rebuilds a stale season Cup first, and one of the current version is served with no source request (ADR 0053)
 # - The kind: the feed is kept: a second request, a request years later and a restart serve with no source call
 # - The kind: a failed schedule read or a season Cup that cannot be built answers unavailable and stores nothing
 # - The kind: the cleanup keeps it
@@ -29,12 +31,17 @@ from pathlib import Path
 
 import pytest
 
-from app.feeds.cup import SlotId
+from app.feeds.cup import CupFeed, SlotId
 from app.feeds.cup_matchup import CupMatchupFeed
 from app.feeds.games import CupRound, GameStatus
 from app.jobs.cup_matchup_feed import KIND as CURRENT_KIND
 from app.jobs.cup_matchup_feed import SLOT_IDS, MatchupBuildError
-from app.jobs.on_demand import FeedUnavailableError, IdStatus, UnknownFeedError
+from app.jobs.on_demand import (
+    SEASON_BUILD_VERSION,
+    FeedUnavailableError,
+    IdStatus,
+    UnknownFeedError,
+)
 from app.jobs.season_cup_feed import KIND as CUP_KIND
 from app.jobs.season_cup_matchup_feed import (
     KIND,
@@ -42,7 +49,7 @@ from app.jobs.season_cup_matchup_feed import (
     build_past_matchup_feed,
 )
 from app.jobs.stars import StarsJob
-from app.storage.feeds import read_by_id
+from app.storage.feeds import publish_by_id, read_by_id
 from tests.jobs.test_cup_feed import (
     NOW,
     all_final,
@@ -85,6 +92,18 @@ def test_each_side_has_its_team_and_path_with_empty_injuries_and_roster() -> Non
         assert last.result is not None and last.result.value == result
         assert last.detail_available is False
     assert feed.game is not None and feed.game.status is GameStatus.FINAL
+
+
+def test_a_past_quarterfinal_matchup_carries_the_null_seed_label_of_its_slot() -> None:
+    played = [*group_pairs(all_final()), *knockouts(1, 1)]
+    cup = build_cup(played, past=True)
+
+    feed = build_past_matchup_feed(
+        cup.season, slot(cup, SlotId.EAST_QF_1), schedules_of(played)
+    )
+
+    assert (feed.top.label.key.value, feed.top.label.seed) == ("seed", None)
+    assert (feed.bottom.label.key.value, feed.bottom.label.seed) == ("seed", None)
 
 
 def test_a_side_with_no_team_has_no_details() -> None:
@@ -260,3 +279,65 @@ async def test_the_cleanup_keeps_the_feed(kit: SeasonMatchupKit) -> None:
     kit.cache.cleanup()
 
     assert read_by_id(kit.path, KIND, f"2025-{EAST_QF_1}") == body
+
+
+@pytest.mark.anyio
+async def test_the_built_feed_carries_the_current_build_version(
+    kit: SeasonMatchupKit,
+) -> None:
+    feed = CupMatchupFeed.model_validate_json(await kit.serve_slot())
+
+    assert feed.build_version == SEASON_BUILD_VERSION
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("version", [None, SEASON_BUILD_VERSION + 1])
+async def test_a_stored_feed_with_an_older_or_missing_version_is_rebuilt_after_a_stale_season_cup(
+    kit: SeasonMatchupKit, version: int | None
+) -> None:
+    feed_id = f"2025-{EAST_QF_1}"
+    await kit.serve_slot()
+    cup = CupFeed.model_validate_json(read_by_id(kit.path, CUP_KIND, "2025") or b"")
+    publish_by_id(
+        kit.path,
+        CUP_KIND,
+        CupFeed,
+        "2025",
+        cup.model_copy(update={"build_version": version}),
+    )
+    stored = CupMatchupFeed.model_validate_json(
+        read_by_id(kit.path, KIND, feed_id) or b""
+    )
+    publish_by_id(
+        kit.path,
+        KIND,
+        CupMatchupFeed,
+        feed_id,
+        stored.model_copy(update={"build_version": version}),
+    )
+    kit.calls.clear()
+
+    served = CupMatchupFeed.model_validate_json(await kit.serve_slot(at=NOW + YEARS))
+
+    assert served.build_version == version
+    assert kit.called("teams/") == 6
+    rebuilt_cup = CupFeed.model_validate_json(
+        read_by_id(kit.path, CUP_KIND, "2025") or b""
+    )
+    assert rebuilt_cup.build_version == SEASON_BUILD_VERSION
+    rebuilt = CupMatchupFeed.model_validate_json(
+        read_by_id(kit.path, KIND, feed_id) or b""
+    )
+    assert rebuilt.build_version == SEASON_BUILD_VERSION
+
+
+@pytest.mark.anyio
+async def test_a_stored_feed_with_the_current_version_is_served_with_no_source_request(
+    kit: SeasonMatchupKit,
+) -> None:
+    await kit.serve_slot()
+    kit.calls.clear()
+
+    await kit.serve_slot(at=NOW + YEARS)
+
+    assert kit.calls == []

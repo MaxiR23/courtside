@@ -62,6 +62,8 @@
 # - Stores, replaces and ends the backfill sweep and keeps it across store instances
 # - Marks backfill targets swept once and lists them per kind
 # - Rejects a naive oldest upload time for the sweep
+# - Migrates a database at version 7 with rows to the past games version keeping them
+# - A registered date never overwrites stored players, storing players keeps the registered date, and a game with a date and no players has no players
 #
 # What is covered:
 # - Happy path, edge cases (unknown game, repeat migration, restart, no jobs, no stars, pre-migration database), error case (naive time, failed migration)
@@ -922,7 +924,7 @@ def test_migrating_a_database_at_the_previous_version_adds_the_all_star_editions
 
     store.migrate()
 
-    assert user_version(tmp_path) == len(real) == 7
+    assert user_version(tmp_path) == len(real) == 8
     assert [job.name for job in store.job_states()] == ["games"]
     assert store.feed_build("players", "a") is not None
     assert query(tmp_path, "SELECT COUNT(*) FROM all_star_editions") == [(0,)]
@@ -976,7 +978,7 @@ def test_migrating_a_database_at_the_all_star_editions_version_adds_the_all_star
 
     store.migrate()
 
-    assert user_version(tmp_path) == len(real) == 7
+    assert user_version(tmp_path) == len(real) == 8
     assert store.all_star_edition(2027) is not None
     assert query(tmp_path, "SELECT COUNT(*) FROM all_star_finals") == [(0,)]
 
@@ -1010,7 +1012,7 @@ def test_migrating_a_database_at_the_all_star_finals_version_adds_the_backfill_t
 
     store.migrate()
 
-    assert user_version(tmp_path) == len(real) == 7
+    assert user_version(tmp_path) == len(real) == 8
     assert store.all_star_edition(2027) is not None
     assert "g1" in store.highlights()
     for table in (
@@ -1096,3 +1098,54 @@ def test_marks_backfill_targets_swept_once_and_lists_them_per_kind(
     assert store.backfill_swept("edition") == {"2027"}
     assert store.backfill_swept("other") == set()
     assert query(tmp_path, "SELECT COUNT(*) FROM highlights_backfill_swept") == [(3,)]
+
+
+def test_migrating_a_database_at_version_7_adds_the_past_games_and_keeps_the_rows(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    real = state.MIGRATIONS
+    monkeypatch.setattr(state, "MIGRATIONS", real[:7])
+    store = make_store(tmp_path)
+    store.set_all_star_edition(2027, dt.date(2027, 2, 14), ["g1"])
+    store.set_highlight("g1", make_highlight("one"))
+    assert user_version(tmp_path) == 7
+    monkeypatch.setattr(state, "MIGRATIONS", real)
+
+    store.migrate()
+
+    assert user_version(tmp_path) == len(real) == 8
+    assert store.all_star_edition(2027) is not None
+    assert "g1" in store.highlights()
+    assert query(tmp_path, "SELECT COUNT(*) FROM past_games") == [(0,)]
+
+
+def test_a_registered_date_never_overwrites_stored_players(tmp_path: Path) -> None:
+    store = make_store(tmp_path)
+    store.set_past_game_players("g1", dt.date(2005, 1, 2), '{"teams": {}}')
+
+    store.set_past_game_dates({"g1": dt.date(2006, 3, 4), "g2": dt.date(2005, 1, 3)})
+
+    assert store.past_game_players("g1") == '{"teams": {}}'
+    assert store.past_game_date("g1") == dt.date(2005, 1, 2)
+    assert store.past_game_date("g2") == dt.date(2005, 1, 3)
+
+
+def test_storing_players_keeps_the_registered_date(tmp_path: Path) -> None:
+    store = make_store(tmp_path)
+    store.set_past_game_dates({"g1": dt.date(2005, 1, 2)})
+
+    store.set_past_game_players("g1", dt.date(2009, 9, 9), "[1]")
+    store.set_past_game_players("g1", dt.date(2009, 9, 9), "[2]")
+
+    assert store.past_game_date("g1") == dt.date(2005, 1, 2)
+    assert store.past_game_players("g1") == "[2]"
+    assert query(tmp_path, "SELECT COUNT(*) FROM past_games") == [(1,)]
+
+
+def test_a_game_with_a_date_and_no_players_has_no_players(tmp_path: Path) -> None:
+    store = make_store(tmp_path)
+    store.set_past_game_dates({"g1": dt.date(2005, 1, 2)})
+
+    assert store.past_game_players("g1") is None
+    assert store.past_game_players("unknown") is None
+    assert store.past_game_date("unknown") is None

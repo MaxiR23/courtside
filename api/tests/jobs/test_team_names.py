@@ -7,10 +7,13 @@
 # - Four runs for four identities, oldest first, past runs closed and the last open
 # - A skipped season does not split a run, and a run that does not hold the current season stays closed
 # - A provider code becomes its standard code and a historical code stays as sent
-# - The kind: every season from 1994 to the current one is read once; a season whose read fails is skipped with a log line that carries the code and season and no URL; a no-team and an inactive season are skipped
+# - The kind: every season from 1994 to the current one is read once; a season whose read fails is skipped with a log line that carries the code and season and no URL; a season with no team object is skipped
+# - The kind: a season whose team object is inactive is read, and a relocated franchise has one run per identity
 # - The kind: a second request within 7 days makes no read and one at 7 days reads again
 # - The kind: a build with no readable season keeps the stored list
-# - The kind: a failed, missing or inactive current season fails the build and keeps the stored list
+# - The kind: a failed or missing current season fails the build and keeps the stored list
+# - season_identity: always reads the season team object and ignores a stored run, none on a 404
+# - season_named: renames a league side and leaves a guest and an unknown code
 # - The kind: a code outside the 30 is unknown and an unknown current season is not ready
 # - The kind: the cleanup keeps the 30 codes
 #
@@ -30,6 +33,8 @@ from typing import cast
 
 import pytest
 
+from app.feeds.opponent import Opponent
+from app.feeds.team import NameRun, TeamNames
 from app.jobs.on_demand import (
     FeedCache,
     FeedUnavailableError,
@@ -42,10 +47,12 @@ from app.jobs.team_names import (
     NAMES_LIFETIME,
     TeamNamesFeeds,
     build_name_runs,
+    season_named,
 )
 from app.settings import Settings
 from app.sources.http import SourceClient, SourceError, create_client
 from app.sources.season_team import SeasonTeam
+from app.storage.feeds import publish_by_id
 from app.storage.state import StateStore
 
 NOW = dt.datetime(2026, 10, 8, 15, 0, tzinfo=dt.UTC)
@@ -56,7 +63,6 @@ def team(
     name: str = "Thunder",
     location: str = "Oklahoma City",
     abbreviation: str = "OKC",
-    active: bool = True,
 ) -> SeasonTeam:
     return SeasonTeam(
         team_id="25",
@@ -64,7 +70,6 @@ def team(
         display_name=f"{location} {name}",
         name=name,
         location=location,
-        active=active,
     )
 
 
@@ -139,7 +144,6 @@ class NamesKit:
         self.calls: list[tuple[str, int]] = []
         self.failing: set[int] = set()
         self.missing: set[int] = set()
-        self.inactive: set[int] = set()
         self.all_failing = False
         self.stars = FakeStars()
         self.cache = FeedCache(path, self.store, clock=lambda: self.clock[0])
@@ -160,8 +164,6 @@ class NamesKit:
             raise SourceError("test", "season team is down")
         if season in self.missing:
             return None
-        if season in self.inactive:
-            return team(active=False)
         return team("Harbor Gulls", "Seattle", "SEA") if season < 2008 else team()
 
     async def settle(self) -> None:
@@ -199,12 +201,11 @@ async def test_every_season_from_1994_to_the_current_one_is_read_once(
 
 
 @pytest.mark.anyio
-async def test_a_failed_a_missing_and_an_inactive_season_are_skipped_and_the_runs_merge(
+async def test_a_failed_and_a_missing_season_are_skipped_and_the_runs_merge(
     kit: NamesKit, caplog: pytest.LogCaptureFixture
 ) -> None:
     kit.failing = {2000}
     kit.missing = {2001}
-    kit.inactive = {2002}
 
     with caplog.at_level(logging.WARNING):
         await kit.serve()
@@ -213,10 +214,9 @@ async def test_a_failed_a_missing_and_an_inactive_season_are_skipped_and_the_run
     assert runs is not None
     assert [(r.from_, r.to) for r in runs] == [(1994, 2007), (2008, None)]
     messages = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
-    assert len(messages) == 3
+    assert len(messages) == 2
     assert any("okc season 2000 skipped" in m for m in messages)
     assert any("okc season 2001 skipped: no team" in m for m in messages)
-    assert any("okc season 2002 skipped: no team" in m for m in messages)
     assert not any("http" in m for m in messages)
 
 
@@ -251,7 +251,7 @@ async def test_a_build_with_no_readable_season_keeps_the_stored_list(
 
 
 @pytest.mark.anyio
-@pytest.mark.parametrize("mode", ["failing", "missing", "inactive"])
+@pytest.mark.parametrize("mode", ["failing", "missing"])
 async def test_a_current_season_that_cannot_be_read_keeps_the_stored_list(
     kit: NamesKit, mode: str
 ) -> None:
@@ -310,3 +310,109 @@ async def test_a_code_outside_the_30_is_unknown_and_an_unknown_season_is_not_rea
 def test_the_cleanup_keeps_the_30_codes_only(kit: NamesKit) -> None:
     assert kit.names.keep("okc") is True
     assert kit.names.keep("xyz") is False
+
+
+@pytest.mark.anyio
+async def test_a_season_is_read_whatever_the_provider_says_of_its_team_being_active(
+    kit: NamesKit,
+) -> None:
+    await kit.serve()
+
+    assert ("OKC", 2002) in kit.calls
+
+    runs = kit.names.stored("okc")
+    assert runs is not None
+    assert [(r.from_, r.to) for r in runs] == [(1994, 2007), (2008, None)]
+
+
+def test_a_relocated_franchise_has_one_run_per_identity_from_1994_to_today() -> None:
+    seasons = [(s, team("Harbor Gulls", "Seattle", "SEA")) for s in range(1994, 2009)]
+    seasons += [(s, team()) for s in range(2009, CURRENT + 1)]
+
+    runs = build_name_runs(seasons, CURRENT)
+
+    assert identities(runs) == [
+        (1994, 2008, "Harbor Gulls", "Seattle", "SEA"),
+        (2009, None, "Thunder", "Oklahoma City", "OKC"),
+    ]
+
+
+@pytest.mark.anyio
+async def test_a_current_season_with_no_team_object_keeps_the_stored_list(
+    kit: NamesKit,
+) -> None:
+    await kit.serve()
+    before = kit.names.stored("okc")
+    kit.missing = {CURRENT}
+
+    await kit.serve(at=NOW + NAMES_LIFETIME)
+
+    assert kit.names.stored("okc") == before
+
+
+@pytest.mark.anyio
+async def test_season_identity_ignores_a_stored_run_that_bridges_a_gap(
+    kit: NamesKit,
+) -> None:
+    bridged = TeamNames(
+        runs=[
+            NameRun.model_validate(
+                {
+                    "from": 1994,
+                    "to": None,
+                    "name": "Hornets",
+                    "location": "Charlotte",
+                    "code": "CHA",
+                }
+            )
+        ]
+    )
+    assert publish_by_id(kit.path, KIND, TeamNames, "okc", bridged)
+
+    assert await kit.names.season_identity("OKC", 2000) == ("Harbor Gulls", "Seattle")
+    assert await kit.names.season_identity("okc", 2020) == ("Thunder", "Oklahoma City")
+    assert kit.calls == [("OKC", 2000), ("OKC", 2020)]
+
+
+@pytest.mark.anyio
+async def test_season_identity_reads_the_season_team_object(
+    kit: NamesKit,
+) -> None:
+    assert await kit.names.season_identity("OKC", 2000) == ("Harbor Gulls", "Seattle")
+    assert kit.calls == [("OKC", 2000)]
+
+
+@pytest.mark.anyio
+async def test_season_identity_is_none_on_a_404(kit: NamesKit) -> None:
+    kit.missing = {2000}
+
+    assert await kit.names.season_identity("OKC", 2000) is None
+
+
+@pytest.mark.anyio
+async def test_season_names_leaves_out_the_codes_with_no_team(kit: NamesKit) -> None:
+    kit.missing = {2000}
+
+    assert await kit.names.season_names(["OKC"], 2000) == {}
+    assert await kit.names.season_names(["OKC", "OKC"], 2001) == {
+        "OKC": ("Harbor Gulls", "Seattle")
+    }
+
+
+def test_season_named_renames_a_league_side_and_leaves_a_guest_and_an_unknown_code() -> (
+    None
+):
+    names = {"OKC": ("Harbor Gulls", "Seattle")}
+    league = Opponent(code="OKC", name="Thunder", city="Oklahoma City")
+    guest = Opponent(code="OKC", name="Guests", city=None, guest=True)
+    other = Opponent(code="BOS", name="Celtics", city="Boston")
+
+    renamed = season_named(league, names)
+
+    assert (renamed.code, renamed.name, renamed.city) == (
+        "OKC",
+        "Harbor Gulls",
+        "Seattle",
+    )
+    assert season_named(guest, names) is guest
+    assert season_named(other, names) is other

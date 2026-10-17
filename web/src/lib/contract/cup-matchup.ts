@@ -28,6 +28,7 @@ export interface CupMatchupFeed {
 	game: CupGame | null;
 	top: MatchupSide;
 	bottom: MatchupSide;
+	buildVersion: number | null;
 }
 export interface CupGame {
 	id: string;

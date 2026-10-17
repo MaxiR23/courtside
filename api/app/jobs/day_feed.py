@@ -18,7 +18,8 @@
 # is final or there is no game. It is never deleted, and it never enters the
 # games job, the hero, the highlights job or the live refresh (ADR 0040). The
 # stored highlight of a final game is added when served, never stored (ADR
-# 0048); an All-Star game gets none.
+# 0048); an All-Star game gets none. The league sides of a day are named by the
+# day's season team object (ADR 0053); a guest side keeps its name.
 #
 # SEE: docs/api/days.md, docs/adr/0040-calendar-and-day-feeds.md,
 # docs/adr/0048-highlights-backfill-and-edition-video.md,
@@ -36,8 +37,15 @@ from pydantic import ValidationError
 from app.feeds.days import DayFeed, PastGame
 from app.feeds.games import GamesFeed, GameStatus, StatsAvailability
 from app.jobs.games import days_shown, eastern_date, final_winner
-from app.jobs.on_demand import FeedCache, FeedKind, IdStatus
+from app.jobs.on_demand import (
+    FeedCache,
+    FeedKind,
+    IdStatus,
+    is_current_build,
+    with_build_version,
+)
 from app.jobs.team_feed import season_label
+from app.jobs.team_names import TeamNamesFeeds, season_named
 from app.settings import Settings
 from app.sources import scoreboard, video_channel
 from app.sources.http import SourceClient
@@ -138,12 +146,14 @@ class DayFeeds:
         store: StateStore,
         client: SourceClient,
         cache: FeedCache,
+        names: TeamNamesFeeds,
         *,
         fetch_past_day: FetchPastDay = scoreboard.fetch_past_day,
     ) -> None:
         self._settings = settings
         self._store = store
         self._client = client
+        self._names = names
         self._fetch_past_day = fetch_past_day
         cache.register(self.kind())
 
@@ -169,13 +179,31 @@ class DayFeeds:
         if day is None:
             raise DayBuildError(f"{feed_id!r} is not a day")
         past = await self._fetch_past_day(self._client, day, self._settings)
-        return build_day_feed(
-            self._client.clock(), day, past.season, past.games, self._search_url
+        codes = [
+            side.code
+            for game in past.games
+            for side in (game.away, game.home)
+            if not side.guest and side.code is not None
+        ]
+        names = await self._names.season_names(codes, past.season)
+        games = [
+            game.model_copy(
+                update={
+                    "away": season_named(game.away, names),
+                    "home": season_named(game.home, names),
+                }
+            )
+            for game in past.games
+        ]
+        return with_build_version(
+            build_day_feed(
+                self._client.clock(), day, past.season, games, self._search_url
+            )
         )
 
     def is_fresh(self, feed: DayFeed, built_at: dt.datetime, now: dt.datetime) -> bool:
         if all(game.status is GameStatus.FINAL for game in feed.day.games):
-            return True
+            return is_current_build(feed)
         return now - built_at < REBUILD_AFTER
 
     def serve_with(self, feed_id: str, feed: DayFeed) -> DayFeed:

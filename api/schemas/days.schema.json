@@ -779,13 +779,26 @@
     },
     "day": {
       "$ref": "#/$defs/PastDay"
+    },
+    "buildVersion": {
+      "anyOf": [
+        {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     }
   },
   "required": [
     "generatedAt",
     "season",
     "seasonLabel",
-    "day"
+    "day",
+    "buildVersion"
   ],
   "title": "DayFeed",
   "type": "object"

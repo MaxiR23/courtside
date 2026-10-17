@@ -6,7 +6,10 @@
 # - past_season_status through check: 1993, abc, 02025, 2025 with a trailing newline, the current season and a future season are unknown; 1994 and the season before the current one are known; an unknown current season is not ready for a well-formed id from 1994
 # - target: the current season maps to the current playoffs feed, a past season to the season kind, and an unknown current season to the season kind
 # - The kind: a past season builds a valid complete feed, reading every source with the season, the days by provider id first and the season rosters, and the leaders and awards name players of those rosters
-# - The kind: the feed is stored under season-playoffs and never rebuilt: a second request, a request years later and a restart all serve with no source call; nothing is written under playoffs
+# - The kind: a player on two rosters belongs, in leaders and awards, to the team of his newest game, whatever the code order
+# - The kind: the leader and award names come from the box-score rosters, and a roster read that fails, also with a 404, fails the build
+# - The kind: the built feed carries the current build version, a stored feed of an older or missing version is rebuilt on its next request, and one of the current version is served with no source request (ADR 0053)
+# - The kind: the feed is stored under season-playoffs and rebuilt only for another version: a second request, a request years later and a restart all serve with no source call; nothing is written under playoffs
 # - The kind: season 2020 sends no play-in read and has a null play-in; season 2021 reads it
 # - The kind: a leaders, awards or champion record read that answers 404 is null; any other failure answers unavailable and stores nothing
 # - The kind: a team info failure only nulls the colors
@@ -30,8 +33,7 @@
 import asyncio
 import datetime as dt
 import logging
-from collections.abc import Iterator
-from dataclasses import dataclass
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import cast
 
@@ -40,6 +42,7 @@ import respx
 
 from app.feeds.playoffs import AwardCode, PlayoffsFeed, PlayoffsState, SeriesId
 from app.jobs.on_demand import (
+    SEASON_BUILD_VERSION,
     FeedCache,
     FeedUnavailableError,
     IdStatus,
@@ -48,9 +51,12 @@ from app.jobs.on_demand import (
 from app.jobs.playoffs_feed import FEED_ID as PLAYOFFS_ID
 from app.jobs.playoffs_feed import KIND as PLAYOFFS_KIND
 from app.jobs.season_playoffs_feed import KIND, SeasonPlayoffsFeeds
+from app.jobs.season_rosters import SeasonRosters
 from app.jobs.stars import StarsJob
+from app.jobs.team_feed import player_name
 from app.settings import Settings
 from app.sources.division_standings import DivisionStandings
+from app.sources.game_detail import BoxScoreRosterEntry
 from app.sources.http import SourceClient, SourceError, create_client
 from app.sources.postseason_leaders import PostseasonLeaders
 from app.sources.postseason_scoreboard import PostseasonGame
@@ -59,7 +65,7 @@ from app.sources.season_types import SeasonWindow
 from app.sources.team_info import TeamInfo
 from app.sources.team_players import RosterEntry
 from app.sources.team_postseason import TeamPostseasonRecord
-from app.storage.feeds import read_by_id
+from app.storage.feeds import publish_by_id, read_by_id
 from app.storage.state import StateStore
 from tests.jobs.test_playoffs_feed import (
     ALL,
@@ -84,9 +90,32 @@ YEARS = dt.timedelta(days=365 * 5)
 CHAMPION = seed(EAST, 1)
 
 
-@dataclass
-class FakeRoster:
-    entries: list[RosterEntry]
+class FakeRosters:
+    """The box-score rosters of a season: the players of the fixture roster, named
+    "Box <name>" so a name can only come from here."""
+
+    def __init__(
+        self,
+        kit: SeasonPlayoffsKit,
+        prefix: str,
+        source: Callable[[str], list[RosterEntry]],
+    ) -> None:
+        self.kit = kit
+        self.prefix = prefix
+        self.source = source
+
+    async def roster(self, code: str, season: int) -> list[BoxScoreRosterEntry]:
+        self.kit.read(f"{self.prefix}/{code}/{season}")
+        return [
+            BoxScoreRosterEntry(
+                player_id=entry.player_id,
+                display_name=f"Box {player_name(entry)}",
+                jersey=entry.jersey,
+                position_abbreviation=None,
+                headshot_url=entry.headshot_url,
+            )
+            for entry in self.source(code)
+        ]
 
 
 class SeasonPlayoffsKit:
@@ -111,6 +140,9 @@ class SeasonPlayoffsKit:
         self.load(past_games())
         self.register()
 
+    def box_players(self, code: str) -> list[RosterEntry]:
+        return [entry for c, entry in roster().values() if c == code]
+
     def register(self) -> None:
         self.season_playoffs = SeasonPlayoffsFeeds(
             self.settings,
@@ -118,11 +150,11 @@ class SeasonPlayoffsKit:
             self.client,
             self.cache,
             cast(StarsJob, self.stars),
+            cast(SeasonRosters, FakeRosters(self, "roster", self.box_players)),
             fetch_season_type=self.fetch_season_type,
             fetch_postseason_games=self.fetch_postseason_games,
             fetch_division_standings=self.fetch_division_standings,
             fetch_team_info=self.fetch_team_info,
-            fetch_season_roster=self.fetch_season_roster,
             fetch_postseason_leaders=self.fetch_postseason_leaders,
             fetch_season_awards=self.fetch_season_awards,
             fetch_team_postseason_record=self.fetch_team_postseason_record,
@@ -179,12 +211,6 @@ class SeasonPlayoffsKit:
     ) -> TeamInfo:
         self.read(f"info/{code}")
         return info()
-
-    async def fetch_season_roster(
-        self, client: SourceClient, code: str, season: int, settings: Settings
-    ) -> FakeRoster:
-        self.read(f"roster/{code}/{season}")
-        return FakeRoster([e for c, e in roster().values() if c == code])
 
     async def fetch_postseason_leaders(
         self, client: SourceClient, season: int, settings: Settings
@@ -388,14 +414,121 @@ async def test_any_other_failed_read_answers_unavailable_and_stores_nothing(
 
 
 @pytest.mark.anyio
-async def test_a_roster_that_answers_404_leaves_its_players_out(
+async def test_a_failed_roster_read_fails_the_build_also_with_a_404(
     kit: SeasonPlayoffsKit,
 ) -> None:
     kit.not_found = {f"roster/{ALL[1]}/2025"}
 
+    with pytest.raises(FeedUnavailableError):
+        await kit.serve_season("2025")
+
+    assert read_by_id(kit.path, KIND, "2025") is None
+
+
+@pytest.mark.anyio
+async def test_leader_and_award_names_come_from_the_box_score_rosters(
+    kit: SeasonPlayoffsKit,
+) -> None:
     feed = PlayoffsFeed.model_validate_json(await kit.serve_season("2025"))
 
-    assert feed.state is PlayoffsState.COMPLETE
+    assert feed.leaders is not None and feed.awards is not None
+    names = [row.name for group in feed.leaders for row in group.leaders]
+    names += [w.name for a in feed.awards for w in a.winners]
+    assert names and all(name.startswith("Box ") for name in names)
+    assert feed.build_version == SEASON_BUILD_VERSION
+
+
+class TradedRosters:
+    """Player "1" is on two rosters: the team that sorts first has his newest game."""
+
+    def __init__(self, kit: SeasonPlayoffsKit, newer: str, older: str) -> None:
+        self.kit = kit
+        self.times = {
+            newer: dt.datetime(2025, 6, 1, tzinfo=dt.UTC),
+            older: dt.datetime(2025, 2, 1, tzinfo=dt.UTC),
+        }
+
+    async def roster(self, code: str, season: int) -> list[BoxScoreRosterEntry]:
+        entries = [
+            BoxScoreRosterEntry(
+                player_id=entry.player_id,
+                display_name=f"Box {player_name(entry)}",
+                jersey=entry.jersey,
+                position_abbreviation=None,
+                headshot_url=entry.headshot_url,
+            )
+            for entry in self.kit.box_players(code)
+            if entry.player_id != "1"
+        ]
+        if code in self.times:
+            entries.append(
+                BoxScoreRosterEntry(
+                    player_id="1",
+                    display_name="Box Traded",
+                    jersey=None,
+                    position_abbreviation=None,
+                    headshot_url=None,
+                    last_played=self.times[code],
+                )
+            )
+        return entries
+
+
+@pytest.mark.anyio
+async def test_a_player_on_two_rosters_belongs_to_the_team_of_his_newest_game(
+    kit: SeasonPlayoffsKit,
+) -> None:
+    newer, older = "ATL", "WAS"
+    assert newer < older
+    kit.season_playoffs._rosters = cast(SeasonRosters, TradedRosters(kit, newer, older))
+
+    feed = PlayoffsFeed.model_validate_json(await kit.serve_season("2025"))
+
+    assert feed.leaders is not None and feed.awards is not None
+    rows = [r for g in feed.leaders for r in g.leaders if r.player_id == "1"]
+    winners = [w for a in feed.awards for w in a.winners if w.player_id == "1"]
+    assert rows and winners
+    assert {r.team_code for r in rows} == {newer}
+    assert {w.team_code for w in winners} == {newer}
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("version", [None, SEASON_BUILD_VERSION + 1])
+async def test_a_stored_feed_with_an_older_or_missing_version_is_rebuilt_on_its_next_request(
+    kit: SeasonPlayoffsKit, version: int | None
+) -> None:
+    await kit.serve_season("2025")
+    stored = kit.stored("2025")
+    assert stored is not None
+    publish_by_id(
+        kit.path,
+        KIND,
+        PlayoffsFeed,
+        "2025",
+        stored.model_copy(update={"build_version": version}),
+    )
+    kit.calls.clear()
+
+    served = PlayoffsFeed.model_validate_json(
+        await kit.serve_season("2025", NOW + YEARS)
+    )
+
+    assert served.build_version == version
+    assert kit.called("standings/") == 1
+    rebuilt = kit.stored("2025")
+    assert rebuilt is not None and rebuilt.build_version == SEASON_BUILD_VERSION
+
+
+@pytest.mark.anyio
+async def test_a_stored_feed_with_the_current_version_is_served_with_no_source_request(
+    kit: SeasonPlayoffsKit,
+) -> None:
+    await kit.serve_season("2025")
+    kit.calls.clear()
+
+    await kit.serve_season("2025", NOW + YEARS)
+
+    assert kit.calls == []
 
 
 @pytest.mark.anyio

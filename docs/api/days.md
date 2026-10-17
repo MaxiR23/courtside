@@ -25,6 +25,9 @@ Conventions:
 | `season`      | integer   | The end year of the day's season, as the scoreboard response gives it            | always  |
 | `seasonLabel` | season label | Such as `1998-99`                                                             | always  |
 | `day`         | `PastDay` | The requested US Eastern day: `date` and `games`                                 | always  |
+| `buildVersion` | integer / null | The rules version of a kept day ([ADR 0053](../adr/0053-season-level-rules-for-past-seasons.md)) | null on a stored feed from before the field |
+
+The league sides of a day are named by the day's season team object (name and city), with today's code; a guest side keeps its name ([ADR 0053](../adr/0053-season-level-rules-for-past-seasons.md)). A day with every game final is rebuilt on its next request when its `buildVersion` is not the current one.
 
 `games` holds `PastGame` objects in the provider's order. `PastGame` and
 `PastDay` have the schema of `Game` and `Day` of [`games.md`](games.md), apart

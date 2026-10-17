@@ -22,7 +22,10 @@
 # the season of the stars job's latest roster. A schedule that fails is skipped
 # only when every drawn team still has its 4 group games among the games read.
 # The feed is never deleted. read_cup_sources reads the sources of one season;
-# the past season kind (season_cup_feed.py) uses it too.
+# the past season kind (season_cup_feed.py) uses it too. In a past season the
+# seeds the quarterfinals were drawn by are not known (the tables are those of the
+# end of the season), so the two quarterfinals of a conference are placed by start
+# time, then id, with a seed label of no seed (ADR 0053).
 #
 # SEE: docs/api/cup.md, docs/adr/0028-cup-feed.md, api/app/jobs/standings_feed.py
 
@@ -129,6 +132,8 @@ class CupSources:
     conference_tables: Mapping[Conference, CupTable]
     schedules: Mapping[str, SeasonSchedule]
     failed_schedules: frozenset[str] = field(default_factory=frozenset)
+    # A past season (ADR 0053): its quarterfinals are placed by start time.
+    past: bool = False
 
 
 @dataclass(frozen=True)
@@ -488,6 +493,7 @@ class _Builder:
 
     def place_games(self) -> dict[SlotId, _Game]:
         placed: dict[SlotId, _Game] = {}
+        past_quarterfinals: dict[Conference, list[_Game]] = {}
         for game in self.games:
             if game.stage is CupRound.GROUP:
                 continue
@@ -506,6 +512,9 @@ class _Builder:
                 prefix = conference.value
                 if game.stage is CupRound.SEMIFINALS:
                     slot = SlotId(f"{prefix}-sf")
+                elif self.sources.past:
+                    past_quarterfinals.setdefault(conference, []).append(game)
+                    continue
                 else:
                     seeds = self.seeds(conference)
                     top = {
@@ -516,6 +525,13 @@ class _Builder:
             if slot in placed:
                 raise CupBuildError(f"two games in the slot {slot.value}")
             placed[slot] = game
+        for conference, quarterfinals in past_quarterfinals.items():
+            ordered = sorted(quarterfinals, key=lambda g: (g.start_time, g.id))
+            for number, game in enumerate(ordered, start=1):
+                slot = SlotId(f"{conference.value}-qf-{min(number, 2)}")
+                if slot in placed:
+                    raise CupBuildError(f"two games in the slot {slot.value}")
+                placed[slot] = game
         return placed
 
     def bracket(self) -> list[dict[str, Any]]:
@@ -561,6 +577,11 @@ class _Builder:
             keys = ("1", "wild_card") if number == 1 else ("2", "3")
             labels: list[dict[str, Any]] = (
                 [
+                    {"key": "seed", "conference": conference, "seed": None},
+                    {"key": "seed", "conference": conference, "seed": None},
+                ]
+                if self.sources.past
+                else [
                     {"key": "seed", "conference": conference, "seed": 1},
                     {"key": "wild_card", "conference": conference},
                 ]
@@ -577,13 +598,16 @@ class _Builder:
             )
             game = placed.get(slot)
             top_row = seeds.get(keys[0])
-            codes = pick(game, None if top_row is None else top_row.code)
+            codes = pick(
+                game,
+                None if top_row is None or self.sources.past else top_row.code,
+            )
             sides = []
             for index in range(2):
                 row = seeds.get(keys[index])
                 if game is not None:
                     code, projected = codes[index], None
-                    known = group_final and row is not None
+                    known = self.sources.past or (group_final and row is not None)
                 elif row is None:
                     code, projected, known = None, None, False
                 elif group_final:

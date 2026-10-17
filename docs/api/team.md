@@ -41,6 +41,7 @@ The root is one team.
 | `cup`        | `TeamCup` / null     | The team's Cup group and Cup record of the season         | null when no Cup group table has the team, and when a Cup read fails |
 | `titles`     | `TeamTitle[]` / null | The titles the team won in the current season, 1 to 3     | null when the team has no title; never an empty list |
 | `names`      | `NameRun[]`          | The identities of the franchise, oldest first             | always, may be empty   |
+| `buildVersion` | integer / null     | The rules version of a kept season feed ([ADR 0053](../adr/0053-season-level-rules-for-past-seasons.md)) | null on a current feed and on a stored feed from before the field |
 
 ## Nested objects
 
@@ -58,7 +59,7 @@ The root is one team.
 | `PointsTotal`   | `perGame`, `total`                                                                                                                          |
 | `Differential`  | `perGame`, `total` (may be negative)                                                                                                        |
 | `TeamLeaders`   | `season`; `points`, `rebounds`, `assists`: `TeamLeader` / null                                                                              |
-| `TeamLeader`    | `playerId`, `name`, `number` (null), `position`, `photoUrl` (null), `value`                                                                 |
+| `TeamLeader`    | `playerId`, `name`, `number` (null), `position` (null on a past season whose box score has none), `photoUrl` (null), `value`                |
 | `RosterPlayer`  | `id`, `name`, `number` (null), `position` (null), `height` (text, null), `weight` (lb, null), `age`, `birthDate`, `birthplace`, `college`, `experience` (0 is a rookie), `photoUrl`; each null when unknown; `status` (`active` or an injury status) |
 | `TeamInjury`    | `playerId`, `name`, `number` (null), `position` (null), `status`, `comment` (null when none), `updatedAt`                                   |
 | `Schedule`      | `groups`: `ScheduleGroup[]` in display order; `defaultGroup`                                                                                |
@@ -167,23 +168,30 @@ code. The feed is a `TeamFeed` (the same schema as above) validated by
 `PastTeamFeed`.
 
 - The season values:
-  - `city` and `name` are the team's in that season; `colors` are today's.
+  - `city` and `name` are the team's in that season, from the season team
+    object, which answers for an inactive franchise too ([ADR 0053](../adr/0053-season-level-rules-for-past-seasons.md));
+    `colors` are today's.
   - `record` is that season's standing. `playoff` is null before 2020-21, when
     the play-in began; `conferenceRank` still shows the place.
   - `leaders` are that season's averages, with no previous-season fallback.
-  - `roster` is that season's roster, with every `status` `active` and ages on
-    February 1 of the end year.
+  - `roster` is the players with a stat line in the box scores of the team's
+    final games of that season: `number` and `position` come from the newest
+    game that has a value, else they are null, every other field is null and the
+    `status` is `active`. A leader is one of these players, and its `position`
+    may be null. Each game is read once and kept (ADR 0053).
   - `schedule` has the regular season and the playoffs, with `detailAvailable`
-    false.
+    true for every final game and its opponents named by that season's team
+    object. The games are registered so their detail can be built.
   - `names` are the franchise names, as above.
 - Null blocks: `arena`, `coach`, `injuries`, `nextGame`, `cup` and `titles`.
 - Refresh: built on request, stored at `feeds/season-teams/{season}-{code}.json`,
-  kept for good: never refreshed and never deleted. The names are built first
+  kept for good: never deleted, and rebuilt on its next request when its
+  `buildVersion` is not the current one. The names are built first
   and set again when the feed is served.
 - Endpoint: the same headers and 304 as the team feed. It responds 404 with no
   source request for a season outside the range, a code that is not one of the 30
   lowercase standard codes, and, after one read of the season team object, for a
-  franchise with no team that season (or an inactive one); that answer is
+  franchise with no team object that season; that answer is
   remembered in memory. It responds 503 while the current season is not known, after a
   failed build with nothing stored, and when the request's 20 seconds end before
   a missing feed is built.

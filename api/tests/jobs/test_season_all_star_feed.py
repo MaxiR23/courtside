@@ -12,6 +12,8 @@
 # - Previous edition: the recap and the whole edition; none for 1994
 # - No per-game highlight, null league teams and no team info read
 # - The edition video is served as editionHighlight on the edition, the recap and the previous edition, null when none, and not stored
+# - A single-game edition builds as after with a champion, and the next season's recap carries the MVP this season's feed carries (ADR 0053)
+# - The built feed carries the current build version, a stored feed of an older or missing version is rebuilt on its next request, and one of the current version is served with no source request (ADR 0053)
 # - The kind: the cleanup keeps a past season feed
 #
 # What is covered:
@@ -39,7 +41,12 @@ from app.feeds.all_star import AllStarFeed, AllStarState
 from app.feeds.games import Highlight
 from app.feeds.playoffs import AwardCode
 from app.jobs import all_star_feed
-from app.jobs.on_demand import FeedUnavailableError, IdStatus, UnknownFeedError
+from app.jobs.on_demand import (
+    SEASON_BUILD_VERSION,
+    FeedUnavailableError,
+    IdStatus,
+    UnknownFeedError,
+)
 from app.jobs.season_all_star_feed import KIND, SeasonAllStarFeeds, february_days
 from app.jobs.stars import StarsJob
 from app.settings import Settings
@@ -48,7 +55,7 @@ from app.sources.all_star_scoreboard import AllStarScoreboardGame
 from app.sources.game_detail import GameDetail, GameDetailSections
 from app.sources.http import Freshness, SourceClient, SourceError
 from app.sources.season_awards import SeasonAwards
-from app.storage.feeds import read_by_id
+from app.storage.feeds import publish_by_id, read_by_id
 from tests.jobs.test_all_star_feed import (
     CHAMPIONSHIP,
     PKS,
@@ -61,6 +68,7 @@ from tests.jobs.test_all_star_feed import (
     game,
     round_robin,
     sections_of,
+    single_game,
 )
 
 EDITION = dt.date(2025, 2, 16)
@@ -516,8 +524,88 @@ async def test_league_teams_are_null_and_no_team_info_is_read(
     assert kit.called("info/") == 0
 
 
-def test_the_cleanup_keeps_a_past_season_feed(kit: SeasonAllStarKit) -> None:
+@pytest.mark.anyio
+async def test_the_cleanup_keeps_a_past_season_feed(kit: SeasonAllStarKit) -> None:
+    feed = await kit.request()
+
     assert kit.season_feeds.keep("2025")
-    assert kit.season_feeds.is_fresh(
-        cast(AllStarFeed, None), kit.clock[0], kit.clock[0]
+    assert kit.season_feeds.is_fresh(feed, kit.clock[0], kit.clock[0])
+
+
+@pytest.mark.anyio
+async def test_a_single_game_edition_builds_as_after_with_a_champion(
+    kit: SeasonAllStarKit,
+) -> None:
+    kit.days[EDITION] = single_game()
+
+    feed = await kit.request()
+
+    assert feed.state is AllStarState.AFTER
+    assert kit.stored_feed() == feed
+    assert [t.placement.kind.value for t in feed.edition.teams] == [
+        "champion",
+        "runner_up",
+    ]
+
+
+@pytest.mark.anyio
+async def test_the_next_seasons_recap_carries_the_mvp_this_seasons_feed_carries(
+    kit: SeasonAllStarKit,
+) -> None:
+    kit.calendars[2026] = [at(2, 15, 2026)]
+    kit.days[dt.date(2026, 2, 15)] = round_robin()
+
+    this_season = await kit.request("2025")
+    next_season = await kit.request("2026")
+
+    assert this_season.mvp is not None
+    assert next_season.previous is not None
+    assert next_season.previous.mvp == this_season.mvp
+
+
+@pytest.mark.anyio
+async def test_the_built_feed_carries_the_current_build_version(
+    kit: SeasonAllStarKit,
+) -> None:
+    feed = await kit.request()
+
+    assert feed.build_version == SEASON_BUILD_VERSION
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("version", [None, SEASON_BUILD_VERSION + 1])
+async def test_a_stored_feed_with_an_older_or_missing_version_is_rebuilt_on_its_next_request(
+    kit: SeasonAllStarKit, version: int | None
+) -> None:
+    await kit.request()
+    stored = kit.stored_feed()
+    assert stored is not None
+    publish_by_id(
+        kit.path,
+        KIND,
+        AllStarFeed,
+        "2025",
+        stored.model_copy(update={"build_version": version}),
     )
+    kit.calls.clear()
+    kit.clock[0] += dt.timedelta(days=30)
+
+    served = await kit.request()
+
+    assert served.build_version == version
+    assert kit.called("day/") > 0
+    rebuilt = kit.stored_feed()
+    assert rebuilt is not None and rebuilt.build_version == SEASON_BUILD_VERSION
+
+
+@pytest.mark.anyio
+async def test_a_stored_feed_with_the_current_version_is_served_with_no_source_request(
+    kit: SeasonAllStarKit,
+) -> None:
+    await kit.request()
+    kit.calls.clear()
+    kit.clock[0] += dt.timedelta(days=30)
+
+    await kit.request()
+
+    assert kit.calls == []

@@ -39,6 +39,7 @@ Conventions:
 | `bracket`          | `Series[]`            | Exactly 15, in the order of `SeriesId`                                                   | always  |
 | `champion`         | `Champion` / null     | The champion block                                                                       | set exactly when `state` is `complete` |
 | `leaders`          | `LeaderGroup[]` / null | Exactly 9, in the order of `LeaderCategory`                                             | null when the read failed or no category has a leader |
+| `buildVersion`     | integer / null        | The rules version of a kept season feed ([ADR 0053](../adr/0053-season-level-rules-for-past-seasons.md)) | null on a current feed and on a stored feed from before the field |
 | `awards`           | `Award[]` / null      | The awards with at least one winner on a current roster, in code order                   | null when the read failed or none has a winner |
 
 ## Nested objects
@@ -64,10 +65,10 @@ Conventions:
 | `Champion`           | `team`: `PlayoffTeam`; `wins` (always 4); `losses` (0 to 3); `firstDate`, `lastDate`: the Finals games; `record`, `home`, `road`: postseason records such as `16-6` (null when the record read failed); `pointDifferential`: `TotalDifferential` over the champion's final postseason games |
 | `LeaderCategory`     | `points`, `rebounds`, `assists`, `steals`, `blocks`, `field_goal_pct`, `threes_made`, `double_doubles`, `minutes`                                                                   |
 | `LeaderGroup`        | `category`; `leaders`: `PlayoffLeader[]` (up to 5)                                                                                                                                   |
-| `PlayoffLeader`      | `rank` (the position in the source list, so a left out leader leaves a gap); `playerId`; `name`; `photoUrl` (null); `teamCode`; `value` (text as the source sends it)               |
+| `PlayoffLeader`      | `rank` (the position in the source list, so a left out leader leaves a gap); `playerId`; `name`; `photoUrl` (null); `teamCode` (in a past season, the team of the player's newest game of the season); `value` (text as the source sends it)               |
 | `Award`              | `code`: `AwardCode`; `team` (1 to 3 for `all_nba`, 1 to 2 for `all_rookie` and `all_defensive`, null for any other award); `winners`: `AwardWinner[]` (1 to 5)                      |
 | `AwardCode`          | `mvp`, `dpoy`, `roy`, `sixth_man`, `mip`, `cpoy`, `finals_mvp`, `east_finals_mvp`, `west_finals_mvp`, `all_star_mvp`, `cup_mvp`, `cup_all_tournament`, `all_nba`, `all_rookie`, `all_defensive`, `twyman_stokes` |
-| `AwardWinner`        | `playerId`; `name`; `photoUrl` (null); `teamCode` (the team of the award, else the player's roster team; null)                                                                     |
+| `AwardWinner`        | `playerId`; `name`; `photoUrl` (null); `teamCode` (the team of the award, else the team of the player's newest game of the season for a past season, else the player's roster team; null)                                                                     |
 
 `Opponent`, `Score`, `GameStatus`, `Clinch` and `TotalDifferential` are as in the
 [games feed](games.md) and the [standings feed](standings.md).
@@ -298,7 +299,9 @@ current season.
   expiry.
 - A past season reads the same sources with the season value, and the sides of
   games resolved by provider id first. The names of leaders and award winners come
-  from that season's rosters, one read per team.
+  from that season's box-score rosters (`SeasonRosters`, one roster per team, each
+  game read once and kept); a failed roster read fails the build
+  ([ADR 0053](../adr/0053-season-level-rules-for-past-seasons.md)).
 - A season before 2021 has no play-in: the window is not requested, `playIn` is
   null, seeds 1 to 8 are the standings seeds and every round 1 label is a seed.
   Its `playin` stage entry is `upcoming` with null dates, and a page does not draw
@@ -321,8 +324,8 @@ current season.
   `detailAvailable` is false.
 - Refresh: built on request, stored at `feeds/season-playoffs/{season}.json`, kept
   for good (rule G of [`docs/source-rules.md`](../source-rules.md)): never
-  refreshed and never deleted. A failed build with nothing stored is retried after
-  10 minutes.
+  deleted, and rebuilt on its next request when its `buildVersion` is not the
+  current one. A failed build with nothing stored is retried after 10 minutes.
 - The kind is `SeasonPlayoffsFeeds` in `api/app/jobs/season_playoffs_feed.py`.
 - Endpoint: it serves with `Cache-Control: public, max-age=10` and an `ETag`, and
   responds 304 for a matching `If-None-Match`. It responds 404 with no source
@@ -360,6 +363,7 @@ team), then the bottom side.
 | `road`         | `RoadTeam[]`          | Exactly 2                                                            | always  |
 | `headToHead`   | `HeadToHead`          | The records and the 8 bars                                           | always  |
 | `averages`     | `RosterAverages[]`    | Exactly 2                                                            | always  |
+| `buildVersion` | integer / null        | The rules version of a kept season feed ([ADR 0053](../adr/0053-season-level-rules-for-past-seasons.md)) | null on a current feed and on a stored feed from before the field |
 
 ## Nested objects
 
@@ -483,16 +487,17 @@ the current season.
   expiry.
 - A past season builds from the stored season playoffs feed, built first when
   missing, so a season whose playoffs feed cannot be built answers 503.
-- The averages list the finalists' rosters of that season. A roster the source
-  has not (404) gives an empty `players` list. The game details resolve the sides
-  by provider id first.
+- The averages list the finalists' box-score rosters of that season
+  (`SeasonRosters`); a failed roster read, also a 404, fails the build. The game
+  details resolve the sides by provider id first.
 - A detail, sections, plays, team record or team statistics read that answers 404
   nulls its part: `leaders`, `winProbability`, `largestDeficit`, the postseason
   record and the bar values. Any other failed read fails the build.
 - `highlights` is the stored highlight added when served, null without one;
   `detailAvailable` is false ([ADR 0048](../adr/0048-highlights-backfill-and-edition-video.md)).
 - Refresh: built on request, stored at `feeds/season-playoffs-finals/{season}.json`,
-  kept for good (rule G of [`docs/source-rules.md`](../source-rules.md)). A failed
+  kept for good (rule G of [`docs/source-rules.md`](../source-rules.md)), rebuilt
+  on its next request when its `buildVersion` is not the current one. A failed
   build with nothing stored is retried after 10 minutes.
 - The kind is `SeasonPlayoffsFinalsFeeds` in
   `api/app/jobs/season_playoffs_finals_feed.py`.

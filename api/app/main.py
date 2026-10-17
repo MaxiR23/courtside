@@ -34,6 +34,7 @@ from app.jobs.season_cup_matchup_feed import SeasonCupMatchupFeeds
 from app.jobs.season_player_feed import SeasonPlayerFeeds
 from app.jobs.season_playoffs_feed import SeasonPlayoffsFeeds
 from app.jobs.season_playoffs_finals_feed import SeasonPlayoffsFinalsFeeds
+from app.jobs.season_rosters import SeasonRosters
 from app.jobs.season_standings_feed import SeasonStandingsFeeds
 from app.jobs.season_team_feed import SeasonTeamFeeds
 from app.jobs.standings_feed import StandingsFeeds
@@ -133,18 +134,42 @@ def create_app(settings: Settings | None = None, *, run_jobs: bool = True) -> Fa
             team_feeds,
             past_ids=past_ids,
         )
-        SeasonStandingsFeeds(settings, store, client, feed_cache, stars_job)
-        SeasonTeamFeeds(settings, store, client, feed_cache, stars_job, team_names)
-        SeasonPlayerFeeds(settings, store, client, feed_cache, stars_job, past_ids)
+        season_rosters = SeasonRosters(settings, store, client)
+        SeasonStandingsFeeds(settings, store, client, feed_cache, stars_job, team_names)
+        SeasonTeamFeeds(
+            settings,
+            store,
+            client,
+            feed_cache,
+            stars_job,
+            team_names,
+            season_rosters,
+        )
+        SeasonPlayerFeeds(
+            settings,
+            store,
+            client,
+            feed_cache,
+            stars_job,
+            past_ids,
+            team_names,
+            season_rosters,
+        )
         season_cups = SeasonCupFeeds(settings, store, client, feed_cache, stars_job)
         season_cup_matchups = SeasonCupMatchupFeeds(
             settings, store, client, feed_cache, stars_job, season_cups
         )
         season_playoffs = SeasonPlayoffsFeeds(
-            settings, store, client, feed_cache, stars_job
+            settings, store, client, feed_cache, stars_job, season_rosters
         )
         season_playoffs_finals = SeasonPlayoffsFinalsFeeds(
-            settings, store, client, feed_cache, stars_job, season_playoffs
+            settings,
+            store,
+            client,
+            feed_cache,
+            stars_job,
+            season_playoffs,
+            season_rosters,
         )
         all_star_discovery = AllStarDiscovery(settings, store, client, stars_job)
         AllStarFeeds(
@@ -160,7 +185,7 @@ def create_app(settings: Settings | None = None, *, run_jobs: bool = True) -> Fa
             settings, store, client, feed_cache, stars_job
         )
         calendar_feeds = CalendarFeeds(settings, store, client, feed_cache, stars_job)
-        DayFeeds(settings, store, client, feed_cache)
+        DayFeeds(settings, store, client, feed_cache, team_names)
         PastGameDetailFeeds(settings, store, client, feed_cache)
         highlights_backfill = HighlightsBackfill(
             settings,

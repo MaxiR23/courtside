@@ -1,6 +1,6 @@
 # 0047. Season All-Star feed
 
-- Status: Superseded by 0048 for what the season kind adds when served only
+- Status: Superseded by 0048 for what the season kind adds when served only, and by 0053 for single-game editions only
 - Date: 2026-10-15
 
 ## Context

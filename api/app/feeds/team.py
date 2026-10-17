@@ -138,7 +138,8 @@ class TeamLeader(FeedModel):
     player_id: NonEmptyStr
     name: NonEmptyStr
     number: JerseyNumber | None = None
-    position: NonEmptyStr
+    # Null on a past season's leader whose box-score position is absent (ADR 0053).
+    position: NonEmptyStr | None = None
     photo_url: HttpUrl | None = None
     value: NonNegativeFloat
 
@@ -287,6 +288,9 @@ class TeamFeed(FeedModel):
     # The franchise names, oldest first. The default reads a stored feed from
     # before the field.
     names: list[NameRun] = Field(default_factory=list)
+    # The rules version of a kept season feed (ADR 0053); null on a current feed
+    # and on a stored feed from before the field.
+    build_version: PositiveInt | None = None
 
     @model_validator(mode="after")
     def _require_the_blocks_of_the_current_season(self) -> TeamFeed:

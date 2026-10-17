@@ -349,6 +349,9 @@ class PlayerFeed(FeedModel):
     active: bool = True
     # Set exactly on the feed of a past season (ADR 0043).
     season_label: SeasonLabel | None = None
+    # The rules version of a kept season feed (ADR 0053); null on a current feed
+    # and on a stored feed from before the field.
+    build_version: PositiveInt | None = None
 
     @model_validator(mode="after")
     def _require_the_blocks_of_the_current_season(self) -> PlayerFeed:

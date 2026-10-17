@@ -1,8 +1,8 @@
 # api/app/sources/season_team.py
 #
 # Season team adapter: fetches the team object of one team in one season and
-# maps its abbreviation, display name, name, location and active state to an
-# internal season team. A 404 means the team has no object that season.
+# maps its abbreviation, display name, name and location to an internal season
+# team. A 404 means the team has no object that season; isActive is never read.
 # The provider URL comes from Settings. Provider data never leaves this module.
 #
 # SEE: docs/api/team.md, docs/adr/0043-season-feeds-and-franchise-names.md
@@ -31,7 +31,6 @@ class _ProviderSeasonTeam(BaseModel):
     display_name: str
     name: str
     location: str
-    is_active: bool
 
 
 class SeasonTeam(FeedModel):
@@ -42,7 +41,6 @@ class SeasonTeam(FeedModel):
     display_name: NonEmptyStr
     name: NonEmptyStr
     location: NonEmptyStr
-    active: bool
 
 
 def _location(error: ValidationError) -> str:
@@ -76,7 +74,6 @@ async def fetch_season_team(
                 "display_name": provider.display_name,
                 "name": provider.name,
                 "location": provider.location,
-                "active": provider.is_active,
             }
         )
     except ValidationError as error:

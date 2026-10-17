@@ -70,7 +70,7 @@ from app.jobs.team_feed import (
 from app.settings import Settings
 from app.sources import finals_plays, game_detail, player_stats, team_postseason
 from app.sources.finals_plays import PlayScore
-from app.sources.game_detail import GameDetail, GameDetailSections
+from app.sources.game_detail import BoxScoreRosterEntry, GameDetail, GameDetailSections
 from app.sources.http import Freshness, SourceClient, SourceError
 from app.sources.player_stats import PlayerStats, StatLine
 from app.sources.team_players import RosterEntry
@@ -115,7 +115,7 @@ class FinalsSources:
     """What the finals build reads. Never reaches a feed."""
 
     playoffs: PlayoffsFeed
-    rosters: Mapping[str, Sequence[RosterEntry]]
+    rosters: Mapping[str, Sequence[RosterEntry | BoxScoreRosterEntry]]
     details: Mapping[str, GameDetail | None]
     sections: Mapping[str, GameDetailSections | None]
     plays: Mapping[str, Sequence[PlayScore] | None]
@@ -288,7 +288,7 @@ def bars(
 
 def averages(
     code: str,
-    entries: Sequence[RosterEntry],
+    entries: Sequence[RosterEntry | BoxScoreRosterEntry],
     stats: Mapping[str, PlayerStats | None],
     label: str,
 ) -> dict[str, Any]:

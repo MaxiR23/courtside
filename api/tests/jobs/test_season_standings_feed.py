@@ -5,10 +5,12 @@
 # Tested:
 # - past_season_status: 1993, abc, 01999, 2027 with a trailing newline, a non-ASCII digit string, the current season and a future season are unknown; 1994 and the season before the current one are known; an unknown current season is not ready for a well-formed id
 # - The kind: a past season builds a valid feed with the season parameter, the state final with fewer than 82 games and the clinchers of the source
-# - The kind: the feed is stored and never rebuilt: a second request, a request years later and a new cache over the same data directory (a restart) all serve with no source call
+# - The kind: the feed is stored and rebuilt only for another version: a second request, a request years later and a new cache over the same data directory (a restart) all serve with no source call
 # - The kind: a failed build with nothing stored answers unavailable
 # - The kind: an invalid id answers unknown and a not ready season answers unavailable, with no source request
 # - The kind: the colors are today's and null when a team info read fails
+# - The kind: each row is named by that season's team object with today's code
+# - The kind: the built feed carries the current build version, a stored feed of an older or missing version is rebuilt on its next request, and one of the current version is served with no source request (ADR 0053)
 # - The kind: the cleanup keeps it
 #
 # What is covered:
@@ -29,6 +31,7 @@ import pytest
 from app.feeds.game_detail import Conference
 from app.feeds.standings import Clinch, StandingsFeed, StandingsState
 from app.jobs.on_demand import (
+    SEASON_BUILD_VERSION,
     FeedCache,
     FeedUnavailableError,
     IdStatus,
@@ -40,11 +43,13 @@ from app.jobs.season_standings_feed import (
     past_season_status,
 )
 from app.jobs.stars import StarsJob
+from app.jobs.team_names import TeamNamesFeeds
 from app.settings import Settings
 from app.sources.division_standings import DivisionEntry, DivisionStandings
 from app.sources.http import SourceClient, SourceError, create_client
+from app.sources.season_team import SeasonTeam
 from app.sources.team_info import TeamInfo
-from app.storage.feeds import read_by_id
+from app.storage.feeds import publish_by_id, read_by_id
 from app.storage.state import StateStore
 
 NOW = dt.datetime(2026, 10, 8, 15, 0, tzinfo=dt.UTC)
@@ -146,19 +151,44 @@ class StandingsKit:
         self.info_codes: list[str] = []
         self.failing = False
         self.failing_info: set[str] = set()
+        # The (name, city) of the season team object by code; the default is the
+        # name and city of the standings rows.
+        self.season_names: dict[str, tuple[str, str]] = {}
         self.start()
 
     def start(self) -> None:
         """A new cache and kind over the same data directory: a restart."""
         self.cache = FeedCache(self.path, self.store, clock=lambda: self.clock[0])
+        self.names = TeamNamesFeeds(
+            self.settings,
+            self.store,
+            self.client,
+            self.cache,
+            cast(StarsJob, self.stars),
+            fetch_season_team=self.fetch_season_team,
+        )
         self.kind = SeasonStandingsFeeds(
             self.settings,
             self.store,
             self.client,
             self.cache,
             cast(StarsJob, self.stars),
+            self.names,
             fetch_division_standings=self.fetch_division_standings,
             fetch_team_info=self.fetch_team_info,
+        )
+
+    async def fetch_season_team(
+        self, client: SourceClient, code: str, season: int, settings: Settings
+    ) -> SeasonTeam | None:
+        self.calls.append(f"season-team/{code}/{season}")
+        name, city = self.season_names.get(code, ("Team", code.title()))
+        return SeasonTeam(
+            team_id="1",
+            abbreviation="OLD",
+            display_name=f"{city} {name}",
+            name=name,
+            location=city,
         )
 
     async def fetch_division_standings(
@@ -213,6 +243,25 @@ async def test_a_past_season_builds_a_valid_final_feed_with_the_season_and_the_c
     assert east["BBB"].clinch is Clinch.PLAYOFFS
     assert feed.conferences[1].teams[0].clinch is Clinch.ELIMINATED
     assert east["AAA"].colors.primary == "#007ac1"
+    assert feed.build_version == SEASON_BUILD_VERSION
+
+
+@pytest.mark.anyio
+async def test_each_row_is_named_by_that_seasons_team_object_with_todays_code(
+    kit: StandingsKit,
+) -> None:
+    kit.season_names = {"AAA": ("Harbor Gulls", "Seattle")}
+
+    feed = StandingsFeed.model_validate_json(await kit.serve("1996"))
+
+    east = {row.code: row for row in feed.conferences[0].teams}
+    assert (east["AAA"].code, east["AAA"].name, east["AAA"].city) == (
+        "AAA",
+        "Harbor Gulls",
+        "Seattle",
+    )
+    assert (east["BBB"].name, east["BBB"].city) == ("Team", "Bbb")
+    assert "season-team/AAA/1996" in kit.calls
 
 
 @pytest.mark.anyio
@@ -285,3 +334,38 @@ async def test_the_cleanup_keeps_the_feed(kit: StandingsKit) -> None:
     kit.cache.cleanup()
 
     assert read_by_id(kit.path, KIND, "1996") == body
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("version", [None, SEASON_BUILD_VERSION + 1])
+async def test_a_stored_feed_with_an_older_or_missing_version_is_rebuilt_on_its_next_request(
+    kit: StandingsKit, version: int | None
+) -> None:
+    await kit.serve("1996")
+    stored = StandingsFeed.model_validate_json(
+        read_by_id(kit.path, KIND, "1996") or b""
+    )
+    old = stored.model_copy(update={"build_version": version})
+    publish_by_id(kit.path, KIND, StandingsFeed, "1996", old)
+    kit.seasons.clear()
+
+    served = StandingsFeed.model_validate_json(await kit.serve("1996", NOW + YEARS))
+
+    assert served.build_version == version
+    assert kit.seasons == [1996]
+    rebuilt = StandingsFeed.model_validate_json(
+        read_by_id(kit.path, KIND, "1996") or b""
+    )
+    assert rebuilt.build_version == SEASON_BUILD_VERSION
+
+
+@pytest.mark.anyio
+async def test_a_stored_feed_with_the_current_version_is_served_with_no_source_request(
+    kit: StandingsKit,
+) -> None:
+    await kit.serve("1996")
+    kit.calls.clear()
+
+    await kit.serve("1996", NOW + YEARS)
+
+    assert kit.calls == []

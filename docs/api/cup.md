@@ -38,6 +38,7 @@ Conventions:
 | `wildCard`         | `WildCardTable[]`  | East then West                                                       | always  |
 | `bracket`          | `BracketSlot[]`    | Exactly 7, in the order of `SlotId`                                  | always  |
 | `games`            | `CupGames`         | Every Cup game by day, with counts                                   | always  |
+| `buildVersion`     | integer / null     | The rules version of a kept season feed ([ADR 0053](../adr/0053-season-level-rules-for-past-seasons.md)) | null on a current feed and on a stored feed from before the field |
 
 ## Nested objects
 
@@ -231,9 +232,13 @@ current season.
 - A past season reads the same sources with the season value, and the schedules
   by provider id first. It must build as `complete`, or the build fails and
   nothing is stored. `detailAvailable` is false.
+- The two quarterfinals of a conference are placed by start time, then id (the
+  seeds they were drawn by are not known), and each side's label is a `seed`
+  label with a null `seed`; a third quarterfinal in a conference fails the build
+  ([ADR 0053](../adr/0053-season-level-rules-for-past-seasons.md)).
 - Refresh: built on request, stored at `feeds/season-cup/{season}.json`, kept for
-  good (rule G of [`docs/source-rules.md`](../source-rules.md)): never refreshed
-  and never deleted. A failed build with nothing stored is retried after 10
+  good (rule G of [`docs/source-rules.md`](../source-rules.md)): never deleted,
+  and rebuilt on its next request when its `buildVersion` is not the current one. A failed build with nothing stored is retried after 10
   minutes.
 - The kind is `SeasonCupFeeds` in `api/app/jobs/season_cup_feed.py`.
 - Endpoint: it serves with `Cache-Control: public, max-age=10` and an `ETag`, and

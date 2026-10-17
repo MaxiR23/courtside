@@ -48,6 +48,7 @@
 # - Responds 404 for a day that is not a date, a day with a trailing newline, before 1993-10-01, tomorrow and a day of the stored games feed with no source request, and 503 when the read fails with nothing stored
 # - Serves the game detail of a final game of a stored day through the game detail route with Cache-Control, ETag and a season label, and answers 304 for a matching ETag
 # - Responds 404 for a game id in no stored day and for a postponed game of a stored day, with no source request, and 503 for a past game whose build fails with nothing stored
+# - Serves a past game registered by a past team or player feed whose day is not stored, building its day first (ADR 0053)
 # - A game the games job has loaded takes the games path with a null season label even when a stored day lists it
 # - Serves the standings, team and player feed of a past season with Cache-Control and ETag, answers 304 for a matching ETag, 404 for 1993, the current season, a future season and a non-integer with no source request, 503 while the season is not known, and 404 for a franchise with no team that season
 # - Serves the Cup and a Cup matchup of a past season with Cache-Control and ETag and answers 304 for a matching ETag
@@ -1620,6 +1621,19 @@ def test_serves_a_past_game_detail_with_status_final_and_a_season_label_with_cac
     etag = response.headers["etag"]
     assert etag.startswith('"') and etag.endswith('"')
     assert past.kit.section_calls == ["1"]
+
+
+def test_serves_a_registered_past_game_whose_day_is_not_stored(
+    past: PastDetail,
+) -> None:
+    past.kit.days[PAST] = [day_game("1", GameStatus.FINAL)]
+    past.kit.store.set_past_game_dates({"1": PAST})
+    with TestClient(past.app) as client:
+        response = client.get("/feeds/games/1.json")
+
+    assert response.status_code == 200
+    assert PastGameDetailFeed.model_validate_json(response.content).id == "1"
+    assert past.kit.calls == [PAST]
 
 
 def test_responds_304_when_the_past_game_detail_etag_matches(past: PastDetail) -> None:

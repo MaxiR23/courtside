@@ -16,6 +16,7 @@
 # - Known sides carry their standing (seed, group and record), a semifinal side its winner's, and a projected or empty side has none
 # - A final game keeps its period and a scheduled game has none
 # - Scheduled knockout games replace the projections, matched to the quarterfinal slots by seed
+# - A past Cup places the quarterfinals of a conference by start time with null seed labels, builds as complete when two quarterfinals share a seed and its semifinal links both, and fails with three quarterfinals in a conference (ADR 0053)
 # - Two quarterfinals in one slot, a knockout team outside the draw and a bad streak fail the build
 # - The championship counts outside the standings and both final rounds are on a neutral court
 # - A game seen from both teams is listed once with both sides' names, and a team no schedule shows has a null name
@@ -312,6 +313,7 @@ def sources(
     rows: bool = True,
     tables: dict[tuple[Conference, str], CupTable] | None = None,
     conferences: dict[Conference, CupTable] | None = None,
+    past: bool = False,
 ) -> CupSources:
     return CupSources(
         season=2027,
@@ -336,6 +338,7 @@ def sources(
             for conference in (EAST, WEST)
         },
         schedules=schedules_of(pairs),
+        past=past,
     )
 
 
@@ -640,6 +643,91 @@ def test_two_quarterfinals_in_one_slot_fail_the_build() -> None:
 
     with pytest.raises(CupBuildError, match="two games in the slot east-qf-1"):
         build([*group_pairs(all_final()), *knockouts(1, 0), twin])
+
+
+def late_early_quarterfinals() -> list[Pair]:
+    """East quarterfinals whose first-seed game starts after the other one."""
+    late = pair("qe1", CupRound.QUARTERFINALS, "ATL", "BOS", BASE + 30 * DAY)
+    early = pair("qe2", CupRound.QUARTERFINALS, "CLE", "NYK", BASE + 21 * DAY)
+    west = [p for p in knockouts(1, 0) if "DAL" in p or "LAL" in p]
+    return [late, early, *west]
+
+
+def test_a_past_cup_places_the_quarterfinals_of_a_conference_by_start_time_with_null_seed_labels() -> (
+    None
+):
+    pairs = [*group_pairs(all_final()), *late_early_quarterfinals()]
+
+    present = build(pairs)
+    past = build(pairs, past=True)
+
+    assert slot(present, SlotId.EAST_QF_1).game.id == "qe1"  # type: ignore[union-attr]
+    first, second = slot(past, SlotId.EAST_QF_1), slot(past, SlotId.EAST_QF_2)
+    assert first.game is not None and first.game.id == "qe2"
+    assert second.game is not None and second.game.id == "qe1"
+    for side in (first.top, first.bottom, second.top, second.bottom):
+        assert side.label.key.value == "seed" and side.label.seed is None
+        assert side.known
+    assert first.top.team is not None and first.top.team.code == "CLE"
+    assert second.top.team is not None and second.top.team.code == "ATL"
+
+
+def shared_seed_cup() -> list[Pair]:
+    """East quarterfinals that both involve a top seed or the wild card: ATL (1)
+    and BOS (wild card), with the semifinal between their winners."""
+    east = [
+        pair(
+            "qeA",
+            CupRound.QUARTERFINALS,
+            "ATL",
+            "NYK",
+            BASE + 20 * DAY,
+            scores=(100, 90),
+        ),
+        pair(
+            "qeB",
+            CupRound.QUARTERFINALS,
+            "BOS",
+            "CLE",
+            BASE + 21 * DAY,
+            scores=(100, 90),
+        ),
+        pair(
+            "se", CupRound.SEMIFINALS, "ATL", "BOS", BASE + 26 * DAY, scores=(100, 90)
+        ),
+    ]
+    replaced = {"qe1", "qe2", "se"}
+    rest = [
+        p for p in knockouts(3, 3) if next(iter(p.values())).game_id not in replaced
+    ]
+    return [*group_pairs(all_final()), *east, *rest]
+
+
+def test_a_past_cup_whose_two_quarterfinals_share_a_seed_builds_as_complete_and_its_semifinal_links_both() -> (
+    None
+):
+    pairs = shared_seed_cup()
+
+    with pytest.raises(CupBuildError, match="two games in the slot"):
+        build(pairs)
+    feed = build(pairs, past=True)
+
+    assert feed.stage is CupStage.COMPLETE
+    semifinal = slot(feed, SlotId.EAST_SF)
+    assert semifinal.top.known and semifinal.bottom.known
+    assert semifinal.top.team is not None and semifinal.top.team.code == "ATL"
+    assert semifinal.bottom.team is not None and semifinal.bottom.team.code == "BOS"
+    assert semifinal.top.label.key.value == "quarterfinal_winner"
+
+
+def test_a_past_conference_with_three_quarterfinals_fails() -> None:
+    third = pair("qe9", CupRound.QUARTERFINALS, "BKN", "CHA", BASE + 25 * DAY)
+
+    with pytest.raises(CupBuildError, match="two games in the slot east-qf-2"):
+        build(
+            [*group_pairs(all_final()), *late_early_quarterfinals(), third],
+            past=True,
+        )
 
 
 def test_a_knockout_team_outside_the_draw_fails_the_build() -> None:

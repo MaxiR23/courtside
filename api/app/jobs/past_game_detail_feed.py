@@ -12,10 +12,14 @@
 #
 # PastGameDetailFeeds is the feed kind of the on-demand cache: the id is the
 # game id, the feed is stored at feeds/past-games/{id}.json only when requested.
-# An id is known only when it is a final game of a stored day feed. The kind
-# never answers not ready and reads no source to answer. A feed is built once
+# An id is known when it is a final game of a stored day feed, or a game a past
+# team or player feed registered with its date (ADR 0053); the day feed of that
+# date is then built first. The kind never answers not ready and reads no source
+# to answer. A feed is built once
 # and kept (rule D): it is never refreshed by the games job, the live refresh
-# or the highlights job, and never deleted (rule J).
+# or the highlights job, and never deleted (rule J); it is rebuilt only when its
+# build version is not the current one, from a day feed of the current version
+# (ADR 0053).
 #
 # SEE: docs/api/game-detail.md, docs/adr/0041-past-game-detail.md,
 # docs/adr/0048-highlights-backfill-and-edition-video.md,
@@ -31,7 +35,13 @@ from app.feeds.days import DayFeed, PastGame
 from app.feeds.game_detail import PastGameDetailFeed
 from app.feeds.games import GameStatus
 from app.jobs.day_feed import KIND as DAY_KIND
-from app.jobs.on_demand import FeedCache, FeedKind, IdStatus
+from app.jobs.on_demand import (
+    FeedCache,
+    FeedKind,
+    IdStatus,
+    is_current_build,
+    with_build_version,
+)
 from app.jobs.team_feed import season_label
 from app.settings import Settings
 from app.sources import game_detail
@@ -147,16 +157,24 @@ class PastGameDetailFeeds:
                 self._settled.add(candidate)
         return self._days.get(game_id)
 
-    def _past_game(self, game_id: str) -> PastGame | None:
-        day_id = self._day_of(game_id)
-        if day_id is None:
-            return None
+    def _current_day(self, day_id: str) -> DayFeed | None:
         body = read_by_id(self._settings.data_dir, DAY_KIND, day_id)
         if body is None:
             return None
         try:
             feed = DayFeed.model_validate_json(body)
         except ValidationError:
+            return None
+        return feed if is_current_build(feed) else None
+
+    def _past_game(self, game_id: str) -> PastGame | None:
+        day_id = self._day_of(game_id)
+        if day_id is None:
+            return None
+        feed = self._current_day(day_id)
+        if feed is None:
+            # Not stored or not built by the current rules: building from it
+            # would keep today's names for good (ADR 0053).
             return None
         return next(
             (
@@ -168,9 +186,23 @@ class PastGameDetailFeeds:
         )
 
     def check(self, game_id: str) -> IdStatus:
-        if GAME_ID.fullmatch(game_id) is None or self._day_of(game_id) is None:
+        if GAME_ID.fullmatch(game_id) is None:
+            return IdStatus.UNKNOWN
+        if (
+            self._day_of(game_id) is None
+            and self._store.past_game_date(game_id) is None
+        ):
             return IdStatus.UNKNOWN
         return IdStatus.KNOWN
+
+    def depends_on(self, game_id: str) -> tuple[str, str] | None:
+        # The day feed is made current first, so a rebuilt detail reads the names
+        # of the current rules (ADR 0053).
+        day_id = self._day_of(game_id)
+        if day_id is not None:
+            return None if self._current_day(day_id) else (DAY_KIND, day_id)
+        registered = self._store.past_game_date(game_id)
+        return None if registered is None else (DAY_KIND, registered.isoformat())
 
     async def build(self, game_id: str) -> PastGameDetailFeed:
         game = self._past_game(game_id)
@@ -181,12 +213,12 @@ class PastGameDetailFeeds:
         sections = await self._fetch_sections(
             self._client, game_id, self._settings, PAST_FRESH
         )
-        return build_past_game_detail_feed(game, sections)
+        return with_build_version(build_past_game_detail_feed(game, sections))
 
     def is_fresh(
         self, feed: PastGameDetailFeed, built_at: dt.datetime, now: dt.datetime
     ) -> bool:
-        return True
+        return is_current_build(feed)
 
     def serve_with(self, game_id: str, feed: PastGameDetailFeed) -> PastGameDetailFeed:
         found = self._store.highlights().get(game_id)
@@ -208,4 +240,5 @@ class PastGameDetailFeeds:
             is_fresh=self.is_fresh,
             keep=self.keep,
             serve_with=self.serve_with,
+            depends_on=self.depends_on,
         )

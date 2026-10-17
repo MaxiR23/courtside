@@ -46,6 +46,7 @@ export interface PlayoffsFinalsFeed {
 	 * @maxItems 2
 	 */
 	averages: [RosterAverages, RosterAverages];
+	buildVersion: number | null;
 }
 export interface FinalsGame {
 	game: SeriesGame;

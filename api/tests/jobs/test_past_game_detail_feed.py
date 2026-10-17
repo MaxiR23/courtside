@@ -12,9 +12,11 @@
 # - The builder fails for a game that is not final and for sections without a season, and wraps an invalid feed
 # - The kind: a final game of a stored day is known; an id in no day, a postponed game of a stored day and an unsafe id are unknown with no source request
 # - The kind: a day stored after the first lookup is indexed on the next lookup
+# - The kind: a registered game with no stored day is known and builds its day first, one the day does not list as final fails the build, and an id neither stored nor registered stays unknown (ADR 0053)
 # - The kind: a request builds and stores a valid feed and a second request makes no source request
 # - The kind: after a restart the stored feed is served with no source request
 # - The kind: the stored feed is fresh after a year
+# - The kind: a stored detail without the current build version is served, then rebuilt from a day made current first; one of the current version is served as stored (ADR 0053)
 # - The kind: a failed build answers unavailable and is not retried for 10 minutes
 # - The kind: a summary without a season fails the build and stores nothing
 # - The kind: the stored highlight is added when served as a list of one, null without one and on an All-Star game, and is not stored
@@ -46,9 +48,11 @@ from app.jobs.day_feed import KIND as DAY_KIND
 from app.jobs.day_feed import build_day_feed
 from app.jobs.on_demand import (
     RETRY_AFTER,
+    SEASON_BUILD_VERSION,
     FeedUnavailableError,
     IdStatus,
     UnknownFeedError,
+    with_build_version,
 )
 from app.jobs.past_game_detail_feed import (
     KIND,
@@ -322,6 +326,47 @@ async def test_a_day_stored_after_the_first_lookup_is_indexed_on_the_next_lookup
 
 
 @pytest.mark.anyio
+async def test_a_registered_game_with_no_stored_day_is_known_and_builds_its_day_first(
+    kit: PastKit,
+) -> None:
+    kit.days[PAST] = [game("1", GameStatus.FINAL)]
+    kit.store.set_past_game_dates({"1": PAST})
+
+    assert kit.past_kind.check("1") is IdStatus.KNOWN
+    assert read_by_id(kit.path, DAY_KIND, PAST.isoformat()) is None
+    body = await kit.serve_past("1")
+
+    assert PastGameDetailFeed.model_validate_json(body).id == "1"
+    assert read_by_id(kit.path, DAY_KIND, PAST.isoformat()) is not None
+    assert kit.calls == [PAST]
+    assert kit.section_calls == ["1"]
+
+
+@pytest.mark.anyio
+async def test_a_registered_game_the_day_does_not_list_as_final_fails_the_build(
+    kit: PastKit,
+) -> None:
+    kit.days[PAST] = [game("1", GameStatus.POSTPONED)]
+    kit.store.set_past_game_dates({"1": PAST})
+
+    with pytest.raises(FeedUnavailableError):
+        await kit.serve_past("1")
+
+    assert kit.section_calls == []
+    assert read_by_id(kit.path, KIND, "1") is None
+
+
+@pytest.mark.anyio
+async def test_an_id_neither_stored_nor_registered_stays_unknown(kit: PastKit) -> None:
+    kit.store.set_past_game_dates({"1": PAST})
+
+    assert kit.past_kind.check("2") is IdStatus.UNKNOWN
+    with pytest.raises(UnknownFeedError):
+        await kit.cache.serve(KIND, "2")
+    assert kit.calls == [] and kit.section_calls == []
+
+
+@pytest.mark.anyio
 async def test_a_request_builds_and_stores_a_valid_feed_and_a_second_makes_no_source_request(
     kit: PastKit,
 ) -> None:
@@ -338,6 +383,55 @@ async def test_a_request_builds_and_stores_a_valid_feed_and_a_second_makes_no_so
     assert feed.season_label == "2004-05" and feed.id == "1"
     state = kit.store.feed_build(KIND, "1")
     assert state is not None and state.last_build == NOW
+
+
+@pytest.mark.anyio
+async def test_a_stored_detail_without_the_build_version_is_served_then_rebuilt_from_a_current_day(
+    kit: PastKit,
+) -> None:
+    await kit.store_day(game("1", GameStatus.FINAL))
+    await kit.serve_past("1")
+    stored_day = DayFeed.model_validate_json(
+        read_by_id(kit.path, DAY_KIND, PAST.isoformat()) or b""
+    )
+    stale_day = stored_day.model_copy(update={"build_version": None})
+    assert publish_by_id(kit.path, DAY_KIND, DayFeed, PAST.isoformat(), stale_day)
+    stale = PastGameDetailFeed.model_validate_json(
+        read_by_id(kit.path, KIND, "1") or b""
+    ).model_copy(update={"build_version": None})
+    assert publish_by_id(kit.path, KIND, PastGameDetailFeed, "1", stale)
+
+    served = PastGameDetailFeed.model_validate_json(
+        await kit.serve_past("1", NOW + YEAR)
+    )
+
+    assert served.build_version is None
+    day = DayFeed.model_validate_json(
+        read_by_id(kit.path, DAY_KIND, PAST.isoformat()) or b""
+    )
+    rebuilt = PastGameDetailFeed.model_validate_json(
+        read_by_id(kit.path, KIND, "1") or b""
+    )
+    assert day.build_version == SEASON_BUILD_VERSION
+    assert rebuilt.build_version == SEASON_BUILD_VERSION
+    assert kit.section_calls == ["1", "1"]
+    assert kit.calls == [PAST, PAST]
+
+
+@pytest.mark.anyio
+async def test_a_stored_detail_of_the_current_build_version_is_served_as_stored(
+    kit: PastKit,
+) -> None:
+    await kit.store_day(game("1", GameStatus.FINAL))
+    first = await kit.serve_past("1")
+
+    again = await kit.serve_past("1", NOW + YEAR)
+
+    assert again == first
+    assert PastGameDetailFeed.model_validate_json(first).build_version == (
+        SEASON_BUILD_VERSION
+    )
+    assert kit.section_calls == ["1"]
 
 
 @pytest.mark.anyio
@@ -429,7 +523,9 @@ async def test_the_games_job_never_refreshes_or_deletes_a_past_game_detail(
         harness.cache,
         fetch_sections=fetch_sections,
     )
-    day = build_day_feed(NOW, PAST, 2026, [game("p1", GameStatus.FINAL)], search_url)
+    day = with_build_version(
+        build_day_feed(NOW, PAST, 2026, [game("p1", GameStatus.FINAL)], search_url)
+    )
     publish_by_id(tmp_path, DAY_KIND, DayFeed, PAST.isoformat(), day)
     harness.games = [
         live_game("1", GameStatus.SCHEDULED, start=NOON + 5 * dt.timedelta(hours=1))
@@ -459,7 +555,9 @@ async def test_an_upper_case_postseason_note_gives_the_title_case_mark_and_a_fin
     payload = json.loads((FIXTURES / "past-day.json").read_text(encoding="utf-8"))
     respx.get("https://example.com/scoreboard/19990204").respond(json=payload)
     past = await scoreboard.fetch_past_day(kit.client, day, scoreboard_settings)
-    stored = build_day_feed(NOW, day, past.season, past.games, search_url)
+    stored = with_build_version(
+        build_day_feed(NOW, day, past.season, past.games, search_url)
+    )
     publish_by_id(kit.path, DAY_KIND, DayFeed, day.isoformat(), stored)
     by_id = {g.id: g for g in stored.day.games}
 

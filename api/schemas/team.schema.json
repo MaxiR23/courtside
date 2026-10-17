@@ -865,8 +865,16 @@
           "default": null
         },
         "position": {
-          "minLength": 1,
-          "type": "string"
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "photoUrl": {
           "anyOf": [
@@ -1268,6 +1276,18 @@
         "$ref": "#/$defs/NameRun"
       },
       "type": "array"
+    },
+    "buildVersion": {
+      "anyOf": [
+        {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     }
   },
   "required": [
@@ -1288,7 +1308,8 @@
     "schedule",
     "cup",
     "titles",
-    "names"
+    "names",
+    "buildVersion"
   ],
   "title": "TeamFeed",
   "type": "object"

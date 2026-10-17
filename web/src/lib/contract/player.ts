@@ -40,6 +40,7 @@ export interface PlayerFeed {
 	allStarYear: number | null;
 	active: boolean;
 	seasonLabel: string | null;
+	buildVersion: number | null;
 }
 export interface Team {
 	code: string;

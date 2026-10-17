@@ -35,6 +35,7 @@ Conventions:
 | `edition`  | `AllStarEdition`      | The current edition                                                   | always  |
 | `mvp`      | `AllStarMvp` / null   | The All-Star MVP                                                      | null in `before`, and when the award or his box row is missing |
 | `previous` | `AllStarRecap` / null | The recap of the previous edition                                     | null when not discovered, unreadable or without a final Championship |
+| `buildVersion` | integer / null | The rules version of a kept season feed ([ADR 0053](../adr/0053-season-level-rules-for-past-seasons.md)) | null on a current feed and on a stored feed from before the field |
 | `previousEdition` | `AllStarPreviousEdition` / null | The previous edition with every game, team and its MVP, drawn as its after view | null when `previous` is null or a game of that edition is not final |
 
 ## Nested objects
@@ -75,7 +76,10 @@ Conventions:
 3. **Round label.** The note of a game is `NBA All-Star - <round>`, optionally
    followed by a format suffix that begins with `First team to N points wins`. The
    round, for example `Round Robin`, `Semifinals` or `Championship`, is the
-   `roundLabel`. A game of the round `Championship` has `championship` true. A note
+   `roundLabel`. A game of the round `Championship` has `championship` true, and so
+   has the only game of an edition with one game, whatever its round; two distinct
+   sides that share a name are drawn with their code and name, such as
+   `EAST All-Stars` ([ADR 0053](../adr/0053-season-level-rules-for-past-seasons.md)). A note
    that is only `ALL STAR GAME` or `NBA All-Star Game`, in any case, is the round
    `All-Star Game` ([ADR 0051](../adr/0051-all-star-notes-and-untimed-games.md)),
    with `championship` false. A note that does not match gives a null label.
@@ -243,7 +247,8 @@ next not final, no next game beyond it) and a points tie for the top of a team b
 - `leagueTeam` is null on every row, `highlights` is null on every game and
   `editionHighlight` is added when served.
 - The feed is built once on request, stored at
-  `feeds/season-all-star/{season}.json` and kept: it is never refreshed or deleted.
+  `feeds/season-all-star/{season}.json` and kept: it is never deleted, and rebuilt
+  on its next request when its `buildVersion` is not the current one.
   A failed build is not retried for 10 minutes on request.
 - The feed kind is `SeasonAllStarFeeds` in `api/app/jobs/season_all_star_feed.py`.
 

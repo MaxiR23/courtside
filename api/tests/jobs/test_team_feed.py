@@ -1746,7 +1746,6 @@ class NamedKit(TeamKit):
             display_name=f"{location} {name}",
             name=name,
             location=location,
-            active=True,
         )
 
 

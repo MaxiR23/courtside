@@ -6,7 +6,11 @@
 # edition is the day the discovery job stored: its games are the All-Star games
 # of that scoreboard day, in start order, without the canceled ones. The note of
 # a game is "NBA All-Star - <round>" with an optional format suffix; the round is
-# the label and a game of the round "Championship" is the championship. The state
+# the label and a game of the round "Championship" is the championship; the only
+# game of a single-game edition is the championship whatever its round (ADR 0053).
+# Two distinct sides of an edition that share a name, as East and West
+# "All-Stars", are drawn with their code and name, "EAST All-Stars" (ADR 0053).
+# The state
 # is before while no game is live or final (the feed then has the date and the
 # venue when known, and no games or teams), after once there is a game and every
 # game is final, and live otherwise. A team is a distinct side of the games in
@@ -54,12 +58,14 @@
 #
 # SEE: docs/api/all-star.md, docs/adr/0036-all-star-feed.md,
 # docs/adr/0048-highlights-backfill-and-edition-video.md,
+# docs/adr/0053-season-level-rules-for-past-seasons.md,
 # api/app/jobs/playoffs_finals_feed.py
 
 import asyncio
 import datetime as dt
 import logging
 import re
+from collections import Counter
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -233,6 +239,17 @@ def team_key(side: AllStarSide) -> str:
     return side.code or side.name or ""
 
 
+def championship_game(
+    games: Sequence[AllStarScoreboardGame],
+) -> AllStarScoreboardGame | None:
+    """The championship of an edition: its only game when it has exactly one,
+    else the first game of the round Championship."""
+    ordered = edition_games(games)
+    if len(ordered) == 1:
+        return ordered[0]
+    return next((g for g in ordered if parse_note(g.note)[0] == CHAMPIONSHIP), None)
+
+
 def _sides(game: AllStarScoreboardGame) -> list[tuple[Side, AllStarSide]]:
     found: list[tuple[Side, AllStarSide]] = []
     if game.away is not None:
@@ -249,6 +266,18 @@ def team_order(games: Sequence[AllStarScoreboardGame]) -> list[AllStarSide]:
         for _, side in _sides(game):
             found.setdefault(team_key(side), side)
     return list(found.values())
+
+
+def side_names(games: Sequence[AllStarScoreboardGame]) -> dict[str, str]:
+    """The name drawn for each distinct side that shares its name with another
+    distinct side and has a code: its code and its name. Other sides are absent."""
+    sides = team_order(games)
+    counts = Counter(side.name for side in sides if side.name)
+    return {
+        team_key(side): f"{side.code} {side.name}"
+        for side in sides
+        if side.name and side.code and counts[side.name] > 1
+    }
 
 
 def records(games: Sequence[AllStarScoreboardGame]) -> dict[str, tuple[int, int]]:
@@ -273,16 +302,14 @@ def placements(
     championship is final, else so far or yet to play. Never inferred."""
     ordered = edition_games(games)
     teams = [team_key(side) for side in team_order(ordered)]
-    final = next(
-        (
-            g
-            for g in ordered
-            if parse_note(g.note)[0] == CHAMPIONSHIP
-            and winner(g) is not None
-            and g.away is not None
-            and g.home is not None
-        ),
-        None,
+    candidate = championship_game(ordered)
+    final = (
+        candidate
+        if candidate is not None
+        and winner(candidate) is not None
+        and candidate.away is not None
+        and candidate.home is not None
+        else None
     )
     played = {
         team_key(side)
@@ -344,7 +371,7 @@ def default_game(
     if not games:
         return None
     if state is AllStarState.AFTER:
-        final = next((g for g in games if parse_note(g.note)[0] == CHAMPIONSHIP), None)
+        final = championship_game(games)
         if final is not None:
             return final.id
     live = next((g for g in games if g.status is GameStatus.LIVE), None)
@@ -448,10 +475,17 @@ def league_team(
     )
 
 
-def _opponent(side: AllStarSide | None) -> dict[str, Any] | None:
+def _opponent(
+    side: AllStarSide | None, renamed: Mapping[str, str]
+) -> dict[str, Any] | None:
     if side is None:
         return None
-    return {"code": side.code, "name": side.name, "city": side.city, "guest": True}
+    return {
+        "code": side.code,
+        "name": renamed.get(team_key(side), side.name),
+        "city": side.city,
+        "guest": True,
+    }
 
 
 def _venue(
@@ -536,7 +570,11 @@ def _top5_rows(sources: AllStarSources, game: AllStarScoreboardGame) -> list[Top
 
 
 def _game(
-    sources: AllStarSources, game: AllStarScoreboardGame, next_id: str | None
+    sources: AllStarSources,
+    game: AllStarScoreboardGame,
+    next_id: str | None,
+    championship_id: str | None,
+    renamed: Mapping[str, str],
 ) -> dict[str, Any]:
     label, _ = parse_note(game.note)
     extras = sources.extras.get(game.id)
@@ -555,10 +593,10 @@ def _game(
         "attendance": None if extras is None else extras.attendance,
         "broadcasts": [] if extras is None else extras.broadcasts,
         "round_label": label,
-        "championship": label == CHAMPIONSHIP,
+        "championship": game.id == championship_id,
         "is_next": game.id == next_id,
-        "away": _opponent(game.away),
-        "home": _opponent(game.home),
+        "away": _opponent(game.away, renamed),
+        "home": _opponent(game.home, renamed),
         "to_be_determined": game.away is None or game.home is None,
         "box_score": _box_score(sources, game),
         "team_stats": team_stats(sources.sections.get(game.id)),
@@ -579,7 +617,10 @@ def _line_format(
 
 
 def _results(
-    sources: AllStarSources, games: Sequence[AllStarScoreboardGame], key: str
+    sources: AllStarSources,
+    games: Sequence[AllStarScoreboardGame],
+    key: str,
+    renamed: Mapping[str, str],
 ) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for game in games:
@@ -604,7 +645,7 @@ def _results(
                     "result": GameResult.WIN if won is found else GameResult.LOSS,
                     "team_score": ours,
                     "opponent_score": theirs,
-                    "opponent": _opponent(other),
+                    "opponent": _opponent(other, renamed),
                     "overtime": overtime(game, sources.extras.get(game.id)),
                 }
             )
@@ -616,6 +657,7 @@ def _teams(
 ) -> list[dict[str, Any]]:
     table = records(games)
     placed = placements(games)
+    renamed = side_names(games)
     teams: list[dict[str, Any]] = []
     for side in team_order(games):
         key = team_key(side)
@@ -640,10 +682,10 @@ def _teams(
         wins, losses = table[key]
         teams.append(
             {
-                "team": _opponent(side),
+                "team": _opponent(side, renamed),
                 "wins": wins,
                 "losses": losses,
-                "results": _results(sources, games, key),
+                "results": _results(sources, games, key, renamed),
                 "placement": {"kind": kind, "round_label": label},
                 "roster": list(roster.values()),
             }
@@ -679,6 +721,7 @@ def mvp(
     winner_ref = _mvp_winner(sources.awards)
     if winner_ref is None:
         return None
+    renamed = side_names(games)
     lines: list[dict[str, Any]] = []
     first: tuple[AllStarScoreboardGame, BoxScorePlayer] | None = None
     for game in games:
@@ -710,7 +753,9 @@ def mvp(
                 "result": GameResult.WIN if won is side else GameResult.LOSS,
                 "team_score": mine,
                 "opponent_score": theirs,
-                "opponent": _opponent(game.home if side is Side.AWAY else game.away),
+                "opponent": _opponent(
+                    game.home if side is Side.AWAY else game.away, renamed
+                ),
                 "points": player.points,
                 "rebounds": player.rebounds,
                 "assists": player.assists,
@@ -742,14 +787,7 @@ def _recap(previous: AllStarSources | None) -> dict[str, Any] | None:
     if previous is None or previous.edition_date is None:
         return None
     games = edition_games(previous.games)
-    final = next(
-        (
-            g
-            for g in games
-            if parse_note(g.note)[0] == CHAMPIONSHIP and winner(g) is not None
-        ),
-        None,
-    )
+    final = championship_game(games)
     won = None if final is None else winner(final)
     if (
         final is None
@@ -760,14 +798,15 @@ def _recap(previous: AllStarSources | None) -> dict[str, Any] | None:
     ):
         return None
     venue = _venue(previous, games)
+    renamed = side_names(games)
     return {
         "year": previous.year,
         "date": previous.edition_date,
         "venue": venue,
         "championship": {
             "game_id": final.id,
-            "away": _opponent(final.away),
-            "home": _opponent(final.home),
+            "away": _opponent(final.away, renamed),
+            "home": _opponent(final.home, renamed),
             "score": final.score,
             "winner": won,
             "overtime": overtime(final, previous.extras.get(final.id)),
@@ -785,12 +824,15 @@ def _edition(
     shown = [] if before else list(games)
     default_id = default_game(shown, state)
     next_id = next_game(shown, state, default_id)
+    champion = championship_game(games)
+    championship_id = None if champion is None else champion.id
+    renamed = side_names(games)
     return {
         "date": sources.edition_date,
         "venue": _venue(sources, games),
         "format_line": None if before else _line_format(sources, games),
         "teams": [] if before else _teams(sources, games),
-        "games": [_game(sources, g, next_id) for g in shown],
+        "games": [_game(sources, g, next_id, championship_id, renamed) for g in shown],
         "counts": edition_counts(shown),
         "default_game_id": default_id,
     }

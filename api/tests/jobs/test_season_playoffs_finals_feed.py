@@ -5,11 +5,13 @@
 # Tested:
 # - check: 1993, abc, 02025, 2025 with a trailing newline, the current season and a future season are unknown; 1994 and the season before the current one are known; an unknown current season is not ready
 # - target: the current season maps to the current playoffs finals feed, a past season to the season kind
-# - The kind: a past season builds a valid Finals feed after the season playoffs feed (built first through depends_on), with the finalists' season rosters, the game details by provider id first and the season on the team reads
-# - The kind: a detail, sections, plays, record, statistics or roster read that answers 404 nulls or empties its part (leaders, curve, largest deficit, records, bar values, averages players)
-# - The kind: any other failed read answers unavailable and stores nothing
+# - The kind: a past season builds a valid Finals feed after the season playoffs feed (built first through depends_on), with the finalists' box-score rosters, the game details by provider id first and the season on the team reads
+# - The kind: a detail, sections, plays, record or statistics read that answers 404 nulls or empties its part (leaders, curve, largest deficit, records, bar values)
+# - The kind: a roster read that fails, also with a 404, any other failed read answers unavailable and stores nothing
+# - The kind: the finalists' averages list the box-score rosters
+# - The kind: the built feed carries the current build version, a stored feed of an older or missing version is rebuilt on its next request, and one of the current version is served with no source request (ADR 0053)
 # - The kind: a season whose playoffs feed cannot be built answers unavailable
-# - The kind: the feed is stored under season-playoffs-finals and never rebuilt: a second request, a request years later and a restart serve with no source call
+# - The kind: the feed is stored under season-playoffs-finals and rebuilt only for another version: a second request, a request years later and a restart serve with no source call
 # - The kind: detailAvailable is false and the stored highlights are added when served and not stored; the cleanup keeps it
 #
 # What is covered:
@@ -31,11 +33,17 @@ import pytest
 from app.feeds.games import Highlight
 from app.feeds.playoffs import AwardCode
 from app.feeds.playoffs_finals import PlayoffsFinalsFeed
-from app.jobs.on_demand import FeedUnavailableError, IdStatus, UnknownFeedError
+from app.jobs.on_demand import (
+    SEASON_BUILD_VERSION,
+    FeedUnavailableError,
+    IdStatus,
+    UnknownFeedError,
+)
 from app.jobs.playoffs_finals_feed import FEED_ID as FINALS_ID
 from app.jobs.playoffs_finals_feed import KIND as FINALS_KIND
 from app.jobs.season_playoffs_feed import KIND as PLAYOFFS_KIND
 from app.jobs.season_playoffs_finals_feed import KIND, SeasonPlayoffsFinalsFeeds
+from app.jobs.season_rosters import SeasonRosters
 from app.jobs.stars import StarsJob
 from app.settings import Settings
 from app.sources.finals_plays import PlayScore
@@ -43,8 +51,9 @@ from app.sources.game_detail import GameDetail, GameDetailSections
 from app.sources.http import Freshness, SourceClient
 from app.sources.player_stats import PlayerStats
 from app.sources.season_awards import SeasonAwards
+from app.sources.team_players import RosterEntry
 from app.sources.team_postseason import TeamPostseasonRecord, TeamPostseasonStats
-from app.storage.feeds import read_by_id
+from app.storage.feeds import publish_by_id, read_by_id
 from tests.jobs.test_playoffs_feed import HOUR, NOW, award
 from tests.jobs.test_playoffs_finals_feed import (
     BOTTOM,
@@ -58,7 +67,7 @@ from tests.jobs.test_playoffs_finals_feed import (
 )
 from tests.jobs.test_season_playoffs_feed import (
     YEARS,
-    FakeRoster,
+    FakeRosters,
     SeasonPlayoffsKit,
     no_network,  # noqa: F401
 )
@@ -84,11 +93,14 @@ class FinalsKit(SeasonPlayoffsKit):
             self.cache,
             cast(StarsJob, self.stars),
             self.season_playoffs,
+            cast(
+                SeasonRosters,
+                FakeRosters(self, "f-roster", lambda code: list(PLAYERS[code])),
+            ),
             fetch_game_detail=self.fetch_game_detail,
             fetch_game_detail_sections=self.fetch_game_detail_sections,
             fetch_play_scores=self.fetch_play_scores,
             fetch_player_stats=self.fetch_player_stats,
-            fetch_season_roster=self.fetch_finalist_roster,
             fetch_team_postseason_record=self.fetch_finals_record,
             fetch_team_postseason_stats=self.fetch_team_postseason_stats,
         )
@@ -99,17 +111,8 @@ class FinalsKit(SeasonPlayoffsKit):
         self.read(f"awards/{season}")
         return SeasonAwards(awards=[award(AwardCode.FINALS_MVP, ["101"])])
 
-    async def fetch_season_roster(
-        self, client: SourceClient, code: str, season: int, settings: Settings
-    ) -> Any:
-        found = await super().fetch_season_roster(client, code, season, settings)
-        return FakeRoster([*found.entries, *PLAYERS.get(code, [])])
-
-    async def fetch_finalist_roster(
-        self, client: SourceClient, code: str, season: int, settings: Settings
-    ) -> Any:
-        self.read(f"f-roster/{code}/{season}")
-        return FakeRoster(list(PLAYERS[code]))
+    def box_players(self, code: str) -> list[RosterEntry]:
+        return [*super().box_players(code), *PLAYERS.get(code, [])]
 
     async def fetch_game_detail(
         self,
@@ -260,7 +263,6 @@ async def test_reads_that_answer_404_null_or_empty_their_parts(kit: FinalsKit) -
         "plays/finals-1",
         f"finals-record/{TOP}/2025",
         f"stats/{TOP}/2025",
-        f"f-roster/{BOTTOM}/2025",
     }
 
     feed = PlayoffsFinalsFeed.model_validate_json(await kit.serve_finals("2025"))
@@ -277,7 +279,6 @@ async def test_reads_that_answer_404_null_or_empty_their_parts(kit: FinalsKit) -
     )
     assert feed.head_to_head.bars[0].values[0].value is None
     assert feed.head_to_head.bars[0].better is None
-    assert next(a for a in feed.averages if a.team_code == BOTTOM).players == []
     assert next(a for a in feed.averages if a.team_code == TOP).players
 
 
@@ -303,6 +304,66 @@ async def test_any_other_failed_read_answers_unavailable_and_stores_nothing(
         await kit.serve_finals("2025")
 
     assert read_by_id(kit.path, KIND, "2025") is None
+
+
+@pytest.mark.anyio
+async def test_a_roster_read_that_answers_404_fails_the_build(kit: FinalsKit) -> None:
+    kit.not_found = {f"f-roster/{BOTTOM}/2025"}
+
+    with pytest.raises(FeedUnavailableError):
+        await kit.serve_finals("2025")
+
+    assert read_by_id(kit.path, KIND, "2025") is None
+
+
+@pytest.mark.anyio
+async def test_the_finalists_averages_list_the_box_score_rosters(
+    kit: FinalsKit,
+) -> None:
+    feed = PlayoffsFinalsFeed.model_validate_json(await kit.serve_finals("2025"))
+
+    names = {p.name for a in feed.averages for p in a.players}
+    assert names and all(name.startswith("Box ") for name in names)
+    assert feed.build_version == SEASON_BUILD_VERSION
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("version", [None, SEASON_BUILD_VERSION + 1])
+async def test_a_stored_feed_with_an_older_or_missing_version_is_rebuilt_on_its_next_request(
+    kit: FinalsKit, version: int | None
+) -> None:
+    await kit.serve_finals("2025")
+    stored = kit.stored_finals("2025")
+    assert stored is not None
+    publish_by_id(
+        kit.path,
+        KIND,
+        PlayoffsFinalsFeed,
+        "2025",
+        stored.model_copy(update={"build_version": version}),
+    )
+    kit.calls.clear()
+
+    served = PlayoffsFinalsFeed.model_validate_json(
+        await kit.serve_finals("2025", NOW + YEARS)
+    )
+
+    assert served.build_version == version
+    assert kit.called("detail/") == 5
+    rebuilt = kit.stored_finals("2025")
+    assert rebuilt is not None and rebuilt.build_version == SEASON_BUILD_VERSION
+
+
+@pytest.mark.anyio
+async def test_a_stored_feed_with_the_current_version_is_served_with_no_source_request(
+    kit: FinalsKit,
+) -> None:
+    await kit.serve_finals("2025")
+    kit.calls.clear()
+
+    await kit.serve_finals("2025", NOW + YEARS)
+
+    assert kit.calls == []
 
 
 @pytest.mark.anyio

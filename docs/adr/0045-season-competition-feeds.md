@@ -1,6 +1,6 @@
 # 0045. Season competition feeds
 
-- Status: Accepted
+- Status: Superseded by 0053 for the past quarterfinal slots only
 - Date: 2026-10-15
 
 ## Context

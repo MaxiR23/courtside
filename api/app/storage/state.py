@@ -1,6 +1,6 @@
 # api/app/storage/state.py
 #
-# Job state in SQLite: game dates, final times and whether they were first seen, highlight attempts, failed stats attempts, matched highlights, team stars, discovered All-Star editions, the video of each edition and the time each All-Star game was first seen final, the highlights backfill's resume point, the targets the running sweep reads for and swept targets, source cache entries, feed build times and failures and per-job outcomes.
+# Job state in SQLite: game dates, final times and whether they were first seen, highlight attempts, failed stats attempts, matched highlights, team stars, discovered All-Star editions, the video of each edition and the time each All-Star game was first seen final, the date and box-score players of past games, the highlights backfill's resume point, the targets the running sweep reads for and swept targets, source cache entries, feed build times and failures and per-job outcomes.
 # Schema versioned with PRAGMA user_version; MIGRATIONS run once each on startup.
 # One connection per operation, so sync endpoints can use it from the threadpool.
 #
@@ -10,7 +10,7 @@ import datetime as dt
 import json
 import logging
 import sqlite3
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from contextlib import closing
 from pathlib import Path
 from typing import Annotated
@@ -102,6 +102,13 @@ MIGRATIONS: tuple[Migration, ...] = (
             "CREATE TABLE highlights_backfill_members ("
             "kind TEXT NOT NULL, target_id TEXT NOT NULL, "
             "PRIMARY KEY (kind, target_id))"
+        ),
+    ),
+    # The date and box-score players of past games (ADR 0053).
+    (
+        (
+            "CREATE TABLE past_games ("
+            "game_id TEXT PRIMARY KEY, game_date TEXT NOT NULL, players TEXT)"
         ),
     ),
 )
@@ -526,6 +533,40 @@ class StateStore:
             )
             for season, game_date, game_ids in rows
         ]
+
+    def set_past_game_dates(self, dates: Mapping[str, dt.date]) -> None:
+        """Registers the dates of past games; a stored row and its players are
+        never overwritten."""
+        with self._connect() as connection, connection:
+            connection.executemany(
+                "INSERT OR IGNORE INTO past_games (game_id, game_date) VALUES (?, ?)",
+                [(game_id, day.isoformat()) for game_id, day in dates.items()],
+            )
+
+    def set_past_game_players(
+        self, game_id: str, game_date: dt.date, players: str
+    ) -> None:
+        with self._connect() as connection, connection:
+            connection.execute(
+                "INSERT INTO past_games (game_id, game_date, players) "
+                "VALUES (?, ?, ?) ON CONFLICT(game_id) DO UPDATE SET "
+                "players = excluded.players",
+                (game_id, game_date.isoformat(), players),
+            )
+
+    def past_game_players(self, game_id: str) -> str | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT players FROM past_games WHERE game_id = ?", (game_id,)
+            ).fetchone()
+        return None if row is None else row[0]
+
+    def past_game_date(self, game_id: str) -> dt.date | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT game_date FROM past_games WHERE game_id = ?", (game_id,)
+            ).fetchone()
+        return None if row is None else dt.date.fromisoformat(row[0])
 
     def backfill_sweep(self) -> BackfillSweep | None:
         with self._connect() as connection:
