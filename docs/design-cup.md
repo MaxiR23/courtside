@@ -70,6 +70,7 @@ Everything under "Implementation rules" in `docs/design.md`, `docs/design-standi
 - **Played:** table Pos · Team (+ tag) · W-L · GB · Diff/G · Diff · Strk. A "More columns" toggle adds PF · PA · Home · Away · OT and widens the cards to 560px.
 - **Tags** (from the feed only): `y` "Won group" and `x` "Wild card" have accent border and text. `e` "Eliminated" has a divider border and muted text, and the whole row is muted. A legend sits under the grid.
 - Missing values render `—`. Team names truncate, never wrap.
+- Rows are listed by position; a row without a position goes last, in feed order (a past season's groups included).
 
 ## Wild card
 
