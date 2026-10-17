@@ -4,6 +4,7 @@
 	import MessageRow from '#lib/components/MessageRow.svelte';
 	import SeasonSelect from '#lib/components/SeasonSelect.svelte';
 	import { calendarSheetSlide } from '#lib/calendar/motion.ts';
+	import { isWindowDay } from '#lib/calendar/month.ts';
 	import { CalendarSheetState } from '#lib/calendar/sheet.svelte.ts';
 	import type { DateCalendar } from '#lib/calendar/types.ts';
 	import { play } from '#lib/hero/motion.ts';
@@ -21,11 +22,19 @@
 	let { calendar, layout, onClose, anchor }: Props = $props();
 
 	// The loader never changes while the sheet is open.
-	const sheet = new CalendarSheetState(untrack(() => calendar.load));
+	const sheet = new CalendarSheetState(
+		untrack(() => calendar.load),
+		untrack(() => calendar.today)
+	);
 	const season = $derived(calendar.season);
 	const selectedDay = $derived(calendar.selectedDay);
 	const mobile = $derived(layout === 'mobile');
 	const days = $derived(new Set(sheet.feed?.days ?? []));
+	// A day the home shows links to the home; any other day to its page.
+	const hrefOf = (date: string) =>
+		isWindowDay(date, calendar.windowDays, sheet.feed?.windowDays ?? [])
+			? calendar.windowHref(date)
+			: calendar.dayHref(date);
 
 	let root = $state<HTMLElement>();
 	let closeButton = $state<HTMLButtonElement>();
@@ -88,7 +97,7 @@
 			canNext={sheet.canNext}
 			onPrevious={() => sheet.previous()}
 			onNext={() => sheet.next()}
-			dayHref={calendar.dayHref}
+			dayHref={hrefOf}
 			{layout}
 		/>
 	{:else if sheet.failed}

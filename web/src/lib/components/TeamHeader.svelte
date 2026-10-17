@@ -19,6 +19,7 @@
 		layout: RowLayout;
 		loading?: boolean; // the first feed has not loaded yet: show the skeleton
 		seasonSelect?: SeasonControl | null; // null: no selector
+		seasonTag?: string | null; // "Season 2022-23": kept on the unavailable state of a past season
 	};
 
 	let {
@@ -27,7 +28,8 @@
 		standingsHref,
 		layout,
 		loading = false,
-		seasonSelect = null
+		seasonSelect = null,
+		seasonTag = null
 	}: Props = $props();
 
 	const CELL_BONES = [0, 1, 2, 3];
@@ -46,10 +48,12 @@
 				<div class="identity">
 					<div class="code-box">
 						<TeamMonogram code={header.code} size="team" />
-						<span class="strip" aria-hidden="true">
-							<span class="half" style:background-color={header.colors.primary}></span>
-							<span class="half" style:background-color={header.colors.secondary}></span>
-						</span>
+						{#if header.colors}
+							<span class="strip" aria-hidden="true">
+								<span class="half" style:background-color={header.colors.primary}></span>
+								<span class="half" style:background-color={header.colors.secondary}></span>
+							</span>
+						{/if}
 					</div>
 					{#if header.tag}<SeasonTag text={header.tag} />{/if}
 					<span class="city">{header.city}</span>
@@ -89,6 +93,8 @@
 					</div>
 				</div>
 			</div>
+		{:else if seasonTag}
+			<div><SeasonTag text={seasonTag} /></div>
 		{/if}
 		{#if seasonSelect && layout === 'mobile'}
 			<div class="season-row"><SeasonSelect {...seasonSelect} full /></div>

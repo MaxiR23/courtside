@@ -28,6 +28,7 @@
 		gameHref: (id: string) => ResolvedPathname;
 		playerHref: (id: string) => ResolvedPathname;
 		seasonSelect?: SeasonControl | null; // null: no selector
+		seasonTag?: string | null; // "Season 2022-23": the unavailable state of a past season keeps it
 		seasonHref?: (season: number) => string; // the names timeline's links
 	};
 
@@ -40,6 +41,7 @@
 		gameHref,
 		playerHref,
 		seasonSelect = null,
+		seasonTag = null,
 		seasonHref
 	}: Props = $props();
 </script>
@@ -96,7 +98,7 @@
 		</div>
 	</section>
 {:else if page.kind === 'unavailable'}
-	<TeamHeader header={null} {allGamesHref} {standingsHref} {layout} {seasonSelect} />
+	<TeamHeader header={null} {allGamesHref} {standingsHref} {layout} {seasonSelect} {seasonTag} />
 	<section class="page-section">
 		<MessageRow text={m.feed_unavailable()} />
 	</section>

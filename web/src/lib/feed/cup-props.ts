@@ -263,11 +263,14 @@ function gameView(game: CupGame): CupGameRowView {
 	};
 }
 
-export function slotLabel(label: SlotSide['label']): string {
+/** The slot's label, or null for a seed slot with no seed (a past Cup's quarterfinal sides). */
+export function slotLabel(label: SlotSide['label']): string | null {
 	const conference = CONFERENCE_SHORT[label.conference]();
 	switch (label.key) {
 		case 'seed':
-			return m.cup_slot_seed({ conference, seed: formatNumber(label.seed ?? 0) });
+			return label.seed === null
+				? null
+				: m.cup_slot_seed({ conference, seed: formatNumber(label.seed) });
 		case 'wild_card':
 			return m.cup_slot_wild_card({ conference });
 		case 'quarterfinal_winner':

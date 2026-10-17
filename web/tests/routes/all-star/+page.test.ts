@@ -14,6 +14,7 @@
 // - Keeps the last feed on screen when a later poll fails
 // - Renders in Spanish
 // - With ?season: loads the calendar, then only the season All-Star feed, once; no polling; the tag from the calendar's label; no live dot; 503 and 404 states
+// - A calendar that answers 503 shows the current season and no select; a past season on a 390px layout renders the mobile classes (ADR 0054)
 // - A malformed, unlisted or current ?season loads the current feed and polls it; the select lists every calendar season and navigates with goto
 // - The edition frame with its caption when the feed carries an edition video (past and current after), the placeholder when not
 // - The Last time champion card linked when the previous edition has a video, not linked otherwise
@@ -406,6 +407,27 @@ describe('All-Star page season selector', () => {
 			expect(countOf(FEED_URL)).toBe(2);
 		}
 	);
+
+	it('shows the current season and no select when the calendar answers 503', async () => {
+		stubRoutes({ [CAL_URL]: [answerStatus(503)], [FEED_URL]: [answerWith(fixture('after'))] });
+		await renderSeason('?season=2005');
+		expect(calls).toEqual([CAL_URL, FEED_URL]);
+		expect(screen.queryByRole('combobox')).toBeNull();
+	});
+
+	it('renders the mobile classes for ?season=2005 on a 390px layout', async () => {
+		vi.stubGlobal(
+			'matchMedia',
+			vi.fn(() => ({ matches: false, addEventListener: () => {}, removeEventListener: () => {} }))
+		);
+		stubRoutes({
+			[CAL_URL]: [answerWith(calendarFeed())],
+			[pastUrl(2005)]: [answerWith(fixture('after'))]
+		});
+		const { container } = await renderSeason('?season=2005');
+		expect(container.querySelector('.sections.mobile')).not.toBeNull();
+		expect(container.querySelector('.all-star-games.mobile .cards')).not.toBeNull();
+	});
 
 	it('lists every season of the calendar and navigates with goto', async () => {
 		stubRoutes({

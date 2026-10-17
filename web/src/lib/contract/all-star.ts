@@ -24,7 +24,7 @@ export interface AllStarFeed {
 export interface AllStarEdition {
 	date: string | null;
 	venue: Venue | null;
-	formatLine: string | null;
+	format: AllStarFormat | null;
 	teams: AllStarTeam[];
 	games: AllStarGame[];
 	counts: AllStarCounts;
@@ -35,6 +35,16 @@ export interface Venue {
 	name: string;
 	city: string | null;
 	photoUrl: string | null;
+}
+/**
+ * The format of an edition's games: a target score (with untimed), or the
+ * regulation periods and minutes. The page writes the words (ADR 0054).
+ */
+export interface AllStarFormat {
+	targetPoints: number | null;
+	untimed: boolean;
+	periods: number | null;
+	minutes: number | null;
 }
 export interface AllStarTeam {
 	team: Opponent;
@@ -52,6 +62,8 @@ export interface Opponent {
 	name: string | null;
 	city: string | null;
 	guest: boolean;
+	seasonCode: string | null;
+	historical: boolean;
 }
 export interface AllStarTeamResult {
 	gameId: string;
@@ -272,7 +284,7 @@ export interface AllStarResult {
 export interface AllStarPreviousEdition {
 	date: string | null;
 	venue: Venue | null;
-	formatLine: string | null;
+	format: AllStarFormat | null;
 	teams: AllStarTeam[];
 	games: AllStarGame[];
 	counts: AllStarCounts;

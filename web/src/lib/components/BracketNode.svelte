@@ -34,7 +34,7 @@
 			{#if level === 1}
 				{#if side.team}
 					<span class="code"><TeamMark team={side.team} part="label" /></span>
-				{:else}
+				{:else if side.label !== null}
 					<span class="slot-label">{side.label}</span>
 				{/if}
 				{#if side.score !== null}<span class="score">{side.score}</span>{/if}
@@ -49,7 +49,9 @@
 					{#if side.team}
 						{#if side.meta}<span class="meta">{side.meta}</span>{/if}
 					{:else}
-						<span class="meta">{side.label} · {side.rule}</span>
+						<span class="meta"
+							>{[side.label, side.rule].filter((part) => part !== null).join(' · ')}</span
+						>
 						{#if side.currently}<span class="meta">{side.currently}</span>{/if}
 					{/if}
 				</span>

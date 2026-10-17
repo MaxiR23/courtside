@@ -22,7 +22,8 @@
 // - The postseason mark (tag, context line, stakes flag) on a scheduled, a live and a final game on desktop and on the mobile row, none for a regular game, and the Cup tag unchanged for a Cup game
 // - The All-Star mark (tag and round) before the status line on the desktop row and first in the mobile status row, the solid tag for the Championship, none for a game without the mark
 // - A guest side without a city shows no city and its tile is not a link
-// - A past game from the day feed (final, stats unavailable, no highlights, no stars) renders its score and line score, the stats notice and no Leaders, TeamStats or highlights, with a panel grid of exactly 2 children
+// - A past game from the day feed (final, stats available, no highlights, no stars) renders its score and line score and no stats notice, Leaders, TeamStats or highlights, with a panel grid of exactly 2 children and the game center link (ADR 0054)
+// - The pending and unavailable stats notices stay for a final game without stats
 //
 // What is covered:
 // - Each card state on each row layout
@@ -1080,11 +1081,11 @@ describe('GameCard with a past game', () => {
 		expect(screen.queryByText('Highlights')).toBeNull();
 		expect(container.querySelector('.panel-highlights')).toBeNull();
 		expect(screen.queryByText('Leaders')).toBeNull();
-		expect(container.querySelector('.stats-column .stats-notice')).not.toBeNull();
+		expect(container.querySelector('.stats-notice')).toBeNull();
 		expect(container.querySelectorAll('.panel-grid > *')).toHaveLength(2);
 	});
 
-	it('shows the stats notice and a panel grid with no empty column', () => {
+	it('draws no stats notice for available stats without leaders, and keeps the game center link', () => {
 		const { container } = render(GameCard, {
 			props: {
 				game: pastGame(),
@@ -1095,10 +1096,23 @@ describe('GameCard with a past game', () => {
 				teamHref
 			}
 		});
-		expect(screen.getByText(/stats aren.t available/i)).toBeTruthy();
+		expect(screen.queryByText(/stats aren.t available/i)).toBeNull();
 		expect(container.querySelector('.panel-grid')?.children).toHaveLength(2);
 		expect(screen.getByRole('link', { name: 'Game center' }).getAttribute('href')).toBe(
 			'/game/7001'
 		);
+	});
+
+	it.each([
+		['pending', 'Stats will be available soon.'],
+		['unavailable', "Stats aren't available for this game."]
+	] as const)('keeps the %s notice', (statsAvailability, text) => {
+		const game = pastGame();
+		if (game.details?.kind !== 'final-without-stats') throw new Error('The fixture must be final');
+		const noted = { ...game, details: { ...game.details, statsAvailability } };
+		render(GameCard, {
+			props: { game: noted, layout: 'desktop', open: true, onToggle: vi.fn(), teamHref }
+		});
+		expect(screen.getByText(text)).toBeTruthy();
 	});
 });

@@ -1,5 +1,6 @@
 // Props layer of the search overlay: turns the search feed's teams and players into row views.
 import type { SearchPlayer, SearchTeam } from '#lib/contract/search.ts';
+import { positionName } from '#lib/format/position.ts';
 import { m } from '#lib/paraglide/messages.js';
 import type { SearchPlayerRow, SearchTeamRow } from '#lib/search/types.ts';
 
@@ -30,8 +31,11 @@ const joined = (parts: (string | null)[]): string =>
 export function toSearchPlayerRow(player: SearchPlayer): SearchPlayerRow {
 	const { number, position, positionAbbr } = player;
 	const numberPart = number === null ? null : `#${number}`;
+	const shownPosition = position ? positionName(position) : position;
 	const longPosition =
-		position && positionAbbr ? `${position} (${positionAbbr})` : (position ?? positionAbbr);
+		shownPosition && positionAbbr
+			? `${shownPosition} (${positionAbbr})`
+			: (shownPosition ?? positionAbbr);
 	return {
 		id: player.id,
 		name: player.name,

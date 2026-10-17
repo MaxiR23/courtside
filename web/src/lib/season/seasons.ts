@@ -58,3 +58,8 @@ export function playerSeasons(
 			(labels?.includes(item.seasonLabel) ?? false)
 	);
 }
+
+/** The calendar's label of a season ("2022-23"), or null when the calendar is missing or does not list it. */
+export function seasonLabelOf(calendar: CalendarFeed | null, season: number): string | null {
+	return calendar?.seasons.find((item) => item.season === season)?.seasonLabel ?? null;
+}

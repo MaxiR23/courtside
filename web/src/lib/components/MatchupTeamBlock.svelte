@@ -29,7 +29,7 @@
 <section class="block">
 	<h3 class="team">{side.name}</h3>
 	{#if side.team === null}
-		<p class="label">{side.label}</p>
+		{#if side.label !== null}<p class="label">{side.label}</p>{/if}
 	{:else}
 		<h4 class="heading">{m.cup_path()}</h4>
 		<ul class="path">

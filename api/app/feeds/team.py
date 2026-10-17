@@ -291,6 +291,17 @@ class TeamFeed(FeedModel):
     # The rules version of a kept season feed (ADR 0053); null on a current feed
     # and on a stored feed from before the field.
     build_version: PositiveInt | None = None
+    # The abbreviation the team had in the season on show and whether that season's
+    # name, city or abbreviation differs from today's (ADR 0054). Null and false on
+    # a current feed and on a stored feed from before the fields.
+    season_code: NonEmptyStr | None = None
+    historical: bool = False
+
+    @model_validator(mode="after")
+    def _require_a_season_code_of_a_historical_team(self) -> TeamFeed:
+        if self.historical and self.season_code is None:
+            raise ValueError("a historical team has a season code")
+        return self
 
     @model_validator(mode="after")
     def _require_the_blocks_of_the_current_season(self) -> TeamFeed:

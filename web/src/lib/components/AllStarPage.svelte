@@ -162,6 +162,7 @@
 
 	.sections {
 		display: grid;
+		grid-template-columns: minmax(0, 1fr);
 		gap: var(--detail-section-gap);
 		max-width: var(--content-max-width);
 		margin: 0 auto;

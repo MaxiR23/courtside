@@ -9,11 +9,12 @@ export type ClinchView = { code: string; tone: ClinchTone }; // code as the feed
 export type StandingsLine = 'playoff' | 'play-in';
 
 export type StandingsRowView = {
-	code: string; // "OKC", monogram and link
+	code: string; // "OKC", the link: today's code
+	tile: string; // the code shown in the box: the season code of a historical row, else code
 	seed: string; // "1", or "—"
 	city: string;
 	name: string;
-	strip: { primary: string; secondary: string } | null; // null: plain tile
+	strip: { primary: string; secondary: string } | null; // null: plain tile; always null for a historical row
 	clinch: ClinchView | null;
 	eliminated: boolean;
 	wins: string;
@@ -49,6 +50,7 @@ export type StandingsView = {
 	conference: StandingsGroupView[];
 	division: StandingsGroupView[];
 	key: StandingsKeyEntry[]; // the 7 codes in table order
+	lines: boolean; // the dashed seed lines are drawn: false on a past season
 };
 
 export type StandingsPageState =

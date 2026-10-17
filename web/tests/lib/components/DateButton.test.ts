@@ -3,6 +3,7 @@
 // Tests for the DateButton component.
 //
 // Tested:
+// - The button is named "Open calendar" ("Abrir calendario" in Spanish) whatever its visible date
 // - A button that opens a dialog: aria-haspopup, aria-expanded false then true after a click, and a second click closes it
 // - The label is a <time> with the date when one is given, and plain text when not
 // - Desktop: the dialog has the panel class and is not modal; a click outside closes it, a click inside does not; Esc closes it; focus returns to the button
@@ -25,6 +26,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import DateButton from '../../../src/lib/components/DateButton.svelte';
 import type { CalendarFeed } from '../../../src/lib/contract/calendar';
+import { preferLanguages } from '../../prefer-languages';
 
 const navigation = vi.hoisted(() => ({ callbacks: [] as Array<() => void> }));
 vi.mock('$app/navigation', () => ({
@@ -49,12 +51,14 @@ const show = (layout: 'desktop' | 'mobile' = 'desktop', datetime: string | null 
 				season: '1999',
 				selectedDay: '1999-02-05',
 				today: '1999-02-06',
+				windowDays: null,
+				windowHref: (date: string) => `/?day=${date}` as ResolvedPathname,
 				dayHref: (date: string) => `/day/${date}` as ResolvedPathname
 			}
 		}
 	});
 
-const trigger = () => screen.getByRole('button', { name: /Feb 5, 1999/ });
+const trigger = () => screen.getByRole('button', { name: 'Open calendar' });
 
 async function open() {
 	await fireEvent.click(trigger());
@@ -89,6 +93,12 @@ describe('DateButton', () => {
 		const second = show('desktop', null);
 		expect(second.container.querySelector('time')).toBeNull();
 		expect(trigger().textContent).toContain('Fri, Feb 5, 1999');
+	});
+
+	it('is named Abrir calendario in Spanish', () => {
+		preferLanguages(['es-ES']);
+		show();
+		expect(screen.getByRole('button', { name: 'Abrir calendario' })).toBeTruthy();
 	});
 
 	it('opens a panel that is not modal on desktop', async () => {

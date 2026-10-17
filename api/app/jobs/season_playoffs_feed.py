@@ -11,7 +11,9 @@
 # kept for good. A team info that fails only nulls its colors. A past playoffs
 # feed is stored only when it builds as complete: a postseason that is not
 # complete, or whose rounds cannot be derived, fails the build, logs the reason
-# and stores nothing. Game detail is never available.
+# and stores nothing. Game detail is never available. Its league sides are named by
+# that season's team object and carry the season code and the historical flag
+# (ADR 0054).
 #
 # SeasonPlayoffsFeeds is the feed kind of the on-demand cache: the id is the
 # season's end year, the feed is stored at feeds/season-playoffs/{season}.json
@@ -58,6 +60,7 @@ from app.jobs.season_rosters import SeasonRosters
 from app.jobs.season_standings_feed import past_season_status
 from app.jobs.stars import StarsJob
 from app.jobs.team_feed import FetchInfo, eastern_date
+from app.jobs.team_names import TeamNamesFeeds
 from app.settings import Settings
 from app.sources import (
     division_standings,
@@ -106,6 +109,7 @@ class SeasonPlayoffsFeeds:
         cache: FeedCache,
         stars: StarsJob,
         rosters: SeasonRosters,
+        names: TeamNamesFeeds,
         *,
         fetch_season_type: FetchSeasonType = season_types.fetch_season_type,
         fetch_postseason_games: FetchSeasonGames = (
@@ -126,6 +130,7 @@ class SeasonPlayoffsFeeds:
         self._client = client
         self._stars = stars
         self._rosters = rosters
+        self._names = names
         self._fetch_season_type = fetch_season_type
         self._fetch_postseason_games = fetch_postseason_games
         self._fetch_division_standings = fetch_division_standings
@@ -219,7 +224,7 @@ class SeasonPlayoffsFeeds:
         except PlayoffsBuildError as error:
             logger.warning("season playoffs: %s not built: %s", season, error.reason)
             raise
-        return with_build_version(feed)
+        return with_build_version(await self._names.name_sides(feed, int(season)))
 
     def stored(self, season: str) -> PlayoffsFeed | None:
         """The stored playoffs feed of a season, or none when missing or invalid."""

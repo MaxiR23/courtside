@@ -6,6 +6,7 @@
 // - Ready: every section in order, the tab ids matching the section ids, the mini text, the record head with its season meta
 // - A view with no leaders, roster or schedule renders no such sections and no such tabs
 // - Loading: aria-busy and the section skeleton
+// - The unavailable state of a past season keeps the Season tag; the current season's has none (ADR 0054)
 // - Unavailable: the unavailable row and the nav row
 // - Not found: "Team not found." and two All games links
 // - The footer in every state
@@ -122,6 +123,14 @@ describe('TeamPage other states', () => {
 		expect(container.querySelector('header')?.getAttribute('aria-busy')).toBe('true');
 		expect(container.querySelector('.section-skeleton')?.getAttribute('aria-busy')).toBe('true');
 		expect(container.querySelector('footer')).toBeTruthy();
+	});
+
+	it('keeps the Season tag on the unavailable state of a past season, and has none on the current one', () => {
+		const { unmount } = showWith({ kind: 'unavailable' }, { seasonTag: 'Season 2022-23' });
+		expect(screen.getByText('Season 2022-23')).toBeTruthy();
+		unmount();
+		showWith({ kind: 'unavailable' });
+		expect(screen.queryByText(/^Season /)).toBeNull();
 	});
 
 	it('shows the unavailable row under the nav row', () => {

@@ -17,6 +17,7 @@ import { CONFERENCE_SHORT } from '#lib/feed/cup-mark-props.ts';
 import { ROUND_LABEL, slotLabel } from '#lib/feed/cup-props.ts';
 import { feedDate, injuryRow } from '#lib/feed/team-props.ts';
 import { formatNumber } from '#lib/format/locale.ts';
+import { positionName } from '#lib/format/position.ts';
 import { m } from '#lib/paraglide/messages.js';
 import { teamLabel, teamMark } from '#lib/team/mark.ts';
 
@@ -34,7 +35,7 @@ function cardOf(player: MatchupPlayer, team: string): PlayerCardView {
 		photo: player.photoUrl,
 		team,
 		number: player.number === null ? null : `#${player.number}`,
-		position: player.position,
+		position: player.position === null ? null : positionName(player.position),
 		injury: player.status === 'active' ? null : player.status,
 		points: average(player.averages?.points),
 		rebounds: average(player.averages?.rebounds),
@@ -59,7 +60,7 @@ function playerRow(player: MatchupPlayer, team: string): MatchupPlayerRow {
 		id: player.id,
 		name: player.name,
 		number: player.number,
-		position: player.position,
+		position: player.position === null ? null : positionName(player.position),
 		injury: card.injury,
 		points: card.points,
 		rebounds: card.rebounds,

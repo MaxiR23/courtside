@@ -5,6 +5,7 @@
 // Tested:
 // - Level 1: the code and score of a decided side, the label of an undecided one
 // - Level 2: tile, name, meta and score; venue, broadcast and the neutral tag for a semifinal or the final
+// - A side whose label is null (a seat with no seed) draws no seed label at level 1 and only the rule at level 2
 // - An undecided side at level 2: To be decided, the label and rule, the Currently line only with a projection
 // - The winner in ink and the loser muted; the West mirrored
 // - A click opens the node with its id; it is a native button, so Enter and Tab work; focus changes are reported
@@ -117,6 +118,26 @@ describe('BracketNode level 2', () => {
 		expect(screen.getAllByText('To be decided')).toHaveLength(2);
 		expect(screen.queryByText(/Currently/)).toBeNull();
 		expect(container.querySelector('.footer')).toBeNull();
+	});
+});
+
+describe('BracketNode with a seedless side', () => {
+	const seedless = (): BracketNodeView => {
+		const view = node('west-qf-1');
+		return { ...view, top: { ...view.top, label: null } };
+	};
+
+	it('draws no seed label at level 1', () => {
+		const { container } = show(seedless());
+		expect(container.querySelectorAll('.slot-label')).toHaveLength(1);
+		expect(screen.getByText('West wild card')).toBeTruthy();
+		expect(screen.queryByText(/seed/)).toBeNull();
+	});
+
+	it('draws only the rule at level 2', () => {
+		const view = seedless();
+		show(view, 2);
+		expect(screen.getByText(view.top.rule).textContent).toBe(view.top.rule);
 	});
 });
 

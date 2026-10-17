@@ -3,9 +3,9 @@
 # Tests for the day feed builder and its feed kind.
 #
 # Tested:
-# - The builder sets null stars, empty highlights, the search link, the winner and unavailable stats on a final game, and nulls on scheduled and postponed games
+# - The builder sets null stars, empty highlights, the search link, the winner and available stats (ADR 0054) on a final game, and nulls on scheduled and postponed games
 # - The builder skips a game that is not a valid past game with a log line by event id, and keeps the others
-# - The builder lists a day whose All-Star games are final with scores and no line score, with a null line score and unavailable stats (ADR 0051)
+# - The builder lists a day whose All-Star games are final with scores and no line score, with a null line score and available stats (ADR 0051)
 # - The day id also refuses a trailing newline
 # - The builder sets the season 1999 and the label 1998-99
 # - The builder gives an empty day for no event, and wraps an invalid feed in a build error
@@ -18,7 +18,7 @@
 # - The kind: the stored highlight of a final game is added when served and not stored, and an All-Star game gets none
 # - The kind: the cleanup keeps every day
 # - The kind: a final day stored without the current build version is served, then rebuilt with season names; one of the current version is served as stored (ADR 0053)
-# - The kind: league sides are named by the day's season team object, a guest side keeps its name, and a failed season team read keeps the last valid feed (ADR 0053)
+# - The kind: league sides are named by the day's season team object, a guest side keeps its name, and a failed season team read keeps the last valid feed with its season code and the historical flag (ADR 0053, ADR 0054)
 #
 # What is covered:
 # - Pure conversions: happy path, edges and errors; the built feed validates
@@ -110,7 +110,7 @@ def build(*games: ScoreboardGame, url: Any = search_url) -> DayFeed:
     return build_day_feed(NOW, PAST, 1999, games, url)
 
 
-def test_a_final_game_has_null_stars_no_highlights_unavailable_stats_and_a_winner() -> (
+def test_a_final_game_has_null_stars_no_highlights_available_stats_and_a_winner() -> (
     None
 ):
     feed = build(game("1", GameStatus.FINAL))
@@ -118,7 +118,7 @@ def test_a_final_game_has_null_stars_no_highlights_unavailable_stats_and_a_winne
     built = feed.day.games[0]
     assert built.stars.away is None and built.stars.home is None
     assert built.highlights == []
-    assert built.stats_availability is StatsAvailability.UNAVAILABLE
+    assert built.stats_availability is StatsAvailability.AVAILABLE
     assert built.leaders is None and built.team_stats is None
     assert built.winner is Side.HOME
     assert str(built.highlights_search_url) == "https://example.com/search?q=x"
@@ -144,7 +144,7 @@ def test_a_day_of_untimed_final_all_star_games_lists_them_without_a_line_score()
     for built in feed.day.games:
         assert built.line_score is None
         assert built.score is not None
-        assert built.stats_availability is StatsAvailability.UNAVAILABLE
+        assert built.stats_availability is StatsAvailability.AVAILABLE
 
 
 def test_scheduled_and_postponed_games_have_no_search_link_stats_or_winner() -> None:
@@ -236,6 +236,8 @@ class DayKit:
         # name and city of the sides the tests draw, so a side is renamed only when
         # a test says so.
         self.season_names: dict[str, tuple[str, str]] = {}
+        # The (name, city) of the current season's team object by code.
+        self.current_names: dict[str, tuple[str, str]] = {}
         self.season_team_calls: list[tuple[str, int]] = []
         self.season_team_failing = False
         self.names = TeamNamesFeeds(
@@ -261,7 +263,8 @@ class DayKit:
         self.season_team_calls.append((code, season))
         if self.season_team_failing:
             raise SourceError("test", "season team is down")
-        name, city = self.season_names.get(code, ("Name", "City"))
+        names = self.current_names if season == 2027 else self.season_names
+        name, city = names.get(code, ("Name", "City"))
         return SeasonTeam(
             team_id="1",
             abbreviation=code,
@@ -453,7 +456,14 @@ async def test_league_sides_are_named_by_the_days_season_team_object(
         "Name",
         "City",
     )
-    assert sorted(kit.season_team_calls) == [("DEN", 1999), ("OKC", 1999)]
+    assert sorted(kit.season_team_calls) == [
+        ("DEN", 1999),
+        ("DEN", 2027),
+        ("OKC", 1999),
+        ("OKC", 2027),
+    ]
+    assert (built.away.season_code, built.away.historical) == ("DEN", True)
+    assert (built.home.season_code, built.home.historical) == ("OKC", False)
 
 
 @pytest.mark.anyio
@@ -502,7 +512,8 @@ async def test_a_guest_side_keeps_its_name(kit: DayKit) -> None:
 
     built = feed.day.games[0]
     assert (built.away.name, built.away.guest) == ("Guests", True)
-    assert [code for code, _ in kit.season_team_calls] == ["OKC"]
+    assert [code for code, _ in kit.season_team_calls] == ["OKC", "OKC"]
+    assert (built.away.season_code, built.away.historical) == (None, False)
 
 
 @pytest.mark.anyio

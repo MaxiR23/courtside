@@ -16,8 +16,9 @@
 // - Shows the data unavailable row when the feed cannot be loaded or no feed URL is configured, in English and Spanish
 // - Keeps the last feed on screen when a later poll fails
 // - Shows the not-affiliated line in Spanish for es-ES and es-419 and in English for fr-FR
-// - Selects the DayStrip day of ?day= after a navigation; an unknown or malformed day keeps today; a later poll does not move the selection
-// - The calendar sheet links a day of the feed to /?day=YYYY-MM-DD and a day outside the feed to /day/YYYY-MM-DD
+// - Selects the DayStrip day of ?day= after a navigation; a later or malformed day keeps today; a past day outside the feed goes to /day/ with replaceState; a later poll does not move the selection
+// - The calendar sheet links a day of the feed to /?day=YYYY-MM-DD and a day outside the feed to /day/YYYY-MM-DD; a day after today is not a link
+// - Before the games feed loads, the sheet links no day after the client's US Eastern today and sends the calendar's window days to the home (ADR 0054)
 //
 // What is covered:
 // - The page wired end to end: config, fetch, polling, props layer, hero, schedule, footer
@@ -40,9 +41,11 @@ import { preferLanguages } from '../prefer-languages';
 import Page from '../../src/routes/+page.svelte';
 
 const navigation = vi.hoisted(() => ({
-	callbacks: [] as Array<(navigation: { to: { url: URL } | null }) => void>
+	callbacks: [] as Array<(navigation: { to: { url: URL } | null }) => void>,
+	goto: vi.fn()
 }));
 vi.mock('$app/navigation', () => ({
+	goto: navigation.goto,
 	afterNavigate: (cb: (navigation: { to: { url: URL } | null }) => void) => {
 		navigation.callbacks.push(cb);
 	}
@@ -77,7 +80,8 @@ const calendar = (): CalendarFeed => ({
 	seasonLabel: '2026-27',
 	firstDay: '2026-09-30',
 	lastDay: '2026-10-20',
-	days: ['2026-09-30', '2026-10-04', '2026-10-20']
+	days: ['2026-09-30', '2026-10-04', '2026-10-20'],
+	windowDays: ['2026-10-03', '2026-10-04']
 });
 const recorded = (): GamesFeed =>
 	JSON.parse(
@@ -136,6 +140,7 @@ beforeEach(() => {
 	config.url = FEED_URL;
 	config.calendarUrl = undefined;
 	navigation.callbacks = [];
+	navigation.goto.mockReset();
 	config.platform = 'Video platform';
 	Element.prototype.scrollIntoView = vi.fn();
 });
@@ -542,18 +547,31 @@ describe('home page with a requested day', () => {
 		expect(selectedDay(container)).toBe(5);
 	});
 
-	it('keeps today selected for a day outside the feed or a malformed day', async () => {
+	it('goes to /day/ for a past day outside the feed, keeping today selected', async () => {
 		stubFetch(answerWith(recorded()));
 		const { container } = await renderPage();
 		navigate('?day=1999-02-05');
 		await settle();
 		expect(selectedDay(container)).toBe(3);
+		expect(navigation.goto).toHaveBeenCalledTimes(1);
+		expect(navigation.goto).toHaveBeenCalledWith('/day/1999-02-05', { replaceState: true });
+	});
+
+	it('keeps today selected, with no redirect, for a later day, a malformed day or a day of the feed', async () => {
+		stubFetch(answerWith(recorded()));
+		const { container } = await renderPage();
+		navigate('?day=2026-10-20');
+		await settle();
+		expect(selectedDay(container)).toBe(3);
+		navigate('?day=2026-10-06');
+		await settle();
 		navigate('?day=not-a-day');
 		await settle();
 		expect(selectedDay(container)).toBe(3);
 		navigate('');
 		await settle();
 		expect(selectedDay(container)).toBe(3);
+		expect(navigation.goto).not.toHaveBeenCalled();
 	});
 
 	it('does not move the selection on a later poll', async () => {
@@ -569,19 +587,37 @@ describe('home page with a requested day', () => {
 });
 
 describe('home page calendar sheet', () => {
-	it('links a day of the feed to /?day= and another day to /day/', async () => {
+	it('links a day of the feed to /?day= and another day to /day/, and no day after today', async () => {
 		config.calendarUrl = CALENDAR_TEMPLATE;
 		stubFetch(answerWith(recorded()));
 		await renderPage();
-		await fireEvent.click(screen.getByRole('button', { name: /Oct 4, 2026/ }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Open calendar' }));
 		await settle();
 		const dialog = screen.getByRole('dialog', { name: 'Calendar' });
 		expect(within(dialog).getByRole('link', { name: 'October 4, 2026' }).getAttribute('href')).toBe(
 			'/?day=2026-10-04'
 		);
+		expect(within(dialog).queryByRole('link', { name: 'October 20, 2026' })).toBeNull();
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Previous month' }));
 		expect(
-			within(dialog).getByRole('link', { name: 'October 20, 2026' }).getAttribute('href')
-		).toBe('/day/2026-10-20');
+			within(dialog).getByRole('link', { name: 'September 30, 2026' }).getAttribute('href')
+		).toBe('/day/2026-09-30');
 		expect(fetchMock).toHaveBeenCalledWith(CALENDAR_URL, expect.anything());
+	});
+
+	it("before the games feed loads, links no day after the client's Eastern today", async () => {
+		config.calendarUrl = CALENDAR_TEMPLATE;
+		stubFetch(() => new Promise(() => {}));
+		await renderPage();
+		await fireEvent.click(screen.getByRole('button', { name: 'Open calendar' }));
+		await settle();
+		const dialog = screen.getByRole('dialog', { name: 'Calendar' });
+		expect(within(dialog).getByRole('link', { name: 'October 4, 2026' }).getAttribute('href')).toBe(
+			'/?day=2026-10-04'
+		);
+		expect(within(dialog).queryByRole('link', { name: 'October 20, 2026' })).toBeNull();
+		expect(
+			(within(dialog).getByRole('button', { name: 'Next month' }) as HTMLButtonElement).disabled
+		).toBe(true);
 	});
 });

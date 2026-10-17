@@ -6,7 +6,7 @@
 // - A decided series: seeds, codes, wins and the team strip colors
 // - The loser row is muted
 // - A side with an empty seed draws no seed number
-// - An undecided side: the slot label and the note; a one-sided series has one team row and one undecided row
+// - An undecided side: the slot label and the note, each with its full text as title (ADR 0054); a one-sided series has one team row and one undecided row
 // - The framed (mobile) card is dashed for no teams and dashes the empty row for one team
 // - The Finals champion class
 // - A click opens the series with its id and button; the card is a native button named from the series
@@ -78,6 +78,13 @@ describe('SeriesNode undecided', () => {
 		expect(rows.every((row) => row.classList.contains('undecided'))).toBe(true);
 		expect(rows[0].querySelector('.slot-label')?.textContent).toBe('Winner of East R1 3');
 		expect(rows[0].querySelector('.note')?.textContent).toBe('To be decided');
+	});
+
+	it('carries the full text of a slot label and a note as title', () => {
+		const { container } = show(card('east-r2-2'));
+		const row = container.querySelector('.row') as HTMLElement;
+		expect(row.querySelector('.slot-label')?.getAttribute('title')).toBe('Winner of East R1 3');
+		expect(row.querySelector('.note')?.getAttribute('title')).toBe('To be decided');
 	});
 
 	it('shows one team row and one undecided row for a one-sided series', () => {

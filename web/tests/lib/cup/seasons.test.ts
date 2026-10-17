@@ -4,6 +4,7 @@
 //
 // Tested:
 // - cupSeasons lists the calendar seasons from 2023-24, newest first, with the calendar's labels
+// - The season on show is always in the list, also before the first Cup (ADR 0044, ADR 0054); no other earlier season is
 //
 // What is covered:
 // - Happy path
@@ -21,10 +22,21 @@ const calendar = calendarJson as unknown as CalendarFeed;
 
 describe('cupSeasons', () => {
 	it('lists the calendar seasons from 2023-24, newest first', () => {
-		const seasons = cupSeasons(calendar);
+		const seasons = cupSeasons(calendar, 2027);
 		expect(seasons.map((entry) => entry.season)).toEqual([2027, 2026, 2025, 2024]);
 		expect(seasons[3]?.seasonLabel).toBe(
 			calendar.seasons.find((entry) => entry.season === 2024)?.seasonLabel
 		);
+	});
+
+	it('keeps a season before the first Cup when it is the season on show', () => {
+		const seasons = cupSeasons(calendar, 2023);
+		expect(seasons.map((entry) => entry.season)).toEqual([2027, 2026, 2025, 2024, 2023]);
+	});
+
+	it('keeps no other season before the first Cup', () => {
+		expect(cupSeasons(calendar, 2024).map((entry) => entry.season)).toEqual([
+			2027, 2026, 2025, 2024
+		]);
 	});
 });

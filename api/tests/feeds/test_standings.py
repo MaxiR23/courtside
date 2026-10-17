@@ -13,6 +13,7 @@
 # - A feed with a build version is accepted, one with zero is rejected, and a stored feed without the field reads with a null version
 #
 # What is covered:
+# - A row with a season code and the historical flag is accepted, historical without a season code is rejected, and a stored feed without the fields reads as not historical (ADR 0054)
 # - A valid feed is accepted and an invalid one is rejected
 # - Happy path, edge cases (null optionals) and error cases of each pattern
 #   and validator
@@ -54,6 +55,8 @@ def row() -> Payload:
         "pointsAgainst": "107.8",
         "differential": {"value": "+11.2", "nonNegative": True},
         "total": {"value": "+914", "nonNegative": True},
+        "seasonCode": None,
+        "historical": False,
     }
 
 
@@ -189,3 +192,27 @@ def test_accepts_a_build_version_and_rejects_zero_and_reads_none_as_null() -> No
     )
     with pytest.raises(ValidationError):
         StandingsFeed.model_validate({**stored, "buildVersion": 0})
+
+
+def test_accepts_a_row_with_a_season_code_and_the_historical_flag() -> None:
+    payload = with_row({"seasonCode": "SEA", "historical": True})
+
+    parsed = StandingsFeed.model_validate(payload)
+
+    assert parsed.divisions[0].teams[0].season_code == "SEA"
+    assert parsed.divisions[0].teams[0].historical is True
+
+
+def test_rejects_a_historical_row_without_a_season_code() -> None:
+    with pytest.raises(ValidationError):
+        StandingsFeed.model_validate(with_row({"historical": True}))
+
+
+def test_a_stored_row_without_the_fields_still_validates() -> None:
+    payload = feed()
+    del payload["divisions"][0]["teams"][0]["seasonCode"]
+    del payload["divisions"][0]["teams"][0]["historical"]
+
+    parsed = StandingsFeed.model_validate(payload)
+
+    assert parsed.divisions[0].teams[0].historical is False

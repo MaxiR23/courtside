@@ -7,6 +7,7 @@
 // - The bracket sits in the Bracket section in both section orders, with no placeholder text; Groups not drawn yet before the draw; the legend
 // - One More columns state widens every group card
 // - Loading: the header and the table skeleton are aria-busy
+// - The unavailable state of a past season keeps the Season tag; the current season's has none (ADR 0054)
 // - Unavailable: the unavailable row under the nav; the footer in every state
 // - Spanish copy
 //
@@ -149,6 +150,25 @@ describe('CupPage', () => {
 		expect(screen.getByText(UNAVAILABLE)).toBeTruthy();
 		expect(screen.getByRole('link', { name: 'All games' })).toBeTruthy();
 		expect(screen.getByRole('heading', { level: 1, name: 'NBA Cup' })).toBeTruthy();
+	});
+
+	it('keeps the Season tag on the unavailable state of a past season, and has none on the current one', () => {
+		const props = {
+			state: { kind: 'unavailable' } as CupPageState,
+			allGamesHref: HOME,
+			standingsHref: STANDINGS,
+			layout: 'desktop' as const,
+			teamHref,
+			gameHref,
+			playerHref,
+			matchup: new CupMatchupStore(undefined)
+		};
+		const { unmount } = render(CupPage, { props: { ...props, seasonTag: 'Season 2022-23' } });
+		expect(screen.getByText('Season 2022-23')).toBeTruthy();
+		expect(screen.getByText(UNAVAILABLE)).toBeTruthy();
+		unmount();
+		render(CupPage, { props });
+		expect(screen.queryByText(/^Season /)).toBeNull();
 	});
 
 	it('draws the footer in every state', () => {

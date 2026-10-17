@@ -304,13 +304,31 @@
         "guest": {
           "default": false,
           "type": "boolean"
+        },
+        "seasonCode": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "historical": {
+          "default": false,
+          "type": "boolean"
         }
       },
       "required": [
         "code",
         "name",
         "city",
-        "guest"
+        "guest",
+        "seasonCode",
+        "historical"
       ],
       "title": "Opponent",
       "type": "object"
@@ -845,6 +863,22 @@
           "default": false,
           "type": "boolean"
         },
+        "seasonCode": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "historical": {
+          "default": false,
+          "type": "boolean"
+        },
         "colors": {
           "$ref": "#/$defs/StandingsColors"
         }
@@ -854,6 +888,8 @@
         "name",
         "city",
         "guest",
+        "seasonCode",
+        "historical",
         "colors"
       ],
       "title": "PlayoffTeam",

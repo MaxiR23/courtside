@@ -16,7 +16,9 @@
 # playoffs feed is built first when it is missing. The current season is
 # resolved before the cache (target) to the current playoffs finals feed. A feed
 # is built once and kept (rule G): it is never deleted, and rebuilt only when its
-# build version is not the current one (ADR 0053).
+# build version is not the current one (ADR 0053). Its league sides are named by
+# that season's team object and carry the season code and the historical flag
+# (ADR 0054).
 #
 # SEE: docs/api/playoffs.md, docs/adr/0046-season-playoffs-feeds.md,
 # docs/adr/0048-highlights-backfill-and-edition-video.md,
@@ -55,6 +57,7 @@ from app.jobs.season_rosters import SeasonRosters
 from app.jobs.season_standings_feed import past_season_status
 from app.jobs.stars import StarsJob
 from app.jobs.team_feed import season_label
+from app.jobs.team_names import TeamNamesFeeds
 from app.settings import Settings
 from app.sources import (
     finals_plays,
@@ -83,6 +86,7 @@ class SeasonPlayoffsFinalsFeeds:
         stars: StarsJob,
         playoffs: SeasonPlayoffsFeeds,
         rosters: SeasonRosters,
+        names: TeamNamesFeeds,
         *,
         fetch_game_detail: FetchSeasonDetail = game_detail.fetch_game_detail,
         fetch_game_detail_sections: FetchSections = (
@@ -103,6 +107,7 @@ class SeasonPlayoffsFinalsFeeds:
         self._stars = stars
         self._playoffs = playoffs
         self._rosters = rosters
+        self._names = names
         self._fetch_game_detail = fetch_game_detail
         self._fetch_game_detail_sections = fetch_game_detail_sections
         self._fetch_play_scores = fetch_play_scores
@@ -200,20 +205,19 @@ class SeasonPlayoffsFinalsFeeds:
                 )
             ),
         )
-        return with_build_version(
-            build_finals_feed(
-                FinalsSources(
-                    playoffs=stored,
-                    rosters=rosters,
-                    details=dict(zip(game_ids, details, strict=True)),
-                    sections=dict(zip(game_ids, sections, strict=True)),
-                    plays=dict(zip(game_ids, plays, strict=True)),
-                    player_stats=dict(zip(player_ids, stats, strict=True)),
-                    records=dict(zip(codes, records, strict=True)),
-                    team_stats=dict(zip(codes, team_stats, strict=True)),
-                )
+        feed = build_finals_feed(
+            FinalsSources(
+                playoffs=stored,
+                rosters=rosters,
+                details=dict(zip(game_ids, details, strict=True)),
+                sections=dict(zip(game_ids, sections, strict=True)),
+                plays=dict(zip(game_ids, plays, strict=True)),
+                player_stats=dict(zip(player_ids, stats, strict=True)),
+                records=dict(zip(codes, records, strict=True)),
+                team_stats=dict(zip(codes, team_stats, strict=True)),
             )
         )
+        return with_build_version(await self._names.name_sides(feed, year))
 
     def stored(self, season: str) -> PlayoffsFinalsFeed | None:
         """The stored playoffs finals feed of a season, or none."""

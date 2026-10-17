@@ -9,6 +9,8 @@
 // - openingMonth gives the selected day's month inside the season and the first month before, after it and for null
 // - clampedMonth clamps the selected month to both ends and gives the last month for null
 // - neighbours gives the previous and next day, null at the ends, works for a date not in the list and crosses the lockout and restart gaps
+// - lastLinkedDay gives today inside the season, the last day when today is after it, and the first day when today is before it
+// - isWindowDay: the games feed's days win when loaded, else the calendar's window, and an empty window has no day
 // - easternToday gives the US Eastern date, one day behind UTC at 03:30
 //
 // What is covered:
@@ -22,6 +24,8 @@ import { describe, expect, it } from 'vitest';
 import {
 	clampedMonth,
 	easternToday,
+	isWindowDay,
+	lastLinkedDay,
 	monthGrid,
 	monthOf,
 	monthsBetween,
@@ -161,5 +165,38 @@ describe('easternToday', () => {
 
 	it('gives the same date at noon UTC', () => {
 		expect(easternToday(new Date('2026-10-15T16:00:00Z'))).toBe('2026-10-15');
+	});
+});
+
+describe('lastLinkedDay', () => {
+	it('gives today when it is inside the season', () => {
+		expect(lastLinkedDay('2026-10-20', '2027-04-10', '2026-12-15')).toBe('2026-12-15');
+	});
+
+	it('gives the last day when today is after the season', () => {
+		expect(lastLinkedDay('1999-02-05', '1999-05-05', '2026-10-15')).toBe('1999-05-05');
+	});
+
+	it('gives the first day when today is before the season', () => {
+		expect(lastLinkedDay('2026-10-20', '2027-04-10', '2026-01-01')).toBe('2026-10-20');
+	});
+});
+
+describe('isWindowDay', () => {
+	const gamesDays = ['2026-10-01', '2026-10-02'];
+	const window = ['2026-10-02', '2026-10-03'];
+
+	it("uses the games feed's days when that feed is loaded", () => {
+		expect(isWindowDay('2026-10-01', gamesDays, window)).toBe(true);
+		expect(isWindowDay('2026-10-03', gamesDays, window)).toBe(false);
+	});
+
+	it("falls back to the calendar's window before the games feed has loaded", () => {
+		expect(isWindowDay('2026-10-03', null, window)).toBe(true);
+		expect(isWindowDay('2026-10-01', null, window)).toBe(false);
+	});
+
+	it('has no window day with an empty window', () => {
+		expect(isWindowDay('2026-10-01', null, [])).toBe(false);
 	});
 });

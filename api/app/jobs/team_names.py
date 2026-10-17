@@ -21,7 +21,9 @@
 #
 # season_identity and season_names answer the name and city a team had in a past
 # season, always from the season team object and never from the stored runs;
-# season_named puts them on a league side (ADR 0053).
+# season_names also gives that season's code and whether the season's name, city or
+# code differs from the current season's (ADR 0054). season_named puts them on a
+# league side (ADR 0053); named_sides applies it to every side of a built feed.
 #
 # SEE: docs/api/team.md, docs/adr/0043-season-feeds-and-franchise-names.md,
 # api/app/jobs/team_feed.py
@@ -30,8 +32,10 @@ import asyncio
 import datetime as dt
 import logging
 from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
+from dataclasses import dataclass
+from typing import Any
 
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from app.feeds.calendar import FIRST_SEASON
 from app.feeds.opponent import Opponent
@@ -57,13 +61,75 @@ FetchSeasonTeam = Callable[
 ]
 
 
-def season_named[O: Opponent](side: O, names: Mapping[str, tuple[str, str]]) -> O:
-    """The side with the name and city of its season, when it is a league side
-    the names know; any other side as it is."""
+@dataclass(frozen=True)
+class SeasonIdentity:
+    """A league team as named in one season (ADR 0053), with that season's code
+    and whether it differs from today's name, city or code (ADR 0054)."""
+
+    name: str
+    city: str
+    code: str
+    historical: bool
+
+
+def season_named[O: Opponent](side: O, names: Mapping[str, SeasonIdentity]) -> O:
+    """The side with the name, city, season code and historical flag of its
+    season, when it is a league side the names know; any other side as it is."""
     if side.guest or side.code is None or side.code not in names:
         return side
-    name, city = names[side.code]
-    return side.model_copy(update={"name": name, "city": city})
+    identity = names[side.code]
+    return side.model_copy(
+        update={
+            "name": identity.name,
+            "city": identity.city,
+            "season_code": identity.code,
+            "historical": identity.historical,
+        }
+    )
+
+
+def _sides(value: object) -> Iterable[Opponent]:
+    """Every Opponent found in a value: models, nested models and lists."""
+    if isinstance(value, Opponent):
+        yield value
+    elif isinstance(value, BaseModel):
+        for name in type(value).model_fields:
+            yield from _sides(getattr(value, name))
+    elif isinstance(value, list):
+        for item in value:
+            yield from _sides(item)
+
+
+def league_codes(model: BaseModel) -> list[str]:
+    """The sorted distinct codes of every non-guest side in the model."""
+    return sorted({side.code for side in _sides(model) if not side.guest and side.code})
+
+
+def _renamed(value: Any, names: Mapping[str, SeasonIdentity]) -> Any:
+    if isinstance(value, Opponent):
+        named = season_named(value, names)
+        return named.model_copy(
+            update={
+                name: _renamed(getattr(named, name), names)
+                for name in type(named).model_fields
+            }
+        )
+    if isinstance(value, BaseModel):
+        return value.model_copy(
+            update={
+                name: _renamed(getattr(value, name), names)
+                for name in type(value).model_fields
+            }
+        )
+    if isinstance(value, list):
+        return [_renamed(item, names) for item in value]
+    return value
+
+
+def named_sides[M: BaseModel](model: M, names: Mapping[str, SeasonIdentity]) -> M:
+    """The model with season_named applied to every side in it, validated again."""
+    renamed = _renamed(model, names)
+    return type(model).model_validate(renamed.model_dump(by_alias=False))
 
 
 class TeamNamesBuildError(Exception):
@@ -175,18 +241,44 @@ class TeamNamesFeeds:
 
     async def season_names(
         self, codes: Iterable[str], season: int
-    ) -> dict[str, tuple[str, str]]:
-        """The (name, city) of each distinct code in a season, without the codes
-        that have no team that season."""
+    ) -> dict[str, SeasonIdentity]:
+        """The identity of each distinct code in a season, without the codes that
+        have no team that season. `historical` compares the season's name, city and
+        code with the current season's; it is False when the current season has no
+        object for the franchise."""
         distinct = sorted(set(codes))
-        found = await asyncio.gather(
-            *(self.season_identity(code, season) for code in distinct)
-        )
+        current = self._stars.current_season()
+
+        async def read(code: str) -> SeasonIdentity | None:
+            found = await self._fetch_season_team(
+                self._client, code.upper(), season, self._settings
+            )
+            if found is None:
+                return None
+            shown = TEAM_CODES.get(found.abbreviation, found.abbreviation)
+            historical = False
+            if current is not None and current != season:
+                today = await self._fetch_season_team(
+                    self._client, code.upper(), current, self._settings
+                )
+                if today is not None:
+                    historical = (found.name, found.location, shown) != (
+                        today.name,
+                        today.location,
+                        TEAM_CODES.get(today.abbreviation, today.abbreviation),
+                    )
+            return SeasonIdentity(found.name, found.location, shown, historical)
+
+        found = await asyncio.gather(*(read(code) for code in distinct))
         return {
             code: identity
             for code, identity in zip(distinct, found, strict=True)
             if identity is not None
         }
+
+    async def name_sides[M: BaseModel](self, feed: M, season: int) -> M:
+        """The feed with every league side named by its season (ADR 0054)."""
+        return named_sides(feed, await self.season_names(league_codes(feed), season))
 
     def stored(self, code: str) -> list[NameRun] | None:
         body = read_by_id(self._settings.data_dir, KIND, code.lower())

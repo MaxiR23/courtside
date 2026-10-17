@@ -4,7 +4,7 @@
 #
 # Tested:
 # - parse_note: the round with and without a format suffix, the single game notes as the round All-Star Game, and an unknown note
-# - format_line: "1 period · 12 min", "4 periods · 12 min", "First to 40 · Untimed", "First to 40", none
+# - game_format: one period of 12 minutes, four periods, 1.5 minutes, target 40 untimed, target 40 not untimed, none
 # - edition_state: before with no games and with scheduled games only, live with one live game and with one final and one scheduled, after with all final, a canceled game ignored
 # - Placements: 2 teams, 3 teams in a round robin with a Championship, 4 teams with semifinals, so far and yet to play while the Championship is not final, a team-less Championship flagged to be determined and not placed
 # - A box score row keeps a null plus-minus
@@ -56,6 +56,7 @@ from pydantic import HttpUrl
 
 from app.feeds.all_star import (
     AllStarFeed,
+    AllStarFormat,
     AllStarState,
     Broadcast,
     BroadcastKind,
@@ -98,7 +99,7 @@ from app.jobs.all_star_feed import (
     default_game,
     edition_counts,
     edition_state,
-    format_line,
+    game_format,
     leading,
     league_team,
     mvp_null_reason,
@@ -466,34 +467,53 @@ def test_parse_note_of_an_unknown_note_or_no_note_is_none() -> None:
     assert parse_note(None) == (None, None)
 
 
-def test_format_line_of_one_period_of_twelve_minutes() -> None:
-    assert format_line(None, extras()) == "1 period · 12 min"
+def periods_format(periods: int, minutes: float) -> dict[str, object]:
+    return {
+        "target_points": None,
+        "untimed": False,
+        "periods": periods,
+        "minutes": minutes,
+    }
 
 
-def test_format_line_of_four_periods() -> None:
+def test_game_format_of_one_period_of_twelve_minutes() -> None:
+    assert game_format(None, extras()) == periods_format(1, 12.0)
+
+
+def test_game_format_of_four_periods() -> None:
     four = extras(regulation_periods=4)
 
-    assert format_line(None, four) == "4 periods · 12 min"
+    assert game_format(None, four) == periods_format(4, 12.0)
 
 
-def test_format_line_of_a_fractional_number_of_minutes() -> None:
-    assert format_line(None, extras(regulation_seconds=90.0)) == "1 period · 1.5 min"
+def test_game_format_of_a_fractional_number_of_minutes() -> None:
+    assert game_format(None, extras(regulation_seconds=90.0)) == periods_format(1, 1.5)
 
 
-def test_format_line_of_a_first_to_suffix_untimed() -> None:
+def test_game_format_of_a_first_to_suffix_untimed() -> None:
     suffix = "First team to 40 points wins - Untimed"
 
-    assert format_line(suffix, extras()) == "First to 40 · Untimed"
+    assert game_format(suffix, extras()) == {
+        "target_points": 40,
+        "untimed": True,
+        "periods": None,
+        "minutes": None,
+    }
 
 
-def test_format_line_of_a_first_to_suffix_without_untimed() -> None:
-    assert format_line("First team to 40 points wins", None) == "First to 40"
+def test_game_format_of_a_first_to_suffix_without_untimed() -> None:
+    assert game_format("First team to 40 points wins", None) == {
+        "target_points": 40,
+        "untimed": False,
+        "periods": None,
+        "minutes": None,
+    }
 
 
-def test_format_line_is_none_with_no_suffix_and_no_format() -> None:
-    assert format_line(None, None) is None
-    assert format_line(None, extras(regulation_periods=None)) is None
-    assert format_line(None, extras(regulation_seconds=None)) is None
+def test_game_format_is_none_with_no_suffix_and_no_format() -> None:
+    assert game_format(None, None) is None
+    assert game_format(None, extras(regulation_periods=None)) is None
+    assert game_format(None, extras(regulation_seconds=None)) is None
 
 
 def test_the_state_is_before_with_no_games_and_with_scheduled_games_only() -> None:
@@ -789,7 +809,7 @@ def test_a_before_feed_has_the_date_and_the_venue_and_no_games_or_teams() -> Non
     assert feed.edition.date == DAY
     assert feed.edition.venue == Venue(name="Example Arena")
     assert feed.edition.games == [] and feed.edition.teams == []
-    assert feed.edition.format_line is None
+    assert feed.edition.format is None
     assert feed.mvp is None
 
 
@@ -880,22 +900,28 @@ def test_a_game_carries_the_round_label_and_the_championship_flag() -> None:
     assert [g.championship for g in feed.edition.games] == [False, False, False, True]
 
 
-def test_the_format_line_is_the_line_of_the_first_game_that_has_one() -> None:
+def test_the_format_is_the_format_of_the_first_game_that_has_one() -> None:
     feed = build(semifinals())
 
-    assert feed.edition.format_line == "First to 40 · Untimed"
-    assert build(round_robin()).edition.format_line == "1 period · 12 min"
+    assert feed.edition.format == AllStarFormat(
+        target_points=40, untimed=True, periods=None, minutes=None
+    )
+    assert build(round_robin()).edition.format == AllStarFormat(
+        target_points=None, untimed=False, periods=1, minutes=12.0
+    )
 
 
-def test_the_format_line_skips_a_game_with_no_line() -> None:
+def test_the_format_skips_a_game_with_no_format() -> None:
     games = round_robin()
 
     feed = build(
         games, extras_by_id={"g1": None, "g2": extras(), "g3": None, "g4": None}
     )
 
-    assert feed.edition.format_line == "1 period · 12 min"
-    assert build(games, extras_by_id={}).edition.format_line is None
+    assert feed.edition.format == AllStarFormat(
+        target_points=None, untimed=False, periods=1, minutes=12.0
+    )
+    assert build(games, extras_by_id={}).edition.format is None
 
 
 def test_the_venue_is_the_summary_venue_else_the_scoreboard_venue() -> None:
@@ -1389,7 +1415,9 @@ def test_the_previous_edition_has_every_game_its_teams_and_its_mvp() -> None:
     assert earlier is not None
     assert earlier.date == PREVIOUS_DAY
     assert earlier.venue == Venue(name="Example Arena", city="Exampleton")
-    assert earlier.format_line == "1 period · 12 min"
+    assert earlier.format == AllStarFormat(
+        target_points=None, untimed=False, periods=1, minutes=12.0
+    )
     assert [g.id for g in earlier.games] == ["p1", "p2"]
     assert all(g.box_score is not None and g.top5 for g in earlier.games)
     assert all(g.team_stats is not None for g in earlier.games)

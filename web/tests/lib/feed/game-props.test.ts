@@ -709,7 +709,14 @@ describe('toGameView pre-game sections', () => {
 			away: [
 				{
 					date: '2026-01-01',
-					opponent: { code: 'DEN', name: null, city: null, guest: false },
+					opponent: {
+						code: 'DEN',
+						name: null,
+						city: null,
+						guest: false,
+						seasonCode: null,
+						historical: false
+					},
 					isHome: true,
 					result: 'win',
 					teamScore: 100,
@@ -919,7 +926,9 @@ describe('toGameView with a guest team', () => {
 			name: 'Mariners',
 			city: 'Harbor City',
 			record: null,
-			guest: true
+			guest: true,
+			seasonCode: null,
+			historical: false
 		};
 		return {
 			...source,
@@ -1023,7 +1032,7 @@ describe('toGameView with a guest team without a code', () => {
 	function codeless(source: GameDetailFeed): GameDetailFeed {
 		return {
 			...source,
-			away: { ...mariners, record: null },
+			away: { ...mariners, record: null, seasonCode: null, historical: false },
 			stars: { away: null, home: source.stars!.home },
 			winProbabilityLeader: { side: 'away', winProbability: 0.75 },
 			winProbability: [{ elapsedSeconds: 60, homeWinProbability: 0.25 }],
@@ -1080,7 +1089,15 @@ describe('toGameView with the All-Star mark', () => {
 	it('maps a guest side without a city to a header team with a null city', () => {
 		const source: GameDetailFeed = {
 			...feed(),
-			away: { code: 'STR', name: 'Team Stripes', city: null, record: null, guest: true }
+			away: {
+				code: 'STR',
+				name: 'Team Stripes',
+				city: null,
+				record: null,
+				guest: true,
+				seasonCode: null,
+				historical: false
+			}
 		};
 		expect(view(source).header.away.city).toBeNull();
 	});

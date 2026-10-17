@@ -15,6 +15,8 @@
 // - Spanish copy
 // - A null team leaves the team out of the header line and shows — as the team tag
 // - The All-Star tag of the header from allStarYear, none for null and for a recorded feed without the key
+// - A past game log row shows the opponent's season code and keeps today's code for the link (ADR 0054)
+// - The position in the header line in Spanish (ADR 0054)
 // - Retired and free agent in the team tag; a past season: the tag, no status, no next game, the season row accented; Spanish
 //
 // What is covered:
@@ -71,7 +73,14 @@ const liveFeed = (period = 3, line: typeof LINE | null = LINE): PlayerFeed => {
 	const source = feed();
 	source.live = {
 		gameId: 'g-live',
-		opponent: { code: 'DEN', name: null, city: null, guest: false },
+		opponent: {
+			code: 'DEN',
+			name: null,
+			city: null,
+			guest: false,
+			seasonCode: null,
+			historical: false
+		},
 		isHome: false,
 		period,
 		clock: '4:12',
@@ -624,6 +633,14 @@ describe('toPlayerView retired, free agent and past season', () => {
 		expect(v.sections.profile.hideNext).toBe(true);
 	});
 
+	it("shows the opponent's season code in a past game log row and keeps today's code", () => {
+		const rows = toPlayerView(pastFeed(), { past: true }).sections.gameLog?.filters[0]?.rows;
+		const row = rows?.find(
+			(r) => r.opponent?.team.code === 'MEM' && r.opponent.team.historicalCode
+		);
+		expect(row?.opponent?.team).toMatchObject({ code: 'MEM', historicalCode: 'VAN' });
+	});
+
 	it('accents only the row of the season label, in every season table', () => {
 		const seasons = toPlayerView(pastFeed(), { past: true }).sections.seasons;
 		const tables = [
@@ -655,5 +672,14 @@ describe('toPlayerView retired, free agent and past season', () => {
 		expect(view({ ...feed(), team: null, active: false }).header.teamCode).toBe('Retirado');
 		expect(view({ ...feed(), team: null, active: true }).header.teamCode).toBe('Agente libre');
 		expect(toPlayerView(pastFeed(), { past: true }).header.tag).toBe('Temporada 2004-05');
+	});
+});
+
+describe('toPlayerView position', () => {
+	it('writes the position of the header line in Spanish and as sent in English', () => {
+		expect(view().header.line).toContain('Guard');
+		preferLanguages(['es']);
+		expect(view().header.line).toContain('Escolta');
+		expect(view().header.line).not.toContain('Guard');
 	});
 });

@@ -447,7 +447,9 @@
 					"code": "MEM",
 					"name": null,
 					"city": null,
-					"guest": false
+					"guest": false,
+					"seasonCode": "VAN",
+					"historical": true
 				},
 				"isHome": false,
 				"kind": "playoffs",

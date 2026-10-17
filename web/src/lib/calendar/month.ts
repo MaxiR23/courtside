@@ -74,6 +74,24 @@ export function neighbours(
 	return { previous, next };
 }
 
+/** The last day a calendar links: the earlier of the season's last day and today, never before the first day. */
+export function lastLinkedDay(firstDay: string, lastDay: string, today: string): string {
+	const last = today < lastDay ? today : lastDay;
+	return last < firstDay ? firstDay : last;
+}
+
+/**
+ * Whether a day is on the home: one of the games feed's days when that feed is loaded, else one
+ * of the calendar feed's window days.
+ */
+export function isWindowDay(
+	date: string,
+	gamesDays: readonly string[] | null,
+	windowDays: readonly string[]
+): boolean {
+	return (gamesDays ?? windowDays).includes(date);
+}
+
 /** The US Eastern date of an instant, as 'YYYY-MM-DD'. */
 export function easternToday(now: Date): string {
 	return new Intl.DateTimeFormat('en-CA', {

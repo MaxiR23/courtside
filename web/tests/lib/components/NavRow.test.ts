@@ -74,6 +74,8 @@ describe('NavRow with a calendar', () => {
 		season: 'current',
 		selectedDay: '2026-10-04',
 		today: '2026-10-04',
+		windowDays: null,
+		windowHref: (date: string) => `/?day=${date}` as ResolvedPathname,
 		dayHref: (date: string) => `/day/${date}` as ResolvedPathname
 	};
 
@@ -81,7 +83,7 @@ describe('NavRow with a calendar', () => {
 		const { container } = render(NavRow, {
 			props: { ...homeProps, home: { ...home, calendar } }
 		});
-		const button = screen.getByRole('button', { name: formatDate(today, dateOptions) });
+		const button = screen.getByRole('button', { name: 'Open calendar' });
 		expect(button.getAttribute('aria-haspopup')).toBe('dialog');
 		expect(container.querySelector('time')?.getAttribute('datetime')).toBe('2026-10-04');
 		const links = container.querySelector('.links') as HTMLElement;
@@ -97,14 +99,14 @@ describe('NavRow with a calendar', () => {
 		render(NavRow, {
 			props: { ...homeProps, home: { ...home, calendar: { ...calendar, load, selectedDay: null } } }
 		});
-		await fireEvent.click(screen.getByRole('button', { name: formatDate(today, dateOptions) }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Open calendar' }));
 		expect((await screen.findByRole('heading', { level: 2 })).textContent).toBe('October 2026');
 	});
 
 	it('keeps a plain time without a calendar', () => {
 		const { container } = render(NavRow, { props: homeProps });
 		expect(container.querySelector('time.date')).not.toBeNull();
-		expect(screen.queryByRole('button', { name: formatDate(today, dateOptions) })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Open calendar' })).toBeNull();
 	});
 });
 

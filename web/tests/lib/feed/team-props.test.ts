@@ -21,7 +21,9 @@
 // - Spanish copy
 // - The Cup mark: the header line, none for a null mark
 // - The titles: the header badges filled from the feed, none for null titles
+// - The position in the roster and in the leader and injury lines in Spanish: a name, a hyphenated name, an abbreviation as sent (ADR 0054)
 // - A past season (option past): the season tag, no Overview and Injuries tabs, past true; Spanish
+// - A historical past team shows its season code and has no strip; a past team that kept its name keeps its colors; a past schedule row shows the opponent's season code (ADR 0054)
 // - names: null with zero or one run; four runs as years, name, code and last season; current run "2015–"
 //
 // What is covered:
@@ -595,8 +597,12 @@ describe('toTeamView in Spanish', () => {
 describe('toTeamView with a guest opponent without a code', () => {
 	it('keeps the guest as the opponent of the next game and of a schedule row', () => {
 		const source = feed();
-		source.nextGame!.opponent = mariners;
-		source.schedule!.groups[0]!.games[0]!.opponent = mariners;
+		source.nextGame!.opponent = { ...mariners, seasonCode: null, historical: false };
+		source.schedule!.groups[0]!.games[0]!.opponent = {
+			...mariners,
+			seasonCode: null,
+			historical: false
+		};
 		const v = view(source);
 		expect(v.sections.overview.nextGame?.opponent).toEqual({ team: mariners, isHome: false });
 		expect(v.sections.schedule?.groups[0]?.rows[0]?.opponent).toEqual({
@@ -630,6 +636,30 @@ describe('toTeamView past season', () => {
 		preferLanguages(['es']);
 		expect(toTeamView(pastFeed(), { past: true }).header.tag).toBe('Temporada 2004-05');
 	});
+
+	it('shows the season code of a historical past team and draws no strip', () => {
+		const v = toTeamView(pastFeed(), { past: true });
+		expect(v.header.code).toBe('SEA');
+		expect(v.header.colors).toBeNull();
+		expect(v.mini.startsWith('SEA ')).toBe(true);
+	});
+
+	it('keeps the code and the colors of a past team that kept its name', () => {
+		const source = { ...pastFeed(), seasonCode: 'OKC', historical: false };
+		const v = toTeamView(source, { past: true });
+		expect(v.header.code).toBe('OKC');
+		expect(v.header.colors).toEqual({ primary: '#007AC1', secondary: '#EF3B24' });
+	});
+
+	it("shows the opponent's season code in a past schedule row and links to today's team", () => {
+		const rows = toTeamView(pastFeed(), { past: true }).sections.schedule?.groups.flatMap(
+			(group) => group.rows
+		);
+		const denver = rows?.find(
+			(row) => row.opponent?.team.code === 'DEN' && row.opponent.team.historicalCode
+		);
+		expect(denver?.opponent?.team).toMatchObject({ code: 'DEN', historicalCode: 'DNV' });
+	});
 });
 
 describe('toTeamView names', () => {
@@ -657,5 +687,25 @@ describe('toTeamView names', () => {
 			'2009–2014',
 			'2015–'
 		]);
+	});
+});
+
+describe('toTeamView position', () => {
+	const named = () => {
+		const source = feed();
+		source.roster[0]!.position = 'Guard';
+		source.roster[1]!.position = 'Forward-Center';
+		return source;
+	};
+
+	it('translates a roster position name in Spanish and keeps an abbreviation as sent', () => {
+		preferLanguages(['es']);
+		const positions = (view(named()).sections.roster ?? []).map((row) => row.position);
+		expect(positions.slice(0, 3)).toEqual(['Escolta', 'Alero-Pívot', 'G']);
+	});
+
+	it('reads as the feed sends it in English', () => {
+		const positions = (view(named()).sections.roster ?? []).map((row) => row.position);
+		expect(positions.slice(0, 3)).toEqual(['Guard', 'Forward-Center', 'G']);
 	});
 });

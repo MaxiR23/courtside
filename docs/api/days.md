@@ -39,9 +39,9 @@ from their names, so a day of this feed is valid against the games feed's
 - **Highlights**: the stored highlight of a final game, added when served
   and never stored ([ADR 0048](../adr/0048-highlights-backfill-and-edition-video.md)); empty otherwise and on an All-Star game.
   `highlightsSearchUrl` is set on a final game, as in the games feed.
-- **Stats**: on a final game `statsAvailability` is `unavailable` and
-  `leaders` and `teamStats` are null, because the day feed reads them from no
-  source. On any other game all three are null.
+- **Stats**: on a final game `statsAvailability` is `available` and `leaders`
+  and `teamStats` are null: they are read from its game detail
+  ([ADR 0054](../adr/0054-historical-sides-and-past-pages.md)). On any other game all three are null.
 - **Sides**: resolved by team id first, with the event's name and city; a side
   whose id is not one of the 30 follows the guest rule (ADR 0025, ADR 0026).
 - **Marks**: the Cup, postseason and All-Star marks are read case-insensitively.

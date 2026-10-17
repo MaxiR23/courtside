@@ -16,6 +16,7 @@ import { cupTeamLine } from '#lib/feed/cup-mark-props.ts';
 import { teamTitles } from '#lib/feed/postseason-mark-props.ts';
 import { tipParts } from '#lib/feed/props.ts';
 import { formatDate, formatNumber } from '#lib/format/locale.ts';
+import { positionName } from '#lib/format/position.ts';
 import type { InfoCell, InjuryTagStatus } from '#lib/game/types.ts';
 import { m } from '#lib/paraglide/messages.js';
 import type {
@@ -113,9 +114,10 @@ const rank = (value: number, name: string) =>
 	m.game_standings_rank({ rank: value, conference: name });
 
 const numberAndPosition = (number: string | null, position: string | null): string | null => {
-	const parts = [number === null ? null : `#${number}`, position].filter(
-		(part): part is string => part !== null
-	);
+	const parts = [
+		number === null ? null : `#${number}`,
+		position === null ? null : positionName(position)
+	].filter((part): part is string => part !== null);
 	return parts.length > 0 ? parts.join(SEPARATOR) : null;
 };
 
@@ -149,6 +151,11 @@ function streakLabel(streak: NonNullable<TeamFeed['record']['streak']>): string 
 	return streak.kind === 'win' ? m.team_streak_win({ count }) : m.team_streak_loss({ count });
 }
 
+/** The code the team shows: the season's abbreviation for a historical past team, else its code (ADR 0054). */
+function shownCode(feed: TeamFeed): string {
+	return feed.historical && feed.seasonCode ? feed.seasonCode : feed.code;
+}
+
 function header(feed: TeamFeed): TeamHeaderView {
 	const r = feed.record;
 	const cells: InfoCell[] = [
@@ -165,7 +172,7 @@ function header(feed: TeamFeed): TeamHeaderView {
 		cells.push({ label: m.team_cell_playoffs(), value: playoffLabel(r.playoff), sub: null });
 	}
 	return {
-		code: feed.code,
+		code: shownCode(feed),
 		city: feed.city,
 		name: feed.name,
 		conferenceLine: [
@@ -174,7 +181,9 @@ function header(feed: TeamFeed): TeamHeaderView {
 		].join(SEPARATOR),
 		cupLine: cupTeamLine(feed.cup),
 		titles: teamTitles(feed.titles),
-		colors: { primary: feed.colors.primary, secondary: feed.colors.secondary },
+		colors: feed.historical
+			? null
+			: { primary: feed.colors.primary, secondary: feed.colors.secondary },
 		record: record(r),
 		winPct: percent(r.winPct),
 		recordSeason: m.team_header_record_season({ season: r.season }),
@@ -305,7 +314,7 @@ function rosterRow(player: RosterPlayer): RosterRow {
 		name: player.name,
 		photo: player.photoUrl,
 		number: player.number,
-		position: player.position,
+		position: player.position === null ? null : positionName(player.position),
 		height: player.height,
 		weight: player.weight === null ? null : formatNumber(player.weight),
 		age: player.age === null ? null : formatNumber(player.age),
@@ -429,7 +438,7 @@ export function toTeamView(feed: TeamFeed, options: { past?: boolean } = {}): Te
 			tag: past ? m.past_season_tag({ label: feed.season }) : null
 		},
 		tabs,
-		mini: `${feed.code} ${record(feed.record)}`,
+		mini: `${shownCode(feed)} ${record(feed.record)}`,
 		sections
 	};
 }

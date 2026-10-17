@@ -22,6 +22,7 @@
 # - Accepts a division rank of 8 and rejects 9
 # - TeamFeed rejects a null arena and null injuries; PastTeamFeed accepts every past block null, rejects each one when set, and has the team schema apart from its title
 # - A feed with a build version is accepted, one with zero is rejected, and a stored feed without the field reads with a null version
+# - A past team feed carries a season code and the historical flag; historical without a season code is rejected; a stored feed without the fields reads as not historical (ADR 0054)
 # - A leader with a null position is accepted
 #
 # What is covered:
@@ -679,3 +680,25 @@ def test_accepts_a_leader_with_a_null_position() -> None:
 
     assert TeamFeed.model_validate(team).leaders.points is not None
     assert TeamFeed.model_validate(team).leaders.points.position is None  # type: ignore[union-attr]
+
+
+def test_accepts_a_team_feed_with_a_season_code_and_the_historical_flag() -> None:
+    team = valid_team()
+    team.update({"seasonCode": "SEA", "historical": True})
+
+    parsed = TeamFeed.model_validate(team)
+
+    assert (parsed.season_code, parsed.historical) == ("SEA", True)
+
+
+def test_rejects_a_historical_team_feed_without_a_season_code() -> None:
+    team = valid_team()
+    team["historical"] = True
+
+    rejects(team, "season code")
+
+
+def test_a_stored_team_feed_without_the_fields_still_validates() -> None:
+    parsed = TeamFeed.model_validate(valid_team())
+
+    assert (parsed.season_code, parsed.historical) == (None, False)

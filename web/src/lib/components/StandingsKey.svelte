@@ -4,9 +4,9 @@
 	import { m } from '#lib/paraglide/messages.js';
 	import type { StandingsKeyEntry } from '#lib/standings/types.ts';
 
-	type Props = { entries: StandingsKeyEntry[] };
+	type Props = { entries: StandingsKeyEntry[]; lines: boolean }; // lines: the dashed seed lines are drawn
 
-	let { entries }: Props = $props();
+	let { entries, lines }: Props = $props();
 </script>
 
 <section class="standings-key">
@@ -20,6 +20,7 @@
 		{/each}
 	</ul>
 	<p class="note">{m.standings_key_note()}</p>
+	{#if lines}<p class="note">{m.standings_key_lines()}</p>{/if}
 </section>
 
 <style>

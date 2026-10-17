@@ -181,13 +181,31 @@
         "guest": {
           "default": false,
           "type": "boolean"
+        },
+        "seasonCode": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "historical": {
+          "default": false,
+          "type": "boolean"
         }
       },
       "required": [
         "code",
         "name",
         "city",
-        "guest"
+        "guest",
+        "seasonCode",
+        "historical"
       ],
       "title": "GameTeam",
       "type": "object"

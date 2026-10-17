@@ -166,6 +166,17 @@ function playedDetails(game: Game, highlights?: GameHighlights): GameDetails {
 function finalDetails(game: Game, highlights?: GameHighlights): GameDetails {
 	switch (game.statsAvailability) {
 		case 'available':
+			// A past day's final game is available with its stats in the game page, not in the feed
+			// (ADR 0054): its card has the line score and the highlights only.
+			if (game.leaders === null && game.teamStats === null) {
+				const lineScore = required(game.lineScore);
+				return {
+					kind: 'final-without-stats',
+					periods: { away: [...lineScore.away], home: [...lineScore.home] },
+					statsAvailability: 'available',
+					...(highlights ? { highlights } : {})
+				};
+			}
 			return playedDetails(game, highlights);
 		case 'pending':
 		case 'unavailable': {

@@ -8,7 +8,7 @@
 	type Props = {
 		month: string; // 'YYYY-MM'
 		days: Set<string>; // the days with games
-		today: string | null;
+		today: string; // no later day is a link
 		selected: string | null;
 		canPrevious: boolean;
 		canNext: boolean;
@@ -78,7 +78,7 @@
 			{#each week as date, d (d)}
 				{#if date === null}
 					<span class="day blank"></span>
-				{:else if days.has(date)}
+				{:else if days.has(date) && date <= today}
 					<a
 						class="day has-games"
 						class:today={date === today}

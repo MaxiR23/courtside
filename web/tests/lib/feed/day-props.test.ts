@@ -3,7 +3,8 @@
 // Tests for the props layer that turns the day feed into the day page props.
 //
 // Tested:
-// - A final past game maps to a final-without-stats card with unavailable stats and no highlights
+// - A final past game with available stats and no leaders maps to a final-without-stats card with available stats (ADR 0054) and no highlights block without a platform name
+// - With a platform name the card has the highlights block with the stored clip and the search link; pending and unavailable stats keep their variants
 // - The season and its label are copied; the date, title and weekday are formatted from the feed date
 // - The title and weekday are in English and in Spanish for an es browser
 // - A day with no game gives an empty list
@@ -31,16 +32,41 @@ afterEach(() => {
 });
 
 describe('toDayView', () => {
-	it('maps a final past game to a card without stats or highlights', () => {
+	it('maps a final past game with available stats and no leaders to a card without a stats line', () => {
 		const view = toDayView(feed());
 		expect(view?.games).toHaveLength(2);
 		const game = view?.games[0];
 		expect(game?.status).toMatchObject({ state: 'final', winner: 'home' });
 		expect(game?.details).toMatchObject({
 			kind: 'final-without-stats',
-			statsAvailability: 'unavailable'
+			statsAvailability: 'available'
 		});
 		expect(game?.details).not.toHaveProperty('highlights');
+	});
+
+	it('gives the highlights block when a video platform name is passed', () => {
+		const view = toDayView(feed(), { videoPlatformName: 'Video platform' });
+		const details = view?.games[0].details;
+		expect(details).toMatchObject({
+			highlights: {
+				platform: 'Video platform',
+				searchUrl: 'https://example.com/search?q=x'
+			}
+		});
+		expect(details?.kind === 'final-without-stats' && details.highlights?.videos).toHaveLength(1);
+		expect(
+			view?.games[1].details?.kind === 'final-without-stats' &&
+				view.games[1].details.highlights?.videos
+		).toEqual([]);
+	});
+
+	it('keeps the pending and unavailable stats variants', () => {
+		const source = feed();
+		source.day.games[0].statsAvailability = 'pending';
+		source.day.games[1].statsAvailability = 'unavailable';
+		const view = toDayView(source);
+		expect(view?.games[0].details).toMatchObject({ statsAvailability: 'pending' });
+		expect(view?.games[1].details).toMatchObject({ statsAvailability: 'unavailable' });
 	});
 
 	it('copies the season and its label and the feed date', () => {

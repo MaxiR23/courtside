@@ -43,6 +43,8 @@ export interface StandingsRow {
 	pointsAgainst: string;
 	differential: PerGameDifferential;
 	total: TotalDifferential;
+	seasonCode: string | null;
+	historical: boolean;
 }
 export interface StandingsColors {
 	primary: string | null;

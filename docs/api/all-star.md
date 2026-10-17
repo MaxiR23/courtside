@@ -20,7 +20,7 @@ Conventions:
 - Nullable fields are always present and `null` when absent.
 - Times are UTC, as ISO 8601 with a timezone; dates are US Eastern dates.
 - Labels are keys and parts (round label, placement kind), never prose: the page
-  writes the words. The format line is the one text the page shows as sent.
+  writes the words. The format is sent as parts ([ADR 0054](../adr/0054-historical-sides-and-past-pages.md)).
 - An All-Star team is an `Opponent` that is a guest (as in the
   [games feed](games.md)): it has a code or a name, no city, and no
   colors. The number of teams and rounds changes every year, so the feed is a list
@@ -42,7 +42,8 @@ Conventions:
 
 | Object            | Fields                                                                                                                                                                                                                                                                  |
 | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `AllStarEdition`  | `date`: date / null; `venue`: `Venue` / null; `formatLine`: string / null; `teams`: `AllStarTeam[]`; `games`: `AllStarGame[]`; `counts`: `AllStarCounts`; `defaultGameId`: string / null, null exactly when there are no games, else the id of one of them. `editionHighlight`: `Highlight` / null (set when served; the previous edition has it too). At most one team is `champion` and one `runner_up`, and at most one game has `isNext`                                                                                         |
+| `AllStarFormat`   | `targetPoints`: integer / null; `untimed`: boolean; `periods`: integer / null; `minutes`: number / null; either `targetPoints` is set and `periods` and `minutes` are null, or `targetPoints` is null, `untimed` is false and `periods` and `minutes` are set |
+| `AllStarEdition`  | `date`: date / null; `venue`: `Venue` / null; `format`: `AllStarFormat` / null; `teams`: `AllStarTeam[]`; `games`: `AllStarGame[]`; `counts`: `AllStarCounts`; `defaultGameId`: string / null, null exactly when there are no games, else the id of one of them. `editionHighlight`: `Highlight` / null (set when served; the previous edition has it too). At most one team is `champion` and one `runner_up`, and at most one game has `isNext`                                                                                         |
 | `AllStarTeam`     | `team`: `Opponent` (a guest); `wins`, `losses`: from final games, the numbers of win and loss `results`; `results`: `AllStarTeamResult[]`; `placement`: `Placement`; `roster`: `RosterTile[]`                                                                                                                                                     |
 | `Placement`       | `kind`: `champion`, `runner_up`, `eliminated`, `so_far`, `yet_to_play`; `roundLabel`: set exactly when `kind` is `eliminated`                                                                                                                                             |
 | `RosterTile`      | `playerId`; `name`; `photoUrl` (null); `leagueTeam`: `LeagueTeam` / null                                                                                                                                                                                                 |
@@ -70,7 +71,7 @@ Conventions:
    canceled games or repeated ids.
 2. **State.** `before`: no game is live or final, which includes no game discovered
    yet. The feed then carries the date and venue when known, `games: []`,
-   `teams: []`, a null `formatLine` and a null `mvp`. `live`: at least one game is
+   `teams: []`, a null `format` and a null `mvp`. `live`: at least one game is
    live, or at least one is final and not every game is final. `after`: there is at
    least one game and every game is final.
 3. **Round label.** The note of a game is `NBA All-Star - <round>`, optionally
@@ -83,10 +84,11 @@ Conventions:
    that is only `ALL STAR GAME` or `NBA All-Star Game`, in any case, is the round
    `All-Star Game` ([ADR 0051](../adr/0051-all-star-notes-and-untimed-games.md)),
    with `championship` false. A note that does not match gives a null label.
-4. **Format line.** The edition's line is the line of the first game, in start order,
-   that has one. A game has `First to N`, followed by ` · Untimed` when the suffix
-   says `Untimed`; else, with a known format, `{periods} period(s) · {minutes} min`
-   (`1 period · 12 min`, `4 periods · 12 min`); else none.
+4. **Format.** The edition's format is the format of the first game, in start order,
+   that has one. A game has `targetPoints` N, with `untimed` true when the suffix
+   says `Untimed`; else, with a known format, `periods` and `minutes` (`1` and `12`,
+   `4` and `12`); else none. `targetPoints` is set exactly when `periods` and
+   `minutes` are null, and `untimed` needs `targetPoints`.
 5. **Teams.** The distinct sides of the games, in order of first appearance (away,
    then home). A side whose game has no teams yet is not a team. `wins` and
    `losses` count final games only.

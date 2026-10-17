@@ -237,11 +237,10 @@
             }
           ]
         },
-        "formatLine": {
+        "format": {
           "anyOf": [
             {
-              "minLength": 1,
-              "type": "string"
+              "$ref": "#/$defs/AllStarFormat"
             },
             {
               "type": "null"
@@ -289,7 +288,7 @@
       "required": [
         "date",
         "venue",
-        "formatLine",
+        "format",
         "teams",
         "games",
         "counts",
@@ -297,6 +296,56 @@
         "editionHighlight"
       ],
       "title": "AllStarEdition",
+      "type": "object"
+    },
+    "AllStarFormat": {
+      "additionalProperties": false,
+      "description": "The format of an edition's games: a target score (with untimed), or the\nregulation periods and minutes. The page writes the words (ADR 0054).",
+      "properties": {
+        "targetPoints": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "untimed": {
+          "type": "boolean"
+        },
+        "periods": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "minutes": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "targetPoints",
+        "untimed",
+        "periods",
+        "minutes"
+      ],
+      "title": "AllStarFormat",
       "type": "object"
     },
     "AllStarGame": {
@@ -611,11 +660,10 @@
             }
           ]
         },
-        "formatLine": {
+        "format": {
           "anyOf": [
             {
-              "minLength": 1,
-              "type": "string"
+              "$ref": "#/$defs/AllStarFormat"
             },
             {
               "type": "null"
@@ -673,7 +721,7 @@
       "required": [
         "date",
         "venue",
-        "formatLine",
+        "format",
         "teams",
         "games",
         "counts",
@@ -1353,13 +1401,31 @@
         "guest": {
           "default": false,
           "type": "boolean"
+        },
+        "seasonCode": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "historical": {
+          "default": false,
+          "type": "boolean"
         }
       },
       "required": [
         "code",
         "name",
         "city",
-        "guest"
+        "guest",
+        "seasonCode",
+        "historical"
       ],
       "title": "Opponent",
       "type": "object"

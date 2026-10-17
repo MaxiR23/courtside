@@ -5,6 +5,7 @@
 // Tested:
 // - The tile shows the code
 // - The tile shows the initials for a guest without a code
+// - A historical side shows its season code and links to today's team (ADR 0054)
 // - A league tile, label and name link to teamHref(code)
 // - A guest is never a link, with or without a code
 // - Without teamHref, nothing links
@@ -28,6 +29,19 @@ const league = { code: 'DEN', name: 'Nuggets', city: 'Denver', guest: false };
 const mariners = { code: null, name: 'Mariners', city: 'Harbor City', guest: true };
 
 describe('TeamMark', () => {
+	it("links a historical side to today's team while showing its season code", () => {
+		const team = { ...league, historicalCode: 'SEA' };
+		for (const part of ['tile', 'label'] as const) {
+			const { container, unmount } = render(TeamMark, {
+				props: { team, part, size: 'large', teamHref }
+			});
+			const link = container.querySelector('a');
+			expect(link?.textContent).toBe('SEA');
+			expect(link?.getAttribute('href')).toBe('/team/den');
+			unmount();
+		}
+	});
+
 	it('shows the code in the tile', () => {
 		render(TeamMark, { props: { team: league, part: 'tile', size: 'large' } });
 		expect(screen.getByText('DEN').classList.contains('team-monogram')).toBe(true);

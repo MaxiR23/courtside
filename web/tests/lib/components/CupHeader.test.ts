@@ -76,7 +76,14 @@ describe('CupHeader', () => {
 	});
 
 	it('shows the champion with a link to its team when the Cup is complete', () => {
-		const header = complete({ code: 'QXA', name: 'Herons', city: 'Alderton', guest: false });
+		const header = complete({
+			code: 'QXA',
+			name: 'Herons',
+			city: 'Alderton',
+			guest: false,
+			seasonCode: null,
+			historical: false
+		});
 		const { container } = render(CupHeader, { props: props({ header }) });
 		expect(container.querySelector('.champion-label')?.textContent).toBe('Champion');
 		expect(container.querySelector('.city')?.textContent).toBe('Alderton');
@@ -85,7 +92,14 @@ describe('CupHeader', () => {
 	});
 
 	it('does not link a guest champion', () => {
-		const header = complete({ code: null, name: 'Visitors', city: 'Faraway', guest: true });
+		const header = complete({
+			code: null,
+			name: 'Visitors',
+			city: 'Faraway',
+			guest: true,
+			seasonCode: null,
+			historical: false
+		});
 		const { container } = render(CupHeader, { props: props({ header }) });
 		expect(container.querySelector('.champion-name')?.textContent?.trim()).toBe('Visitors');
 		expect(container.querySelectorAll('.champion a')).toHaveLength(0);

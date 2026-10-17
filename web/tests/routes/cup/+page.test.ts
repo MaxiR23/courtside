@@ -16,7 +16,8 @@
 // - Renders in Spanish
 // - With ?season: loads the calendar, then only the season Cup feed, once; no polling; the tag; no live badge or current stage; 503 and 404 states
 // - A malformed or current ?season loads the current feed and polls it
-// - A ?season before 2024 requests its season feed, shows the unavailable row and the select, and does not poll
+// - A ?season before 2024 requests its season feed, shows the unavailable row and the select, and does not poll; the select keeps the season on show in its options (ADR 0054)
+// - The unavailable state of a past season keeps the Season tag; the current season's has none
 // - A season change or an unmount closes the current matchup poller of an open node
 // - The select lists the calendar seasons from 2024 and navigates with goto
 // - A past matchup loads once from the season URL, shows the path and the current-season-only line, and no roster; Spanish
@@ -473,6 +474,36 @@ describe('Cup page season selector', () => {
 			expect(countOf(pastUrl(season))).toBe(1);
 		}
 	);
+
+	it('keeps 2022-23 in the select next to the unavailable state for ?season=2023 (ADR 0044)', async () => {
+		stubRoutes({
+			[CAL_URL]: [answerJson(calendarFeed())],
+			[pastUrl(2023)]: [answerStatus(404)]
+		});
+		await renderSeason('?season=2023');
+		const select = screen.getByRole('combobox', { name: 'Season' }) as HTMLSelectElement;
+		expect(select.value).toBe('2023');
+		expect([...select.options].map((option) => option.value)).toContain(select.value);
+		expect([...select.options].map((option) => option.textContent)).toContain('2022-23');
+		expect(screen.getByText(UNAVAILABLE)).toBeTruthy();
+	});
+
+	it('keeps the Season tag on the unavailable state of a past season', async () => {
+		stubRoutes({
+			[CAL_URL]: [answerJson(calendarFeed())],
+			[pastUrl(2025)]: [answerStatus(503)]
+		});
+		await renderSeason('?season=2025');
+		expect(screen.getByText(UNAVAILABLE)).toBeTruthy();
+		expect(screen.getByText('Season 2024-25')).toBeTruthy();
+	});
+
+	it('shows no Season tag on the unavailable state of the current season', async () => {
+		stubRoutes({ [CAL_URL]: [answerJson(calendarFeed())], [FEED_URL]: [answerStatus(503)] });
+		await renderSeason('');
+		expect(screen.getByText(UNAVAILABLE)).toBeTruthy();
+		expect(screen.queryByText(/^Season /)).toBeNull();
+	});
 
 	it('stops the current matchup poller when the season changes', async () => {
 		stubRoutes({

@@ -7,6 +7,7 @@
 import type {
 	AllStarBoxPlayer,
 	AllStarEdition,
+	AllStarFormat,
 	AllStarFeed,
 	AllStarGame,
 	AllStarMvp,
@@ -21,8 +22,10 @@ import type {
 	Top5Row
 } from '#lib/contract/all-star.ts';
 import { leader, tipParts, video } from '#lib/feed/props.ts';
+import { allStarRound } from '#lib/feed/all-star-mark-props.ts';
 import { feedDate } from '#lib/feed/team-props.ts';
 import { formatNumber } from '#lib/format/locale.ts';
+import { positionName } from '#lib/format/position.ts';
 import { m } from '#lib/paraglide/messages.js';
 import type {
 	AllStarHeaderView,
@@ -57,6 +60,22 @@ const integer = (value: number): string => formatNumber(value);
 const percent = (value: number): string =>
 	formatNumber(value, { style: 'percent', minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const signed = (value: number): string => formatNumber(value, { signDisplay: 'exceptZero' });
+/** The format line in the page language, from the feed's parts: "First to 40 · Untimed", "1 period · 12 min". */
+export function formatLine(format: AllStarFormat | null): string | null {
+	if (format === null) return null;
+	const parts: string[] =
+		format.targetPoints !== null
+			? [
+					m.allstar_format_first_to({ points: formatNumber(format.targetPoints) }),
+					...(format.untimed ? [m.allstar_format_untimed()] : [])
+				]
+			: [
+					m.allstar_format_periods({ count: format.periods ?? 0 }),
+					m.allstar_format_minutes({ minutes: formatNumber(format.minutes ?? 0) })
+				];
+	return parts.join(SEPARATOR);
+}
+
 const orDash = (value: string | null | undefined): string => (value ? value : NO_VALUE);
 const monthDay: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
 const fullDate: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric', year: 'numeric' };
@@ -137,7 +156,9 @@ function card(game: AllStarGame): GameCardView {
 		id: game.id,
 		round: game.roundLabel
 			? {
-					text: game.championship ? m.allstar_round_championship() : game.roundLabel,
+					text: game.championship
+						? m.allstar_round_championship()
+						: (allStarRound(game.roundLabel) ?? game.roundLabel),
 					championship: game.championship
 				}
 			: null,
@@ -247,7 +268,7 @@ function boxRow(player: AllStarBoxPlayer): BoxRowView {
 		id: player.playerId,
 		jersey: orDash(player.jersey),
 		name: player.displayName,
-		position: orDash(player.position),
+		position: orDash(player.position && positionName(player.position)),
 		minutes,
 		points: integer(player.points),
 		rebounds: integer(player.rebounds),
@@ -264,7 +285,7 @@ function boxRow(player: AllStarBoxPlayer): BoxRowView {
 		league: league(player.leagueTeam),
 		mobileMeta: [
 			player.jersey ? `#${player.jersey}` : NO_VALUE,
-			orDash(player.position),
+			orDash(player.position && positionName(player.position)),
 			minutes
 		].join(SEPARATOR)
 	};
@@ -318,7 +339,7 @@ function mvpView(found: AllStarMvp, games: AllStarGame[]): MvpView {
 		league: league(found.leagueTeam),
 		lines: found.lines.map((line) => ({
 			key: line.gameId,
-			round: orDash(line.roundLabel),
+			round: orDash(allStarRound(line.roundLabel)),
 			championship: games.find((game) => game.id === line.gameId)?.championship ?? false,
 			result: [
 				line.result === 'win' ? m.game_last_game_win() : m.game_last_game_loss(),
@@ -342,7 +363,9 @@ function teamCard(team: AllStarTeam): TeamCardView {
 	const placement: Record<AllStarTeam['placement']['kind'], string> = {
 		champion: m.allstar_placement_champion(),
 		runner_up: m.allstar_placement_runner_up(),
-		eliminated: m.allstar_placement_eliminated({ round: orDash(team.placement.roundLabel) }),
+		eliminated: m.allstar_placement_eliminated({
+			round: orDash(allStarRound(team.placement.roundLabel))
+		}),
 		so_far: m.allstar_placement_so_far(),
 		yet_to_play: m.allstar_placement_yet()
 	};
@@ -359,7 +382,7 @@ function teamCard(team: AllStarTeam): TeamCardView {
 			mark: result.result === 'win' ? m.game_last_game_win() : m.game_last_game_loss(),
 			text:
 				m.allstar_result_row({
-					label: orDash(result.roundLabel),
+					label: orDash(allStarRound(result.roundLabel)),
 					opp: teamLabel(teamMark(result.opponent)) || NO_VALUE
 				}) + (result.overtime ? `${SEPARATOR}${m.allstar_result_ot()}` : ''),
 			score: `${result.teamScore}${SCORE_SEPARATOR}${result.opponentScore}`
@@ -391,12 +414,14 @@ function livePlate(drawn: Drawn): PlateView | null {
 	return {
 		kind: 'live',
 		gameId: game.id,
-		header: m.allstar_live_header({ round: orDash(game.roundLabel) }),
-		formatLine: edition.formatLine,
+		header: m.allstar_live_header({ round: orDash(allStarRound(game.roundLabel)) }),
+		formatLine: formatLine(edition.format),
 		rows: scoreRows(game, game.leading),
 		clock: orDash(game.clock),
 		status: game.statusText,
-		next: next ? m.allstar_next_game({ label: next.roundLabel ?? matchup(next) }) : null
+		next: next
+			? m.allstar_next_game({ label: allStarRound(next.roundLabel) ?? matchup(next) })
+			: null
 	};
 }
 
@@ -430,7 +455,7 @@ function header(
 			rows: [
 				row('date', m.allstar_row_date(), edition.date ? feedDate(edition.date, fullDate) : null),
 				row('venue', m.allstar_row_venue(), venue || null),
-				row('format', m.allstar_row_format(), edition.formatLine)
+				row('format', m.allstar_row_format(), formatLine(edition.format))
 			],
 			buttons,
 			plate: { kind: 'year', year: String(drawn.year) },
@@ -592,7 +617,7 @@ function build(drawn: Drawn, last: LastTimeView | null, seasonTag: string | null
 		lastTime: last,
 		mvp: drawn.state === 'after' ? mvp : null,
 		scoreline: line,
-		formatLine: edition.formatLine,
+		formatLine: formatLine(edition.format),
 		games: edition.games.map(card),
 		details: Object.fromEntries(edition.games.map((game) => [game.id, detail(game, edition)])),
 		boxes: Object.fromEntries(edition.games.map((game) => [game.id, boxView(game)])),

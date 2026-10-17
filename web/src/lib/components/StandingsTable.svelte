@@ -53,7 +53,7 @@
 						<span class="seed">{row.seed}</span>
 						<a class="team-link" href={teamHref(row.code)}>
 							<span class="tile" class:plain={!row.strip}>
-								<TeamMonogram code={row.code} size="standings" />
+								<TeamMonogram code={row.tile} size="standings" />
 								{#if row.strip}
 									<span class="strip" aria-hidden="true">
 										<span class="half" style:background-color={row.strip.primary}></span>
@@ -64,7 +64,7 @@
 							{#if layout === 'desktop'}<span class="city">{row.city}</span>{/if}
 							<span class="name">{row.name}</span>
 						</a>
-						{#if row.clinch}<ClinchTag clinch={row.clinch} />{/if}
+						{#if row.clinch}<span class="clinch"><ClinchTag clinch={row.clinch} /></span>{/if}
 					</span>
 					<span class="cell" role="cell">{row.wins}</span>
 					<span class="cell" role="cell">{row.losses}</span>
@@ -109,6 +109,12 @@
 		font-variant-numeric: tabular-nums;
 	}
 
+	/* The desktop tables share the page width, so both conferences have the same columns. */
+	.table:not(.mobile) {
+		min-width: 0;
+		width: 100%;
+	}
+
 	.row {
 		display: grid;
 		grid-template-columns:
@@ -131,6 +137,10 @@
 		align-items: center;
 		gap: var(--game-list-gap);
 		background: var(--color-bg);
+	}
+
+	.cell.team {
+		padding-inline-end: var(--game-list-gap);
 	}
 
 	.head {
@@ -160,6 +170,7 @@
 	.team-link {
 		display: flex;
 		align-items: center;
+		min-width: 0;
 		gap: var(--game-list-gap);
 		color: inherit;
 		text-decoration: none;
@@ -192,6 +203,14 @@
 		flex: 1;
 	}
 
+	.city,
+	.name {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
 	.city {
 		color: var(--color-muted);
 	}
@@ -199,6 +218,10 @@
 	.name {
 		font-family: var(--font-heading);
 		font-size: var(--box-name-size);
+	}
+
+	.clinch {
+		flex: none;
 	}
 
 	.accent {

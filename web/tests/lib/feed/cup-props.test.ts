@@ -14,6 +14,7 @@
 // - Loser sides, scores only when set, the four status kinds, linked, not counted
 // - The bracket: 7 nodes in feed order, West mirrored, only the final marked final
 // - Undecided sides: To be decided, label, rule and the Currently line only with a projection
+// - slotLabel: the seed and wild card labels, and null for a seed label with no seed (ADR 0054)
 // - Known sides: name, meta of seed, group and record, scores and winner on the right side, a missing standing leaves meta null
 // - The known map mirrors the feed; the champion's name only when complete
 // - The season tag: null on the current season, "Season 2026-27" on a past one, in both languages
@@ -31,7 +32,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { CupFeed, CupStage } from '../../../src/lib/contract/cup';
 import type { CupView } from '../../../src/lib/cup/types';
-import { toCupView } from '../../../src/lib/feed/cup-props';
+import { slotLabel, toCupView } from '../../../src/lib/feed/cup-props';
 import { preferLanguages } from '../../prefer-languages';
 
 const feed = (): CupFeed =>
@@ -85,14 +86,27 @@ describe('toCupView header', () => {
 	it('has a champion only when the Cup is complete and the feed names one', () => {
 		const champion = { code: 'QXA', name: 'Herons', city: 'Alderton', guest: false };
 		expect(view().header.champion).toBeNull();
-		expect(atStage('championship', (f) => (f.champion = champion)).header.champion).toBeNull();
-		expect(atStage('complete', (f) => (f.champion = champion)).header.champion).toEqual(champion);
+		expect(
+			atStage(
+				'championship',
+				(f) => (f.champion = { ...champion, seasonCode: null, historical: false })
+			).header.champion
+		).toBeNull();
+		expect(
+			atStage(
+				'complete',
+				(f) => (f.champion = { ...champion, seasonCode: null, historical: false })
+			).header.champion
+		).toEqual(champion);
 		expect(atStage('complete').header.champion).toBeNull();
 	});
 
 	it('keeps a guest champion marked as a guest', () => {
 		const guest = { code: null, name: 'Visitors', city: 'Faraway', guest: true };
-		const v = atStage('complete', (f) => (f.champion = guest));
+		const v = atStage(
+			'complete',
+			(f) => (f.champion = { ...guest, seasonCode: null, historical: false })
+		);
 		expect(v.header.champion).toEqual(guest);
 	});
 });
@@ -531,6 +545,23 @@ describe('toCupView bracket', () => {
 		expect(node(open, 'east-qf-1').top.currently).toBe('Actualmente QXA (4-0)');
 		expect(node(open, 'east-sf').top.label).toBe('Ganador de cuartos 1 del Este');
 		expect(node(open, 'east-qf-1').top.rule).toBe('Mejor ganador de grupo');
+	});
+});
+
+describe('slotLabel', () => {
+	it('writes a seed label and the other slot labels', () => {
+		expect(slotLabel({ key: 'seed', conference: 'east', seed: 1, quarterfinal: null })).toBe(
+			'East #1 seed'
+		);
+		expect(
+			slotLabel({ key: 'wild_card', conference: 'west', seed: null, quarterfinal: null })
+		).toBe('West wild card');
+	});
+
+	it('gives null for a seed label with no seed, never a seed 0', () => {
+		expect(
+			slotLabel({ key: 'seed', conference: 'east', seed: null, quarterfinal: null })
+		).toBeNull();
 	});
 });
 

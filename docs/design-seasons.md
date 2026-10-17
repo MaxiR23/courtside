@@ -128,7 +128,7 @@ No new UI. A past game whose highlight has been found shows it in the game page 
 
 | Case | What shows |
 |---|---|
-| Cup season before 2023-24 | The feed answers 404; the page shows the unavailable state. The selector never offers the season |
+| Cup season before 2023-24 | The feed answers 404; the page shows the unavailable state. The Cup list keeps the season on show so the visitor can reach it (ADR 0054) |
 | Playoffs season before 2020-21 | No play-in strip; the play-in block is `null` for seasons before 2021 |
 | Postseason without leaders | The leaders section is hidden without a gap |
 | Postseason without team statistics | The head to head section is hidden |

@@ -46,7 +46,7 @@
 			<div class="columns">
 				<div class="intro">
 					<div class="season-line">
-						<StatusTag text={header.season} accent />
+						{#if !header.tag}<StatusTag text={header.season} accent />{/if}
 						{#if header.tag}<SeasonTag text={header.tag} />{/if}
 						<span class="state-line">{header.stateLine}</span>
 					</div>

@@ -115,6 +115,8 @@ export interface Opponent {
 	name: string | null;
 	city: string | null;
 	guest: boolean;
+	seasonCode: string | null;
+	historical: boolean;
 }
 export interface GameTag {
 	kind: TagKind;

@@ -8,6 +8,7 @@
 // - Only the nav and the h1 without a header
 // - Bones and aria-busy while loading; the shimmer, and not with reduced motion
 // - Spanish copy
+// - A past header shows the single season tag, without the outlined season box
 // - The season tag when the header has one; the select on desktop and mobile, with no header, and its onChange; none without the prop
 //
 // What is covered:
@@ -141,6 +142,14 @@ describe('StandingsHeader season selector and tag', () => {
 		unmount();
 		render(StandingsHeader, { props: props() });
 		expect(screen.queryByText('Season 2004-05')).toBeNull();
+	});
+
+	it('shows one season tag on a past season', () => {
+		render(StandingsHeader, {
+			props: props({ header: { ...header, season: '2004-05', tag: 'Season 2004-05' } })
+		});
+		expect(screen.getByText('Season 2004-05')).toBeTruthy();
+		expect(screen.queryByText('2004-05')).toBeNull();
 	});
 
 	it('draws the select on desktop without the full class and calls onChange with the end year', () => {

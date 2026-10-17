@@ -61,7 +61,7 @@ from app.jobs.team_feed import (
     season_label,
     with_names,
 )
-from app.jobs.team_names import TeamNamesFeeds, season_named
+from app.jobs.team_names import SeasonIdentity, TeamNamesFeeds, season_named
 from app.settings import Settings
 from app.sources import (
     division_standings,
@@ -137,7 +137,7 @@ def past_leader(
 
 
 def _renamed(
-    games: SeasonSchedule, names: Mapping[str, tuple[str, str]]
+    games: SeasonSchedule, names: Mapping[str, SeasonIdentity]
 ) -> SeasonSchedule:
     return SeasonSchedule(
         games=[
@@ -168,7 +168,8 @@ def build_season_team_feed(
     regular: SeasonSchedule,
     playoffs: SeasonSchedule,
     names: list[NameRun] | None = None,
-    opponent_names: Mapping[str, tuple[str, str]] | None = None,
+    opponent_names: Mapping[str, SeasonIdentity] | None = None,
+    identity: SeasonIdentity | None = None,
 ) -> PastTeamFeed:
     """Build the team feed of a past season, or raise TeamBuildError."""
     entry = standings.teams.get(team_code)
@@ -214,6 +215,9 @@ def build_season_team_feed(
             "titles": None,
             "names": names or [],
         }
+        if identity is not None:
+            data["season_code"] = identity.code
+            data["historical"] = identity.historical
         return PastTeamFeed.model_validate(data)
     except ValidationError as error:
         location = ".".join(str(part) for part in error.errors()[0]["loc"])
@@ -313,6 +317,7 @@ class SeasonTeamFeeds:
                 playoffs,
                 self._names.stored(code),
                 opponent_names,
+                (await self._names.season_names([team], season)).get(team),
             )
         )
 

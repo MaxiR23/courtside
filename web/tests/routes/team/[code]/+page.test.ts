@@ -18,6 +18,7 @@
 // - An invalid, unlisted or current ?season loads the current feed and polls it; a late calendar does not reload it
 // - Calendar 503 or no calendar URL: the current season and no select
 // - The select lists the right seasons and navigates with goto; Spanish
+// - The unavailable state of a past season keeps the Season tag (ADR 0054)
 //
 // What is covered:
 // - The page wired end to end: config, fetch, polling, props layer, header, tabs, footer
@@ -417,6 +418,13 @@ describe('team page season selector', () => {
 		expect(screen.getByText('No team this season.')).toBeTruthy();
 		expect(screen.queryByText('Team not found.')).toBeNull();
 		expect(screen.getByRole('combobox', { name: 'Season' })).toBeTruthy();
+	});
+
+	it('keeps the Season tag on the unavailable state of a past season', async () => {
+		stubRoutes({ [CAL_URL]: [answerJson(calendarFeed())], [pastUrl(2005)]: [answerStatus(503)] });
+		await renderSeason('?season=2005');
+		expect(screen.getByText(UNAVAILABLE)).toBeTruthy();
+		expect(screen.getByText('Season 2004-05')).toBeTruthy();
 	});
 
 	it.each(['?season=abcd', '?season=1990', '?season=2027'])(

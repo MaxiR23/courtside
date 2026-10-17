@@ -70,7 +70,7 @@ from app.jobs.team_feed import (
     eastern_date,
     season_label,
 )
-from app.jobs.team_names import TeamNamesFeeds, season_named
+from app.jobs.team_names import SeasonIdentity, TeamNamesFeeds, season_named
 from app.settings import Settings
 from app.sources import (
     division_standings,
@@ -157,7 +157,7 @@ def build_season_player_feed(
     season_regular: PlayerStats,
     season_playoffs: PlayerStats,
     jersey: str | None = None,
-    opponent_names: Mapping[str, tuple[str, str]] | None = None,
+    opponent_names: Mapping[str, SeasonIdentity] | None = None,
 ) -> PastPlayerFeed:
     """Build the player feed of a past season, or raise PlayerBuildError."""
     entry = athlete.entry

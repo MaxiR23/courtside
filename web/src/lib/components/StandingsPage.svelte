@@ -53,7 +53,7 @@
 		{#each grouping === 'conference' ? page.view.conference : page.view.division as group (group.key)}
 			<StandingsTable {group} {layout} {teamHref} />
 		{/each}
-		<StandingsKey entries={page.view.key} />
+		<StandingsKey entries={page.view.key} lines={page.view.lines} />
 	</div>
 {:else if page.kind === 'loading'}
 	<StandingsHeader

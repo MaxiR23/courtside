@@ -11,7 +11,9 @@
 					"code": "DEN",
 					"name": "Pilots",
 					"city": "Harbor City",
-					"guest": false
+					"guest": false,
+					"seasonCode": "SEA",
+					"historical": true
 				},
 				"home": {
 					"code": "OKC",
@@ -26,7 +28,14 @@
 					"away": null,
 					"home": null
 				},
-				"highlights": [],
+				"highlights": [
+					{
+						"title": "Full game highlights",
+						"channel": "League Channel",
+						"thumbnailUrl": "https://example.com/thumbs/1.jpg",
+						"embedUrl": "https://example.com/embed/1"
+					}
+				],
 				"broadcast": null,
 				"period": null,
 				"clock": null,
@@ -41,7 +50,7 @@
 				"winner": "home",
 				"leaders": null,
 				"teamStats": null,
-				"statsAvailability": "unavailable",
+				"statsAvailability": "available",
 				"highlightsSearchUrl": "https://example.com/search?q=x",
 				"cup": null,
 				"postseason": null,
@@ -83,7 +92,7 @@
 				"winner": "away",
 				"leaders": null,
 				"teamStats": null,
-				"statsAvailability": "unavailable",
+				"statsAvailability": "available",
 				"highlightsSearchUrl": "https://example.com/search?q=x",
 				"cup": null,
 				"postseason": null,

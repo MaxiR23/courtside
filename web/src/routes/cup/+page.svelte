@@ -26,7 +26,13 @@
 	import { FeedOnce } from '#lib/feed/once.svelte.ts';
 	import { cupPollInterval, FeedPoller } from '#lib/feed/poller.svelte.ts';
 	import { wideViewport } from '#lib/schedule/layout.ts';
-	import { currentSeason, requestedSeason, seasonOnShow } from '#lib/season/seasons.ts';
+	import {
+		currentSeason,
+		requestedSeason,
+		seasonLabelOf,
+		seasonOnShow
+	} from '#lib/season/seasons.ts';
+	import { m } from '#lib/paraglide/messages.js';
 	import type { SeasonControl } from '#lib/season/types.ts';
 
 	// The calendar is read once: it gives the selector's seasons and tells a past season from the current one (ADR 0044).
@@ -41,6 +47,12 @@
 	// A primitive, so the calendar arriving later does not rebuild the poller.
 	const shown = $derived(seasonOnShow(requested, calendar?.feed ?? null, settled));
 	const past = $derived(typeof shown === 'number');
+	// The unavailable state of a past season keeps its Season tag.
+	const seasonTag = $derived.by(() => {
+		if (typeof shown !== 'number') return null;
+		const label = seasonLabelOf(calendar?.feed ?? null, shown);
+		return label ? m.past_season_tag({ label }) : null;
+	});
 
 	const url = cupFeedUrl;
 	const pastTemplate = seasonCupFeedUrl;
@@ -101,9 +113,10 @@
 	const seasonSelect: SeasonControl | null = $derived.by(() => {
 		const feed = calendar?.feed;
 		if (!feed) return null;
+		const value = typeof shown === 'number' ? shown : currentSeason(feed);
 		return {
-			seasons: cupSeasons(feed),
-			value: typeof shown === 'number' ? shown : currentSeason(feed),
+			seasons: cupSeasons(feed, value),
+			value,
 			onChange: (season) => void goto(seasonHref(season))
 		};
 	});
@@ -124,4 +137,5 @@
 	{playerHref}
 	{matchup}
 	{seasonSelect}
+	{seasonTag}
 />

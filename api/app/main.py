@@ -155,12 +155,20 @@ def create_app(settings: Settings | None = None, *, run_jobs: bool = True) -> Fa
             team_names,
             season_rosters,
         )
-        season_cups = SeasonCupFeeds(settings, store, client, feed_cache, stars_job)
+        season_cups = SeasonCupFeeds(
+            settings, store, client, feed_cache, stars_job, team_names
+        )
         season_cup_matchups = SeasonCupMatchupFeeds(
             settings, store, client, feed_cache, stars_job, season_cups
         )
         season_playoffs = SeasonPlayoffsFeeds(
-            settings, store, client, feed_cache, stars_job, season_rosters
+            settings,
+            store,
+            client,
+            feed_cache,
+            stars_job,
+            season_rosters,
+            team_names,
         )
         season_playoffs_finals = SeasonPlayoffsFinalsFeeds(
             settings,
@@ -170,6 +178,7 @@ def create_app(settings: Settings | None = None, *, run_jobs: bool = True) -> Fa
             stars_job,
             season_playoffs,
             season_rosters,
+            team_names,
         )
         all_star_discovery = AllStarDiscovery(settings, store, client, stars_job)
         AllStarFeeds(

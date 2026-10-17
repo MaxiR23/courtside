@@ -2,7 +2,7 @@
 #
 # Feed models for the All-Star feed: the single source of truth for its shape.
 # The JSON Schema and the TypeScript types are generated from these models. The
-# feed has the current edition (date, venue, format line, the teams with their
+# feed has the current edition (date, venue, format, the teams with their
 # placement and roster tiles, and the games with their box scores, team
 # statistics, leaders and Top 5), the MVP with his game lines and day totals, and
 # the recap of the previous edition. The number of teams and rounds changes every
@@ -11,7 +11,7 @@
 # view. The edition also carries its counts, its default game and its next game, a
 # live game its leading side, a box score its top scorers and a team its result
 # rows, so the page counts and compares nothing. Labels are keys and parts, never prose: the page writes the words. The
-# format line is the one text, because the page shows it as sent. Each edition
+# format is sent as parts (ADR 0054), never as a line. Each edition
 # and the recap carry the edition video, added when served.
 #
 # SEE: docs/api/all-star.md, docs/adr/0036-all-star-feed.md,
@@ -27,6 +27,7 @@ from pydantic import (
     HttpUrl,
     NonNegativeFloat,
     NonNegativeInt,
+    PositiveFloat,
     PositiveInt,
     model_validator,
 )
@@ -308,10 +309,32 @@ class AllStarCounts(FeedModel):
         return self
 
 
+class AllStarFormat(FeedModel):
+    """The format of an edition's games: a target score (with untimed), or the
+    regulation periods and minutes. The page writes the words (ADR 0054)."""
+
+    target_points: PositiveInt | None
+    untimed: bool
+    periods: PositiveInt | None
+    minutes: PositiveFloat | None
+
+    @model_validator(mode="after")
+    def _require_one_shape(self) -> AllStarFormat:
+        if self.target_points is not None:
+            if self.periods is not None or self.minutes is not None:
+                raise ValueError("a target score format has no periods or minutes")
+            return self
+        if self.untimed:
+            raise ValueError("untimed requires a target score")
+        if self.periods is None or self.minutes is None:
+            raise ValueError("a format has a target score or periods and minutes")
+        return self
+
+
 class AllStarEdition(FeedModel):
     date: dt.date | None
     venue: Venue | None
-    format_line: NonEmptyStr | None
+    format: AllStarFormat | None
     teams: list[AllStarTeam]
     games: list[AllStarGame]
     counts: AllStarCounts

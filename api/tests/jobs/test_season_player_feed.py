@@ -49,7 +49,7 @@ from app.jobs.season_player_feed import (
 )
 from app.jobs.season_rosters import SeasonRosters
 from app.jobs.stars import StarsJob
-from app.jobs.team_names import TeamNamesFeeds
+from app.jobs.team_names import SeasonIdentity, TeamNamesFeeds
 from app.settings import Settings
 from app.sources.division_standings import DivisionStandings
 from app.sources.game_detail import BoxScoreRosterEntry, GamePlayers
@@ -135,7 +135,7 @@ def build(
     draft: DraftPick | None = None,
     provided: list[ProviderAward] | None = None,
     jersey: str | None = None,
-    opponent_names: dict[str, tuple[str, str]] | None = None,
+    opponent_names: dict[str, SeasonIdentity] | None = None,
 ) -> PastPlayerFeed:
     return build_season_player_feed(
         "77",
@@ -177,14 +177,22 @@ def test_the_number_is_the_jersey_of_that_seasons_box_scores_and_never_the_athle
 
 
 def test_the_opponents_of_the_game_log_are_named_by_that_seasons_team_object() -> None:
-    feed = build(opponent_names={"SAS": ("Harbor Gulls", "Seattle")})
+    feed = build(
+        opponent_names={"SAS": SeasonIdentity("Harbor Gulls", "Seattle", "SEA", True)}
+    )
 
     assert feed.game_log is not None
     assert {
-        (e.opponent.code, e.opponent.name, e.opponent.city)
+        (
+            e.opponent.code,
+            e.opponent.name,
+            e.opponent.city,
+            e.opponent.season_code,
+            e.opponent.historical,
+        )
         for e in feed.game_log.entries
         if e.opponent is not None
-    } == {("SAS", "Harbor Gulls", "Seattle")}
+    } == {("SAS", "Harbor Gulls", "Seattle", "SEA", True)}
 
 
 def test_the_summary_is_that_seasons_row_with_null_ranks() -> None:
@@ -321,6 +329,8 @@ class SeasonPlayerKit:
         self.failing = False
         self.jersey: str | None = "12"
         self.season_names: dict[str, tuple[str, str]] = {}
+        # The current season's team object by code, when it differs.
+        self.current_names: dict[str, tuple[str, str]] = {}
         self.start()
 
     def start(self) -> None:
@@ -412,7 +422,8 @@ class SeasonPlayerKit:
         self, client: SourceClient, code: str, season: int, settings: Settings
     ) -> SeasonTeam | None:
         self.calls.append(f"season-team/{code}/{season}")
-        name, city = self.season_names.get(code, ("Lakeside Pines", "Vancouver"))
+        names = self.current_names if season == 2027 else self.season_names
+        name, city = names.get(code, ("Lakeside Pines", "Vancouver"))
         return SeasonTeam(
             team_id="29",
             abbreviation="VAN",
@@ -605,10 +616,10 @@ async def test_the_team_and_the_opponents_are_named_by_that_seasons_team_object(
     assert feed.team == team()
     assert feed.game_log is not None
     assert {
-        (e.opponent.code, e.opponent.name, e.opponent.city)
+        (e.opponent.code, e.opponent.name, e.opponent.city, e.opponent.historical)
         for e in feed.game_log.entries
         if e.opponent is not None
-    } == {("SAS", "Harbor Gulls", "Seattle")}
+    } == {("SAS", "Harbor Gulls", "Seattle", True)}
 
 
 @pytest.mark.anyio
