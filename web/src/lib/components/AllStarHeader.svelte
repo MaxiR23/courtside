@@ -25,6 +25,7 @@
 		tick: LiveTick;
 		onLive: (gameId: string) => void;
 		seasonSelect?: SeasonControl | null; // null: no selector
+		seasonTag?: string | null; // shown when there is no header (an unavailable past season)
 	};
 
 	let {
@@ -35,7 +36,8 @@
 		layout,
 		tick,
 		onLive,
-		seasonSelect = null
+		seasonSelect = null,
+		seasonTag = null
 	}: Props = $props();
 
 	const mobile = $derived(layout === 'mobile');
@@ -142,6 +144,8 @@
 					<span class="bone tag-bone"></span>
 					<span class="bone state-bone"></span>
 				</div>
+			{:else if seasonTag}
+				<div class="season-line"><SeasonTag text={seasonTag} /></div>
 			{/if}
 		{/if}
 		{#if seasonSelect && mobile}
@@ -389,6 +393,13 @@
 	.state-bone {
 		width: var(--skeleton-button-width);
 		height: var(--body-size-small);
+	}
+
+	.season-line {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--game-list-gap);
 	}
 
 	.season-row {

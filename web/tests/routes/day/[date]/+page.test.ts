@@ -6,6 +6,7 @@
 // - The route turns off prerender and server rendering
 // - Loads the day in the URL and renders the date, the weekday, the season label and one card per game, each linking to /game/{id}
 // - An expanded card shows the highlights block with its search link, plays a highlight in place, and has no stats notice (ADR 0054); with no video platform it has no block
+// - A past final card reads its game detail once, on its first expand, and shows its leaders and team stats; a second expand does not read again; a failed read shows neither and no notice; with no game detail URL nothing is read
 // - The game list is named "Games on {date}" under a Games kicker
 // - A window day of the sheet links to /?day= and a day after today is not a link
 // - Shows the empty-day message for a day with no game
@@ -31,6 +32,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { DayFeed } from '../../../../src/lib/contract/days';
+import type { GameDetailFeed } from '../../../../src/lib/contract/game-detail';
 import { preferLanguages } from '../../../prefer-languages';
 
 import Page from '../../../../src/routes/day/[date]/+page.svelte';
@@ -45,6 +47,7 @@ const config = vi.hoisted(() => ({
 	day: undefined as string | undefined,
 	calendar: undefined as string | undefined,
 	games: undefined as string | undefined,
+	detail: undefined as string | undefined,
 	platform: 'Video platform' as string | undefined
 }));
 vi.mock('../../../../src/lib/feed/config', () => ({
@@ -57,6 +60,9 @@ vi.mock('../../../../src/lib/feed/config', () => ({
 	get gamesFeedUrl() {
 		return config.games;
 	},
+	get gameDetailFeedUrl() {
+		return config.detail;
+	},
 	get videoPlatformName() {
 		return config.platform;
 	}
@@ -64,6 +70,8 @@ vi.mock('../../../../src/lib/feed/config', () => ({
 
 const DAY_TEMPLATE = 'https://feeds.example.com/days/{date}.json';
 const CALENDAR_TEMPLATE = 'https://feeds.example.com/seasons/{season}/calendar.json';
+const DETAIL_TEMPLATE = 'https://feeds.example.com/games/{id}.json';
+const detailUrl = (id: string) => `https://feeds.example.com/games/${id}.json`;
 const GAMES_URL = 'https://feeds.example.com/games.json';
 const dayUrl = (date: string) => `https://feeds.example.com/days/${date}.json`;
 const CALENDAR_URL = 'https://feeds.example.com/seasons/1999/calendar.json';
@@ -120,6 +128,7 @@ beforeEach(() => {
 	config.day = DAY_TEMPLATE;
 	config.calendar = CALENDAR_TEMPLATE;
 	config.games = GAMES_URL;
+	config.detail = undefined;
 	config.platform = 'Video platform';
 	navigation.goto.mockReset();
 });
@@ -398,5 +407,112 @@ describe('day page polling', () => {
 		expect(fetchMock).toHaveBeenCalledTimes(2);
 		await vi.advanceTimersByTimeAsync(120_000);
 		expect(fetchMock).toHaveBeenCalledTimes(2);
+	});
+});
+
+describe('day page cards read the game detail', () => {
+	const detailOf = (): GameDetailFeed => {
+		const detail = fixture<GameDetailFeed>('game-detail-past.json');
+		detail.teamStats = {
+			away: {
+				fieldGoalPct: 0.5,
+				threePointPct: null,
+				freeThrowPct: 0.8,
+				rebounds: 40,
+				assists: 22,
+				turnovers: 11,
+				steals: 6,
+				blocks: 3
+			},
+			home: {
+				fieldGoalPct: 0.4,
+				threePointPct: 0.3,
+				freeThrowPct: 0.7,
+				rebounds: 35,
+				assists: 18,
+				turnovers: 14,
+				steals: 5,
+				blocks: 2
+			},
+			leaders: {
+				fieldGoalPct: 'away',
+				threePointPct: null,
+				freeThrowPct: 'away',
+				rebounds: 'away',
+				assists: 'away',
+				turnovers: 'away',
+				steals: 'away',
+				blocks: 'away'
+			}
+		};
+		return detail;
+	};
+	const base = () => ({
+		[dayUrl('1999-02-06')]: answerWith(fixture('day.json')),
+		[CALENDAR_URL]: answerWith(fixture('calendar.json'))
+	});
+	const detailCalls = () =>
+		fetchMock.mock.calls.filter(([url]) =>
+			String(url).startsWith('https://feeds.example.com/games/')
+		);
+
+	beforeEach(() => {
+		config.detail = DETAIL_TEMPLATE;
+	});
+
+	it('reads the game detail once on the first expand and shows its leaders and team stats', async () => {
+		stubFetch({ ...base(), [detailUrl('7001')]: answerWith(detailOf()) });
+		const { container } = await renderPage();
+		expect(detailCalls()).toHaveLength(0);
+		const card = container.querySelector('li') as HTMLElement;
+		const toggle = card.querySelector('button.toggle') as HTMLElement;
+		await fireEvent.click(toggle);
+		await settle();
+		expect(detailCalls()).toHaveLength(1);
+		const first = within(card);
+		expect(first.getByText('Ada Quill')).toBeTruthy();
+		expect(first.getByText('Bo Marlowe')).toBeTruthy();
+		expect(first.getByText('31 PTS · 9 REB · — AST')).toBeTruthy();
+		expect(first.queryByText("Stats aren't available for this game.")).toBeNull();
+		await fireEvent.click(toggle);
+		await fireEvent.click(toggle);
+		await settle();
+		expect(detailCalls()).toHaveLength(1);
+		expect(first.getByText('Ada Quill')).toBeTruthy();
+	});
+
+	it('shows no leaders when the detail has none, and no stats when it has none', async () => {
+		const detail = detailOf();
+		detail.leaders = null;
+		stubFetch({ ...base(), [detailUrl('7001')]: answerWith(detail) });
+		const { container } = await renderPage();
+		const card = container.querySelector('li') as HTMLElement;
+		await fireEvent.click(card.querySelector('button.toggle') as HTMLElement);
+		await settle();
+		expect(within(card).queryByText('Ada Quill')).toBeNull();
+		expect(within(card).getByRole('link', { name: 'Game center' })).toBeTruthy();
+	});
+
+	it('shows neither and no notice when the read fails', async () => {
+		stubFetch({ ...base(), [detailUrl('7001')]: answerStatus(503) });
+		const { container } = await renderPage();
+		const card = container.querySelector('li') as HTMLElement;
+		await fireEvent.click(card.querySelector('button.toggle') as HTMLElement);
+		await settle();
+		expect(detailCalls()).toHaveLength(1);
+		expect(within(card).queryByText('Ada Quill')).toBeNull();
+		expect(within(card).queryByText("Stats aren't available for this game.")).toBeNull();
+		expect(within(card).queryByText('Stats will be available soon.')).toBeNull();
+	});
+
+	it('reads nothing for a game with no line score, which has no expand button', async () => {
+		const feed = fixture<DayFeed>('day.json');
+		const game = feed.day.games[0] as unknown as Record<string, unknown>;
+		game.lineScore = null;
+		stubFetch({ ...base(), [dayUrl('1999-02-06')]: answerWith(feed) });
+		const { container } = await renderPage();
+		const card = container.querySelector('li') as HTMLElement;
+		expect(card.querySelector('button.toggle')).toBeNull();
+		expect(detailCalls()).toHaveLength(0);
 	});
 });

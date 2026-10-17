@@ -51,7 +51,7 @@ describe('SeriesSheet', () => {
 		show();
 		const dialog = screen.getByRole('dialog', { name: 'East · Round 1' });
 		expect(dialog.getAttribute('aria-modal')).toBe('true');
-		expect(screen.getByText('Series tied 2-2')).toBeTruthy();
+		expect(screen.getByText('Series tied 2–2')).toBeTruthy();
 	});
 
 	it('shows both sides with seed, code and wins', () => {

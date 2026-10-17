@@ -622,6 +622,8 @@
 	"playoffs_tag_finals": "NBA Finals",
 	"playoffs_context_series": "{round} · Game {n}",
 	"playoffs_context_finals": "Game {n} · {summary}",
+	"playoffs_series_wins": "{team} wins series {won}–{lost}",
+	"playoffs_series_leads": "{team} leads series {leading}–{trailing}",
 	"playoffs_context_playin": "{conference} · {game}",
 	"playoffs_flag_game_7": "Game 7",
 	"playoffs_flag_elimination": "Elimination",

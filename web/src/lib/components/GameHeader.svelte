@@ -202,6 +202,7 @@
 	.content {
 		position: relative;
 		display: grid;
+		grid-template-columns: minmax(0, 1fr);
 		gap: var(--panel-section-gap);
 		max-width: var(--content-max-width);
 		margin: 0 auto;

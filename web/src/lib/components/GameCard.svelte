@@ -201,7 +201,13 @@
 					{@render gameCenter()}
 				</div>
 			{:else}
+				{#if details.leaders}
+					<Leaders away={details.leaders.away} home={details.leaders.home} {teamHref} />
+				{/if}
 				<div class="stats-column">
+					{#if details.stats}
+						<TeamStats away={details.stats.away} home={details.stats.home} {open} />
+					{/if}
 					{#if details.statsAvailability !== 'available'}
 						<p class="stats-notice">
 							{details.statsAvailability === 'pending'

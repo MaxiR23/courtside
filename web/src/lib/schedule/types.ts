@@ -66,6 +66,8 @@ export type GameDetails =
 			kind: 'final-without-stats'; // a final game whose top performers and team stats are not in
 			periods: { away: number[]; home: number[] };
 			statsAvailability: 'pending' | 'unavailable' | 'available'; // available: the stats are on the game page, not in this feed (a past day)
+			leaders?: { away: Leader; home: Leader }; // a past day: read from the game detail once it is in
+			stats?: { away: TeamStatLine; home: TeamStatLine }; // a past day: read from the game detail once it is in
 			highlights?: GameHighlights;
 	  };
 

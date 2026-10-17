@@ -88,7 +88,7 @@ Everything under "Implementation rules" in `docs/design.md`, `docs/design-cup.md
 
 ### Past game page
 
-- The layout is unchanged. The blocks the source does not carry (plays, win probability, leaders, injuries, season series, and in the rare old game the box score) are `null` in the feed and the page hides them; hidden blocks leave no gap and the section tabs list only the sections that show.
+- The layout is unchanged. The blocks the source does not carry (plays, win probability, injuries, season series, and in the rare old game the box score) are `null` in the feed and the page hides them; the feed's `leaders` serve the day cards and the past game page draws no leaders block (ADR 0057); hidden blocks leave no gap and the section tabs list only the sections that show.
 - The header shows the season label next to the date.
 - A side is resolved by team id through the fixed id map: it links to the franchise's team page by today's code and shows the name and city of that season's team object, with the neutral monogram showing the season's abbreviation when the side is historical. A side whose id is not in the map follows the guest rule (ADR 0025, ADR 0026).
 - Marks (Cup, postseason, All-Star) are read case-insensitively from the note of the game. A game without a readable note has no mark.

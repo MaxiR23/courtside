@@ -4,6 +4,10 @@ import type { TeamTitle } from '#lib/contract/team.ts';
 import { formatNumber } from '#lib/format/locale.ts';
 import { m } from '#lib/paraglide/messages.js';
 import type { PostseasonMarkView, TitleView } from '#lib/playoffs/types.ts';
+import { teamLabel, teamMark } from '#lib/team/mark.ts';
+
+type SideInput = Parameters<typeof teamMark>[0];
+type SummarySide = { label: string; wins: number | null };
 
 export const CONFERENCE_TITLE = { east: m.playoffs_east, west: m.playoffs_west };
 
@@ -32,8 +36,46 @@ const FLAG: Record<Stakes, () => string> = {
 	clinched: m.playoffs_flag_clinched
 };
 
+// The series summary, written from the structured wins and the winner (ADR 0055): the feed's English sentence is never shown.
+// Null when either side's wins are missing.
+export function seriesSummary(
+	first: SummarySide,
+	second: SummarySide,
+	winner: 'first' | 'second' | null
+): string | null {
+	if (first.wins === null || second.wins === null) return null;
+	const a = formatNumber(first.wins);
+	if (winner !== null) {
+		const won = winner === 'first' ? first : second;
+		const lost = winner === 'first' ? second : first;
+		return m.playoffs_series_wins({
+			team: won.label,
+			won: formatNumber(won.wins ?? 0),
+			lost: formatNumber(lost.wins ?? 0)
+		});
+	}
+	if (first.wins === second.wins) return m.game_series_tied({ wins: a });
+	const leading = first.wins > second.wins ? first : second;
+	const trailing = leading === first ? second : first;
+	return m.playoffs_series_leads({
+		team: leading.label,
+		leading: formatNumber(leading.wins ?? 0),
+		trailing: formatNumber(trailing.wins ?? 0)
+	});
+}
+
+function markSummary(mark: GamePostseason, away: SideInput, home: SideInput): string | null {
+	const winner =
+		mark.seriesWinner === 'away' ? 'first' : mark.seriesWinner === 'home' ? 'second' : null;
+	return seriesSummary(
+		{ label: teamLabel(teamMark(away)), wins: mark.awayWins },
+		{ label: teamLabel(teamMark(home)), wins: mark.homeWins },
+		winner
+	);
+}
+
 // The context line of a mark: null when the feed gives nothing to add to the tag (ADR 0050).
-function context(mark: GamePostseason): string | null {
+function context(mark: GamePostseason, away: SideInput, home: SideInput): string | null {
 	const conference = mark.conference ? CONFERENCE_TITLE[mark.conference]() : '';
 	if (mark.stage === 'playin') {
 		const game = mark.playIn ? PLAY_IN_TITLE[mark.playIn]() : '';
@@ -41,12 +83,11 @@ function context(mark: GamePostseason): string | null {
 	}
 	const n = mark.number === null ? null : formatNumber(mark.number);
 	if (mark.stage === 'finals') {
+		const summary = markSummary(mark, away, home);
 		if (n !== null) {
-			return mark.summary
-				? m.playoffs_context_finals({ n, summary: mark.summary })
-				: m.playoffs_context_game({ n });
+			return summary ? m.playoffs_context_finals({ n, summary }) : m.playoffs_context_game({ n });
 		}
-		return mark.summary || null;
+		return summary;
 	}
 	const round = mark.round === null ? undefined : SERIES_ROUND[mark.round]?.({ conference });
 	if (round !== undefined) {
@@ -56,12 +97,16 @@ function context(mark: GamePostseason): string | null {
 }
 
 // A feed recorded before the mark has no key: not a play-in or playoff game.
-export function postseasonMark(mark: GamePostseason | null | undefined): PostseasonMarkView | null {
+export function postseasonMark(
+	mark: GamePostseason | null | undefined,
+	away: SideInput,
+	home: SideInput
+): PostseasonMarkView | null {
 	if (!mark) return null;
 	return {
 		tag: TAG[mark.stage](),
 		finals: mark.stage === 'finals',
-		context: context(mark),
+		context: context(mark, away, home),
 		stakes: mark.stakes ? FLAG[mark.stakes]() : null
 	};
 }

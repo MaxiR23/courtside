@@ -27,6 +27,7 @@ export interface GameDetailFeed {
 	score: Score | null;
 	winner: Side | null;
 	teamStats: DetailGameTeamStats | null;
+	leaders: Leaders | null;
 	stars: Stars | null;
 	boxScore: BoxScore | null;
 	winProbability: [WinProbabilityPoint, ...WinProbabilityPoint[]] | null;
@@ -100,6 +101,19 @@ export interface TeamStatLeaders {
 	turnovers: Side | null;
 	steals: Side | null;
 	blocks: Side | null;
+}
+export interface Leaders {
+	away: Leader;
+	home: Leader;
+}
+export interface Leader {
+	playerId: string;
+	displayName: string;
+	teamCode: string | null;
+	photoUrl: string | null;
+	points: number | null;
+	rebounds: number | null;
+	assists: number | null;
 }
 export interface Stars {
 	away: Star | null;

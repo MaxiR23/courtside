@@ -1101,6 +1101,104 @@
       "title": "LastGames",
       "type": "object"
     },
+    "Leader": {
+      "additionalProperties": false,
+      "properties": {
+        "playerId": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "displayName": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "teamCode": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "photoUrl": {
+          "anyOf": [
+            {
+              "format": "uri",
+              "maxLength": 2083,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "points": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "rebounds": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "assists": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "playerId",
+        "displayName",
+        "teamCode",
+        "photoUrl",
+        "points",
+        "rebounds",
+        "assists"
+      ],
+      "title": "Leader",
+      "type": "object"
+    },
+    "Leaders": {
+      "additionalProperties": false,
+      "properties": {
+        "away": {
+          "$ref": "#/$defs/Leader"
+        },
+        "home": {
+          "$ref": "#/$defs/Leader"
+        }
+      },
+      "required": [
+        "away",
+        "home"
+      ],
+      "title": "Leaders",
+      "type": "object"
+    },
     "LineScore": {
       "additionalProperties": false,
       "properties": {
@@ -1830,6 +1928,17 @@
       ],
       "default": null
     },
+    "leaders": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Leaders"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
     "stars": {
       "anyOf": [
         {
@@ -2033,6 +2142,7 @@
     "score",
     "winner",
     "teamStats",
+    "leaders",
     "stars",
     "boxScore",
     "winProbability",

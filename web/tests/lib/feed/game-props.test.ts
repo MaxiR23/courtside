@@ -146,18 +146,18 @@ describe('toGameView with the postseason mark', () => {
 				round: 4,
 				conference: null,
 				number: 5,
-				summary: 'NYK leads 3-1',
+				summary: 'NYK LEADS 3-1 (English sentinel)',
 				playIn: null,
 				stakes: 'can_clinch' as const,
-				awayWins: null,
-				homeWins: null,
+				awayWins: 1,
+				homeWins: 3,
 				seriesWinner: null
 			}
 		};
 		expect(view(source).header.postseasonMark).toEqual({
 			tag: 'NBA Finals',
 			finals: true,
-			context: 'Game 5 · NYK leads 3-1',
+			context: 'Game 5 · ' + `${source.home.code} leads series 3–1`,
 			stakes: 'Can clinch'
 		});
 	});

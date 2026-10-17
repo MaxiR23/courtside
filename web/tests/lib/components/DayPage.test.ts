@@ -25,6 +25,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import DayPage from '../../../src/lib/components/DayPage.svelte';
+import { DayCardStats } from '../../../src/lib/day/card-stats.svelte';
 import type { DayFeed } from '../../../src/lib/contract/days';
 import type { DayPageState } from '../../../src/lib/day/types';
 import { toDayView } from '../../../src/lib/feed/day-props';
@@ -46,7 +47,8 @@ const props = (state: DayPageState) => ({
 	calendar: null,
 	layout: 'desktop' as const,
 	gameHref: (id: string) => `/game/${id}` as ResolvedPathname,
-	teamHref: (code: string) => `/team/${code.toLowerCase()}` as ResolvedPathname
+	teamHref: (code: string) => `/team/${code.toLowerCase()}` as ResolvedPathname,
+	detailReads: new DayCardStats(undefined)
 });
 
 const ready = (feed = dayFeed(), options: { videoPlatformName?: string } = {}): DayPageState => {

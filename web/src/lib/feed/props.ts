@@ -199,7 +199,7 @@ function scheduleGame(game: Game, options: Options): ScheduleGame {
 		away: scheduleTeam(game.away),
 		home: scheduleTeam(game.home),
 		cupTag: cupTag(game.cup),
-		postseasonMark: postseasonMark(game.postseason),
+		postseasonMark: postseasonMark(game.postseason, game.away, game.home),
 		allStarMark: allStarMark(game.allStar)
 	};
 	switch (game.status) {

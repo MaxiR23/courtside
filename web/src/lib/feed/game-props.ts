@@ -552,7 +552,7 @@ function header(feed: GameDetailFeed, layout: GameLayout): GameHeaderView {
 		layout,
 		status: statusLine(feed),
 		cupTag: cupTag(feed.cup),
-		postseasonMark: postseasonMark(feed.postseason),
+		postseasonMark: postseasonMark(feed.postseason, feed.away, feed.home),
 		allStarMark: allStarMark(feed.allStar),
 		away: headerTeam(feed.away),
 		home: headerTeam(feed.home),

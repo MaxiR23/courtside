@@ -18,7 +18,7 @@ The visual, interaction and data specification of the playoffs page (`/playoffs`
   - `finals`: the NBA Finals are scheduled or being played.
   - `complete`: the Finals series is complete.
 - Which state the page is in, the current round, the stage dates and the stage statuses come from the feed.
-- Games are the play-in games and the postseason games. A series is the round plus the pair of teams; its wins, its summary text and its completion come from the feed and are never counted by `/web`.
+- Games are the play-in games and the postseason games. A series is the round plus the pair of teams; its wins, its winner and its completion come from the feed and are never counted by `/web`; the page writes the summary ("QXA wins series 4–3", "Series tied 2–2", "QXA leads series 3–1") from the wins and the winner, in the page language, and shows none when a side's wins are missing. The feed's English summary string is never shown.
 
 ## Implementation rules
 
@@ -81,7 +81,7 @@ Everything under "Implementation rules" in `docs/design.md` and `docs/design-cup
   - `picture`: "Playoff picture"
   - `playin`: "Play-In"
   - `playoffs`: "First round" / "Conference semifinals" / "Conference finals"
-  - `finals`: "NBA Finals · Game 3 · NYK leads 2-1" (the game number and the series summary come from the feed; before the first game, "NBA Finals")
+  - `finals`: "NBA Finals · Game 3 · NYK leads series 2–1" (the game number comes from the feed and the series summary is written by the page from the wins of the Finals series; before the first game, "NBA Finals")
   - `complete`: "Complete"
 - H1 "Playoffs", `clamp(56px, 9vw, 128px)`. In the `complete` state the champion hero replaces the H1 (see "Champion hero").
 - **Stage strip**, 5 columns: Play-In · Round 1 · Conf. semis · Conf. finals · Finals, each with its dates (or "TBD") and a status: Complete / In progress / Next / Upcoming. The current stage has a 2px accent top rule, a completed one 1px accent, the others a divider. In the `picture` state every stage reads "TBD" and "Upcoming", except the first, which reads "Next". 2x2 plus one full-width cell below 680px.
@@ -156,7 +156,7 @@ The complete state opens with the hero.
 ## Awards
 
 - A grid of cards for the awards the feed has (up to 20): MVP, Defensive Player of the Year, Rookie of the Year, Sixth Man, Most Improved, Clutch Player, Finals MVP, East and West finals MVP, All-Star MVP, Cup MVP, the Cup All-Tournament team, All-NBA 1st, 2nd and 3rd teams, All-Rookie 1st and 2nd teams, All-Defensive 1st and 2nd teams and the Twyman-Stokes award. There is no coach card.
-- **Player awards:** a card with a short code (MVP, DPOY, ROY, 6MOY, MIP, CPOY, FMVP, ECF MVP, WCF MVP, ASG MVP, CUP MVP), the photo, the award name, the name and the team.
+- **Player awards:** a card with a short code (English: MVP, DPOY, ROY, 6MOY, MIP, CPOY, FMVP, ECF MVP, WCF MVP, ASG MVP, CUP MVP; Spanish: MVP, JDA, NDA, SHA, JMM, JCA, MVP FINALES, MVP ESTE, MVP OESTE, MVP ALL-STAR, MVP COPA; the strings table has the keys), the photo, the award name, the name and the team.
 - **Team awards** (teams of five players): a card with the award name and a list of five rows (photo, name, team code).
 - Mobile: a horizontal snap scroller of 156px cards.
 - No votes are shown.
@@ -219,7 +219,7 @@ Same size, letter spacing and truncation as the Cup tag: 11px, .16em, uppercase,
 
 ### Context line
 
-- Muted caps, after the tag: `West finals · Game 7`, `Game 5 · NYK leads 3-1` (the Finals), `East · 7th vs 8th` (the play-in). The feed sends the round, the game number, the series summary and the play-in place as values; the page writes the words.
+- Muted caps, after the tag: `West finals · Game 7`, `Game 5 · NYK leads series 3–1` (the Finals), `East · 7th vs 8th` (the play-in). The feed sends the round, the game number, the series wins and winner and the play-in place as values; the page writes the words, the series summary included.
 
 ### Stakes flag
 
@@ -250,7 +250,7 @@ Same size, letter spacing and truncation as the Cup tag: 11px, .16em, uppercase,
 | Regular season | `picture` state. Seeds 1 to 10 per conference from the standings, the playoff and play-in lines, clinch tags from the feed, and "Currently XXX" in the bracket slots |
 | Play-in before any game | The four slots show "To be decided" with the regular season places (7th, 8th, 9th, 10th); the games show their date and time |
 | Play-in after each game | The card shows the score and the outcome ("PHI → No. 7", "MIA out"); the winner fills its slot; the 8th seed game takes the loser of 7th vs 8th and the winner of 9th vs 10th; the bracket slot fills when the seed is decided |
-| Series with games 5 to 7 not scheduled | No tab, no row, no list entry for them; the series summary still shows ("Series tied 2-2") |
+| Series with games 5 to 7 not scheduled | No tab, no row, no list entry for them; the series summary still shows ("Series tied 2–2") |
 | Series not started | The card shows the seeds and codes with wins `0` (or `—` when the feed has none); no games list; level 2 shows the first game's date and venue when scheduled |
 | Game with overtime | "OT" after the score in the tab, in the games list in accent, and in the sheet row; "Final/OT" in the status |
 | No highlights | The 16:9 placeholder "Highlights not available"; the rest of the game block shows |
@@ -302,6 +302,7 @@ To add to `web/src/lib/styles/tokens.css` in the implementing issue. Values not 
 |---|---|---|
 | `--playoffs-title-size` | `clamp(56px, 9vw, 128px)` | H1 |
 | `--playoffs-hero-title-size` | `clamp(76px, 12.5vw, 196px)` | Hero H1 |
+| `--playoffs-hero-title-size-mobile` | `clamp(36px, 12vw, 76px)` | Hero H1 under the mobile layout, next to the trophy |
 | `--playoffs-hero-title-leading` | .82 | Hero H1 line height |
 | `--playoffs-hero-grid-size` | 56px | Hero grid background |
 | `--playoffs-hero-grid-alpha` | .035 | Hero grid ink opacity |
@@ -480,6 +481,19 @@ Mapped to existing tokens: the divider is `--color-divider`; accent text is `--c
 | `playoffs_tag_finals` | NBA Finals | Finales de la NBA |
 | `playoffs_context_series` | {round} · Game {n} | {round} · Partido {n} |
 | `playoffs_context_finals` | Game {n} · {summary} | Partido {n} · {summary} |
+| `playoffs_series_wins` | {team} wins series {won}–{lost} | {team} gana la serie {won}–{lost} |
+| `playoffs_series_leads` | {team} leads series {leading}–{trailing} | {team} lidera la serie {leading}–{trailing} |
+| `playoffs_code_mvp` | MVP | MVP |
+| `playoffs_code_dpoy` | DPOY | JDA |
+| `playoffs_code_roy` | ROY | NDA |
+| `playoffs_code_6moy` | 6MOY | SHA |
+| `playoffs_code_mip` | MIP | JMM |
+| `playoffs_code_cpoy` | CPOY | JCA |
+| `playoffs_code_fmvp` | FMVP | MVP FINALES |
+| `playoffs_code_ecf` | ECF MVP | MVP ESTE |
+| `playoffs_code_wcf` | WCF MVP | MVP OESTE |
+| `playoffs_code_asg` | ASG MVP | MVP ALL-STAR |
+| `playoffs_code_cup` | CUP MVP | MVP COPA |
 | `playoffs_context_playin` | {conference} · {game} | {conference} · {game} |
 | `playoffs_context_round_1` | {conference} round 1 | Ronda 1 del {conference} |
 | `playoffs_context_round_2` | {conference} semifinals | Semifinales del {conference} |
@@ -494,7 +508,7 @@ Mapped to existing tokens: the divider is `--color-divider`; accent text is `--c
 | `playoffs_title_east` | East Champions | Campeones del Este |
 | `playoffs_title_west` | West Champions | Campeones del Oeste |
 
-Series summaries ("NYK leads 3-1", "Series tied 2-2"), stage dates, the "Currently" team, play-in outcomes and the point differential come from the feed; slot labels and play-in slots are sent as keys and parts, and the page writes the words with the keys above. The other keys are the fixed words around them. Strings for the Cup marks stay in `docs/design-cup.md`.
+The series wins and winner (the page writes the summary, "NYK leads 3-1" or "Series tied 2-2", from them), stage dates, the "Currently" team, play-in outcomes and the point differential come from the feed; slot labels and play-in slots are sent as keys and parts, and the page writes the words with the keys above. The other keys are the fixed words around them. Strings for the Cup marks stay in `docs/design-cup.md`.
 
 ## Feed contract
 

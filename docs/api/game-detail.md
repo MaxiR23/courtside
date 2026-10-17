@@ -38,6 +38,7 @@ The root is one game.
 | `score`               | `Score` / null            | Current or final points                                          | required when `live` or `final`       |
 | `winner`              | `away` / `home` / null    | The side with more points                                        | required when `final`, null otherwise |
 | `teamStats`           | `DetailGameTeamStats` / null | Team statistics and the leader of each row                    | required when `live`                  |
+| `leaders`             | `Leaders` / null          | The leader of each team, as in the [games feed](games.md) ([ADR 0057](../adr/0057-past-game-detail-leaders.md)) | set on a past game with a box score whose two sides have stat lines; null on a current game and when the box score lacks them |
 | `stars`               | `Stars` / null            | The star of each team                                            | null when no data                     |
 | `boxScore`            | `BoxScore` / null         | Player lines and totals for each team                            | null when no data                     |
 | `winProbability`      | `WinProbabilityPoint[]` / null | Home win probability over the game, at least one point      | null when no data                     |
@@ -157,9 +158,9 @@ date is built first, and a game that day does not list as final answers 503
   (`cup`, `postseason`, `allStar`), sides and `highlightsSearchUrl` come from the
   stored day feed. The sides are resolved by team id first, with the event's name
   and city; an unknown id is a guest. The marks are those of the day feed.
-- The `venue`, `boxScore`, `teamStats`, `winProbability`,
+- The `venue`, `boxScore`, `teamStats`, `leaders`, `winProbability`,
   `winProbabilityLeader` and `winProbabilityPeriods` come from one game detail
-  summary. Each is null when the summary lacks it.
+  summary. The `leaders` follow the rule of ADR 0009. Each is null when the summary lacks it.
 - `seasonLabel` is set from the summary's season. A summary without a readable
   season fails the build.
 - `stars`, `injuries`, `lastGames`, `standings` and `seasonSeries` are null,
@@ -196,7 +197,8 @@ recorded response that shows it.
 - A past game's feed is built once on request, stored as its own kind and kept.
   It is never refreshed or cleaned up, and the games job never touches it. A
   failed build answers 503 while nothing is stored and is not retried for 10
-  minutes.
+  minutes. A stored feed without the `leaders` key is stale: it is served, then
+  rebuilt on its next request ([ADR 0057](../adr/0057-past-game-detail-leaders.md)).
 - Standings, league injuries and team schedules are read through the source
   cache with a 1-hour freshness.
 - Stars, highlights and the highlights search URL are added when the feed is

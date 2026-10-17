@@ -202,13 +202,21 @@ function rowView(row: GroupRow): GroupRowView {
 	};
 }
 
+// Rows are drawn by position; a row with no position goes after the numbered ones, in the feed's order (the sort is stable).
+const byPosition = (a: GroupRow, b: GroupRow): number =>
+	(a.position ?? Infinity) === (b.position ?? Infinity)
+		? 0
+		: (a.position ?? Infinity) < (b.position ?? Infinity)
+			? -1
+			: 1;
+
 function groupView(group: CupGroup): CupGroupView {
 	return {
 		key: `${group.name.conference}-${group.name.letter.toLowerCase()}`,
 		title: groupTitle(group.name),
 		meta: groupMeta(group),
 		teams: group.teams.map(teamMark),
-		rows: group.rows.map(rowView)
+		rows: [...group.rows].sort(byPosition).map(rowView)
 	};
 }
 
@@ -376,7 +384,7 @@ function filters(feed: CupFeed): CupFilterView[] {
 }
 
 /**
- * Turns the Cup feed into the page props. Groups, rows and days keep the feed's order and
+ * Turns the Cup feed into the page props. Groups and days keep the feed's order, group rows are drawn by position, and
  * every value is the feed's own: the page computes nothing.
  */
 export function toCupView(feed: CupFeed, options: { past?: boolean } = {}): CupView {

@@ -18,6 +18,9 @@
 // - Past seasons (the past option): the season tag; no play-in section or stage with a null play-in; the head to head only with a bar value; no seed number for a null seed
 // - The current season keeps the head to head of an all-null finals feed and the dash of a null seed
 // - Leaders and awards null, the Finals MVP absent: the sections close with no gap
+// - The Finals state line and every series card score composed from the wins and the winner (never the feed's English sentence), in Spanish too; a series with missing wins shows a dash
+// - Season codes drawn on the leaders, award winners, conference MVPs, Finals MVP, head to head records and averages, falling back to the team code
+// - Award names and short codes in Spanish from the award code; English short codes unchanged
 // - Spanish copy
 //
 // What is covered:
@@ -32,7 +35,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { PlayoffsFeed, PlayoffsState } from '../../../src/lib/contract/playoffs';
 import type { PlayoffsFinalsFeed } from '../../../src/lib/contract/playoffs-finals';
-import { toPlayoffsView } from '../../../src/lib/feed/playoffs-props';
+import { awardName, awardShortCode, toPlayoffsView } from '../../../src/lib/feed/playoffs-props';
 import type { PlayoffsView } from '../../../src/lib/playoffs/types';
 import { preferLanguages } from '../../prefer-languages';
 
@@ -167,7 +170,9 @@ describe('toPlayoffsView header', () => {
 		expect(round(2)).toBe('Conference semifinals');
 		expect(round(3)).toBe('Conference finals');
 		expect(round(null)).toBe('Playoffs');
-		expect(view(inState('finals')).header.stateLine).toBe('NBA Finals · Game 5 · QXA win 4-1');
+		expect(view(inState('finals')).header.stateLine).toBe(
+			'NBA Finals · Game 5 · QXA wins series 4–1'
+		);
 		const before = inState('finals', (f) => {
 			f.finalsGame = null;
 			f.finalsSummary = null;
@@ -653,7 +658,7 @@ describe('toPlayoffsView bracket', () => {
 	it('lists the games played and the next one, none for the games not scheduled', () => {
 		const series = card('east-r1-2');
 		expect(series.games).toHaveLength(5);
-		expect(series.score).toBe('Series tied 2-2');
+		expect(series.score).toBe('Series tied 2–2');
 		expect(series.games.at(-1)?.final).toBe(false);
 		expect(card('east-r1-4').games).toEqual([]);
 	});
@@ -667,9 +672,9 @@ describe('toPlayoffsView bracket', () => {
 		expect(card('east-r2-2').top.wins).toBe('');
 	});
 
-	it('scores a series by its summary, else by the wins, else with a dash', () => {
-		expect(card('east-r1-1').score).toBe('QXA win 4-1');
-		expect(card('east-r1-3').score).toBe('0–0');
+	it('scores a series from its wins and winner, never the feed sentence, else with a dash', () => {
+		expect(card('east-r1-1').score).toBe('QXA wins series 4–1');
+		expect(card('east-r1-3').score).toBe('Series tied 0–0');
 		expect(card('east-r1-4').score).toBe('—');
 	});
 
@@ -906,5 +911,123 @@ describe('toPlayoffsView past seasons', () => {
 		const v = view(f);
 		expect(topOf(v, f).top.seed).toBe('—');
 		expect(topOf(v, f).bottom.seed).toBe('3');
+	});
+});
+
+describe('toPlayoffsView composed series summaries', () => {
+	const finalsSeries = (f: PlayoffsFeed) => f.bracket.find((series) => series.conference === null)!;
+
+	it('writes a 4-3 Finals card score from the wins and the winner and never the feed sentence', () => {
+		const f = complete();
+		const series = finalsSeries(f);
+		series.summary = 'QXA WINS SERIES 4-3 (English sentinel)';
+		series.top.wins = 4;
+		series.bottom.wins = 3;
+		series.winner = series.top.team!.code;
+		const score = view(f, finalsFeed()).bracket.series.find((card) => card.final)!.score;
+		expect(score).toBe(`${series.top.team!.code} wins series 4–3`);
+		preferLanguages(['es-ES']);
+		expect(view(f, finalsFeed()).bracket.series.find((card) => card.final)!.score).toBe(
+			`${series.top.team!.code} gana la serie 4–3`
+		);
+	});
+
+	it('shows a dash when a side has no wins', () => {
+		const f = complete();
+		const series = finalsSeries(f);
+		series.summary = 'English sentinel';
+		series.top.wins = null;
+		expect(view(f, finalsFeed()).bracket.series.find((card) => card.final)!.score).toBe('—');
+	});
+
+	it('writes the Finals state line from the Finals series, not from the feed summary', () => {
+		const f = inState('finals');
+		f.finalsSummary = 'English sentinel';
+		const series = finalsSeries(f);
+		series.top.wins = 3;
+		series.bottom.wins = 2;
+		series.winner = null;
+		expect(view(f).header.stateLine).toBe(
+			`NBA Finals · Game 5 · ${series.top.team!.code} leads series 3–2`
+		);
+		preferLanguages(['es-ES']);
+		expect(view(f).header.stateLine).toContain('lidera la serie 3–2');
+	});
+
+	it('writes the state line without the summary when the Finals series has no wins', () => {
+		const f = inState('finals');
+		finalsSeries(f).top.wins = null;
+		expect(view(f).header.stateLine).toBe('NBA Finals');
+	});
+});
+
+describe('toPlayoffsView season codes', () => {
+	it('draws the season code of a leader and an award winner, else the team code', () => {
+		const f = complete();
+		f.leaders![0]!.leaders[0]!.seasonCode = 'NO';
+		f.awards![0]!.winners[0].seasonCode = 'NO';
+		const v = view(f, finalsFeed());
+		expect(v.leaders[0].first?.team).toBe('NO');
+		expect(v.leaders[0].rest[0].team).toBe('QYA');
+		expect(v.awards[0].winners[0].team).toBe('NO');
+	});
+
+	it('draws the season code of the conference MVPs, the Finals MVP, the records and the averages', () => {
+		const f = complete();
+		for (const award of f.awards!) {
+			if (award.code.endsWith('east_finals_mvp')) award.winners[0].seasonCode = 'NO';
+		}
+		const finals = finalsFeed();
+		finals.finalsMvp!.seasonCode = 'NJ';
+		finals.headToHead.records[0].seasonCode = 'NJ';
+		finals.averages[0].seasonCode = 'NO';
+		const v = view(f, finals);
+		expect(v.conferenceMvps.find((mvp) => mvp.key === 'east')?.team).toBe('NO');
+		expect(v.finalsMvp?.team).toBe('NJ');
+		expect(v.headToHead?.records[0].team).toBe('NJ');
+		expect(v.headToHead?.records[1].team).toBe('QYA');
+		expect(v.headToHead?.averages[0].label).toBe('NO');
+		expect(v.headToHead?.averages[0].key).toBe('QXA');
+	});
+});
+
+describe('toPlayoffsView award names and codes', () => {
+	it('writes the Spanish short codes from the award code', () => {
+		preferLanguages(['es-ES']);
+		const codes = Object.fromEntries(
+			view(complete(), finalsFeed()).awards.map((award) => [award.key, award.code])
+		);
+		expect(codes.mvp).toBe('MVP');
+		expect(codes.finals_mvp).toBe('MVP FINALES');
+		expect(codes.east_finals_mvp).toBe('MVP ESTE');
+		expect(codes.west_finals_mvp).toBe('MVP OESTE');
+	});
+
+	it('keeps the English short codes', () => {
+		const codes = Object.fromEntries(
+			view(complete(), finalsFeed()).awards.map((award) => [award.key, award.code])
+		);
+		expect(codes.finals_mvp).toBe('FMVP');
+		expect(codes.east_finals_mvp).toBe('ECF MVP');
+	});
+
+	it('writes the award names and short codes of every code through the exported helpers', () => {
+		const expected = {
+			dpoy: 'JDA',
+			roy: 'NDA',
+			sixth_man: 'SHA',
+			mip: 'JMM',
+			cpoy: 'JCA',
+			all_star_mvp: 'MVP ALL-STAR',
+			cup_mvp: 'MVP COPA'
+		} as const;
+		preferLanguages(['es-ES']);
+		for (const [code, short] of Object.entries(expected)) {
+			expect(awardShortCode(code as keyof typeof expected)).toBe(short);
+			expect(awardName(code as keyof typeof expected, null)).not.toBeNull();
+		}
+		expect(awardName('all_defensive', 2)).toBe('Mejor quinteto defensivo (2.º)');
+		expect(awardName('all_defensive', 9)).toBeNull();
+		expect(awardShortCode('twyman_stokes')).toBeNull();
 	});
 });

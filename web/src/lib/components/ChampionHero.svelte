@@ -157,6 +157,10 @@
 		text-transform: uppercase;
 	}
 
+	.champion-hero.mobile h1 {
+		font-size: var(--playoffs-hero-title-size-mobile);
+	}
+
 	.trophy-mobile {
 		flex: none;
 		height: var(--playoffs-trophy-mobile-height);

@@ -15,7 +15,13 @@
 	import { allStarPollInterval, FeedPoller } from '#lib/feed/poller.svelte.ts';
 	import type { AllStarPageState } from '#lib/all-star/types.ts';
 	import { wideViewport } from '#lib/schedule/layout.ts';
-	import { currentSeason, requestedSeason, seasonOnShow } from '#lib/season/seasons.ts';
+	import { m } from '#lib/paraglide/messages.js';
+	import {
+		currentSeason,
+		requestedSeason,
+		seasonLabelOf,
+		seasonOnShow
+	} from '#lib/season/seasons.ts';
 	import type { SeasonControl } from '#lib/season/types.ts';
 
 	// The calendar is read once: it gives the selector's seasons and tells a past season from the current one (ADR 0044).
@@ -50,6 +56,13 @@
 			? calendar?.feed?.seasons.find((entry) => entry.season === shown)?.seasonLabel
 			: undefined
 	);
+
+	// The unavailable state of a past season keeps its Season tag.
+	const seasonTag = $derived.by(() => {
+		if (typeof shown !== 'number') return null;
+		const label = seasonLabelOf(calendar?.feed ?? null, shown);
+		return label ? m.past_season_tag({ label }) : null;
+	});
 
 	const view = $derived(
 		source?.feed ? toAllStarView(source.feed, 'current', pastLabel ? { pastLabel } : {}) : null
@@ -92,4 +105,5 @@
 	{teamHref}
 	{playerHref}
 	{seasonSelect}
+	{seasonTag}
 />

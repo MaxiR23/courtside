@@ -9,6 +9,9 @@
 // - The standings team cell has an end padding, the city and name truncate with an ellipsis, and the clinch tag keeps its size
 // - The playoffs bracket undecided row has one shrinkable column, so a long slot label truncates
 // - The All-Star games and sections grids have one shrinkable column, so the mobile cards row scrolls inside itself
+// - The game header content has one shrinkable column, so a long postseason mark shrinks instead of widening the page
+// - The champion hero title takes its mobile size token next to the trophy
+// - The standings team column takes 5fr of the desktop row, so a long full name with a clinch tag is not cut
 // - The rule reader flags a missing rule
 //
 // What is covered:
@@ -17,7 +20,8 @@
 //
 // Run with: cd web && pnpm exec vitest run tests/past-pages-fit-their-width.test.ts
 //
-// SEE: web/src/lib/components/StandingsTable.svelte, web/src/lib/components/SeriesNode.svelte,
+// SEE: web/src/lib/components/GameHeader.svelte, web/src/lib/components/ChampionHero.svelte,
+// web/src/lib/components/StandingsTable.svelte, web/src/lib/components/SeriesNode.svelte,
 // web/src/lib/components/AllStarGames.svelte, web/src/lib/components/AllStarPage.svelte
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -82,7 +86,9 @@ describe('the rule reader', () => {
 			'StandingsTable.svelte',
 			'SeriesNode.svelte',
 			'AllStarGames.svelte',
-			'AllStarPage.svelte'
+			'AllStarPage.svelte',
+			'GameHeader.svelte',
+			'ChampionHero.svelte'
 		]) {
 			expect(rulesOf(styleFile(name)).length, name).toBeGreaterThan(0);
 		}
@@ -134,5 +140,38 @@ describe('the All-Star page', () => {
 		expect(
 			sets(styleFile('AllStarPage.svelte'), '.sections', 'grid-template-columns', 'minmax(0, 1fr)')
 		).toBe(true);
+	});
+});
+
+describe('the game header', () => {
+	it('gives its content one shrinkable column, so a long postseason mark shrinks', () => {
+		expect(
+			sets(styleFile('GameHeader.svelte'), '.content', 'grid-template-columns', 'minmax(0, 1fr)')
+		).toBe(true);
+	});
+});
+
+describe('the champion hero', () => {
+	it('sizes the title with the mobile token next to the trophy', () => {
+		expect(
+			sets(
+				styleFile('ChampionHero.svelte'),
+				'.champion-hero.mobile h1',
+				'font-size',
+				'var(--playoffs-hero-title-size-mobile)'
+			)
+		).toBe(true);
+	});
+});
+
+describe('the standings team column', () => {
+	it('takes 5fr of the desktop row', () => {
+		const row = rulesOf(styleFile('StandingsTable.svelte')).find((rule) =>
+			rule.selectors.includes('.row')
+		);
+		const template = row?.declarations.find((d) => d.property === 'grid-template-columns');
+		expect(template?.value.replace(/\s+/g, ' ')).toBe(
+			'minmax(var(--standings-team-column-page-min), 5fr) repeat(14, minmax(var(--box-column-min), 1fr))'
+		);
 	});
 });

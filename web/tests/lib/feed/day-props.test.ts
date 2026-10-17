@@ -8,6 +8,7 @@
 // - The season and its label are copied; the date, title and weekday are formatted from the feed date
 // - The title and weekday are in English and in Spanish for an es browser
 // - A day with no game gives an empty list
+// - cardDetails maps both leaders through the leader mapping and the five team stats, keeps a null value, and gives null for a missing block; withCardDetails adds the parts present to a past final card with available stats only
 // - A final All-Star game without a line score (untimed, ADR 0051) gives a card without details and the day is still shown
 //
 // What is covered:
@@ -21,7 +22,8 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { DayFeed } from '../../../src/lib/contract/days';
-import { toDayView } from '../../../src/lib/feed/day-props';
+import type { GameDetailFeed } from '../../../src/lib/contract/game-detail';
+import { cardDetails, toDayView, withCardDetails } from '../../../src/lib/feed/day-props';
 import { preferLanguages } from '../../prefer-languages';
 
 const feed = (): DayFeed =>
@@ -102,5 +104,97 @@ describe('toDayView', () => {
 		expect(view?.games[0].status).toMatchObject({ state: 'final' });
 		expect(view?.games[0].details).toBeUndefined();
 		expect(view?.games[1].details).toBeDefined();
+	});
+});
+
+describe('cardDetails and withCardDetails', () => {
+	const detail = (): GameDetailFeed =>
+		JSON.parse(
+			readFileSync(join(__dirname, 'fixtures', 'game-detail-past.json'), 'utf8')
+		) as GameDetailFeed;
+	const withStats = (): GameDetailFeed => {
+		const base = detail();
+		const side = {
+			fieldGoalPct: 0.5,
+			threePointPct: null,
+			freeThrowPct: 0.7,
+			rebounds: 30,
+			assists: 20,
+			turnovers: 10,
+			steals: 5,
+			blocks: 4
+		};
+		base.teamStats = {
+			away: side,
+			home: { ...side, rebounds: 33 },
+			leaders: {
+				fieldGoalPct: null,
+				threePointPct: null,
+				freeThrowPct: null,
+				rebounds: null,
+				assists: null,
+				turnovers: null,
+				steals: null,
+				blocks: null
+			}
+		};
+		return base;
+	};
+
+	it('maps both leaders and keeps a null value', () => {
+		const view = cardDetails(withStats());
+		expect(view.leaders?.away).toMatchObject({
+			firstName: 'Ada',
+			lastName: 'Quill',
+			points: 31,
+			rebounds: 9,
+			assists: null
+		});
+		expect(view.leaders?.home).toMatchObject({
+			firstName: 'Bo',
+			lastName: 'Marlowe',
+			rebounds: null
+		});
+	});
+
+	it('maps the five team stats and keeps a null value', () => {
+		const view = cardDetails(withStats());
+		expect(view.stats?.away).toEqual({
+			fieldGoalPct: 0.5,
+			threePointPct: null,
+			rebounds: 30,
+			assists: 20,
+			turnovers: 10
+		});
+		expect(view.stats?.home.rebounds).toBe(33);
+	});
+
+	it('gives null for a missing block and keeps the other', () => {
+		const feedWithoutStats = detail();
+		expect(cardDetails(feedWithoutStats).stats).toBeNull();
+		expect(cardDetails(feedWithoutStats).leaders).not.toBeNull();
+		const feedWithoutLeaders = { ...withStats(), leaders: null };
+		expect(cardDetails(feedWithoutLeaders).leaders).toBeNull();
+		expect(cardDetails(feedWithoutLeaders).stats).not.toBeNull();
+	});
+
+	it('adds the parts to a past final card with available stats only', () => {
+		const games = toDayView(feed())?.games ?? [];
+		const card = games[0];
+		const details = cardDetails(withStats());
+		const merged = withCardDetails(card, details);
+		expect(merged.details).toMatchObject({
+			kind: 'final-without-stats',
+			leaders: details.leaders,
+			stats: details.stats
+		});
+		expect(withCardDetails(card, null)).toBe(card);
+		const pending: typeof card = {
+			...card,
+			details: { ...(card.details as object), statsAvailability: 'pending' } as typeof card.details
+		};
+		expect(withCardDetails(pending, details)).toBe(pending);
+		const plain: typeof card = { ...card, details: undefined };
+		expect(withCardDetails(plain, details)).toBe(plain);
 	});
 });

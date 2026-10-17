@@ -118,7 +118,7 @@
 	.row {
 		display: grid;
 		grid-template-columns:
-			minmax(var(--standings-team-column-page-min), 3fr)
+			minmax(var(--standings-team-column-page-min), 5fr)
 			repeat(14, minmax(var(--box-column-min), 1fr));
 		align-items: center;
 		border-bottom: var(--hairline) solid var(--color-row-rule);

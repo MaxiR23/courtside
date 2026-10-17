@@ -342,6 +342,7 @@
 	/* Playoffs page */
 	--playoffs-title-size: clamp(56px, 9vw, 128px);
 	--playoffs-hero-title-size: clamp(76px, 12.5vw, 196px);
+	--playoffs-hero-title-size-mobile: clamp(36px, 12vw, 76px);
 	--playoffs-hero-title-leading: 0.82;
 	--playoffs-hero-grid-size: 56px;
 	--playoffs-champion-mark: 58px;

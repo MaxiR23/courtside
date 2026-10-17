@@ -15,6 +15,7 @@ import type {
 } from '#lib/contract/player.ts';
 import { allStarPlayerTag } from '#lib/feed/all-star-mark-props.ts';
 import { periodText } from '#lib/feed/game-props.ts';
+import { awardName } from '#lib/feed/playoffs-props.ts';
 import { tipParts } from '#lib/feed/props.ts';
 import { feedDate, gameTagLabel, nextGameView } from '#lib/feed/team-props.ts';
 import { formatDate, formatNumber } from '#lib/format/locale.ts';
@@ -137,8 +138,11 @@ function header(feed: PlayerFeed, past: boolean): PlayerHeaderView {
 		sub: rank === null ? null : m.player_rank({ rank })
 	});
 	return {
-		teamCode:
-			feed.team?.code ?? (feed.active ? m.past_player_free_agent() : m.past_player_retired()),
+		teamCode: feed.team
+			? (feed.team.seasonCode ?? feed.team.code)
+			: feed.active
+				? m.past_player_free_agent()
+				: m.past_player_retired(),
 		status: injury
 			? { label: INJURY_LABELS[injury.status](), injured: true }
 			: past || !feed.active
@@ -397,7 +401,7 @@ function seasonTable(
 	const views: StatRowView[] = rows.map((row) => ({
 		key: row.season,
 		label: row.season,
-		sub: row.teams.join(SEPARATOR),
+		sub: row.teams.map((team, i) => row.seasonCodes?.[i] ?? team).join(SEPARATOR),
 		...(shown !== null && row.season === shown ? { accent: true } : {}),
 		cells: seasonCells(row, totals)
 	}));
@@ -532,7 +536,7 @@ function awardsSection(feed: PlayerFeed): AwardView[] | null {
 	if (feed.awards.length === 0) return null;
 	return feed.awards.map((award) => ({
 		count: m.player_award_count({ count: formatNumber(award.count) }),
-		name: award.name,
+		name: award.code ? (awardName(award.code, award.team) ?? award.name) : award.name,
 		seasons: award.seasons.join(SEPARATOR)
 	}));
 }

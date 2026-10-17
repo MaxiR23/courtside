@@ -24,6 +24,7 @@
 // - A guest side without a city shows no city and its tile is not a link
 // - A past game from the day feed (final, stats available, no highlights, no stars) renders its score and line score and no stats notice, Leaders, TeamStats or highlights, with a panel grid of exactly 2 children and the game center link (ADR 0054)
 // - The pending and unavailable stats notices stay for a final game without stats
+// - A past game with leaders and stats read from its game detail draws both and no stats notice; with only stats it draws no leaders; a null leader value and a null stat show a dash
 //
 // What is covered:
 // - Each card state on each row layout
@@ -1114,5 +1115,70 @@ describe('GameCard with a past game', () => {
 			props: { game: noted, layout: 'desktop', open: true, onToggle: vi.fn(), teamHref }
 		});
 		expect(screen.getByText(text)).toBeTruthy();
+	});
+
+	describe('with the leaders and stats read from the game detail', () => {
+		const person = (name: string, rebounds: number | null) => ({
+			firstName: name,
+			lastName: 'Quill',
+			photo: null,
+			points: 20,
+			rebounds,
+			assists: 5,
+			team: { code: 'QXA', name: 'Aces', city: 'Quixote', guest: false }
+		});
+		const line = {
+			fieldGoalPct: 0.5,
+			threePointPct: null,
+			rebounds: 30,
+			assists: 20,
+			turnovers: 10
+		};
+		const merged = (parts: { leaders?: boolean; stats?: boolean }): ScheduleGame => {
+			const game = pastGame();
+			if (game.details?.kind !== 'final-without-stats')
+				throw new Error('The fixture must be final');
+			return {
+				...game,
+				details: {
+					...game.details,
+					...(parts.leaders
+						? { leaders: { away: person('Ada', null), home: person('Bo', 7) } }
+						: {}),
+					...(parts.stats ? { stats: { away: line, home: line } } : {})
+				}
+			};
+		};
+		const open = (game: ScheduleGame) =>
+			render(GameCard, {
+				props: { game, layout: 'desktop', open: true, onToggle: vi.fn(), teamHref }
+			});
+
+		it('draws the leaders and the team stats and no stats notice', () => {
+			const { container } = open(merged({ leaders: true, stats: true }));
+			expect(screen.getByText('Ada Quill')).toBeTruthy();
+			expect(container.querySelector('.team-stats')).not.toBeNull();
+			expect(container.querySelector('.stats-notice')).toBeNull();
+			expect(container.querySelectorAll('.panel-grid > *')).toHaveLength(3);
+		});
+
+		it('shows a dash for a null leader value and a null stat', () => {
+			const { container } = open(merged({ leaders: true, stats: true }));
+			expect(screen.getByText('20 PTS · — REB · 5 AST')).toBeTruthy();
+			expect(container.querySelector('.team-stats')?.textContent).toContain('—');
+		});
+
+		it('draws no leaders when only the stats are in', () => {
+			const { container } = open(merged({ stats: true }));
+			expect(screen.queryByText('Ada Quill')).toBeNull();
+			expect(container.querySelector('.team-stats')).not.toBeNull();
+			expect(container.querySelectorAll('.panel-grid > *')).toHaveLength(2);
+		});
+
+		it('draws no team stats when only the leaders are in', () => {
+			const { container } = open(merged({ leaders: true }));
+			expect(screen.getByText('Bo Quill')).toBeTruthy();
+			expect(container.querySelector('.team-stats')).toBeNull();
+		});
 	});
 });

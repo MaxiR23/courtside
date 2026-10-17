@@ -8,6 +8,8 @@
 #
 # The past path (ADR 0041) reads the sections of a final game of a past day:
 # sides by team id first, no injuries or season series, and the event's season.
+# It also carries the leader of each side, by the rule of ADR 0009 (ADR 0057);
+# the current sections never do.
 #
 # A team is matched to its box score players by id when both sides send one,
 # else by abbreviation. A team without an abbreviation is resolved by id or is a
@@ -210,10 +212,10 @@ def _photo(athlete: _ProviderAthlete, photo_url: str, guest: bool) -> str | None
     return photo_url.format(player_id=athlete.id)
 
 
-def _leader(
+def _leader[P: (_ProviderBoxPlayers, _SummaryBoxPlayers)](
     game_id: str,
     code: str | None,
-    players: _ProviderBoxPlayers,
+    players: P,
     photo_url: str,
     guest: bool,
 ) -> dict[str, Any]:
@@ -257,6 +259,47 @@ def _leader(
         "team_code": code,
         "photo_url": _photo(athlete, photo_url, guest),
         **values[top],
+    }
+
+
+def _without_unidentified_rows(players: _SummaryBoxPlayers) -> _SummaryBoxPlayers:
+    # The box score already skipped and logged the rows with no player id
+    # (ADR 0055): the leader reads the same rows without logging them again.
+    first, *rest = players.statistics
+    kept = first.model_copy(
+        update={"athletes": [line for line in first.athletes if line.athlete.id]}
+    )
+    return players.model_copy(update={"statistics": [kept, *rest]})
+
+
+def _has_leader(players: _SummaryBoxPlayers) -> bool:
+    # The two cases where _leader raises: no stat group, no row with stats.
+    return bool(players.statistics) and any(
+        line.athlete.id and line.stats for line in players.statistics[0].athletes
+    )
+
+
+def _past_leaders(
+    game_id: str,
+    sides: dict[str, _ProviderBoxTeam],
+    resolved: dict[str, tuple[str | None, bool]],
+    guests: dict[str, bool],
+    box_players: list[_SummaryBoxPlayers],
+    photo_url: str,
+) -> dict[str, Any] | None:
+    # Rule: ADR 0057. A side without a stat line leaves the leaders null; the
+    # build does not fail for it.
+    by_side: dict[str, _SummaryBoxPlayers] = {}
+    for side, team in sides.items():
+        players = next((p for p in box_players if _same_team(p.team, team.team)), None)
+        if players is None or not _has_leader(players):
+            return None
+        by_side[side] = _without_unidentified_rows(players)
+    return {
+        side: _leader(
+            game_id, resolved[side][0], by_side[side], photo_url, guests[side]
+        )
+        for side in sides
     }
 
 
@@ -510,6 +553,9 @@ class GameDetailSections(FeedModel):
     injuries: Injuries | None = None
     season_series: SeriesMeetings | None = None
     season: PositiveInt | None = None
+    # The leader of each side by the rule of ADR 0009; set by the past sections
+    # only (ADR 0057).
+    leaders: Leaders | None = None
 
 
 def _stat_leader(
@@ -959,6 +1005,10 @@ async def _fetch_sections(
         _without_plus_minus(box_score)
         sections["box_score"] = box_score
         sections["team_stats"] = team_stats
+        if past:
+            sections["leaders"] = _past_leaders(
+                game_id, sides, resolved, guests, box.players, settings.player_photo_url
+            )
 
     points = _win_probability(summary)
     sections["win_probability"] = points or None

@@ -12,6 +12,8 @@
 // - Season by season: columns, combined teams, the Career row, playoffs, made–attempted
 // - The milestones, the game log filters and rows (with the opponent drawn after the date, and a Preseason filter listed last), the awards
 // - The opponent as a team and a side: the next game, the live card, the last 5 rows and the game log, for a league team and for a guest without a code
+// - Award names written from the award code and team in the page language, in English and Spanish; an award with a null code keeps its name as sent
+// - The season code drawn on the career rows and the header team tag (ADR 0055), falling back to the team for a null entry and a null list
 // - Spanish copy
 // - A null team leaves the team out of the header line and shows — as the team tag
 // - The All-Star tag of the header from allStarYear, none for null and for a recorded feed without the key
@@ -694,5 +696,62 @@ describe('toPlayerView position', () => {
 		preferLanguages(['es']);
 		expect(view().header.line).toContain('Escolta');
 		expect(view().header.line).not.toContain('Guard');
+	});
+});
+
+describe('toPlayerView award names from the code', () => {
+	const award = (code: string | null, team: number | null, name: string) => ({
+		name,
+		code,
+		team,
+		count: 1,
+		seasons: ['2024-25'] as [string]
+	});
+
+	it('writes the name from the code, in English and in Spanish, and keeps a null code as sent', () => {
+		const source = feed();
+		source.awards = [
+			award('mvp', null, 'English sentinel MVP'),
+			award('all_defensive', 2, 'English sentinel defense'),
+			award(null, null, 'Unknown award as sent')
+		] as unknown as PlayerFeed['awards'];
+		expect(view(source).sections.awards?.map((a) => a.name)).toEqual([
+			'Most Valuable Player',
+			'All-Defensive 2nd Team',
+			'Unknown award as sent'
+		]);
+		preferLanguages(['es']);
+		const names = view(source).sections.awards?.map((a) => a.name);
+		expect(names?.[1]).toBe('Mejor quinteto defensivo (2.º)');
+		expect(names?.[2]).toBe('Unknown award as sent');
+		expect(names?.[0]).not.toContain('English sentinel');
+	});
+
+	it('keeps the name as sent for a code the page does not know', () => {
+		const source = feed();
+		source.awards = [award('all_defensive', 7, 'Sent name')] as unknown as PlayerFeed['awards'];
+		expect(view(source).sections.awards?.[0].name).toBe('Sent name');
+	});
+});
+
+describe('toPlayerView season codes', () => {
+	it('draws the season code of a career row, falling back to the team for a null entry and a null list', () => {
+		const source = feed();
+		const rows = source.seasons.regular.perGame;
+		rows[0].teams = ['NOP'];
+		rows[0].seasonCodes = ['NO'];
+		rows[1].teams = ['LAC', 'OKC'];
+		rows[1].seasonCodes = [null, 'NJ'];
+		rows[2].seasonCodes = null;
+		const subs = view(source).sections.seasons?.regular.perGame.rows.map((r) => r.sub);
+		expect(subs?.slice(0, 3)).toEqual(['NO', 'LAC · NJ', 'LAC']);
+	});
+
+	it('draws the season code of the team in the header', () => {
+		const source = feed();
+		source.team = { code: 'NOP', name: 'Pelicans', city: 'New Orleans', seasonCode: 'NO' };
+		expect(view(source).header.teamCode).toBe('NO');
+		source.team = { code: 'NOP', name: 'Pelicans', city: 'New Orleans', seasonCode: null };
+		expect(view(source).header.teamCode).toBe('NOP');
 	});
 });

@@ -36,6 +36,26 @@
 	},
 	"winner": "home",
 	"teamStats": null,
+	"leaders": {
+		"away": {
+			"playerId": "p-9001",
+			"displayName": "Ada Quill",
+			"teamCode": "DEN",
+			"photoUrl": "https://example.com/players/9001.png",
+			"points": 31,
+			"rebounds": 9,
+			"assists": null
+		},
+		"home": {
+			"playerId": "p-9002",
+			"displayName": "Bo Marlowe",
+			"teamCode": null,
+			"photoUrl": null,
+			"points": 24,
+			"rebounds": null,
+			"assists": 7
+		}
+	},
 	"stars": null,
 	"boxScore": null,
 	"winProbability": null,

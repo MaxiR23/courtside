@@ -20,7 +20,7 @@ Everything under "Implementation rules" in `docs/design.md` and `docs/design-gam
 - **The front end only draws.** Every value comes ready from the feed: percentages, per-game values, totals, career rows, ranks, ages, metric conversions, record splits, differentials, streaks, playoff position, the next game, the month groups of the schedule and the default month. `/web` computes none of them.
 - **No URL and no data source name is written in `/web`.** Player photos and the arena photo come from the feed.
 - **A section with no data is hidden, together with its tab.** A cell with no data is hidden; the cells around it keep their order.
-- **Every user-facing string is translatable**, in English and Spanish. Award names, arena names, colleges and injury comments are shown as the feed sends them.
+- **Every user-facing string is translatable**, in English and Spanish. Arena names, colleges and injury comments are shown as the feed sends them. An award name is written from the award code and team in the page language, and an award without a code is shown as sent.
 - **Names never break inside a word.** They wrap only at spaces or hyphens.
 - **Every player photo falls back** to initials when the feed has none or it fails to load. Alternative text is never shown in place of an image.
 - **Game links:** a game row or card links to `/game/{id}` only when the feed marks `detailAvailable: true`. Otherwise it is plain text, with no hover state.
@@ -107,7 +107,7 @@ Eight cells, min 128px: Double-doubles, Triple-doubles, Disqualifications, Eject
 
 ### 8. Awards
 
-Two columns, min 420px. The count `3×` (36px, accent text), the award name (21px, uppercase) and the seasons joined with ` · `, such as `2023-24 · 2024-25`.
+Two columns, min 420px. The count `3×` (36px, accent text), the award name (21px, uppercase) and the seasons joined with ` · `, such as `2023-24 · 2024-25`. The name is written from the award code and team in the page language (the same names as the playoffs awards); an award with no code shows the name as the feed sends it.
 
 ## Team page
 
