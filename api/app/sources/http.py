@@ -4,11 +4,13 @@
 # The error reason never carries the request URL: it comes from configuration.
 # A timeout, a transport failure or an error status is marked as a failed request.
 #
+# A 429 or 503 answer is a rate limit (is_rate_limited, ADR 0056).
+#
 # get_json reads through the shared source cache (rule A). with_query adds
 # query values to a URL that may already have a query: adapters use it instead
 # of passing params.
 #
-# SEE: docs/architecture.md (Source adapters), docs/adr/0007-backend-runtime-and-data-pipeline.md, docs/source-rules.md, docs/adr/0020-source-rules.md
+# SEE: docs/architecture.md (Source adapters), docs/adr/0007-backend-runtime-and-data-pipeline.md, docs/source-rules.md, docs/adr/0020-source-rules.md, docs/adr/0056-paced-past-builds-and-one-edition-mvp-path.md
 
 import asyncio
 import datetime as dt
@@ -45,6 +47,15 @@ class SourceError(Exception):
         self.reason = reason
         self.status_code = status_code
         self.request_failed = request_failed
+
+
+# Statuses that mean the source is limiting us: 429 (RFC 6585) and 503, a
+# temporary overload (RFC 9110, 15.6.4).
+RATE_LIMIT_STATUSES = frozenset({429, 503})
+
+
+def is_rate_limited(error: SourceError) -> bool:
+    return error.status_code in RATE_LIMIT_STATUSES
 
 
 class SourceClient(httpx.AsyncClient):

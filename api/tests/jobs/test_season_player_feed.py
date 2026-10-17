@@ -320,6 +320,10 @@ class KnownIds(PastPlayerIds):
         return player_id in self._given
 
 
+async def no_sleep(seconds: float) -> None:
+    """The pause between game reads never waits in a test."""
+
+
 class SeasonPlayerKit:
     def __init__(self, path: Path) -> None:
         self.path = path
@@ -355,6 +359,8 @@ class SeasonPlayerKit:
             self.client,
             fetch_season_schedule=self.fetch_season_schedule,
             fetch_game_players=self.fetch_game_players,
+            clock=lambda: self.clock[0],
+            sleep=no_sleep,
         )
         self.kind = SeasonPlayerFeeds(
             self.settings,

@@ -1,11 +1,13 @@
 # Source rules
 
-The rules every job and feed build follows so the data source is asked as little as possible. They are adopted by ADR 0020 and apply to every feed: games, game detail, player and team. Rule L records the season fallbacks of the adapters; it is adopted by ADR 0022.
+The rules every job and feed build follows so the data source is asked as little as possible. They are adopted by ADR 0020 and apply to every feed: games, game detail, player and team. Rule L records the season fallbacks of the adapters; it is adopted by ADR 0022. Rule N is adopted by ADR 0056.
 
 References:
 
 - RFC 5861: `stale-while-revalidate` (serve stale and revalidate in the background, triggered by a request) and `stale-if-error` (serve the last stored response when revalidation fails).
 - Python 3.14 `asyncio`: keep a strong reference to every created task; `asyncio.wait_for` cancels the awaited task on timeout unless it is wrapped in `asyncio.shield`; `asyncio.Semaphore` with `async with`; asyncio primitives are not thread-safe, and everything here runs in the event loop.
+- RFC 6585: status 429 (too many requests) is the rate limit answer.
+- RFC 9110, 15.6.4: status 503 is a temporary overload, the equivalent answer.
 - Cloudflare's Origin Cache Control documentation: `s-maxage` disables `stale-while-revalidate`, and "Always Online" ignores it.
 
 ## A. One shared source cache
@@ -99,3 +101,11 @@ A source read for the current season that has no regular season data is read onc
 ## M. Missing stats
 
 A missing stat is null, never a failure. A team or player stat the source does not carry is null in the feed, in every adapter; the page hides it. A stat is a counted or rated value of a team's or a player's performance (box score columns, team statistics, leader values); the fields that identify a record (ids, codes, a standings row's record and seed, the Cup table's wins and losses) are not stats. A value that is sent and is not a number still fails the read. A box score row with no player id is skipped and logged once per game read, in every reader (ADR 0055).
+
+## N. Paced past builds
+
+- The game detail reads of the past season rosters (the team, player, playoffs and Finals rosters) go one at a time across every build, with `SOURCE_BUILD_PAUSE_MS` (default 250) between the end of one request and the start of the next. A stored game is reused with no request and no pause.
+- A 429 or 503 answer stops the build with the reason "rate limited", logged and recorded.
+- Every such read is then held for 10 minutes with no request, the same window as the failed-build retry of rule H. The games already read are kept.
+
+See [`adr/0056-paced-past-builds-and-one-edition-mvp-path.md`](adr/0056-paced-past-builds-and-one-edition-mvp-path.md).

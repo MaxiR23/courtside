@@ -50,6 +50,9 @@
 # - Defaults the highlights backfill pages to 200
 # - Reads the highlights backfill pages from an environment variable
 # - Rejects a highlights backfill pages value that is not a positive integer, without showing it
+# - Defaults the source build pause to 250 ms
+# - Reads the source build pause from an environment variable
+# - Rejects a source build pause that is not a non-negative integer, without showing it
 # - Defaults the daily fetch time to six in the morning
 # - Reads the daily fetch time from an environment variable
 # - Rejects an invalid daily fetch time
@@ -64,7 +67,7 @@
 # - Rejects an unknown key in a .env file that is not retired
 #
 # What is covered:
-# - Happy path, value from the environment, value from a .env file, .env file location, invalid value, shared instance, optional scoreboard URL, optional game detail URL, required URL placeholders (missing, escaped, malformed, empty), optional player photo URL, optional team roster URL, optional team averages URL, optional standings, team schedule and league injuries URLs, optional player and team source URLs (unset, environment, missing, wrong and extra placeholder, none allowed, own query, empty), optional highlights source URL and key (unset, environment, hidden when printed), video embed URL and highlights search URL, daily fetch time (default, environment, invalid), input hidden from errors, data directory (default, environment, relative, empty), CORS origins (default, JSON list), retired setting (dropped with a warning), unknown key (rejected)
+# - Happy path, value from the environment, value from a .env file, .env file location, invalid value, shared instance, optional scoreboard URL, optional game detail URL, required URL placeholders (missing, escaped, malformed, empty), optional player photo URL, optional team roster URL, optional team averages URL, optional standings, team schedule and league injuries URLs, optional player and team source URLs (unset, environment, missing, wrong and extra placeholder, none allowed, own query, empty), optional highlights source URL and key (unset, environment, hidden when printed), video embed URL and highlights search URL, source build pause (default, environment, invalid), daily fetch time (default, environment, invalid), input hidden from errors, data directory (default, environment, relative, empty), CORS origins (default, JSON list), retired setting (dropped with a warning), unknown key (rejected)
 #
 # Run with: cd api && .venv/bin/python -m pytest tests/test_settings.py
 #
@@ -462,6 +465,32 @@ def test_rejects_a_highlights_backfill_pages_value_that_is_not_positive(
     monkeypatch: pytest.MonkeyPatch, value: str
 ) -> None:
     monkeypatch.setenv("HIGHLIGHTS_BACKFILL_PAGES", value)
+
+    with pytest.raises(ValidationError) as error:
+        SettingsWithoutEnvFile()
+
+    assert f"'{value}'" not in str(error.value)
+    assert f"input_value={value}" not in str(error.value)
+
+
+def test_defaults_the_source_build_pause_to_250_ms() -> None:
+    assert SettingsWithoutEnvFile().source_build_pause_ms == 250
+
+
+@pytest.mark.parametrize(("value", "expected"), [("0", 0), ("40", 40)])
+def test_reads_the_source_build_pause_from_an_environment_variable(
+    monkeypatch: pytest.MonkeyPatch, value: str, expected: int
+) -> None:
+    monkeypatch.setenv("SOURCE_BUILD_PAUSE_MS", value)
+
+    assert SettingsWithoutEnvFile().source_build_pause_ms == expected
+
+
+@pytest.mark.parametrize("value", ["-1", "many", "1.5"])
+def test_rejects_a_source_build_pause_that_is_not_a_non_negative_integer(
+    monkeypatch: pytest.MonkeyPatch, value: str
+) -> None:
+    monkeypatch.setenv("SOURCE_BUILD_PAUSE_MS", value)
 
     with pytest.raises(ValidationError) as error:
         SettingsWithoutEnvFile()

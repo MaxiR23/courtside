@@ -183,7 +183,9 @@ code. The feed is a `TeamFeed` (the same schema as above) validated by
     final games of that season: `number` and `position` come from the newest
     game that has a value, else they are null, every other field is null and the
     `status` is `active`. A leader is one of these players, and its `position`
-    may be null. Each game is read once and kept (ADR 0053).
+    may be null. Each game is read once and kept (ADR 0053), one at a time
+    across builds with `SOURCE_BUILD_PAUSE_MS` between two requests; a 429 or 503
+    fails the build with the reason "rate limited" (ADR 0056).
   - `schedule` has the regular season and the playoffs, with `detailAvailable`
     true for every final game and its opponents named by that season's team
     object. The games are registered so their detail can be built.

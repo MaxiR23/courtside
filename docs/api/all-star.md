@@ -119,7 +119,11 @@ Conventions:
     warning with the season and the reason.
 14. **Recap.** The previous season's edition read the same way: the Championship
     result, the date, the venue and its MVP. Null when that edition was not
-    discovered, its day could not be read, or its Championship is not final.
+    discovered, its day could not be read, or its Championship is not final. Its MVP
+    inputs (awards, sections, extras) are read as the season feed reads them: a 404
+    nulls its part. Any other failure keeps the stored `previous` and
+    `previousEdition` when the stored recap has an MVP, else fails the build, which
+    keeps the stored feed and is retried after 10 minutes (ADR 0056).
 15. **Counts.** The lengths of the shown games and teams, and the numbers of final
     and live games; all 0 in `before`.
 16. **Default game.** In `after`, the game with `championship` true; else the first
@@ -212,7 +216,7 @@ next not final, no next game beyond it) and a points tie for the top of a team b
   are requested about once a day and not every 30 seconds.
 - The build fails and keeps the stored feed when the season is unknown, the current
   scoreboard day cannot be read, or the feed is invalid. Any other failed read only
-  nulls its part.
+  nulls its part, except an input of the previous edition's MVP (rule 14).
 - A failed build is not retried for 10 minutes on request.
 - The builder is `build_all_star_feed` and the feed kind is `AllStarFeeds`, both in
   `api/app/jobs/all_star_feed.py`; the discovery is `AllStarDiscovery` in
