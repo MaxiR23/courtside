@@ -44,6 +44,8 @@
 				},
 				{
 					"code": "NYK",
+					"seasonCode": "SEA",
+					"historical": true,
 					"city": "Nykville",
 					"name": "Nykers",
 					"colors": {

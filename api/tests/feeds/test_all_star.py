@@ -18,6 +18,7 @@
 # - Top points on every tied top scorer are accepted; on a player below the top, missing on the top scorer or on a team with no points they are rejected
 # - A team record that differs from its results and a result that does not match its scores are rejected
 # - An edition, a previous edition and a recap accept an edition highlight or null; a feed without the key reads it as null; an invalid edition highlight is rejected
+# - A format: a target score with untimed, periods and minutes, both shapes or neither rejected, untimed without a target score rejected, the retired formatLine key rejected
 # - A feed with a build version is accepted, one with zero is rejected, and a stored feed without the field reads with a null version
 #
 # What is covered:
@@ -35,6 +36,7 @@ from pydantic import ValidationError
 
 from app.feeds.all_star import (
     AllStarFeed,
+    AllStarFormat,
     AllStarGame,
     AllStarMvp,
     AllStarTeamBox,
@@ -145,13 +147,24 @@ def recount(edition: dict[str, Any]) -> None:
     edition["default_game_id"] = games[0]["id"] if games else None
 
 
+def format_parts(**changes: Any) -> dict[str, Any]:
+    parts: dict[str, Any] = {
+        "target_points": None,
+        "untimed": False,
+        "periods": 1,
+        "minutes": 12.0,
+    }
+    parts.update(changes)
+    return parts
+
+
 def feed(
     state: str = "after", games: list[dict[str, Any]] | None = None, **changes: Any
 ) -> dict[str, Any]:
     edition: dict[str, Any] = {
         "date": dt.date(2027, 2, 14),
         "venue": {"name": "Example Arena", "city": "Exampleton"},
-        "format_line": "1 period · 12 min",
+        "format": format_parts(),
         "teams": [team("STR", "champion"), team("WAV", "runner_up")],
         "games": [game()] if games is None else games,
     }
@@ -174,7 +187,7 @@ def previous_edition(**changes: Any) -> dict[str, Any]:
     edition: dict[str, Any] = {
         "date": dt.date(2026, 2, 15),
         "venue": {"name": "Example Arena", "city": "Exampleton"},
-        "format_line": "1 period · 12 min",
+        "format": format_parts(),
         "teams": [team("STR", "champion"), team("WAV", "runner_up")],
         "games": [game()],
         "mvp": mvp(),
@@ -272,7 +285,12 @@ def test_accepts_an_after_feed() -> None:
     parsed = AllStarFeed.model_validate(feed("after"))
 
     assert parsed.edition.games[0].winner == "away"
-    assert parsed.model_dump(mode="json", by_alias=True)["edition"]["formatLine"]
+    assert parsed.model_dump(mode="json", by_alias=True)["edition"]["format"] == {
+        "targetPoints": None,
+        "untimed": False,
+        "periods": 1,
+        "minutes": 12.0,
+    }
 
 
 def test_accepts_a_before_feed_with_a_date_and_no_games() -> None:
@@ -729,3 +747,45 @@ def test_accepts_a_build_version_and_rejects_zero_and_reads_none_as_null() -> No
     assert AllStarFeed.model_validate({**stored, "buildVersion": 1}).build_version == 1
     with pytest.raises(ValidationError):
         AllStarFeed.model_validate({**stored, "buildVersion": 0})
+
+
+def test_accepts_a_target_score_format_with_untimed() -> None:
+    data = feed()
+    data["edition"]["format"] = format_parts(
+        target_points=40, untimed=True, periods=None, minutes=None
+    )
+
+    parsed = AllStarFeed.model_validate(data)
+
+    assert parsed.edition.format is not None
+    assert parsed.edition.format.target_points == 40
+    assert parsed.edition.format.untimed is True
+
+
+def test_accepts_a_periods_and_minutes_format() -> None:
+    parsed = AllStarFeed.model_validate(feed())
+
+    assert parsed.edition.format is not None
+    assert (parsed.edition.format.periods, parsed.edition.format.minutes) == (1, 12.0)
+
+
+def test_rejects_a_format_with_both_shapes_or_neither() -> None:
+    with pytest.raises(ValidationError):
+        AllStarFormat.model_validate(format_parts(target_points=40))
+    with pytest.raises(ValidationError):
+        AllStarFormat.model_validate(format_parts(periods=None, minutes=None))
+    with pytest.raises(ValidationError):
+        AllStarFormat.model_validate(format_parts(periods=1, minutes=None))
+
+
+def test_rejects_untimed_without_a_target_score() -> None:
+    with pytest.raises(ValidationError):
+        AllStarFormat.model_validate(format_parts(untimed=True))
+
+
+def test_rejects_the_retired_format_line_key() -> None:
+    data = feed()
+    data["edition"]["format_line"] = "1 period · 12 min"
+
+    with pytest.raises(ValidationError):
+        AllStarFeed.model_validate(data)

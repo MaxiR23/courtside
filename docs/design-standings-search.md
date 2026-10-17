@@ -301,7 +301,10 @@ Mapped to existing tokens: active toggle `rgba(116, 157, 196, 0.14)` is `--toggl
 | `clinch_xp` | Clinched play-in | Play-in asegurado |
 | `clinch_pb` | In play-in position | En posición de play-in |
 | `clinch_e` | Eliminated | Eliminado |
-| `standings_key_note` | GB, Div and Conf are within the group shown. Diff is per game, Tot is the season total. The dashed lines mark seed 6 and seed 10. | DP, Div y Conf son dentro del grupo mostrado. Dif es por partido, Tot es el total de la temporada. Las líneas discontinuas marcan el puesto 6 y el 10. |
+| `standings_key_note` | GB, Div and Conf are within the group shown. Diff is per game, Tot is the season total. | DP, Div y Conf son dentro del grupo mostrado. Dif es por partido, Tot es el total de la temporada. |
+| `standings_key_lines` | The dashed lines mark seed 6 and seed 10. | Las líneas discontinuas marcan el puesto 6 y el 10. |
+
+`standings_key_lines` follows `standings_key_note` and is hidden on a past season, which draws no dashed lines.
 
 Notes:
 

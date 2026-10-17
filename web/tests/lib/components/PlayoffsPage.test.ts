@@ -8,6 +8,7 @@
 // - A click on a game in the Finals card selects that game in the series section and scrolls to it
 // - Without the finals feed only the four finals sections go
 // - Loading: the header and the skeleton are aria-busy
+// - The unavailable state of a past season keeps the Season tag; the current season's has none (ADR 0054)
 // - Unavailable: the unavailable row under the nav; the footer in every state
 // - Spanish copy
 //
@@ -185,6 +186,22 @@ describe('PlayoffsPage', () => {
 		expect(container.querySelector('header')?.getAttribute('aria-busy')).toBe('true');
 		expect(container.querySelector('.table-skeleton')?.getAttribute('aria-busy')).toBe('true');
 		expect(container.querySelector('footer')).not.toBeNull();
+	});
+
+	it('keeps the Season tag on the unavailable state of a past season, and has none on the current one', () => {
+		const props = {
+			state: { kind: 'unavailable' } as PlayoffsPageState,
+			allGamesHref: HOME,
+			standingsHref: STANDINGS,
+			layout: 'desktop' as const,
+			teamHref,
+			gameHref
+		};
+		const { unmount } = render(PlayoffsPage, { props: { ...props, seasonTag: 'Season 2022-23' } });
+		expect(screen.getByText('Season 2022-23')).toBeTruthy();
+		unmount();
+		render(PlayoffsPage, { props });
+		expect(screen.queryByText(/^Season /)).toBeNull();
 	});
 
 	it('unavailable: the unavailable row under the nav and the footer', () => {

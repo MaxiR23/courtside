@@ -11,6 +11,7 @@
 # - Side is away or home
 #
 # What is covered:
+# - A league side carries a season code and the historical flag (ADR 0054): both default to null and false, a historical side without a season code and a guest with either are rejected, and both serialize in camelCase
 # - A valid opponent is accepted and an invalid one is rejected
 #
 # Run with: cd api && .venv/bin/python -m pytest tests/feeds/test_opponent.py
@@ -97,3 +98,35 @@ def test_rejects_an_unknown_field() -> None:
 
 def test_a_side_is_away_or_home() -> None:
     assert [side.value for side in Side] == ["away", "home"]
+
+
+def test_accepts_a_league_side_with_its_season_code_and_the_historical_flag() -> None:
+    opponent = Opponent.model_validate(league(seasonCode="SEA", historical=True))
+
+    assert (opponent.season_code, opponent.historical) == ("SEA", True)
+
+
+def test_defaults_to_no_season_code_and_not_historical() -> None:
+    opponent = Opponent.model_validate(league())
+
+    assert (opponent.season_code, opponent.historical) == (None, False)
+
+
+def test_rejects_a_historical_side_without_a_season_code() -> None:
+    with pytest.raises(ValidationError, match="season code"):
+        Opponent.model_validate(league(historical=True))
+
+
+def test_rejects_a_guest_with_a_season_code_or_the_historical_flag() -> None:
+    with pytest.raises(ValidationError):
+        Opponent.model_validate(guest(seasonCode="SEA"))
+    with pytest.raises(ValidationError):
+        Opponent.model_validate(guest(historical=True))
+
+
+def test_serializes_season_code_and_historical_in_camel_case() -> None:
+    dumped = Opponent.model_validate(
+        league(seasonCode="SEA", historical=True)
+    ).model_dump(by_alias=True)
+
+    assert dumped["seasonCode"] == "SEA" and dumped["historical"] is True

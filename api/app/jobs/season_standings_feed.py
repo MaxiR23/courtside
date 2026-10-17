@@ -21,10 +21,10 @@
 import asyncio
 import datetime as dt
 import re
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 
 from app.feeds.calendar import FIRST_SEASON
-from app.feeds.standings import StandingsFeed
+from app.feeds.standings import StandingsFeed, StandingsRow
 from app.jobs.on_demand import (
     FeedCache,
     FeedKind,
@@ -35,7 +35,7 @@ from app.jobs.on_demand import (
 from app.jobs.standings_feed import build_standings_feed
 from app.jobs.stars import StarsJob
 from app.jobs.team_feed import FetchInfo
-from app.jobs.team_names import TeamNamesFeeds
+from app.jobs.team_names import SeasonIdentity, TeamNamesFeeds
 from app.settings import Settings
 from app.sources import division_standings, team_info
 from app.sources.division_standings import DivisionStandings
@@ -57,6 +57,34 @@ def past_season_status(text: str, current: int | None) -> IdStatus:
     if current is None:
         return IdStatus.NOT_READY
     return IdStatus.UNKNOWN if int(text) >= current else IdStatus.KNOWN
+
+
+def _with_season_codes(
+    feed: StandingsFeed, season_names: Mapping[str, SeasonIdentity]
+) -> StandingsFeed:
+    """The feed with the season code and the historical flag on every row whose
+    code the season names know (ADR 0054)."""
+
+    def coded(row: StandingsRow) -> StandingsRow:
+        identity = season_names.get(row.code)
+        if identity is None:
+            return row
+        return row.model_copy(
+            update={"season_code": identity.code, "historical": identity.historical}
+        )
+
+    return feed.model_copy(
+        update={
+            "conferences": [
+                group.model_copy(update={"teams": [coded(row) for row in group.teams]})
+                for group in feed.conferences
+            ],
+            "divisions": [
+                group.model_copy(update={"teams": [coded(row) for row in group.teams]})
+                for group in feed.divisions
+            ],
+        }
+    )
 
 
 class SeasonStandingsFeeds:
@@ -106,8 +134,8 @@ class SeasonStandingsFeeds:
                     if code not in season_names
                     else entry.model_copy(
                         update={
-                            "name": season_names[code][0],
-                            "location": season_names[code][1],
+                            "name": season_names[code].name,
+                            "location": season_names[code].city,
                         }
                     )
                     for code, entry in standings.teams.items()
@@ -115,8 +143,11 @@ class SeasonStandingsFeeds:
             }
         )
         return with_build_version(
-            build_standings_feed(
-                named, dict(zip(codes, infos, strict=True)), final=True
+            _with_season_codes(
+                build_standings_feed(
+                    named, dict(zip(codes, infos, strict=True)), final=True
+                ),
+                season_names,
             )
         )
 

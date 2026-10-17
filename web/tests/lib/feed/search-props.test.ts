@@ -5,6 +5,7 @@
 // Tested:
 // - Team meta with the ordinal in English and Spanish; a null rank drops the division part
 // - The strip is set only with both colors
+// - The long position in Spanish (ADR 0054)
 // - Player line and short line; a null number, position or abbreviation drops its part
 // - Injury status, team color and photo pass through
 //
@@ -112,5 +113,14 @@ describe('toSearchPlayerRow', () => {
 			teamColor: '#007ac1'
 		});
 		expect(toSearchPlayerRow(player('1628368')).teamColor).toBeNull();
+	});
+});
+
+describe('toSearchPlayerRow position', () => {
+	it('writes the long position in Spanish and keeps the abbreviation', () => {
+		preferLanguages(['es-ES']);
+		const row = toSearchPlayerRow({ ...player('1628983'), position: 'Guard', positionAbbr: 'G' });
+		expect(row.line).toContain('Escolta (G)');
+		expect(row.lineShort).toContain('G');
 	});
 });

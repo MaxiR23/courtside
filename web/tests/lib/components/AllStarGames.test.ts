@@ -9,7 +9,7 @@
 // - The placeholder texts for a final game without highlights and a live game
 // - The venue strip, the Top 5, the scoreboard and the team statistics
 // - A scheduled game shows the one centered card and no box score
-// - The leaders on desktop and none on mobile; the strip class on mobile
+// - The leaders on desktop and none on mobile; the strip class on mobile; the cards row stays in its container on mobile (ADR 0054)
 // - The status is re-read on each tick
 // - The edition video replaces the game's media, plays on a click, is kept across a game change and has a caption; without it the placeholder shows
 // - No game card holds a video, a thumbnail or a highlight label
@@ -145,6 +145,13 @@ describe('AllStarGames', () => {
 	it('draws the leaders on desktop and none on mobile', () => {
 		expect(show().container.querySelector('.leaders')).not.toBeNull();
 		expect(show('after', 'mobile').container.querySelector('.leaders')).toBeNull();
+	});
+
+	it('keeps the cards row in its scrolling container on mobile', () => {
+		const { container } = show('after', 'mobile');
+		const cards = container.querySelector('.all-star-games.mobile .cards');
+		expect(cards).not.toBeNull();
+		expect(cards?.getAttribute('role')).toBe('group');
 	});
 
 	it('lays the cards out as a strip on mobile', () => {

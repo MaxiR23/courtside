@@ -159,6 +159,7 @@ describe('AllStarPage', () => {
 	it('uses the mobile classes on mobile', () => {
 		const { container } = show(ready('after'), 'mobile');
 		expect(container.querySelector('.sections')?.classList.contains('mobile')).toBe(true);
+		expect(container.querySelector('.sections .all-star-games.mobile .cards')).not.toBeNull();
 		expect(container.querySelector('.nav.sticky')).not.toBeNull();
 	});
 });

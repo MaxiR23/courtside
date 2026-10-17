@@ -18,6 +18,7 @@ import { periodText } from '#lib/feed/game-props.ts';
 import { tipParts } from '#lib/feed/props.ts';
 import { feedDate, gameTagLabel, nextGameView } from '#lib/feed/team-props.ts';
 import { formatDate, formatNumber } from '#lib/format/locale.ts';
+import { positionName } from '#lib/format/position.ts';
 import type { InfoCell } from '#lib/game/types.ts';
 import { m } from '#lib/paraglide/messages.js';
 import type {
@@ -113,7 +114,7 @@ function numbered(feed: PlayerFeed, name: string): string {
 function header(feed: PlayerFeed, past: boolean): PlayerHeaderView {
 	const parts = [
 		feed.number === null ? null : `#${feed.number}`,
-		feed.position,
+		feed.position === null ? null : positionName(feed.position),
 		feed.team ? `${feed.team.city} ${feed.team.name}` : null
 	].filter((part): part is string => part !== null);
 	const injury = feed.injury;

@@ -28,6 +28,7 @@
 		playerHref: (id: string) => ResolvedPathname;
 		matchup: CupMatchupStore;
 		seasonSelect?: SeasonControl | null; // null: no selector
+		seasonTag?: string | null; // "Season 2022-23": the unavailable state of a past season keeps it
 	};
 
 	// `state` is renamed so the `$state` rune is not read as a store of the prop.
@@ -40,7 +41,8 @@
 		gameHref,
 		playerHref,
 		matchup,
-		seasonSelect = null
+		seasonSelect = null,
+		seasonTag = null
 	}: Props = $props();
 
 	// One toggle widens every group card. Not kept between visits.
@@ -127,7 +129,15 @@
 		</div>
 	</section>
 {:else}
-	<CupHeader header={null} {allGamesHref} {standingsHref} {layout} {teamHref} {seasonSelect} />
+	<CupHeader
+		header={null}
+		{allGamesHref}
+		{standingsHref}
+		{layout}
+		{teamHref}
+		{seasonSelect}
+		{seasonTag}
+	/>
 	<section class="page-section">
 		<MessageRow text={m.feed_unavailable()} />
 	</section>

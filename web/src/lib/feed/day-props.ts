@@ -9,11 +9,14 @@ function feedDate(isoDate: string, options: Intl.DateTimeFormatOptions): string 
 }
 
 /**
- * Turns the day feed into the day page props, or null when it cannot be shown. A past game has no
- * highlights block: no video platform name is passed.
+ * Turns the day feed into the day page props, or null when it cannot be shown. A final game shows
+ * the highlights block when a video platform name is given, as the home does.
  */
-export function toDayView(feed: DayFeed): DayView | null {
-	const games = scheduleGames(feed.day.games, {});
+export function toDayView(
+	feed: DayFeed,
+	options: { videoPlatformName?: string } = {}
+): DayView | null {
+	const games = scheduleGames(feed.day.games, options);
 	if (!games) return null;
 	return {
 		date: feed.day.date,

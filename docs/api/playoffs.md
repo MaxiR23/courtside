@@ -302,6 +302,8 @@ current season.
   from that season's box-score rosters (`SeasonRosters`, one roster per team, each
   game read once and kept); a failed roster read fails the build
   ([ADR 0053](../adr/0053-season-level-rules-for-past-seasons.md)).
+- The league sides are named by that season's team object, with `seasonCode`
+  and `historical` ([ADR 0054](../adr/0054-historical-sides-and-past-pages.md)). The Finals feed does the same.
 - A season before 2021 has no play-in: the window is not requested, `playIn` is
   null, seeds 1 to 8 are the standings seeds and every round 1 label is a seed.
   Its `playin` stage entry is `upcoming` with null dates, and a page does not draw

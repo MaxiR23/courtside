@@ -31,6 +31,8 @@ export interface TeamFeed {
 	titles: [TeamTitle] | [TeamTitle, TeamTitle] | [TeamTitle, TeamTitle, TeamTitle] | null;
 	names: NameRun[];
 	buildVersion: number | null;
+	seasonCode: string | null;
+	historical: boolean;
 }
 export interface TeamColors {
 	primary: string;
@@ -140,6 +142,8 @@ export interface Opponent {
 	name: string | null;
 	city: string | null;
 	guest: boolean;
+	seasonCode: string | null;
+	historical: boolean;
 }
 export interface GameTag {
 	kind: TagKind;

@@ -3,9 +3,9 @@
 # Day feed builder and kind: the games of one past US Eastern day. The builder
 # is a pure function from the games the scoreboard adapter returned to the feed;
 # it reads no clock and no source. A game is the games feed's Game with the
-# past-day rules: no star, no stored highlight, and for a final game stats unavailable
-# (leaders and team stats are read from no source), with the search link as in
-# the games feed. A game that is not a valid PastGame is skipped with a log line
+# past-day rules: no star, no stored highlight, and for a final game stats available,
+# read from its game detail (ADR 0054); leaders and team stats stay null, with the
+# search link as in the games feed. A game that is not a valid PastGame is skipped with a log line
 # by event id. A day with no game is a valid day with an empty list. The feed
 # carries the season the scoreboard gave for the day and its label (ADR 0042).
 #
@@ -110,7 +110,7 @@ def build_day_feed(
         data["highlights"] = []
         data["winner"] = final_winner(game)
         data["highlights_search_url"] = highlights_search_url(game) if final else None
-        data["stats_availability"] = StatsAvailability.UNAVAILABLE if final else None
+        data["stats_availability"] = StatsAvailability.AVAILABLE if final else None
         data["leaders"] = None
         data["team_stats"] = None
         try:

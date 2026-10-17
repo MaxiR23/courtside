@@ -9,6 +9,7 @@
 # - The kind: season 2024 with In-Season Tournament notes and two quarterfinals sharing a seed builds as complete, the quarterfinals placed by start time (ADR 0053)
 # - The kind: the built feed carries the current build version, a stored feed of an older or missing version is rebuilt on its next request, and one of the current version is served with no source request (ADR 0053)
 # - The kind: the feed is stored under season-cup and rebuilt only for another version: a second request, a request years later and a restart all serve with no source call
+# - The kind: the league sides are named by the season team object with the season code and the historical flag (ADR 0054)
 # - The kind: building it writes nothing under the current Cup feed
 # - The kind: a Cup that is not complete answers unavailable and stores nothing
 # - The kind: a failed read with nothing stored answers unavailable
@@ -28,6 +29,7 @@
 # SEE: api/app/jobs/season_cup_feed.py
 
 import datetime as dt
+import json
 from collections.abc import Iterator
 from pathlib import Path
 from typing import cast
@@ -52,11 +54,13 @@ from app.jobs.season_cup_feed import (
     past_cup_season_status,
 )
 from app.jobs.stars import StarsJob
+from app.jobs.team_names import TeamNamesFeeds
 from app.settings import Settings
 from app.sources.cup import CupTable
 from app.sources.http import SourceClient
 from app.sources.team_schedule import ScheduledGame, SeasonSchedule
 from app.storage.feeds import publish_by_id, read_by_id
+from tests.jobs.fake_season_teams import FakeSeasonTeams, league_sides, season_team
 from tests.jobs.test_cup_feed import (
     NOW,
     all_final,
@@ -97,15 +101,25 @@ class SeasonCupKit(MatchupKit):
         self.pairs = [*group_pairs(all_final()), *knockouts(3, 3)]
         self.seasons: list[int] = []
         self.past_flags: list[bool] = []
+        self.season_teams = FakeSeasonTeams()
         self.register()
 
     def register(self) -> None:
+        self.team_names = TeamNamesFeeds(
+            self.settings,
+            self.store,
+            self.client,
+            self.cache,
+            cast(StarsJob, self.stars),
+            fetch_season_team=self.season_teams.fetch,
+        )
         self.season_cups = SeasonCupFeeds(
             self.settings,
             self.store,
             self.client,
             self.cache,
             cast(StarsJob, self.stars),
+            self.team_names,
             fetch_group_teams=self.fetch_group_teams,
             fetch_group_table=self.fetch_past_table,
             fetch_conference_table=self.fetch_past_conference,
@@ -206,6 +220,22 @@ async def test_a_past_season_builds_a_valid_complete_feed_from_the_season_source
     assert kit.called("p-schedule/") == 30
     assert kit.past_flags and all(kit.past_flags)
     assert kit.called("schedule/") == 0
+
+
+@pytest.mark.anyio
+async def test_the_league_sides_are_named_by_the_season_team_object_with_the_season_code_and_the_flag(
+    kit: SeasonCupKit,
+) -> None:
+    kit.season_teams.by_season[2025] = season_team("Harbor Gulls", "Seattle", "SEA")
+    kit.season_teams.by_season[2027] = season_team("Thunder", "Oklahoma City", "OKC")
+
+    body = await kit.serve_season("2025")
+
+    sides = league_sides(json.loads(body))
+    assert sides
+    for side in sides:
+        assert (side["name"], side["city"]) == ("Harbor Gulls", "Seattle")
+        assert (side["seasonCode"], side["historical"]) == ("SEA", True)
 
 
 @pytest.mark.anyio

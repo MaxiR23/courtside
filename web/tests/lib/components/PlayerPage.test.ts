@@ -8,6 +8,7 @@
 // - The live card replaces the next game card while live is set
 // - "Season over." with no next game and no live
 // - Loading: aria-busy and the section skeleton
+// - The unavailable state of a past season keeps the Season tag; the current season's has none (ADR 0054)
 // - Unavailable: the unavailable row; Not found: "Player not found." and two All games links
 // - The footer in every state, no nested interactive element, Spanish
 // - The season select reaches the header in every state, and is absent without the prop
@@ -55,7 +56,14 @@ const liveFeed = (): PlayerFeed => {
 	const source = feed();
 	source.live = {
 		gameId: 'g-live',
-		opponent: { code: 'DEN', name: null, city: null, guest: false },
+		opponent: {
+			code: 'DEN',
+			name: null,
+			city: null,
+			guest: false,
+			seasonCode: null,
+			historical: false
+		},
 		isHome: false,
 		period: 3,
 		clock: '4:12',
@@ -165,6 +173,21 @@ describe('PlayerPage other states', () => {
 		expect(container.querySelector('header')?.getAttribute('aria-busy')).toBe('true');
 		expect(container.querySelector('.section-skeleton')).not.toBeNull();
 		expect(container.querySelector('footer')).toBeTruthy();
+	});
+
+	it('keeps the Season tag on the unavailable state of a past season, and has none on the current one', () => {
+		const props = {
+			state: { kind: 'unavailable' } as PlayerPageState,
+			allGamesHref: HOME,
+			standingsHref: STANDINGS,
+			layout: 'desktop' as const,
+			gameHref
+		};
+		const { unmount } = render(PlayerPage, { props: { ...props, seasonTag: 'Season 2022-23' } });
+		expect(screen.getByText('Season 2022-23')).toBeTruthy();
+		unmount();
+		render(PlayerPage, { props });
+		expect(screen.queryByText(/^Season /)).toBeNull();
 	});
 
 	it('shows the unavailable row', () => {

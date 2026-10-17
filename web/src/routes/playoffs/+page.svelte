@@ -22,7 +22,13 @@
 	import { FeedPoller, playoffsPollInterval } from '#lib/feed/poller.svelte.ts';
 	import type { PlayoffsPageState } from '#lib/playoffs/types.ts';
 	import { wideViewport } from '#lib/schedule/layout.ts';
-	import { currentSeason, requestedSeason, seasonOnShow } from '#lib/season/seasons.ts';
+	import {
+		currentSeason,
+		requestedSeason,
+		seasonLabelOf,
+		seasonOnShow
+	} from '#lib/season/seasons.ts';
+	import { m } from '#lib/paraglide/messages.js';
 	import type { SeasonControl } from '#lib/season/types.ts';
 
 	// The calendar is read once: it gives the selector's seasons and tells a past season from the current one (ADR 0044).
@@ -37,6 +43,12 @@
 	// A primitive, so the calendar arriving later does not rebuild the poller.
 	const shown = $derived(seasonOnShow(requested, calendar?.feed ?? null, settled));
 	const past = $derived(typeof shown === 'number');
+	// The unavailable state of a past season keeps its Season tag.
+	const seasonTag = $derived.by(() => {
+		if (typeof shown !== 'number') return null;
+		const label = seasonLabelOf(calendar?.feed ?? null, shown);
+		return label ? m.past_season_tag({ label }) : null;
+	});
 
 	const url = playoffsFeedUrl;
 	const pastTemplate = seasonPlayoffsFeedUrl;
@@ -117,4 +129,5 @@
 	{teamHref}
 	{gameHref}
 	{seasonSelect}
+	{seasonTag}
 />

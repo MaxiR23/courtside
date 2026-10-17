@@ -6,6 +6,7 @@
 // - teamTile gives the code, the initials of the city and name for a guest without a code, and the initials of the name alone without a city
 // - teamLabel gives the code, else the name, else nothing
 // - teamMark treats a missing guest key as a league team and keeps the fields
+// - A historical side shows its season code as tile and label, a side that is not historical or has no season code keeps its code, and adds no key (ADR 0054)
 //
 // What is covered:
 // - Happy path, the guest without a code and edge cases (no city, no name)
@@ -61,5 +62,27 @@ describe('teamMark', () => {
 
 	it('keeps the fields and the guest flag', () => {
 		expect(teamMark(mariners)).toEqual(mariners);
+	});
+});
+
+describe('a historical side', () => {
+	const seattle = { ...league, seasonCode: 'SEA', historical: true };
+
+	it('shows the season code as tile and label', () => {
+		const mark = teamMark(seattle);
+
+		expect(teamTile(mark)).toBe('SEA');
+		expect(teamLabel(mark)).toBe('SEA');
+		expect(mark.code).toBe('DEN');
+	});
+
+	it('keeps the code for a side that is not historical or has no season code', () => {
+		expect(teamTile(teamMark({ ...league, seasonCode: 'SEA', historical: false }))).toBe('DEN');
+		expect(teamTile(teamMark({ ...league, seasonCode: null, historical: true }))).toBe('DEN');
+	});
+
+	it('adds no key to a side that is not historical', () => {
+		expect(teamMark({ ...league, seasonCode: null, historical: false })).toEqual(league);
+		expect(Object.keys(teamMark(league))).not.toContain('historicalCode');
 	});
 });

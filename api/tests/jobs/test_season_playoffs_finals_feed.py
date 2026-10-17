@@ -5,6 +5,7 @@
 # Tested:
 # - check: 1993, abc, 02025, 2025 with a trailing newline, the current season and a future season are unknown; 1994 and the season before the current one are known; an unknown current season is not ready
 # - target: the current season maps to the current playoffs finals feed, a past season to the season kind
+# - The kind: the league sides are named by the season team object with the season code and the historical flag (ADR 0054)
 # - The kind: a past season builds a valid Finals feed after the season playoffs feed (built first through depends_on), with the finalists' box-score rosters, the game details by provider id first and the season on the team reads
 # - The kind: a detail, sections, plays, record or statistics read that answers 404 nulls or empties its part (leaders, curve, largest deficit, records, bar values)
 # - The kind: a roster read that fails, also with a 404, any other failed read answers unavailable and stores nothing
@@ -25,6 +26,7 @@
 # SEE: api/app/jobs/season_playoffs_finals_feed.py
 
 import datetime as dt
+import json
 from pathlib import Path
 from typing import Any, cast
 
@@ -54,6 +56,7 @@ from app.sources.season_awards import SeasonAwards
 from app.sources.team_players import RosterEntry
 from app.sources.team_postseason import TeamPostseasonRecord, TeamPostseasonStats
 from app.storage.feeds import publish_by_id, read_by_id
+from tests.jobs.fake_season_teams import league_sides, season_team
 from tests.jobs.test_playoffs_feed import HOUR, NOW, award
 from tests.jobs.test_playoffs_finals_feed import (
     BOTTOM,
@@ -97,6 +100,7 @@ class FinalsKit(SeasonPlayoffsKit):
                 SeasonRosters,
                 FakeRosters(self, "f-roster", lambda code: list(PLAYERS[code])),
             ),
+            self.team_names,
             fetch_game_detail=self.fetch_game_detail,
             fetch_game_detail_sections=self.fetch_game_detail_sections,
             fetch_play_scores=self.fetch_play_scores,
@@ -238,6 +242,22 @@ async def test_a_past_season_builds_a_valid_finals_feed_after_the_season_playoff
     assert feed.games[0].leaders is not None
     assert feed.games[0].win_probability is not None
     assert feed.games[0].largest_deficit is not None
+
+
+@pytest.mark.anyio
+async def test_the_league_sides_are_named_by_the_season_team_object_with_the_season_code_and_the_flag(
+    kit: FinalsKit,
+) -> None:
+    kit.season_teams.by_season[2025] = season_team("Harbor Gulls", "Seattle", "SEA")
+    kit.season_teams.by_season[2027] = season_team("Thunder", "Oklahoma City", "OKC")
+
+    body = await kit.serve_finals("2025")
+
+    sides = league_sides(json.loads(body))
+    assert sides
+    for side in sides:
+        assert (side["name"], side["city"]) == ("Harbor Gulls", "Seattle")
+        assert (side["seasonCode"], side["historical"]) == ("SEA", True)
 
 
 @pytest.mark.anyio

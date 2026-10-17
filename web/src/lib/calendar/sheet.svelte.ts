@@ -1,10 +1,11 @@
-import { clampedMonth, monthsBetween, openingMonth } from '#lib/calendar/month.ts';
+import { clampedMonth, lastLinkedDay, monthsBetween, openingMonth } from '#lib/calendar/month.ts';
 import type { CalendarFeed } from '#lib/contract/calendar.ts';
 
 /**
  * The calendar sheet's state: the season's calendar feed, the month on show and whether the load
  * failed. The feed is loaded once per season and not polled. A load that answers after a newer
- * one started is dropped. With no loader (no URL configured) the sheet is failed at once.
+ * one started is dropped. With no loader (no URL configured) the sheet is failed at once. No month
+ * after today's is offered: the last month is the earlier of the season's last day and today.
  */
 export class CalendarSheetState {
 	feed = $state.raw<CalendarFeed | null>(null);
@@ -12,14 +13,16 @@ export class CalendarSheetState {
 	month = $state<string | null>(null);
 
 	readonly #load: ((season: string) => Promise<CalendarFeed>) | undefined;
+	readonly #today: string; // 'YYYY-MM-DD'
 	#run = 0; // changes on every load, to drop the answer of an old one
 
-	constructor(load: ((season: string) => Promise<CalendarFeed>) | undefined) {
+	constructor(load: ((season: string) => Promise<CalendarFeed>) | undefined, today: string) {
 		this.#load = load;
+		this.#today = today;
 	}
 
 	get months(): string[] {
-		return this.feed ? monthsBetween(this.feed.firstDay, this.feed.lastDay) : [];
+		return this.feed ? monthsBetween(this.feed.firstDay, this.#lastDay(this.feed)) : [];
 	}
 
 	get canPrevious(): boolean {
@@ -44,12 +47,16 @@ export class CalendarSheetState {
 
 	/** Loads the season and shows the selected day's month, clamped to the season's months. */
 	open(season: string, selected: string | null): Promise<void> {
-		return this.#show(season, (feed) => clampedMonth(selected, feed.firstDay, feed.lastDay));
+		return this.#show(season, (feed) => clampedMonth(selected, feed.firstDay, this.#lastDay(feed)));
 	}
 
 	/** Loads another season and shows the selected day's month when it is in it, else its first. */
 	changeSeason(season: string, selected: string | null): Promise<void> {
-		return this.#show(season, (feed) => openingMonth(selected, feed.firstDay, feed.lastDay));
+		return this.#show(season, (feed) => openingMonth(selected, feed.firstDay, this.#lastDay(feed)));
+	}
+
+	#lastDay(feed: CalendarFeed): string {
+		return lastLinkedDay(feed.firstDay, feed.lastDay, this.#today);
 	}
 
 	async #show(season: string, monthOf: (feed: CalendarFeed) => string): Promise<void> {

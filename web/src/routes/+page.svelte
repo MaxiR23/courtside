@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { afterNavigate } from '$app/navigation';
+	import { afterNavigate, goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { onMount, tick, untrack } from 'svelte';
 	import Hero from '#lib/components/Hero.svelte';
@@ -7,6 +7,7 @@
 	import Schedule from '#lib/components/Schedule.svelte';
 	import ScheduleSkeleton from '#lib/components/ScheduleSkeleton.svelte';
 	import SiteFooter from '#lib/components/SiteFooter.svelte';
+	import { easternToday } from '#lib/calendar/month.ts';
 	import type { DateCalendar } from '#lib/calendar/types.ts';
 	import { calendarFeedUrl, gamesFeedUrl, videoPlatformName } from '#lib/feed/config.ts';
 	import {
@@ -58,18 +59,25 @@
 
 	// The calendar sheet links a day of the feed to /?day=YYYY-MM-DD. The route is prerendered, so
 	// the query is read after each navigation, in the browser, and a new object marks every one.
+	const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
 	let requested = $state.raw<{ day: string | null }>({ day: null });
 	afterNavigate(({ to }) => {
 		requested = { day: to?.url.searchParams.get('day') ?? null };
 	});
 	const hasView = $derived(view !== null);
 	// Runs on a navigation and when the first feed arrives, not on a poll: a later feed does not
-	// move the day the visitor chose. A day outside the feed's seven keeps today selected.
+	// move the day the visitor chose. A later day outside the feed's seven keeps today selected.
 	$effect(() => {
 		const { day } = requested;
 		if (!hasView) return;
-		const index = day === null ? -1 : (untrack(() => view?.dayIds.indexOf(day)) ?? -1);
+		const ids = untrack(() => view?.dayIds) ?? [];
+		const index = day === null ? -1 : ids.indexOf(day);
 		selected = index >= 0 ? index : TODAY_INDEX;
+		// A past day the feed no longer carries has its own page (the calendar's window can be a
+		// day behind the feed). A later day keeps today.
+		if (day !== null && index < 0 && ISO_DAY.test(day) && day < ids[TODAY_INDEX]) {
+			void goto(resolve('/day/[date]', { date: day }), { replaceState: true });
+		}
 	});
 
 	const calendarTemplate = calendarFeedUrl;
@@ -77,14 +85,15 @@
 		? (season: string) => loadCalendarFeed(calendarFeedUrlOf(calendarTemplate, season))
 		: undefined;
 	// A day of the games feed is on the home; any other day has its own page.
-	const dayHref = (date: string) =>
-		view?.dayIds.includes(date) ? resolve(`/?day=${date}`) : resolve('/day/[date]', { date });
 	const calendar: DateCalendar = $derived({
 		load: loadCalendar,
 		season: 'current',
 		selectedDay: view?.dayIds[selected] ?? null,
-		today: view?.dayIds[TODAY_INDEX] ?? null,
-		dayHref
+		// Until the games feed has loaded, today is the US Eastern date of the client clock.
+		today: view?.dayIds[TODAY_INDEX] ?? easternToday(clockToday ?? new Date()),
+		windowDays: view?.dayIds ?? null,
+		windowHref: (date: string) => resolve(`/?day=${date}`),
+		dayHref: (date: string) => resolve('/day/[date]', { date })
 	});
 
 	async function matchDetails(id: string) {

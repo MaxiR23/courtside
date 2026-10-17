@@ -65,7 +65,7 @@ export type GameDetails =
 	| {
 			kind: 'final-without-stats'; // a final game whose top performers and team stats are not in
 			periods: { away: number[]; home: number[] };
-			statsAvailability: 'pending' | 'unavailable';
+			statsAvailability: 'pending' | 'unavailable' | 'available'; // available: the stats are on the game page, not in this feed (a past day)
 			highlights?: GameHighlights;
 	  };
 

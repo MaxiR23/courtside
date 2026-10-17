@@ -38,6 +38,8 @@ const calendar = {
 	season: '1999',
 	selectedDay: '1999-02-06',
 	today: '2026-10-15',
+	windowDays: null,
+	windowHref: (date: string) => `/?day=${date}` as ResolvedPathname,
 	dayHref: (date: string) => `/day/${date}` as ResolvedPathname
 };
 const props = (changes: Record<string, unknown> = {}) => ({
@@ -80,12 +82,12 @@ describe('DayHeader', () => {
 
 	it('shows the calendar button only with a calendar', () => {
 		const { unmount } = render(DayHeader, { props: props() });
-		expect(screen.getByRole('button', { name: 'Calendar' }).getAttribute('aria-haspopup')).toBe(
-			'dialog'
-		);
+		expect(
+			screen.getByRole('button', { name: 'Open calendar' }).getAttribute('aria-haspopup')
+		).toBe('dialog');
 		unmount();
 		render(DayHeader, { props: props({ calendar: null }) });
-		expect(screen.queryByRole('button', { name: 'Calendar' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Open calendar' })).toBeNull();
 	});
 
 	it('shows a busy skeleton while loading', () => {
@@ -117,6 +119,6 @@ describe('DayHeader', () => {
 		render(DayHeader, { props: props() });
 		expect(screen.getByRole('link', { name: 'Día anterior' })).toBeTruthy();
 		expect(screen.getByRole('link', { name: 'Día siguiente' })).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Calendario' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Abrir calendario' })).toBeTruthy();
 	});
 });

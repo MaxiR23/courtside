@@ -5,6 +5,7 @@
 // Tested:
 // - The section order of each state, and the sections a missing block hides
 // - The finals sections hidden with no finals feed; the conference MVPs alone with no Finals MVP
+// - A historical team has no strip and shows its season code; a team that kept its name keeps its colors (ADR 0054)
 // - The state line of each state, the stage strip (TBD, ranges, one date, statuses)
 // - The picture tables: seeds in feed order, the line markers, clinch tags, — in the preseason
 // - The play-in: To be decided slots, places, the 8th seed labels, outcomes, links, the collapsed flag
@@ -795,6 +796,32 @@ describe('toPlayoffsView past seasons', () => {
 	it('writes the season tag in Spanish', () => {
 		preferLanguages(['es']);
 		expect(toPlayoffsView(complete(), null, past).header.tag).toBe('Temporada 2026-27');
+	});
+
+	it('gives a historical team no strip and its season code, and a team that kept its name its colors', () => {
+		const f = complete();
+		const series = f.bracket.find((entry) => entry.top.team !== null)!;
+		const team = series.top.team!;
+		const id = series.id;
+		const side = (feed: PlayoffsFeed) =>
+			toPlayoffsView(feed, null, past).bracket.series.find((entry) => entry.id === id)!.top;
+		const kept = side(f);
+		expect(kept.strip).not.toBeNull();
+		expect(kept.label).toBe(team.code);
+		team.seasonCode = 'SEA';
+		team.historical = true;
+		const historical = side(f);
+		expect(historical.strip).toBeNull();
+		expect(historical.label).toBe('SEA');
+	});
+
+	it('draws no strip for a historical champion and keeps its season code on the mark', () => {
+		const f = complete();
+		f.champion!.team.seasonCode = 'SEA';
+		f.champion!.team.historical = true;
+		const hero = toPlayoffsView(f, null, past).header.hero!;
+		expect(hero.strip).toBeNull();
+		expect(hero.team).toMatchObject({ code: 'QXA', historicalCode: 'SEA' });
 	});
 
 	it('draws no play-in section and no play-in stage when the play-in is null', () => {

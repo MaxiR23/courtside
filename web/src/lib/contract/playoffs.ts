@@ -197,6 +197,8 @@ export interface PlayoffTeam {
 	name: string | null;
 	city: string | null;
 	guest: boolean;
+	seasonCode: string | null;
+	historical: boolean;
 	colors: StandingsColors;
 }
 export interface StandingsColors {
@@ -250,6 +252,8 @@ export interface Opponent {
 	name: string | null;
 	city: string | null;
 	guest: boolean;
+	seasonCode: string | null;
+	historical: boolean;
 }
 export interface Score {
 	away: number;

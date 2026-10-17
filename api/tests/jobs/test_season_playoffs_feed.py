@@ -6,6 +6,7 @@
 # - past_season_status through check: 1993, abc, 02025, 2025 with a trailing newline, the current season and a future season are unknown; 1994 and the season before the current one are known; an unknown current season is not ready for a well-formed id from 1994
 # - target: the current season maps to the current playoffs feed, a past season to the season kind, and an unknown current season to the season kind
 # - The kind: a past season builds a valid complete feed, reading every source with the season, the days by provider id first and the season rosters, and the leaders and awards name players of those rosters
+# - The kind: the league sides are named by the season team object with the season code and the historical flag (ADR 0054)
 # - The kind: a player on two rosters belongs, in leaders and awards, to the team of his newest game, whatever the code order
 # - The kind: the leader and award names come from the box-score rosters, and a roster read that fails, also with a 404, fails the build
 # - The kind: the built feed carries the current build version, a stored feed of an older or missing version is rebuilt on its next request, and one of the current version is served with no source request (ADR 0053)
@@ -32,6 +33,7 @@
 
 import asyncio
 import datetime as dt
+import json
 import logging
 from collections.abc import Callable, Iterator
 from pathlib import Path
@@ -54,6 +56,7 @@ from app.jobs.season_playoffs_feed import KIND, SeasonPlayoffsFeeds
 from app.jobs.season_rosters import SeasonRosters
 from app.jobs.stars import StarsJob
 from app.jobs.team_feed import player_name
+from app.jobs.team_names import TeamNamesFeeds
 from app.settings import Settings
 from app.sources.division_standings import DivisionStandings
 from app.sources.game_detail import BoxScoreRosterEntry
@@ -67,6 +70,7 @@ from app.sources.team_players import RosterEntry
 from app.sources.team_postseason import TeamPostseasonRecord
 from app.storage.feeds import publish_by_id, read_by_id
 from app.storage.state import StateStore
+from tests.jobs.fake_season_teams import FakeSeasonTeams, league_sides, season_team
 from tests.jobs.test_playoffs_feed import (
     ALL,
     EAST,
@@ -137,6 +141,7 @@ class SeasonPlayoffsKit:
         self.standing: DivisionStandings | None = None
         self.stars = FakeStars()
         self.cache = FeedCache(path, self.store, clock=lambda: self.clock[0])
+        self.season_teams = FakeSeasonTeams()
         self.load(past_games())
         self.register()
 
@@ -144,6 +149,14 @@ class SeasonPlayoffsKit:
         return [entry for c, entry in roster().values() if c == code]
 
     def register(self) -> None:
+        self.team_names = TeamNamesFeeds(
+            self.settings,
+            self.store,
+            self.client,
+            self.cache,
+            cast(StarsJob, self.stars),
+            fetch_season_team=self.season_teams.fetch,
+        )
         self.season_playoffs = SeasonPlayoffsFeeds(
             self.settings,
             self.store,
@@ -151,6 +164,7 @@ class SeasonPlayoffsKit:
             self.cache,
             cast(StarsJob, self.stars),
             cast(SeasonRosters, FakeRosters(self, "roster", self.box_players)),
+            self.team_names,
             fetch_season_type=self.fetch_season_type,
             fetch_postseason_games=self.fetch_postseason_games,
             fetch_division_standings=self.fetch_division_standings,
@@ -299,6 +313,22 @@ def test_an_unknown_current_season_maps_to_the_season_kind(
     kit.stars.season = None
 
     assert kit.season_playoffs.target("2027") == (KIND, "2027")
+
+
+@pytest.mark.anyio
+async def test_the_league_sides_are_named_by_the_season_team_object_with_the_season_code_and_the_flag(
+    kit: SeasonPlayoffsKit,
+) -> None:
+    kit.season_teams.by_season[2025] = season_team("Harbor Gulls", "Seattle", "SEA")
+    kit.season_teams.by_season[2027] = season_team("Thunder", "Oklahoma City", "OKC")
+
+    body = await kit.serve_season("2025")
+
+    sides = league_sides(json.loads(body))
+    assert sides
+    for side in sides:
+        assert (side["name"], side["city"]) == ("Harbor Gulls", "Seattle")
+        assert (side["seasonCode"], side["historical"]) == ("SEA", True)
 
 
 @pytest.mark.anyio

@@ -15,6 +15,7 @@
 // - Pauses polling while the tab is hidden and loads at once when visible again
 // - Keeps the last playoffs feed on screen when a later poll fails
 // - Renders in Spanish
+// - The unavailable state of a past season keeps the Season tag; a calendar that answers 503 shows the current season and no select (ADR 0054)
 // - With ?season: loads the calendar, then the season playoffs and finals feeds, once each; no polling; the tag; 503 and 404 states
 // - A malformed, unlisted or current ?season loads the current feeds and polls them; the select lists every calendar season and navigates with goto
 // - A past feed with no play-in, no head to head values, no leaders and no awards closes the sections with no gap; a null seed draws no number
@@ -443,6 +444,20 @@ describe('Playoffs page season selector', () => {
 			expect(screen.getByRole('combobox', { name: 'Season' })).toBeTruthy();
 		}
 	);
+
+	it('keeps the Season tag on the unavailable state of a past season', async () => {
+		stubRoutes({ [CAL_URL]: [answerWith(calendarFeed())], [pastUrl(2005)]: [answerStatus(503)] });
+		await renderSeason('?season=2005');
+		expect(screen.getByText(UNAVAILABLE)).toBeTruthy();
+		expect(screen.getByText('Season 2004-05')).toBeTruthy();
+	});
+
+	it('shows the current season and no select when the calendar answers 503', async () => {
+		stubRoutes({ [CAL_URL]: [answerStatus(503)], [FEED_URL]: [answerWith(picture())] });
+		await renderSeason('?season=2005');
+		expect(calls).toEqual([CAL_URL, FEED_URL]);
+		expect(screen.queryByRole('combobox')).toBeNull();
+	});
 
 	it.each(['?season=abcd', '?season=1990', '?season=2027'])(
 		'loads the current feed and polls it for %s',

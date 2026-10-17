@@ -5,7 +5,12 @@
 # source sends one, its code (ADR 0025, ADR 0026). Every feed that shows an
 # opponent uses it, and future features (full calendar, brackets) reuse it.
 #
-# SEE: docs/adr/0026-one-guest-team-rule.md, docs/api/games.md
+# On a past feed a league side also carries the abbreviation it had in that season
+# and whether that season's name, city or abbreviation differs from today's
+# (ADR 0054); the link code stays today's.
+#
+# SEE: docs/adr/0026-one-guest-team-rule.md, docs/adr/0054-historical-sides-and-past-pages.md,
+# docs/api/games.md
 
 import re
 from enum import StrEnum
@@ -27,6 +32,11 @@ class Opponent(FeedModel):
     name: NonEmptyStr | None
     city: NonEmptyStr | None
     guest: bool = False
+    # The side's abbreviation in a past season, from that season's team object, and
+    # whether that season's name, city or abbreviation differs from today's (ADR 0054).
+    # Null and false on a current feed and on a guest.
+    season_code: SideCode | None = None
+    historical: bool = False
 
     @model_validator(mode="after")
     def _require_a_league_code_of_a_league_team(self) -> Opponent:
@@ -40,4 +50,12 @@ class Opponent(FeedModel):
     def _require_a_code_or_a_name_of_a_guest(self) -> Opponent:
         if self.guest and self.code is None and self.name is None:
             raise ValueError("a guest team has a code or a name")
+        return self
+
+    @model_validator(mode="after")
+    def _require_a_season_code_of_a_historical_league_side(self) -> Opponent:
+        if self.guest and (self.season_code is not None or self.historical):
+            raise ValueError("a guest team has no season code and is not historical")
+        if self.historical and self.season_code is None:
+            raise ValueError("a historical side has a season code")
         return self

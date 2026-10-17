@@ -85,6 +85,17 @@ class StandingsRow(FeedModel):
     points_against: PerGameText
     differential: PerGameDifferential
     total: TotalDifferential
+    # The abbreviation the team had in the season on show and whether that season's
+    # name, city or abbreviation differs from today's (ADR 0054). Null and false on a
+    # current feed and on a stored feed from before the fields.
+    season_code: NonEmptyStr | None = None
+    historical: bool = False
+
+    @model_validator(mode="after")
+    def _require_a_season_code_of_a_historical_row(self) -> StandingsRow:
+        if self.historical and self.season_code is None:
+            raise ValueError("a historical row has a season code")
+        return self
 
 
 class ConferenceGroup(FeedModel):

@@ -18,9 +18,9 @@
 # championship is final its winner is the champion and its loser the runner-up,
 # and every other team is eliminated, with the round label of its last game; until
 # then a team with a final game is so far and the others are yet to play. Who
-# advances is never inferred. The format line is the line of the first game that
-# has one: "First to N" and " · Untimed" from a note suffix, else the regulation
-# periods and minutes of the game summary. A game has the box score of both teams
+# advances is never inferred. The format is the parts of the first game that has
+# one: the target points and untimed from a note suffix, else the regulation
+# periods and minutes of the game summary (ADR 0054). A game has the box score of both teams
 # (each player with the jersey, the position and the league team found by id in
 # the rosters of the stars job, null when not found), the six team statistics with
 # the better side, the leaders of the detail, the Top 5 rows (points, then
@@ -175,20 +175,30 @@ class AllStarSources:
     previous: AllStarSources | None
 
 
-def format_line(suffix: str | None, extras: AllStarDetailExtras | None) -> str | None:
-    """The format line of a game: "First to N" with " · Untimed" from the note
+def game_format(
+    suffix: str | None, extras: AllStarDetailExtras | None
+) -> dict[str, Any] | None:
+    """The format of a game as parts: the target points and untimed from the note
     suffix, else the regulation periods and minutes, else none."""
     first = FIRST_TO.search(suffix) if suffix else None
     if first is not None:
-        untimed = " · Untimed" if suffix and "Untimed" in suffix else ""
-        return f"First to {first.group(1)}{untimed}"
+        return {
+            "target_points": int(first.group(1)),
+            "untimed": bool(suffix and "Untimed" in suffix),
+            "periods": None,
+            "minutes": None,
+        }
     if extras is None:
         return None
     periods, seconds = extras.regulation_periods, extras.regulation_seconds
     if periods is None or seconds is None:
         return None
-    plural = "s" if periods != 1 else ""
-    return f"{periods} period{plural} · {seconds / 60:g} min"
+    return {
+        "target_points": None,
+        "untimed": False,
+        "periods": periods,
+        "minutes": seconds / 60,
+    }
 
 
 def edition_games(
@@ -606,13 +616,13 @@ def _game(
     }
 
 
-def _line_format(
+def _edition_format(
     sources: AllStarSources, games: Sequence[AllStarScoreboardGame]
-) -> str | None:
+) -> dict[str, Any] | None:
     for game in games:
-        line = format_line(parse_note(game.note)[1], sources.extras.get(game.id))
-        if line is not None:
-            return line
+        found = game_format(parse_note(game.note)[1], sources.extras.get(game.id))
+        if found is not None:
+            return found
     return None
 
 
@@ -830,7 +840,7 @@ def _edition(
     return {
         "date": sources.edition_date,
         "venue": _venue(sources, games),
-        "format_line": None if before else _line_format(sources, games),
+        "format": None if before else _edition_format(sources, games),
         "teams": [] if before else _teams(sources, games),
         "games": [_game(sources, g, next_id, championship_id, renamed) for g in shown],
         "counts": edition_counts(shown),

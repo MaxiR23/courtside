@@ -185,16 +185,22 @@ const TEAM_AWARD_NAME: Partial<Record<AwardCode, Record<number, () => string>>> 
 	all_defensive: { 1: m.playoffs_award_all_defense_1, 2: m.playoffs_award_all_defense_2 }
 };
 
+// A historical side has no team color: it is drawn as the guest sigla box (ADR 0054).
 const strip = (team: PlayoffTeam): { primary: string; secondary: string } | null =>
-	team.colors.primary !== null && team.colors.secondary !== null
+	!team.historical && team.colors.primary !== null && team.colors.secondary !== null
 		? { primary: team.colors.primary, secondary: team.colors.secondary }
 		: null;
 
 const fullName = (team: PlayoffTeam): string =>
 	[team.city, team.name].filter(Boolean).join(' ') || teamLabel(teamMark(team));
 
-const code = (team: { code: string | null; name: string | null }): string =>
-	team.code ?? team.name ?? NO_VALUE;
+const code = (team: {
+	code: string | null;
+	name: string | null;
+	seasonCode?: string | null;
+	historical?: boolean;
+}): string =>
+	team.historical && team.seasonCode ? team.seasonCode : (team.code ?? team.name ?? NO_VALUE);
 
 const monthDay: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
 
@@ -679,6 +685,12 @@ function roadCard(road: RoadTeam): RoadCardView {
 	};
 }
 
+// The primary color of a finalist; none for a historical team.
+function colorOf(finals: PlayoffsFinalsFeed, teamCode: string): string | null {
+	const team = finals.road.find((road) => road.team.code === teamCode)?.team;
+	return team && !team.historical ? team.colors.primary : null;
+}
+
 // Each half is drawn at its value over the larger of the two: drawing scale, not a statistic.
 // Which side is better is the feed's `better`.
 function barView(bar: HeadToHeadBar, finals: PlayoffsFinalsFeed): BarView {
@@ -688,8 +700,7 @@ function barView(bar: HeadToHeadBar, finals: PlayoffsFinalsFeed): BarView {
 		value: orDash(entry.value, format),
 		share: entry.value === null || largest <= 0 ? 0 : entry.value / largest,
 		better: bar.better !== null && bar.better === entry.teamCode,
-		color:
-			finals.road.find((road) => road.team.code === entry.teamCode)?.team.colors.primary ?? null
+		color: colorOf(finals, entry.teamCode)
 	});
 	return {
 		key: bar.stat,

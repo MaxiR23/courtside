@@ -29,6 +29,7 @@
 		layout: RowLayout;
 		gameHref: (id: string) => ResolvedPathname;
 		seasonSelect?: SeasonControl | null; // null: no selector
+		seasonTag?: string | null; // "Season 2022-23": the unavailable state of a past season keeps it
 	};
 
 	// `state` is renamed so the `$state` rune is not read as a store of the prop.
@@ -38,7 +39,8 @@
 		standingsHref,
 		layout,
 		gameHref,
-		seasonSelect = null
+		seasonSelect = null,
+		seasonTag = null
 	}: Props = $props();
 </script>
 
@@ -105,7 +107,7 @@
 		</div>
 	</section>
 {:else if page.kind === 'unavailable'}
-	<PlayerHeader header={null} {allGamesHref} {standingsHref} {layout} {seasonSelect} />
+	<PlayerHeader header={null} {allGamesHref} {standingsHref} {layout} {seasonSelect} {seasonTag} />
 	<section class="page-section">
 		<MessageRow text={m.feed_unavailable()} />
 	</section>

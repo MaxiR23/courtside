@@ -10,6 +10,7 @@
 // - Focus moves to the select once the calendar loads
 // - Close and Esc call onClose, on both layouts
 // - The mobile layout is a modal dialog with a scrim that closes it and locks the scroll, and Shift+Tab from the season select wraps to the last focusable element; the desktop layout is not modal
+// - A day of the calendar's window links to the home and any other day to its page; the games feed's days win over the window; no month after today's is offered (ADR 0054)
 // - Spanish strings: Temporada, Cerrar and the weekday initials
 //
 // What is covered:
@@ -41,7 +42,8 @@ const calendars = (): Record<string, CalendarFeed> => ({
 		seasonLabel: '2026-27',
 		firstDay: '2026-10-20',
 		lastDay: '2027-04-10',
-		days: ['2026-10-20', '2027-04-10']
+		days: ['2026-10-18', '2026-10-19', '2026-10-20', '2027-04-10'],
+		windowDays: ['2026-10-19', '2026-10-20']
 	},
 	'1999': recorded()
 });
@@ -55,7 +57,9 @@ const calendar = (changes: Record<string, unknown> = {}) => {
 		load,
 		season: 'current',
 		selectedDay: '2026-10-20' as string | null,
-		today: '2026-10-20' as string | null,
+		today: '2026-10-20',
+		windowDays: null as string[] | null,
+		windowHref: (date: string) => `/?day=${date}` as ResolvedPathname,
 		dayHref: (date: string) => `/day/${date}` as ResolvedPathname,
 		...changes
 	};
@@ -108,6 +112,37 @@ describe('CalendarSheet', () => {
 		expect(screen.getByRole('link', { name: 'March 1, 1999' }).getAttribute('aria-current')).toBe(
 			'date'
 		);
+	});
+
+	it('links a window day to the home and another day to its page', async () => {
+		show();
+		await screen.findByRole('combobox');
+		expect(screen.getByRole('link', { name: 'October 20, 2026' }).getAttribute('href')).toBe(
+			'/?day=2026-10-20'
+		);
+		expect(screen.getByRole('link', { name: 'October 18, 2026' }).getAttribute('href')).toBe(
+			'/day/2026-10-18'
+		);
+	});
+
+	it("uses the games feed's days over the calendar's window", async () => {
+		show({ windowDays: ['2026-10-18'] });
+		await screen.findByRole('combobox');
+		expect(screen.getByRole('link', { name: 'October 18, 2026' }).getAttribute('href')).toBe(
+			'/?day=2026-10-18'
+		);
+		expect(screen.getByRole('link', { name: 'October 20, 2026' }).getAttribute('href')).toBe(
+			'/day/2026-10-20'
+		);
+	});
+
+	it("offers no month after today's and draws no later day as a link", async () => {
+		show();
+		await screen.findByRole('combobox');
+		expect((screen.getByRole('button', { name: 'Next month' }) as HTMLButtonElement).disabled).toBe(
+			true
+		);
+		expect(screen.queryByRole('link', { name: 'April 10, 2027' })).toBeNull();
 	});
 
 	it('shows the unavailable message and focuses Close when the load fails', async () => {

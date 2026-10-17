@@ -40,8 +40,8 @@
 				<span class="code"><TeamMark team={side.team} part="label" /></span>
 				<span class="wins">{side.wins}</span>
 			{:else}
-				<span class="slot-label">{side.label}</span>
-				{#if side.note}<span class="note">{side.note}</span>{/if}
+				<span class="slot-label" title={side.label}>{side.label}</span>
+				{#if side.note}<span class="note" title={side.note}>{side.note}</span>{/if}
 			{/if}
 		</span>
 	{/each}
@@ -137,6 +137,7 @@
 
 	.undecided {
 		display: grid;
+		grid-template-columns: minmax(0, 1fr);
 		align-content: center;
 		gap: var(--hairline);
 	}

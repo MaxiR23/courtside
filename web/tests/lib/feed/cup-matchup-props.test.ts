@@ -8,6 +8,7 @@
 // - Scores on the right side when the top team is the home team
 // - A slot with no game: the round alone for the final, vs, no link, no scores
 // - The path rows: W/L, opponent, score, links only where the game page exists
+// - The position of a roster row in Spanish, an abbreviation as sent (ADR 0054)
 // - The injuries and none; the roster order, starters, leaders, a — for null averages, the injury in place of the position
 // - The player card fields: photo kept null, rookie, weight in pounds, hometown
 // - The note only for the championship; a side with no team has empty blocks
@@ -255,5 +256,16 @@ describe('toMatchupView roster note', () => {
 		expect(toMatchupView(feed(), { past: true }).rosterNote).toBe(
 			'Las plantillas solo se muestran de la temporada actual'
 		);
+	});
+});
+
+describe('toMatchupView position', () => {
+	it('translates a position name in Spanish and keeps an abbreviation as sent', () => {
+		const source = feed();
+		source.top.details!.roster[0]!.position = 'Center';
+		preferLanguages(['es']);
+		const roster = view(source).sides[0].roster;
+		expect(roster[0]?.position).toBe('Pívot');
+		expect(roster[1]?.position).toBe('F');
 	});
 });

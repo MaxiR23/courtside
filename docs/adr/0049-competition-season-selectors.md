@@ -1,6 +1,6 @@
 # 0049. Competition season selectors
 
-- Status: Accepted
+- Status: Superseded by 0054 for the Cup's season list only
 - Date: 2026-10-15
 
 ## Context

@@ -71,10 +71,12 @@ function rowView(row: StandingsRow, line: StandingsLine | null): StandingsRowVie
 	const { primary, secondary } = row.colors;
 	return {
 		code: row.code,
+		tile: row.historical && row.seasonCode ? row.seasonCode : row.code,
 		seed: row.seed === null ? NO_VALUE : String(row.seed),
 		city: row.city,
 		name: row.name,
-		strip: primary !== null && secondary !== null ? { primary, secondary } : null,
+		strip:
+			!row.historical && primary !== null && secondary !== null ? { primary, secondary } : null,
 		clinch: row.clinch ? clinchView(row.clinch) : null,
 		eliminated: row.clinch === 'e',
 		wins: String(row.wins),
@@ -133,6 +135,7 @@ export function toStandingsView(feed: StandingsFeed, options: Options = {}): Sta
 			meta: m.standings_meta_division({ conference: CONFERENCE_LONG[d.conference]() }),
 			rows: d.teams.map((t) => rowView(t, null))
 		})),
-		key: keyEntries()
+		key: keyEntries(),
+		lines: !past
 	};
 }

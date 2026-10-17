@@ -57,6 +57,7 @@ Everything under "Implementation rules" in `docs/design.md` and `docs/design-gam
 - **Stat cell:** 1px divider top border; label 11px, .16em, uppercase, accent text; value in Barlow Condensed; sub-line 13px, muted. Cells sit in `repeat(auto-fit, minmax(min(100%, Npx), 1fr))`.
 - **Tables:** the first column is `position: sticky; left: 0` with the ground background. A table scrolls horizontally inside `overflow-x: auto` once the viewport is narrower than its min width. No cell wraps.
 - The nav row and the sticky section tabs are the game detail page's.
+- **Position names** are translated through `position_*` (table in `docs/design-all-star.md`, Strings): a known English name, or a hyphenated name of known parts ("Forward-Center"), is translated; anything else, abbreviations such as "G" or "F-C" included, stays as the feed sends it. Guard and Shooting Guard are both "Escolta" in Spanish; Forward and Small Forward are both "Alero".
 
 ## Player page
 

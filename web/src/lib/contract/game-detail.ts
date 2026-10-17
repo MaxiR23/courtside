@@ -54,6 +54,8 @@ export interface DetailTeam {
 	name: string;
 	city: string | null;
 	guest: boolean;
+	seasonCode: string | null;
+	historical: boolean;
 	record: Record | null;
 }
 export interface Record {
@@ -225,6 +227,8 @@ export interface Opponent {
 	name: string | null;
 	city: string | null;
 	guest: boolean;
+	seasonCode: string | null;
+	historical: boolean;
 }
 export interface Standings {
 	away: TeamStanding | null;

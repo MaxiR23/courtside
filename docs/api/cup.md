@@ -231,7 +231,8 @@ current season.
   expiry.
 - A past season reads the same sources with the season value, and the schedules
   by provider id first. It must build as `complete`, or the build fails and
-  nothing is stored. `detailAvailable` is false.
+  nothing is stored. `detailAvailable` is false. The league sides are named by
+  that season's team object, with `seasonCode` and `historical` ([ADR 0054](../adr/0054-historical-sides-and-past-pages.md)).
 - The two quarterfinals of a conference are placed by start time, then id (the
   seeds they were drawn by are not known), and each side's label is a `seed`
   label with a null `seed`; a third quarterfinal in a conference fails the build

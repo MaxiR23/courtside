@@ -9,13 +9,13 @@ export type TeamSectionId = 'overview' | 'record' | 'leaders' | 'roster' | 'inju
 export type TeamTab = { id: TeamSectionId; label: string };
 
 export type TeamHeaderView = {
-	code: string; // three letters, monogram
+	code: string; // three letters, monogram: the season code of a historical past team
 	city: string; // e.g. "Oklahoma City"
 	name: string; // e.g. "Thunder"
 	conferenceLine: string; // "Western Conference · Northwest Division"
 	cupLine: CupTeamLineView | null; // null: outside the Cup or no group
 	titles: TitleView[] | null; // null: no title this season
-	colors: { primary: string; secondary: string }; // hex values from the feed
+	colors: { primary: string; secondary: string } | null; // hex values from the feed; null: a historical identity, no strip
 	record: string; // "57–25"
 	winPct: string; // "69.5%"
 	recordSeason: string; // "2025-26 record", the season of the record

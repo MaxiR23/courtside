@@ -22,6 +22,7 @@
 // - The edition video on the current, after and previous views, null without it; the Last time video URL; the season tag from the label passed in
 //
 // What is covered:
+// - The format line from the parts in English and Spanish, and the round labels, the eliminated placement and the result rows in Spanish; an unknown round as sent (ADR 0054)
 // - Recorded feeds (tests/lib/feed/fixtures/all-star-*.json) cloned and edited per case
 // - Every value is read from the feed field: nothing is counted or compared here
 //
@@ -130,7 +131,7 @@ describe('hero, before', () => {
 	it('shows the venue name alone when the city is missing, and the format line when known', () => {
 		const feed = before();
 		feed.edition.venue = { name: 'Example Arena', city: null, photoUrl: null };
-		feed.edition.formatLine = 'First to 40 · Untimed';
+		feed.edition.format = { targetPoints: 40, untimed: true, periods: null, minutes: null };
 		const rows = current(feed).header.rows;
 		expect(rows[1].value).toBe('Example Arena');
 		expect(rows[2].value).toBe('First to 40 · Untimed');
@@ -833,5 +834,75 @@ describe('the season tag', () => {
 		expect(toAllStarView(after(), 'current', { pastLabel: '2004-05' })!.header.seasonTag).toBe(
 			'Temporada 2004-05'
 		);
+	});
+});
+
+describe('the format line from the parts', () => {
+	const withFormat = (format: AllStarFeed['edition']['format']) => {
+		const feed = before();
+		feed.edition.format = format;
+		return current(feed).header.rows[2].value;
+	};
+
+	it('words a target score, untimed and periods in English', () => {
+		expect(withFormat({ targetPoints: 40, untimed: true, periods: null, minutes: null })).toBe(
+			'First to 40 · Untimed'
+		);
+		expect(withFormat({ targetPoints: 40, untimed: false, periods: null, minutes: null })).toBe(
+			'First to 40'
+		);
+		expect(withFormat({ targetPoints: null, untimed: false, periods: 1, minutes: 12 })).toBe(
+			'1 period · 12 min'
+		);
+		expect(withFormat({ targetPoints: null, untimed: false, periods: 4, minutes: 12 })).toBe(
+			'4 periods · 12 min'
+		);
+	});
+
+	it('words them in Spanish with the comma of the language', () => {
+		preferLanguages(['es']);
+		expect(withFormat({ targetPoints: 40, untimed: true, periods: null, minutes: null })).toBe(
+			'A 40 puntos · Sin reloj'
+		);
+		expect(withFormat({ targetPoints: null, untimed: false, periods: 1, minutes: 12 })).toBe(
+			'1 periodo · 12 min'
+		);
+		expect(withFormat({ targetPoints: null, untimed: false, periods: 4, minutes: 1.5 })).toBe(
+			'4 periodos · 1,5 min'
+		);
+	});
+
+	it('says to be confirmed for no format', () => {
+		expect(withFormat(null)).toBe('To be confirmed');
+	});
+});
+
+describe('the position in Spanish', () => {
+	it('translates a position name in the box row and its mobile meta, and keeps an abbreviation', () => {
+		const feed = after();
+		const row = feed.edition.games[0].boxScore!.away.players[0];
+		row.position = 'Guard';
+		preferLanguages(['es']);
+		const rows = current(feed).boxes[feed.edition.games[0].id]!.away.rows;
+		expect(rows[0].position).toBe('Escolta');
+		expect(rows[0].mobileMeta).toContain('Escolta');
+		expect(rows[1].position).toBe('F');
+	});
+});
+
+describe('the round labels in Spanish', () => {
+	it('translates the round of a card, the eliminated placement and the result rows', () => {
+		preferLanguages(['es']);
+		const view = current(after());
+		expect(view.games.map((g) => g.round?.text)).toContain('Todos contra todos');
+		expect(view.teams[2].placement).toBe('Eliminado en Todos contra todos');
+		expect(view.teams[0].results[0].text).toContain('Todos contra todos');
+	});
+
+	it('shows an unknown round as sent', () => {
+		const feed = after();
+		feed.edition.games[0].roundLabel = 'Skills Challenge';
+		preferLanguages(['es']);
+		expect(current(feed).games[0].round?.text).toBe('Skills Challenge');
 	});
 });

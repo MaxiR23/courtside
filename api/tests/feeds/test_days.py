@@ -15,6 +15,7 @@
 #   of the games schema, apart from their names
 #
 # What is covered:
+# - A final past game accepts available stats with no leaders or team stats, rejects leaders or team stats, and rejects stats availability on a game that is not final (ADR 0054)
 # - A valid feed is accepted and an invalid one is rejected
 # - The mechanical proof that a past game is valid against the games feed's Game schema
 #
@@ -181,3 +182,26 @@ def test_the_days_schema_equals_the_games_schema_apart_from_the_names() -> None:
     assert past_day["properties"]["games"]["items"] == {"$ref": "#/$defs/PastGame"}
     past_day["properties"]["games"]["items"] = {"$ref": "#/$defs/Game"}
     assert past_day == base_day
+
+
+def test_accepts_a_final_past_game_with_available_stats_and_no_leaders() -> None:
+    parsed = PastGame.model_validate(game("final", statsAvailability="available"))
+
+    assert parsed.stats_availability is not None
+    assert parsed.stats_availability.value == "available"
+    assert parsed.leaders is None and parsed.team_stats is None
+
+
+def test_rejects_a_past_game_with_leaders_or_team_stats() -> None:
+    final = game("final", statsAvailability="available")
+    stub: Payload = {"away": None, "home": None}
+
+    with pytest.raises(ValidationError):
+        PastGame.model_validate({**final, "leaders": stub})
+    with pytest.raises(ValidationError):
+        PastGame.model_validate({**final, "teamStats": stub})
+
+
+def test_rejects_stats_availability_on_a_game_that_is_not_final() -> None:
+    with pytest.raises(ValidationError):
+        PastGame.model_validate(game("scheduled", statsAvailability="available"))

@@ -9,7 +9,7 @@
 // - The starting five marks, one per starter, and the legend only when a starter exists
 // - The leader values in the accent class
 // - A click on a player calls onPlayer with the row index
-// - A side with no team shows its label and no blocks
+// - A side with no team shows its label and no blocks; a null label draws no label (ADR 0054)
 // - With a roster note: the path and the note, and no roster, injuries or none line
 //
 // What is covered:
@@ -140,6 +140,18 @@ describe('MatchupTeamBlock with no team', () => {
 		expect(screen.getByText('Winner of West SF')).toBeTruthy();
 		expect(container.querySelector('table')).toBeNull();
 		expect(container.querySelector('.path')).toBeNull();
+	});
+});
+
+describe('MatchupTeamBlock with a null label', () => {
+	it('draws no label for a side with no team and no seed', () => {
+		const f = feed();
+		f.bottom.team = null;
+		f.bottom.details = null;
+		const side = { ...sides(f)[1], label: null };
+		const { container } = show(side);
+		expect(screen.getByText('To be decided')).toBeTruthy();
+		expect(container.querySelector('.label')).toBeNull();
 	});
 });
 

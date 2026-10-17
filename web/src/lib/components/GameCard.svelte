@@ -202,11 +202,13 @@
 				</div>
 			{:else}
 				<div class="stats-column">
-					<p class="stats-notice">
-						{details.statsAvailability === 'pending'
-							? m.panel_stats_pending()
-							: m.panel_stats_unavailable()}
-					</p>
+					{#if details.statsAvailability !== 'available'}
+						<p class="stats-notice">
+							{details.statsAvailability === 'pending'
+								? m.panel_stats_pending()
+								: m.panel_stats_unavailable()}
+						</p>
+					{/if}
 					{@render gameCenter()}
 				</div>
 			{/if}

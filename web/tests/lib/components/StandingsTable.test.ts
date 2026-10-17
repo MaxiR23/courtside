@@ -9,6 +9,8 @@
 // - A clinch tag only for rows with a clinch; an eliminated row is muted
 // - Accents on a win streak, Diff and Tot; a plain tile for null colors
 // - The mobile layout hides the city; the team cell is the sticky rowheader
+// - A historical row draws its season code in the box, links with today's code and has no strip (ADR 0054)
+// - The desktop table carries no mobile class
 // - Spanish copy
 //
 // What is covered:
@@ -184,6 +186,27 @@ describe('StandingsTable', () => {
 		const headers = container.querySelectorAll('.row.body [role="rowheader"]');
 		expect(headers).toHaveLength(11);
 		for (const cell of headers) expect(cell.classList.contains('team')).toBe(true);
+	});
+
+	it("draws the season code of a historical row in the box and links to today's code", () => {
+		const past = toStandingsView(
+			JSON.parse(
+				readFileSync(join(__dirname, '..', 'feed', 'fixtures', 'standings-past.json'), 'utf8')
+			) as StandingsFeed,
+			{ past: true }
+		);
+		const { container } = show(past.conference[0]!);
+		const row = bodyRows(container).find(
+			(r) => r.querySelector('.name')?.textContent === 'Nykers'
+		)!;
+		expect(row.querySelector('.team-monogram')?.textContent).toBe('SEA');
+		expect(row.querySelector('.strip')).toBeNull();
+		expect(row.querySelector('a')?.getAttribute('href')).toBe('/team/nyk');
+	});
+
+	it('carries no mobile class on the desktop table', () => {
+		const { container } = show(east());
+		expect(container.querySelector('.table')?.classList.contains('mobile')).toBe(false);
 	});
 
 	it('renders in Spanish', () => {

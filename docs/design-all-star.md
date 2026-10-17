@@ -23,7 +23,7 @@ The visual, interaction and data specification of the All-Star page (`/all-star`
 
 Everything under "Implementation rules" in `docs/design.md`, `docs/design-cup.md` and `docs/design-playoffs.md` applies, plus:
 
-- **`/web` computes nothing.** The state, the champion, the runner-up, the placements, the wins and losses per team, the format line, the Top 5 of each game, the leaders, the team statistics and their bar values and better sides, the MVP's game lines and day totals, the attendance, the broadcast names, the round labels, the "To be determined" slots and every count all come ready from the feed. `/web` formats and lays out.
+- **`/web` computes nothing.** The state, the champion, the runner-up, the placements, the wins and losses per team, the format (as parts; the page words the format line), the Top 5 of each game, the leaders, the team statistics and their bar values and better sides, the MVP's game lines and day totals, the attendance, the broadcast names, the round labels, the "To be determined" slots and every count all come ready from the feed. `/web` formats and lays out.
 - **Nothing is hardcoded in `/web`:** no team, venue, broadcast, date, round name or award winner. No data source name, video platform or URL is written in `/web`.
 - **Every user-facing string is translatable**, in English and Spanish. Long labels truncate with an ellipsis and never wrap in a table cell.
 - **A value that is missing renders `—`. A block that is missing hides its section.**
@@ -184,8 +184,7 @@ Same size, letter spacing and truncation as the other stage tags: 11px, .16em, u
 
 ### Context line
 
-- Muted caps after the tag: the round, as the feed sends it ("Round Robin", "Championship", "Semifinals"). The format suffix is not shown here.
-- Exception: "Championship" is the translated string `allstar_round_championship` ("Campeonato" in Spanish), as on the `/all-star` page.
+- Muted caps after the tag: the round. The four known rounds are translated strings (`allstar_round_championship`, `allstar_round_semifinals`, `allstar_round_robin`, `allstar_round_game`), as on the `/all-star` page; any other round is shown as the feed sends it. The format suffix is not shown here.
 
 ### Home game card
 
@@ -365,6 +364,20 @@ Mapped to existing tokens: the ground is `--color-bg`; ink, muted and accent are
 | `allstar_mvp_box_link` | Box score and highlights → | Estadísticas y resumen → |
 | `allstar_games_title` | Games | Partidos |
 | `allstar_round_championship` | Championship | Campeonato |
+| `allstar_round_semifinals` | Semifinals | Semifinales |
+| `allstar_round_robin` | Round Robin | Todos contra todos |
+| `allstar_round_game` | All-Star Game | Partido de las Estrellas |
+| `allstar_format_first_to` | First to {points} | A {points} puntos |
+| `allstar_format_untimed` | Untimed | Sin reloj |
+| `allstar_format_periods` | {count} period / {count} periods | plural, see `web/messages/es.json` |
+| `allstar_format_minutes` | {minutes} min | {minutes} min |
+| `position_guard` | Guard | Escolta |
+| `position_forward` | Forward | Alero |
+| `position_center` | Center | Pívot |
+| `position_point_guard` | Point Guard | Base |
+| `position_shooting_guard` | Shooting Guard | Escolta |
+| `position_small_forward` | Small Forward | Alero |
+| `position_power_forward` | Power Forward | Ala-pívot |
 | `allstar_status_final` | Final | Final |
 | `allstar_status_final_ot` | Final · OT | Final · TE |
 | `allstar_status_live` | Live · {status} | En vivo · {status} |
@@ -406,7 +419,7 @@ Mapped to existing tokens: the ground is `--color-bg`; ink, muted and accent are
 | `allstar_result_ot` | OT | TE |
 | `allstar_player_title` | {name} · {team} | {name} · {team} |
 
-Format lines ("1 period · 12 min", "First to 40 · Untimed"), round labels, placements' round names, the champion, the status text and the clock come from the feed; the other keys are the fixed words around them. Strings for the Cup marks stay in `docs/design-cup.md` and for the playoffs marks in `docs/design-playoffs.md`.
+The format comes as parts (`targetPoints`, `untimed`, `periods`, `minutes`) and the page words it ("1 period · 12 min", "First to 40 · Untimed"); the known round labels ("Championship", "Semifinals", "Round Robin", "All-Star Game") and placements' round names are translated and any other is shown as sent; the champion, the status text and the clock come from the feed; the other keys are the fixed words around them. Strings for the Cup marks stay in `docs/design-cup.md` and for the playoffs marks in `docs/design-playoffs.md`.
 
 ## Feed contract
 
@@ -415,7 +428,7 @@ Keys are camelCase. Nullable fields are always present and `null` when absent. T
 ### All-Star feed (`/feeds/all-star.json`)
 
 - State (`before`, `live`, `after`) and the season year.
-- The current edition: date, venue name and city, the format line (built by the backend from the structured format and the note suffix, with no prose), the teams, and the games.
+- The current edition: date, venue name and city, the format parts (built by the backend from the structured format and the note suffix, with no prose; the page words them), the teams, and the games.
   - Per team: code, name, record (wins, losses), the placement (`champion`, `runnerUp`, `eliminated` with the round label, `soFar`, `yetToPlay`) and the roster tiles (player id, name, photo, league team code and colors). All-Star teams carry no colors.
   - Per game: game id when it exists, round, label, status, status text, clock and period as the games feed sends them, scores, overtime flag, winner, tip-off, attendance, broadcasts (TV and streaming names), the two teams, the box scores, the team statistics (FG%, 3PM, rebounds, assists, steals, blocks, each with both values and the better side), the leaders (two per game, one per team), the Top 5 rows (sorted by points, then rebounds plus assists), the highlights when stored (`null` otherwise) and the "To be determined" flag for an unscheduled or team-less game.
   - Per box score player: id, name, jersey, position, starter flag, photo, the stat line (minutes, points, field goals, three pointers, free throws, rebounds, assists, turnovers, steals, blocks, offensive and defensive rebounds, fouls, plus-minus), and the league team (code, colors) resolved by id, or `null` when the player is not found.

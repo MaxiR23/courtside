@@ -3,7 +3,8 @@
 // Tests for the props that turn the All-Star marks of the core feeds into the tag and round line of a game and the tag of a player.
 //
 // Tested:
-// - The stage tag and the Round Robin context, in English and in Spanish
+// - The stage tag and the Round Robin context, in English and in Spanish (the known round labels are translated, ADR 0054)
+// - allStarRound: the known labels in both languages, case-insensitive, an unknown label as sent, null for null
 // - The Championship context is translated and the mark is flagged as the championship
 // - No mark for a null mark and for a feed without the key
 // - The player tag "All-Star 2027", in English and in Spanish
@@ -18,7 +19,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { GameAllStar } from '../../../src/lib/contract/games';
-import { allStarMark, allStarPlayerTag } from '../../../src/lib/feed/all-star-mark-props';
+import {
+	allStarMark,
+	allStarPlayerTag,
+	allStarRound
+} from '../../../src/lib/feed/all-star-mark-props';
 import { preferLanguages } from '../../prefer-languages';
 
 afterEach(() => {
@@ -37,13 +42,20 @@ describe('allStarMark', () => {
 		});
 	});
 
-	it('writes the Spanish stage tag and keeps the round as the feed writes it', () => {
+	it('writes the Spanish stage tag and the Spanish round', () => {
 		preferLanguages(['es-ES']);
 		expect(allStarMark(robin)).toEqual({
 			tag: 'All-Star',
-			context: 'Round Robin',
+			context: 'Todos contra todos',
 			championship: false
 		});
+	});
+
+	it('shows a round the page does not know as the feed writes it', () => {
+		preferLanguages(['es-ES']);
+		expect(allStarMark({ roundLabel: 'Skills Challenge', championship: false })?.context).toBe(
+			'Skills Challenge'
+		);
 	});
 
 	it('translates the Championship context and flags it', () => {
@@ -72,5 +84,30 @@ describe('allStarPlayerTag', () => {
 	it('gives no tag for null and for undefined', () => {
 		expect(allStarPlayerTag(null)).toBeNull();
 		expect(allStarPlayerTag(undefined)).toBeNull();
+	});
+});
+
+describe('allStarRound', () => {
+	it('translates the known round labels in English and in Spanish', () => {
+		const labels = ['Championship', 'Semifinals', 'Round Robin', 'All-Star Game'];
+		expect(labels.map(allStarRound)).toEqual(labels);
+		preferLanguages(['es-ES']);
+		expect(labels.map(allStarRound)).toEqual([
+			'Campeonato',
+			'Semifinales',
+			'Todos contra todos',
+			'Partido de las Estrellas'
+		]);
+	});
+
+	it('reads a label case-insensitively', () => {
+		preferLanguages(['es-ES']);
+		expect(allStarRound('SEMIFINALS')).toBe('Semifinales');
+	});
+
+	it('gives an unknown label as sent and null for null', () => {
+		preferLanguages(['es-ES']);
+		expect(allStarRound('Skills Challenge')).toBe('Skills Challenge');
+		expect(allStarRound(null)).toBeNull();
 	});
 });

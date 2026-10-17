@@ -4,7 +4,8 @@
 //
 // Tested:
 // - The h1, city, conference line, record, win percentage, the season of the record and cells
-// - The two halves of the color strip carry the feed colors as inline backgrounds
+// - The two halves of the color strip carry the feed colors as inline backgrounds; a historical identity (null colors) draws the season code and no strip (ADR 0054)
+// - The season tag stays on the unavailable state (no header, a seasonTag) and the skeleton wins while loading
 // - Only the nav row with no header; the skeleton and aria-busy while loading
 // - The Cup line after the conference line, linking to the Cup page; none without the mark
 // - Every title after the Cup line, one or more, none for null titles, never a link
@@ -99,6 +100,32 @@ describe('TeamHeader', () => {
 			'rgb(0, 122, 193)',
 			'rgb(239, 59, 36)'
 		]);
+	});
+
+	it('draws the season code in the box and no strip for a historical identity', () => {
+		const { container } = render(TeamHeader, {
+			props: {
+				header: { ...header, code: 'SEA', colors: null },
+				allGamesHref: HOME,
+				standingsHref: STANDINGS,
+				layout: 'desktop'
+			}
+		});
+		expect(container.querySelector('.team-monogram')?.textContent).toBe('SEA');
+		expect(container.querySelector('.strip')).toBeNull();
+	});
+
+	it('keeps the season tag with no header when a season tag is given', () => {
+		render(TeamHeader, {
+			props: {
+				header: null,
+				seasonTag: 'Season 2022-23',
+				allGamesHref: HOME,
+				standingsHref: STANDINGS,
+				layout: 'desktop'
+			}
+		});
+		expect(screen.getByText('Season 2022-23')).toBeTruthy();
 	});
 
 	it('shows only the nav row with no header', () => {

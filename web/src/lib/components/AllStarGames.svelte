@@ -171,14 +171,17 @@
 </div>
 
 <style>
+	/* One shrinkable column, so the cards row scrolls inside itself instead of widening the page. */
 	.all-star-games {
 		display: grid;
+		grid-template-columns: minmax(0, 1fr);
 		gap: var(--panel-section-gap);
 		min-width: 0;
 	}
 
 	.head {
 		display: grid;
+		grid-template-columns: minmax(0, 1fr);
 		gap: var(--day-strip-gap);
 	}
 

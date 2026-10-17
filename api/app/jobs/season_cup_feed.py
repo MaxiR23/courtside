@@ -6,7 +6,8 @@
 # The Cup begins with the 2023-24 season (season 2024). A past Cup is stored only
 # when it builds as complete: a Cup that is not complete fails the build and
 # nothing is stored, because the feed is kept for good. Game detail is never
-# available.
+# available. Its league sides are named by that season's team object and carry the
+# season code and the historical flag (ADR 0054).
 #
 # SeasonCupFeeds is the feed kind of the on-demand cache: the id is the season's
 # end year, the feed is stored at feeds/season-cup/{season}.json only when
@@ -43,6 +44,7 @@ from app.jobs.on_demand import (
 )
 from app.jobs.season_standings_feed import past_season_status
 from app.jobs.stars import StarsJob
+from app.jobs.team_names import TeamNamesFeeds
 from app.settings import Settings
 from app.sources import cup, team_schedule
 from app.sources.http import SourceClient
@@ -69,6 +71,7 @@ class SeasonCupFeeds:
         client: SourceClient,
         cache: FeedCache,
         stars: StarsJob,
+        names: TeamNamesFeeds,
         *,
         fetch_group_teams: FetchGroupTeams = cup.fetch_group_teams,
         fetch_group_table: FetchGroupTable = cup.fetch_group_table,
@@ -79,6 +82,7 @@ class SeasonCupFeeds:
         self._store = store
         self._client = client
         self._stars = stars
+        self._names = names
         self._fetch_group_teams = fetch_group_teams
         self._fetch_group_table = fetch_group_table
         self._fetch_conference_table = fetch_conference_table
@@ -111,7 +115,7 @@ class SeasonCupFeeds:
         feed = build_cup_feed(dataclasses.replace(sources, past=True))
         if feed.stage is not CupStage.COMPLETE:
             raise CupBuildError(f"the {season} Cup is not complete")
-        return with_build_version(feed)
+        return with_build_version(await self._names.name_sides(feed, int(season)))
 
     def stored(self, season: str) -> CupFeed | None:
         """The stored Cup feed of a season, or none when missing or invalid."""

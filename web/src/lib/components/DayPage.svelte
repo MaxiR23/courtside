@@ -3,6 +3,7 @@
 	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
 	import DayHeader from '#lib/components/DayHeader.svelte';
 	import GameCard from '#lib/components/GameCard.svelte';
+	import Kicker from '#lib/components/Kicker.svelte';
 	import MessageRow from '#lib/components/MessageRow.svelte';
 	import SiteFooter from '#lib/components/SiteFooter.svelte';
 	import type { DateCalendar } from '#lib/calendar/types.ts';
@@ -39,6 +40,12 @@
 
 	const CARDS = [0, 1, 2]; // placeholder game cards
 	let openId = $state<string | null>(null);
+	let playingId = $state<string | null>(null);
+
+	function toggle(id: string) {
+		openId = openId === id ? null : id;
+		playingId = null;
+	}
 </script>
 
 {#if page.kind === 'ready'}
@@ -53,7 +60,8 @@
 	/>
 	<section class="page-section">
 		{#if page.view.games.length > 0}
-			<ul class="games">
+			<div class="head"><Kicker text={m.past_day_title()} /></div>
+			<ul class="games" aria-label={m.past_day_games({ date: page.view.title })}>
 				{#each page.view.games as game (game.id)}
 					<li>
 						<GameCard
@@ -61,7 +69,9 @@
 							{layout}
 							spoilerFree={false}
 							open={openId === game.id}
-							onToggle={() => (openId = openId === game.id ? null : game.id)}
+							onToggle={() => toggle(game.id)}
+							playingVideoId={openId === game.id ? playingId : null}
+							onPlay={(videoId) => (playingId = videoId)}
 							detailHref={gameHref(game.id)}
 							{teamHref}
 						/>
@@ -116,6 +126,10 @@
 		max-width: var(--content-max-width);
 		margin: 0 auto;
 		padding: var(--side-padding);
+	}
+
+	.head {
+		margin-bottom: var(--game-list-gap);
 	}
 
 	.games {

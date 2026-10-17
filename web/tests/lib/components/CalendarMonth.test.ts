@@ -7,6 +7,7 @@
 // - The arrows are disabled at the first and the last month, and call their callbacks otherwise
 // - A day with games is a link with the href from dayHref and the has-games class
 // - A day without games is a span with no href and no tabindex
+// - A day with games after today is a span, not a link (ADR 0054)
 // - Today has the today class; the selected day has the selected class and aria-current="date"
 // - The mobile layout adds the mobile class that picks the smaller cell
 // - The day cell and the mark come from tokens in its source
@@ -102,15 +103,23 @@ describe('CalendarMonth', () => {
 
 	it('draws a day with games as a link and a day without as a plain span', () => {
 		const { container } = render(CalendarMonth, { props: props() });
-		const link = screen.getByRole('link', { name: 'February 9, 1999' });
-		expect(link.getAttribute('href')).toBe('/day/1999-02-09');
+		const link = screen.getByRole('link', { name: 'February 5, 1999' });
+		expect(link.getAttribute('href')).toBe('/day/1999-02-05');
 		expect(link.classList.contains('has-games')).toBe(true);
-		expect(container.querySelectorAll('a.day')).toHaveLength(3);
+		expect(container.querySelectorAll('a.day')).toHaveLength(2);
 		const off = screen.getByText('7');
 		expect(off.tagName).toBe('SPAN');
 		expect(off.hasAttribute('href')).toBe(false);
 		expect(off.hasAttribute('tabindex')).toBe(false);
 		expect(off.classList.contains('off')).toBe(true);
+	});
+
+	it('draws a day with games after today as a plain span, never a link', () => {
+		render(CalendarMonth, { props: props() });
+		expect(screen.queryByRole('link', { name: 'February 9, 1999' })).toBeNull();
+		const later = screen.getByText('9');
+		expect(later.tagName).toBe('SPAN');
+		expect(later.classList.contains('off')).toBe(true);
 	});
 
 	it('marks today and the selected day', () => {

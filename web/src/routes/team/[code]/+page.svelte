@@ -20,9 +20,11 @@
 	import {
 		currentSeason,
 		requestedSeason,
+		seasonLabelOf,
 		seasonOnShow,
 		teamSeasons
 	} from '#lib/season/seasons.ts';
+	import { m } from '#lib/paraglide/messages.js';
 	import type { SeasonControl } from '#lib/season/types.ts';
 	import type { TeamPageState } from '#lib/team/types.ts';
 
@@ -40,6 +42,12 @@
 	// A primitive, so the calendar arriving later does not rebuild the poller.
 	const shown = $derived(seasonOnShow(requested, calendar?.feed ?? null, settled));
 	const past = $derived(typeof shown === 'number');
+	// The unavailable state of a past season keeps its Season tag.
+	const seasonTag = $derived.by(() => {
+		if (typeof shown !== 'number') return null;
+		const label = seasonLabelOf(calendar?.feed ?? null, shown);
+		return label ? m.past_season_tag({ label }) : null;
+	});
 
 	const template = teamFeedUrl;
 	const pastTemplate = seasonTeamFeedUrl;
@@ -101,5 +109,6 @@
 	{gameHref}
 	{playerHref}
 	{seasonSelect}
+	{seasonTag}
 	{seasonHref}
 />

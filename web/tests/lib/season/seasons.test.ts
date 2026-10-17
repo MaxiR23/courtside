@@ -10,6 +10,7 @@
 // - teamSeasons: every season with no names, only the seasons inside runs, a run with no end runs to
 //   the current season, the season on show is kept
 // - playerSeasons: the labels that match plus the current season, no labels, a label not in the calendar
+// - seasonLabelOf: the calendar's label of a listed season, null for an unlisted season and for a missing calendar
 //
 // What is covered:
 // - Pure logic: happy path, edge cases and the error paths
@@ -24,6 +25,7 @@ import {
 	currentSeason,
 	playerSeasons,
 	requestedSeason,
+	seasonLabelOf,
 	seasonOnShow,
 	teamSeasons
 } from '../../../src/lib/season/seasons';
@@ -111,5 +113,16 @@ describe('playerSeasons', () => {
 
 	it('ignores a label the calendar does not have', () => {
 		expect(ends(playerSeasons(calendar, ['1980-81'], 2027))).toEqual([2027]);
+	});
+});
+
+describe('seasonLabelOf', () => {
+	it("gives the calendar's label of a listed season", () => {
+		expect(seasonLabelOf(calendar, 2005)).toBe('2004-05');
+	});
+
+	it('gives null for an unlisted season and for a missing calendar', () => {
+		expect(seasonLabelOf(calendar, 1980)).toBeNull();
+		expect(seasonLabelOf(null, 2005)).toBeNull();
 	});
 });

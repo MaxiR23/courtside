@@ -1,6 +1,6 @@
 # 0040. Calendar and day feeds
 
-- Status: Superseded by 0048 for the day feed's highlights only
+- Status: Superseded by 0048 for the day feed's highlights only, and by 0054 for a final game's stats availability only
 - Date: 2026-10-15
 
 ## Context

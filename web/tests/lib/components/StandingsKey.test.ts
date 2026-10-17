@@ -4,6 +4,7 @@
 //
 // Tested:
 // - The Key label, seven tags with their meanings and the note
+// - The dashed lines sentence only when lines is true
 // - Spanish copy
 //
 // What is covered:
@@ -36,7 +37,7 @@ afterEach(() => {
 
 describe('StandingsKey', () => {
 	it('renders the Key label, seven tags with their meanings and the note', () => {
-		const { container } = render(StandingsKey, { props: { entries: entries() } });
+		const { container } = render(StandingsKey, { props: { entries: entries(), lines: true } });
 		expect(screen.getByText('Key')).toBeTruthy();
 		expect([...container.querySelectorAll('.clinch-tag')].map((t) => t.textContent)).toEqual([
 			'*',
@@ -49,12 +50,19 @@ describe('StandingsKey', () => {
 		]);
 		expect(screen.getByText('Clinched play-in')).toBeTruthy();
 		expect(screen.getByText('Eliminated')).toBeTruthy();
-		expect(container.querySelector('.note')?.textContent).toContain('dashed lines');
+		expect(container.querySelector('.note')?.textContent).toContain('Diff is per game');
+		expect(screen.getByText('The dashed lines mark seed 6 and seed 10.')).toBeTruthy();
+	});
+
+	it('draws the dashed lines sentence only when lines is true', () => {
+		render(StandingsKey, { props: { entries: entries(), lines: false } });
+		expect(screen.queryByText(/dashed lines/)).toBeNull();
+		expect(screen.getByText(/Diff is per game/)).toBeTruthy();
 	});
 
 	it('renders in Spanish', () => {
 		preferLanguages(['es-ES']);
-		render(StandingsKey, { props: { entries: entries() } });
+		render(StandingsKey, { props: { entries: entries(), lines: true } });
 		expect(screen.getByText('Leyenda')).toBeTruthy();
 		expect(screen.getByText('Eliminado')).toBeTruthy();
 	});

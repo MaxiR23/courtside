@@ -7,7 +7,12 @@
 	import type { DateCalendar } from '#lib/calendar/types.ts';
 	import { DayLoader } from '#lib/day/loader.svelte.ts';
 	import type { DayPageState } from '#lib/day/types.ts';
-	import { calendarFeedUrl, dayFeedUrl, gamesFeedUrl } from '#lib/feed/config.ts';
+	import {
+		calendarFeedUrl,
+		dayFeedUrl,
+		gamesFeedUrl,
+		videoPlatformName
+	} from '#lib/feed/config.ts';
 	import { toDayView } from '#lib/feed/day-props.ts';
 	import {
 		calendarFeedUrl as calendarFeedUrlOf,
@@ -45,7 +50,7 @@
 
 	$effect(() => loader?.start(params.date));
 
-	const view = $derived(loader?.feed ? toDayView(loader.feed) : null);
+	const view = $derived(loader?.feed ? toDayView(loader.feed, { videoPlatformName }) : null);
 
 	const pageState: DayPageState = $derived.by(() => {
 		if (!loader) return { kind: 'unavailable' };
@@ -69,6 +74,8 @@
 					season: String(view.season),
 					selectedDay: view.date,
 					today: easternToday(new Date()),
+					windowDays: null,
+					windowHref: (date: string) => resolve(`/?day=${date}`),
 					dayHref
 				}
 			: null

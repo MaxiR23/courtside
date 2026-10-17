@@ -52,6 +52,8 @@ export interface GameTeam {
 	name: string;
 	city: string | null;
 	guest: boolean;
+	seasonCode: string | null;
+	historical: boolean;
 }
 export interface Stars {
 	away: Star | null;

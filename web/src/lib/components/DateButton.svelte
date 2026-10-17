@@ -2,6 +2,7 @@
 	import { afterNavigate } from '$app/navigation';
 	import CalendarSheet from '#lib/components/CalendarSheet.svelte';
 	import type { DateCalendar } from '#lib/calendar/types.ts';
+	import { m } from '#lib/paraglide/messages.js';
 	import type { RowLayout } from '#lib/schedule/types.ts';
 
 	type Props = {
@@ -32,6 +33,7 @@
 	<button
 		type="button"
 		class="trigger"
+		aria-label={m.past_calendar_open()}
 		aria-haspopup="dialog"
 		aria-expanded={open}
 		bind:this={button}

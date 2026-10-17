@@ -5,7 +5,9 @@
 # Tested:
 # - The builder sets that season's name and city, the record of that season's standing (a 7th division place, the play-in position null before 2021 and set from 2021), the leaders of that season, the roster of the box-score players (jersey and position or null, every other field null, status active) and the schedule with the regular season and the playoffs group
 # - A leader with no position keeps a null position
-# - Opponents are named by that season's team object, and every final game has detail available
+# - Opponents are named by that season's team object with their season code and the historical flag, and every final game has detail available
+# - The header carries the season code and the historical flag, none without an identity
+# - The kind: a header whose season object differs from the current season's is historical with its season code
 # - The builder sets the arena, coach, injuries, next game, Cup and titles to null, and the feed validates as a past team feed
 # - The builder fails for a team with no standing
 # - The kind: a missing season team answers unknown after one read, and a second request answers unknown with no read
@@ -51,7 +53,7 @@ from app.jobs.season_team_feed import (
 )
 from app.jobs.stars import StarsJob
 from app.jobs.team_feed import TeamBuildError
-from app.jobs.team_names import TeamNamesFeeds
+from app.jobs.team_names import SeasonIdentity, TeamNamesFeeds
 from app.settings import Settings
 from app.sources import season_team as season_team_adapter
 from app.sources.division_standings import DivisionStandings
@@ -125,7 +127,8 @@ def build(
     end_year: int = 2004,
     entry_changes: dict[str, Any] | None = None,
     names: list[NameRun] | None = None,
-    opponent_names: dict[str, tuple[str, str]] | None = None,
+    opponent_names: dict[str, SeasonIdentity] | None = None,
+    identity: SeasonIdentity | None = None,
     roster: list[BoxScoreRosterEntry] | None = None,
     season_leaders: SeasonLeaders | None = None,
 ) -> PastTeamFeed:
@@ -142,6 +145,7 @@ def build(
         playoffs_schedule(),
         names,
         opponent_names,
+        identity,
     )
 
 
@@ -269,15 +273,41 @@ def test_only_a_final_game_has_detail_available() -> None:
 
 
 def test_the_opponents_are_named_by_that_seasons_team_object() -> None:
-    feed = build(opponent_names={"SAS": ("Harbor Gulls", "Seattle")})
+    feed = build(
+        opponent_names={"SAS": SeasonIdentity("Harbor Gulls", "Seattle", "SEA", True)}
+    )
 
     assert feed.schedule is not None
     opponents = {
-        (g.opponent.code, g.opponent.name, g.opponent.city)
+        (
+            g.opponent.code,
+            g.opponent.name,
+            g.opponent.city,
+            g.opponent.season_code,
+            g.opponent.historical,
+        )
         for group in feed.schedule.groups
         for g in group.games
     }
-    assert opponents == {("SAS", "Harbor Gulls", "Seattle")}
+    assert opponents == {("SAS", "Harbor Gulls", "Seattle", "SEA", True)}
+
+
+def test_a_historical_header_carries_its_season_code_and_the_flag() -> None:
+    feed = build(identity=SeasonIdentity("Harbor Gulls", "Seattle", "SEA", True))
+
+    assert (feed.code, feed.season_code, feed.historical) == ("OKC", "SEA", True)
+
+
+def test_a_header_that_kept_its_name_is_not_historical() -> None:
+    feed = build(identity=SeasonIdentity("Thunder", "Oklahoma City", "OKC", False))
+
+    assert (feed.season_code, feed.historical) == ("OKC", False)
+
+
+def test_a_header_built_with_no_identity_has_no_season_code() -> None:
+    feed = build()
+
+    assert (feed.season_code, feed.historical) == (None, False)
 
 
 def test_the_builder_sets_the_blocks_of_today_to_null_and_the_names_given() -> None:
@@ -337,6 +367,7 @@ class SeasonTeamKit:
         self.missing = False
         self.failing = False
         self.opponent_names: dict[str, SeasonTeam] = {}
+        self.current_teams: dict[str, SeasonTeam] = {}
         self.start()
 
     def start(self) -> None:
@@ -380,6 +411,8 @@ class SeasonTeamKit:
             self.name_reads += 1
         if self.missing:
             return None
+        if end_year == 2027 and code in self.current_teams:
+            return self.current_teams[code]
         return self.opponent_names.get(code, season_team())
 
     async def fetch_team_info(
@@ -520,12 +553,33 @@ async def test_an_unknown_current_season_is_not_ready(kit: SeasonTeamKit) -> Non
 
 
 @pytest.mark.anyio
+async def test_the_kind_marks_a_header_that_differs_from_the_current_season_historical(
+    kit: SeasonTeamKit,
+) -> None:
+    kit.current_teams = {
+        "OKC": SeasonTeam(
+            team_id="25",
+            abbreviation="OKC",
+            display_name="Oklahoma City Thunder",
+            name="Thunder",
+            location="Oklahoma City",
+        )
+    }
+
+    feed = PastTeamFeed.model_validate_json(await kit.serve("2004-okc"))
+
+    assert (feed.code, feed.season_code, feed.historical) == ("OKC", "SEA", True)
+
+
+@pytest.mark.anyio
 async def test_the_names_are_built_first_and_the_stored_feed_carries_them(
     kit: SeasonTeamKit,
 ) -> None:
     body = await kit.serve("2004-okc")
 
-    assert kit.name_reads == 2027 - 1994 + 1 - 1
+    # The 33 other seasons of the names, plus the current season read to compare the
+    # team and its opponent with today's (ADR 0054).
+    assert kit.name_reads == 2027 - 1994 + 1 - 1 + 2
     feed = PastTeamFeed.model_validate_json(body)
     assert [(r.from_, r.to, r.name) for r in feed.names] == [
         (1994, None, "Harbor Gulls")

@@ -154,6 +154,8 @@ class StandingsKit:
         # The (name, city) of the season team object by code; the default is the
         # name and city of the standings rows.
         self.season_names: dict[str, tuple[str, str]] = {}
+        # The current season's team object by code, when it differs.
+        self.current_names: dict[str, tuple[str, str]] = {}
         self.start()
 
     def start(self) -> None:
@@ -182,7 +184,8 @@ class StandingsKit:
         self, client: SourceClient, code: str, season: int, settings: Settings
     ) -> SeasonTeam | None:
         self.calls.append(f"season-team/{code}/{season}")
-        name, city = self.season_names.get(code, ("Team", code.title()))
+        names = self.current_names if season == 2027 else self.season_names
+        name, city = names.get(code, ("Team", code.title()))
         return SeasonTeam(
             team_id="1",
             abbreviation="OLD",
@@ -261,6 +264,10 @@ async def test_each_row_is_named_by_that_seasons_team_object_with_todays_code(
         "Seattle",
     )
     assert (east["BBB"].name, east["BBB"].city) == ("Team", "Bbb")
+    assert (east["AAA"].season_code, east["AAA"].historical) == ("OLD", True)
+    assert (east["BBB"].season_code, east["BBB"].historical) == ("OLD", False)
+    divisional = {row.code: row for row in feed.divisions[0].teams}
+    assert divisional["AAA"].historical is True
     assert "season-team/AAA/1996" in kit.calls
 
 

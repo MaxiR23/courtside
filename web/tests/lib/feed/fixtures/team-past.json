@@ -2,6 +2,8 @@
 	"cup": null,
 	"titles": null,
 	"code": "OKC",
+	"seasonCode": "SEA",
+	"historical": true,
 	"city": "Harbor City",
 	"name": "Mariners",
 	"conference": "west",
@@ -181,7 +183,9 @@
 							"code": "DEN",
 							"name": null,
 							"city": null,
-							"guest": false
+							"guest": false,
+							"seasonCode": "DNV",
+							"historical": true
 						},
 						"isHome": false,
 						"kind": "regular",

@@ -19,6 +19,7 @@
 // - The postseason mark of a game: filled from the feed's mark, null for a null mark
 // - The All-Star mark of a game: filled from the feed's mark, null for a null mark and for a feed without the key; a game whose guest sides have no city maps with a null city; an All-Star game is never a hero game and the league games stay
 // - A final All-Star game without a line score (untimed, ADR 0051) maps to a card without details and the home view is still shown
+// - A final game with available stats and no leaders maps to a final-without-stats card with available stats (a past day, ADR 0054); the games feed's available game still gives the played panel
 // - The feed's seven day.date strings, in order, as dayIds
 //
 // What is covered:
@@ -51,6 +52,9 @@ const todayGame = (v: HomeView, id: string): ScheduleGame => {
 	if (!found) throw new Error(`No game ${id}`);
 	return found;
 };
+
+// A side as the contract types it: the season fields of a current feed are null and false.
+const side = <T extends object>(team: T) => ({ ...team, seasonCode: null, historical: false });
 
 describe('toHomeView', () => {
 	it('sets dayIds to the seven feed dates in order', () => {
@@ -289,6 +293,24 @@ describe('toHomeView', () => {
 		}
 	);
 
+	it('maps a final game with available stats and no leaders to a card without a stats line (a past day)', () => {
+		const source = feed();
+		const final = source.days[3].games[2];
+		final.statsAvailability = 'available';
+		final.leaders = null;
+		final.teamStats = null;
+		const game = todayGame(view(source), 'g-final');
+		expect(game.details).toMatchObject({
+			kind: 'final-without-stats',
+			statsAvailability: 'available'
+		});
+	});
+
+	it("keeps the played panel for the games feed's available game", () => {
+		const game = todayGame(view(), 'g-final');
+		expect(game.details?.kind).toBe('played');
+	});
+
 	it('returns null for a final game without its stats availability', () => {
 		const source = feed();
 		source.days[3].games[2].statsAvailability = null;
@@ -387,10 +409,10 @@ describe('toHomeView with a guest team', () => {
 		const source = feed();
 		const games = source.days[3].games;
 		const scheduled = games[0];
-		scheduled.away = guest;
+		scheduled.away = side(guest);
 		scheduled.stars.away = null;
 		const final = games[2];
-		final.away = guest;
+		final.away = side(guest);
 		final.winner = 'away';
 		final.stars.away = null;
 		if (!final.leaders) throw new Error('fixture');
@@ -442,7 +464,7 @@ describe('toHomeView with a guest team without a code', () => {
 	function withCodelessGuest(): GamesFeed {
 		const source = feed();
 		const final = source.days[3].games[2];
-		final.away = codeless;
+		final.away = side(codeless);
 		final.winner = 'away';
 		final.stars.away = null;
 		if (!final.leaders) throw new Error('fixture');
@@ -476,8 +498,8 @@ describe('toHomeView with the All-Star mark', () => {
 	function withAllStar(): GamesFeed {
 		const source = feed();
 		const scheduled = source.days[3].games[0];
-		scheduled.away = stripes;
-		scheduled.home = waves;
+		scheduled.away = side(stripes);
+		scheduled.home = side(waves);
 		scheduled.stars = { away: null, home: null };
 		scheduled.allStar = { roundLabel: 'Round Robin', championship: false };
 		return source;
@@ -508,8 +530,8 @@ describe('toHomeView with the All-Star mark', () => {
 		const source = withAllStar();
 		const final = source.days[3].games.find((g) => g.id === 'g-final');
 		if (!final) throw new Error('The fixture has a final game');
-		final.away = stripes;
-		final.home = waves;
+		final.away = side(stripes);
+		final.home = side(waves);
 		final.stars = { away: null, home: null };
 		final.allStar = { roundLabel: 'All-Star Game', championship: false };
 		final.lineScore = null;

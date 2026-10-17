@@ -38,7 +38,7 @@ RETRY_AFTER = dt.timedelta(minutes=10)
 # The rules version of the kept season feeds (ADR 0053). Bump it in any change to
 # the rules a past season is built by: a stored feed of another or no version is
 # then stale, rebuilt on its next request, and served as stored until then.
-SEASON_BUILD_VERSION = 1
+SEASON_BUILD_VERSION = 2
 
 
 def with_build_version[M: BaseModel](feed: M) -> M:

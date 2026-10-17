@@ -13,7 +13,9 @@
 # - The kind: a build with no readable season keeps the stored list
 # - The kind: a failed or missing current season fails the build and keeps the stored list
 # - season_identity: always reads the season team object and ignores a stored run, none on a 404
-# - season_named: renames a league side and leaves a guest and an unknown code
+# - season_names: the season code and not historical for an unchanged franchise, a relocated franchise historical with its season code, a provider code mapped before the comparison, a code with no team left out (ADR 0054)
+# - season_named: renames a league side with its season code and flag and leaves a guest and an unknown code
+# - league_codes and named_sides: every non-guest side found in nested models and lists, and every side renamed with the rest kept identical
 # - The kind: a code outside the 30 is unknown and an unknown current season is not ready
 # - The kind: the cleanup keeps the 30 codes
 #
@@ -33,6 +35,7 @@ from typing import cast
 
 import pytest
 
+from app.feeds.base import FeedModel
 from app.feeds.opponent import Opponent
 from app.feeds.team import NameRun, TeamNames
 from app.jobs.on_demand import (
@@ -45,8 +48,11 @@ from app.jobs.stars import StarsJob
 from app.jobs.team_names import (
     KIND,
     NAMES_LIFETIME,
+    SeasonIdentity,
     TeamNamesFeeds,
     build_name_runs,
+    league_codes,
+    named_sides,
     season_named,
 )
 from app.settings import Settings
@@ -145,6 +151,7 @@ class NamesKit:
         self.failing: set[int] = set()
         self.missing: set[int] = set()
         self.all_failing = False
+        self.provider_code = False
         self.stars = FakeStars()
         self.cache = FeedCache(path, self.store, clock=lambda: self.clock[0])
         self.names = TeamNamesFeeds(
@@ -164,6 +171,8 @@ class NamesKit:
             raise SourceError("test", "season team is down")
         if season in self.missing:
             return None
+        if self.provider_code:
+            return team(abbreviation="GS" if season < 2008 else "GSW")
         return team("Harbor Gulls", "Seattle", "SEA") if season < 2008 else team()
 
     async def settle(self) -> None:
@@ -395,14 +404,54 @@ async def test_season_names_leaves_out_the_codes_with_no_team(kit: NamesKit) -> 
 
     assert await kit.names.season_names(["OKC"], 2000) == {}
     assert await kit.names.season_names(["OKC", "OKC"], 2001) == {
-        "OKC": ("Harbor Gulls", "Seattle")
+        "OKC": SeasonIdentity("Harbor Gulls", "Seattle", "SEA", True)
     }
+
+
+@pytest.mark.anyio
+async def test_season_names_gives_the_season_code_and_not_historical_for_an_unchanged_franchise(
+    kit: NamesKit,
+) -> None:
+    assert await kit.names.season_names(["OKC"], 2015) == {
+        "OKC": SeasonIdentity("Thunder", "Oklahoma City", "OKC", False)
+    }
+
+
+@pytest.mark.anyio
+async def test_season_names_marks_a_relocated_franchise_historical_with_its_season_code(
+    kit: NamesKit,
+) -> None:
+    names = await kit.names.season_names(["OKC"], 2000)
+
+    assert (names["OKC"].code, names["OKC"].historical) == ("SEA", True)
+
+
+@pytest.mark.anyio
+async def test_a_provider_code_maps_to_its_standard_code_before_the_comparison(
+    kit: NamesKit,
+) -> None:
+    kit.provider_code = True
+
+    names = await kit.names.season_names(["GSW"], 2000)
+
+    assert names["GSW"] == SeasonIdentity("Thunder", "Oklahoma City", "GSW", False)
+
+
+@pytest.mark.anyio
+async def test_season_names_is_not_historical_when_the_current_season_has_no_team(
+    kit: NamesKit,
+) -> None:
+    kit.missing = {CURRENT}
+
+    names = await kit.names.season_names(["OKC"], 2000)
+
+    assert names["OKC"].historical is False
 
 
 def test_season_named_renames_a_league_side_and_leaves_a_guest_and_an_unknown_code() -> (
     None
 ):
-    names = {"OKC": ("Harbor Gulls", "Seattle")}
+    names = {"OKC": SeasonIdentity("Harbor Gulls", "Seattle", "SEA", True)}
     league = Opponent(code="OKC", name="Thunder", city="Oklahoma City")
     guest = Opponent(code="OKC", name="Guests", city=None, guest=True)
     other = Opponent(code="BOS", name="Celtics", city="Boston")
@@ -414,5 +463,52 @@ def test_season_named_renames_a_league_side_and_leaves_a_guest_and_an_unknown_co
         "Harbor Gulls",
         "Seattle",
     )
+    assert (renamed.season_code, renamed.historical) == ("SEA", True)
     assert season_named(guest, names) is guest
     assert season_named(other, names) is other
+
+
+class Pair(FeedModel):
+    away: Opponent
+    home: Opponent
+
+
+class Holder(FeedModel):
+    label: str
+    pair: Pair
+    others: list[Opponent]
+
+
+def holder() -> Holder:
+    return Holder(
+        label="kept",
+        pair=Pair(
+            away=Opponent(code="OKC", name="Thunder", city="Oklahoma City"),
+            home=Opponent(code="BOS", name="Celtics", city="Boston"),
+        ),
+        others=[
+            Opponent(code="OKC", name="Thunder", city="Oklahoma City"),
+            Opponent(code="HCM", name="Guests", city=None, guest=True),
+        ],
+    )
+
+
+def test_league_codes_finds_every_non_guest_side_in_nested_models_and_lists() -> None:
+    assert league_codes(holder()) == ["BOS", "OKC"]
+
+
+def test_named_sides_renames_every_side_of_a_feed_and_keeps_the_rest_identical() -> (
+    None
+):
+    names = {"OKC": SeasonIdentity("Harbor Gulls", "Seattle", "SEA", True)}
+
+    renamed = named_sides(holder(), names)
+
+    assert renamed.label == "kept"
+    assert (renamed.pair.away.name, renamed.pair.away.season_code) == (
+        "Harbor Gulls",
+        "SEA",
+    )
+    assert renamed.others[0].historical is True
+    assert renamed.pair.home == holder().pair.home
+    assert renamed.others[1] == holder().others[1]

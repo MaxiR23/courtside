@@ -21,6 +21,7 @@
 		layout: RowLayout;
 		teamHref: (code: string) => ResolvedPathname;
 		seasonSelect?: SeasonControl | null; // null: no selector
+		seasonTag?: string | null; // "Season 2022-23": kept on the unavailable state of a past season
 	};
 
 	let {
@@ -30,7 +31,8 @@
 		standingsHref,
 		layout,
 		teamHref,
-		seasonSelect = null
+		seasonSelect = null,
+		seasonTag = null
 	}: Props = $props();
 </script>
 
@@ -73,6 +75,8 @@
 					<span class="bone tag-bone"></span>
 					<span class="bone state-bone"></span>
 				</div>
+			{:else if seasonTag}
+				<div class="season-line"><SeasonTag text={seasonTag} /></div>
 			{/if}
 		{/if}
 		{#if seasonSelect && layout === 'mobile'}

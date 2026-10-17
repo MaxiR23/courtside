@@ -249,6 +249,22 @@
         },
         "total": {
           "$ref": "#/$defs/TotalDifferential"
+        },
+        "seasonCode": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "historical": {
+          "default": false,
+          "type": "boolean"
         }
       },
       "required": [
@@ -271,7 +287,9 @@
         "pointsFor",
         "pointsAgainst",
         "differential",
-        "total"
+        "total",
+        "seasonCode",
+        "historical"
       ],
       "title": "StandingsRow",
       "type": "object"

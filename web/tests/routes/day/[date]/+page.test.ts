@@ -4,7 +4,10 @@
 //
 // Tested:
 // - The route turns off prerender and server rendering
-// - Loads the day in the URL and renders the date, the weekday, the season label and one card per game, each linking to /game/{id} with no highlights block
+// - Loads the day in the URL and renders the date, the weekday, the season label and one card per game, each linking to /game/{id}
+// - An expanded card shows the highlights block with its search link, plays a highlight in place, and has no stats notice (ADR 0054); with no video platform it has no block
+// - The game list is named "Games on {date}" under a Games kicker
+// - A window day of the sheet links to /?day= and a day after today is not a link
 // - Shows the empty-day message for a day with no game
 // - Shows the loading skeleton until the first load settles
 // - Shows the data unavailable row on a 503, in English and in Spanish, and with no day feed URL configured
@@ -21,7 +24,7 @@
 // Run with: cd web && pnpm exec vitest run "tests/routes/day/[date]/+page.test.ts"
 //
 // SEE: web/src/routes/day/[date]/+page.svelte
-import { render, screen } from '@testing-library/svelte';
+import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -41,7 +44,8 @@ vi.mock('$app/navigation', () => ({
 const config = vi.hoisted(() => ({
 	day: undefined as string | undefined,
 	calendar: undefined as string | undefined,
-	games: undefined as string | undefined
+	games: undefined as string | undefined,
+	platform: 'Video platform' as string | undefined
 }));
 vi.mock('../../../../src/lib/feed/config', () => ({
 	get dayFeedUrl() {
@@ -52,6 +56,9 @@ vi.mock('../../../../src/lib/feed/config', () => ({
 	},
 	get gamesFeedUrl() {
 		return config.games;
+	},
+	get videoPlatformName() {
+		return config.platform;
 	}
 }));
 
@@ -113,6 +120,7 @@ beforeEach(() => {
 	config.day = DAY_TEMPLATE;
 	config.calendar = CALENDAR_TEMPLATE;
 	config.games = GAMES_URL;
+	config.platform = 'Video platform';
 	navigation.goto.mockReset();
 });
 
@@ -141,11 +149,11 @@ describe('day page', () => {
 		expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('February 6, 1999');
 		expect(container.querySelector('.meta')?.textContent).toBe('1998-99 · Saturday');
 		expect(container.querySelectorAll('ul.games > li')).toHaveLength(2);
-		expect(screen.getByRole('button', { name: 'Calendar' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Open calendar' })).toBeTruthy();
 		expect(screen.getByRole('contentinfo')).toBeTruthy();
 	});
 
-	it('links each card to its game page and shows no highlights block', async () => {
+	it('links each card to its game page', async () => {
 		stubFetch({
 			[dayUrl('1999-02-06')]: answerWith(fixture('day.json')),
 			[CALENDAR_URL]: answerWith(fixture('calendar.json'))
@@ -155,7 +163,63 @@ describe('day page', () => {
 			a.getAttribute('href')
 		);
 		expect(hrefs).toEqual(['/game/7001', '/game/7002']);
-		expect(container.querySelector('.panel-highlights')).toBeNull();
+	});
+
+	it('names the game list under a Games kicker and draws the season code of a historical side', async () => {
+		stubFetch({
+			[dayUrl('1999-02-06')]: answerWith(fixture('day.json')),
+			[CALENDAR_URL]: answerWith(fixture('calendar.json'))
+		});
+		const { container } = await renderPage();
+		expect(screen.getByRole('list', { name: 'Games on February 6, 1999' })).toBeTruthy();
+		expect(container.querySelector('.page-section .kicker')?.textContent).toBe('Games');
+		const away = container.querySelector('a[href="/team/den"]');
+		expect(away?.textContent).toBe('SEA');
+	});
+
+	it('shows the highlights block with its search link and no stats notice in an expanded card', async () => {
+		stubFetch({
+			[dayUrl('1999-02-06')]: answerWith(fixture('day.json')),
+			[CALENDAR_URL]: answerWith(fixture('calendar.json'))
+		});
+		const { container } = await renderPage();
+		const card = container.querySelector('li') as HTMLElement;
+		await fireEvent.click(card.querySelector('button.toggle') as HTMLElement);
+		const first = within(card);
+		expect(first.getByText('Highlights')).toBeTruthy();
+		expect(first.getByText('Video platform')).toBeTruthy();
+		expect(first.getByText('Full game highlights')).toBeTruthy();
+		expect(first.queryByText("Stats aren't available for this game.")).toBeNull();
+		expect(first.queryByText('Stats will be available soon.')).toBeNull();
+		expect(first.getByRole('link', { name: 'Game center' }).getAttribute('href')).toBe(
+			'/game/7001'
+		);
+	});
+
+	it('plays a highlight in place', async () => {
+		stubFetch({
+			[dayUrl('1999-02-06')]: answerWith(fixture('day.json')),
+			[CALENDAR_URL]: answerWith(fixture('calendar.json'))
+		});
+		const { container } = await renderPage();
+		const card = container.querySelector('li') as HTMLElement;
+		await fireEvent.click(card.querySelector('button.toggle') as HTMLElement);
+		await fireEvent.click(within(card).getByRole('button', { name: /Full game highlights/ }));
+		expect(card.querySelector('iframe')?.getAttribute('src')).toBe(
+			'https://example.com/embed/1?autoplay=1'
+		);
+	});
+
+	it('leaves the highlights out when no video platform is configured', async () => {
+		config.platform = undefined;
+		stubFetch({
+			[dayUrl('1999-02-06')]: answerWith(fixture('day.json')),
+			[CALENDAR_URL]: answerWith(fixture('calendar.json'))
+		});
+		const { container } = await renderPage();
+		const card = container.querySelector('li') as HTMLElement;
+		await fireEvent.click(card.querySelector('button.toggle') as HTMLElement);
+		expect(within(card).queryByText('Highlights')).toBeNull();
 	});
 
 	it('shows the empty-day message for a day with no game', async () => {
@@ -282,6 +346,45 @@ describe('day page arrows', () => {
 		expect(screen.getByRole('heading', { level: 1 })).toBeTruthy();
 		expect(arrows().previous).toBeNull();
 		expect(arrows().next).toBeNull();
+	});
+});
+
+describe('day page calendar sheet', () => {
+	const CURRENT_URL = 'https://feeds.example.com/seasons/2027/calendar.json';
+	const currentDay = (date: string): DayFeed => ({ ...dayOf(date), season: 2027 });
+
+	async function openSheet(date: string) {
+		stubFetch({
+			[dayUrl(date)]: answerWith(currentDay(date)),
+			[CURRENT_URL]: answerWith(fixture('calendar-current.json'))
+		});
+		await renderPage(date);
+		await fireEvent.click(screen.getByRole('button', { name: 'Open calendar' }));
+		await settle();
+		return screen.getByRole('dialog', { name: 'Calendar' });
+	}
+
+	it('links a window day of the sheet to /?day= and requests no day feed for it', async () => {
+		const dialog = await openSheet('2026-10-14');
+		const link = within(dialog).getByRole('link', { name: 'October 3, 2026' });
+		expect(link.getAttribute('href')).toBe('/?day=2026-10-03');
+		await fireEvent.click(link);
+		expect(fetchMock.mock.calls.map((call) => call[0])).not.toContain(dayUrl('2026-10-03'));
+	});
+
+	it('links another day with games to its page', async () => {
+		const dialog = await openSheet('2026-10-14');
+		expect(
+			within(dialog).getByRole('link', { name: 'October 15, 2026' }).getAttribute('href')
+		).toBe('/day/2026-10-15');
+	});
+
+	it('does not link a day after today', async () => {
+		const dialog = await openSheet('2026-10-14');
+		expect(within(dialog).queryByRole('link', { name: 'October 20, 2026' })).toBeNull();
+		expect(
+			(within(dialog).getByRole('button', { name: 'Next month' }) as HTMLButtonElement).disabled
+		).toBe(true);
 	});
 });
 

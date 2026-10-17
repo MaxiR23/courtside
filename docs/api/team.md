@@ -42,6 +42,8 @@ The root is one team.
 | `titles`     | `TeamTitle[]` / null | The titles the team won in the current season, 1 to 3     | null when the team has no title; never an empty list |
 | `names`      | `NameRun[]`          | The identities of the franchise, oldest first             | always, may be empty   |
 | `buildVersion` | integer / null     | The rules version of a kept season feed ([ADR 0053](../adr/0053-season-level-rules-for-past-seasons.md)) | null on a current feed and on a stored feed from before the field |
+| `seasonCode` | string / null        | A past team's abbreviation in that season ([ADR 0054](../adr/0054-historical-sides-and-past-pages.md)) | null on a current feed |
+| `historical` | boolean              | True when that season's name, city or code differs from today's; requires `seasonCode` | false on a current feed |
 
 ## Nested objects
 

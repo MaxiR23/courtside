@@ -95,7 +95,7 @@ export type CupFilterView = {
 export type BracketSideView = {
 	team: TeamMarkTeam | null; // null: undecided
 	name: string; // the team's name, or "To be decided"
-	label: string; // "East #1 seed"
+	label: string | null; // "East #1 seed"; null: a seed slot with no seed
 	rule: string; // "Best group winner"
 	currently: string | null; // "Currently QXA (3-1)", only from a projection
 	meta: string | null; // "#1 seed · East Group A · 4-0", parts with no value left out
@@ -177,7 +177,7 @@ export type PathRowView = GameLink & {
 export type MatchupSideView = {
 	team: TeamMarkTeam | null; // null: undecided, with no blocks
 	name: string;
-	label: string;
+	label: string | null; // null: a seed slot with no seed
 	score: string | null;
 	path: PathRowView[];
 	injuries: TeamInjuryRow[];
