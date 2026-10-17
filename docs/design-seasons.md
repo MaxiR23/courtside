@@ -65,6 +65,10 @@ Keys are camelCase. Nullable fields are always present and `null` when absent. T
 - **All-Star:** the edition of that season in its after state, discovered through the February days with games of the season calendar. No edition found is a 404. The previous-edition recap stays as it is in the current feed and carries its MVP. An edition with a single game has it as its championship, whatever its round: its winner is the champion and its loser the runner-up. An untimed final game (a score and no line score) is part of the edition. Two sides sharing a name are drawn with their code and name, "EAST All-Stars". The format reaches the page as parts (`targetPoints`, `untimed`, `periods`, `minutes`) that the page words in its language (ADR 0054).
 - **Playoffs and Finals:** the leaders, the award winners and the Finals averages are named from the box-score rosters of that season (`docs/design-past-dates.md`); a failed roster read fails the build. A player on two rosters of a season has, in the leaders and awards, the team of his newest final game (ADR 0053).
 - **Build version:** the kept season feeds carry `buildVersion`; a stored feed of another or no version is served as stored and rebuilt on its next request (ADR 0053, ADR 0054).
+- **Missing stats and box score rows:** a team or player stat the source does not send is `null` and the page draws `—`, or hides the column when every row is null; a missing stat never makes a past page unavailable (ADR 0055). A box score row with no player id is left out of the rosters, leaders and awards (ADR 0055).
+- **Awards with ties:** an award card lists as many winners as the feed sends, so a team award with a tie shows six rows (ADR 0055).
+- **Season codes:** every team code a past page draws (leaders, award winners, the Finals MVP, records, averages and the career rows and header of a past player) is the code of that season (`seasonCode`, `seasonCodes`), never today's; a row without one falls back to the row's own code (ADR 0055).
+- **Paced builds:** a cold past build reads its games one at a time with a pause. The wait is not shown: the page shows its loading state, and a rate-limited build shows the unavailable state until the retry after 10 minutes (ADR 0056).
 - **`editionHighlight`:** the All-Star feeds (current and season) carry `editionHighlight`, a Highlight of the same shape as the game highlight, or `null`.
 
 ### Rounds for seasons without round notes (1994 to 2007)
@@ -99,6 +103,7 @@ A daily job step, after the highlights run.
 
 - The complete state as the page draws it today: the champion, the bracket with scores, the group tables with the clinchers.
 - The header carries the selector and the "Season YYYY-YY" tag. No live dot, no countdown, no "today" strip.
+- The group rows are listed by position; a row without a position goes last, in feed order.
 - **Matchup sheet:** it shows each team's path and, in place of the roster, the line "Rosters are shown for the current season only". No depth chart and no injuries.
 
 ## Playoffs of a past season
@@ -117,7 +122,7 @@ The complete state, in this order, each block hidden without a gap when it has n
 
 ## All-Star of a past season
 
-- The after state of the page.
+- The after state of the page. A past edition never draws the scheduled card or the after-the-buzzer text. The unavailable state keeps the season tag, in both languages.
 - **Edition video frame:** the edition video, when present, replaces the highlights frame of the selected game. The frame shows the edition video with the caption "Edition highlights", and the game cards do not show a per-game video state. Without it, the existing placeholder.
 - The same frame appears in the current season's after state and in `/all-star/previous`.
 - The "Last time" card links to the edition video when present.
@@ -138,7 +143,7 @@ No new UI. A past game whose highlight has been found shows it in the game page 
 | Season without seeds | The bracket shows the slots without the seed number |
 | Round derivation that does not give 8-4-2-1 | The build fails with a logged reason and the feed is not served: the page shows the unavailable state, never a wrong bracket |
 | All-Star edition not found for a season | The feed answers 404; the page shows the unavailable state |
-| Edition video not found | `editionHighlight` is `null`; the frame shows the existing placeholder and the "Last time" card does not link |
+| Edition video not found | `editionHighlight` is `null`; the frame always shows the existing placeholder on a past edition and the "Last time" card does not link |
 | Backfill reaching its daily page cap | It stops for the day, remembers the oldest upload date reached and continues from there the next day |
 | Re-uploaded highlight | The first match in channel order is taken |
 | Season outside the range, or a malformed `?season` | The current season, as without `?season` |

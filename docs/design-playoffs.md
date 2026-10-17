@@ -157,7 +157,7 @@ The complete state opens with the hero.
 
 - A grid of cards for the awards the feed has (up to 20): MVP, Defensive Player of the Year, Rookie of the Year, Sixth Man, Most Improved, Clutch Player, Finals MVP, East and West finals MVP, All-Star MVP, Cup MVP, the Cup All-Tournament team, All-NBA 1st, 2nd and 3rd teams, All-Rookie 1st and 2nd teams, All-Defensive 1st and 2nd teams and the Twyman-Stokes award. There is no coach card.
 - **Player awards:** a card with a short code (English: MVP, DPOY, ROY, 6MOY, MIP, CPOY, FMVP, ECF MVP, WCF MVP, ASG MVP, CUP MVP; Spanish: MVP, JDA, NDA, SHA, JMM, JCA, MVP FINALES, MVP ESTE, MVP OESTE, MVP ALL-STAR, MVP COPA; the strings table has the keys), the photo, the award name, the name and the team.
-- **Team awards** (teams of five players): a card with the award name and a list of five rows (photo, name, team code).
+- **Team awards** (teams of five players): a card with the award name and a list of one row per winner the feed sends (photo, name, team code). A tie gives six rows (ADR 0055). On a past season the team code is the season's code.
 - Mobile: a horizontal snap scroller of 156px cards.
 - No votes are shown.
 
