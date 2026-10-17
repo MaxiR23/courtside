@@ -53,12 +53,18 @@
 # live interval). The first build that sees a game final stores that time, and the
 # reads of a final game are fresh only when made at or after it. The previous
 # edition is finished data: its scoreboard day and game details are read with a
-# 24-hour freshness. The stored edition video is added when served as
+# 24-hour freshness. The inputs of its MVP (awards, sections, extras) are read by
+# read_edition_mvp_inputs and its MVP is built by mvp, both shared with the season
+# feed; its league teams come from today's rosters as before. A failure of one of
+# them other than a 404 keeps the stored previous blocks when they carry an MVP,
+# else fails the build, which keeps the stored feed (ADR 0056). Every other part of
+# the previous edition is read as before. The stored edition video is added when served as
 # editionHighlight, never stored; no game carries a per-game highlight (ADR 0048).
 #
 # SEE: docs/api/all-star.md, docs/adr/0036-all-star-feed.md,
 # docs/adr/0048-highlights-backfill-and-edition-video.md,
 # docs/adr/0053-season-level-rules-for-past-seasons.md,
+# docs/adr/0056-paced-past-builds-and-one-edition-mvp-path.md,
 # api/app/jobs/playoffs_finals_feed.py
 
 import asyncio
@@ -115,6 +121,7 @@ UNPLAYED_FRESH = dt.timedelta(hours=1)
 FINAL_HOLD = dt.timedelta(hours=1)
 PREVIOUS_FRESH = dt.timedelta(hours=24)
 MAX_TOP5 = 5
+NOT_FOUND = 404
 logger = logging.getLogger(__name__)
 FIRST_TO = re.compile(r"First team to (\d+) points wins")
 STAT_ORDER = (
@@ -150,6 +157,65 @@ class _Reads:
     extras: dict[str, AllStarDetailExtras | None]
     awards: SeasonAwards | None
     awards_error: str | None
+
+
+@dataclass(frozen=True)
+class EditionMvpReads:
+    """The inputs of an edition's MVP: the box rows (sections), the jerseys
+    (extras) and the season awards (the winner)."""
+
+    sections: dict[str, GameDetailSections | None]
+    extras: dict[str, AllStarDetailExtras | None]
+    awards: SeasonAwards | None
+
+
+async def _none_on_404[T](read: Awaitable[T]) -> T | None:
+    """The result of a read, or none when the source answers 404; any other
+    failure is raised."""
+    try:
+        return await read
+    except SourceError as error:
+        if error.status_code == NOT_FOUND:
+            return None
+        raise
+
+
+async def read_edition_mvp_inputs(
+    client: SourceClient,
+    settings: Settings,
+    year: int,
+    games: Sequence[AllStarScoreboardGame],
+    *,
+    fetch_game_detail_sections: FetchSections,
+    fetch_all_star_extras: FetchExtras,
+    fetch_season_awards: FetchAwards,
+) -> EditionMvpReads:
+    """Read the MVP inputs of a finished edition, shared by the season feed
+    and the current feed's previous edition (ADR 0056). A 404 nulls its part;
+    any other failure raises SourceError."""
+    ids = [g.id for g in edition_games(games)]
+    sections, extras, awards = await asyncio.gather(
+        asyncio.gather(
+            *(
+                _none_on_404(
+                    fetch_game_detail_sections(client, i, settings, PREVIOUS_FRESH)
+                )
+                for i in ids
+            )
+        ),
+        asyncio.gather(
+            *(
+                _none_on_404(fetch_all_star_extras(client, i, settings, PREVIOUS_FRESH))
+                for i in ids
+            )
+        ),
+        _none_on_404(fetch_season_awards(client, year, settings)),
+    )
+    return EditionMvpReads(
+        dict(zip(ids, sections, strict=True)),
+        dict(zip(ids, extras, strict=True)),
+        awards,
+    )
 
 
 class AllStarBuildError(Exception):
@@ -1068,6 +1134,57 @@ class AllStarFeeds:
         )
         return _Reads(reads[0], reads[1], reads[2], awards[0], awards[1])
 
+    async def _read_previous(
+        self, season: int, games: Sequence[AllStarScoreboardGame]
+    ) -> tuple[_Reads | None, SourceError | None]:
+        """The reads of the previous edition. Its MVP inputs go through
+        read_edition_mvp_inputs: a failure other than a 404 is returned as the
+        error and no reads (ADR 0056). The rest is read as the current one."""
+        kept = edition_games(games)
+        if edition_state(kept) is AllStarState.BEFORE:
+            return await self._read_edition(
+                season, games, lambda _: PREVIOUS_FRESH
+            ), None
+        client, settings = self._client, self._settings
+
+        async def inputs() -> EditionMvpReads | SourceError:
+            try:
+                return await read_edition_mvp_inputs(
+                    client,
+                    settings,
+                    season,
+                    games,
+                    fetch_game_detail_sections=self._fetch_game_detail_sections,
+                    fetch_all_star_extras=self._fetch_all_star_extras,
+                    fetch_season_awards=self._fetch_season_awards,
+                )
+            except SourceError as error:
+                return error
+
+        found, details = await asyncio.gather(
+            inputs(),
+            asyncio.gather(
+                *(
+                    self._guard(
+                        self._fetch_game_detail(client, g.id, settings, PREVIOUS_FRESH)
+                    )
+                    for g in kept
+                )
+            ),
+        )
+        if isinstance(found, SourceError):
+            return None, found
+        return (
+            _Reads(
+                dict(zip((g.id for g in kept), details, strict=True)),
+                found.sections,
+                found.extras,
+                found.awards,
+                None,
+            ),
+            None,
+        )
+
     async def build(self, feed_id: str) -> AllStarFeed:
         season = self._stars.current_season()
         if season is None:
@@ -1082,12 +1199,24 @@ class AllStarFeeds:
             self._record_finals(games)
         earlier_day = await self._day_of(season - 1, PREVIOUS_FRESH)
         earlier_games = [] if earlier_day is None else earlier_day[1]
-        current, earlier = await asyncio.gather(
+        current, (earlier, earlier_error) = await asyncio.gather(
             self._read_edition(season, games, self._freshness),
-            self._read_edition(season - 1, earlier_games, lambda _: PREVIOUS_FRESH),
+            self._read_previous(season - 1, earlier_games),
         )
+        kept_previous: AllStarFeed | None = None
+        if earlier_error is not None:
+            kept_previous = self._stored_previous(season)
+            if kept_previous is None:
+                raise earlier_error
+            logger.warning(
+                "all-star: previous edition of season %d kept from the stored feed: %s",
+                season - 1,
+                earlier_error.reason,
+            )
         player_teams: dict[str, str] = {}
         for reads in (current, earlier):
+            if reads is None:
+                continue
             for found in reads.sections.values():
                 if found is None or found.box_score is None:
                     continue
@@ -1106,7 +1235,7 @@ class AllStarFeeds:
         colors = dict(zip(codes, infos, strict=True))
         previous = (
             None
-            if earlier_day is None
+            if earlier_day is None or earlier is None
             else AllStarSources(
                 year=season - 1,
                 edition_date=earlier_day[0],
@@ -1136,15 +1265,39 @@ class AllStarFeeds:
         )
         if feed.state is not AllStarState.BEFORE and feed.mvp is None:
             self._log_null_mvp(season, current)
-        if feed.previous is not None and feed.previous.mvp is None:
-            self._log_null_mvp(season - 1, earlier)
+        if kept_previous is not None:
+            return feed.model_copy(
+                update={
+                    "previous": kept_previous.previous,
+                    "previous_edition": kept_previous.previous_edition,
+                }
+            )
+        if (
+            feed.previous is not None
+            and feed.previous.mvp is None
+            and earlier is not None
+        ):
+            self._log_null_mvp(season - 1, earlier, "not found")
         return feed
 
-    def _log_null_mvp(self, year: int, reads: _Reads) -> None:
+    def _stored_previous(self, season: int) -> AllStarFeed | None:
+        """The stored feed when its previous blocks are those of the season
+        before and carry an MVP, else none."""
+        stored = self.stored()
+        if (
+            stored is not None
+            and stored.previous is not None
+            and stored.previous.year == season - 1
+            and stored.previous.mvp is not None
+        ):
+            return stored
+        return None
+
+    def _log_null_mvp(self, year: int, reads: _Reads, error: str | None = None) -> None:
         logger.warning(
             "all-star: MVP of season %d is null: %s",
             year,
-            mvp_null_reason(reads.awards, reads.awards_error),
+            mvp_null_reason(reads.awards, error or reads.awards_error),
         )
 
     def _held(self, feed: AllStarFeed, built_at: dt.datetime) -> bool:

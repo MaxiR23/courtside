@@ -17,6 +17,7 @@
 # - Does not mark a body that is not JSON as a failed request
 # - Marks a timeout and a transport failure when checking a URL as a failed request
 # - A source error is not a failed request by default
+# - Tells a 429 or 503 answer from the other failures as a rate limit
 # - Creates a client with fixed timeouts
 # - Serves a URL asked again inside its maximum age from the cache with one request
 # - Fetches an expired URL again and replaces its entry
@@ -56,6 +57,7 @@ from app.sources.http import (
     create_client,
     get_json,
     get_text,
+    is_rate_limited,
     is_served,
     with_query,
 )
@@ -188,6 +190,44 @@ async def test_carries_no_status_code_when_no_error_status_came_back(
                 await get_json(client, URL, source="test", fresh=FRESH)
 
     assert raised.value.status_code is None
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("status", [429, 503])
+async def test_a_429_or_503_answer_is_a_rate_limit(status: int, tmp_path: Path) -> None:
+    with respx.mock:
+        respx.get(URL).mock(return_value=httpx.Response(status))
+        async with create_client(make_store(tmp_path), clock=lambda: T) as client:
+            with pytest.raises(SourceError) as raised:
+                await get_json(client, URL, source="test", fresh=FRESH)
+
+    assert is_rate_limited(raised.value)
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "effect",
+    [
+        httpx.Response(404),
+        httpx.Response(500),
+        httpx.ReadTimeout("slow"),
+        httpx.Response(200, text="<html>"),
+    ],
+)
+async def test_a_404_500_timeout_or_non_json_failure_is_not_a_rate_limit(
+    effect: httpx.Response | Exception, tmp_path: Path
+) -> None:
+    with respx.mock:
+        route = respx.get(URL)
+        if isinstance(effect, Exception):
+            route.mock(side_effect=effect)
+        else:
+            route.mock(return_value=effect)
+        async with create_client(make_store(tmp_path), clock=lambda: T) as client:
+            with pytest.raises(SourceError) as raised:
+                await get_json(client, URL, source="test", fresh=FRESH)
+
+    assert not is_rate_limited(raised.value)
 
 
 @pytest.mark.anyio

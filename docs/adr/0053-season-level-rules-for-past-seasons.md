@@ -1,6 +1,6 @@
 # 0053. Season level rules for past seasons
 
-- Status: Superseded by 0055 for the reuse of stored past game players only
+- Status: Superseded by 0055 for the reuse of stored past game players only, and by 0056 for the concurrency of past game reads only
 - Date: 2026-10-17
 
 ## Context

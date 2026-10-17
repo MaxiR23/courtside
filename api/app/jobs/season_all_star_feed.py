@@ -12,6 +12,8 @@
 # failed read fails the build, because the feed is kept for good. League teams
 # are null (no roster of that season is read) and no per-game highlight is set;
 # the stored edition video is added when served as editionHighlight (ADR 0048).
+# The sections, extras and awards are read by read_edition_mvp_inputs, shared
+# with the current feed's previous edition (ADR 0056).
 # A past All-Star feed is stored only when it builds as after: any other state
 # fails the build, logs the reason and stores nothing.
 #
@@ -25,12 +27,13 @@
 #
 # SEE: docs/api/all-star.md, docs/adr/0047-season-all-star-feed.md,
 # docs/adr/0048-highlights-backfill-and-edition-video.md,
+# docs/adr/0056-paced-past-builds-and-one-edition-mvp-path.md,
 # api/app/jobs/all_star_feed.py
 
 import asyncio
 import datetime as dt
 import logging
-from collections.abc import Awaitable, Sequence
+from collections.abc import Sequence
 
 from pydantic import ValidationError
 
@@ -46,9 +49,11 @@ from app.jobs.all_star_feed import (
     FetchDetail,
     FetchExtras,
     FetchSections,
+    _none_on_404,
     _Reads,
     build_all_star_feed,
     edition_games,
+    read_edition_mvp_inputs,
 )
 from app.jobs.calendar_feed import FetchSeasonCalendar
 from app.jobs.games import eastern_date
@@ -71,7 +76,7 @@ from app.sources import (
     season_calendar,
 )
 from app.sources.all_star_scoreboard import AllStarScoreboardGame
-from app.sources.http import SourceClient, SourceError
+from app.sources.http import SourceClient
 from app.storage.feeds import read_by_id
 from app.storage.state import StateStore
 
@@ -79,7 +84,6 @@ logger = logging.getLogger(__name__)
 
 KIND = "season-all-star"
 FEBRUARY = 2
-NOT_FOUND = 404
 
 Edition = tuple[dt.date, list[AllStarScoreboardGame]]
 
@@ -94,17 +98,6 @@ def february_days(moments: Sequence[dt.datetime], season: int) -> list[dt.date]:
             if day.year == season and day.month == FEBRUARY
         }
     )
-
-
-async def _none_on_404[T](read: Awaitable[T]) -> T | None:
-    """The result of a read, or none when the source answers 404; any other
-    failure is raised."""
-    try:
-        return await read
-    except SourceError as error:
-        if error.status_code == NOT_FOUND:
-            return None
-        raise
 
 
 class SeasonAllStarFeeds:
@@ -189,7 +182,7 @@ class SeasonAllStarFeeds:
         client, settings = self._client, self._settings
         kept = edition_games(games)
         ids = [g.id for g in kept]
-        details, sections, extras, awards = await asyncio.gather(
+        details, mvp_inputs = await asyncio.gather(
             asyncio.gather(
                 *(
                     _none_on_404(
@@ -198,31 +191,21 @@ class SeasonAllStarFeeds:
                     for i in ids
                 )
             ),
-            asyncio.gather(
-                *(
-                    _none_on_404(
-                        self._fetch_game_detail_sections(
-                            client, i, settings, PREVIOUS_FRESH
-                        )
-                    )
-                    for i in ids
-                )
+            read_edition_mvp_inputs(
+                client,
+                settings,
+                season,
+                games,
+                fetch_game_detail_sections=self._fetch_game_detail_sections,
+                fetch_all_star_extras=self._fetch_all_star_extras,
+                fetch_season_awards=self._fetch_season_awards,
             ),
-            asyncio.gather(
-                *(
-                    _none_on_404(
-                        self._fetch_all_star_extras(client, i, settings, PREVIOUS_FRESH)
-                    )
-                    for i in ids
-                )
-            ),
-            _none_on_404(self._fetch_season_awards(client, season, settings)),
         )
         return _Reads(
             dict(zip(ids, details, strict=True)),
-            dict(zip(ids, sections, strict=True)),
-            dict(zip(ids, extras, strict=True)),
-            awards,
+            mvp_inputs.sections,
+            mvp_inputs.extras,
+            mvp_inputs.awards,
             None,
         )
 

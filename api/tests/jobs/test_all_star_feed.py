@@ -12,6 +12,7 @@
 # - The Top 5 orders a missing value as 0; the MVP totals are null when a line value is null (ADR 0055)
 # - Game contents: both box scores with jersey, position and league team, the six team statistics with the better side and a tie with none, the leaders, the Top 5 order with a tie keeping the source order, a player in no roster with a null league team, null colors on a failed team info read, the live status text, clock and period as the view returns them, the overtime flag
 # - MVP: from the All-Star MVP award with one line per game and the day totals, none without the award, with a failed awards read and with no box row
+# - The kind: a transient failure of the previous edition's awards, sections or extras keeps its stored blocks (with an MVP) or fails the build and is retried after ten minutes; a 404 gives a recap with a null MVP; a failed detail keeps the MVP; its league teams come from today's rosters (ADR 0056)
 # - The kind: a warning with the season and the reason for a failed awards read, no award and no box row, once per edition in play, none for a before edition or a set MVP
 # - MVP null reason: a failed awards read, no All-Star MVP award with a winner and no box row
 # - Recap: the previous edition's champion, Championship score, MVP, date and venue; none when not discovered, when its day read failed and when its Championship is not final
@@ -1577,6 +1578,7 @@ class FakeStars:
     def __init__(self) -> None:
         self.season: int | None = 2027
         self.ready = True
+        self.teams = {"1001": "BOS", "2001": "LAL"}
 
     def current_season(self) -> int | None:
         return self.season
@@ -1585,7 +1587,7 @@ class FakeStars:
         return self.ready
 
     def player_team(self, player_id: str) -> str | None:
-        return {"1001": "BOS", "2001": "LAL"}.get(player_id)
+        return self.teams.get(player_id)
 
 
 class FakeGames:
@@ -1608,6 +1610,7 @@ class AllStarKit:
         self.cached_at: dict[str, dt.datetime] = {}
         self.read_at: dict[str, dt.datetime] = {}
         self.failing: set[str] = set()
+        self.missing: set[str] = set()
         self.days: dict[dt.date, list[AllStarScoreboardGame]] = {
             DAY: round_robin(),
             PREVIOUS_DAY: [
@@ -1645,6 +1648,8 @@ class AllStarKit:
 
     def read(self, name: str) -> None:
         self.calls.append(name)
+        if name in self.missing:
+            raise SourceError("test", f"{name} not found", status_code=404)
         if name in self.failing:
             raise SourceError("test", f"{name} is down")
 
@@ -1980,18 +1985,101 @@ async def test_a_winner_without_a_box_row_logs_the_season_and_the_reason_of_the_
 
 
 @pytest.mark.anyio
-async def test_a_previous_edition_with_a_failed_awards_read_logs_its_season(
-    kit: AllStarKit, caplog: pytest.LogCaptureFixture
+async def test_a_transient_previous_awards_failure_with_no_stored_feed_fails_the_build_and_retries_after_ten_minutes(
+    kit: AllStarKit,
 ) -> None:
     kit.failing = {"awards/2026"}
     await kit.discover()
 
-    with caplog.at_level(logging.WARNING):
+    with pytest.raises(FeedUnavailableError):
         await kit.serve()
 
+    state = kit.store.feed_build(KIND, FEED_ID)
+    assert state is not None and state.last_failure_reason == "awards/2026 is down"
+    kit.failing = set()
+    reads = kit.called("awards/2026")
+
+    with pytest.raises(FeedUnavailableError):
+        await kit.serve(NOW + RETRY_AFTER - dt.timedelta(minutes=1))
+    assert kit.called("awards/2026") == reads
+
+    feed = AllStarFeed.model_validate_json(await kit.serve(NOW + RETRY_AFTER))
+    assert feed.previous is not None and feed.previous.mvp is not None
+
+
+async def stored_live_feed_then_fail(kit: AllStarKit, failing: str) -> AllStarFeed:
+    """Build a live feed, make it stale, fail one previous-edition read and
+    change the current day. Returns the first feed."""
+    kit.days[DAY] = round_robin(final=False)
+    await kit.discover()
+    first = AllStarFeed.model_validate_json(await kit.serve())
+    assert first.previous is not None and first.previous.mvp is not None
+    kit.failing = {failing}
+    kit.days[DAY] = round_robin()
+    await kit.serve(NOW + LIVE_INTERVAL + SECOND)
+    return first
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("failing", ["awards/2026", "sections/p2", "extras/p2"])
+async def test_a_transient_previous_mvp_input_failure_keeps_the_stored_previous_blocks_and_rebuilds_the_edition(
+    kit: AllStarKit, caplog: pytest.LogCaptureFixture, failing: str
+) -> None:
+    with caplog.at_level(logging.WARNING):
+        first = await stored_live_feed_then_fail(kit, failing)
+
+    stored = kit.stored()
+    assert stored is not None
+    assert stored.state is AllStarState.AFTER
+    assert stored.previous == first.previous
+    assert stored.previous_edition == first.previous_edition
+    kept = [m for m in caplog.messages if "kept from the stored feed" in m]
+    assert len(kept) == 1 and "season 2026" in kept[0]
+
+
+@pytest.mark.anyio
+async def test_a_transient_previous_detail_failure_keeps_the_recap_with_its_mvp_as_today(
+    kit: AllStarKit,
+) -> None:
+    kit.failing = {"detail/p1"}
+    await kit.discover()
+
+    feed = AllStarFeed.model_validate_json(await kit.serve())
+
+    assert feed.previous is not None and feed.previous.mvp is not None
+
+
+@pytest.mark.anyio
+async def test_a_404_on_the_previous_awards_gives_a_recap_with_a_null_mvp_and_logs_it(
+    kit: AllStarKit, caplog: pytest.LogCaptureFixture
+) -> None:
+    kit.missing = {"awards/2026"}
+    await kit.discover()
+
+    with caplog.at_level(logging.WARNING):
+        feed = AllStarFeed.model_validate_json(await kit.serve())
+
+    assert feed.previous is not None and feed.previous.mvp is None
     assert mvp_warnings(caplog) == [
-        "all-star: MVP of season 2026 is null: awards read failed: awards/2026 is down"
+        "all-star: MVP of season 2026 is null: awards read failed: not found"
     ]
+
+
+@pytest.mark.anyio
+async def test_the_previous_edition_keeps_its_league_teams_as_today(
+    kit: AllStarKit,
+) -> None:
+    kit.stars.teams["3001"] = "BOS"
+    await kit.discover()
+
+    feed = AllStarFeed.model_validate_json(await kit.serve())
+
+    assert feed.previous is not None and feed.previous.mvp is not None
+    assert feed.previous.mvp.league_team is not None
+    assert feed.previous.mvp.league_team.code == "BOS"
+    assert feed.previous_edition is not None
+    assert feed.previous_edition.mvp is not None
+    assert feed.previous_edition.mvp.league_team is not None
 
 
 @pytest.mark.anyio

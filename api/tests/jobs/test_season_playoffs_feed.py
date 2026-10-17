@@ -16,6 +16,8 @@
 # - The kind: the feed is stored under season-playoffs and rebuilt only for another version: a second request, a request years later and a restart all serve with no source call; nothing is written under playoffs
 # - The kind: season 2020 sends no play-in read and has a null play-in; season 2021 reads it
 # - The kind: a leaders, awards or champion record read that answers 404 is null; any other failure answers unavailable and stores nothing
+# - The kind: a cold build reads its game details one at a time with the pause between two reads (ADR 0056)
+# - The kind: a rate-limited game read fails the build with the reason "rate limited" and is retried after ten minutes (ADR 0056)
 # - The kind: a team info failure only nulls the colors
 # - The kind: a derivation that does not give 8-4-2-1 answers unavailable, stores nothing and logs the reason
 # - The kind: a postseason that is not complete answers unavailable and stores nothing
@@ -47,6 +49,7 @@ import respx
 
 from app.feeds.playoffs import AwardCode, PlayoffsFeed, PlayoffsState, SeriesId
 from app.jobs.on_demand import (
+    RETRY_AFTER,
     SEASON_BUILD_VERSION,
     FeedCache,
     FeedUnavailableError,
@@ -63,7 +66,7 @@ from app.jobs.team_names import TeamNamesFeeds
 from app.settings import Settings
 from app.sources import game_detail
 from app.sources.division_standings import DivisionStandings
-from app.sources.game_detail import BoxScoreRosterEntry
+from app.sources.game_detail import BoxScoreRosterEntry, GamePlayers
 from app.sources.http import SourceClient, SourceError, create_client
 from app.sources.postseason_leaders import PostseasonLeaders
 from app.sources.postseason_scoreboard import PostseasonGame
@@ -126,6 +129,10 @@ class FakeRosters:
             )
             for entry in self.source(code)
         ]
+
+
+async def no_sleep(seconds: float) -> None:
+    """The pause between game reads never waits in a test."""
 
 
 class SeasonPlayoffsKit:
@@ -556,6 +563,8 @@ async def test_a_box_score_row_with_no_player_id_leaves_no_entry_in_leaders_or_a
         kit.client,
         fetch_season_schedule=schedule,
         fetch_game_players=game_detail.fetch_past_game_players,
+        clock=lambda: kit.clock[0],
+        sleep=no_sleep,
     )
 
     with respx.mock as mock:
@@ -571,6 +580,121 @@ async def test_a_box_score_row_with_no_player_id_leaves_no_entry_in_leaders_or_a
         r.getMessage() for r in caplog.records if "no player id" in r.getMessage()
     ]
     assert len(messages) == 1 and "pg1" in messages[0]
+
+
+class PacedGames:
+    """A real SeasonRosters over a schedule that gives each team its own game,
+    a recording game read, a fake clock and a fake sleep."""
+
+    def __init__(self, kit: SeasonPlayoffsKit) -> None:
+        self.kit = kit
+        self.reads: list[str] = []
+        self.running = 0
+        self.peak = 0
+        self.spans: list[tuple[dt.datetime, dt.datetime]] = []
+        self.limited = False
+        kit.season_playoffs._rosters = SeasonRosters(
+            kit.settings,
+            kit.store,
+            kit.client,
+            fetch_season_schedule=self.schedule,
+            fetch_game_players=self.players,
+            clock=lambda: kit.clock[0],
+            sleep=self.sleep,
+        )
+
+    async def schedule(
+        self,
+        client: SourceClient,
+        code: str,
+        end_year: int,
+        settings: Settings,
+        *,
+        playoffs: bool,
+        by_id_first: bool = False,
+    ) -> SeasonSchedule:
+        return season(played(f"g-{code}", PLAYED_AT)) if not playoffs else season()
+
+    async def sleep(self, seconds: float) -> None:
+        self.kit.clock[0] += dt.timedelta(seconds=seconds)
+
+    async def players(
+        self, client: SourceClient, game_id: str, settings: Settings, fresh: object
+    ) -> GamePlayers:
+        self.reads.append(game_id)
+        self.running += 1
+        self.peak = max(self.peak, self.running)
+        started = self.kit.clock[0]
+        try:
+            await asyncio.sleep(0)
+            if self.limited:
+                raise SourceError(
+                    "test",
+                    "responded with status 429",
+                    status_code=429,
+                    request_failed=True,
+                )
+            code = game_id.removeprefix("g-")
+            return GamePlayers(
+                teams={
+                    code: [
+                        BoxScoreRosterEntry(
+                            player_id=entry.player_id,
+                            display_name=f"Box {player_name(entry)}",
+                            jersey=entry.jersey,
+                            position_abbreviation=None,
+                            headshot_url=entry.headshot_url,
+                        )
+                        for entry in self.kit.box_players(code)
+                    ]
+                }
+            )
+        finally:
+            self.running -= 1
+            self.spans.append((started, self.kit.clock[0]))
+
+
+@pytest.mark.anyio
+async def test_a_cold_build_reads_its_game_details_one_at_a_time_with_the_pause(
+    kit: SeasonPlayoffsKit,
+) -> None:
+    games = PacedGames(kit)
+
+    await kit.serve_season("2025")
+
+    assert len(games.reads) > 1
+    assert games.peak == 1
+    gaps = [
+        (later[0] - earlier[1]).total_seconds()
+        for earlier, later in zip(games.spans, games.spans[1:], strict=False)
+    ]
+    assert all(gap >= 0.25 for gap in gaps)
+
+
+@pytest.mark.anyio
+async def test_a_rate_limited_game_read_fails_the_build_with_the_reason_rate_limited_and_is_retried_after_ten_minutes(
+    kit: SeasonPlayoffsKit, caplog: pytest.LogCaptureFixture
+) -> None:
+    games = PacedGames(kit)
+    games.limited = True
+
+    with caplog.at_level(logging.WARNING), pytest.raises(FeedUnavailableError):
+        await kit.serve_season("2025")
+    await kit.settle()
+
+    failure = kit.store.feed_build(KIND, "2025")
+    assert failure is not None and failure.last_failure_reason == "rate limited"
+    assert "feed season-playoffs 2025 build failed: rate limited" in caplog.text
+    assert len(games.reads) == 1
+    games.limited = False
+
+    with pytest.raises(FeedUnavailableError):
+        await kit.serve_season("2025", NOW + RETRY_AFTER - dt.timedelta(minutes=1))
+    assert len(games.reads) == 1
+
+    await kit.serve_season("2025", NOW + RETRY_AFTER)
+    assert len(games.reads) > 1
+    assert kit.stored("2025") is not None
 
 
 class TradedRosters:

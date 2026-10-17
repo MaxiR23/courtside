@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Literal, Self
 
 from pydantic import (
+    NonNegativeInt,
     PositiveInt,
     SecretStr,
     ValidationInfo,
@@ -130,6 +131,8 @@ class Settings(BaseSettings):
     highlights_search_url: str | None = None
     # Pages of channel uploads the highlights backfill reads per day.
     highlights_backfill_pages: PositiveInt = 200
+    # Pause in milliseconds between two game detail reads of a past season build.
+    source_build_pause_ms: NonNegativeInt = 250
     # US Eastern time of the daily schedule fetch.
     daily_fetch_time: dt.time = dt.time(6, 0)
     data_dir: Path = API_DIR / "data"

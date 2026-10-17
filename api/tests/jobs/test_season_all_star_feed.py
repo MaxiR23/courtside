@@ -14,6 +14,7 @@
 # - The edition video is served as editionHighlight on the edition, the recap and the previous edition, null when none, and not stored
 # - A 2004-05-shaped edition whose summaries lack totalRebounds and fieldGoalPct builds, with a null team statistics block (ADR 0055)
 # - A single-game edition builds as after with a champion, and the next season's recap carries the MVP this season's feed carries (ADR 0053)
+# - The current feed's recap and previous edition carry the MVP of that edition's own feed (the same player, name, jersey, lines and totals; the league team is left out), and both kinds read the MVP inputs through read_edition_mvp_inputs (ADR 0056)
 # - The built feed carries the current build version, a stored feed of an older or missing version is rebuilt on its next request, and one of the current version is served with no source request (ADR 0053)
 # - The kind: the cleanup keeps a past season feed
 #
@@ -56,12 +57,14 @@ from app.sources.all_star_detail import AllStarDetailExtras
 from app.sources.all_star_scoreboard import AllStarScoreboardGame
 from app.sources.game_detail import GameDetail, GameDetailSections
 from app.sources.game_detail import fetch_game_detail_sections as real_sections
-from app.sources.http import Freshness, SourceClient, SourceError
+from app.sources.http import Freshness, SourceClient
 from app.sources.season_awards import SeasonAwards
 from app.storage.feeds import publish_by_id, read_by_id
 from tests.jobs.test_all_star_feed import (
     CHAMPIONSHIP,
+    DAY,
     PKS,
+    PREVIOUS_DAY,
     STR,
     WAV,
     AllStarKit,
@@ -128,7 +131,6 @@ class SeasonAllStarKit(AllStarKit):
 
     def __init__(self, path: Path) -> None:
         super().__init__(path)
-        self.missing: set[str] = set()
         self.sections_override: GameDetailSections | None = None
         self.calendars: dict[int, list[dt.datetime]] = {
             2025: [at(1, 20), at(2, 9), at(2, 16), at(3, 3)],
@@ -148,11 +150,6 @@ class SeasonAllStarKit(AllStarKit):
             fetch_all_star_extras=self.fetch_all_star_extras,
             fetch_season_awards=self.fetch_season_awards,
         )
-
-    def read(self, name: str) -> None:
-        super().read(name)
-        if name in self.missing:
-            raise SourceError("test", f"{name} is missing", status_code=404)
 
     async def fetch_calendar(
         self, client: SourceClient, season: int, settings: Settings
@@ -601,6 +598,63 @@ async def test_the_next_seasons_recap_carries_the_mvp_this_seasons_feed_carries(
     assert this_season.mvp is not None
     assert next_season.previous is not None
     assert next_season.previous.mvp == this_season.mvp
+
+
+@pytest.mark.anyio
+async def test_the_current_feeds_recap_and_previous_edition_carry_the_mvp_of_that_editions_own_feed(
+    kit: SeasonAllStarKit,
+) -> None:
+    kit.days[DAY] = round_robin()
+    kit.days[PREVIOUS_DAY] = earlier_games()
+    kit.calendars[2026] = [at(2, 15, 2026)]
+    kit.stars.teams["3001"] = "BOS"
+    await kit.discover()
+
+    current = AllStarFeed.model_validate_json(await kit.serve())
+    season_2026 = await kit.request("2026")
+
+    assert season_2026.mvp is not None
+    assert current.previous is not None and current.previous.mvp is not None
+    assert current.previous_edition is not None
+    assert current.previous_edition.mvp is not None
+    for recap_mvp in (current.previous.mvp, current.previous_edition.mvp):
+        assert recap_mvp.player_id == season_2026.mvp.player_id
+        assert recap_mvp.name == season_2026.mvp.name
+        assert recap_mvp.jersey == season_2026.mvp.jersey
+        assert recap_mvp.lines == season_2026.mvp.lines
+        assert recap_mvp.totals == season_2026.mvp.totals
+        assert recap_mvp.model_dump(exclude={"league_team"}) == (
+            season_2026.mvp.model_dump(exclude={"league_team"})
+        )
+    assert current.previous.mvp.league_team is not None
+    assert season_2026.mvp.league_team is None
+
+
+@pytest.mark.anyio
+async def test_both_kinds_read_the_mvp_inputs_through_read_edition_mvp_inputs(
+    kit: SeasonAllStarKit, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    years: list[tuple[str, int]] = []
+    real = all_star_feed.read_edition_mvp_inputs
+    kind = ["season"]
+
+    async def recording(*args: object, **kwargs: object) -> object:
+        years.append((kind[0], cast(int, args[2])))
+        return await real(*args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(all_star_feed, "read_edition_mvp_inputs", recording)
+    monkeypatch.setattr(
+        "app.jobs.season_all_star_feed.read_edition_mvp_inputs", recording
+    )
+    await kit.request("2025")
+    kit.days[DAY] = round_robin()
+    kit.days[PREVIOUS_DAY] = earlier_games()
+    await kit.discover()
+    kind[0] = "current"
+    await kit.serve()
+
+    assert ("season", 2025) in years and ("season", 2024) in years
+    assert ("current", 2026) in years
 
 
 @pytest.mark.anyio

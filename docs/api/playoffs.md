@@ -300,7 +300,10 @@ current season.
 - A past season reads the same sources with the season value, and the sides of
   games resolved by provider id first. The names of leaders and award winners come
   from that season's box-score rosters (`SeasonRosters`, one roster per team, each
-  game read once and kept); a failed roster read fails the build
+  game read once and kept, one at a time across builds with `SOURCE_BUILD_PAUSE_MS`
+  between two requests; a 429 or 503 fails the build with the reason "rate limited",
+  [ADR 0056](../adr/0056-paced-past-builds-and-one-edition-mvp-path.md)); a failed
+  roster read fails the build
   ([ADR 0053](../adr/0053-season-level-rules-for-past-seasons.md)).
 - The league sides are named by that season's team object, with `seasonCode`
   and `historical` ([ADR 0054](../adr/0054-historical-sides-and-past-pages.md)). The Finals feed does the same.
