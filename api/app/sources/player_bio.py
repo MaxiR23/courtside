@@ -4,7 +4,7 @@
 # season summary (points, rebounds, assists and field goal percentage, each with
 # its league rank) to an internal bio. The season is the one the summary names,
 # not the provider's current season. A bio with no summary, or a summary that
-# names no season, gives no bio.
+# names no season or has no name, gives no bio.
 # The provider URL comes from Settings. Provider data never leaves this module.
 #
 # SEE: docs/api/player.md, api/app/sources/player_draft.py
@@ -45,7 +45,7 @@ class _ProviderStatistic(_ProviderModel):
 
 
 class _ProviderSummary(_ProviderModel):
-    display_name: str
+    display_name: str | None = None
     statistics: list[_ProviderStatistic] = []
 
 
@@ -87,7 +87,7 @@ async def fetch_player_bio(
     client: SourceClient, player_id: str, settings: Settings
 ) -> PlayerBio | None:
     """Return a player's season summary, None when the bio has none or its summary
-    names no season, or raise SourceError."""
+    has no name or names no season, or raise SourceError."""
     if settings.player_bio_url is None:
         raise SourceError(SOURCE, "player bio URL is not configured")
     url = settings.player_bio_url.format(player_id=player_id)
@@ -101,7 +101,7 @@ async def fetch_player_bio(
     summary = provider.athlete.stats_summary
     if summary is None or not summary.statistics:
         return None
-    season = _SEASON.match(summary.display_name)
+    season = _SEASON.match(summary.display_name or "")
     if season is None:
         return None
     values = {

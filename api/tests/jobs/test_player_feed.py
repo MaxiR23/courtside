@@ -21,7 +21,7 @@
 # - Takes the playoffs average of the latest regular season only
 # - Gives null averages for a row with no games
 # - Builds the milestones from the newest season and the career
-# - Builds the summary block as null when the bio is None, as the bio adapter returns for a summary that names no season (test_builds_the_summary_with_values_ranks_and_the_percentage_as_a_share)
+# - Builds the summary block as null when the bio is None, as the bio adapter returns for a summary that names no season or has no name (test_builds_the_summary_with_values_ranks_and_the_percentage_as_a_share)
 # - Takes the injury from the league injuries by athlete id
 # - Takes the next game it is given, or none when the season is over
 # - Fails the build for a player not on the roster, without a position, or with a team without a standing
