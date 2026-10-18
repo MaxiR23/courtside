@@ -1,0 +1,154 @@
+{
+  "events": [
+    {
+      "id": "250423024",
+      "date": "2005-04-23T23:00Z",
+      "season": {
+        "year": 2005
+      },
+      "seasonType": {
+        "type": 3
+      },
+      "competitions": [
+        {
+          "id": "250423024",
+          "date": "2005-04-23T23:00Z",
+          "attendance": 18000,
+          "type": {
+            "id": "1",
+            "abbreviation": "STD"
+          },
+          "neutralSite": false,
+          "venue": {
+            "fullName": "SBC Center",
+            "address": {
+              "city": "San Antonio"
+            }
+          },
+          "competitors": [
+            {
+              "id": "24",
+              "homeAway": "home",
+              "winner": true,
+              "team": {
+                "id": "24",
+                "abbreviation": "SA",
+                "displayName": "San Antonio Spurs",
+                "location": "San Antonio",
+                "shortDisplayName": "Spurs"
+              },
+              "score": {
+                "value": 101.0,
+                "displayValue": "101"
+              }
+            },
+            {
+              "id": "7",
+              "homeAway": "away",
+              "winner": false,
+              "team": {
+                "id": "7",
+                "abbreviation": "DEN",
+                "displayName": "Denver Nuggets",
+                "location": "Denver",
+                "shortDisplayName": "Nuggets"
+              },
+              "score": {
+                "value": 92.0,
+                "displayValue": "92"
+              }
+            }
+          ],
+          "notes": [
+            {
+              "headline": ""
+            }
+          ],
+          "status": {
+            "type": {
+              "name": "STATUS_FINAL",
+              "state": "post",
+              "completed": true
+            },
+            "period": 4
+          }
+        }
+      ]
+    },
+    {
+      "id": "250609008",
+      "date": "2005-06-09T23:00Z",
+      "season": {
+        "year": 2005
+      },
+      "seasonType": {
+        "type": 3
+      },
+      "competitions": [
+        {
+          "id": "250609008",
+          "date": "2005-06-09T23:00Z",
+          "attendance": 18000,
+          "type": {
+            "id": "1",
+            "abbreviation": "STD"
+          },
+          "neutralSite": false,
+          "venue": {
+            "fullName": "The Palace of Auburn Hills",
+            "address": {
+              "city": "Auburn Hills"
+            }
+          },
+          "competitors": [
+            {
+              "id": "8",
+              "homeAway": "home",
+              "winner": true,
+              "team": {
+                "id": "8",
+                "abbreviation": "DET",
+                "displayName": "Detroit Pistons",
+                "location": "Detroit",
+                "shortDisplayName": "Pistons"
+              },
+              "score": {
+                "value": 95.0,
+                "displayValue": "95"
+              }
+            },
+            {
+              "id": "24",
+              "homeAway": "away",
+              "winner": false,
+              "team": {
+                "id": "24",
+                "abbreviation": "SA",
+                "displayName": "San Antonio Spurs",
+                "location": "San Antonio",
+                "shortDisplayName": "Spurs"
+              },
+              "score": {
+                "value": 92.0,
+                "displayValue": "92"
+              }
+            }
+          ],
+          "notes": [
+            {
+              "headline": "FINALS"
+            }
+          ],
+          "status": {
+            "type": {
+              "name": "STATUS_FINAL",
+              "state": "post",
+              "completed": true
+            },
+            "period": 4
+          }
+        }
+      ]
+    }
+  ]
+}

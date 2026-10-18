@@ -6,9 +6,9 @@
 # champion's postseason record to the playoffs feed. The build reads no clock
 # and no source: the build date is an input.
 #
-# The state is complete once the series object of a Finals game says completed,
-# else finals once any Finals game was read, else playoffs once a round 1 game is
-# live or final, else playin on or after the first day of the play-in window,
+# The state is complete once a Finals team has four counted wins, else finals
+# once any Finals game was read, else playoffs once a round 1 game is live or
+# final, else playin on or after the first day of the play-in window,
 # else picture. Games are the postseason games of the play-in window and of the
 # postseason window, keyed by the season type of the event; a canceled game is
 # dropped and a repeated game id keeps one game. A play-in game is placed by its
@@ -18,8 +18,10 @@
 # standings seeds and the seeds 7 and 8 are the winners of the 7th vs 8th game
 # and of the 8th seed game. A later round is placed by the series its teams came
 # from, the Finals has the East team on top. A game or team that cannot be placed
-# fails the build. Wins, summary, completion and status of a series are the
-# series object of the latest live or final game, never counted from the games.
+# fails the build. Wins, summary, completion and status of a series are counted
+# from its final games (the source's winner flag, else the higher score), never
+# read from the source's series object; a series with no final game is upcoming
+# with null wins and summary (ADR 0060).
 # A stage is complete when all its games are final (play-in, 6 games) or all its
 # series are complete (8, 4, 2 and 1), in progress when started and not complete,
 # next when it is the first stage after the last one complete or in progress, and
@@ -140,6 +142,7 @@ KIND = "playoffs"
 FEED_ID = "league"
 CODES = sorted(set(TEAM_CODES.values()))
 SERIES_OF_ROUND = {1: 8, 2: 4, 3: 2, 4: 1}
+WINS_TO_WIN = 4
 SERIES_OF_SEEDS = {
     frozenset({1, 8}): 1,
     frozenset({4, 5}): 2,
@@ -350,22 +353,41 @@ def derive_series(
     return groups
 
 
+def counted_winner(game: PostseasonGame) -> str | None:
+    """The code of the team a game counts for: none unless the game is final;
+    else the side whose source winner flag is the only true one, else the side
+    with more points."""
+    if game.game.status is not GameStatus.FINAL:
+        return None
+    home, away = _codes(game)
+    side = game.winner or final_winner(game.game)
+    if side is None:
+        return None
+    return home if side is Side.HOME else away
+
+
+def series_wins(games: Sequence[PostseasonGame]) -> dict[str, int]:
+    """The counted wins of each team over the games."""
+    wins: dict[str, int] = {}
+    for game in games:
+        code = counted_winner(game)
+        if code is not None:
+            wins[code] = wins.get(code, 0) + 1
+    return wins
+
+
 def finals_winner(games: Sequence[PostseasonGame]) -> str | None:
-    """The team with more wins in the series object of a Finals game whose series
-    is completed; none when no Finals series is completed."""
-    for game in reversed(_unique_games(games)):
-        series = game.series
-        if (
-            game.season_type == POSTSEASON
-            and ROUNDS.get(game.competition_type or "") == 4
-            and series is not None
-            and series.completed
-        ):
-            ranked = sorted(series.wins.items(), key=lambda item: -item[1])
-            if len(ranked) < 2 or ranked[0][1] == ranked[1][1]:
-                return None
-            return ranked[0][0]
-    return None
+    """The Finals team with four counted wins; none when no team has them."""
+    finals = [
+        game
+        for game in _unique_games(games)
+        if game.season_type == POSTSEASON
+        and ROUNDS.get(game.competition_type or "") == 4
+    ]
+    winners = [
+        code for code, wins in series_wins(finals).items() if wins >= WINS_TO_WIN
+    ]
+    return winners[0] if len(winners) == 1 else None
 
 
 def _live_or_final(game: PostseasonGame) -> bool:
@@ -666,40 +688,34 @@ class _Builder:
         )
 
     def _info(self, placed: _Placed) -> _Info:
-        games = placed.games
-        played = [g for g in games if _live_or_final(g)]
-        chosen = played[-1] if played else games[0]
-        series = chosen.series
-        complete = series is not None and series.completed
-        wins = (
-            None
-            if series is None
-            else {
-                placed.top: series.wins.get(placed.top, 0),
-                placed.bottom: series.wins.get(placed.bottom, 0),
-            }
-        )
-        winner = None
-        if complete:
-            assert wins is not None
-            if wins[placed.top] == wins[placed.bottom]:
-                raise PlayoffsBuildError(
-                    f"series {placed.series_id.value} is complete with tied wins"
-                )
-            winner = (
-                placed.top if wins[placed.top] > wins[placed.bottom] else placed.bottom
+        wins = series_wins(placed.games)
+        top, bottom = wins.get(placed.top, 0), wins.get(placed.bottom, 0)
+        if top >= WINS_TO_WIN and bottom >= WINS_TO_WIN:
+            raise PlayoffsBuildError(
+                f"series {placed.series_id.value} is complete with tied wins"
             )
-        status = (
-            SeriesStatus.COMPLETE
-            if complete
-            else SeriesStatus.IN_PROGRESS
-            if played
-            else SeriesStatus.UPCOMING
-        )
+        if top >= WINS_TO_WIN or bottom >= WINS_TO_WIN:
+            winner, loser_wins = (
+                (placed.top, bottom) if top > bottom else (placed.bottom, top)
+            )
+            status = SeriesStatus.COMPLETE
+            summary = f"{winner} wins series {WINS_TO_WIN}-{loser_wins}"
+        elif any(g.game.status is GameStatus.FINAL for g in placed.games):
+            winner = None
+            status = SeriesStatus.IN_PROGRESS
+            if top == bottom:
+                summary = f"Series tied {top}-{top}"
+            else:
+                leader = placed.top if top > bottom else placed.bottom
+                summary = f"{leader} leads series {max(top, bottom)}-{min(top, bottom)}"
+        else:
+            return _Info(
+                status=SeriesStatus.UPCOMING, summary=None, wins=None, winner=None
+            )
         return _Info(
             status=status,
-            summary=None if series is None else series.summary,
-            wins=wins,
+            summary=summary,
+            wins={placed.top: top, placed.bottom: bottom},
             winner=winner,
         )
 
@@ -996,7 +1012,7 @@ class _Builder:
             return None, None
         last = played[-1]
         number = self.game_number(last, finals.games)
-        return number, None if last.series is None else last.series.summary
+        return number, self.info[SeriesId.FINALS].summary
 
     # Champion
 

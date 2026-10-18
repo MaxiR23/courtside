@@ -42,6 +42,7 @@
 # - A build that raises UnknownFeedError after its check learns the id answers unknown and records no failure, and a later request answers unknown with no build
 # - status gives the kind's answer for an id with no build and None for a kind never registered
 # - refresh starts one build without waiting, joins one in flight and leaves no task referenced
+# - A build error that carries a non-empty string reason is recorded with it, in the build step and in the dependency step; one with an empty or non-string reason, or none, is recorded by its type
 # - warm starts one build for a missing or stale feed without waiting, and none for a fresh feed, one in flight, an unknown id or a failure inside the 10-minute window (ADR 0055)
 # - with_build_version stamps the current rules version of the kept season feeds, and is_current_build is true only for that version (ADR 0053)
 #
@@ -75,6 +76,7 @@ from app.jobs.on_demand import (
     is_current_build,
     with_build_version,
 )
+from app.jobs.playoffs_feed import PlayoffsBuildError
 from app.sources.http import SourceError
 from app.storage.feeds import publish_by_id, published_ids, read_by_id
 from app.storage.state import StateStore
@@ -1072,3 +1074,54 @@ def test_with_build_version_stamps_the_current_version_and_is_current_build_acce
     assert is_current_build(stamped) is True
     assert is_current_build(unstamped) is False
     assert is_current_build(Versioned(build_version=SEASON_BUILD_VERSION + 1)) is False
+
+
+class EmptyReasonError(Exception):
+    reason = ""
+
+
+class NumberReasonError(Exception):
+    reason = 3
+
+
+@pytest.mark.anyio
+async def test_records_a_build_error_by_its_reason(tmp_path: Path) -> None:
+    fake = Fake()
+    fake.fail = PlayoffsBuildError("the 2005 postseason is not complete")
+    setup = Setup(tmp_path, fake)
+
+    with pytest.raises(FeedUnavailableError):
+        await setup.cache.serve("players", "p1")
+
+    failed = setup.store.feed_build("players", "p1")
+    assert failed is not None
+    assert failed.last_failure_reason == "the 2005 postseason is not complete"
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("error", [EmptyReasonError("x"), NumberReasonError("x")])
+async def test_records_an_error_with_an_empty_or_non_string_reason_by_its_type(
+    tmp_path: Path, error: Exception
+) -> None:
+    fake = Fake()
+    fake.fail = error
+    setup = Setup(tmp_path, fake)
+
+    with pytest.raises(FeedUnavailableError):
+        await setup.cache.serve("players", "p1")
+
+    failed = setup.store.feed_build("players", "p1")
+    assert failed is not None
+    assert failed.last_failure_reason == f"unexpected error: {type(error).__name__}"
+
+
+@pytest.mark.anyio
+async def test_records_a_dependency_error_by_its_reason(tmp_path: Path) -> None:
+    dep = Dependent(tmp_path, pair=PlayoffsBuildError("no standings"))
+
+    with pytest.raises(FeedUnavailableError):
+        await dep.setup.cache.serve("players", "p1")
+
+    state = dep.setup.store.feed_build("players", "p1")
+    assert state is not None
+    assert state.last_failure_reason == "no standings"

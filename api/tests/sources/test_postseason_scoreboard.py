@@ -12,6 +12,8 @@
 # - fetch_postseason_schedule maps a team's postseason schedule: a final game with its competition type, series, note, period, score, arena and broadcast, with no line score, and a scheduled game; both resolve their sides by provider id (ADR 0058)
 # - fetch_postseason_schedule skips a game with a side that has neither a code nor a name, rejects an in-play game, a final game without a score and an invalid payload, and raises on an error status, an unknown team code and a missing URL
 # - fetch_postseason_schedule names the sides of a payload without name keys from the display name and the location, and codes them from the provider id whatever the abbreviation
+# - fetch_postseason_schedule maps an event with no series, no name key and an empty note: its season type from seasonType.type (3, 5; missing as 3; any other skipped), its winner flags and its notes
+# - A game carries the side whose source winner flag is the only true one, none when no side or both are flagged, for a scoreboard game and for a schedule game
 # - ScheduleGame does not require a line score of a final game, and still requires a score
 #
 # What is covered:
@@ -36,6 +38,7 @@ import pytest
 import respx
 
 from app.feeds.games import GameStatus
+from app.feeds.opponent import Side
 from app.settings import Settings
 from app.sources.http import SourceClient, SourceError, create_client
 from app.sources.postseason_scoreboard import (
@@ -451,3 +454,102 @@ def test_a_schedule_game_does_not_require_a_line_score_but_still_requires_a_scor
     assert ScheduleGame.model_validate(base).line_score is None
     with pytest.raises(ValueError, match="requires score"):
         ScheduleGame.model_validate({**base, "score": None})
+
+
+SAS_2005 = "sas-2005-playoffs.json"
+
+
+async def read_2005(
+    mock: respx.MockRouter, settings: Settings, payload: Payload
+) -> list[PostseasonGame]:
+    mock.get(season_schedule_url("SAS", 2005, settings, playoffs=True)).respond(
+        json=payload
+    )
+    with TemporaryDirectory() as directory:
+        store = StateStore(Path(directory))
+        store.migrate()
+        async with create_client(store) as client:
+            return await fetch_postseason_schedule(client, "SAS", 2005, settings)
+
+
+def load_2005() -> Payload:
+    payload: Payload = json.loads(
+        (SCHEDULE_FIXTURES / SAS_2005).read_text(encoding="utf-8")
+    )
+    return payload
+
+
+@pytest.mark.anyio
+async def test_a_2005_schedule_event_with_no_series_and_no_name_key_maps_its_season_type_winner_and_notes(
+    mock: respx.MockRouter, schedule_settings: Settings
+) -> None:
+    first, finals = await read_2005(mock, schedule_settings, load_2005())
+
+    assert (first.season_type, finals.season_type) == (3, 3)
+    assert first.series is None and finals.series is None
+    assert first.note is None and finals.note == "FINALS"
+    assert (first.winner, finals.winner) == (Side.HOME, Side.HOME)
+    assert (first.game.home.code, first.game.home.name, first.game.home.city) == (
+        "SAS",
+        "Spurs",
+        "San Antonio",
+    )
+    assert (first.game.away.code, first.game.away.name) == ("DEN", "Nuggets")
+    assert (finals.game.home.code, finals.game.away.code) == ("DET", "SAS")
+    assert first.period == 4 and first.competition_type == "STD"
+    assert first.game.line_score is None
+
+
+@pytest.mark.anyio
+async def test_a_schedule_game_takes_its_season_type_from_the_event_when_the_note_is_unreadable(
+    mock: respx.MockRouter, schedule_settings: Settings
+) -> None:
+    payload = load_2005()
+    for event in payload["events"]:
+        event["competitions"][0]["notes"] = []
+
+    payload["events"][0]["seasonType"]["type"] = 5
+    games = await read_2005(mock, schedule_settings, payload)
+    assert [g.season_type for g in games] == [5, 3]
+
+    payload["events"][0]["seasonType"]["type"] = 3
+    games = await read_2005(mock, schedule_settings, payload)
+    assert [g.season_type for g in games] == [3, 3]
+
+    del payload["events"][0]["seasonType"]
+    games = await read_2005(mock, schedule_settings, payload)
+    assert [g.season_type for g in games] == [3, 3]
+
+    payload["events"][0]["seasonType"] = {"type": 2}
+    games = await read_2005(mock, schedule_settings, payload)
+    assert [g.game.id for g in games] == ["250609008"]
+
+
+@pytest.mark.anyio
+async def test_a_schedule_game_with_no_or_two_winner_flags_has_no_winner(
+    mock: respx.MockRouter, schedule_settings: Settings
+) -> None:
+    payload = load_2005()
+    for flag in (False, True):
+        for competitor in payload["events"][0]["competitions"][0]["competitors"]:
+            competitor["winner"] = flag
+        games = await read_2005(mock, schedule_settings, payload)
+        assert games[0].winner is None
+        assert games[1].winner is Side.HOME
+
+
+@pytest.mark.anyio
+async def test_maps_the_winner_flag_of_a_scoreboard_postseason_game(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("playoffs.json")
+    mock.get(URL).respond(json=payload)
+    unflagged = await fetch_postseason(settings)
+    assert unflagged[0].winner is None
+
+    payload["events"][0]["competitions"][0]["competitors"][1]["winner"] = True
+    mock.get(URL).respond(json=payload)
+    flagged = await fetch_postseason(settings)
+
+    away = payload["events"][0]["competitions"][0]["competitors"][1]["homeAway"]
+    assert flagged[0].winner is Side(away)

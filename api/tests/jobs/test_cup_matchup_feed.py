@@ -696,7 +696,7 @@ async def test_a_cup_feed_of_another_season_fails_the_build(kit: MatchupKit) -> 
         await kit.matchup()
 
     reasons = [f.last_failure_reason for f in kit.store.failed_feed_builds()]
-    assert reasons == ["unexpected error: MatchupBuildError"]
+    assert reasons == ["Cup feed is of another season"]
     assert kit.stored_matchup() is None
 
 

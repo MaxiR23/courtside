@@ -6,7 +6,8 @@
 # freshness, so both share one cached response. It adds what the playoffs feed
 # needs and a game of the games feed does not carry: the season type, the
 # competition type, the first note, the period of a game in play or final and
-# the series object (summary, completion, total games and wins per team). The
+# the series object (summary, completion, total games and wins per team) and
+# the source's winner flag of each side. The
 # side fields are mapped by the scoreboard adapter. With by_id_first, a past
 # season's sides resolve by provider id first (ADR 0046). Its results never
 # reach a core feed, and removing the playoffs section removes this module.
@@ -16,14 +17,17 @@
 # still undecided can carry a placeholder id.
 #
 # A past season is also read from the schedule of a team (fetch_postseason_schedule,
-# ADR 0058): its games carry the competition type and the series object, and
-# the provider sends no line score there, so ScheduleGame does not require one
+# ADR 0058): its games carry the season type and the winner flags, and the
+# competition type and the series object when the source sends them. The season
+# type comes from seasonType.type (3, 5; missing as 3; any other skipped). The
+# provider sends no line score there, so ScheduleGame does not require one
 # (the exception ADR 0051 makes for untimed All-Star games). A schedule game is
 # final or scheduled; any other state fails the read.
 #
 # SEE: docs/api/playoffs.md, docs/adr/0032-playoffs-feed.md, docs/adr/0058-bounded-past-competition-reads.md
 
 import datetime as dt
+from collections.abc import Iterable
 from typing import Annotated
 
 from pydantic import (
@@ -43,6 +47,7 @@ from app.feeds.games import (
     TeamCode,
     required_fields,
 )
+from app.feeds.opponent import Side
 from app.settings import Settings
 from app.sources import team_schedule
 from app.sources.http import SourceClient, SourceError, get_json
@@ -53,11 +58,12 @@ from app.sources.scoreboard import (
     ScoreboardGame,
     _map_event,
     _ProviderCompetition,
+    _ProviderCompetitor,
     _ProviderEvent,
     _ProviderModel,
     _ProviderScoreboard,
 )
-from app.sources.season_types import POSTSEASON
+from app.sources.season_types import PLAY_IN, POSTSEASON
 from app.sources.teams import TEAM_IDS, team_code_of_id, to_opponent
 
 
@@ -77,7 +83,12 @@ class _ProviderSeries(_ProviderModel):
     competitors: list[_ProviderSeriesCompetitor] = Field(default_factory=list)
 
 
+class _PostseasonCompetitor(_ProviderCompetitor):
+    winner: bool = False
+
+
 class _PostseasonCompetition(_ProviderCompetition):
+    competitors: list[_PostseasonCompetitor]  # type: ignore[assignment]
     type: _ProviderCompetitionType | None = None
     series: _ProviderSeries | None = None
 
@@ -135,6 +146,16 @@ class PostseasonGame(FeedModel):
     note: NonEmptyStr | None
     period: PositiveInt | None
     series: SeriesState | None
+    # The side whose source winner flag is the only true one; none when no side
+    # or both are flagged. Read by the playoffs builder for final games only.
+    winner: Side | None = None
+
+
+def _flagged_side(flags: Iterable[tuple[str, bool]]) -> Side | None:
+    flagged = [home_away for home_away, winner in flags if winner]
+    if len(flagged) == 1 and flagged[0] in ("home", "away"):
+        return Side(flagged[0])
+    return None
 
 
 def _series_state(series: _ProviderSeries | None, in_play: bool) -> SeriesState | None:
@@ -166,6 +187,9 @@ def _postseason_game(event: _PostseasonEvent, game: ScoreboardGame) -> Postseaso
             note=note,
             period=(event.status.period or None) if in_play else None,
             series=_series_state(competition.series, in_play),
+            winner=_flagged_side(
+                (c.home_away, c.winner) for c in competition.competitors
+            ),
         )
     except ValidationError as error:
         first = error.errors()[0]
@@ -208,6 +232,7 @@ class _ScheduleCompetition(team_schedule._ProviderCompetition):
 
 
 class _ScheduleEvent(team_schedule._ProviderEvent):
+    season_type: _ProviderSeason | None = None
     competitions: Annotated[list[_ScheduleCompetition], Field(min_length=1)]  # type: ignore[assignment]
 
 
@@ -216,6 +241,13 @@ class _ScheduleSchedule(team_schedule._ProviderModel):
 
 
 def _schedule_game(event: _ScheduleEvent) -> PostseasonGame | None:
+    kind = event.season_type.type if event.season_type else None
+    if kind is None:
+        season_type = POSTSEASON
+    elif kind in (POSTSEASON, PLAY_IN):
+        season_type = kind
+    else:
+        return None
     competition = event.competitions[0]
     sides = {c.home_away: c for c in competition.competitors}
     if set(sides) != {"home", "away"} or len(competition.competitors) != 2:
@@ -268,13 +300,16 @@ def _schedule_game(event: _ScheduleEvent) -> PostseasonGame | None:
     try:
         return PostseasonGame(
             game=ScheduleGame.model_validate(data),
-            season_type=POSTSEASON,
+            season_type=season_type,
             competition_type=(
                 competition.type.abbreviation or None if competition.type else None
             ),
             note=next((n.headline for n in competition.notes if n.headline), None),
             period=(period or None) if final and status_period > 0 else None,
             series=_series_state(competition.series, in_play=final),
+            winner=_flagged_side(
+                (c.home_away, c.winner) for c in competition.competitors
+            ),
         )
     except ValidationError as error:
         first = error.errors()[0]

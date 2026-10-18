@@ -947,7 +947,7 @@ async def test_a_failed_build_keeps_and_serves_the_stored_feed_and_is_not_retrie
     assert body == first
     assert kit.finals_build() == built_at
     assert state is not None and state.last_failure == NOW + FEED_LIFETIME
-    assert state.last_failure_reason == "unexpected error: FinalsBuildError"
+    assert state.last_failure_reason == "season not known yet"
     calls = len(kit.calls)
 
     await kit.serve_finals(NOW + FEED_LIFETIME + RETRY_AFTER - SECOND)

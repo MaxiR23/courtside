@@ -32,7 +32,7 @@ Conventions:
 | `postseasonDates`  | `DateSpan`            | From the first day of the play-in window to the last day of the postseason window        | always  |
 | `currentRound`     | integer (1 to 3) / null | The round the page highlights                                                          | set exactly when `state` is `playoffs` |
 | `finalsGame`       | integer (1 to 7) / null | The number of the latest Finals game that is live or final                             | null before Finals game 1 and outside `finals` and `complete` |
-| `finalsSummary`    | string / null         | The series summary of that game, as the source sends it                                  | null with `finalsGame` |
+| `finalsSummary`    | string / null         | The Finals series summary derived from the games, such as `SAS leads series 2-1`         | null with `finalsGame`, and null while no Finals game is final |
 | `stages`           | `PlayoffStageEntry[]` | Exactly 5: `playin`, `round_1`, `round_2`, `round_3`, `finals`                           | always  |
 | `picture`          | `PictureTable[]`      | East then West                                                                           | always  |
 | `playIn`           | `PlayIn[]` / null     | East then West; null for a season without a play-in (before 2021)                        | null only in a season feed |
@@ -58,9 +58,9 @@ Conventions:
 | `PlayInOutcome`      | `seed` (7, 8 or null); `loserOut`: true when the loser is out                                                                                                                       |
 | `PlayoffGame`        | `id`; `date` (US Eastern); `startTime`; `away`, `home`: `Opponent`; `status`: `GameStatus`; `score`: `Score` / null (set when final); `winner` (`away`, `home`, null; only when final); `overtime` (false before the game; true when the period is 5 or more); `venue`; `broadcast` (null); `detailAvailable` |
 | `SeriesGame`         | A `PlayoffGame` plus `number` (1 to 7), from the game note                                                                                                                          |
-| `Series`             | `id`: `SeriesId`; `round` (1 to 4); `conference` (null for the Finals only); `top`, `bottom`: `SeriesSide`; `status`: `upcoming`, `in_progress`, `complete`; `summary` (from the source, null); `winner` (team code, set exactly when complete); a complete series has the `wins` of both sides; `games`: `SeriesGame[]` (up to 7, in start order, only the games the source lists) |
+| `Series`             | `id`: `SeriesId`; `round` (1 to 4); `conference` (null for the Finals only); `top`, `bottom`: `SeriesSide`; `status`: `upcoming`, `in_progress`, `complete`; `summary` (derived: `{code} wins series 4-{n}`, `{code} leads series {a}-{b}`, `Series tied {a}-{a}`; null while upcoming); `winner` (team code, set exactly when complete); a complete series has the `wins` of both sides; `games`: `SeriesGame[]` (up to 7, in start order, only the games the source lists) |
 | `SeriesId`           | `east-r1-1` to `east-r1-4`, `east-r2-1`, `east-r2-2`, `east-r3`, `finals`, `west-r3`, `west-r2-1`, `west-r2-2`, `west-r1-1` to `west-r1-4`                                          |
-| `SeriesSide`         | `label`: `SeriesLabel`; `team`: `PlayoffTeam` / null; `seed` (1 to 15, only with a team; null with a team in a season feed without seeds); `wins` (0 to 4, from the series object, null without one, only with a team); `currently`: `PlayoffTeam` / null (never both a team and `currently`) |
+| `SeriesSide`         | `label`: `SeriesLabel`; `team`: `PlayoffTeam` / null; `seed` (1 to 15, only with a team; null with a team in a season feed without seeds); `wins` (0 to 4, counted from the series' final games, null while the series is upcoming, only with a team); `currently`: `PlayoffTeam` / null (never both a team and `currently`) |
 | `SeriesLabel`        | `key`: `seed` (seeds 1 to 6; 1 to 8 in a season feed before 2021; in a season without seeds, the slot's nominal seed), `playin_winner` (seeds 7 and 8, only with a play-in), `round_1_winner`, `round_2_winner`, `round_3_winner`; `conference`; `seed` (1 to 8; for `seed` and `playin_winner`); `series` (1 to 4; for `round_1_winner` and `round_2_winner`) |
 | `Champion`           | `team`: `PlayoffTeam`; `wins` (always 4); `losses` (0 to 3); `firstDate`, `lastDate`: the Finals games; `record`, `home`, `road`: postseason records such as `16-6` (null when the record read failed); `pointDifferential`: `TotalDifferential` over the champion's final postseason games |
 | `LeaderCategory`     | `points`, `rebounds`, `assists`, `steals`, `blocks`, `field_goal_pct`, `threes_made`, `double_doubles`, `minutes`                                                                   |
@@ -83,7 +83,7 @@ Conventions:
    game id keeps one game. `date` is the US Eastern date of the start time;
    `winner` is the side with more points of a final game; `overtime` is true for
    a live or final game whose period is 5 or more.
-3. **State.** `complete` when the series object of a Finals game says completed;
+3. **State.** `complete` when a Finals team has four counted wins;
    else `finals` when any Finals game was read; else `playoffs` when any round 1
    game is live or final; else `playin` on or after the first day of the play-in
    window; else `picture`.
@@ -97,7 +97,7 @@ Conventions:
    live or final game; the round after it when that round is complete (at most 3);
    1 when none has started.
 6. **Finals line.** `finalsGame` is the number of the latest Finals game that is
-   live or final and `finalsSummary` the series summary of that game.
+   live or final and `finalsSummary` the derived summary of the Finals.
 7. **Picture.** Per conference, the first 10 teams in seed order (a team with no
    seed goes last, then the source's conference order). `gamesBehind` is the
    conference games behind from wins and losses. When the standings are of
@@ -155,19 +155,23 @@ Conventions:
     outside the table, a live or final game with a team outside the league and two
     series in one slot fail the build. A game not yet live or final with an undecided
     side is ignored, so its slots keep their standings or label value.
-12. **Series values.** Taken from the series object of the latest live or final
-    game, else of the first game: `wins` per side, `summary`, and `status`
-    (`complete` when the object says completed, `in_progress` when any game is
-    live or final, else `upcoming`). Nothing is counted from the games. `winner`
-    is the side with more wins when complete; tied wins in a complete series fail
-    the build.
+12. **Series values.** Counted from the final games of the series, never read
+    from the source's series object. A final game counts for the side whose source
+    winner flag is the only true one, else for the side with more points; a game
+    that is not final never counts. `wins` per side; `status` is `complete` when a
+    team has four wins, `in_progress` when any game is final, else `upcoming` (a
+    series whose only played game is live is upcoming); `summary` is
+    `{code} wins series 4-{n}` (`n` the loser's wins), `{code} leads series {a}-{b}`
+    (`a` the leader's wins) or `Series tied {a}-{a}`. An upcoming series has null
+    wins and summary. `winner` is the team with four wins; two teams with four
+    wins in one series fail the build.
 13. **Undecided sides.** A slot with no game has the label of its place in the
     bracket. Round 1: from `playin` on, seeds 1 to 6 carry their team and seeds 7
     and 8 the team that won that seed once decided; in `picture` the side carries
     `currently`, the team with that seed in the standings. Later rounds carry the
     winner of the feeder series once it is complete.
-14. **Champion.** Set when complete: the team and its result from the Finals
-    series object, the dates of the Finals games, `record`, `home` and `road` from
+14. **Champion.** Set when complete: the team and its result from the counted
+    Finals wins, the dates of the Finals games, `record`, `home` and `road` from
     the postseason record read, and the point differential summed over the
     champion's final postseason games (type 3 only), with the minus sign U+2212
     when negative. The champion block has no drawing flag.
@@ -301,8 +305,9 @@ current season.
   ([ADR 0058](../adr/0058-bounded-past-competition-reads.md)): the season
   standings (1), the postseason schedule of the first 8 teams of each conference
   (10 from 2021; per conference the seeded teams in seed order, then the unseeded
-  by best record), which gives every game with its competition type and series
-  object (20), the play-in window (1) and its scoreboard days (5, the window's Eastern dates, its end included) from 2021, the
+  by best record), which gives every game with its season type (`seasonType.type`: 3, 5, missing as 3,
+  any other skipped), its winner flags and its competition type when the source
+  sends one (20), the play-in window (1) and its scoreboard days (5, the window's Eastern dates, its end included) from 2021, the
   leaders (1), the awards (up to 26), the records of the two finalists (2) and the
   game details of the Finals games (7), the sides of games resolved by provider
   id first and named as the [Cup feed](cup.md) rule 1 reads a name from a
