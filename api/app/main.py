@@ -168,7 +168,6 @@ def create_app(settings: Settings | None = None, *, run_jobs: bool = True) -> Fa
             client,
             feed_cache,
             stars_job,
-            season_rosters,
             team_names,
         )
         season_playoffs_finals = SeasonPlayoffsFinalsFeeds(
@@ -178,8 +177,6 @@ def create_app(settings: Settings | None = None, *, run_jobs: bool = True) -> Fa
             feed_cache,
             stars_job,
             season_playoffs,
-            season_rosters,
-            team_names,
         )
         all_star_discovery = AllStarDiscovery(settings, store, client, stars_job)
         AllStarFeeds(

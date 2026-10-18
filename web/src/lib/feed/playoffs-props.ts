@@ -763,11 +763,14 @@ function headToHeadView(finals: PlayoffsFinalsFeed): HeadToHeadView {
 			record: entry.record ?? NO_VALUE
 		})),
 		bars: finals.headToHead.bars.map((bar) => barView(bar, finals)),
-		averages: finals.averages.map((roster) => ({
-			key: roster.teamCode,
-			label: drawn(roster),
-			rows: roster.players.map(averageRow)
-		}))
+		averages:
+			finals.averages === null
+				? null
+				: finals.averages.map((roster) => ({
+						key: roster.teamCode,
+						label: drawn(roster),
+						rows: roster.players.map(averageRow)
+					}))
 	};
 }
 

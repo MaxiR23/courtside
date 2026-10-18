@@ -28,7 +28,7 @@ const averages = () =>
 	toPlayoffsView(
 		read<PlayoffsFeed>('playoffs-complete.json'),
 		read<PlayoffsFinalsFeed>('playoffs-finals.json')
-	).headToHead!.averages;
+	).headToHead!.averages!;
 const rows = (container: HTMLElement) =>
 	[...container.querySelectorAll('.row.body')].map((r) =>
 		[...r.querySelectorAll('.cell')].map((c) => (c.querySelector('.name') ?? c).textContent?.trim())

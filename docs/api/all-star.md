@@ -242,10 +242,16 @@ next not final, no next game beyond it) and a points tie for the top of a team b
   expiry. Only a season before the current one is built as described here.
 - The edition of a past season is the stored one, else the first February day
   (US Eastern) of that season's calendar that has All-Star games, which is then
-  stored. A season with none answers 404, and is not scanned again until the
-  backend restarts.
-- The previous edition (`previous` and `previousEdition`) is found the same way and
-  is null before 1994 or when it is not found.
+  stored. The calendar and the February days are read in order and the scan stops
+  at the first day with All-Star games; a stored edition reads its one day. A
+  season with none answers 404, and is not scanned again until the backend
+  restarts. The build is under a read budget of 60 source reads, at most four in
+  flight at once with no pause; a read past the budget, and a 429 or 503, fail
+  the build with a logged reason and nothing stored
+  ([ADR 0058](../adr/0058-bounded-past-competition-reads.md)).
+- The previous edition (`previous` and `previousEdition`) is taken from the stored
+  feed of the season before, with no read, when that feed is stored and `after`
+  with a final championship game; it is null otherwise, and before 1994.
 - A game detail, sections, extras or awards read that answers 404 only nulls its
   part (the MVP is null when there is none). Any other failed read fails the build.
 - The feed must build in the `after` state, or the build fails with a logged reason

@@ -20,6 +20,8 @@
 # - league_codes and named_sides: every non-guest side found in nested models and lists, and every side renamed with the rest kept identical
 # - run_code: the open run for the current season, a closed run inside its span and on both ends, none before 1994 and with no runs; with_career_codes: the code of each team of a season row from the runs, null where no run holds the season, every other field identical (ADR 0055)
 # - league_codes and named_sides: the team code of a coded model (a leader, an award winner, the Finals MVP) is found and gets its season code, and a model without the field stays identical (ADR 0055)
+# - payload_names: a payload name equal to today's keeps the standard code and is not historical, another name keeps the payload's abbreviation and is historical, no stored list gives the mapped code and not historical, and a code with no payload is left out (ADR 0058)
+# - identities_of: the season codes, names, cities and flags a named feed already carries on its league sides, the first side of a code wins, a guest and an unnamed side are left out (ADR 0058)
 # - The kind: a code outside the 30 is unknown and an unknown current season is not ready
 # - The kind: the cleanup keeps the 30 codes
 #
@@ -60,8 +62,10 @@ from app.jobs.team_names import (
     TeamNamesFeeds,
     build_name_runs,
     career_team_codes,
+    identities_of,
     league_codes,
     named_sides,
+    payload_names,
     run_code,
     season_named,
     with_career_codes,
@@ -69,6 +73,7 @@ from app.jobs.team_names import (
 from app.settings import Settings
 from app.sources.http import SourceClient, SourceError, create_client
 from app.sources.season_team import SeasonTeam
+from app.sources.teams import SeasonTeamName
 from app.storage.feeds import publish_by_id, read_by_id
 from app.storage.state import StateStore
 from tests.feeds.test_player import season_row, valid_player
@@ -790,3 +795,105 @@ async def test_season_names_gives_a_historical_identity_the_source_abbreviation(
 
     assert old["NOP"] == SeasonIdentity("Delta Herons", "New Orleans", "NO", True)
     assert same["NOP"] == SeasonIdentity("River Kings", "New Orleans", "NOP", False)
+
+
+def today_run(name: str, location: str, code: str) -> list[NameRun]:
+    return [
+        NameRun.model_validate(
+            {"from": 1994, "to": None, "name": name, "location": location, "code": code}
+        )
+    ]
+
+
+def payload(abbreviation: str, name: str, location: str) -> SeasonTeamName:
+    return SeasonTeamName(abbreviation=abbreviation, name=name, location=location)
+
+
+def test_payload_names_keeps_the_standard_code_when_the_name_is_the_one_of_today() -> (
+    None
+):
+    names = payload_names(
+        {"GSW": payload("GS", "Warriors", "Golden State")},
+        {"GSW": today_run("Warriors", "Golden State", "GSW")},
+    )
+
+    assert names["GSW"] == SeasonIdentity("Warriors", "Golden State", "GSW", False)
+
+
+def test_payload_names_keeps_the_payload_abbreviation_and_flags_another_name_as_historical() -> (
+    None
+):
+    names = payload_names(
+        {"OKC": payload("SEA", "Harbor Gulls", "Seattle")},
+        {"OKC": today_run("Thunder", "Oklahoma City", "OKC")},
+    )
+
+    assert names["OKC"] == SeasonIdentity("Harbor Gulls", "Seattle", "SEA", True)
+
+
+def test_payload_names_flags_a_same_name_whose_code_differs_from_todays_stored_code() -> (
+    None
+):
+    names = payload_names(
+        {"OKC": payload("OKC", "Thunder", "Oklahoma City")},
+        {"OKC": today_run("Thunder", "Oklahoma City", "ZZZ")},
+    )
+
+    assert names["OKC"] == SeasonIdentity("Thunder", "Oklahoma City", "OKC", True)
+
+
+def test_payload_names_without_a_stored_list_maps_the_code_and_is_not_historical() -> (
+    None
+):
+    names = payload_names(
+        {
+            "GSW": payload("GS", "Warriors", "Golden State"),
+            "OKC": payload("SEA", "G", "S"),
+        },
+        {},
+    )
+
+    assert names["GSW"] == SeasonIdentity("Warriors", "Golden State", "GSW", False)
+    assert (names["OKC"].code, names["OKC"].historical) == ("SEA", False)
+    assert (
+        payload_names({}, {"OKC": today_run("Thunder", "Oklahoma City", "OKC")}) == {}
+    )
+
+
+def test_payload_names_takes_today_from_the_open_run_only() -> None:
+    closed = [
+        NameRun.model_validate(
+            {
+                "from": 1994,
+                "to": 2008,
+                "name": "Harbor Gulls",
+                "location": "Seattle",
+                "code": "SEA",
+            }
+        ),
+        *today_run("Thunder", "Oklahoma City", "OKC"),
+    ]
+
+    names = payload_names(
+        {"OKC": payload("SEA", "Harbor Gulls", "Seattle")}, {"OKC": closed}
+    )
+
+    assert names["OKC"].historical is True
+
+
+def test_identities_of_reads_the_identities_a_named_feed_carries_on_its_sides() -> None:
+    feed = holder()
+    named = named_sides(
+        feed,
+        {
+            "OKC": SeasonIdentity("Harbor Gulls", "Seattle", "SEA", True),
+            "BOS": SeasonIdentity("Celtics", "Boston", "BOS", False),
+        },
+    )
+
+    assert identities_of(named) == {
+        "OKC": SeasonIdentity("Harbor Gulls", "Seattle", "SEA", True),
+        "BOS": SeasonIdentity("Celtics", "Boston", "BOS", False),
+    }
+    # A side with no season code and a guest are left out.
+    assert identities_of(feed) == {}

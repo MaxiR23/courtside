@@ -208,7 +208,8 @@ class PlayoffsFinalsFeed(FeedModel):
     finals_mvp: FinalsMvp | None
     road: Annotated[list[RoadTeam], Field(min_length=2, max_length=2)]
     head_to_head: HeadToHead
-    averages: Annotated[list[RosterAverages], Field(min_length=2, max_length=2)]
+    # Null on a past season: no read carries the postseason averages (ADR 0058).
+    averages: Annotated[list[RosterAverages], Field(min_length=2, max_length=2)] | None
     # The rules version of a kept season feed (ADR 0053); null on a current feed
     # and on a stored feed from before the field.
     build_version: PositiveInt | None = None
@@ -242,6 +243,9 @@ class PlayoffsFinalsFeed(FeedModel):
         for bar in self.head_to_head.bars:
             if [value.team_code for value in bar.values] != order:
                 raise ValueError("bar values must list the finalists in the road order")
-        if [roster.team_code for roster in self.averages] != order:
+        if (
+            self.averages is not None
+            and [roster.team_code for roster in self.averages] != order
+        ):
             raise ValueError("averages must list the finalists in the road order")
         return self

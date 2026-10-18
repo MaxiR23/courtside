@@ -3,10 +3,13 @@
 # The tables that map the provider's team codes and team ids to the standard codes,
 # and the one resolver that maps a side or an opponent for every adapter (ADR 0026).
 #
+# SeasonTeamName is the name one payload of a past season gives a team (ADR 0058).
+#
 # SEE: docs/api/games.md, api/app/sources/http.py
 
 from typing import Any
 
+from app.feeds.games import FeedModel, NonEmptyStr
 from app.sources.http import SourceError
 
 TEAM_CODES: dict[str, str] = {
@@ -88,6 +91,14 @@ def to_team_code(provider_code: str, *, source: str) -> str:
         return TEAM_CODES[provider_code]
     except KeyError:
         raise SourceError(source, f"unknown team code {provider_code!r}") from None
+
+
+class SeasonTeamName(FeedModel):
+    """A team as one payload of a past season names it. Never reaches a feed."""
+
+    abbreviation: NonEmptyStr
+    name: NonEmptyStr
+    location: NonEmptyStr
 
 
 LEAGUE_CODES = frozenset(TEAM_CODES.values())

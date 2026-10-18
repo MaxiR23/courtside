@@ -1,6 +1,6 @@
 # 0056. Paced past builds and one edition MVP path
 
-- Status: Accepted
+- Status: Superseded by 0058 for the past playoffs and Finals reads only
 - Date: 2026-10-17
 
 ## Context

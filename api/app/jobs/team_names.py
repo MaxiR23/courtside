@@ -33,6 +33,13 @@
 # leader, an award winner, the Finals MVP, a finalist record, a roster average and a
 # player's team), from their team_code or code (ADR 0055).
 #
+# payload_names answers the same identity from the names the payloads of the
+# build itself give the teams (SeasonTeamName), with no read: the name and city
+# are the payload's, "today" is the open run of the stored franchise-names list
+# (no run: the code is the standard one and the identity is not historical).
+# identities_of reads the identities a named feed already carries on its sides.
+# The past playoffs, Finals and Cup builds use them (ADR 0058).
+#
 # with_career_codes sets, on every season row of a player feed, the code each of
 # its teams had in that season, from the stored runs of the franchises: the run
 # that holds the row's end year gives the code, and an entry is null when no run
@@ -74,7 +81,7 @@ from app.settings import Settings
 from app.sources import season_team
 from app.sources.http import SourceClient, SourceError
 from app.sources.season_team import SeasonTeam
-from app.sources.teams import TEAM_CODES
+from app.sources.teams import TEAM_CODES, SeasonTeamName
 from app.storage.feeds import read_by_id
 from app.storage.state import StateStore
 
@@ -198,6 +205,33 @@ def _season_code(found: SeasonTeam, today: SeasonTeam | None) -> str:
     return found.abbreviation
 
 
+def payload_names(
+    identities: Mapping[str, SeasonTeamName],
+    runs: Mapping[str, Sequence[NameRun]],
+) -> dict[str, SeasonIdentity]:
+    """The identity of each team a payload names, with no read (ADR 0058). It
+    applies the rule of `_season_code` and `season_names`, taking "today" from
+    the open run of the stored franchise-names list."""
+    names: dict[str, SeasonIdentity] = {}
+    for code, found in identities.items():
+        today = next((run for run in runs.get(code, ()) if run.to is None), None)
+        mapped = TEAM_CODES.get(found.abbreviation, found.abbreviation)
+        if today is None or (found.name, found.location) == (
+            today.name,
+            today.location,
+        ):
+            shown = mapped
+        else:
+            shown = found.abbreviation
+        historical = today is not None and (found.name, found.location, shown) != (
+            today.name,
+            today.location,
+            today.code,
+        )
+        names[code] = SeasonIdentity(found.name, found.location, shown, historical)
+    return names
+
+
 def _sides(value: object) -> Iterable[Opponent]:
     """Every Opponent found in a value: models, nested models and lists."""
     if isinstance(value, Opponent):
@@ -260,6 +294,26 @@ def named_sides[M: BaseModel](model: M, names: Mapping[str, SeasonIdentity]) -> 
     """The model with season_named applied to every side in it, validated again."""
     renamed = _renamed(model, names)
     return type(model).model_validate(renamed.model_dump(by_alias=False))
+
+
+def identities_of(model: BaseModel) -> dict[str, SeasonIdentity]:
+    """The identity each league side of a named feed carries, by code: the first
+    side of a code wins. A side with no season code is left out."""
+    found: dict[str, SeasonIdentity] = {}
+    for side in _sides(model):
+        if (
+            side.guest
+            or side.code is None
+            or side.season_code is None
+            or side.name is None
+            or side.city is None
+        ):
+            continue
+        found.setdefault(
+            side.code,
+            SeasonIdentity(side.name, side.city, side.season_code, side.historical),
+        )
+    return found
 
 
 class TeamNamesBuildError(Exception):

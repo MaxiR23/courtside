@@ -54,6 +54,10 @@
 # side seeds; a past game whose note has no game number takes its position in
 # its series; and a past play-in note is read in any letter case.
 #
+# A past build reads no postseason window: its postseason dates run from the
+# start of the play-in window, else from the first game, to the last game read
+# (ADR 0058).
+#
 # SEE: docs/api/playoffs.md, docs/adr/0032-playoffs-feed.md,
 # docs/adr/0046-season-playoffs-feeds.md, api/app/jobs/standings_feed.py
 
@@ -177,7 +181,8 @@ class PlayoffsSources:
     season: int
     today: dt.date
     play_in: SeasonWindow | None
-    postseason: SeasonWindow
+    # None only on a past build, which reads no postseason window (ADR 0058).
+    postseason: SeasonWindow | None
     standings: DivisionStandings
     colors: Mapping[str, TeamInfo | None]
     games: Sequence[PostseasonGame]
@@ -217,7 +222,7 @@ def conference_of_series(series_id: SeriesId) -> Conference | None:
 
 
 def postseason_days(
-    play_in: SeasonWindow | None, postseason: SeasonWindow
+    play_in: SeasonWindow | None, postseason: SeasonWindow | None
 ) -> list[dt.date]:
     """The US Eastern dates of both windows, sorted with no repeats; a season
     with no play-in window has the postseason's."""
@@ -1094,14 +1099,25 @@ class _Builder:
         finals_game, finals_summary = self.finals_line()
         sources = self.sources
         first_window = sources.play_in or sources.postseason
+        game_dates = [eastern_date(g.game.start_time) for g in sources.games]
+        if sources.postseason is not None and first_window is not None:
+            first_date = eastern_date(first_window.start)
+            last_date = eastern_date(sources.postseason.end)
+        else:
+            if not game_dates:
+                raise PlayoffsBuildError("a build with no window has no game")
+            first_date = (
+                eastern_date(first_window.start) if first_window else min(game_dates)
+            )
+            last_date = max(game_dates)
         try:
             return PlayoffsFeed.model_validate(
                 {
                     "season": season_label(sources.season),
                     "state": self.state,
                     "postseason_dates": {
-                        "first_date": eastern_date(first_window.start),
-                        "last_date": eastern_date(sources.postseason.end),
+                        "first_date": first_date,
+                        "last_date": last_date,
                     },
                     "current_round": self.current_round(),
                     "finals_game": finals_game,

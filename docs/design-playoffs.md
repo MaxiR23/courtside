@@ -532,4 +532,4 @@ Keys are camelCase. Nullable fields are always present and `null` when absent. T
 - The Finals MVP card: postseason points, rebounds, assists, games and the best scoring game of the series from the box scores.
 - The road to the title: for each finalist, the seed and regular season record, the postseason record and the four series (round, opponent seed, opponent, result).
 - The head to head: the postseason records and the eight bars with both values and which side is better.
-- The postseason averages of both rosters: per player the photo, PTS, REB, AST, BLK and FG%, with `null` values for a player without postseason stats.
+- The postseason averages of both rosters: per player the photo, PTS, REB, AST, BLK and FG%, with `null` values for a player without postseason stats; the whole block is `null` on a past season (no read carries them, ADR 0058) and the table is hidden.

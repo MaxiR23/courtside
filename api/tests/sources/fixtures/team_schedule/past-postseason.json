@@ -1,0 +1,262 @@
+{
+  "events": [
+    {
+      "id": "pg1",
+      "date": "2004-05-03T01:00Z",
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "Harbor Arena",
+            "address": {
+              "city": "Seattle"
+            }
+          },
+          "status": {
+            "type": {
+              "state": "post",
+              "completed": true
+            },
+            "period": 4
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "team": {
+                "id": "25",
+                "abbreviation": "SEA",
+                "name": "Harbor Gulls",
+                "location": "Seattle"
+              },
+              "winner": true,
+              "score": {
+                "value": 101.0
+              }
+            },
+            {
+              "homeAway": "away",
+              "team": {
+                "id": "29",
+                "abbreviation": "VAN",
+                "name": "Lakeside Pines",
+                "location": "Vancouver"
+              },
+              "winner": false,
+              "score": {
+                "value": 95.0
+              }
+            }
+          ],
+          "notes": [
+            {
+              "headline": "West 1st Round - Game 6"
+            }
+          ],
+          "broadcasts": [
+            {
+              "media": {
+                "shortName": "Courtside TV"
+              }
+            }
+          ],
+          "type": {
+            "abbreviation": "QTR"
+          },
+          "series": {
+            "summary": "SEA wins series 4-2",
+            "completed": true,
+            "totalCompetitions": 7,
+            "competitors": [
+              {
+                "id": "25",
+                "wins": 4
+              },
+              {
+                "id": "29",
+                "wins": 2
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "pg2",
+      "date": "2004-05-05T01:00Z",
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "Harbor Arena",
+            "address": {
+              "city": "Seattle"
+            }
+          },
+          "status": {
+            "type": {
+              "state": "pre",
+              "completed": false
+            },
+            "period": 0
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "team": {
+                "id": "29",
+                "abbreviation": "VAN",
+                "name": "Lakeside Pines",
+                "location": "Vancouver"
+              },
+              "winner": false
+            },
+            {
+              "homeAway": "away",
+              "team": {
+                "id": "25",
+                "abbreviation": "SEA",
+                "name": "Harbor Gulls",
+                "location": "Seattle"
+              },
+              "winner": false
+            }
+          ],
+          "notes": [
+            {
+              "headline": "West 1st Round - Game 7"
+            }
+          ],
+          "broadcasts": [
+            {
+              "media": {
+                "shortName": "Courtside TV"
+              }
+            }
+          ],
+          "type": {
+            "abbreviation": "QTR"
+          },
+          "series": {
+            "summary": "SEA leads series 3-2",
+            "completed": false,
+            "totalCompetitions": 7,
+            "competitors": [
+              {
+                "id": "25",
+                "wins": 3
+              },
+              {
+                "id": "29",
+                "wins": 2
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "pg3",
+      "date": "2004-05-06T01:00Z",
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "Harbor Arena",
+            "address": {
+              "city": "Seattle"
+            }
+          },
+          "status": {
+            "type": {
+              "state": "pre",
+              "completed": false
+            },
+            "period": 0
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "team": {
+                "id": "25",
+                "abbreviation": "SEA",
+                "name": "Harbor Gulls",
+                "location": "Seattle"
+              },
+              "winner": false
+            },
+            {
+              "homeAway": "away",
+              "team": {},
+              "winner": false
+            }
+          ],
+          "notes": [],
+          "broadcasts": [
+            {
+              "media": {
+                "shortName": "Courtside TV"
+              }
+            }
+          ],
+          "type": {
+            "abbreviation": "QTR"
+          }
+        }
+      ]
+    },
+    {
+      "id": "pg4",
+      "date": "2004-05-02T01:00Z",
+      "competitions": [
+        {
+          "venue": {
+            "fullName": "Harbor Arena",
+            "address": {
+              "city": "Seattle"
+            }
+          },
+          "status": {
+            "type": {
+              "state": "post",
+              "completed": true
+            },
+            "period": 5
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "team": {
+                "id": "25",
+                "abbreviation": "SEA",
+                "name": "Harbor Gulls",
+                "location": "Seattle"
+              },
+              "winner": false,
+              "score": {
+                "value": 98.0
+              }
+            },
+            {
+              "homeAway": "away",
+              "team": {
+                "id": "29",
+                "abbreviation": "VAN",
+                "name": "Lakeside Pines",
+                "location": "Vancouver"
+              },
+              "winner": true,
+              "score": {
+                "value": 99.0
+              }
+            }
+          ],
+          "notes": [],
+          "broadcasts": [
+            {
+              "media": {
+                "shortName": "Courtside TV"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

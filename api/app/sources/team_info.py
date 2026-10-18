@@ -4,7 +4,9 @@
 # and maps them to an internal team info. Colors come without the leading "#".
 # The provider URL comes from Settings. Provider data never leaves this module.
 #
-# SEE: docs/api/team.md, api/app/sources/team_schedule.py
+# cached_team_info reads the source cache only (ADR 0058).
+#
+# SEE: docs/api/team.md, api/app/sources/team_schedule.py, docs/adr/0058-bounded-past-competition-reads.md
 
 import datetime as dt
 from typing import Annotated
@@ -19,7 +21,7 @@ from pydantic.alias_generators import to_camel
 
 from app.feeds.games import FeedModel, NonEmptyStr
 from app.settings import Settings
-from app.sources.http import SourceClient, SourceError, get_json
+from app.sources.http import SourceClient, SourceError, cached_json, get_json
 from app.sources.teams import TEAM_CODES
 
 SOURCE = "team_info"
@@ -99,6 +101,10 @@ async def fetch_team_info(
     provider_code = _provider_code(team_code)
     url = settings.team_info_url.format(team=provider_code)
     body = await get_json(client, url, source=SOURCE, fresh=FRESH_FOR)
+    return _map(body, team_code)
+
+
+def _map(body: object, team_code: str) -> TeamInfo:
     try:
         provider = _ProviderTeamInfo.model_validate(body)
     except ValidationError as error:
@@ -127,3 +133,21 @@ async def fetch_team_info(
             SOURCE,
             f"team {team_code} is invalid: {first['type']} at {_location(error)}",
         ) from None
+
+
+def cached_team_info(
+    client: SourceClient, team_code: str, settings: Settings
+) -> TeamInfo | None:
+    """Return a team's info from the source cache, whatever its age, or None.
+    It sends no request."""
+    if settings.team_info_url is None or team_code not in PROVIDER_CODES:
+        return None
+    body = cached_json(
+        client, settings.team_info_url.format(team=PROVIDER_CODES[team_code])
+    )
+    if body is None:
+        return None
+    try:
+        return _map(body, team_code)
+    except SourceError:
+        return None

@@ -9,7 +9,8 @@
 # - The kind: season 2024 with In-Season Tournament notes (group play included, every group game counted) and two quarterfinals sharing a seed builds as complete, the quarterfinals placed by start time (ADR 0053)
 # - The kind: the built feed carries the current build version, a stored feed of an older or missing version is rebuilt on its next request, and one of the current version is served with no source request (ADR 0053)
 # - The kind: the feed is stored under season-cup and rebuilt only for another version: a second request, a request years later and a restart all serve with no source call
-# - The kind: the league sides are named by the season team object with the season code and the historical flag (ADR 0054)
+# - The kind: the league sides are named from the names the schedules give the teams with the season code and the historical flag, and name_sides is never called (ADR 0054, ADR 0058)
+# - The kind: the build declares 44 reads and sends no calendar, scoreboard day or game detail request (ADR 0058)
 # - The kind: building it writes nothing under the current Cup feed
 # - The kind: a Cup that is not complete answers unavailable and stores nothing
 # - The kind: a failed read with nothing stored answers unavailable
@@ -40,6 +41,7 @@ import respx
 from app.feeds.cup import CupFeed, CupStage, StageStatus
 from app.feeds.game_detail import Conference
 from app.feeds.games import CupRound
+from app.jobs.cup_feed import CODES
 from app.jobs.cup_feed import FEED_ID as CUP_FEED_ID
 from app.jobs.cup_feed import KIND as CUP_KIND
 from app.jobs.on_demand import (
@@ -51,6 +53,7 @@ from app.jobs.on_demand import (
 )
 from app.jobs.season_cup_feed import (
     KIND,
+    READ_BUDGET,
     SeasonCupFeeds,
     past_cup_season_status,
 )
@@ -60,8 +63,9 @@ from app.settings import Settings
 from app.sources.cup import CupTable
 from app.sources.http import SourceClient
 from app.sources.team_schedule import ScheduledGame, SeasonSchedule
+from app.sources.teams import SeasonTeamName
 from app.storage.feeds import publish_by_id, read_by_id
-from tests.jobs.fake_season_teams import FakeSeasonTeams, league_sides, season_team
+from tests.jobs.fake_season_teams import FakeSeasonTeams, league_sides
 from tests.jobs.test_cup_feed import (
     NOW,
     all_final,
@@ -103,6 +107,8 @@ class SeasonCupKit(MatchupKit):
         self.seasons: list[int] = []
         self.past_flags: list[bool] = []
         self.season_teams = FakeSeasonTeams()
+        # The names every schedule payload gives the teams it holds.
+        self.payload_names: dict[str, SeasonTeamName] = {}
         self.register()
 
     def register(self) -> None:
@@ -167,7 +173,8 @@ class SeasonCupKit(MatchupKit):
     ) -> SeasonSchedule:
         self.read(f"p-schedule/{team}/{season}/{by_id_first}")
         self.past_flags.append(by_id_first)
-        return schedules_of(self.pairs).get(team, SeasonSchedule(games=[]))
+        found = schedules_of(self.pairs).get(team, SeasonSchedule(games=[]))
+        return found.model_copy(update={"teams": dict(self.payload_names)})
 
     async def serve_season(self, season: str, at: dt.datetime | None = None) -> bytes:
         if at is not None:
@@ -224,11 +231,20 @@ async def test_a_past_season_builds_a_valid_complete_feed_from_the_season_source
 
 
 @pytest.mark.anyio
-async def test_the_league_sides_are_named_by_the_season_team_object_with_the_season_code_and_the_flag(
+async def test_the_league_sides_are_named_from_the_schedule_payloads_and_name_sides_is_never_called(
     kit: SeasonCupKit,
 ) -> None:
-    kit.season_teams.by_season[2025] = season_team("Harbor Gulls", "Seattle", "SEA")
-    kit.season_teams.by_season[2027] = season_team("Thunder", "Oklahoma City", "OKC")
+    kit.payload_names = {
+        code: SeasonTeamName(
+            abbreviation="SEA", name="Harbor Gulls", location="Seattle"
+        )
+        for code in CODES
+    }
+
+    async def forbidden(*args: object, **kwargs: object) -> None:
+        raise AssertionError("name_sides must not be called")
+
+    kit.team_names.name_sides = forbidden  # type: ignore[method-assign,assignment]
 
     body = await kit.serve_season("2025")
 
@@ -236,7 +252,22 @@ async def test_the_league_sides_are_named_by_the_season_team_object_with_the_sea
     assert sides
     for side in sides:
         assert (side["name"], side["city"]) == ("Harbor Gulls", "Seattle")
-        assert (side["seasonCode"], side["historical"]) == ("SEA", True)
+        assert (side["seasonCode"], side["historical"]) == ("SEA", False)
+
+
+@pytest.mark.anyio
+async def test_the_build_declares_44_reads_and_sends_no_calendar_day_or_detail_request(
+    kit: SeasonCupKit,
+) -> None:
+    await kit.serve_season("2025")
+
+    assert READ_BUDGET == 44
+    assert kit.called("p-schedule/") + kit.called("teams/") + len(kit.seasons) <= (
+        READ_BUDGET
+    )
+    assert not any(
+        name.startswith(("calendar/", "day/", "detail/")) for name in kit.calls
+    )
 
 
 @pytest.mark.anyio

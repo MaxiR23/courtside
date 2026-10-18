@@ -13,6 +13,9 @@
 # schedule validates only its completed events; the season schedule validates
 # every event (ADR 0026).
 #
+# A season schedule also carries the names its payload gives the league teams
+# (SeasonSchedule.teams, ADR 0058).
+#
 # SEE: docs/api/game-detail.md, api/app/sources/team_players.py
 
 import datetime as dt
@@ -35,7 +38,14 @@ from app.feeds.games import FeedModel, NonEmptyStr, UtcDatetime
 from app.feeds.opponent import Opponent
 from app.settings import Settings
 from app.sources.http import SourceClient, SourceError, get_json, with_query
-from app.sources.teams import TEAM_CODES, TEAM_IDS, side_of, to_opponent
+from app.sources.teams import (
+    LEAGUE_CODES,
+    TEAM_CODES,
+    TEAM_IDS,
+    SeasonTeamName,
+    side_of,
+    to_opponent,
+)
 
 SOURCE = "team_schedule"
 FRESH_FOR = dt.timedelta(hours=1)
@@ -166,6 +176,9 @@ class SeasonSchedule(FeedModel):
     Never reaches a feed."""
 
     games: list[ScheduledGame]
+    # Each league team the payload names, by standard code: the first one seen
+    # wins (ADR 0058).
+    teams: dict[str, SeasonTeamName] = Field(default_factory=dict)
 
 
 def _provider_code(team_code: str) -> str:
@@ -331,6 +344,43 @@ def _scheduled_game(
     }
 
 
+def season_schedule_url(
+    team_code: str, season: int, settings: Settings, *, playoffs: bool
+) -> str:
+    """Return the URL of one team's schedule of a season (its end year) and
+    season type, or raise SourceError."""
+    if settings.team_schedule_url is None:
+        raise SourceError(SOURCE, "team schedule URL is not configured")
+    provider_code = _provider_code(team_code)
+    return with_query(
+        settings.team_schedule_url.format(team=provider_code),
+        {"season": season, "seasontype": 3 if playoffs else 2},
+    )
+
+
+def _team_names(
+    events: list[_ProviderEvent], by_id_first: bool
+) -> dict[str, dict[str, str]]:
+    names: dict[str, dict[str, str]] = {}
+    for event in events:
+        for competitor in event.competitions[0].competitors:
+            team = competitor.team
+            code = _code_of(competitor, by_id_first)
+            if (
+                code in LEAGUE_CODES
+                and code not in names
+                and team.abbreviation
+                and team.name
+                and team.location
+            ):
+                names[code] = {
+                    "abbreviation": team.abbreviation,
+                    "name": team.name,
+                    "location": team.location,
+                }
+    return names
+
+
 async def fetch_season_schedule(
     client: SourceClient,
     team_code: str,
@@ -343,13 +393,7 @@ async def fetch_season_schedule(
     """Return one team's games of a season (its end year) and season type, or
     raise SourceError. With by_id_first, a past season matches the teams by
     provider id before the abbreviation (ADR 0043)."""
-    if settings.team_schedule_url is None:
-        raise SourceError(SOURCE, "team schedule URL is not configured")
-    provider_code = _provider_code(team_code)
-    url = with_query(
-        settings.team_schedule_url.format(team=provider_code),
-        {"season": season, "seasontype": 3 if playoffs else 2},
-    )
+    url = season_schedule_url(team_code, season, settings, playoffs=playoffs)
     body = await get_json(client, url, source=SOURCE, fresh=FRESH_FOR)
     try:
         schedule = _ProviderSchedule.model_validate(body)
@@ -366,7 +410,10 @@ async def fetch_season_schedule(
             for event in schedule.events
         )
         return SeasonSchedule.model_validate(
-            {"games": [game for game in games if game is not None]}
+            {
+                "games": [game for game in games if game is not None],
+                "teams": _team_names(schedule.events, by_id_first),
+            }
         )
     except ValidationError as error:
         first = error.errors()[0]

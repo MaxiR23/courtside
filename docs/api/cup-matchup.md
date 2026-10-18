@@ -141,9 +141,10 @@ to the current season.
 - The current season serves the feed above: same stored file, body, ETag and
   expiry.
 - A past season reads the stored season Cup feed, built first when missing, and
-  per team only the season schedule (by provider id first). `path` follows
-  rule 3; `injuries` and `roster` are empty lists, and no roster, injuries,
-  averages or depth chart is read.
+  per team only the season schedule (by provider id first), under a read budget
+  of 2 source reads ([ADR 0058](../adr/0058-bounded-past-competition-reads.md)).
+  `path` follows rule 3; `injuries` and `roster` are empty lists, and no roster,
+  injuries, averages or depth chart is read.
 - Refresh: built on request, stored at `feeds/season-cup-matchups/{season}-{id}.json`,
   kept for good (rule G of [`docs/source-rules.md`](../source-rules.md)): never
   deleted, and rebuilt on its next request when its `buildVersion` is not the

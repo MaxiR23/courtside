@@ -1203,12 +1203,19 @@
       "$ref": "#/$defs/HeadToHead"
     },
     "averages": {
-      "items": {
-        "$ref": "#/$defs/RosterAverages"
-      },
-      "maxItems": 2,
-      "minItems": 2,
-      "type": "array"
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/RosterAverages"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "buildVersion": {
       "anyOf": [

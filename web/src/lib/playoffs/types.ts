@@ -170,7 +170,7 @@ export type AverageRowView = {
 export type HeadToHeadView = {
 	records: { team: string; record: string }[];
 	bars: BarView[];
-	averages: { key: string; label: string; rows: AverageRowView[] }[];
+	averages: { key: string; label: string; rows: AverageRowView[] }[] | null;
 };
 
 export type LeaderRowView = {

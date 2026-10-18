@@ -23,6 +23,7 @@
 # - Wires presence and the after-run hook into the games job
 # - Wires the team, player, standings, search, Cup, Cup matchup, playoffs, playoffs finals, season Cup, season Cup matchup, season playoffs, season playoffs finals and season All-Star feed kinds into the feed cache, the season Cup, season playoffs and season All-Star feeds into app.state, the player feeds into app.state, and the cleanup into the stars job's after-run hook
 # - Wires the past game detail kind into the feed cache
+# - Startup with the jobs on builds, stores and starts nothing of the season playoffs, playoffs finals, Cup, Cup matchup and All-Star kinds (ADR 0058)
 # - Closes the HTTP client when the scheduler fails to stop
 #
 # What is covered:
@@ -475,6 +476,32 @@ def test_wires_the_team_and_player_feed_kinds_and_the_cleanup_into_the_stars_job
         built["stars_kwargs"]["after_run"]()
 
     assert built["players"].cleanups == 1
+
+
+PAST_KINDS = [
+    "season-playoffs",
+    "season-playoffs-finals",
+    "season-cup",
+    "season-cup-matchups",
+    "season-all-star",
+]
+
+
+def test_startup_with_the_jobs_on_builds_nothing_of_the_past_playoffs_cup_and_all_star_kinds(
+    tmp_path: Path,
+) -> None:
+    settings = Settings(_env_file=None, data_dir=tmp_path)  # type: ignore[call-arg]
+    app = create_app(settings)
+
+    with respx.mock, TestClient(app):
+        assert app.state.scheduler.running
+        assert app.state.feed_cache.in_flight == {}
+
+    store = StateStore(tmp_path)
+    for kind in PAST_KINDS:
+        assert store.feed_build_ids(kind) == set()
+        assert not (tmp_path / "feeds" / kind).exists()
+    assert app.state.feed_cache.in_flight == {}
 
 
 def test_closes_the_http_client_when_the_scheduler_fails_to_stop(

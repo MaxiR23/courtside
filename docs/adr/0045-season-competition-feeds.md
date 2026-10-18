@@ -1,6 +1,6 @@
 # 0045. Season competition feeds
 
-- Status: Superseded by 0053 for the past quarterfinal slots only
+- Status: Superseded by 0053 for the past quarterfinal slots only, and by 0058 for the reads of a past build only
 - Date: 2026-10-15
 
 ## Context

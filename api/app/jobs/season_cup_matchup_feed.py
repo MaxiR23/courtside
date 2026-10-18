@@ -13,11 +13,13 @@
 # stored at feeds/season-cup-matchups/{id}.json only when requested and the
 # season Cup feed is built first when it is missing. The current season is
 # resolved before the cache (target) to the current Cup matchup feed. A failed
-# schedule read fails the build. A feed is built once and kept (rule G): it is
+# schedule read fails the build. The build declares a read budget of READ_BUDGET
+# source reads, one schedule per team (ADR 0058). A feed is built once and kept (rule G): it is
 # never deleted, and rebuilt only when its build version is not the current one
 # (ADR 0053).
 #
 # SEE: docs/api/cup-matchup.md, docs/adr/0045-season-competition-feeds.md,
+# docs/adr/0058-bounded-past-competition-reads.md,
 # api/app/jobs/cup_matchup_feed.py
 
 import asyncio
@@ -51,11 +53,14 @@ from app.jobs.stars import StarsJob
 from app.jobs.team_feed import season_label
 from app.settings import Settings
 from app.sources import team_schedule
-from app.sources.http import SourceClient
+from app.sources.http import ReadBudget, SourceClient, within_budget
 from app.sources.team_schedule import SeasonSchedule
 from app.storage.state import StateStore
 
 KIND = "season-cup-matchups"
+# The most source reads one build sends (ADR 0058): the schedules of the two
+# teams of the slot.
+READ_BUDGET = 2
 _ID = re.compile(r"^([0-9]{4})-(.+)$")
 
 
@@ -140,6 +145,13 @@ class SeasonCupMatchupFeeds:
         return None if match is None else (season_cup_feed.KIND, match[1])
 
     async def build(self, feed_id: str) -> CupMatchupFeed:
+        return await within_budget(
+            ReadBudget(READ_BUDGET),
+            f"season cup matchup: {feed_id}",
+            lambda: self._build(feed_id),
+        )
+
+    async def _build(self, feed_id: str) -> CupMatchupFeed:
         match = _ID.fullmatch(feed_id)
         if match is None:
             raise MatchupBuildError(f"{feed_id} is not a season and a slot")
