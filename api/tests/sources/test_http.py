@@ -30,6 +30,12 @@
 # - Keys an entry by the full URL with its parameters
 # - Rejects a naive fetched-at-or-after time
 # - Keeps the URL's own query when adding values, adds them to a URL without a query and replaces a value the URL already has
+# - A read budget counts only the requests sent: a cache hit and a joined in-flight fetch are not reads (ADR 0058)
+# - A read past the limit raises before any request, and every later read of the build raises the same stop
+# - At most four requests are in flight under a budget; without one all are in flight
+# - A 429 and a 503 are recorded as the "rate limited" stop, and the next read sends no request
+# - within_budget re-raises a stop the build swallowed and logs the label and reason, lets other build errors through and resets the budget afterwards
+# - cached_json returns an entry of any age with no request, and none without one
 #
 # What is covered:
 # - Happy path and every upstream failure, with no real network call
@@ -40,6 +46,7 @@
 
 import asyncio
 import datetime as dt
+import logging
 import sqlite3
 from collections.abc import Awaitable, Callable
 from contextlib import closing
@@ -50,16 +57,20 @@ import pytest
 import respx
 
 from app.sources.http import (
+    MAX_PAST_READS_IN_FLIGHT,
     TIMEOUT,
     Freshness,
+    ReadBudget,
     SourceClient,
     SourceError,
+    cached_json,
     create_client,
     get_json,
     get_text,
     is_rate_limited,
     is_served,
     with_query,
+    within_budget,
 )
 from app.storage.state import STATE_FILE, StateStore
 
@@ -644,3 +655,201 @@ def test_with_query_replaces_a_value_the_url_already_has() -> None:
 
     assert httpx.URL(url).params["seasontype"] == "3"
     assert httpx.URL(url).params["lang"] == "en"
+
+
+def budget_url(number: int) -> str:
+    return f"https://example.com/budget/{number}"
+
+
+async def read_budgeted(client: SourceClient, number: int) -> object:
+    return await get_json(client, budget_url(number), source="test", fresh=FRESH)
+
+
+@pytest.mark.anyio
+async def test_a_budget_counts_only_the_requests_sent_not_a_cache_hit_or_a_joined_fetch(
+    tmp_path: Path,
+) -> None:
+    budget = ReadBudget(10)
+
+    async def build() -> None:
+        await asyncio.gather(*(read_budgeted(client, 1) for _ in range(3)))
+        await read_budgeted(client, 1)
+        await read_budgeted(client, 2)
+
+    with respx.mock:
+        route = respx.get(url__startswith="https://example.com/budget/").respond(
+            json={}
+        )
+        async with create_client(make_store(tmp_path), clock=lambda: T) as client:
+            await within_budget(budget, "test", build)
+
+    assert route.call_count == 2
+    assert budget.reads == 2 and budget.stopped is None
+
+
+@pytest.mark.anyio
+async def test_a_read_past_the_limit_raises_before_any_request_and_so_does_every_later_read(
+    tmp_path: Path,
+) -> None:
+    budget = ReadBudget(2)
+    errors: list[SourceError] = []
+
+    async def build() -> None:
+        for number in range(1, 5):
+            try:
+                await read_budgeted(client, number)
+            except SourceError as error:
+                errors.append(error)
+
+    with respx.mock:
+        route = respx.get(url__startswith="https://example.com/budget/").respond(
+            json={}
+        )
+        async with create_client(make_store(tmp_path), clock=lambda: T) as client:
+            with pytest.raises(SourceError, match="read budget of 2 reached"):
+                await within_budget(budget, "test", build)
+
+    assert route.call_count == 2
+    assert [e.reason for e in errors] == ["read budget of 2 reached"] * 2
+    assert all(e.status_code is None and not e.request_failed for e in errors)
+    assert budget.reads == 2
+
+
+@pytest.mark.anyio
+async def test_at_most_four_requests_are_in_flight_under_a_budget_and_all_without_one(
+    tmp_path: Path,
+) -> None:
+    running = 0
+    peak = 0
+    gate = asyncio.Event()
+
+    async def answer(request: httpx.Request) -> httpx.Response:
+        nonlocal running, peak
+        running += 1
+        peak = max(peak, running)
+        await gate.wait()
+        running -= 1
+        return httpx.Response(200, json={})
+
+    async def release() -> None:
+        for _ in range(50):
+            await asyncio.sleep(0)
+        gate.set()
+
+    async def run(budget: ReadBudget | None) -> int:
+        nonlocal peak
+        peak = 0
+        gate.clear()
+
+        async def build() -> None:
+            await asyncio.gather(*(read_budgeted(client, n) for n in range(8)))
+
+        with respx.mock:
+            respx.get(url__startswith="https://example.com/budget/").mock(
+                side_effect=answer
+            )
+            data = tmp_path / ("none" if budget is None else "budget")
+            data.mkdir()
+            async with create_client(make_store(data), clock=lambda: T) as client:
+                releasing = asyncio.create_task(release())
+                if budget is None:
+                    await build()
+                else:
+                    await within_budget(budget, "test", build)
+                await releasing
+        return peak
+
+    assert await run(ReadBudget(20)) == MAX_PAST_READS_IN_FLIGHT == 4
+    assert await run(None) == 8
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("status", [429, 503])
+async def test_a_rate_limit_is_recorded_as_the_rate_limited_stop_and_the_next_read_sends_nothing(
+    tmp_path: Path, status: int
+) -> None:
+    budget = ReadBudget(10)
+    seen: list[SourceError] = []
+
+    async def build() -> None:
+        for number in (1, 2):
+            try:
+                await read_budgeted(client, number)
+            except SourceError as error:
+                seen.append(error)
+
+    with respx.mock:
+        route = respx.get(url__startswith="https://example.com/budget/").respond(status)
+        async with create_client(make_store(tmp_path), clock=lambda: T) as client:
+            with pytest.raises(SourceError) as raised:
+                await within_budget(budget, "test", build)
+
+    assert route.call_count == 1
+    assert raised.value.reason == "rate limited"
+    assert raised.value.status_code == status and raised.value.request_failed
+    assert [e.reason for e in seen] == ["rate limited", "rate limited"]
+    assert is_rate_limited(raised.value)
+
+
+@pytest.mark.anyio
+async def test_within_budget_reraises_a_swallowed_stop_logs_it_and_resets_the_budget(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    budget = ReadBudget(0)
+
+    async def swallowing() -> str:
+        try:
+            await read_budgeted(client, 1)
+        except SourceError:
+            pass
+        return "built"
+
+    with respx.mock:
+        route = respx.get(url__startswith="https://example.com/budget/").respond(
+            json={}
+        )
+        async with create_client(make_store(tmp_path), clock=lambda: T) as client:
+            with (
+                caplog.at_level(logging.WARNING, logger="app.sources.http"),
+                pytest.raises(SourceError, match="read budget of 0 reached"),
+            ):
+                await within_budget(budget, "season playoffs: 2025", swallowing)
+            assert "season playoffs: 2025 not built: read budget of 0 reached" in (
+                caplog.text
+            )
+            # The budget is reset: a later read is not counted.
+            await read_budgeted(client, 2)
+
+    assert route.call_count == 1 and budget.reads == 0
+
+
+@pytest.mark.anyio
+async def test_within_budget_returns_the_result_and_lets_other_build_errors_through(
+    tmp_path: Path,
+) -> None:
+    async def fine() -> str:
+        return "built"
+
+    async def broken() -> str:
+        raise ValueError("not a source stop")
+
+    budget = ReadBudget(1)
+    assert await within_budget(budget, "test", fine) == "built"
+    with pytest.raises(ValueError, match="not a source stop"):
+        await within_budget(budget, "test", broken)
+
+
+@pytest.mark.anyio
+async def test_cached_json_returns_an_entry_of_any_age_with_no_request_and_none_without_one(
+    tmp_path: Path,
+) -> None:
+    with respx.mock:
+        route = respx.get(URL).respond(json={})
+        async with create_client(
+            make_store(tmp_path), clock=lambda: T + dt.timedelta(days=900)
+        ) as client:
+            assert cached_json(client, URL) is None
+            client.store.set_source_entry(URL, '{"a": 1}', T)
+            assert cached_json(client, URL) == {"a": 1}
+
+    assert route.call_count == 0

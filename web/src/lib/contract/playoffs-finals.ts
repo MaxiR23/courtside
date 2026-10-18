@@ -41,11 +41,7 @@ export interface PlayoffsFinalsFeed {
 	 */
 	road: [RoadTeam, RoadTeam];
 	headToHead: HeadToHead;
-	/**
-	 * @minItems 2
-	 * @maxItems 2
-	 */
-	averages: [RosterAverages, RosterAverages];
+	averages: [RosterAverages, RosterAverages] | null;
 	buildVersion: number | null;
 }
 export interface FinalsGame {

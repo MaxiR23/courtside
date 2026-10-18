@@ -6,8 +6,10 @@
 # the first February day (US Eastern) of that season's calendar, read in order
 # with the All-Star scoreboard view, that has All-Star games, which is then
 # stored. A season with none is remembered in memory as having no edition (a
-# 404 with no further read, until a restart). The previous edition is found the
-# same way and is null before 1994 or when not found. A game detail, sections,
+# 404 with no further read, until a restart). The build declares a read budget of
+# READ_BUDGET source reads and stops at the first day with All-Star games. The
+# previous edition reads nothing: it is taken from the stored feed of the season
+# before when that one is stored and after, else it is null (ADR 0058). A game detail, sections,
 # extras or season awards read that answers 404 only nulls its part; any other
 # failed read fails the build, because the feed is kept for good. League teams
 # are null (no roster of that season is read) and no per-game highlight is set;
@@ -26,6 +28,7 @@
 # the current one (ADR 0053).
 #
 # SEE: docs/api/all-star.md, docs/adr/0047-season-all-star-feed.md,
+# docs/adr/0058-bounded-past-competition-reads.md,
 # docs/adr/0048-highlights-backfill-and-edition-video.md,
 # docs/adr/0056-paced-past-builds-and-one-edition-mvp-path.md,
 # api/app/jobs/all_star_feed.py
@@ -39,6 +42,7 @@ from pydantic import ValidationError
 
 from app.feeds.all_star import AllStarFeed, AllStarState
 from app.feeds.calendar import FIRST_SEASON
+from app.feeds.games import GameStatus
 from app.jobs import all_star_feed
 from app.jobs.all_star_feed import (
     PREVIOUS_FRESH,
@@ -76,7 +80,7 @@ from app.sources import (
     season_calendar,
 )
 from app.sources.all_star_scoreboard import AllStarScoreboardGame
-from app.sources.http import SourceClient
+from app.sources.http import ReadBudget, SourceClient, within_budget
 from app.storage.feeds import read_by_id
 from app.storage.state import StateStore
 
@@ -84,6 +88,9 @@ logger = logging.getLogger(__name__)
 
 KIND = "season-all-star"
 FEBRUARY = 2
+# The most source reads one build sends (ADR 0058): 1 calendar + 29 February days
+# + 4 game details of the edition + 26 awards (the index and 25 documents).
+READ_BUDGET = 60
 
 Edition = tuple[dt.date, list[AllStarScoreboardGame]]
 
@@ -98,6 +105,52 @@ def february_days(moments: Sequence[dt.datetime], season: int) -> list[dt.date]:
             if day.year == season and day.month == FEBRUARY
         }
     )
+
+
+def with_stored_previous(feed: AllStarFeed, stored: AllStarFeed | None) -> AllStarFeed:
+    """The feed with the previous edition taken from the stored feed of the
+    season before, which is already the recap and the after view of that edition.
+    The feed as it is when there is none, it is not after, or it has no final
+    championship game with its sides, score and winner."""
+    if stored is None or stored.state is not AllStarState.AFTER:
+        return feed
+    final = next((g for g in stored.edition.games if g.championship), None)
+    if (
+        final is None
+        or final.status is not GameStatus.FINAL
+        or final.away is None
+        or final.home is None
+        or final.score is None
+        or final.winner is None
+        or stored.edition.date is None
+    ):
+        return feed
+    edition = stored.edition.model_dump(by_alias=False)
+    edition["edition_highlight"] = None
+    mvp = None if stored.mvp is None else stored.mvp.model_dump(by_alias=False)
+    try:
+        return AllStarFeed.model_validate(
+            {
+                **feed.model_dump(by_alias=False),
+                "previous": {
+                    "year": stored.year,
+                    "date": stored.edition.date,
+                    "venue": edition["venue"],
+                    "championship": {
+                        "game_id": final.id,
+                        "away": final.away.model_dump(by_alias=False),
+                        "home": final.home.model_dump(by_alias=False),
+                        "score": final.score.model_dump(by_alias=False),
+                        "winner": final.winner,
+                        "overtime": final.overtime,
+                    },
+                    "mvp": mvp,
+                },
+                "previous_edition": {**edition, "mvp": mvp},
+            }
+        )
+    except ValidationError:
+        return feed
 
 
 class SeasonAllStarFeeds:
@@ -209,50 +262,32 @@ class SeasonAllStarFeeds:
             None,
         )
 
-    async def _earlier_reads(self, season: int, earlier: Edition | None) -> _Reads:
-        if earlier is None:
-            return _Reads({}, {}, {}, None, None)
-        return await self._reads(season, earlier[1])
-
     async def build(self, season: str) -> AllStarFeed:
+        return await within_budget(
+            ReadBudget(READ_BUDGET),
+            f"season all-star: {season}",
+            lambda: self._build(season),
+        )
+
+    async def _build(self, season: str) -> AllStarFeed:
         year = int(season)
         found = await self._edition(year)
         if found is None:
             raise UnknownFeedError(season)
-        earlier = await self._edition(year - 1)
-        current_reads, earlier_reads = await asyncio.gather(
-            self._reads(year, found[1]),
-            self._earlier_reads(year - 1, earlier),
-        )
-        previous = (
-            None
-            if earlier is None
-            else AllStarSources(
-                year=year - 1,
-                edition_date=earlier[0],
-                games=earlier[1],
-                details=earlier_reads.details,
-                sections=earlier_reads.sections,
-                extras=earlier_reads.extras,
-                colors={},
-                player_teams={},
-                awards=earlier_reads.awards,
-                previous=None,
-            )
-        )
+        reads = await self._reads(year, found[1])
         try:
             feed = build_all_star_feed(
                 AllStarSources(
                     year=year,
                     edition_date=found[0],
                     games=found[1],
-                    details=current_reads.details,
-                    sections=current_reads.sections,
-                    extras=current_reads.extras,
+                    details=reads.details,
+                    sections=reads.sections,
+                    extras=reads.extras,
                     colors={},
                     player_teams={},
-                    awards=current_reads.awards,
-                    previous=previous,
+                    awards=reads.awards,
+                    previous=None,
                 )
             )
             if feed.state is not AllStarState.AFTER:
@@ -260,6 +295,7 @@ class SeasonAllStarFeeds:
         except AllStarBuildError as error:
             logger.warning("season all-star: %s not built: %s", season, error.reason)
             raise
+        feed = with_stored_previous(feed, self.stored(str(year - 1)))
         return with_build_version(feed)
 
     def stored(self, season: str) -> AllStarFeed | None:

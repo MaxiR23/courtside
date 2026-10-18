@@ -3,7 +3,7 @@
 	import { m } from '#lib/paraglide/messages.js';
 	import type { HeadToHeadView } from '#lib/playoffs/types.ts';
 
-	type Props = { averages: HeadToHeadView['averages'] };
+	type Props = { averages: NonNullable<HeadToHeadView['averages']> };
 
 	let { averages }: Props = $props();
 

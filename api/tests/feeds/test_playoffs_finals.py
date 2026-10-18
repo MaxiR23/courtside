@@ -9,6 +9,7 @@
 # - A curve team or a champion outside the two finalists is rejected
 # - A game that is not final, game numbers out of order, and more than 7 games are rejected
 # - Lists whose codes differ in order (road, records, bar values, averages) are rejected
+# - Null averages (a past season, ADR 0058) are accepted, a missing averages key is rejected, and averages in the wrong order are still rejected when present
 # - Bars not exactly 8 or out of order are rejected
 # - A better team outside the two codes, or set with a null value, is rejected
 # - Curve points past the periods' end or out of order are rejected
@@ -237,3 +238,31 @@ def test_accepts_a_build_version_and_rejects_zero_and_reads_none_as_null() -> No
     )
     with pytest.raises(ValidationError):
         PlayoffsFinalsFeed.model_validate({**stored, "buildVersion": 0})
+
+
+def test_accepts_null_averages() -> None:
+    data = valid()
+    data["averages"] = None
+
+    assert check(data).averages is None
+    assert check(data).model_dump(by_alias=True)["averages"] is None
+
+
+def test_rejects_a_missing_averages_key() -> None:
+    data = valid()
+    del data["averages"]
+
+    with pytest.raises(ValidationError):
+        check(data)
+
+
+def test_still_rejects_averages_in_the_wrong_order_and_of_the_wrong_length() -> None:
+    data = valid()
+    averages_order(data)
+    with pytest.raises(ValidationError):
+        check(data)
+
+    data = valid()
+    data["averages"] = data["averages"][:1]
+    with pytest.raises(ValidationError):
+        check(data)

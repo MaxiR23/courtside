@@ -107,6 +107,8 @@ class DivisionEntry(FeedModel):
     code: TeamCode
     location: NonEmptyStr
     name: NonEmptyStr
+    # The provider's abbreviation, as the payload names the team (ADR 0058).
+    abbreviation: NonEmptyStr | None = None
     display_name: NonEmptyStr
     conference: Conference
     division: NonEmptyStr
@@ -208,6 +210,7 @@ def _entry(
         "code": code,
         "location": entry.team.location,
         "name": entry.team.name,
+        "abbreviation": entry.team.abbreviation or None,
         "display_name": entry.team.display_name,
         "conference": conference,
         "division": division,

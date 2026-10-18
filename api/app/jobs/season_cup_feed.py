@@ -6,8 +6,11 @@
 # The Cup begins with the 2023-24 season (season 2024). A past Cup is stored only
 # when it builds as complete: a Cup that is not complete fails the build and
 # nothing is stored, because the feed is kept for good. Game detail is never
-# available. Its league sides are named by that season's team object and carry the
-# season code and the historical flag (ADR 0054).
+# available. The build declares a read budget of READ_BUDGET source reads: the
+# group teams and tables, the conference tables and the 30 team schedules, and no
+# calendar, scoreboard day or game detail (ADR 0058). Its league sides are named
+# from the names the schedules give the teams (payload_names) and carry the season
+# code and the historical flag (ADR 0054, ADR 0058).
 #
 # SeasonCupFeeds is the feed kind of the on-demand cache: the id is the season's
 # end year, the feed is stored at feeds/season-cup/{season}.json only when
@@ -18,6 +21,7 @@
 # its build version is not the current one (ADR 0053).
 #
 # SEE: docs/api/cup.md, docs/adr/0045-season-competition-feeds.md,
+# docs/adr/0058-bounded-past-competition-reads.md,
 # api/app/jobs/cup_feed.py
 
 import dataclasses
@@ -44,15 +48,20 @@ from app.jobs.on_demand import (
 )
 from app.jobs.season_standings_feed import past_season_status
 from app.jobs.stars import StarsJob
-from app.jobs.team_names import TeamNamesFeeds
+from app.jobs.team_names import TeamNamesFeeds, named_sides, payload_names
 from app.settings import Settings
 from app.sources import cup, team_schedule
-from app.sources.http import SourceClient
+from app.sources.http import ReadBudget, SourceClient, within_budget
+from app.sources.teams import SeasonTeamName
 from app.storage.feeds import read_by_id
 from app.storage.state import StateStore
 
 KIND = "season-cup"
 FIRST_CUP_SEASON = 2024
+# The most source reads one build sends (ADR 0058): 6 group team reads + 6 group
+# tables + 2 conference tables + 30 team schedules (GROUP_IDS, CONFERENCE_IDS,
+# CODES).
+READ_BUDGET = 44
 
 
 def past_cup_season_status(text: str, current: int | None) -> IdStatus:
@@ -101,6 +110,13 @@ class SeasonCupFeeds:
         return KIND, season
 
     async def build(self, season: str) -> CupFeed:
+        return await within_budget(
+            ReadBudget(READ_BUDGET),
+            f"season cup: {season}",
+            lambda: self._build(season),
+        )
+
+    async def _build(self, season: str) -> CupFeed:
         sources = await read_cup_sources(
             self._client,
             self._settings,
@@ -115,7 +131,16 @@ class SeasonCupFeeds:
         feed = build_cup_feed(dataclasses.replace(sources, past=True))
         if feed.stage is not CupStage.COMPLETE:
             raise CupBuildError(f"the {season} Cup is not complete")
-        return with_build_version(await self._names.name_sides(feed, int(season)))
+        identities: dict[str, SeasonTeamName] = {}
+        for schedule in sources.schedules.values():
+            for code, team in schedule.teams.items():
+                identities.setdefault(code, team)
+        runs = {
+            code: stored
+            for code in sorted(identities)
+            if (stored := self._names.stored(code))
+        }
+        return with_build_version(named_sides(feed, payload_names(identities, runs)))
 
     def stored(self, season: str) -> CupFeed | None:
         """The stored Cup feed of a season, or none when missing or invalid."""

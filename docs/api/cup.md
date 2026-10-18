@@ -231,9 +231,16 @@ current season.
 - The current season serves the feed above: same stored file, body, ETag and
   expiry.
 - A past season reads the same sources with the season value, and the schedules
-  by provider id first. It must build as `complete`, or the build fails and
-  nothing is stored. `detailAvailable` is false. The league sides are named by
-  that season's team object, with `seasonCode` and `historical` ([ADR 0054](../adr/0054-historical-sides-and-past-pages.md)).
+  by provider id first, under a read budget of 44 source reads
+  ([ADR 0058](../adr/0058-bounded-past-competition-reads.md)): 6 group team
+  reads, 6 group tables, 2 conference tables and the 30 team schedules. It reads
+  no calendar, no scoreboard day and no game detail. At most four reads are in
+  flight at once, with no pause; a read past the budget, and a 429 or 503, fail
+  the build with a logged reason and nothing stored. It must build as `complete`,
+  or the build fails and nothing is stored. `detailAvailable` is false. The
+  league sides are named from the names the 30 schedules give the teams, with
+  `seasonCode` and `historical` ([ADR 0054](../adr/0054-historical-sides-and-past-pages.md),
+  [ADR 0058](../adr/0058-bounded-past-competition-reads.md)).
 - The two quarterfinals of a conference are placed by start time, then id (the
   seeds they were drawn by are not known), and each side's label is a `seed`
   label with a null `seed`; a third quarterfinal in a conference fails the build

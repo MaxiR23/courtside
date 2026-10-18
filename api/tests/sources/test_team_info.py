@@ -8,6 +8,7 @@
 # - Requests the URL built from the provider team code, including a code that differs from the standard one
 # - Raises the source error on an invalid payload, a color that is not six hex digits, an empty venue name, an unknown team code, a timeout, an error status and a missing URL
 # - Reuses a team's info for one hour
+# - cached_team_info maps a cached body of any age with no request, and gives none without an entry, with an invalid body, for an unknown team code and without a configured URL (ADR 0058)
 #
 # What is covered:
 # - A valid response mapped, an invalid payload rejected, upstream failures handled
@@ -31,7 +32,7 @@ import respx
 
 from app.settings import Settings
 from app.sources.http import SourceError, create_client
-from app.sources.team_info import TeamInfo, fetch_team_info
+from app.sources.team_info import TeamInfo, cached_team_info, fetch_team_info
 from app.storage.state import StateStore
 
 FIXTURES = Path(__file__).parent / "fixtures" / "team_info"
@@ -213,3 +214,51 @@ async def test_reuses_a_teams_info_for_one_hour(
         await fetch_team_info(client, "OKC", settings)
 
     assert route.call_count == 2
+
+
+@pytest.mark.anyio
+async def test_cached_team_info_maps_a_cached_body_of_any_age_with_no_request(
+    mock: respx.MockRouter, settings: Settings, tmp_path: Path
+) -> None:
+    start = dt.datetime(2026, 1, 10, 12, 0, tzinfo=dt.UTC)
+    route = mock.get(URL).respond(json=load())
+    store = StateStore(tmp_path)
+    store.migrate()
+    store.set_source_entry(URL, json.dumps(load()), start)
+    async with create_client(
+        store, clock=lambda: start + dt.timedelta(days=400)
+    ) as client:
+        info = cached_team_info(client, "OKC", settings)
+
+    assert info is not None and (info.location, info.color) == (
+        "Oklahoma City",
+        "007ac1",
+    )
+    assert route.call_count == 0
+
+
+@pytest.mark.anyio
+async def test_cached_team_info_is_none_without_an_entry_or_with_an_invalid_one(
+    mock: respx.MockRouter, settings: Settings, tmp_path: Path
+) -> None:
+    route = mock.get(URL).respond(json=load())
+    store = StateStore(tmp_path)
+    store.migrate()
+    async with create_client(store) as client:
+        assert cached_team_info(client, "OKC", settings) is None
+        store.set_source_entry(URL, json.dumps({"team": 3}), dt.datetime.now(dt.UTC))
+        assert cached_team_info(client, "OKC", settings) is None
+
+    assert route.call_count == 0
+
+
+@pytest.mark.anyio
+async def test_cached_team_info_is_none_for_an_unknown_code_or_an_unconfigured_url(
+    settings: Settings, tmp_path: Path
+) -> None:
+    store = StateStore(tmp_path)
+    store.migrate()
+    async with create_client(store) as client:
+        assert cached_team_info(client, "XXX", settings) is None
+        unset = Settings(_env_file=None)  # type: ignore[call-arg]
+        assert cached_team_info(client, "OKC", unset) is None

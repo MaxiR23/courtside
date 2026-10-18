@@ -1,6 +1,6 @@
 # Source rules
 
-The rules every job and feed build follows so the data source is asked as little as possible. They are adopted by ADR 0020 and apply to every feed: games, game detail, player and team. Rule L records the season fallbacks of the adapters; it is adopted by ADR 0022. Rule N is adopted by ADR 0056.
+The rules every job and feed build follows so the data source is asked as little as possible. They are adopted by ADR 0020 and apply to every feed: games, game detail, player and team. Rule L records the season fallbacks of the adapters; it is adopted by ADR 0022. Rule N is adopted by ADR 0056, and Rule O by ADR 0058.
 
 References:
 
@@ -104,8 +104,17 @@ A missing stat is null, never a failure. A team or player stat the source does n
 
 ## N. Paced past builds
 
-- The game detail reads of the past season rosters (the team, player, playoffs and Finals rosters) go one at a time across every build, with `SOURCE_BUILD_PAUSE_MS` (default 250) between the end of one request and the start of the next. A stored game is reused with no request and no pause.
+- The game detail reads of the past season rosters (the team and player rosters) go one at a time across every build, with `SOURCE_BUILD_PAUSE_MS` (default 250) between the end of one request and the start of the next. A stored game is reused with no request and no pause.
 - A 429 or 503 answer stops the build with the reason "rate limited", logged and recorded.
 - Every such read is then held for 10 minutes with no request, the same window as the failed-build retry of rule H. The games already read are kept.
 
 See [`adr/0056-paced-past-builds-and-one-edition-mvp-path.md`](adr/0056-paced-past-builds-and-one-edition-mvp-path.md).
+
+## O. Budgeted past builds
+
+- Each past playoffs, Finals, Cup, Cup matchup and All-Star build declares the most source reads it sends: 63, 11, 44, 2 and 60. A read is a request that reaches the network through the shared client; a cache hit, and a caller that joins an in-flight request, are not reads.
+- A build that would pass its budget stops before that read, logs the reason and stores nothing.
+- At most four reads of a build are in flight at once, with no pause between them.
+- A 429 or 503 answer stops the build, logged and recorded with the reason "rate limited", and the feed is retried after 10 minutes (rule H).
+
+See [`adr/0058-bounded-past-competition-reads.md`](adr/0058-bounded-past-competition-reads.md).

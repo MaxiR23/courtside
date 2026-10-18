@@ -9,6 +9,7 @@
 # - target: the current season maps to the current matchup feed, a past season to the season kind
 # - The kind: an id outside the seven slots, a season outside 2024 to the season before the current one and an ill-formed id answer unknown with no read, and an unknown current season answers not ready
 # - The kind: a request builds the season Cup first, then the matchup of each of the seven slots, reading only the two teams' season schedules by provider id first and no roster, injuries, averages or depth chart
+# - The kind: one slot reads at most the 2 schedules its budget declares (ADR 0058)
 # - A past quarterfinal matchup carries the null seed label of its slot (ADR 0053)
 # - The kind: the built feed carries the current build version, a stored feed of an older or missing version is rebuilt on its next request and rebuilds a stale season Cup first, and one of the current version is served with no source request (ADR 0053)
 # - The kind: the feed is kept: a second request, a request years later and a restart serve with no source call
@@ -45,6 +46,7 @@ from app.jobs.on_demand import (
 from app.jobs.season_cup_feed import KIND as CUP_KIND
 from app.jobs.season_cup_matchup_feed import (
     KIND,
+    READ_BUDGET,
     SeasonCupMatchupFeeds,
     build_past_matchup_feed,
 )
@@ -229,6 +231,19 @@ async def test_a_request_builds_the_season_cup_then_each_slot_reading_only_sched
     assert all(name.endswith("/2025/True") for name in extra)
     for prefix in ("roster/", "injuries", "averages/", "chart/", "m-schedule/"):
         assert kit.called(prefix) == 0
+
+
+@pytest.mark.anyio
+async def test_a_slot_reads_at_most_the_two_schedules_its_budget_declares(
+    kit: SeasonMatchupKit,
+) -> None:
+    await kit.serve_season("2025")
+    before = len(kit.calls)
+
+    await kit.serve_slot()
+
+    assert READ_BUDGET == 2
+    assert 0 < len(kit.calls) - before <= READ_BUDGET
 
 
 @pytest.mark.anyio

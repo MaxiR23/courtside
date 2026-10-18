@@ -41,7 +41,11 @@ from pydantic import HttpUrl
 from app.feeds.game_detail import GameResult
 from app.feeds.games import GameStatus, Highlight, Leader, Leaders
 from app.feeds.playoffs import AwardCode, PlayoffsFeed, SeriesId, SeriesStatus
-from app.feeds.playoffs_finals import HeadToHeadStat, PlayoffsFinalsFeed
+from app.feeds.playoffs_finals import (
+    HeadToHeadStat,
+    PlayoffsFinalsFeed,
+    RosterAverages,
+)
 from app.jobs import playoffs_feed
 from app.jobs.games import GamesJob
 from app.jobs.on_demand import (
@@ -298,6 +302,12 @@ def sources(feed: PlayoffsFeed | None = None, **changes: Any) -> FinalsSources:
 
 def built(feed: PlayoffsFeed | None = None, **changes: Any) -> PlayoffsFinalsFeed:
     return build_finals_feed(sources(feed, **changes))
+
+
+def averages_of(feed: PlayoffsFinalsFeed) -> list[RosterAverages]:
+    """The averages of a current feed, which always has them."""
+    assert feed.averages is not None
+    return feed.averages
 
 
 def failing(feed: PlayoffsFeed | None = None, **changes: Any) -> str:
@@ -621,14 +631,16 @@ def test_a_failed_stats_read_gives_null_values_and_no_better() -> None:
 
 
 def test_the_averages_list_each_roster_player_in_jersey_order() -> None:
-    averages = built(
-        player_stats={
-            "101": stats_of(28.5, field_goal_pct=51.0),
-            "102": stats_of(10.0),
-            "201": stats_of(5.0),
-            "202": stats_of(7.0),
-        }
-    ).averages
+    averages = averages_of(
+        built(
+            player_stats={
+                "101": stats_of(28.5, field_goal_pct=51.0),
+                "102": stats_of(10.0),
+                "201": stats_of(5.0),
+                "202": stats_of(7.0),
+            }
+        )
+    )
 
     assert [a.team_code for a in averages] == [TOP, BOTTOM]
     assert [p.player_id for p in averages[0].players] == ["102", "101"]
@@ -644,9 +656,9 @@ def test_the_averages_list_each_roster_player_in_jersey_order() -> None:
 
 
 def test_a_player_without_stats_has_null_values_and_sits_at_the_end() -> None:
-    players = (
-        built(player_stats={"101": stats_of(28.5), "102": None}).averages[0].players
-    )
+    players = averages_of(built(player_stats={"101": stats_of(28.5), "102": None}))[
+        0
+    ].players
 
     assert [p.player_id for p in players] == ["101", "102"]
     assert players[1].points is None and players[1].field_goal_pct is None
@@ -882,7 +894,7 @@ async def test_each_roster_player_is_read_once_and_a_player_who_changed_team_is_
     assert reads == ["player/101", "player/102", "player/201", "player/202"]
     stored = kit.stored_finals()
     assert stored is not None
-    assert [p.player_id for p in stored.averages[0].players] == ["102", "101"]
+    assert [p.player_id for p in averages_of(stored)[0].players] == ["102", "101"]
 
 
 @pytest.mark.anyio
@@ -952,7 +964,7 @@ async def test_a_failed_read_only_nulls_its_part(kit: FinalsKit) -> None:
     stored = kit.stored_finals()
     assert stored is not None
     assert stored.games[0].leaders is None and stored.games[1].leaders is not None
-    assert stored.averages[1].players[-1].points is None
+    assert averages_of(stored)[1].players[-1].points is None
     assert stored.head_to_head.bars[0].better is None
 
 

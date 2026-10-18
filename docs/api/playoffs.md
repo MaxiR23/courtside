@@ -65,10 +65,10 @@ Conventions:
 | `Champion`           | `team`: `PlayoffTeam`; `wins` (always 4); `losses` (0 to 3); `firstDate`, `lastDate`: the Finals games; `record`, `home`, `road`: postseason records such as `16-6` (null when the record read failed); `pointDifferential`: `TotalDifferential` over the champion's final postseason games |
 | `LeaderCategory`     | `points`, `rebounds`, `assists`, `steals`, `blocks`, `field_goal_pct`, `threes_made`, `double_doubles`, `minutes`                                                                   |
 | `LeaderGroup`        | `category`; `leaders`: `PlayoffLeader[]` (up to 5)                                                                                                                                   |
-| `PlayoffLeader`      | `rank` (the position in the source list, so a left out leader leaves a gap); `playerId`; `name`; `photoUrl` (null); `teamCode` (in a past season, the team of the player's newest game of the season); `value` (text as the source sends it); `seasonCode` (the team's abbreviation in that past season from the season's team object, null on a current feed; [ADR 0055](../adr/0055-past-season-reading-rules-and-versioned-stored-data.md)) |
+| `PlayoffLeader`      | `rank` (the position in the source list, so a left out leader leaves a gap); `playerId`; `name`; `photoUrl` (null); `teamCode` (in a past season, the team of the player's newest game of the season); `value` (text as the source sends it); `seasonCode` (the team's abbreviation in that past season from the standings payload of the past playoffs build (ADR 0058), null on a current feed; [ADR 0055](../adr/0055-past-season-reading-rules-and-versioned-stored-data.md)) |
 | `Award`              | `code`: `AwardCode`; `team` (1 to 3 for `all_nba`, 1 to 2 for `all_rookie` and `all_defensive`, null for any other award); `winners`: `AwardWinner[]` (at least 1: every winner the source sends, ties included)                      |
 | `AwardCode`          | `mvp`, `dpoy`, `roy`, `sixth_man`, `mip`, `cpoy`, `finals_mvp`, `east_finals_mvp`, `west_finals_mvp`, `all_star_mvp`, `cup_mvp`, `cup_all_tournament`, `all_nba`, `all_rookie`, `all_defensive`, `twyman_stokes` |
-| `AwardWinner`        | `playerId`; `name`; `photoUrl` (null); `teamCode` (the team of the award, else the team of the player's newest game of the season for a past season, else the player's roster team; null); `seasonCode` (the team's abbreviation in that past season from the season's team object, null on a current feed; [ADR 0055](../adr/0055-past-season-reading-rules-and-versioned-stored-data.md))                                                                     |
+| `AwardWinner`        | `playerId`; `name`; `photoUrl` (null); `teamCode` (the team of the award, else the team of the player's newest game of the season for a past season, else the player's roster team; null); `seasonCode` (the team's abbreviation in that past season from the standings payload of the past playoffs build (ADR 0058), null on a current feed; [ADR 0055](../adr/0055-past-season-reading-rules-and-versioned-stored-data.md))                                                                     |
 
 `Opponent`, `Score`, `GameStatus`, `Clinch` and `TotalDifferential` are as in the
 [games feed](games.md) and the [standings feed](standings.md).
@@ -297,16 +297,30 @@ current season.
 
 - The current season serves the feed above: same stored file, body, ETag and
   expiry.
-- A past season reads the same sources with the season value, and the sides of
-  games resolved by provider id first. The names of leaders and award winners come
-  from that season's box-score rosters (`SeasonRosters`, one roster per team, each
-  game read once and kept, one at a time across builds with `SOURCE_BUILD_PAUSE_MS`
-  between two requests; a 429 or 503 fails the build with the reason "rate limited",
-  [ADR 0056](../adr/0056-paced-past-builds-and-one-edition-mvp-path.md)); a failed
-  roster read fails the build
-  ([ADR 0053](../adr/0053-season-level-rules-for-past-seasons.md)).
-- The league sides are named by that season's team object, with `seasonCode`
-  and `historical` ([ADR 0054](../adr/0054-historical-sides-and-past-pages.md)). The Finals feed does the same.
+- A past season is built under a read budget of 63 source reads
+  ([ADR 0058](../adr/0058-bounded-past-competition-reads.md)): the season
+  standings (1), the postseason schedule of the first 8 teams of each conference
+  (10 from 2021; per conference the seeded teams in seed order, then the unseeded
+  by best record), which gives every game with its competition type and series
+  object (20), the play-in window (1) and its scoreboard days (5, the window's Eastern dates, its end included) from 2021, the
+  leaders (1), the awards (up to 26), the records of the two finalists (2) and the
+  game details of the Finals games (7), the sides of games resolved by provider
+  id first. It reads no postseason window, no bracket scoreboard day, no team
+  info, no roster and no game detail outside the Finals. At most four reads are in
+  flight at once, with no pause. A read past the budget, and a 429 or 503, fail
+  the build with a logged reason and nothing stored.
+- The names of leaders and award winners come from the box scores of the Finals
+  games and from the stored past game players of the games the build read. A
+  leader or award winner no read names is left out, and a block left with no one
+  is null (the page hides a null block). An award winner who played no postseason
+  game is not named.
+- The colors of a team come from the team info the source cache already holds,
+  else they are null.
+- The league sides are named from the standings payload (its abbreviation, name
+  and location), with `seasonCode` and `historical`
+  ([ADR 0054](../adr/0054-historical-sides-and-past-pages.md),
+  [ADR 0058](../adr/0058-bounded-past-competition-reads.md)). The Finals feed
+  takes the names of the stored season playoffs feed.
 - A season before 2021 has no play-in: the window is not requested, `playIn` is
   null, seeds 1 to 8 are the standings seeds and every round 1 label is a seed.
   Its `playin` stage entry is `upcoming` with null dates, and a page does not draw
@@ -323,8 +337,7 @@ current season.
 - A game whose note has no game number takes its position in its series in start
   order. Play-in and game notes are read in any letter case.
 - The leaders, the awards and the champion's record are null only when the source
-  answers 404. Any other failed read fails the build. A team info that fails only
-  nulls the colors.
+  answers 404. Any other failed read fails the build.
 - It must build as `complete`, or the build fails and nothing is stored.
   `detailAvailable` is false.
 - Refresh: built on request, stored at `feeds/season-playoffs/{season}.json`, kept
@@ -367,7 +380,7 @@ team), then the bottom side.
 | `finalsMvp`    | `FinalsMvp` / null    | The Finals MVP                                                       | null when the playoffs feed has no `finals_mvp` award |
 | `road`         | `RoadTeam[]`          | Exactly 2                                                            | always  |
 | `headToHead`   | `HeadToHead`          | The records and the 8 bars                                           | always  |
-| `averages`     | `RosterAverages[]`    | Exactly 2                                                            | always  |
+| `averages`     | `RosterAverages[]` / null | Exactly 2                                                        | null on a past season (no read carries them, [ADR 0058](../adr/0058-bounded-past-competition-reads.md)) |
 | `buildVersion` | integer / null        | The rules version of a kept season feed ([ADR 0053](../adr/0053-season-level-rules-for-past-seasons.md)) | null on a current feed and on a stored feed from before the field |
 
 ## Nested objects
@@ -378,14 +391,14 @@ team), then the bottom side.
 | `FinalsWinProbability`      | `points`: `TeamWinProbabilityPoint[]` (at least 1, not going back in time); `periods`: `WinProbabilityPeriods` as in the [game detail feed](game-detail.md)                                    |
 | `TeamWinProbabilityPoint`   | `elapsedSeconds`; `winProbability`: the curve team's chance, from 0 to 1                                                                                                                         |
 | `LargestDeficit`            | `points` (1 or more): the most points the curve team trailed by; `elapsedSeconds`: the game second of the first play at it                                                                      |
-| `FinalsMvp`                 | `playerId`; `name`; `photoUrl` (null); `teamCode` (null); `seasonCode` (the team's abbreviation in that past season from the season's team object, null on a current feed; [ADR 0055](../adr/0055-past-season-reading-rules-and-versioned-stored-data.md)); `games`, `points`, `rebounds`, `assists`: the postseason averages of the season (null); `bestGame`: `BestGame` / null                  |
+| `FinalsMvp`                 | `playerId`; `name`; `photoUrl` (null); `teamCode` (null); `seasonCode` (the team's abbreviation in that past season from the sides of the stored season playoffs feed on a past Finals (ADR 0058), null on a current feed; [ADR 0055](../adr/0055-past-season-reading-rules-and-versioned-stored-data.md)); `games`, `points`, `rebounds`, `assists`: the postseason averages of the season (null, always null on a past season); `bestGame`: `BestGame` / null                  |
 | `BestGame`                  | `gameId`; `number` (1 to 7); `points`                                                                                                                                                            |
 | `RoadTeam`                  | `team`: `PlayoffTeam`; `seed` (null); `regularSeason`: record such as `60-22` (null); `postseason`: record (null); `series`: `RoadSeries[]` (up to 4, rounds increasing)                          |
 | `RoadSeries`                | `round` (1 to 4); `opponent`: `PlayoffTeam`; `opponentSeed` (null); `wins`, `losses` (0 to 4, null): the finalist's wins and the opponent's wins; `result`: `win`, `loss` or null while the series is not complete |
 | `HeadToHead`                | `records`: `FinalistRecord[]` (exactly 2, each with `teamCode`, `record` and the `seasonCode` of a past season): the postseason record of each finalist, as in `road` (`postseason`), null when the record read failed; `bars`: `HeadToHeadBar[]` (exactly 8, in the order of `HeadToHeadStat`)                      |
 | `HeadToHeadStat`            | `points`, `field_goal_pct`, `effective_fg_pct`, `assists`, `rebounds`, `blocks`, `steals`, `technical_fouls`                                                                                     |
 | `HeadToHeadBar`             | `stat`; `values`: `BarValue[]` (exactly 2, `teamCode` and `value`, null when the read failed); `better`: team code / null                                                                       |
-| `RosterAverages`            | `teamCode`; `seasonCode` (the team's abbreviation in that past season from the season's team object, null on a current feed; [ADR 0055](../adr/0055-past-season-reading-rules-and-versioned-stored-data.md)); `players`: `PlayerPostseasonAverages[]`                                                                                                                                              |
+| `RosterAverages`            | `teamCode`; `seasonCode` (the team's abbreviation in that past season from the sides of the stored season playoffs feed on a past Finals (ADR 0058), null on a current feed; [ADR 0055](../adr/0055-past-season-reading-rules-and-versioned-stored-data.md)); `players`: `PlayerPostseasonAverages[]`                                                                                                                                              |
 | `PlayerPostseasonAverages`  | `playerId`; `name`; `photoUrl` (null); `points`, `rebounds`, `assists`, `blocks` (null); `fieldGoalPct` (0 to 1, null)                                                                          |
 
 ## Rules that live in the code
@@ -492,9 +505,15 @@ the current season.
   expiry.
 - A past season builds from the stored season playoffs feed, built first when
   missing, so a season whose playoffs feed cannot be built answers 503.
-- The averages list the finalists' box-score rosters of that season
-  (`SeasonRosters`); a failed roster read, also a 404, fails the build. The game
-  details resolve the sides by provider id first.
+- The build is under a read budget of 11 source reads
+  ([ADR 0058](../adr/0058-bounded-past-competition-reads.md)): the game details of
+  the Finals games (their sections and plays share the request of the game), and
+  the postseason record and statistics of each finalist. It reads no roster and no
+  per-player statistics. `averages` is null and the Finals MVP's `games`, `points`,
+  `rebounds` and `assists` are null: no read carries the postseason averages.
+  `bestGame` comes from the Finals box scores. The game details resolve the sides
+  by provider id first, and the league sides take the names, season codes and
+  historical flags of the stored season playoffs feed.
 - A detail, sections, plays, team record or team statistics read that answers 404
   nulls its part: `leaders`, `winProbability`, `largestDeficit`, the postseason
   record and the bar values. Any other failed read fails the build.

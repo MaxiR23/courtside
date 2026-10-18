@@ -4,6 +4,7 @@
 #
 # Tested:
 # - Maps every team's conference, division, entry orders (and the league-wide provider order, West first when the provider sends it first) and stats from a recorded season
+# - Carries the provider's abbreviation of each team as the payload names it (ADR 0058)
 # - Maps the standings before the first game: seed 0, streak and games behind as dashes, no last ten record
 # - Requests the configured URL as is, adding nothing to its query, and carries the season end year
 # - Falls back to one request for the regular season from a preseason (previous season) and from a postseason (same season)
@@ -128,6 +129,9 @@ async def test_maps_every_teams_conference_division_entry_order_and_stats(
     assert standings.teams["BOS"].conference_order == 1
     assert standings.teams["GSW"].division_order == 3
     assert "GS" not in standings.teams
+    # The provider's own abbreviation, which differs from the standard code.
+    assert standings.teams["GSW"].abbreviation == "GS"
+    assert standings.teams["OKC"].abbreviation == "OKC"
 
 
 @pytest.mark.anyio

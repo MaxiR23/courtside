@@ -6,20 +6,30 @@
 #
 # A 429 or 503 answer is a rate limit (is_rate_limited, ADR 0056).
 #
+# A build can run under a ReadBudget (within_budget, ADR 0058): every request
+# that reaches the network counts, at most MAX_PAST_READS_IN_FLIGHT are in
+# flight, a request past the limit is refused before it is sent, and a rate
+# limit stops the build. cached_json reads the source cache and sends nothing.
+#
 # get_json reads through the shared source cache (rule A). with_query adds
 # query values to a URL that may already have a query: adapters use it instead
 # of passing params.
 #
-# SEE: docs/architecture.md (Source adapters), docs/adr/0007-backend-runtime-and-data-pipeline.md, docs/source-rules.md, docs/adr/0020-source-rules.md, docs/adr/0056-paced-past-builds-and-one-edition-mvp-path.md
+# SEE: docs/architecture.md (Source adapters), docs/adr/0007-backend-runtime-and-data-pipeline.md, docs/source-rules.md, docs/adr/0020-source-rules.md, docs/adr/0056-paced-past-builds-and-one-edition-mvp-path.md, docs/adr/0058-bounded-past-competition-reads.md
 
 import asyncio
 import datetime as dt
 import json
-from collections.abc import Callable, Mapping
+import logging
+from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
+from contextlib import asynccontextmanager
+from contextvars import ContextVar
 
 import httpx
 
 from app.storage.state import StateStore
+
+logger = logging.getLogger(__name__)
 
 TIMEOUT = httpx.Timeout(10.0, connect=5.0)
 
@@ -56,6 +66,71 @@ RATE_LIMIT_STATUSES = frozenset({429, 503})
 
 def is_rate_limited(error: SourceError) -> bool:
     return error.status_code in RATE_LIMIT_STATUSES
+
+
+# Requests one budgeted build keeps in flight at once (ADR 0058).
+MAX_PAST_READS_IN_FLIGHT = 4
+
+
+class ReadBudget:
+    """The reads one build may send. A read is a request that reaches the
+    network; a cache hit is not one. Once a read is refused or rate limited,
+    every later read of the build is refused too."""
+
+    def __init__(self, limit: int) -> None:
+        self.limit = limit
+        self.reads = 0
+        self.stopped: SourceError | None = None
+        self._semaphore = asyncio.Semaphore(MAX_PAST_READS_IN_FLIGHT)
+
+    @asynccontextmanager
+    async def slot(self, source: str) -> AsyncIterator[None]:
+        async with self._semaphore:
+            if self.stopped is not None:
+                raise self.stopped
+            if self.reads >= self.limit:
+                self.stopped = SourceError(
+                    source, f"read budget of {self.limit} reached"
+                )
+                raise self.stopped
+            self.reads += 1
+            try:
+                yield
+            except SourceError as error:
+                if is_rate_limited(error):
+                    self.stopped = SourceError(
+                        error.source,
+                        "rate limited",
+                        status_code=error.status_code,
+                        request_failed=True,
+                    )
+                    raise self.stopped from None
+                raise
+
+
+_BUDGET: ContextVar[ReadBudget | None] = ContextVar("read_budget", default=None)
+
+
+async def within_budget[T](
+    budget: ReadBudget, label: str, build: Callable[[], Awaitable[T]]
+) -> T:
+    """Run a build under a read budget. A stop the build swallowed is raised
+    after it, with its reason logged."""
+    token = _BUDGET.set(budget)
+    try:
+        try:
+            result = await build()
+        except Exception:
+            if budget.stopped is not None:
+                logger.warning("%s not built: %s", label, budget.stopped.reason)
+                raise budget.stopped from None
+            raise
+    finally:
+        _BUDGET.reset(token)
+    if budget.stopped is not None:
+        logger.warning("%s not built: %s", label, budget.stopped.reason)
+        raise budget.stopped
+    return result
 
 
 class SourceClient(httpx.AsyncClient):
@@ -134,7 +209,12 @@ async def _fetch(
     headers: Mapping[str, str] | None,
     sent_at: dt.datetime,
 ) -> object:
-    response = await _get(client, key, source=source, headers=headers)
+    budget = _BUDGET.get()
+    if budget is None:
+        response = await _get(client, key, source=source, headers=headers)
+    else:
+        async with budget.slot(source):
+            response = await _get(client, key, source=source, headers=headers)
     try:
         body: object = response.json()
     except json.JSONDecodeError:
@@ -162,6 +242,13 @@ def with_query(url: str, query: Mapping[str, str | int]) -> str:
     A value the URL already has is replaced; the rest of its query is kept.
     Adapters use this instead of passing `params`."""
     return str(httpx.URL(url).copy_merge_params(query))
+
+
+def cached_json(client: SourceClient, url: str) -> object | None:
+    """Return the decoded body the source cache holds for a URL, whatever its
+    age, or None. It sends no request."""
+    entry = client.store.source_entry(url)
+    return None if entry is None else json.loads(entry.body)
 
 
 async def get_json(

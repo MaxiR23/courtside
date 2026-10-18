@@ -5,13 +5,13 @@
 # Tested:
 # - check: 1993, abc, 02025, 2025 with a trailing newline, the current season and a future season are unknown; 1994 and the season before the current one are known; an unknown current season is not ready
 # - target: the current season maps to the current playoffs finals feed, a past season to the season kind
-# - The kind: the Finals MVP, the records and the averages carry the season code of their team (ADR 0055)
+# - The kind: the Finals MVP and the records carry the season code of their team (ADR 0055)
 # - The kind: the Finals build over a stored playoffs feed with a six-winner award (ADR 0055)
-# - The kind: the league sides are named by the season team object with the season code and the historical flag (ADR 0054)
-# - The kind: a past season builds a valid Finals feed after the season playoffs feed (built first through depends_on), with the finalists' box-score rosters, the game details by provider id first and the season on the team reads
+# - The kind: the league sides take the names, season codes and historical flags of the stored season playoffs feed (ADR 0054, ADR 0058)
+# - The kind: a past season builds a valid Finals feed after the season playoffs feed (built first through depends_on), with the game details by provider id first and the season on the team reads, and no roster and no per-player statistics read (ADR 0058)
 # - The kind: a detail, sections, plays, record or statistics read that answers 404 nulls or empties its part (leaders, curve, largest deficit, records, bar values)
-# - The kind: a roster read that fails, also with a 404, any other failed read answers unavailable and stores nothing
-# - The kind: the finalists' averages list the box-score rosters
+# - The kind: any other failed read answers unavailable and stores nothing
+# - The kind: the averages are null and the Finals MVP's averages are null, and the best game comes from the Finals box score (ADR 0058)
 # - The kind: the built feed carries the current build version, a stored feed of an older or missing version is rebuilt on its next request, and one of the current version is served with no source request (ADR 0053)
 # - The kind: a season whose playoffs feed cannot be built answers unavailable
 # - The kind: the feed is stored under season-playoffs-finals and rebuilt only for another version: a second request, a request years later and a restart serve with no source call
@@ -46,8 +46,11 @@ from app.jobs.on_demand import (
 from app.jobs.playoffs_finals_feed import FEED_ID as FINALS_ID
 from app.jobs.playoffs_finals_feed import KIND as FINALS_KIND
 from app.jobs.season_playoffs_feed import KIND as PLAYOFFS_KIND
-from app.jobs.season_playoffs_finals_feed import KIND, SeasonPlayoffsFinalsFeeds
-from app.jobs.season_rosters import SeasonRosters
+from app.jobs.season_playoffs_finals_feed import (
+    KIND,
+    READ_BUDGET,
+    SeasonPlayoffsFinalsFeeds,
+)
 from app.jobs.stars import StarsJob
 from app.settings import Settings
 from app.sources.finals_plays import PlayScore
@@ -55,14 +58,12 @@ from app.sources.game_detail import GameDetail, GameDetailSections
 from app.sources.http import Freshness, SourceClient
 from app.sources.player_stats import PlayerStats
 from app.sources.season_awards import SeasonAwards
-from app.sources.team_players import RosterEntry
 from app.sources.team_postseason import TeamPostseasonRecord, TeamPostseasonStats
 from app.storage.feeds import publish_by_id, read_by_id
-from tests.jobs.fake_season_teams import league_sides, season_team
+from tests.jobs.fake_season_teams import league_sides
 from tests.jobs.test_playoffs_feed import HOUR, NOW, award
 from tests.jobs.test_playoffs_finals_feed import (
     BOTTOM,
-    PLAYERS,
     TOP,
     detail,
     record,
@@ -72,8 +73,8 @@ from tests.jobs.test_playoffs_finals_feed import (
 )
 from tests.jobs.test_season_playoffs_feed import (
     YEARS,
-    FakeRosters,
     SeasonPlayoffsKit,
+    named_standings,
     no_network,  # noqa: F401
 )
 
@@ -88,6 +89,7 @@ class FinalsKit(SeasonPlayoffsKit):
         self.fresh: dict[str, Freshness] = {}
         self.by_id: list[bool] = []
         super().__init__(path)
+        self.extra_players = {TOP: ["101", "102"], BOTTOM: ["201", "202"]}
 
     def register(self) -> None:
         super().register()
@@ -98,15 +100,9 @@ class FinalsKit(SeasonPlayoffsKit):
             self.cache,
             cast(StarsJob, self.stars),
             self.season_playoffs,
-            cast(
-                SeasonRosters,
-                FakeRosters(self, "f-roster", lambda code: list(PLAYERS[code])),
-            ),
-            self.team_names,
             fetch_game_detail=self.fetch_game_detail,
             fetch_game_detail_sections=self.fetch_game_detail_sections,
             fetch_play_scores=self.fetch_play_scores,
-            fetch_player_stats=self.fetch_player_stats,
             fetch_team_postseason_record=self.fetch_finals_record,
             fetch_team_postseason_stats=self.fetch_team_postseason_stats,
         )
@@ -118,9 +114,6 @@ class FinalsKit(SeasonPlayoffsKit):
         return self.awards_source or SeasonAwards(
             awards=[award(AwardCode.FINALS_MVP, ["101"])]
         )
-
-    def box_players(self, code: str) -> list[RosterEntry]:
-        return [*super().box_players(code), *PLAYERS.get(code, [])]
 
     async def fetch_game_detail(
         self,
@@ -141,7 +134,7 @@ class FinalsKit(SeasonPlayoffsKit):
     ) -> GameDetailSections:
         self.read(f"sections/{game_id}")
         self.fresh[f"sections/{game_id}"] = fresh
-        return sections()
+        return sections(top_points=30)
 
     async def fetch_play_scores(
         self, client: SourceClient, game_id: str, settings: Settings, fresh: Freshness
@@ -153,7 +146,8 @@ class FinalsKit(SeasonPlayoffsKit):
     async def fetch_player_stats(
         self, client: SourceClient, player_id: str, settings: Settings, **query: Any
     ) -> PlayerStats:
-        assert query == {"playoffs": True}
+        """For the current Finals feed, which the router tests build over this
+        kit; a past build never calls it."""
         self.read(f"player/{player_id}")
         return stats_of(10.0, season=LABEL)
 
@@ -226,22 +220,14 @@ async def test_a_past_season_builds_a_valid_finals_feed_after_the_season_playoff
     assert [g.game.id for g in feed.games] == [f"finals-{n}" for n in range(1, 6)]
     assert read_by_id(kit.path, PLAYOFFS_KIND, "2025") is not None
     assert kit.calls.index("standings/2025") < kit.calls.index("detail/finals-1")
-    assert sorted(n for n in kit.calls if n.startswith("f-roster/")) == sorted(
-        [f"f-roster/{TOP}/2025", f"f-roster/{BOTTOM}/2025"]
-    )
+    assert kit.called("f-roster/") == 0 and kit.called("roster/") == 0
     assert kit.by_id and all(kit.by_id)
     assert kit.called("detail/") == kit.called("sections/") == 5
     assert kit.called("plays/") == 5
     assert f"finals-record/{TOP}/2025" in kit.calls
     assert f"stats/{BOTTOM}/2025" in kit.calls
-    assert sorted(n for n in kit.calls if n.startswith("player/")) == [
-        "player/101",
-        "player/102",
-        "player/201",
-        "player/202",
-    ]
+    assert kit.called("player/") == 0
     assert kit.fresh and all(f == HOUR for f in kit.fresh.values())
-    assert [p.player_id for p in feed.averages[0].players] == ["102", "101"]
     assert feed.finals_mvp is not None and feed.finals_mvp.player_id == "101"
     assert feed.games[0].leaders is not None
     assert feed.games[0].win_probability is not None
@@ -249,11 +235,10 @@ async def test_a_past_season_builds_a_valid_finals_feed_after_the_season_playoff
 
 
 @pytest.mark.anyio
-async def test_the_mvp_the_records_and_the_averages_carry_the_season_code_of_their_team(
+async def test_the_mvp_and_the_records_carry_the_season_code_of_their_team(
     kit: FinalsKit,
 ) -> None:
-    kit.season_teams.by_season[2025] = season_team("Harbor Gulls", "Seattle", "SEA")
-    kit.season_teams.by_season[2027] = season_team("Thunder", "Oklahoma City", "OKC")
+    kit.standing = named_standings(2025)
 
     feed = PlayoffsFinalsFeed.model_validate_json(await kit.serve_finals("2025"))
 
@@ -261,7 +246,6 @@ async def test_the_mvp_the_records_and_the_averages_carry_the_season_code_of_the
     assert feed.finals_mvp.season_code == "SEA"
     records = feed.head_to_head.records
     assert {r.season_code for r in records} == {"SEA"}
-    assert {a.season_code for a in feed.averages} == {"SEA"}
 
 
 @pytest.mark.anyio
@@ -286,11 +270,10 @@ async def test_the_finals_build_over_a_playoffs_feed_with_a_six_winner_award(
 
 
 @pytest.mark.anyio
-async def test_the_league_sides_are_named_by_the_season_team_object_with_the_season_code_and_the_flag(
+async def test_the_league_sides_take_the_names_codes_and_flags_of_the_stored_playoffs_feed(
     kit: FinalsKit,
 ) -> None:
-    kit.season_teams.by_season[2025] = season_team("Harbor Gulls", "Seattle", "SEA")
-    kit.season_teams.by_season[2027] = season_team("Thunder", "Oklahoma City", "OKC")
+    kit.standing = named_standings(2025)
 
     body = await kit.serve_finals("2025")
 
@@ -298,7 +281,9 @@ async def test_the_league_sides_are_named_by_the_season_team_object_with_the_sea
     assert sides
     for side in sides:
         assert (side["name"], side["city"]) == ("Harbor Gulls", "Seattle")
-        assert (side["seasonCode"], side["historical"]) == ("SEA", True)
+        assert (side["seasonCode"], side["historical"]) == ("SEA", False)
+    assert kit.called("standings/") == 1
+    assert kit.called("type/") == 1
 
 
 @pytest.mark.anyio
@@ -340,7 +325,7 @@ async def test_reads_that_answer_404_null_or_empty_their_parts(kit: FinalsKit) -
     )
     assert feed.head_to_head.bars[0].values[0].value is None
     assert feed.head_to_head.bars[0].better is None
-    assert next(a for a in feed.averages if a.team_code == TOP).players
+    assert feed.averages is None
 
 
 @pytest.mark.anyio
@@ -352,8 +337,6 @@ async def test_reads_that_answer_404_null_or_empty_their_parts(kit: FinalsKit) -
         "plays/finals-3",
         f"finals-record/{TOP}/2025",
         f"stats/{BOTTOM}/2025",
-        f"f-roster/{TOP}/2025",
-        "player/101",
     ],
 )
 async def test_any_other_failed_read_answers_unavailable_and_stores_nothing(
@@ -368,24 +351,33 @@ async def test_any_other_failed_read_answers_unavailable_and_stores_nothing(
 
 
 @pytest.mark.anyio
-async def test_a_roster_read_that_answers_404_fails_the_build(kit: FinalsKit) -> None:
-    kit.not_found = {f"f-roster/{BOTTOM}/2025"}
-
-    with pytest.raises(FeedUnavailableError):
-        await kit.serve_finals("2025")
-
-    assert read_by_id(kit.path, KIND, "2025") is None
-
-
-@pytest.mark.anyio
-async def test_the_finalists_averages_list_the_box_score_rosters(
+async def test_the_averages_and_the_mvp_averages_are_null_and_the_best_game_is_from_the_box_score(
     kit: FinalsKit,
 ) -> None:
     feed = PlayoffsFinalsFeed.model_validate_json(await kit.serve_finals("2025"))
 
-    names = {p.name for a in feed.averages for p in a.players}
-    assert names and all(name.startswith("Box ") for name in names)
+    assert feed.averages is None
+    mvp = feed.finals_mvp
+    assert mvp is not None
+    assert (mvp.games, mvp.points, mvp.rebounds, mvp.assists) == (None,) * 4
+    assert mvp.best_game is not None and mvp.best_game.points > 0
     assert feed.build_version == SEASON_BUILD_VERSION
+
+
+@pytest.mark.anyio
+async def test_the_finals_build_reads_only_details_records_and_team_statistics_within_its_budget(
+    kit: FinalsKit,
+) -> None:
+    await kit.serve_season("2025")
+    kit.calls.clear()
+
+    await kit.serve_finals("2025")
+
+    kinds = {name.split("/")[0] for name in kit.calls}
+    assert kinds == {"detail", "sections", "plays", "finals-record", "stats"}
+    # The details, sections and plays of one game share one request, so one
+    # read per game, plus a record and a statistics read per finalist.
+    assert 5 + 2 + 2 <= READ_BUDGET == 11
 
 
 @pytest.mark.anyio

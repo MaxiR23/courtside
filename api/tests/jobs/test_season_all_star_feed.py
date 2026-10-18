@@ -5,11 +5,11 @@
 # Tested:
 # - february_days: the US Eastern February days of the end year, sorted and unique, the Eastern day of a late UTC moment, other months and years dropped, none
 # - The kind: the season check (range, formats, current and future seasons, not ready), and the target (the current season is the current feed)
-# - Discovery: only the February days the calendar lists, in order, until the first with All-Star games; the edition is stored; a stored edition reads no calendar
-# - No edition: unknown, nothing stored, remembered with no further read; a previous season with none gives a null recap; a stored edition overrides the memory
+# - Discovery: only the February days the calendar lists, in order, until the first with All-Star games; the edition is stored; a stored edition reads one day and no calendar; the edition before is never discovered or read (ADR 0058)
+# - No edition: unknown, nothing stored, remembered with no further read; a stored edition overrides the memory
 # - Build: an after feed is stored at feeds/season-all-star/{season}.json and kept; a feed that is not after is not stored and logs the season
 # - Reads: a 404 nulls its part (detail, sections, extras, awards); any other failed read, calendar or day fails the build
-# - Previous edition: the recap and the whole edition; none for 1994
+# - Previous edition: taken from the stored feed of the season before, with no read, as its recap and its whole edition; null without a stored feed, and for 1994 (ADR 0058)
 # - No per-game highlight, null league teams and no team info read
 # - The edition video is served as editionHighlight on the edition, the recap and the previous edition, null when none, and not stored
 # - A 2004-05-shaped edition whose summaries lack totalRebounds and fieldGoalPct builds, with a null team statistics block (ADR 0055)
@@ -50,7 +50,13 @@ from app.jobs.on_demand import (
     IdStatus,
     UnknownFeedError,
 )
-from app.jobs.season_all_star_feed import KIND, SeasonAllStarFeeds, february_days
+from app.jobs.season_all_star_feed import (
+    KIND,
+    READ_BUDGET,
+    SeasonAllStarFeeds,
+    february_days,
+    with_stored_previous,
+)
 from app.jobs.stars import StarsJob
 from app.settings import Settings
 from app.sources.all_star_detail import AllStarDetailExtras
@@ -240,8 +246,8 @@ async def test_discovery_reads_only_the_listed_february_days_up_to_the_edition(
 
     scan = [c for c in kit.calls if c.startswith(("calendar/2025", "day/2025"))]
     assert scan == ["calendar/2025", "day/2025-02-09", "day/2025-02-16"]
-    earlier = [c for c in kit.calls if c.startswith(("calendar/2024", "day/2024"))]
-    assert earlier == ["calendar/2024", "day/2024-02-05", "day/2024-02-18"]
+    assert not any("2024" in call for call in kit.calls)
+    assert READ_BUDGET == 60
 
 
 @pytest.mark.anyio
@@ -252,7 +258,7 @@ async def test_the_found_edition_is_stored(kit: SeasonAllStarKit) -> None:
     assert record is not None
     assert record.game_date == EDITION
     assert record.game_ids == ["g1", "g2", "g3", "g4"]
-    assert kit.store.all_star_edition(2024) is not None
+    assert kit.store.all_star_edition(2024) is None
 
 
 @pytest.mark.anyio
@@ -260,13 +266,12 @@ async def test_a_stored_edition_is_used_with_no_calendar_read(
     kit: SeasonAllStarKit,
 ) -> None:
     kit.store.set_all_star_edition(2025, EDITION, ["g1"])
-    kit.store.set_all_star_edition(2024, EARLIER, ["p1"])
 
     feed = await kit.request()
 
     assert feed.state is AllStarState.AFTER
     assert kit.called("calendar/") == 0
-    assert "day/2025-02-16" in kit.calls and "day/2025-02-09" not in kit.calls
+    assert [c for c in kit.calls if c.startswith("day/")] == ["day/2025-02-16"]
 
 
 @pytest.mark.anyio
@@ -323,19 +328,14 @@ async def test_a_2004_05_shaped_edition_with_no_rebounds_and_no_field_goal_perce
 
 
 @pytest.mark.anyio
-async def test_a_previous_season_with_no_edition_gives_a_null_recap_and_is_remembered(
+async def test_without_a_stored_feed_of_the_season_before_the_previous_edition_is_null_and_nothing_of_it_is_read(
     kit: SeasonAllStarKit,
 ) -> None:
-    del kit.days[EARLIER]
-
     feed = await kit.request()
 
     assert feed.previous is None and feed.previous_edition is None
-    assert kit.season_feeds.check("2024") is IdStatus.UNKNOWN
-    calls = len(kit.calls)
-    with pytest.raises(UnknownFeedError):
-        await kit.cache.serve(KIND, "2024")
-    assert len(kit.calls) == calls
+    assert not any("2024" in call for call in kit.calls)
+    assert kit.season_feeds._no_edition == set()
 
 
 def test_an_edition_stored_later_overrides_a_remembered_miss(
@@ -386,6 +386,7 @@ async def test_a_feed_that_is_not_after_is_not_stored_and_logs_the_season(
 async def test_the_mvp_is_null_when_the_awards_answer_404(
     kit: SeasonAllStarKit,
 ) -> None:
+    await kit.request("2024")
     kit.missing = {"awards/2025"}
     feed = await kit.request()
     assert feed.mvp is None
@@ -427,7 +428,7 @@ async def test_a_404_on_a_detail_sections_or_extras_read_only_nulls_its_part(
 
 @pytest.mark.anyio
 @pytest.mark.parametrize(
-    "failing", ["detail/g1", "sections/g2", "extras/g3", "awards/2024", "detail/p1"]
+    "failing", ["detail/g1", "sections/g2", "extras/g3", "awards/2025"]
 )
 async def test_any_other_failed_read_fails_the_build_and_stores_nothing(
     kit: SeasonAllStarKit, failing: str
@@ -443,7 +444,7 @@ async def test_any_other_failed_read_fails_the_build_and_stores_nothing(
 
 @pytest.mark.anyio
 @pytest.mark.parametrize(
-    "failing", ["calendar/2025", "day/2025-02-09", "day/2025-02-16", "calendar/2024"]
+    "failing", ["calendar/2025", "day/2025-02-09", "day/2025-02-16"]
 )
 async def test_a_failed_calendar_or_day_read_fails_the_build_without_a_miss(
     kit: SeasonAllStarKit, failing: str
@@ -459,15 +460,46 @@ async def test_a_failed_calendar_or_day_read_fails_the_build_without_a_miss(
 
 
 @pytest.mark.anyio
-async def test_the_previous_edition_is_the_recap_and_the_whole_edition(
+async def test_the_previous_edition_is_taken_from_the_stored_feed_of_the_season_before_with_no_read(
     kit: SeasonAllStarKit,
 ) -> None:
+    earlier = await kit.request("2024")
+    kit.calls.clear()
+
     feed = await kit.request()
 
+    assert not any("2024" in call or call.endswith("p1") for call in kit.calls)
     assert feed.previous is not None and feed.previous.year == 2024
-    assert feed.previous.mvp is not None
+    assert feed.previous.mvp == earlier.mvp and feed.previous.mvp is not None
+    assert feed.previous.venue == earlier.edition.venue
+    final = next(g for g in earlier.edition.games if g.championship)
+    assert feed.previous.championship.game_id == final.id
+    assert feed.previous.championship.score == final.score
+    assert feed.previous.championship.winner == final.winner
     assert feed.previous_edition is not None
     assert feed.previous_edition.date == feed.previous.date == EARLIER
+    assert feed.previous_edition.games == earlier.edition.games
+    assert feed.previous_edition.mvp == earlier.mvp
+
+
+@pytest.mark.anyio
+async def test_a_stored_feed_of_the_season_before_that_is_not_after_or_has_no_championship_gives_a_null_previous(
+    kit: SeasonAllStarKit,
+) -> None:
+    earlier = await kit.request("2024")
+    feed = await kit.request()
+    base = feed.model_copy(update={"previous": None, "previous_edition": None})
+
+    unfinished = earlier.model_copy(update={"state": AllStarState.LIVE})
+    assert with_stored_previous(base, unfinished) == base
+    assert with_stored_previous(base, None) == base
+    plain = [
+        g.model_copy(update={"championship": False}) for g in earlier.edition.games
+    ]
+    no_final = earlier.model_copy(
+        update={"edition": earlier.edition.model_copy(update={"games": plain})}
+    )
+    assert with_stored_previous(base, no_final) == base
 
 
 @pytest.mark.anyio
@@ -485,6 +517,7 @@ async def test_1994_has_no_previous_edition_and_reads_nothing_of_1993(
 
 @pytest.mark.anyio
 async def test_no_per_game_highlight_is_set(kit: SeasonAllStarKit) -> None:
+    await kit.request("2024")
     for game_id in ("g1", "p1"):
         kit.store.set_highlight(
             game_id,
@@ -516,6 +549,7 @@ def edition_clip(title: str) -> Highlight:
 async def test_the_edition_video_is_served_as_edition_highlight_and_not_stored(
     kit: SeasonAllStarKit,
 ) -> None:
+    await kit.request("2024")
     kit.store.set_all_star_edition_highlight(2025, edition_clip("current"))
     kit.store.set_all_star_edition_highlight(2024, edition_clip("earlier"))
 
@@ -536,6 +570,7 @@ async def test_the_edition_video_is_served_as_edition_highlight_and_not_stored(
 async def test_the_edition_video_is_null_when_none_is_stored(
     kit: SeasonAllStarKit,
 ) -> None:
+    await kit.request("2024")
     feed = await kit.request()
 
     assert feed.edition.edition_highlight is None
@@ -646,6 +681,7 @@ async def test_both_kinds_read_the_mvp_inputs_through_read_edition_mvp_inputs(
     monkeypatch.setattr(
         "app.jobs.season_all_star_feed.read_edition_mvp_inputs", recording
     )
+    await kit.request("2024")
     await kit.request("2025")
     kit.days[DAY] = round_robin()
     kit.days[PREVIOUS_DAY] = earlier_games()

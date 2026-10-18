@@ -24,6 +24,8 @@
 # - Raises the source error on an invalid season schedule payload, a played game without a score, a team missing from a game, a timeout, an error status and a missing URL for a season schedule
 # - Reuses a season schedule for one hour
 # - With by_id_first, a past season finds the team and each opponent's code by provider id when the abbreviations are historical, and without it the same response fails
+# - season_schedule_url builds the season and season type query and raises when the URL is not configured or the team code is unknown (ADR 0058)
+# - A season schedule holds the abbreviation, name and location its payload gives each league team, by provider id first, the first one seen (ADR 0058)
 #
 # What is covered:
 # - A valid response mapped, an invalid payload rejected, upstream failures handled
@@ -56,6 +58,7 @@ from app.sources.team_schedule import (
     TeamSchedule,
     fetch_season_schedule,
     fetch_team_schedule,
+    season_schedule_url,
 )
 from app.storage.state import StateStore
 
@@ -784,3 +787,75 @@ async def test_without_by_id_first_a_historical_abbreviation_is_a_missing_team(
         await fetch_season(query_settings, season=2004)
 
     assert raised.value.reason == "team OKC is missing from game 199601001"
+
+
+def test_season_schedule_url_builds_the_season_and_season_type_query(
+    query_settings: Settings,
+) -> None:
+    assert season_schedule_url("OKC", 2026, query_settings, playoffs=True) == (
+        season_url("OKC", 2026, 3)
+    )
+    assert season_schedule_url("GSW", 2026, query_settings, playoffs=False) == (
+        season_url("GS", 2026, 2)
+    )
+
+
+def test_season_schedule_url_raises_without_a_configured_url_or_for_an_unknown_team() -> (
+    None
+):
+    unset = Settings(_env_file=None)  # type: ignore[call-arg]
+    with pytest.raises(SourceError, match="team schedule URL is not configured"):
+        season_schedule_url("OKC", 2026, unset, playoffs=False)
+    configured = Settings(_env_file=None, team_schedule_url=QUERY_TEMPLATE)  # type: ignore[call-arg]
+    with pytest.raises(SourceError, match="unknown team code"):
+        season_schedule_url("XXX", 2026, configured, playoffs=False)
+
+
+@pytest.mark.anyio
+async def test_a_season_schedule_holds_the_names_its_payload_gives_the_league_teams(
+    mock: respx.MockRouter, query_settings: Settings
+) -> None:
+    mock.get(season_url("OKC", 2004, 2)).respond(json=load("past-regular.json"))
+
+    with TemporaryDirectory() as directory:
+        store = StateStore(Path(directory))
+        store.migrate()
+        async with create_client(store) as client:
+            schedule = await fetch_season_schedule(
+                client, "OKC", 2004, query_settings, playoffs=False, by_id_first=True
+            )
+
+    assert set(schedule.teams) == {"OKC", "MEM", "BKN"}
+    assert schedule.teams["OKC"].model_dump() == {
+        "abbreviation": "SEA",
+        "name": "Harbor Gulls",
+        "location": "Seattle",
+    }
+    assert schedule.teams["MEM"].abbreviation == "VAN"
+    assert schedule.teams["MEM"].location == "Vancouver"
+
+
+@pytest.mark.anyio
+async def test_a_team_without_a_location_is_not_named(
+    mock: respx.MockRouter, query_settings: Settings
+) -> None:
+    payload = load("past-regular.json")
+    teams = [
+        c["team"]
+        for event in payload["events"]
+        for c in event["competitions"][0]["competitors"]
+    ]
+    for team in teams:
+        if team["id"] == "29":
+            del team["location"]
+    mock.get(season_url("OKC", 2004, 2)).respond(json=payload)
+
+    with TemporaryDirectory() as directory:
+        store = StateStore(Path(directory))
+        store.migrate()
+        async with create_client(store) as client:
+            schedule = await fetch_season_schedule(
+                client, "OKC", 2004, query_settings, playoffs=False, by_id_first=True
+            )
+
+    assert "MEM" not in schedule.teams and "OKC" in schedule.teams

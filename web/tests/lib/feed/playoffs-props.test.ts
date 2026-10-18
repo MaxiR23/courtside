@@ -506,7 +506,7 @@ describe('toPlayoffsView road and head to head', () => {
 	});
 
 	it('writes the postseason averages per finalist with — for a player without stats, last', () => {
-		const averages = view(complete(), finalsFeed()).headToHead!.averages;
+		const averages = view(complete(), finalsFeed()).headToHead!.averages!;
 		expect(averages.map((a) => a.key)).toEqual(['QXA', 'QYA']);
 		expect(averages[0].rows[0]).toMatchObject({
 			name: 'Kai Lowe',
@@ -526,6 +526,15 @@ describe('toPlayoffsView road and head to head', () => {
 			fieldGoalPct: '—'
 		});
 		expect(averages[0].rows[1].photo).toBeNull();
+	});
+
+	it('gives null averages when the finals feed has none', () => {
+		const finals = finalsFeed();
+		finals.averages = null;
+		const head = view(complete(), finals).headToHead!;
+		expect(head.averages).toBeNull();
+		expect(head.records).toHaveLength(2);
+		expect(head.bars.length).toBeGreaterThan(0);
 	});
 });
 
@@ -980,14 +989,14 @@ describe('toPlayoffsView season codes', () => {
 		const finals = finalsFeed();
 		finals.finalsMvp!.seasonCode = 'NJ';
 		finals.headToHead.records[0].seasonCode = 'NJ';
-		finals.averages[0].seasonCode = 'NO';
+		finals.averages![0].seasonCode = 'NO';
 		const v = view(f, finals);
 		expect(v.conferenceMvps.find((mvp) => mvp.key === 'east')?.team).toBe('NO');
 		expect(v.finalsMvp?.team).toBe('NJ');
 		expect(v.headToHead?.records[0].team).toBe('NJ');
 		expect(v.headToHead?.records[1].team).toBe('QYA');
-		expect(v.headToHead?.averages[0].label).toBe('NO');
-		expect(v.headToHead?.averages[0].key).toBe('QXA');
+		expect(v.headToHead?.averages![0].label).toBe('NO');
+		expect(v.headToHead?.averages![0].key).toBe('QXA');
 	});
 });
 

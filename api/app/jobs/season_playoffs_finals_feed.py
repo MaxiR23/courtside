@@ -2,13 +2,18 @@
 #
 # Playoffs finals feed of a past season (ADR 0046): the playoffs finals feed's
 # shape, built by the playoffs finals builder from the stored season playoffs
-# feed and the reads of that season. The roster of each finalist is the box-score
-# roster of that season (SeasonRosters, ADR 0053); a failed roster read fails the
-# build; the game details resolve the
-# sides by provider id first; the details, sections, plays, team records and team
-# statistics are null when the source answers 404 and any other failed read
-# fails the build, because the feed is kept for good. Stored highlights are added
-# when served, never stored (ADR 0048), and detailAvailable is false.
+# feed and the reads of that season, under a declared read budget of READ_BUDGET
+# source reads (ADR 0058): the game detail of each Finals game (its sections and
+# plays share its reads), and the postseason record and statistics of each
+# finalist. It reads no roster and no per-player statistics. On a past season no
+# read carries a postseason average, so `averages` is null and the Finals MVP's
+# averages are null (ADR 0058); the best game still comes from the Finals box
+# scores. The game details resolve the sides by provider id first; the details,
+# sections, plays, team records and team statistics are null when the source
+# answers 404 and any other failed read fails the build, because the feed is kept
+# for good. A read past the budget or a rate limit (429, 503) fails the build and
+# stores nothing. Stored highlights are added when served, never stored (ADR
+# 0048), and detailAvailable is false.
 #
 # SeasonPlayoffsFinalsFeeds is the feed kind of the on-demand cache: the id is
 # the season's end year, the feed is stored at
@@ -16,12 +21,13 @@
 # playoffs feed is built first when it is missing. The current season is
 # resolved before the cache (target) to the current playoffs finals feed. A feed
 # is built once and kept (rule G): it is never deleted, and rebuilt only when its
-# build version is not the current one (ADR 0053). Its league sides are named by
-# that season's team object and carry the season code and the historical flag
-# (ADR 0054).
+# build version is not the current one (ADR 0053). Its league sides take the
+# names, season codes and historical flags of the stored season playoffs feed's
+# sides (identities_of), with no read (ADR 0054, ADR 0058).
 #
 # SEE: docs/api/playoffs.md, docs/adr/0046-season-playoffs-feeds.md,
 # docs/adr/0048-highlights-backfill-and-edition-video.md,
+# docs/adr/0058-bounded-past-competition-reads.md,
 # api/app/jobs/playoffs_finals_feed.py
 
 import asyncio
@@ -44,34 +50,32 @@ from app.jobs.playoffs_finals_feed import (
     FetchPlays,
     FetchRecord,
     FetchSections,
-    FetchStats,
     FetchTeamStats,
     FinalsBuildError,
     FinalsSources,
     build_finals_feed,
     finals_series,
-    mvp_id,
 )
 from app.jobs.season_playoffs_feed import SeasonPlayoffsFeeds, none_on_404
-from app.jobs.season_rosters import SeasonRosters
 from app.jobs.season_standings_feed import past_season_status
 from app.jobs.stars import StarsJob
 from app.jobs.team_feed import season_label
-from app.jobs.team_names import TeamNamesFeeds
+from app.jobs.team_names import identities_of, named_sides
 from app.settings import Settings
 from app.sources import (
     finals_plays,
     game_detail,
-    player_stats,
     team_postseason,
 )
-from app.sources.game_detail import BoxScoreRosterEntry, GameDetail
-from app.sources.http import SourceClient
-from app.sources.team_players import RosterEntry
+from app.sources.game_detail import GameDetail
+from app.sources.http import ReadBudget, SourceClient, within_budget
 from app.storage.feeds import read_by_id
 from app.storage.state import StateStore
 
 KIND = "season-playoffs-finals"
+# The most source reads one build sends (ADR 0058): 2 finalist records + 2
+# finalist team statistics + 7 Finals game details.
+READ_BUDGET = 11
 
 FetchSeasonDetail = Callable[..., Awaitable[GameDetail]]
 
@@ -85,15 +89,12 @@ class SeasonPlayoffsFinalsFeeds:
         cache: FeedCache,
         stars: StarsJob,
         playoffs: SeasonPlayoffsFeeds,
-        rosters: SeasonRosters,
-        names: TeamNamesFeeds,
         *,
         fetch_game_detail: FetchSeasonDetail = game_detail.fetch_game_detail,
         fetch_game_detail_sections: FetchSections = (
             game_detail.fetch_past_game_detail_sections
         ),
         fetch_play_scores: FetchPlays = finals_plays.fetch_play_scores,
-        fetch_player_stats: FetchStats = player_stats.fetch_player_stats,
         fetch_team_postseason_record: FetchRecord = (
             team_postseason.fetch_team_postseason_record
         ),
@@ -106,12 +107,9 @@ class SeasonPlayoffsFinalsFeeds:
         self._client = client
         self._stars = stars
         self._playoffs = playoffs
-        self._rosters = rosters
-        self._names = names
         self._fetch_game_detail = fetch_game_detail
         self._fetch_game_detail_sections = fetch_game_detail_sections
         self._fetch_play_scores = fetch_play_scores
-        self._fetch_player_stats = fetch_player_stats
         self._fetch_team_postseason_record = fetch_team_postseason_record
         self._fetch_team_postseason_stats = fetch_team_postseason_stats
         cache.register(self.kind())
@@ -131,6 +129,13 @@ class SeasonPlayoffsFinalsFeeds:
         return (season_playoffs_feed.KIND, season)
 
     async def build(self, season: str) -> PlayoffsFinalsFeed:
+        return await within_budget(
+            ReadBudget(READ_BUDGET),
+            f"season playoffs finals: {season}",
+            lambda: self._build(season),
+        )
+
+    async def _build(self, season: str) -> PlayoffsFinalsFeed:
         year = int(season)
         stored = self._playoffs.stored(season)
         if stored is None:
@@ -144,20 +149,7 @@ class SeasonPlayoffsFinalsFeeds:
         game_ids = [g.id for g in series.games if g.status is GameStatus.FINAL]
         client, settings = self._client, self._settings
         detail = functools.partial(self._fetch_game_detail, by_id_first=True)
-        found = await asyncio.gather(
-            *(self._rosters.roster(code, year) for code in codes)
-        )
-        rosters: dict[str, list[RosterEntry | BoxScoreRosterEntry]] = {
-            code: list(roster) for code, roster in zip(codes, found, strict=True)
-        }
-        mvp = mvp_id(stored)
-        player_ids = list(
-            dict.fromkeys(
-                [entry.player_id for code in codes for entry in rosters[code]]
-                + ([mvp] if mvp is not None else [])
-            )
-        )
-        details, sections, plays, records, team_stats, stats = await asyncio.gather(
+        details, sections, plays, records, team_stats = await asyncio.gather(
             asyncio.gather(
                 *(
                     none_on_404(detail(client, gid, settings, UNPLAYED_FRESH))
@@ -198,26 +190,24 @@ class SeasonPlayoffsFinalsFeeds:
                     for code in codes
                 )
             ),
-            asyncio.gather(
-                *(
-                    self._fetch_player_stats(client, pid, settings, playoffs=True)
-                    for pid in player_ids
-                )
-            ),
         )
         feed = build_finals_feed(
             FinalsSources(
                 playoffs=stored,
-                rosters=rosters,
+                rosters={},
                 details=dict(zip(game_ids, details, strict=True)),
                 sections=dict(zip(game_ids, sections, strict=True)),
                 plays=dict(zip(game_ids, plays, strict=True)),
-                player_stats=dict(zip(player_ids, stats, strict=True)),
+                player_stats={},
                 records=dict(zip(codes, records, strict=True)),
                 team_stats=dict(zip(codes, team_stats, strict=True)),
             )
         )
-        return with_build_version(await self._names.name_sides(feed, year))
+        # No read carries a postseason average (ADR 0058).
+        feed = PlayoffsFinalsFeed.model_validate(
+            {**feed.model_dump(by_alias=False), "averages": None}
+        )
+        return with_build_version(named_sides(feed, identities_of(stored)))
 
     def stored(self, season: str) -> PlayoffsFinalsFeed | None:
         """The stored playoffs finals feed of a season, or none."""

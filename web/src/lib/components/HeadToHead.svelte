@@ -22,7 +22,9 @@
 			<MirroredBar {bar} />
 		{/each}
 	</div>
-	<PostseasonAverages averages={headToHead.averages} />
+	{#if headToHead.averages}
+		<PostseasonAverages averages={headToHead.averages} />
+	{/if}
 </div>
 
 <style>

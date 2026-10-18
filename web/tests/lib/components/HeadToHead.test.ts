@@ -6,6 +6,7 @@
 // - The record row with both finalists
 // - Eight bars in the feed's order
 // - The postseason averages below the bars
+// - The averages hidden when the feed has none, with the records and bars kept
 //
 // What is covered:
 // - Each part of the section, drawn from props with no fetch
@@ -65,5 +66,15 @@ describe('HeadToHead', () => {
 		render(HeadToHead, { props: { headToHead: headToHead() } });
 		expect(screen.getByRole('heading', { name: 'Postseason averages' })).toBeTruthy();
 		expect(screen.getByText('Kai Lowe', { selector: '.name' })).toBeTruthy();
+	});
+
+	it('hides the postseason averages when they are null, keeping the records and bars', () => {
+		const finals = read<PlayoffsFinalsFeed>('playoffs-finals.json');
+		finals.averages = null;
+		const view = toPlayoffsView(read<PlayoffsFeed>('playoffs-complete.json'), finals).headToHead!;
+		const { container } = render(HeadToHead, { props: { headToHead: view } });
+		expect(screen.queryByRole('heading', { name: 'Postseason averages' })).toBeNull();
+		expect(container.querySelectorAll('.record')).toHaveLength(2);
+		expect(container.querySelectorAll('.mirrored-bar')).toHaveLength(8);
 	});
 });
