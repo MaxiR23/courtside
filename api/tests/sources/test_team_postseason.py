@@ -4,6 +4,7 @@
 #
 # Tested:
 # - Maps the overall, home and road records, with a missing or malformed one as null
+# - Maps the 2005 record items overall, home and road
 # - Maps the eight statistics and the games played, with a missing statistic as null, and never reads the plus-minus statistic
 # - Requests the URL built from the season and the provider team id
 # - Raises the source error, for both functions, on an unknown team code, an invalid payload, a timeout, an error status and a missing URL
@@ -248,3 +249,14 @@ async def test_reuses_a_read_for_one_hour(
         await fetch_team_postseason_record(client, "ATL", 2027, settings)
 
     assert route.call_count == 2
+
+
+@pytest.mark.anyio
+async def test_maps_the_2005_record_items_overall_home_and_road(
+    mock: respx.MockRouter, settings: Settings, tmp_path: Path
+) -> None:
+    mock.get(ATL_RECORD).respond(json=load("record-2005.json"))
+
+    result = await read(fetch_team_postseason_record, settings, tmp_path)
+
+    assert (result.overall, result.home, result.road) == ("16-7", "9-3", "7-4")

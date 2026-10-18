@@ -8,11 +8,12 @@
 # - The kind: the Finals MVP and the records carry the season code of their team (ADR 0055)
 # - The kind: the Finals build over a stored playoffs feed with a six-winner award (ADR 0055)
 # - The kind: the league sides take the names, season codes and historical flags of the stored season playoffs feed (ADR 0054, ADR 0058)
-# - The kind: a past season builds a valid Finals feed after the season playoffs feed (built first through depends_on), with the game details by provider id first and the season on the team reads, and no roster and no per-player statistics read (ADR 0058)
+# - The kind: a past season builds a valid Finals feed after the season playoffs feed (built first through depends_on), with the game details by provider id first and the season on the team reads, and no roster read, and the Finals MVP's postseason career read once (ADR 0058, ADR 0061)
 # - The kind: a detail, sections, plays, record or statistics read that answers 404 nulls or empties its part (leaders, curve, largest deficit, records, bar values)
 # - The kind: any other failed read answers unavailable and stores nothing
-# - The kind: the averages are null and the Finals MVP's averages are null, and the best game comes from the Finals box score (ADR 0058)
-# - The kind: the built feed carries the current build version, a stored feed of an older or missing version is rebuilt on its next request, and one of the current version is served with no source request (ADR 0053)
+# - The kind: the averages are null, the Finals MVP's averages come from his career row of the season label, and the best game comes from the Finals box score (ADR 0058, ADR 0061)
+# - The kind: a career with no row for the season gives null MVP averages; the career is read once without the season; no MVP reads no player statistics
+# - The kind: the built feed carries the past playoffs BUILD_VERSION, a stored feed of an older, newer or missing version is rebuilt on its next request, and one of BUILD_VERSION is served with no source request (ADR 0053)
 # - The kind: a season whose playoffs feed cannot be built answers unavailable
 # - The kind: the feed is stored under season-playoffs-finals and rebuilt only for another version: a second request, a request years later and a restart serve with no source call
 # - The kind: detailAvailable is false and the stored highlights are added when served and not stored; the cleanup keeps it
@@ -33,6 +34,7 @@ from pathlib import Path
 from typing import Any, cast
 
 import pytest
+import respx
 
 from app.feeds.games import Highlight
 from app.feeds.playoffs import AwardCode, PlayoffsFeed
@@ -45,6 +47,7 @@ from app.jobs.on_demand import (
 )
 from app.jobs.playoffs_finals_feed import FEED_ID as FINALS_ID
 from app.jobs.playoffs_finals_feed import KIND as FINALS_KIND
+from app.jobs.season_playoffs_feed import BUILD_VERSION
 from app.jobs.season_playoffs_feed import KIND as PLAYOFFS_KIND
 from app.jobs.season_playoffs_finals_feed import (
     KIND,
@@ -56,7 +59,7 @@ from app.settings import Settings
 from app.sources.finals_plays import PlayScore
 from app.sources.game_detail import GameDetail, GameDetailSections
 from app.sources.http import Freshness, SourceClient
-from app.sources.player_stats import PlayerStats
+from app.sources.player_stats import PlayerStats, fetch_player_stats
 from app.sources.season_awards import SeasonAwards
 from app.sources.team_postseason import TeamPostseasonRecord, TeamPostseasonStats
 from app.storage.feeds import publish_by_id, read_by_id
@@ -88,6 +91,7 @@ class FinalsKit(SeasonPlayoffsKit):
     def __init__(self, path: Path) -> None:
         self.fresh: dict[str, Freshness] = {}
         self.by_id: list[bool] = []
+        self.queries: list[dict[str, Any]] = []
         super().__init__(path)
         self.extra_players = {TOP: ["101", "102"], BOTTOM: ["201", "202"]}
 
@@ -105,6 +109,7 @@ class FinalsKit(SeasonPlayoffsKit):
             fetch_play_scores=self.fetch_play_scores,
             fetch_team_postseason_record=self.fetch_finals_record,
             fetch_team_postseason_stats=self.fetch_team_postseason_stats,
+            fetch_player_stats=self.fetch_player_stats,
         )
 
     async def fetch_season_awards(
@@ -112,7 +117,7 @@ class FinalsKit(SeasonPlayoffsKit):
     ) -> SeasonAwards:
         self.read(f"awards/{season}")
         return self.awards_source or SeasonAwards(
-            awards=[award(AwardCode.FINALS_MVP, ["101"])]
+            awards=[award(AwardCode.FINALS_MVP, ["101"], team_code=TOP)]
         )
 
     async def fetch_game_detail(
@@ -147,8 +152,9 @@ class FinalsKit(SeasonPlayoffsKit):
         self, client: SourceClient, player_id: str, settings: Settings, **query: Any
     ) -> PlayerStats:
         """For the current Finals feed, which the router tests build over this
-        kit; a past build never calls it."""
+        kit, and for the past build, which reads the Finals MVP's career once."""
         self.read(f"player/{player_id}")
+        self.queries.append(query)
         return stats_of(10.0, season=LABEL)
 
     async def fetch_finals_record(
@@ -226,7 +232,7 @@ async def test_a_past_season_builds_a_valid_finals_feed_after_the_season_playoff
     assert kit.called("plays/") == 5
     assert f"finals-record/{TOP}/2025" in kit.calls
     assert f"stats/{BOTTOM}/2025" in kit.calls
-    assert kit.called("player/") == 0
+    assert kit.calls.count("player/101") == 1
     assert kit.fresh and all(f == HOUR for f in kit.fresh.values())
     assert feed.finals_mvp is not None and feed.finals_mvp.player_id == "101"
     assert feed.games[0].leaders is not None
@@ -351,7 +357,7 @@ async def test_any_other_failed_read_answers_unavailable_and_stores_nothing(
 
 
 @pytest.mark.anyio
-async def test_the_averages_and_the_mvp_averages_are_null_and_the_best_game_is_from_the_box_score(
+async def test_the_mvp_averages_come_from_his_career_row_of_the_season_and_averages_stay_null(
     kit: FinalsKit,
 ) -> None:
     feed = PlayoffsFinalsFeed.model_validate_json(await kit.serve_finals("2025"))
@@ -359,13 +365,13 @@ async def test_the_averages_and_the_mvp_averages_are_null_and_the_best_game_is_f
     assert feed.averages is None
     mvp = feed.finals_mvp
     assert mvp is not None
-    assert (mvp.games, mvp.points, mvp.rebounds, mvp.assists) == (None,) * 4
+    assert (mvp.games, mvp.points, mvp.rebounds, mvp.assists) == (6, 10.0, 5.0, 4.0)
     assert mvp.best_game is not None and mvp.best_game.points > 0
-    assert feed.build_version == SEASON_BUILD_VERSION
+    assert feed.build_version == BUILD_VERSION
 
 
 @pytest.mark.anyio
-async def test_the_finals_build_reads_only_details_records_and_team_statistics_within_its_budget(
+async def test_the_finals_build_reads_only_details_records_team_statistics_and_the_mvp_career_within_its_budget(
     kit: FinalsKit,
 ) -> None:
     await kit.serve_season("2025")
@@ -374,14 +380,15 @@ async def test_the_finals_build_reads_only_details_records_and_team_statistics_w
     await kit.serve_finals("2025")
 
     kinds = {name.split("/")[0] for name in kit.calls}
-    assert kinds == {"detail", "sections", "plays", "finals-record", "stats"}
+    assert kinds == {"detail", "sections", "plays", "finals-record", "stats", "player"}
     # The details, sections and plays of one game share one request, so one
-    # read per game, plus a record and a statistics read per finalist.
-    assert 5 + 2 + 2 <= READ_BUDGET == 11
+    # read per game, plus a record and a statistics read per finalist and the
+    # Finals MVP's career.
+    assert 5 + 2 + 2 + 1 <= READ_BUDGET == 12
 
 
 @pytest.mark.anyio
-@pytest.mark.parametrize("version", [None, SEASON_BUILD_VERSION + 1])
+@pytest.mark.parametrize("version", [None, SEASON_BUILD_VERSION, BUILD_VERSION + 1])
 async def test_a_stored_feed_with_an_older_or_missing_version_is_rebuilt_on_its_next_request(
     kit: FinalsKit, version: int | None
 ) -> None:
@@ -404,7 +411,7 @@ async def test_a_stored_feed_with_an_older_or_missing_version_is_rebuilt_on_its_
     assert served.build_version == version
     assert kit.called("detail/") == 5
     rebuilt = kit.stored_finals("2025")
-    assert rebuilt is not None and rebuilt.build_version == SEASON_BUILD_VERSION
+    assert rebuilt is not None and rebuilt.build_version == BUILD_VERSION
 
 
 @pytest.mark.anyio
@@ -478,3 +485,81 @@ async def test_the_cleanup_keeps_the_feed(kit: FinalsKit) -> None:
     kit.cache.cleanup()
 
     assert read_by_id(kit.path, KIND, "2025") == body
+
+
+@pytest.mark.anyio
+async def test_the_mvp_career_is_read_once_without_the_season(kit: FinalsKit) -> None:
+    await kit.serve_finals("2025")
+
+    assert kit.calls.count("player/101") == 1
+    assert kit.called("player/") == 1
+    assert kit.queries == [{"playoffs": True}]
+
+
+@pytest.mark.anyio
+async def test_no_mvp_reads_no_player_stats(kit: FinalsKit) -> None:
+    kit.awards_source = SeasonAwards(awards=[award(AwardCode.MVP, ["1"])])
+
+    feed = PlayoffsFinalsFeed.model_validate_json(await kit.serve_finals("2025"))
+
+    assert feed.finals_mvp is None
+    assert kit.called("player/") == 0
+
+
+CAREER_FIXTURE = (
+    Path(__file__).parents[1]
+    / "sources"
+    / "fixtures"
+    / "player_stats"
+    / "playoffs-career.json"
+)
+CAREER_TEMPLATE = "https://example.com/athletes/{player_id}/stats?region=us"
+
+
+class CareerKit(FinalsKit):
+    """The Finals kit whose MVP career goes through the real adapter over the
+    recorded career of a player."""
+
+    def __init__(self, path: Path, body: dict[str, Any] | None = None) -> None:
+        self.career = body or json.loads(CAREER_FIXTURE.read_text(encoding="utf-8"))
+        super().__init__(path)
+        self.settings = self.settings.model_copy(
+            update={"player_stats_url": CAREER_TEMPLATE}
+        )
+        self.start()
+
+    async def fetch_player_stats(
+        self, client: SourceClient, player_id: str, settings: Settings, **query: Any
+    ) -> PlayerStats:
+        self.read(f"player/{player_id}")
+        url = CAREER_TEMPLATE.format(player_id=player_id)
+        respx.get(url + "&seasontype=3").respond(json=self.career)
+        return await fetch_player_stats(client, player_id, settings, **query)
+
+
+@pytest.mark.anyio
+async def test_the_mvp_averages_of_2005_come_from_the_career_row_of_2004_05(
+    tmp_path: Path,
+) -> None:
+    kit = CareerKit(tmp_path)
+
+    feed = PlayoffsFinalsFeed.model_validate_json(await kit.serve_finals("2005"))
+
+    assert feed.season == "2004-05" and feed.averages is None
+    mvp = feed.finals_mvp
+    assert mvp is not None
+    assert (mvp.games, mvp.points, mvp.rebounds, mvp.assists) == (23, 24.0, 7.6, 3.9)
+
+
+@pytest.mark.anyio
+async def test_a_career_with_no_row_for_the_season_gives_null_mvp_averages(
+    tmp_path: Path,
+) -> None:
+    kit = CareerKit(tmp_path)
+
+    feed = PlayoffsFinalsFeed.model_validate_json(await kit.serve_finals("2006"))
+
+    mvp = feed.finals_mvp
+    assert feed.season == "2005-06" and mvp is not None
+    assert (mvp.games, mvp.points, mvp.rebounds, mvp.assists) == (None,) * 4
+    assert mvp.best_game is not None

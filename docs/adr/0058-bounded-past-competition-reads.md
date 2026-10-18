@@ -1,6 +1,6 @@
 # 0058. Bounded reads of the past competition builds
 
-- Status: Accepted
+- Status: Superseded by 0061 for the names of past playoffs leaders and award winners, the past playoffs and Finals budgets, the past Finals MVP's averages and the build version of these two kinds only
 - Date: 2026-10-18
 
 ## Context

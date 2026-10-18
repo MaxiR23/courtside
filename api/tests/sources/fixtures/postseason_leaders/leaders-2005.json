@@ -1,0 +1,499 @@
+{
+ "categories": [
+  {
+   "name": "pointsPerGame",
+   "leaders": [
+    {
+     "displayValue": "30.0",
+     "value": 30.0,
+     "athlete": {
+      "$ref": "/v2/athletes/1000?lang=en"
+     },
+     "team": {
+      "$ref": "/v2/seasons/2005/teams/8?lang=en"
+     }
+    },
+    {
+     "displayValue": "29.0",
+     "value": 29.0,
+     "athlete": {
+      "$ref": "/v2/athletes/1001?lang=en"
+     },
+     "team": {
+      "$ref": "/v2/seasons/2005/teams/28?lang=en"
+     }
+    },
+    {
+     "displayValue": "28.0",
+     "value": 28.0,
+     "athlete": {
+      "$ref": "/v2/athletes/1002?lang=en"
+     },
+     "team": {
+      "$ref": "/v2/seasons/2005/teams/13?lang=en"
+     }
+    },
+    {
+     "displayValue": "27.0",
+     "value": 27.0,
+     "athlete": {
+      "$ref": "/v2/athletes/1003?lang=en"
+     },
+     "team": {
+      "$ref": "/v2/seasons/2005/teams/6?lang=en"
+     }
+    },
+    {
+     "displayValue": "26.0",
+     "value": 26.0,
+     "athlete": {
+      "$ref": "/v2/athletes/1004?lang=en"
+     },
+     "team": {
+      "$ref": "/v2/seasons/2005/teams/9999?lang=en"
+     }
+    }
+   ]
+  },
+  {
+   "name": "reboundsPerGame",
+   "leaders": [
+    {
+     "displayValue": "30.0",
+     "value": 30.0,
+     "athlete": {
+      "$ref": "/v2/athletes/2000?lang=en"
+     },
+     "team": {
+      "$ref": "/v2/seasons/2005/teams/8?lang=en"
+     }
+    },
+    {
+     "displayValue": "29.0",
+     "value": 29.0,
+     "athlete": {
+      "$ref": "/v2/athletes/2001?lang=en"
+     },
+     "team": {
+      "$ref": "/v2/seasons/2005/teams/28?lang=en"
+     }
+    },
+    {
+     "displayValue": "28.0",
+     "value": 28.0,
+     "athlete": {
+      "$ref": "/v2/athletes/2002?lang=en"
+     },
+     "team": {
+      "$ref": "/v2/seasons/2005/teams/13?lang=en"
+     }
+    },
+    {
+     "displayValue": "27.0",
+     "value": 27.0,
+     "athlete": {
+      "$ref": "/v2/athletes/2003?lang=en"
+     },
+     "team": {
+      "$ref": "/v2/seasons/2005/teams/6?lang=en"
+     }
+    },
+    {
+     "displayValue": "26.0",
+     "value": 26.0,
+     "athlete": {
+      "$ref": "/v2/athletes/2004?lang=en"
+     },
+     "team": {
+      "$ref": "/v2/seasons/2005/teams/10?lang=en"
+     }
+    }
+   ]
+  },
+  {
+   "name": "assistsPerGame",
+   "leaders": [
+    {
+     "displayValue": "30.0",
+     "value": 30.0,
+     "athlete": {
+      "$ref": "/v2/athletes/3000?lang=en"
+     },
+     "team": {
+      "$ref": "/v2/seasons/2005/teams/8?lang=en"
+     }
+    },
+    {
+     "displayValue": "29.0",
+     "value": 29.0,
+     "athlete": {
+      "$ref": "/v2/athletes/3001?lang=en"
+     },
+     "team": {
+      "$ref": "/v2/seasons/2005/teams/28?lang=en"
+     }
+    },
+    {
+     "displayValue": "28.0",
+     "value": 28.0,
+     "athlete": {
+      "$ref": "/v2/athletes/3002?lang=en"
+     },
+     "team": {
+      "$ref": "/v2/seasons/2005/teams/13?lang=en"
+     }
+    },
+    {
+     "displayValue": "27.0",
+     "value": 27.0,
+     "athlete": {
+      "$ref": "/v2/athletes/3003?lang=en"
+     },
+     "team": {
+      "$ref": "/v2/seasons/2005/teams/6?lang=en"
+     }
+    },
+    {
+     "displayValue": "26.0",
+     "value": 26.0,
+     "athlete": {
+      "$ref": "/v2/athletes/3004?lang=en"
+     },
+     "team": {
+      "$ref": "/v2/seasons/2005/teams/10?lang=en"
+     }
+    }
+   ]
+  },
+  {
+   "name": "stealsPerGame",
+   "leaders": [
+    {
+     "displayValue": "30.0",
+     "value": 30.0,
+     "athlete": {
+      "$ref": "/v2/athletes/4000?lang=en"
+     },
+     "team": {
+      "$ref": "/v2/seasons/2005/teams/8?lang=en"
+     }
+    },
+    {
+     "displayValue": "29.0",
+     "value": 29.0,
+     "athlete": {
+      "$ref": "/v2/athletes/4001?lang=en"
+     },
+     "team": {
+      "$ref": "/v2/seasons/2005/teams/28?lang=en"
+     }
+    },
+    {
+     "displayValue": "28.0",
+     "value": 28.0,
+     "athlete": {
+      "$ref": "/v2/athletes/4002?lang=en"
+     },
+     "team": {
+      "$ref": "/v2/seasons/2005/teams/13?lang=en"
+     }
+    },
+    {
+     "displayValue": "27.0",
+     "value": 27.0,
+     "athlete": {
+      "$ref": "/v2/athletes/4003?lang=en"
+     },
+     "team": {
+      "$ref": "/v2/seasons/2005/teams/6?lang=en"
+     }
+    },
+    {
+     "displayValue": "26.0",
+     "value": 26.0,
+     "athlete": {
+      "$ref": "/v2/athletes/4004?lang=en"
+     },
+     "team": {
+      "$ref": "/v2/seasons/2005/teams/10?lang=en"
+     }
+    }
+   ]
+  },
+  {
+   "name": "blocksPerGame",
+   "leaders": [
+    {
+     "displayValue": "30.0",
+     "value": 30.0,
+     "athlete": {
+      "$ref": "/v2/athletes/5000?lang=en"
+     },
+     "team": {
+      "$ref": "/v2/seasons/2005/teams/8?lang=en"
+     }
+    },
+    {
+     "displayValue": "29.0",
+     "value": 29.0,
+     "athlete": {
+      "$ref": "/v2/athletes/5001?lang=en"
+     },
+     "team": {
+      "$ref": "/v2/seasons/2005/teams/28?lang=en"
+     }
+    },
+    {
+     "displayValue": "28.0",
+     "value": 28.0,
+     "athlete": {
+      "$ref": "/v2/athletes/5002?lang=en"
+     },
+     "team": {
+      "$ref": "/v2/seasons/2005/teams/13?lang=en"
+     }
+    },
+    {
+     "displayValue": "27.0",
+     "value": 27.0,
+     "athlete": {
+      "$ref": "/v2/athletes/5003?lang=en"
+     },
+     "team": {
+      "$ref": "/v2/seasons/2005/teams/6?lang=en"
+     }
+    },
+    {
+     "displayValue": "26.0",
+     "value": 26.0,
+     "athlete": {
+      "$ref": "/v2/athletes/5004?lang=en"
+     },
+     "team": {
+      "$ref": "/v2/seasons/2005/teams/10?lang=en"
+     }
+    }
+   ]
+  },
+  {
+   "name": "fieldGoalPercentage",
+   "leaders": [
+    {
+     "displayValue": "30.0",
+     "value": 30.0,
+     "athlete": {
+      "$ref": "/v2/athletes/6000?lang=en"
+     },
+     "team": {
+      "$ref": "/v2/seasons/2005/teams/8?lang=en"
+     }
+    },
+    {
+     "displayValue": "29.0",
+     "value": 29.0,
+     "athlete": {
+      "$ref": "/v2/athletes/6001?lang=en"
+     },
+     "team": {
+      "$ref": "/v2/seasons/2005/teams/28?lang=en"
+     }
+    },
+    {
+     "displayValue": "28.0",
+     "value": 28.0,
+     "athlete": {
+      "$ref": "/v2/athletes/6002?lang=en"
+     },
+     "team": {
+      "$ref": "/v2/seasons/2005/teams/13?lang=en"
+     }
+    },
+    {
+     "displayValue": "27.0",
+     "value": 27.0,
+     "athlete": {
+      "$ref": "/v2/athletes/6003?lang=en"
+     },
+     "team": {
+      "$ref": "/v2/seasons/2005/teams/6?lang=en"
+     }
+    },
+    {
+     "displayValue": "26.0",
+     "value": 26.0,
+     "athlete": {
+      "$ref": "/v2/athletes/6004?lang=en"
+     },
+     "team": {
+      "$ref": "/v2/seasons/2005/teams/10?lang=en"
+     }
+    }
+   ]
+  },
+  {
+   "name": "3PointsMadePerGame",
+   "leaders": [
+    {
+     "displayValue": "30.0",
+     "value": 30.0,
+     "athlete": {
+      "$ref": "/v2/athletes/7000?lang=en"
+     },
+     "team": {
+      "$ref": "/v2/seasons/2005/teams/8?lang=en"
+     }
+    },
+    {
+     "displayValue": "29.0",
+     "value": 29.0,
+     "athlete": {
+      "$ref": "/v2/athletes/7001?lang=en"
+     },
+     "team": {
+      "$ref": "/v2/seasons/2005/teams/28?lang=en"
+     }
+    },
+    {
+     "displayValue": "28.0",
+     "value": 28.0,
+     "athlete": {
+      "$ref": "/v2/athletes/7002?lang=en"
+     },
+     "team": {
+      "$ref": "/v2/seasons/2005/teams/13?lang=en"
+     }
+    },
+    {
+     "displayValue": "27.0",
+     "value": 27.0,
+     "athlete": {
+      "$ref": "/v2/athletes/7003?lang=en"
+     },
+     "team": {
+      "$ref": "/v2/seasons/2005/teams/6?lang=en"
+     }
+    },
+    {
+     "displayValue": "26.0",
+     "value": 26.0,
+     "athlete": {
+      "$ref": "/v2/athletes/7004?lang=en"
+     },
+     "team": {
+      "$ref": "/v2/seasons/2005/teams/10?lang=en"
+     }
+    }
+   ]
+  },
+  {
+   "name": "doubleDouble",
+   "leaders": [
+    {
+     "displayValue": "30.0",
+     "value": 30.0,
+     "athlete": {
+      "$ref": "/v2/athletes/8000?lang=en"
+     },
+     "team": {
+      "$ref": "/v2/seasons/2005/teams/8?lang=en"
+     }
+    },
+    {
+     "displayValue": "29.0",
+     "value": 29.0,
+     "athlete": {
+      "$ref": "/v2/athletes/8001?lang=en"
+     },
+     "team": {
+      "$ref": "/v2/seasons/2005/teams/28?lang=en"
+     }
+    },
+    {
+     "displayValue": "28.0",
+     "value": 28.0,
+     "athlete": {
+      "$ref": "/v2/athletes/8002?lang=en"
+     },
+     "team": {
+      "$ref": "/v2/seasons/2005/teams/13?lang=en"
+     }
+    },
+    {
+     "displayValue": "27.0",
+     "value": 27.0,
+     "athlete": {
+      "$ref": "/v2/athletes/8003?lang=en"
+     },
+     "team": {
+      "$ref": "/v2/seasons/2005/teams/6?lang=en"
+     }
+    },
+    {
+     "displayValue": "26.0",
+     "value": 26.0,
+     "athlete": {
+      "$ref": "/v2/athletes/8004?lang=en"
+     },
+     "team": {
+      "$ref": "/v2/seasons/2005/teams/10?lang=en"
+     }
+    }
+   ]
+  },
+  {
+   "name": "minutesPerGame",
+   "leaders": [
+    {
+     "displayValue": "30.0",
+     "value": 30.0,
+     "athlete": {
+      "$ref": "/v2/athletes/9000?lang=en"
+     },
+     "team": {
+      "$ref": "/v2/seasons/2005/teams/8?lang=en"
+     }
+    },
+    {
+     "displayValue": "29.0",
+     "value": 29.0,
+     "athlete": {
+      "$ref": "/v2/athletes/9001?lang=en"
+     },
+     "team": {
+      "$ref": "/v2/seasons/2005/teams/28?lang=en"
+     }
+    },
+    {
+     "displayValue": "28.0",
+     "value": 28.0,
+     "athlete": {
+      "$ref": "/v2/athletes/9002?lang=en"
+     },
+     "team": {
+      "$ref": "/v2/seasons/2005/teams/13?lang=en"
+     }
+    },
+    {
+     "displayValue": "27.0",
+     "value": 27.0,
+     "athlete": {
+      "$ref": "/v2/athletes/9003?lang=en"
+     },
+     "team": {
+      "$ref": "/v2/seasons/2005/teams/6?lang=en"
+     }
+    },
+    {
+     "displayValue": "26.0",
+     "value": 26.0,
+     "athlete": {
+      "$ref": "/v2/athletes/9004?lang=en"
+     },
+     "team": {
+      "$ref": "/v2/seasons/2005/teams/10?lang=en"
+     }
+    }
+   ]
+  }
+ ]
+}

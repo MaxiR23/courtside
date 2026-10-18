@@ -1,0 +1,17 @@
+{
+  "active": false,
+  "firstName": "Cy",
+  "lastName": "Veteran",
+  "displayName": "Cy Veteran",
+  "position": {
+    "name": "Forward",
+    "abbreviation": "F"
+  },
+  "height": 80,
+  "displayHeight": "6' 8\"",
+  "weight": 225,
+  "dateOfBirth": "1976-02-11T08:00Z",
+  "headshot": {
+    "href": "/headshots/2005-example.png"
+  }
+}

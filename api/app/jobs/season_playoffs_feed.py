@@ -9,16 +9,21 @@
 # postseason record of the two finalists and the game detail of the Finals games.
 # It reads no postseason window, no bracket scoreboard day, no team info, no
 # roster and no game detail outside the Finals. The names of leaders and award
-# winners come from the box scores of the Finals games and from the stored past
-# game players of the games it read; a player no read names is left out, and a
-# block left with no player is null. The colors come from the team info the
+# winners come from the player identities (PlayerIdentities, ADR 0061): the top
+# five of each leader category and every award winner, each read once through
+# the 30-day cache; a player whose identity could not be read is kept with a dash
+# and no photo. The leader's and the winner's team is their own team link. The
+# champion's postseason record is the one of the team with four counted Finals
+# wins. The colors come from the team info the
 # source cache already holds, else they are null. The league sides are named from
 # the standings payload (payload_names), with the season code and the historical
 # flag (ADR 0054), with no season team read. A season before 2021 has no play-in,
 # so that window is not read and the play-in block is null. Leaders, awards and
 # the finalists' records are null only when the source answers 404; any other
-# failed read fails the build, because the feed is kept for good. A read past the
-# budget or a rate limit (429, 503) fails the build before it stores anything. A
+# failed read fails the build, because the feed is kept for good. The budget is
+# READ_BUDGET plus the leader reads plus one read per award winner, extended once
+# the awards are known. A read past the budget or a rate limit (429, 503) fails
+# the build before it stores anything. A
 # past playoffs feed is stored only when it builds as complete: a postseason that
 # is not complete, or whose rounds cannot be derived, fails the build, logs the
 # reason and stores nothing. Game detail is never available.
@@ -29,33 +34,39 @@
 # current one (past_season_status). The current season is resolved before the
 # cache (target) to the current playoffs feed (ADR 0042). A feed is built once
 # and kept (rule G): it is never deleted, and rebuilt only when its build version
-# is not the current one (ADR 0053).
+# is not BUILD_VERSION, the version of this kind (ADR 0053, ADR 0061).
 #
 # SEE: docs/api/playoffs.md, docs/adr/0046-season-playoffs-feeds.md,
-# docs/adr/0058-bounded-past-competition-reads.md, api/app/jobs/playoffs_feed.py
+# docs/adr/0058-bounded-past-competition-reads.md,
+# docs/adr/0061-past-playoffs-player-identities-and-finals-mvp-averages.md,
+# api/app/jobs/playoffs_feed.py
 
 import asyncio
 import datetime as dt
 import functools
 import logging
-from collections.abc import Awaitable, Callable, Iterable, Sequence
+from collections.abc import Awaitable, Callable, Sequence
 from typing import Any
 
 from pydantic import ValidationError
 
 from app.feeds.game_detail import Conference
 from app.feeds.games import GameStatus
-from app.feeds.playoffs import PlayoffsFeed, PlayoffsState
+from app.feeds.playoffs import LeaderCategory, PlayoffsFeed, PlayoffsState
 from app.jobs import past_game_detail_feed, playoffs_feed
 from app.jobs.on_demand import (
+    SEASON_BUILD_VERSION,
     FeedCache,
     FeedKind,
     IdStatus,
     is_current_build,
     with_build_version,
 )
+from app.jobs.player_identities import IDENTITY_READS_IN_FLIGHT, PlayerIdentities
 from app.jobs.playoffs_feed import (
     CODES,
+    MAX_LEADERS,
+    WINS_TO_WIN,
     FetchAwards,
     FetchLeaders,
     FetchRecord,
@@ -65,6 +76,7 @@ from app.jobs.playoffs_feed import (
     _unique_games,
     build_playoffs_feed,
     postseason_days,
+    series_wins,
 )
 from app.jobs.season_standings_feed import past_season_status
 from app.jobs.standings_feed import seed_of
@@ -83,7 +95,7 @@ from app.sources import (
     team_postseason,
 )
 from app.sources.division_standings import DivisionEntry, DivisionStandings
-from app.sources.game_detail import BoxScoreRosterEntry, GamePlayers
+from app.sources.game_detail import GamePlayers
 from app.sources.http import (
     Freshness,
     ReadBudget,
@@ -93,7 +105,6 @@ from app.sources.http import (
 )
 from app.sources.postseason_scoreboard import PostseasonGame
 from app.sources.season_types import PLAY_IN
-from app.sources.team_players import RosterEntry
 from app.sources.teams import SeasonTeamName
 from app.storage.feeds import read_by_id
 from app.storage.state import StateStore
@@ -107,8 +118,13 @@ FINALS_GAMES = 7
 # The most source reads one build sends (ADR 0058): 1 standings + 20 team
 # schedules + 1 play-in window + 5 play-in days (the window's Eastern dates, its end
 # included) + 1 leaders + 26 awards (the index
-# and 25 documents) + 2 finalist records + 7 Finals game details.
+# and 25 documents) + 2 finalist records + 7 Finals game details. The leader reads
+# and the award winner reads come on top of it (ADR 0061).
 READ_BUDGET = 63
+LEADER_READS = len(LeaderCategory) * MAX_LEADERS
+# The rules version of this kind and the past Finals (ADR 0061); any change to
+# SEASON_BUILD_VERSION moves it too.
+BUILD_VERSION = SEASON_BUILD_VERSION + 1
 
 FetchSeasonGames = Callable[..., Awaitable[list[PostseasonGame]]]
 FetchSchedule = Callable[..., Awaitable[list[PostseasonGame]]]
@@ -177,42 +193,12 @@ def finals_games(
     return across[0]
 
 
-def series_winner(games: Sequence[PostseasonGame]) -> str | None:
-    """The team with more wins in the series object of the latest final game
-    whose series is completed; none when no series is completed or it is tied."""
-    for game in sorted(
-        games, key=lambda g: (g.game.start_time, g.game.id), reverse=True
-    ):
-        series = game.series
-        if (
-            game.game.status is GameStatus.FINAL
-            and series is not None
-            and series.completed
-        ):
-            ranked = sorted(series.wins.items(), key=lambda item: -item[1])
-            if len(ranked) < 2 or ranked[0][1] == ranked[1][1]:
-                return None
-            return ranked[0][0]
-    return None
-
-
-def box_players(
-    found: Iterable[tuple[GamePlayers, dt.datetime]],
-) -> dict[str, tuple[str, BoxScoreRosterEntry]]:
-    """The team and entry of each player of the games given, each game with its
-    start time. A player traded during the season is on two teams: the team of
-    his newest game wins (ADR 0053)."""
-    players: dict[str, tuple[str, BoxScoreRosterEntry]] = {}
-    for game_players, started in found:
-        for code, entries in game_players.teams.items():
-            for entry in entries:
-                known = players.get(entry.player_id)
-                if known is None or _newer(entry, known[1], started):
-                    players[entry.player_id] = (
-                        code,
-                        entry.model_copy(update={"last_played": started}),
-                    )
-    return players
+def finals_champion(games: Sequence[PostseasonGame]) -> str | None:
+    """The only team with four counted wins over the Finals games, else none."""
+    champions = [
+        code for code, wins in series_wins(games).items() if wins >= WINS_TO_WIN
+    ]
+    return champions[0] if len(champions) == 1 else None
 
 
 class SeasonPlayoffsFeeds:
@@ -224,6 +210,7 @@ class SeasonPlayoffsFeeds:
         cache: FeedCache,
         stars: StarsJob,
         names: TeamNamesFeeds,
+        identities: PlayerIdentities,
         *,
         fetch_season_type: FetchSeasonType = season_types.fetch_season_type,
         fetch_postseason_games: FetchSeasonGames = (
@@ -247,6 +234,7 @@ class SeasonPlayoffsFeeds:
         self._client = client
         self._stars = stars
         self._names = names
+        self._identities = identities
         self._fetch_season_type = fetch_season_type
         self._fetch_postseason_games = fetch_postseason_games
         self._fetch_postseason_schedule = fetch_postseason_schedule
@@ -268,25 +256,9 @@ class SeasonPlayoffsFeeds:
             return playoffs_feed.KIND, playoffs_feed.FEED_ID
         return KIND, season
 
-    def _stored_players(
-        self, games: Sequence[PostseasonGame]
-    ) -> list[tuple[GamePlayers, dt.datetime]]:
-        """The stored past game players of the games read; a body that is invalid
-        or of another build is left out. Reads nothing from the source."""
-        found: list[tuple[GamePlayers, dt.datetime]] = []
-        for game in games:
-            body = self._store.past_game_players(game.game.id)
-            if body is None:
-                continue
-            try:
-                stored = GamePlayers.model_validate_json(body)
-            except ValidationError:
-                continue
-            if is_current_build(stored):
-                found.append((stored, game.game.start_time))
-        return found
-
-    async def _read(self, season: str) -> tuple[PlayoffsSources, DivisionStandings]:
+    async def _read(
+        self, season: str, budget: ReadBudget
+    ) -> tuple[PlayoffsSources, DivisionStandings]:
         year = int(season)
         client, settings = self._client, self._settings
         play_in_read = (
@@ -321,7 +293,20 @@ class SeasonPlayoffsFeeds:
         finalists = sorted(
             {finals[0].game.home.code or "", finals[0].game.away.code or ""}
         )
-        records, finals_players = await asyncio.gather(
+        ids = [
+            entry.player_id
+            for category in LeaderCategory
+            for entry in (
+                leaders.categories.get(category, [])[:MAX_LEADERS] if leaders else []
+            )
+        ]
+        winner_ids = [
+            winner.player_id
+            for award in (awards.awards if awards else [])
+            for winner in award.winners
+        ]
+        budget.extend(LEADER_READS + len(winner_ids))
+        records, _finals_players, resolved = await asyncio.gather(
             asyncio.gather(
                 *(
                     none_on_404(
@@ -339,16 +324,7 @@ class SeasonPlayoffsFeeds:
                     if game.game.status is GameStatus.FINAL
                 )
             ),
-        )
-        read = [game for game in finals if game.game.status is GameStatus.FINAL]
-        players = box_players(
-            [
-                *self._stored_players(_unique_games(games)),
-                *(
-                    (found, game.game.start_time)
-                    for found, game in zip(finals_players, read, strict=True)
-                ),
-            ]
+            self._identities.resolve([*ids, *winner_ids]),
         )
         by_code = dict(zip(finalists, records, strict=True))
         colors = {
@@ -362,17 +338,18 @@ class SeasonPlayoffsFeeds:
             standings=standings,
             colors=colors,
             games=games,
-            players=dict[str, tuple[str, RosterEntry | BoxScoreRosterEntry]](players),
+            players={},
+            identities=resolved,
             leaders=leaders,
             awards=awards,
-            champion_record=by_code.get(series_winner(finals) or ""),
+            champion_record=by_code.get(finals_champion(finals) or ""),
             past=True,
         )
         return sources, standings
 
-    async def _build(self, season: str) -> PlayoffsFeed:
+    async def _build(self, season: str, budget: ReadBudget) -> PlayoffsFeed:
         try:
-            sources, standings = await self._read(season)
+            sources, standings = await self._read(season, budget)
             feed = build_playoffs_feed(sources)
             if feed.state is not PlayoffsState.COMPLETE:
                 raise PlayoffsBuildError(f"the {season} postseason is not complete")
@@ -389,13 +366,14 @@ class SeasonPlayoffsFeeds:
             if entry.abbreviation
         }
         runs = {code: found for code in CODES if (found := self._names.stored(code))}
-        return with_build_version(named_sides(feed, payload_names(identities, runs)))
+        return with_build_version(
+            named_sides(feed, payload_names(identities, runs)), BUILD_VERSION
+        )
 
     async def build(self, season: str) -> PlayoffsFeed:
+        budget = ReadBudget(READ_BUDGET, wide_in_flight=IDENTITY_READS_IN_FLIGHT)
         return await within_budget(
-            ReadBudget(READ_BUDGET),
-            f"season playoffs: {season}",
-            lambda: self._build(season),
+            budget, f"season playoffs: {season}", lambda: self._build(season, budget)
         )
 
     def stored(self, season: str) -> PlayoffsFeed | None:
@@ -411,7 +389,7 @@ class SeasonPlayoffsFeeds:
     def is_fresh(
         self, feed: PlayoffsFeed, built_at: dt.datetime, now: dt.datetime
     ) -> bool:
-        return is_current_build(feed)
+        return is_current_build(feed, BUILD_VERSION)
 
     def keep(self, feed_id: str) -> bool:
         return True
@@ -425,12 +403,6 @@ class SeasonPlayoffsFeeds:
             is_fresh=self.is_fresh,
             keep=self.keep,
         )
-
-
-def _newer(
-    entry: BoxScoreRosterEntry, known: BoxScoreRosterEntry, started: dt.datetime
-) -> bool:
-    return known.last_played is None or started > known.last_played
 
 
 async def _none() -> None:

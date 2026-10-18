@@ -5,7 +5,8 @@
 #
 # ReadRecorder is one respx router on https://example.com/reads/ that answers
 # every read with an empty JSON body. It records each request path, the number of
-# requests in flight now and at most, and answers a status the test sets for the
+# requests in flight now and at most (and, split by lane, the peak of the narrow
+# reads and of the wide reads, the adapters named in `wide`, ADR 0061), and answers a status the test sets for the
 # reads of one adapter. count_reads wraps the adapters a kind was given, so that
 # every call sends one request through the shared SourceClient (the only place
 # that counts a read) before it returns what the kit's fake adapter returns. The
@@ -35,10 +36,14 @@ REAL_SLEEP = asyncio.sleep
 
 
 class ReadRecorder:
-    def __init__(self) -> None:
+    def __init__(self, wide: frozenset[str] = frozenset({"player_athlete"})) -> None:
         self.paths: list[str] = []
+        self.wide = wide
         self.running = 0
         self.peak = 0
+        self.running_wide = 0
+        self.wide_peak = 0
+        self.narrow_peak = 0
         # The adapter name whose reads answer `status`, and that status.
         self.limit_on: str | None = None
         self.status = 429
@@ -48,13 +53,18 @@ class ReadRecorder:
 
     async def _answer(self, request: httpx.Request) -> httpx.Response:
         self.paths.append(request.url.path)
+        name = request.url.path.removeprefix("/reads/").split("/")[0]
+        is_wide = name in self.wide
         self.running += 1
+        self.running_wide += is_wide
         self.peak = max(self.peak, self.running)
+        self.wide_peak = max(self.wide_peak, self.running_wide)
+        self.narrow_peak = max(self.narrow_peak, self.running - self.running_wide)
         try:
             await REAL_SLEEP(0)
         finally:
             self.running -= 1
-        name = request.url.path.removeprefix("/reads/").split("/")[0]
+            self.running_wide -= is_wide
         if self.limit_on is not None and name == self.limit_on:
             return httpx.Response(self.status)
         return httpx.Response(200, json={})
@@ -73,6 +83,8 @@ class ReadRecorder:
     def reset(self) -> None:
         self.paths.clear()
         self.peak = 0
+        self.wide_peak = 0
+        self.narrow_peak = 0
 
 
 def _key(name: str, args: tuple[Any, ...], kwargs: dict[str, Any]) -> str:

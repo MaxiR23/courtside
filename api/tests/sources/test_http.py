@@ -35,6 +35,8 @@
 # - At most four requests are in flight under a budget; without one all are in flight
 # - A 429 and a 503 are recorded as the "rate limited" stop, and the next read sends no request
 # - within_budget re-raises a stop the build swallowed and logs the label and reason, lets other build errors through and resets the budget afterwards
+# - A budget extended during a build allows the added reads, and an extended budget that already stopped stays stopped
+# - Wide reads run up to the wide limit while other reads stay at four, share the four slots without a wide lane, and a rate limited wide read stops the budget (ADR 0061)
 # - cached_json returns an entry of any age with no request, and none without one
 #
 # What is covered:
@@ -69,6 +71,7 @@ from app.sources.http import (
     get_text,
     is_rate_limited,
     is_served,
+    wide_reads,
     with_query,
     within_budget,
 )
@@ -851,5 +854,149 @@ async def test_cached_json_returns_an_entry_of_any_age_with_no_request_and_none_
             assert cached_json(client, URL) is None
             client.store.set_source_entry(URL, '{"a": 1}', T)
             assert cached_json(client, URL) == {"a": 1}
+
+    assert route.call_count == 0
+
+
+@pytest.mark.anyio
+async def test_a_budget_extended_during_a_build_allows_the_added_reads(
+    tmp_path: Path,
+) -> None:
+    budget = ReadBudget(1)
+
+    async def build() -> None:
+        await read_budgeted(client, 1)
+        budget.extend(2)
+        await read_budgeted(client, 2)
+        await read_budgeted(client, 3)
+
+    with respx.mock:
+        route = respx.get(url__startswith="https://example.com/budget/").respond(
+            json={}
+        )
+        async with create_client(make_store(tmp_path), clock=lambda: T) as client:
+            await within_budget(budget, "test", build)
+
+    assert route.call_count == 3
+    assert budget.limit == 3 and budget.reads == 3 and budget.stopped is None
+
+
+@pytest.mark.anyio
+async def test_an_extended_budget_that_already_stopped_stays_stopped(
+    tmp_path: Path,
+) -> None:
+    budget = ReadBudget(1)
+    errors: list[SourceError] = []
+
+    async def build() -> None:
+        for number in (1, 2):
+            try:
+                await read_budgeted(client, number)
+            except SourceError as error:
+                errors.append(error)
+        budget.extend(5)
+        try:
+            await read_budgeted(client, 3)
+        except SourceError as error:
+            errors.append(error)
+
+    with respx.mock:
+        route = respx.get(url__startswith="https://example.com/budget/").respond(
+            json={}
+        )
+        async with create_client(make_store(tmp_path), clock=lambda: T) as client:
+            with pytest.raises(SourceError, match="read budget of 1 reached"):
+                await within_budget(budget, "test", build)
+
+    assert route.call_count == 1
+    assert [e.reason for e in errors] == ["read budget of 1 reached"] * 2
+
+
+async def peaks(tmp_path: Path, budget: ReadBudget) -> tuple[int, int, int]:
+    """The peak of narrow, of wide and of all requests in flight, 12 of each."""
+    running = {"narrow": 0, "wide": 0}
+    peak = {"narrow": 0, "wide": 0, "all": 0}
+    gate = asyncio.Event()
+
+    async def answer(request: httpx.Request) -> httpx.Response:
+        lane = "wide" if request.url.path.startswith("/wide/") else "narrow"
+        running[lane] += 1
+        peak[lane] = max(peak[lane], running[lane])
+        peak["all"] = max(peak["all"], sum(running.values()))
+        await gate.wait()
+        running[lane] -= 1
+        return httpx.Response(200, json={})
+
+    async def release() -> None:
+        for _ in range(80):
+            await asyncio.sleep(0)
+        gate.set()
+
+    async def wide(number: int) -> object:
+        with wide_reads():
+            return await get_json(
+                client,
+                f"https://example.com/wide/{number}",
+                source="test",
+                fresh=FRESH,
+            )
+
+    async def build() -> None:
+        await asyncio.gather(
+            *(read_budgeted(client, n) for n in range(12)),
+            *(wide(n) for n in range(12)),
+        )
+
+    with respx.mock:
+        respx.get(url__startswith="https://example.com/").mock(side_effect=answer)
+        async with create_client(make_store(tmp_path), clock=lambda: T) as client:
+            releasing = asyncio.create_task(release())
+            await within_budget(budget, "test", build)
+            await releasing
+    return peak["narrow"], peak["wide"], peak["all"]
+
+
+@pytest.mark.anyio
+async def test_wide_reads_run_up_to_the_wide_limit_while_other_reads_stay_at_four(
+    tmp_path: Path,
+) -> None:
+    narrow, wide, _ = await peaks(tmp_path, ReadBudget(40, wide_in_flight=8))
+
+    assert narrow == MAX_PAST_READS_IN_FLIGHT == 4
+    assert wide == 8
+
+
+@pytest.mark.anyio
+async def test_wide_reads_without_a_wide_lane_share_the_four_slots(
+    tmp_path: Path,
+) -> None:
+    _, _, total = await peaks(tmp_path, ReadBudget(40))
+
+    assert total == MAX_PAST_READS_IN_FLIGHT
+
+
+@pytest.mark.anyio
+async def test_a_rate_limited_wide_read_stops_the_budget(tmp_path: Path) -> None:
+    budget = ReadBudget(10, wide_in_flight=8)
+
+    async def build() -> None:
+        with wide_reads():
+            try:
+                await get_json(
+                    client, "https://example.com/wide/1", source="test", fresh=FRESH
+                )
+            except SourceError:
+                pass
+        with pytest.raises(SourceError, match="rate limited"):
+            await read_budgeted(client, 1)
+
+    with respx.mock:
+        respx.get("https://example.com/wide/1").respond(429)
+        route = respx.get(url__startswith="https://example.com/budget/").respond(
+            json={}
+        )
+        async with create_client(make_store(tmp_path), clock=lambda: T) as client:
+            with pytest.raises(SourceError, match="rate limited"):
+                await within_budget(budget, "test", build)
 
     assert route.call_count == 0

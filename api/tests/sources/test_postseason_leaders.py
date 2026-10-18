@@ -4,6 +4,8 @@
 #
 # Tested:
 # - Maps the nine categories in source order with their athlete ids and display values
+# - Maps the team code of each leader from its team link
+# - Gives a leader without a team link, or with a team that is not in the league, no team
 # - Ignores the categories outside the nine
 # - Leaves a missing category and a category with no leaders out
 # - Raises the source error on a link without an athlete id, an invalid payload, a timeout, an error status and a missing URL
@@ -206,3 +208,38 @@ async def test_reuses_a_read_for_one_hour(
         await fetch_postseason_leaders(client, 2027, settings)
 
     assert route.call_count == 2
+
+
+@pytest.mark.anyio
+async def test_maps_the_team_code_of_each_leader_from_its_team_link(
+    mock: respx.MockRouter, settings: Settings, tmp_path: Path
+) -> None:
+    mock.get(URL).respond(json=load("leaders-2005.json"))
+
+    result = await leaders(settings, tmp_path)
+
+    assert list(result.categories) == list(LeaderCategory)
+    rebounds = result.categories[LeaderCategory.REBOUNDS]
+    assert [str(entry.team_code) for entry in rebounds] == [
+        "DET",
+        "TOR",
+        "LAL",
+        "DAL",
+        "HOU",
+    ]
+    assert [entry.player_id for entry in rebounds][:2] == ["2000", "2001"]
+
+
+@pytest.mark.anyio
+async def test_a_leader_without_a_team_link_or_with_a_non_league_team_has_no_team(
+    mock: respx.MockRouter, settings: Settings, tmp_path: Path
+) -> None:
+    payload = load("leaders-2005.json")
+    del payload["categories"][1]["leaders"][0]["team"]
+    mock.get(URL).respond(json=payload)
+
+    result = await leaders(settings, tmp_path)
+
+    assert result.categories[LeaderCategory.POINTS][4].team_code is None
+    assert result.categories[LeaderCategory.REBOUNDS][0].team_code is None
+    assert result.categories[LeaderCategory.REBOUNDS][1].team_code is not None

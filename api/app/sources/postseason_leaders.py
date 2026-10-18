@@ -6,7 +6,8 @@
 # doubles and minutes) to the athlete ids and the display values, in the
 # provider's order. Any other category is ignored and a category with no leaders
 # is absent. An athlete is read from the provider athlete id in its link, never
-# by following the link. The provider URL comes from Settings. Provider data
+# by following the link. A leader's team code comes from its team link, null
+# when the link is absent or is not a league team. The provider URL comes from Settings. Provider data
 # never leaves this module.
 #
 # SEE: docs/api/playoffs.md, docs/adr/0032-playoffs-feed.md,
@@ -18,10 +19,11 @@ import httpx
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from pydantic.alias_generators import to_camel
 
-from app.feeds.games import FeedModel, NonEmptyStr
+from app.feeds.games import FeedModel, NonEmptyStr, TeamCode
 from app.feeds.playoffs import LeaderCategory
 from app.settings import Settings
 from app.sources.http import SourceClient, SourceError, get_json
+from app.sources.teams import TEAM_IDS, team_code_of_id
 
 SOURCE = "postseason_leaders"
 FRESH_FOR = dt.timedelta(hours=1)
@@ -52,6 +54,7 @@ class _ProviderRef(_ProviderModel):
 class _ProviderLeader(_ProviderModel):
     display_value: str
     athlete: _ProviderRef
+    team: _ProviderRef | None = None
 
 
 class _ProviderCategory(_ProviderModel):
@@ -68,6 +71,7 @@ class LeaderEntry(FeedModel):
 
     player_id: NonEmptyStr
     value: NonEmptyStr
+    team_code: TeamCode | None = None
 
 
 class PostseasonLeaders(FeedModel):
@@ -88,6 +92,16 @@ def _athlete_id(ref: str) -> str:
     return parts[parts.index("athletes") + 1]
 
 
+def _team_code(ref: str | None) -> str | None:
+    if ref is None:
+        return None
+    parts = httpx.URL(ref).path.rstrip("/").split("/")
+    if "teams" not in parts[:-1]:
+        return None
+    team_id = parts[parts.index("teams") + 1]
+    return team_code_of_id(team_id, source=SOURCE) if team_id in TEAM_IDS else None
+
+
 async def fetch_postseason_leaders(
     client: SourceClient, season: int, settings: Settings
 ) -> PostseasonLeaders:
@@ -103,7 +117,7 @@ async def fetch_postseason_leaders(
             SOURCE,
             f"invalid payload: {error.error_count()} errors, first at {_location(error)}",
         ) from None
-    categories: dict[LeaderCategory, list[dict[str, str]]] = {}
+    categories: dict[LeaderCategory, list[dict[str, str | None]]] = {}
     for category in provider.categories:
         known = CATEGORIES.get(category.name)
         if known is None or not category.leaders:
@@ -112,6 +126,9 @@ async def fetch_postseason_leaders(
             {
                 "player_id": _athlete_id(leader.athlete.ref),
                 "value": leader.display_value,
+                "team_code": _team_code(
+                    None if leader.team is None else leader.team.ref
+                ),
             }
             for leader in category.leaders
         ]

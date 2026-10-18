@@ -5,14 +5,18 @@
 # Tested:
 # - past_season_status through check: 1993, abc, 02025, 2025 with a trailing newline, the current season and a future season are unknown; 1994 and the season before the current one are known; an unknown current season is not ready for a well-formed id from 1994
 # - target: the current season maps to the current playoffs feed, a past season to the season kind, and an unknown current season to the season kind
-# - The kind: a past season builds a valid complete feed, reading the standings, 20 team schedules, the play-in window and days, the leaders, the awards, two finalist records and the Finals game players, and no postseason window, team info or roster (ADR 0058)
+# - The kind: a past season builds a valid complete feed, reading the standings, 20 team schedules, the play-in window and days, the leaders, the awards, two finalist records, the Finals game players and one athlete read per leader and winner, and no postseason window, team info or roster (ADR 0058, ADR 0061)
 # - The kind: a season before 2021 reads 16 team schedules and no play-in; a seedless standings reads the best records
 # - The kind: the league sides are named from the standings payload with the season code and the historical flag, and name_sides is never called (ADR 0054, ADR 0058)
 # - The kind: the leaders and award winners carry the season code of their team (ADR 0055)
 # - The kind: an award of six winners, a tie, is stored with all six in the source order (ADR 0055)
-# - The kind: leader and award names come from the Finals box scores and the stored past game players; one no read names is left out, and a block left empty is null
+# - The kind: leader and award names, photos and team links come from the player identities (ADR 0061)
+# - The kind: a player whose athlete read fails is kept with his id and a dash
+# - The kind: a second build within 30 days reads no cached player; only the first five leaders of a category are read
+# - The kind: the champion record is the counted Finals winner's, with no series object (ADR 0061)
+# - The kind: a 2005 build names the leaders of the nine categories and the fourteen awards
 # - The kind: the colors come from the cached team info and are null without it
-# - The kind: the built feed carries the current build version, a stored feed of an older or missing version is rebuilt on its next request, and one of the current version is served with no source request (ADR 0053)
+# - The kind: the built feed carries BUILD_VERSION, a stored feed of an older, newer or missing version is rebuilt on its next request, and one of BUILD_VERSION is served with no source request (ADR 0053)
 # - The kind: the feed is stored under season-playoffs and rebuilt only for another version: a second request, a request years later and a restart all serve with no source call; nothing is written under playoffs
 # - The kind: a leaders, awards or champion record read that answers 404 is null; any other failure answers unavailable and stores nothing
 # - The kind: a derivation that does not give 8-4-2-1 answers unavailable, stores nothing and logs the reason
@@ -22,7 +26,7 @@
 # - The kind: detailAvailable is false; the cleanup keeps it
 # - The kind: a 2005 build whose schedules are read by the real adapter and send no name key builds the complete feed
 # - The kind: a 2005 build from schedules that carry no series object and empty notes (seasonType and winner flags only) reaches the complete state with the derived series, Finals line and champion
-# - schedule_teams, finals_games, series_winner and box_players
+# - schedule_teams, finals_games and finals_champion
 # - The builder with no postseason window dates the postseason from the play-in window or the games
 #
 # What is covered:
@@ -48,7 +52,13 @@ import pytest
 import respx
 
 from app.feeds.game_detail import Conference
-from app.feeds.playoffs import AwardCode, PlayoffsFeed, PlayoffsState, SeriesId
+from app.feeds.playoffs import (
+    AwardCode,
+    LeaderCategory,
+    PlayoffsFeed,
+    PlayoffsState,
+    SeriesId,
+)
 from app.feeds.team import NameRun, TeamNames
 from app.jobs.on_demand import (
     SEASON_BUILD_VERSION,
@@ -58,6 +68,7 @@ from app.jobs.on_demand import (
     UnknownFeedError,
     with_build_version,
 )
+from app.jobs.player_identities import PlayerIdentities
 from app.jobs.playoffs_feed import FEED_ID as PLAYOFFS_ID
 from app.jobs.playoffs_feed import KIND as PLAYOFFS_KIND
 from app.jobs.playoffs_feed import (
@@ -66,13 +77,14 @@ from app.jobs.playoffs_feed import (
     build_playoffs_feed,
 )
 from app.jobs.season_playoffs_feed import (
+    BUILD_VERSION,
     KIND,
+    LEADER_READS,
     READ_BUDGET,
     SeasonPlayoffsFeeds,
-    box_players,
+    finals_champion,
     finals_games,
     schedule_teams,
-    series_winner,
 )
 from app.jobs.stars import StarsJob
 from app.jobs.team_names import KIND as NAMES_KIND
@@ -81,16 +93,19 @@ from app.settings import Settings
 from app.sources.division_standings import DivisionStandings
 from app.sources.game_detail import BoxScoreRosterEntry, GamePlayers
 from app.sources.http import SourceClient, SourceError, create_client
+from app.sources.player_draft import PlayerAthlete
 from app.sources.postseason_leaders import LeaderEntry, PostseasonLeaders
 from app.sources.postseason_scoreboard import (
     PostseasonGame,
-    SeriesState,
     fetch_postseason_schedule,
 )
 from app.sources.season_awards import SeasonAwards
 from app.sources.season_types import SeasonWindow
 from app.sources.team_info import TeamInfo
-from app.sources.team_postseason import TeamPostseasonRecord
+from app.sources.team_postseason import (
+    TeamPostseasonRecord,
+    fetch_team_postseason_record,
+)
 from app.sources.team_schedule import PROVIDER_CODES, season_schedule_url
 from app.sources.teams import PROVIDER_IDS, TEAM_CODES
 from app.storage.feeds import publish_by_id, read_by_id
@@ -106,9 +121,9 @@ from tests.jobs.test_playoffs_feed import (
     WEST,
     FakeStars,
     award,
-    leaders_source,
     past_games,
     play_ins,
+    player,
     post,
     seed,
     series_games,
@@ -139,10 +154,40 @@ def box_entry(player_id: str, name: str | None = None) -> BoxScoreRosterEntry:
     )
 
 
+def past_leaders(count: int = 5) -> PostseasonLeaders:
+    """The leaders of the nine categories, each with the team link of a past
+    leader: the player n is on the n-th team of the East."""
+    return PostseasonLeaders(
+        categories={
+            category: [
+                LeaderEntry(
+                    player_id=str(n),
+                    value=f"{30 - n}.0",
+                    team_code=seed(EAST, n),
+                )
+                for n in range(1, count + 1)
+            ]
+            for category in LeaderCategory
+        }
+    )
+
+
+def athlete_of(player_id: str) -> PlayerAthlete:
+    return PlayerAthlete(
+        active=False,
+        entry=player(
+            player_id,
+            display_name=f"Identity Player{player_id}",
+            headshot_url=f"https://example.com/h/{player_id}.png",
+        ),
+    )
+
+
 class SeasonPlayoffsKit:
     """The season playoffs kind over one client and one clock, with fake adapters
     that record their calls in self.calls, raise a timeout on the names in
-    self.failing and answer 404 on the names in self.not_found."""
+    self.failing and answer 404 on the names in self.not_found. The player
+    identities are read as "athlete/{id}"."""
 
     def __init__(self, path: Path) -> None:
         self.path = path
@@ -179,6 +224,12 @@ class SeasonPlayoffsKit:
             cast(StarsJob, self.stars),
             fetch_season_team=self.season_teams.fetch,
         )
+        self.identities = PlayerIdentities(
+            self.settings,
+            self.store,
+            self.client,
+            fetch_player_athlete=self.fetch_player_athlete,
+        )
         self.season_playoffs = SeasonPlayoffsFeeds(
             self.settings,
             self.store,
@@ -186,6 +237,7 @@ class SeasonPlayoffsKit:
             self.cache,
             cast(StarsJob, self.stars),
             self.team_names,
+            self.identities,
             fetch_season_type=self.fetch_season_type,
             fetch_postseason_games=self.fetch_postseason_games,
             fetch_postseason_schedule=self.fetch_postseason_schedule,
@@ -263,19 +315,27 @@ class SeasonPlayoffsKit:
         self, client: SourceClient, season: int, settings: Settings
     ) -> PostseasonLeaders:
         self.read(f"leaders/{season}")
-        return self.leaders_source or leaders_source()
+        return self.leaders_source or past_leaders()
 
     async def fetch_season_awards(
         self, client: SourceClient, season: int, settings: Settings
     ) -> SeasonAwards:
         self.read(f"awards/{season}")
-        return self.awards_source or SeasonAwards(awards=[award(AwardCode.MVP, ["1"])])
+        return self.awards_source or SeasonAwards(
+            awards=[award(AwardCode.MVP, ["1"], team_code=CHAMPION)]
+        )
 
     async def fetch_team_postseason_record(
         self, client: SourceClient, team: str, season: int, settings: Settings
     ) -> TeamPostseasonRecord:
         self.read(f"record/{team}/{season}")
         return TeamPostseasonRecord(overall="16-6", home="9-2", road="7-4")
+
+    async def fetch_player_athlete(
+        self, client: SourceClient, player_id: str, settings: Settings
+    ) -> PlayerAthlete:
+        self.read(f"athlete/{player_id}")
+        return athlete_of(player_id)
 
     async def fetch_game_players(
         self, client: SourceClient, game_id: str, settings: Settings, fresh: object
@@ -624,6 +684,109 @@ async def test_a_2005_build_from_schedules_with_no_series_and_empty_notes_reache
     assert read_by_id(kit.path, KIND, "2005") is not None
 
 
+RECORD_FIXTURE = (
+    Path(__file__).parents[1]
+    / "sources"
+    / "fixtures"
+    / "team_postseason"
+    / "record-2005.json"
+)
+RECORD_TEMPLATE = "https://example.com/{season}/teams/{team_id}/record"
+
+
+class RealRecordKit(RealScheduleKit):
+    """The 2005 kit whose finalist records go through the real adapter: the
+    champion's payload is the recorded one, the runner-up's another."""
+
+    def __init__(self, path: Path) -> None:
+        super().__init__(path)
+        self.settings = self.settings.model_copy(
+            update={"team_postseason_record_url": RECORD_TEMPLATE}
+        )
+        self.start()
+
+    async def fetch_team_postseason_record(
+        self, client: SourceClient, team: str, season: int, settings: Settings
+    ) -> TeamPostseasonRecord:
+        self.read(f"record/{team}/{season}")
+        url = RECORD_TEMPLATE.format(season=season, team_id=PROVIDER_IDS[team])
+        payload = json.loads(RECORD_FIXTURE.read_text(encoding="utf-8"))
+        if team != "SAS":
+            payload["items"][0]["summary"] = "10-10"
+        respx.get(url).respond(json=payload)
+        return await fetch_team_postseason_record(client, team, season, settings)
+
+
+@pytest.mark.anyio
+async def test_the_champion_record_is_the_counted_finals_winners_with_no_series_object(
+    tmp_path: Path,
+) -> None:
+    kit = RealRecordKit(tmp_path)
+    kit.standing = standings_2005()
+    kit.load(games_2005())
+
+    feed = PlayoffsFeed.model_validate_json(await kit.serve_season("2005"))
+
+    assert feed.champion is not None and str(feed.champion.team.code) == "SAS"
+    assert (feed.champion.record, feed.champion.home, feed.champion.road) == (
+        "16-7",
+        "9-3",
+        "7-4",
+    )
+
+
+FOURTEEN_AWARDS = [
+    (AwardCode.MVP, 1, None),
+    (AwardCode.DPOY, 1, None),
+    (AwardCode.ROY, 1, None),
+    (AwardCode.SIXTH_MAN, 1, None),
+    (AwardCode.MIP, 1, None),
+    (AwardCode.FINALS_MVP, 1, None),
+    (AwardCode.ALL_STAR_MVP, 1, None),
+    (AwardCode.ALL_NBA, 5, 1),
+    (AwardCode.ALL_NBA, 5, 2),
+    (AwardCode.ALL_NBA, 5, 3),
+    (AwardCode.ALL_ROOKIE, 5, 1),
+    (AwardCode.ALL_ROOKIE, 5, 2),
+    (AwardCode.ALL_DEFENSIVE, 5, 1),
+    (AwardCode.ALL_DEFENSIVE, 5, 2),
+]
+
+
+@pytest.mark.anyio
+async def test_a_2005_build_names_leaders_in_all_nine_categories_and_the_fourteen_awards(
+    tmp_path: Path,
+) -> None:
+    kit = RealScheduleKit(tmp_path)
+    kit.standing = standings_2005()
+    kit.load(games_2005())
+    ids = iter(range(100, 1000))
+    kit.awards_source = SeasonAwards(
+        awards=[
+            award(
+                code,
+                [str(next(ids)) for _ in range(count)],
+                team,
+                team_code=seed(WEST, 1),
+            )
+            for code, count, team in FOURTEEN_AWARDS
+        ]
+    )
+
+    feed = PlayoffsFeed.model_validate_json(await kit.serve_season("2005"))
+
+    assert feed.leaders is not None and feed.awards is not None
+    assert [g.category for g in feed.leaders] == list(LeaderCategory)
+    assert all(len(g.leaders) == 5 for g in feed.leaders)
+    assert len(feed.awards) == 14
+    winners = [w for a in feed.awards for w in a.winners]
+    assert len(winners) == 1 * 7 + 5 * 7
+    assert all(w.name == f"Identity Player{w.player_id}" for w in winners)
+    assert {str(w.team_code) for w in winners} == {seed(WEST, 1)}
+    mvp = next(a for a in feed.awards if a.code is AwardCode.MVP)
+    assert mvp.winners[0].name == "Identity Player100"
+
+
 @pytest.mark.parametrize(
     "text", ["1993", "abc", "02025", "2025\n", "", "2027", "2028", "202"]
 )
@@ -794,7 +957,9 @@ async def test_a_past_season_builds_a_valid_complete_feed_reading_only_its_decla
     assert sorted(n for n in kit.calls if n.startswith("players/")) == [
         f"players/{game_id}" for game_id in FINALS
     ]
-    assert len(kit.calls) <= READ_BUDGET
+    athletes = sorted(n for n in kit.calls if n.startswith("athlete/"))
+    assert athletes == [f"athlete/{n}" for n in range(1, 6)]
+    assert len(kit.calls) - len(athletes) <= READ_BUDGET
 
 
 @pytest.mark.anyio
@@ -890,84 +1055,82 @@ async def test_any_other_failed_read_answers_unavailable_and_stores_nothing(
 
 
 @pytest.mark.anyio
-async def test_leader_and_award_names_come_from_the_finals_box_scores(
+async def test_leaders_and_award_winners_are_named_from_the_player_identities_with_their_team_links(
     kit: SeasonPlayoffsKit,
 ) -> None:
+    kit.awards_source = SeasonAwards(
+        awards=[award(AwardCode.MVP, ["3"], team_code=seed(WEST, 2))]
+    )
+
+    feed = PlayoffsFeed.model_validate_json(await kit.serve_season("2025"))
+
+    assert feed.leaders is not None and feed.awards is not None
+    for group in feed.leaders:
+        assert [row.player_id for row in group.leaders] == ["1", "2", "3", "4", "5"]
+        for row in group.leaders:
+            assert row.name == f"Identity Player{row.player_id}"
+            assert str(row.photo_url) == f"https://example.com/h/{row.player_id}.png"
+            assert str(row.team_code) == seed(EAST, int(row.player_id))
+    winner = feed.awards[0].winners[0]
+    assert (winner.player_id, winner.name) == ("3", "Identity Player3")
+    assert str(winner.team_code) == seed(WEST, 2)
+    assert feed.build_version == BUILD_VERSION
+
+
+@pytest.mark.anyio
+async def test_a_player_whose_athlete_read_fails_is_kept_with_his_id_and_a_dash(
+    kit: SeasonPlayoffsKit,
+) -> None:
+    kit.not_found = {"athlete/3"}
+    kit.awards_source = SeasonAwards(
+        awards=[award(AwardCode.MVP, ["3"], team_code=CHAMPION)]
+    )
+
     feed = PlayoffsFeed.model_validate_json(await kit.serve_season("2025"))
 
     assert feed.leaders is not None and feed.awards is not None
-    names = [row.name for group in feed.leaders for row in group.leaders]
-    names += [w.name for a in feed.awards for w in a.winners]
-    assert names and all(name.startswith("Box ") for name in names)
-    assert feed.build_version == SEASON_BUILD_VERSION
+    for group in feed.leaders:
+        row = group.leaders[2]
+        assert (row.player_id, row.rank, row.name, row.photo_url) == (
+            "3",
+            3,
+            "\u2014",
+            None,
+        )
+        assert str(row.team_code) == seed(EAST, 3)
+    winner = feed.awards[0].winners[0]
+    assert (winner.player_id, winner.name, winner.photo_url) == ("3", "\u2014", None)
+    assert kit.store.player_identity("3") is None
+    assert kit.store.player_identity("2") is not None
 
 
 @pytest.mark.anyio
-async def test_a_player_the_reads_do_not_name_is_left_out_and_a_stored_game_names_one(
+async def test_a_second_build_within_30_days_reads_no_cached_player(
     kit: SeasonPlayoffsKit,
 ) -> None:
-    stored = GamePlayers(teams={seed(EAST, 3): [box_entry("77", "Stored Seventy")]})
-    kit.store.set_past_game_players(
-        "east-r1-3-1",
-        dt.date(2027, 4, 19),
-        with_build_version(stored).model_dump_json(),
-    )
-    kit.leaders_source = PostseasonLeaders(
-        categories={
-            category: [
-                LeaderEntry(player_id=player_id, value="9.0")
-                for player_id in ("1", "77", "99")
-            ]
-            for category in leaders_source().categories
-        }
-    )
+    await kit.serve_season("2025")
+    first = kit.called("athlete/")
+    kit.calls.clear()
+
+    await kit.serve_season("2024", NOW + dt.timedelta(days=2))
+
+    assert first == 5 and kit.called("standings/") == 1
+    assert kit.called("athlete/") == 0
+
+
+@pytest.mark.anyio
+async def test_only_the_first_five_leaders_of_each_category_are_read(
+    kit: SeasonPlayoffsKit,
+) -> None:
+    kit.leaders_source = past_leaders(8)
 
     feed = PlayoffsFeed.model_validate_json(await kit.serve_season("2025"))
 
+    assert sorted(n for n in kit.calls if n.startswith("athlete/")) == [
+        f"athlete/{n}" for n in range(1, 6)
+    ]
     assert feed.leaders is not None
-    rows = feed.leaders[0].leaders
-    assert [(r.player_id, r.rank) for r in rows] == [("1", 1), ("77", 2)]
-    assert rows[1].name == "Stored Seventy"
-    assert str(rows[1].team_code) == seed(EAST, 3)
-
-
-@pytest.mark.anyio
-async def test_all_leaders_and_awards_left_out_give_null_blocks(
-    kit: SeasonPlayoffsKit,
-) -> None:
-    kit.leaders_source = PostseasonLeaders(
-        categories={
-            category: [LeaderEntry(player_id="99", value="9.0")]
-            for category in leaders_source().categories
-        }
-    )
-    kit.awards_source = SeasonAwards(awards=[award(AwardCode.MVP, ["99"])])
-
-    feed = PlayoffsFeed.model_validate_json(await kit.serve_season("2025"))
-
-    assert feed.state is PlayoffsState.COMPLETE
-    assert feed.leaders is None and feed.awards is None
-
-
-@pytest.mark.anyio
-async def test_a_stored_body_of_another_build_names_nobody(
-    kit: SeasonPlayoffsKit,
-) -> None:
-    stale = GamePlayers(teams={seed(EAST, 3): [box_entry("77", "Stale")]})
-    kit.store.set_past_game_players(
-        "east-r1-3-1", dt.date(2027, 4, 19), stale.model_dump_json()
-    )
-    kit.store.set_past_game_players("east-r1-3-2", dt.date(2027, 4, 20), "{")
-    kit.leaders_source = PostseasonLeaders(
-        categories={
-            category: [LeaderEntry(player_id="77", value="9.0")]
-            for category in leaders_source().categories
-        }
-    )
-
-    feed = PlayoffsFeed.model_validate_json(await kit.serve_season("2025"))
-
-    assert feed.leaders is None
+    assert all(len(group.leaders) == 5 for group in feed.leaders)
 
 
 @pytest.mark.anyio
@@ -1010,7 +1173,7 @@ async def test_the_colors_come_from_the_cached_team_info_and_are_null_without_it
 
 
 @pytest.mark.anyio
-@pytest.mark.parametrize("version", [None, SEASON_BUILD_VERSION + 1])
+@pytest.mark.parametrize("version", [None, SEASON_BUILD_VERSION, BUILD_VERSION + 1])
 async def test_a_stored_feed_with_an_older_or_missing_version_is_rebuilt_on_its_next_request(
     kit: SeasonPlayoffsKit, version: int | None
 ) -> None:
@@ -1033,7 +1196,7 @@ async def test_a_stored_feed_with_an_older_or_missing_version_is_rebuilt_on_its_
     assert served.build_version == version
     assert kit.called("standings/") == 1
     rebuilt = kit.stored("2025")
-    assert rebuilt is not None and rebuilt.build_version == SEASON_BUILD_VERSION
+    assert rebuilt is not None and rebuilt.build_version == BUILD_VERSION
 
 
 @pytest.mark.anyio
@@ -1183,46 +1346,12 @@ def test_finals_games_fail_without_or_with_two_pairs_across_the_conferences() ->
         finals_games(past_games() + second, table)
 
 
-def test_series_winner_is_the_team_with_more_wins_of_the_latest_completed_final_game() -> (
-    None
-):
+def test_finals_champion_is_the_team_with_four_counted_wins() -> None:
     games = [g for g in past_games() if "finals" in g.game.id]
 
-    assert series_winner(games) == CHAMPION
-    assert series_winner([g for g in games if g.game.id != "finals-5"]) is None
-    assert series_winner([]) is None
-    tied = [
-        g.model_copy(
-            update={
-                "series": SeriesState(
-                    summary=None,
-                    completed=True,
-                    total_games=7,
-                    wins={CHAMPION: 2, RUNNER_UP: 2},
-                )
-            }
-        )
-        for g in games
-    ]
-    assert series_winner(tied) is None
-    assert series_winner([g.model_copy(update={}) for g in games[:1]]) is None
-
-
-def test_box_players_gives_a_player_the_team_of_his_newest_game() -> None:
-    older = dt.datetime(2025, 2, 1, tzinfo=dt.UTC)
-    newer = dt.datetime(2025, 6, 1, tzinfo=dt.UTC)
-    traded = box_entry("1")
-
-    players = box_players(
-        [
-            (GamePlayers(teams={"WAS": [traded]}), older),
-            (GamePlayers(teams={"ATL": [traded, box_entry("2")]}), newer),
-            (GamePlayers(teams={"WAS": [traded]}), older),
-        ]
-    )
-
-    assert players["1"][0] == "ATL" and players["1"][1].last_played == newer
-    assert players["2"][0] == "ATL"
+    assert finals_champion(games) == CHAMPION
+    assert finals_champion([g for g in games if g.game.id != "finals-5"]) is None
+    assert finals_champion([]) is None
 
 
 def test_a_build_with_no_postseason_window_dates_the_postseason_from_its_games() -> (
@@ -1258,5 +1387,7 @@ def test_a_build_with_no_postseason_window_dates_the_postseason_from_its_games()
     assert windowed.postseason_dates.first_date == dt.date(2027, 4, 14)
 
 
-def test_the_constants_are_the_declared_budget() -> None:
+def test_the_constants_are_the_declared_budget_and_version() -> None:
     assert READ_BUDGET == 63
+    assert LEADER_READS == 45
+    assert BUILD_VERSION == SEASON_BUILD_VERSION + 1
