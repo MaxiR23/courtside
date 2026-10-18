@@ -3,14 +3,15 @@
 # Tests for the player feed of a past season and its feed kind.
 #
 # Tested:
-# - The builder takes the game log, the last five games, the summary (ranks null), the averages and the milestones of that season, and names the team for that season
-# - The builder takes the career seasons and awards, sets the season label and leaves the injury, next game and live block null
+# - The builder takes the game log, the last five games, the summary (ranks null), the averages and the milestones of that season from the two career stats, and takes the team given
+# - The builder takes the career seasons, sets the season label, leaves the injury, next game and live block null, and the number, the draft and the awards null (ADR 0059)
 # - A season with no game log has a null game log, no last games and a null team, and the feed still validates
 # - The newest team id skips an All-Star game, a preseason game and a team outside the 30
-# - The kind: the game log and the stats of the season carry the season, the career stats do not, and the team is read for the season of the newest game
-# - The kind: an id on a current roster or in the stored past feeds is known; any other id, an id with a trailing newline, 1993, the current season, a future season and an ill-formed id answer unknown with no source request; an unknown current season and rosters not yet fetched are not ready
-# - The number is the jersey of that season's box scores, null when they carry none, never the athlete's
-# - The opponents of the game log are named by that season's team object, and every log game has detail available and is registered
+# - The kind: the game log carries the season, the career stats do not, and no season stats, draft, awards, standings or roster read is sent
+# - The kind: an id on a current roster or in the stored past feeds is known; any other id, an id with a trailing newline, 1993, the current season, a future season and an ill-formed id answer unknown with no source request; an unknown current season is not ready
+# - The kind: an id no stored past data knows is not ready until the rosters are fetched, then unknown with no source request; an id known from stored past data never waits
+# - The kind: the team is named from the stored names run of the season and is null without it, and a null team is named when served once the names are stored
+# - The kind: the opponents of the game log are named from the game log payload with no season names read, and every log game has detail available and is registered
 # - The kind: the feed is built once and kept across a simulated restart and years later
 # - The kind: the built feed carries the current build version, a stored feed of an older or missing version is rebuilt on its next request, and one of the current version is served with no source request (ADR 0053)
 # - The kind: the career rows carry the season codes of the stored franchise names when served, with no season team read per row; a list stored later reaches the next serve with no player rebuild; a missing list gives null entries and starts its build in the background (ADR 0055)
@@ -50,20 +51,16 @@ from app.jobs.season_player_feed import (
     build_season_player_feed,
     newest_team_id,
 )
-from app.jobs.season_rosters import SeasonRosters
 from app.jobs.stars import StarsJob
 from app.jobs.team_names import KIND as NAMES_KIND
 from app.jobs.team_names import SeasonIdentity, TeamNamesFeeds
 from app.settings import Settings
-from app.sources.division_standings import DivisionStandings
-from app.sources.game_detail import BoxScoreRosterEntry, GamePlayers
-from app.sources.http import Freshness, SourceClient, SourceError, create_client
-from app.sources.player_draft import DraftPick, PlayerAthlete
+from app.sources.http import SourceClient, SourceError, create_client
+from app.sources.player_draft import PlayerAthlete
 from app.sources.player_gamelog import PlayerGameLog
-from app.sources.player_overview import ProviderAward
 from app.sources.player_stats import PlayerStats
 from app.sources.season_team import SeasonTeam
-from app.sources.team_schedule import SeasonSchedule
+from app.sources.teams import SeasonTeamName
 from app.storage.feeds import publish_by_id, read_by_id
 from app.storage.state import StateStore
 from tests.jobs.test_player_feed import (
@@ -71,10 +68,8 @@ from tests.jobs.test_player_feed import (
     log_game,
     misc,
     player,
-    standings,
     totals_line,
 )
-from tests.jobs.test_team_feed import played, season
 
 NOW = dt.datetime(2026, 10, 8, 15, 0, tzinfo=dt.UTC)
 YEARS = dt.timedelta(days=365 * 5)
@@ -95,21 +90,18 @@ def career_stats() -> PlayerStats:
     return PlayerStats(
         per_game=[line("2003-04", points=21.44), line("2002-03", points=18.0)],
         totals=[totals_line("2003-04"), totals_line("2002-03")],
-        misc=[misc("2003-04"), misc("2002-03")],
+        misc=[misc("2003-04", double_doubles=11), misc("2002-03")],
         career_per_game=line(None, games_played=514, games_started=514),
         career_totals=totals_line(None, field_goals="5052-10778"),
         career_misc=misc(None, double_doubles=273),
     )
 
 
-def season_stats(points: float = 21.44) -> PlayerStats:
+def playoffs_stats(points: float = 30.0) -> PlayerStats:
     return PlayerStats(
         per_game=[line(LABEL, points=points)],
         totals=[totals_line(LABEL)],
-        misc=[misc(LABEL, double_doubles=11)],
-        career_per_game=line(None, games_played=514, games_started=514),
-        career_totals=totals_line(None, field_goals="5052-10778"),
-        career_misc=misc(None, double_doubles=273),
+        misc=[misc(LABEL)],
     )
 
 
@@ -123,7 +115,15 @@ def season_log() -> PlayerGameLog:
         )
         for n in range(1, 8)
     ]
-    return PlayerGameLog(season=LABEL, games=games)
+    return PlayerGameLog(
+        season=LABEL,
+        games=games,
+        teams={
+            "SAS": SeasonTeamName(
+                abbreviation="SAS", name="Harbor Rays", location="San Antonio"
+            )
+        },
+    )
 
 
 def team(season_code: str | None = None) -> Team:
@@ -135,12 +135,9 @@ def team(season_code: str | None = None) -> Team:
 def build(
     *,
     log: PlayerGameLog | None = None,
-    season_regular: PlayerStats | None = None,
-    season_playoffs: PlayerStats | None = None,
+    regular: PlayerStats | None = None,
+    playoffs: PlayerStats | None = None,
     the_team: Team | None = None,
-    draft: DraftPick | None = None,
-    provided: list[ProviderAward] | None = None,
-    jersey: str | None = None,
     opponent_names: dict[str, SeasonIdentity] | None = None,
 ) -> PastPlayerFeed:
     return build_season_player_feed(
@@ -148,15 +145,9 @@ def build(
         2004,
         athlete(),
         the_team,
-        standings(),
-        draft,
-        provided or [],
         log or season_log(),
-        career_stats(),
-        PlayerStats(),
-        season_regular or season_stats(),
-        season_playoffs or PlayerStats(),
-        jersey,
+        career_stats() if regular is None else regular,
+        PlayerStats() if playoffs is None else playoffs,
         opponent_names,
     )
 
@@ -174,15 +165,17 @@ def test_the_builder_takes_the_game_log_and_the_last_five_games_of_that_season()
     assert all(e.detail_available for e in feed.game_log.entries)
 
 
-def test_the_number_is_the_jersey_of_that_seasons_box_scores_and_never_the_athletes() -> (
-    None
-):
+def test_the_number_the_draft_and_the_awards_are_null_never_the_athletes() -> None:
     assert athlete().entry.jersey is not None
-    assert build(jersey="12").number == "12"
-    assert build(jersey=None).number is None
+
+    feed = build()
+
+    assert feed.number is None
+    assert feed.profile.draft is None
+    assert feed.awards is None
 
 
-def test_the_opponents_of_the_game_log_are_named_by_that_seasons_team_object() -> None:
+def test_the_opponents_of_the_game_log_are_named_by_the_names_given() -> None:
     feed = build(
         opponent_names={"SAS": SeasonIdentity("Harbor Gulls", "Seattle", "SEA", True)}
     )
@@ -212,8 +205,8 @@ def test_the_summary_is_that_seasons_row_with_null_ranks() -> None:
     assert feed.summary.field_goal_pct.value == 0.476
 
 
-def test_the_averages_and_milestones_are_that_seasons_rows_and_the_career() -> None:
-    feed = build(season_playoffs=season_stats(30.0))
+def test_the_averages_and_milestones_come_from_the_two_career_stats() -> None:
+    feed = build(playoffs=playoffs_stats(30.0))
 
     assert feed.averages.regular is not None
     assert (feed.averages.regular.season, feed.averages.regular.points) == (
@@ -229,13 +222,8 @@ def test_the_averages_and_milestones_are_that_seasons_rows_and_the_career() -> N
     assert feed.milestones.career.double_doubles == 273
 
 
-def test_the_builder_names_the_team_and_takes_the_career_seasons_and_awards() -> None:
-    feed = build(
-        the_team=team(),
-        provided=[
-            ProviderAward(name="All-Star", display_count="2x", seasons=[2003, 2004])
-        ],
-    )
+def test_the_builder_takes_the_team_given_and_the_career_seasons() -> None:
+    feed = build(the_team=team())
 
     assert feed.team == team()
     assert [row.season for row in feed.seasons.regular.per_game] == [
@@ -243,7 +231,6 @@ def test_the_builder_names_the_team_and_takes_the_career_seasons_and_awards() ->
         "2002-03",
     ]
     assert feed.profile.seasons == 2
-    assert [(a.name, a.count) for a in feed.awards] == [("All-Star", 2)]
     assert feed.season_label == LABEL
     assert (feed.injury, feed.next_game, feed.live) == (None, None, None)
     assert feed.active is False
@@ -251,7 +238,7 @@ def test_the_builder_names_the_team_and_takes_the_career_seasons_and_awards() ->
 
 
 def test_a_season_with_no_game_log_has_no_game_log_no_last_games_and_no_team() -> None:
-    feed = build(log=PlayerGameLog(season=None, games=[]), season_regular=PlayerStats())
+    feed = build(log=PlayerGameLog(season=None, games=[]), regular=PlayerStats())
 
     assert feed.game_log is None
     assert feed.last_games == []
@@ -269,8 +256,8 @@ def test_the_builder_fails_for_a_player_without_a_position() -> None:
 
     with pytest.raises(PlayerBuildError):
         build_season_player_feed(
-            "77", 2004, no_position, None, standings(), None, [], season_log(),
-            career_stats(), PlayerStats(), season_stats(), PlayerStats(),
+            "77", 2004, no_position, None, season_log(),
+            career_stats(), PlayerStats(),
         )  # fmt: skip
 
 
@@ -319,9 +306,8 @@ class KnownIds(PastPlayerIds):
     def known(self, player_id: str) -> bool:
         return player_id in self._given
 
-
-async def no_sleep(seconds: float) -> None:
-    """The pause between game reads never waits in a test."""
+    def known_in_season(self, player_id: str) -> bool:
+        return player_id in self._given
 
 
 class SeasonPlayerKit:
@@ -337,7 +323,6 @@ class SeasonPlayerKit:
         self.past: set[str] = {"88"}
         self.calls: list[str] = []
         self.failing = False
-        self.jersey: str | None = "12"
         self.season_names: dict[str, tuple[str, str]] = {}
         # The current season's team object by code, when it differs.
         self.current_names: dict[str, tuple[str, str]] = {}
@@ -353,15 +338,6 @@ class SeasonPlayerKit:
             cast(StarsJob, self.stars),
             fetch_season_team=self.fetch_season_team,
         )
-        self.rosters = SeasonRosters(
-            self.settings,
-            self.store,
-            self.client,
-            fetch_season_schedule=self.fetch_season_schedule,
-            fetch_game_players=self.fetch_game_players,
-            clock=lambda: self.clock[0],
-            sleep=no_sleep,
-        )
         self.kind = SeasonPlayerFeeds(
             self.settings,
             self.store,
@@ -370,11 +346,7 @@ class SeasonPlayerKit:
             cast(StarsJob, self.stars),
             KnownIds(self.past),
             self.names,
-            self.rosters,
             fetch_player_athlete=self.fetch_athlete,
-            fetch_division_standings=self.fetch_standings,
-            fetch_player_draft=self.fetch_draft,
-            fetch_player_awards=self.fetch_awards,
             fetch_player_gamelog=self.fetch_gamelog,
             fetch_player_stats=self.fetch_stats,
         )
@@ -396,24 +368,6 @@ class SeasonPlayerKit:
         self.calls.append(f"athlete/{player_id}")
         return athlete()
 
-    async def fetch_standings(
-        self, client: SourceClient, settings: Settings
-    ) -> DivisionStandings:
-        self.calls.append("standings")
-        return standings()
-
-    async def fetch_draft(
-        self, client: SourceClient, player_id: str, settings: Settings
-    ) -> DraftPick | None:
-        self.calls.append("draft")
-        return None
-
-    async def fetch_awards(
-        self, client: SourceClient, player_id: str, settings: Settings
-    ) -> list[ProviderAward]:
-        self.calls.append("awards")
-        return []
-
     async def fetch_gamelog(
         self,
         client: SourceClient,
@@ -434,12 +388,9 @@ class SeasonPlayerKit:
         settings: Settings,
         *,
         playoffs: bool,
-        season: int | None = None,
     ) -> PlayerStats:
-        self.calls.append(f"stats/{playoffs}/{season}")
-        if playoffs:
-            return PlayerStats()
-        return season_stats() if season is not None else career_stats()
+        self.calls.append(f"stats/{playoffs}")
+        return PlayerStats() if playoffs else career_stats()
 
     async def fetch_season_team(
         self, client: SourceClient, code: str, season: int, settings: Settings
@@ -454,34 +405,6 @@ class SeasonPlayerKit:
             name=name,
             location=city,
         )
-
-    async def fetch_season_schedule(
-        self,
-        client: SourceClient,
-        code: str,
-        season_year: int,
-        settings: Settings,
-        *,
-        playoffs: bool,
-        by_id_first: bool = False,
-    ) -> SeasonSchedule:
-        self.calls.append(f"schedule/{code}/{season_year}/{playoffs}")
-        if playoffs:
-            return season()
-        return season(*(played(f"g{n}", day(n)) for n in range(1, 8)))
-
-    async def fetch_game_players(
-        self, client: SourceClient, game_id: str, settings: Settings, fresh: Freshness
-    ) -> GamePlayers:
-        self.calls.append(f"players/{game_id}")
-        entry = BoxScoreRosterEntry(
-            player_id="77",
-            display_name="Player 77",
-            jersey=self.jersey,
-            position_abbreviation="PG",
-            headshot_url=None,
-        )
-        return GamePlayers(teams={"MEM": [entry]})
 
     async def settle(self) -> None:
         while self.cache.in_flight:
@@ -503,18 +426,32 @@ def kit(tmp_path: Path) -> SeasonPlayerKit:
 
 
 @pytest.mark.anyio
-async def test_the_game_log_and_the_stats_of_the_season_carry_the_season_and_the_team_is_named_for_it(
+async def test_the_game_log_carries_the_season_the_career_stats_do_not_and_no_other_read_is_sent(
     kit: SeasonPlayerKit,
 ) -> None:
+    kit.publish_names(
+        "mem",
+        [
+            NameRun(
+                from_=1994,
+                to=None,
+                name="Lakeside Pines",
+                location="Vancouver",
+                code="VAN",
+            )
+        ],
+    )
+
     feed = PastPlayerFeed.model_validate_json(await kit.serve("2004-77"))
 
     assert feed.season_label == LABEL
     assert feed.team == team("VAN")
-    assert "gamelog/2004" in kit.calls
-    assert "stats/False/2004" in kit.calls and "stats/True/2004" in kit.calls
-    assert "stats/False/None" in kit.calls and "stats/True/None" in kit.calls
-    assert "season-team/MEM/2004" in kit.calls
-    assert "standings" in kit.calls
+    assert sorted(c for c in kit.calls if not c.startswith("season-team/")) == [
+        "athlete/77",
+        "gamelog/2004",
+        "stats/False",
+        "stats/True",
+    ]
 
 
 @pytest.mark.anyio
@@ -561,10 +498,33 @@ async def test_an_unknown_current_season_or_rosters_not_fetched_are_not_ready(
     assert kit.kind.check("1993-77") is IdStatus.UNKNOWN
     kit.stars.season = 2027
     kit.stars.ready = False
-    assert kit.kind.check("2004-88") is IdStatus.NOT_READY
+    assert kit.kind.check("2004-nobody") is IdStatus.NOT_READY
     assert kit.kind.check("2004-77") is IdStatus.KNOWN
     with pytest.raises(FeedUnavailableError):
-        await kit.cache.serve(KIND, "2004-88")
+        await kit.cache.serve(KIND, "2004-nobody")
+
+    assert kit.calls == []
+
+
+@pytest.mark.anyio
+async def test_an_id_known_from_stored_past_data_is_known_before_the_rosters_are_fetched(
+    kit: SeasonPlayerKit,
+) -> None:
+    kit.stars.ready = False
+
+    assert kit.kind.check("2004-88") is IdStatus.KNOWN
+    assert kit.calls == []
+
+
+@pytest.mark.anyio
+async def test_an_unknown_id_answers_unknown_with_no_source_request_once_the_rosters_are_fetched(
+    kit: SeasonPlayerKit,
+) -> None:
+    kit.stars.ready = True
+
+    assert kit.kind.check("2004-nobody") is IdStatus.UNKNOWN
+    with pytest.raises(UnknownFeedError):
+        await kit.cache.serve(KIND, "2004-nobody")
 
     assert kit.calls == []
 
@@ -679,43 +639,107 @@ async def test_the_cleanup_keeps_the_feed(kit: SeasonPlayerKit) -> None:
 
 
 @pytest.mark.anyio
-async def test_the_number_is_the_jersey_of_that_seasons_box_scores(
+async def test_number_draft_and_awards_are_null_and_no_draft_awards_standings_or_roster_read(
     kit: SeasonPlayerKit,
 ) -> None:
     feed = PastPlayerFeed.model_validate_json(await kit.serve("2004-77"))
 
-    assert feed.number == "12"
-    assert "schedule/MEM/2004/False" in kit.calls
-    assert "players/g1" in kit.calls
-
-
-@pytest.mark.anyio
-async def test_the_number_is_null_when_the_box_scores_carry_none_never_the_athletes(
-    kit: SeasonPlayerKit,
-) -> None:
-    kit.jersey = None
     assert athlete().entry.jersey is not None
-
-    feed = PastPlayerFeed.model_validate_json(await kit.serve("2004-77"))
-
-    assert feed.number is None
+    assert (feed.number, feed.profile.draft, feed.awards) == (None, None, None)
+    assert not any(
+        call.startswith(("draft", "awards", "standings", "schedule", "players"))
+        for call in kit.calls
+    )
 
 
 @pytest.mark.anyio
-async def test_the_team_and_the_opponents_are_named_by_that_seasons_team_object(
+async def test_the_summary_averages_and_milestones_come_from_the_two_career_stats_reads(
     kit: SeasonPlayerKit,
 ) -> None:
-    kit.season_names = {"SAS": ("Harbor Gulls", "Seattle")}
+    feed = PastPlayerFeed.model_validate_json(await kit.serve("2004-77"))
+
+    assert feed.summary is not None and feed.summary.points.value == 21.4
+    assert feed.averages.regular is not None
+    assert feed.averages.regular.season == LABEL
+    assert feed.milestones is not None
+    assert feed.milestones.current.double_doubles == 11
+
+
+@pytest.mark.anyio
+async def test_the_team_is_named_from_the_stored_names_run_of_the_season_and_null_without_it(
+    kit: SeasonPlayerKit,
+) -> None:
+    kit.publish_names(
+        "mem",
+        [
+            NameRun(
+                from_=1994,
+                to=2004,
+                name="Lakeside Pines",
+                location="Vancouver",
+                code="VAN",
+            ),
+            NameRun(from_=2005, to=None, name="Bears", location="Memphis", code="MEM"),
+        ],
+    )
+
+    named = PastPlayerFeed.model_validate_json(await kit.serve("2004-77"))
+    assert named.team == team("VAN")
+
+
+@pytest.mark.anyio
+async def test_a_season_with_no_stored_names_run_has_a_null_team(
+    kit: SeasonPlayerKit,
+) -> None:
+    feed = PastPlayerFeed.model_validate_json(await kit.cache.serve(KIND, "2004-77"))
+    await kit.settle()
+
+    stored = read_by_id(kit.path, KIND, "2004-77")
+    assert stored is not None
+    assert PastPlayerFeed.model_validate_json(stored).team is None
+    assert feed.team is None
+
+
+@pytest.mark.anyio
+async def test_a_null_team_is_named_when_served_once_the_names_are_stored(
+    kit: SeasonPlayerKit,
+) -> None:
+    first = PastPlayerFeed.model_validate_json(await kit.cache.serve(KIND, "2004-77"))
+    await kit.settle()
+    assert first.team is None
+    kit.publish_names("okc", runs_of("SEA"))
+    calls = len(kit.calls)
+
+    served = PastPlayerFeed.model_validate_json(await kit.serve("2004-77"))
+
+    assert served.team == Team(
+        code="OKC", name="Harbor Gulls", city="Seattle", season_code="SEA"
+    )
+    assert len(kit.calls) == calls
+    stored = read_by_id(kit.path, KIND, "2004-77")
+    assert (
+        stored is not None and PastPlayerFeed.model_validate_json(stored).team is None
+    )
+
+
+@pytest.mark.anyio
+async def test_the_opponents_are_named_from_the_game_log_payload_with_no_season_names_read(
+    kit: SeasonPlayerKit,
+) -> None:
+    kit.publish_names(
+        "sas",
+        [NameRun(from_=1994, to=None, name="Rays", location="San Antonio", code="SAS")],
+    )
 
     feed = PastPlayerFeed.model_validate_json(await kit.serve("2004-77"))
 
-    assert feed.team == team("VAN")
     assert feed.game_log is not None
     assert {
         (e.opponent.code, e.opponent.name, e.opponent.city, e.opponent.historical)
         for e in feed.game_log.entries
         if e.opponent is not None
-    } == {("SAS", "Harbor Gulls", "Seattle", True)}
+    } == {("SAS", "Harbor Rays", "San Antonio", True)}
+    assert not any(call.startswith("season-team/SAS") for call in kit.calls)
 
 
 @pytest.mark.anyio

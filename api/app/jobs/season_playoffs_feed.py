@@ -435,3 +435,12 @@ def _newer(
 
 async def _none() -> None:
     return None
+
+
+def stored_player_ids(body: bytes) -> set[str]:
+    """The player ids a stored past playoffs feed names in its leaders and awards
+    (the reader the core past player ids index is given, ADR 0059)."""
+    feed = PlayoffsFeed.model_validate_json(body)
+    ids = {leader.player_id for group in feed.leaders or [] for leader in group.leaders}
+    ids |= {winner.player_id for award in feed.awards or [] for winner in award.winners}
+    return ids

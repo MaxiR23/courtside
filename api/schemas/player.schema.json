@@ -1919,10 +1919,17 @@
       "default": null
     },
     "awards": {
-      "items": {
-        "$ref": "#/$defs/Award"
-      },
-      "type": "array"
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/Award"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "allStarYear": {
       "anyOf": [

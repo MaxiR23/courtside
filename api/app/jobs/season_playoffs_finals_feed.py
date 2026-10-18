@@ -248,3 +248,13 @@ class SeasonPlayoffsFinalsFeeds:
             serve_with=self.serve_with,
             depends_on=self.depends_on,
         )
+
+
+def stored_player_ids(body: bytes) -> set[str]:
+    """The player ids a stored past Finals feed names as MVP or in its averages
+    (the reader the core past player ids index is given, ADR 0059)."""
+    feed = PlayoffsFinalsFeed.model_validate_json(body)
+    ids = {player.player_id for side in feed.averages or [] for player in side.players}
+    if feed.finals_mvp is not None:
+        ids.add(feed.finals_mvp.player_id)
+    return ids

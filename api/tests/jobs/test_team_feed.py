@@ -490,6 +490,7 @@ def test_records_the_standing_with_converted_values() -> None:
         4317,
     )
     assert (record.differential.per_game, record.differential.total) == (10.1, 405)
+    assert feed.colors is not None
     assert feed.colors.primary == "#007ac1"
     assert feed.colors.secondary == "#ef3b24"
     assert (feed.conference, feed.division) == (Conference.WEST, "Northwest")
@@ -662,6 +663,7 @@ def test_converts_the_roster_details_and_ages_on_the_us_eastern_date() -> None:
 
     feed = build(team_roster=roster(teammate), now=late)
 
+    assert feed.roster is not None
     row = feed.roster[0]
     assert row.age == 25
     assert row.birth_date == dt.date(2000, 10, 9)
@@ -686,6 +688,7 @@ def test_writes_the_birthplace_with_the_parts_the_provider_gave(
 ) -> None:
     feed = build(team_roster=roster(player("1", "2", **changes)))
 
+    assert feed.roster is not None
     assert feed.roster[0].birthplace == text
 
 
@@ -703,7 +706,9 @@ def test_keeps_missing_roster_details_as_null() -> None:
         display_name=None,
     )
 
-    row = build(team_roster=roster(bare)).roster[0]
+    bare_roster = build(team_roster=roster(bare)).roster
+    assert bare_roster is not None
+    row = bare_roster[0]
 
     assert row.name == "First1 Last1"
     assert (row.number, row.position, row.height, row.weight) == (None,) * 4
@@ -720,6 +725,7 @@ def test_builds_the_roster_status_from_the_league_injuries_by_athlete_id() -> No
     assert roster_status("7", league) == InjuryStatus.DOUBTFUL
     assert roster_status("9", league) == "active"
     feed = build(team_roster=roster(player("1", "2"), player("7", "3")), league=league)
+    assert feed.roster is not None
     assert [row.status for row in feed.roster] == [
         InjuryStatus.OUT,
         InjuryStatus.DOUBTFUL,
@@ -734,6 +740,7 @@ def test_matches_each_leader_to_the_roster_and_gives_null_when_the_leader_left()
 
     feed = build(team_roster=team_roster, season_leaders=averages)
 
+    assert feed.leaders is not None
     assert feed.leaders.points is None
     assert feed.leaders.rebounds is not None
     assert (feed.leaders.rebounds.player_id, feed.leaders.rebounds.value) == ("1", 10.0)
@@ -752,6 +759,7 @@ def test_gives_null_for_a_leader_without_a_position() -> None:
 
     feed = build(team_roster=team_roster, season_leaders=leaders(("1", 20.0, 1, 1)))
 
+    assert feed.leaders is not None
     assert feed.leaders.points is None
 
 
@@ -763,12 +771,14 @@ def test_picks_the_first_of_tied_leaders_in_list_order() -> None:
         season_leaders=leaders(("2", 20.0, 1, 1), ("1", 20.0, 1, 1)),
     )
 
+    assert feed.leaders is not None
     assert feed.leaders.points is not None and feed.leaders.points.player_id == "2"
 
 
 def test_labels_the_leaders_with_the_previous_season_when_it_was_used() -> None:
     feed = build(season_leaders=leaders(("1", 20.0, 1, 1), season=2026))
 
+    assert feed.leaders is not None
     assert feed.leaders.season == "2025-26"
     assert feed.season == "2026-27"
 
@@ -776,6 +786,7 @@ def test_labels_the_leaders_with_the_previous_season_when_it_was_used() -> None:
 def test_gives_no_leaders_without_players() -> None:
     feed = build(season_leaders=leaders())
 
+    assert feed.leaders is not None
     assert (feed.leaders.points, feed.leaders.rebounds, feed.leaders.assists) == (
         None,
     ) * 3
@@ -934,6 +945,7 @@ def test_orders_the_roster_by_number_with_unnumbered_players_last() -> None:
         )
     )
 
+    assert feed.roster is not None
     assert [row.id for row in feed.roster] == ["4", "3", "1", "2"]
 
 
@@ -1083,10 +1095,12 @@ async def test_builds_a_valid_team_feed_from_the_recorded_payloads(
     assert (feed.code, feed.city, feed.name) == ("OKC", "Oklahoma City", "Thunder")
     assert feed.record.playoff is not None and feed.record.playoff.seed == 1
     assert feed.record.season == "2025-26"
+    assert feed.leaders is not None
     assert feed.leaders.season == "2025-26"
     assert feed.leaders.points is not None
     assert feed.leaders.points.player_id == "4278073"
     assert feed.coach is not None and feed.coach.name == "Mark Daigneault"
+    assert feed.roster is not None
     assert len(feed.roster) == 21
     assert feed.injuries is not None
     assert [row.player_id for row in feed.injuries] == ["5061603", "4433255"]

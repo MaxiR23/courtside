@@ -14,6 +14,7 @@
 # - Raises the source error on a stat line whose labels are missing a column, an event the log does not describe, an event of an invalid shape that a season type references and a malformed stat
 # - Raises the source error on an invalid payload, a timeout, an error status and a missing URL
 # - Reuses a game log for one hour
+# - A season read carries the names its payload gives the opponents (ADR 0059); a current read carries none
 # - A season read sends the season, resolves the opponents by provider id and sets each game's team id; a current read sends no season, sets the team id from the home and away ids and still raises on a 404; a 404 on a season read is an empty log
 #
 # What is covered:
@@ -427,6 +428,35 @@ async def test_a_season_read_sends_the_season_resolves_opponents_by_id_and_sets_
     assert (home.opponent.code, home.opponent.guest) == ("BKN", False)
     assert (away.team_id, home.team_id) == ("29", "29")
     assert (away.is_home, home.is_home) == (False, True)
+
+
+@pytest.mark.anyio
+async def test_a_season_read_carries_the_names_its_payload_gives_the_opponents(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    mock.get(PAST_URL).respond(json=load("gamelog-past.json"))
+
+    log = await fetch_past(settings)
+
+    assert sorted(log.teams) == ["BKN", "OKC"]
+    assert log.teams["OKC"].model_dump() == {
+        "abbreviation": "SEA",
+        "name": "Harbor Gulls",
+        "location": "Seattle",
+    }
+    assert log.teams["BKN"].abbreviation == "NJ"
+
+
+@pytest.mark.anyio
+async def test_a_current_read_carries_no_team_names(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    mock.get(URL).respond(json=load())
+
+    log = await fetch(settings)
+
+    assert log.games
+    assert log.teams == {}
 
 
 @pytest.mark.anyio

@@ -24,6 +24,7 @@
 # - TeamFeed rejects a null arena and null injuries; PastTeamFeed accepts every past block null, rejects each one when set, and has the team schema apart from its title
 # - A feed with a build version is accepted, one with zero is rejected, and a stored feed without the field reads with a null version
 # - A past team feed carries a season code and the historical flag; historical without a season code is rejected; a stored feed without the fields reads as not historical (ADR 0054)
+# - A past team feed accepts null colors, leaders and roster (ADR 0059); the current feed rejects each one null
 # - A leader with a null position is accepted
 #
 # What is covered:
@@ -654,6 +655,24 @@ def test_accepts_a_past_team_with_every_past_block_null() -> None:
     PastTeamFeed.model_validate(team)
 
 
+def test_a_past_feed_accepts_null_colors_leaders_and_roster() -> None:
+    team = past_team()
+    team["schedule"]["groups"][1]["games"][0] = schedule_game(
+        "g2", "2026-01-15T00:30:00Z"
+    )
+    team["schedule"]["groups"][1]["games"][0]["isNext"] = False
+    team.update({"colors": None, "leaders": None, "roster": None})
+
+    feed = PastTeamFeed.model_validate(team)
+
+    assert (feed.colors, feed.leaders, feed.roster) == (None, None, None)
+
+
+@pytest.mark.parametrize("name", ["colors", "leaders", "roster"])
+def test_a_current_feed_rejects_null_colors_leaders_or_roster(name: str) -> None:
+    rejects({**valid_team(), name: None}, "colors, leaders and a roster")
+
+
 @pytest.mark.parametrize("name", PAST_NULL_BLOCKS)
 def test_rejects_a_past_team_with_a_current_season_block(name: str) -> None:
     team = past_team()
@@ -687,8 +706,10 @@ def test_accepts_a_leader_with_a_null_position() -> None:
     team = valid_team()
     team["leaders"]["points"]["position"] = None
 
-    assert TeamFeed.model_validate(team).leaders.points is not None
-    assert TeamFeed.model_validate(team).leaders.points.position is None  # type: ignore[union-attr]
+    leaders = TeamFeed.model_validate(team).leaders
+    assert leaders is not None
+    assert leaders.points is not None
+    assert leaders.points.position is None
 
 
 def test_accepts_a_team_feed_with_a_season_code_and_the_historical_flag() -> None:

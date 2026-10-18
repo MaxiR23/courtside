@@ -19,7 +19,8 @@
 # and kept (rule D): it is never refreshed by the games job, the live refresh
 # or the highlights job, and never deleted (rule J); it is rebuilt only when its
 # build version is not the current one, from a day feed of the current version
-# (ADR 0053).
+# (ADR 0053). The build declares a read budget of READ_BUDGET source read: the
+# game summary (ADR 0059).
 #
 # SEE: docs/api/game-detail.md, docs/adr/0041-past-game-detail.md,
 # docs/adr/0048-highlights-backfill-and-edition-video.md,
@@ -46,11 +47,12 @@ from app.jobs.team_feed import season_label
 from app.settings import Settings
 from app.sources import game_detail
 from app.sources.game_detail import GameDetailSections
-from app.sources.http import Freshness, SourceClient
+from app.sources.http import Freshness, ReadBudget, SourceClient, within_budget
 from app.storage.feeds import GAME_ID, published_ids, read_by_id
 from app.storage.state import StateStore
 
 KIND = "past-games"
+READ_BUDGET = 1
 # The source cache's freshness of rule A for everything else: the one summary read.
 PAST_FRESH = dt.timedelta(hours=1)
 
@@ -206,6 +208,13 @@ class PastGameDetailFeeds:
         return None if registered is None else (DAY_KIND, registered.isoformat())
 
     async def build(self, game_id: str) -> PastGameDetailFeed:
+        return await within_budget(
+            ReadBudget(READ_BUDGET),
+            f"past game detail: {game_id}",
+            lambda: self._build(game_id),
+        )
+
+    async def _build(self, game_id: str) -> PastGameDetailFeed:
         game = self._past_game(game_id)
         if game is None:
             raise PastDetailBuildError(

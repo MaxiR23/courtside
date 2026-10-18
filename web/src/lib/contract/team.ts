@@ -17,13 +17,13 @@ export interface TeamFeed {
 	name: string;
 	conference: Conference;
 	division: string;
-	colors: TeamColors;
+	colors: TeamColors | null;
 	arena: Venue | null;
 	coach: Coach | null;
 	season: string;
 	record: TeamRecord;
-	leaders: TeamLeaders;
-	roster: RosterPlayer[];
+	leaders: TeamLeaders | null;
+	roster: RosterPlayer[] | null;
 	injuries: TeamInjury[] | null;
 	nextGame: NextGame | null;
 	schedule: Schedule | null;

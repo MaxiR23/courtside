@@ -22,7 +22,8 @@
 # resolves a side by its team id first and skips any event that cannot be mapped,
 # with a log line by event id, instead of failing the day (ADR 0040). It also
 # returns the day's season, read from leagues[0].season.year of the payload; a
-# day whose season cannot be read fails (ADR 0042).
+# day whose season cannot be read fails (ADR 0042). A past read also carries the
+# names its payload gives the league teams (`teams`, ADR 0059).
 #
 # SEE: docs/api/games.md, docs/adr/0007-backend-runtime-and-data-pipeline.md
 
@@ -35,6 +36,7 @@ from pydantic import (
     AwareDatetime,
     BaseModel,
     ConfigDict,
+    Field,
     PositiveInt,
     ValidationError,
     model_validator,
@@ -61,7 +63,14 @@ from app.sources.cup import cup_round
 from app.sources.http import SourceClient, SourceError, get_json
 from app.sources.postseason_mark import postseason_mark
 from app.sources.season_types import PLAY_IN, POSTSEASON
-from app.sources.teams import TEAM_CODES, TEAM_IDS, to_opponent
+from app.sources.teams import (
+    LEAGUE_CODES,
+    TEAM_CODES,
+    TEAM_IDS,
+    SeasonTeamName,
+    side_of,
+    to_opponent,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -220,6 +229,8 @@ class PastScoreboardDay(FeedModel):
 
     season: PositiveInt
     games: list[ScoreboardGame]
+    # The names the payload gives the league teams, by standard code (ADR 0059).
+    teams: dict[str, SeasonTeamName] = Field(default_factory=dict)
 
 
 def _normalize_clock(display_clock: str | None) -> str | None:
@@ -474,6 +485,37 @@ def _read_season(scoreboard: _ProviderScoreboard, day: dt.date) -> int:
     return year
 
 
+def _payload_team_names(events: list[_ProviderEvent]) -> dict[str, SeasonTeamName]:
+    """The league teams the events name, by standard code, the first name of a
+    team winning. An All-Star event is skipped: its sides are guests."""
+    names: dict[str, SeasonTeamName] = {}
+    for event in events:
+        if not event.competitions or _is_an_all_star_event(event):
+            continue
+        for competitor in event.competitions[0].competitors:
+            team = competitor.team
+            if team.id in TEAM_IDS:
+                code: str | None = TEAM_CODES[TEAM_IDS[team.id]]
+            else:
+                try:
+                    code = side_of(team.abbreviation, team.id, source=SOURCE)[0]
+                except SourceError:
+                    continue
+            if (
+                code in LEAGUE_CODES
+                and code not in names
+                and team.abbreviation
+                and team.name
+                and team.location
+            ):
+                names[code] = SeasonTeamName(
+                    abbreviation=team.abbreviation,
+                    name=team.name,
+                    location=team.location,
+                )
+    return names
+
+
 async def fetch_past_day(
     client: SourceClient, day: dt.date, settings: Settings
 ) -> PastScoreboardDay:
@@ -494,4 +536,6 @@ async def fetch_past_day(
             continue
         if game is not None:
             games.append(game)
-    return PastScoreboardDay(season=season, games=games)
+    return PastScoreboardDay(
+        season=season, games=games, teams=_payload_team_names(scoreboard.events)
+    )

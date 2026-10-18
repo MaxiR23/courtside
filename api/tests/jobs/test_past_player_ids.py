@@ -5,9 +5,11 @@
 # Tested:
 # - An id from the roster of a stored past team feed is known
 # - An id from the box score of a stored past game detail is known
+# - A stored past team feed with a null roster adds no id
+# - An id named by a stored past playoffs leader or award, or a stored past Finals MVP or average, is known in season only
 # - A past game with a null box score adds no id
 # - An id in neither is unknown, and nothing is known with no stored feed
-# - Each stored file is read once: a second call reads no file again, and a file stored later is indexed on the next call
+# - Each stored file, the playoffs and Finals ones included, is read once: a second call reads no file again, and a file stored later is indexed on the next call
 # - An invalid stored file is skipped and read again on the next call
 #
 # What is covered:
@@ -22,17 +24,36 @@ from pathlib import Path
 import pytest
 
 from app.feeds.game_detail import PastGameDetailFeed
+from app.feeds.playoffs import PlayoffsFeed
+from app.feeds.playoffs_finals import PlayoffsFinalsFeed
+from app.feeds.team import RosterPlayer
 from app.jobs import past_player_ids
 from app.jobs.past_game_detail_feed import KIND as PAST_GAMES
 from app.jobs.past_player_ids import PastPlayerIds
+from app.jobs.season_playoffs_feed import KIND as SEASON_PLAYOFFS
+from app.jobs.season_playoffs_feed import stored_player_ids as playoffs_ids
+from app.jobs.season_playoffs_finals_feed import KIND as SEASON_FINALS
+from app.jobs.season_playoffs_finals_feed import stored_player_ids as finals_ids
 from app.jobs.season_team_feed import KIND as SEASON_TEAMS
 from app.storage.feeds import publish_by_id, read_by_id
 from tests.feeds.test_game_detail import past_detail
+from tests.feeds.test_playoffs import complete_feed
+from tests.feeds.test_playoffs_finals import valid as finals_data
 from tests.jobs.test_season_team_feed import build
 
 
-def store_team(path: Path, feed_id: str = "2004-okc") -> None:
+def store_team(path: Path, feed_id: str = "2004-okc", *, roster: bool = True) -> None:
+    """A past team feed; the roster is the one a feed stored before ADR 0059 has."""
     feed = build()
+    if roster:
+        feed = feed.model_copy(
+            update={
+                "roster": [
+                    RosterPlayer(id="1", name="Player 1", status="active"),
+                    RosterPlayer(id="2", name="Player 2", status="active"),
+                ]
+            }
+        )
     publish_by_id(path, SEASON_TEAMS, type(feed), feed_id, feed)
 
 
@@ -68,7 +89,7 @@ def test_an_id_from_the_box_score_of_a_stored_past_game_is_known(
     tmp_path: Path,
 ) -> None:
     ids = store_game(tmp_path)
-    index = PastPlayerIds(tmp_path)
+    index = named_index(tmp_path)
 
     assert ids
     assert all(index.known(player_id) for player_id in ids)
@@ -102,7 +123,7 @@ def test_each_stored_file_is_read_once_and_a_file_stored_later_is_indexed(
         return real(data_dir, kind, feed_id)
 
     monkeypatch.setattr(past_player_ids, "read_by_id", counted)
-    index = PastPlayerIds(tmp_path)
+    index = named_index(tmp_path)
 
     assert index.known("nobody") is False
     assert index.known("other") is False
@@ -123,3 +144,93 @@ def test_an_invalid_stored_file_is_skipped_and_read_again(tmp_path: Path) -> Non
     store_team(tmp_path)
 
     assert index.known("1") is True
+
+
+def test_a_past_team_feed_with_a_null_roster_adds_no_id(tmp_path: Path) -> None:
+    store_team(tmp_path, roster=False)
+
+    assert PastPlayerIds(tmp_path).known("1") is False
+
+
+def named_index(path: Path) -> PastPlayerIds:
+    return PastPlayerIds(
+        path,
+        named=(
+            (SEASON_PLAYOFFS, playoffs_ids),
+            (SEASON_FINALS, finals_ids),
+        ),
+    )
+
+
+def test_no_playoffs_id_is_known_in_season_without_the_readers(
+    tmp_path: Path,
+) -> None:
+    store_playoffs(tmp_path)
+
+    assert PastPlayerIds(tmp_path).known_in_season("leader") is False
+
+
+def store_playoffs(path: Path, season: str = "2025") -> None:
+    data = complete_feed()
+    data["leaders"][0]["leaders"][0]["playerId"] = "leader"
+    data["awards"][0]["winners"][0]["playerId"] = "winner"
+    feed = PlayoffsFeed.model_validate(data)
+    publish_by_id(path, SEASON_PLAYOFFS, PlayoffsFeed, season, feed)
+
+
+def store_finals(path: Path, season: str = "2025") -> set[str]:
+    feed = PlayoffsFinalsFeed.model_validate(finals_data())
+    publish_by_id(path, SEASON_FINALS, PlayoffsFinalsFeed, season, feed)
+    assert feed.finals_mvp is not None and feed.averages is not None
+    return {feed.finals_mvp.player_id} | {
+        player.player_id for side in feed.averages for player in side.players
+    }
+
+
+def test_an_id_named_by_a_stored_past_playoffs_leader_or_award_is_known_in_season_only(
+    tmp_path: Path,
+) -> None:
+    store_playoffs(tmp_path)
+    index = named_index(tmp_path)
+
+    assert index.known("leader") is False
+    assert index.known_in_season("leader") is True
+    assert index.known_in_season("winner") is True
+    assert index.known_in_season("nobody") is False
+
+
+def test_an_id_named_by_a_stored_past_finals_mvp_is_known_in_season_only(
+    tmp_path: Path,
+) -> None:
+    ids = store_finals(tmp_path)
+    index = named_index(tmp_path)
+
+    assert ids
+    assert not any(index.known(player_id) for player_id in ids)
+    assert all(index.known_in_season(player_id) for player_id in ids)
+
+
+def test_known_in_season_also_knows_a_roster_or_box_score_id(tmp_path: Path) -> None:
+    store_team(tmp_path)
+
+    assert named_index(tmp_path).known_in_season("1") is True
+
+
+def test_each_competition_file_is_read_once(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store_playoffs(tmp_path)
+    store_finals(tmp_path)
+    reads: list[tuple[str, str]] = []
+    real = read_by_id
+
+    def counted(data_dir: Path, kind: str, feed_id: str) -> bytes | None:
+        reads.append((kind, feed_id))
+        return real(data_dir, kind, feed_id)
+
+    monkeypatch.setattr(past_player_ids, "read_by_id", counted)
+    index = named_index(tmp_path)
+
+    assert index.known_in_season("nobody") is False
+    assert index.known_in_season("other") is False
+    assert sorted(reads) == sorted([(SEASON_FINALS, "2025"), (SEASON_PLAYOFFS, "2025")])

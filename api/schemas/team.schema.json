@@ -1188,7 +1188,14 @@
       "type": "string"
     },
     "colors": {
-      "$ref": "#/$defs/TeamColors"
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TeamColors"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "arena": {
       "anyOf": [
@@ -1219,13 +1226,27 @@
       "$ref": "#/$defs/TeamRecord"
     },
     "leaders": {
-      "$ref": "#/$defs/TeamLeaders"
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TeamLeaders"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "roster": {
-      "items": {
-        "$ref": "#/$defs/RosterPlayer"
-      },
-      "type": "array"
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/RosterPlayer"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "injuries": {
       "anyOf": [

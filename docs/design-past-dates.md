@@ -17,7 +17,7 @@ The visual, interaction and data specification of browsing past dates and past s
 - Full coverage (every game of the day with the final score, the four quarters and both box scores) starts with the 1993-94 season. Older seasons are partial or empty and are not offered. Plays exist from 2004 and win probability only in recent seasons, so a past game can lack them.
 - Game dates are UTC; the day shown is the US Eastern day, as the games job already handles it (`eastern_date`). A day with no game is a valid day with an empty list of games.
 - Without `?season`, a page shows the current season as today and uses the existing feeds. With `?season` equal to the current season the page also uses the existing feeds. For a past season it uses the season feeds.
-- The page of a past season shows the data as it was that season: final records, the roster of that season, the names of that season. It has no live element.
+- The page of a past season shows the data as it was that season: final records and the names of that season (a past team page has no roster, ADR 0059). It has no live element.
 - All routes are rendered in the browser from the fallback page (ADR 0020, ADR 0021); `docs/deploy.md` lists `/day/*`.
 
 ## Implementation rules
@@ -104,7 +104,7 @@ Everything under "Implementation rules" in `docs/design.md`, `docs/design-cup.md
 
 ### Team page of a past season
 
-- The record and the standing of that season, the schedule by month with results, the roster of that season (`RosterTable` without the injury column) and the leaders of that season. A block without data is hidden. No next game, no injuries, no depth chart, no Cup block, no titles. The Overview and Injuries sections are hidden with their tabs. A team exists in a season when that season's team object answers; whether it is active today is never read (ADR 0053), so a relocated franchise has its old seasons. A franchise with no team that season (404) shows "No team this season." with the selector. The roster of that season is the players with a stat line in the box scores of the team's final regular-season and playoff games of that season: name and photo come from the newest game, jersey and position from the newest game that has a value (else `—`), and height, weight, age, birth date, birthplace, college and experience are `—`. The league sides of the schedule are named as that season's team object names them, with the opponent's season abbreviation, and every final game links to its game page.
+- The record and the standing of that season, the schedule by month with results, no roster and no leaders block (ADR 0059; a team page stored before keeps them, the roster as `RosterTable` without the injury column). A block without data is hidden. No next game, no injuries, no depth chart, no Cup block, no titles. The Overview and Injuries sections are hidden with their tabs. A team exists in a season when that season's team object answers; whether it is active today is never read (ADR 0053), so a relocated franchise has its old seasons. A franchise with no team that season (404) shows "No team this season." with the selector. The league sides of the schedule are named from the schedule payloads, with the opponent's season abbreviation, and every final game links to its game page.
 
 ### Team page, every season: Names timeline
 
@@ -120,7 +120,7 @@ Everything under "Implementation rules" in `docs/design.md`, `docs/design-cup.md
 ### Player page of a past season
 
 - The game log of the season, the season row highlighted in the seasons table, the averages of that season.
-- The header shows the team of that season as the game log names it. The number is the jersey of the team's box scores that season, `—` when they carry none. The game log names each opponent by that season's team object, with its season abbreviation when historical, and each final game links to its game page. A retired player (`active` false) shows "Retired" in the team tag instead of a current team. A player with no current team who is still active (`team` null, `active` true) shows "Free agent" in the team tag instead of a current team. The team of the feed takes precedence when it has one.
+- The header shows the team of that season: the game log picks the team, and its name comes from the stored franchise names run that holds the season. There is no number, draft cell or awards block (ADR 0059). The game log names each opponent from the game log payload, with its season abbreviation when historical, and each final game links to its game page. A retired player (`active` false) shows "Retired" in the team tag instead of a current team. A player with no current team who is still active (`team` null, `active` true) shows "Free agent" in the team tag on the current page; on a past season the team is null when no names run is stored yet (a cold page), and the header then draws no team tag at all, never "Free agent". The team of the feed takes precedence when it has one.
 - A player with no game log that season shows the existing empty game log state (the game log section is hidden), the averages as the feed gives them, and the seasons table.
 
 ## Edge cases
@@ -141,7 +141,7 @@ Everything under "Implementation rules" in `docs/design.md`, `docs/design-cup.md
 | Team with one name run | No "Names" timeline |
 | Team with four runs | The timeline shows four runs; on mobile it scrolls horizontally with scroll-snap; the current run is in accent light and each past run links to its last season |
 | Player retired | "Retired" instead of a current team; no next game and no injury status |
-| Player free agent | "Free agent" instead of a current team; no next game and no injury status |
+| Player free agent | "Free agent" instead of a current team; no next game and no injury status. A past season with a null team and `active` true shows no team tag |
 | Player with no game log that season | The game log section is hidden (the existing empty state); the averages and the seasons table show as the feed gives them |
 | Headshot missing | The existing initials fallback |
 | A season with no data for a block (leaders, schedule) | The section is hidden |
@@ -251,7 +251,7 @@ Keys are camelCase. Nullable fields are always present and `null` when absent. T
 | `/feeds/seasons/{season}/calendar.json` | The season label, the first and last day, the list of days with games and the dates of today's window | 24 hours in the current season; a past season is built once and kept |
 | `/feeds/days/{date}.json` | The Day of the games feed, with the same Day and Game shapes as `docs/api/games.md`, for a US Eastern day outside the games feed's window | A day whose games are all final is built once and kept; a day with a non-final game expires 6 hours after its build |
 | `/feeds/seasons/{season}/standings.json` | The standings feed of that season, same shape as today with season-scoped values | A past season is built once and kept |
-| `/feeds/seasons/{season}/teams/{code}.json` | The team feed of that season, same shape as today with season-scoped values, with `names`; the roster comes from box scores | A past season is built once and kept |
+| `/feeds/seasons/{season}/teams/{code}.json` | The team feed of that season, same shape as today with season-scoped values, with `names`; no roster or leaders (ADR 0059) | A past season is built once and kept |
 | `/feeds/seasons/{season}/players/{id}.json` | The player feed of that season, same shape as today with season-scoped values | A past season is built once and kept |
 
 - **Statuses:** a season outside 1994 to the season before the current one is a 404 for the season standings, team and player feeds (ADR 0043); the current season is served by the existing feeds, and the calendar feed serves the current season too. `/feeds/days/{date}.json` answers 404 for a day inside the games feed window, for a day before 1993-10-01 and for a day after today; the page uses the games feed for a day in the window.

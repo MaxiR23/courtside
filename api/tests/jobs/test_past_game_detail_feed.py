@@ -22,6 +22,7 @@
 # - The kind: a failed build answers unavailable and is not retried for 10 minutes
 # - The kind: a summary without a season fails the build and stores nothing
 # - The kind: the stored highlight is added when served as a list of one, null without one and on an All-Star game, and is not stored
+# - The kind: the build sends one read under a budget of one
 # - The kind: the cleanup keeps every past game detail
 # - The kind: the games job, its day change and its cleanup never refresh or delete a past game detail
 # - The kind: an upper-case postseason note gives the title-case mark and a finals note gives a finals mark without a number
@@ -58,6 +59,7 @@ from app.jobs.on_demand import (
 )
 from app.jobs.past_game_detail_feed import (
     KIND,
+    READ_BUDGET,
     PastDetailBuildError,
     PastGameDetailFeeds,
     build_past_game_detail_feed,
@@ -334,6 +336,16 @@ async def test_a_final_game_of_a_stored_day_is_known_and_any_other_id_is_unknown
         with pytest.raises(UnknownFeedError):
             await kit.cache.serve(KIND, unknown)
     assert kit.section_calls == []
+
+
+@pytest.mark.anyio
+async def test_the_build_sends_one_read_under_its_budget(kit: PastKit) -> None:
+    await kit.store_day(game("1", GameStatus.FINAL))
+
+    await kit.serve_past("1")
+
+    assert READ_BUDGET == 1
+    assert kit.section_calls == ["1"]
 
 
 @pytest.mark.anyio

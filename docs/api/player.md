@@ -40,7 +40,7 @@ The root is one player.
 | `seasons`      | `Seasons`               | Season rows of the regular season and the playoffs                 | always                                   |
 | `milestones`   | `Milestones` / null     | Counts of notable events                                           | null when no data                        |
 | `gameLog`      | `GameLog` / null        | Every game of the season, newest first                             | null when no data                        |
-| `awards`       | `Award[]`               | Awards with their seasons                                          | always, may be empty                     |
+| `awards`       | `Award[]`               | Awards with their seasons                                          | always, may be empty; null on a past season built from ADR 0059 on |
 | `active`       | boolean                 | The active state of the athlete object                             | always; true when a stored feed was written before the field |
 | `seasonLabel`  | season label / null     | The season of a past season feed                                   | null on the current feed, set on a season feed |
 | `allStarYear`  | integer / null          | The year of the All-Star game in the season's game log             | null when the game log has no All-Star game, and when a stored feed was written before the field |
@@ -174,30 +174,35 @@ schema as above) validated by `PastPlayerFeed`.
 - The season values:
   - `gameLog`, `lastGames` and `allStarYear` are those of that season's game log;
     with no games `gameLog` is null and `lastGames` is empty.
-  - `summary` is that season's per game stats row with every `rank` null: the bio
-    takes no season.
-  - `averages` and `milestones` are that season's rows and the career's.
-  - `seasons`, `awards` and `profile.seasons` are the career. `profile.age` is on
-    February 1 of the end year.
+  - `summary`, `averages` and `milestones` are that season's rows of the two
+    career statistics reads (regular season and playoffs), and the career's; the
+    `rank` of the summary is null: the bio takes no season.
+  - `seasons` and `profile.seasons` are the career. `profile.age` is on
+    February 1 of the end year. `awards`, `profile.draft` and `number` are null
+    ([ADR 0059](../adr/0059-bounded-past-page-reads.md)); a feed stored before keeps
+    them until it is rebuilt.
   - `team` is the team of the newest game of the log (an All-Star or preseason
-    game does not count), found by provider id, with its name and city of that
-    season (from the season team object); it is null with no such game.
-  - `number` is the jersey of that team's box scores of the season, else null;
-    the athlete object's number is not used (ADR 0053).
-  - The opponents of the game log are named by that season's team object, and
-    every log game has `detailAvailable` true; their dates are registered so the
-    detail can be built.
+    game does not count), found by provider id, with the name and city of the
+    stored franchise names run that holds the season. It is null with no such
+    game, no stored list or no such run; a null team is named when the feed is
+    served, once the names are stored, with no read.
+  - The opponents of the game log are named from the game log payload with the
+    season code of the stored franchise names, and every log game has
+    `detailAvailable` true; their dates are registered so the detail can be built.
   - `active` is the athlete object's and `seasonLabel` is the season.
-- Null blocks: `injury`, `nextGame` and `live`.
-- Known ids: a player of a current roster, of a stored past team season roster or
-  of a stored past box score.
+- Null blocks: `injury`, `nextGame`, `live`, `awards` and `profile.draft`.
+- Reads: the athlete, the game log of the season and the career statistics of
+  the regular season and of the playoffs, in a budget of 4 (ADR 0059); no draft,
+  awards, standings, season statistics or roster read.
+- Known ids: a player of a current roster, of a stored past team season roster,
+  of a stored past box score, or named by a stored past playoffs or Finals feed.
 - Refresh: built on request, stored at `feeds/season-players/{season}-{id}.json`,
   kept for good: never deleted, and rebuilt on its next request when its
   `buildVersion` is not the current one.
 - Endpoint: the same headers and 304 as the player feed. It responds 404 with no
   source request for a season outside the range and for an id that is not known
   once every roster is fetched. It responds 503 while the current season is not
-  known or the rosters are not all fetched, after a failed build with nothing
+  known or, for an id no stored past feed knows, the rosters are not all fetched, after a failed build with nothing
   stored, and when the request's 20 seconds end before a missing feed is built.
 - The builder is `build_season_player_feed` and the kind is `SeasonPlayerFeeds`,
   both in `api/app/jobs/season_player_feed.py`; the known ids come from

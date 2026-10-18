@@ -358,7 +358,7 @@ class PlayerFeed(FeedModel):
     seasons: Seasons
     milestones: Milestones | None = None
     game_log: GameLog | None = None
-    awards: list[Award]
+    awards: list[Award] | None
     all_star_year: PositiveInt | None = None
     # False for a retired player. The default reads a stored feed from before.
     active: bool = True
@@ -378,6 +378,8 @@ class PlayerFeed(FeedModel):
             or self.live is not None
         ):
             raise ValueError("a player on no team has no injury, next game or live")
+        if self.awards is None:
+            raise ValueError("the current feed has awards")
         return self
 
     @model_validator(mode="after")

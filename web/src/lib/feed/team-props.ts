@@ -181,9 +181,10 @@ function header(feed: TeamFeed): TeamHeaderView {
 		].join(SEPARATOR),
 		cupLine: cupTeamLine(feed.cup),
 		titles: teamTitles(feed.titles),
-		colors: feed.historical
-			? null
-			: { primary: feed.colors.primary, secondary: feed.colors.secondary },
+		colors:
+			feed.historical || feed.colors === null
+				? null
+				: { primary: feed.colors.primary, secondary: feed.colors.secondary },
 		record: record(r),
 		winPct: percent(r.winPct),
 		recordSeason: m.team_header_record_season({ season: r.season }),
@@ -218,7 +219,8 @@ function overview(feed: TeamFeed): OverviewSection {
 						feed.coach.seasons === null ? null : m.team_coach_seasons({ count: feed.coach.seasons })
 				}
 			: null,
-		colors: [{ hex: feed.colors.primary }, { hex: feed.colors.secondary }],
+		colors:
+			feed.colors === null ? [] : [{ hex: feed.colors.primary }, { hex: feed.colors.secondary }],
 		nextGame: feed.nextGame ? nextGameView(feed.nextGame) : null
 	};
 }
@@ -298,6 +300,7 @@ function leaderCard(label: string, leader: TeamLeader): LeaderCard {
 }
 
 function leadersSection(feed: TeamFeed): LeadersSection | null {
+	if (feed.leaders === null) return null;
 	const { points, rebounds, assists, season } = feed.leaders;
 	const cards = [
 		points && leaderCard(m.team_leader_points(), points),
@@ -420,7 +423,7 @@ export function toTeamView(feed: TeamFeed, options: { past?: boolean } = {}): Te
 		overview: overview(feed),
 		record: recordSection(feed),
 		leaders: leadersSection(feed),
-		roster: feed.roster.length > 0 ? feed.roster.map(rosterRow) : null,
+		roster: feed.roster !== null && feed.roster.length > 0 ? feed.roster.map(rosterRow) : null,
 		injuries: (feed.injuries ?? []).map(injuryRow),
 		schedule: scheduleSection(feed)
 	};

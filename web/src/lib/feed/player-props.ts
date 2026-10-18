@@ -141,7 +141,9 @@ function header(feed: PlayerFeed, past: boolean): PlayerHeaderView {
 		teamCode: feed.team
 			? (feed.team.seasonCode ?? feed.team.code)
 			: feed.active
-				? m.past_player_free_agent()
+				? past
+					? null
+					: m.past_player_free_agent()
 				: m.past_player_retired(),
 		status: injury
 			? { label: INJURY_LABELS[injury.status](), injured: true }
@@ -173,7 +175,7 @@ function header(feed: PlayerFeed, past: boolean): PlayerHeaderView {
 	};
 }
 
-function profileCells(profile: Profile): InfoCell[] {
+function profileCells(profile: Profile, past: boolean): InfoCell[] {
 	const cells: InfoCell[] = [];
 	if (profile.height) {
 		cells.push({
@@ -206,19 +208,20 @@ function profileCells(profile: Profile): InfoCell[] {
 	if (profile.college) {
 		cells.push({ label: m.team_roster_college(), value: profile.college, sub: null });
 	}
-	cells.push(
-		profile.draft
-			? {
-					label: m.player_profile_draft(),
-					value: m.player_draft_pick({
-						year: profile.draft.year,
-						round: profile.draft.round,
-						pick: profile.draft.pick
-					}),
-					sub: profile.draft.teamName
-				}
-			: { label: m.player_profile_draft(), value: m.player_undrafted(), sub: null }
-	);
+	// A past season built from ADR 0059 on has no draft, and shows no cell for it.
+	if (profile.draft) {
+		cells.push({
+			label: m.player_profile_draft(),
+			value: m.player_draft_pick({
+				year: profile.draft.year,
+				round: profile.draft.round,
+				pick: profile.draft.pick
+			}),
+			sub: profile.draft.teamName
+		});
+	} else if (!past) {
+		cells.push({ label: m.player_profile_draft(), value: m.player_undrafted(), sub: null });
+	}
 	if (profile.seasons !== null) {
 		cells.push({
 			label: m.player_tab_seasons(),
@@ -279,7 +282,7 @@ function recentRow(game: GameLogEntry): RecentGameRow {
 
 function profileSection(feed: PlayerFeed, past: boolean): ProfileSection {
 	return {
-		cells: profileCells(feed.profile),
+		cells: profileCells(feed.profile, past),
 		nextGame: feed.nextGame ? nextGameView(feed.nextGame) : null,
 		live: feed.live ? liveView(feed.live) : null,
 		recent: feed.lastGames.map(recentRow),
@@ -533,7 +536,7 @@ function gameLogSection(feed: PlayerFeed): GameLogSection | null {
 }
 
 function awardsSection(feed: PlayerFeed): AwardView[] | null {
-	if (feed.awards.length === 0) return null;
+	if (feed.awards === null || feed.awards.length === 0) return null;
 	return feed.awards.map((award) => ({
 		count: m.player_award_count({ count: formatNumber(award.count) }),
 		name: award.code ? (awardName(award.code, award.team) ?? award.name) : award.name,

@@ -1,6 +1,6 @@
 # Source rules
 
-The rules every job and feed build follows so the data source is asked as little as possible. They are adopted by ADR 0020 and apply to every feed: games, game detail, player and team. Rule L records the season fallbacks of the adapters; it is adopted by ADR 0022. Rule N is adopted by ADR 0056, and Rule O by ADR 0058.
+The rules every job and feed build follows so the data source is asked as little as possible. They are adopted by ADR 0020 and apply to every feed: games, game detail, player and team. Rule L records the season fallbacks of the adapters; it is adopted by ADR 0022. Rule N is adopted by ADR 0056 and retired by ADR 0059, and Rule O is adopted by ADR 0058 and extended by ADR 0059.
 
 References:
 
@@ -84,7 +84,7 @@ Everything else is built on request only: pre-game game detail, team feeds, play
 
 ## I. Unknown ids
 
-Unknown ids answer 404 with no source request: game ids outside the days shown that are not a final game of a stored day feed, player ids neither in the rosters the stars job fetches, nor in the roster of a stored past team season feed, nor in the box score of a stored past game detail, codes outside the 30 standard codes, slot ids outside the 7 of the Cup bracket, on the current and the season matchup paths, calendar seasons that are neither `current` nor a four-digit end year from 1994 to the current season, days that are not a `YYYY-MM-DD` date, are before 1993-10-01, are after today (US Eastern), or are a day of the stored games feed (with none stored, a day the games job would show), season paths of the standings, team and player feeds that are not a four-digit end year from 1994 to the season before the current one, season paths of the Cup and Cup matchup feeds that are not a four-digit end year from 2024 to the current season (the current season serves the current Cup feeds), season paths of the playoffs and playoffs finals feeds that are not a four-digit end year from 1994 to the current season (the current season serves the current playoffs feeds), season paths of the All-Star feed that are not a four-digit end year from 1994 to the current season (the current season serves the current All-Star feed), a past All-Star season whose edition was not found (after one scan of the February days of its calendar, until a restart), and a team code whose franchise has no team that season (after one read of its season team object). While the rosters are not fetched yet, player requests answer 503. While the current season is not known, calendar requests, `current` included, and season feed requests answer 503.
+Unknown ids answer 404 with no source request: game ids outside the days shown that are not a final game of a stored day feed, player ids neither in the rosters the stars job fetches, nor in the roster of a stored past team season feed, nor in the box score of a stored past game detail, codes outside the 30 standard codes, slot ids outside the 7 of the Cup bracket, on the current and the season matchup paths, calendar seasons that are neither `current` nor a four-digit end year from 1994 to the current season, days that are not a `YYYY-MM-DD` date, are before 1993-10-01, are after today (US Eastern), or are a day of the stored games feed (with none stored, a day the games job would show), season paths of the standings, team and player feeds that are not a four-digit end year from 1994 to the season before the current one, season paths of the Cup and Cup matchup feeds that are not a four-digit end year from 2024 to the current season (the current season serves the current Cup feeds), season paths of the playoffs and playoffs finals feeds that are not a four-digit end year from 1994 to the current season (the current season serves the current playoffs feeds), season paths of the All-Star feed that are not a four-digit end year from 1994 to the current season (the current season serves the current All-Star feed), a past All-Star season whose edition was not found (after one scan of the February days of its calendar, until a restart), and a team code whose franchise has no team that season (after one read of its season team object). While the rosters are not fetched yet, player requests answer 503. On the season player path, a player named by a stored past playoffs or Finals feed (its leaders, award winners, Finals MVP and averages) is also known, and an id known from stored past data never waits for the rosters (ADR 0059). While the current season is not known, calendar requests, `current` included, and season feed requests answer 503.
 
 ## J. Restart and cleanup
 
@@ -104,17 +104,13 @@ A missing stat is null, never a failure. A team or player stat the source does n
 
 ## N. Paced past builds
 
-- The game detail reads of the past season rosters (the team and player rosters) go one at a time across every build, with `SOURCE_BUILD_PAUSE_MS` (default 250) between the end of one request and the start of the next. A stored game is reused with no request and no pause.
-- A 429 or 503 answer stops the build with the reason "rate limited", logged and recorded.
-- Every such read is then held for 10 minutes with no request, the same window as the failed-build retry of rule H. The games already read are kept.
-
-See [`adr/0056-paced-past-builds-and-one-edition-mvp-path.md`](adr/0056-paced-past-builds-and-one-edition-mvp-path.md).
+Retired by ADR 0059: no build paces its reads; every past build follows rule O.
 
 ## O. Budgeted past builds
 
-- Each past playoffs, Finals, Cup, Cup matchup and All-Star build declares the most source reads it sends: 63, 11, 44, 2 and 60. A read is a request that reaches the network through the shared client; a cache hit, and a caller that joins an in-flight request, are not reads.
+- Each past playoffs, Finals, Cup, Cup matchup, All-Star, team, player, day, game detail and standings build declares the most source reads it sends: 63, 11, 44, 2, 60, 5, 4, 1, 1 and 1 (ADR 0059). A read is a request that reaches the network through the shared client; a cache hit, and a caller that joins an in-flight request, are not reads.
 - A build that would pass its budget stops before that read, logs the reason and stores nothing.
 - At most four reads of a build are in flight at once, with no pause between them.
 - A 429 or 503 answer stops the build, logged and recorded with the reason "rate limited", and the feed is retried after 10 minutes (rule H).
 
-See [`adr/0058-bounded-past-competition-reads.md`](adr/0058-bounded-past-competition-reads.md).
+See [`adr/0058-bounded-past-competition-reads.md`](adr/0058-bounded-past-competition-reads.md) and [`adr/0059-bounded-past-page-reads.md`](adr/0059-bounded-past-page-reads.md).

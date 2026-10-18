@@ -18,8 +18,10 @@
 # is final or there is no game. It is never deleted, and it never enters the
 # games job, the hero, the highlights job or the live refresh (ADR 0040). The
 # stored highlight of a final game is added when served, never stored (ADR
-# 0048); an All-Star game gets none. The league sides of a day are named by the
-# day's season team object (ADR 0053); a guest side keeps its name.
+# 0048); an All-Star game gets none. The league sides of a day are named from the
+# scoreboard payload with the season code of the stored franchise names (ADR
+# 0059); a guest side keeps its name. The build declares a read budget of
+# READ_BUDGET source read: the scoreboard.
 #
 # SEE: docs/api/days.md, docs/adr/0040-calendar-and-day-feeds.md,
 # docs/adr/0048-highlights-backfill-and-edition-video.md,
@@ -45,10 +47,10 @@ from app.jobs.on_demand import (
     with_build_version,
 )
 from app.jobs.team_feed import season_label
-from app.jobs.team_names import TeamNamesFeeds, season_named
+from app.jobs.team_names import TeamNamesFeeds, payload_names, season_named
 from app.settings import Settings
 from app.sources import scoreboard, video_channel
-from app.sources.http import SourceClient
+from app.sources.http import ReadBudget, SourceClient, within_budget
 from app.sources.scoreboard import PastScoreboardDay, ScoreboardGame
 from app.storage.feeds import read_feed
 from app.storage.state import StateStore
@@ -56,6 +58,7 @@ from app.storage.state import StateStore
 logger = logging.getLogger(__name__)
 
 KIND = "days"
+READ_BUDGET = 1
 FIRST_DAY = dt.date(1993, 10, 1)
 REBUILD_AFTER = dt.timedelta(hours=6)
 _DAY_ID = re.compile(r"\d{4}-\d{2}-\d{2}")
@@ -175,17 +178,19 @@ class DayFeeds:
         )
 
     async def build(self, feed_id: str) -> DayFeed:
+        return await within_budget(
+            ReadBudget(READ_BUDGET), f"day: {feed_id}", lambda: self._build(feed_id)
+        )
+
+    async def _build(self, feed_id: str) -> DayFeed:
         day = parse_day(feed_id)
         if day is None:
             raise DayBuildError(f"{feed_id!r} is not a day")
         past = await self._fetch_past_day(self._client, day, self._settings)
-        codes = [
-            side.code
-            for game in past.games
-            for side in (game.away, game.home)
-            if not side.guest and side.code is not None
-        ]
-        names = await self._names.season_names(codes, past.season)
+        runs = {
+            code: found for code in past.teams if (found := self._names.stored(code))
+        }
+        names = payload_names(past.teams, runs)
         games = [
             game.model_copy(
                 update={

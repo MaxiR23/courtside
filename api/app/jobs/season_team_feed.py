@@ -4,16 +4,16 @@
 # season. The builder is a pure function from the data the adapters fetched to
 # the feed; it reads no clock and no source and reuses the conversions of the team
 # feed builder. City and name are the season's, from the season team object;
-# colors are today's. The record is the standing of that season (the play-in
-# position only from the 2020-21 season, when the play-in began), the leaders are
-# that season's averages with no fallback, and the roster is the players of that
-# season's box scores (SeasonRosters): their jersey and position come from the
-# box score, else they are null, every status is active and every other roster
-# field is null (ADR 0053). A leader whose box-score position is absent keeps a
-# null position. The schedule holds the regular season and the playoffs, with
-# detail available for every final game, and its opponents are named by that
-# season's team object. The arena, coach, injuries, next game, Cup and titles
-# are null.
+# colors are today's, from the cached team info, and null without it. The record
+# is the standing of that season (the play-in position only from the 2020-21
+# season, when the play-in began). The roster and leaders are null (ADR 0059).
+# The schedule holds the regular season and the playoffs, with detail available
+# for every final game, and its opponents are named from the schedule payloads
+# with the season code of the stored franchise names. The dates of the final
+# games are registered with no read. The arena, coach, injuries, next game, Cup
+# and titles are null. The build declares a read budget of READ_BUDGET source
+# reads, 4 of them sent: the season team object, the standings and the two
+# schedules (ADR 0059).
 #
 # SeasonTeamFeeds is the feed kind of the on-demand cache: the id is
 # {season}-{code} (the season's end year and the lowercase standard code), the
@@ -29,14 +29,14 @@
 # SEE: docs/api/team.md, docs/adr/0043-season-feeds-and-franchise-names.md,
 # docs/adr/0053-season-level-rules-for-past-seasons.md, api/app/jobs/team_feed.py
 
+import asyncio
 import datetime as dt
 import re
-from collections.abc import Awaitable, Callable, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Mapping
 from typing import Any
 
 from pydantic import ValidationError
 
-from app.feeds.opponent import Opponent
 from app.feeds.team import NameRun, PastTeamFeed
 from app.jobs import team_names
 from app.jobs.on_demand import (
@@ -47,41 +47,36 @@ from app.jobs.on_demand import (
     is_current_build,
     with_build_version,
 )
-from app.jobs.season_rosters import SeasonRosters
 from app.jobs.season_standings_feed import past_season_status
 from app.jobs.stars import StarsJob
 from app.jobs.team_feed import (
-    LEADER_CATEGORIES,
     TEAM_IDS,
-    FetchInfo,
     TeamBuildError,
     _played,
     _record,
-    roster_order,
+    eastern_date,
     schedule,
     season_label,
     with_names,
 )
-from app.jobs.team_names import SeasonIdentity, TeamNamesFeeds, season_named
-from app.settings import Settings
-from app.sources import (
-    division_standings,
-    season_team,
-    team_info,
-    team_players,
-    team_schedule,
+from app.jobs.team_names import (
+    SeasonIdentity,
+    TeamNamesFeeds,
+    payload_names,
+    season_named,
 )
+from app.settings import Settings
+from app.sources import division_standings, season_team, team_info, team_schedule
 from app.sources.division_standings import DivisionStandings
-from app.sources.game_detail import BoxScoreRosterEntry
-from app.sources.http import SourceClient
+from app.sources.http import ReadBudget, SourceClient, within_budget
 from app.sources.season_team import SeasonTeam
 from app.sources.team_info import TeamInfo
-from app.sources.team_players import PlayerAverages, SeasonLeaders
 from app.sources.team_schedule import SeasonSchedule
-from app.sources.teams import PROVIDER_IDS
+from app.sources.teams import SeasonTeamName
 from app.storage.state import StateStore
 
 KIND = "season-teams"
+READ_BUDGET = 5
 FIRST_PLAYIN_SEASON = 2021
 _ID = re.compile(r"([0-9]{4})-([a-z]{3})")
 
@@ -89,52 +84,7 @@ FetchSeasonTeam = Callable[
     [SourceClient, str, int, Settings], Awaitable[SeasonTeam | None]
 ]
 FetchSeasonStandings = Callable[..., Awaitable[DivisionStandings]]
-FetchSeasonAverages = Callable[
-    [SourceClient, str, int, Settings], Awaitable[list[PlayerAverages]]
-]
 FetchSeasonSchedule = Callable[..., Awaitable[SeasonSchedule]]
-
-
-def past_roster_player(entry: BoxScoreRosterEntry) -> dict[str, Any]:
-    """A roster row of a past season: the box score gives the name, the jersey,
-    the position and the photo, and every other field is null (ADR 0053)."""
-    return {
-        "id": entry.player_id,
-        "name": entry.display_name,
-        "number": entry.jersey,
-        "position": entry.position_abbreviation,
-        "height": None,
-        "weight": None,
-        "age": None,
-        "birth_date": None,
-        "birthplace": None,
-        "college": None,
-        "experience": None,
-        "photo_url": entry.headshot_url,
-        "status": "active",
-    }
-
-
-def past_leader(
-    players: list[PlayerAverages], field: str, by_id: dict[str, BoxScoreRosterEntry]
-) -> dict[str, Any] | None:
-    """The leader of a statistic among the season's averages, with the box-score
-    roster's name, jersey, position (which may be null) and photo."""
-    best: PlayerAverages | None = None
-    for player in players:
-        if best is None or getattr(player, field) > getattr(best, field):
-            best = player
-    if best is None or best.player_id not in by_id:
-        return None
-    entry = by_id[best.player_id]
-    return {
-        "player_id": entry.player_id,
-        "name": entry.display_name,
-        "number": entry.jersey,
-        "position": entry.position_abbreviation,
-        "photo_url": entry.headshot_url,
-        "value": round(getattr(best, field), 1),
-    }
 
 
 def _renamed(
@@ -148,24 +98,12 @@ def _renamed(
     )
 
 
-def opponent_codes(*schedules: SeasonSchedule) -> list[str]:
-    """The distinct league opponent codes of the schedules."""
-    sides: list[Opponent] = [
-        game.opponent for schedule_ in schedules for game in schedule_.games
-    ]
-    return sorted(
-        {side.code for side in sides if not side.guest and side.code is not None}
-    )
-
-
 def build_season_team_feed(
     team_code: str,
     season: int,
     season_team: SeasonTeam,
-    info: TeamInfo,
+    info: TeamInfo | None,
     standings: DivisionStandings,
-    roster: Sequence[BoxScoreRosterEntry],
-    leaders: SeasonLeaders,
     regular: SeasonSchedule,
     playoffs: SeasonSchedule,
     names: list[NameRun] | None = None,
@@ -176,12 +114,10 @@ def build_season_team_feed(
     entry = standings.teams.get(team_code)
     if entry is None:
         raise TeamBuildError(f"team {team_code} has no standing")
-    by_id = {player.player_id: player for player in roster}
     record = _record(entry, standings.season, standings.teams.values())
     if season < FIRST_PLAYIN_SEASON:
         record["playoff"] = None
     try:
-        sorted_entries = sorted(roster, key=lambda player: roster_order(player.jersey))
         regular = _renamed(regular, opponent_names or {})
         playoffs = _renamed(playoffs, opponent_names or {})
         final_ids = frozenset(
@@ -193,7 +129,9 @@ def build_season_team_feed(
             "name": season_team.name,
             "conference": entry.conference,
             "division": entry.division,
-            "colors": {
+            "colors": None
+            if info is None
+            else {
                 "primary": f"#{info.color}",
                 "secondary": f"#{info.alternate_color}",
             },
@@ -201,14 +139,8 @@ def build_season_team_feed(
             "coach": None,
             "season": season_label(season),
             "record": record,
-            "leaders": {
-                "season": season_label(leaders.season),
-                **{
-                    field: past_leader(leaders.players, field, by_id)
-                    for field in LEADER_CATEGORIES
-                },
-            },
-            "roster": [past_roster_player(player) for player in sorted_entries],
+            "leaders": None,
+            "roster": None,
             "injuries": None,
             "next_game": None,
             "schedule": schedule(regular, playoffs, None, final_ids),
@@ -236,14 +168,11 @@ class SeasonTeamFeeds:
         cache: FeedCache,
         stars: StarsJob,
         names: TeamNamesFeeds,
-        rosters: SeasonRosters,
         *,
         fetch_season_team: FetchSeasonTeam = season_team.fetch_season_team,
-        fetch_team_info: FetchInfo = team_info.fetch_team_info,
         fetch_division_standings: FetchSeasonStandings = (
             division_standings.fetch_division_standings
         ),
-        fetch_season_averages: FetchSeasonAverages = team_players.fetch_season_averages,
         fetch_season_schedule: FetchSeasonSchedule = team_schedule.fetch_season_schedule,
     ) -> None:
         self._settings = settings
@@ -251,11 +180,8 @@ class SeasonTeamFeeds:
         self._client = client
         self._stars = stars
         self._names = names
-        self._rosters = rosters
         self._fetch_season_team = fetch_season_team
-        self._fetch_team_info = fetch_team_info
         self._fetch_division_standings = fetch_division_standings
-        self._fetch_season_averages = fetch_season_averages
         self._fetch_season_schedule = fetch_season_schedule
         # (season, code) of the franchises found to have no team that season.
         self._no_team: set[tuple[int, str]] = set()
@@ -277,6 +203,13 @@ class SeasonTeamFeeds:
         return None if match is None else (team_names.KIND, match[2])
 
     async def build(self, feed_id: str) -> PastTeamFeed:
+        return await within_budget(
+            ReadBudget(READ_BUDGET),
+            f"season team: {feed_id}",
+            lambda: self._build(feed_id),
+        )
+
+    async def _build(self, feed_id: str) -> PastTeamFeed:
         match = _ID.fullmatch(feed_id)
         if match is None:
             raise TeamBuildError(f"{feed_id} is not a season and a team")
@@ -288,23 +221,43 @@ class SeasonTeamFeeds:
         if found is None:
             self._no_team.add((season, code))
             raise UnknownFeedError(feed_id)
-        info = await self._fetch_team_info(self._client, team, self._settings)
-        standings = await self._fetch_division_standings(
-            self._client, self._settings, season=season
+        standings, regular, playoffs = await asyncio.gather(
+            self._fetch_division_standings(self._client, self._settings, season=season),
+            self._fetch_season_schedule(
+                self._client,
+                team,
+                season,
+                self._settings,
+                playoffs=False,
+                by_id_first=True,
+            ),
+            self._fetch_season_schedule(
+                self._client,
+                team,
+                season,
+                self._settings,
+                playoffs=True,
+                by_id_first=True,
+            ),
         )
-        roster = await self._rosters.roster(team, season)
-        players = await self._fetch_season_averages(
-            self._client, PROVIDER_IDS[team], season, self._settings
+        self._store.set_past_game_dates(
+            {
+                game.game_id: eastern_date(game.start_time)
+                for game in (*regular.games, *playoffs.games)
+                if _played(game)
+            }
         )
-        regular = await self._fetch_season_schedule(
-            self._client, team, season, self._settings, playoffs=False, by_id_first=True
+        info = team_info.cached_team_info(self._client, team, self._settings)
+        identities = {**playoffs.teams, **regular.teams}
+        identities[team] = SeasonTeamName(
+            abbreviation=found.abbreviation, name=found.name, location=found.location
         )
-        playoffs = await self._fetch_season_schedule(
-            self._client, team, season, self._settings, playoffs=True, by_id_first=True
-        )
-        opponent_names = await self._names.season_names(
-            opponent_codes(regular, playoffs), season
-        )
+        runs = {
+            stored_code: stored
+            for stored_code in sorted(identities)
+            if (stored := self._names.stored(stored_code))
+        }
+        names = payload_names(identities, runs)
         return with_build_version(
             build_season_team_feed(
                 team,
@@ -312,13 +265,11 @@ class SeasonTeamFeeds:
                 found,
                 info,
                 standings,
-                roster,
-                SeasonLeaders(season=season, players=players),
                 regular,
                 playoffs,
                 self._names.stored(code),
-                opponent_names,
-                (await self._names.season_names([team], season)).get(team),
+                names,
+                names.get(team),
             )
         )
 

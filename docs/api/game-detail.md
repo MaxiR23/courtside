@@ -160,7 +160,9 @@ date is built first, and a game that day does not list as final answers 503
   and city; an unknown id is a guest. The marks are those of the day feed.
 - The `venue`, `boxScore`, `teamStats`, `leaders`, `winProbability`,
   `winProbabilityLeader` and `winProbabilityPeriods` come from one game detail
-  summary. The `leaders` follow the rule of ADR 0009. Each is null when the summary lacks it.
+  summary, the one read of the build, in a budget of 1
+  ([ADR 0059](../adr/0059-bounded-past-page-reads.md)). The `leaders` follow the
+  rule of ADR 0009. Each is null when the summary lacks it.
 - `seasonLabel` is set from the summary's season. A summary without a readable
   season fails the build.
 - `stars`, `injuries`, `lastGames`, `standings` and `seasonSeries` are null,
