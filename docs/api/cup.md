@@ -74,7 +74,11 @@ the [standings feed](standings.md), the [team feed](team.md) and the
 
 1. **Teams.** A team's name and city come from the 30 schedules, where every
    league team appears as an opponent. A team no schedule shows has a null name
-   and city.
+   and city. A name read from a team schedule is the team's name; when the
+   schedule sends none, it is the display name without the location and one
+   space it starts with, or the whole display name when it does not start with
+   them or nothing but spaces is left; with neither, the name is null. An empty
+   string counts as absent.
 2. **Games.** A Cup game is a schedule game whose note names a round. It is read
    from both teams' schedules and listed once, by game id: home is the team
    whose view is home. `status` is `final` when the game is completed, `live`
@@ -238,7 +242,7 @@ current season.
   flight at once, with no pause; a read past the budget, and a 429 or 503, fail
   the build with a logged reason and nothing stored. It must build as `complete`,
   or the build fails and nothing is stored. `detailAvailable` is false. The
-  league sides are named from the names the 30 schedules give the teams, with
+  league sides are named from the names the 30 schedules give the teams (read as in rule 1), with
   `seasonCode` and `historical` ([ADR 0054](../adr/0054-historical-sides-and-past-pages.md),
   [ADR 0058](../adr/0058-bounded-past-competition-reads.md)).
 - The two quarterfinals of a conference are placed by start time, then id (the

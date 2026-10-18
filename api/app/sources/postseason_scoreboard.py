@@ -224,7 +224,9 @@ def _schedule_game(event: _ScheduleEvent) -> PostseasonGame | None:
         name: to_opponent(
             side.team.abbreviation,
             side.team.id,
-            side.team.name,
+            team_schedule.side_name(
+                side.team.name, side.team.display_name, side.team.location
+            ),
             side.team.location,
             source=SOURCE,
             by_id_first=True,

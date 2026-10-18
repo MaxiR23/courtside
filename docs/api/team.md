@@ -182,7 +182,8 @@ code. The feed is a `TeamFeed` (the same schema as above) validated by
   - `leaders` and `roster` are null ([ADR 0059](../adr/0059-bounded-past-page-reads.md));
     a feed stored before keeps its roster and leaders until it is rebuilt.
   - `schedule` has the regular season and the playoffs, with `detailAvailable`
-    true for every final game and its opponents named from the schedule payloads
+    true for every final game and its opponents named from the schedule payloads (the name as the
+    [Cup feed](cup.md) rule 1 reads it from a schedule)
     with the season code of the stored franchise names. The dates of the final
     games are registered, with no read, so their detail can be built.
   - `names` are the franchise names, as above.

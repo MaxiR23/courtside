@@ -305,7 +305,8 @@ current season.
   object (20), the play-in window (1) and its scoreboard days (5, the window's Eastern dates, its end included) from 2021, the
   leaders (1), the awards (up to 26), the records of the two finalists (2) and the
   game details of the Finals games (7), the sides of games resolved by provider
-  id first. It reads no postseason window, no bracket scoreboard day, no team
+  id first and named as the [Cup feed](cup.md) rule 1 reads a name from a
+  schedule. It reads no postseason window, no bracket scoreboard day, no team
   info, no roster and no game detail outside the Finals. At most four reads are in
   flight at once, with no pause. A read past the budget, and a 429 or 503, fail
   the build with a logged reason and nothing stored.

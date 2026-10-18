@@ -16,6 +16,14 @@
 # A season schedule also carries the names its payload gives the league teams
 # (SeasonSchedule.teams, ADR 0058).
 #
+# A side's name is read by side_name, for every team schedule read, current and
+# past (the opponents, SeasonSchedule.teams and the past postseason schedule):
+# the team's name; when it sends none, its display name without the location
+# and one space it starts with (an exact, case-sensitive match), or the whole
+# display name when it does not start with them or nothing is left; with
+# neither, null. An empty string counts as absent. The short display name is
+# not used.
+#
 # SEE: docs/api/game-detail.md, api/app/sources/team_players.py
 
 import datetime as dt
@@ -66,6 +74,7 @@ class _ProviderTeam(_ProviderModel):
     abbreviation: str | None = None
     id: str | None = None
     name: str | None = None
+    display_name: str | None = None
     location: str | None = None
 
 
@@ -192,6 +201,24 @@ def _location(error: ValidationError) -> str:
     return ".".join(str(part) for part in error.errors()[0]["loc"])
 
 
+def side_name(
+    name: str | None, display_name: str | None, location: str | None
+) -> str | None:
+    """Return the name of a team schedule side: its name, else its display
+    name without the location and one space it starts with, else its whole
+    display name; null with neither. An empty string counts as absent."""
+    if name:
+        return name
+    if not display_name:
+        return None
+    prefix = f"{location} " if location else None
+    if prefix and display_name.startswith(prefix):
+        rest = display_name[len(prefix) :]
+        if rest.strip():
+            return rest
+    return display_name
+
+
 def _code_of(competitor: _ProviderCompetitor, by_id_first: bool) -> str | None:
     team = competitor.team
     if by_id_first and team.id in TEAM_IDS:
@@ -217,7 +244,7 @@ def _opponent_of(
     return to_opponent(
         team.abbreviation,
         team.id,
-        team.name,
+        side_name(team.name, team.display_name, team.location),
         team.location,
         source=SOURCE,
         by_id_first=by_id_first,
@@ -366,16 +393,17 @@ def _team_names(
         for competitor in event.competitions[0].competitors:
             team = competitor.team
             code = _code_of(competitor, by_id_first)
+            name = side_name(team.name, team.display_name, team.location)
             if (
                 code in LEAGUE_CODES
                 and code not in names
                 and team.abbreviation
-                and team.name
+                and name
                 and team.location
             ):
                 names[code] = {
                     "abbreviation": team.abbreviation,
-                    "name": team.name,
+                    "name": name,
                     "location": team.location,
                 }
     return names

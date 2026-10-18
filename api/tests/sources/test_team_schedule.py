@@ -26,12 +26,15 @@
 # - With by_id_first, a past season finds the team and each opponent's code by provider id when the abbreviations are historical, and without it the same response fails
 # - season_schedule_url builds the season and season type query and raises when the URL is not configured or the team code is unknown (ADR 0058)
 # - A season schedule holds the abbreviation, name and location its payload gives each league team, by provider id first, the first one seen (ADR 0058)
+# - side_name reads the name, else the display name without the location and one space, else the whole display name, else null; an empty name counts as absent
+# - A season schedule of a payload without name keys names its opponents and its league teams from the display name and the location
 #
 # What is covered:
 # - A valid response mapped, an invalid payload rejected, upstream failures handled
 #
 # The fixtures are a recorded schedule trimmed to the fields the adapter
-# reads: schedule.json keeps seven completed games, the four games of one
+# reads (det-2005-playoffs.json is one game with the team shape of a recent
+# schedule, no name key): schedule.json keeps seven completed games, the four games of one
 # season series among them, and schedule-preseason.json keeps two games not
 # yet played, without scores.
 #
@@ -59,6 +62,7 @@ from app.sources.team_schedule import (
     fetch_season_schedule,
     fetch_team_schedule,
     season_schedule_url,
+    side_name,
 )
 from app.storage.state import StateStore
 
@@ -859,3 +863,60 @@ async def test_a_team_without_a_location_is_not_named(
             )
 
     assert "MEM" not in schedule.teams and "OKC" in schedule.teams
+
+
+def test_side_name_prefers_the_name_key() -> None:
+    assert side_name("Gulls", "Detroit Pistons", "Detroit") == "Gulls"
+
+
+def test_side_name_drops_the_location_and_one_space_from_the_display_name() -> None:
+    assert side_name(None, "Detroit Pistons", "Detroit") == "Pistons"
+
+
+def test_side_name_uses_a_display_name_that_does_not_start_with_the_location_whole() -> (
+    None
+):
+    assert side_name(None, "LA Clippers", "Los Angeles") == "LA Clippers"
+    assert side_name(None, "detroit Pistons", "Detroit") == "detroit Pistons"
+    assert side_name(None, "DetroitPistons", "Detroit") == "DetroitPistons"
+    assert side_name(None, "Detroit Pistons", None) == "Detroit Pistons"
+    assert side_name(None, "Detroit Pistons", "") == "Detroit Pistons"
+    assert side_name(None, "Detroit  ", "Detroit") == "Detroit  "
+
+
+def test_side_name_treats_an_empty_name_as_absent() -> None:
+    assert side_name("", "Detroit Pistons", "Detroit") == "Pistons"
+
+
+def test_side_name_is_null_without_a_name_or_a_display_name() -> None:
+    assert side_name(None, None, "Detroit") is None
+    assert side_name("", "", "Detroit") is None
+
+
+@pytest.mark.anyio
+async def test_a_season_schedule_without_name_keys_names_its_sides_from_the_display_name(
+    mock: respx.MockRouter, query_settings: Settings
+) -> None:
+    mock.get(season_url("DET", 2005, 3)).respond(json=load("det-2005-playoffs.json"))
+
+    with TemporaryDirectory() as directory:
+        store = StateStore(Path(directory))
+        store.migrate()
+        async with create_client(store) as client:
+            schedule = await fetch_season_schedule(
+                client, "DET", 2005, query_settings, playoffs=True, by_id_first=True
+            )
+
+    (game,) = schedule.games
+    assert game.game_id == "250423008"
+    opponent = game.opponent
+    assert (opponent.code, opponent.name, opponent.city, opponent.guest) == (
+        "PHI",
+        "76ers",
+        "Philadelphia",
+        False,
+    )
+    assert {code: t.model_dump() for code, t in schedule.teams.items()} == {
+        "DET": {"abbreviation": "DET", "name": "Pistons", "location": "Detroit"},
+        "PHI": {"abbreviation": "PHI", "name": "76ers", "location": "Philadelphia"},
+    }
