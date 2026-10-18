@@ -21,6 +21,7 @@
 # - The kind: an invalid id answers unknown and a not ready season answers unavailable, with no source request
 # - The kind: detailAvailable is false; the cleanup keeps it
 # - The kind: a 2005 build whose schedules are read by the real adapter and send no name key builds the complete feed
+# - The kind: a 2005 build from schedules that carry no series object and empty notes (seasonType and winner flags only) reaches the complete state with the derived series, Finals line and champion
 # - schedule_teams, finals_games, series_winner and box_players
 # - The builder with no postseason window dates the postseason from the play-in window or the games
 #
@@ -108,6 +109,7 @@ from tests.jobs.test_playoffs_feed import (
     leaders_source,
     past_games,
     play_ins,
+    post,
     seed,
     series_games,
     standings,
@@ -366,7 +368,7 @@ def schedule_payload(games: list[PostseasonGame]) -> dict[str, Any]:
                 }
                 for place in ("home", "away")
             ],
-            "notes": [{"headline": item.note}] if item.note else [],
+            "notes": [{"headline": item.note or ""}],
             "broadcasts": (
                 [{"media": {"shortName": game.broadcast}}] if game.broadcast else []
             ),
@@ -383,13 +385,14 @@ def schedule_payload(games: list[PostseasonGame]) -> dict[str, Any]:
                     for code, wins in item.series.wins.items()
                 ],
             }
-        events.append(
-            {
-                "id": game.id,
-                "date": game.start_time.isoformat(),
-                "competitions": [competition],
-            }
-        )
+        event: dict[str, Any] = {
+            "id": game.id,
+            "date": game.start_time.isoformat(),
+            "competitions": [competition],
+        }
+        if item.season_type is not None:
+            event["seasonType"] = {"type": item.season_type}
+        events.append(event)
     return {"events": events}
 
 
@@ -458,6 +461,166 @@ async def test_a_2005_build_whose_schedules_send_no_name_key_builds_the_feed(
     assert feed.state is PlayoffsState.COMPLETE
     assert feed.champion is not None and str(feed.champion.team.code) == CHAMPION
     assert kit.called("schedule/") == 16
+    assert read_by_id(kit.path, KIND, "2005") is not None
+
+
+EAST_2005 = [
+    "ATL",
+    "BOS",
+    "BKN",
+    "CHA",
+    "CHI",
+    "CLE",
+    "DET",
+    "IND",
+    "MIA",
+    "MIL",
+    "NYK",
+    "ORL",
+    "PHI",
+    "TOR",
+    "WAS",
+]
+WEST_2005 = [
+    "DAL",
+    "DEN",
+    "GSW",
+    "HOU",
+    "LAC",
+    "LAL",
+    "MEM",
+    "MIN",
+    "NOP",
+    "OKC",
+    "PHX",
+    "POR",
+    "SAC",
+    "SAS",
+    "UTA",
+]
+SEEDS_2005 = {
+    EAST: ["MIA", "DET", "BOS", "CHI", "WAS", "IND", "PHI", "BKN"],
+    WEST: ["PHX", "SAS", "OKC", "DAL", "HOU", "SAC", "DEN", "MEM"],
+}
+
+
+def standings_2005() -> DivisionStandings:
+    """The 2004-05 standings: the conferences of today, seeds 1 to 8 as set."""
+    changes: dict[str, dict[str, Any]] = {}
+    for conference, codes in ((EAST, EAST_2005), (WEST, WEST_2005)):
+        seeded = SEEDS_2005[conference]
+        others = [code for code in codes if code not in seeded]
+        for place, code in enumerate(seeded + others, start=1):
+            changes[code] = {
+                "conference": conference,
+                "conference_order": place,
+                "playoff_seed": place if code in seeded else None,
+            }
+    return standings(season=2005, changes=changes)
+
+
+def games_2005() -> list[PostseasonGame]:
+    """The 15 series of 2005 as schedule games: season type 3, no competition
+    type, no series object, a note only on the Finals games. Each series lists
+    the higher seed, the lower seed, the winner and the loser's wins; the loser
+    wins first, the winner clinches last."""
+    rounds = {
+        1: [
+            ("MIA", "BKN", "MIA", 0),
+            ("CHI", "WAS", "WAS", 2),
+            ("BOS", "IND", "IND", 3),
+            ("DET", "PHI", "DET", 1),
+            ("PHX", "MEM", "PHX", 0),
+            ("DAL", "HOU", "DAL", 3),
+            ("OKC", "SAC", "OKC", 1),
+            ("SAS", "DEN", "SAS", 1),
+        ],
+        2: [
+            ("MIA", "WAS", "MIA", 0),
+            ("DET", "IND", "DET", 2),
+            ("PHX", "DAL", "PHX", 2),
+            ("SAS", "OKC", "SAS", 2),
+        ],
+        3: [("MIA", "DET", "DET", 3), ("PHX", "SAS", "SAS", 1)],
+        4: [("DET", "SAS", "SAS", 3)],
+    }
+    starts = {
+        1: dt.datetime(2005, 4, 23, 23, 0, tzinfo=dt.UTC),
+        2: dt.datetime(2005, 5, 7, 23, 0, tzinfo=dt.UTC),
+        3: dt.datetime(2005, 5, 22, 23, 0, tzinfo=dt.UTC),
+        4: dt.datetime(2005, 6, 9, 23, 0, tzinfo=dt.UTC),
+    }
+    games = []
+    for round_, series in rounds.items():
+        for high, low, winner, loser_wins in series:
+            loser = low if winner == high else high
+            results = [loser] * loser_wins + [winner] * 4
+            for number, won in enumerate(results, start=1):
+                home, away = (high, low) if number in (1, 2, 5, 7) else (low, high)
+                games.append(
+                    post(
+                        f"{high}-{low}-{number}",
+                        home,
+                        away,
+                        starts[round_] + (number - 1) * dt.timedelta(days=1),
+                        scores=(100, 90) if won == home else (90, 100),
+                        note="FINALS" if round_ == 4 else None,
+                    )
+                )
+    return games
+
+
+@pytest.mark.anyio
+async def test_a_2005_build_from_schedules_with_no_series_and_empty_notes_reaches_the_complete_state(
+    tmp_path: Path,
+) -> None:
+    kit = RealScheduleKit(tmp_path)
+    kit.standing = standings_2005()
+    kit.load(games_2005())
+
+    feed = PlayoffsFeed.model_validate_json(await kit.serve_season("2005"))
+
+    assert feed.state is PlayoffsState.COMPLETE and feed.play_in is None
+    assert kit.called("schedule/") == 16
+    bracket = {x.id: x for x in feed.bracket}
+    rounds = [x.round for x in feed.bracket]
+    assert [rounds.count(n) for n in (1, 2, 3, 4)] == [8, 4, 2, 1]
+    assert all(
+        x.top.team is not None and x.bottom.team is not None for x in bracket.values()
+    )
+    first_round = {
+        str(side.team.code)
+        for x in feed.bracket
+        if x.round == 1
+        for side in (x.top, x.bottom)
+        if side.team is not None
+    }
+    assert first_round == set(SEEDS_2005[EAST] + SEEDS_2005[WEST])
+    expected = {
+        "east-r1-1": "MIA",
+        "east-r1-2": "WAS",
+        "east-r1-3": "IND",
+        "east-r1-4": "DET",
+        "east-r2-1": "MIA",
+        "east-r2-2": "DET",
+        "east-r3": "DET",
+        "west-r1-1": "PHX",
+        "west-r1-2": "DAL",
+        "west-r1-3": "OKC",
+        "west-r1-4": "SAS",
+        "west-r2-1": "PHX",
+        "west-r2-2": "SAS",
+        "west-r3": "SAS",
+        "finals": "SAS",
+    }
+    assert {x.id.value: x.winner for x in feed.bracket} == expected
+    finals = bracket[SeriesId.FINALS]
+    assert (finals.top.team.code, finals.top.wins) == ("DET", 3)  # type: ignore[union-attr]
+    assert (finals.bottom.team.code, finals.bottom.wins) == ("SAS", 4)  # type: ignore[union-attr]
+    assert finals.summary == "SAS wins series 4-3"
+    assert feed.finals_game == 7 and feed.finals_summary == "SAS wins series 4-3"
+    assert feed.champion is not None and str(feed.champion.team.code) == "SAS"
+    assert (feed.champion.wins, feed.champion.losses) == (4, 3)
     assert read_by_id(kit.path, KIND, "2005") is not None
 
 

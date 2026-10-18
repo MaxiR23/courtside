@@ -6,6 +6,9 @@
 # built first when missing or stale, before the build takes one of the build slots. A build may find that
 # its id is unknown: it raises UnknownFeedError after the kind's check learns it, and the request answers unknown.
 #
+# A failed build or dependency is recorded with the error's own reason when it carries a non-empty one,
+# else with its type.
+#
 # SEE: docs/source-rules.md, docs/adr/0020-source-rules.md
 
 import asyncio
@@ -41,6 +44,15 @@ RETRY_AFTER = dt.timedelta(minutes=10)
 # franchise names, the past calendars and the stored past game players carry it too
 # (ADR 0055).
 SEASON_BUILD_VERSION = 3
+
+
+def failure_reason(error: Exception) -> str:
+    """The reason a failed build is recorded with: the error's own non-empty
+    string reason, else its type."""
+    reason = getattr(error, "reason", None)
+    if isinstance(reason, str) and reason:
+        return reason
+    return f"unexpected error: {type(error).__name__}"
 
 
 def with_build_version[M: BaseModel](feed: M) -> M:
@@ -311,7 +323,7 @@ class FeedCache:
                     kind.name,
                     feed_id,
                     self._clock(),
-                    f"unexpected error: {type(error).__name__}",
+                    failure_reason(error),
                 )
                 return False
         async with self._builds:
@@ -324,7 +336,7 @@ class FeedCache:
             except SourceError as error:
                 reason = error.reason
             except Exception as error:  # noqa: BLE001 - a failed build must never escape
-                reason = f"unexpected error: {type(error).__name__}"
+                reason = failure_reason(error)
             else:
                 if publish_by_id(self._data_dir, kind.name, kind.model, feed_id, feed):
                     self._store.record_build(kind.name, feed_id, started)

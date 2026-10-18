@@ -3,11 +3,11 @@
 # Tests for the playoffs feed builder and its feed kind.
 #
 # Tested:
-# - State: picture before the play-in window (in the preseason and in the regular season), playin on the first day of the window and after play-in games, playoffs once a round 1 game is live, finals once a Finals game is scheduled, complete once the Finals series object says completed
+# - State: picture before the play-in window (in the preseason and in the regular season), playin on the first day of the window and after play-in games, playoffs once a round 1 game is live, finals once a Finals game is scheduled, complete once a Finals team has four counted wins
 # - Stages: statuses (next play-in in picture, overlapping rounds, complete), first and last US Eastern dates, null dates with no game
 # - Current round: 1, 2 when round 1 is complete and round 2 not started, 3 during the conference finals, null outside the playoffs
 # - Finals game and summary: null before game 1, set after game 3
-# - Bracket: 15 series in order in every state; label parts of an undecided series; one side decided; round 1 placement by seed pair with the play-in winners as seeds 7 and 8; round 2, round 3 and Finals placement by feeder; wins, summary and status from the series object, never counted from the games; overtime from the period; a series lists only the games scheduled; a canceled game is not listed
+# - Bracket: 15 series in order in every state; label parts of an undecided series; one side decided; round 1 placement by seed pair with the play-in winners as seeds 7 and 8; round 2, round 3 and Finals placement by feeder; wins, summary and status counted from the final games (winner flag, else score), never from the series object; a series with no final game is upcoming with null wins and summary; a source series object that disagrees changes nothing; overtime from the period; a series lists only the games scheduled; a canceled game is not listed
 # - Bracket errors: a seed pair outside the table, a team outside its feeder, two series in one slot, an unknown competition type, a note without a game number, a conference mix, a team outside the league in a live or final game
 # - Placeholder side: a game neither live nor final with an undecided side (a guest or no code) is ignored in the play-in and in round 1, its slots keep the standings or label value
 # - Play-in: slots with places 7 to 10, games with date and time, outcomes (seed 7, loser out, seed 8), the 8th seed game takes the loser of 7th vs 8th and the winner of 9th vs 10th, the bracket seeds 7 and 8 fill once decided; fails on an unknown note and on two games of one kind
@@ -15,7 +15,7 @@
 # - Leaders: nine categories with five leaders and ranks, fewer leaders keep their ranks, a leader on no roster leaves a rank gap, a missing photo is null, null when the read failed or no category has a leader
 # - Awards: code order, team awards of up to five, an award with no winner on a roster is not in the feed, null when the read failed or none has a winner
 # - Picture: rows in conference order with games behind, no record, seed or clinch in the preseason
-# - Helpers: postseason_days, reads_days, group_series, finals_winner
+# - Helpers: postseason_days, reads_days, group_series, finals_winner (four counted wins, no series object), counted winner (flag over score, score without a flag)
 # - Errors: an invalid feed is wrapped in a build error
 # - Past season (past=True, ADR 0046): no play-in window gives a null play-in, seeds 1 to 8 from the standings, seed labels for 7 and 8 and the dates of the postseason window; derive_series (15 series in rounds 8-4-2-1, the Finals the only series across the conferences, and each failure with its reason); a postseason with no competition type builds through the derivation while a current one still fails; round 1 placed by the round 2 series with null seeds, failing on a conference without 2 round 2 series; game numbers by order when the note has none; play-in and game notes in any letter case
 # - The kind: an id other than league answers unknown with no build; not ready with no season or rosters; no build without a request; a request builds and stores and a second reads storage
@@ -46,6 +46,7 @@ import respx
 
 from app.feeds.game_detail import Conference
 from app.feeds.games import GameStatus, GameTeam, LineScore, Score
+from app.feeds.opponent import Side
 from app.feeds.playoffs import (
     AwardCode,
     LeaderCategory,
@@ -202,6 +203,7 @@ def post(
     note: str | None = None,
     period: int | None = 4,
     series: SeriesState | None = None,
+    winner: Side | None = None,
 ) -> PostseasonGame:
     in_play = status in (GameStatus.LIVE, GameStatus.FINAL)
     return PostseasonGame(
@@ -211,6 +213,7 @@ def post(
         note=note,
         period=period if in_play else None,
         series=series,
+        winner=winner,
     )
 
 
@@ -613,11 +616,11 @@ def test_the_finals_line_is_set_after_game_3() -> None:
 
     assert feed.state is PlayoffsState.FINALS
     assert feed.finals_game == 3
-    assert feed.finals_summary == f"{seed(EAST, 1)} 2-1 {seed(WEST, 1)}"
+    assert feed.finals_summary == f"{seed(EAST, 1)} leads series 2-1"
     assert feed.stages[4].status is PlayoffStageStatus.IN_PROGRESS
 
 
-def test_the_state_is_complete_once_the_finals_series_object_says_completed() -> None:
+def test_the_state_is_complete_once_a_finals_team_has_four_wins() -> None:
     feed = build(everything("TTBTT"))
 
     assert feed.state is PlayoffsState.COMPLETE
@@ -807,7 +810,7 @@ def test_a_decided_feeder_fills_the_next_series_side_before_it_has_games() -> No
     assert series[SeriesId.EAST_R2_2].top.wins is None
 
 
-def test_wins_summary_and_status_come_from_the_series_object_not_the_games() -> None:
+def test_wins_summary_and_status_come_from_the_games_not_the_series_object() -> None:
     games = play_ins() + series_games(
         seed(EAST, 1),
         seed(EAST, 8),
@@ -830,8 +833,8 @@ def test_wins_summary_and_status_come_from_the_series_object_not_the_games() -> 
 
     series = bracket(build(games))[SeriesId.EAST_R1_1]
 
-    assert (series.top.wins, series.bottom.wins) == (3, 3)
-    assert series.summary == "Series object text"
+    assert (series.top.wins, series.bottom.wins) == (2, 1)
+    assert series.summary == f"{seed(EAST, 1)} leads series 2-1"
     assert series.status is SeriesStatus.IN_PROGRESS
     assert series.winner is None
 
@@ -852,7 +855,7 @@ def test_a_series_with_4_games_scheduled_lists_4_and_keeps_its_summary() -> None
     assert series.summary == "Series tied 2-2"
 
 
-def test_a_not_started_series_has_wins_0_from_the_series_object_and_null_without_one() -> (
+def test_a_not_started_series_has_null_wins_and_summary_with_or_without_a_series_object() -> (
     None
 ):
     games = play_ins() + series_games(
@@ -871,7 +874,8 @@ def test_a_not_started_series_has_wins_0_from_the_series_object_and_null_without
     series = bracket(build(games + [plain]))
 
     started = series[SeriesId.EAST_R1_1]
-    assert (started.top.wins, started.bottom.wins) == (0, 0)
+    assert (started.top.wins, started.bottom.wins) == (None, None)
+    assert started.summary is None
     assert started.status is SeriesStatus.UPCOMING
     unseen = series[SeriesId.EAST_R1_2]
     assert (unseen.top.wins, unseen.bottom.wins) == (None, None)
@@ -1086,10 +1090,16 @@ def test_it_fails_on_a_team_missing_from_the_standings() -> None:
         build(play_ins(), standing=entries)
 
 
-def test_it_fails_on_a_complete_series_with_tied_wins() -> None:
+def test_a_series_object_that_says_completed_with_tied_wins_leaves_the_series_in_progress() -> (
+    None
+):
     games = series_games(seed(EAST, 1), seed(EAST, 8), 1, "TB", key="a", completed=True)
 
-    failing(play_ins() + games, "complete with tied wins")
+    series = bracket(build(play_ins() + games))[SeriesId.EAST_R1_1]
+
+    assert series.status is SeriesStatus.IN_PROGRESS
+    assert series.summary == "Series tied 1-1"
+    assert series.winner is None
 
 
 # Play-in
@@ -1255,7 +1265,10 @@ def test_the_point_differential_is_signed_with_the_minus_sign_when_negative() ->
                     update={
                         "score": Score(home=g.game.score.away, away=g.game.score.home)
                     }
-                )
+                ),
+                "winner": Side.HOME
+                if g.game.score.home > g.game.score.away
+                else Side.AWAY,
             }
         )
         if g.season_type == 3 and g.game.score is not None
@@ -2002,6 +2015,10 @@ def without_rounds(games: list[PostseasonGame]) -> list[PostseasonGame]:
     return [g.model_copy(update={"competition_type": None}) for g in games]
 
 
+def without_series(games: list[PostseasonGame]) -> list[PostseasonGame]:
+    return [g.model_copy(update={"series": None}) for g in games]
+
+
 def without_notes(games: list[PostseasonGame]) -> list[PostseasonGame]:
     return [g.model_copy(update={"note": None}) for g in games]
 
@@ -2192,3 +2209,118 @@ def test_postseason_days_skip_a_missing_play_in_window() -> None:
 
     assert days[0] == dt.date(2027, 4, 18)
     assert days[-1] == dt.date(2027, 6, 21)
+
+
+def test_a_series_with_four_counted_wins_is_complete_with_a_wins_series_summary() -> (
+    None
+):
+    games = without_series(play_ins() + round_one(EAST, "TBTTT"))
+
+    series = bracket(build(games))[SeriesId.EAST_R1_1]
+
+    assert series.status is SeriesStatus.COMPLETE
+    assert series.winner == seed(EAST, 1)
+    assert (series.top.wins, series.bottom.wins) == (4, 1)
+    assert series.summary == f"{seed(EAST, 1)} wins series 4-1"
+
+
+def test_a_series_in_progress_leads_or_is_tied_from_its_final_games() -> None:
+    top, bottom = seed(EAST, 1), seed(EAST, 8)
+    for results, summary in (
+        ("TTB", f"{top} leads series 2-1"),
+        ("BBT", f"{bottom} leads series 2-1"),
+        ("TB", "Series tied 1-1"),
+    ):
+        games = series_games(top, bottom, 1, results, key="east-r1-1")
+
+        series = bracket(build(without_series(play_ins() + games)))[SeriesId.EAST_R1_1]
+
+        assert series.status is SeriesStatus.IN_PROGRESS
+        assert series.summary == summary
+        assert series.top.wins is not None and series.bottom.wins is not None
+        assert series.winner is None
+
+
+def test_a_series_with_no_final_game_is_upcoming_with_null_wins_and_summary() -> None:
+    top, bottom = seed(EAST, 1), seed(EAST, 8)
+    scheduled = series_games(top, bottom, 1, "", key="east-r1-1", scheduled=1)
+
+    series = bracket(build(play_ins() + scheduled))[SeriesId.EAST_R1_1]
+
+    assert series.status is SeriesStatus.UPCOMING
+    assert (series.top.wins, series.bottom.wins) == (None, None)
+    assert series.summary is None
+
+    live = series_games(top, bottom, 1, "", key="east-r1-1", scheduled=1)
+    live[0] = live[0].model_copy(
+        update={"game": live[0].game.model_copy(update={"status": GameStatus.LIVE})}
+    )
+
+    feed = build(play_ins() + live)
+    series = bracket(feed)[SeriesId.EAST_R1_1]
+
+    assert feed.state is PlayoffsState.PLAYOFFS
+    assert series.status is SeriesStatus.UPCOMING
+    assert (series.top.wins, series.bottom.wins) == (None, None)
+    assert series.summary is None
+
+
+def test_a_source_series_object_that_disagrees_with_the_games_changes_nothing() -> None:
+    plain = without_series(everything("TT"))
+    disagreeing = [
+        g.model_copy(
+            update={
+                "series": SeriesState(
+                    summary="Example",
+                    completed=True,
+                    total_games=7,
+                    wins={seed(EAST, 1): 4, seed(WEST, 1): 0},
+                )
+            }
+        )
+        if g.competition_type == "FINAL"
+        else g
+        for g in plain
+    ]
+
+    feed = build(disagreeing)
+
+    assert feed == build(plain)
+    assert feed.state is PlayoffsState.FINALS
+    assert finals_winner(disagreeing) is None
+
+
+def test_the_winner_flag_counts_over_the_score_and_the_score_counts_without_a_flag() -> (
+    None
+):
+    top, bottom = seed(EAST, 1), seed(EAST, 8)
+    game = post(
+        "g1",
+        top,
+        bottom,
+        BASES[1],
+        competition="RD16",
+        note="East 1st Round - Game 1",
+        scores=(100, 90),
+    )
+
+    def wins(g: PostseasonGame) -> tuple[int | None, int | None]:
+        series = bracket(build(play_ins() + [g]))[SeriesId.EAST_R1_1]
+        return series.top.wins, series.bottom.wins
+
+    assert wins(game.model_copy(update={"winner": Side.AWAY})) == (0, 1)
+    assert wins(game) == (1, 0)
+
+
+def test_it_fails_on_a_series_where_both_teams_have_four_counted_wins() -> None:
+    top, bottom = seed(EAST, 1), seed(EAST, 8)
+    games = series_games(top, bottom, 1, "TTTTBBBB", key="east-r1-1")
+
+    failing(play_ins() + without_series(games), "complete with tied wins")
+
+
+def test_finals_winner_needs_four_counted_finals_wins_and_reads_no_series_object() -> (
+    None
+):
+    assert finals_winner(without_series(everything("TTBTT"))) == seed(EAST, 1)
+    assert finals_winner(without_series(everything("TT"))) is None
