@@ -63,6 +63,7 @@
 # - Marks backfill targets swept once and lists them per kind
 # - Rejects a naive oldest upload time for the sweep
 # - Migrates a database at version 7 with rows to the past games version keeping them
+# - Migrates a database at version 8 to the player identities version keeping the rows, stores, replaces and reads a player identity with its time, and reports none for an unknown player
 # - A registered date never overwrites stored players, storing players keeps the registered date, and a game with a date and no players has no players
 #
 # What is covered:
@@ -924,7 +925,7 @@ def test_migrating_a_database_at_the_previous_version_adds_the_all_star_editions
 
     store.migrate()
 
-    assert user_version(tmp_path) == len(real) == 8
+    assert user_version(tmp_path) == len(real) == 9
     assert [job.name for job in store.job_states()] == ["games"]
     assert store.feed_build("players", "a") is not None
     assert query(tmp_path, "SELECT COUNT(*) FROM all_star_editions") == [(0,)]
@@ -978,7 +979,7 @@ def test_migrating_a_database_at_the_all_star_editions_version_adds_the_all_star
 
     store.migrate()
 
-    assert user_version(tmp_path) == len(real) == 8
+    assert user_version(tmp_path) == len(real) == 9
     assert store.all_star_edition(2027) is not None
     assert query(tmp_path, "SELECT COUNT(*) FROM all_star_finals") == [(0,)]
 
@@ -1012,7 +1013,7 @@ def test_migrating_a_database_at_the_all_star_finals_version_adds_the_backfill_t
 
     store.migrate()
 
-    assert user_version(tmp_path) == len(real) == 8
+    assert user_version(tmp_path) == len(real) == 9
     assert store.all_star_edition(2027) is not None
     assert "g1" in store.highlights()
     for table in (
@@ -1113,7 +1114,7 @@ def test_migrating_a_database_at_version_7_adds_the_past_games_and_keeps_the_row
 
     store.migrate()
 
-    assert user_version(tmp_path) == len(real) == 8
+    assert user_version(tmp_path) == len(real) == 9
     assert store.all_star_edition(2027) is not None
     assert "g1" in store.highlights()
     assert query(tmp_path, "SELECT COUNT(*) FROM past_games") == [(0,)]
@@ -1149,3 +1150,44 @@ def test_a_game_with_a_date_and_no_players_has_no_players(tmp_path: Path) -> Non
     assert store.past_game_players("g1") is None
     assert store.past_game_players("unknown") is None
     assert store.past_game_date("unknown") is None
+
+
+def test_migrating_a_database_at_version_8_adds_the_player_identities_and_keeps_the_rows(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    real = state.MIGRATIONS
+    monkeypatch.setattr(state, "MIGRATIONS", real[:8])
+    store = make_store(tmp_path)
+    store.set_past_game_players("g1", dt.date(2005, 1, 2), '{"teams": {}}')
+    assert user_version(tmp_path) == 8
+    monkeypatch.setattr(state, "MIGRATIONS", real)
+
+    store.migrate()
+
+    assert user_version(tmp_path) == len(real) == 9
+    assert store.past_game_players("g1") == '{"teams": {}}'
+    assert query(tmp_path, "SELECT COUNT(*) FROM player_identities") == [(0,)]
+
+
+def test_a_player_identity_is_stored_replaced_and_read_with_its_time(
+    tmp_path: Path,
+) -> None:
+    store = make_store(tmp_path)
+    first = dt.datetime(2027, 1, 2, 3, 4, tzinfo=dt.UTC)
+    second = first + dt.timedelta(days=40)
+
+    store.set_player_identity("p1", '{"a": 1}', first)
+    stored = store.player_identity("p1")
+    store.set_player_identity("p1", '{"a": 2}', second)
+    replaced = store.player_identity("p1")
+
+    assert stored is not None and (stored.body, stored.read_at) == ('{"a": 1}', first)
+    assert replaced is not None
+    assert (replaced.body, replaced.read_at) == ('{"a": 2}', second)
+    assert query(tmp_path, "SELECT COUNT(*) FROM player_identities") == [(1,)]
+    with pytest.raises(ValueError, match="timezone aware"):
+        store.set_player_identity("p2", "{}", first.replace(tzinfo=None))
+
+
+def test_a_missing_player_identity_is_none(tmp_path: Path) -> None:
+    assert make_store(tmp_path).player_identity("nobody") is None

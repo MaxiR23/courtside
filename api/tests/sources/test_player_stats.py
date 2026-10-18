@@ -7,6 +7,7 @@
 # - Uses the combined row of a season played for two teams with the per-team codes in their order
 # - Requests the playoffs with the playoffs season type in the URL's query and keeps the template's own query
 # - Maps the recorded playoffs
+# - Maps a postseason career with one row per season
 # - Returns no rows on a 404
 # - Raises the source error on a row whose column count does not match the labels, a row without a team, an unknown team id and a malformed stat
 # - Raises the source error on an invalid payload, a timeout, an error status and a missing URL
@@ -338,3 +339,17 @@ async def test_a_current_read_sends_no_season(
     await fetch(settings)
 
     assert "season" not in route.calls.last.request.url.params
+
+
+@pytest.mark.anyio
+async def test_maps_a_postseason_career_with_one_row_per_season(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    mock.get(URL + "&seasontype=3").respond(json=load("playoffs-career.json"))
+
+    stats = await fetch(settings, playoffs=True)
+
+    assert [row.season for row in stats.per_game] == ["2002-03", "2004-05", "2006-07"]
+    row = stats.per_game[1]
+    assert (row.games_played, row.points) == (23, 24.0)
+    assert row.teams == ["DET"]

@@ -21,6 +21,7 @@ from app.jobs.on_demand import FeedCache
 from app.jobs.past_game_detail_feed import PastGameDetailFeeds
 from app.jobs.past_player_ids import PastPlayerIds
 from app.jobs.player_feed import PlayerFeeds
+from app.jobs.player_identities import PlayerIdentities
 from app.jobs.playoffs_backfill_games import playoffs_backfill_games
 from app.jobs.playoffs_feed import PlayoffsFeeds
 from app.jobs.playoffs_finals_feed import PlayoffsFinalsFeeds
@@ -168,6 +169,7 @@ def create_app(settings: Settings | None = None, *, run_jobs: bool = True) -> Fa
         season_cup_matchups = SeasonCupMatchupFeeds(
             settings, store, client, feed_cache, stars_job, season_cups
         )
+        player_identities = PlayerIdentities(settings, store, client)
         season_playoffs = SeasonPlayoffsFeeds(
             settings,
             store,
@@ -175,6 +177,7 @@ def create_app(settings: Settings | None = None, *, run_jobs: bool = True) -> Fa
             feed_cache,
             stars_job,
             team_names,
+            player_identities,
         )
         season_playoffs_finals = SeasonPlayoffsFinalsFeeds(
             settings,

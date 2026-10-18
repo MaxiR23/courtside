@@ -6,11 +6,12 @@
 # Tested:
 # - A complete past season builds, and the requests that reach the network are the expected list and at most the declared READ_BUDGET; a repeated game URL is one read
 # - Over budget, the build fails, the reason "read budget of N reached" is logged and recorded, nothing is stored and no request goes past the budget
-# - At most four requests are in flight in each build, and no build pauses
+# - At most four narrow requests are in flight in each build (and, in the playoffs build, at most eight identity reads), and no build pauses
 # - A 429 and a 503 stop the build with the reason "rate limited", logged and recorded, with nothing stored and no new request inside the retry window
-# - The Finals build after the playoffs build makes at most 11 reads, and the Cup matchup after the Cup 2
-# - The five budgets are 63, 11, 44, 2 and 60
-# - The worst-case playoffs build (20 schedules, 5 play-in days, 26 awards reads, a 7-game Finals) sends exactly READ_BUDGET reads, and one read fewer allowed fails with "read budget of N reached"
+# - The Finals build after the playoffs build makes at most 12 reads, and the Cup matchup after the Cup 2
+# - The five budgets are 63, 12, 44, 2 and 60
+# - The identity reads of the playoffs build reach eight in flight, and a rate limit on one stops the build with nothing stored (ADR 0061)
+# - The worst-case playoffs build (20 schedules, 5 play-in days, 26 awards reads, a 7-game Finals, 45 leader reads, the winner reads) sends exactly READ_BUDGET plus the leader reads plus one read per award winner, and one read fewer allowed fails with "read budget of N reached"
 #
 # What is covered:
 # - Job minimums for the five kinds: success publishes a valid feed, failure with nothing stored is unavailable
@@ -37,6 +38,7 @@ from typing import Any
 import pytest
 import respx
 
+from app.feeds.playoffs import AwardCode, LeaderCategory
 from app.jobs import (
     season_all_star_feed,
     season_cup_feed,
@@ -46,6 +48,8 @@ from app.jobs import (
 )
 from app.jobs.on_demand import RETRY_AFTER, FeedUnavailableError
 from app.sources.http import SourceClient, get_json
+from app.sources.postseason_leaders import LeaderEntry, PostseasonLeaders
+from app.sources.season_awards import SeasonAwards
 from app.storage.feeds import read_by_id
 from tests.jobs.past_season_source import (
     BASE,
@@ -55,11 +59,14 @@ from tests.jobs.past_season_source import (
     count_reads,
 )
 from tests.jobs.test_playoffs_feed import (
+    EAST,
+    award,
     both,
     finals,
     round_one,
     round_three,
     round_two,
+    seed,
 )
 from tests.jobs.test_season_all_star_feed import SeasonAllStarKit
 from tests.jobs.test_season_cup_feed import SeasonCupKit
@@ -123,7 +130,7 @@ CASES = [
     Case(
         "playoffs",
         SeasonPlayoffsKit,
-        lambda kit: [kit.season_playoffs],
+        lambda kit: [kit.season_playoffs, kit.identities],
         season_playoffs_feed,
         season_playoffs_feed.KIND,
         "2025",
@@ -140,6 +147,7 @@ CASES = [
             "season_awards": 1,
             "team_postseason_record": 2,
             "game": 5,
+            "player_athlete": 5,
         },
     ),
     Case(
@@ -149,7 +157,7 @@ CASES = [
         season_playoffs_finals_feed,
         season_playoffs_finals_feed.KIND,
         "2025",
-        11,
+        12,
         build_playoffs,
         serve_finals,
         "game",
@@ -157,6 +165,7 @@ CASES = [
             "game": 5,
             "team_postseason_record": 2,
             "team_postseason_stats": 2,
+            "player_stats": 1,
         },
     ),
     Case(
@@ -271,8 +280,9 @@ def run(
 
 
 def test_the_five_budgets_are_the_declared_ones() -> None:
-    assert [case.module.READ_BUDGET for case in CASES] == [63, 11, 44, 2, 60]
-    assert [case.budget for case in CASES] == [63, 11, 44, 2, 60]
+    assert [case.module.READ_BUDGET for case in CASES] == [63, 12, 44, 2, 60]
+    assert [case.budget for case in CASES] == [63, 12, 44, 2, 60]
+    assert season_playoffs_feed.LEADER_READS == 45
 
 
 @pytest.mark.anyio
@@ -332,9 +342,13 @@ async def test_at_most_four_requests_are_in_flight_and_the_build_never_pauses(
 
     await run.case.serve(run.kit)
 
-    assert run.recorder.peak <= 4
+    assert run.recorder.narrow_peak <= 4
     if run.case.name in ("playoffs", "cup"):
-        assert run.recorder.peak == 4
+        assert run.recorder.narrow_peak == 4
+    if run.case.name == "playoffs":
+        assert run.recorder.wide_peak <= 8
+    else:
+        assert run.recorder.wide_peak == 0
     assert not run.sleeps
 
 
@@ -369,7 +383,7 @@ async def test_a_rate_limit_stops_the_build_with_the_reason_logged_nothing_store
 
 
 @pytest.mark.anyio
-async def test_the_finals_build_after_the_playoffs_build_makes_at_most_11_reads(
+async def test_the_finals_build_after_the_playoffs_build_makes_at_most_12_reads(
     tmp_path: Path, router: respx.MockRouter, sleeps: list[float]
 ) -> None:
     run = make_run(CASES[1], tmp_path, router, sleeps)
@@ -379,8 +393,8 @@ async def test_the_finals_build_after_the_playoffs_build_makes_at_most_11_reads(
 
     await run.kit.serve_finals("2025")
 
-    assert playoffs_reads <= 63
-    assert 0 < run.recorder.count <= 11
+    assert playoffs_reads <= 63 + season_playoffs_feed.LEADER_READS + 1
+    assert 0 < run.recorder.count <= 12
 
 
 @pytest.mark.anyio
@@ -401,6 +415,45 @@ async def test_the_cup_matchup_after_the_cup_makes_at_most_2_reads(
 
 AWARD_DOCUMENTS = 25
 FINALS_GAMES = 7
+# The award winners of the worst case, all different from the leaders.
+WINNERS = 1 + 5 + 5
+
+
+def distinct_leaders() -> PostseasonLeaders:
+    """Nine categories of five leaders: 45 different players."""
+    return PostseasonLeaders(
+        categories={
+            category: [
+                LeaderEntry(
+                    player_id=str(100 + 5 * index + place),
+                    value="9.0",
+                    team_code=seed(EAST, 1),
+                )
+                for place in range(5)
+            ]
+            for index, category in enumerate(LeaderCategory)
+        }
+    )
+
+
+def distinct_awards() -> SeasonAwards:
+    return SeasonAwards(
+        awards=[
+            award(AwardCode.MVP, ["500"], team_code=seed(EAST, 1)),
+            award(
+                AwardCode.ALL_NBA,
+                [str(510 + n) for n in range(5)],
+                1,
+                team_code=seed(EAST, 1),
+            ),
+            award(
+                AwardCode.ALL_NBA,
+                [str(520 + n) for n in range(5)],
+                2,
+                team_code=seed(EAST, 1),
+            ),
+        ]
+    )
 
 
 async def worst_case_playoffs(
@@ -410,6 +463,8 @@ async def worst_case_playoffs(
     reads its index and 25 documents, and the Finals goes the distance."""
     kit = SeasonPlayoffsKit(path)
     kit.load(both(round_one) + both(round_two) + both(round_three) + finals("TTBBTBT"))
+    kit.leaders_source = distinct_leaders()
+    kit.awards_source = distinct_awards()
     recorder = ReadRecorder()
     recorder.install(router)
     client: SourceClient = kit.client
@@ -426,7 +481,7 @@ async def worst_case_playoffs(
         return await awards(*args, **kwargs)
 
     kit.season_playoffs._fetch_season_awards = with_documents
-    count_reads([kit.season_playoffs], client)
+    count_reads([kit.season_playoffs, kit.identities], client)
     return Run(CASES[0], kit, recorder, sleeps)
 
 
@@ -443,7 +498,11 @@ async def test_the_worst_case_playoffs_build_sends_exactly_the_budget(
     assert counts["season_awards"] + counts["award_documents"] == 26
     assert counts["game"] == FINALS_GAMES
     assert run.stored() is not None
-    assert run.recorder.count == season_playoffs_feed.READ_BUDGET
+    assert counts["player_athlete"] == season_playoffs_feed.LEADER_READS + WINNERS
+    assert run.recorder.wide_peak <= 8
+    assert run.recorder.count == (
+        season_playoffs_feed.READ_BUDGET + season_playoffs_feed.LEADER_READS + WINNERS
+    )
 
 
 @pytest.mark.anyio
@@ -460,6 +519,40 @@ async def test_the_worst_case_playoffs_build_with_one_read_fewer_fails_over_budg
     with pytest.raises(FeedUnavailableError):
         await run.case.serve(run.kit)
 
-    assert run.failure() == f"read budget of {limit} reached"
+    reached = limit + season_playoffs_feed.LEADER_READS + WINNERS
+    assert run.failure() == f"read budget of {reached} reached"
     assert run.stored() is None
-    assert run.recorder.count == limit
+    assert run.recorder.count == reached
+
+
+@pytest.mark.anyio
+async def test_the_identity_reads_reach_eight_in_flight(
+    tmp_path: Path, router: respx.MockRouter, sleeps: list[float]
+) -> None:
+    run = await worst_case_playoffs(tmp_path, router, sleeps)
+
+    await run.case.serve(run.kit)
+
+    assert run.recorder.wide_peak == 8
+    assert run.recorder.narrow_peak <= 4
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("status", [429, 503])
+async def test_a_rate_limit_on_an_identity_read_stops_the_playoffs_build_with_nothing_stored(
+    tmp_path: Path,
+    router: respx.MockRouter,
+    sleeps: list[float],
+    caplog: pytest.LogCaptureFixture,
+    status: int,
+) -> None:
+    run = make_run(CASES[0], tmp_path, router, sleeps)
+    run.recorder.limit_on = "player_athlete"
+    run.recorder.status = status
+
+    with caplog.at_level(logging.WARNING), pytest.raises(FeedUnavailableError):
+        await run.case.serve(run.kit)
+
+    assert "not built: rate limited" in caplog.text
+    assert run.failure() == "rate limited"
+    assert run.stored() is None

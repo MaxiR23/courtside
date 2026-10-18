@@ -43,6 +43,7 @@ RETRY_AFTER = dt.timedelta(minutes=10)
 # then stale, rebuilt on its next request, and served as stored until then. The
 # franchise names, the past calendars and the stored past game players carry it too
 # (ADR 0055).
+# A kind may carry its own version on top of it (ADR 0061).
 SEASON_BUILD_VERSION = 3
 
 
@@ -55,14 +56,14 @@ def failure_reason(error: Exception) -> str:
     return f"unexpected error: {type(error).__name__}"
 
 
-def with_build_version[M: BaseModel](feed: M) -> M:
+def with_build_version[M: BaseModel](feed: M, version: int = SEASON_BUILD_VERSION) -> M:
     """The season feed stamped with the current rules version."""
-    return feed.model_copy(update={"build_version": SEASON_BUILD_VERSION})
+    return feed.model_copy(update={"build_version": version})
 
 
-def is_current_build(feed: BaseModel) -> bool:
+def is_current_build(feed: BaseModel, version: int = SEASON_BUILD_VERSION) -> bool:
     """Whether a kept season feed was built by the current rules."""
-    return getattr(feed, "build_version", None) == SEASON_BUILD_VERSION
+    return getattr(feed, "build_version", None) == version
 
 
 class IdStatus(StrEnum):

@@ -31,7 +31,9 @@
 # the rows carry no record, seed or clinch. The champion is set when complete: the
 # Finals result, its dates, the postseason record from the record read and the
 # point differential over the champion's final postseason games. Leaders and
-# awards name players from the rosters; a player on no roster is left out.
+# awards name players from the rosters; a player on no roster is left out. A past
+# build names leaders and award winners from the player identities it is given
+# (ADR 0061).
 #
 # PlayoffsFeeds is the feed kind of the on-demand cache: the only id is "league",
 # the feed is stored at feeds/playoffs/league.json only when requested, and it
@@ -119,6 +121,7 @@ from app.sources import (
 from app.sources.division_standings import DivisionStandings
 from app.sources.game_detail import BoxScoreRosterEntry
 from app.sources.http import SourceClient, SourceError
+from app.sources.player_draft import PlayerAthlete
 from app.sources.postseason_leaders import PostseasonLeaders
 from app.sources.postseason_mark import (
     _PLAY_IN_KINDS_ANY_CASE,
@@ -156,6 +159,7 @@ FINALS_ROUND = 4
 STANDINGS_SEEDS = 6
 STANDINGS_SEEDS_NO_PLAY_IN = 8
 MAX_LEADERS = 5
+UNNAMED = "—"
 OVERTIME_PERIOD = 5
 
 FetchSeasonType = Callable[[SourceClient, int, int, Settings], Awaitable[SeasonWindow]]
@@ -194,6 +198,9 @@ class PlayoffsSources:
     awards: SeasonAwards | None
     champion_record: TeamPostseasonRecord | None
     past: bool = False
+    # Set only by a past build (ADR 0061): leaders and winners are named from it
+    # and never left out.
+    identities: Mapping[str, PlayerAthlete | None] | None = None
 
 
 def _feeders() -> dict[SeriesId, tuple[SeriesId, SeriesId]]:
@@ -1061,6 +1068,24 @@ class _Builder:
             for rank, entry in enumerate(
                 source.categories.get(category, [])[:MAX_LEADERS], start=1
             ):
+                identities = self.sources.identities
+                if identities is not None:
+                    athlete = identities.get(entry.player_id)
+                    leaders.append(
+                        {
+                            "rank": rank,
+                            "player_id": entry.player_id,
+                            "name": UNNAMED
+                            if athlete is None
+                            else player_name(athlete.entry),
+                            "photo_url": None
+                            if athlete is None
+                            else athlete.entry.headshot_url,
+                            "team_code": entry.team_code,
+                            "value": entry.value,
+                        }
+                    )
+                    continue
                 found = self.sources.players.get(entry.player_id)
                 if found is None:
                     continue
@@ -1089,6 +1114,22 @@ class _Builder:
         for award in source.awards:
             winners = []
             for winner in award.winners:
+                identities = self.sources.identities
+                if identities is not None:
+                    athlete = identities.get(winner.player_id)
+                    winners.append(
+                        {
+                            "player_id": winner.player_id,
+                            "name": UNNAMED
+                            if athlete is None
+                            else player_name(athlete.entry),
+                            "photo_url": None
+                            if athlete is None
+                            else athlete.entry.headshot_url,
+                            "team_code": winner.team_code,
+                        }
+                    )
+                    continue
                 found = self.sources.players.get(winner.player_id)
                 if found is None:
                     continue

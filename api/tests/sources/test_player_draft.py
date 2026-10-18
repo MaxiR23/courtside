@@ -8,6 +8,7 @@
 # - Raises the source error on a draft link without a team id, an unknown team id, a pick that is not positive, an invalid payload, a timeout, an error status and a missing URL
 # - Requests the URL built from the player id
 # - Reuses a draft for one hour
+# - fetch_player_athlete maps a retired 2005 athlete with a host-less headshot path
 # - fetch_player_athlete maps the active state and the identity with a null college, maps a retired athlete with active false, shares one request with the draft, and raises the source error on an invalid payload, an error status and a missing URL
 #
 # What is covered:
@@ -323,3 +324,17 @@ async def test_the_athlete_raises_the_source_error_on_an_error_status_and_a_miss
     with pytest.raises(SourceError) as missing:
         await athlete_of(unset)
     assert missing.value.reason == "player draft URL is not configured"
+
+
+@pytest.mark.anyio
+async def test_fetch_player_athlete_maps_a_retired_2005_athlete_with_a_host_less_headshot(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    mock.get(URL).respond(json=load("athlete-2005.json"))
+
+    athlete = await athlete_of(settings)
+
+    assert athlete.active is False
+    assert athlete.entry.display_name == "Cy Veteran"
+    assert athlete.entry.position_abbreviation == "F"
+    assert athlete.entry.headshot_url == "/headshots/2005-example.png"

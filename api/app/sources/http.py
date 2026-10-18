@@ -11,18 +11,21 @@
 # flight, a request past the limit is refused before it is sent, and a rate
 # limit stops the build. cached_json reads the source cache and sends nothing.
 #
+# A budget can grow while a build runs (ReadBudget.extend) and can give the
+# reads made inside wide_reads their own, wider in-flight limit (ADR 0061).
+#
 # get_json reads through the shared source cache (rule A). with_query adds
 # query values to a URL that may already have a query: adapters use it instead
 # of passing params.
 #
-# SEE: docs/architecture.md (Source adapters), docs/adr/0007-backend-runtime-and-data-pipeline.md, docs/source-rules.md, docs/adr/0020-source-rules.md, docs/adr/0056-paced-past-builds-and-one-edition-mvp-path.md, docs/adr/0058-bounded-past-competition-reads.md
+# SEE: docs/architecture.md (Source adapters), docs/adr/0007-backend-runtime-and-data-pipeline.md, docs/source-rules.md, docs/adr/0020-source-rules.md, docs/adr/0056-paced-past-builds-and-one-edition-mvp-path.md, docs/adr/0058-bounded-past-competition-reads.md, docs/adr/0061-past-playoffs-player-identities-and-finals-mvp-averages.md
 
 import asyncio
 import datetime as dt
 import json
 import logging
-from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
-from contextlib import asynccontextmanager
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterator, Mapping
+from contextlib import asynccontextmanager, contextmanager
 from contextvars import ContextVar
 
 import httpx
@@ -77,15 +80,22 @@ class ReadBudget:
     network; a cache hit is not one. Once a read is refused or rate limited,
     every later read of the build is refused too."""
 
-    def __init__(self, limit: int) -> None:
+    def __init__(self, limit: int, *, wide_in_flight: int | None = None) -> None:
         self.limit = limit
         self.reads = 0
         self.stopped: SourceError | None = None
         self._semaphore = asyncio.Semaphore(MAX_PAST_READS_IN_FLIGHT)
+        self._wide = (
+            asyncio.Semaphore(wide_in_flight) if wide_in_flight else self._semaphore
+        )
+
+    def extend(self, reads: int) -> None:
+        """More reads for the rest of the build; a stopped budget stays stopped."""
+        self.limit += reads
 
     @asynccontextmanager
-    async def slot(self, source: str) -> AsyncIterator[None]:
-        async with self._semaphore:
+    async def slot(self, source: str, *, wide: bool = False) -> AsyncIterator[None]:
+        async with self._wide if wide else self._semaphore:
             if self.stopped is not None:
                 raise self.stopped
             if self.reads >= self.limit:
@@ -109,6 +119,17 @@ class ReadBudget:
 
 
 _BUDGET: ContextVar[ReadBudget | None] = ContextVar("read_budget", default=None)
+_WIDE: ContextVar[bool] = ContextVar("wide_reads", default=False)
+
+
+@contextmanager
+def wide_reads() -> Iterator[None]:
+    """Reads started inside use the budget's wide lane."""
+    token = _WIDE.set(True)
+    try:
+        yield
+    finally:
+        _WIDE.reset(token)
 
 
 async def within_budget[T](
@@ -213,7 +234,7 @@ async def _fetch(
     if budget is None:
         response = await _get(client, key, source=source, headers=headers)
     else:
-        async with budget.slot(source):
+        async with budget.slot(source, wide=_WIDE.get()):
             response = await _get(client, key, source=source, headers=headers)
     try:
         body: object = response.json()

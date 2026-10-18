@@ -1,6 +1,6 @@
 # api/app/storage/state.py
 #
-# Job state in SQLite: game dates, final times and whether they were first seen, highlight attempts, failed stats attempts, matched highlights, team stars, discovered All-Star editions, the video of each edition and the time each All-Star game was first seen final, the date and box-score players of past games, the highlights backfill's resume point, the targets the running sweep reads for and swept targets, source cache entries, feed build times and failures and per-job outcomes.
+# Job state in SQLite: game dates, final times and whether they were first seen, highlight attempts, failed stats attempts, matched highlights, team stars, discovered All-Star editions, the video of each edition and the time each All-Star game was first seen final, the date and box-score players of past games, the player identity cache, the highlights backfill's resume point, the targets the running sweep reads for and swept targets, source cache entries, feed build times and failures and per-job outcomes.
 # Schema versioned with PRAGMA user_version; MIGRATIONS run once each on startup.
 # One connection per operation, so sync endpoints can use it from the threadpool.
 #
@@ -111,6 +111,13 @@ MIGRATIONS: tuple[Migration, ...] = (
             "game_id TEXT PRIMARY KEY, game_date TEXT NOT NULL, players TEXT)"
         ),
     ),
+    # The player identity cache of the past playoffs build (ADR 0061).
+    (
+        (
+            "CREATE TABLE player_identities (player_id TEXT PRIMARY KEY, "
+            "athlete TEXT NOT NULL, read_at TEXT NOT NULL)"
+        ),
+    ),
 )
 
 
@@ -153,6 +160,13 @@ class SourceEntry(FeedModel):
     url: NonEmptyStr
     body: str
     fetched_at: UtcDatetime
+
+
+class PlayerIdentityEntry(FeedModel):
+    """A stored player identity and when it was read. Never reaches a feed."""
+
+    body: str
+    read_at: UtcDatetime
 
 
 def _to_text(value: dt.datetime) -> str:
@@ -396,6 +410,31 @@ class StateStore:
         if fetched_at is None:
             raise ValueError("source cache entry has no fetch time")
         return SourceEntry(url=url, body=row[0], fetched_at=fetched_at)
+
+    def set_player_identity(
+        self, player_id: str, body: str, read_at: dt.datetime
+    ) -> None:
+        text = _to_text(read_at)
+        with self._connect() as connection, connection:
+            connection.execute(
+                "INSERT INTO player_identities (player_id, athlete, read_at) "
+                "VALUES (?, ?, ?) ON CONFLICT(player_id) DO UPDATE SET "
+                "athlete = excluded.athlete, read_at = excluded.read_at",
+                (player_id, body, text),
+            )
+
+    def player_identity(self, player_id: str) -> PlayerIdentityEntry | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT athlete, read_at FROM player_identities WHERE player_id = ?",
+                (player_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        read_at = _from_text(row[1])
+        if read_at is None:
+            raise ValueError("player identity has no read time")
+        return PlayerIdentityEntry(body=row[0], read_at=read_at)
 
     def record_build(self, kind: str, feed_id: str, at: dt.datetime) -> None:
         text = _to_text(at)
