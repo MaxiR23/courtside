@@ -2,8 +2,9 @@
 #
 # Standings feed of a past season (ADR 0043): the standings feed's shape, built
 # from the division standings of that season, with the state final and the
-# source's clinchers. Colors are today's, from team info, and null when a read
-# fails. past_season_status is the check the three season kinds share: a season
+# source's clinchers. Colors are today's, from the cached team info (no read),
+# and null without it. The build declares a read budget of READ_BUDGET source
+# read: the standings. past_season_status is the check the three season kinds share: a season
 # is four digits from 1994 to the season before the current one; the current
 # season and later are unknown, and the answer is not ready while the stars job
 # does not know the current season.
@@ -12,13 +13,12 @@
 # season's end year, the feed is stored at feeds/season-standings/{season}.json
 # only when requested. A feed is built once and kept (rule G): it is never
 # deleted, and rebuilt only when its build version is not the current one (ADR
-# 0053). Each row is named by that season's team object (city and name) with
-# today's code (ADR 0053).
+# 0053). Each row is named by the standings payload (city and name), with the
+# season code of the stored franchise names (ADR 0059).
 #
 # SEE: docs/api/standings.md, docs/adr/0043-season-feeds-and-franchise-names.md,
 # api/app/jobs/standings_feed.py
 
-import asyncio
 import datetime as dt
 import re
 from collections.abc import Awaitable, Callable, Mapping
@@ -34,16 +34,16 @@ from app.jobs.on_demand import (
 )
 from app.jobs.standings_feed import build_standings_feed
 from app.jobs.stars import StarsJob
-from app.jobs.team_feed import FetchInfo
-from app.jobs.team_names import SeasonIdentity, TeamNamesFeeds
+from app.jobs.team_names import SeasonIdentity, TeamNamesFeeds, payload_names
 from app.settings import Settings
 from app.sources import division_standings, team_info
 from app.sources.division_standings import DivisionStandings
-from app.sources.http import SourceClient, SourceError
-from app.sources.team_info import TeamInfo
+from app.sources.http import ReadBudget, SourceClient, within_budget
+from app.sources.teams import SeasonTeamName
 from app.storage.state import StateStore
 
 KIND = "season-standings"
+READ_BUDGET = 1
 _SEASON_ID = re.compile(r"[0-9]{4}")
 
 FetchSeasonStandings = Callable[..., Awaitable[DivisionStandings]]
@@ -100,7 +100,6 @@ class SeasonStandingsFeeds:
         fetch_division_standings: FetchSeasonStandings = (
             division_standings.fetch_division_standings
         ),
-        fetch_team_info: FetchInfo = team_info.fetch_team_info,
     ) -> None:
         self._settings = settings
         self._store = store
@@ -108,46 +107,42 @@ class SeasonStandingsFeeds:
         self._stars = stars
         self._names = names
         self._fetch_division_standings = fetch_division_standings
-        self._fetch_team_info = fetch_team_info
         cache.register(self.kind())
 
     def check(self, season: str) -> IdStatus:
         return past_season_status(season, self._stars.current_season())
 
-    async def _info(self, code: str) -> TeamInfo | None:
-        try:
-            return await self._fetch_team_info(self._client, code, self._settings)
-        except SourceError:
-            return None
-
     async def build(self, season: str) -> StandingsFeed:
+        return await within_budget(
+            ReadBudget(READ_BUDGET),
+            f"season standings: {season}",
+            lambda: self._build(season),
+        )
+
+    async def _build(self, season: str) -> StandingsFeed:
         standings = await self._fetch_division_standings(
             self._client, self._settings, season=int(season)
         )
-        codes = list(standings.teams)
-        infos = await asyncio.gather(*(self._info(code) for code in codes))
-        season_names = await self._names.season_names(codes, int(season))
-        named = standings.model_copy(
-            update={
-                "teams": {
-                    code: entry
-                    if code not in season_names
-                    else entry.model_copy(
-                        update={
-                            "name": season_names[code].name,
-                            "location": season_names[code].city,
-                        }
-                    )
-                    for code, entry in standings.teams.items()
-                }
-            }
-        )
+        infos = {
+            code: team_info.cached_team_info(self._client, code, self._settings)
+            for code in standings.teams
+        }
+        identities = {
+            code: SeasonTeamName(
+                abbreviation=entry.abbreviation,
+                name=entry.name,
+                location=entry.location,
+            )
+            for code, entry in standings.teams.items()
+            if entry.abbreviation
+        }
+        runs = {
+            code: found for code in identities if (found := self._names.stored(code))
+        }
         return with_build_version(
             _with_season_codes(
-                build_standings_feed(
-                    named, dict(zip(codes, infos, strict=True)), final=True
-                ),
-                season_names,
+                build_standings_feed(standings, infos, final=True),
+                payload_names(identities, runs),
             )
         )
 

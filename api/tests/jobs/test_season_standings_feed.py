@@ -8,9 +8,10 @@
 # - The kind: the feed is stored and rebuilt only for another version: a second request, a request years later and a new cache over the same data directory (a restart) all serve with no source call
 # - The kind: a failed build with nothing stored answers unavailable
 # - The kind: an invalid id answers unknown and a not ready season answers unavailable, with no source request
-# - The kind: a historical row carries the source's own abbreviation as its season code and an unchanged one the standard code (ADR 0055)
-# - The kind: the colors are today's and null when a team info read fails
-# - The kind: each row is named by that season's team object with today's code
+# - The kind: a historical row carries the payload's own abbreviation as its season code and an unchanged one the standard code, against the stored franchise names (ADR 0059)
+# - The kind: the colors come from the cached team info with no team info request, and are null without it
+# - The kind: each row is named from the standings payload, with no season team read
+# - The kind: the build declares a read budget of one read
 # - The kind: the built feed carries the current build version, a stored feed of an older or missing version is rebuilt on its next request, and one of the current version is served with no source request (ADR 0053)
 # - The kind: the cleanup keeps it
 #
@@ -24,6 +25,7 @@
 
 import asyncio
 import datetime as dt
+import json
 from pathlib import Path
 from typing import Any, cast
 
@@ -31,25 +33,29 @@ import pytest
 
 from app.feeds.game_detail import Conference
 from app.feeds.standings import Clinch, StandingsFeed, StandingsState
+from app.feeds.team import NameRun, TeamNames
 from app.jobs.on_demand import (
     SEASON_BUILD_VERSION,
     FeedCache,
     FeedUnavailableError,
     IdStatus,
     UnknownFeedError,
+    with_build_version,
 )
 from app.jobs.season_standings_feed import (
     KIND,
+    READ_BUDGET,
     SeasonStandingsFeeds,
     past_season_status,
 )
 from app.jobs.stars import StarsJob
+from app.jobs.team_names import KIND as NAMES_KIND
 from app.jobs.team_names import TeamNamesFeeds
 from app.settings import Settings
 from app.sources.division_standings import DivisionEntry, DivisionStandings
 from app.sources.http import SourceClient, SourceError, create_client
 from app.sources.season_team import SeasonTeam
-from app.sources.team_info import TeamInfo
+from app.sources.team_info import PROVIDER_CODES
 from app.storage.feeds import publish_by_id, read_by_id
 from app.storage.state import StateStore
 
@@ -105,28 +111,37 @@ def entry(
         "vs_division": "10-2",
         "vs_conference": "25-9",
         "clinch": None,
+        "abbreviation": "OLD",
     }
     return DivisionEntry.model_validate(values | changes)
 
 
-def past_standings(season: int = 1996) -> DivisionStandings:
+def past_standings(
+    season: int = 1996, changes: dict[str, dict[str, Any]] | None = None
+) -> DivisionStandings:
+    more = changes or {}
     entries = [
-        entry("AAA", Conference.EAST, 1, clinch=Clinch.DIVISION),
-        entry("BBB", Conference.EAST, 2, clinch=Clinch.PLAYOFFS, wins=30, losses=30),
-        entry("CCC", Conference.WEST, 1, clinch=Clinch.ELIMINATED),
+        entry("AAA", Conference.EAST, 1, clinch=Clinch.DIVISION, **more.get("AAA", {})),
+        entry(
+            "BBB",
+            Conference.EAST,
+            2,
+            clinch=Clinch.PLAYOFFS,
+            wins=30,
+            losses=30,
+            **more.get("BBB", {}),
+        ),
+        entry(
+            "CCC", Conference.WEST, 1, clinch=Clinch.ELIMINATED, **more.get("CCC", {})
+        ),
+        *(
+            [entry("OKC", Conference.WEST, 2, abbreviation="OKC")]
+            if "OKC" in more
+            else []
+        ),
     ]
     return DivisionStandings(
         season=season, fallback=False, teams={e.code: e for e in entries}
-    )
-
-
-def info() -> TeamInfo:
-    return TeamInfo(
-        location="Place",
-        name="Team",
-        color="007ac1",
-        alternate_color="ef3b24",
-        venue_name="Arena",
     )
 
 
@@ -144,21 +159,18 @@ class StandingsKit:
         self.clock = [NOW]
         self.store = StateStore(path)
         self.store.migrate()
-        self.settings = Settings(_env_file=None, data_dir=path)  # type: ignore[call-arg]
+        self.settings = Settings(  # type: ignore[call-arg]
+            _env_file=None,
+            data_dir=path,
+            team_info_url="https://example.com/teams/{team}/info",
+        )
         self.client = create_client(self.store, clock=lambda: self.clock[0])
         self.stars = FakeStars()
         self.seasons: list[int | None] = []
         self.calls: list[str] = []
-        self.info_codes: list[str] = []
         self.failing = False
-        self.failing_info: set[str] = set()
-        # The (name, city) of the season team object by code; the default is the
-        # name and city of the standings rows.
-        self.season_names: dict[str, tuple[str, str]] = {}
-        # The current season's team object by code, when it differs.
-        self.current_names: dict[str, tuple[str, str]] = {}
-        # The abbreviation of the season team object by code; the default is "OLD".
-        self.abbreviations: dict[str, str] = {}
+        # Changes to the standings entries by code.
+        self.changes: dict[str, dict[str, Any]] = {}
         self.start()
 
     def start(self) -> None:
@@ -180,21 +192,44 @@ class StandingsKit:
             cast(StarsJob, self.stars),
             self.names,
             fetch_division_standings=self.fetch_division_standings,
-            fetch_team_info=self.fetch_team_info,
         )
 
     async def fetch_season_team(
         self, client: SourceClient, code: str, season: int, settings: Settings
     ) -> SeasonTeam | None:
         self.calls.append(f"season-team/{code}/{season}")
-        names = self.current_names if season == 2027 else self.season_names
-        name, city = names.get(code, ("Team", code.title()))
         return SeasonTeam(
             team_id="1",
-            abbreviation=self.abbreviations.get(code, "OLD"),
-            display_name=f"{city} {name}",
-            name=name,
-            location=city,
+            abbreviation="OLD",
+            display_name="Place Team",
+            name="Team",
+            location="Place",
+        )
+
+    def publish_names(self, code: str, runs: list[NameRun]) -> None:
+        """Stores a fresh names list of the current build for a franchise."""
+        publish_by_id(
+            self.path,
+            NAMES_KIND,
+            TeamNames,
+            code.lower(),
+            with_build_version(TeamNames(runs=runs)),
+        )
+
+    def seed_team_info(self, code: str) -> None:
+        body = {
+            "team": {
+                "location": "Place",
+                "name": "Team",
+                "color": "007ac1",
+                "alternateColor": "ef3b24",
+                "franchise": {"venue": {"fullName": "Example Arena"}},
+            }
+        }
+        self.store.set_source_entry(
+            f"https://example.com/teams/{PROVIDER_CODES[code]}/info",
+            json.dumps(body),
+            NOW,
         )
 
     async def fetch_division_standings(
@@ -204,16 +239,7 @@ class StandingsKit:
         self.calls.append(f"standings/{season}")
         if self.failing:
             raise SourceError("test", "standings are down")
-        return past_standings(season or 0)
-
-    async def fetch_team_info(
-        self, client: SourceClient, code: str, settings: Settings
-    ) -> TeamInfo:
-        self.info_codes.append(code)
-        self.calls.append(f"info/{code}")
-        if code in self.failing_info:
-            raise SourceError("test", "team info is down")
-        return info()
+        return past_standings(season or 0, self.changes)
 
     async def settle(self) -> None:
         while self.cache.in_flight:
@@ -248,15 +274,22 @@ async def test_a_past_season_builds_a_valid_final_feed_with_the_season_and_the_c
     assert east["AAA"].clinch is Clinch.DIVISION
     assert east["BBB"].clinch is Clinch.PLAYOFFS
     assert feed.conferences[1].teams[0].clinch is Clinch.ELIMINATED
-    assert east["AAA"].colors.primary == "#007ac1"
     assert feed.build_version == SEASON_BUILD_VERSION
 
 
 @pytest.mark.anyio
-async def test_each_row_is_named_by_that_seasons_team_object_with_todays_code(
+async def test_each_row_is_named_from_the_standings_payload_with_no_season_team_read(
     kit: StandingsKit,
 ) -> None:
-    kit.season_names = {"AAA": ("Harbor Gulls", "Seattle")}
+    kit.changes = {"AAA": {"name": "Harbor Gulls", "location": "Seattle"}}
+    kit.publish_names(
+        "aaa",
+        [NameRun(from_=1994, to=None, name="Team", location="Aaa", code="AAA")],
+    )
+    kit.publish_names(
+        "bbb",
+        [NameRun(from_=1994, to=None, name="Team", location="Bbb", code="OLD")],
+    )
 
     feed = StandingsFeed.model_validate_json(await kit.serve("1996"))
 
@@ -271,16 +304,32 @@ async def test_each_row_is_named_by_that_seasons_team_object_with_todays_code(
     assert (east["BBB"].season_code, east["BBB"].historical) == ("OLD", False)
     divisional = {row.code: row for row in feed.divisions[0].teams}
     assert divisional["AAA"].historical is True
-    assert "season-team/AAA/1996" in kit.calls
+    assert kit.calls == ["standings/1996"]
 
 
 @pytest.mark.anyio
-async def test_a_historical_row_has_the_source_abbreviation_and_an_unchanged_one_the_standard_code(
+async def test_a_historical_row_has_the_payload_abbreviation_and_an_unchanged_one_the_standard_code(
     kit: StandingsKit,
 ) -> None:
-    kit.season_names = {"AAA": ("Delta Herons", "New Orleans")}
-    kit.current_names = {"AAA": ("River Kings", "New Orleans")}
-    kit.abbreviations = {"AAA": "NO", "BBB": "NO"}
+    kit.changes = {
+        "AAA": {
+            "abbreviation": "NO",
+            "name": "Delta Herons",
+            "location": "New Orleans",
+        },
+        "BBB": {
+            "abbreviation": "NO",
+            "name": "River Kings",
+            "location": "New Orleans",
+        },
+    }
+    today = [
+        NameRun(
+            from_=2005, to=None, name="River Kings", location="New Orleans", code="NOP"
+        )
+    ]
+    kit.publish_names("aaa", today)
+    kit.publish_names("bbb", today)
 
     feed = StandingsFeed.model_validate_json(await kit.serve("2005"))
 
@@ -290,16 +339,22 @@ async def test_a_historical_row_has_the_source_abbreviation_and_an_unchanged_one
 
 
 @pytest.mark.anyio
-async def test_the_colors_are_null_when_a_team_info_read_fails(
+async def test_the_colors_come_from_the_cached_team_info_and_are_null_without_it_with_no_info_read(
     kit: StandingsKit,
 ) -> None:
-    kit.failing_info = {"BBB"}
+    kit.changes = {"OKC": {}}
+    kit.seed_team_info("OKC")
 
     feed = StandingsFeed.model_validate_json(await kit.serve("1996"))
 
-    east = {row.code: row for row in feed.conferences[0].teams}
-    assert east["BBB"].colors.primary is None
-    assert east["AAA"].colors.primary == "#007ac1"
+    rows = {row.code: row for group in feed.conferences for row in group.teams}
+    assert rows["OKC"].colors.primary == "#007ac1"
+    assert rows["AAA"].colors.primary is None
+    assert not any(call.startswith("info/") for call in kit.calls)
+
+
+def test_the_build_declares_a_budget_of_one_read() -> None:
+    assert READ_BUDGET == 1
 
 
 @pytest.mark.anyio
@@ -337,7 +392,7 @@ async def test_an_invalid_id_answers_unknown_with_no_source_request(
     with pytest.raises(UnknownFeedError):
         await kit.cache.serve(KIND, season)
 
-    assert kit.seasons == [] and kit.info_codes == []
+    assert kit.seasons == [] and kit.calls == []
 
 
 @pytest.mark.anyio

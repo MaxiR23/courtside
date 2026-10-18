@@ -24,6 +24,7 @@
 # - Rejects a season label on the current feed; PastPlayerFeed requires it and rejects an injury, a next game or a live block
 # - Reads a stored feed without active and season label as active with no label
 # - The past player schema equals the player schema apart from its title
+# - A past player feed accepts null awards (ADR 0059); the current feed rejects them
 # - A feed with a build version is accepted, one with zero is rejected, and a stored feed without the field reads with a null version
 #
 # What is covered:
@@ -511,8 +512,11 @@ def test_accepts_an_award_with_a_code_and_a_team_number_and_rejects_a_team_above
 
     parsed = PlayerFeed.model_validate(player)
 
+    assert parsed.awards is not None
     assert (parsed.awards[0].code, parsed.awards[0].team) == ("all_nba", 3)
-    assert PlayerFeed.model_validate(valid_player()).awards[0].code is None
+    awards = PlayerFeed.model_validate(valid_player()).awards
+    assert awards is not None
+    assert awards[0].code is None
     player["awards"][0]["team"] = 4
     rejects(player)
 
@@ -716,6 +720,16 @@ def test_accepts_a_past_player_with_a_team_or_none() -> None:
     PastPlayerFeed.model_validate(
         {**past_player(), "team": {"code": "AAA", "name": "Name", "city": "City"}}
     )
+
+
+def test_a_past_feed_accepts_null_awards() -> None:
+    feed = PastPlayerFeed.model_validate({**past_player(), "awards": None})
+
+    assert feed.awards is None
+
+
+def test_a_current_feed_rejects_null_awards() -> None:
+    rejects({**valid_player(), "awards": None}, "current feed has awards")
 
 
 def test_rejects_a_past_player_without_a_season_label() -> None:

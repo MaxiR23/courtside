@@ -9,7 +9,8 @@
 # its game is skipped (ADR 0026). Only the events a season type references are
 # validated. A season read adds the season to the query, resolves opponents by
 # provider id first and reads no game log as an empty one (ADR 0043); each game
-# carries the provider id of the player's team.
+# carries the provider id of the player's team. A past read also carries the
+# names its payload gives the league teams (`teams`, ADR 0059).
 # The provider URL comes from Settings. Provider data never leaves this module.
 #
 # SEE: docs/api/player.md, api/app/sources/team_schedule.py
@@ -32,7 +33,14 @@ from app.feeds.games import FeedModel, NonEmptyStr, UtcDatetime
 from app.feeds.opponent import Opponent
 from app.settings import Settings
 from app.sources.http import SourceClient, SourceError, get_json, with_query
-from app.sources.teams import to_opponent
+from app.sources.teams import (
+    LEAGUE_CODES,
+    TEAM_CODES,
+    TEAM_IDS,
+    SeasonTeamName,
+    side_of,
+    to_opponent,
+)
 
 SOURCE = "player_gamelog"
 FRESH_FOR = dt.timedelta(hours=1)
@@ -141,6 +149,9 @@ class PlayerGameLog(FeedModel):
 
     season: Annotated[str, StringConstraints(pattern=r"^\d{4}-\d{2}$")] | None = None
     games: list[GameLogGame]
+    # The names the payload gives the opponents that are league teams, by standard
+    # code. Filled by a season read only (ADR 0059).
+    teams: dict[str, SeasonTeamName] = Field(default_factory=dict)
 
 
 def _location(error: ValidationError) -> str:
@@ -161,6 +172,30 @@ def _opponent(event: _ProviderEvent, by_id_first: bool) -> dict[str, Any] | None
         source=SOURCE,
         by_id_first=by_id_first,
     )
+
+
+def _note_team_name(event: _ProviderEvent, names: dict[str, SeasonTeamName]) -> None:
+    opponent = event.opponent
+    if opponent is None:
+        return
+    name = opponent.name or opponent.display_name
+    if opponent.id in TEAM_IDS:
+        code: str | None = TEAM_CODES[TEAM_IDS[opponent.id]]
+    else:
+        try:
+            code = side_of(opponent.abbreviation, opponent.id, source=SOURCE)[0]
+        except SourceError:
+            return
+    if (
+        code in LEAGUE_CODES
+        and code not in names
+        and opponent.abbreviation
+        and name
+        and opponent.location
+    ):
+        names[code] = SeasonTeamName(
+            abbreviation=opponent.abbreviation, name=name, location=opponent.location
+        )
 
 
 def _game(
@@ -245,6 +280,7 @@ async def fetch_player_gamelog(
     columns = {label: index for index, label in enumerate(provider.labels)}
     label: str | None = None
     games: list[dict[str, object]] = []
+    teams: dict[str, SeasonTeamName] = {}
     for season_type in provider.season_types:
         matched = _SEASON_TYPE.match(season_type.display_name)
         if matched is None:
@@ -269,8 +305,12 @@ async def fetch_player_gamelog(
                 )
                 if game is not None:
                     games.append(game)
+                    if season is not None:
+                        _note_team_name(event, teams)
     try:
-        return PlayerGameLog.model_validate({"season": label, "games": games})
+        return PlayerGameLog.model_validate(
+            {"season": label, "games": games, "teams": teams}
+        )
     except ValidationError as error:
         first = error.errors()[0]
         raise SourceError(

@@ -56,7 +56,7 @@ export interface PlayerFeed {
 	seasons: Seasons;
 	milestones: Milestones | null;
 	gameLog: GameLog | null;
-	awards: Award[];
+	awards: Award[] | null;
 	allStarYear: number | null;
 	active: boolean;
 	seasonLabel: string | null;

@@ -28,13 +28,13 @@ The root is one team.
 | `city`, `name` | string             | Identity                                                  | always                 |
 | `conference` | `Conference`         | `east` or `west`                                          | always                 |
 | `division`   | string               | Division name                                             | always                 |
-| `colors`     | `TeamColors`         | `primary`, `secondary`: hex values such as `#112233`      | always                 |
+| `colors`     | `TeamColors`         | `primary`, `secondary`: hex values such as `#112233`      | always; null on a past season when no team info is cached (ADR 0059) |
 | `arena`      | `Venue` / null       | `name`, `city` (null), `photoUrl` (null), as in the [game detail feed](game-detail.md) | null on a past season |
 | `coach`      | `Coach` / null       | `name`, `seasons`                                         | null when unknown      |
 | `season`     | season label         | Such as `2026-27`                                         | always                 |
 | `record`     | `TeamRecord`         | Record, splits, rank, playoff position and points         | always                 |
-| `leaders`    | `TeamLeaders`        | Points, rebounds and assists leaders                      | always                 |
-| `roster`     | `RosterPlayer[]`     | Ordered by number, unnumbered players last                | always, may be empty   |
+| `leaders`    | `TeamLeaders`        | Points, rebounds and assists leaders                      | always; null on a past season built from ADR 0059 on |
+| `roster`     | `RosterPlayer[]`     | Ordered by number, unnumbered players last                | always, may be empty; null on a past season built from ADR 0059 on |
 | `injuries`   | `TeamInjury[]` / null | Injury reports of the team                               | null on a past season; otherwise always, may be empty |
 | `nextGame`   | `NextGame` / null    | The next game, as in the [player feed](player.md)         | null when none         |
 | `schedule`   | `Schedule` / null    | Games grouped for display                                 | null when no data      |
@@ -175,22 +175,21 @@ code. The feed is a `TeamFeed` (the same schema as above) validated by
 - The season values:
   - `city` and `name` are the team's in that season, from the season team
     object, which answers for an inactive franchise too ([ADR 0053](../adr/0053-season-level-rules-for-past-seasons.md));
-    `colors` are today's.
+    `colors` are today's, from the team info the source cache already holds
+    (no request), and null when it holds none.
   - `record` is that season's standing. `playoff` is null before 2020-21, when
     the play-in began; `conferenceRank` still shows the place.
-  - `leaders` are that season's averages, with no previous-season fallback.
-  - `roster` is the players with a stat line in the box scores of the team's
-    final games of that season: `number` and `position` come from the newest
-    game that has a value, else they are null, every other field is null and the
-    `status` is `active`. A leader is one of these players, and its `position`
-    may be null. Each game is read once and kept (ADR 0053), one at a time
-    across builds with `SOURCE_BUILD_PAUSE_MS` between two requests; a 429 or 503
-    fails the build with the reason "rate limited" (ADR 0056).
+  - `leaders` and `roster` are null ([ADR 0059](../adr/0059-bounded-past-page-reads.md));
+    a feed stored before keeps its roster and leaders until it is rebuilt.
   - `schedule` has the regular season and the playoffs, with `detailAvailable`
-    true for every final game and its opponents named by that season's team
-    object. The games are registered so their detail can be built.
+    true for every final game and its opponents named from the schedule payloads
+    with the season code of the stored franchise names. The dates of the final
+    games are registered, with no read, so their detail can be built.
   - `names` are the franchise names, as above.
-- Null blocks: `arena`, `coach`, `injuries`, `nextGame`, `cup` and `titles`.
+- Null blocks: `arena`, `coach`, `injuries`, `nextGame`, `cup`, `titles`, `leaders`
+  and `roster`.
+- Reads: the season team object, the standings and the two schedules, in a
+  budget of 5 (ADR 0059); no box score, team info or season averages read.
 - Refresh: built on request, stored at `feeds/season-teams/{season}-{code}.json`,
   kept for good: never deleted, and rebuilt on its next request when its
   `buildVersion` is not the current one. The names are built first

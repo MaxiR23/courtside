@@ -1,6 +1,6 @@
 # 0056. Paced past builds and one edition MVP path
 
-- Status: Superseded by 0058 for the past playoffs and Finals reads only
+- Status: Superseded by 0058 for the past playoffs and Finals reads only, and by 0059 for the paced past team and player reads and `SOURCE_BUILD_PAUSE_MS` only
 - Date: 2026-10-17
 
 ## Context

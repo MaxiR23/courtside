@@ -26,6 +26,7 @@
 # - Skips with one log line by event id an All-Star event without a clock, with a league code, with a provider-key side without a city, with a note that is not an All-Star note or with an unknown status, and keeps the rest of the day
 # - Still raises the source error for an event with no competition
 # - The past-day path returns the day's season from leagues[0].season.year and raises the source error when it is missing or unreadable, and fetch_games ignores leagues
+# - The past-day path carries the names its payload gives the league teams, without a guest or a team lacking an abbreviation (ADR 0059); the current path carries none
 # - The past-day path maps a day with sides by team id first with the name and city of the event and an unknown id as a guest, skips a final event without a line score and one with an unknown status with one log line by event id in provider order, reads an upper-case postseason note as the title-case mark and a FINALS note as a Finals mark without a number, gives [] for a day with no event, raises the source error for an invalid payload, a timeout, an error status and a missing URL, and leaves fetch_games failing on the same bad event
 #
 # What is covered:
@@ -1188,6 +1189,52 @@ async def test_the_past_day_path_resolves_sides_by_id_first_and_skips_bad_events
     assert skipped[0].startswith("scoreboard: past event 7002 skipped: ")
     assert skipped[1].startswith("scoreboard: past event 7003 skipped: ")
     assert "unknown game status" in skipped[1]
+
+
+@pytest.mark.anyio
+async def test_a_past_day_carries_the_names_its_payload_gives_the_league_teams(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    mock.get(URL).respond(json=load("past-day.json"))
+
+    past = await fetch_past_day(settings)
+
+    assert sorted(past.teams) == ["CLE", "DEN", "LAL", "OKC", "ORL"]
+    assert past.teams["OKC"].model_dump() == {
+        "abbreviation": "OLD",
+        "name": "Pilots",
+        "location": "Harbor City",
+    }
+    assert past.teams["CLE"].abbreviation == "CLE"
+
+
+@pytest.mark.anyio
+async def test_a_past_day_leaves_out_a_guest_or_a_team_without_an_abbreviation(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("past-day.json")
+    by_id = {event["id"]: event for event in payload["events"] if event["id"] == "7004"}
+    for competitor in by_id["7004"]["competitions"][0]["competitors"]:
+        if competitor["team"]["id"] == "13":
+            del competitor["team"]["abbreviation"]
+    mock.get(URL).respond(json=payload)
+
+    past = await fetch_past_day(settings)
+
+    assert "LAL" not in past.teams
+    assert not any(code == "HBR" for code in past.teams)
+
+
+@pytest.mark.anyio
+async def test_a_current_read_carries_no_team_names(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    mock.get(URL).respond(json=load("day.json"))
+
+    games = await fetch(settings)
+
+    assert games
+    assert not hasattr(games[0], "teams")
 
 
 @pytest.mark.anyio

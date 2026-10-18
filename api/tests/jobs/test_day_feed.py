@@ -17,8 +17,9 @@
 # - The kind: a failed read with nothing stored answers unavailable, and a failed rebuild keeps the stored feed
 # - The kind: the stored highlight of a final game is added when served and not stored, and an All-Star game gets none
 # - The kind: the cleanup keeps every day
-# - The kind: a final day stored without the current build version is served, then rebuilt with season names; one of the current version is served as stored (ADR 0053)
-# - The kind: league sides are named by the day's season team object, a guest side keeps its name, and a failed season team read keeps the last valid feed with its season code and the historical flag (ADR 0053, ADR 0054)
+# - The kind: a final day stored without the current build version is served, then rebuilt with the payload names; one of the current version is served as stored (ADR 0053)
+# - The kind: league sides are named from the scoreboard payload with the season code of the stored franchise names, and a guest side keeps its name (ADR 0059)
+# - The kind: a day build sends one read and no season team read, and declares a budget of one read
 #
 # What is covered:
 # - Pure conversions: happy path, edges and errors; the built feed validates
@@ -48,9 +49,11 @@ from app.feeds.games import (
     StatsAvailability,
 )
 from app.feeds.opponent import Side
+from app.feeds.team import NameRun, TeamNames
 from app.jobs.day_feed import (
     FIRST_DAY,
     KIND,
+    READ_BUDGET,
     REBUILD_AFTER,
     DayBuildError,
     DayFeeds,
@@ -64,6 +67,7 @@ from app.jobs.on_demand import (
     FeedUnavailableError,
     IdStatus,
     UnknownFeedError,
+    with_build_version,
 )
 from app.jobs.stars import StarsJob
 from app.jobs.team_names import TeamNamesFeeds
@@ -71,6 +75,7 @@ from app.settings import Settings
 from app.sources.http import SourceClient, SourceError, create_client
 from app.sources.scoreboard import PastScoreboardDay, ScoreboardGame
 from app.sources.season_team import SeasonTeam
+from app.sources.teams import SeasonTeamName
 from app.storage.feeds import publish_by_id, publish_feed, read_by_id
 from app.storage.state import StateStore
 
@@ -232,14 +237,9 @@ class DayKit:
         self.failing = False
         self.days: dict[dt.date, list[ScoreboardGame]] = {}
         self.cache = FeedCache(path, self.store, clock=lambda: self.clock[0])
-        # The (name, city) of the season team object by code; the default is the
-        # name and city of the sides the tests draw, so a side is renamed only when
-        # a test says so.
-        self.season_names: dict[str, tuple[str, str]] = {}
-        # The (name, city) of the current season's team object by code.
-        self.current_names: dict[str, tuple[str, str]] = {}
+        # The names the scoreboard payload gives the league teams.
+        self.payload_names: dict[str, SeasonTeamName] = {}
         self.season_team_calls: list[tuple[str, int]] = []
-        self.season_team_failing = False
         self.names = TeamNamesFeeds(
             self.settings,
             self.store,
@@ -261,16 +261,12 @@ class DayKit:
         self, client: SourceClient, code: str, season: int, settings: Settings
     ) -> SeasonTeam | None:
         self.season_team_calls.append((code, season))
-        if self.season_team_failing:
-            raise SourceError("test", "season team is down")
-        names = self.current_names if season == 2027 else self.season_names
-        name, city = names.get(code, ("Name", "City"))
         return SeasonTeam(
             team_id="1",
             abbreviation=code,
-            display_name=f"{city} {name}",
-            name=name,
-            location=city,
+            display_name="City Name",
+            name="Name",
+            location="City",
         )
 
     async def fetch_past_day(
@@ -279,7 +275,11 @@ class DayKit:
         self.calls.append(day)
         if self.failing:
             raise SourceError("test", "scoreboard is down")
-        return PastScoreboardDay(season=1999, games=list(self.days.get(day, [])))
+        return PastScoreboardDay(
+            season=1999,
+            games=list(self.days.get(day, [])),
+            teams=self.payload_names,
+        )
 
     async def settle(self) -> None:
         while self.cache.in_flight:
@@ -436,11 +436,32 @@ async def test_the_cleanup_keeps_every_day(kit: DayKit) -> None:
     assert kit.days_kind.keep("1993-10-01") is True
 
 
+def run(name: str, city: str, code: str) -> NameRun:
+    return NameRun(from_=1994, to=None, name=name, location=city, code=code)
+
+
+def store_names(kit: DayKit, code: str, runs: list[NameRun]) -> None:
+    publish_by_id(
+        kit.path,
+        "team-names",
+        TeamNames,
+        code.lower(),
+        with_build_version(TeamNames(runs=runs)),
+    )
+
+
 @pytest.mark.anyio
-async def test_league_sides_are_named_by_the_days_season_team_object(
+async def test_league_sides_are_named_from_the_scoreboard_payload_with_the_season_code_of_the_stored_names(
     kit: DayKit,
 ) -> None:
-    kit.season_names = {"DEN": ("Harbor Gulls", "Seattle")}
+    kit.payload_names = {
+        "DEN": SeasonTeamName(
+            abbreviation="SEA", name="Harbor Gulls", location="Seattle"
+        ),
+        "OKC": SeasonTeamName(abbreviation="OKC", name="Name", location="City"),
+    }
+    store_names(kit, "den", [run("Name", "City", "DEN")])
+    store_names(kit, "okc", [run("Name", "City", "OKC")])
     kit.days[PAST] = [game("1", GameStatus.FINAL)]
 
     feed = DayFeed.model_validate_json(await kit.serve(PAST))
@@ -456,14 +477,22 @@ async def test_league_sides_are_named_by_the_days_season_team_object(
         "Name",
         "City",
     )
-    assert sorted(kit.season_team_calls) == [
-        ("DEN", 1999),
-        ("DEN", 2027),
-        ("OKC", 1999),
-        ("OKC", 2027),
-    ]
-    assert (built.away.season_code, built.away.historical) == ("DEN", True)
+    assert (built.away.season_code, built.away.historical) == ("SEA", True)
     assert (built.home.season_code, built.home.historical) == ("OKC", False)
+
+
+@pytest.mark.anyio
+async def test_a_day_build_sends_one_read_and_no_season_team_read(kit: DayKit) -> None:
+    kit.payload_names = {
+        "DEN": SeasonTeamName(abbreviation="DEN", name="Name", location="City")
+    }
+    kit.days[PAST] = [game("1", GameStatus.FINAL)]
+
+    await kit.serve(PAST)
+
+    assert kit.calls == [PAST]
+    assert kit.season_team_calls == []
+    assert READ_BUDGET == 1
 
 
 @pytest.mark.anyio
@@ -476,7 +505,11 @@ async def test_a_final_day_stored_without_the_build_version_is_served_then_rebui
         read_by_id(kit.path, KIND, PAST.isoformat()) or b""
     ).model_copy(update={"build_version": None})
     assert publish_by_id(kit.path, KIND, DayFeed, PAST.isoformat(), stale)
-    kit.season_names = {"DEN": ("Harbor Gulls", "Seattle")}
+    kit.payload_names = {
+        "DEN": SeasonTeamName(
+            abbreviation="DEN", name="Harbor Gulls", location="Seattle"
+        )
+    }
 
     served = DayFeed.model_validate_json(await kit.serve(PAST, NOW + YEAR))
 
@@ -512,22 +545,8 @@ async def test_a_guest_side_keeps_its_name(kit: DayKit) -> None:
 
     built = feed.day.games[0]
     assert (built.away.name, built.away.guest) == ("Guests", True)
-    assert [code for code, _ in kit.season_team_calls] == ["OKC", "OKC"]
+    assert kit.season_team_calls == []
     assert (built.away.season_code, built.away.historical) == (None, False)
-
-
-@pytest.mark.anyio
-async def test_a_failed_season_team_read_keeps_the_last_valid_feed(
-    kit: DayKit,
-) -> None:
-    kit.days[PAST] = [game("1", GameStatus.POSTPONED)]
-    first = await kit.serve(PAST)
-    kit.season_names = {"DEN": ("Harbor Gulls", "Seattle")}
-    kit.season_team_failing = True
-
-    body = await kit.serve(PAST, NOW + REBUILD_AFTER)
-
-    assert body == first
 
 
 def clip() -> Highlight:

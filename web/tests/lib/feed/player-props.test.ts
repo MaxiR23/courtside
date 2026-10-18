@@ -5,13 +5,14 @@
 // Tested:
 // - The header: line, status tag, injury card, hero stats (rank sub-line, null rank, null summary)
 // - The tabs in order and the mini name; sections without data leave with their tab
-// - The profile cells: formatting, sub-lines, a null draft, null fields leaving their cell
+// - The profile cells: formatting, sub-lines, a null draft (Undrafted on the current season, no cell on a past season), null fields leaving their cell
 // - The next game, the live card view, its null line and a live line value the feed has as null (ADR 0055)
 // - The last 5 rows: result, date, opponent, score, tag, points line and links
 // - The averages: season sub-lines, a null row, the Career accent, formatting
 // - Season by season: columns, combined teams, the Career row, playoffs, made–attempted
 // - The milestones, the game log filters and rows (with the opponent drawn after the date, and a Preseason filter listed last), the awards
 // - The opponent as a team and a side: the next game, the live card, the last 5 rows and the game log, for a league team and for a guest without a code
+// - Null awards leave the awards section and its tab out
 // - Award names written from the award code and team in the page language, in English and Spanish; an award with a null code keeps its name as sent
 // - The season code drawn on the career rows and the header team tag (ADR 0055), falling back to the team for a null entry and a null list
 // - Spanish copy
@@ -216,6 +217,9 @@ describe('toPlayerView tabs', () => {
 		const noAwards = feed();
 		noAwards.awards = [];
 		expect(ids(noAwards)).not.toContain('awards');
+		const nullAwards = feed();
+		nullAwards.awards = null;
+		expect(ids(nullAwards)).not.toContain('awards');
 		const noAverages = feed();
 		noAverages.averages = { regular: null, playoffs: null, career: null };
 		expect(ids(noAverages)).not.toContain('averages');
@@ -246,6 +250,23 @@ describe('toPlayerView profile', () => {
 		source.profile.draft = null;
 		const cell = view(source).sections.profile.cells.find((c) => c.label === 'Draft');
 		expect(cell).toEqual({ label: 'Draft', value: 'Undrafted', sub: null });
+	});
+
+	it('still shows Undrafted on the current season', () => {
+		const source = feed();
+		source.profile.draft = null;
+		const cell = toPlayerView(source, { past: false }).sections.profile.cells.find(
+			(c) => c.label === 'Draft'
+		);
+		expect(cell).toEqual({ label: 'Draft', value: 'Undrafted', sub: null });
+	});
+
+	it('hides the draft cell on a past season with a null draft', () => {
+		const source = pastFeed();
+		source.profile.draft = null;
+		const labels = toPlayerView(source, { past: true }).sections.profile.cells.map((c) => c.label);
+		expect(labels).not.toContain('Draft');
+		expect(labels).toContain('Seasons');
 	});
 
 	it('removes only the cell of a null field and keeps the order', () => {
@@ -577,6 +598,12 @@ describe('toPlayerView game log', () => {
 });
 
 describe('toPlayerView awards', () => {
+	it('has no awards section when awards are null', () => {
+		const source = pastFeed();
+		source.awards = null;
+		expect(toPlayerView(source, { past: true }).sections.awards).toBeNull();
+	});
+
 	it('shows the count, the name and the seasons joined', () => {
 		expect(view().sections.awards).toEqual([
 			{ count: '2×', name: 'NBA Most Valuable Player', seasons: '2024-25 · 2025-26' },
@@ -630,6 +657,16 @@ describe('toPlayerView retired, free agent and past season', () => {
 		expect(v.header.teamCode).toBe('Free agent');
 		expect(v.header.status).toEqual({ label: 'Active', injured: false });
 		expect(v.sections.profile.hideNext).toBe(true);
+	});
+
+	it('draws no team tag for an active player with no team on a past season', () => {
+		const v = toPlayerView({ ...pastFeed(), team: null, active: true }, { past: true });
+		expect(v.header.teamCode).toBeNull();
+	});
+
+	it('keeps Retired on a past season with no team and an inactive player', () => {
+		const v = toPlayerView({ ...pastFeed(), team: null, active: false }, { past: true });
+		expect(v.header.teamCode).toBe('Retired');
 	});
 
 	it('keeps the status tag and the next game on the current feed', () => {

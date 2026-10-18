@@ -5,6 +5,7 @@
 // Tested:
 // - Ready: every section in order, the tab ids matching the section ids, the h2 texts, the mini name
 // - A view with no milestones, game log or awards renders none of those sections or tabs
+// - A past view with null awards renders no awards section or tab
 // - The live card replaces the next game card while live is set
 // - "Season over." with no next game and no live
 // - Loading: aria-busy and the section skeleton
@@ -127,6 +128,35 @@ describe('PlayerPage ready', () => {
 		expect(screen.queryByRole('link', { name: 'Milestones' })).toBeNull();
 		expect(screen.queryByRole('link', { name: 'Game log' })).toBeNull();
 		expect(screen.queryByRole('link', { name: 'Awards' })).toBeNull();
+	});
+
+	it('renders no awards section or tab on a past season with null awards', () => {
+		const source = feed();
+		source.awards = null;
+		source.seasonLabel = '2025-26';
+		source.nextGame = null;
+		source.live = null;
+		source.injury = null;
+		const state: PlayerPageState = { kind: 'ready', view: toPlayerView(source, { past: true }) };
+		const { container } = show(state);
+		expect(container.querySelector('#awards')).toBeNull();
+		expect(screen.queryByRole('link', { name: 'Awards' })).toBeNull();
+	});
+
+	it('draws no team tag and no Free agent on a past season with a null team', () => {
+		const source = feed();
+		source.team = null;
+		source.active = true;
+		source.seasonLabel = '2025-26';
+		source.nextGame = null;
+		source.live = null;
+		source.injury = null;
+		const state: PlayerPageState = { kind: 'ready', view: toPlayerView(source, { past: true }) };
+		const { container } = show(state);
+		expect(screen.queryByText('Free agent')).toBeNull();
+		const tags = container.querySelector('.tags');
+		expect(tags?.textContent).not.toContain('OKC');
+		expect(tags?.children.length).toBe(1);
 	});
 
 	it('shows the next game card while the team is not live', () => {

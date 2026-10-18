@@ -118,12 +118,14 @@ models as the feed above. `{season}` is the end year of the season, from 1994 to
 the season before the current one.
 
 - The season values: `state` is `final` whatever the games played, `clinch` is
-  the source's own code, and `colors` are today's. The division standings are
-  read once with the season query value, with no rule L fallback, and each team
+  the source's own code, and `colors` are today's, from the cached team info
+  (no request), null without it. The division standings are the one read of the
+  build, in a budget of 1 ([ADR 0059](../adr/0059-bounded-past-page-reads.md)), with
+  the season query value and no rule L fallback, and each team
   is resolved by its provider id first, so a past abbreviation still gives the
   team's standard code. A response that is not of the requested regular season
-  fails the build. Each row's `city` and `name` are the season team object's,
-  with today's code ([ADR 0053](../adr/0053-season-level-rules-for-past-seasons.md)).
+  fails the build. Each row's `city` and `name` are the standings payload's, with the season
+  code of the stored franchise names ([ADR 0059](../adr/0059-bounded-past-page-reads.md)).
 - Refresh: built on request, stored at `feeds/season-standings/{season}.json`,
   kept for good (rule G of [`docs/source-rules.md`](../source-rules.md)): never
   deleted, and rebuilt on its next request when its `buildVersion` is not the

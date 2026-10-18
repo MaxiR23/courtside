@@ -12,6 +12,7 @@
 // - The footer in every state
 // - Links to the leader and roster player pages, with no nested interactive element
 // - The season select reaches the header in every state, and is absent without the prop
+// - A past view without a roster and leaders renders no such section or tab
 // - A past view hides Overview, Injuries and the roster status column; no-team shows "No team this season."
 // - The names timeline renders under the header with four runs and not with none
 //
@@ -209,6 +210,21 @@ describe('TeamPage past season', () => {
 			.map((a) => a.getAttribute('href'))
 			.filter((href) => href?.startsWith('#'));
 		expect(tabHrefs).toEqual(ids.map((id) => `#${id}`));
+	});
+
+	it('renders no leaders or roster section, nor their tabs, on a past season without them', () => {
+		const source: TeamFeed = { ...pastFeed(), roster: null, leaders: null, colors: null };
+		const state: TeamPageState = { kind: 'ready', view: toTeamView(source, { past: true }) };
+		const { container } = showWith(state);
+		const ids = [...container.querySelectorAll('.sections > section')].map((s) => s.id);
+		expect(ids).toEqual(['record', 'schedule']);
+		expect(container.querySelector('#leaders')).toBeNull();
+		expect(container.querySelector('#roster')).toBeNull();
+		const tabHrefs = screen
+			.getAllByRole('link')
+			.map((a) => a.getAttribute('href'))
+			.filter((href) => href?.startsWith('#'));
+		expect(tabHrefs).toEqual(['#record', '#schedule']);
 	});
 
 	it('renders the roster without the status column', () => {

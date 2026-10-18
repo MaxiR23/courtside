@@ -22,6 +22,7 @@
 // - The Cup mark: the header line, none for a null mark
 // - The titles: the header badges filled from the feed, none for null titles
 // - The position in the roster and in the leader and injury lines in Spanish: a name, a hyphenated name, an abbreviation as sent (ADR 0054)
+// - A past feed with a null roster, leaders and colors: no leaders or roster section or tab, no header strip; a current feed keeps them
 // - A past season (option past): the season tag, no Overview and Injuries tabs, past true; Spanish
 // - A historical past team shows its season code and has no strip; a past team that kept its name keeps its colors; a past schedule row shows the opponent's season code (ADR 0054)
 // - names: null with zero or one run; four runs as years, name, code and last season; current run "2015–"
@@ -362,7 +363,7 @@ describe('toTeamView leaders', () => {
 
 	it('skips a null leader', () => {
 		const source = feed();
-		source.leaders.rebounds = null;
+		source.leaders!.rebounds = null;
 		expect(view(source).sections.leaders?.cards.map((card) => card.label)).toEqual([
 			'Points',
 			'Assists'
@@ -399,7 +400,7 @@ describe('toTeamView roster', () => {
 
 	it('maps every injury status to a tone', () => {
 		const source = feed();
-		const base = source.roster[0]!;
+		const base = source.roster![0]!;
 		source.roster = (['doubtful', 'probable', 'day-to-day'] as const).map((status) => ({
 			...base,
 			status
@@ -632,6 +633,32 @@ describe('toTeamView past season', () => {
 		expect(v.tabs.map((tab) => tab.id)).toContain('injuries');
 	});
 
+	const withoutBlocks = (): TeamFeed => ({
+		...pastFeed(),
+		roster: null,
+		leaders: null,
+		colors: null,
+		historical: false
+	});
+
+	it('hides the leaders and the roster with their tabs on a past feed where they are null', () => {
+		const v = toTeamView(withoutBlocks(), { past: true });
+		expect(v.sections.leaders).toBeNull();
+		expect(v.sections.roster).toBeNull();
+		expect(v.tabs.map((tab) => tab.id)).toEqual(['record', 'schedule']);
+	});
+
+	it('draws no header strip for null colors', () => {
+		expect(toTeamView(withoutBlocks(), { past: true }).header.colors).toBeNull();
+	});
+
+	it('keeps the leaders and the roster of a current feed', () => {
+		const v = view();
+		expect(v.sections.leaders).not.toBeNull();
+		expect(v.sections.roster).not.toBeNull();
+		expect(v.tabs.map((tab) => tab.id)).toEqual(expect.arrayContaining(['leaders', 'roster']));
+	});
+
 	it('speaks Spanish', () => {
 		preferLanguages(['es']);
 		expect(toTeamView(pastFeed(), { past: true }).header.tag).toBe('Temporada 2004-05');
@@ -693,8 +720,8 @@ describe('toTeamView names', () => {
 describe('toTeamView position', () => {
 	const named = () => {
 		const source = feed();
-		source.roster[0]!.position = 'Guard';
-		source.roster[1]!.position = 'Forward-Center';
+		source.roster![0]!.position = 'Guard';
+		source.roster![1]!.position = 'Forward-Center';
 		return source;
 	};
 

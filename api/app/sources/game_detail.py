@@ -1055,7 +1055,7 @@ class BoxScoreRosterEntry(FeedModel):
     position_abbreviation: NonEmptyStr | None
     headshot_url: NonEmptyStr | None
     # Start of the newest final game of the season the player played for the
-    # team; set by SeasonRosters only, so stored GamePlayers bodies still validate.
+    # team; set by the past playoffs build only, so stored GamePlayers bodies still validate.
     last_played: dt.datetime | None = None
 
 

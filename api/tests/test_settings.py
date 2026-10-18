@@ -473,32 +473,6 @@ def test_rejects_a_highlights_backfill_pages_value_that_is_not_positive(
     assert f"input_value={value}" not in str(error.value)
 
 
-def test_defaults_the_source_build_pause_to_250_ms() -> None:
-    assert SettingsWithoutEnvFile().source_build_pause_ms == 250
-
-
-@pytest.mark.parametrize(("value", "expected"), [("0", 0), ("40", 40)])
-def test_reads_the_source_build_pause_from_an_environment_variable(
-    monkeypatch: pytest.MonkeyPatch, value: str, expected: int
-) -> None:
-    monkeypatch.setenv("SOURCE_BUILD_PAUSE_MS", value)
-
-    assert SettingsWithoutEnvFile().source_build_pause_ms == expected
-
-
-@pytest.mark.parametrize("value", ["-1", "many", "1.5"])
-def test_rejects_a_source_build_pause_that_is_not_a_non_negative_integer(
-    monkeypatch: pytest.MonkeyPatch, value: str
-) -> None:
-    monkeypatch.setenv("SOURCE_BUILD_PAUSE_MS", value)
-
-    with pytest.raises(ValidationError) as error:
-        SettingsWithoutEnvFile()
-
-    assert f"'{value}'" not in str(error.value)
-    assert f"input_value={value}" not in str(error.value)
-
-
 def test_defaults_the_daily_fetch_time_to_six_in_the_morning() -> None:
     assert SettingsWithoutEnvFile().daily_fetch_time == dt.time(6, 0)
 

@@ -276,13 +276,13 @@ class TeamFeed(FeedModel):
     name: NonEmptyStr
     conference: Conference
     division: NonEmptyStr
-    colors: TeamColors
+    colors: TeamColors | None
     arena: Venue | None
     coach: Coach | None = None
     season: SeasonLabel
     record: TeamRecord
-    leaders: TeamLeaders
-    roster: list[RosterPlayer]
+    leaders: TeamLeaders | None
+    roster: list[RosterPlayer] | None
     injuries: list[TeamInjury] | None
     next_game: NextGame | None = None
     schedule: Schedule | None = None
@@ -308,8 +308,16 @@ class TeamFeed(FeedModel):
 
     @model_validator(mode="after")
     def _require_the_blocks_of_the_current_season(self) -> TeamFeed:
-        if self.arena is None or self.injuries is None:
-            raise ValueError("the current season has an arena and injuries")
+        if (
+            self.arena is None
+            or self.injuries is None
+            or self.colors is None
+            or self.leaders is None
+            or self.roster is None
+        ):
+            raise ValueError(
+                "the current season has an arena, injuries, colors, leaders and a roster"
+            )
         return self
 
     @model_validator(mode="after")
@@ -325,7 +333,7 @@ class TeamFeed(FeedModel):
 
     @model_validator(mode="after")
     def _require_roster_by_number(self) -> TeamFeed:
-        keys = [_roster_order(player.number) for player in self.roster]
+        keys = [_roster_order(player.number) for player in self.roster or []]
         if any(later < earlier for earlier, later in pairwise(keys)):
             raise ValueError("roster must be ordered by number, unnumbered last")
         return self
@@ -357,7 +365,8 @@ class TeamFeed(FeedModel):
 
 
 # The team feed of a past season (ADR 0043): the team feed's shape, but no block
-# that describes today. The roster, record, leaders and schedule are the season's.
+# that describes today. The record and schedule are the season's; the roster and
+# leaders are null (ADR 0059) or, on a feed stored before, the season's.
 class PastTeamFeed(TeamFeed):
     @model_validator(mode="after")
     def _require_the_blocks_of_the_current_season(self) -> PastTeamFeed:

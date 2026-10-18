@@ -53,7 +53,7 @@
 			<div class="top">
 				<div class="text">
 					<div class="tags">
-						<StatusTag text={header.teamCode} />
+						{#if header.teamCode !== null}<StatusTag text={header.teamCode} />{/if}
 						{#if header.status}
 							<StatusTag text={header.status.label} accent={header.status.injured} />
 						{/if}

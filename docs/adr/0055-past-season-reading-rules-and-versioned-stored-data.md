@@ -1,6 +1,6 @@
 # 0055. Past season reading rules and versioned stored data
 
-- Status: Accepted
+- Status: Superseded by 0059 for the stored past game detail used in place of a past game players body only
 - Date: 2026-10-17
 
 ## Context

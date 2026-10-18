@@ -1143,6 +1143,7 @@ async def test_builds_a_valid_player_feed_from_the_recorded_payloads(
     assert feed.averages.playoffs is None
     assert feed.game_log is not None and len(feed.game_log.entries) == 11
     assert len(feed.last_games) == 5
+    assert feed.awards is not None
     assert [award.name for award in feed.awards][:2] == ["MVP", "All-NBA 1st Team"]
     assert feed.awards[0].count == 2
     assert [(a.code, a.team) for a in feed.awards][:2] == [
