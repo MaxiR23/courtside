@@ -1,0 +1,45 @@
+{
+  "events": [
+    {
+      "id": "250423008",
+      "date": "2005-04-23T17:00Z",
+      "competitions": [
+        {
+          "venue": { "fullName": "The Palace of Auburn Hills" },
+          "status": { "type": { "state": "post", "completed": true }, "period": 4 },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "winner": true,
+              "score": { "value": 106.0 },
+              "team": {
+                "id": "8",
+                "abbreviation": "DET",
+                "displayName": "Detroit Pistons",
+                "location": "Detroit",
+                "shortDisplayName": "Pistons",
+                "logos": [],
+                "links": []
+              }
+            },
+            {
+              "homeAway": "away",
+              "winner": false,
+              "score": { "value": 85.0 },
+              "team": {
+                "id": "20",
+                "abbreviation": "PHI",
+                "displayName": "Philadelphia 76ers",
+                "location": "Philadelphia",
+                "shortDisplayName": "76ers",
+                "logos": [],
+                "links": []
+              }
+            }
+          ],
+          "notes": [{ "headline": "East 1st Round - Game 1" }]
+        }
+      ]
+    }
+  ]
+}

@@ -20,6 +20,7 @@
 # - The kind: a season without seeds has null side seeds
 # - The kind: an invalid id answers unknown and a not ready season answers unavailable, with no source request
 # - The kind: detailAvailable is false; the cleanup keeps it
+# - The kind: a 2005 build whose schedules are read by the real adapter and send no name key builds the complete feed
 # - schedule_teams, finals_games, series_winner and box_players
 # - The builder with no postseason window dates the postseason from the play-in window or the games
 #
@@ -80,12 +81,17 @@ from app.sources.division_standings import DivisionStandings
 from app.sources.game_detail import BoxScoreRosterEntry, GamePlayers
 from app.sources.http import SourceClient, SourceError, create_client
 from app.sources.postseason_leaders import LeaderEntry, PostseasonLeaders
-from app.sources.postseason_scoreboard import PostseasonGame, SeriesState
+from app.sources.postseason_scoreboard import (
+    PostseasonGame,
+    SeriesState,
+    fetch_postseason_schedule,
+)
 from app.sources.season_awards import SeasonAwards
 from app.sources.season_types import SeasonWindow
 from app.sources.team_info import TeamInfo
 from app.sources.team_postseason import TeamPostseasonRecord
-from app.sources.teams import TEAM_CODES
+from app.sources.team_schedule import PROVIDER_CODES, season_schedule_url
+from app.sources.teams import PROVIDER_IDS, TEAM_CODES
 from app.storage.feeds import publish_by_id, read_by_id
 from app.storage.state import StateStore
 from tests.jobs.fake_season_teams import FakeSeasonTeams, league_sides
@@ -108,6 +114,10 @@ from tests.jobs.test_playoffs_feed import (
     without_rounds,
 )
 from tests.jobs.test_team_feed import info
+from tests.sources.test_postseason_scoreboard import (
+    SCHEDULE_FIXTURES,
+    SCHEDULE_TEMPLATE,
+)
 
 YEARS = dt.timedelta(days=365 * 5)
 CHAMPION = seed(EAST, 1)
@@ -297,6 +307,118 @@ class SeasonPlayoffsKit:
         return None if body is None else PlayoffsFeed.model_validate_json(body)
 
 
+def schedule_payload(games: list[PostseasonGame]) -> dict[str, Any]:
+    """The provider payload of a team schedule for these games, each side in the
+    team shape of a recorded schedule: no name key, a display name and a
+    location."""
+    recorded = json.loads(
+        (SCHEDULE_FIXTURES / "det-2005-playoffs.json").read_text(encoding="utf-8")
+    )
+    shape = recorded["events"][0]["competitions"][0]["competitors"][0]["team"]
+    assert set(shape) == {
+        "id",
+        "abbreviation",
+        "displayName",
+        "location",
+        "shortDisplayName",
+        "logos",
+        "links",
+    }
+
+    def team(side: Any) -> dict[str, Any]:
+        return {
+            **shape,
+            "id": PROVIDER_IDS[side.code],
+            "abbreviation": PROVIDER_CODES.get(side.code, side.code),
+            "displayName": f"{side.city} {side.name}",
+            "location": side.city,
+            "shortDisplayName": side.name,
+            "logos": [],
+            "links": [],
+        }
+
+    events = []
+    for item in games:
+        game = item.game
+        final = game.status.value == "final"
+        competition: dict[str, Any] = {
+            "venue": {"fullName": game.venue},
+            "status": {
+                "type": {
+                    "state": "post" if final else "pre",
+                    "completed": final,
+                },
+                "period": item.period or 0,
+            },
+            "competitors": [
+                {
+                    "homeAway": place,
+                    "winner": final
+                    and game.score is not None
+                    and getattr(game.score, place)
+                    > getattr(game.score, "away" if place == "home" else "home"),
+                    **(
+                        {"score": {"value": float(getattr(game.score, place))}}
+                        if final and game.score is not None
+                        else {}
+                    ),
+                    "team": team(getattr(game, place)),
+                }
+                for place in ("home", "away")
+            ],
+            "notes": [{"headline": item.note}] if item.note else [],
+            "broadcasts": (
+                [{"media": {"shortName": game.broadcast}}] if game.broadcast else []
+            ),
+        }
+        if item.competition_type:
+            competition["type"] = {"abbreviation": item.competition_type}
+        if item.series is not None:
+            competition["series"] = {
+                "summary": item.series.summary,
+                "completed": item.series.completed,
+                "totalCompetitions": item.series.total_games,
+                "competitors": [
+                    {"id": PROVIDER_IDS[code], "wins": wins}
+                    for code, wins in item.series.wins.items()
+                ],
+            }
+        events.append(
+            {
+                "id": game.id,
+                "date": game.start_time.isoformat(),
+                "competitions": [competition],
+            }
+        )
+    return {"events": events}
+
+
+class RealScheduleKit(SeasonPlayoffsKit):
+    """The season playoffs kit whose postseason schedules go through the real
+    adapter, over payloads in the team shape of a recorded schedule."""
+
+    def __init__(self, path: Path) -> None:
+        super().__init__(path)
+        self.settings = self.settings.model_copy(
+            update={"team_schedule_url": SCHEDULE_TEMPLATE}
+        )
+        self.start()
+
+    async def fetch_postseason_schedule(
+        self, client: SourceClient, code: str, season: int, settings: Settings
+    ) -> list[PostseasonGame]:
+        self.read(f"schedule/{code}/{season}")
+        games = [
+            g
+            for g in self.games
+            if g.season_type == 3 and code in (g.game.home.code, g.game.away.code)
+        ]
+        respx.get(season_schedule_url(code, season, settings, playoffs=True)).respond(
+            json=schedule_payload(games)
+        )
+        return await fetch_postseason_schedule(client, code, season, settings)
+
+
 def named_standings(season: int, **changes: Any) -> DivisionStandings:
     """Standings whose payload names every team "Harbor Gulls" of "Seattle" with
     the provider abbreviation SEA."""
@@ -323,6 +445,20 @@ def no_network() -> Iterator[None]:
 @pytest.fixture
 def kit(tmp_path: Path) -> SeasonPlayoffsKit:
     return SeasonPlayoffsKit(tmp_path)
+
+
+@pytest.mark.anyio
+async def test_a_2005_build_whose_schedules_send_no_name_key_builds_the_feed(
+    tmp_path: Path,
+) -> None:
+    kit = RealScheduleKit(tmp_path)
+
+    feed = PlayoffsFeed.model_validate_json(await kit.serve_season("2005"))
+
+    assert feed.state is PlayoffsState.COMPLETE
+    assert feed.champion is not None and str(feed.champion.team.code) == CHAMPION
+    assert kit.called("schedule/") == 16
+    assert read_by_id(kit.path, KIND, "2005") is not None
 
 
 @pytest.mark.parametrize(

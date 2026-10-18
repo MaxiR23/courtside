@@ -11,6 +11,7 @@
 # - With by_id_first a side whose abbreviation names another franchise maps to the code of its provider id; without it the abbreviation wins
 # - fetch_postseason_schedule maps a team's postseason schedule: a final game with its competition type, series, note, period, score, arena and broadcast, with no line score, and a scheduled game; both resolve their sides by provider id (ADR 0058)
 # - fetch_postseason_schedule skips a game with a side that has neither a code nor a name, rejects an in-play game, a final game without a score and an invalid payload, and raises on an error status, an unknown team code and a missing URL
+# - fetch_postseason_schedule names the sides of a payload without name keys from the display name and the location, and codes them from the provider id whatever the abbreviation
 # - ScheduleGame does not require a line score of a final game, and still requires a score
 #
 # What is covered:
@@ -44,6 +45,7 @@ from app.sources.postseason_scoreboard import (
     fetch_postseason_schedule,
 )
 from app.sources.scoreboard import fetch_games
+from app.sources.team_schedule import season_schedule_url
 from app.storage.state import StateStore
 
 FIXTURES = Path(__file__).parent / "fixtures" / "scoreboard"
@@ -389,6 +391,48 @@ async def test_raises_the_source_error_on_an_invalid_schedule_payload_an_error_s
     unset = Settings(_env_file=None)  # type: ignore[call-arg]
     with pytest.raises(SourceError, match="team schedule URL is not configured"):
         await fetch_schedule(unset)
+
+
+@pytest.mark.anyio
+async def test_a_postseason_schedule_without_name_keys_names_its_sides_from_the_display_name(
+    mock: respx.MockRouter, schedule_settings: Settings
+) -> None:
+    payload: Payload = json.loads(
+        (SCHEDULE_FIXTURES / "det-2005-playoffs.json").read_text(encoding="utf-8")
+    )
+    url = season_schedule_url("DET", 2005, schedule_settings, playoffs=True)
+
+    async def read(body: Payload) -> list[PostseasonGame]:
+        mock.get(url).respond(json=body)
+        with TemporaryDirectory() as directory:
+            store = StateStore(Path(directory))
+            store.migrate()
+            async with create_client(store) as client:
+                return await fetch_postseason_schedule(
+                    client, "DET", 2005, schedule_settings
+                )
+
+    (item,) = await read(payload)
+    game = item.game
+    assert game.id == "250423008"
+    assert (game.home.code, game.home.name, game.home.city, game.home.guest) == (
+        "DET",
+        "Pistons",
+        "Detroit",
+        False,
+    )
+    assert (game.away.code, game.away.name, game.away.city, game.away.guest) == (
+        "PHI",
+        "76ers",
+        "Philadelphia",
+        False,
+    )
+
+    competitors = payload["events"][0]["competitions"][0]["competitors"]
+    competitors[0]["team"]["abbreviation"] = "SEA"
+    competitors[1]["team"]["abbreviation"] = "VAN"
+    (renamed,) = await read(payload)
+    assert (renamed.game.home.code, renamed.game.away.code) == ("DET", "PHI")
 
 
 def test_a_schedule_game_does_not_require_a_line_score_but_still_requires_a_score() -> (
