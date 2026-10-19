@@ -37,7 +37,7 @@ from their names, so a day of this feed is valid against the games feed's
 - **Stars**: null on both sides. The games feed's rule "null exactly on a
   guest side" applies to the games feed only.
 - **Highlights**: the stored highlight of a final game, added when served
-  and never stored ([ADR 0048](../adr/0048-highlights-backfill-and-edition-video.md)); empty otherwise and on an All-Star game.
+  and never stored ([ADR 0048](../adr/0048-highlights-backfill-and-edition-video.md), [ADR 0065](../adr/0065-background-work-limited-to-games-highlights-and-stars.md)); empty otherwise and on an All-Star game.
   `highlightsSearchUrl` is set on a final game, as in the games feed.
 - **Stats**: on a final game `statsAvailability` is `available` and `leaders`
   and `teamStats` are null: they are read from its game detail
@@ -65,8 +65,8 @@ from their names, so a day of this feed is valid against the games feed's
 - A failed build keeps the stored feed and is listed under `feeds` in
   `/health`; it is not retried for 10 minutes on request.
 - The feed is deleted when not served in 90 days and rebuilt on its next request ([ADR 0063](../adr/0063-bounded-state-and-kept-feeds.md)), and its games never enter the games job, the hero,
-  the highlights job or the live refresh. The highlights backfill reads the
-  stored day feeds once a day to find the highlights of their final games.
+  the highlights job or the live refresh. The on-demand highlights search
+  ([ADR 0065](../adr/0065-background-work-limited-to-games-highlights-and-stars.md)) looks for the highlight of a final game of a day feed when that game's detail (`/feeds/games/{id}.json`) is served without one; serving the day feed starts no search, and a game nobody opens is never searched.
 
 ## Endpoint
 

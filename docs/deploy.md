@@ -69,6 +69,16 @@ uploading again.
 - Images: change the pinned tag in `api/Dockerfile` or `compose.yaml` through
   a pull request.
 
+### Upgrade note: hardening settings
+
+The deployed `api/.env` changes with this upgrade (see `api/.env.example`):
+
+- Drop `HIGHLIGHTS_BACKFILL_PAGES`. It is still accepted and ignored, with a warning that does not show its value.
+- Add `HIGHLIGHTS_SEARCH_API_URL`, the URL of the highlights search source. Set its value on the server only.
+- Add `HIGHLIGHTS_SEARCH_DAILY_CAP`, the searches per US Eastern day. Its default is 80; leave it unset to keep it.
+
+Without `HIGHLIGHTS_SEARCH_API_URL` no on-demand highlights search runs.
+
 ## Change to a feed's shape
 
 When a change alters the shape of a feed, deploy first the side that accepts

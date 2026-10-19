@@ -1,6 +1,6 @@
 # Design: Competitions by season
 
-The visual, interaction and data specification of the Cup, playoffs and All-Star pages for past seasons, of the season selector on those three pages, of the All-Star edition video and of the past highlights backfill. It extends `docs/design.md`, `docs/design-cup.md`, `docs/design-playoffs.md` and `docs/design-past-dates.md`: every token, rule and shared component defined there applies here, and only new values are listed under "New tokens". The current feeds, their expiry and their live behavior do not change. This document is the specification the feature issues implement; it adds no behavior beyond the decisions recorded here.
+The visual, interaction and data specification of the Cup, playoffs and All-Star pages for past seasons, of the season selector on those three pages, of the All-Star edition video and of the on-demand search for past highlights. It extends `docs/design.md`, `docs/design-cup.md`, `docs/design-playoffs.md` and `docs/design-past-dates.md`: every token, rule and shared component defined there applies here, and only new values are listed under "New tokens". The current feeds, their expiry and their live behavior do not change. This document is the specification the feature issues implement; it adds no behavior beyond the decisions recorded here.
 
 ## Overview
 
@@ -36,7 +36,7 @@ Everything under "Implementation rules" in `docs/design.md`, `docs/design-cup.md
 | `SEASON_PLAYOFFS_FINALS_FEED_URL` | `{season}` |
 | `SEASON_ALL_STAR_FEED_URL` | `{season}` |
 
-- **No new source settings.** The only new api setting is `HIGHLIGHTS_BACKFILL_PAGES` (see "Past highlights backfill").
+- **No new source settings.** The past highlights are found by the on-demand search of [ADR 0065](adr/0065-background-work-limited-to-games-highlights-and-stars.md), which has its own settings, `HIGHLIGHTS_SEARCH_API_URL` and `HIGHLIGHTS_SEARCH_DAILY_CAP` (see "Past highlights search").
 - **Shared components are reused:** `SeasonSelect` and `SeasonTag` from `docs/design-past-dates.md`, the Cup, playoffs and All-Star components and sheets, the highlights frame, the loading skeletons and the footer.
 
 ## Season selector and routes
@@ -85,18 +85,19 @@ For the seasons whose game notes carry no round, the backend derives the rounds:
 - **Seeds** come from that season's standings feed (`playoffSeed`). A season without seeds shows the bracket without seed numbers.
 - **Notes** are read case-insensitively when present.
 
-## Past highlights backfill
+## Past highlights search
 
-A daily job step, after the highlights run.
+Replaces the daily backfill of ADR 0048 ([ADR 0065](adr/0065-background-work-limited-to-games-highlights-and-stars.md)). There is no daily job.
 
-- It pages the official channel's uploads back from the newest upload, matching every stored final game without a highlight with the existing matcher. The games are those of built past day feeds, past competition feeds and the current season's feeds.
-- It reads at most `HIGHLIGHTS_BACKFILL_PAGES` pages per day (default 200) and remembers the oldest upload date reached, so the next day continues from there. A page already read is never read again for the same games.
+- A final game served with no highlight once its live attempts are over, and a past game detail served with none, start one search of the official channel by query, in the background, so the response is never delayed. The query is the away team, the home team, "full game highlights" and the date.
+- The first result in the provider's order whose title matches and whose thumbnail the image host serves is stored.
+- At most `HIGHLIGHTS_SEARCH_DAILY_CAP` searches are sent per US Eastern day (default 80). A target searched with no result is never searched again; past the cap nothing is searched, and the page shows what it shows without a highlight.
 - Matches are stored like the live ones and served by the existing serving path on every feed.
-- **Re-upload of the same game:** the first match in channel order is taken.
+- **Re-upload of the same game:** the first match in the provider's order is taken and never replaced.
 
 ### All-Star edition video
 
-- For each edition (the current feed and the season feeds) the backfill looks, among the uploads published from the edition day to three days after it, for the first title in channel order that contains "All-Star", the edition year and the word "Highlight" or "Full".
+- For an edition served past its video window (the edition day and the three days after it) with no video, the same search runs with the query "All-Star Game", the edition year and "full game highlights".
 - It is stored per edition and served as `editionHighlight` (same Highlight shape). None found, `null`.
 - No per-game highlight is ever shown for an All-Star game.
 
@@ -146,8 +147,8 @@ No new UI. A past game whose highlight has been found shows it in the game page 
 | Round derivation that does not give 8-4-2-1 | The build fails with a logged reason and the feed is not served: the page shows the unavailable state, never a wrong bracket |
 | All-Star edition not found for a season | The feed answers 404; the page shows the unavailable state |
 | Edition video not found | `editionHighlight` is `null`; the frame always shows the existing placeholder on a past edition and the "Last time" card does not link |
-| Backfill reaching its daily page cap | It stops for the day, remembers the oldest upload date reached and continues from there the next day |
-| Re-uploaded highlight | The first match in channel order is taken |
+| Search past its daily cap | Nothing is searched or marked; the game or edition shows no highlight and is searched on a later request once the next US Eastern day starts |
+| Re-uploaded highlight | The first match in the provider's order is taken |
 | Season outside the range, or a malformed `?season` | The current season, as without `?season` |
 | Missing values | `—` in that cell |
 | Missing block | The section is hidden without a gap |

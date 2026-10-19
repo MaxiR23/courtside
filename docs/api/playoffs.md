@@ -545,7 +545,7 @@ the current season.
   nulls its part: `leaders`, `winProbability`, `largestDeficit`, the postseason
   record and the bar values. Any other failed read fails the build.
 - `highlights` is the stored highlight added when served, null without one;
-  `detailAvailable` is false ([ADR 0048](../adr/0048-highlights-backfill-and-edition-video.md)).
+  `detailAvailable` is false ([ADR 0048](../adr/0048-highlights-backfill-and-edition-video.md), [ADR 0065](../adr/0065-background-work-limited-to-games-highlights-and-stars.md)).
 - Refresh: built on request, stored at `feeds/season-playoffs-finals/{season}.json`,
   kept for good (rule G of [`docs/source-rules.md`](../source-rules.md)),
   deleted when not served in 90 days and rebuilt on its next request ([ADR 0063](../adr/0063-bounded-state-and-kept-feeds.md)),
