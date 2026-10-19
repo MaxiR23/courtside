@@ -4,26 +4,24 @@
 	import { allStarFeedUrl } from '#lib/feed/config.ts';
 	import { loadAllStarFeed } from '#lib/feed/load.ts';
 	import { toAllStarView } from '#lib/feed/all-star-props.ts';
-	import { allStarPreviousPollInterval, FeedPoller } from '#lib/feed/poller.svelte.ts';
+	import { FeedOnce } from '#lib/feed/once.svelte.ts';
 	import type { AllStarPageState } from '#lib/all-star/types.ts';
 	import { wideViewport } from '#lib/schedule/layout.ts';
 
 	const url = allStarFeedUrl;
-	const poller = url
-		? new FeedPoller(() => loadAllStarFeed(url), allStarPreviousPollInterval)
-		: undefined;
+	const source = url ? new FeedOnce(() => loadAllStarFeed(url)) : undefined;
 
-	$effect(() => poller?.start());
+	$effect(() => source?.start());
 
-	const view = $derived(poller?.feed ? toAllStarView(poller.feed, 'previous') : null);
+	const view = $derived(source?.feed ? toAllStarView(source.feed, 'previous') : null);
 
-	// A feed with no previous edition shows the unavailable state and keeps polling: the
-	// edition can appear in a later feed. A feed that is in stays when a later load fails.
+	// The previous edition is finished: its feed is read once and never polled. A feed with no
+	// previous edition, or a failed load, shows the unavailable state until the page is reloaded.
 	const pageState: AllStarPageState = $derived.by(() => {
-		if (!poller) return { kind: 'unavailable' };
+		if (!source) return { kind: 'unavailable' };
 		if (view) return { kind: 'ready', view };
-		if (poller.feed) return { kind: 'unavailable' };
-		if (poller.failed) return { kind: 'unavailable' };
+		if (source.feed) return { kind: 'unavailable' };
+		if (source.failed) return { kind: 'unavailable' };
 		return { kind: 'loading' };
 	});
 

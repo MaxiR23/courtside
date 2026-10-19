@@ -174,7 +174,7 @@ Meta: "Official injury report". Two columns, min 420px. The name with `#num · P
 
 | What | How |
 |---|---|
-| Polling | Team page every 60 seconds; player page every 30 seconds while `live` is not null and every 60 seconds otherwise; paused while the tab is hidden and refreshed when it is visible again |
+| Polling | Team page every 5 minutes once its feed has loaded (the team feed has no live part) and every 60 seconds while no feed has loaded yet; player page every 30 seconds while `live` is not null and every 60 seconds otherwise; paused while the tab is hidden and refreshed when it is visible again |
 | Section tabs | Smooth scroll; instant under reduced motion |
 | Segmented controls and chips | Switch the rows shown; the selection is not kept between visits |
 | Player photo | The scroll fade described in the header; none under reduced motion |

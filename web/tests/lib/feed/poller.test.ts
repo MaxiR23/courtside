@@ -8,14 +8,16 @@
 // - Keeps the last feed and sets failed when a later load fails; records when a feed was received
 // - Pauses while the tab is hidden and loads at once when it is visible again
 // - Never runs two loads at once; stops and drops a pending result after cleanup
-// - gamePollInterval: 30 s while the game is live, 60 s otherwise and with no feed yet
+// - gamePollInterval: null once final, 30 s while live, 60 s otherwise and with no feed yet
+// - FeedPoller with a null interval stops, and does not restart when the tab is visible again
+// - A request that times out fails as network; the poller keeps the feed and polls again
 // - FeedPoller with gamePollInterval polls a detail feed; it exposes the error of the last load
-// - teamPollInterval: 60 s; a FeedPoller with it polls again after 60 s, pauses while hidden
-// - standingsPollInterval: 60 s; a FeedPoller with it polls again after 60 s, pauses while hidden
-// - cupPollInterval: 60 s; a FeedPoller with it polls again after 60 s, pauses while hidden
-// - playoffsPollInterval: 60 s
+// - teamPollInterval: 5 min once a feed is loaded, 60 s while none has; pauses while hidden
+// - standingsPollInterval: 5 min once final, 60 s otherwise; pauses while hidden
+// - cupPollInterval: 5 min once complete, 60 s otherwise; pauses while hidden
+// - cupMatchupPollInterval: 60 s
+// - playoffsPollInterval: 5 min once complete, 60 s otherwise
 // - allStarPollInterval: 30 s while the state is live, 60 s before, after and with no feed yet
-// - allStarPreviousPollInterval: 60 s
 // - playerPollInterval: 30 s while live, 60 s otherwise; slows down when live turns null
 //
 // What is covered:
@@ -31,9 +33,14 @@ import type { GameDetailFeed } from '../../../src/lib/contract/game-detail';
 import type { GameStatus, GamesFeed } from '../../../src/lib/contract/games';
 import type { PlayerFeed } from '../../../src/lib/contract/player';
 import type { AllStarFeed } from '../../../src/lib/contract/all-star';
+import type { CupFeed } from '../../../src/lib/contract/cup';
+import type { PlayoffsFeed } from '../../../src/lib/contract/playoffs';
+import type { StandingsFeed } from '../../../src/lib/contract/standings';
+import type { TeamFeed } from '../../../src/lib/contract/team';
+import { FeedLoadError, loadGameDetailFeed } from '../../../src/lib/feed/load';
 import {
 	allStarPollInterval,
-	allStarPreviousPollInterval,
+	cupMatchupPollInterval,
 	cupPollInterval,
 	FeedPoller,
 	GamesFeedPoller,
@@ -42,6 +49,7 @@ import {
 	LIVE_POLL_MS,
 	playerPollInterval,
 	playoffsPollInterval,
+	SLOW_POLL_MS,
 	pollInterval,
 	standingsPollInterval,
 	teamPollInterval
@@ -82,6 +90,7 @@ beforeEach(() => {
 
 afterEach(() => {
 	vi.useRealTimers();
+	vi.restoreAllMocks();
 });
 
 describe('pollInterval', () => {
@@ -262,15 +271,19 @@ const detailWith = (status: GameStatus): GameDetailFeed =>
 describe('gamePollInterval', () => {
 	it('is 30 s while the game is live and 60 s for every other status and with no feed', () => {
 		expect(gamePollInterval(detailWith('live'))).toBe(LIVE_POLL_MS);
-		for (const status of ['scheduled', 'final', 'delayed', 'postponed', 'canceled'] as const) {
+		for (const status of ['scheduled', 'delayed', 'postponed', 'canceled'] as const) {
 			expect(gamePollInterval(detailWith(status))).toBe(IDLE_POLL_MS);
 		}
 		expect(gamePollInterval(null)).toBe(IDLE_POLL_MS);
 	});
+
+	it('is null once the game is final', () => {
+		expect(gamePollInterval(detailWith('final'))).toBeNull();
+	});
 });
 
 describe('FeedPoller', () => {
-	it('polls a detail feed every 30 s while the game is live and every 60 s once it is final', async () => {
+	it('polls a live detail every 30 s and stops once a load returns a final game', async () => {
 		const load = vi
 			.fn()
 			.mockResolvedValueOnce(detailWith('live'))
@@ -281,10 +294,104 @@ describe('FeedPoller', () => {
 		await vi.advanceTimersByTimeAsync(0);
 		await vi.advanceTimersByTimeAsync(30_000);
 		expect(load).toHaveBeenCalledTimes(2);
-		await vi.advanceTimersByTimeAsync(59_999);
+		await vi.advanceTimersByTimeAsync(10 * 60_000);
 		expect(load).toHaveBeenCalledTimes(2);
+	});
+
+	it('makes no second request when the first load is final', async () => {
+		const load = vi.fn().mockResolvedValue(detailWith('final'));
+		new FeedPoller(load, gamePollInterval, {
+			visibility: () => fakePage() as unknown as Document
+		}).start();
+		await vi.advanceTimersByTimeAsync(10 * 60_000);
+		expect(load).toHaveBeenCalledTimes(1);
+	});
+
+	it('does not restart after the tab becomes visible again', async () => {
+		const page = fakePage();
+		const load = vi.fn().mockResolvedValue(detailWith('final'));
+		new FeedPoller(load, gamePollInterval, {
+			visibility: () => page as unknown as Document
+		}).start();
+		await vi.advanceTimersByTimeAsync(0);
+		page.set('hidden');
+		page.set('visible');
+		await vi.advanceTimersByTimeAsync(10 * 60_000);
+		expect(load).toHaveBeenCalledTimes(1);
+	});
+
+	it('stops when the final feed loads while the tab is hidden', async () => {
+		const page = fakePage('hidden');
+		const load = vi.fn().mockResolvedValue(detailWith('final'));
+		new FeedPoller(load, gamePollInterval, {
+			visibility: () => page as unknown as Document
+		}).start();
+		await vi.advanceTimersByTimeAsync(0);
+		page.set('visible');
+		await vi.advanceTimersByTimeAsync(10 * 60_000);
+		expect(load).toHaveBeenCalledTimes(1);
+	});
+
+	it('keeps polling after a failed first load', async () => {
+		const load = vi
+			.fn()
+			.mockRejectedValueOnce(new Error('down'))
+			.mockResolvedValue(detailWith('live'));
+		new FeedPoller(load, gamePollInterval, {
+			visibility: () => fakePage() as unknown as Document
+		}).start();
+		await vi.advanceTimersByTimeAsync(0);
+		await vi.advanceTimersByTimeAsync(IDLE_POLL_MS);
+		expect(load).toHaveBeenCalledTimes(2);
+	});
+
+	it('keeps the last feed and polls again when a request times out', async () => {
+		const url = 'https://feeds.test/game.json';
+		vi.spyOn(AbortSignal, 'timeout').mockImplementation((ms) => {
+			const controller = new AbortController();
+			setTimeout(
+				() => controller.abort(new DOMException('The operation timed out.', 'TimeoutError')),
+				ms
+			);
+			return controller.signal;
+		});
+		const live = { ...detailWith('live') };
+		const fetchMock = vi
+			.fn()
+			.mockImplementationOnce(() =>
+				Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(live) })
+			)
+			.mockImplementationOnce(
+				(_url: string, init: RequestInit) =>
+					new Promise((_, reject) => {
+						init.signal?.addEventListener('abort', () => reject(init.signal?.reason));
+					})
+			)
+			.mockImplementationOnce(() =>
+				Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(live) })
+			);
+		const guarded = (u: string, init?: RequestInit) => {
+			if (u !== url) throw new Error(`unexpected URL ${u}`);
+			return fetchMock(u, init);
+		};
+		const p = new FeedPoller(
+			() => loadGameDetailFeed(url, guarded as unknown as typeof fetch),
+			gamePollInterval,
+			{ visibility: () => fakePage() as unknown as Document }
+		);
+		p.start();
+		await vi.advanceTimersByTimeAsync(0);
+		await vi.advanceTimersByTimeAsync(30_000);
+		expect(fetchMock).toHaveBeenCalledTimes(2);
+		await vi.advanceTimersByTimeAsync(14_999);
+		expect(p.failed).toBe(false);
 		await vi.advanceTimersByTimeAsync(1);
-		expect(load).toHaveBeenCalledTimes(3);
+		expect(p.failed).toBe(true);
+		expect(p.feed).toEqual(live);
+		expect(p.error).toBeInstanceOf(FeedLoadError);
+		expect((p.error as FeedLoadError).reason).toBe('network');
+		await vi.advanceTimersByTimeAsync(30_000);
+		expect(fetchMock).toHaveBeenCalledTimes(3);
 	});
 
 	it('exposes the error of the last failed load and clears it on the next success', async () => {
@@ -304,18 +411,36 @@ describe('FeedPoller', () => {
 });
 
 describe('teamPollInterval', () => {
-	it('is 60 s', () => {
-		expect(teamPollInterval()).toBe(IDLE_POLL_MS);
+	it('is 5 min once a feed is loaded and 60 s while none has loaded', () => {
+		expect(teamPollInterval({ code: 'OKC' } as TeamFeed)).toBe(300_000);
+		expect(SLOW_POLL_MS).toBe(300_000);
+		expect(teamPollInterval(null)).toBe(IDLE_POLL_MS);
 	});
 
-	it('polls again after 60 s and not before', async () => {
-		const load = vi.fn().mockResolvedValue({ code: 'OKC' });
+	it('polls again after 60 s when the first load failed', async () => {
+		const load = vi
+			.fn()
+			.mockRejectedValueOnce(new Error('down'))
+			.mockResolvedValue({ code: 'OKC' });
 		new FeedPoller(load, teamPollInterval, {
 			visibility: () => fakePage() as unknown as Document
 		}).start();
 		await vi.advanceTimersByTimeAsync(0);
 		expect(load).toHaveBeenCalledTimes(1);
 		await vi.advanceTimersByTimeAsync(59_999);
+		expect(load).toHaveBeenCalledTimes(1);
+		await vi.advanceTimersByTimeAsync(1);
+		expect(load).toHaveBeenCalledTimes(2);
+	});
+
+	it('polls again after 5 min and not before', async () => {
+		const load = vi.fn().mockResolvedValue({ code: 'OKC' });
+		new FeedPoller(load, teamPollInterval, {
+			visibility: () => fakePage() as unknown as Document
+		}).start();
+		await vi.advanceTimersByTimeAsync(0);
+		expect(load).toHaveBeenCalledTimes(1);
+		await vi.advanceTimersByTimeAsync(299_999);
 		expect(load).toHaveBeenCalledTimes(1);
 		await vi.advanceTimersByTimeAsync(1);
 		expect(load).toHaveBeenCalledTimes(2);
@@ -329,7 +454,7 @@ describe('teamPollInterval', () => {
 		}).start();
 		await vi.advanceTimersByTimeAsync(0);
 		page.set('hidden');
-		await vi.advanceTimersByTimeAsync(180_000);
+		await vi.advanceTimersByTimeAsync(10 * 60_000);
 		expect(load).toHaveBeenCalledTimes(1);
 		page.set('visible');
 		await vi.advanceTimersByTimeAsync(0);
@@ -382,12 +507,14 @@ describe('playerPollInterval', () => {
 });
 
 describe('standingsPollInterval', () => {
-	it('is 60 s', () => {
-		expect(standingsPollInterval()).toBe(IDLE_POLL_MS);
+	it('is 5 min once final and 60 s otherwise and with no feed yet', () => {
+		expect(standingsPollInterval({ state: 'final' } as StandingsFeed)).toBe(SLOW_POLL_MS);
+		expect(standingsPollInterval({ state: 'regular' } as StandingsFeed)).toBe(IDLE_POLL_MS);
+		expect(standingsPollInterval(null)).toBe(IDLE_POLL_MS);
 	});
 
 	it('polls again after 60 s and not before', async () => {
-		const load = vi.fn().mockResolvedValue({ conferences: [] });
+		const load = vi.fn().mockResolvedValue({ state: 'regular', conferences: [] });
 		new FeedPoller(load, standingsPollInterval, {
 			visibility: () => fakePage() as unknown as Document
 		}).start();
@@ -401,7 +528,7 @@ describe('standingsPollInterval', () => {
 
 	it('does not poll while the tab is hidden and loads at once when it is visible again', async () => {
 		const page = fakePage();
-		const load = vi.fn().mockResolvedValue({ conferences: [] });
+		const load = vi.fn().mockResolvedValue({ state: 'regular', conferences: [] });
 		new FeedPoller(load, standingsPollInterval, {
 			visibility: () => page as unknown as Document
 		}).start();
@@ -416,12 +543,16 @@ describe('standingsPollInterval', () => {
 });
 
 describe('cupPollInterval', () => {
-	it('is 60 s', () => {
-		expect(cupPollInterval()).toBe(IDLE_POLL_MS);
+	it('is 5 min once complete and 60 s for every other stage and with no feed yet', () => {
+		expect(cupPollInterval({ stage: 'complete' } as CupFeed)).toBe(SLOW_POLL_MS);
+		for (const stage of ['draw', 'group', 'quarterfinals', 'semifinals', 'championship']) {
+			expect(cupPollInterval({ stage } as unknown as CupFeed)).toBe(IDLE_POLL_MS);
+		}
+		expect(cupPollInterval(null)).toBe(IDLE_POLL_MS);
 	});
 
 	it('polls again after 60 s and not before', async () => {
-		const load = vi.fn().mockResolvedValue({ stages: [] });
+		const load = vi.fn().mockResolvedValue({ stage: 'group', stages: [] });
 		new FeedPoller(load, cupPollInterval, {
 			visibility: () => fakePage() as unknown as Document
 		}).start();
@@ -435,7 +566,7 @@ describe('cupPollInterval', () => {
 
 	it('does not poll while the tab is hidden and loads at once when it is visible again', async () => {
 		const page = fakePage();
-		const load = vi.fn().mockResolvedValue({ stages: [] });
+		const load = vi.fn().mockResolvedValue({ stage: 'group', stages: [] });
 		new FeedPoller(load, cupPollInterval, {
 			visibility: () => page as unknown as Document
 		}).start();
@@ -449,9 +580,22 @@ describe('cupPollInterval', () => {
 	});
 });
 
-describe('playoffsPollInterval', () => {
+describe('cupMatchupPollInterval', () => {
 	it('is 60 s', () => {
-		expect(playoffsPollInterval()).toBe(IDLE_POLL_MS);
+		expect(cupMatchupPollInterval()).toBe(IDLE_POLL_MS);
+	});
+});
+
+describe('playoffsPollInterval', () => {
+	it('is 5 min once complete', () => {
+		expect(playoffsPollInterval({ state: 'complete' } as PlayoffsFeed)).toBe(SLOW_POLL_MS);
+	});
+
+	it('is 60 s in every other state and with no feed yet', () => {
+		for (const state of ['picture', 'playin', 'playoffs', 'finals']) {
+			expect(playoffsPollInterval({ state } as unknown as PlayoffsFeed)).toBe(IDLE_POLL_MS);
+		}
+		expect(playoffsPollInterval(null)).toBe(IDLE_POLL_MS);
 	});
 });
 
@@ -466,11 +610,5 @@ describe('allStarPollInterval', () => {
 		expect(allStarPollInterval(inState('before'))).toBe(IDLE_POLL_MS);
 		expect(allStarPollInterval(inState('after'))).toBe(IDLE_POLL_MS);
 		expect(allStarPollInterval(null)).toBe(IDLE_POLL_MS);
-	});
-});
-
-describe('allStarPreviousPollInterval', () => {
-	it('is 60 s', () => {
-		expect(allStarPreviousPollInterval()).toBe(IDLE_POLL_MS);
 	});
 });

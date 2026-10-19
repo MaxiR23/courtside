@@ -12,6 +12,7 @@
 // - Shows the skeleton until the first load settles
 // - Shows the data unavailable row on a 503, a network failure, or with no URL configured
 // - After a 503 it polls again at 60 s and renders the page when that load succeeds
+// - Polls both feeds every 5 minutes once the playoffs are complete, every 60 s in the finals state
 // - Pauses polling while the tab is hidden and loads at once when visible again
 // - Keeps the last playoffs feed on screen when a later poll fails
 // - Renders in Spanish
@@ -288,6 +289,32 @@ describe('Playoffs page', () => {
 		expect(fetchMock).toHaveBeenCalledTimes(1);
 		await vi.advanceTimersByTimeAsync(1);
 		expect(fetchMock).toHaveBeenCalledTimes(2);
+	});
+
+	it('polls the playoffs and finals feeds every 5 minutes once the playoffs are complete', async () => {
+		stubFetch(answerWith(inState('complete')));
+		await renderPage();
+		const playoffsCalls = () => fetchMock.mock.calls.filter((call) => call[0] === FEED_URL);
+		expect(playoffsCalls()).toHaveLength(1);
+		expect(finalsCalls()).toHaveLength(1);
+		await vi.advanceTimersByTimeAsync(299_999);
+		expect(playoffsCalls()).toHaveLength(1);
+		expect(finalsCalls()).toHaveLength(1);
+		await vi.advanceTimersByTimeAsync(1);
+		expect(playoffsCalls()).toHaveLength(2);
+		expect(finalsCalls()).toHaveLength(2);
+	});
+
+	it('polls both feeds every 60 s in the finals state', async () => {
+		stubFetch(answerWith(inState('finals')));
+		await renderPage();
+		const playoffsCalls = () => fetchMock.mock.calls.filter((call) => call[0] === FEED_URL);
+		await vi.advanceTimersByTimeAsync(59_999);
+		expect(playoffsCalls()).toHaveLength(1);
+		expect(finalsCalls()).toHaveLength(1);
+		await vi.advanceTimersByTimeAsync(1);
+		expect(playoffsCalls()).toHaveLength(2);
+		expect(finalsCalls()).toHaveLength(2);
 	});
 
 	it('pauses while the tab is hidden and loads at once when it is visible again', async () => {

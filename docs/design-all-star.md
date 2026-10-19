@@ -225,13 +225,14 @@ Same size, letter spacing and truncation as the other stage tags: 11px, .16em, u
 | State | What shows |
 |---|---|
 | Loading | Skeletons shaped like the hero and the games strip, with the home's shimmer, stopped under reduced motion |
-| Feed unavailable | See Edge cases; polling continues and the page fills in when a request succeeds |
+| Feed unavailable | See Edge cases; polling continues and the page fills in when a request succeeds (the previous edition page is not polled: it stays unavailable until reloaded) |
 | Before / live / after | Per the state rules in Overview and Header |
 
 ## Interactions and motion
 
 | What | How |
 |---|---|
+| Polling | Current edition every 30 seconds while the state is `live`, every 60 seconds otherwise; the previous edition page loads its feed once and never polls; paused while the tab is hidden and refreshed when it is visible again |
 | Hero stats | Count up over 1.4s ease-out cubic; a 1.6s timeout forces the final values; none under reduced motion |
 | Game card click | Selects the game; the detail updates and the box score tab resets to the first team |
 | Live clock | Re-rendered every second from the feed clock |

@@ -1,12 +1,12 @@
 import type { CupMatchupFeed, SlotId } from '#lib/contract/cup-matchup.ts';
 import { FeedOnce } from '#lib/feed/once.svelte.ts';
-import { cupPollInterval, FeedPoller } from '#lib/feed/poller.svelte.ts';
+import { cupMatchupPollInterval, FeedPoller } from '#lib/feed/poller.svelte.ts';
 
 type PollerOptions = ConstructorParameters<typeof FeedPoller>[2];
 
 /**
- * The matchup feed of the node that is open. It loads when a node opens and polls with the Cup
- * page's interval while the panel stays open; a new poller per open means a feed from another node
+ * The matchup feed of the node that is open. It loads when a node opens and polls every
+ * 60 s while the panel stays open; a new poller per open means a feed from another node
  * is never shown. A past season loads it once (ADR 0044). With no loader (no URL configured) an open node is failed at once.
  */
 export class CupMatchupStore {
@@ -49,7 +49,7 @@ export class CupMatchupStore {
 		if (!load) return;
 		const poller = this.past
 			? new FeedOnce<CupMatchupFeed>(() => load(id))
-			: new FeedPoller<CupMatchupFeed>(() => load(id), cupPollInterval, this.#options);
+			: new FeedPoller<CupMatchupFeed>(() => load(id), cupMatchupPollInterval, this.#options);
 		this.#poller = poller;
 		this.#stop = poller.start();
 	}

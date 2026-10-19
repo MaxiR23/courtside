@@ -26,6 +26,9 @@ export class FeedLoadError extends Error {
 	}
 }
 
+/** A feed request that has not answered after this long fails as network. */
+export const FEED_TIMEOUT_MS = 15_000;
+
 async function fetchFeedBody(
 	url: string,
 	label: string,
@@ -33,9 +36,10 @@ async function fetchFeedBody(
 	notFound = false, // report a 404 as its own reason
 	init: Pick<RequestInit, 'cache'> = {}
 ): Promise<unknown> {
+	const signal = AbortSignal.timeout(FEED_TIMEOUT_MS);
 	let response: Response;
 	try {
-		response = await fetchFn(url, { ...init, headers: { accept: 'application/json' } });
+		response = await fetchFn(url, { ...init, signal, headers: { accept: 'application/json' } });
 	} catch {
 		throw new FeedLoadError('network', `${label} could not be reached`);
 	}
@@ -48,6 +52,7 @@ async function fetchFeedBody(
 	try {
 		return await response.json();
 	} catch {
+		if (signal.aborted) throw new FeedLoadError('network', `${label} did not answer in time`);
 		throw new FeedLoadError('body', `${label} is not JSON`);
 	}
 }

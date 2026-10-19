@@ -75,8 +75,12 @@
 				? new FeedOnce(() => loadPlayoffsFinalsFeed(seasonFeedUrlOf(pastFinalsTemplate, shown)))
 				: undefined;
 		}
+		// The finals feed is done when the playoffs feed is complete.
 		return finalsUrl
-			? new FeedPoller(() => loadPlayoffsFinalsFeed(finalsUrl), playoffsPollInterval)
+			? new FeedPoller(
+					() => loadPlayoffsFinalsFeed(finalsUrl),
+					() => playoffsPollInterval(source?.feed ?? null)
+				)
 			: undefined;
 	});
 	const wantsFinals = $derived(

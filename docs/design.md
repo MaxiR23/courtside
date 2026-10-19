@@ -19,6 +19,7 @@ A dark-mode, single-page site with two parts:
 - **Reusable primitives first.** Shared pieces, such as the blueprint frame, are built once and reused everywhere they appear.
 - **Every user-facing string is translatable**, in English and Spanish. The copy in this document is the English text.
 - **Reduced motion.** When the system asks for reduced motion, entrance animations, the idle float, the parallax, the skeleton shimmer and the live win probability marker pulse are disabled, and transitions become instant or simple fades.
+- **Feed requests time out.** Every feed request that has no answer within 15 seconds counts as a failed request: the page keeps the last feed it showed and tries again at its next poll.
 
 ### Components
 

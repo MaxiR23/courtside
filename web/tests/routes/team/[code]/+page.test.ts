@@ -10,8 +10,8 @@
 // - Shows the loading skeleton until the first load settles
 // - Shows "Team not found." on a 404, for an unknown code and for an uppercase one
 // - Shows the data unavailable row on a network failure, a 503, or with no URL configured
-// - After a 503 it polls again at 60 s and renders the team when that load succeeds
-// - Polls every 60 s; pauses while the tab is hidden and loads at once when visible again
+// - After a 503 (no feed yet) it polls again at 60 s and renders the team when that load succeeds
+// - Polls every 5 minutes once a feed is loaded; pauses while the tab is hidden and loads at once when visible again
 // - Keeps the last feed on screen when a later poll fails
 // - Renders in English and in Spanish
 // - With ?season: loads the calendar, then only the season feed, once; no polling; loading, 503 and 404 states
@@ -253,14 +253,14 @@ describe('team page', () => {
 		expect(screen.queryByText(UNAVAILABLE)).toBeNull();
 	});
 
-	it('polls every 60 s', async () => {
+	it('polls every 5 minutes once a feed is loaded', async () => {
 		stubFetch('okc', answerWith(recorded()));
 		await renderPage();
-		await vi.advanceTimersByTimeAsync(59_999);
+		await vi.advanceTimersByTimeAsync(299_999);
 		expect(fetchMock).toHaveBeenCalledTimes(1);
 		await vi.advanceTimersByTimeAsync(1);
 		expect(fetchMock).toHaveBeenCalledTimes(2);
-		await vi.advanceTimersByTimeAsync(60_000);
+		await vi.advanceTimersByTimeAsync(300_000);
 		expect(fetchMock).toHaveBeenCalledTimes(3);
 	});
 
@@ -270,7 +270,7 @@ describe('team page', () => {
 		await renderPage();
 		state.mockReturnValue('hidden');
 		document.dispatchEvent(new Event('visibilitychange'));
-		await vi.advanceTimersByTimeAsync(5 * 60_000);
+		await vi.advanceTimersByTimeAsync(10 * 60_000);
 		expect(fetchMock).toHaveBeenCalledTimes(1);
 		state.mockReturnValue('visible');
 		document.dispatchEvent(new Event('visibilitychange'));
@@ -281,7 +281,7 @@ describe('team page', () => {
 	it('keeps the last feed on screen when a later poll fails', async () => {
 		stubFetch('okc', answerWith(recorded()), answerFailing);
 		await renderPage();
-		await vi.advanceTimersByTimeAsync(60_000);
+		await vi.advanceTimersByTimeAsync(300_000);
 		await tick();
 		expect(fetchMock).toHaveBeenCalledTimes(2);
 		expect(screen.getByRole('heading', { level: 1, name: 'Thunder' })).toBeTruthy();
@@ -436,7 +436,7 @@ describe('team page season selector', () => {
 			});
 			await renderSeason(query);
 			expect(calls).toEqual([CAL_URL, CURRENT_URL]);
-			await vi.advanceTimersByTimeAsync(60_000);
+			await vi.advanceTimersByTimeAsync(300_000);
 			expect(countOf(CURRENT_URL)).toBe(2);
 		}
 	);

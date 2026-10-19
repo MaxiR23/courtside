@@ -181,7 +181,7 @@ The same footer as the home.
 
 | What | How |
 |---|---|
-| Polling | Same rules as the home: every 30 seconds while the game is live, every 60 seconds otherwise; paused while the tab is hidden and refreshed as soon as it is visible again |
+| Polling | Every 30 seconds while the game is live and every 60 seconds otherwise; once a load returns a final game (past seasons included) the page stops polling, also when the tab becomes visible again; paused while the tab is hidden and refreshed as soon as it is visible again |
 | Section tabs | Smooth scroll to the section; instant under reduced motion |
 | Highlights | As on the home: the thumbnail is replaced by the autoplaying player on click |
 | Box score toggle | Switches the team shown; away first |

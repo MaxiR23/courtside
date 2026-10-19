@@ -6,9 +6,9 @@
 // - The route turns off server rendering and keeps prerender from the layout
 // - All-Star is the current page in the nav
 // - It renders the after view of previousEdition with the previous year and no Last time section
-// - A feed with no previousEdition shows the unavailable row and polling continues
-// - A 503 shows the unavailable row, then the page after a successful poll
-// - It polls every 60 s
+// - A feed with no previousEdition shows the unavailable row and requests nothing more
+// - A 503 shows the unavailable row and requests nothing more
+// - It loads the feed once and sends no further request, also after the tab is visible again
 // - The edition frame with its caption when previousEdition carries a video, the placeholder when not; no season selector
 //
 // What is covered:
@@ -130,25 +130,25 @@ describe('Previous edition page', () => {
 		);
 	});
 
-	it('shows the unavailable row when the feed has no previous edition, and keeps polling', async () => {
+	it('shows the unavailable row when the feed has no previous edition and requests nothing more', async () => {
 		stubFetch(answerWith(withoutPrevious()), answerWith(withPrevious()));
 		await renderPage();
 		expect(screen.getByText(UNAVAILABLE)).toBeTruthy();
 		expect(screen.getByRole('heading', { level: 1, name: 'All-Star' })).toBeTruthy();
-		await vi.advanceTimersByTimeAsync(60_000);
+		await vi.advanceTimersByTimeAsync(10 * 60_000);
 		await tick();
-		expect(fetchMock).toHaveBeenCalledTimes(2);
-		expect(screen.queryByText(UNAVAILABLE)).toBeNull();
-		expect(screen.getByRole('heading', { level: 1, name: 'Team Dunes' })).toBeTruthy();
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+		expect(screen.getByText(UNAVAILABLE)).toBeTruthy();
 	});
 
-	it('shows the unavailable row on a 503 and the page after a successful poll', async () => {
+	it('shows the unavailable row on a 503 and requests nothing more', async () => {
 		stubFetch(answerStatus(503), answerWith(withPrevious()));
 		await renderPage();
 		expect(screen.getByText(UNAVAILABLE)).toBeTruthy();
-		await vi.advanceTimersByTimeAsync(60_000);
+		await vi.advanceTimersByTimeAsync(10 * 60_000);
 		await tick();
-		expect(screen.getByRole('heading', { level: 1, name: 'Team Dunes' })).toBeTruthy();
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+		expect(screen.getByText(UNAVAILABLE)).toBeTruthy();
 	});
 
 	it('shows the unavailable row with no URL configured and requests nothing', async () => {
@@ -159,13 +159,18 @@ describe('Previous edition page', () => {
 		expect(fetchMock).not.toHaveBeenCalled();
 	});
 
-	it('polls every 60 s', async () => {
+	it('loads the feed once and sends no further request, also after the tab becomes visible again', async () => {
+		const state = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
 		stubFetch(answerWith(withPrevious()));
 		await renderPage();
-		await vi.advanceTimersByTimeAsync(59_999);
+		await vi.advanceTimersByTimeAsync(10 * 60_000);
+		state.mockReturnValue('hidden');
+		document.dispatchEvent(new Event('visibilitychange'));
+		state.mockReturnValue('visible');
+		document.dispatchEvent(new Event('visibilitychange'));
+		await vi.advanceTimersByTimeAsync(0);
+		await tick();
 		expect(fetchMock).toHaveBeenCalledTimes(1);
-		await vi.advanceTimersByTimeAsync(1);
-		expect(fetchMock).toHaveBeenCalledTimes(2);
 	});
 });
 
