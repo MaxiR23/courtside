@@ -9,7 +9,10 @@
 # A failed build or dependency is recorded with the error's own reason when it carries a non-empty one,
 # else with its type.
 #
-# SEE: docs/source-rules.md, docs/adr/0020-source-rules.md
+# At most MAX_QUEUED_BUILDS builds are started at once, and a build is stopped after BUILD_TIMEOUT_SECONDS
+# and recorded as "build timed out" (ADR 0062).
+#
+# SEE: docs/source-rules.md, docs/adr/0020-source-rules.md, docs/adr/0062-bounded-upstream-reads-and-on-demand-builds.md
 
 import asyncio
 import datetime as dt
@@ -36,6 +39,9 @@ logger = logging.getLogger(__name__)
 
 MISSING_WAIT_SECONDS = 20.0
 MAX_BUILDS = 4
+MAX_QUEUED_BUILDS = 16
+BUILD_TIMEOUT_SECONDS = 60.0
+BUILD_TIMED_OUT = "build timed out"
 RETRY_AFTER = dt.timedelta(minutes=10)
 
 # The rules version of the kept season feeds (ADR 0053). Bump it in any change to
@@ -113,11 +119,13 @@ class FeedCache:
         *,
         clock: Callable[[], dt.datetime] = utc_now,
         wait: float = MISSING_WAIT_SECONDS,
+        build_timeout: float = BUILD_TIMEOUT_SECONDS,
     ) -> None:
         self._data_dir = data_dir
         self._store = store
         self._clock = clock
         self._wait = wait
+        self._build_timeout = build_timeout
         self.in_flight: dict[tuple[str, str], asyncio.Task[bool]] = {}
         self._builds = asyncio.Semaphore(MAX_BUILDS)
         self._kinds: dict[str, FeedKind[Any]] = {}
@@ -134,6 +142,9 @@ class FeedCache:
         Builds nothing and reads no source."""
         feed_kind = self._kinds.get(kind)
         return None if feed_kind is None else feed_kind.check(feed_id)
+
+    def _full(self) -> bool:
+        return len(self.in_flight) >= MAX_QUEUED_BUILDS
 
     @property
     def wait(self) -> float:
@@ -169,7 +180,7 @@ class FeedCache:
         if body is not None and feed is not None:
             fresh = last_build is not None and feed_kind.is_fresh(feed, last_build, now)
             current = self.in_flight.get(key)
-            if not fresh and current is None and not retrying:
+            if not fresh and current is None and not retrying and not self._full():
                 current = self._start(feed_kind, feed_id)
             if (
                 not fresh
@@ -196,6 +207,8 @@ class FeedCache:
         if task is None:
             if retrying:
                 raise FeedUnavailableError(f"{kind} {feed_id} failed recently")
+            if self._full():
+                raise FeedUnavailableError(f"{kind} {feed_id}: too many builds")
             task = self._start(feed_kind, feed_id)
         try:
             ok = await asyncio.wait_for(asyncio.shield(task), budget)
@@ -217,14 +230,15 @@ class FeedCache:
         return self._respond(feed_kind, feed_id, feed, body)
 
     def refresh(self, kind: str, feed_id: str) -> None:
-        """Starts a build of the feed unless one is in flight; never waits."""
-        if (kind, feed_id) not in self.in_flight:
+        """Starts a build of the feed unless one is in flight or MAX_QUEUED_BUILDS
+        builds are already in flight; never waits."""
+        if (kind, feed_id) not in self.in_flight and not self._full():
             self._start(self._kinds[kind], feed_id)
 
     def warm(self, kind: str, feed_id: str) -> None:
         """Starts a build of the feed when it is stored with no fresh copy, or
-        missing, unless one is in flight or the last failure is inside the retry
-        window; never waits."""
+        missing, unless one is in flight, MAX_QUEUED_BUILDS builds are already in flight or
+        the last failure is inside the retry window; never waits."""
         feed_kind = self._kinds[kind]
         if feed_kind.check(feed_id) is not IdStatus.KNOWN:
             return
@@ -245,6 +259,8 @@ class FeedCache:
             and state.last_failure is not None
             and now - state.last_failure < RETRY_AFTER
         ):
+            return
+        if self._full():
             return
         self._start(feed_kind, feed_id)
 
@@ -288,7 +304,8 @@ class FeedCache:
             return None
 
     async def _ensure(self, kind_name: str, feed_id: str) -> None:
-        """Makes the feed fresh before a build that reads it; a failure leaves it as stored."""
+        """Makes the feed fresh before a build that reads it; a failure, or too many
+        builds in flight, leaves it as stored."""
         kind = self._kinds[kind_name]
         if kind.check(feed_id) is not IdStatus.KNOWN:
             return
@@ -309,6 +326,8 @@ class FeedCache:
                 and state.last_failure is not None
                 and now - state.last_failure < RETRY_AFTER
             ):
+                return
+            if self._full():
                 return
             task = self._start(kind, feed_id)
         await asyncio.shield(task)
@@ -331,9 +350,11 @@ class FeedCache:
             started = self._clock()
             reason: str
             try:
-                feed = await kind.build(feed_id)
+                feed = await asyncio.wait_for(kind.build(feed_id), self._build_timeout)
             except UnknownFeedError:
                 return False
+            except TimeoutError:
+                reason = BUILD_TIMED_OUT
             except SourceError as error:
                 reason = error.reason
             except Exception as error:  # noqa: BLE001 - a failed build must never escape

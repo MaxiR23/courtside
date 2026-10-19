@@ -6,6 +6,10 @@
 #
 # A 429 or 503 answer is a rate limit (is_rate_limited, ADR 0056).
 #
+# The shared client keeps at most MAX_REQUESTS_IN_FLIGHT requests in flight,
+# budgeted or not, and pauses every request after a 429 or 503 until its
+# Retry-After (ADR 0062). A paused read raises SourcePausedError.
+#
 # A build can run under a ReadBudget (within_budget, ADR 0058): every request
 # that reaches the network counts, at most MAX_PAST_READS_IN_FLIGHT are in
 # flight, a request past the limit is refused before it is sent, and a rate
@@ -18,10 +22,11 @@
 # query values to a URL that may already have a query: adapters use it instead
 # of passing params.
 #
-# SEE: docs/architecture.md (Source adapters), docs/adr/0007-backend-runtime-and-data-pipeline.md, docs/source-rules.md, docs/adr/0020-source-rules.md, docs/adr/0056-paced-past-builds-and-one-edition-mvp-path.md, docs/adr/0058-bounded-past-competition-reads.md, docs/adr/0061-past-playoffs-player-identities-and-finals-mvp-averages.md
+# SEE: docs/architecture.md (Source adapters), docs/adr/0007-backend-runtime-and-data-pipeline.md, docs/source-rules.md, docs/adr/0020-source-rules.md, docs/adr/0056-paced-past-builds-and-one-edition-mvp-path.md, docs/adr/0058-bounded-past-competition-reads.md, docs/adr/0061-past-playoffs-player-identities-and-finals-mvp-averages.md, docs/adr/0062-bounded-upstream-reads-and-on-demand-builds.md
 
 import asyncio
 import datetime as dt
+import email.utils
 import json
 import logging
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterator, Mapping
@@ -67,8 +72,28 @@ class SourceError(Exception):
 RATE_LIMIT_STATUSES = frozenset({429, 503})
 
 
+SOURCE_PAUSED = "source paused"
+
+
+class SourcePausedError(SourceError):
+    """The client is paused after a rate limit: the read sent no request."""
+
+    def __init__(self, source: str) -> None:
+        super().__init__(source, SOURCE_PAUSED, request_failed=True)
+
+
 def is_rate_limited(error: SourceError) -> bool:
-    return error.status_code in RATE_LIMIT_STATUSES
+    return (
+        isinstance(error, SourcePausedError) or error.status_code in RATE_LIMIT_STATUSES
+    )
+
+
+# Requests the shared client keeps in flight at once (ADR 0062).
+MAX_REQUESTS_IN_FLIGHT = 8
+
+# How long a rate limit pauses the client: the default, and the most.
+PAUSE_DEFAULT = dt.timedelta(seconds=60)
+PAUSE_MAX = dt.timedelta(minutes=15)
 
 
 # Requests one budgeted build keeps in flight at once (ADR 0058).
@@ -163,6 +188,8 @@ class SourceClient(httpx.AsyncClient):
         super().__init__(timeout=TIMEOUT)
         self.store = store
         self.clock = clock
+        self.requests = asyncio.Semaphore(MAX_REQUESTS_IN_FLIGHT)
+        self.paused_until: dt.datetime | None = None
         # One fetch per URL: its send time and its task, removed when done.
         self.in_flight: dict[str, tuple[dt.datetime, asyncio.Task[object]]] = {}
 
@@ -175,15 +202,81 @@ def create_client(
     return SourceClient(store, clock=clock)
 
 
+def _pause_length(response: httpx.Response, now: dt.datetime) -> dt.timedelta:
+    """The pause a rate-limit answer asks for, from its Retry-After."""
+    value = response.headers.get("Retry-After")
+    if value is None:
+        return PAUSE_DEFAULT
+    value = value.strip()
+    if value.isascii() and value.isdigit():
+        length = dt.timedelta(seconds=min(int(value), int(PAUSE_MAX.total_seconds())))
+    else:
+        try:
+            date = email.utils.parsedate_to_datetime(value)
+        except ValueError, TypeError:
+            return PAUSE_DEFAULT
+        if date.tzinfo is None:
+            date = date.replace(tzinfo=dt.UTC)
+        length = date - now
+    if length < dt.timedelta(0):
+        return PAUSE_DEFAULT
+    return min(length, PAUSE_MAX)
+
+
+def _is_paused(client: SourceClient) -> bool:
+    return client.paused_until is not None and client.clock() < client.paused_until
+
+
+def _check_pause(client: SourceClient, source: str) -> None:
+    if _is_paused(client):
+        raise SourcePausedError(source)
+
+
+def _note_rate_limit(
+    client: SourceClient, source: str, response: httpx.Response
+) -> None:
+    if response.status_code not in RATE_LIMIT_STATUSES:
+        return
+    now = client.clock()
+    length = _pause_length(response, now)
+    if length <= dt.timedelta(0):
+        return
+    until = now + length
+    if client.paused_until is not None and now < client.paused_until:
+        client.paused_until = max(client.paused_until, until)
+        return
+    client.paused_until = until
+    logger.warning(
+        "%s: source paused for %d seconds", source, int(length.total_seconds())
+    )
+
+
+async def _send(
+    client: SourceClient,
+    method: str,
+    url: str,
+    *,
+    source: str,
+    headers: Mapping[str, str] | None = None,
+) -> httpx.Response:
+    """Send one request under the client's slots and pause (ADR 0062)."""
+    _check_pause(client, source)
+    async with client.requests:
+        _check_pause(client, source)
+        response = await client.request(method, url, headers=headers)
+    _note_rate_limit(client, source, response)
+    return response
+
+
 async def _get(
-    client: httpx.AsyncClient,
+    client: SourceClient,
     url: str,
     *,
     source: str,
     headers: Mapping[str, str] | None = None,
 ) -> httpx.Response:
     try:
-        response = await client.get(url, headers=headers)
+        response = await _send(client, "GET", url, source=source, headers=headers)
     except httpx.TimeoutException:
         raise SourceError(source, "request timed out", request_failed=True) from None
     except httpx.TransportError:
@@ -198,11 +291,11 @@ async def _get(
     return response
 
 
-async def is_served(client: httpx.AsyncClient, url: str, *, source: str) -> bool:
+async def is_served(client: SourceClient, url: str, *, source: str) -> bool:
     """HEAD a URL: True when it answers with success, False on an error
     status. Raises SourceError on a timeout or a transport failure."""
     try:
-        response = await client.head(url)
+        response = await _send(client, "HEAD", url, source=source)
     except httpx.TimeoutException:
         raise SourceError(source, "request timed out", request_failed=True) from None
     except httpx.TransportError:
@@ -210,7 +303,7 @@ async def is_served(client: httpx.AsyncClient, url: str, *, source: str) -> bool
     return response.is_success
 
 
-async def get_text(client: httpx.AsyncClient, url: str, *, source: str) -> str:
+async def get_text(client: SourceClient, url: str, *, source: str) -> str:
     """GET a URL and return its body as text, or raise SourceError."""
     response = await _get(client, url, source=source)
     return response.text

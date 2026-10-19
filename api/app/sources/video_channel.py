@@ -18,7 +18,6 @@ import re
 from collections.abc import Sequence
 from urllib.parse import quote_plus
 
-import httpx
 from pydantic import (
     AwareDatetime,
     BaseModel,
@@ -140,7 +139,7 @@ def _ranked_thumbnails(thumbnails: dict[str, _ProviderThumbnail]) -> list[str]:
     return [t.url for t in usable if t.url]
 
 
-async def _first_served(client: httpx.AsyncClient, urls: list[str]) -> str | None:
+async def _first_served(client: SourceClient, urls: list[str]) -> str | None:
     """Return the first URL the image host serves. The API lists sizes the
     host answers with a placeholder and a 404, so each one is checked."""
     for url in urls:
@@ -276,9 +275,7 @@ async def list_uploads(
         token = page.next_page_token
 
 
-async def check_thumbnail(
-    client: httpx.AsyncClient, video: ChannelVideo
-) -> ChannelVideo:
+async def check_thumbnail(client: SourceClient, video: ChannelVideo) -> ChannelVideo:
     """Return the video with the first of its thumbnail candidates the image
     host serves, or None when it serves none. Raises SourceError on a timeout
     or transport failure."""
