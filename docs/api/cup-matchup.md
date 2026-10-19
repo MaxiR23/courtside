@@ -146,8 +146,9 @@ to the current season.
   `path` follows rule 3; `injuries` and `roster` are empty lists, and no roster,
   injuries, averages or depth chart is read.
 - Refresh: built on request, stored at `feeds/season-cup-matchups/{season}-{id}.json`,
-  kept for good (rule G of [`docs/source-rules.md`](../source-rules.md)): never
-  deleted, and rebuilt on its next request when its `buildVersion` is not the
+  kept for good (rule G of [`docs/source-rules.md`](../source-rules.md)):
+  deleted when not served in 90 days and rebuilt on its next request ([ADR 0063](../adr/0063-bounded-state-and-kept-feeds.md)),
+  and rebuilt on its next request when its `buildVersion` is not the
   current one (the stale season Cup is rebuilt first). A past quarterfinal side
   carries the null `seed` label of its slot. A failed build with nothing stored
   is retried after 10 minutes.

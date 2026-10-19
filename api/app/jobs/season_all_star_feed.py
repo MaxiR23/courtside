@@ -24,8 +24,9 @@
 # only when requested. A season is valid from 1994 to the season before the
 # current one (past_season_status). The current season is resolved before the
 # cache (target) to the current All-Star feed. A feed is built once and kept
-# (rule G): it is never deleted, and rebuilt only when its build version is not
-# the current one (ADR 0053).
+# (rule G): it is deleted with its build row when not served in 90 days and rebuilt on
+# its next request (ADR 0063), and rebuilt otherwise only when its build version
+# is not the current one (ADR 0053).
 #
 # SEE: docs/api/all-star.md, docs/adr/0047-season-all-star-feed.md,
 # docs/adr/0058-bounded-past-competition-reads.md,

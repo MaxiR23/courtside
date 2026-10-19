@@ -300,7 +300,7 @@ class FakeStars:
 
 class KnownIds(PastPlayerIds):
     def __init__(self, ids: set[str]) -> None:
-        super().__init__(Path("unused"))
+        super().__init__(Path("unused"), StateStore(Path("unused")))
         self._given = ids
 
     def known(self, player_id: str) -> bool:
@@ -752,10 +752,36 @@ async def test_every_log_game_has_detail_available_and_is_registered(
     assert all(e.detail_available for e in feed.game_log.entries)
     for n in range(1, 8):
         # 01:30 UTC is the evening of the day before on the US Eastern calendar.
-        assert kit.store.past_game_date(f"g{n}") == dt.date(
+        assert kit.store.past_game_date(f"g{n}", at=NOW) == dt.date(
             2003, 10, 31
         ) + dt.timedelta(days=n - 1)
     assert feed.build_version == SEASON_BUILD_VERSION
+
+
+@pytest.mark.anyio
+async def test_serving_a_feed_keeps_the_rows_of_its_games_past_the_daily_prune(
+    kit: SeasonPlayerKit,
+) -> None:
+    day = dt.timedelta(days=1)
+    await kit.serve("2004-77")
+    await kit.serve("2004-77", NOW + 89 * day)
+
+    kit.store.prune_past_games(NOW + 91 * day - 90 * day)
+
+    for n in range(1, 8):
+        assert kit.store.past_game_date(f"g{n}", at=NOW + 91 * day) is not None
+
+
+@pytest.mark.anyio
+async def test_a_feed_not_served_in_90_days_loses_the_rows_of_its_games(
+    kit: SeasonPlayerKit,
+) -> None:
+    day = dt.timedelta(days=1)
+    await kit.serve("2004-77")
+
+    kit.store.prune_past_games(NOW + 91 * day - 90 * day)
+
+    assert kit.store.past_game_date("g1", at=NOW + 91 * day) is None
 
 
 @pytest.mark.anyio

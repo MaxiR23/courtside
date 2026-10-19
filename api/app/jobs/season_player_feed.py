@@ -26,8 +26,9 @@
 # one (past_season_status). A player is known from a current roster, a stored past
 # roster or box score, or a player named by a stored past playoffs or Finals
 # feed. An id none of them knows answers 503 until the rosters are all fetched,
-# then 404. A feed is built once and kept (rule G): it is never deleted, and
-# rebuilt only when its build version is not the current one (ADR 0053).
+# then 404. A feed is built once and kept (rule G): it is deleted with its build
+# row when not served in 90 days and rebuilt on its next request (ADR 0063), and
+# rebuilt otherwise only when its build version is not the current one (ADR 0053).
 #
 # SEE: docs/api/player.md, docs/adr/0043-season-feeds-and-franchise-names.md,
 # api/app/jobs/player_feed.py
@@ -305,7 +306,8 @@ class SeasonPlayerFeeds:
             self._fetch_player_stats(client, player_id, settings, playoffs=True),
         )
         self._store.set_past_game_dates(
-            {game.game_id: eastern_date(game.start_time) for game in log.games}
+            {game.game_id: eastern_date(game.start_time) for game in log.games},
+            at=client.clock(),
         )
         runs = {
             code: found for code in log.teams if (found := self._names.stored(code))
@@ -335,6 +337,16 @@ class SeasonPlayerFeeds:
         return is_current_build(feed)
 
     def serve_with(self, feed_id: str, feed: PastPlayerFeed) -> PastPlayerFeed:
+        # A served page keeps the rows of the details it links (ADR 0063).
+        if feed.game_log is not None:
+            self._store.touch_past_games(
+                (
+                    entry.game_id
+                    for entry in feed.game_log.entries
+                    if entry.detail_available
+                ),
+                at=self._client.clock(),
+            )
         coded = with_career_codes(
             feed, self._names.career_runs(career_team_codes(feed))
         )

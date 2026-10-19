@@ -9,6 +9,7 @@
 # - Reports the fallback reason after a failure recorded with an empty reason
 # - Reports a feed's build failure with its last build in camelCase
 # - Leaves out a feed that has built and never failed
+# - Lists at most 50 failed builds, newest failure first
 #
 # What is covered:
 # - Success response (the endpoint documents no failures), job state in camelCase, restart
@@ -109,3 +110,19 @@ def test_leaves_out_a_feed_that_has_built_and_never_failed(tmp_path: Path) -> No
         response = client.get("/health")
 
     assert response.json()["feeds"] == []
+
+
+def test_lists_at_most_50_failed_builds_newest_first(tmp_path: Path) -> None:
+    with make_client(tmp_path) as client:
+        store = StateStore(tmp_path)
+        for number in range(60):
+            store.record_build_failure(
+                "players", f"p{number:02d}", FAILURE + dt.timedelta(minutes=number), "x"
+            )
+
+        response = client.get("/health")
+
+    ids = [feed["feedId"] for feed in response.json()["feeds"]]
+    assert len(ids) == 50
+    assert ids[0] == "p59"
+    assert ids == [f"p{number:02d}" for number in range(59, 9, -1)]

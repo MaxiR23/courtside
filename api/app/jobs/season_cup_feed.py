@@ -17,8 +17,9 @@
 # requested. A season is valid from 2024 to the season before the current one
 # (past_cup_season_status). The current season is resolved before the cache
 # (target) to the current Cup feed, as the calendar's current is (ADR 0042). A
-# feed is built once and kept (rule G): it is never deleted, and rebuilt only when
-# its build version is not the current one (ADR 0053).
+# feed is built once and kept (rule G): it is deleted with its build row when not served in 90 days and rebuilt
+# on its next request (ADR 0063), and rebuilt otherwise only when its build
+# version is not the current one (ADR 0053).
 #
 # SEE: docs/api/cup.md, docs/adr/0045-season-competition-feeds.md,
 # docs/adr/0058-bounded-past-competition-reads.md,

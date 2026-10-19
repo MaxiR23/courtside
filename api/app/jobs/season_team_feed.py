@@ -22,8 +22,9 @@
 # franchise with no team object that season is unknown (404)
 # after that one read, remembered in memory. The franchise names are built first
 # (the names kind) and set again when served. A feed is built once and kept
-# (rule G): it is never deleted, and rebuilt only when its build version is not
-# the current one (ADR 0053) or its stored names are of another build version, in
+# (rule G): it is deleted with its build row when not served in 90 days and
+# rebuilt on its next request (ADR 0063), and rebuilt otherwise only when its
+# build version is not the current one (ADR 0053) or its stored names are of another build version, in
 # which case the names are rebuilt first (ADR 0055).
 #
 # SEE: docs/api/team.md, docs/adr/0043-season-feeds-and-franchise-names.md,
@@ -245,7 +246,8 @@ class SeasonTeamFeeds:
                 game.game_id: eastern_date(game.start_time)
                 for game in (*regular.games, *playoffs.games)
                 if _played(game)
-            }
+            },
+            at=self._client.clock(),
         )
         info = team_info.cached_team_info(self._client, team, self._settings)
         identities = {**playoffs.teams, **regular.teams}
@@ -275,6 +277,17 @@ class SeasonTeamFeeds:
 
     def serve_with(self, feed_id: str, feed: PastTeamFeed) -> PastTeamFeed:
         match = _ID.fullmatch(feed_id)
+        # A served page keeps the rows of the details it links (ADR 0063).
+        if feed.schedule is not None:
+            self._store.touch_past_games(
+                (
+                    game.game_id
+                    for group in feed.schedule.groups
+                    for game in group.games
+                    if game.detail_available
+                ),
+                at=self._client.clock(),
+            )
         runs = None if match is None else self._names.stored(match[2])
         return feed if runs is None else with_names(feed, runs)
 

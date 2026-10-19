@@ -17,13 +17,16 @@
 # date is then built first. The kind never answers not ready and reads no source
 # to answer. A feed is built once
 # and kept (rule D): it is never refreshed by the games job, the live refresh
-# or the highlights job, and never deleted (rule J); it is rebuilt only when its
-# build version is not the current one, from a day feed of the current version
-# (ADR 0053). The build declares a read budget of READ_BUDGET source read: the
+# or the highlights job; it is deleted with its build row when not served in 90
+# days and rebuilt on its next request (ADR 0063), and rebuilt otherwise only
+# when its build version is not the current one, from a day feed of the current
+# version (ADR 0053). A built game is registered in past_games with its date, so
+# its id stays known when its day feed is deleted. The build declares a read budget of READ_BUDGET source read: the
 # game summary (ADR 0059).
 #
 # SEE: docs/api/game-detail.md, docs/adr/0041-past-game-detail.md,
 # docs/adr/0048-highlights-backfill-and-edition-video.md,
+# docs/adr/0063-bounded-state-and-kept-feeds.md,
 # docs/source-rules.md, api/app/jobs/day_feed.py
 
 import datetime as dt
@@ -192,8 +195,8 @@ class PastGameDetailFeeds:
         if GAME_ID.fullmatch(game_id) is None:
             return IdStatus.UNKNOWN
         if (
-            self._day_of(game_id) is None
-            and self._store.past_game_date(game_id) is None
+            self._store.past_game_date(game_id, at=self._client.clock()) is None
+            and self._day_of(game_id) is None
         ):
             return IdStatus.UNKNOWN
         return IdStatus.KNOWN
@@ -204,7 +207,7 @@ class PastGameDetailFeeds:
         day_id = self._day_of(game_id)
         if day_id is not None:
             return None if self._current_day(day_id) else (DAY_KIND, day_id)
-        registered = self._store.past_game_date(game_id)
+        registered = self._store.past_game_date(game_id, at=self._client.clock())
         return None if registered is None else (DAY_KIND, registered.isoformat())
 
     async def build(self, game_id: str) -> PastGameDetailFeed:
@@ -219,6 +222,11 @@ class PastGameDetailFeeds:
         if game is None:
             raise PastDetailBuildError(
                 f"game {game_id} is not a final game of a stored day"
+            )
+        day_id = self._day_of(game_id)
+        if day_id is not None:
+            self._store.set_past_game_dates(
+                {game_id: dt.date.fromisoformat(day_id)}, at=self._client.clock()
             )
         sections = await self._fetch_sections(
             self._client, game_id, self._settings, PAST_FRESH
@@ -246,7 +254,7 @@ class PastGameDetailFeeds:
         return "leaders" not in feed.model_fields_set
 
     def serve_with(self, game_id: str, feed: PastGameDetailFeed) -> PastGameDetailFeed:
-        found = self._store.highlights().get(game_id)
+        found = self._store.highlights_for([game_id]).get(game_id)
         if found is None or feed.all_star is not None:
             return feed
         return PastGameDetailFeed.model_validate(

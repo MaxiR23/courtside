@@ -23,6 +23,8 @@
 # - Wires presence and the after-run hook into the games job
 # - Wires the team, player, standings, search, Cup, Cup matchup, playoffs, playoffs finals, season Cup, season Cup matchup, season playoffs, season playoffs finals and season All-Star feed kinds into the feed cache, the season Cup, season playoffs and season All-Star feeds into app.state, the player feeds into app.state, and the cleanup into the stars job's after-run hook
 # - Wires the past game detail kind into the feed cache
+# - Wires the daily cleanup to delete the ten kept kinds not served in 90 days and keep the others, with PRUNED_KINDS the ten names
+# - The daily cleanup keeps the player ids of the past feeds it deletes (ADR 0063)
 # - Startup with the jobs on builds, stores and starts nothing of the season playoffs, playoffs finals, Cup, Cup matchup and All-Star kinds (ADR 0058)
 # - Closes the HTTP client when the scheduler fails to stop
 #
@@ -34,6 +36,7 @@
 # SEE: api/app/main.py
 
 import asyncio
+import datetime as dt
 import sqlite3
 from contextlib import closing
 from pathlib import Path
@@ -45,12 +48,14 @@ import respx
 from fastapi.testclient import TestClient
 
 from app import main
+from app.feeds.games import FeedModel
 from app.jobs.all_star_discovery import AllStarDiscovery
 from app.jobs.all_star_edition_videos import AllStarEditionVideos
 from app.jobs.game_detail_feed import GameDetailFeeds
 from app.jobs.games import GamesJob
 from app.jobs.highlights import HighlightsJob
 from app.jobs.highlights_backfill import HighlightsBackfill
+from app.jobs.past_player_ids import PastPlayerIds
 from app.jobs.player_feed import PlayerFeeds
 from app.jobs.presence import Presence
 from app.jobs.scheduler import Scheduler
@@ -59,7 +64,9 @@ from app.main import create_app
 from app.settings import Settings
 from app.sources.http import create_client
 from app.storage import state
+from app.storage.feeds import publish_by_id, published_ids
 from app.storage.state import MIGRATIONS, STATE_FILE, StateMigrationError, StateStore
+from tests.jobs.test_past_player_ids import store_team
 
 ALLOWED = "https://allowed.example"
 OTHER = "https://other.example"
@@ -527,3 +534,88 @@ def test_closes_the_http_client_when_the_scheduler_fails_to_stop(
 
     assert closed == [True]
     assert isinstance(client, httpx.AsyncClient)
+
+
+class Marker(FeedModel):
+    id: str
+
+
+TEN_KINDS = {
+    "days",
+    "past-games",
+    "season-players",
+    "season-teams",
+    "season-playoffs",
+    "season-playoffs-finals",
+    "season-cup",
+    "season-cup-matchups",
+    "season-all-star",
+    "calendars",
+}
+CLEANUP_TIME = dt.datetime(2026, 10, 19, 12, 0, tzinfo=dt.UTC)
+
+
+def capture_games_kwargs(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
+    built: dict[str, Any] = {}
+
+    class RecordingGames(GamesJob):
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            super().__init__(*args, **kwargs)
+            built["games_kwargs"] = kwargs
+
+    monkeypatch.setattr(main, "GamesJob", RecordingGames)
+    return built
+
+
+def test_wires_the_daily_cleanup_to_prune_the_ten_kept_kinds(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    built = capture_games_kwargs(monkeypatch)
+    app = create_app(
+        Settings(_env_file=None, data_dir=tmp_path),  # type: ignore[call-arg]
+        run_jobs=False,
+    )
+    assert set(main.PRUNED_KINDS) == TEN_KINDS
+    assert len(main.PRUNED_KINDS) == 10
+
+    with TestClient(app):
+        store = StateStore(tmp_path)
+        for kind in sorted(TEN_KINDS | {"season-standings", "teams"}):
+            for feed_id, age in [("old", 91), ("new", 89)]:
+                publish_by_id(tmp_path, kind, Marker, feed_id, Marker(id=feed_id))
+                store.record_build(kind, feed_id, CLEANUP_TIME - dt.timedelta(days=200))
+                store.touch_feed_build(
+                    kind, feed_id, CLEANUP_TIME - dt.timedelta(days=age)
+                )
+
+        built["games_kwargs"]["daily_cleanup"](CLEANUP_TIME)
+
+        for kind in sorted(TEN_KINDS):
+            assert published_ids(tmp_path, kind) == {"new"}, kind
+            assert store.feed_build_ids(kind) == {"new"}, kind
+        for kind in ("season-standings", "teams"):
+            assert published_ids(tmp_path, kind) == {"old", "new"}, kind
+            assert store.feed_build_ids(kind) == {"old", "new"}, kind
+
+
+def test_the_daily_cleanup_keeps_the_player_ids_of_the_past_feeds_it_deletes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    built = capture_games_kwargs(monkeypatch)
+    app = create_app(
+        Settings(_env_file=None, data_dir=tmp_path),  # type: ignore[call-arg]
+        run_jobs=False,
+    )
+
+    with TestClient(app):
+        store = StateStore(tmp_path)
+        store_team(tmp_path, "2004-okc")
+        store.record_build("season-teams", "2004-okc", CLEANUP_TIME)
+        store.touch_feed_build(
+            "season-teams", "2004-okc", CLEANUP_TIME - dt.timedelta(days=91)
+        )
+
+        built["games_kwargs"]["daily_cleanup"](CLEANUP_TIME)
+
+        assert published_ids(tmp_path, "season-teams") == set()
+        assert PastPlayerIds(tmp_path, store).known("1") is True

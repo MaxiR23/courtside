@@ -17,6 +17,7 @@
 # - The kind: a season whose playoffs feed cannot be built answers unavailable
 # - The kind: the feed is stored under season-playoffs-finals and rebuilt only for another version: a second request, a request years later and a restart serve with no source call
 # - The kind: detailAvailable is false and the stored highlights are added when served and not stored; the cleanup keeps it
+# - The kind: serving reads only the highlights of the Finals games
 #
 # What is covered:
 # - Feed kind: success publishes a valid feed, 404 reads null their part, other failures leave nothing stored, kept for good
@@ -30,6 +31,7 @@
 
 import datetime as dt
 import json
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any, cast
 
@@ -563,3 +565,39 @@ async def test_a_career_with_no_row_for_the_season_gives_null_mvp_averages(
     assert feed.season == "2005-06" and mvp is not None
     assert (mvp.games, mvp.points, mvp.rebounds, mvp.assists) == (None,) * 4
     assert mvp.best_game is not None
+
+
+@pytest.mark.anyio
+async def test_serve_with_reads_only_the_highlights_of_the_finals_games(
+    kit: FinalsKit, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    first = PlayoffsFinalsFeed.model_validate_json(await kit.serve_finals("2025"))
+    ids = [g.game.id for g in first.games]
+    clip = Highlight.model_validate(
+        {
+            "title": "Example highlights",
+            "channel": "Example Channel",
+            "thumbnail_url": "https://example.com/t.jpg",
+            "embed_url": "https://example.com/e/v1",
+        }
+    )
+    kit.store.set_highlight(ids[0], clip)
+    kit.store.set_highlight("other", clip)
+    seen: list[list[str]] = []
+    real = kit.store.highlights_for
+
+    def spy(game_ids: Iterable[str]) -> dict[str, Highlight]:
+        ids = list(game_ids)
+        seen.append(ids)
+        return real(ids)
+
+    def boom() -> dict[str, Highlight]:
+        raise AssertionError("every highlight was loaded")
+
+    monkeypatch.setattr(kit.store, "highlights_for", spy)
+    monkeypatch.setattr(kit.store, "highlights", boom)
+
+    feed = PlayoffsFinalsFeed.model_validate_json(await kit.serve_finals("2025"))
+
+    assert seen == [ids]
+    assert feed.games[0].highlights == [clip]

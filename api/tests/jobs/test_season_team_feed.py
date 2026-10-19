@@ -444,8 +444,8 @@ async def test_the_final_games_dates_are_registered_with_no_box_score_read(
 ) -> None:
     await kit.serve("2004-okc")
 
-    assert kit.store.past_game_date("g1") == dt.date(2003, 11, 1)
-    assert kit.store.past_game_date("g2") == dt.date(2004, 4, 21)
+    assert kit.store.past_game_date("g1", at=NOW) == dt.date(2003, 11, 1)
+    assert kit.store.past_game_date("g2", at=NOW) == dt.date(2004, 4, 21)
     assert not any(call.startswith("players/") for call in kit.calls)
 
 
@@ -665,6 +665,32 @@ async def test_the_cleanup_keeps_the_feed(kit: SeasonTeamKit) -> None:
     kit.cache.cleanup()
 
     assert kit.stored("2004-okc") is not None
+
+
+@pytest.mark.anyio
+async def test_serving_a_feed_keeps_the_rows_of_its_games_past_the_daily_prune(
+    kit: SeasonTeamKit,
+) -> None:
+    day = dt.timedelta(days=1)
+    await kit.serve("2004-okc", NOW)
+    await kit.serve("2004-okc", NOW + 89 * day)
+
+    kit.store.prune_past_games(NOW + 91 * day - 90 * day)
+
+    assert kit.store.past_game_date("g1", at=NOW + 91 * day) == dt.date(2003, 11, 1)
+    assert kit.store.past_game_date("g2", at=NOW + 91 * day) == dt.date(2004, 4, 21)
+
+
+@pytest.mark.anyio
+async def test_a_feed_not_served_in_90_days_loses_the_rows_of_its_games(
+    kit: SeasonTeamKit,
+) -> None:
+    day = dt.timedelta(days=1)
+    await kit.serve("2004-okc", NOW)
+
+    kit.store.prune_past_games(NOW + 91 * day - 90 * day)
+
+    assert kit.store.past_game_date("g1", at=NOW + 91 * day) is None
 
 
 INACTIVE = (

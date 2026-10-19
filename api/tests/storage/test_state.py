@@ -32,8 +32,16 @@
 # - Keeps highlights across store instances over the same data directory
 # - Stores the game date on the first write of each writer and keeps it on later writes
 # - Reports no game date for an unknown game
-# - Prunes the final time, first-seen flag and stats attempts of games before the cutoff, and keeps the cutoff day
-# - Pruning never deletes highlights, highlight attempts or the game date, and does nothing on an empty table
+# - Prunes games dated before the cutoff with their attempts, keeps the cutoff day and every highlight, and does nothing on an empty table
+# - Prunes source entries fetched 8 days ago and keeps those fetched 6 days ago
+# - Migrate sets WAL and every connection waits 5 seconds on a lock
+# - Migrates a database at version 9 adding the served and touched times and the past player ids table, keeping the rows
+# - A past game is touched when written and when its date or players are read; past games touched 91 days ago are pruned and 89 days ago kept
+# - A player identity is touched on write and on touch and pruned after 90 days
+# - Touching a feed build sets its last served time and creates no row; builds not served, built or failed since the cutoff are listed
+# - Reads the highlights of the given games only
+# - Lists at most 50 failed builds, newest failure first
+# - Past player ids are stored per scope and keep their first learned time; none writes nothing; a naive time is rejected
 # - Setting a star twice, and recording a job success or failure twice, leaves one row
 # - Migrates a database at the previous version with its rows to the source cache version
 # - Stores a source entry and replaces it on the next store
@@ -47,7 +55,6 @@
 # - Stores the fallback reason for a build failure with an empty reason
 # - Rejects a naive build time and a naive failure time
 # - Reports no build state for an unknown feed
-# - Lists only feeds with a recorded failure, ordered by kind and id
 # - Lists the stored ids of one kind only
 # - Deletes a feed's build state and leaves the other kinds' rows alone
 # - Keeps feed build state across store instances over the same data directory
@@ -78,6 +85,7 @@ import logging
 import sqlite3
 from contextlib import closing
 from pathlib import Path
+from typing import Any
 
 import pytest
 from pydantic import HttpUrl
@@ -144,6 +152,11 @@ def user_version(path: Path) -> int:
 def query(path: Path, sql: str) -> list[tuple[object, ...]]:
     with closing(sqlite3.connect(path / STATE_FILE)) as connection:
         return connection.execute(sql).fetchall()
+
+
+def execute(path: Path, sql: str) -> None:
+    with closing(sqlite3.connect(path / STATE_FILE)) as connection, connection:
+        connection.execute(sql)
 
 
 def table_names(path: Path) -> set[str]:
@@ -565,53 +578,51 @@ def test_reports_no_game_date_for_an_unknown_game(tmp_path: Path) -> None:
     assert make_store(tmp_path).game_date("nope") is None
 
 
-def test_prunes_the_final_time_and_stats_attempts_of_games_before_the_cutoff(
+def test_prunes_games_dated_before_the_cutoff_and_keeps_the_cutoff_day_and_their_highlights(
     tmp_path: Path,
 ) -> None:
     store = make_store(tmp_path)
     cutoff = dt.date(2026, 1, 10)
+    highlight = make_highlight("one")
     for game_id, day in [("old", dt.date(2026, 1, 9)), ("edge", cutoff)]:
         store.set_final_time(game_id, day, NOON, first_seen=True)
         store.record_failed_stats_attempt(game_id, day)
+        store.record_highlight_attempt(game_id, day)
+    store.set_highlight("old", highlight)
 
-    store.prune_final_times(cutoff)
+    store.prune_games(cutoff)
 
+    assert store.game_date("old") is None
     assert store.final_time("old") is None
     assert store.first_seen_final("old") is False
     assert store.failed_stats_attempts("old") == 0
+    assert store.highlight_attempts("old") == 0
+    assert store.highlights() == {"old": highlight}
+    assert store.game_date("edge") == cutoff
     assert store.final_time("edge") == NOON
     assert store.first_seen_final("edge") is True
     assert store.failed_stats_attempts("edge") == 1
 
 
-def test_pruning_never_deletes_highlights_or_highlight_attempts(
-    tmp_path: Path,
-) -> None:
-    store = make_store(tmp_path)
-    highlight = Highlight(
-        title="Full game",
-        channel="Channel",
-        thumbnail_url=HttpUrl("https://example.com/t.jpg"),
-        embed_url=HttpUrl("https://example.com/e"),
-    )
-    store.set_final_time("old", DAY, NOON)
-    store.record_highlight_attempt("old", DAY)
-    store.record_highlight_attempt("old", DAY)
-    store.set_highlight("old", highlight)
-
-    store.prune_final_times(dt.date(2026, 3, 1))
-
-    assert store.highlight_attempts("old") == 2
-    assert store.highlights() == {"old": highlight}
-    assert store.game_date("old") == DAY
-
-
 def test_pruning_with_no_games_does_nothing(tmp_path: Path) -> None:
     store = make_store(tmp_path)
 
-    store.prune_final_times(dt.date(2026, 3, 1))
+    store.prune_games(dt.date(2026, 3, 1))
 
     assert store.game_date("any") is None
+
+
+def test_prunes_source_entries_fetched_8_days_ago_and_keeps_those_fetched_6_days_ago(
+    tmp_path: Path,
+) -> None:
+    store = make_store(tmp_path)
+    store.set_source_entry("old", "{}", NOON - dt.timedelta(days=8))
+    store.set_source_entry("new", "{}", NOON - dt.timedelta(days=6))
+
+    store.prune_source_cache(NOON - dt.timedelta(days=7))
+
+    assert store.source_entry("old") is None
+    assert store.source_entry("new") is not None
 
 
 def test_setting_a_team_star_twice_leaves_one_row(tmp_path: Path) -> None:
@@ -831,22 +842,25 @@ def test_reports_no_build_state_for_an_unknown_feed(tmp_path: Path) -> None:
     assert make_store(tmp_path).feed_build("players", "none") is None
 
 
-def test_lists_only_feeds_with_a_recorded_failure_ordered_by_kind_and_id(
-    tmp_path: Path,
-) -> None:
+def test_lists_at_most_50_failed_builds_newest_failure_first(tmp_path: Path) -> None:
     store = make_store(tmp_path)
     store.record_build("players", "ok", NOON)
-    store.record_build_failure("teams", "b", NOON, "x")
-    store.record_build_failure("players", "b", NOON, "x")
-    store.record_build_failure("players", "a", NOON, "x")
+    for number in range(60):
+        store.record_build_failure(
+            "players", f"f{number:02d}", NOON + dt.timedelta(minutes=number), "x"
+        )
+    store.record_build_failure("teams", "a", NOON + dt.timedelta(minutes=59), "x")
 
     failed = store.failed_feed_builds()
 
-    assert [(f.kind, f.feed_id) for f in failed] == [
-        ("players", "a"),
-        ("players", "b"),
-        ("teams", "b"),
+    assert len(failed) == state.MAX_FAILED_BUILDS == 50
+    assert [(f.kind, f.feed_id) for f in failed[:3]] == [
+        ("players", "f59"),
+        ("teams", "a"),
+        ("players", "f58"),
     ]
+    assert ("players", "f09") not in {(f.kind, f.feed_id) for f in failed}
+    assert ("players", "ok") not in {(f.kind, f.feed_id) for f in failed}
 
 
 def test_lists_the_stored_ids_of_one_kind_only(tmp_path: Path) -> None:
@@ -925,7 +939,7 @@ def test_migrating_a_database_at_the_previous_version_adds_the_all_star_editions
 
     store.migrate()
 
-    assert user_version(tmp_path) == len(real) == 9
+    assert user_version(tmp_path) == len(real) == 10
     assert [job.name for job in store.job_states()] == ["games"]
     assert store.feed_build("players", "a") is not None
     assert query(tmp_path, "SELECT COUNT(*) FROM all_star_editions") == [(0,)]
@@ -979,7 +993,7 @@ def test_migrating_a_database_at_the_all_star_editions_version_adds_the_all_star
 
     store.migrate()
 
-    assert user_version(tmp_path) == len(real) == 9
+    assert user_version(tmp_path) == len(real) == 10
     assert store.all_star_edition(2027) is not None
     assert query(tmp_path, "SELECT COUNT(*) FROM all_star_finals") == [(0,)]
 
@@ -1013,7 +1027,7 @@ def test_migrating_a_database_at_the_all_star_finals_version_adds_the_backfill_t
 
     store.migrate()
 
-    assert user_version(tmp_path) == len(real) == 9
+    assert user_version(tmp_path) == len(real) == 10
     assert store.all_star_edition(2027) is not None
     assert "g1" in store.highlights()
     for table in (
@@ -1114,7 +1128,7 @@ def test_migrating_a_database_at_version_7_adds_the_past_games_and_keeps_the_row
 
     store.migrate()
 
-    assert user_version(tmp_path) == len(real) == 9
+    assert user_version(tmp_path) == len(real) == 10
     assert store.all_star_edition(2027) is not None
     assert "g1" in store.highlights()
     assert query(tmp_path, "SELECT COUNT(*) FROM past_games") == [(0,)]
@@ -1122,34 +1136,36 @@ def test_migrating_a_database_at_version_7_adds_the_past_games_and_keeps_the_row
 
 def test_a_registered_date_never_overwrites_stored_players(tmp_path: Path) -> None:
     store = make_store(tmp_path)
-    store.set_past_game_players("g1", dt.date(2005, 1, 2), '{"teams": {}}')
+    store.set_past_game_players("g1", dt.date(2005, 1, 2), '{"teams": {}}', at=NOON)
 
-    store.set_past_game_dates({"g1": dt.date(2006, 3, 4), "g2": dt.date(2005, 1, 3)})
+    store.set_past_game_dates(
+        {"g1": dt.date(2006, 3, 4), "g2": dt.date(2005, 1, 3)}, at=NOON
+    )
 
-    assert store.past_game_players("g1") == '{"teams": {}}'
-    assert store.past_game_date("g1") == dt.date(2005, 1, 2)
-    assert store.past_game_date("g2") == dt.date(2005, 1, 3)
+    assert store.past_game_players("g1", at=NOON) == '{"teams": {}}'
+    assert store.past_game_date("g1", at=NOON) == dt.date(2005, 1, 2)
+    assert store.past_game_date("g2", at=NOON) == dt.date(2005, 1, 3)
 
 
 def test_storing_players_keeps_the_registered_date(tmp_path: Path) -> None:
     store = make_store(tmp_path)
-    store.set_past_game_dates({"g1": dt.date(2005, 1, 2)})
+    store.set_past_game_dates({"g1": dt.date(2005, 1, 2)}, at=NOON)
 
-    store.set_past_game_players("g1", dt.date(2009, 9, 9), "[1]")
-    store.set_past_game_players("g1", dt.date(2009, 9, 9), "[2]")
+    store.set_past_game_players("g1", dt.date(2009, 9, 9), "[1]", at=NOON)
+    store.set_past_game_players("g1", dt.date(2009, 9, 9), "[2]", at=NOON)
 
-    assert store.past_game_date("g1") == dt.date(2005, 1, 2)
-    assert store.past_game_players("g1") == "[2]"
+    assert store.past_game_date("g1", at=NOON) == dt.date(2005, 1, 2)
+    assert store.past_game_players("g1", at=NOON) == "[2]"
     assert query(tmp_path, "SELECT COUNT(*) FROM past_games") == [(1,)]
 
 
 def test_a_game_with_a_date_and_no_players_has_no_players(tmp_path: Path) -> None:
     store = make_store(tmp_path)
-    store.set_past_game_dates({"g1": dt.date(2005, 1, 2)})
+    store.set_past_game_dates({"g1": dt.date(2005, 1, 2)}, at=NOON)
 
-    assert store.past_game_players("g1") is None
-    assert store.past_game_players("unknown") is None
-    assert store.past_game_date("unknown") is None
+    assert store.past_game_players("g1", at=NOON) is None
+    assert store.past_game_players("unknown", at=NOON) is None
+    assert store.past_game_date("unknown", at=NOON) is None
 
 
 def test_migrating_a_database_at_version_8_adds_the_player_identities_and_keeps_the_rows(
@@ -1158,14 +1174,18 @@ def test_migrating_a_database_at_version_8_adds_the_player_identities_and_keeps_
     real = state.MIGRATIONS
     monkeypatch.setattr(state, "MIGRATIONS", real[:8])
     store = make_store(tmp_path)
-    store.set_past_game_players("g1", dt.date(2005, 1, 2), '{"teams": {}}')
+    execute(
+        tmp_path,
+        "INSERT INTO past_games (game_id, game_date, players) "
+        "VALUES ('g1', '2005-01-02', '{\"teams\": {}}')",
+    )
     assert user_version(tmp_path) == 8
     monkeypatch.setattr(state, "MIGRATIONS", real)
 
     store.migrate()
 
-    assert user_version(tmp_path) == len(real) == 9
-    assert store.past_game_players("g1") == '{"teams": {}}'
+    assert user_version(tmp_path) == len(real) == 10
+    assert store.past_game_players("g1", at=NOON) == '{"teams": {}}'
     assert query(tmp_path, "SELECT COUNT(*) FROM player_identities") == [(0,)]
 
 
@@ -1191,3 +1211,227 @@ def test_a_player_identity_is_stored_replaced_and_read_with_its_time(
 
 def test_a_missing_player_identity_is_none(tmp_path: Path) -> None:
     assert make_store(tmp_path).player_identity("nobody") is None
+
+
+def test_migrate_sets_wal_and_every_connection_waits_5_seconds_on_a_lock(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store = make_store(tmp_path)
+
+    assert query(tmp_path, "PRAGMA journal_mode") == [("wal",)]
+    with store._connect() as connection:
+        assert connection.execute("PRAGMA busy_timeout").fetchone() == (5000,)
+    real = sqlite3.connect
+    timeouts: list[object] = []
+
+    def recording(*args: Any, **kwargs: Any) -> sqlite3.Connection:
+        timeouts.append(kwargs.get("timeout"))
+        connection: sqlite3.Connection = real(*args, **kwargs)
+        return connection
+
+    monkeypatch.setattr(sqlite3, "connect", recording)
+    store.migrate()
+    with store._connect():
+        pass
+
+    assert timeouts == [5.0, 5.0]
+
+
+def test_migrating_a_database_at_version_9_adds_the_served_and_touched_times_and_keeps_the_rows(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    real = state.MIGRATIONS
+    monkeypatch.setattr(state, "MIGRATIONS", real[:9])
+    store = make_store(tmp_path)
+    store.record_build("players", "a", NOON)
+    execute(
+        tmp_path,
+        "INSERT INTO player_identities (player_id, athlete, read_at) "
+        "VALUES ('p1', '{}', '2026-01-10T12:00:00+00:00')",
+    )
+    execute(
+        tmp_path,
+        "INSERT INTO past_games (game_id, game_date) VALUES ('g1', '2005-01-02')",
+    )
+    assert user_version(tmp_path) == 9
+    monkeypatch.setattr(state, "MIGRATIONS", real)
+
+    store.migrate()
+
+    assert user_version(tmp_path) == 10
+    assert store.feed_build("players", "a") is not None
+    assert store.player_identity("p1") is not None
+    served = store.last_served("players", "a")
+    # The migration time comes from SQLite: it is checked for shape, not for
+    # the clock. The statements run in one call, so the values are one moment.
+    stamps = [served]
+    for table in ("past_games", "player_identities"):
+        rows = query(tmp_path, f"SELECT touched_at FROM {table}")
+        assert len(rows) == 1
+        touched = state._from_text(str(rows[0][0]))
+        stamps.append(touched)
+    assert all(
+        stamp is not None and stamp.utcoffset() == dt.timedelta(0) for stamp in stamps
+    )
+    assert max(s for s in stamps if s) - min(s for s in stamps if s) < dt.timedelta(
+        seconds=5
+    )
+    assert query(tmp_path, "SELECT COUNT(*) FROM past_games") == [(1,)]
+    assert "past_player_ids" in table_names(tmp_path)
+    assert query(tmp_path, "SELECT COUNT(*) FROM past_player_ids") == [(0,)]
+
+
+def touched(path: Path, table: str, key: str) -> dt.datetime | None:
+    column = "game_id" if table == "past_games" else "player_id"
+    rows = query(path, f"SELECT touched_at FROM {table} WHERE {column} = '{key}'")
+    return state._from_text(str(rows[0][0])) if rows else None
+
+
+def test_a_past_game_is_touched_when_written_and_when_its_date_or_players_are_read(
+    tmp_path: Path,
+) -> None:
+    store = make_store(tmp_path)
+    later = NOON + dt.timedelta(days=1)
+    latest = NOON + dt.timedelta(days=2)
+
+    store.set_past_game_dates({"g1": dt.date(2005, 1, 2)}, at=NOON)
+    assert touched(tmp_path, "past_games", "g1") == NOON
+    store.set_past_game_dates({"g1": dt.date(2009, 9, 9)}, at=later)
+    assert touched(tmp_path, "past_games", "g1") == later
+    store.set_past_game_players("g1", dt.date(2009, 9, 9), "[1]", at=NOON)
+    assert touched(tmp_path, "past_games", "g1") == NOON
+    assert store.past_game_date("g1", at=later) == dt.date(2005, 1, 2)
+    assert touched(tmp_path, "past_games", "g1") == later
+    assert store.past_game_players("g1", at=latest) == "[1]"
+    assert touched(tmp_path, "past_games", "g1") == latest
+    assert store.past_game_date("none", at=latest) is None
+    assert touched(tmp_path, "past_games", "none") is None
+    with pytest.raises(ValueError, match="timezone aware"):
+        store.past_game_date("g1", at=latest.replace(tzinfo=None))
+
+
+def test_prunes_past_games_touched_91_days_ago_and_keeps_those_touched_89_days_ago(
+    tmp_path: Path,
+) -> None:
+    store = make_store(tmp_path)
+    store.set_past_game_dates({"old": DAY}, at=NOON - dt.timedelta(days=91))
+    store.set_past_game_dates({"new": DAY}, at=NOON - dt.timedelta(days=89))
+
+    store.prune_past_games(NOON - dt.timedelta(days=90))
+
+    assert store.past_game_date("old", at=NOON) is None
+    assert store.past_game_date("new", at=NOON) == DAY
+
+
+def test_a_player_identity_is_touched_on_write_and_on_touch_and_pruned_after_90_days(
+    tmp_path: Path,
+) -> None:
+    store = make_store(tmp_path)
+    old = NOON - dt.timedelta(days=91)
+    store.set_player_identity("old", "{}", old)
+    store.set_player_identity("new", "{}", NOON - dt.timedelta(days=89))
+    store.set_player_identity("used", "{}", old)
+
+    assert touched(tmp_path, "player_identities", "old") == old
+    store.touch_player_identity("used", NOON)
+    store.prune_player_identities(NOON - dt.timedelta(days=90))
+
+    assert store.player_identity("old") is None
+    assert store.player_identity("new") is not None
+    assert store.player_identity("used") is not None
+    with pytest.raises(ValueError, match="timezone aware"):
+        store.touch_player_identity("used", NOON.replace(tzinfo=None))
+
+
+def test_touching_a_feed_build_sets_its_last_served_and_creates_no_row(
+    tmp_path: Path,
+) -> None:
+    store = make_store(tmp_path)
+    store.record_build("days", "a", NOON)
+    assert store.last_served("days", "a") is None
+
+    store.touch_feed_build("days", "a", NOON + dt.timedelta(hours=1))
+    store.touch_feed_build("days", "none", NOON)
+
+    assert store.last_served("days", "a") == NOON + dt.timedelta(hours=1)
+    assert store.last_served("days", "none") is None
+    assert store.feed_build_ids("days") == {"a"}
+
+
+def test_rejects_a_naive_touch_time(tmp_path: Path) -> None:
+    store = make_store(tmp_path)
+    store.record_build("days", "a", NOON)
+
+    with pytest.raises(ValueError, match="timezone aware"):
+        store.touch_feed_build("days", "a", NOON.replace(tzinfo=None))
+
+
+def test_lists_feed_builds_not_served_built_or_failed_since_the_cutoff(
+    tmp_path: Path,
+) -> None:
+    store = make_store(tmp_path)
+    cutoff = NOON - dt.timedelta(days=90)
+    before = cutoff - dt.timedelta(days=1)
+    after = cutoff + dt.timedelta(days=1)
+    store.record_build("days", "served-old", after)
+    store.touch_feed_build("days", "served-old", before)
+    store.record_build("days", "served-new", before)
+    store.touch_feed_build("days", "served-new", after)
+    store.record_build("days", "built-old", before)
+    store.record_build("days", "built-new", after)
+    store.record_build_failure("days", "failed-old", before, "x")
+    store.record_build_failure("days", "failed-new", after, "x")
+    store.record_build("teams", "other-kind", before)
+
+    assert store.stale_feed_build_ids("days", cutoff) == {
+        "served-old",
+        "built-old",
+        "failed-old",
+    }
+
+
+def test_reads_the_highlights_of_the_given_games_only_and_none_for_no_ids(
+    tmp_path: Path,
+) -> None:
+    store = make_store(tmp_path)
+    one, two = make_highlight("one"), make_highlight("two")
+    store.set_highlight("g1", one)
+    store.set_highlight("g2", two)
+
+    assert store.highlights_for(["g1", "g1", "none"]) == {"g1": one}
+    assert store.highlights_for(iter(["g2"])) == {"g2": two}
+    assert store.highlights_for([]) == {}
+
+
+def test_past_player_ids_are_stored_per_scope_and_keep_their_first_learned_time(
+    tmp_path: Path,
+) -> None:
+    store = make_store(tmp_path)
+    later = NOON + dt.timedelta(days=1)
+
+    store.add_past_player_ids({"1", "2"}, "known", NOON)
+    store.add_past_player_ids({"2"}, "known", later)
+    store.add_past_player_ids({"2"}, "in_season", later)
+
+    assert store.past_player_ids("known") == {"1", "2"}
+    assert store.past_player_ids("in_season") == {"2"}
+    assert query(
+        tmp_path,
+        "SELECT learned_at FROM past_player_ids "
+        "WHERE player_id = '2' AND scope = 'known'",
+    ) == [(NOON.isoformat(),)]
+
+
+def test_adding_no_past_player_ids_writes_nothing(tmp_path: Path) -> None:
+    store = make_store(tmp_path)
+
+    store.add_past_player_ids([], "known", NOON)
+
+    assert query(tmp_path, "SELECT COUNT(*) FROM past_player_ids") == [(0,)]
+
+
+def test_rejects_a_naive_learned_time(tmp_path: Path) -> None:
+    store = make_store(tmp_path)
+
+    with pytest.raises(ValueError, match="timezone aware"):
+        store.add_past_player_ids({"1"}, "known", NOON.replace(tzinfo=None))

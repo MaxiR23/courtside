@@ -192,7 +192,8 @@ code. The feed is a `TeamFeed` (the same schema as above) validated by
 - Reads: the season team object, the standings and the two schedules, in a
   budget of 5 (ADR 0059); no box score, team info or season averages read.
 - Refresh: built on request, stored at `feeds/season-teams/{season}-{code}.json`,
-  kept for good: never deleted, and rebuilt on its next request when its
+  kept for good (rule G of [`docs/source-rules.md`](../source-rules.md)), deleted when not served in 90 days and rebuilt on its next request ([ADR 0063](../adr/0063-bounded-state-and-kept-feeds.md)),
+  and rebuilt on its next request when its
   `buildVersion` is not the current one. The names are built first
   and set again when the feed is served.
 - Endpoint: the same headers and 304 as the team feed. It responds 404 with no

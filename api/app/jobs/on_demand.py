@@ -12,12 +12,16 @@
 # At most MAX_QUEUED_BUILDS builds are started at once, and a build is stopped after BUILD_TIMEOUT_SECONDS
 # and recorded as "build timed out" (ADR 0062).
 #
-# SEE: docs/source-rules.md, docs/adr/0020-source-rules.md, docs/adr/0062-bounded-upstream-reads-and-on-demand-builds.md
+# prune_unserved deletes the stored file and build row of the ids of the given kinds not served in
+# KEPT_RETENTION; they are built again on their next request (ADR 0063).
+#
+# SEE: docs/source-rules.md, docs/adr/0020-source-rules.md, docs/adr/0062-bounded-upstream-reads-and-on-demand-builds.md,
+# docs/adr/0063-bounded-state-and-kept-feeds.md
 
 import asyncio
 import datetime as dt
 import logging
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Iterable
 from enum import StrEnum
 from pathlib import Path
 from typing import Any
@@ -51,6 +55,9 @@ RETRY_AFTER = dt.timedelta(minutes=10)
 # (ADR 0055).
 # A kind may carry its own version on top of it (ADR 0061).
 SEASON_BUILD_VERSION = 3
+
+# How long a kept feed may go unserved before the daily cleanup deletes it (ADR 0063).
+KEPT_RETENTION = dt.timedelta(days=90)
 
 
 def failure_reason(error: Exception) -> str:
@@ -201,6 +208,7 @@ class FeedCache:
                             pass
                         else:
                             body = rebuilt
+            self._store.touch_feed_build(kind, feed_id, self._clock())
             return self._respond(feed_kind, feed_id, feed, body)
 
         task = self.in_flight.get(key)
@@ -227,6 +235,7 @@ class FeedCache:
             raise FeedUnavailableError(
                 f"{kind} {feed_id} stored file is invalid"
             ) from None
+        self._store.touch_feed_build(kind, feed_id, self._clock())
         return self._respond(feed_kind, feed_id, feed, body)
 
     def refresh(self, kind: str, feed_id: str) -> None:
@@ -376,3 +385,20 @@ class FeedCache:
                 if not kind.keep(feed_id):
                     delete_by_id(self._data_dir, kind.name, feed_id)
                     self._store.delete_feed_build(kind.name, feed_id)
+
+    def prune_unserved(self, kinds: Iterable[str], now: dt.datetime) -> None:
+        """Deletes the stored file and build row of every id of the given kinds
+        not served in KEPT_RETENTION, or stored with no build row; an id with a
+        build in flight is skipped. Builds nothing and reads no source."""
+        for name in kinds:
+            kind = self._kinds[name]
+            stored = published_ids(self._data_dir, kind.name)
+            rows = self._store.feed_build_ids(kind.name)
+            ids = self._store.stale_feed_build_ids(kind.name, now - KEPT_RETENTION) | (
+                stored - rows
+            )
+            for feed_id in sorted(ids):
+                if (kind.name, feed_id) in self.in_flight:
+                    continue
+                delete_by_id(self._data_dir, kind.name, feed_id)
+                self._store.delete_feed_build(kind.name, feed_id)

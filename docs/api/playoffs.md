@@ -354,8 +354,9 @@ current season.
 - It must build as `complete`, or the build fails and nothing is stored.
   `detailAvailable` is false.
 - Refresh: built on request, stored at `feeds/season-playoffs/{season}.json`, kept
-  for good (rule G of [`docs/source-rules.md`](../source-rules.md)): never
-  deleted, and rebuilt on its next request when its `buildVersion` is not the
+  for good (rule G of [`docs/source-rules.md`](../source-rules.md)):
+  deleted when not served in 90 days and rebuilt on its next request ([ADR 0063](../adr/0063-bounded-state-and-kept-feeds.md)),
+  and rebuilt on its next request when its `buildVersion` is not the
   version of this kind, the current one plus 1
   ([ADR 0061](../adr/0061-past-playoffs-player-identities-and-finals-mvp-averages.md)).
   A failed build with nothing stored is retried after 10 minutes.
@@ -537,8 +538,9 @@ the current season.
 - `highlights` is the stored highlight added when served, null without one;
   `detailAvailable` is false ([ADR 0048](../adr/0048-highlights-backfill-and-edition-video.md)).
 - Refresh: built on request, stored at `feeds/season-playoffs-finals/{season}.json`,
-  kept for good (rule G of [`docs/source-rules.md`](../source-rules.md)), rebuilt
-  on its next request when its `buildVersion` is not the version of the past
+  kept for good (rule G of [`docs/source-rules.md`](../source-rules.md)),
+  deleted when not served in 90 days and rebuilt on its next request ([ADR 0063](../adr/0063-bounded-state-and-kept-feeds.md)),
+  and rebuilt on its next request when its `buildVersion` is not the version of the past
   playoffs ([ADR 0061](../adr/0061-past-playoffs-player-identities-and-finals-mvp-averages.md)).
   A failed build with nothing stored is retried after 10 minutes.
 - The kind is `SeasonPlayoffsFinalsFeeds` in

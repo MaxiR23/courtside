@@ -26,14 +26,18 @@
 # shown_games and refreshed_at; after_run lets it start the final builds and
 # the cleanup.
 #
-# Once a day, with the daily fetch, the final times and failed stats attempts of
-# games dated more than 30 days ago are deleted from the job state; highlights
-# are kept.
+# Once a day, with the daily fetch, the job state is pruned (ADR 0063): source
+# cache entries fetched more than 7 days ago, games dated more than 10 days ago
+# (with their final times and attempts) and past games and player identities
+# not touched in 90 days are deleted, and the daily cleanup hook runs (main.py
+# gives it the deletion of the kept feeds not served in 90 days). Highlights
+# and past player ids are kept.
 #
 # SEE: docs/source-rules.md, docs/adr/0007-backend-runtime-and-data-pipeline.md,
 # docs/api/games.md,
-# docs/adr/0010-final-game-attempts.md, docs/adr/0011-state-retention.md,
-# docs/adr/0013-day-change.md, docs/adr/0014-star-guarantees.md
+# docs/adr/0010-final-game-attempts.md,
+# docs/adr/0013-day-change.md, docs/adr/0014-star-guarantees.md,
+# docs/adr/0063-bounded-state-and-kept-feeds.md
 
 import asyncio
 import datetime as dt
@@ -54,7 +58,7 @@ from app.feeds.games import (
     StatsAvailability,
 )
 from app.feeds.opponent import Side
-from app.jobs.on_demand import MISSING_WAIT_SECONDS
+from app.jobs.on_demand import KEPT_RETENTION, MISSING_WAIT_SECONDS
 from app.settings import Settings
 from app.sources import game_detail, scoreboard
 from app.sources.game_detail import GameDetail
@@ -79,7 +83,8 @@ STATS_ATTEMPT_DELAYS = (
     dt.timedelta(hours=6),
 )
 MAX_STATS_ATTEMPTS = len(STATS_ATTEMPT_DELAYS)
-STATE_RETENTION = dt.timedelta(days=30)
+SOURCE_CACHE_RETENTION = dt.timedelta(days=7)
+GAMES_RETENTION = dt.timedelta(days=DAYS_AROUND + 7)
 
 StarsProvider = Callable[[ScoreboardGame], Stars | None]
 StarsReady = Callable[[], bool]
@@ -87,6 +92,7 @@ SearchUrlProvider = Callable[[ScoreboardGame], str | None]
 HighlightsProvider = Callable[[ScoreboardGame], list[Highlight]]
 PresenceCheck = Callable[[dt.datetime], bool]
 AfterRun = Callable[[], None]
+DailyCleanup = Callable[[dt.datetime], None]
 FetchGames = Callable[
     [SourceClient, dt.date, Settings], Awaitable[list[ScoreboardGame]]
 ]
@@ -115,6 +121,10 @@ def always_present(now: dt.datetime) -> bool:
 
 def no_after_run() -> None:
     """Default when no after-run hook is given."""
+
+
+def no_daily_cleanup(now: dt.datetime) -> None:
+    """Default when no daily cleanup hook is given."""
 
 
 def no_highlights_search_url(game: ScoreboardGame) -> str | None:
@@ -240,9 +250,11 @@ class GamesJob:
         highlights: HighlightsProvider = no_highlights,
         present: PresenceCheck = always_present,
         after_run: AfterRun = no_after_run,
+        daily_cleanup: DailyCleanup = no_daily_cleanup,
     ) -> None:
         self._present = present
         self._after_run = after_run
+        self._daily_cleanup = daily_cleanup
         self._lock = asyncio.Lock()
         self._refresh: asyncio.Task[None] | None = None
         self._requested = False
@@ -475,7 +487,16 @@ class GamesJob:
             self._details = {i: d for i, d in self._details.items() if i in kept}
             self._catch_up &= kept
             if daily:
-                self._store.prune_final_times(today - STATE_RETENTION)
+                self._store.prune_source_cache(now - SOURCE_CACHE_RETENTION)
+                self._store.prune_games(today - GAMES_RETENTION)
+                self._store.prune_past_games(now - KEPT_RETENTION)
+                self._store.prune_player_identities(now - KEPT_RETENTION)
+                try:
+                    self._daily_cleanup(now)
+                except Exception:
+                    # The kept-feed cleanup never blocks the games feed; the
+                    # next daily fetch retries it.
+                    logger.exception("daily cleanup failed")
                 self._daily_fetched_at = now
             for day in sorted(self._games):
                 for game in self._games[day]:

@@ -64,7 +64,7 @@ from their names, so a day of this feed is valid against the games feed's
   ([ADR 0042](../adr/0042-calendar-seasons-and-day-season.md)).
 - A failed build keeps the stored feed and is listed under `feeds` in
   `/health`; it is not retried for 10 minutes on request.
-- The feed is never deleted, and its games never enter the games job, the hero,
+- The feed is deleted when not served in 90 days and rebuilt on its next request ([ADR 0063](../adr/0063-bounded-state-and-kept-feeds.md)), and its games never enter the games job, the hero,
   the highlights job or the live refresh. The highlights backfill reads the
   stored day feeds once a day to find the highlights of their final games.
 

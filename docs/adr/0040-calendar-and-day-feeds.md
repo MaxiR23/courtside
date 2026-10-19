@@ -1,6 +1,6 @@
 # 0040. Calendar and day feeds
 
-- Status: Superseded by 0048 for the day feed's highlights only, by 0054 for a final game's stats availability only, and by 0055 for the past calendar's keep rule only
+- Status: Superseded by 0048 for the day feed's highlights only, by 0054 for a final game's stats availability only, and by 0055 for the past calendar's keep rule only, and by 0063 for the deletion of unserved day and past calendar feeds only
 - Date: 2026-10-15
 
 ## Context

@@ -250,7 +250,8 @@ current season.
   label with a null `seed`; a third quarterfinal in a conference fails the build
   ([ADR 0053](../adr/0053-season-level-rules-for-past-seasons.md)).
 - Refresh: built on request, stored at `feeds/season-cup/{season}.json`, kept for
-  good (rule G of [`docs/source-rules.md`](../source-rules.md)): never deleted,
+  good (rule G of [`docs/source-rules.md`](../source-rules.md)):
+  deleted when not served in 90 days and rebuilt on its next request ([ADR 0063](../adr/0063-bounded-state-and-kept-feeds.md)),
   and rebuilt on its next request when its `buildVersion` is not the current one. A failed build with nothing stored is retried after 10
   minutes.
 - The kind is `SeasonCupFeeds` in `api/app/jobs/season_cup_feed.py`.

@@ -1,6 +1,6 @@
 # 0011. State retention
 
-- Status: Accepted
+- Status: Superseded by 0063
 - Date: 2026-10-05
 
 ## Context

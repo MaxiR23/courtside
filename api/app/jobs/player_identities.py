@@ -6,10 +6,13 @@
 # than 30 days is used with no read. Misses are read concurrently, at most eight
 # in flight (the wide lane of the read budget). A read that fails is not cached
 # and gives None, so the caller shows a dash; a rate limit is raised, so the
-# build stops. Only the past playoffs build reads it today.
+# build stops. Only the past playoffs build reads it today. A stored identity
+# that is used is touched, and one not touched in 90 days is deleted by the
+# games job's daily step (ADR 0063).
 #
 # SEE: docs/adr/0061-past-playoffs-player-identities-and-finals-mvp-averages.md,
-# docs/adr/0058-bounded-past-competition-reads.md
+# docs/adr/0058-bounded-past-competition-reads.md,
+# docs/adr/0063-bounded-state-and-kept-feeds.md
 
 import asyncio
 import datetime as dt
@@ -54,9 +57,11 @@ class PlayerIdentities:
         if entry.read_at <= self._client.clock() - IDENTITY_LIFETIME:
             return None
         try:
-            return PlayerAthlete.model_validate_json(entry.body)
+            athlete = PlayerAthlete.model_validate_json(entry.body)
         except ValidationError:
             return None
+        self._store.touch_player_identity(player_id, self._client.clock())
+        return athlete
 
     async def _read(self, player_id: str) -> PlayerAthlete | None:
         async with self._semaphore:

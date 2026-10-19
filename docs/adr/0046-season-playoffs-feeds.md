@@ -1,6 +1,6 @@
 # 0046. Season playoffs feeds
 
-- Status: Superseded by 0048 for the past Finals' highlights only, and by 0053 for the past rosters only, and by 0058 for the past reads, the names of leaders and award winners, the Finals averages and team colors only
+- Status: Superseded by 0048 for the past Finals' highlights only, and by 0053 for the past rosters only, and by 0058 for the past reads, the names of leaders and award winners, the Finals averages and team colors only, and by 0063 for the deletion of unserved past playoffs and Finals feeds only
 - Date: 2026-10-15
 
 ## Context
