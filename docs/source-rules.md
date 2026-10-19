@@ -90,7 +90,7 @@ Unknown ids answer 404 with no source request: game ids outside the days shown t
 
 ## J. Restart and cleanup
 
-Stored feeds, source cache entries and build times survive a restart; a restart builds nothing by itself. A cleanup with no source request deletes the stored data of games that left the days shown and of players no longer on any roster. A past game detail is never deleted.
+Stored feeds, source cache entries and build times survive a restart; a restart builds nothing by itself. A cleanup with no source request deletes the stored data of games that left the days shown and of players no longer on any roster. With the games job's daily fetch, a kept past feed (day, past game detail, calendar, and the past team, player, playoffs, Finals, Cup, Cup matchup and All-Star feeds) not served in 90 days is deleted and built again on its next request (ADR 0063).
 
 ## K. Cache headers
 

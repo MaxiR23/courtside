@@ -1,6 +1,6 @@
 # 0041. Past game detail
 
-- Status: Superseded by 0048 for the past game's highlights only, and by 0052 for the values inside the box score and team stats only, and by 0053 for the ids it knows only, and by 0057 for the past game detail's leaders only
+- Status: Superseded by 0048 for the past game's highlights only, and by 0052 for the values inside the box score and team stats only, and by 0053 for the ids it knows only, and by 0057 for the past game detail's leaders only, and by 0063 for the deletion of an unserved past game detail only
 - Date: 2026-10-15
 
 ## Context

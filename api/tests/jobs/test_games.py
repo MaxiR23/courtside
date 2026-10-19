@@ -37,8 +37,12 @@
 # - A failing final game detail never blocks live details: the last live detail is published, and a final game with no detail is published as pending
 # - A failing final detail is fetched again only 2, 4 and 6 hours after the final time, then the game is unavailable; failed attempts survive a restart
 # - Stores the US Eastern date of each game seen final
-# - The daily run deletes the final time and stats attempts of a game 31 days old, keeps one 30 days old, and never touches highlights
-# - The cleanup runs only with the daily fetch
+# - The daily step deletes a source entry 8 days old and keeps one 6 days old
+# - The daily step deletes a game row dated 11 days ago with its times and attempts, and keeps one dated 10 days ago
+# - The daily step deletes past games and player identities touched 91 days ago, keeps those touched 89 days ago, and never deletes past player ids
+# - The cleanup runs only with the daily fetch, and the daily cleanup hook runs once a day with the run time
+# - A failed daily fetch prunes nothing and calls no daily cleanup hook
+# - The daily step never deletes highlights
 # - The builder and a run carry the All-Star mark of each game, keep a run over an All-Star day valid, and leave out an All-Star game that has no live detail, has two sides with one code or has no search URL, with one log line and without failing the feed
 # - A failed live detail fetch of an All-Star game neither fails the run nor drops the game, which keeps its previous detail, and a league game still fails it
 # - A failed scoreboard fetch, live detail fetch or invalid feed keeps the last valid feed and records the reason
@@ -1479,29 +1483,56 @@ def seed_old_game(store: StateStore, days: int) -> None:
 
 
 @pytest.mark.anyio
-async def test_the_morning_run_deletes_the_final_time_and_stats_attempts_of_a_game_31_days_old(
+async def test_the_daily_step_deletes_a_source_entry_8_days_old_and_keeps_one_6_days_old(
     settings: Settings, store: StateStore, sources: FakeSources
 ) -> None:
-    seed_old_game(store, 31)
+    store.set_source_entry("old", "{}", NOON - dt.timedelta(days=8))
+    store.set_source_entry("new", "{}", NOON - dt.timedelta(days=6))
 
     await make_job(settings, store, sources).run(NOON)
 
-    assert store.final_time("old") is None
-    assert store.first_seen_final("old") is False
-    assert store.failed_stats_attempts("old") == 0
+    assert store.source_entry("old") is None
+    assert store.source_entry("new") is not None
 
 
 @pytest.mark.anyio
-async def test_the_morning_run_keeps_a_game_30_days_old(
+async def test_the_daily_step_deletes_a_game_row_dated_11_days_ago_and_keeps_one_dated_10_days_ago(
     settings: Settings, store: StateStore, sources: FakeSources
 ) -> None:
-    seed_old_game(store, 30)
+    seed_old_game(store, 11)
+    store.set_final_time("edge", TODAY - dt.timedelta(days=10), NOON, first_seen=True)
+    store.record_failed_stats_attempt("edge", TODAY - dt.timedelta(days=10))
 
     await make_job(settings, store, sources).run(NOON)
 
-    assert store.final_time("old") == NOON
-    assert store.first_seen_final("old") is True
-    assert store.failed_stats_attempts("old") == 1
+    assert store.game_date("old") is None
+    assert store.final_time("old") is None
+    assert store.first_seen_final("old") is False
+    assert store.failed_stats_attempts("old") == 0
+    assert store.game_date("edge") == TODAY - dt.timedelta(days=10)
+    assert store.final_time("edge") == NOON
+    assert store.first_seen_final("edge") is True
+    assert store.failed_stats_attempts("edge") == 1
+
+
+@pytest.mark.anyio
+async def test_the_daily_step_deletes_past_games_and_identities_touched_91_days_ago_and_keeps_those_touched_89_days_ago(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    long_ago = NOON - dt.timedelta(days=400)
+    store.set_past_game_dates({"old": TODAY}, at=NOON - dt.timedelta(days=91))
+    store.set_past_game_dates({"new": TODAY}, at=NOON - dt.timedelta(days=89))
+    store.set_player_identity("old", "{}", NOON - dt.timedelta(days=91))
+    store.set_player_identity("new", "{}", NOON - dt.timedelta(days=89))
+    store.add_past_player_ids({"old"}, "known", long_ago)
+
+    await make_job(settings, store, sources).run(NOON)
+
+    assert store.past_game_date("old", at=NOON) is None
+    assert store.past_game_date("new", at=NOON) == TODAY
+    assert store.player_identity("old") is None
+    assert store.player_identity("new") is not None
+    assert store.past_player_ids("known") == {"old"}
 
 
 @pytest.mark.anyio
@@ -1510,7 +1541,7 @@ async def test_the_cleanup_runs_only_with_the_daily_fetch(
 ) -> None:
     job = make_job(settings, store, sources)
     await job.run(NOON)
-    seed_old_game(store, 31)
+    seed_old_game(store, 11)
 
     await job.run(NOON + dt.timedelta(seconds=30))
     await job.run(NOON + dt.timedelta(hours=10))
@@ -1521,7 +1552,52 @@ async def test_the_cleanup_runs_only_with_the_daily_fetch(
 
 
 @pytest.mark.anyio
-async def test_the_morning_run_never_deletes_highlights_or_highlight_attempts(
+async def test_the_daily_cleanup_hook_runs_once_per_day_with_the_daily_fetch_and_gets_the_run_time(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    calls: list[dt.datetime] = []
+    job = make_job(settings, store, sources, daily_cleanup=calls.append)
+    next_morning = dt.datetime(2026, 10, 6, 10, 0, tzinfo=dt.UTC)
+
+    await job.run(NOON)
+    await job.run(NOON + dt.timedelta(seconds=30))
+    await job.run(NOON + dt.timedelta(hours=10))
+    assert calls == [NOON]
+
+    await job.run(next_morning)
+    assert calls == [NOON, next_morning]
+
+
+@pytest.mark.anyio
+async def test_a_failed_daily_step_never_blocks_the_games_feed(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    def failing(_: dt.datetime) -> None:
+        raise RuntimeError("cleanup failed")
+
+    await make_job(settings, store, sources, daily_cleanup=failing).run(NOON)
+
+    assert TODAY in published_days(settings)
+
+
+@pytest.mark.anyio
+async def test_a_failed_daily_fetch_prunes_nothing_and_calls_no_daily_cleanup(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    calls: list[dt.datetime] = []
+    seed_old_game(store, 11)
+    store.set_source_entry("old", "{}", NOON - dt.timedelta(days=8))
+    sources.day_errors[TODAY] = SourceError("scoreboard", "request failed")
+
+    await make_job(settings, store, sources, daily_cleanup=calls.append).run(NOON)
+
+    assert calls == []
+    assert store.game_date("old") is not None
+    assert store.source_entry("old") is not None
+
+
+@pytest.mark.anyio
+async def test_the_daily_step_never_deletes_highlights(
     settings: Settings, store: StateStore, sources: FakeSources
 ) -> None:
     seed_old_game(store, 31)
@@ -1530,7 +1606,7 @@ async def test_the_morning_run_never_deletes_highlights_or_highlight_attempts(
 
     await make_job(settings, store, sources).run(NOON)
 
-    assert store.highlight_attempts("old") == 1
+    assert store.game_date("old") is None
     assert store.highlights() == {"old": HIGHLIGHT}
 
 

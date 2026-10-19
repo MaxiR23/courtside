@@ -197,7 +197,7 @@ recorded response that shows it.
   built again. The last stored feed stays served until then, and a request
   answers 503 when none is stored.
 - A past game's feed is built once on request, stored as its own kind and kept.
-  It is never refreshed or cleaned up, and the games job never touches it. A
+  It is never refreshed, and the games job never touches it. It is deleted when not served in 90 days and rebuilt on its next request ([ADR 0063](../adr/0063-bounded-state-and-kept-feeds.md)). A
   failed build answers 503 while nothing is stored and is not retried for 10
   minutes. A stored feed without the `leaders` key is stale: it is served, then
   rebuilt on its next request ([ADR 0057](../adr/0057-past-game-detail-leaders.md)).

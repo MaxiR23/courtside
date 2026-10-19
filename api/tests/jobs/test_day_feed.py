@@ -16,6 +16,7 @@
 # - The kind: an all-final day and an empty day are fresh after a year, a day with a postponed or scheduled game is fresh before 6 hours and stale at 6 hours
 # - The kind: a failed read with nothing stored answers unavailable, and a failed rebuild keeps the stored feed
 # - The kind: the stored highlight of a final game is added when served and not stored, and an All-Star game gets none
+# - The kind: serving reads only the highlights of the day's games
 # - The kind: the cleanup keeps every day
 # - The kind: a final day stored without the current build version is served, then rebuilt with the payload names; one of the current version is served as stored (ADR 0053)
 # - The kind: league sides are named from the scoreboard payload with the season code of the stored franchise names, and a guest side keeps its name (ADR 0059)
@@ -32,6 +33,7 @@
 import asyncio
 import datetime as dt
 import logging
+from collections.abc import Iterable
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, cast
@@ -586,3 +588,30 @@ async def test_an_all_star_game_gets_no_highlight_when_served(kit: DayKit) -> No
     served = DayFeed.model_validate_json(await kit.serve(PAST))
 
     assert served.day.games[0].highlights == []
+
+
+@pytest.mark.anyio
+async def test_serve_with_reads_only_the_highlights_of_the_days_games(
+    kit: DayKit, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    kit.days[PAST] = [game("1", GameStatus.FINAL), game("2", GameStatus.FINAL)]
+    kit.store.set_highlight("1", clip())
+    kit.store.set_highlight("other", clip())
+    seen: list[list[str]] = []
+    real = kit.store.highlights_for
+
+    def spy(game_ids: Iterable[str]) -> dict[str, Highlight]:
+        ids = list(game_ids)
+        seen.append(ids)
+        return real(ids)
+
+    def boom() -> dict[str, Highlight]:
+        raise AssertionError("every highlight was loaded")
+
+    monkeypatch.setattr(kit.store, "highlights_for", spy)
+    monkeypatch.setattr(kit.store, "highlights", boom)
+
+    served = DayFeed.model_validate_json(await kit.serve(PAST))
+
+    assert seen == [["1", "2"]]
+    assert [g.highlights for g in served.day.games] == [[clip()], []]

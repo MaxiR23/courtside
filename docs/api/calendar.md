@@ -53,7 +53,7 @@ the gap between its days.
   it is built after its last day.
 - A failed build keeps the stored feed and is listed under `feeds` in
   `/health`; it is not retried for 10 minutes on request.
-- The feed is never deleted.
+- The feed is deleted when not served in 90 days and rebuilt on its next request ([ADR 0063](../adr/0063-bounded-state-and-kept-feeds.md)).
 
 ## Endpoint
 

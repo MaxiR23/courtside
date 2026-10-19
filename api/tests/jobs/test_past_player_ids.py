@@ -10,7 +10,12 @@
 # - A past game with a null box score adds no id
 # - An id in neither is unknown, and nothing is known with no stored feed
 # - Each stored file, the playoffs and Finals ones included, is read once: a second call reads no file again, and a file stored later is indexed on the next call
-# - An invalid stored file is skipped and read again on the next call
+# - An invalid stored file is skipped and read again on the next call, and stores no id
+# - An indexed id is stored with its scope and the clock time
+# - A known player stays known after his stored feeds are deleted and a restart
+# - An in-season id stays in season only after a restart
+# - The stored ids are read once per scope per process
+# - save_stored keeps the ids of every stored file, for the daily cleanup
 #
 # What is covered:
 # - Pure index logic: happy path, edges and errors, with no source request
@@ -19,6 +24,9 @@
 #
 # SEE: api/app/jobs/past_player_ids.py
 
+import datetime as dt
+import sqlite3
+from contextlib import closing
 from pathlib import Path
 
 import pytest
@@ -35,11 +43,24 @@ from app.jobs.season_playoffs_feed import stored_player_ids as playoffs_ids
 from app.jobs.season_playoffs_finals_feed import KIND as SEASON_FINALS
 from app.jobs.season_playoffs_finals_feed import stored_player_ids as finals_ids
 from app.jobs.season_team_feed import KIND as SEASON_TEAMS
-from app.storage.feeds import publish_by_id, read_by_id
+from app.storage.feeds import delete_by_id, publish_by_id, read_by_id
+from app.storage.state import STATE_FILE, PastPlayerScope, StateStore
 from tests.feeds.test_game_detail import past_detail
 from tests.feeds.test_playoffs import complete_feed
 from tests.feeds.test_playoffs_finals import valid as finals_data
 from tests.jobs.test_season_team_feed import build
+
+FIXED = dt.datetime(2026, 10, 19, 12, 0, tzinfo=dt.UTC)
+
+
+def state(path: Path) -> StateStore:
+    store = StateStore(path)
+    store.migrate()
+    return store
+
+
+def index_of(path: Path) -> PastPlayerIds:
+    return PastPlayerIds(path, state(path), clock=lambda: FIXED)
 
 
 def store_team(path: Path, feed_id: str = "2004-okc", *, roster: bool = True) -> None:
@@ -79,7 +100,7 @@ def test_an_id_from_the_roster_of_a_stored_past_team_feed_is_known(
     tmp_path: Path,
 ) -> None:
     store_team(tmp_path)
-    index = PastPlayerIds(tmp_path)
+    index = index_of(tmp_path)
 
     assert index.known("1") is True
     assert index.known("2") is True
@@ -98,17 +119,17 @@ def test_an_id_from_the_box_score_of_a_stored_past_game_is_known(
 def test_a_past_game_with_a_null_box_score_adds_no_id(tmp_path: Path) -> None:
     store_game(tmp_path, box_score=False)
 
-    assert PastPlayerIds(tmp_path).known("p1") is False
+    assert index_of(tmp_path).known("p1") is False
 
 
 def test_an_id_in_neither_is_unknown_and_nothing_is_known_with_no_stored_feed(
     tmp_path: Path,
 ) -> None:
-    assert PastPlayerIds(tmp_path).known("1") is False
+    assert index_of(tmp_path).known("1") is False
     store_team(tmp_path)
     store_game(tmp_path)
 
-    assert PastPlayerIds(tmp_path).known("nobody") is False
+    assert index_of(tmp_path).known("nobody") is False
 
 
 def test_each_stored_file_is_read_once_and_a_file_stored_later_is_indexed(
@@ -137,9 +158,10 @@ def test_an_invalid_stored_file_is_skipped_and_read_again(tmp_path: Path) -> Non
     folder = tmp_path / "feeds" / SEASON_TEAMS
     folder.mkdir(parents=True)
     (folder / "2004-okc.json").write_text("{}", encoding="utf-8")
-    index = PastPlayerIds(tmp_path)
+    index = index_of(tmp_path)
 
     assert index.known("1") is False
+    assert state(tmp_path).past_player_ids("known") == set()
 
     store_team(tmp_path)
 
@@ -149,12 +171,14 @@ def test_an_invalid_stored_file_is_skipped_and_read_again(tmp_path: Path) -> Non
 def test_a_past_team_feed_with_a_null_roster_adds_no_id(tmp_path: Path) -> None:
     store_team(tmp_path, roster=False)
 
-    assert PastPlayerIds(tmp_path).known("1") is False
+    assert index_of(tmp_path).known("1") is False
 
 
 def named_index(path: Path) -> PastPlayerIds:
     return PastPlayerIds(
         path,
+        state(path),
+        clock=lambda: FIXED,
         named=(
             (SEASON_PLAYOFFS, playoffs_ids),
             (SEASON_FINALS, finals_ids),
@@ -167,7 +191,7 @@ def test_no_playoffs_id_is_known_in_season_without_the_readers(
 ) -> None:
     store_playoffs(tmp_path)
 
-    assert PastPlayerIds(tmp_path).known_in_season("leader") is False
+    assert index_of(tmp_path).known_in_season("leader") is False
 
 
 def store_playoffs(path: Path, season: str = "2025") -> None:
@@ -234,3 +258,92 @@ def test_each_competition_file_is_read_once(
     assert index.known_in_season("nobody") is False
     assert index.known_in_season("other") is False
     assert sorted(reads) == sorted([(SEASON_FINALS, "2025"), (SEASON_PLAYOFFS, "2025")])
+
+
+def test_an_indexed_id_is_stored_with_its_scope_and_the_clock_time(
+    tmp_path: Path,
+) -> None:
+    store_team(tmp_path)
+    store_playoffs(tmp_path)
+    index = named_index(tmp_path)
+
+    assert index.known("nobody") is False
+    assert index.known_in_season("nobody") is False
+
+    store = state(tmp_path)
+    assert store.past_player_ids("known") == {"1", "2"}
+    assert {"leader", "winner"} <= store.past_player_ids("in_season")
+    with closing(sqlite3.connect(tmp_path / STATE_FILE)) as connection:
+        learned = connection.execute(
+            "SELECT DISTINCT learned_at FROM past_player_ids"
+        ).fetchall()
+    assert learned == [(FIXED.isoformat(),)]
+
+
+def test_a_known_player_stays_known_after_his_stored_feeds_are_deleted_and_a_restart(
+    tmp_path: Path,
+) -> None:
+    store_team(tmp_path)
+    ids = store_game(tmp_path)
+    assert index_of(tmp_path).known("nobody") is False
+
+    delete_by_id(tmp_path, SEASON_TEAMS, "2004-okc")
+    delete_by_id(tmp_path, PAST_GAMES, "g1")
+    restarted = index_of(tmp_path)
+
+    assert restarted.known("1") is True
+    assert all(restarted.known(player_id) for player_id in ids)
+    assert restarted.known("nobody") is False
+
+
+def test_an_in_season_id_stays_in_season_only_after_a_restart(tmp_path: Path) -> None:
+    store_playoffs(tmp_path)
+    assert named_index(tmp_path).known_in_season("leader") is True
+
+    delete_by_id(tmp_path, SEASON_PLAYOFFS, "2025")
+    restarted = named_index(tmp_path)
+
+    assert restarted.known("leader") is False
+    assert restarted.known_in_season("leader") is True
+
+
+def test_the_stored_ids_are_read_once_per_process(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store = state(tmp_path)
+    scopes: list[str] = []
+    real = store.past_player_ids
+
+    def counted(scope: PastPlayerScope) -> set[str]:
+        scopes.append(scope)
+        return real(scope)
+
+    monkeypatch.setattr(store, "past_player_ids", counted)
+    index = PastPlayerIds(tmp_path, store, clock=lambda: FIXED)
+
+    assert index.known("a") is False
+    assert index.known("b") is False
+    assert index.known_in_season("a") is False
+    assert index.known_in_season("b") is False
+    assert sorted(scopes) == ["in_season", "known"]
+
+
+def test_save_stored_keeps_the_ids_of_every_stored_file_before_they_are_deleted(
+    tmp_path: Path,
+) -> None:
+    store_team(tmp_path)
+    store_playoffs(tmp_path)
+    ids = store_finals(tmp_path)
+    index = named_index(tmp_path)
+
+    index.save_stored()
+    delete_by_id(tmp_path, SEASON_TEAMS, "2004-okc")
+    delete_by_id(tmp_path, SEASON_PLAYOFFS, "2025")
+    delete_by_id(tmp_path, SEASON_FINALS, "2025")
+    restarted = named_index(tmp_path)
+
+    assert restarted.known("1") is True
+    assert restarted.known("leader") is False
+    assert restarted.known_in_season("leader") is True
+    assert restarted.known_in_season("winner") is True
+    assert all(restarted.known_in_season(player_id) for player_id in ids)

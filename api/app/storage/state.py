@@ -4,7 +4,7 @@
 # Schema versioned with PRAGMA user_version; MIGRATIONS run once each on startup.
 # One connection per operation, so sync endpoints can use it from the threadpool.
 #
-# SEE: docs/adr/0007-backend-runtime-and-data-pipeline.md, docs/adr/0011-state-retention.md, docs/source-rules.md
+# SEE: docs/adr/0007-backend-runtime-and-data-pipeline.md, docs/adr/0063-bounded-state-and-kept-feeds.md, docs/source-rules.md
 
 import datetime as dt
 import json
@@ -13,7 +13,7 @@ import sqlite3
 from collections.abc import Iterable, Mapping
 from contextlib import closing
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import Field
 
@@ -23,6 +23,13 @@ logger = logging.getLogger(__name__)
 
 STATE_FILE = "state.sqlite3"
 NO_REASON = "no reason given"
+# Every connection waits this long on a lock instead of relying on the library
+# default (ADR 0063).
+BUSY_TIMEOUT_SECONDS = 5.0
+# The most failed builds /health lists (ADR 0063).
+MAX_FAILED_BUILDS = 50
+# Which set of PastPlayerIds a learned id belongs to (ADR 0063).
+PastPlayerScope = Literal["known", "in_season"]
 
 # One migration is a tuple of SQL statements. Append new ones; never edit,
 # reorder or remove one that has shipped. SEE: docs/architecture.md
@@ -118,6 +125,30 @@ MIGRATIONS: tuple[Migration, ...] = (
             "athlete TEXT NOT NULL, read_at TEXT NOT NULL)"
         ),
     ),
+    # The last served and touched times of the bounded state, and the past
+    # player ids (ADR 0063).
+    (
+        "ALTER TABLE feed_builds ADD COLUMN last_served TEXT",
+        (
+            "UPDATE feed_builds SET last_served = "
+            "strftime('%Y-%m-%dT%H:%M:%S+00:00', 'now')"
+        ),
+        "ALTER TABLE past_games ADD COLUMN touched_at TEXT",
+        (
+            "UPDATE past_games SET touched_at = "
+            "strftime('%Y-%m-%dT%H:%M:%S+00:00', 'now')"
+        ),
+        "ALTER TABLE player_identities ADD COLUMN touched_at TEXT",
+        (
+            "UPDATE player_identities SET touched_at = "
+            "strftime('%Y-%m-%dT%H:%M:%S+00:00', 'now')"
+        ),
+        (
+            "CREATE TABLE past_player_ids (player_id TEXT NOT NULL, "
+            "scope TEXT NOT NULL, learned_at TEXT NOT NULL, "
+            "PRIMARY KEY (player_id, scope))"
+        ),
+    ),
 )
 
 
@@ -204,12 +235,19 @@ class StateStore:
         self._path = data_dir / STATE_FILE
 
     def _connect(self) -> closing[sqlite3.Connection]:
-        return closing(sqlite3.connect(self._path))
+        return closing(sqlite3.connect(self._path, timeout=BUSY_TIMEOUT_SECONDS))
 
     def migrate(self) -> None:
         """Runs every pending migration in order, all in one transaction;
         on failure rolls back and raises StateMigrationError."""
-        with closing(sqlite3.connect(self._path, isolation_level=None)) as connection:
+        with closing(
+            sqlite3.connect(
+                self._path, isolation_level=None, timeout=BUSY_TIMEOUT_SECONDS
+            )
+        ) as connection:
+            # The journal mode cannot change inside a transaction; it is stored
+            # in the database file, so later connections inherit it.
+            connection.execute("PRAGMA journal_mode=WAL")
             connection.execute("BEGIN IMMEDIATE")
             try:
                 version = int(connection.execute("PRAGMA user_version").fetchone()[0])
@@ -261,6 +299,19 @@ class StateStore:
             ).fetchall()
         return {gid: Highlight.model_validate_json(text) for gid, text in rows}
 
+    def highlights_for(self, game_ids: Iterable[str]) -> dict[str, Highlight]:
+        """The stored highlights of the given games only."""
+        ids = sorted(set(game_ids))
+        if not ids:
+            return {}
+        marks = ", ".join("?" for _ in ids)
+        with self._connect() as connection:
+            rows = connection.execute(
+                f"SELECT game_id, highlight FROM highlights WHERE game_id IN ({marks})",
+                ids,
+            ).fetchall()
+        return {gid: Highlight.model_validate_json(text) for gid, text in rows}
+
     def set_final_time(
         self,
         game_id: str,
@@ -287,14 +338,34 @@ class StateStore:
             ).fetchone()
         return dt.date.fromisoformat(row[0]) if row else None
 
-    def prune_final_times(self, before: dt.date) -> None:
-        """Deletes the final time, first-seen flag and failed stats attempts
-        of every game dated before `before`; highlights are kept."""
+    def prune_games(self, before: dt.date) -> None:
+        """Deletes every game row dated before `before`, with its final time,
+        first-seen flag and attempts; highlights are kept."""
         with self._connect() as connection, connection:
             connection.execute(
-                "UPDATE games SET final_time = NULL, first_seen_final = 0, "
-                "failed_stats_attempts = 0 WHERE game_date < ?",
-                (before.isoformat(),),
+                "DELETE FROM games WHERE game_date < ?", (before.isoformat(),)
+            )
+
+    def prune_source_cache(self, before: dt.datetime) -> None:
+        """Deletes the source cache entries fetched before `before`."""
+        with self._connect() as connection, connection:
+            connection.execute(
+                "DELETE FROM source_cache WHERE fetched_at < ?", (_to_text(before),)
+            )
+
+    def prune_past_games(self, before: dt.datetime) -> None:
+        """Deletes the past games not touched since `before`."""
+        with self._connect() as connection, connection:
+            connection.execute(
+                "DELETE FROM past_games WHERE touched_at < ?", (_to_text(before),)
+            )
+
+    def prune_player_identities(self, before: dt.datetime) -> None:
+        """Deletes the player identities not touched since `before`."""
+        with self._connect() as connection, connection:
+            connection.execute(
+                "DELETE FROM player_identities WHERE touched_at < ?",
+                (_to_text(before),),
             )
 
     def first_seen_final(self, game_id: str) -> bool:
@@ -417,10 +488,19 @@ class StateStore:
         text = _to_text(read_at)
         with self._connect() as connection, connection:
             connection.execute(
-                "INSERT INTO player_identities (player_id, athlete, read_at) "
-                "VALUES (?, ?, ?) ON CONFLICT(player_id) DO UPDATE SET "
-                "athlete = excluded.athlete, read_at = excluded.read_at",
-                (player_id, body, text),
+                "INSERT INTO player_identities "
+                "(player_id, athlete, read_at, touched_at) VALUES (?, ?, ?, ?) "
+                "ON CONFLICT(player_id) DO UPDATE SET "
+                "athlete = excluded.athlete, read_at = excluded.read_at, "
+                "touched_at = excluded.touched_at",
+                (player_id, body, text, text),
+            )
+
+    def touch_player_identity(self, player_id: str, at: dt.datetime) -> None:
+        with self._connect() as connection, connection:
+            connection.execute(
+                "UPDATE player_identities SET touched_at = ? WHERE player_id = ?",
+                (_to_text(at), player_id),
             )
 
     def player_identity(self, player_id: str) -> PlayerIdentityEntry | None:
@@ -473,12 +553,44 @@ class StateStore:
             ).fetchone()
         return _to_feed_build(row) if row else None
 
+    def touch_feed_build(self, kind: str, feed_id: str, at: dt.datetime) -> None:
+        """Sets the time a feed was last served; a feed with no build row gets
+        none (it is rebuilt, which creates the row)."""
+        with self._connect() as connection, connection:
+            connection.execute(
+                "UPDATE feed_builds SET last_served = ? WHERE kind = ? AND feed_id = ?",
+                (_to_text(at), kind, feed_id),
+            )
+
+    def last_served(self, kind: str, feed_id: str) -> dt.datetime | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT last_served FROM feed_builds WHERE kind = ? AND feed_id = ?",
+                (kind, feed_id),
+            ).fetchone()
+        return None if row is None else _from_text(row[0])
+
+    def stale_feed_build_ids(self, kind: str, before: dt.datetime) -> set[str]:
+        """The ids of the kind not served, built or failed since `before`; a
+        build never served ages from its build, a failure-only row from its
+        failure."""
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT feed_id FROM feed_builds WHERE kind = ? AND "
+                "COALESCE(last_served, last_build, last_failure) < ?",
+                (kind, _to_text(before)),
+            ).fetchall()
+        return {row[0] for row in rows}
+
     def failed_feed_builds(self) -> list[FeedBuildState]:
+        """The newest failed builds first, at most MAX_FAILED_BUILDS."""
         with self._connect() as connection:
             rows = connection.execute(
                 "SELECT kind, feed_id, last_build, last_failure, "
                 "last_failure_reason FROM feed_builds "
-                "WHERE last_failure IS NOT NULL ORDER BY kind, feed_id"
+                "WHERE last_failure IS NOT NULL "
+                "ORDER BY last_failure DESC, kind, feed_id LIMIT ?",
+                (MAX_FAILED_BUILDS,),
             ).fetchall()
         return [_to_feed_build(row) for row in rows]
 
@@ -573,39 +685,89 @@ class StateStore:
             for season, game_date, game_ids in rows
         ]
 
-    def set_past_game_dates(self, dates: Mapping[str, dt.date]) -> None:
-        """Registers the dates of past games; a stored row and its players are
-        never overwritten."""
+    def set_past_game_dates(
+        self, dates: Mapping[str, dt.date], *, at: dt.datetime
+    ) -> None:
+        """Registers the dates of past games and refreshes their touched time; a
+        stored date and players are never overwritten."""
+        text = _to_text(at)
         with self._connect() as connection, connection:
             connection.executemany(
-                "INSERT OR IGNORE INTO past_games (game_id, game_date) VALUES (?, ?)",
-                [(game_id, day.isoformat()) for game_id, day in dates.items()],
+                "INSERT INTO past_games (game_id, game_date, touched_at) "
+                "VALUES (?, ?, ?) ON CONFLICT(game_id) DO UPDATE SET "
+                "touched_at = excluded.touched_at",
+                [(game_id, day.isoformat(), text) for game_id, day in dates.items()],
+            )
+
+    def touch_past_games(self, game_ids: Iterable[str], *, at: dt.datetime) -> None:
+        """Refreshes the touched time of the rows that exist; it adds none."""
+        text = _to_text(at)
+        with self._connect() as connection, connection:
+            connection.executemany(
+                "UPDATE past_games SET touched_at = ? WHERE game_id = ?",
+                [(text, game_id) for game_id in game_ids],
             )
 
     def set_past_game_players(
-        self, game_id: str, game_date: dt.date, players: str
+        self, game_id: str, game_date: dt.date, players: str, *, at: dt.datetime
     ) -> None:
+        text = _to_text(at)
         with self._connect() as connection, connection:
             connection.execute(
-                "INSERT INTO past_games (game_id, game_date, players) "
-                "VALUES (?, ?, ?) ON CONFLICT(game_id) DO UPDATE SET "
-                "players = excluded.players",
-                (game_id, game_date.isoformat(), players),
+                "INSERT INTO past_games (game_id, game_date, players, touched_at) "
+                "VALUES (?, ?, ?, ?) ON CONFLICT(game_id) DO UPDATE SET "
+                "players = excluded.players, touched_at = excluded.touched_at",
+                (game_id, game_date.isoformat(), players, text),
             )
 
-    def past_game_players(self, game_id: str) -> str | None:
-        with self._connect() as connection:
+    def past_game_players(self, game_id: str, *, at: dt.datetime) -> str | None:
+        """The stored players of a past game; finding the row touches it."""
+        text = _to_text(at)
+        with self._connect() as connection, connection:
+            connection.execute(
+                "UPDATE past_games SET touched_at = ? WHERE game_id = ?",
+                (text, game_id),
+            )
             row = connection.execute(
                 "SELECT players FROM past_games WHERE game_id = ?", (game_id,)
             ).fetchone()
         return None if row is None else row[0]
 
-    def past_game_date(self, game_id: str) -> dt.date | None:
-        with self._connect() as connection:
+    def past_game_date(self, game_id: str, *, at: dt.datetime) -> dt.date | None:
+        """The stored date of a past game; finding the row touches it."""
+        text = _to_text(at)
+        with self._connect() as connection, connection:
+            connection.execute(
+                "UPDATE past_games SET touched_at = ? WHERE game_id = ?",
+                (text, game_id),
+            )
             row = connection.execute(
                 "SELECT game_date FROM past_games WHERE game_id = ?", (game_id,)
             ).fetchone()
         return None if row is None else dt.date.fromisoformat(row[0])
+
+    def add_past_player_ids(
+        self, player_ids: Iterable[str], scope: PastPlayerScope, at: dt.datetime
+    ) -> None:
+        """Registers the player ids learned from a stored past feed; a stored
+        id keeps the time it was first learned. Never pruned (ADR 0063)."""
+        text = _to_text(at)
+        ids = sorted(set(player_ids))
+        if not ids:
+            return
+        with self._connect() as connection, connection:
+            connection.executemany(
+                "INSERT OR IGNORE INTO past_player_ids "
+                "(player_id, scope, learned_at) VALUES (?, ?, ?)",
+                [(player_id, scope, text) for player_id in ids],
+            )
+
+    def past_player_ids(self, scope: PastPlayerScope) -> set[str]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT player_id FROM past_player_ids WHERE scope = ?", (scope,)
+            ).fetchall()
+        return {row[0] for row in rows}
 
     def backfill_sweep(self) -> BackfillSweep | None:
         with self._connect() as connection:

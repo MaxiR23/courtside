@@ -15,7 +15,7 @@
 # kept once its season is past and it was built after the season's last day (the
 # last day guard keeps a calendar stored while its season was current from being
 # frozen at the season change) and while its build version is the current one
-# (ADR 0055). It is never deleted (ADR 0040). The id current
+# (ADR 0055). It is deleted with its build row when not served in 90 days, and rebuilt on its next request (ADR 0063). The id current
 # resolves to the current season's end year before the cache, so it serves the
 # same stored file (503 while the season is unknown). The feed's seasons run from
 # the current season down to 1994 and are set again at serve time (ADR 0042).

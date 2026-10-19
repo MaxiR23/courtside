@@ -259,8 +259,8 @@ next not final, no next game beyond it) and a points tie for the top of a team b
 - `leagueTeam` is null on every row, `highlights` is null on every game and
   `editionHighlight` is added when served.
 - The feed is built once on request, stored at
-  `feeds/season-all-star/{season}.json` and kept: it is never deleted, and rebuilt
-  on its next request when its `buildVersion` is not the current one.
+  `feeds/season-all-star/{season}.json` and kept: it is deleted when not served in 90 days and rebuilt on its next request ([ADR 0063](../adr/0063-bounded-state-and-kept-feeds.md)),
+  and rebuilt on its next request when its `buildVersion` is not the current one.
   A failed build is not retried for 10 minutes on request.
 - The feed kind is `SeasonAllStarFeeds` in `api/app/jobs/season_all_star_feed.py`.
 

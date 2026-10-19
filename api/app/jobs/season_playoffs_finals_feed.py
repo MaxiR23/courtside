@@ -20,8 +20,9 @@
 # feeds/season-playoffs-finals/{season}.json only when requested and the season
 # playoffs feed is built first when it is missing. The current season is
 # resolved before the cache (target) to the current playoffs finals feed. A feed
-# is built once and kept (rule G): it is never deleted, and rebuilt only when its
-# build version is not BUILD_VERSION of the past playoffs (ADR 0053, ADR 0061). Its league sides take the
+# is built once and kept (rule G): it is deleted with its build row when not served in
+# 90 days and rebuilt on its next request (ADR 0063), and rebuilt otherwise only
+# when its build version is not BUILD_VERSION of the past playoffs (ADR 0053, ADR 0061). Its league sides take the
 # names, season codes and historical flags of the stored season playoffs feed's
 # sides (identities_of), with no read (ADR 0054, ADR 0058).
 #
@@ -247,7 +248,7 @@ class SeasonPlayoffsFinalsFeeds:
         return is_current_build(feed, BUILD_VERSION)
 
     def serve_with(self, feed_id: str, feed: PlayoffsFinalsFeed) -> PlayoffsFinalsFeed:
-        highlights = self._store.highlights()
+        highlights = self._store.highlights_for(entry.game.id for entry in feed.games)
         data = feed.model_dump(by_alias=False)
         for entry in data["games"]:
             found = highlights.get(entry["game"]["id"])

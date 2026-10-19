@@ -46,6 +46,9 @@
 # - warm starts one build for a missing or stale feed without waiting, and none for a fresh feed, one in flight, an unknown id or a failure inside the 10-minute window (ADR 0055)
 # - At most 16 builds are started: a new missing id answers unavailable, warm and refresh start nothing, a stale feed is served as stored and a dependency is used as stored (ADR 0062)
 # - A build past its timeout is recorded as "build timed out", ends its task and keeps the stored feed (ADR 0062)
+# - Serving a stored feed, or a feed after its build, sets its last served time to the clock, and an unavailable or unknown answer does not (ADR 0063)
+# - prune_unserved deletes the file and row of a feed not served in 91 days and keeps one served 89 days ago, and a stored file with no row
+# - prune_unserved skips an id with a build in flight and the kinds not given, and a pruned feed is built again on its next request
 # - with_build_version stamps the current rules version of the kept season feeds, and is_current_build is true only for that version (ADR 0053)
 #
 # What is covered:
@@ -1260,3 +1263,135 @@ async def test_a_build_past_its_timeout_is_recorded_as_build_timed_out_and_its_t
     assert setup.cache.in_flight == {}
     assert fake.running == 0
     assert setup.stored("p0") == body_of(1, "p0")
+
+
+DAY = dt.timedelta(days=1)
+
+
+@pytest.mark.anyio
+async def test_serving_a_stored_feed_updates_its_last_served_to_the_clock(
+    tmp_path: Path,
+) -> None:
+    setup = Setup(tmp_path, Fake())
+    publish_by_id(tmp_path, "players", FakeFeed, "p1", FakeFeed(id="p1", version=7))
+    setup.store.record_build("players", "p1", T)
+    assert setup.store.last_served("players", "p1") is None
+    setup.now[0] = T + HOUR / 2
+
+    await setup.cache.serve("players", "p1")
+
+    assert setup.store.last_served("players", "p1") == T + HOUR / 2
+
+
+@pytest.mark.anyio
+async def test_serving_a_feed_after_its_build_updates_its_last_served_to_the_clock(
+    tmp_path: Path,
+) -> None:
+    setup = Setup(tmp_path, Fake())
+    setup.now[0] = T + DAY
+
+    await setup.cache.serve("players", "p1")
+
+    assert setup.store.last_served("players", "p1") == T + DAY
+
+
+@pytest.mark.anyio
+async def test_an_unavailable_or_unknown_answer_does_not_update_last_served(
+    tmp_path: Path,
+) -> None:
+    fake = Fake()
+    setup = Setup(tmp_path, fake)
+    setup.store.record_build("players", "p1", T)
+    setup.now[0] = T + DAY
+
+    fake.status = IdStatus.UNKNOWN
+    with pytest.raises(UnknownFeedError):
+        await setup.cache.serve("players", "p1")
+    fake.status = IdStatus.NOT_READY
+    with pytest.raises(FeedUnavailableError):
+        await setup.cache.serve("players", "p1")
+    fake.status = IdStatus.KNOWN
+    fake.fail = SourceError("scoreboard", "request failed")
+    with pytest.raises(FeedUnavailableError):
+        await setup.cache.serve("players", "p1")
+
+    assert setup.store.last_served("players", "p1") is None
+
+
+@pytest.mark.anyio
+async def test_prune_unserved_deletes_the_file_and_row_of_a_feed_not_served_in_91_days_and_keeps_one_served_89_days_ago(
+    tmp_path: Path,
+) -> None:
+    setup = Setup(tmp_path, Fake())
+    for feed_id, age in [("old", 91), ("new", 89), ("built", 91)]:
+        publish_by_id(
+            tmp_path, "players", FakeFeed, feed_id, FakeFeed(id=feed_id, version=1)
+        )
+        setup.store.record_build("players", feed_id, T - 200 * DAY)
+        if feed_id != "built":
+            setup.store.touch_feed_build("players", feed_id, T - age * DAY)
+    setup.store.record_build("players", "built", T - 91 * DAY)
+
+    with respx.mock:
+        setup.cache.prune_unserved(["players"], T)
+
+    assert published_ids(tmp_path, "players") == {"new"}
+    assert setup.store.feed_build_ids("players") == {"new"}
+    assert setup.fake.builds == 0
+
+
+@pytest.mark.anyio
+async def test_prune_unserved_deletes_a_stored_file_with_no_build_row(
+    tmp_path: Path,
+) -> None:
+    setup = Setup(tmp_path, Fake())
+    publish_by_id(tmp_path, "players", FakeFeed, "p1", FakeFeed(id="p1", version=1))
+
+    setup.cache.prune_unserved(["players"], T)
+
+    assert published_ids(tmp_path, "players") == set()
+
+
+@pytest.mark.anyio
+async def test_prune_unserved_skips_an_id_with_a_build_in_flight_and_kinds_not_given(
+    tmp_path: Path,
+) -> None:
+    fake = Fake()
+    other = Fake("teams")
+    setup = Setup(tmp_path, fake)
+    setup.cache.register(other.kind())
+    for kind in ("players", "teams"):
+        for feed_id in ("p1", "p2"):
+            publish_by_id(
+                tmp_path, kind, FakeFeed, feed_id, FakeFeed(id=feed_id, version=1)
+            )
+            setup.store.record_build(kind, feed_id, T - 100 * DAY)
+    fake.gate = asyncio.Event()
+    setup.cache.refresh("players", "p1")
+    await asyncio.sleep(0)
+
+    setup.cache.prune_unserved(["players"], T)
+
+    assert published_ids(tmp_path, "players") == {"p1"}
+    assert setup.store.feed_build_ids("players") == {"p1"}
+    assert published_ids(tmp_path, "teams") == {"p1", "p2"}
+    assert setup.store.feed_build_ids("teams") == {"p1", "p2"}
+    fake.gate.set()
+    await setup.settle()
+
+
+@pytest.mark.anyio
+async def test_a_pruned_feed_is_built_again_on_its_next_request(
+    tmp_path: Path,
+) -> None:
+    setup = Setup(tmp_path, Fake())
+    await setup.cache.serve("players", "p1")
+    setup.now[0] = T + 91 * DAY
+
+    setup.cache.prune_unserved(["players"], setup.now[0])
+    assert setup.stored() is None
+    assert setup.store.feed_build("players", "p1") is None
+    body = await setup.cache.serve("players", "p1")
+
+    assert body == body_of(1)
+    assert setup.fake.builds == 2

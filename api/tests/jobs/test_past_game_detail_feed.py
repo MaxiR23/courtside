@@ -22,6 +22,8 @@
 # - The kind: a failed build answers unavailable and is not retried for 10 minutes
 # - The kind: a summary without a season fails the build and stores nothing
 # - The kind: the stored highlight is added when served as a list of one, null without one and on an All-Star game, and is not stored
+# - The kind: serving reads only the highlight of its game
+# - The kind: a built game is registered with its day, stays known and builds its day first after its day feed is deleted and a restart, and a check touches the registered row (ADR 0063)
 # - The kind: the build sends one read under a budget of one
 # - The kind: the cleanup keeps every past game detail
 # - The kind: the games job, its day change and its cleanup never refresh or delete a past game detail
@@ -37,7 +39,9 @@
 
 import datetime as dt
 import json
-from collections.abc import Iterator
+import sqlite3
+from collections.abc import Iterable, Iterator
+from contextlib import closing
 from pathlib import Path
 from typing import Any
 
@@ -52,6 +56,7 @@ from app.jobs.day_feed import build_day_feed
 from app.jobs.on_demand import (
     RETRY_AFTER,
     SEASON_BUILD_VERSION,
+    FeedCache,
     FeedUnavailableError,
     IdStatus,
     UnknownFeedError,
@@ -68,7 +73,8 @@ from app.settings import Settings
 from app.sources import scoreboard
 from app.sources.game_detail import GameDetailSections
 from app.sources.http import Freshness, SourceClient, SourceError
-from app.storage.feeds import _by_id_dir, publish_by_id, read_by_id
+from app.storage.feeds import _by_id_dir, delete_by_id, publish_by_id, read_by_id
+from app.storage.state import STATE_FILE
 from tests.feeds.test_game_detail import (
     box_team,
     leaders,
@@ -364,7 +370,7 @@ async def test_a_registered_game_with_no_stored_day_is_known_and_builds_its_day_
     kit: PastKit,
 ) -> None:
     kit.days[PAST] = [game("1", GameStatus.FINAL)]
-    kit.store.set_past_game_dates({"1": PAST})
+    kit.store.set_past_game_dates({"1": PAST}, at=NOW)
 
     assert kit.past_kind.check("1") is IdStatus.KNOWN
     assert read_by_id(kit.path, DAY_KIND, PAST.isoformat()) is None
@@ -381,7 +387,7 @@ async def test_a_registered_game_the_day_does_not_list_as_final_fails_the_build(
     kit: PastKit,
 ) -> None:
     kit.days[PAST] = [game("1", GameStatus.POSTPONED)]
-    kit.store.set_past_game_dates({"1": PAST})
+    kit.store.set_past_game_dates({"1": PAST}, at=NOW)
 
     with pytest.raises(FeedUnavailableError):
         await kit.serve_past("1")
@@ -392,7 +398,7 @@ async def test_a_registered_game_the_day_does_not_list_as_final_fails_the_build(
 
 @pytest.mark.anyio
 async def test_an_id_neither_stored_nor_registered_stays_unknown(kit: PastKit) -> None:
-    kit.store.set_past_game_dates({"1": PAST})
+    kit.store.set_past_game_dates({"1": PAST}, at=NOW)
 
     assert kit.past_kind.check("2") is IdStatus.UNKNOWN
     with pytest.raises(UnknownFeedError):
@@ -727,3 +733,86 @@ async def test_a_failed_rebuild_of_a_detail_without_the_leaders_key_keeps_servin
     for body in (first, second):
         assert PastGameDetailFeed.model_validate_json(body).id == "1"
     assert read_by_id(kit.path, KIND, "1") == old
+
+
+@pytest.mark.anyio
+async def test_serve_with_reads_only_the_highlight_of_its_game(
+    kit: PastKit, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    await kit.store_day(game("1", GameStatus.FINAL))
+    kit.store.set_highlight("1", clip())
+    kit.store.set_highlight("other", clip())
+    seen: list[list[str]] = []
+    real = kit.store.highlights_for
+
+    def spy(game_ids: Iterable[str]) -> dict[str, Highlight]:
+        ids = list(game_ids)
+        seen.append(ids)
+        return real(ids)
+
+    def boom() -> dict[str, Highlight]:
+        raise AssertionError("every highlight was loaded")
+
+    monkeypatch.setattr(kit.store, "highlights_for", spy)
+    monkeypatch.setattr(kit.store, "highlights", boom)
+
+    served = PastGameDetailFeed.model_validate_json(await kit.serve_past("1"))
+
+    assert seen == [["1"]]
+    assert served.highlights == [clip()]
+
+
+def touched_at(kit: PastKit, game_id: str) -> str | None:
+    with closing(sqlite3.connect(kit.path / STATE_FILE)) as connection:
+        row = connection.execute(
+            "SELECT touched_at FROM past_games WHERE game_id = ?", (game_id,)
+        ).fetchone()
+    return None if row is None else str(row[0])
+
+
+@pytest.mark.anyio
+async def test_a_built_past_game_is_registered_with_its_day(kit: PastKit) -> None:
+    await kit.store_day(game("1", GameStatus.FINAL))
+    assert kit.store.past_game_date("1", at=NOW) is None
+
+    await kit.serve_past("1")
+
+    assert kit.store.past_game_date("1", at=NOW) == PAST
+
+
+@pytest.mark.anyio
+async def test_a_past_game_stays_known_and_its_deleted_day_is_built_first_after_a_restart(
+    kit: PastKit,
+) -> None:
+    await kit.store_day(game("1", GameStatus.FINAL))
+    await kit.serve_past("1")
+    delete_by_id(kit.path, DAY_KIND, PAST.isoformat())
+    kit.store.delete_feed_build(DAY_KIND, PAST.isoformat())
+    delete_by_id(kit.path, KIND, "1")
+    kit.store.delete_feed_build(KIND, "1")
+    kit.section_calls.clear()
+    kit.calls.clear()
+
+    restarted = PastGameDetailFeeds(
+        kit.settings,
+        kit.store,
+        kit.client,
+        FeedCache(kit.path, kit.store, clock=lambda: kit.clock[0]),
+        fetch_sections=kit.fetch_sections,
+    )
+
+    assert restarted.check("1") is IdStatus.KNOWN
+    assert restarted.depends_on("1") == (DAY_KIND, PAST.isoformat())
+    body = await kit.serve_past("1")
+    assert PastGameDetailFeed.model_validate_json(body).id == "1"
+    assert kit.calls == [PAST]
+
+
+@pytest.mark.anyio
+async def test_a_check_touches_the_registered_row(kit: PastKit) -> None:
+    kit.store.set_past_game_dates({"1": PAST}, at=NOW)
+    kit.clock[0] = NOW + 5 * YEAR
+
+    assert kit.past_kind.check("1") is IdStatus.KNOWN
+
+    assert touched_at(kit, "1") == (NOW + 5 * YEAR).isoformat()

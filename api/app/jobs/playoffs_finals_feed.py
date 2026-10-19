@@ -644,7 +644,7 @@ class PlayoffsFinalsFeeds:
 
     def serve_with(self, feed_id: str, feed: PlayoffsFinalsFeed) -> PlayoffsFinalsFeed:
         ids = {game.id for game in self._games.loaded_games()}
-        highlights = self._store.highlights()
+        highlights = self._store.highlights_for(entry.game.id for entry in feed.games)
         data = feed.model_dump(by_alias=False)
         for entry in data["games"]:
             game_id = entry["game"]["id"]

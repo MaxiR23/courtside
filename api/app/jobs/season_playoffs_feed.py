@@ -33,8 +33,9 @@
 # only when requested. A season is valid from 1994 to the season before the
 # current one (past_season_status). The current season is resolved before the
 # cache (target) to the current playoffs feed (ADR 0042). A feed is built once
-# and kept (rule G): it is never deleted, and rebuilt only when its build version
-# is not BUILD_VERSION, the version of this kind (ADR 0053, ADR 0061).
+# and kept (rule G): it is deleted with its build row when not served in 90
+# days and rebuilt on its next request (ADR 0063), and rebuilt otherwise only
+# when its build version is not BUILD_VERSION, the version of this kind (ADR 0053, ADR 0061).
 #
 # SEE: docs/api/playoffs.md, docs/adr/0046-season-playoffs-feeds.md,
 # docs/adr/0058-bounded-past-competition-reads.md,

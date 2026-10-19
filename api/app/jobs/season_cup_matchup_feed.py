@@ -15,8 +15,9 @@
 # resolved before the cache (target) to the current Cup matchup feed. A failed
 # schedule read fails the build. The build declares a read budget of READ_BUDGET
 # source reads, one schedule per team (ADR 0058). A feed is built once and kept (rule G): it is
-# never deleted, and rebuilt only when its build version is not the current one
-# (ADR 0053).
+# deleted with its build row when not served in 90 days and rebuilt on its next
+# request (ADR 0063), and rebuilt otherwise only when its build version is not
+# the current one (ADR 0053).
 #
 # SEE: docs/api/cup-matchup.md, docs/adr/0045-season-competition-feeds.md,
 # docs/adr/0058-bounded-past-competition-reads.md,

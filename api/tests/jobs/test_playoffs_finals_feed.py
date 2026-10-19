@@ -18,6 +18,7 @@
 # - The kind: the reads get the game's final time as freshness when known, else 1 hour
 # - The kind: a failed build keeps and serves the stored feed and is not retried for 10 minutes
 # - The kind: expiry (a postseason final game plus 1 hour, the playoffs feed rebuilt, 7 days, kept when complete while the season is current)
+# - The kind: serving reads only the highlights of the Finals games
 # - The kind: highlights and detailAvailable are added when served and not stored; the cleanup keeps league
 #
 # What is covered:
@@ -32,6 +33,7 @@
 # SEE: api/app/jobs/playoffs_finals_feed.py
 
 import datetime as dt
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any, cast
 
@@ -1058,3 +1060,36 @@ def _scoreboard_game(game_id: str) -> Any:
 def test_the_cleanup_keeps_league(kit: FinalsKit) -> None:
     assert kit.finals.keep(FEED_ID)
     assert not kit.finals.keep("other")
+
+
+@pytest.mark.anyio
+async def test_serve_with_reads_only_the_highlights_of_the_finals_games(
+    kit: FinalsKit, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    clip = Highlight(
+        title="Example clip",
+        channel="Example channel",
+        thumbnail_url=HttpUrl("https://example.com/thumb.jpg"),
+        embed_url=HttpUrl("https://example.com/embed"),
+    )
+    kit.store.set_highlight("finals-2", clip)
+    kit.store.set_highlight("other", clip)
+    seen: list[list[str]] = []
+    real = kit.store.highlights_for
+
+    def spy(game_ids: Iterable[str]) -> dict[str, Highlight]:
+        ids = list(game_ids)
+        seen.append(ids)
+        return real(ids)
+
+    def boom() -> dict[str, Highlight]:
+        raise AssertionError("every highlight was loaded")
+
+    monkeypatch.setattr(kit.store, "highlights_for", spy)
+    monkeypatch.setattr(kit.store, "highlights", boom)
+
+    served = PlayoffsFinalsFeed.model_validate_json(await kit.serve_finals())
+
+    assert len(seen) == 1 and "other" not in seen[0]
+    assert "finals-2" in seen[0]
+    assert [g.highlights for g in served.games] == [None, [clip], None, None]

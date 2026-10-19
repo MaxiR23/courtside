@@ -15,7 +15,8 @@
 # is after today (US Eastern) or is a day of the games feed: the stored window,
 # or with none stored the days the games job would show. It expires (rule G)
 # 6 hours after the build when a game is not final, and is kept when every game
-# is final or there is no game. It is never deleted, and it never enters the
+# is final or there is no game. It is deleted with its build row when not served in 90 days and rebuilt on its
+# next request (ADR 0063), and it never enters the
 # games job, the hero, the highlights job or the live refresh (ADR 0040). The
 # stored highlight of a final game is added when served, never stored (ADR
 # 0048); an All-Star game gets none. The league sides of a day are named from the
@@ -212,7 +213,7 @@ class DayFeeds:
         return now - built_at < REBUILD_AFTER
 
     def serve_with(self, feed_id: str, feed: DayFeed) -> DayFeed:
-        highlights = self._store.highlights()
+        highlights = self._store.highlights_for(game.id for game in feed.day.games)
         data = feed.model_dump(by_alias=False)
         for game in data["day"]["games"]:
             found = highlights.get(game["id"])

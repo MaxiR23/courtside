@@ -1627,7 +1627,7 @@ def test_serves_a_registered_past_game_whose_day_is_not_stored(
     past: PastDetail,
 ) -> None:
     past.kit.days[PAST] = [day_game("1", GameStatus.FINAL)]
-    past.kit.store.set_past_game_dates({"1": PAST})
+    past.kit.store.set_past_game_dates({"1": PAST}, at=NOW)
     with TestClient(past.app) as client:
         response = client.get("/feeds/games/1.json")
 

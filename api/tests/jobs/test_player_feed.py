@@ -1298,7 +1298,7 @@ class KnownIds(PastPlayerIds):
     """The past player ids as a set the test fills."""
 
     def __init__(self, ids: set[str]) -> None:
-        super().__init__(Path("unused"))
+        super().__init__(Path("unused"), StateStore(Path("unused")))
         self._given = ids
 
     def known(self, player_id: str) -> bool:

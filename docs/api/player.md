@@ -197,7 +197,8 @@ schema as above) validated by `PastPlayerFeed`.
 - Known ids: a player of a current roster, of a stored past team season roster,
   of a stored past box score, or named by a stored past playoffs or Finals feed.
 - Refresh: built on request, stored at `feeds/season-players/{season}-{id}.json`,
-  kept for good: never deleted, and rebuilt on its next request when its
+  kept for good (rule G of [`docs/source-rules.md`](../source-rules.md)), deleted when not served in 90 days and rebuilt on its next request ([ADR 0063](../adr/0063-bounded-state-and-kept-feeds.md)),
+  and rebuilt on its next request when its
   `buildVersion` is not the current one.
 - Endpoint: the same headers and 304 as the player feed. It responds 404 with no
   source request for a season outside the range and for an id that is not known
@@ -206,5 +207,7 @@ schema as above) validated by `PastPlayerFeed`.
   stored, and when the request's 20 seconds end before a missing feed is built.
 - The builder is `build_season_player_feed` and the kind is `SeasonPlayerFeeds`,
   both in `api/app/jobs/season_player_feed.py`; the known ids come from
-  `PastPlayerIds` in `api/app/jobs/past_player_ids.py`.
+  `PastPlayerIds` in `api/app/jobs/past_player_ids.py`, which keeps them in the
+  state database so an id stays known after its stored feeds are deleted
+  ([ADR 0063](../adr/0063-bounded-state-and-kept-feeds.md)).
 

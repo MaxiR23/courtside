@@ -9,6 +9,7 @@
 # - A rate limit (429, 503) is raised
 # - At most eight reads are in flight
 # - A stored row that is not a valid identity is read again
+# - A stored hit touches the identity, and an expired or invalid stored row is not touched by the check (ADR 0063)
 # - A repeated id is read once, and the result keeps the first-seen order
 #
 # What is covered:
@@ -24,7 +25,9 @@
 import asyncio
 import datetime as dt
 import json
+import sqlite3
 from collections.abc import Iterator
+from contextlib import closing
 from pathlib import Path
 
 import httpx
@@ -38,7 +41,7 @@ from app.jobs.player_identities import (
 )
 from app.settings import Settings
 from app.sources.http import SourceError, create_client
-from app.storage.state import StateStore
+from app.storage.state import STATE_FILE, StateStore
 
 FIXTURE = (
     Path(__file__).parents[1]
@@ -57,6 +60,7 @@ def athlete_url(player_id: str) -> str:
 
 class Kit:
     def __init__(self, path: Path) -> None:
+        self.path = path
         self.clock = [START]
         self.store = StateStore(path)
         self.store.migrate()
@@ -221,3 +225,33 @@ async def test_repeated_ids_are_read_once(kit: Kit) -> None:
 
     assert (first.call_count, second.call_count) == (1, 1)
     assert list(found) == ["12", "11"]
+
+
+def touched_at(kit: Kit, player_id: str) -> str:
+    with closing(sqlite3.connect(kit.path / STATE_FILE)) as connection:
+        row = connection.execute(
+            "SELECT touched_at FROM player_identities WHERE player_id = ?",
+            (player_id,),
+        ).fetchone()
+    return str(row[0])
+
+
+@pytest.mark.anyio
+async def test_a_stored_hit_touches_the_identity_and_a_miss_does_not(kit: Kit) -> None:
+    kit.answer("11")
+    await kit.identities.resolve(["11"])
+    assert touched_at(kit, "11") == START.isoformat()
+    hit = START + dt.timedelta(days=2)
+    kit.clock[0] = hit
+
+    await kit.identities.resolve(["11"])
+
+    assert touched_at(kit, "11") == hit.isoformat()
+    kit.store.set_player_identity("12", '{"active": "maybe"}', START)
+    kit.clock[0] = START + dt.timedelta(days=3)
+    respx.get(athlete_url("12")).mock(return_value=httpx.Response(404))
+
+    found = await kit.identities.resolve(["12"])
+
+    assert found["12"] is None
+    assert touched_at(kit, "12") == START.isoformat()
