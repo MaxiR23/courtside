@@ -37,6 +37,12 @@
 # - within_budget re-raises a stop the build swallowed and logs the label and reason, lets other build errors through and resets the budget afterwards
 # - A budget extended during a build allows the added reads, and an extended budget that already stopped stays stopped
 # - Wide reads run up to the wide limit while other reads stay at four, share the four slots without a wide lane, and a rate limited wide read stops the budget (ADR 0061)
+# - At most eight requests are in flight across unbudgeted and budgeted reads (ADR 0062)
+# - A 429 or 503 pauses the client: the next read of another URL raises the paused error and sends nothing
+# - The pause lasts the Retry-After seconds or date, 60 seconds when it is missing or unreadable, and at most 15 minutes
+# - A rate limit while paused extends the pause with no new log line; the pause is logged once without the URL
+# - A fresh cache entry is served while paused; checking a URL while paused sends no HEAD request
+# - A paused read is a rate limit and stops a budgeted build as "rate limited"
 # - cached_json returns an entry of any age with no request, and none without one
 #
 # What is covered:
@@ -48,6 +54,7 @@
 
 import asyncio
 import datetime as dt
+import email.utils
 import logging
 import sqlite3
 from collections.abc import Awaitable, Callable
@@ -60,11 +67,15 @@ import respx
 
 from app.sources.http import (
     MAX_PAST_READS_IN_FLIGHT,
+    MAX_REQUESTS_IN_FLIGHT,
+    PAUSE_DEFAULT,
+    PAUSE_MAX,
     TIMEOUT,
     Freshness,
     ReadBudget,
     SourceClient,
     SourceError,
+    SourcePausedError,
     cached_json,
     create_client,
     get_json,
@@ -960,10 +971,12 @@ async def peaks(tmp_path: Path, budget: ReadBudget) -> tuple[int, int, int]:
 async def test_wide_reads_run_up_to_the_wide_limit_while_other_reads_stay_at_four(
     tmp_path: Path,
 ) -> None:
-    narrow, wide, _ = await peaks(tmp_path, ReadBudget(40, wide_in_flight=8))
+    narrow, wide, total = await peaks(tmp_path, ReadBudget(40, wide_in_flight=8))
 
+    # The wide lane allows 8, but shares the 8 client slots with the narrow reads.
     assert narrow == MAX_PAST_READS_IN_FLIGHT == 4
-    assert wide == 8
+    assert total == MAX_REQUESTS_IN_FLIGHT == 8
+    assert wide == total - narrow
 
 
 @pytest.mark.anyio
@@ -1000,3 +1013,292 @@ async def test_a_rate_limited_wide_read_stops_the_budget(tmp_path: Path) -> None
                 await within_budget(budget, "test", build)
 
     assert route.call_count == 0
+
+
+PAUSE_A = "https://example.com/pause/a"
+PAUSE_B = "https://example.com/pause/b"
+
+
+async def read_pause(client: SourceClient, url: str) -> object:
+    return await get_json(client, url, source="test", fresh=FRESH)
+
+
+@pytest.mark.anyio
+async def test_at_most_eight_requests_are_in_flight_across_unbudgeted_and_budgeted_reads(
+    tmp_path: Path,
+) -> None:
+    running = 0
+    peak = 0
+    gate = asyncio.Event()
+
+    async def answer(request: httpx.Request) -> httpx.Response:
+        nonlocal running, peak
+        running += 1
+        peak = max(peak, running)
+        await gate.wait()
+        running -= 1
+        return httpx.Response(200, json={})
+
+    async def release() -> None:
+        for _ in range(100):
+            await asyncio.sleep(0)
+        gate.set()
+
+    async def budgeted() -> None:
+        await asyncio.gather(*(read_budgeted(client, n) for n in range(8)))
+
+    with respx.mock:
+        respx.get(url__startswith="https://example.com/").mock(side_effect=answer)
+        async with create_client(make_store(tmp_path), clock=lambda: T) as client:
+            releasing = asyncio.create_task(release())
+            await asyncio.gather(
+                *(
+                    get_json(
+                        client,
+                        f"https://example.com/free/{n}",
+                        source="test",
+                        fresh=FRESH,
+                    )
+                    for n in range(12)
+                ),
+                within_budget(ReadBudget(20), "test", budgeted),
+            )
+            await releasing
+
+    assert peak == MAX_REQUESTS_IN_FLIGHT == 8
+    assert running == 0
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("status", [429, 503])
+async def test_a_429_or_503_pauses_the_client_and_the_next_read_of_another_url_sends_nothing(
+    tmp_path: Path, status: int
+) -> None:
+    with respx.mock:
+        respx.get(PAUSE_A).respond(status)
+        other = respx.get(PAUSE_B).respond(json={})
+        async with create_client(make_store(tmp_path), clock=lambda: T) as client:
+            with pytest.raises(SourceError, match=f"status {status}"):
+                await read_pause(client, PAUSE_A)
+            with pytest.raises(SourcePausedError) as raised:
+                await read_pause(client, PAUSE_B)
+
+    assert raised.value.reason == "source paused"
+    assert raised.value.request_failed
+    assert raised.value.status_code is None
+    assert other.call_count == 0
+
+
+async def pause_ends_at(
+    tmp_path: Path, headers: dict[str, str], just_before: dt.timedelta, at: dt.timedelta
+) -> None:
+    clock = [T]
+    with respx.mock:
+        respx.get(PAUSE_A).respond(429, headers=headers)
+        other = respx.get(PAUSE_B).respond(json={})
+        client = clocked(tmp_path, clock)
+        async with client:
+            with pytest.raises(SourceError):
+                await read_pause(client, PAUSE_A)
+            clock[0] = T + just_before
+            with pytest.raises(SourcePausedError):
+                await read_pause(client, PAUSE_B)
+            assert other.call_count == 0
+            clock[0] = T + at
+            assert await read_pause(client, PAUSE_B) == {}
+            assert other.call_count == 1
+
+
+@pytest.mark.anyio
+async def test_the_pause_lasts_the_retry_after_seconds(tmp_path: Path) -> None:
+    await pause_ends_at(
+        tmp_path,
+        {"Retry-After": "120"},
+        dt.timedelta(seconds=119),
+        dt.timedelta(seconds=120),
+    )
+
+
+@pytest.mark.anyio
+async def test_the_pause_lasts_until_a_retry_after_date(tmp_path: Path) -> None:
+    date = email.utils.format_datetime(T + dt.timedelta(seconds=300), usegmt=True)
+
+    await pause_ends_at(
+        tmp_path,
+        {"Retry-After": date},
+        dt.timedelta(seconds=299),
+        dt.timedelta(seconds=300),
+    )
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("headers", [{}, {"Retry-After": "soon"}])
+async def test_the_pause_lasts_60_seconds_without_a_readable_retry_after(
+    tmp_path: Path, headers: dict[str, str]
+) -> None:
+    assert PAUSE_DEFAULT == dt.timedelta(seconds=60)
+
+    await pause_ends_at(
+        tmp_path, headers, dt.timedelta(seconds=59), dt.timedelta(seconds=60)
+    )
+
+
+@pytest.mark.anyio
+async def test_the_pause_is_capped_at_15_minutes(tmp_path: Path) -> None:
+    assert PAUSE_MAX == dt.timedelta(minutes=15)
+
+    await pause_ends_at(
+        tmp_path,
+        {"Retry-After": "3600"},
+        dt.timedelta(minutes=15) - dt.timedelta(seconds=1),
+        dt.timedelta(minutes=15),
+    )
+
+
+@pytest.mark.anyio
+async def test_a_huge_retry_after_in_seconds_pauses_for_the_cap(tmp_path: Path) -> None:
+    await pause_ends_at(
+        tmp_path,
+        {"Retry-After": "99999999999999999"},
+        dt.timedelta(minutes=15) - dt.timedelta(seconds=1),
+        dt.timedelta(minutes=15),
+    )
+
+
+@pytest.mark.anyio
+async def test_a_retry_after_of_zero_sets_no_pause_and_logs_none(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    with respx.mock:
+        respx.get(PAUSE_A).respond(429, headers={"Retry-After": "0"})
+        client = clocked(tmp_path, [T])
+        async with client:
+            with (
+                caplog.at_level(logging.WARNING, logger="app.sources.http"),
+                pytest.raises(SourceError),
+            ):
+                await read_pause(client, PAUSE_A)
+
+    assert client.paused_until is None
+    assert not [r for r in caplog.records if "paused" in r.getMessage()]
+
+
+@pytest.mark.anyio
+async def test_a_rate_limit_while_paused_extends_the_pause_with_no_new_log_line(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    clock = [T]
+    gate = asyncio.Event()
+    started = 0
+
+    async def answer(request: httpx.Request) -> httpx.Response:
+        nonlocal started
+        started += 1
+        await gate.wait()
+        seconds = "60" if request.url.path.endswith("/a") else "120"
+        return httpx.Response(429, headers={"Retry-After": seconds})
+
+    with respx.mock:
+        respx.get(url__startswith="https://example.com/pause/").mock(side_effect=answer)
+        client = clocked(tmp_path, clock)
+        async with client:
+            with caplog.at_level(logging.WARNING, logger="app.sources.http"):
+                tasks = [
+                    asyncio.create_task(read_pause(client, url))
+                    for url in (PAUSE_A, PAUSE_B)
+                ]
+                for _ in range(20):
+                    await asyncio.sleep(0)
+                assert started == 2
+                gate.set()
+                results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    assert all(isinstance(result, SourceError) for result in results)
+    assert len([r for r in caplog.records if "paused" in r.getMessage()]) == 1
+    assert client.paused_until == T + dt.timedelta(seconds=120)
+
+
+@pytest.mark.anyio
+async def test_the_pause_is_logged_once_without_the_url(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    secret = "https://example.com/pause/a?key=secret-value"
+    with respx.mock:
+        respx.get(secret).respond(429)
+        respx.get(PAUSE_B).respond(json={})
+        async with create_client(make_store(tmp_path), clock=lambda: T) as client:
+            with caplog.at_level(logging.WARNING, logger="app.sources.http"):
+                with pytest.raises(SourceError):
+                    await read_pause(client, secret)
+                with pytest.raises(SourcePausedError):
+                    await read_pause(client, PAUSE_B)
+
+    assert len(caplog.records) == 1
+    message = caplog.records[0].getMessage()
+    assert "test" in message and "60" in message
+    assert "secret-value" not in caplog.text
+    assert "example.com" not in caplog.text
+
+
+@pytest.mark.anyio
+async def test_a_fresh_cache_entry_is_served_while_paused(tmp_path: Path) -> None:
+    with respx.mock:
+        cached = respx.get(PAUSE_A).respond(json={"n": 1})
+        respx.get(PAUSE_B).respond(429)
+        async with create_client(make_store(tmp_path), clock=lambda: T) as client:
+            await read_pause(client, PAUSE_A)
+            with pytest.raises(SourceError):
+                await read_pause(client, PAUSE_B)
+            body = await read_pause(client, PAUSE_A)
+
+    assert body == {"n": 1}
+    assert cached.call_count == 1
+
+
+@pytest.mark.anyio
+async def test_checking_a_url_while_paused_raises_the_pause_with_no_head_request(
+    tmp_path: Path,
+) -> None:
+    with respx.mock:
+        respx.get(PAUSE_A).respond(503)
+        head = respx.head(PAUSE_B).respond(200)
+        async with create_client(make_store(tmp_path), clock=lambda: T) as client:
+            with pytest.raises(SourceError):
+                await read_pause(client, PAUSE_A)
+            with pytest.raises(SourcePausedError):
+                await is_served(client, PAUSE_B, source="test")
+
+    assert head.call_count == 0
+
+
+@pytest.mark.anyio
+async def test_a_paused_read_stops_a_budgeted_build_as_rate_limited(
+    tmp_path: Path,
+) -> None:
+    budget = ReadBudget(10)
+
+    async def build() -> None:
+        try:
+            await read_budgeted(client, 1)
+        except SourceError:
+            pass
+
+    with respx.mock:
+        respx.get(PAUSE_A).respond(429)
+        route = respx.get(url__startswith="https://example.com/budget/").respond(
+            json={}
+        )
+        async with create_client(make_store(tmp_path), clock=lambda: T) as client:
+            with pytest.raises(SourceError) as raised:
+                await read_pause(client, PAUSE_A)
+            with pytest.raises(SourceError) as stopped:
+                await within_budget(budget, "test", build)
+
+    assert stopped.value.reason == "rate limited"
+    assert budget.stopped is not None
+    assert route.call_count == 0
+    assert is_rate_limited(raised.value)
+
+
+def test_a_paused_read_is_a_rate_limit() -> None:
+    assert is_rate_limited(SourcePausedError("test"))

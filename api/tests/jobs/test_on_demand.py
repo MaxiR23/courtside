@@ -44,6 +44,8 @@
 # - refresh starts one build without waiting, joins one in flight and leaves no task referenced
 # - A build error that carries a non-empty string reason is recorded with it, in the build step and in the dependency step; one with an empty or non-string reason, or none, is recorded by its type
 # - warm starts one build for a missing or stale feed without waiting, and none for a fresh feed, one in flight, an unknown id or a failure inside the 10-minute window (ADR 0055)
+# - At most 16 builds are started: a new missing id answers unavailable, warm and refresh start nothing, a stale feed is served as stored and a dependency is used as stored (ADR 0062)
+# - A build past its timeout is recorded as "build timed out", ends its task and keeps the stored feed (ADR 0062)
 # - with_build_version stamps the current rules version of the kept season feeds, and is_current_build is true only for that version (ADR 0053)
 #
 # What is covered:
@@ -64,7 +66,9 @@ from pydantic import BaseModel
 
 from app.feeds.games import FeedModel
 from app.jobs.on_demand import (
+    BUILD_TIMEOUT_SECONDS,
     MAX_BUILDS,
+    MAX_QUEUED_BUILDS,
     MISSING_WAIT_SECONDS,
     RETRY_AFTER,
     SEASON_BUILD_VERSION,
@@ -147,13 +151,26 @@ class Fake:
 
 
 class Setup:
-    def __init__(self, path: Path, fake: Fake, *, wait: float = 5.0) -> None:
+    def __init__(
+        self,
+        path: Path,
+        fake: Fake,
+        *,
+        wait: float = 5.0,
+        build_timeout: float = BUILD_TIMEOUT_SECONDS,
+    ) -> None:
         self.path = path
         self.fake = fake
         self.now = [T]
         self.store = StateStore(path)
         self.store.migrate()
-        self.cache = FeedCache(path, self.store, clock=lambda: self.now[0], wait=wait)
+        self.cache = FeedCache(
+            path,
+            self.store,
+            clock=lambda: self.now[0],
+            wait=wait,
+            build_timeout=build_timeout,
+        )
         self.cache.register(fake.kind())
 
     async def settle(self) -> None:
@@ -1125,3 +1142,121 @@ async def test_records_a_dependency_error_by_its_reason(tmp_path: Path) -> None:
     state = dep.setup.store.feed_build("players", "p1")
     assert state is not None
     assert state.last_failure_reason == "no standings"
+
+
+def test_queues_at_most_16_builds_and_times_a_build_out_after_60_seconds() -> None:
+    assert MAX_QUEUED_BUILDS == 16
+    assert BUILD_TIMEOUT_SECONDS == 60
+
+
+async def fill(setup: Setup, count: int = MAX_QUEUED_BUILDS) -> None:
+    setup.fake.gate = asyncio.Event()
+    for n in range(count):
+        setup.cache.refresh("players", f"p{n}")
+    await asyncio.sleep(0)
+
+
+@pytest.mark.anyio
+async def test_a_request_for_a_new_id_with_16_builds_started_answers_unavailable_and_starts_nothing(
+    tmp_path: Path,
+) -> None:
+    setup = Setup(tmp_path, Fake())
+    await fill(setup)
+
+    with pytest.raises(FeedUnavailableError):
+        await setup.cache.serve("players", "p16")
+
+    assert ("players", "p16") not in setup.cache.in_flight
+    assert len(setup.cache.in_flight) == MAX_QUEUED_BUILDS
+    assert setup.store.feed_build("players", "p16") is None
+    assert setup.fake.gate is not None
+    setup.fake.gate.set()
+    await setup.settle()
+    assert setup.cache.in_flight == {}
+    assert setup.fake.builds == MAX_QUEUED_BUILDS
+
+
+@pytest.mark.anyio
+async def test_warm_and_refresh_start_nothing_with_16_builds_started(
+    tmp_path: Path,
+) -> None:
+    setup = Setup(tmp_path, Fake())
+    await fill(setup)
+
+    setup.cache.warm("players", "p16")
+    setup.cache.refresh("players", "p17")
+
+    assert len(setup.cache.in_flight) == MAX_QUEUED_BUILDS
+    assert ("players", "p16") not in setup.cache.in_flight
+    assert ("players", "p17") not in setup.cache.in_flight
+    assert setup.fake.gate is not None
+    setup.fake.gate.set()
+    await setup.settle()
+    assert setup.fake.builds == MAX_QUEUED_BUILDS
+
+
+@pytest.mark.anyio
+async def test_a_stale_feed_with_16_builds_started_is_served_as_stored_with_no_build(
+    tmp_path: Path,
+) -> None:
+    fake = Fake()
+    setup = Setup(tmp_path, fake)
+    await setup.cache.serve("players", "p0")
+    setup.now[0] = T + 2 * HOUR
+    fake.gate = asyncio.Event()
+    for n in range(1, MAX_QUEUED_BUILDS + 1):
+        setup.cache.refresh("players", f"p{n}")
+    await asyncio.sleep(0)
+
+    body = await setup.cache.serve("players", "p0")
+
+    assert body == body_of(1, "p0")
+    assert ("players", "p0") not in setup.cache.in_flight
+    assert len(setup.cache.in_flight) == MAX_QUEUED_BUILDS
+    fake.gate.set()
+    await setup.settle()
+
+
+@pytest.mark.anyio
+async def test_a_dependency_with_16_builds_started_is_used_as_stored(
+    tmp_path: Path,
+) -> None:
+    dep = Dependent(tmp_path)
+    dep.pairs = {"p1": ("teams", "tdep")}
+    dep.teams.gate = asyncio.Event()
+    for n in range(MAX_QUEUED_BUILDS - 1):
+        dep.setup.cache.refresh("teams", f"t{n}")
+    await asyncio.sleep(0)
+
+    task = asyncio.create_task(dep.setup.cache.serve("players", "p1"))
+    for _ in range(20):
+        await asyncio.sleep(0)
+
+    assert ("teams", "tdep") not in dep.setup.cache.in_flight
+    dep.teams.gate.set()
+    body = await asyncio.wait_for(task, 5)
+
+    assert body == body_of(1, "p1")
+    assert dep.teams.builds == MAX_QUEUED_BUILDS - 1
+    assert dep.players.builds == 1
+
+
+@pytest.mark.anyio
+async def test_a_build_past_its_timeout_is_recorded_as_build_timed_out_and_its_task_ends(
+    tmp_path: Path,
+) -> None:
+    fake = Fake()
+    setup = Setup(tmp_path, fake, build_timeout=0.01)
+    await setup.cache.serve("players", "p0")
+    fake.gate = asyncio.Event()
+
+    with pytest.raises(FeedUnavailableError):
+        await setup.cache.serve("players", "p1")
+    await setup.settle()
+
+    failure = setup.store.feed_build("players", "p1")
+    assert failure is not None
+    assert failure.last_failure_reason == "build timed out"
+    assert setup.cache.in_flight == {}
+    assert fake.running == 0
+    assert setup.stored("p0") == body_of(1, "p0")

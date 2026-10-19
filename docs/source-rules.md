@@ -1,6 +1,6 @@
 # Source rules
 
-The rules every job and feed build follows so the data source is asked as little as possible. They are adopted by ADR 0020 and apply to every feed: games, game detail, player and team. Rule L records the season fallbacks of the adapters; it is adopted by ADR 0022. Rule N is adopted by ADR 0056 and retired by ADR 0059, and Rule O is adopted by ADR 0058 and extended by ADR 0059.
+The rules every job and feed build follows so the data source is asked as little as possible. They are adopted by ADR 0020 and apply to every feed: games, game detail, player and team. Rule L records the season fallbacks of the adapters; it is adopted by ADR 0022. Rule N is adopted by ADR 0056 and retired by ADR 0059, and Rule O is adopted by ADR 0058 and extended by ADR 0059, and rule P is adopted by ADR 0062, which also extends rule H.
 
 References:
 
@@ -80,6 +80,8 @@ Everything else is built on request only: pre-game game detail, team feeds, play
 - Missing: built while the request waits up to 20 seconds. The build is shielded, so it finishes and is stored even if the request stops waiting. After 20 seconds the endpoint answers 503 and the front end shows its unavailable state and keeps polling.
 - One build per feed at a time: concurrent requests await the same build (a dict of in-flight tasks whose entries are removed when done).
 - At most 4 builds run at once (`asyncio.Semaphore`).
+- At most 16 builds are started (running, waiting for a slot or for a dependency) at once. A missing feed requested at the cap answers 503 and starts nothing; a stale one is served from storage with no build; a refresh, a warm-up and a dependency start nothing (a dependency is used as stored) (ADR 0062).
+- A build runs at most 60 seconds; a build past it is cancelled and recorded as a failure with the reason 'build timed out' (ADR 0062).
 - A failed build keeps the stored feed (`stale-if-error`), is recorded in `/health`, and that feed is not rebuilt for 10 minutes.
 
 ## I. Unknown ids
@@ -114,3 +116,11 @@ Retired by ADR 0059: no build paces its reads; every past build follows rule O.
 - A 429 or 503 answer stops the build, logged and recorded with the reason "rate limited", and the feed is retried after 10 minutes (rule H).
 
 See [`adr/0058-bounded-past-competition-reads.md`](adr/0058-bounded-past-competition-reads.md) and [`adr/0059-bounded-past-page-reads.md`](adr/0059-bounded-past-page-reads.md).
+
+## P. Source protection
+
+- At most 8 requests of the shared client are in flight at once, budgeted or not; a build's budget slot is taken before the client slot.
+- A 429 or 503 answer pauses every request of the client until its `Retry-After` (seconds or HTTP date), 60 seconds when it is missing or unreadable, at most 15 minutes. A paused read raises "source paused" without a request, a fresh cache entry is still served, the start is logged once without the URL, and a later 429 or 503 only extends it.
+- A paused read stops a budgeted build as "rate limited" (rule O). It is a failed request.
+
+See [`adr/0062-bounded-upstream-reads-and-on-demand-builds.md`](adr/0062-bounded-upstream-reads-and-on-demand-builds.md).
