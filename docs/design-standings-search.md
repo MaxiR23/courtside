@@ -200,6 +200,7 @@ A section under the tables, with the label "Key":
 
 | What | How |
 |---|---|
+| Polling | Standings every 5 minutes once the feed's `state` is `final`, every 60 seconds otherwise; paused while the tab is hidden and refreshed when it is visible again |
 | Conference / Division toggle | Switches the blocks shown; no scroll jump |
 | Row hover | `--box-row-hover` on the standings row |
 | Open overlay | Backdrop fades in and the panel rises `--list-entrance-offset` with `--ease`; instant under reduced motion |

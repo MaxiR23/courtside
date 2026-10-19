@@ -4,6 +4,7 @@
 //
 // Tested:
 // - Returns the parsed feed on a 200, asking for JSON from the given URL
+// - Every request carries a 15 s timeout signal; a request or a body that does not answer in 15 s fails as network
 // - Throws a FeedLoadError on a 503, a network error, a body that is not JSON and JSON without days
 // - gameFeedUrl puts the encoded game id in place of {id}
 // - loadGameDetailFeed returns the detail feed, reports a 404 as not-found and every other failure
@@ -30,9 +31,10 @@
 // Run with: cd web && pnpm exec vitest run tests/lib/feed/load.test.ts
 //
 // SEE: web/src/lib/feed/load.ts
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
+	FEED_TIMEOUT_MS,
 	FeedLoadError,
 	gameFeedUrl,
 	loadGameDetailFeed,
@@ -79,7 +81,10 @@ describe('loadGamesFeed', () => {
 		const feed = { generatedAt: '2026-10-04T12:00:00Z', days: [] };
 		const fetchFn = fetchAnswering(() => json(feed));
 		await expect(loadGamesFeed(URL_OK, fetchFn)).resolves.toEqual(feed);
-		expect(fetchFn).toHaveBeenCalledWith(URL_OK, { headers: { accept: 'application/json' } });
+		expect(fetchFn).toHaveBeenCalledWith(URL_OK, {
+			headers: { accept: 'application/json' },
+			signal: expect.anything()
+		});
 	});
 
 	it('throws on a 503 before the first publication', async () => {
@@ -132,7 +137,10 @@ describe('loadGameDetailFeed', () => {
 		const feed = { id: '401', status: 'live' };
 		const fetchFn = detailFetchAnswering(() => json(feed));
 		await expect(loadGameDetailFeed(DETAIL_URL, fetchFn)).resolves.toEqual(feed);
-		expect(fetchFn).toHaveBeenCalledWith(DETAIL_URL, { headers: { accept: 'application/json' } });
+		expect(fetchFn).toHaveBeenCalledWith(DETAIL_URL, {
+			headers: { accept: 'application/json' },
+			signal: expect.anything()
+		});
 	});
 
 	it('throws a not-found FeedLoadError when the detail feed answers 404', async () => {
@@ -194,7 +202,10 @@ describe('loadTeamFeed', () => {
 		const feed = { code: 'OKC', name: 'Thunder' };
 		const fetchFn = teamFetchAnswering(() => json(feed));
 		await expect(loadTeamFeed(TEAM_URL, fetchFn)).resolves.toEqual(feed);
-		expect(fetchFn).toHaveBeenCalledWith(TEAM_URL, { headers: { accept: 'application/json' } });
+		expect(fetchFn).toHaveBeenCalledWith(TEAM_URL, {
+			headers: { accept: 'application/json' },
+			signal: expect.anything()
+		});
 	});
 
 	it('throws a not-found FeedLoadError when the team feed answers 404', async () => {
@@ -256,7 +267,10 @@ describe('loadPlayerFeed', () => {
 		const feed = { id: 'p-2', lastName: 'Gilgeous-Alexander' };
 		const fetchFn = playerFetchAnswering(() => json(feed));
 		await expect(loadPlayerFeed(PLAYER_URL, fetchFn)).resolves.toEqual(feed);
-		expect(fetchFn).toHaveBeenCalledWith(PLAYER_URL, { headers: { accept: 'application/json' } });
+		expect(fetchFn).toHaveBeenCalledWith(PLAYER_URL, {
+			headers: { accept: 'application/json' },
+			signal: expect.anything()
+		});
 	});
 
 	it('throws a not-found FeedLoadError when the player feed answers 404', async () => {
@@ -309,7 +323,8 @@ describe('loadStandingsFeed', () => {
 		const fetchFn = standingsFetchAnswering(() => json(feed));
 		await expect(loadStandingsFeed(STANDINGS_URL, fetchFn)).resolves.toEqual(feed);
 		expect(fetchFn).toHaveBeenCalledWith(STANDINGS_URL, {
-			headers: { accept: 'application/json' }
+			headers: { accept: 'application/json' },
+			signal: expect.anything()
 		});
 	});
 
@@ -357,7 +372,8 @@ describe('loadCupFeed', () => {
 		const fetchFn = cupFetchAnswering(() => json(feed));
 		await expect(loadCupFeed(CUP_URL, fetchFn)).resolves.toEqual(feed);
 		expect(fetchFn).toHaveBeenCalledWith(CUP_URL, {
-			headers: { accept: 'application/json' }
+			headers: { accept: 'application/json' },
+			signal: expect.anything()
 		});
 	});
 
@@ -402,7 +418,8 @@ describe('loadPlayoffsFeed', () => {
 		const fetchFn = urlFetchAnswering(PLAYOFFS_URL, () => json(feed));
 		await expect(loadPlayoffsFeed(PLAYOFFS_URL, fetchFn)).resolves.toEqual(feed);
 		expect(fetchFn).toHaveBeenCalledWith(PLAYOFFS_URL, {
-			headers: { accept: 'application/json' }
+			headers: { accept: 'application/json' },
+			signal: expect.anything()
 		});
 	});
 
@@ -487,7 +504,8 @@ describe('loadAllStarFeed', () => {
 		const fetchFn = urlFetchAnswering(ALL_STAR_URL, () => json(feed));
 		await expect(loadAllStarFeed(ALL_STAR_URL, fetchFn)).resolves.toEqual(feed);
 		expect(fetchFn).toHaveBeenCalledWith(ALL_STAR_URL, {
-			headers: { accept: 'application/json' }
+			headers: { accept: 'application/json' },
+			signal: expect.anything()
 		});
 	});
 
@@ -561,7 +579,8 @@ describe('loadCupMatchupFeed', () => {
 		await expect(loadCupMatchupFeed(MATCHUP_URL, fetchFn)).resolves.toEqual(feed);
 		expect(fetchFn).toHaveBeenCalledWith(MATCHUP_URL, {
 			cache: 'no-cache',
-			headers: { accept: 'application/json' }
+			headers: { accept: 'application/json' },
+			signal: expect.anything()
 		});
 	});
 
@@ -624,7 +643,8 @@ describe('loadSearchFeed', () => {
 		await expect(loadSearchFeed(SEARCH_URL, fetchFn)).resolves.toEqual(feed);
 		expect(fetchFn).toHaveBeenCalledWith(SEARCH_URL, {
 			cache: 'no-cache',
-			headers: { accept: 'application/json' }
+			headers: { accept: 'application/json' },
+			signal: expect.anything()
 		});
 	});
 
@@ -689,7 +709,8 @@ describe('loadCalendarFeed', () => {
 		const fetchFn = fetchAt(CALENDAR_URL, () => json(feed));
 		await expect(loadCalendarFeed(CALENDAR_URL, fetchFn)).resolves.toEqual(feed);
 		expect(fetchFn).toHaveBeenCalledWith(CALENDAR_URL, {
-			headers: { accept: 'application/json' }
+			headers: { accept: 'application/json' },
+			signal: expect.anything()
 		});
 	});
 
@@ -733,7 +754,10 @@ describe('loadDayFeed', () => {
 		const feed = { season: 1999, day: { date: '1999-02-05', games: [] } };
 		const fetchFn = fetchAt(DAY_URL, () => json(feed));
 		await expect(loadDayFeed(DAY_URL, fetchFn)).resolves.toEqual(feed);
-		expect(fetchFn).toHaveBeenCalledWith(DAY_URL, { headers: { accept: 'application/json' } });
+		expect(fetchFn).toHaveBeenCalledWith(DAY_URL, {
+			headers: { accept: 'application/json' },
+			signal: expect.anything()
+		});
 	});
 
 	it('reports a 404 as not-found', async () => {
@@ -808,5 +832,77 @@ describe('season feed URLs', () => {
 		expect(
 			seasonCupMatchupFeedUrl('https://feeds.example.com/{season}/{slot}/{slot}/{id}', 2025, 'q1')
 		).toBe('https://feeds.example.com/2025/q1/q1/{id}');
+	});
+});
+
+describe('feed request timeout', () => {
+	beforeEach(() => {
+		vi.useFakeTimers();
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
+		vi.restoreAllMocks();
+	});
+
+	function spyOnTimeout() {
+		return vi.spyOn(AbortSignal, 'timeout').mockImplementation((ms) => {
+			const controller = new AbortController();
+			setTimeout(
+				() => controller.abort(new DOMException('The operation timed out.', 'TimeoutError')),
+				ms
+			);
+			return controller.signal;
+		});
+	}
+
+	it('asks for a 15 s timeout', async () => {
+		const spy = spyOnTimeout();
+		const fetchFn = fetchAnswering(() => json({ days: [] }));
+		await loadGamesFeed(URL_OK, fetchFn);
+		expect(spy).toHaveBeenCalledWith(15_000);
+		expect(FEED_TIMEOUT_MS).toBe(15_000);
+	});
+
+	it('fails as network when the request does not answer in 15 s', async () => {
+		spyOnTimeout();
+		const fetchFn = vi.fn(
+			(_url: string, init: RequestInit) =>
+				new Promise<Response>((_, reject) => {
+					init.signal?.addEventListener('abort', () => reject(init.signal?.reason));
+				})
+		) as unknown as typeof fetch;
+		let settled = false;
+		const promise = loadGamesFeed(URL_OK, fetchFn);
+		const expectation = expect(promise).rejects.toMatchObject({
+			name: 'FeedLoadError',
+			reason: 'network'
+		});
+		void promise.catch(() => (settled = true));
+		await vi.advanceTimersByTimeAsync(14_999);
+		expect(settled).toBe(false);
+		await vi.advanceTimersByTimeAsync(1);
+		await expectation;
+	});
+
+	it('fails as network when the body does not arrive in 15 s', async () => {
+		spyOnTimeout();
+		const fetchFn = vi.fn((_url: string, init: RequestInit) =>
+			Promise.resolve({
+				ok: true,
+				status: 200,
+				json: () =>
+					new Promise((_, reject) => {
+						init.signal?.addEventListener('abort', () => reject(init.signal?.reason));
+					})
+			})
+		) as unknown as typeof fetch;
+		const promise = loadGamesFeed(URL_OK, fetchFn);
+		const expectation = expect(promise).rejects.toMatchObject({
+			name: 'FeedLoadError',
+			reason: 'network'
+		});
+		await vi.advanceTimersByTimeAsync(15_000);
+		await expectation;
 	});
 });

@@ -278,6 +278,7 @@ Same size, letter spacing and truncation as the Cup tag: 11px, .16em, uppercase,
 
 | What | How |
 |---|---|
+| Polling | Playoffs and finals feeds every 5 minutes once the playoffs feed's `state` is `complete`, every 60 seconds otherwise; paused while the tab is hidden and refreshed when it is visible again |
 | Bracket camera | The Cup camera: 0.8s `cubic-bezier(.2, .7, .1, 1)`; none under reduced motion |
 | Series zoom | Level 2 game list fades in over 0.45s with a 0.35s delay |
 | Prev / next, arrows, Esc | Cycle the 15 series in bracket order; Esc and a click outside zoom out |

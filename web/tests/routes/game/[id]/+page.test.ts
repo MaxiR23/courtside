@@ -10,7 +10,9 @@
 // - Shows the loading skeleton until the first load settles
 // - Shows "Game not found." when the feed answers 404
 // - Shows the data unavailable row on a network failure, a 503, a feed it cannot show, or with no URL configured
-// - Polls again after 30 s while the game is live and after 60 s once it is not
+// - Polls again after 30 s while the game is live and after 60 s once it is not final but not live
+// - Loads a final game once and sends no second request, also after the tab is visible again
+// - Stops polling once a live game turns final
 // - Pauses while the tab is hidden and loads at once when it is visible again
 // - Keeps the last feed on screen when a later poll fails
 // - Renders the win probability chart with "Even" for a feed built before the leader field
@@ -202,18 +204,40 @@ describe('game detail page', () => {
 	});
 
 	it('polls again after 30 s while the game is live and after 60 s once it is not', async () => {
-		stubFetch(answerWith(recorded()), answerWith(finalGame()));
+		stubFetch(answerWith(recorded()), answerWith({ ...recorded(), status: 'delayed' }));
 		await renderPage();
 		await vi.advanceTimersByTimeAsync(29_999);
 		expect(fetchMock).toHaveBeenCalledTimes(1);
 		await vi.advanceTimersByTimeAsync(1);
 		expect(fetchMock).toHaveBeenCalledTimes(2);
 		await tick();
-		expect(screen.getByText(/^Final · /)).toBeTruthy();
 		await vi.advanceTimersByTimeAsync(59_999);
 		expect(fetchMock).toHaveBeenCalledTimes(2);
 		await vi.advanceTimersByTimeAsync(1);
 		expect(fetchMock).toHaveBeenCalledTimes(3);
+	});
+
+	it('loads a final game once and sends no second request, also after the tab becomes visible again', async () => {
+		const state = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
+		stubFetch(answerWith(finalGame()));
+		await renderPage();
+		await vi.advanceTimersByTimeAsync(10 * 60_000);
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+		state.mockReturnValue('hidden');
+		document.dispatchEvent(new Event('visibilitychange'));
+		state.mockReturnValue('visible');
+		document.dispatchEvent(new Event('visibilitychange'));
+		await settle();
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+	});
+
+	it('stops polling once a live game turns final', async () => {
+		stubFetch(answerWith(recorded()), answerWith(finalGame()));
+		await renderPage();
+		await vi.advanceTimersByTimeAsync(30_000);
+		expect(fetchMock).toHaveBeenCalledTimes(2);
+		await vi.advanceTimersByTimeAsync(10 * 60_000);
+		expect(fetchMock).toHaveBeenCalledTimes(2);
 	});
 
 	it('pauses while the tab is hidden and loads at once when it is visible again', async () => {

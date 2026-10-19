@@ -207,6 +207,7 @@ The line joins the group and the record with " · " in markup. The feed sends th
 
 | What | How |
 |---|---|
+| Polling | Cup page every 5 minutes once the feed's `stage` is `complete`, every 60 seconds otherwise; an open matchup panel every 60 seconds; paused while the tab is hidden and refreshed when it is visible again |
 | Bracket camera | See Bracket: wheel, trackpad, ctrl+wheel, drag with 6px threshold |
 | Fly animation | 560ms cubic in-out, log-interpolated zoom; none under reduced motion |
 | Node click / tap | Opens the matchup panel or sheet |

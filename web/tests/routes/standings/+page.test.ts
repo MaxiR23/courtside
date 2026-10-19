@@ -10,7 +10,7 @@
 // - Shows the skeleton until the first load settles
 // - Shows the data unavailable row on a 503, a network failure, or with no URL configured
 // - After a 503 it polls again at 60 s and renders the standings when that load succeeds
-// - Polls every 60 s; pauses while the tab is hidden and loads at once when visible again
+// - Polls every 60 s, and every 5 minutes once the standings are final; pauses while the tab is hidden and loads at once when visible again
 // - Keeps the last feed on screen when a later poll fails
 // - Renders in Spanish
 // - With ?season: loads the calendar, then only the season feed, once; no polling; loading, 503 and 404 states
@@ -208,6 +208,15 @@ describe('standings page', () => {
 		expect(fetchMock).toHaveBeenCalledTimes(2);
 		await vi.advanceTimersByTimeAsync(60_000);
 		expect(fetchMock).toHaveBeenCalledTimes(3);
+	});
+
+	it('polls every 5 minutes once the standings are final', async () => {
+		stubFetch(answerWith({ ...recorded(), state: 'final' }));
+		await renderPage();
+		await vi.advanceTimersByTimeAsync(299_999);
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+		await vi.advanceTimersByTimeAsync(1);
+		expect(fetchMock).toHaveBeenCalledTimes(2);
 	});
 
 	it('pauses while the tab is hidden and loads at once when it is visible again', async () => {
