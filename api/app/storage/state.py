@@ -1,6 +1,6 @@
 # api/app/storage/state.py
 #
-# Job state in SQLite: game dates, final times and whether they were first seen, highlight attempts, failed stats attempts, matched highlights, team stars, discovered All-Star editions, the video of each edition and the time each All-Star game was first seen final, the date and box-score players of past games, the player identity cache, the seasons a team did not exist, the highlights backfill's resume point, the targets the running sweep reads for and swept targets, source cache entries, feed build times and failures and per-job outcomes.
+# Job state in SQLite: game dates, final times and whether they were first seen, highlight attempts, failed stats attempts, matched highlights, team stars, discovered All-Star editions, the video of each edition and the time each All-Star game was first seen final, the date and box-score players of past games, the player identity cache, the seasons a team did not exist, the targets the highlights search found no video for and its searches per day, source cache entries, feed build times and failures and per-job outcomes.
 # Schema versioned with PRAGMA user_version; MIGRATIONS run once each on startup.
 # One connection per operation, so sync endpoints can use it from the threadpool.
 #
@@ -157,6 +157,22 @@ MIGRATIONS: tuple[Migration, ...] = (
             "PRIMARY KEY (team_code, season))"
         ),
     ),
+    # The on-demand highlights search replaces the backfill (ADR 0065).
+    (
+        "DROP TABLE highlights_backfill",
+        "DROP TABLE highlights_backfill_swept",
+        "DROP TABLE highlights_backfill_members",
+        "DELETE FROM jobs WHERE name IN ('highlights-backfill', 'all-star-discovery')",
+        (
+            "CREATE TABLE highlight_searches (kind TEXT NOT NULL, "
+            "target_id TEXT NOT NULL, searched_at TEXT NOT NULL, "
+            "PRIMARY KEY (kind, target_id))"
+        ),
+        (
+            "CREATE TABLE highlight_search_counts (day TEXT PRIMARY KEY, "
+            "searches INTEGER NOT NULL)"
+        ),
+    ),
 )
 
 
@@ -180,19 +196,11 @@ class FeedBuildState(FeedModel):
 
 
 class AllStarEditionRecord(FeedModel):
-    """An All-Star edition the discovery job found. Never reaches a feed."""
+    """An All-Star edition the All-Star feeds found. Never reaches a feed."""
 
     season: int
     game_date: dt.date
     game_ids: Annotated[list[NonEmptyStr], Field(min_length=1)]
-
-
-class BackfillSweep(FeedModel):
-    """The running sweep of the highlights backfill: the page token to continue
-    from and the oldest upload time reached. Never reaches a feed."""
-
-    page_token: NonEmptyStr
-    oldest: UtcDatetime
 
 
 class SourceEntry(FeedModel):
@@ -809,62 +817,45 @@ class StateStore:
             ).fetchall()
         return {row[0] for row in rows}
 
-    def backfill_sweep(self) -> BackfillSweep | None:
-        with self._connect() as connection:
-            row = connection.execute(
-                "SELECT page_token, oldest FROM highlights_backfill WHERE id = 1"
-            ).fetchone()
-        if row is None:
-            return None
-        oldest = _from_text(row[1])
-        assert oldest is not None
-        return BackfillSweep(page_token=row[0], oldest=oldest)
-
-    def set_backfill_sweep(
-        self,
-        page_token: str,
-        oldest: dt.datetime,
-        members: Iterable[tuple[str, str]],
+    def mark_highlight_searched(
+        self, kind: str, target_id: str, at: dt.datetime
     ) -> None:
-        text = _to_text(oldest)
         with self._connect() as connection, connection:
             connection.execute(
-                "INSERT INTO highlights_backfill (id, page_token, oldest) "
-                "VALUES (1, ?, ?) ON CONFLICT(id) DO UPDATE SET "
-                "page_token = excluded.page_token, oldest = excluded.oldest",
-                (page_token, text),
-            )
-            connection.execute("DELETE FROM highlights_backfill_members")
-            connection.executemany(
-                "INSERT OR IGNORE INTO highlights_backfill_members "
-                "(kind, target_id) VALUES (?, ?)",
-                list(members),
+                "INSERT OR IGNORE INTO highlight_searches "
+                "(kind, target_id, searched_at) VALUES (?, ?, ?)",
+                (kind, target_id, _to_text(at)),
             )
 
-    def backfill_members(self) -> set[tuple[str, str]]:
+    def highlight_searched(self, kind: str, target_id: str) -> bool:
         with self._connect() as connection:
-            rows = connection.execute(
-                "SELECT kind, target_id FROM highlights_backfill_members"
-            ).fetchall()
-        return {(row[0], row[1]) for row in rows}
+            row = connection.execute(
+                "SELECT 1 FROM highlight_searches WHERE kind = ? AND target_id = ?",
+                (kind, target_id),
+            ).fetchone()
+        return row is not None
 
-    def end_backfill_sweep(self) -> None:
+    def take_highlight_search(self, day: dt.date, cap: int) -> bool:
+        """Counts one search for the day and returns True, or returns False
+        without counting once the cap is reached. Earlier days are deleted."""
+        text = day.isoformat()
         with self._connect() as connection, connection:
-            connection.execute("DELETE FROM highlights_backfill")
-            connection.execute("DELETE FROM highlights_backfill_members")
-
-    def mark_backfill_swept(self, kind: str, target_ids: Iterable[str]) -> None:
-        with self._connect() as connection, connection:
-            connection.executemany(
-                "INSERT OR IGNORE INTO highlights_backfill_swept (kind, target_id) "
-                "VALUES (?, ?)",
-                [(kind, target_id) for target_id in target_ids],
+            connection.execute(
+                "DELETE FROM highlight_search_counts WHERE day < ?", (text,)
             )
+            before = connection.total_changes
+            connection.execute(
+                "INSERT INTO highlight_search_counts (day, searches) VALUES (?, 1) "
+                "ON CONFLICT(day) DO UPDATE SET searches = searches + 1 "
+                "WHERE searches < ?",
+                (text, cap),
+            )
+            return connection.total_changes - before > 0
 
-    def backfill_swept(self, kind: str) -> set[str]:
+    def highlight_searches_on(self, day: dt.date) -> int:
         with self._connect() as connection:
-            rows = connection.execute(
-                "SELECT target_id FROM highlights_backfill_swept WHERE kind = ?",
-                (kind,),
-            ).fetchall()
-        return {row[0] for row in rows}
+            row = connection.execute(
+                "SELECT searches FROM highlight_search_counts WHERE day = ?",
+                (day.isoformat(),),
+            ).fetchone()
+        return 0 if row is None else int(row[0])

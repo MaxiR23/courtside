@@ -13,11 +13,9 @@
 # - Starts the scheduler with the app and stops it on shutdown, with the games and stars jobs each failing on its unconfigured source and the highlights job recording nothing without due games
 # - Starts and stops the stars scheduler with the games scheduler
 # - A stars run that never ends does not stop the games job
-# - Runs the All-Star discovery in the stars scheduler, after the stars job
-# - Starts and stops the highlights backfill scheduler with the app
-# - A highlights backfill run that never ends does not stop the games job
+# - At startup only the games, highlights and stars jobs are scheduled, and no backfill scheduler exists
 # - Does not start the schedulers when jobs are off
-# - Wires the highlights job, the final games, and the Cup, playoffs and All-Star edition providers into the highlights backfill
+# - Wires the on-demand highlights search into the game detail, past game detail and All-Star kinds, with the highlights job's attempts check
 # - Wires the stars and highlights providers and the stars readiness check into the games job
 # - Wires the games job, the feed cache, stars and highlights into the game detail feeds
 # - Wires presence and the after-run hook into the games job
@@ -49,16 +47,18 @@ from fastapi.testclient import TestClient
 
 from app import main
 from app.feeds.games import FeedModel
-from app.jobs.all_star_discovery import AllStarDiscovery
 from app.jobs.all_star_edition_videos import AllStarEditionVideos
+from app.jobs.all_star_feed import AllStarFeeds
 from app.jobs.game_detail_feed import GameDetailFeeds
 from app.jobs.games import GamesJob
 from app.jobs.highlights import HighlightsJob
-from app.jobs.highlights_backfill import HighlightsBackfill
+from app.jobs.highlights_search import HighlightsSearch
+from app.jobs.past_game_detail_feed import PastGameDetailFeeds
 from app.jobs.past_player_ids import PastPlayerIds
 from app.jobs.player_feed import PlayerFeeds
 from app.jobs.presence import Presence
 from app.jobs.scheduler import Scheduler
+from app.jobs.season_all_star_feed import SeasonAllStarFeeds
 from app.jobs.stars import StarsJob
 from app.main import create_app
 from app.settings import Settings
@@ -153,11 +153,10 @@ def test_starts_the_scheduler_with_the_app_and_stops_it_on_shutdown(
     with respx.mock, TestClient(app):
         assert app.state.scheduler.running
         assert app.state.stars_scheduler.running
-        assert app.state.backfill_scheduler.running
 
     assert not app.state.scheduler.running
     assert not app.state.stars_scheduler.running
-    assert not app.state.backfill_scheduler.running
+    assert not hasattr(app.state, "backfill_scheduler")
     states = StateStore(tmp_path).job_states()
     assert [state.name for state in states] == ["games", "stars"]
     games, stars = (state.last_failure_reason for state in states)
@@ -185,81 +184,61 @@ def test_a_stars_run_that_never_ends_does_not_stop_the_games_job(
     assert reason is not None and reason.startswith("scoreboard:")
 
 
-def test_a_highlights_backfill_run_that_never_ends_does_not_stop_the_games_job(
+def test_at_startup_only_the_games_highlights_and_stars_jobs_are_scheduled(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    class NeverEndingBackfill(HighlightsBackfill):
-        async def run(self, now: Any) -> None:
-            await asyncio.Event().wait()
+    scheduled: list[list[str]] = []
 
-    monkeypatch.setattr(main, "HighlightsBackfill", NeverEndingBackfill)
-    settings = Settings(_env_file=None, data_dir=tmp_path)  # type: ignore[call-arg]
-    app = create_app(settings)
+    class RecordingScheduler(Scheduler):
+        def __init__(self, jobs: Any, *args: Any, **kwargs: Any) -> None:
+            super().__init__(jobs, *args, **kwargs)
+            scheduled.append([job.name for job in jobs])
 
-    with respx.mock, TestClient(app):
-        pass
+    monkeypatch.setattr(main, "Scheduler", RecordingScheduler)
 
-    states = StateStore(tmp_path).job_states()
-    assert [state.name for state in states] == ["games", "stars"]
+    with make_client(tmp_path, []) as client:
+        app = client.app
+
+    assert scheduled == [["stars"], ["games", "highlights"]]
+    assert not hasattr(app.state, "backfill_scheduler")  # type: ignore[attr-defined]
 
 
-def test_wires_the_highlights_job_the_final_games_and_the_section_providers_into_the_highlights_backfill(
+def test_wires_the_highlights_search_into_the_game_detail_past_game_detail_and_all_star_kinds(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     built: dict[str, Any] = {}
-    sentinel: list[Any] = []
 
-    class RecordingBackfill(HighlightsBackfill):
-        def __init__(self, *args: Any, **kwargs: Any) -> None:
-            super().__init__(*args, **kwargs)
-            built["args"] = args
-            built["kwargs"] = kwargs
+    def recording(name: str, kind: type) -> type:
+        class Recording(kind):  # type: ignore[misc]
+            def __init__(self, *args: Any, **kwargs: Any) -> None:
+                super().__init__(*args, **kwargs)
+                built[name] = (self, kwargs)
 
-    class RecordingGames(GamesJob):
-        def __init__(self, *args: Any, **kwargs: Any) -> None:
-            super().__init__(*args, **kwargs)
-            built["games"] = self
+        return Recording
 
-    class RecordingHighlights(HighlightsJob):
-        def __init__(self, *args: Any, **kwargs: Any) -> None:
-            super().__init__(*args, **kwargs)
-            built["highlights"] = self
-
-    monkeypatch.setattr(main, "HighlightsBackfill", RecordingBackfill)
-    monkeypatch.setattr(main, "GamesJob", RecordingGames)
-    monkeypatch.setattr(main, "HighlightsJob", RecordingHighlights)
+    for name, kind in {
+        "HighlightsJob": HighlightsJob,
+        "HighlightsSearch": HighlightsSearch,
+        "AllStarEditionVideos": AllStarEditionVideos,
+        "GameDetailFeeds": GameDetailFeeds,
+        "PastGameDetailFeeds": PastGameDetailFeeds,
+        "AllStarFeeds": AllStarFeeds,
+        "SeasonAllStarFeeds": SeasonAllStarFeeds,
+    }.items():
+        monkeypatch.setattr(main, name, recording(name, kind))
 
     with make_client(tmp_path, []):
-        monkeypatch.setattr(built["games"], "final_games", lambda: sentinel)
-        kwargs = built["kwargs"]
-        assert built["args"][3] is built["highlights"]
-        assert kwargs["final_games"]() is sentinel
-        assert [source() for source in kwargs["game_sources"]] == [[], []]
-        assert isinstance(kwargs["editions"], AllStarEditionVideos)
-
-
-def test_runs_the_all_star_discovery_in_the_stars_scheduler_after_the_stars_job(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    order: list[str] = []
-
-    class RecordingStars(StarsJob):
-        async def run(self, now: Any) -> None:
-            order.append("stars")
-
-    class RecordingDiscovery(AllStarDiscovery):
-        async def run(self, now: Any) -> None:
-            order.append("all-star")
-
-    monkeypatch.setattr(main, "StarsJob", RecordingStars)
-    monkeypatch.setattr(main, "AllStarDiscovery", RecordingDiscovery)
-    settings = Settings(_env_file=None, data_dir=tmp_path)  # type: ignore[call-arg]
-    app = create_app(settings)
-
-    with respx.mock, TestClient(app):
-        pass
-
-    assert order == ["stars", "all-star"]
+        highlights = built["HighlightsJob"][0]
+        search = built["HighlightsSearch"][0]
+        videos = built["AllStarEditionVideos"][0]
+        assert built["HighlightsSearch"][1] == {}
+        detail = built["GameDetailFeeds"][1]
+        assert detail["search"] is search
+        assert detail["attempts_over"] == highlights.attempts_over
+        assert built["PastGameDetailFeeds"][1]["search"] is search
+        assert built["AllStarFeeds"][1]["edition_videos"] is videos
+        assert built["SeasonAllStarFeeds"][1]["edition_videos"] is videos
+        assert "discovery" not in built["AllStarFeeds"][1]
 
 
 def test_does_not_start_the_scheduler_when_jobs_are_off(tmp_path: Path) -> None:
@@ -269,7 +248,6 @@ def test_does_not_start_the_scheduler_when_jobs_are_off(tmp_path: Path) -> None:
     with TestClient(app):
         assert not app.state.scheduler.running
         assert not app.state.stars_scheduler.running
-        assert not app.state.backfill_scheduler.running
 
     assert StateStore(tmp_path).job_states() == []
 
@@ -287,7 +265,7 @@ def test_wires_the_stars_and_highlights_providers_into_the_games_job(
     class RecordingHighlights(HighlightsJob):
         def __init__(self, *args: Any, **kwargs: Any) -> None:
             super().__init__(*args, **kwargs)
-            built["highlights"] = self
+            built["HighlightsJob"] = self
 
     class RecordingGames(GamesJob):
         def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -304,8 +282,8 @@ def test_wires_the_stars_and_highlights_providers_into_the_games_job(
     kwargs = built["games_kwargs"]
     assert kwargs["stars"] == built["stars"].stars_of
     assert kwargs["stars_ready"] == built["stars"].has_every_star
-    assert kwargs["highlights"] == built["highlights"].highlights_of
-    assert kwargs["highlights_search_url"] == built["highlights"].search_url_of
+    assert kwargs["highlights"] == built["HighlightsJob"].highlights_of
+    assert kwargs["highlights_search_url"] == built["HighlightsJob"].search_url_of
 
 
 def test_wires_the_games_jobs_final_games_into_the_stars_job(
@@ -345,7 +323,7 @@ def test_wires_the_games_job_cache_stars_and_highlights_into_the_game_detail_fee
     class RecordingHighlights(HighlightsJob):
         def __init__(self, *args: Any, **kwargs: Any) -> None:
             super().__init__(*args, **kwargs)
-            built["highlights"] = self
+            built["HighlightsJob"] = self
 
     class RecordingGames(GamesJob):
         def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -377,8 +355,8 @@ def test_wires_the_games_job_cache_stars_and_highlights_into_the_game_detail_fee
 
     kwargs = built["detail_kwargs"]
     assert kwargs["stars"] == built["stars"].stars_of
-    assert kwargs["highlights"] == built["highlights"].highlights_of
-    assert kwargs["highlights_search_url"] == built["highlights"].search_url_of
+    assert kwargs["highlights"] == built["HighlightsJob"].highlights_of
+    assert kwargs["highlights_search_url"] == built["HighlightsJob"].search_url_of
 
 
 def test_wires_presence_and_the_after_run_hook_into_the_games_job(

@@ -24,12 +24,15 @@
 # - A pre-game detail is built on request and served from storage until it expires
 # - A live game viewed by two clients causes one detail source request per interval
 # - A stale live detail waits for the rebuild, so the score is never older than 30 seconds
-# - A final game's detail is built once with the ADR 0010 attempts and never again
-# - A final game with four failed attempts is known and served with null summary sections, and with attempts left and no stored feed it is not ready
+# - A final game's detail is not built after a games run and is built on its first request, once and never again
+# - A final game with no stored feed is known, and its failed first build is retried on a request after the retry window
+# - A final game with four failed attempts is built with null summary sections
 # - A failed standings or injuries read builds with that block null and one log line
 # - A stored final feed that still has the retired videos field is served without it and never rebuilt
-# - A game turning final shares one summary request with the games job
-# - A requested final game never starts a build
+# - A final game's first request reads the summary the games job already fetched
+# - A stored live feed of a game now final is rebuilt on its next request, which waits
+# - Serving a final game with no highlight once its attempts are over starts one search
+# - A served game with a highlight, attempts left, an All-Star mark or no final status starts no search
 # - Stars, highlights and the search URL are added when served and not stored
 # - A game id outside the days shown answers unknown with no source request
 # - A request before the days shown load answers unavailable
@@ -94,7 +97,10 @@ from app.jobs.game_detail_feed import (
     pre_game_expiry,
 )
 from app.jobs.games import STATS_ATTEMPT_DELAYS, GamesJob
+from app.jobs.highlights import HighlightsJob
+from app.jobs.highlights_search import HighlightsSearch
 from app.jobs.on_demand import (
+    RETRY_AFTER,
     FeedCache,
     FeedUnavailableError,
     IdStatus,
@@ -720,6 +726,26 @@ def games_detail() -> GameDetail:
     )
 
 
+class RecordingSearch(HighlightsSearch):
+    """A highlights search that records the games it is asked for."""
+
+    def __init__(
+        self, settings: Settings, store: StateStore, client: SourceClient
+    ) -> None:
+        super().__init__(
+            settings,
+            store,
+            client,
+            HighlightsJob(settings, store, client, final_games=list),
+        )
+        self.asked: list[tuple[str, str, str, dt.datetime]] = []
+
+    def request_game(
+        self, game_id: str, away: str, home: str, start_time: dt.datetime
+    ) -> None:
+        self.asked.append((game_id, away, home, start_time))
+
+
 class Harness:
     """A games job, a feed cache and the detail kind over one client and one clock.
 
@@ -747,8 +773,10 @@ class Harness:
         self.stars: Stars | None = STARS
         self.highlights: list[Highlight] = []
         self.search_url: str | None = SEARCH_URL
+        self.attempts_over = True
         respx.get(url__startswith=BASE).mock(side_effect=self.answer)
         self.cache = FeedCache(path, self.store, clock=lambda: self.clock[0])
+        self.search = RecordingSearch(self.settings, self.store, self.client)
         self.job = GamesJob(
             self.settings,
             self.store,
@@ -773,6 +801,8 @@ class Harness:
             stars=lambda _: self.stars,
             highlights=lambda _: self.highlights,
             highlights_search_url=lambda _: self.search_url,
+            search=self.search,
+            attempts_over=lambda _: self.attempts_over,
         )
 
     def answer(self, request: httpx.Request) -> httpx.Response:
@@ -981,42 +1011,50 @@ async def turn_final(harness: Harness) -> dt.datetime:
 
 
 @pytest.mark.anyio
-async def test_a_final_game_detail_is_built_once_with_the_adr_0010_attempts_and_never_again(
+async def test_a_final_game_detail_is_not_built_after_a_games_run_and_is_built_on_its_first_request(
     harness: Harness,
 ) -> None:
-    harness.fail_sections = True
-    harness.games = [game("1", GameStatus.LIVE)]
-    await harness.run(NOON)
-    harness.games = [game("1", GameStatus.FINAL)]
-    harness.states["1"] = "final"
-    await harness.run(NOON + 30 * SECOND)
-    final_time = NOON + 30 * SECOND
+    final_time = await turn_final(harness)
 
-    assert len(harness.sections_fresh) == 1
+    assert harness.sections_fresh == []
     assert harness.stored("1") is None
-    state = harness.store.feed_build(KIND, "1")
-    assert state is not None
-    assert state.last_failure == final_time
-    await harness.run(final_time + 2 * HOUR - SECOND)
-    assert len(harness.sections_fresh) == 1
+    assert harness.store.feed_build(KIND, "1") is None
+    assert harness.feeds.check("1") is IdStatus.KNOWN
 
-    harness.fail_sections = False
-    requests = harness.calls("1")
-    await harness.run(final_time + 2 * HOUR)
-    assert len(harness.sections_fresh) == 2
-    assert harness.calls("1") == requests + 1
-    assert harness.sections_fresh[-1] == final_time + 2 * HOUR
-    stored = harness.stored("1")
-    assert stored is not None
-    assert stored.status is GameStatus.FINAL
+    body = await harness.serve("1", final_time + 2 * HOUR)
+
+    feed = GameDetailFeed.model_validate_json(body)
+    assert feed.status is GameStatus.FINAL
+    assert harness.sections_fresh == [final_time + 2 * HOUR]
     built = harness.last_build("1")
     assert built == final_time + 2 * HOUR
 
     for later in (4 * HOUR, 6 * HOUR, 30 * HOUR):
         await harness.run(final_time + later)
         await harness.serve("1")
-    assert len(harness.sections_fresh) == 2
+    assert len(harness.sections_fresh) == 1
     assert harness.last_build("1") == built
+
+
+@pytest.mark.anyio
+async def test_a_failed_first_build_of_a_final_game_is_retried_on_a_request_after_the_retry_window(
+    harness: Harness,
+) -> None:
+    harness.fail_sections = True
+    final_time = await turn_final(harness)
+
+    with pytest.raises(FeedUnavailableError):
+        await harness.serve("1", final_time)
+    assert harness.stored("1") is None
+    with pytest.raises(FeedUnavailableError):
+        await harness.serve("1", final_time + RETRY_AFTER - SECOND)
+    assert len(harness.sections_fresh) == 1
+
+    harness.fail_sections = False
+    body = await harness.serve("1", final_time + RETRY_AFTER)
+
+    assert GameDetailFeed.model_validate_json(body).status is GameStatus.FINAL
+    assert len(harness.sections_fresh) == 2
 
 
 @pytest.mark.anyio
@@ -1024,6 +1062,7 @@ async def test_a_stored_final_feed_that_still_has_videos_is_served_without_them_
     harness: Harness,
 ) -> None:
     final_time = await turn_final(harness)
+    await harness.serve("1")
     assert harness.stored("1") is not None
     built = harness.last_build("1")
     calls = harness.standings_calls
@@ -1046,7 +1085,7 @@ async def test_a_stored_final_feed_that_still_has_videos_is_served_without_them_
 
 
 @pytest.mark.anyio
-async def test_a_final_game_with_four_failed_attempts_is_known_and_served_with_null_summary_sections(
+async def test_a_final_game_with_four_failed_attempts_is_built_with_null_summary_sections(
     harness: Harness,
 ) -> None:
     harness.fail_sections = True
@@ -1073,18 +1112,6 @@ async def test_a_final_game_with_four_failed_attempts_is_known_and_served_with_n
     assert feed.away.record is not None
     assert len(harness.sections_fresh) == summary_reads
     assert harness.stored("1") is not None
-
-
-@pytest.mark.anyio
-async def test_a_final_game_with_attempts_left_and_no_stored_feed_is_not_ready(
-    harness: Harness,
-) -> None:
-    harness.fail_sections = True
-    await turn_final(harness)
-    harness.store.record_failed_stats_attempt("1", TODAY)
-
-    assert harness.stored("1") is None
-    assert harness.feeds.check("1") is IdStatus.NOT_READY
 
 
 @pytest.mark.anyio
@@ -1127,48 +1154,99 @@ async def test_a_failed_injuries_read_builds_with_null_injuries(
 
 
 @pytest.mark.anyio
-async def test_a_final_game_turning_final_reads_the_same_summary_request_as_the_games_job(
+async def test_a_final_games_first_request_reads_the_summary_the_games_job_already_fetched(
     harness: Harness,
 ) -> None:
     harness.games = [game("1", GameStatus.LIVE)]
     await harness.run(NOON)
-    before = harness.calls("1")
     harness.games = [game("1", GameStatus.FINAL)]
     harness.states["1"] = "final"
 
     await harness.run(NOON + 30 * SECOND)
+    before = harness.calls("1")
+    body = await harness.serve("1")
 
-    assert harness.calls("1") == before + 1
-    stored = harness.stored("1")
-    assert stored is not None
-    assert harness.venue(read_by_id(harness.settings.data_dir, KIND, "1") or b"") == (
-        "final"
-    )
+    assert harness.calls("1") == before
+    assert harness.venue(body) == "final"
 
 
 @pytest.mark.anyio
-async def test_a_requested_final_game_never_starts_a_build(tmp_path: Path) -> None:
+async def test_a_stored_live_feed_of_a_game_now_final_is_rebuilt_on_its_next_request_and_waits(
+    tmp_path: Path,
+) -> None:
     harness = Harness(make_dir(tmp_path / "a"), hook=False)
     harness.games = [game("1", GameStatus.LIVE)]
     await harness.run(NOON)
     live = await harness.serve("1")
+    assert GameDetailFeed.model_validate_json(live).status is GameStatus.LIVE
     harness.games = [game("1", GameStatus.FINAL)]
+    harness.states["1"] = "final"
     await harness.run(NOON + 30 * SECOND)
-    calls = harness.standings_calls
+    assert harness.stored("1") is not None
 
     served = await harness.serve("1", NOON + HOUR)
 
-    assert GameDetailFeed.model_validate_json(served).status is GameStatus.LIVE
-    assert served == live
-    assert harness.standings_calls == calls
+    assert GameDetailFeed.model_validate_json(served).status is GameStatus.FINAL
+    stored = harness.stored("1")
+    assert stored is not None and stored.status is GameStatus.FINAL
+    assert harness.venue(served) == "final"
 
+
+@pytest.mark.anyio
+async def test_a_final_game_with_no_stored_feed_is_built_by_its_first_request(
+    tmp_path: Path,
+) -> None:
     empty = Harness(make_dir(tmp_path / "b"), hook=False)
     empty.games = [game("1", GameStatus.FINAL)]
     await empty.run(NOON)
-    with pytest.raises(FeedUnavailableError):
-        await empty.serve("1")
-    assert empty.standings_calls == 0
     assert empty.stored("1") is None
+    assert empty.standings_calls == 0
+
+    served = await empty.serve("1")
+
+    assert GameDetailFeed.model_validate_json(served).status is GameStatus.FINAL
+    assert empty.stored("1") is not None
+
+
+@pytest.mark.anyio
+async def test_serving_a_final_game_with_no_highlight_after_its_attempts_starts_one_search(
+    harness: Harness,
+) -> None:
+    harness.games = [game("1", GameStatus.FINAL)]
+    await harness.run(NOON)
+
+    served = await harness.serve("1")
+
+    assert harness.search.asked == [("1", "Bos", "Nyk", START)]
+    assert GameDetailFeed.model_validate_json(served).highlights is None
+
+
+@pytest.mark.anyio
+async def test_a_served_game_with_a_highlight_attempts_left_an_all_star_mark_or_no_final_status_starts_no_search(
+    harness: Harness,
+) -> None:
+    all_star = game("a", GameStatus.FINAL).model_copy(
+        update={"all_star": GameAllStar(round_label="Final", championship=True)}
+    )
+    harness.games = [
+        game("with", GameStatus.FINAL),
+        game("left", GameStatus.FINAL),
+        all_star,
+        game("live", GameStatus.LIVE),
+        game("pre", GameStatus.SCHEDULED, start=NOON + 5 * HOUR),
+    ]
+    await harness.run(NOON)
+
+    harness.highlights = [HIGHLIGHT]
+    await harness.serve("with")
+    harness.highlights = []
+    harness.attempts_over = False
+    await harness.serve("left")
+    harness.attempts_over = True
+    for game_id in ("a", "live", "pre"):
+        await harness.serve(game_id)
+
+    assert harness.search.asked == []
 
 
 @pytest.mark.anyio
@@ -1324,6 +1402,7 @@ async def test_after_a_day_change_whose_new_day_fetch_fails_loaded_games_keep_be
     ]
     harness.states["1"] = "final"
     await harness.run(NOON + 30 * SECOND)
+    await harness.serve("1")
     stored_final = harness.stored("1")
     assert stored_final is not None
     assert stored_final.status is GameStatus.FINAL

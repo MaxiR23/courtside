@@ -25,7 +25,12 @@
 # - A failed individual fetch with no star from the previous season either records its reason and keeps the stored star
 # - Keeps the last known star when no star can be picked
 # - Replaces a stored star who left the roster only once a new one is picked
-# - Fetches every due team concurrently
+# - Fetches every due team concurrently, at most four source reads in flight
+# - A new job on the same day with a stored success fetches nothing and takes the rosters from the source cache
+# - A restarted job fetches only a team with no cached roster
+# - A stored failure does not count as the daily mark
+# - Its source reads never exceed four in flight, across rosters, leaders and individual averages
+# - Two failed teams are retried one per run
 # - Has every star only once every team has one, and from the start when the store holds every team
 # - A failed team keeps its stored star, records the reason, does not stop the other teams, and is retried no sooner than five minutes later
 # - Records failure when a team has no averages in either season
@@ -64,7 +69,7 @@
 import asyncio
 import datetime as dt
 import json
-from collections.abc import Iterator
+from collections.abc import Awaitable, Callable, Iterator
 from pathlib import Path
 from typing import Any
 
@@ -189,7 +194,9 @@ def settings(tmp_path: Path) -> Settings:
     return Settings(_env_file=None, data_dir=tmp_path)  # type: ignore[call-arg]
 
 
-def make_job(settings: Settings, store: StateStore, sources: FakeSources) -> StarsJob:
+def make_job(
+    settings: Settings, store: StateStore, sources: FakeSources, **more: Any
+) -> StarsJob:
     return StarsJob(
         settings,
         store,
@@ -198,6 +205,7 @@ def make_job(settings: Settings, store: StateStore, sources: FakeSources) -> Sta
         fetch_season_averages=sources.fetch_season_averages,
         fetch_player_averages=sources.fetch_player_averages,
         clock=lambda: NOON,
+        **more,
     )
 
 
@@ -553,7 +561,144 @@ async def test_fetches_every_due_team_concurrently(
 
     await job.run(NOON)
 
-    assert most == len(set(CODES))
+    assert most == 4
+
+
+def cached_from(
+    sources: FakeSources, missing: tuple[str, ...] = ()
+) -> tuple[Any, list[str]]:
+    calls: list[str] = []
+
+    def cached_roster(
+        client: httpx.AsyncClient, code: str, settings: Settings
+    ) -> Roster | None:
+        calls.append(code)
+        return None if code in missing else sources.rosters[code]
+
+    return cached_roster, calls
+
+
+@pytest.mark.anyio
+async def test_a_new_job_on_the_same_day_with_a_stored_success_does_not_fetch_and_takes_the_rosters_from_the_cache(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    store.record_success(JOB, NOON)
+    cached, cached_calls = cached_from(sources)
+    job = make_job(settings, store, sources, cached_roster=cached)
+    assert job.current_season() is None
+    assert not job.rosters_ready()
+
+    await job.run(NOON + dt.timedelta(hours=1))
+    await job.run(NOON + dt.timedelta(hours=2))
+
+    assert sources.roster_calls == []
+    assert sources.averages_calls == []
+    assert sources.player_calls == []
+    assert sorted(cached_calls) == sorted(set(CODES))
+    assert job.current_season() == SEASON
+    assert job.rosters_ready()
+    assert set(job.roster_entries()) == set(CODES)
+    assert job.player_team("BOS1") == "BOS"
+    assert job.latest_roster_fetch() == NOON
+    assert store.job_states()[0].last_success == NOON
+
+
+@pytest.mark.anyio
+async def test_a_restarted_job_fetches_only_a_team_with_no_cached_roster(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    store.record_success(JOB, NOON)
+    cached, _ = cached_from(sources, missing=("BOS",))
+    job = make_job(settings, store, sources, cached_roster=cached)
+
+    await job.run(NOON + dt.timedelta(hours=1))
+
+    assert sources.roster_calls == ["BOS"]
+    assert job.rosters_ready()
+    assert job.player_team("BOS2") == "BOS"
+    assert store.job_states()[0].last_success == NOON + dt.timedelta(hours=1)
+
+
+@pytest.mark.anyio
+async def test_a_stored_failure_does_not_count_as_the_daily_mark(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    store.record_failure(JOB, NOON, "team_players: request failed")
+    cached, cached_calls = cached_from(sources)
+    job = make_job(settings, store, sources, cached_roster=cached)
+
+    await job.run(NOON + dt.timedelta(hours=1))
+
+    assert sorted(sources.roster_calls) == sorted(set(CODES))
+    assert cached_calls == []
+
+
+@pytest.mark.anyio
+async def test_its_reads_never_exceed_four_in_flight(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    sources.averages[("id-BOS", SEASON)] = [averages("someone-else", 5)]
+    for number in (1, 2):
+        sources.player_averages[(f"BOS{number}", SEASON)] = averages(
+            f"BOS{number}", number
+        )
+    in_flight = 0
+    most = 0
+
+    def counted[**P, T](
+        read: Callable[P, Awaitable[T]],
+    ) -> Callable[P, Awaitable[T]]:
+        async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+            nonlocal in_flight, most
+            in_flight += 1
+            most = max(most, in_flight)
+            for _ in range(3):
+                await asyncio.sleep(0)
+            try:
+                return await read(*args, **kwargs)
+            finally:
+                in_flight -= 1
+
+        return wrapper
+
+    job = StarsJob(
+        settings,
+        store,
+        create_client(store),
+        fetch_roster=counted(sources.fetch_roster),
+        fetch_season_averages=counted(sources.fetch_season_averages),
+        fetch_player_averages=counted(sources.fetch_player_averages),
+        clock=lambda: NOON,
+    )
+
+    await job.run(NOON)
+
+    assert sources.player_calls != []
+    assert most == 4
+    assert store.stars()["BOS"].player_id == "BOS2"
+
+
+@pytest.mark.anyio
+async def test_two_failed_teams_are_retried_one_per_run(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    first, second = CODES[0], CODES[1]
+    sources.roster_errors[first] = SourceError("team_players", "request failed")
+    sources.roster_errors[second] = SourceError("team_players", "request failed")
+    job = make_job(settings, store, sources)
+    await job.run(NOON)
+    sources.roster_calls.clear()
+
+    await job.run(NOON + RETRY)
+    assert sources.roster_calls == [first]
+
+    await job.run(NOON + RETRY + dt.timedelta(seconds=1))
+    assert sources.roster_calls == [first, second]
+
+    del sources.roster_errors[first]
+    del sources.roster_errors[second]
+    await job.run(NOON + 2 * RETRY)
+    assert sources.roster_calls[2:] == [first]
 
 
 @pytest.mark.anyio

@@ -13,7 +13,8 @@
 # extras or season awards read that answers 404 only nulls its part; any other
 # failed read fails the build, because the feed is kept for good. League teams
 # are null (no roster of that season is read) and no per-game highlight is set;
-# the stored edition video is added when served as editionHighlight (ADR 0048).
+# the stored edition video is added when served as editionHighlight, and an
+# edition served with none starts one on-demand search (ADR 0065).
 # The sections, extras and awards are read by read_edition_mvp_inputs, shared
 # with the current feed's previous edition (ADR 0056).
 # A past All-Star feed is stored only when it builds as after: any other state
@@ -31,6 +32,7 @@
 # SEE: docs/api/all-star.md, docs/adr/0047-season-all-star-feed.md,
 # docs/adr/0058-bounded-past-competition-reads.md,
 # docs/adr/0048-highlights-backfill-and-edition-video.md,
+# docs/adr/0065-background-work-limited-to-games-highlights-and-stars.md,
 # docs/adr/0056-paced-past-builds-and-one-edition-mvp-path.md,
 # api/app/jobs/all_star_feed.py
 
@@ -45,6 +47,7 @@ from app.feeds.all_star import AllStarFeed, AllStarState
 from app.feeds.calendar import FIRST_SEASON
 from app.feeds.games import GameStatus
 from app.jobs import all_star_feed
+from app.jobs.all_star_edition_videos import AllStarEditionVideos
 from app.jobs.all_star_feed import (
     PREVIOUS_FRESH,
     AllStarBuildError,
@@ -173,6 +176,7 @@ class SeasonAllStarFeeds:
         ),
         fetch_all_star_extras: FetchExtras = all_star_detail.fetch_all_star_extras,
         fetch_season_awards: FetchAwards = season_awards.fetch_season_awards,
+        edition_videos: AllStarEditionVideos | None = None,
     ) -> None:
         self._settings = settings
         self._store = store
@@ -184,6 +188,7 @@ class SeasonAllStarFeeds:
         self._fetch_game_detail_sections = fetch_game_detail_sections
         self._fetch_all_star_extras = fetch_all_star_extras
         self._fetch_season_awards = fetch_season_awards
+        self._edition_videos = edition_videos
         self._no_edition: set[int] = set()
         cache.register(self.kind())
 
@@ -318,6 +323,8 @@ class SeasonAllStarFeeds:
         return True
 
     def serve_with(self, feed_id: str, feed: AllStarFeed) -> AllStarFeed:
+        if self._edition_videos is not None:
+            self._edition_videos.request_for(feed)
         return all_star_feed.with_edition_highlights(feed, self._store)
 
     def kind(self) -> FeedKind[AllStarFeed]:

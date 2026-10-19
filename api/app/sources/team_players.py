@@ -4,7 +4,8 @@
 # provider's current season, its coach and each player's details, one team's
 # per-game season averages (the team leaders, with the previous season as a
 # fallback) and one player's per-game season averages, and maps them to
-# contract types. It also reads the roster of one team in one season (ADR 0043).
+# contract types. It also reads the roster of one team in one season (ADR 0043)
+# and a team's current roster from the source cache alone (cached_roster).
 # The provider URLs come from Settings.
 # Provider data never leaves this module. A roster and the team leaders are kept
 # for 24 hours; a player's averages are kept as long as the caller's freshness
@@ -27,7 +28,13 @@ from pydantic.alias_generators import to_camel
 
 from app.feeds.games import FeedModel, NonEmptyStr, Star
 from app.settings import Settings
-from app.sources.http import Freshness, SourceClient, SourceError, get_json
+from app.sources.http import (
+    Freshness,
+    SourceClient,
+    SourceError,
+    cached_json,
+    get_json,
+)
 from app.sources.teams import PROVIDER_IDS, TEAM_CODES
 
 SOURCE = "team_players"
@@ -282,6 +289,12 @@ async def fetch_roster(
     provider_code = _provider_code(team_code)
     url = settings.team_roster_url.format(team=provider_code)
     body = await get_json(client, url, source=SOURCE, fresh=ROSTER_FRESH_FOR)
+    return _roster(body, team_code, settings)
+
+
+def _roster(body: object, team_code: str, settings: Settings) -> Roster:
+    """Map a current-roster body to a Roster, or raise SourceError."""
+    assert settings.player_photo_url is not None
     try:
         provider = _ProviderRoster.model_validate(body)
     except ValidationError as error:
@@ -314,6 +327,26 @@ async def fetch_roster(
             SOURCE,
             f"team {team_code} is invalid: {first['type']} at {_location(error)}",
         ) from None
+
+
+def cached_roster(
+    client: SourceClient, team_code: str, settings: Settings
+) -> Roster | None:
+    """Return a team's current roster from the source cache, whatever its age,
+    or None. It sends no request."""
+    if settings.team_roster_url is None or settings.player_photo_url is None:
+        return None
+    if team_code not in PROVIDER_CODES:
+        return None
+    body = cached_json(
+        client, settings.team_roster_url.format(team=PROVIDER_CODES[team_code])
+    )
+    if body is None:
+        return None
+    try:
+        return _roster(body, team_code, settings)
+    except SourceError:
+        return None
 
 
 async def fetch_season_roster(

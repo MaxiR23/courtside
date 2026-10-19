@@ -38,7 +38,7 @@
 # - Responds 404 with a JSON error when the Finals has no game, with no finals read, and 503 when the playoffs feed cannot be built with nothing stored
 # - Keeps serving the stored playoffs finals feed when a rebuild fails
 # - Serves the All-Star feed with Cache-Control and ETag and answers 304 for a matching ETag
-# - Responds 503 with a JSON error for the All-Star feed when the scoreboard day read fails with nothing stored and before the season, the rosters or the discovery are known, and keeps serving the stored feed when a rebuild fails
+# - Responds 503 with a JSON error for the All-Star feed when the scoreboard day read fails with nothing stored and before the season or the rosters are known, and keeps serving the stored feed when a rebuild fails
 #
 # - Serves the calendar feed with Cache-Control and ETag and answers 304 for a matching ETag
 # - Serves current as the current season's calendar with the same body and ETag as its end-year path, answers 304 for that ETag and 503 while the season is not known, and responds 404 for Current and currentx
@@ -1278,7 +1278,6 @@ class AllStar:
 
     def __init__(self, path: Path) -> None:
         self.kit = AllStarKit(path)
-        asyncio.run(self.kit.discover())
         self.app = FastAPI()
         self.app.include_router(feeds_router.router)
         self.app.state.settings = self.kit.settings
@@ -1332,7 +1331,7 @@ def test_responds_503_when_the_all_star_day_read_fails_with_nothing_stored(
     assert isinstance(response.json()["detail"], str)
 
 
-def test_responds_503_before_the_season_the_rosters_or_the_discovery_are_known(
+def test_responds_503_before_the_season_or_the_rosters_are_known_for_the_all_star_feed(
     all_star: AllStar,
 ) -> None:
     with TestClient(all_star.app) as client:
@@ -1340,9 +1339,6 @@ def test_responds_503_before_the_season_the_rosters_or_the_discovery_are_known(
         assert client.get("/feeds/all-star.json").status_code == 503
         all_star.kit.stars.season = 2027
         all_star.kit.stars.ready = False
-        assert client.get("/feeds/all-star.json").status_code == 503
-        all_star.kit.stars.ready = True
-        all_star.kit.discovery._ready_season = None
         assert client.get("/feeds/all-star.json").status_code == 503
 
     assert all_star.kit.calls == []
@@ -2193,7 +2189,6 @@ class SeasonAllStar:
 
     def __init__(self, path: Path) -> None:
         self.kit = SeasonAllStarKit(path)
-        asyncio.run(self.kit.discover())
         self.kit.calls.clear()
         self.app = FastAPI()
         self.app.include_router(feeds_router.router)

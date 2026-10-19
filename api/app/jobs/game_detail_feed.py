@@ -5,9 +5,11 @@
 # pre-game feed expires 12, 6 or 3 hours after its build by the time left to
 # tip-off (rule G); a live feed is fresh until the games job refreshes its day
 # again, and a request that finds it stale waits for the rebuild, so a score is
-# never older than 30 seconds; a final feed is never built by a request: the
-# games job starts its build at the final time and, after a failure, 2, 4 and 6
-# hours after it (ADR 0010), through after_games_run. A stored feed has no
+# never older than 30 seconds; a final game's feed is built on its first
+# request, reading the summary of the latest attempt time passed (ADR 0010), and
+# a failed build is retried on a request after the cache's retry window
+# (ADR 0065). Serving a final game with no highlight once its highlight
+# attempts are over starts one on-demand search (ADR 0065). A stored feed has no
 # stars, highlights or highlights search URL: serve_with adds them when it is
 # served. After a day change whose new-day fetch fails, the games already loaded
 # keep being served and an id not loaded is not ready until every day shown is
@@ -23,7 +25,8 @@
 #
 # SEE: docs/source-rules.md, docs/adr/0020-source-rules.md,
 # docs/adr/0010-final-game-attempts.md, docs/api/game-detail.md,
-# docs/adr/0064-degrade-one-bad-item-instead-of-failing-a-feed.md
+# docs/adr/0064-degrade-one-bad-item-instead-of-failing-a-feed.md,
+# docs/adr/0065-background-work-limited-to-games-highlights-and-stars.md
 
 import datetime as dt
 import logging
@@ -47,6 +50,7 @@ from app.jobs.games import (
     no_highlights_search_url,
     no_stars,
 )
+from app.jobs.highlights_search import HighlightsSearch
 from app.jobs.on_demand import FeedCache, FeedKind, IdStatus
 from app.settings import Settings
 from app.sources import game_detail, league_injuries, standings, team_schedule
@@ -56,7 +60,6 @@ from app.sources.league_injuries import InjuryReport, LeagueInjuries
 from app.sources.scoreboard import ScoreboardGame
 from app.sources.standings import LeagueStandings
 from app.sources.team_schedule import TeamSchedule
-from app.storage.feeds import read_by_id
 from app.storage.state import StateStore
 
 logger = logging.getLogger(__name__)
@@ -245,6 +248,8 @@ class GameDetailFeeds:
         stars: StarsProvider = no_stars,
         highlights: HighlightsProvider = no_highlights,
         highlights_search_url: SearchUrlProvider = no_highlights_search_url,
+        search: HighlightsSearch | None = None,
+        attempts_over: Callable[[str], bool] | None = None,
     ) -> None:
         self._settings = settings
         self._store = store
@@ -258,8 +263,9 @@ class GameDetailFeeds:
         self._stars = stars
         self._highlights = highlights
         self._highlights_search_url = highlights_search_url
+        self._search = search
+        self._attempts_over = attempts_over
         self._cleaned: frozenset[str] | None = None
-        self._final_stored: set[str] = set()
         cache.register(self.kind())
 
     def _game(self, game_id: str) -> ScoreboardGame | None:
@@ -271,12 +277,6 @@ class GameDetailFeeds:
             if self._games.shown_games() is None:
                 return IdStatus.NOT_READY
             return IdStatus.UNKNOWN
-        if (
-            game.status is GameStatus.FINAL
-            and read_by_id(self._settings.data_dir, KIND, game_id) is None
-            and self._store.failed_stats_attempts(game_id) < MAX_STATS_ATTEMPTS
-        ):
-            return IdStatus.NOT_READY
         return IdStatus.KNOWN
 
     async def build(self, game_id: str) -> GameDetailFeed:
@@ -360,8 +360,10 @@ class GameDetailFeeds:
         self, feed: GameDetailFeed, built_at: dt.datetime, now: dt.datetime
     ) -> bool:
         game = self._game(feed.id)
-        if game is None or game.status is GameStatus.FINAL:
+        if game is None:
             return True
+        if game.status is GameStatus.FINAL:
+            return feed.status is GameStatus.FINAL
         if feed.status != game.status:
             return False
         if game.status is GameStatus.LIVE:
@@ -373,21 +375,39 @@ class GameDetailFeeds:
         game = self._game(game_id)
         if game is None:
             return feed
-        return GameDetailFeed.model_validate(
+        highlights = self._highlights(game)
+        served = GameDetailFeed.model_validate(
             {
                 **feed.model_dump(by_alias=False),
                 "stars": self._stars(game),
-                "highlights": self._highlights(game) or None,
+                "highlights": highlights or None,
                 "highlights_search_url": self._highlights_search_url(game),
             }
         )
+        if (
+            game.status is GameStatus.FINAL
+            and game.all_star is None
+            and not highlights
+            and self._search is not None
+            and self._attempts_over is not None
+            and self._attempts_over(game.id)
+        ):
+            self._search.request_game(
+                game.id, game.away.name, game.home.name, game.start_time
+            )
+        return served
 
     def keep(self, game_id: str) -> bool:
         return self._games.shown_games() is None or self._game(game_id) is not None
 
     def wait_when_stale(self, game_id: str) -> bool:
         game = self._game(game_id)
-        return game is not None and game.status is GameStatus.LIVE
+        if game is None:
+            return False
+        if game.status is GameStatus.FINAL:
+            # The first request after the final gets the final feed.
+            return True
+        return game.status is GameStatus.LIVE
 
     def kind(self) -> FeedKind[GameDetailFeed]:
         return FeedKind(
@@ -402,7 +422,7 @@ class GameDetailFeeds:
         )
 
     def after_games_run(self) -> None:
-        """The games job's after_run hook: the cleanup and the due final builds."""
+        """The games job's after_run hook: the cleanup."""
         shown = self._games.shown_games()
         if shown is None:
             return
@@ -410,29 +430,3 @@ class GameDetailFeeds:
         if ids != self._cleaned:
             self._cache.cleanup()
             self._cleaned = ids
-        self._final_stored &= ids
-        now = self._client.clock()
-        for game in shown:
-            if game.status is not GameStatus.FINAL or game.id in self._final_stored:
-                continue
-            body = read_by_id(self._settings.data_dir, KIND, game.id)
-            if body is not None:
-                try:
-                    stored = GameDetailFeed.model_validate_json(body)
-                except ValidationError:
-                    stored = None
-                if stored is not None and stored.status is GameStatus.FINAL:
-                    self._final_stored.add(game.id)
-                    continue
-            final_time = self._store.final_time(game.id)
-            if final_time is None:
-                continue
-            slot = final_slot(final_time, now)
-            if slot is None:
-                continue
-            state = self._store.feed_build(KIND, game.id)
-            if state is not None and (
-                state.last_failure is not None and state.last_failure >= slot
-            ):
-                continue
-            self._cache.refresh(KIND, game.id)

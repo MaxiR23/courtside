@@ -267,6 +267,9 @@ class TeamNames(FeedModel):
     # False when the current season could not be read; such a list is fresh for
     # RETRY_AFTER only (ADR 0064).
     complete: bool = True
+    # The past seasons whose read failed; the next re-read reads them again
+    # (ADR 0065).
+    missing: list[int] = Field(default_factory=list)
 
 
 def _roster_order(number: str | None) -> tuple[bool, int]:

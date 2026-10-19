@@ -365,6 +365,26 @@ def cached_json(client: SourceClient, url: str) -> object | None:
     return None if entry is None else json.loads(entry.body)
 
 
+def _cache_key(url: str, params: Mapping[str, str | int] | None) -> str:
+    """The source cache key of a URL with its query parameters."""
+    return str(httpx.URL(url).copy_merge_params(params)) if params else url
+
+
+def is_cached(
+    client: SourceClient,
+    url: str,
+    *,
+    fresh: Freshness,
+    params: Mapping[str, str | int] | None = None,
+) -> bool:
+    """Whether `get_json` with the same arguments would be answered from the
+    source cache. It sends no request."""
+    if isinstance(fresh, dt.datetime) and fresh.utcoffset() is None:
+        raise ValueError("time must be timezone aware")
+    entry = client.store.source_entry(_cache_key(url, params))
+    return entry is not None and _is_fresh(entry.fetched_at, fresh, client.clock())
+
+
 async def get_json(
     client: SourceClient,
     url: str,
@@ -381,7 +401,7 @@ async def get_json(
     a time. Callers of one URL share a single request."""
     if isinstance(fresh, dt.datetime) and fresh.utcoffset() is None:
         raise ValueError("time must be timezone aware")
-    key = str(httpx.URL(url).copy_merge_params(params)) if params else url
+    key = _cache_key(url, params)
     while True:
         entry = client.store.source_entry(key)
         if entry is not None and _is_fresh(entry.fetched_at, fresh, client.clock()):

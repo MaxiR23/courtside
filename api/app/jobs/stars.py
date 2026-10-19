@@ -2,7 +2,12 @@
 #
 # Stars job: once a day, in the morning US Eastern time, picks each team's star
 # from its current roster and season averages and keeps it in the job state.
-# It runs in its own task and fetches the due teams concurrently. A team's roster
+# It runs in its own task and fetches the due teams concurrently, at most 4
+# source reads in flight. Its daily mark is its own last success, read at start,
+# so a restart on a day already fetched does not run again; the restarted job
+# takes each roster from the source cache, with no request, and fetches only a
+# team with none cached. A failed team is retried RETRY after it failed, one
+# failed team per run (ADR 0065). A team's roster
 # and season leaders keep the adapters' 24-hour freshness (rule A of
 # docs/source-rules.md). When no roster player is among the season leaders, the roster players'
 # individual averages are used: each stays fresh until the team has a final
@@ -15,7 +20,8 @@
 # the time of the latest roster fetch for the search feed, and calls after_run
 # after a run with due teams.
 #
-# SEE: docs/adr/0007-backend-runtime-and-data-pipeline.md, docs/adr/0014-star-guarantees.md, docs/source-rules.md, docs/adr/0020-source-rules.md
+# SEE: docs/adr/0007-backend-runtime-and-data-pipeline.md, docs/adr/0014-star-guarantees.md, docs/source-rules.md, docs/adr/0020-source-rules.md,
+# docs/adr/0065-background-work-limited-to-games-highlights-and-stars.md
 
 import asyncio
 import datetime as dt
@@ -34,6 +40,8 @@ from app.storage.state import StateStore
 
 JOB = "stars"
 RETRY = dt.timedelta(minutes=5)
+# The most source reads in flight at once, across the teams of a run (ADR 0065).
+READS_IN_FLIGHT = 4
 
 # Passed as the freshness of a team with no known final game: every stored entry
 # was fetched after it, so it stays fresh.
@@ -46,6 +54,7 @@ FetchSeasonAverages = Callable[
 FetchPlayerAverages = Callable[
     [SourceClient, str, int, Settings, Freshness], Awaitable[PlayerAverages | None]
 ]
+CachedRoster = Callable[[SourceClient, str, Settings], Roster | None]
 FinalGames = Callable[[], Sequence[ScoreboardGame]]
 
 
@@ -87,6 +96,7 @@ class StarsJob:
         fetch_roster: FetchRoster = team_players.fetch_roster,
         fetch_season_averages: FetchSeasonAverages = team_players.fetch_season_averages,
         fetch_player_averages: FetchPlayerAverages = team_players.fetch_player_averages,
+        cached_roster: CachedRoster = team_players.cached_roster,
         final_games: FinalGames = no_final_games,
         clock: Callable[[], dt.datetime] = utc_now,
         after_run: AfterRun = no_after_run,
@@ -97,7 +107,9 @@ class StarsJob:
         self._fetch_roster = fetch_roster
         self._fetch_season_averages = fetch_season_averages
         self._fetch_player_averages = fetch_player_averages
+        self._cached_roster = cached_roster
         self._final_games = final_games
+        self._reads = asyncio.Semaphore(READS_IN_FLIGHT)
         self._clock = clock
         self._after_run = after_run
         self._player_teams: dict[str, str] = {}
@@ -106,9 +118,19 @@ class StarsJob:
         self._latest_roster_fetch: dt.datetime | None = None
         self._season: int | None = None
         self._stars: dict[str, Star] = store.stars()
-        self._daily_fetched_at: dt.datetime | None = None
+        self._daily_fetched_at: dt.datetime | None = self._last_success()
+        # A restart on a day already fetched fills the rosters from the cache.
+        self._restore = self._daily_fetched_at is not None
         self._pending: list[str] = []
         self._failed_at: dict[str, dt.datetime] = {}
+
+    def _last_success(self) -> dt.datetime | None:
+        """When the job last finished with every team fetched. A failure does
+        not count: it leaves teams pending, which must be retried."""
+        for state in self._store.job_states():
+            if state.name == JOB:
+                return state.last_success
+        return None
 
     def _daily_due(self, now: dt.datetime, today: dt.date) -> bool:
         if self._daily_fetched_at is None:
@@ -128,8 +150,7 @@ class StarsJob:
         ]
         return max(times, default=NO_FINAL_GAME)
 
-    async def _update_team(self, code: str) -> None:
-        roster = await self._fetch_roster(self._client, code, self._settings)
+    def _take_roster(self, code: str, roster: Roster) -> None:
         self._season = roster.season
         self._player_teams = {p: t for p, t in self._player_teams.items() if t != code}
         for member in roster.players:
@@ -137,12 +158,18 @@ class StarsJob:
         self._roster_fetched.add(code)
         self._roster_entries[code] = list(roster.entries)
         self._latest_roster_fetch = self._clock()
+
+    async def _update_team(self, code: str) -> None:
+        async with self._reads:
+            roster = await self._fetch_roster(self._client, code, self._settings)
+        self._take_roster(code, roster)
         star: Star | None = None
         individual_error: SourceError | None = None
         for season in (roster.season, roster.season - 1):
-            leaders = await self._fetch_season_averages(
-                self._client, roster.team_id, season, self._settings
-            )
+            async with self._reads:
+                leaders = await self._fetch_season_averages(
+                    self._client, roster.team_id, season, self._settings
+                )
             if not leaders:
                 continue  # the provider has no statistics for that season yet
             star = pick_star(roster.players, leaders)
@@ -151,13 +178,14 @@ class StarsJob:
                 fresh = self._latest_final_time(code)
                 try:
                     for member in roster.players:
-                        found = await self._fetch_player_averages(
-                            self._client,
-                            member.player_id,
-                            season,
-                            self._settings,
-                            fresh,
-                        )
+                        async with self._reads:
+                            found = await self._fetch_player_averages(
+                                self._client,
+                                member.player_id,
+                                season,
+                                self._settings,
+                                fresh,
+                            )
                         if found is not None:
                             individual.append(found)
                 except SourceError as error:
@@ -181,11 +209,22 @@ class StarsJob:
             self._pending = list(dict.fromkeys(TEAM_CODES.values()))
             self._failed_at = {}
             self._daily_fetched_at = now
-        due = [
+            self._restore = False
+        elif self._restore:
+            self._restore = False
+            for code in dict.fromkeys(TEAM_CODES.values()):
+                roster = self._cached_roster(self._client, code, self._settings)
+                if roster is None:
+                    self._pending.append(code)
+                else:
+                    self._take_roster(code, roster)
+        fresh = [code for code in self._pending if code not in self._failed_at]
+        retry = [
             code
             for code in self._pending
-            if code not in self._failed_at or now - self._failed_at[code] >= RETRY
+            if code in self._failed_at and now - self._failed_at[code] >= RETRY
         ]
+        due = fresh + retry[:1]
         if not due:
             return
         started = self._clock()

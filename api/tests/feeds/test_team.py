@@ -605,6 +605,7 @@ def test_serializes_a_name_run_start_as_the_from_key() -> None:
         "runs": [run(1994, None)],
         "buildVersion": None,
         "complete": True,
+        "missing": [],
     }
 
 

@@ -9,8 +9,8 @@
 # - A provider code becomes its standard code and a historical code stays as sent
 # - The kind: every season from 1994 to the current one is read once; a season whose read fails is skipped with a log line that carries the code and season and no URL; a season with no team object is skipped
 # - The kind: a season whose team object is inactive is read, and a relocated franchise has one run per identity
-# - The kind: a second request within 7 days makes no read and one at 7 days reads again
-# - The kind: the built list carries the current build version; a stored list of an older or missing version is rebuilt on its next request inside 7 days and one of the current version makes no read (ADR 0055)
+# - The kind: a stored list is fresh for 24 hours and then only the current season is read again
+# - The kind: the built list carries the current build version; a stored list of an older or missing version is rebuilt in full on its next request and one of the current version makes no read inside 24 hours (ADR 0055, ADR 0065)
 # - The kind: a current season that cannot be read (failed or no team object) is named by the open run of the stored list, else the latest season read, else the team code, and the list is stored incomplete with one log line (ADR 0064)
 # - The kind: a current season that cannot be read keeps the stored runs unchanged, also when an earlier season fails with it; a current season 404 records no absence and is read again after the retry window (real adapter, ADR 0064)
 # - The kind: an incomplete list is fresh for the 10 minute retry window only, then reads the current season again
@@ -23,6 +23,12 @@
 # - league_codes and named_sides: the team code of a coded model (a leader, an award winner, the Finals MVP) is found and gets its season code, and a model without the field stays identical (ADR 0055)
 # - payload_names: a payload name equal to today's keeps the standard code and is not historical, another name keeps the payload's abbreviation and is historical, no stored list gives the mapped code and not historical, and a code with no payload is left out (ADR 0058)
 # - identities_of: the season codes, names, cities and flags a named feed already carries on its league sides, the first side of a code wins, a guest and an unnamed side are left out (ADR 0058)
+# - with_current_season: unchanged runs for an unchanged identity, the open run closed and a new one opened on a new identity, and the cases with no open run
+# - The kind: a full build runs only without a list of the current build version, and a stored one reads the current season alone
+# - The kind: a full build stays within its read budget of the seasons plus 2 through the real adapter, and one past it fails and keeps the stored list
+# - The kind: a failed current season re-read keeps the stored runs incomplete
+# - The kind: a list records the past seasons whose read failed (not a season with no team object); the next re-read reads the current season and each missing season, merges them into the stored runs, keeps a season that fails again missing, and stays within the missing count plus 3 reads (ADR 0065)
+# - career_runs never starts a build and reads no source
 # - The kind: a code outside the 30 is unknown and an unknown current season is not ready
 # - The kind: the cleanup keeps the 30 codes
 #
@@ -40,6 +46,7 @@ import logging
 from pathlib import Path
 from typing import Any, cast
 
+import httpx
 import pytest
 import respx
 
@@ -58,8 +65,8 @@ from app.jobs.on_demand import (
 )
 from app.jobs.stars import StarsJob
 from app.jobs.team_names import (
+    CURRENT_SEASON_LIFETIME,
     KIND,
-    NAMES_LIFETIME,
     SeasonIdentity,
     TeamNamesFeeds,
     build_name_runs,
@@ -71,9 +78,10 @@ from app.jobs.team_names import (
     run_code,
     season_named,
     with_career_codes,
+    with_current_season,
 )
 from app.settings import Settings
-from app.sources.http import SourceClient, SourceError, create_client
+from app.sources.http import SourceClient, SourceError, create_client, get_json
 from app.sources.season_team import SeasonTeam
 from app.sources.teams import SeasonTeamName
 from app.storage.feeds import publish_by_id, read_by_id
@@ -199,6 +207,7 @@ class NamesKit:
         self.missing: set[int] = set()
         self.all_failing = False
         self.provider_code = False
+        self.current_team: SeasonTeam | None = None
         self.stars = FakeStars()
         self.cache = FeedCache(path, self.store, clock=lambda: self.clock[0])
         self.names = TeamNamesFeeds(
@@ -218,6 +227,8 @@ class NamesKit:
             raise SourceError("test", "season team is down")
         if season in self.missing:
             return None
+        if self.current_team is not None and season == CURRENT:
+            return self.current_team
         if self.provider_code:
             return team(abbreviation="GS" if season < 2008 else "GSW")
         return team("Harbor Gulls", "Seattle", "SEA") if season < 2008 else team()
@@ -277,17 +288,19 @@ async def test_a_failed_and_a_missing_season_are_skipped_and_the_runs_merge(
 
 
 @pytest.mark.anyio
-async def test_a_second_request_within_7_days_makes_no_read_and_one_at_7_days_reads_again(
+async def test_a_stored_list_is_fresh_for_24_hours_and_then_only_the_current_season_is_read_again(
     kit: NamesKit,
 ) -> None:
     await kit.serve()
     first = len(kit.calls)
+    assert CURRENT_SEASON_LIFETIME == dt.timedelta(hours=24)
 
-    await kit.serve(at=NOW + NAMES_LIFETIME - dt.timedelta(seconds=1))
+    await kit.serve(at=NOW + CURRENT_SEASON_LIFETIME - dt.timedelta(seconds=1))
     assert len(kit.calls) == first
 
-    await kit.serve(at=NOW + NAMES_LIFETIME)
-    assert len(kit.calls) == 2 * first
+    await kit.serve(at=NOW + CURRENT_SEASON_LIFETIME)
+    assert kit.calls[first:] == [("OKC", CURRENT)]
+    assert stored_names(kit).complete is True
 
 
 @pytest.mark.anyio
@@ -303,7 +316,7 @@ async def test_the_built_list_carries_the_current_build_version(kit: NamesKit) -
 
 @pytest.mark.anyio
 @pytest.mark.parametrize("version", [None, SEASON_BUILD_VERSION + 1])
-async def test_a_stored_list_of_an_older_or_missing_version_is_rebuilt_on_its_next_request_inside_7_days(
+async def test_a_stored_list_of_an_older_or_missing_version_is_rebuilt_in_full_on_its_next_request(
     kit: NamesKit, version: int | None
 ) -> None:
     await kit.serve()
@@ -326,13 +339,13 @@ async def test_a_stored_list_of_an_older_or_missing_version_is_rebuilt_on_its_ne
 
 
 @pytest.mark.anyio
-async def test_a_list_of_the_current_version_inside_7_days_makes_no_read(
+async def test_a_list_of_the_current_version_inside_24_hours_makes_no_read(
     kit: NamesKit,
 ) -> None:
     await kit.serve()
     reads = len(kit.calls)
 
-    await kit.serve(at=NOW + dt.timedelta(days=6))
+    await kit.serve(at=NOW + dt.timedelta(hours=23))
 
     assert len(kit.calls) == reads
 
@@ -352,7 +365,7 @@ async def test_a_build_with_no_readable_season_names_the_current_run_from_the_st
     kit.all_failing = True
 
     with caplog.at_level(logging.WARNING, logger="app.jobs.team_names"):
-        await kit.serve(at=NOW + NAMES_LIFETIME)
+        await kit.serve(at=NOW + CURRENT_SEASON_LIFETIME)
 
     names = stored_names(kit)
     assert names.complete is False
@@ -378,7 +391,7 @@ async def test_a_failed_current_season_read_takes_the_current_run_from_the_store
     before = kit.names.stored("okc")
     getattr(kit, mode).add(CURRENT)
 
-    await kit.serve(at=NOW + NAMES_LIFETIME)
+    await kit.serve(at=NOW + CURRENT_SEASON_LIFETIME)
 
     assert before is not None
     assert before[-1].to is None
@@ -395,7 +408,7 @@ async def test_a_partial_read_keeps_the_stored_runs_when_the_current_season_and_
     before = kit.names.stored("okc")
     kit.failing = {CURRENT, 2000, 2010}
 
-    await kit.serve(at=NOW + NAMES_LIFETIME)
+    await kit.serve(at=NOW + CURRENT_SEASON_LIFETIME)
 
     names = stored_names(kit)
     assert before is not None and len(before) == 2
@@ -456,11 +469,13 @@ async def test_an_incomplete_list_is_stale_after_the_retry_window_and_reads_the_
 
     kit.failing = set()
     await kit.serve(at=NOW + RETRY_AFTER)
-    assert len(kit.calls) == 2 * first
+    assert kit.calls[first:] == [("OKC", CURRENT)]
     assert stored_names(kit).complete is True
 
-    await kit.serve(at=NOW + RETRY_AFTER + NAMES_LIFETIME - dt.timedelta(seconds=1))
-    assert len(kit.calls) == 2 * first
+    await kit.serve(
+        at=NOW + RETRY_AFTER + CURRENT_SEASON_LIFETIME - dt.timedelta(seconds=1)
+    )
+    assert len(kit.calls) == first + 1
 
 
 @pytest.mark.anyio
@@ -1002,3 +1017,384 @@ def test_identities_of_reads_the_identities_a_named_feed_carries_on_its_sides() 
     }
     # A side with no season code and a guest are left out.
     assert identities_of(feed) == {}
+
+
+# Group: the current season read again, the full build and the read budget
+
+
+def open_runs() -> list[NameRun]:
+    return build_name_runs(
+        [
+            *((s, team("Harbor Gulls", "Seattle", "SEA")) for s in range(1994, 2008)),
+            *((s, team()) for s in range(2008, CURRENT + 1)),
+        ],
+        CURRENT,
+    )
+
+
+def test_with_current_season_keeps_the_runs_when_the_identity_is_unchanged() -> None:
+    runs = open_runs()
+
+    assert with_current_season(runs, CURRENT, team()) == runs
+    assert with_current_season(runs, CURRENT, team(abbreviation="OKC")) == runs
+
+
+def test_with_current_season_closes_the_open_run_and_opens_one_on_a_new_identity() -> (
+    None
+):
+    runs = with_current_season(
+        open_runs(), CURRENT, team("Storm", "Oklahoma City", "OKC")
+    )
+
+    assert identities(runs) == [
+        (1994, 2007, "Harbor Gulls", "Seattle", "SEA"),
+        (2008, CURRENT - 1, "Thunder", "Oklahoma City", "OKC"),
+        (CURRENT, None, "Storm", "Oklahoma City", "OKC"),
+    ]
+
+    started_now = [
+        *open_runs()[:1],
+        NameRun.model_validate(
+            {
+                "from": CURRENT,
+                "to": None,
+                "name": "Thunder",
+                "location": "Oklahoma City",
+                "code": "OKC",
+            }
+        ),
+    ]
+    renamed = with_current_season(started_now, CURRENT, team("Storm", "OKC", "OKC"))
+    assert identities(renamed) == [
+        (1994, 2007, "Harbor Gulls", "Seattle", "SEA"),
+        (CURRENT, None, "Storm", "OKC", "OKC"),
+    ]
+
+
+def test_with_current_season_maps_a_provider_code_before_comparing() -> None:
+    runs = open_runs()
+
+    assert with_current_season(runs, CURRENT, team(abbreviation="OKC")) == runs
+    gs = [NameRun.model_validate(_run(1994, None, "Warriors", "Golden State", "GSW"))]
+    assert (
+        with_current_season(gs, CURRENT, team("Warriors", "Golden State", "GS")) == gs
+    )
+
+
+def _run(
+    from_: int, to: int | None, name: str, location: str, code: str
+) -> dict[str, Any]:
+    return {"from": from_, "to": to, "name": name, "location": location, "code": code}
+
+
+def test_with_current_season_without_an_open_run() -> None:
+    closed = [
+        NameRun.model_validate(
+            _run(1994, CURRENT - 1, "Thunder", "Oklahoma City", "OKC")
+        )
+    ]
+    stale = [
+        NameRun.model_validate(
+            _run(1994, CURRENT - 3, "Thunder", "Oklahoma City", "OKC")
+        )
+    ]
+
+    assert identities(with_current_season(closed, CURRENT, team())) == [
+        (1994, None, "Thunder", "Oklahoma City", "OKC")
+    ]
+    assert identities(
+        with_current_season(closed, CURRENT, team("Storm", "Oklahoma City", "OKC"))
+    ) == [
+        (1994, CURRENT - 1, "Thunder", "Oklahoma City", "OKC"),
+        (CURRENT, None, "Storm", "Oklahoma City", "OKC"),
+    ]
+    assert identities(with_current_season(stale, CURRENT, team())) == [
+        (1994, CURRENT - 3, "Thunder", "Oklahoma City", "OKC"),
+        (CURRENT, None, "Thunder", "Oklahoma City", "OKC"),
+    ]
+    assert identities(with_current_season([], CURRENT, team())) == [
+        (CURRENT, None, "Thunder", "Oklahoma City", "OKC")
+    ]
+
+
+@pytest.mark.anyio
+async def test_a_full_build_runs_only_without_a_list_of_the_current_build_version(
+    kit: NamesKit,
+) -> None:
+    seasons = CURRENT - 1994 + 1
+
+    await kit.serve()
+    assert len(kit.calls) == seasons
+
+    await kit.serve(at=NOW + CURRENT_SEASON_LIFETIME)
+    assert len(kit.calls) == seasons + 1
+
+    stored = kit.names.stored("okc")
+    assert stored is not None
+    publish_by_id(
+        kit.path, KIND, TeamNames, "okc", TeamNames(runs=stored, build_version=None)
+    )
+    await kit.serve(at=NOW + 2 * CURRENT_SEASON_LIFETIME)
+    assert len(kit.calls) == 2 * seasons + 1
+
+
+@pytest.mark.anyio
+async def test_a_failed_current_season_reread_keeps_the_stored_runs_incomplete(
+    kit: NamesKit,
+) -> None:
+    await kit.serve()
+    before = kit.names.stored("okc")
+    kit.failing = {CURRENT}
+    reads = len(kit.calls)
+
+    await kit.serve(at=NOW + CURRENT_SEASON_LIFETIME)
+
+    assert kit.calls[reads:] == [("OKC", CURRENT)]
+    names = stored_names(kit)
+    assert names.runs == before
+    assert names.complete is False
+    assert names.build_version == SEASON_BUILD_VERSION
+
+
+@pytest.mark.anyio
+async def test_a_rename_of_the_current_season_closes_the_stored_open_run(
+    kit: NamesKit,
+) -> None:
+    await kit.serve()
+    kit.current_team = team("Storm", "Oklahoma City", "OKC")
+    await kit.serve(at=NOW + CURRENT_SEASON_LIFETIME)
+
+    assert identities(stored_names(kit).runs)[-2:] == [
+        (2008, CURRENT - 1, "Thunder", "Oklahoma City", "OKC"),
+        (CURRENT, None, "Storm", "Oklahoma City", "OKC"),
+    ]
+
+
+@pytest.mark.anyio
+async def test_a_total_outage_is_healed_by_the_retry_after_the_retry_window(
+    kit: NamesKit,
+) -> None:
+    kit.all_failing = True
+    await kit.serve()
+    names = stored_names(kit)
+    assert names.complete is False
+    assert names.missing == list(range(1994, CURRENT))
+    first = len(kit.calls)
+
+    kit.all_failing = False
+    await kit.serve(at=NOW + RETRY_AFTER)
+
+    assert sorted(kit.calls[first:]) == [("OKC", s) for s in range(1994, CURRENT + 1)]
+    healed = stored_names(kit)
+    assert healed.complete is True
+    assert healed.missing == []
+    assert identities(healed.runs) == [
+        (1994, 2007, "Harbor Gulls", "Seattle", "SEA"),
+        (2008, None, "Thunder", "Oklahoma City", "OKC"),
+    ]
+
+
+@pytest.mark.anyio
+async def test_a_partial_first_build_is_healed_by_the_24_hour_reread(
+    kit: NamesKit,
+) -> None:
+    kit.failing = set(range(1994, 2008))
+    await kit.serve()
+    names = stored_names(kit)
+    assert names.complete is True
+    assert names.missing == list(range(1994, 2008))
+    assert identities(names.runs) == [(2008, None, "Thunder", "Oklahoma City", "OKC")]
+    first = len(kit.calls)
+
+    kit.failing = set()
+    await kit.serve(at=NOW + CURRENT_SEASON_LIFETIME)
+
+    assert len(kit.calls[first:]) == 15
+    healed = stored_names(kit)
+    assert healed.missing == []
+    assert identities(healed.runs) == [
+        (1994, 2007, "Harbor Gulls", "Seattle", "SEA"),
+        (2008, None, "Thunder", "Oklahoma City", "OKC"),
+    ]
+
+
+@pytest.mark.anyio
+async def test_a_missing_season_that_fails_again_stays_missing(kit: NamesKit) -> None:
+    kit.failing = {2000, 2001}
+    await kit.serve()
+    first = len(kit.calls)
+    kit.failing = {2000}
+
+    await kit.serve(at=NOW + CURRENT_SEASON_LIFETIME)
+
+    assert sorted(kit.calls[first:]) == [("OKC", 2000), ("OKC", 2001), ("OKC", CURRENT)]
+    names = stored_names(kit)
+    assert names.missing == [2000]
+    assert [(r.from_, r.to) for r in names.runs] == [(1994, 2007), (2008, None)]
+
+
+@pytest.mark.anyio
+async def test_a_season_with_no_team_object_is_not_missing_and_is_not_read_again(
+    kit: NamesKit,
+) -> None:
+    kit.missing = {2001}
+    await kit.serve()
+    assert stored_names(kit).missing == []
+    first = len(kit.calls)
+
+    await kit.serve(at=NOW + CURRENT_SEASON_LIFETIME)
+
+    assert kit.calls[first:] == [("OKC", CURRENT)]
+
+
+@pytest.mark.anyio
+async def test_the_reread_stays_within_the_missing_count_plus_3_reads(
+    tmp_path: Path,
+) -> None:
+    cache, _, clock = real_names(tmp_path)
+    body = {
+        "id": "25",
+        "abbreviation": "OKC",
+        "displayName": "Oklahoma City Thunder",
+        "name": "Thunder",
+        "location": "Oklahoma City",
+    }
+    with respx.mock as mock:
+        down = mock.get(
+            url__regex=r"https://example\.com/seasons/(2000|2001)/teams/25"
+        ).respond(404)
+        down.side_effect = httpx.ConnectError("down")
+        mock.get(url__regex=r"https://example\.com/seasons/\d+/teams/25").respond(
+            json=body
+        )
+        await cache.serve(KIND, "okc")
+        await drain(cache)
+        stored = TeamNames.model_validate_json(read_by_id(tmp_path, KIND, "okc") or b"")
+        assert stored.missing == [2000, 2001]
+
+        down.side_effect = None
+        down.respond(json=body)
+        mock.calls.reset()
+        clock[0] = NOW + CURRENT_SEASON_LIFETIME
+        await cache.serve(KIND, "okc")
+        await drain(cache)
+
+    assert len(mock.calls) <= len(stored.missing) + 3
+    healed = TeamNames.model_validate_json(read_by_id(tmp_path, KIND, "okc") or b"")
+    assert healed.missing == []
+
+
+def test_career_runs_never_starts_a_build(kit: NamesKit) -> None:
+    assert kit.names.career_runs(["okc", "bos"]) == {}
+    assert kit.cache.in_flight == {}
+    assert kit.calls == []
+
+
+@pytest.mark.anyio
+async def test_career_runs_gives_an_outdated_list_and_starts_no_build(
+    kit: NamesKit,
+) -> None:
+    await kit.serve()
+    stored = kit.names.stored("okc")
+    assert stored is not None
+    publish_by_id(
+        kit.path, KIND, TeamNames, "okc", TeamNames(runs=stored, build_version=None)
+    )
+    reads = len(kit.calls)
+
+    found = kit.names.career_runs(["okc", "okc", "bos"])
+
+    assert found == {"okc": stored}
+    assert kit.cache.in_flight == {}
+    assert len(kit.calls) == reads
+
+
+def real_names(
+    tmp_path: Path, fetch: Any = None
+) -> tuple[FeedCache, StateStore, list[dt.datetime]]:
+    template = "https://example.com/seasons/{season}/teams/{team_id}"
+    settings = Settings(  # type: ignore[call-arg]
+        _env_file=None, data_dir=tmp_path, season_team_url=template
+    )
+    clock = [NOW]
+    store = StateStore(tmp_path)
+    store.migrate()
+    cache = FeedCache(tmp_path, store, clock=lambda: clock[0])
+    kwargs = {} if fetch is None else {"fetch_season_team": fetch}
+    TeamNamesFeeds(
+        settings,
+        store,
+        create_client(store, clock=lambda: clock[0]),
+        cache,
+        cast(StarsJob, FakeStars()),
+        **kwargs,
+    )
+    return cache, store, clock
+
+
+async def drain(cache: FeedCache) -> None:
+    while cache.in_flight:
+        await next(iter(cache.in_flight.values()))
+        await asyncio.sleep(0)
+
+
+@pytest.mark.anyio
+async def test_a_full_build_stays_within_its_read_budget_with_a_counting_fake_client(
+    tmp_path: Path,
+) -> None:
+    cache, _, _ = real_names(tmp_path)
+    body = {
+        "id": "25",
+        "abbreviation": "OKC",
+        "displayName": "Oklahoma City Thunder",
+        "name": "Thunder",
+        "location": "Oklahoma City",
+    }
+    with respx.mock as mock:
+        route = mock.get(
+            url__regex=r"https://example\.com/seasons/\d+/teams/25"
+        ).respond(json=body)
+        await cache.serve(KIND, "okc")
+        await drain(cache)
+
+    seasons = CURRENT - 1994 + 1
+    assert route.call_count == seasons
+    assert route.call_count <= seasons + 2
+    assert read_by_id(tmp_path, KIND, "okc") is not None
+
+
+@pytest.mark.anyio
+async def test_a_full_build_past_its_budget_fails_and_keeps_the_stored_list(
+    tmp_path: Path,
+) -> None:
+    async def twice(
+        client: SourceClient, code: str, season: int, settings: Settings
+    ) -> SeasonTeam | None:
+        for part in ("a", "b"):
+            await get_json(
+                client,
+                f"https://example.com/{part}/{season}",
+                source="test",
+                fresh=dt.timedelta(hours=1),
+            )
+        return team()
+
+    cache, store, clock = real_names(tmp_path, fetch=twice)
+    stored = open_runs()
+    publish_by_id(
+        tmp_path, KIND, TeamNames, "okc", TeamNames(runs=stored, build_version=None)
+    )
+    with respx.mock as mock:
+        route = mock.get(url__regex=r"https://example\.com/[ab]/\d+").respond(json={})
+        body = await cache.serve(KIND, "okc")
+        await drain(cache)
+
+    assert TeamNames.model_validate_json(body).runs == stored
+    stored_after = read_by_id(tmp_path, KIND, "okc")
+    assert stored_after is not None
+    assert TeamNames.model_validate_json(stored_after).runs == stored
+    assert TeamNames.model_validate_json(stored_after).build_version is None
+    assert route.call_count == CURRENT - 1994 + 1 + 2
+    state = store.feed_build(KIND, "okc")
+    assert state is not None and state.last_failure is not None
+    del clock

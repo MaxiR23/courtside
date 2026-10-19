@@ -23,15 +23,19 @@
 # - Previous edition: every game, its teams and MVP as the after view, none when the recap is none or a game is not final, no MVP without the award, carried by a before feed, the edition video added when served and no read added
 # - The format line, venue and teams of a before feed
 # - Errors: an invalid feed is wrapped in a build error
-# - The kind: unknown for another id, not ready before the season, the rosters or the discovery when nothing is stored
+# - The kind: unknown for another id, not ready before the season or the rosters when nothing is stored
 # - The kind: nothing is built or read without a request, a request builds and stores, and a second reads storage
 # - The kind: a failed current day answers unavailable and is not retried for 10 minutes, a failed rebuild keeps and serves the stored feed, and any other failed read only nulls its part
 # - The kind: the reads get the live interval, the first-seen-final time or 1 hour as freshness, and the previous edition's day and games 24 hours
 # - The kind: every game final with summaries cached while live, the kept feed comes from a read after the first-seen-final time
 # - The kind: the first-seen-final time is stored by the first build that sees the game final and never overwritten
 # - The kind: no per-game highlight even with a stored one, and the edition video is added as editionHighlight on the edition, the recap and the previous edition when served, null without one, and not stored
-# - The kind: expiry (live 30 seconds and a stale request waits for the rebuild, the edition's date 30 seconds, before until the discovery runs, after held 30 seconds until a build 1 hour after the latest first-seen-final time and then kept while the season is current)
+# - The kind: expiry (live 30 seconds and a stale request waits for the rebuild, the edition's date 30 seconds, before 24 hours after the build, after held 30 seconds until a build 1 hour after the latest first-seen-final time and then kept while the season is current)
 # - The kind: the cleanup keeps league
+# - edition_candidates: the February 1 to March 7 days next to the longest break first, Sundays first among equals, then dates; only that window; none for an empty calendar or one day
+# - The kind: a candidate day equal to today is read with the 30-second scoreboard freshness and the others with 24 hours (ADR 0065)
+# - The kind: the build discovers the edition from the calendar and stores it, reads at most six candidate days, reads no calendar for a stored edition, finds the previous edition the same way from its own calendar, and fails the build on a failed calendar read keeping the stored feed
+# - The kind: serving an after edition past its video window with no video starts one on-demand search, once per edition, counted in the daily cap
 #
 # What is covered:
 # - Pure conversions: happy path, edges and errors; the built feed validates
@@ -54,7 +58,7 @@ from typing import Any, cast
 
 import pytest
 import respx
-from pydantic import HttpUrl
+from pydantic import HttpUrl, SecretStr
 
 from app.feeds.all_star import (
     AllStarFeed,
@@ -87,7 +91,7 @@ from app.feeds.games import (
 )
 from app.feeds.opponent import Side
 from app.feeds.playoffs import AwardCode
-from app.jobs.all_star_discovery import AllStarDiscovery
+from app.jobs.all_star_edition_videos import AllStarEditionVideos
 from app.jobs.all_star_feed import (
     FEED_ID,
     FINAL_HOLD,
@@ -99,6 +103,7 @@ from app.jobs.all_star_feed import (
     AllStarSources,
     build_all_star_feed,
     default_game,
+    edition_candidates,
     edition_counts,
     edition_state,
     game_format,
@@ -113,6 +118,8 @@ from app.jobs.all_star_feed import (
     winner,
 )
 from app.jobs.games import LIVE_INTERVAL, GamesJob
+from app.jobs.highlights import HighlightsJob
+from app.jobs.highlights_search import HighlightsSearch
 from app.jobs.on_demand import (
     RETRY_AFTER,
     FeedCache,
@@ -127,12 +134,14 @@ from app.sources.all_star_mark import parse_note
 from app.sources.all_star_scoreboard import AllStarScoreboardGame, AllStarSide
 from app.sources.game_detail import GameDetail, GameDetailSections
 from app.sources.http import Freshness, SourceClient, SourceError, create_client
+from app.sources.scoreboard import FRESH_FOR
 from app.sources.season_awards import (
     AwardWinnerRef,
     SeasonAward,
     SeasonAwards,
 )
 from app.sources.team_info import TeamInfo
+from app.sources.video_channel import ChannelVideo
 from app.storage.feeds import read_by_id
 from app.storage.state import StateStore
 
@@ -1594,6 +1603,21 @@ class FakeGames:
     pass
 
 
+def calendar_around(all_star_day: dt.date) -> list[dt.datetime]:
+    """A season calendar of February 1 to March 7 with the All-Star day alone in
+    a break of four days before the games resume and three before it."""
+    first = dt.date(all_star_day.year, 2, 1)
+    last = dt.date(all_star_day.year, 3, 7)
+    days = [first + dt.timedelta(days=n) for n in range((last - first).days + 1)]
+    return [
+        dt.datetime.combine(day, dt.time(23, 0), tzinfo=dt.UTC)
+        for day in days
+        if day <= all_star_day - dt.timedelta(days=4)
+        or day == all_star_day
+        or day >= all_star_day + dt.timedelta(days=5)
+    ]
+
+
 class AllStarKit:
     """The All-Star kind over one client and one clock, with fake adapters that
     count their calls."""
@@ -1618,17 +1642,31 @@ class AllStarKit:
                 game("p2", WAV, PKS, note=CHAMPIONSHIP, score=(20, 22), minutes=30),
             ],
         }
+        self.calendars: dict[int, list[dt.datetime]] = {
+            2027: calendar_around(DAY),
+            2026: calendar_around(PREVIOUS_DAY),
+        }
         self.mvp_id = "1001"
         self.mvp_code = AwardCode.ALL_STAR_MVP
         self.stars = FakeStars()
         self.games = FakeGames()
         self.cache = FeedCache(path, self.store, clock=lambda: self.clock[0])
-        self.discovery = AllStarDiscovery(
-            self.settings,
+        self.queries: list[str] = []
+        self.found: list[ChannelVideo] = []
+        search_settings = Settings(  # type: ignore[call-arg]
+            _env_file=None,
+            data_dir=path,
+            highlights_search_api_url="https://example.com/search",
+            highlights_source_key=SecretStr("test-key-value"),
+            video_embed_url="https://example.com/e/{video_id}",
+        )
+        self.search = HighlightsSearch(
+            search_settings,
             self.store,
             self.client,
-            cast(StarsJob, self.stars),
-            fetch_all_star_games=self.fetch_days,
+            HighlightsJob(search_settings, self.store, self.client, final_games=list),
+            search=self.search_channel,
+            check_thumbnail=self.check_thumbnail,
         )
         self.feeds = AllStarFeeds(
             self.settings,
@@ -1637,14 +1675,32 @@ class AllStarKit:
             self.cache,
             cast(GamesJob, self.games),
             cast(StarsJob, self.stars),
-            self.discovery,
+            edition_videos=AllStarEditionVideos(
+                self.store, self.search, self.client.clock
+            ),
             fetch_all_star_games=self.fetch_day,
+            fetch_season_calendar=self.fetch_calendar,
             fetch_game_detail=self.fetch_game_detail,
             fetch_game_detail_sections=self.fetch_game_detail_sections,
             fetch_all_star_extras=self.fetch_all_star_extras,
             fetch_team_info=self.fetch_team_info,
             fetch_season_awards=self.fetch_season_awards,
         )
+
+    async def search_channel(
+        self, client: SourceClient, settings: Settings, query: str
+    ) -> list[ChannelVideo]:
+        self.queries.append(query)
+        return list(self.found)
+
+    async def check_thumbnail(
+        self, client: SourceClient, video: ChannelVideo
+    ) -> ChannelVideo:
+        return video.model_copy(update={"thumbnail_url": video.thumbnail_candidates[0]})
+
+    async def drain(self) -> None:
+        for _ in range(30):
+            await asyncio.sleep(0)
 
     def read(self, name: str) -> None:
         self.calls.append(name)
@@ -1656,11 +1712,11 @@ class AllStarKit:
     def called(self, prefix: str) -> int:
         return sum(1 for name in self.calls if name.startswith(prefix))
 
-    async def fetch_days(
-        self, client: SourceClient, day: dt.date, settings: Settings
-    ) -> list[AllStarScoreboardGame]:
-        """The reader of the discovery job: it is not counted."""
-        return list(self.days.get(day, []))
+    async def fetch_calendar(
+        self, client: SourceClient, season: int, settings: Settings
+    ) -> list[dt.datetime]:
+        self.read(f"calendar/{season}")
+        return list(self.calendars.get(season, []))
 
     async def fetch_day(
         self, client: SourceClient, day: dt.date, settings: Settings, fresh: Freshness
@@ -1722,9 +1778,6 @@ class AllStarKit:
         self.read(f"awards/{season}")
         return award(self.mvp_id if season == 2027 else "3001", self.mvp_code)
 
-    async def discover(self, at: dt.datetime | None = None) -> None:
-        await self.discovery.run(at or self.clock[0])
-
     async def settle(self) -> None:
         while self.cache.in_flight:
             await next(iter(self.cache.in_flight.values()))
@@ -1762,7 +1815,6 @@ def kit(tmp_path: Path) -> AllStarKit:
 async def test_an_id_other_than_league_answers_unknown_with_no_build(
     kit: AllStarKit, tmp_path: Path
 ) -> None:
-    await kit.discover()
     for feed_id in ("LEAGUE", "all-star", ""):
         assert kit.feeds.check(feed_id) is IdStatus.UNKNOWN
         with pytest.raises(UnknownFeedError):
@@ -1774,20 +1826,19 @@ async def test_an_id_other_than_league_answers_unknown_with_no_build(
 
 
 @pytest.mark.anyio
-async def test_it_answers_not_ready_before_the_season_the_rosters_or_the_discovery(
+async def test_it_answers_not_ready_before_the_season_or_the_rosters(
     kit: AllStarKit,
 ) -> None:
-    assert kit.feeds.check(FEED_ID) is IdStatus.NOT_READY
-    with pytest.raises(FeedUnavailableError):
-        await kit.cache.serve(KIND, FEED_ID)
-
-    await kit.discover()
     assert kit.feeds.check(FEED_ID) is IdStatus.KNOWN
     kit.stars.ready = False
     assert kit.feeds.check(FEED_ID) is IdStatus.NOT_READY
+    with pytest.raises(FeedUnavailableError):
+        await kit.cache.serve(KIND, FEED_ID)
     kit.stars.ready = True
     kit.stars.season = None
     assert kit.feeds.check(FEED_ID) is IdStatus.NOT_READY
+    with pytest.raises(FeedUnavailableError):
+        await kit.cache.serve(KIND, FEED_ID)
     assert kit.calls == []
 
 
@@ -1795,7 +1846,6 @@ async def test_it_answers_not_ready_before_the_season_the_rosters_or_the_discove
 async def test_a_stored_feed_is_served_even_when_the_season_is_not_known(
     kit: AllStarKit,
 ) -> None:
-    await kit.discover()
     await kit.serve()
     kit.stars.season = None
     kit.stars.ready = False
@@ -1807,7 +1857,6 @@ async def test_a_stored_feed_is_served_even_when_the_season_is_not_known(
 async def test_no_feed_is_built_stored_or_fetched_without_a_request(
     kit: AllStarKit,
 ) -> None:
-    await kit.discover()
     await kit.settle()
 
     assert kit.calls == []
@@ -1819,7 +1868,6 @@ async def test_no_feed_is_built_stored_or_fetched_without_a_request(
 async def test_a_request_builds_and_stores_and_a_second_request_reads_storage(
     kit: AllStarKit,
 ) -> None:
-    await kit.discover()
 
     body = await kit.serve()
 
@@ -1848,20 +1896,19 @@ async def test_a_season_with_no_edition_builds_a_before_feed_reading_nothing_els
     kit: AllStarKit,
 ) -> None:
     kit.days = {}
-    await kit.discover()
 
     feed = AllStarFeed.model_validate_json(await kit.serve())
 
     assert feed.state is AllStarState.BEFORE
     assert feed.edition.date is None and feed.previous is None
-    assert kit.calls == []
+    assert {name.split("/")[0] for name in kit.calls} == {"calendar", "day"}
+    assert kit.called("day") == 2 * 6
 
 
 @pytest.mark.anyio
 async def test_a_failed_current_day_answers_unavailable_and_is_not_retried_for_ten_minutes(
     kit: AllStarKit,
 ) -> None:
-    await kit.discover()
     kit.failing = {f"day/{DAY.isoformat()}"}
 
     with pytest.raises(FeedUnavailableError):
@@ -1886,7 +1933,6 @@ async def test_a_failed_current_day_answers_unavailable_and_is_not_retried_for_t
 async def test_a_failed_rebuild_keeps_and_serves_the_stored_feed(
     kit: AllStarKit,
 ) -> None:
-    await kit.discover()
     kit.days[DAY] = round_robin(final=False)
     first = await kit.serve()
     built_at = kit.last_build()
@@ -1903,7 +1949,6 @@ async def test_a_failed_rebuild_keeps_and_serves_the_stored_feed(
 
 @pytest.mark.anyio
 async def test_any_other_failed_read_only_nulls_its_part(kit: AllStarKit) -> None:
-    await kit.discover()
     kit.failing = {
         "detail/g1",
         "sections/g2",
@@ -1940,7 +1985,6 @@ async def test_a_failed_awards_read_logs_the_season_and_the_reason_of_the_null_m
     kit: AllStarKit, caplog: pytest.LogCaptureFixture
 ) -> None:
     kit.failing = {"awards/2027"}
-    await kit.discover()
 
     with caplog.at_level(logging.WARNING):
         await kit.serve()
@@ -1955,7 +1999,6 @@ async def test_no_all_star_mvp_award_logs_the_season_and_the_reason_of_the_null_
     kit: AllStarKit, caplog: pytest.LogCaptureFixture
 ) -> None:
     kit.mvp_code = AwardCode.MVP
-    await kit.discover()
 
     with caplog.at_level(logging.WARNING):
         await kit.serve()
@@ -1971,7 +2014,6 @@ async def test_a_winner_without_a_box_row_logs_the_season_and_the_reason_of_the_
     kit: AllStarKit, caplog: pytest.LogCaptureFixture
 ) -> None:
     kit.mvp_id = "9999"
-    await kit.discover()
 
     with caplog.at_level(logging.WARNING):
         await kit.serve()
@@ -1989,7 +2031,6 @@ async def test_a_transient_previous_awards_failure_with_no_stored_feed_fails_the
     kit: AllStarKit,
 ) -> None:
     kit.failing = {"awards/2026"}
-    await kit.discover()
 
     with pytest.raises(FeedUnavailableError):
         await kit.serve()
@@ -2011,7 +2052,6 @@ async def stored_live_feed_then_fail(kit: AllStarKit, failing: str) -> AllStarFe
     """Build a live feed, make it stale, fail one previous-edition read and
     change the current day. Returns the first feed."""
     kit.days[DAY] = round_robin(final=False)
-    await kit.discover()
     first = AllStarFeed.model_validate_json(await kit.serve())
     assert first.previous is not None and first.previous.mvp is not None
     kit.failing = {failing}
@@ -2042,7 +2082,6 @@ async def test_a_transient_previous_detail_failure_keeps_the_recap_with_its_mvp_
     kit: AllStarKit,
 ) -> None:
     kit.failing = {"detail/p1"}
-    await kit.discover()
 
     feed = AllStarFeed.model_validate_json(await kit.serve())
 
@@ -2054,7 +2093,6 @@ async def test_a_404_on_the_previous_awards_gives_a_recap_with_a_null_mvp_and_lo
     kit: AllStarKit, caplog: pytest.LogCaptureFixture
 ) -> None:
     kit.missing = {"awards/2026"}
-    await kit.discover()
 
     with caplog.at_level(logging.WARNING):
         feed = AllStarFeed.model_validate_json(await kit.serve())
@@ -2070,7 +2108,6 @@ async def test_the_previous_edition_keeps_its_league_teams_as_today(
     kit: AllStarKit,
 ) -> None:
     kit.stars.teams["3001"] = "BOS"
-    await kit.discover()
 
     feed = AllStarFeed.model_validate_json(await kit.serve())
 
@@ -2086,7 +2123,6 @@ async def test_the_previous_edition_keeps_its_league_teams_as_today(
 async def test_no_warning_when_every_mvp_is_set(
     kit: AllStarKit, caplog: pytest.LogCaptureFixture
 ) -> None:
-    await kit.discover()
 
     with caplog.at_level(logging.WARNING):
         await kit.serve()
@@ -2104,7 +2140,6 @@ async def test_no_warning_for_an_edition_before_the_games(
             "c", None, None, status=GameStatus.SCHEDULED, note=CHAMPIONSHIP, minutes=30
         ),
     ]
-    await kit.discover()
 
     with caplog.at_level(logging.WARNING):
         await kit.serve()
@@ -2137,7 +2172,6 @@ async def test_the_reads_get_the_live_interval_the_first_seen_final_time_or_one_
         game("g3", WAV, PKS, status=GameStatus.SCHEDULED, minutes=60),
         game("g4", STR, WAV, minutes=90),
     ]
-    await kit.discover()
 
     await kit.serve()
 
@@ -2149,14 +2183,16 @@ async def test_the_reads_get_the_live_interval_the_first_seen_final_time_or_one_
     assert kit.fresh["sections/g4"] == NOW
     assert kit.store.all_star_final_time("g4") == NOW
     assert kit.store.all_star_final_time("g3") is None
-    assert kit.fresh["day/2027-02-14"] == LIVE_INTERVAL
+    # The build that finds the edition reads its day, which is today here, with
+    # the scoreboard freshness (ADR 0065); the later builds read it with the live
+    # interval.
+    assert kit.fresh["day/2027-02-14"] == FRESH_FOR
 
 
 @pytest.mark.anyio
 async def test_the_previous_edition_is_read_with_a_24_hour_freshness(
     kit: AllStarKit,
 ) -> None:
-    await kit.discover()
 
     await kit.serve()
 
@@ -2173,7 +2209,6 @@ async def test_the_first_seen_final_time_is_stored_once_and_never_overwritten(
     kit: AllStarKit,
 ) -> None:
     kit.days[DAY] = round_robin(final=False)
-    await kit.discover()
     await kit.serve()
     first = kit.store.all_star_final_time("g1")
     assert first == NOW and kit.store.all_star_final_time("g4") is None
@@ -2192,7 +2227,6 @@ async def test_a_kept_feed_of_games_cached_while_live_comes_from_a_read_after_th
 ) -> None:
     live = [g.model_copy(update={"status": GameStatus.LIVE}) for g in round_robin()]
     kit.days[DAY] = live
-    await kit.discover()
     await kit.serve()
     assert set(kit.read_at.values()) >= {NOW}
     assert kit.stored() is not None
@@ -2212,7 +2246,6 @@ async def test_a_kept_feed_of_games_cached_while_live_comes_from_a_read_after_th
 async def test_an_after_feed_is_held_30_seconds_until_a_build_one_hour_after_the_games_ended(
     kit: AllStarKit,
 ) -> None:
-    await kit.discover()
     feed, built_at = await stored_feed(kit)
     assert feed.state is AllStarState.AFTER and FINAL_HOLD == dt.timedelta(hours=1)
     assert kit.last_build() == NOW
@@ -2250,7 +2283,6 @@ async def test_no_game_carries_a_per_game_highlight_even_with_a_stored_one(
 ) -> None:
     kit.store.set_highlight("g2", example_clip())
     kit.store.set_highlight("p2", example_clip())
-    await kit.discover()
 
     body = await kit.serve()
 
@@ -2266,7 +2298,6 @@ async def test_the_edition_video_is_added_when_served_and_not_stored(
 ) -> None:
     kit.store.set_all_star_edition_highlight(2027, example_clip("current"))
     kit.store.set_all_star_edition_highlight(2026, example_clip("previous"))
-    await kit.discover()
 
     body = await kit.serve()
 
@@ -2284,7 +2315,6 @@ async def test_the_edition_video_is_added_when_served_and_not_stored(
 
 @pytest.mark.anyio
 async def test_the_edition_video_is_null_without_a_stored_one(kit: AllStarKit) -> None:
-    await kit.discover()
 
     served = AllStarFeed.model_validate_json(await kit.serve())
 
@@ -2294,7 +2324,6 @@ async def test_the_edition_video_is_null_without_a_stored_one(kit: AllStarKit) -
 
 @pytest.mark.anyio
 async def test_the_previous_edition_adds_no_read(kit: AllStarKit) -> None:
-    await kit.discover()
 
     body = await kit.serve()
 
@@ -2329,7 +2358,6 @@ async def test_a_live_feed_is_stale_30_seconds_after_the_build(
     kit: AllStarKit,
 ) -> None:
     kit.days[DAY] = round_robin(final=False)
-    await kit.discover()
     feed, built_at = await stored_feed(kit)
     assert feed.state is AllStarState.LIVE
 
@@ -2342,7 +2370,6 @@ async def test_a_request_that_finds_a_live_feed_stale_waits_for_the_rebuild(
     kit: AllStarKit,
 ) -> None:
     kit.days[DAY] = round_robin(final=False)
-    await kit.discover()
     first = await kit.serve()
     assert kit.feeds.wait_when_stale(FEED_ID)
     kit.days[DAY] = round_robin()
@@ -2364,7 +2391,6 @@ async def test_a_feed_before_the_games_on_the_date_of_the_edition_is_stale_after
             "c", None, None, status=GameStatus.SCHEDULED, note=CHAMPIONSHIP, minutes=30
         ),
     ]
-    await kit.discover()
     feed, built_at = await stored_feed(kit)
     assert feed.state is AllStarState.BEFORE and feed.edition.date == DAY
 
@@ -2374,22 +2400,20 @@ async def test_a_feed_before_the_games_on_the_date_of_the_edition_is_stale_after
 
 
 @pytest.mark.anyio
-async def test_a_feed_before_the_edition_is_fresh_until_the_discovery_runs_after_the_build(
+async def test_a_feed_before_the_edition_is_fresh_for_24_hours(
     kit: AllStarKit,
 ) -> None:
     kit.days[DAY] = []
-    await kit.discover()
     feed, built_at = await stored_feed(kit)
     assert feed.state is AllStarState.BEFORE and feed.edition.date is None
     later = built_at + dt.timedelta(hours=5)
 
     assert kit.feeds.is_fresh(feed, built_at, later)
     assert not kit.feeds.wait_when_stale(FEED_ID)
-
-    kit.clock[0] = built_at + dt.timedelta(days=1)
-    await kit.discover(built_at + dt.timedelta(days=1))
-
-    assert not kit.feeds.is_fresh(feed, built_at, built_at + dt.timedelta(days=1))
+    assert kit.feeds.is_fresh(
+        feed, built_at, built_at + dt.timedelta(hours=24) - SECOND
+    )
+    assert not kit.feeds.is_fresh(feed, built_at, built_at + dt.timedelta(hours=24))
 
 
 @pytest.mark.anyio
@@ -2398,7 +2422,6 @@ async def test_a_finished_edition_is_kept_while_its_season_is_the_current_one(
 ) -> None:
     for game_id in ("g1", "g2", "g3", "g4"):
         kit.store.record_all_star_final(game_id, NOW - FINAL_HOLD)
-    await kit.discover()
     feed, built_at = await stored_feed(kit)
     assert feed.state is AllStarState.AFTER
     later = built_at + dt.timedelta(days=400)
@@ -2410,7 +2433,6 @@ async def test_a_finished_edition_is_kept_while_its_season_is_the_current_one(
     assert kit.feeds.is_fresh(feed, built_at, later)
     kit.stars.season = 2027
     kit.clock[0] = later
-    await kit.discover(later)
     assert kit.feeds.is_fresh(feed, built_at, later)
 
 
@@ -2418,9 +2440,209 @@ async def test_a_finished_edition_is_kept_while_its_season_is_the_current_one(
 async def test_a_finished_edition_is_stale_once_the_season_changes(
     kit: AllStarKit,
 ) -> None:
-    await kit.discover()
     feed, built_at = await stored_feed(kit)
 
     kit.stars.season = 2028
 
     assert not kit.feeds.is_fresh(feed, built_at, built_at + SECOND)
+
+
+# Group 5: the edition found by the build
+
+
+def moments(*days: dt.date) -> list[dt.datetime]:
+    return [dt.datetime.combine(d, dt.time(17, 0), tzinfo=dt.UTC) for d in days]
+
+
+def february(*numbers: int) -> list[dt.date]:
+    return [dt.date(2027, 2, n) for n in numbers]
+
+
+def test_edition_candidates_put_the_days_next_to_the_longest_break_first_sundays_first() -> (
+    None
+):
+    # February 14, 2027 is a Sunday; the longest break is after it.
+    found = edition_candidates(calendar_around(DAY), 2027)
+
+    assert found[:3] == [DAY, dt.date(2027, 2, 19), dt.date(2027, 2, 20)]
+    assert sorted(found) == sorted(set(found))
+
+    # The neighbours of the break are a Saturday and a Sunday: the Sunday first.
+    calendar = moments(*february(*range(1, 11), 13, 21, 22))
+    assert edition_candidates(calendar, 2027)[:2] == [
+        dt.date(2027, 2, 21),
+        dt.date(2027, 2, 13),
+    ]
+
+
+def test_edition_candidates_keep_only_february_1_to_march_7() -> None:
+    days = [
+        dt.date(2027, 1, 31),
+        dt.date(2027, 2, 1),
+        dt.date(2027, 2, 14),
+        dt.date(2027, 3, 7),
+        dt.date(2027, 3, 8),
+    ]
+
+    assert sorted(edition_candidates(moments(*days), 2027)) == days[1:4]
+    assert edition_candidates(moments(*days), 2026) == []
+
+
+def test_edition_candidates_with_one_day_or_a_calendar_without_a_break_start_at_its_first_days() -> (
+    None
+):
+    assert edition_candidates(moments(DAY), 2027) == [DAY]
+    # Every gap is empty: the first pair of days comes first.
+    found = edition_candidates(moments(*february(*range(1, 9))), 2027)
+    assert found[:2] == [dt.date(2027, 2, 1), dt.date(2027, 2, 2)]
+
+
+def test_edition_candidates_of_an_empty_calendar_are_empty() -> None:
+    assert edition_candidates([], 2027) == []
+
+
+def test_edition_candidates_use_the_us_eastern_date_of_a_moment() -> None:
+    late = [dt.datetime(2027, 2, 15, 3, 0, tzinfo=dt.UTC)]
+
+    assert edition_candidates(late, 2027) == [dt.date(2027, 2, 14)]
+
+
+@pytest.mark.anyio
+async def test_the_build_discovers_the_edition_from_the_calendar_and_stores_it(
+    kit: AllStarKit,
+) -> None:
+    feed = AllStarFeed.model_validate_json(await kit.serve())
+
+    record = kit.store.all_star_edition(2027)
+    assert record is not None and record.game_date == DAY
+    assert record.game_ids == [g.id for g in round_robin()]
+    assert feed.edition.date == DAY
+    assert kit.called("calendar/2027") == 1
+    assert kit.called(f"day/{DAY.isoformat()}") == 1
+    assert kit.fresh[f"day/{DAY.isoformat()}"] == FRESH_FOR
+
+
+@pytest.mark.anyio
+async def test_the_build_reads_at_most_six_candidate_days(kit: AllStarKit) -> None:
+    kit.days = {}
+
+    feed = AllStarFeed.model_validate_json(await kit.serve())
+
+    assert feed.state is AllStarState.BEFORE
+    assert sum(1 for c in kit.calls if c.startswith("day/2027-")) == 6
+    assert kit.store.all_star_edition(2027) is None
+
+
+@pytest.mark.anyio
+async def test_a_candidate_day_equal_to_today_is_read_with_the_scoreboard_freshness(
+    kit: AllStarKit,
+) -> None:
+    kit.days = {}
+
+    await kit.serve()
+
+    days = [c.removeprefix("day/") for c in kit.calls if c.startswith("day/2027-")]
+    assert DAY.isoformat() in days and len(days) == 6
+    for day in days:
+        expected = FRESH_FOR if day == DAY.isoformat() else PREVIOUS_FRESH
+        assert kit.fresh[f"day/{day}"] == expected
+
+
+@pytest.mark.anyio
+async def test_a_stored_edition_reads_no_calendar(kit: AllStarKit) -> None:
+    kit.store.set_all_star_edition(2027, DAY, [g.id for g in round_robin()])
+    kit.store.set_all_star_edition(2026, PREVIOUS_DAY, ["p1", "p2"])
+
+    feed = AllStarFeed.model_validate_json(await kit.serve())
+
+    assert feed.edition.date == DAY and feed.previous is not None
+    assert kit.called("calendar") == 0
+
+
+@pytest.mark.anyio
+async def test_the_previous_edition_is_found_the_same_way_from_its_own_calendar(
+    kit: AllStarKit,
+) -> None:
+    feed = AllStarFeed.model_validate_json(await kit.serve())
+
+    record = kit.store.all_star_edition(2026)
+    assert record is not None and record.game_date == PREVIOUS_DAY
+    assert kit.called("calendar/2026") == 1
+    assert feed.previous is not None and feed.previous.date == PREVIOUS_DAY
+
+
+@pytest.mark.anyio
+async def test_a_failed_calendar_read_fails_the_build_and_keeps_the_stored_feed(
+    kit: AllStarKit,
+) -> None:
+    kit.days[DAY] = []
+    first = await kit.serve()
+    assert kit.stored() is not None
+    kit.failing.add("calendar/2027")
+
+    again = await kit.serve(NOW + dt.timedelta(hours=25))
+
+    assert again == first
+    state = kit.store.feed_build(KIND, FEED_ID)
+    assert state is not None and state.last_failure is not None
+    assert kit.store.all_star_edition(2027) is None
+
+    (kit.path.parent / "fresh").mkdir()
+    fresh = AllStarKit(kit.path.parent / "fresh")
+    fresh.failing.add("calendar/2027")
+    with pytest.raises(FeedUnavailableError):
+        await fresh.serve()
+    assert fresh.stored() is None
+
+
+def an_edition_video(year: int) -> ChannelVideo:
+    return ChannelVideo(
+        video_id=f"v{year}",
+        title=f"{year} All-Star Game | Full Game Highlights",
+        channel="Example Channel",
+        published_at=NOW,
+        thumbnail_url=None,
+        thumbnail_candidates=(f"https://example.com/thumbs/v{year}.jpg",),
+    )
+
+
+# Midnight US Eastern of the edition day plus its window.
+PAST_WINDOW = dt.datetime(2027, 2, 14, 5, 0, tzinfo=dt.UTC) + dt.timedelta(days=4)
+
+
+@pytest.mark.anyio
+async def test_serving_an_after_edition_past_its_window_with_no_video_starts_one_search(
+    kit: AllStarKit,
+) -> None:
+    kit.found = [an_edition_video(2027)]
+    await kit.serve(PAST_WINDOW)
+    await kit.drain()
+
+    assert sorted(kit.queries) == [
+        "All-Star Game 2026 full game highlights",
+        "All-Star Game 2027 full game highlights",
+    ]
+    assert kit.store.all_star_edition_highlight(2027) is not None
+    served = AllStarFeed.model_validate_json(await kit.serve(PAST_WINDOW))
+    assert served.edition.edition_highlight is not None
+    assert (
+        str(served.edition.edition_highlight.embed_url) == "https://example.com/e/v2027"
+    )
+
+
+@pytest.mark.anyio
+async def test_the_edition_video_search_runs_once_per_edition_and_counts_in_the_cap(
+    kit: AllStarKit,
+) -> None:
+    kit.found = []
+    await kit.serve(PAST_WINDOW)
+    await kit.drain()
+    asked = len(kit.queries)
+    await kit.serve(PAST_WINDOW + dt.timedelta(minutes=1))
+    await kit.drain()
+
+    assert asked == 2
+    assert len(kit.queries) == asked
+    assert kit.store.highlight_searched("edition", "2027")
+    assert kit.store.highlight_searched("edition", "2026")
+    assert kit.store.highlight_searches_on(PAST_WINDOW.astimezone(dt.UTC).date()) == 2

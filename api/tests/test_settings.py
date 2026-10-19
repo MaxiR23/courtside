@@ -47,9 +47,12 @@
 # - Reads the video embed URL from an environment variable
 # - Leaves the highlights search URL unset by default
 # - Reads the highlights search URL from an environment variable
-# - Defaults the highlights backfill pages to 200
-# - Reads the highlights backfill pages from an environment variable
-# - Rejects a highlights backfill pages value that is not a positive integer, without showing it
+# - Defaults the highlights search API URL to unset
+# - Reads the highlights search API URL from an environment variable
+# - Defaults the highlights search daily cap to 80
+# - Reads the highlights search daily cap from an environment variable
+# - Rejects a highlights search daily cap that is not a positive integer, without showing it
+# - Starts with a .env file that still sets the retired highlights backfill pages
 # - Defaults the source build pause to 250 ms
 # - Reads the source build pause from an environment variable
 # - Rejects a source build pause that is not a non-negative integer, without showing it
@@ -67,7 +70,7 @@
 # - Rejects an unknown key in a .env file that is not retired
 #
 # What is covered:
-# - Happy path, value from the environment, value from a .env file, .env file location, invalid value, shared instance, optional scoreboard URL, optional game detail URL, required URL placeholders (missing, escaped, malformed, empty), optional player photo URL, optional team roster URL, optional team averages URL, optional standings, team schedule and league injuries URLs, optional player and team source URLs (unset, environment, missing, wrong and extra placeholder, none allowed, own query, empty), optional highlights source URL and key (unset, environment, hidden when printed), video embed URL and highlights search URL, source build pause (default, environment, invalid), daily fetch time (default, environment, invalid), input hidden from errors, data directory (default, environment, relative, empty), CORS origins (default, JSON list), retired setting (dropped with a warning), unknown key (rejected)
+# - Happy path, value from the environment, value from a .env file, .env file location, invalid value, shared instance, optional scoreboard URL, optional game detail URL, required URL placeholders (missing, escaped, malformed, empty), optional player photo URL, optional team roster URL, optional team averages URL, optional standings, team schedule and league injuries URLs, optional player and team source URLs (unset, environment, missing, wrong and extra placeholder, none allowed, own query, empty), optional highlights source URL and key (unset, environment, hidden when printed), video embed URL and highlights search URL, highlights search API URL and daily cap (default, environment, invalid), source build pause (default, environment, invalid), daily fetch time (default, environment, invalid), input hidden from errors, data directory (default, environment, relative, empty), CORS origins (default, JSON list), retired setting (dropped with a warning), unknown key (rejected)
 #
 # Run with: cd api && .venv/bin/python -m pytest tests/test_settings.py
 #
@@ -448,23 +451,38 @@ def test_reads_the_highlights_search_url_from_the_environment_variable(
     )
 
 
-def test_defaults_the_highlights_backfill_pages_to_200() -> None:
-    assert SettingsWithoutEnvFile().highlights_backfill_pages == 200
+def test_defaults_the_highlights_search_api_url_to_none() -> None:
+    assert SettingsWithoutEnvFile().highlights_search_api_url is None
 
 
-def test_reads_the_highlights_backfill_pages_from_an_environment_variable(
+def test_reads_the_highlights_search_api_url_from_an_environment_variable(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("HIGHLIGHTS_BACKFILL_PAGES", "7")
+    monkeypatch.setenv("HIGHLIGHTS_SEARCH_API_URL", "https://example.com/search")
 
-    assert SettingsWithoutEnvFile().highlights_backfill_pages == 7
+    assert (
+        SettingsWithoutEnvFile().highlights_search_api_url
+        == "https://example.com/search"
+    )
+
+
+def test_defaults_the_highlights_search_daily_cap_to_80() -> None:
+    assert SettingsWithoutEnvFile().highlights_search_daily_cap == 80
+
+
+def test_reads_the_highlights_search_daily_cap_from_an_environment_variable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("HIGHLIGHTS_SEARCH_DAILY_CAP", "7")
+
+    assert SettingsWithoutEnvFile().highlights_search_daily_cap == 7
 
 
 @pytest.mark.parametrize("value", ["0", "-1", "many"])
-def test_rejects_a_highlights_backfill_pages_value_that_is_not_positive(
+def test_rejects_a_highlights_search_daily_cap_that_is_not_positive_without_showing_it(
     monkeypatch: pytest.MonkeyPatch, value: str
 ) -> None:
-    monkeypatch.setenv("HIGHLIGHTS_BACKFILL_PAGES", value)
+    monkeypatch.setenv("HIGHLIGHTS_SEARCH_DAILY_CAP", value)
 
     with pytest.raises(ValidationError) as error:
         SettingsWithoutEnvFile()
@@ -568,6 +586,24 @@ def test_ignores_a_retired_setting_in_a_dotenv_file_and_warns_without_its_value(
     assert len(caplog.records) == 1
     assert "VIDEO_THUMBNAIL_URL" in caplog.text
     assert "example.com/hidden" not in caplog.text
+
+
+def test_starts_with_a_dotenv_file_that_still_sets_highlights_backfill_pages(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    env_file = tmp_path / ".env"
+    env_file.write_text("HIGHLIGHTS_BACKFILL_PAGES=200\n", encoding="utf-8")
+
+    class SettingsWithTemporaryEnvFile(Settings):
+        model_config = SettingsConfigDict(env_file=env_file)
+
+    with caplog.at_level(logging.WARNING, logger="app.settings"):
+        settings = SettingsWithTemporaryEnvFile()
+
+    assert not hasattr(settings, "highlights_backfill_pages")
+    assert len(caplog.records) == 1
+    assert "HIGHLIGHTS_BACKFILL_PAGES" in caplog.text
+    assert "200" not in caplog.text
 
 
 def test_rejects_an_unknown_key_in_a_dotenv_file_that_is_not_retired(

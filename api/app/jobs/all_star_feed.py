@@ -3,7 +3,13 @@
 # All-Star feed builder and kind: the data of the All-Star page. The builder is a
 # pure function from what the adapters returned to the feed; it reads no clock
 # and no source. Seasonal code stays out of the core modules (ADR 0036). The
-# edition is the day the discovery job stored: its games are the All-Star games
+# edition is the stored day of the season; with none, the
+# build reads the season calendar and tries the days with games from February 1
+# to March 7, next to the longest run of days without games first, Sundays
+# first, at most 6 days, and stores the first with All-Star games; the previous
+# edition is found the same way from its own calendar; a candidate day equal to
+# today is read with the scoreboard freshness of 30 seconds, the others with 24
+# hours (ADR 0065). Its games are the All-Star games
 # of that scoreboard day, in start order, without the canceled ones. The note of
 # a game is "NBA All-Star - <round>" with an optional format suffix; the round is
 # the label and a game of the round "Championship" is the championship; the only
@@ -44,10 +50,10 @@
 # AllStarFeeds is the feed kind of the on-demand cache: the only id is "league",
 # the feed is stored at feeds/all-star/league.json only when requested, and it
 # answers 503 (not ready) until the stars job knows the season and has fetched
-# every roster, and the discovery job has completed a run. It expires (rule G) 30
+# every roster. It expires (rule G) 30
 # seconds after the build while the state is live or the edition's date is today,
-# and a request that finds it stale waits for the rebuild; before the edition, when
-# the discovery runs after the build; once every game is final it is kept while its
+# and a request that finds it stale waits for the rebuild; before the edition, 24 hours
+# after the build; once every game is final it is kept while its
 # season is the current one, but only when it was built at least 1 hour after the
 # latest time the games were first seen final (before that it expires with the
 # live interval). The first build that sees a game final stores that time, and the
@@ -59,12 +65,15 @@
 # them other than a 404 keeps the stored previous blocks when they carry an MVP,
 # else fails the build, which keeps the stored feed (ADR 0056). Every other part of
 # the previous edition is read as before. The stored edition video is added when served as
-# editionHighlight, never stored; no game carries a per-game highlight (ADR 0048).
+# editionHighlight, never stored; no game carries a per-game highlight (ADR 0048). Serving an
+# edition whose video window has ended with no video starts one on-demand
+# search (ADR 0065).
 #
 # SEE: docs/api/all-star.md, docs/adr/0036-all-star-feed.md,
 # docs/adr/0048-highlights-backfill-and-edition-video.md,
 # docs/adr/0053-season-level-rules-for-past-seasons.md,
 # docs/adr/0056-paced-past-builds-and-one-edition-mvp-path.md,
+# docs/adr/0065-background-work-limited-to-games-highlights-and-stars.md,
 # api/app/jobs/playoffs_finals_feed.py
 
 import asyncio
@@ -74,6 +83,7 @@ import re
 from collections import Counter
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
+from itertools import pairwise
 from typing import Any
 
 from pydantic import ValidationError
@@ -91,7 +101,7 @@ from app.feeds.games import GameStatus
 from app.feeds.opponent import Side
 from app.feeds.playoffs import AwardCode
 from app.feeds.standings import StandingsColors
-from app.jobs.all_star_discovery import AllStarDiscovery
+from app.jobs.all_star_edition_videos import AllStarEditionVideos
 from app.jobs.games import LIVE_INTERVAL, GamesJob
 from app.jobs.on_demand import FeedCache, FeedKind, IdStatus
 from app.jobs.stars import StarsJob
@@ -102,6 +112,7 @@ from app.sources import (
     all_star_scoreboard,
     game_detail,
     season_awards,
+    season_calendar,
     team_info,
 )
 from app.sources.all_star_detail import AllStarDetailExtras
@@ -120,6 +131,11 @@ FEED_ID = "league"
 UNPLAYED_FRESH = dt.timedelta(hours=1)
 FINAL_HOLD = dt.timedelta(hours=1)
 PREVIOUS_FRESH = dt.timedelta(hours=24)
+# February 1 to March 7 of the season's end year (ADR 0065).
+EDITION_WINDOW = ((2, 1), (3, 7))
+MAX_EDITION_READS = 6
+SUNDAY = 6
+BEFORE_FRESH = dt.timedelta(hours=24)
 MAX_TOP5 = 5
 NOT_FOUND = 404
 logger = logging.getLogger(__name__)
@@ -133,6 +149,9 @@ STAT_ORDER = (
     "blocks",
 )
 
+FetchSeasonCalendar = Callable[
+    [SourceClient, int, Settings], Awaitable[list[dt.datetime]]
+]
 FetchDay = Callable[
     [SourceClient, dt.date, Settings, Freshness], Awaitable[list[AllStarScoreboardGame]]
 ]
@@ -972,6 +991,29 @@ def with_edition_highlights(feed: AllStarFeed, store: StateStore) -> AllStarFeed
     return AllStarFeed.model_validate(data)
 
 
+def edition_candidates(moments: Sequence[dt.datetime], season: int) -> list[dt.date]:
+    """The days of the calendar to try for the edition of a season, best first:
+    the days of February 1 to March 7 of its end year, those next to the longest
+    run of days without games first, Sundays first among equals."""
+    first = dt.date(season, *EDITION_WINDOW[0])
+    last = dt.date(season, *EDITION_WINDOW[1])
+    days = sorted(
+        {day for day in (eastern_date(m) for m in moments) if first <= day <= last}
+    )
+    if len(days) < 2:
+        return sorted(days, key=lambda d: (d.weekday() != SUNDAY, d))
+    best = max((b - a).days - 1 for a, b in pairwise(days))
+    before, after = next((a, b) for a, b in pairwise(days) if (b - a).days - 1 == best)
+    return sorted(
+        days,
+        key=lambda d: (
+            min(abs((d - before).days), abs((d - after).days)),
+            d.weekday() != SUNDAY,
+            d,
+        ),
+    )
+
+
 class AllStarFeeds:
     def __init__(
         self,
@@ -981,8 +1023,11 @@ class AllStarFeeds:
         cache: FeedCache,
         games: GamesJob,
         stars: StarsJob,
-        discovery: AllStarDiscovery,
         *,
+        edition_videos: AllStarEditionVideos | None = None,
+        fetch_season_calendar: FetchSeasonCalendar = (
+            season_calendar.fetch_season_calendar
+        ),
         fetch_all_star_games: FetchDay = all_star_scoreboard.fetch_all_star_games,
         fetch_game_detail: FetchDetail = game_detail.fetch_game_detail,
         fetch_game_detail_sections: FetchSections = (
@@ -997,7 +1042,8 @@ class AllStarFeeds:
         self._client = client
         self._games = games
         self._stars = stars
-        self._discovery = discovery
+        self._edition_videos = edition_videos
+        self._fetch_season_calendar = fetch_season_calendar
         self._fetch_all_star_games = fetch_all_star_games
         self._fetch_game_detail = fetch_game_detail
         self._fetch_game_detail_sections = fetch_game_detail_sections
@@ -1010,9 +1056,7 @@ class AllStarFeeds:
         if feed_id != FEED_ID:
             return IdStatus.UNKNOWN
         if (
-            self._stars.current_season() is None
-            or not self._stars.rosters_ready()
-            or not self._discovery.ready()
+            self._stars.current_season() is None or not self._stars.rosters_ready()
         ) and read_by_id(self._settings.data_dir, KIND, FEED_ID) is None:
             return IdStatus.NOT_READY
         return IdStatus.KNOWN
@@ -1106,14 +1150,38 @@ class AllStarFeeds:
             return None, error.reason
         return awards, None
 
+    async def _find_edition(
+        self, season: int
+    ) -> tuple[dt.date, list[AllStarScoreboardGame]] | None:
+        """Read the season calendar and the candidate days until one has
+        All-Star games, store it and return it; none when no day has games."""
+        moments = await self._fetch_season_calendar(
+            self._client, season, self._settings
+        )
+        for day in edition_candidates(moments, season)[:MAX_EDITION_READS]:
+            fresh = (
+                FRESH_FOR
+                if day == eastern_date(self._client.clock())
+                else PREVIOUS_FRESH
+            )
+            games = await self._fetch_all_star_games(
+                self._client, day, self._settings, fresh
+            )
+            if games:
+                self._store.set_all_star_edition(season, day, [g.id for g in games])
+                return day, games
+        return None
+
     async def _day_of(
         self, season: int, fresh: Freshness
     ) -> tuple[dt.date, list[AllStarScoreboardGame]] | None:
-        """The stored day of a season with its games, or none when the season is
-        not discovered or its day cannot be read."""
-        record = self._discovery.edition(season)
+        """The day of a season with its games, found from its calendar when none
+        is stored, or none when the season has no edition or its day cannot be
+        read."""
+        record = self._store.all_star_edition(season)
         if record is None:
-            return None
+            found = await self._guard(self._find_edition(season))
+            return found
         games = await self._guard(
             self._fetch_all_star_games(
                 self._client, record.game_date, self._settings, fresh
@@ -1190,9 +1258,16 @@ class AllStarFeeds:
         if season is None:
             raise AllStarBuildError("season not known yet")
         client, settings = self._client, self._settings
-        record = self._discovery.edition(season)
+        record = self._store.all_star_edition(season)
+        edition_date = None if record is None else record.game_date
         games: list[AllStarScoreboardGame] = []
-        if record is not None:
+        if record is None:
+            # A failed read here fails the build, as a failed scoreboard day does.
+            discovered = await self._find_edition(season)
+            if discovered is not None:
+                edition_date, games = discovered
+                self._record_finals(games)
+        else:
             games = await self._fetch_all_star_games(
                 client, record.game_date, settings, FRESH_FOR
             )
@@ -1252,7 +1327,7 @@ class AllStarFeeds:
         feed = build_all_star_feed(
             AllStarSources(
                 year=season,
-                edition_date=None if record is None else record.game_date,
+                edition_date=edition_date,
                 games=games,
                 details=current.details,
                 sections=current.sections,
@@ -1319,8 +1394,7 @@ class AllStarFeeds:
             return False
         if feed.state is AllStarState.LIVE or feed.edition.date == eastern_date(now):
             return now - built_at < LIVE_INTERVAL
-        last_run = self._discovery.last_run()
-        return last_run is None or last_run <= built_at
+        return now - built_at < BEFORE_FRESH
 
     def wait_when_stale(self, feed_id: str) -> bool:
         stored = self.stored()
@@ -1331,6 +1405,8 @@ class AllStarFeeds:
         )
 
     def serve_with(self, feed_id: str, feed: AllStarFeed) -> AllStarFeed:
+        if self._edition_videos is not None:
+            self._edition_videos.request_for(feed)
         return with_edition_highlights(feed, self._store)
 
     def keep(self, feed_id: str) -> bool:

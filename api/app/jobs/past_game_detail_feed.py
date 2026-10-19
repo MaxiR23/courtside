@@ -8,7 +8,8 @@
 # box score, team stats, win probability and the season. Every block that would
 # describe today is null: injuries, last games, standings, stars, season
 # series and both records. The highlights are null in the built feed: the stored
-# highlight of the game is added when served (ADR 0048).
+# highlight of the game is added when served, and a game served with none starts one
+# on-demand search (ADR 0065).
 #
 # PastGameDetailFeeds is the feed kind of the on-demand cache: the id is the
 # game id, the feed is stored at feeds/past-games/{id}.json only when requested.
@@ -26,6 +27,7 @@
 #
 # SEE: docs/api/game-detail.md, docs/adr/0041-past-game-detail.md,
 # docs/adr/0048-highlights-backfill-and-edition-video.md,
+# docs/adr/0065-background-work-limited-to-games-highlights-and-stars.md,
 # docs/adr/0063-bounded-state-and-kept-feeds.md,
 # docs/source-rules.md, api/app/jobs/day_feed.py
 
@@ -39,6 +41,7 @@ from app.feeds.days import DayFeed, PastGame
 from app.feeds.game_detail import PastGameDetailFeed
 from app.feeds.games import GameStatus
 from app.jobs.day_feed import KIND as DAY_KIND
+from app.jobs.highlights_search import HighlightsSearch
 from app.jobs.on_demand import (
     FeedCache,
     FeedKind,
@@ -130,11 +133,13 @@ class PastGameDetailFeeds:
         cache: FeedCache,
         *,
         fetch_sections: FetchPastSections = game_detail.fetch_past_game_detail_sections,
+        search: HighlightsSearch | None = None,
     ) -> None:
         self._settings = settings
         self._store = store
         self._client = client
         self._fetch_sections = fetch_sections
+        self._search = search
         # Game id to the id of the stored day feed that lists it as final.
         self._days: dict[str, str] = {}
         # Day ids whose stored feed had every game final: kept by rule G and
@@ -255,6 +260,10 @@ class PastGameDetailFeeds:
 
     def serve_with(self, game_id: str, feed: PastGameDetailFeed) -> PastGameDetailFeed:
         found = self._store.highlights_for([game_id]).get(game_id)
+        if found is None and feed.all_star is None and self._search is not None:
+            self._search.request_game(
+                feed.id, feed.away.name, feed.home.name, feed.start_time
+            )
         if found is None or feed.all_star is not None:
             return feed
         return PastGameDetailFeed.model_validate(

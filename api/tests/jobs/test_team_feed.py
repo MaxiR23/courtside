@@ -1857,7 +1857,9 @@ async def test_stale_names_are_rebuilt_before_the_next_team_build(
     await named.settle()
 
     assert named.last_build("okc") == NOW + FEED_LIFETIME
-    assert len(named.name_reads) == 2 * reads
+    # Only the current season is read again, not every season (ADR 0065).
+    assert len(named.name_reads) == reads + 1
+    assert named.name_reads[-1][1] == 2027
 
 
 @pytest.mark.anyio

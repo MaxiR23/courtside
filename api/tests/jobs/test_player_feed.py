@@ -44,7 +44,7 @@
 # - The kind: live is added while the team plays a guest without a code
 # - The kind: a live player request refreshes the game and serves its detail feed within the wait, and makes no request for an unknown id
 # - The kind: detailAvailable is true exactly for the games inside the days shown when served
-# - The kind: the career rows carry the season codes of the stored franchise names when served, read from no source; a franchise with no stored list gives a null entry and starts one names build; a second request inside the retry window of an incomplete names build (no season readable, ADR 0064) starts none (ADR 0055)
+# - The kind: the career rows carry the season codes of the stored franchise names when served, read from no source; a franchise with no stored list gives a null entry and a serve never starts a names build, whatever the stored list or the retry window (ADR 0055, ADR 0065)
 # - The kind: after a stars run the cleanup deletes the feeds of players on no roster with no source request, and nothing while the rosters are not all fetched
 #
 # What is covered:
@@ -2025,44 +2025,27 @@ async def test_a_retired_players_career_rows_carry_the_season_codes_of_the_store
 
 
 @pytest.mark.anyio
-async def test_a_career_franchise_with_no_stored_names_gives_a_null_entry_and_starts_one_names_build(
-    kit: PlayerKit,
-) -> None:
+async def test_a_player_feed_serve_never_starts_a_names_build(kit: PlayerKit) -> None:
     names = NamesWiring(kit)
     names.store("TOR", runs_for("TOR", None))
 
     feed = await serve_retired_career(kit)
-
-    assert feed.seasons.regular.per_game[0].season_codes == ["TOR", None]
-    assert {code for code, _ in names.reads} == {"BKN"}
-    assert kit.store.feed_build(NAMES_KIND, "bkn") is not None
-    assert kit.store.feed_build(NAMES_KIND, "tor").last_build == NOW  # type: ignore[union-attr]
-    again = PlayerFeed.model_validate_json(await kit.serve_player("retired1"))
-    assert again.seasons.regular.per_game[0].season_codes is not None
-    assert None not in again.seasons.regular.per_game[0].season_codes
-
-
-@pytest.mark.anyio
-async def test_a_second_request_inside_the_retry_window_of_an_incomplete_names_build_starts_none(
-    kit: PlayerKit,
-) -> None:
-    names = NamesWiring(kit)
-    names.failing = True
-    names.store("TOR", runs_for("TOR", None))
-
-    first = await serve_retired_career(kit)
-    reads = len(names.reads)
-    second = PlayerFeed.model_validate_json(
+    again = PlayerFeed.model_validate_json(
         await kit.serve_player("retired1", NOW + 5 * SECOND)
     )
 
-    assert reads > 0
-    assert first.seasons.regular.per_game[0].season_codes == ["TOR", None]
-    assert second.seasons.regular.per_game[0].season_codes == ["TOR", None]
-    assert len(names.reads) == reads
-    body = read_by_id(kit.path, NAMES_KIND, "bkn")
-    assert body is not None
-    assert TeamNames.model_validate_json(body).complete is False
+    assert feed.seasons.regular.per_game[0].season_codes == ["TOR", None]
+    assert again.seasons.regular.per_game[0].season_codes == ["TOR", None]
+    assert names.reads == []
+    assert not any(key[0] == NAMES_KIND for key in kit.cache.in_flight)
+    assert kit.store.feed_build(NAMES_KIND, "bkn") is None
+    assert read_by_id(kit.path, NAMES_KIND, "bkn") is None
+
+    names.store("BKN", runs_for("BKN", "NJ"))
+    later = PlayerFeed.model_validate_json(
+        await kit.serve_player("retired1", NOW + 10 * SECOND)
+    )
+    assert later.seasons.regular.per_game[0].season_codes == ["TOR", "NJ"]
 
 
 @pytest.mark.anyio

@@ -25,8 +25,8 @@
 # ADR 0064).
 #
 # The game detail feed kind reads the games of the days shown through
-# shown_games and refreshed_at; after_run lets it start the final builds and
-# the cleanup.
+# shown_games and refreshed_at; after_run lets it run the
+# cleanup.
 #
 # Once a day, with the daily fetch, the job state is pruned (ADR 0063): source
 # cache entries fetched more than 7 days ago, games dated more than 10 days ago
@@ -349,12 +349,10 @@ class GamesJob:
             started = any(
                 g.status in _NOT_STARTED and g.start_time <= now for g in games
             )
-            interval = (
-                LIVE_INTERVAL
-                if self._requested or self._present(now)
-                else NOBODY_INTERVAL
-            )
-            if (live and age >= interval) or (started and age >= START_CHECK_INTERVAL):
+            someone = self._requested or self._present(now)
+            interval = LIVE_INTERVAL if someone else NOBODY_INTERVAL
+            start_interval = START_CHECK_INTERVAL if someone else NOBODY_INTERVAL
+            if (live and age >= interval) or (started and age >= start_interval):
                 due.append(day)
         return due
 
