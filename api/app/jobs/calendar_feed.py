@@ -19,9 +19,12 @@
 # resolves to the current season's end year before the cache, so it serves the
 # same stored file (503 while the season is unknown). The feed's seasons run from
 # the current season down to 1994 and are set again at serve time (ADR 0042).
+# The build runs under READ_BUDGET reads, counting reads only for the current
+# season; a past season stops on a rate limit (rule O, ADR 0067).
 #
 # SEE: docs/api/calendar.md, docs/adr/0040-calendar-and-day-feeds.md,
-# api/app/jobs/standings_feed.py
+# api/app/jobs/standings_feed.py,
+# docs/adr/0067-read-budgets-of-every-on-demand-build.md
 
 import datetime as dt
 import re
@@ -43,12 +46,14 @@ from app.jobs.stars import StarsJob
 from app.jobs.team_feed import season_label
 from app.settings import Settings
 from app.sources import season_calendar
-from app.sources.http import SourceClient
+from app.sources.http import ReadBudget, SourceClient, within_budget
 from app.storage.state import StateStore
 
 KIND = "calendars"
 CURRENT_ID = "current"
 CURRENT_FRESH_FOR = dt.timedelta(hours=24)
+# The most source reads one build sends: the season calendar (ADR 0067).
+READ_BUDGET = 1
 _SEASON_ID = re.compile(r"\d{4}")
 
 FetchSeasonCalendar = Callable[
@@ -130,6 +135,15 @@ class CalendarFeeds:
         return IdStatus.UNKNOWN if int(feed_id) > current else IdStatus.KNOWN
 
     async def build(self, feed_id: str) -> CalendarFeed:
+        current = self._stars.current_season()
+        past = current is not None and int(feed_id) < current
+        return await within_budget(
+            ReadBudget(READ_BUDGET, stop_on_rate_limit=past),
+            f"calendar: {feed_id}",
+            lambda: self._build(feed_id),
+        )
+
+    async def _build(self, feed_id: str) -> CalendarFeed:
         season = int(feed_id)
         moments = await self._fetch_season_calendar(
             self._client, season, self._settings

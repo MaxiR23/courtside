@@ -21,7 +21,9 @@
 # percentages as fractions; the higher value is better, except for the
 # technical fouls total, where the lower is. The averages list each roster
 # player (players whose team changed are left out) in jersey order with the
-# postseason averages, a player with no values last. A failed detail, plays,
+# postseason averages, a player with no values last; at
+# most FINALS_ROSTER_READS players per finalist are read, a further one has no
+# values. A failed detail, plays,
 # stats or record read only nulls its part. The season unknown, no playoffs feed
 # of the season, a Finals with no game or a side with no team, and an invalid
 # feed, fail the build.
@@ -32,12 +34,16 @@
 # G). Once the series is complete it is kept while its season is the current
 # one. The route serves the playoffs feed first, so a missing one answers 503.
 # The stored highlights and detailAvailable are added when served, never stored.
+# The build runs under READ_BUDGET reads, counting reads only, and reads the
+# postseason averages of at most FINALS_ROSTER_READS players per finalist (ADR 0067).
 #
 # SEE: docs/api/playoffs.md, docs/adr/0033-playoffs-finals-feed.md,
-# api/app/jobs/playoffs_feed.py
+# api/app/jobs/playoffs_feed.py,
+# docs/adr/0067-read-budgets-of-every-on-demand-build.md
 
 import asyncio
 import datetime as dt
+import logging
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -71,14 +77,29 @@ from app.settings import Settings
 from app.sources import finals_plays, game_detail, player_stats, team_postseason
 from app.sources.finals_plays import PlayScore
 from app.sources.game_detail import BoxScoreRosterEntry, GameDetail, GameDetailSections
-from app.sources.http import Freshness, SourceClient, SourceError
+from app.sources.http import (
+    Freshness,
+    ReadBudget,
+    SourceClient,
+    SourceError,
+    within_budget,
+)
 from app.sources.player_stats import PlayerStats, StatLine
 from app.sources.team_players import RosterEntry
 from app.sources.team_postseason import TeamPostseasonRecord, TeamPostseasonStats
 from app.storage.state import StateStore
 
+logger = logging.getLogger(__name__)
+
 KIND = "playoffs-finals"
 FEED_ID = "league"
+# The most roster players of one finalist whose postseason averages are
+# read; a further player is listed with no values (ADR 0067).
+FINALS_ROSTER_READS = 18
+# The most source reads one build sends: 7 Finals games (detail, sections and
+# plays share one URL) + 2 finalist records + 2 finalist team statistics +
+# 2 x FINALS_ROSTER_READS player stats + 1 Finals MVP (ADR 0067).
+READ_BUDGET = 7 + 2 + 2 + 2 * FINALS_ROSTER_READS + 1
 ROUND_TO = 3
 UNPLAYED_FRESH = dt.timedelta(hours=1)
 LOWER_IS_BETTER = frozenset({HeadToHeadStat.TECHNICAL_FOULS})
@@ -511,6 +532,13 @@ class PlayoffsFinalsFeeds:
             return None
 
     async def build(self, feed_id: str) -> PlayoffsFinalsFeed:
+        return await within_budget(
+            ReadBudget(READ_BUDGET, stop_on_rate_limit=False),
+            f"playoffs finals: {feed_id}",
+            lambda: self._build(feed_id),
+        )
+
+    async def _build(self, feed_id: str) -> PlayoffsFinalsFeed:
         season = self._stars.current_season()
         if season is None:
             raise FinalsBuildError("season not known yet")
@@ -534,12 +562,17 @@ class PlayoffsFinalsFeeds:
             for code in codes
         }
         mvp = mvp_id(stored)
-        player_ids = list(
-            dict.fromkeys(
-                [entry.player_id for code in codes for entry in rosters[code]]
-                + ([mvp] if mvp is not None else [])
-            )
-        )
+        read_ids: list[str] = []
+        for code in codes:
+            ordered = sorted(rosters[code], key=lambda e: roster_order(e.jersey))
+            if len(ordered) > FINALS_ROSTER_READS:
+                logger.warning(
+                    "playoffs finals: %d players of %s not read",
+                    len(ordered) - FINALS_ROSTER_READS,
+                    code,
+                )
+            read_ids += [entry.player_id for entry in ordered[:FINALS_ROSTER_READS]]
+        player_ids = list(dict.fromkeys(read_ids + ([mvp] if mvp is not None else [])))
         client, settings = self._client, self._settings
         details, sections, plays, records, team_stats, stats = await asyncio.gather(
             asyncio.gather(

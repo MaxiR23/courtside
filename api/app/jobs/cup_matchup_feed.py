@@ -21,9 +21,12 @@
 # failed Cup feed, roster, schedule or injuries read fails the build; a failed
 # averages or depth chart read only removes the leaders or the starters. The
 # feed is never deleted.
+# The build runs under READ_BUDGET reads, counting reads only; the Cup feed,
+# built first, keeps its own budget (ADR 0067).
 #
 # SEE: docs/api/cup-matchup.md, docs/adr/0029-cup-matchup-feed.md,
-# api/app/jobs/cup_feed.py
+# api/app/jobs/cup_feed.py,
+# docs/adr/0067-read-budgets-of-every-on-demand-build.md
 
 import asyncio
 import datetime as dt
@@ -58,7 +61,7 @@ from app.settings import Settings
 from app.sources import depth_chart, league_injuries, team_players, team_schedule
 from app.sources.cup import cup_round
 from app.sources.depth_chart import POSITIONS, DepthChart
-from app.sources.http import SourceClient, SourceError
+from app.sources.http import ReadBudget, SourceClient, SourceError, within_budget
 from app.sources.league_injuries import LeagueInjuries
 from app.sources.team_players import PlayerAverages, Roster
 from app.sources.team_schedule import SeasonSchedule
@@ -66,6 +69,9 @@ from app.storage.feeds import read_by_id
 from app.storage.state import StateStore
 
 KIND = "cup-matchups"
+# The most source reads one build sends: 1 league injuries + per side team 1
+# roster, 1 season schedule, 1 season averages and 1 depth chart (ADR 0067).
+READ_BUDGET = 9
 SLOT_IDS = frozenset(slot.value for slot in SlotId)
 STATS = ("points", "rebounds", "assists")
 
@@ -299,6 +305,13 @@ class CupMatchupFeeds:
             return None
 
     async def build(self, feed_id: str) -> CupMatchupFeed:
+        return await within_budget(
+            ReadBudget(READ_BUDGET, stop_on_rate_limit=False),
+            f"cup matchup: {feed_id}",
+            lambda: self._build(feed_id),
+        )
+
+    async def _build(self, feed_id: str) -> CupMatchupFeed:
         season = self._stars.current_season()
         if season is None:
             raise MatchupBuildError("season not known yet")

@@ -458,7 +458,10 @@ team), then the bottom side.
    lower is. `better` is null when either value is null or they are equal. A failed
    statistics read leaves that team's values null.
 8. **Averages.** The roster of each finalist is the stars job's roster of the team,
-   without players whose latest roster is another team's, in jersey order. A
+   without players whose latest roster is another team's, in jersey order. The
+   postseason stats of at most 18 players per finalist are read, in jersey order,
+   and the Finals MVP's; a further player has null values and goes last, and one
+   warning is logged ([ADR 0067](../adr/0067-read-budgets-of-every-on-demand-build.md)). A
    player with no postseason row of the season, or a failed read, has null values
    and goes last.
 9. **Serve time.** `highlights` is the stored highlight of the game as a list of
@@ -498,7 +501,8 @@ series without data.
 - A player's stats are read once per build with the source's 1 hour freshness; the
   bound of rule F holds through the feed's expiry.
 - A cold build reads up to 7 game details, 2 postseason records, 2 postseason
-  statistics and one player stats read per roster player (about 30).
+  statistics and one player stats read per roster player (about 30), at most 18
+  players per finalist and the Finals MVP. The build is under a read budget of 48 that counts reads only: a rate-limited read fails as an ordinary one ([ADR 0067](../adr/0067-read-budgets-of-every-on-demand-build.md)).
 - The build fails and keeps the stored feed when the season is unknown, no playoffs
   feed of the season is stored, the Finals has no game or a side with no team, or
   the feed is invalid. Any other failed read only nulls its part.

@@ -10,8 +10,9 @@
 # reads of one adapter. count_reads wraps the adapters a kind was given, so that
 # every call sends one request through the shared SourceClient (the only place
 # that counts a read) before it returns what the kit's fake adapter returns. The
-# adapters that read one game share a URL by game id, as the real ones do, so a
-# second adapter on a game is a cache hit and not a read (path name "game").
+# adapters that read one game (the detail, the sections, the plays, the box
+# players and the All-Star extras) share a URL by game id, as the real ones do, so
+# a second adapter on a game is a cache hit and not a read (path name "game").
 #
 # SEE: api/app/sources/http.py, api/tests/jobs/test_past_build_reads.py
 
@@ -30,7 +31,13 @@ BASE = "https://example.com/reads/"
 FRESH = dt.timedelta(hours=1)
 # The adapters that read the summary of one game: one URL per game id.
 GAME_KEYED = frozenset(
-    {"game_detail", "game_detail_sections", "play_scores", "game_players"}
+    {
+        "game_detail",
+        "game_detail_sections",
+        "play_scores",
+        "game_players",
+        "all_star_extras",
+    }
 )
 REAL_SLEEP = asyncio.sleep
 

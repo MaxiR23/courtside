@@ -25,8 +25,11 @@
 # when missing or stale, and set again when served (ADR 0043). A team feed is also
 # stale while its stored names are of another build version, which rebuilds the
 # names first (ADR 0055). Team feeds are never deleted.
+# The build runs under READ_BUDGET reads, counting reads only; the franchise
+# names, built first, keep their own budget (ADR 0067).
 #
-# SEE: docs/api/team.md, docs/api/player.md, docs/source-rules.md, api/app/jobs/game_detail_feed.py
+# SEE: docs/api/team.md, docs/api/player.md, docs/source-rules.md, api/app/jobs/game_detail_feed.py,
+# docs/adr/0067-read-budgets-of-every-on-demand-build.md
 
 import asyncio
 import datetime as dt
@@ -68,7 +71,7 @@ from app.sources import (
 from app.sources.cup import GROUP_IDS, CupTable, fetch_group_table
 from app.sources.division_standings import DivisionEntry, DivisionStandings
 from app.sources.game_detail import BoxScoreRosterEntry
-from app.sources.http import SourceClient, SourceError
+from app.sources.http import ReadBudget, SourceClient, SourceError, within_budget
 from app.sources.league_injuries import LeagueInjuries
 from app.sources.team_info import TeamInfo, secondary_color
 from app.sources.team_players import (
@@ -86,6 +89,11 @@ KIND = "teams"
 FEED_LIFETIME = dt.timedelta(days=7)
 AFTER_FINAL = dt.timedelta(hours=1)
 START_MARGIN = dt.timedelta(days=1)
+# The most source reads one build sends: 1 roster + 2 season averages (the
+# previous season when the current has none) + 1 team info + 2 division
+# standings (the request of rule L) + 1 league injuries + 2 season schedules
+# + 6 Cup group tables (ADR 0067).
+READ_BUDGET = 15
 TEAM_IDS = frozenset(code.lower() for code in TEAM_CODES.values())
 
 FetchRoster = Callable[[SourceClient, str, Settings], Awaitable[Roster]]
@@ -655,6 +663,13 @@ class TeamFeeds:
         return None if self._names is None else (NAMES_KIND, code)
 
     async def build(self, code: str) -> TeamFeed:
+        return await within_budget(
+            ReadBudget(READ_BUDGET, stop_on_rate_limit=False),
+            f"team: {code}",
+            lambda: self._build(code),
+        )
+
+    async def _build(self, code: str) -> TeamFeed:
         team = code.upper()
         roster = await self._fetch_roster(self._client, team, self._settings)
         leaders = await self._fetch_team_leaders(self._client, roster, self._settings)

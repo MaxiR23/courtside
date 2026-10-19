@@ -68,13 +68,15 @@
 # editionHighlight, never stored; no game carries a per-game highlight (ADR 0048). Serving an
 # edition whose video window has ended with no video starts one on-demand
 # search (ADR 0065).
+# The build runs under READ_BUDGET reads, counting reads only (ADR 0067).
 #
 # SEE: docs/api/all-star.md, docs/adr/0036-all-star-feed.md,
 # docs/adr/0048-highlights-backfill-and-edition-video.md,
 # docs/adr/0053-season-level-rules-for-past-seasons.md,
 # docs/adr/0056-paced-past-builds-and-one-edition-mvp-path.md,
 # docs/adr/0065-background-work-limited-to-games-highlights-and-stars.md,
-# api/app/jobs/playoffs_finals_feed.py
+# api/app/jobs/playoffs_finals_feed.py,
+# docs/adr/0067-read-budgets-of-every-on-demand-build.md
 
 import asyncio
 import datetime as dt
@@ -119,7 +121,13 @@ from app.sources.all_star_detail import AllStarDetailExtras
 from app.sources.all_star_mark import CHAMPIONSHIP, parse_note
 from app.sources.all_star_scoreboard import AllStarScoreboardGame, AllStarSide
 from app.sources.game_detail import GameDetail, GameDetailSections
-from app.sources.http import Freshness, SourceClient, SourceError
+from app.sources.http import (
+    Freshness,
+    ReadBudget,
+    SourceClient,
+    SourceError,
+    within_budget,
+)
 from app.sources.scoreboard import FRESH_FOR
 from app.sources.season_awards import AwardWinnerRef, SeasonAwards
 from app.sources.team_info import TeamInfo, secondary_color
@@ -134,6 +142,12 @@ PREVIOUS_FRESH = dt.timedelta(hours=24)
 # February 1 to March 7 of the season's end year (ADR 0065).
 EDITION_WINDOW = ((2, 1), (3, 7))
 MAX_EDITION_READS = 6
+# The most source reads one build sends (ADR 0067): per edition, the current and
+# the previous one, 1 calendar + MAX_EDITION_READS days, up to 8 games (detail,
+# sections and extras share one URL) and 31 awards (the index and up to 30
+# documents), bounds with headroom so a format change does not fail the build;
+# then 30 team infos.
+READ_BUDGET = 2 * (1 + MAX_EDITION_READS + 8 + 31) + 30
 SUNDAY = 6
 BEFORE_FRESH = dt.timedelta(hours=24)
 MAX_TOP5 = 5
@@ -1254,6 +1268,13 @@ class AllStarFeeds:
         )
 
     async def build(self, feed_id: str) -> AllStarFeed:
+        return await within_budget(
+            ReadBudget(READ_BUDGET, stop_on_rate_limit=False),
+            f"all-star: {feed_id}",
+            lambda: self._build(feed_id),
+        )
+
+    async def _build(self, feed_id: str) -> AllStarFeed:
         season = self._stars.current_season()
         if season is None:
             raise AllStarBuildError("season not known yet")

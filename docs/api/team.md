@@ -133,7 +133,7 @@ The root is one team.
   six Cup group tables are read only inside the Cup window, as the `cup` field
   says.
   The division standings add one request for the regular season when the
-  configured one is not (rule L).
+  configured one is not (rule L). The build is under a read budget of 15 that counts reads only: a rate-limited read fails as an ordinary one ([ADR 0067](../adr/0067-read-budgets-of-every-on-demand-build.md)). The franchise names, built first, keep their own budget.
 - `detailAvailable` is set when the feed is served, true for the games the
   games job holds in the days shown, and not stored.
 - A failed build keeps the stored feed and is listed under `feeds` in
