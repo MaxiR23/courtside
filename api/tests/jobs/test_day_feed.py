@@ -12,6 +12,8 @@
 # - The day id: a real YYYY-MM-DD date only
 # - The kind: 2024-13-01, 20240101, abc, 1993-09-30, tomorrow and a day of the stored games feed answer unknown with no source request
 # - The kind: 1993-10-01 is known, a day before the games job's window is known, and with no games feed stored a day inside the window is unknown
+# - The kind: after the games job's first run check reads the days it shows from memory and no stored feed; before it, check reads the stored games feed (ADR 0066)
+# - The kind: a published day feed is passed to on_publish once, and a rebuild-free second request passes none (ADR 0066)
 # - The kind: a request builds and stores a valid feed and a second request reads storage
 # - The kind: an all-final day and an empty day are fresh after a year, a day with a postponed or scheduled game is fresh before 6 hours and stale at 6 hours
 # - The kind: a failed read with nothing stored answers unavailable, and a failed rebuild keeps the stored feed
@@ -63,6 +65,7 @@ from app.jobs.day_feed import (
     parse_day,
     stored_window_days,
 )
+from app.jobs.games import GamesJob
 from app.jobs.on_demand import (
     SEASON_BUILD_VERSION,
     FeedCache,
@@ -74,11 +77,12 @@ from app.jobs.on_demand import (
 from app.jobs.stars import StarsJob
 from app.jobs.team_names import TeamNamesFeeds
 from app.settings import Settings
-from app.sources.http import SourceClient, SourceError, create_client
+from app.sources.game_detail import GameDetail
+from app.sources.http import Freshness, SourceClient, SourceError, create_client
 from app.sources.scoreboard import PastScoreboardDay, ScoreboardGame
 from app.sources.season_team import SeasonTeam
 from app.sources.teams import SeasonTeamName
-from app.storage.feeds import publish_by_id, publish_feed, read_by_id
+from app.storage.feeds import publish_by_id, publish_feed, read_by_id, read_feed
 from app.storage.state import StateStore
 
 NOW = dt.datetime(2026, 10, 8, 15, 0, tzinfo=dt.UTC)
@@ -250,14 +254,38 @@ class DayKit:
             cast(StarsJob, SimpleNamespace(current_season=lambda: 2027)),
             fetch_season_team=self.fetch_season_team,
         )
+        self.games = GamesJob(
+            self.settings,
+            self.store,
+            self.client,
+            fetch_games=self.fetch_games,
+            fetch_game_detail=self.fetch_game_detail,
+        )
+        # The feeds passed to on_publish.
+        self.published: list[tuple[str, DayFeed]] = []
         self.days_kind = DayFeeds(
             self.settings,
             self.store,
             self.client,
             self.cache,
+            self.games,
             self.names,
             fetch_past_day=self.fetch_past_day,
+            on_publish=self.on_publish,
         )
+
+    def on_publish(self, day_id: str, feed: DayFeed) -> None:
+        self.published.append((day_id, feed))
+
+    async def fetch_games(
+        self, client: SourceClient, day: dt.date, settings: Settings
+    ) -> list[ScoreboardGame]:
+        return []
+
+    async def fetch_game_detail(
+        self, client: SourceClient, game_id: str, settings: Settings, fresh: Freshness
+    ) -> GameDetail:
+        raise SourceError("test", "no detail")
 
     async def fetch_season_team(
         self, client: SourceClient, code: str, season: int, settings: Settings
@@ -346,6 +374,53 @@ async def test_with_no_games_feed_stored_the_days_the_games_job_shows_are_unknow
     assert kit.days_kind.check("2026-10-05") is IdStatus.UNKNOWN
     assert kit.days_kind.check("2026-10-08") is IdStatus.UNKNOWN
     assert kit.days_kind.check("2026-10-04") is IdStatus.KNOWN
+
+
+@pytest.mark.anyio
+async def test_check_reads_no_stored_feed_after_the_games_jobs_first_run(
+    kit: DayKit, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    await kit.games.run(NOW)
+    reads: list[str] = []
+
+    def counting(data_dir: Path, name: str) -> None:
+        reads.append(name)
+
+    monkeypatch.setattr("app.jobs.day_feed.read_feed", counting)
+
+    assert kit.days_kind.check("2026-10-08") is IdStatus.UNKNOWN
+    assert kit.days_kind.check("2026-09-01") is IdStatus.KNOWN
+    assert reads == []
+
+
+@pytest.mark.anyio
+async def test_check_reads_the_stored_games_feed_before_the_first_run(
+    kit: DayKit, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    assert kit.games.shown_days() is None
+    reads: list[str] = []
+    real = read_feed
+
+    def counting(data_dir: Path, name: str) -> bytes | None:
+        reads.append(name)
+        return real(data_dir, name)
+
+    monkeypatch.setattr("app.jobs.day_feed.read_feed", counting)
+
+    kit.days_kind.check("2026-10-04")
+
+    assert reads == ["games"]
+
+
+@pytest.mark.anyio
+async def test_a_published_day_feed_is_passed_to_on_publish(kit: DayKit) -> None:
+    kit.days[PAST] = [game("1", GameStatus.FINAL)]
+
+    await kit.serve(PAST)
+    await kit.serve(PAST)
+
+    assert [day_id for day_id, _ in kit.published] == [PAST.isoformat()]
+    assert [g.id for g in kit.published[0][1].day.games] == ["1"]
 
 
 @pytest.mark.anyio

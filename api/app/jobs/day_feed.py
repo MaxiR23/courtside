@@ -12,7 +12,8 @@
 # DayFeeds is the feed kind of the on-demand cache: the id is the date
 # (YYYY-MM-DD), the feed is stored at feeds/days/{date}.json only when requested.
 # The date is unknown (404) when it is not a real date, is before 1993-10-01,
-# is after today (US Eastern) or is a day of the games feed: the stored window,
+# is after today (US Eastern) or is a day of the games feed: the days the games
+# job shows, from its memory (ADR 0066); before its first run the stored window,
 # or with none stored the days the games job would show. It expires (rule G)
 # 6 hours after the build when a game is not final, and is kept when every game
 # is final or there is no game. It is deleted with its build row when not served in 90 days and rebuilt on its
@@ -21,7 +22,8 @@
 # stored highlight of a final game is added when served, never stored (ADR
 # 0048); an All-Star game gets none. The league sides of a day are named from the
 # scoreboard payload with the season code of the stored franchise names (ADR
-# 0059); a guest side keeps its name. The build declares a read budget of
+# 0059); a guest side keeps its name. A published feed is passed to on_publish
+# (ADR 0066). The build declares a read budget of
 # READ_BUDGET source read: the scoreboard.
 #
 # SEE: docs/api/days.md, docs/adr/0040-calendar-and-day-feeds.md,
@@ -39,7 +41,7 @@ from pydantic import ValidationError
 
 from app.feeds.days import DayFeed, PastGame
 from app.feeds.games import GamesFeed, GameStatus, StatsAvailability
-from app.jobs.games import days_shown, eastern_date, final_winner
+from app.jobs.games import GamesJob, days_shown, eastern_date, final_winner
 from app.jobs.on_demand import (
     FeedCache,
     FeedKind,
@@ -150,14 +152,18 @@ class DayFeeds:
         store: StateStore,
         client: SourceClient,
         cache: FeedCache,
+        games: GamesJob,
         names: TeamNamesFeeds,
         *,
         fetch_past_day: FetchPastDay = scoreboard.fetch_past_day,
+        on_publish: Callable[[str, DayFeed], None] | None = None,
     ) -> None:
         self._settings = settings
         self._store = store
         self._client = client
+        self._games = games
         self._names = names
+        self._on_publish = on_publish
         self._fetch_past_day = fetch_past_day
         cache.register(self.kind())
 
@@ -168,7 +174,9 @@ class DayFeeds:
         today = eastern_date(self._client.clock())
         if day > today:
             return IdStatus.UNKNOWN
-        window = stored_window_days(self._settings.data_dir)
+        window = self._games.shown_days()
+        if window is None:
+            window = stored_window_days(self._settings.data_dir)
         if window is None:
             window = days_shown(today)
         return IdStatus.UNKNOWN if day in window else IdStatus.KNOWN
@@ -221,6 +229,10 @@ class DayFeeds:
                 game["highlights"] = [found.model_dump(by_alias=False)]
         return DayFeed.model_validate(data)
 
+    def _after_publish(self, feed_id: str, feed: DayFeed) -> None:
+        if self._on_publish is not None:
+            self._on_publish(feed_id, feed)
+
     def keep(self, feed_id: str) -> bool:
         return True
 
@@ -233,4 +245,5 @@ class DayFeeds:
             is_fresh=self.is_fresh,
             keep=self.keep,
             serve_with=self.serve_with,
+            after_publish=self._after_publish,
         )

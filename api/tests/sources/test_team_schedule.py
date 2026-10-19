@@ -15,6 +15,7 @@
 # - Requests the schedule URL built from the template and the provider team code, including a code that differs from the standard one
 # - Raises the source error when the team is missing from a game, on a game without a score, an unknown team code, an invalid payload, a timeout, an error status and a missing URL
 # - Reuses a team's schedule for one hour
+# - A season schedule read with a 24-hour freshness is served from a two-hour-old entry, and the default stays 1 hour (ADR 0066)
 # - Maps a recorded regular season with notes, broadcasts, venues and scores
 # - Maps unplayed games without scores
 # - Maps the period of a played season game and leaves it null for an unplayed game, a period of 0 and a missing period
@@ -601,6 +602,31 @@ async def test_reuses_a_season_schedule_for_one_hour(
             )
         assert route.call_count == 1
         clock[0] = start + dt.timedelta(hours=1)
+        await fetch_season_schedule(client, "OKC", 2026, query_settings, playoffs=False)
+
+    assert route.call_count == 2
+
+
+@pytest.mark.anyio
+async def test_a_season_schedule_read_with_a_24_hour_freshness_is_served_from_a_two_hour_old_entry(
+    mock: respx.MockRouter, query_settings: Settings, tmp_path: Path
+) -> None:
+    start = dt.datetime(2026, 1, 10, 12, 0, tzinfo=dt.UTC)
+    clock = [start]
+    route = mock.get(season_url("OKC", 2026, 2)).respond(json={"events": []})
+    async with clocked(tmp_path, clock) as client:
+        await fetch_season_schedule(client, "OKC", 2026, query_settings, playoffs=False)
+        clock[0] = start + dt.timedelta(hours=2)
+        await fetch_season_schedule(
+            client,
+            "OKC",
+            2026,
+            query_settings,
+            playoffs=False,
+            fresh=dt.timedelta(hours=24),
+        )
+        assert route.call_count == 1
+        # The default stays 1 hour.
         await fetch_season_schedule(client, "OKC", 2026, query_settings, playoffs=False)
 
     assert route.call_count == 2

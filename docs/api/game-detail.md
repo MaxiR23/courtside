@@ -223,7 +223,10 @@ recorded response that shows it.
 - It responds 304 with no body when `If-None-Match` matches the current
   `ETag`.
 - It responds 404 with `{"detail": ...}` for an id outside the days shown that
-  is not a final game of a stored day feed, with no source request.
+  is not a final game of a stored day feed, with no source request. The final
+  games of the stored day feeds are indexed in memory at startup and whenever a
+  day feed is published, so the check reads no file
+  ([ADR 0066](../adr/0066-cut-read-amplification-of-on-demand-builds.md)).
 - It responds 503 with `{"detail": ...}` before the days shown are loaded,
   when the request's 20 seconds end before a missing feed is built, after a
   failed build, and for a final game with no stored feed. It also responds 503

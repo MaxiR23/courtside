@@ -35,7 +35,7 @@
 # - At most four requests are in flight under a budget; without one all are in flight
 # - A 429 and a 503 are recorded as the "rate limited" stop, and the next read sends no request
 # - within_budget re-raises a stop the build swallowed and logs the label and reason, lets other build errors through and resets the budget afterwards
-# - A budget extended during a build allows the added reads, and an extended budget that already stopped stays stopped
+# - A budget with stop_on_rate_limit False fails a rate-limited read as an ordinary one and does not stop, and still enforces the read count (ADR 0066)
 # - Wide reads run up to the wide limit while other reads stay at four, share the four slots without a wide lane, and a rate limited wide read stops the budget (ADR 0061)
 # - At most eight requests are in flight across unbudgeted and budgeted reads (ADR 0062)
 # - A 429 or 503 pauses the client: the next read of another URL raises the paused error and sends nothing
@@ -870,33 +870,41 @@ async def test_cached_json_returns_an_entry_of_any_age_with_no_request_and_none_
 
 
 @pytest.mark.anyio
-async def test_a_budget_extended_during_a_build_allows_the_added_reads(
-    tmp_path: Path,
+@pytest.mark.parametrize("status", [429, 503])
+async def test_a_budget_that_does_not_stop_on_a_rate_limit_fails_the_read_as_an_ordinary_one(
+    tmp_path: Path, status: int
 ) -> None:
-    budget = ReadBudget(1)
+    budget = ReadBudget(10, stop_on_rate_limit=False)
+    seen: list[SourceError] = []
 
-    async def build() -> None:
-        await read_budgeted(client, 1)
-        budget.extend(2)
-        await read_budgeted(client, 2)
-        await read_budgeted(client, 3)
+    async def build() -> str:
+        for number in (1, 2):
+            try:
+                await read_budgeted(client, number)
+            except SourceError as error:
+                seen.append(error)
+        return "built"
 
     with respx.mock:
-        route = respx.get(url__startswith="https://example.com/budget/").respond(
-            json={}
-        )
+        route = respx.get(url__startswith="https://example.com/budget/").respond(status)
         async with create_client(make_store(tmp_path), clock=lambda: T) as client:
-            await within_budget(budget, "test", build)
+            result = await within_budget(budget, "test", build)
 
-    assert route.call_count == 3
-    assert budget.limit == 3 and budget.reads == 3 and budget.stopped is None
+    assert result == "built"
+    assert budget.stopped is None and budget.reads == 2
+    assert route.call_count == 1
+    assert [e.reason for e in seen] == [
+        f"responded with status {status}",
+        "source paused",
+    ]
+    assert all(is_rate_limited(e) for e in seen)
 
 
 @pytest.mark.anyio
-async def test_an_extended_budget_that_already_stopped_stays_stopped(
+async def test_a_budget_that_does_not_stop_on_a_rate_limit_still_enforces_the_read_count(
     tmp_path: Path,
 ) -> None:
-    budget = ReadBudget(1)
+    budget = ReadBudget(1, stop_on_rate_limit=False)
     errors: list[SourceError] = []
 
     async def build() -> None:
@@ -905,11 +913,6 @@ async def test_an_extended_budget_that_already_stopped_stays_stopped(
                 await read_budgeted(client, number)
             except SourceError as error:
                 errors.append(error)
-        budget.extend(5)
-        try:
-            await read_budgeted(client, 3)
-        except SourceError as error:
-            errors.append(error)
 
     with respx.mock:
         route = respx.get(url__startswith="https://example.com/budget/").respond(
@@ -920,7 +923,7 @@ async def test_an_extended_budget_that_already_stopped_stays_stopped(
                 await within_budget(budget, "test", build)
 
     assert route.call_count == 1
-    assert [e.reason for e in errors] == ["read budget of 1 reached"] * 2
+    assert [e.reason for e in errors] == ["read budget of 1 reached"]
 
 
 async def peaks(tmp_path: Path, budget: ReadBudget) -> tuple[int, int, int]:

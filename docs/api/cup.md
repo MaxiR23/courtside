@@ -201,10 +201,14 @@ and a row with no clinch are all valid.
   is final the feed is kept while its season is the current one, and expires
   under the normal rules when the season changes.
 - The sources read are the teams and the table of each of the 6 groups, the table
-  of each of the 2 conferences and the season schedule of the 30 teams (1-hour
-  freshness), through the source cache.
-- A failed group or conference read fails the build. A failed schedule read is
-  skipped only when every drawn team still has its 4 group games among the
+  of each of the 2 conferences and the season schedule of the 30 teams, through
+  the source cache. A schedule is fresh for 24 hours, and for 1 hour for a team
+  with a game today in the games job's shown games (for every team before the
+  job's first run). The build is under a read budget of 44 that counts reads only: a rate-limited
+  read fails as an ordinary one
+  ([ADR 0066](../adr/0066-cut-read-amplification-of-on-demand-builds.md)).
+- A failed group or conference read fails the build. A failed schedule read, a
+  rate-limited one included, is skipped only when every drawn team still has its 4 group games among the
   schedules read and no knockout game can exist yet; otherwise the build fails.
   A knockout game can exist once any group row has a `won_group` or `wild_card`
   tag, or the group round is final among the schedules read.

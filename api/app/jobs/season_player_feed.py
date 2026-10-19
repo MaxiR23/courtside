@@ -17,7 +17,9 @@
 # names, and every game of the log has detail available: its date is registered
 # so its past game detail can be built (ADR 0053). The season code of each team of
 # a season row is set when the feed is served, from the stored franchise names
-# (ADR 0055). The build declares a read budget of READ_BUDGET source reads: the
+# (ADR 0055). A player with no season game log or no season row is unknown: the
+# build stores nothing, registers no game and the id answers 404 from memory
+# afterwards; a stored feed with an empty game log is not kept (ADR 0066). The build declares a read budget of READ_BUDGET source reads: the
 # athlete, the game log and the two career stats (ADR 0059).
 #
 # SeasonPlayerFeeds is the feed kind of the on-demand cache: the id is
@@ -47,6 +49,7 @@ from app.jobs.on_demand import (
     FeedCache,
     FeedKind,
     IdStatus,
+    UnknownFeedError,
     is_current_build,
     with_build_version,
 )
@@ -83,6 +86,7 @@ from app.sources.player_draft import PlayerAthlete
 from app.sources.player_gamelog import GameLogGame, PlayerGameLog
 from app.sources.player_stats import PlayerStats, StatLine
 from app.sources.teams import TEAM_CODES, TEAM_IDS
+from app.storage.feeds import read_by_id
 from app.storage.state import StateStore
 
 KIND = "season-players"
@@ -253,6 +257,8 @@ class SeasonPlayerFeeds:
         self._stars = stars
         self._past_ids = past_ids
         self._names = names
+        # Ids a build found to have no season: answered unknown without a build.
+        self._unknown: set[tuple[int, str]] = set()
         self._fetch_player_athlete = fetch_player_athlete
         self._fetch_player_gamelog = fetch_player_gamelog
         self._fetch_player_stats = fetch_player_stats
@@ -265,6 +271,8 @@ class SeasonPlayerFeeds:
         status = past_season_status(match[1], self._stars.current_season())
         if status is not IdStatus.KNOWN:
             return status
+        if (int(match[1]), match[2]) in self._unknown:
+            return IdStatus.UNKNOWN
         if self._stars.player_team(match[2]) is not None:
             return IdStatus.KNOWN
         if self._past_ids.known_in_season(match[2]):
@@ -305,6 +313,15 @@ class SeasonPlayerFeeds:
             self._fetch_player_stats(client, player_id, settings, playoffs=False),
             self._fetch_player_stats(client, player_id, settings, playoffs=True),
         )
+        label = season_label(season)
+        if (
+            log.season is None
+            or _season_line(career_regular, label) is None
+            and _season_line(career_playoffs, label) is None
+        ):
+            # The player has no season here: nothing is stored or registered.
+            self._unknown.add((season, player_id))
+            raise UnknownFeedError(feed_id)
         self._store.set_past_game_dates(
             {game.game_id: eastern_date(game.start_time) for game in log.games},
             at=client.clock(),
@@ -371,7 +388,14 @@ class SeasonPlayerFeeds:
         return feed if team is None else feed.model_copy(update={"team": team})
 
     def keep(self, feed_id: str) -> bool:
-        return True
+        """A stored feed with an empty game log is not kept (ADR 0066)."""
+        body = read_by_id(self._settings.data_dir, KIND, feed_id)
+        if body is None:
+            return True
+        try:
+            return PastPlayerFeed.model_validate_json(body).game_log is not None
+        except ValidationError:
+            return True
 
     def kind(self) -> FeedKind[PastPlayerFeed]:
         return FeedKind(

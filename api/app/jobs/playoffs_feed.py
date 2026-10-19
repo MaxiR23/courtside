@@ -48,6 +48,15 @@
 # day that fails fails the build; leaders, awards, team info and the champion's
 # record only null their part. The feed is never deleted.
 #
+# The build runs in two budgeted phases that count reads only, so a rate-limited
+# read nulls its part as an ordinary failed one (ADR 0066): WINDOW_READS for the
+# two season types, then the day count plus OTHER_READS for the rest, at most
+# four in flight. A scoreboard day before today is read through the source cache
+# fresh for PAST_DAY_FRESH, or from the latest final time of a postseason game of
+# that day when later (day_freshness); today and later days keep the scoreboard's
+# 30 seconds. A past build lists PAST_LEADERS leaders per category, a current one
+# MAX_LEADERS.
+#
 # A past season (ADR 0046) is built from the same builder with two more inputs:
 # a season before 2021 has no play-in window, so its play-in block is null, its
 # seeds 1 to 8 are the standings seeds and its round 1 labels are all seeds; a
@@ -120,7 +129,13 @@ from app.sources import (
 )
 from app.sources.division_standings import DivisionStandings
 from app.sources.game_detail import BoxScoreRosterEntry
-from app.sources.http import SourceClient, SourceError
+from app.sources.http import (
+    Freshness,
+    ReadBudget,
+    SourceClient,
+    SourceError,
+    within_budget,
+)
 from app.sources.player_draft import PlayerAthlete
 from app.sources.postseason_leaders import PostseasonLeaders
 from app.sources.postseason_mark import (
@@ -132,6 +147,7 @@ from app.sources.postseason_mark import (
     ROUNDS,
 )
 from app.sources.postseason_scoreboard import PostseasonGame
+from app.sources.scoreboard import FRESH_FOR as DAY_FRESH_FOR
 from app.sources.season_awards import SeasonAwards
 from app.sources.season_types import PLAY_IN, POSTSEASON, SeasonWindow
 from app.sources.team_info import TeamInfo, secondary_color
@@ -159,13 +175,22 @@ FINALS_ROUND = 4
 STANDINGS_SEEDS = 6
 STANDINGS_SEEDS_NO_PLAY_IN = 8
 MAX_LEADERS = 5
+# A past build lists the first three leaders of each category (ADR 0066).
+PAST_LEADERS = 3
+# A scoreboard day before today is fresh for 7 days, or from the latest final
+# of a postseason game of that day when that is later (ADR 0066).
+PAST_DAY_FRESH = dt.timedelta(days=7)
+# The two season type reads of the windows.
+WINDOW_READS = 2
+# The other reads of a current build besides one per scoreboard day: 2 division
+# standings (rule L) + 30 team infos + 1 leaders + 26 awards (the index and 25
+# documents) + 1 champion record.
+OTHER_READS = 60
 UNNAMED = "—"
 OVERTIME_PERIOD = 5
 
 FetchSeasonType = Callable[[SourceClient, int, int, Settings], Awaitable[SeasonWindow]]
-FetchPostseasonGames = Callable[
-    [SourceClient, dt.date, Settings], Awaitable[list[PostseasonGame]]
-]
+FetchPostseasonGames = Callable[..., Awaitable[list[PostseasonGame]]]
 FetchLeaders = Callable[[SourceClient, int, Settings], Awaitable[PostseasonLeaders]]
 FetchAwards = Callable[[SourceClient, int, Settings], Awaitable[SeasonAwards]]
 FetchRecord = Callable[
@@ -246,6 +271,24 @@ def postseason_days(
             days.add(day)
             day += dt.timedelta(days=1)
     return sorted(days)
+
+
+def day_freshness(
+    day: dt.date,
+    today: dt.date,
+    now: dt.datetime,
+    final_times: Iterable[dt.datetime],
+) -> Freshness:
+    """How fresh a cached scoreboard day must be (ADR 0066): today and later
+    days keep the scoreboard's freshness; an earlier day is fresh for
+    PAST_DAY_FRESH, or from the latest final time of its postseason games when
+    that is within that span."""
+    if day >= today:
+        return DAY_FRESH_FOR
+    latest = max(final_times, default=None)
+    if latest is None or latest <= now - PAST_DAY_FRESH:
+        return PAST_DAY_FRESH
+    return latest
 
 
 def reads_days(today: dt.date, play_in: SeasonWindow) -> bool:
@@ -1066,7 +1109,10 @@ class _Builder:
         for category in LeaderCategory:
             leaders = []
             for rank, entry in enumerate(
-                source.categories.get(category, [])[:MAX_LEADERS], start=1
+                source.categories.get(category, [])[
+                    : PAST_LEADERS if self.sources.past else MAX_LEADERS
+                ],
+                start=1,
             ):
                 identities = self.sources.identities
                 if identities is not None:
@@ -1287,29 +1333,91 @@ class PlayoffsFeeds:
         except SourceError:
             return None
 
+    def _day_final_times(
+        self, days: Iterable[dt.date]
+    ) -> dict[dt.date, list[dt.datetime]]:
+        """The final times of the postseason games of each day: the final games of
+        the games job with a postseason mark, and every game of the stored feed."""
+        wanted = set(days)
+        ids: dict[dt.date, set[str]] = {}
+        for final in self._games.final_games():
+            if final.postseason is not None:
+                ids.setdefault(eastern_date(final.start_time), set()).add(final.id)
+        stored = self.stored()
+        if stored is not None:
+            for play_in in stored.play_in or []:
+                for entry in play_in.games:
+                    if entry.game is not None:
+                        ids.setdefault(entry.game.date, set()).add(entry.game.id)
+            for series in stored.bracket:
+                for played in series.games:
+                    ids.setdefault(played.date, set()).add(played.id)
+        times: dict[dt.date, list[dt.datetime]] = {}
+        for day, game_ids in ids.items():
+            if day not in wanted:
+                continue
+            found = (self._store.final_time(game_id) for game_id in sorted(game_ids))
+            times[day] = [time for time in found if time is not None]
+        return times
+
     async def build(self, feed_id: str) -> PlayoffsFeed:
         season = self._stars.current_season()
         if season is None:
             raise PlayoffsBuildError("season not known yet")
         client, settings = self._client, self._settings
         today = eastern_date(client.clock())
-        play_in, postseason, standings, infos, leaders, awards = await asyncio.gather(
-            self._fetch_season_type(client, season, PLAY_IN, settings),
-            self._fetch_season_type(client, season, POSTSEASON, settings),
+
+        async def read_windows() -> tuple[SeasonWindow, SeasonWindow]:
+            return await asyncio.gather(
+                self._fetch_season_type(client, season, PLAY_IN, settings),
+                self._fetch_season_type(client, season, POSTSEASON, settings),
+            )
+
+        # A current build counts reads only: a rate-limited read nulls its part
+        # (ADR 0066).
+        play_in, postseason = await within_budget(
+            ReadBudget(WINDOW_READS, stop_on_rate_limit=False),
+            "playoffs: league windows",
+            read_windows,
+        )
+        days = (
+            postseason_days(play_in, postseason) if reads_days(today, play_in) else []
+        )
+        return await within_budget(
+            ReadBudget(len(days) + OTHER_READS, stop_on_rate_limit=False),
+            "playoffs: league",
+            lambda: self._build(season, today, play_in, postseason, days),
+        )
+
+    async def _build(
+        self,
+        season: int,
+        today: dt.date,
+        play_in: SeasonWindow,
+        postseason: SeasonWindow,
+        days: list[dt.date],
+    ) -> PlayoffsFeed:
+        client, settings = self._client, self._settings
+        now = client.clock()
+        times = self._day_final_times(days)
+        standings, infos, leaders, awards, day_games = await asyncio.gather(
             self._fetch_division_standings(client, settings),
             asyncio.gather(*(self._info(code) for code in CODES)),
             self._leaders(season),
             self._awards(season),
-        )
-        games: list[PostseasonGame] = []
-        if reads_days(today, play_in):
-            days = await asyncio.gather(
+            asyncio.gather(
                 *(
-                    self._fetch_postseason_games(client, day, settings)
-                    for day in postseason_days(play_in, postseason)
+                    self._fetch_postseason_games(
+                        client,
+                        day,
+                        settings,
+                        fresh=day_freshness(day, today, now, times.get(day, [])),
+                    )
+                    for day in days
                 )
-            )
-            games = [game for day in days for game in day]
+            ),
+        )
+        games = [game for day in day_games for game in day]
         winner = finals_winner(games)
         record = None if winner is None else await self._record(winner, season)
         players = {

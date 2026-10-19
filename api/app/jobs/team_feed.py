@@ -15,8 +15,10 @@
 # hour after a final game of the team that follows the build and 7 days after the
 # build (rule G), and detailAvailable is set when it is served, from the games of
 # the days shown. The feed carries the team's Cup group and record, read from
-# the six Cup group tables of the season, and none when no table has the team
-# or a read fails. It also carries the titles of the current season, given by
+# the six Cup group tables of the season while the Cup window is open and the
+# Cup is not complete, else from the stored Cup feed, both through the injected
+# Cup mark provider of the Cup section (ADR 0066); it is none when no table has
+# the team or a read fails. It also carries the titles of the current season, given by
 # injected providers, one per section, that read no source and are merged in
 # title order, and it expires when a feed any provider reads was rebuilt after
 # it (ADR 0035). It carries the franchise names of the names kind, built first
@@ -584,6 +586,19 @@ class TitleProvider(Protocol):
         ...
 
 
+class CupMarkProvider(Protocol):
+    """The Cup section's Cup mark of a team (ADR 0066). It reads no source."""
+
+    def reads_tables(self, season: int, today: dt.date) -> bool:
+        """True when the team feed reads the six group tables itself: inside the
+        Cup window of the season with no complete stored Cup feed."""
+        ...
+
+    def stored_mark(self, team: str, season: int) -> TeamCup | None:
+        """The mark the stored Cup feed of the season gives the team."""
+        ...
+
+
 def merge_titles(parts: Iterable[list[TeamTitle] | None]) -> list[TeamTitle] | None:
     """The titles of every provider in title kind order; none without a title."""
     order = list(TitleKind)
@@ -613,6 +628,7 @@ class TeamFeeds:
         fetch_season_schedule: FetchSeasonSchedule = team_schedule.fetch_season_schedule,
         fetch_group_table: FetchGroupTable = fetch_group_table,
         title_providers: Sequence[TitleProvider] = (),
+        cup_marks: CupMarkProvider | None = None,
         names: TeamNamesFeeds | None = None,
     ) -> None:
         self._settings = settings
@@ -628,6 +644,7 @@ class TeamFeeds:
         self._fetch_season_schedule = fetch_season_schedule
         self._fetch_group_table = fetch_group_table
         self._title_providers = tuple(title_providers)
+        self._cup_marks = cup_marks
         self._names = names
         cache.register(self.kind())
 
@@ -671,7 +688,13 @@ class TeamFeeds:
 
     async def _cup(self, team: str, season: int) -> TeamCup | None:
         """The team's group and Cup record; none when no group table has the
-        team or a read fails: the Cup never fails the team feed."""
+        team or a read fails: the Cup never fails the team feed. Outside the Cup
+        window, or with a complete stored Cup feed, no table is read and the mark
+        comes from the stored Cup feed; with no provider there is no mark."""
+        if self._cup_marks is None:
+            return None
+        if not self._cup_marks.reads_tables(season, eastern_date(self._client.clock())):
+            return self._cup_marks.stored_mark(team, season)
         try:
             tables = await asyncio.gather(
                 *(

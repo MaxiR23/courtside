@@ -6,6 +6,7 @@
 # (ADR 0064).
 # The provider URL comes from Settings. Provider data never leaves this module.
 #
+# A team's info is fresh for 24 hours (ADR 0066).
 # cached_team_info reads the source cache only (ADR 0058).
 #
 # SEE: docs/api/team.md, api/app/sources/team_schedule.py, docs/adr/0058-bounded-past-competition-reads.md
@@ -27,7 +28,7 @@ from app.sources.http import SourceClient, SourceError, cached_json, get_json
 from app.sources.teams import TEAM_CODES
 
 SOURCE = "team_info"
-FRESH_FOR = dt.timedelta(hours=1)
+FRESH_FOR = dt.timedelta(hours=24)
 PROVIDER_CODES: dict[str, str] = {
     code: provider for provider, code in TEAM_CODES.items()
 }

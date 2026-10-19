@@ -27,6 +27,7 @@
 # - A run over a day whose postseason data is unreadable publishes the day with a playoffs mark, its unreadable values null, for those games (ADR 0050)
 # - Lists only the final games of the days held, in day order
 # - Lists no shown games before the first run or while a day shown failed to fetch, and the games of every day shown in day order
+# - shown_days is None before the first run and the days shown after it (ADR 0066)
 # - Republishes the feed with no source call when a final game's highlights change, and not when they are unchanged
 # - Republishes the feed with no source call when a game's stars change, publishes as soon as the last missing star arrives, and does not republish when stars are unchanged
 # - The winner of each final game is a side from its final score: home, away, none on a tie or before the final; a tied final game makes the feed invalid
@@ -1189,6 +1190,18 @@ async def test_lists_no_shown_games_before_the_first_run(
     job = make_job(settings, store, sources)
 
     assert job.shown_games() is None
+
+
+@pytest.mark.anyio
+async def test_shown_days_is_none_before_the_first_run_and_the_days_shown_after(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    job = make_job(settings, store, sources)
+    assert job.shown_days() is None
+
+    await job.run(NOON)
+
+    assert job.shown_days() == days_shown(TODAY)
 
 
 @pytest.mark.anyio

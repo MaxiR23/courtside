@@ -19,6 +19,9 @@ Every source response is stored once, by URL, with its fetch time, and reused by
 | Scoreboard day, live game detail | 30 seconds |
 | League standings, league injuries | 1 hour |
 | Roster, team leaders, depth chart | 24 hours |
+| Team info | 24 hours (ADR 0066) |
+| Playoffs scoreboard day before today | 7 days, and read again after a postseason final of that day (ADR 0066) |
+| Cup team schedules | 24 hours, 1 hour for a team with a game today (ADR 0066) |
 | A player's individual averages | Until the player's team has a final game after the fetch |
 | Everything else | 1 hour |
 

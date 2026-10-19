@@ -88,10 +88,11 @@ wins, and missing colors are all valid.
   says: when any game of the league has a final time plus 1 hour after the
   build, and in any case 7 days after the build. The final games are the ones
   the games job holds.
-- The sources read are the division standings and the team information of
-  the 30 teams (1-hour freshness), through the source cache. The division
-  standings add one request for the regular season when the configured one is
-  not (rule L).
+- The sources read are the division standings (1-hour freshness) and the team
+  information of the 30 teams (24-hour freshness), through the source cache. The
+  division standings add one request for the regular season when the configured
+  one is not (rule L). The build is under a read budget of 32 that counts reads
+  only ([ADR 0066](../adr/0066-cut-read-amplification-of-on-demand-builds.md)).
 - A failed build keeps the stored feed and is listed under `feeds` in
   `/health`; it is not retried for 10 minutes on request.
 - The feed is never deleted.

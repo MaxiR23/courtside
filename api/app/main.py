@@ -11,6 +11,7 @@ from app.jobs.calendar_feed import KIND as CALENDARS_KIND
 from app.jobs.calendar_feed import CalendarFeeds
 from app.jobs.cup_feed import CupFeeds
 from app.jobs.cup_matchup_feed import CupMatchupFeeds
+from app.jobs.cup_team_marks import CupTeamMarks
 from app.jobs.cup_titles import CupTitles
 from app.jobs.day_feed import KIND as DAYS_KIND
 from app.jobs.day_feed import DayFeeds
@@ -155,6 +156,7 @@ def create_app(settings: Settings | None = None, *, run_jobs: bool = True) -> Fa
                 CupTitles(store, cup_feeds),
                 PlayoffsTitles(store, playoffs_feeds),
             ),
+            cup_marks=CupTeamMarks(cup_feeds),
         )
         PlayoffsFinalsFeeds(
             settings,
@@ -237,8 +239,16 @@ def create_app(settings: Settings | None = None, *, run_jobs: bool = True) -> Fa
             edition_videos=edition_videos,
         )
         calendar_feeds = CalendarFeeds(settings, store, client, feed_cache, stars_job)
-        DayFeeds(settings, store, client, feed_cache, team_names)
-        PastGameDetailFeeds(
+        DayFeeds(
+            settings,
+            store,
+            client,
+            feed_cache,
+            games_job,
+            team_names,
+            on_publish=lambda day_id, feed: past_details.index_day(day_id, feed),
+        )
+        past_details = PastGameDetailFeeds(
             settings, store, client, feed_cache, search=highlights_search
         )
         # The stars job runs in its own task so its fetches never delay the live refresh.

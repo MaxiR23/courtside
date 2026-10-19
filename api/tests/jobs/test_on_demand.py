@@ -39,6 +39,7 @@
 # - A dependency inside its 10-minute backoff is not rebuilt and the dependent build still runs
 # - A dependency id its kind does not know is skipped with no build
 # - An exception raised while ensuring the dependency is recorded as a failed build of the dependent feed and never raised
+# - after_publish is called once with the id and the feed after a stored build, and not when the build fails (ADR 0066)
 # - A build that raises UnknownFeedError after its check learns the id answers unknown and records no failure, and a later request answers unknown with no build
 # - status gives the kind's answer for an id with no build and None for a kind never registered
 # - refresh starts one build without waiting, joins one in flight and leaves no task referenced
@@ -139,7 +140,10 @@ class Fake:
         return self.keep_ids is None or feed_id in self.keep_ids
 
     def kind(
-        self, serve_with: object = None, depends_on: object = None
+        self,
+        serve_with: object = None,
+        depends_on: object = None,
+        after_publish: object = None,
     ) -> FeedKind[FakeFeed]:
         return FeedKind(
             self.name,
@@ -150,6 +154,7 @@ class Fake:
             keep=self.keep,
             serve_with=serve_with,  # type: ignore[arg-type]
             depends_on=depends_on,  # type: ignore[arg-type]
+            after_publish=after_publish,  # type: ignore[arg-type]
         )
 
 
@@ -1076,6 +1081,51 @@ async def test_a_build_that_learns_the_id_is_unknown_answers_unknown_and_records
         await setup.cache.serve("players", "p1")
 
     assert fake.builds == 1
+
+
+@pytest.mark.anyio
+async def test_after_publish_is_called_once_with_the_id_and_feed_after_a_publish(
+    tmp_path: Path,
+) -> None:
+    fake = Fake()
+    setup = Setup(tmp_path, fake)
+    setup.cache = FeedCache(tmp_path, setup.store, clock=lambda: setup.now[0])
+    published: list[tuple[str, FakeFeed, bytes | None]] = []
+
+    def after_publish(feed_id: str, feed: FakeFeed) -> None:
+        # The feed is already stored when the hook runs.
+        published.append((feed_id, feed, setup.stored(feed_id)))
+
+    setup.cache.register(fake.kind(after_publish=after_publish))
+
+    await setup.cache.serve("players", "p1")
+    await setup.settle()
+    await setup.cache.serve("players", "p1")
+
+    assert len(published) == 1
+    feed_id, feed, stored = published[0]
+    assert (feed_id, feed) == ("p1", FakeFeed(id="p1", version=1))
+    assert stored == body_of(1)
+
+
+@pytest.mark.anyio
+async def test_after_publish_is_not_called_when_the_build_fails(
+    tmp_path: Path,
+) -> None:
+    fake = Fake()
+    fake.fail = RuntimeError("down")
+    setup = Setup(tmp_path, fake)
+    setup.cache = FeedCache(tmp_path, setup.store, clock=lambda: setup.now[0])
+    published: list[str] = []
+    setup.cache.register(
+        fake.kind(after_publish=lambda feed_id, feed: published.append(feed_id))
+    )
+
+    with pytest.raises(FeedUnavailableError):
+        await setup.cache.serve("players", "p1")
+    await setup.settle()
+
+    assert published == []
 
 
 class Versioned(BaseModel):

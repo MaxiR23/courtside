@@ -12,6 +12,9 @@
 # At most MAX_QUEUED_BUILDS builds are started at once, and a build is stopped after BUILD_TIMEOUT_SECONDS
 # and recorded as "build timed out" (ADR 0062).
 #
+# A kind may set after_publish: it is called with the id and the feed once a build
+# has been stored (ADR 0066).
+#
 # prune_unserved deletes the stored file and build row of the ids of the given kinds not served in
 # KEPT_RETENTION; they are built again on their next request (ADR 0063).
 #
@@ -106,6 +109,7 @@ class FeedKind[M: BaseModel]:
         serve_with: Callable[[str, M], M] | None = None,
         wait_when_stale: Callable[[str], bool] | None = None,
         depends_on: Callable[[str], tuple[str, str] | None] | None = None,
+        after_publish: Callable[[str, M], None] | None = None,
     ) -> None:
         self.name = name
         self.model = model
@@ -116,6 +120,7 @@ class FeedKind[M: BaseModel]:
         self.serve_with = serve_with
         self.wait_when_stale = wait_when_stale
         self.depends_on = depends_on
+        self.after_publish = after_publish
 
 
 class FeedCache:
@@ -371,6 +376,8 @@ class FeedCache:
             else:
                 if publish_by_id(self._data_dir, kind.name, kind.model, feed_id, feed):
                     self._store.record_build(kind.name, feed_id, started)
+                    if kind.after_publish is not None:
+                        kind.after_publish(feed_id, feed)
                     return True
                 reason = "feed not written"
             self._store.record_build_failure(kind.name, feed_id, self._clock(), reason)

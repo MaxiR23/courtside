@@ -20,6 +20,9 @@
 # - Errors: an invalid feed is wrapped in a build error
 # - Past season (past=True, ADR 0046): no play-in window gives a null play-in, seeds 1 to 8 from the standings, seed labels for 7 and 8 and the dates of the postseason window; derive_series (15 series in rounds 8-4-2-1, the Finals the only series across the conferences, and each failure with its reason); a postseason with no competition type builds through the derivation while a current one still fails; round 1 placed by the round 2 series with null seeds, failing on a conference without 2 round 2 series; game numbers by order when the note has none; play-in and game notes in any letter case
 # - The kind: an id other than league answers unknown with no build; not ready with no season or rosters; no build without a request; a request builds and stores and a second reads storage
+# - day_freshness: a past day with no final is fresh for 7 days, with a final within 7 days from the latest final time, with one older than 7 days for 7 days; today and a later day keep 30 seconds (ADR 0066)
+# - The kind: a past postseason day cached 3 days ago is read from the cache and today from the network; after a postseason final the build reads that day again and no other past day; a final game with no postseason mark refreshes nothing (ADR 0066)
+# - A past build lists three leaders per category and a current build five (ADR 0066)
 # - The kind: no scoreboard day is read before the play-in window and every day of both windows inside it
 # - The kind: a failed season type, standings or scoreboard day answers unavailable and is not retried for 10 minutes; a failed rebuild keeps and serves the stored feed
 # - The kind: a failed leaders, awards, team info or champion record read only nulls its part; the record is read only for the champion of a complete Finals
@@ -46,7 +49,7 @@ import pytest
 import respx
 
 from app.feeds.game_detail import Conference
-from app.feeds.games import GameStatus, GameTeam, LineScore, Score
+from app.feeds.games import GamePostseason, GameStatus, GameTeam, LineScore, Score
 from app.feeds.opponent import Side
 from app.feeds.playoffs import (
     AwardCode,
@@ -71,10 +74,12 @@ from app.jobs.playoffs_feed import (
     CODES,
     FEED_ID,
     KIND,
+    PAST_DAY_FRESH,
     PlayoffsBuildError,
     PlayoffsFeeds,
     PlayoffsSources,
     build_playoffs_feed,
+    day_freshness,
     derive_series,
     finals_winner,
     group_series,
@@ -85,7 +90,13 @@ from app.jobs.stars import StarsJob
 from app.jobs.team_feed import FEED_LIFETIME
 from app.settings import Settings
 from app.sources.division_standings import DivisionStandings
-from app.sources.http import SourceClient, SourceError, create_client
+from app.sources.http import (
+    Freshness,
+    SourceClient,
+    SourceError,
+    create_client,
+    get_json,
+)
 from app.sources.postseason_leaders import LeaderEntry, PostseasonLeaders
 from app.sources.postseason_scoreboard import PostseasonGame, SeriesState
 from app.sources.scoreboard import ScoreboardGame
@@ -1341,6 +1352,33 @@ def test_the_leaders_have_nine_categories_in_order_with_five_leaders_and_ranks()
     assert str(first.photo_url) == "https://example.com/1.png"
 
 
+def test_a_past_build_lists_three_leaders_per_category_and_a_current_build_five() -> (
+    None
+):
+    past = build(
+        play_ins() + past_games(),
+        past=True,
+        leaders=PostseasonLeaders(
+            categories={
+                category: [
+                    LeaderEntry(player_id=str(n), value="9.0", team_code=ALL[n])
+                    for n in range(1, 8)
+                ]
+                for category in LeaderCategory
+            }
+        ),
+        identities={},
+    )
+    current = build(leaders=leaders_source(7))
+
+    assert past.leaders is not None and current.leaders is not None
+    assert all([leader.rank for leader in g.leaders] == [1, 2, 3] for g in past.leaders)
+    assert all(
+        [leader.rank for leader in g.leaders] == [1, 2, 3, 4, 5]
+        for g in current.leaders
+    )
+
+
 def test_a_category_with_fewer_leaders_has_the_ranks_it_has() -> None:
     feed = build(leaders=leaders_source(2))
 
@@ -1572,6 +1610,10 @@ class PlayoffsKit:
         self.client = create_client(self.store, clock=lambda: self.clock[0])
         self.calls: list[str] = []
         self.failing: set[str] = set()
+        # The freshness each day was read with, and whether the day fake reads
+        # through the source cache with respx routes.
+        self.day_fresh: dict[dt.date, Freshness] = {}
+        self.through_cache = False
         self.days: dict[dt.date, list[PostseasonGame]] = {}
         self.standing = standings()
         self.stars = FakeStars()
@@ -1608,9 +1650,21 @@ class PlayoffsKit:
         return PLAY_IN_WINDOW if season_type == 5 else POSTSEASON_WINDOW
 
     async def fetch_postseason_games(
-        self, client: SourceClient, day: dt.date, settings: Settings
+        self, client: SourceClient, day: dt.date, settings: Settings, **kwargs: Any
     ) -> list[PostseasonGame]:
-        self.read(f"day/{day.isoformat()}")
+        fresh: Freshness = kwargs.get("fresh", dt.timedelta(seconds=30))
+        self.day_fresh[day] = fresh
+        if self.through_cache:
+            # A day read through the shared source cache: only a stale or missing
+            # entry reaches the network (and so the call log).
+            await get_json(
+                client,
+                f"https://example.com/scoreboard/{day:%Y%m%d}",
+                source="test",
+                fresh=fresh,
+            )
+        else:
+            self.read(f"day/{day.isoformat()}")
         return list(self.days.get(day, []))
 
     async def fetch_division_standings(
@@ -1761,6 +1815,125 @@ async def test_no_scoreboard_day_is_read_before_the_play_in_window(
 
     assert feed.state is PlayoffsState.PICTURE
     assert kit.called("day/") == 0
+
+
+# Day freshness (ADR 0066)
+
+NOW_LOCAL_DAY = dt.date(2027, 4, 20)
+EARLIER_DAY = dt.date(2027, 4, 16)
+
+
+def test_a_past_day_with_no_final_is_fresh_for_7_days() -> None:
+    assert day_freshness(EARLIER_DAY, NOW_LOCAL_DAY, NOW, []) == PAST_DAY_FRESH
+    assert PAST_DAY_FRESH == dt.timedelta(days=7)
+
+
+def test_a_past_day_with_a_final_1_hour_ago_is_fresh_from_that_time() -> None:
+    final = NOW - HOUR
+
+    assert day_freshness(EARLIER_DAY, NOW_LOCAL_DAY, NOW, [final]) == final
+
+
+def test_the_latest_final_of_a_past_day_decides_its_freshness() -> None:
+    older, latest = NOW - 3 * HOUR, NOW - HOUR
+
+    assert day_freshness(EARLIER_DAY, NOW_LOCAL_DAY, NOW, [older, latest]) == latest
+
+
+def test_a_final_older_than_7_days_gives_7_days() -> None:
+    old = NOW - dt.timedelta(days=7)
+
+    assert day_freshness(EARLIER_DAY, NOW_LOCAL_DAY, NOW, [old]) == PAST_DAY_FRESH
+    just_inside = old + SECOND
+    assert day_freshness(EARLIER_DAY, NOW_LOCAL_DAY, NOW, [just_inside]) == just_inside
+
+
+def test_today_and_a_later_day_keep_30_seconds_whatever_their_finals() -> None:
+    final = NOW - HOUR
+
+    for day in (NOW_LOCAL_DAY, NOW_LOCAL_DAY + dt.timedelta(days=1)):
+        assert day_freshness(day, NOW_LOCAL_DAY, NOW, [final]) == dt.timedelta(
+            seconds=30
+        )
+
+
+SCOREBOARD = "https://example.com/scoreboard/"
+
+
+def day_url(day: dt.date) -> str:
+    return f"{SCOREBOARD}{day:%Y%m%d}"
+
+
+def requested_days() -> list[dt.date]:
+    names = (call.request.url.path.rsplit("/", 1)[1] for call in respx.calls)
+    return sorted(
+        dt.date(int(name[:4]), int(name[4:6]), int(name[6:])) for name in names
+    )
+
+
+def seed_past_days(kit: PlayoffsKit, fetched_at: dt.datetime) -> list[dt.date]:
+    """Route every scoreboard day, and cache the days before NOW's day."""
+    respx.get(url__startswith=SCOREBOARD).respond(json={})
+    kit.through_cache = True
+    past = [
+        d
+        for d in postseason_days(PLAY_IN_WINDOW, POSTSEASON_WINDOW)
+        if d < NOW_LOCAL_DAY
+    ]
+    for day in past:
+        kit.store.set_source_entry(day_url(day), "{}", fetched_at)
+    return past
+
+
+@pytest.mark.anyio
+async def test_a_past_postseason_day_cached_3_days_ago_is_read_from_the_cache_and_today_from_the_network(
+    kit: PlayoffsKit,
+) -> None:
+    past = seed_past_days(kit, NOW - dt.timedelta(days=3))
+
+    await kit.serve()
+
+    sent = requested_days()
+    assert len(past) == 6
+    assert not set(sent) & set(past)
+    assert NOW_LOCAL_DAY in sent
+    assert kit.day_fresh[past[0]] == PAST_DAY_FRESH
+    assert kit.day_fresh[NOW_LOCAL_DAY] == dt.timedelta(seconds=30)
+
+
+@pytest.mark.anyio
+async def test_after_a_postseason_final_the_build_reads_that_day_again_and_no_other_past_day(
+    kit: PlayoffsKit,
+) -> None:
+    past = seed_past_days(kit, NOW - dt.timedelta(days=1))
+    start = dt.datetime(2027, 4, 16, 23, 0, tzinfo=dt.UTC)
+    game = board("played", "ATL", "BOS", start).model_copy(
+        update={"postseason": GamePostseason.model_construct()}
+    )
+    kit.games.final = [game]
+    kit.store.set_final_time("played", EARLIER_DAY, NOW - 2 * HOUR)
+
+    await kit.serve()
+
+    sent = requested_days()
+    assert [day for day in sent if day in past] == [EARLIER_DAY]
+    assert NOW_LOCAL_DAY in sent
+    assert kit.day_fresh[EARLIER_DAY] == NOW - 2 * HOUR
+
+
+@pytest.mark.anyio
+async def test_a_final_game_without_a_postseason_mark_does_not_refresh_its_day(
+    kit: PlayoffsKit,
+) -> None:
+    past = seed_past_days(kit, NOW - dt.timedelta(days=1))
+    kit.games.final = [
+        board("regular", "ATL", "BOS", dt.datetime(2027, 4, 16, 23, 0, tzinfo=dt.UTC))
+    ]
+    kit.store.set_final_time("regular", EARLIER_DAY, NOW - 2 * HOUR)
+
+    await kit.serve()
+
+    assert not set(requested_days()) & set(past)
 
 
 @pytest.mark.anyio

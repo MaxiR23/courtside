@@ -29,6 +29,7 @@
 # - The kind: a request builds and stores the feed and a second request reads storage
 # - The kind: a failed group or conference read with nothing stored answers unavailable and is not retried for 10 minutes
 # - The kind: a failed rebuild of a stale feed keeps and serves the stored feed
+# - The kind: a schedule cached 2 hours ago is read from the cache except for a team with a game today in the games job's shown games, and before the games job's first run every schedule keeps the 1 hour freshness (ADR 0066)
 # - The kind: a failed schedule is skipped when every drawn team still has its 4 group games, and fails the build otherwise
 # - The kind: fresh before a final Cup game plus 1 hour and stale at it, and a final game outside the Cup does not expire it
 # - The kind: fresh before 7 days and stale at 7 days
@@ -80,6 +81,7 @@ from app.jobs.cup_feed import (
     CODES,
     FEED_ID,
     KIND,
+    SCHEDULE_FRESH,
     CupBuildError,
     CupFeeds,
     CupSources,
@@ -98,7 +100,13 @@ from app.jobs.team_feed import FEED_LIFETIME
 from app.settings import Settings
 from app.sources.cup import GROUP_IDS, CupTable, CupTableRow
 from app.sources.game_detail import GameDetail
-from app.sources.http import Freshness, SourceClient, SourceError, create_client
+from app.sources.http import (
+    Freshness,
+    SourceClient,
+    SourceError,
+    create_client,
+    get_json,
+)
 from app.sources.scoreboard import ScoreboardGame
 from app.sources.team_schedule import ScheduledGame, SeasonSchedule
 from app.storage.feeds import read_by_id
@@ -160,6 +168,7 @@ NOTES = {
 BASE = dt.datetime(2026, 11, 3, 23, 0, tzinfo=dt.UTC)
 DAY = dt.timedelta(days=1)
 HOUR = dt.timedelta(hours=1)
+SCHEDULE_URL = "https://example.com/schedule/"
 SECOND = dt.timedelta(seconds=1)
 NOW = dt.datetime(2026, 12, 1, 15, 0, tzinfo=dt.UTC)
 
@@ -865,6 +874,9 @@ class CupKit:
         self.client = create_client(self.store, clock=lambda: self.clock[0])
         self.calls: list[str] = []
         self.failing: set[str] = set()
+        # The freshness each team schedule was read with.
+        self.fresh: dict[str, Any] = {}
+        self.through_cache = False
         self.table_changes: dict[str, Any] = {}
         self.pairs: list[Pair] = [*group_pairs(all_final())]
         self.scoreboard: dict[dt.date, list[ScoreboardGame]] = {}
@@ -948,8 +960,14 @@ class CupKit:
         settings: Settings,
         *,
         playoffs: bool,
+        fresh: Any = None,
     ) -> SeasonSchedule:
+        self.fresh[team] = fresh
         self.read(f"schedule/{team}")
+        if self.through_cache:
+            # Read through the shared source cache: only a stale or missing
+            # entry reaches the respx route.
+            await get_json(client, f"{SCHEDULE_URL}{team}", source="test", fresh=fresh)
         return schedules_of(self.pairs).get(team, SeasonSchedule(games=[]))
 
     async def settle(self) -> None:
@@ -1098,6 +1116,45 @@ async def test_a_failed_rebuild_of_a_stale_feed_keeps_and_serves_the_stored_feed
     assert kit.called("conference/west") == 2
     assert kit.stored() is not None
     assert kit.last_build() == NOW
+
+
+def seed_schedules(kit: CupKit, age: dt.timedelta) -> None:
+    """Route every schedule and cache each team's schedule `age` before NOW."""
+    respx.get(url__startswith=SCHEDULE_URL).respond(json={})
+    kit.through_cache = True
+    for code in CODES:
+        kit.store.set_source_entry(f"{SCHEDULE_URL}{code}", "{}", NOW - age)
+
+
+def requested_teams() -> list[str]:
+    return sorted(call.request.url.path.rsplit("/", 1)[1] for call in respx.calls)
+
+
+@pytest.mark.anyio
+async def test_a_schedule_cached_2_hours_ago_is_read_from_the_cache_except_for_a_team_playing_today(
+    kit: CupKit,
+) -> None:
+    seed_schedules(kit, 2 * HOUR)
+    kit.scoreboard[NOW.date()] = [scoreboard("today", cup=True, final=False)]
+    await kit.run_games(NOW)
+
+    await kit.serve()
+
+    assert requested_teams() == ["ATL", "BOS"]
+    assert kit.fresh["ATL"] == kit.fresh["BOS"] == HOUR
+    assert kit.fresh["OKC"] == SCHEDULE_FRESH == dt.timedelta(hours=24)
+
+
+@pytest.mark.anyio
+async def test_before_the_games_job_runs_every_schedule_keeps_the_1_hour_freshness(
+    kit: CupKit,
+) -> None:
+    seed_schedules(kit, 2 * HOUR)
+
+    await kit.serve()
+
+    assert requested_teams() == sorted(CODES)
+    assert set(kit.fresh.values()) == {HOUR}
 
 
 @pytest.mark.anyio

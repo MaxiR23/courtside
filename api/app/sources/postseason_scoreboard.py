@@ -50,7 +50,7 @@ from app.feeds.games import (
 from app.feeds.opponent import Side
 from app.settings import Settings
 from app.sources import team_schedule
-from app.sources.http import SourceClient, SourceError, get_json
+from app.sources.http import Freshness, SourceClient, SourceError, get_json
 from app.sources.scoreboard import (
     DATE_FORMAT,
     FRESH_FOR,
@@ -200,15 +200,21 @@ def _postseason_game(event: _PostseasonEvent, game: ScoreboardGame) -> Postseaso
 
 
 async def fetch_postseason_games(
-    client: SourceClient, day: dt.date, settings: Settings, *, by_id_first: bool = False
+    client: SourceClient,
+    day: dt.date,
+    settings: Settings,
+    *,
+    by_id_first: bool = False,
+    fresh: Freshness = FRESH_FOR,
 ) -> list[PostseasonGame]:
     """Return the games of a US Eastern day with their postseason fields, in
     provider order, or raise SourceError. With by_id_first the sides resolve by
-    provider id first (a past season)."""
+    provider id first (a past season). `fresh` is how fresh the cached day must
+    be (ADR 0066); it defaults to the scoreboard's."""
     if settings.scoreboard_url is None:
         raise SourceError(SOURCE, "scoreboard URL is not configured")
     url = settings.scoreboard_url.format(date=day.strftime(DATE_FORMAT))
-    body = await get_json(client, url, source=SOURCE, fresh=FRESH_FOR)
+    body = await get_json(client, url, source=SOURCE, fresh=fresh)
     try:
         scoreboard = _PostseasonScoreboard.model_validate(body)
     except ValidationError as error:

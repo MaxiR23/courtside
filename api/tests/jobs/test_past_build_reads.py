@@ -9,9 +9,9 @@
 # - At most four narrow requests are in flight in each build (and, in the playoffs build, at most eight identity reads), and no build pauses
 # - A 429 and a 503 stop the build with the reason "rate limited", logged and recorded, with nothing stored and no new request inside the retry window
 # - The Finals build after the playoffs build makes at most 12 reads, and the Cup matchup after the Cup 2
-# - The five budgets are 63, 12, 44, 2 and 60
+# - The five budgets are 142, 12, 44, 2 and 60
 # - The identity reads of the playoffs build reach eight in flight, and a rate limit on one stops the build with nothing stored (ADR 0061)
-# - The worst-case playoffs build (20 schedules, 5 play-in days, 26 awards reads, a 7-game Finals, 45 leader reads, the winner reads) sends exactly READ_BUDGET plus the leader reads plus one read per award winner, and one read fewer allowed fails with "read budget of N reached"
+# - The worst-case playoffs build (20 schedules, 5 play-in days, 26 awards reads, a 7-game Finals, 27 leader reads, 52 award winner reads) sends exactly READ_BUDGET reads, and one read fewer allowed fails with "read budget of N reached"
 #
 # What is covered:
 # - Job minimums for the five kinds: success publishes a valid feed, failure with nothing stored is unavailable
@@ -49,7 +49,7 @@ from app.jobs import (
 from app.jobs.on_demand import RETRY_AFTER, FeedUnavailableError
 from app.sources.http import SourceClient, get_json
 from app.sources.postseason_leaders import LeaderEntry, PostseasonLeaders
-from app.sources.season_awards import SeasonAwards
+from app.sources.season_awards import AWARDS, SeasonAwards
 from app.storage.feeds import read_by_id
 from tests.jobs.past_season_source import (
     BASE,
@@ -134,7 +134,7 @@ CASES = [
         season_playoffs_feed,
         season_playoffs_feed.KIND,
         "2025",
-        63,
+        142,
         nothing,
         serve_playoffs,
         "postseason_schedule",
@@ -147,7 +147,7 @@ CASES = [
             "season_awards": 1,
             "team_postseason_record": 2,
             "game": 5,
-            "player_athlete": 5,
+            "player_athlete": 3,
         },
     ),
     Case(
@@ -280,9 +280,9 @@ def run(
 
 
 def test_the_five_budgets_are_the_declared_ones() -> None:
-    assert [case.module.READ_BUDGET for case in CASES] == [63, 12, 44, 2, 60]
-    assert [case.budget for case in CASES] == [63, 12, 44, 2, 60]
-    assert season_playoffs_feed.LEADER_READS == 45
+    assert [case.module.READ_BUDGET for case in CASES] == [142, 12, 44, 2, 60]
+    assert [case.budget for case in CASES] == [142, 12, 44, 2, 60]
+    assert season_playoffs_feed.LEADER_READS == 27
 
 
 @pytest.mark.anyio
@@ -393,7 +393,7 @@ async def test_the_finals_build_after_the_playoffs_build_makes_at_most_12_reads(
 
     await run.kit.serve_finals("2025")
 
-    assert playoffs_reads <= 63 + season_playoffs_feed.LEADER_READS + 1
+    assert playoffs_reads <= season_playoffs_feed.READ_BUDGET
     assert 0 < run.recorder.count <= 12
 
 
@@ -415,12 +415,14 @@ async def test_the_cup_matchup_after_the_cup_makes_at_most_2_reads(
 
 AWARD_DOCUMENTS = 25
 FINALS_GAMES = 7
-# The award winners of the worst case, all different from the leaders.
-WINNERS = 1 + 5 + 5
+# The award winners of the worst case, all different from the leaders: the
+# declared maximum, one per single-winner award and five per team award.
+WINNERS = 52
 
 
 def distinct_leaders() -> PostseasonLeaders:
-    """Nine categories of five leaders: 45 different players."""
+    """Nine categories of five leaders: 45 different players, of which the build
+    names the first three of each category."""
     return PostseasonLeaders(
         categories={
             category: [
@@ -437,23 +439,19 @@ def distinct_leaders() -> PostseasonLeaders:
 
 
 def distinct_awards() -> SeasonAwards:
-    return SeasonAwards(
-        awards=[
-            award(AwardCode.MVP, ["500"], team_code=seed(EAST, 1)),
+    """Every award of the table with all its winners different: 52 players."""
+    awards = []
+    for index, (code, team) in enumerate(AWARDS.values()):
+        size = 5 if team is not None or code is AwardCode.CUP_ALL_TOURNAMENT else 1
+        awards.append(
             award(
-                AwardCode.ALL_NBA,
-                [str(510 + n) for n in range(5)],
-                1,
+                code,
+                [str(500 + 10 * index + n) for n in range(size)],
+                team,
                 team_code=seed(EAST, 1),
-            ),
-            award(
-                AwardCode.ALL_NBA,
-                [str(520 + n) for n in range(5)],
-                2,
-                team_code=seed(EAST, 1),
-            ),
-        ]
-    )
+            )
+        )
+    return SeasonAwards(awards=awards)
 
 
 async def worst_case_playoffs(
@@ -498,11 +496,9 @@ async def test_the_worst_case_playoffs_build_sends_exactly_the_budget(
     assert counts["season_awards"] + counts["award_documents"] == 26
     assert counts["game"] == FINALS_GAMES
     assert run.stored() is not None
-    assert counts["player_athlete"] == season_playoffs_feed.LEADER_READS + WINNERS
+    assert counts["player_athlete"] == 27 + WINNERS
     assert run.recorder.wide_peak <= 8
-    assert run.recorder.count == (
-        season_playoffs_feed.READ_BUDGET + season_playoffs_feed.LEADER_READS + WINNERS
-    )
+    assert run.recorder.count == season_playoffs_feed.READ_BUDGET
 
 
 @pytest.mark.anyio
@@ -519,10 +515,9 @@ async def test_the_worst_case_playoffs_build_with_one_read_fewer_fails_over_budg
     with pytest.raises(FeedUnavailableError):
         await run.case.serve(run.kit)
 
-    reached = limit + season_playoffs_feed.LEADER_READS + WINNERS
-    assert run.failure() == f"read budget of {reached} reached"
+    assert run.failure() == f"read budget of {limit} reached"
     assert run.stored() is None
-    assert run.recorder.count == reached
+    assert run.recorder.count == limit
 
 
 @pytest.mark.anyio
