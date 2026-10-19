@@ -21,8 +21,11 @@
 # served, the season rows get the season code of each team from the stored
 # franchise names, never from a read per row; a list that is missing or outdated is
 # built in the background (ADR 0055).
+# The build runs under READ_BUDGET reads, counting reads only; the team feed,
+# built first, keeps its own budget (ADR 0067).
 #
-# SEE: docs/api/player.md, docs/source-rules.md, api/app/jobs/team_feed.py, api/app/jobs/on_demand.py
+# SEE: docs/api/player.md, docs/source-rules.md, api/app/jobs/team_feed.py, api/app/jobs/on_demand.py,
+# docs/adr/0067-read-budgets-of-every-on-demand-build.md
 
 import asyncio
 import datetime as dt
@@ -75,7 +78,7 @@ from app.sources import (
     team_players,
 )
 from app.sources.division_standings import DivisionStandings
-from app.sources.http import SourceClient
+from app.sources.http import ReadBudget, SourceClient, within_budget
 from app.sources.league_injuries import LeagueInjuries
 from app.sources.player_bio import PlayerBio, RankedValue
 from app.sources.player_draft import DraftPick, PlayerAthlete
@@ -88,6 +91,10 @@ from app.storage.feeds import read_by_id
 from app.storage.state import StateStore
 
 KIND = "players"
+# The most source reads one build sends: 1 athlete + 1 roster + 2 division
+# standings (the request of rule L) + 1 league injuries + 1 bio + 1 draft +
+# 1 awards + 1 game log + 2 career statistics (ADR 0067).
+READ_BUDGET = 11
 LAST_GAMES = 5
 
 FetchBio = Callable[[SourceClient, str, Settings], Awaitable[PlayerBio | None]]
@@ -585,6 +592,13 @@ class PlayerFeeds:
         return (TEAM_KIND, team.lower()) if team is not None else None
 
     async def build(self, player_id: str) -> PlayerFeed:
+        return await within_budget(
+            ReadBudget(READ_BUDGET, stop_on_rate_limit=False),
+            f"player: {player_id}",
+            lambda: self._build(player_id),
+        )
+
+    async def _build(self, player_id: str) -> PlayerFeed:
         team = self._stars.player_team(player_id)
         team_feed = None
         if team is not None:

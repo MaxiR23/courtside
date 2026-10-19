@@ -1,6 +1,6 @@
 # Source rules
 
-The rules every job and feed build follows so the data source is asked as little as possible. They are adopted by ADR 0020 and apply to every feed: games, game detail, player and team. Rule L records the season fallbacks of the adapters; it is adopted by ADR 0022. Rule N is adopted by ADR 0056 and retired by ADR 0059, and Rule O is adopted by ADR 0058 and extended by ADR 0059, and rule P is adopted by ADR 0062, which also extends rule H. ADRs 0063, 0064, 0065 and 0066 extend rules A, C, D, E, F, G, J and O, as each rule says.
+The rules every job and feed build follows so the data source is asked as little as possible. They are adopted by ADR 0020 and apply to every feed: games, game detail, player and team. Rule L records the season fallbacks of the adapters; it is adopted by ADR 0022. Rule N is adopted by ADR 0056 and retired by ADR 0059, and Rule O is adopted by ADR 0058 and extended by ADR 0059, and rule P is adopted by ADR 0062, which also extends rule H. ADRs 0063, 0064, 0065, 0066 and 0067 extend rules A, C, D, E, F, G, J and O, as each rule says.
 
 References:
 
@@ -86,12 +86,13 @@ Everything else is built on request only (the pages of past seasons included): p
 
 ### Read budgets of the on-demand builds
 
-- Budgeted, counted as in rule O: the current playoffs build, the Cup, standings and search builds, the franchise names build, and the past builds of rule O (season playoffs 142, Finals 12, Cup 44, Cup matchup 2, All-Star 60, team 5, player 4, day 1, past game detail 1, standings 1).
-- Not budgeted: the current game detail, team, player, Cup matchup, playoffs finals and All-Star builds, and the calendar build (current and past). They are bounded by the shared client's cap of 8 requests in flight, budgeted or not (rule P); the pause of every request after a 429 or 503 (Retry-After, 60 seconds when missing, at most 15 minutes); at most 4 builds running and 16 started; and the 60-second build timeout (rule H, [ADR 0062](adr/0062-bounded-upstream-reads-and-on-demand-builds.md)).
+- Every on-demand build is budgeted, counted as in rule O: the current playoffs build (2, then the day count plus 60), the Cup (44), standings (32) and search (33) builds, the current game detail (5), team (15), player (11), Cup matchup (9), playoffs finals (48) and All-Star (122) builds, the calendar build (1, current and past), the franchise names build (the number of seasons plus 2), and the past builds of rule O (season playoffs 142, Finals 12, Cup 44, Cup matchup 2, All-Star 60, team 5, player 4, day 1, past game detail 1, standings 1).
+- Every build is also bounded by the shared client's cap of 8 requests in flight (rule P), the pause of every request after a 429 or 503 (Retry-After, 60 seconds when missing, at most 15 minutes), at most 4 builds running and 16 started, and the 60-second build timeout (rule H, [ADR 0062](adr/0062-bounded-upstream-reads-and-on-demand-builds.md)).
 - Current playoffs: `WINDOW_READS` (2) for the season types, then the day count plus 60 for the rest, with no extension. A scoreboard day before today is fresh for 7 days (rule A).
 - Season playoffs: 142 reads, which hold 63 reads, 27 leader identities and at most 52 award winner identities ([ADR 0066](adr/0066-cut-read-amplification-of-on-demand-builds.md)).
 - Cup: 44 (6 group teams, 6 group tables, 2 conference tables and 30 schedules). Standings: 32. Search: 33.
-- The current playoffs, Cup, standings and search builds count their reads only: a rate-limited read fails as an ordinary one and nulls its part (`stop_on_rate_limit` false). The other budgeted builds stop on a rate limit (rule O).
+- Every current-season build (the current playoffs, Cup, standings, search, game detail, team, player, Cup matchup, playoffs finals, All-Star and current calendar builds) counts its reads only: a rate-limited read fails as an ordinary one and nulls its part (`stop_on_rate_limit` false). The past builds, the past calendar included, stop on a rate limit (rule O).
+- Finals: 48 (7 games, 2 records, 2 team statistics, 18 roster players per finalist and the Finals MVP); a further roster player is listed with no values ([ADR 0067](adr/0067-read-budgets-of-every-on-demand-build.md)). All-Star: 122 (per edition 1 calendar, 6 days, 8 games and 31 awards, then 30 team infos). A dependency built first keeps its own budget.
 - A franchise names build reads the number of seasons plus 2; the re-read of a recorded failed season, its count plus 3 ([ADR 0065](adr/0065-background-work-limited-to-games-highlights-and-stars.md)).
 - At most 16 builds are started at once and a build runs at most 60 seconds (rule H, [ADR 0062](adr/0062-bounded-upstream-reads-and-on-demand-builds.md)).
 
@@ -147,7 +148,7 @@ Retired by ADR 0059: no build paces its reads; every past build follows rule O.
 
 ## O. Budgeted past builds
 
-- Each past playoffs, Finals, Cup, Cup matchup, All-Star, team, player, day, game detail and standings build declares the most source reads it sends: 142, 12, 44, 2, 60, 5, 4, 1, 1 and 1 (ADR 0059; the playoffs figure is ADR 0066's, the Finals figure ADR 0061's). A read is a request that reaches the network through the shared client; a cache hit, and a caller that joins an in-flight request, are not reads.
+- Each past playoffs, Finals, Cup, Cup matchup, All-Star, team, player, day, game detail, standings and calendar build declares the most source reads it sends: 142, 12, 44, 2, 60, 5, 4, 1, 1, 1 and 1 (ADR 0059; the playoffs figure is ADR 0066's, the Finals figure ADR 0061's, the calendar figure ADR 0067's). A read is a request that reaches the network through the shared client; a cache hit, and a caller that joins an in-flight request, are not reads.
 - A build that would pass its budget stops before that read, logs the reason and stores nothing.
 - At most four reads of a build are in flight at once, with no pause between them.
 - A 429 or 503 answer stops the build, logged and recorded with the reason "rate limited", and the feed is retried after 10 minutes (rule H).

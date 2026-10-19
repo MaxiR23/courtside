@@ -44,7 +44,10 @@ the gap between its days.
 - The calendar is read from the scoreboard day of February 1 of the end year,
   through the source cache. The days are the US Eastern dates of its entries.
   An entry that is not a readable time is skipped and logged; a missing or
-  empty calendar fails the build.
+  empty calendar fails the build. The build is under a read budget of 1. For the
+  current season it counts reads only: a rate-limited read fails as an ordinary
+  one. A past season stops on a rate limit and stores nothing
+  ([ADR 0067](../adr/0067-read-budgets-of-every-on-demand-build.md)).
 - Built on request under rule G of
   [`docs/source-rules.md`](../source-rules.md): the current season expires 24
   hours after the build. A past season built after its last day is kept while its `buildVersion` is the current one

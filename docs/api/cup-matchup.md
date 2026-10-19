@@ -104,7 +104,7 @@ injuries and a player with no photo are all valid.
   time). Its season must be the current one.
 - Per team the roster (24 hours), the season schedule (1 hour), the season
   averages and the depth chart (24 hours) are read, and the league injuries
-  (1 hour) once, through the source cache.
+  (1 hour) once, through the source cache. The build is under a read budget of 9 that counts reads only: a rate-limited read fails as an ordinary one ([ADR 0067](../adr/0067-read-budgets-of-every-on-demand-build.md)). The Cup feed, built first, keeps its own budget.
 - Built on request under rule G of [`docs/source-rules.md`](../source-rules.md)
   and expiring as its table says: 1 hour after a final game of either team or of
   its path that follows the build, when the Cup feed is rebuilt after the build,

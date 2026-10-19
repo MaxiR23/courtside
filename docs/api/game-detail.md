@@ -209,6 +209,7 @@ recorded response that shows it.
   rebuilt on its next request ([ADR 0057](../adr/0057-past-game-detail-leaders.md)).
 - Standings, league injuries and team schedules are read through the source
   cache with a 1-hour freshness.
+- The build is under a read budget of 5 that counts reads only: a rate-limited read fails as an ordinary one ([ADR 0067](../adr/0067-read-budgets-of-every-on-demand-build.md)).
 - Stars, highlights and the highlights search URL are added when the feed is
   served, not stored.
 - A failed build keeps the stored feed and is listed under `feeds` in

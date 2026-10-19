@@ -22,11 +22,16 @@
 # meeting with no arena has a null arena. A final game whose four attempts
 # failed is built once, with the summary sections null, and is then known
 # (ADR 0064).
+# The build runs under READ_BUDGET reads, counting reads only (ADR 0067). A rate
+# limit pauses the client (ADR 0062), so only the reads after it in the same
+# build fail; the build orders the optional reads (standings, injuries) last, so
+# a rate-limited one nulls its block and the feed is stored.
 #
 # SEE: docs/source-rules.md, docs/adr/0020-source-rules.md,
 # docs/adr/0010-final-game-attempts.md, docs/api/game-detail.md,
 # docs/adr/0064-degrade-one-bad-item-instead-of-failing-a-feed.md,
-# docs/adr/0065-background-work-limited-to-games-highlights-and-stars.md
+# docs/adr/0065-background-work-limited-to-games-highlights-and-stars.md,
+# docs/adr/0067-read-budgets-of-every-on-demand-build.md
 
 import datetime as dt
 import logging
@@ -55,7 +60,13 @@ from app.jobs.on_demand import FeedCache, FeedKind, IdStatus
 from app.settings import Settings
 from app.sources import game_detail, league_injuries, standings, team_schedule
 from app.sources.game_detail import GameDetailSections
-from app.sources.http import Freshness, SourceClient, SourceError
+from app.sources.http import (
+    Freshness,
+    ReadBudget,
+    SourceClient,
+    SourceError,
+    within_budget,
+)
 from app.sources.league_injuries import InjuryReport, LeagueInjuries
 from app.sources.scoreboard import ScoreboardGame
 from app.sources.standings import LeagueStandings
@@ -66,6 +77,9 @@ logger = logging.getLogger(__name__)
 
 KIND = "games"
 PRE_GAME_FRESH = dt.timedelta(hours=1)
+# The most source reads one build sends: 1 summary + 1 standings + 1 league
+# injuries + 2 team schedules (ADR 0067).
+READ_BUDGET = 5
 
 FetchSections = Callable[
     [SourceClient, str, Settings, Freshness], Awaitable[GameDetailSections]
@@ -280,6 +294,13 @@ class GameDetailFeeds:
         return IdStatus.KNOWN
 
     async def build(self, game_id: str) -> GameDetailFeed:
+        return await within_budget(
+            ReadBudget(READ_BUDGET, stop_on_rate_limit=False),
+            f"game detail: {game_id}",
+            lambda: self._build(game_id),
+        )
+
+    async def _build(self, game_id: str) -> GameDetailFeed:
         game = self._game(game_id)
         if game is None:
             raise DetailBuildError(f"game {game_id} is not shown")
@@ -311,6 +332,23 @@ class GameDetailFeeds:
                 self._client, game_id, self._settings, freshness
             )
         )
+        # A guest side's schedule is never fetched (ADR 0025).
+        away_schedule = (
+            None
+            if game.away.guest or game.away.code is None
+            else await self._fetch_team_schedule(
+                self._client, game.away.code, self._settings
+            )
+        )
+        home_schedule = (
+            None
+            if game.home.guest or game.home.code is None
+            else await self._fetch_team_schedule(
+                self._client, game.home.code, self._settings
+            )
+        )
+        # The optional reads go last: a rate limit pauses the client (ADR 0062),
+        # so only the reads after it fail, and these null only their block.
         league_standings: LeagueStandings | None
         try:
             league_standings = await self._fetch_standings(self._client, self._settings)
@@ -329,21 +367,6 @@ class GameDetailFeeds:
                 "game detail: injuries of game %s not read: %s", game_id, error.reason
             )
             injuries = None
-        # A guest side's schedule is never fetched (ADR 0025).
-        away_schedule = (
-            None
-            if game.away.guest or game.away.code is None
-            else await self._fetch_team_schedule(
-                self._client, game.away.code, self._settings
-            )
-        )
-        home_schedule = (
-            None
-            if game.home.guest or game.home.code is None
-            else await self._fetch_team_schedule(
-                self._client, game.home.code, self._settings
-            )
-        )
         return build_game_detail_feed(
             game,
             sections,

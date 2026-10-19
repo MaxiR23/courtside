@@ -206,7 +206,7 @@ next not final, no next game beyond it) and a points tie for the top of a team b
 - A cold build reads 1 scoreboard day and, per game (up to 4), one cached game
   detail response (the leaders, the sections and the extras share it), the team infos
   of the league teams in the box scores (1 hour cache) and the season awards, plus
-  the same for the previous edition.
+  the same for the previous edition. The build is under a read budget of 122 that counts reads only: a rate-limited read fails as an ordinary one ([ADR 0067](../adr/0067-read-budgets-of-every-on-demand-build.md)). It assumes at most 8 games per edition and 30 award documents per season; past that the build fails over budget and keeps the stored feed.
 - The first build that sees a game final stores that time (table `all_star_finals`)
   before the reads and never overwrites it. The game reads have the freshness of the
   live interval (30 seconds) for a live game, 1 hour for a game not started, and the

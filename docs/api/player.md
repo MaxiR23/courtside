@@ -134,7 +134,7 @@ The root is one player.
   the stored team feed's, so the team schedule is never fetched by a player
   build; a stale team feed whose rebuild fails is used as stored, and a
   missing one whose build fails fails the player build. The roster entry is
-  read from the roster response in the source cache.
+  read from the roster response in the source cache. The build is under a read budget of 11 that counts reads only: a rate-limited read fails as an ordinary one ([ADR 0067](../adr/0067-read-budgets-of-every-on-demand-build.md)). The team feed, built first, keeps its own budget.
 - `live` is taken from the live game of the player's team at serve time
   ([ADR 0021](../adr/0021-player-and-team-pages.md)): the game as the
   scoreboard knows it, and the player's line from that game's detail feed,
