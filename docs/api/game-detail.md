@@ -172,7 +172,7 @@ date is built first, and a game that day does not list as final answers 503
   and so is each side's `record`: they describe today, and the source reads no
   record of a past game. `highlights` is the stored highlight added when
   served, as a list of one, and null without one or on an All-Star game
-  ([ADR 0048](../adr/0048-highlights-backfill-and-edition-video.md)).
+  ([ADR 0048](../adr/0048-highlights-backfill-and-edition-video.md), [ADR 0065](../adr/0065-background-work-limited-to-games-highlights-and-stars.md)).
 
 ## Known cases
 

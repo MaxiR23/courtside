@@ -66,7 +66,7 @@ Conventions:
 
 ## Rules that live in the code
 
-1. **Edition.** The edition is the day the discovery job stored. Its games are the
+1. **Edition.** The edition is the day the build found from the season calendar and stored (see "Edition discovery"). Its games are the
    All-Star games the scoreboard returns for that day, in start order, without
    canceled games or repeated ids.
 2. **State.** `before`: no game is live or final, which includes no game discovered
@@ -141,13 +141,13 @@ Conventions:
     when the recap is set and every game of that edition is final.
 22. **Serve time.** `editionHighlight` is the stored video of the edition, set on
     the edition, on the previous edition and on the recap, else null. `highlights`
-    is null on every game. Neither is ever stored ([ADR 0048](../adr/0048-highlights-backfill-and-edition-video.md)).
+    is null on every game. Neither is ever stored ([ADR 0048](../adr/0048-highlights-backfill-and-edition-video.md), [ADR 0065](../adr/0065-background-work-limited-to-games-highlights-and-stars.md)).
 23. **Edition video.** The window of an edition is its game day (US Eastern) and
     the 3 days after it. The video is the first upload of the channel published in
     the window whose title has "All-Star", the year of the game day and
-    "highlight" or "full", in any letter case. It is looked for once a day by the
-    highlights backfill after the window has ended, is null when none is found,
-    and is never replaced once stored.
+    "highlight" or "full", in any letter case. It is looked for by the
+    on-demand highlights search ([ADR 0065](../adr/0065-background-work-limited-to-games-highlights-and-stars.md)) when the feed is served past the window
+    with none, is null when none is found, and is never replaced once stored.
 
 ## The payload each setting must return
 
@@ -170,16 +170,17 @@ Conventions:
 - **`TEAM_INFO_URL`** (existing): the colors of a league team that appears in a box
   score.
 
-## Discovery
+## Edition discovery
 
-A job in the stars job's task runs once a day at `DAILY_FETCH_TIME`, after the stars
-job, once the season is known. For the current season, then the previous one, it
-reads the scoreboard days from February 1 to March 7 of the season's end year (35
-days, 36 in a leap year) in order, until a day has All-Star games. It stores that
-day and the game ids in the state database and never scans that season again. A
-season with no All-Star game yet is scanned again at the next daily run. A failed
-read records the failure, keeps what is stored and is retried 5 minutes later. A
-season change makes the run due at once.
+No scheduled task finds the edition ([ADR 0065](../adr/0065-background-work-limited-to-games-highlights-and-stars.md), which replaces the daily scan of ADR 0036). With no stored
+edition, the build reads the season calendar and tries the days of the calendar
+from February 1 to March 7 of the season's end year: the days next to the longest
+run of days without games first, Sundays first among equals, at most 6 days. It
+stores the first day with All-Star games and the game ids in the state database
+and never scans that season again. A candidate day equal to today is read with the
+scoreboard freshness of 30 seconds, the others with 24 hours. The previous edition
+is found the same way from its own calendar. A failed read records the failure,
+keeps what is stored and is retried on a request after 10 minutes.
 
 ## Edge cases
 
@@ -194,11 +195,11 @@ next not final, no next game beyond it) and a points tie for the top of a team b
 
 - The only id is `league`; the feed is stored at `feeds/all-star/league.json`.
 - Nothing is built without a request. It answers 503 until the stars job knows the
-  season and has fetched every roster, and the discovery has completed a run.
+  season and has fetched every roster.
 - Built on request under rule G of [`docs/source-rules.md`](../source-rules.md): it
   expires 30 seconds after the build while its state is `live` or the edition's date
   is today (US Eastern), and a request that finds it stale waits for the rebuild;
-  before the edition, when the discovery runs after the build; once every game is
+  before the edition, 24 hours after the build ([ADR 0065](../adr/0065-background-work-limited-to-games-highlights-and-stars.md)); once every game is
   final, it is kept while its season is the current one, but only when it was built
   at least 1 hour after the latest time the feed first saw one of its games final;
   before that it is stale 30 seconds after the build.
@@ -219,8 +220,8 @@ next not final, no next game beyond it) and a points tie for the top of a team b
   nulls its part, except an input of the previous edition's MVP (rule 14).
 - A failed build is not retried for 10 minutes on request.
 - The builder is `build_all_star_feed` and the feed kind is `AllStarFeeds`, both in
-  `api/app/jobs/all_star_feed.py`; the discovery is `AllStarDiscovery` in
-  `api/app/jobs/all_star_discovery.py`.
+  `api/app/jobs/all_star_feed.py`.
+
 
 ## Endpoint
 
