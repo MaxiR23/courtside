@@ -49,7 +49,7 @@ HexColor = Annotated[str, StringConstraints(pattern=r"^#[0-9A-Fa-f]{6}$")]
 
 class TeamColors(FeedModel):
     primary: HexColor
-    secondary: HexColor
+    secondary: HexColor | None
 
 
 class Coach(FeedModel):
@@ -121,17 +121,17 @@ class Differential(FeedModel):
 
 class TeamRecord(SplitRecord):
     season: SeasonLabel
-    home: SplitRecord
-    away: SplitRecord
+    home: SplitRecord | None
+    away: SplitRecord | None
     last_ten: SplitRecord
     streak: Streak | None = None
     games_behind: NonNegativeFloat | None = None
     conference_rank: Annotated[int, Field(ge=1, le=15)]
     division_rank: Annotated[int, Field(ge=1, le=8)]
     playoff: PlayoffPosition | None = None
-    points_for: PointsTotal
-    points_against: PointsTotal
-    differential: Differential
+    points_for: PointsTotal | None
+    points_against: PointsTotal | None
+    differential: Differential | None
 
 
 class TeamLeader(FeedModel):
@@ -264,6 +264,9 @@ class TeamNames(FeedModel):
     # The rules version of the stored list (ADR 0053, ADR 0055); null on a list
     # from before the field.
     build_version: PositiveInt | None = None
+    # False when the current season could not be read; such a list is fresh for
+    # RETRY_AFTER only (ADR 0064).
+    complete: bool = True
 
 
 def _roster_order(number: str | None) -> tuple[bool, int]:
@@ -309,14 +312,13 @@ class TeamFeed(FeedModel):
     @model_validator(mode="after")
     def _require_the_blocks_of_the_current_season(self) -> TeamFeed:
         if (
-            self.arena is None
-            or self.injuries is None
+            self.injuries is None
             or self.colors is None
             or self.leaders is None
             or self.roster is None
         ):
             raise ValueError(
-                "the current season has an arena, injuries, colors, leaders and a roster"
+                "the current season has injuries, colors, leaders and a roster"
             )
         return self
 

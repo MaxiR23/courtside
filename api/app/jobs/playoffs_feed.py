@@ -134,7 +134,7 @@ from app.sources.postseason_mark import (
 from app.sources.postseason_scoreboard import PostseasonGame
 from app.sources.season_awards import SeasonAwards
 from app.sources.season_types import PLAY_IN, POSTSEASON, SeasonWindow
-from app.sources.team_info import TeamInfo
+from app.sources.team_info import TeamInfo, secondary_color
 from app.sources.team_players import RosterEntry
 from app.sources.team_postseason import TeamPostseasonRecord
 from app.sources.teams import TEAM_CODES
@@ -467,7 +467,7 @@ class _Builder:
         entry = self.entry(code)
         info = self.sources.colors.get(code)
         colors = (
-            {"primary": f"#{info.color}", "secondary": f"#{info.alternate_color}"}
+            {"primary": f"#{info.color}", "secondary": secondary_color(info)}
             if info is not None
             else {"primary": None, "secondary": None}
         )

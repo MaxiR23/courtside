@@ -217,12 +217,26 @@
           ]
         },
         "home": {
-          "pattern": "^\\d+-\\d+$",
-          "type": "string"
+          "anyOf": [
+            {
+              "pattern": "^\\d+-\\d+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "away": {
-          "pattern": "^\\d+-\\d+$",
-          "type": "string"
+          "anyOf": [
+            {
+              "pattern": "^\\d+-\\d+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "lastTen": {
           "pattern": "^\\d+-\\d+$",
@@ -237,18 +251,46 @@
           "type": "string"
         },
         "pointsFor": {
-          "pattern": "^\\d+\\.\\d$",
-          "type": "string"
+          "anyOf": [
+            {
+              "pattern": "^\\d+\\.\\d$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "pointsAgainst": {
-          "pattern": "^\\d+\\.\\d$",
-          "type": "string"
+          "anyOf": [
+            {
+              "pattern": "^\\d+\\.\\d$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "differential": {
-          "$ref": "#/$defs/PerGameDifferential"
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PerGameDifferential"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "total": {
-          "$ref": "#/$defs/TotalDifferential"
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TotalDifferential"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "seasonCode": {
           "anyOf": [

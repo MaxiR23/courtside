@@ -5,7 +5,7 @@
 // Tested:
 // - Conference groups and rows in the feed's order, with translated names and the team count meta
 // - Division groups in the feed's order, with the conference in the meta; conference seed on rows
-// - Every column's value as the feed sends it; a — for each null; the streak per language
+// - Every column's value as the feed sends it; a — for each null, including home, away, points, differential and total (ADR 0064); the streak per language
 // - Clinch tones, the eliminated row, the accents and the plain tile for null colors
 // - The playoff and play-in lines (lineAfter): repeated seeds, missing seeds, null seeds, feed order
 // - The key's seven codes with their labels; the state line, final and regular, singular and plural
@@ -102,6 +102,28 @@ describe('toStandingsView rows', () => {
 			total: { value: '+451', accent: true },
 			lineAfter: null
 		});
+	});
+
+	it('draws — and no accent for a null home, away, points, differential and total', () => {
+		const source = feed();
+		Object.assign(source.conferences[0]!.teams[2]!, {
+			home: null,
+			away: null,
+			pointsFor: null,
+			pointsAgainst: null,
+			differential: null,
+			total: null
+		});
+		const out = view(source).conference[0]?.rows[2];
+		expect([out?.home, out?.away, out?.pointsFor, out?.pointsAgainst]).toEqual([
+			'—',
+			'—',
+			'—',
+			'—'
+		]);
+		expect(out?.differential).toEqual({ value: '—', accent: false });
+		expect(out?.total).toEqual({ value: '—', accent: false });
+		expect(out?.lastTen).not.toBe('—');
 	});
 
 	it('formats a win streak as W3 and a loss streak as L2, and as G3 / P2 in Spanish', () => {

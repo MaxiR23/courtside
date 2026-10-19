@@ -44,7 +44,8 @@
 # - A failed daily fetch prunes nothing and calls no daily cleanup hook
 # - The daily step never deletes highlights
 # - The builder and a run carry the All-Star mark of each game, keep a run over an All-Star day valid, and leave out an All-Star game that has no live detail, has two sides with one code or has no search URL, with one log line and without failing the feed
-# - A failed live detail fetch of an All-Star game neither fails the run nor drops the game, which keeps its previous detail, and a league game still fails it
+# - A failed live detail fetch neither fails the run nor drops the game, which keeps its previous detail; a live game with no detail held is left out with one log line, and the other games are published (ADR 0064)
+# - The daily step deletes season team absences 31 days old and keeps those 29 days old
 # - A failed scoreboard fetch, live detail fetch or invalid feed keeps the last valid feed and records the reason
 # - Asks a live game's detail with a thirty second maximum age, and a final game's detail attempt fetched at or after its due time, never with a maximum age
 # - A live day is refreshed every 2 minutes with nobody present and every 30 seconds with someone present
@@ -572,11 +573,15 @@ def test_reports_the_reason_when_a_final_game_is_tied() -> None:
     assert raised.value.reason.startswith("invalid feed:")
 
 
-def test_reports_the_reason_when_a_live_game_has_no_detail() -> None:
-    with pytest.raises(FeedBuildError) as raised:
-        build(game("1", GameStatus.LIVE))
+def test_the_builder_leaves_out_a_live_game_without_a_detail_and_logs_it(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    with caplog.at_level(logging.WARNING, logger="app.jobs.games"):
+        feed = build(game("1", GameStatus.LIVE), game("2", GameStatus.SCHEDULED, NOON))
 
-    assert raised.value.reason.startswith("invalid feed:")
+    assert [g.id for g in feed.days[0].games] == ["2"]
+    [message] = [m for m in warnings(caplog) if m.startswith("games: game 1 skipped")]
+    assert " at " in message
 
 
 # Group 3: daily cadence
@@ -1380,20 +1385,62 @@ async def test_a_failed_scoreboard_fetch_keeps_the_last_valid_feed_and_records_t
 
 
 @pytest.mark.anyio
-async def test_a_failed_live_detail_fetch_keeps_the_last_valid_feed_and_records_the_reason(
-    settings: Settings, store: StateStore, sources: FakeSources
+async def test_a_failed_live_detail_of_one_game_keeps_its_previous_detail_and_publishes_the_others(
+    settings: Settings,
+    store: StateStore,
+    sources: FakeSources,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
-    sources.games[TODAY] = [game("1", GameStatus.LIVE)]
+    sources.games[TODAY] = [game("1", GameStatus.LIVE), game("2", GameStatus.LIVE)]
     job = make_job(settings, store, sources)
     await job.run(NOON)
-    before = read_feed(settings.data_dir, "games")
+    newer = leader("BOS").model_copy(update={"points": 31})
+    sources.details["2"] = GameDetail.model_validate(
+        {
+            "leaders": Leaders(away=newer, home=leader("NYK")),
+            "team_stats": {"away": STATS, "home": STATS},
+        }
+    )
+    sources.detail_errors["1"] = SourceError("game detail", "request timed out")
+    later = NOON + dt.timedelta(seconds=30)
+
+    with caplog.at_level(logging.WARNING, logger="app.jobs.games"):
+        await job.run(later)
+
+    published = read_feed(settings.data_dir, "games")
+    assert published is not None
+    feed = GamesFeed.model_validate_json(published)
+    first, second = next(d.games for d in feed.days if d.date == TODAY)
+    assert (first.id, second.id) == ("1", "2")
+    assert first.leaders == DETAIL.leaders
+    assert second.leaders is not None and second.leaders.away.points == 31
+    assert feed.generated_at == later
+    assert reason(store) is None
+    assert warnings(caplog) == [
+        "games: live detail of game 1 failed: request timed out"
+    ]
+
+
+@pytest.mark.anyio
+async def test_a_live_game_whose_first_detail_fails_is_left_out_and_the_others_are_published(
+    settings: Settings,
+    store: StateStore,
+    sources: FakeSources,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    sources.games[TODAY] = [game("1", GameStatus.LIVE), game("2", GameStatus.LIVE)]
     sources.detail_errors["1"] = SourceError("game detail", "request timed out")
 
-    await job.run(NOON + dt.timedelta(seconds=30))
+    with caplog.at_level(logging.WARNING, logger="app.jobs.games"):
+        await make_job(settings, store, sources).run(NOON)
 
-    assert before is not None
-    assert read_feed(settings.data_dir, "games") == before
-    assert reason(store) == "game detail: request timed out"
+    published = read_feed(settings.data_dir, "games")
+    assert published is not None
+    feed = GamesFeed.model_validate_json(published)
+    assert [g.id for g in next(d.games for d in feed.days if d.date == TODAY)] == ["2"]
+    assert store.job_states()[0].last_success == NOON
+    assert reason(store) is None
+    assert any(m.startswith("games: game 1 skipped") for m in warnings(caplog))
 
 
 @pytest.mark.anyio
@@ -1533,6 +1580,20 @@ async def test_the_daily_step_deletes_past_games_and_identities_touched_91_days_
     assert store.player_identity("old") is None
     assert store.player_identity("new") is not None
     assert store.past_player_ids("known") == {"old"}
+
+
+@pytest.mark.anyio
+async def test_the_daily_step_deletes_season_team_absences_31_days_old_and_keeps_those_29_days_old(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    store.record_season_team_absence("SEA", 1995, NOON - dt.timedelta(days=31))
+    store.record_season_team_absence("VAN", 1995, NOON - dt.timedelta(days=29))
+    long_ago = NOON - dt.timedelta(days=400)
+
+    await make_job(settings, store, sources).run(NOON)
+
+    assert not store.season_team_absent("SEA", 1995, long_ago)
+    assert store.season_team_absent("VAN", 1995, long_ago)
 
 
 @pytest.mark.anyio
@@ -2272,9 +2333,7 @@ async def test_a_failed_live_detail_fetch_of_an_all_star_game_does_not_fail_the_
     assert store.job_states()[0].last_success == NOON
     assert reason(store) is None
     live_failures = [m for m in warnings(caplog) if "live detail" in m]
-    assert live_failures == [
-        "games: live detail of All-Star game a failed: request timed out"
-    ]
+    assert live_failures == ["games: live detail of game a failed: request timed out"]
 
 
 @pytest.mark.anyio

@@ -36,7 +36,7 @@ export interface TeamFeed {
 }
 export interface TeamColors {
 	primary: string;
-	secondary: string;
+	secondary: string | null;
 }
 export interface Venue {
 	name: string;
@@ -52,17 +52,17 @@ export interface TeamRecord {
 	losses: number;
 	winPct: number;
 	season: string;
-	home: SplitRecord;
-	away: SplitRecord;
+	home: SplitRecord | null;
+	away: SplitRecord | null;
 	lastTen: SplitRecord;
 	streak: Streak | null;
 	gamesBehind: number | null;
 	conferenceRank: number;
 	divisionRank: number;
 	playoff: PlayoffPosition | null;
-	pointsFor: PointsTotal;
-	pointsAgainst: PointsTotal;
-	differential: Differential;
+	pointsFor: PointsTotal | null;
+	pointsAgainst: PointsTotal | null;
+	differential: Differential | null;
 }
 export interface SplitRecord {
 	wins: number;

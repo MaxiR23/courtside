@@ -111,7 +111,7 @@ from app.sources.game_detail import GameDetail, GameDetailSections
 from app.sources.http import Freshness, SourceClient, SourceError
 from app.sources.scoreboard import FRESH_FOR
 from app.sources.season_awards import AwardWinnerRef, SeasonAwards
-from app.sources.team_info import TeamInfo
+from app.sources.team_info import TeamInfo, secondary_color
 from app.storage.feeds import read_by_id
 from app.storage.state import StateStore
 
@@ -554,7 +554,7 @@ def league_team(
         code=code,
         colors=StandingsColors(
             primary=None if info is None else f"#{info.color}",
-            secondary=None if info is None else f"#{info.alternate_color}",
+            secondary=None if info is None else secondary_color(info),
         ),
     )
 

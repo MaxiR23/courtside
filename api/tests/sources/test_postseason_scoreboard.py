@@ -6,6 +6,7 @@
 # - Maps the postseason fields of a game: season type, competition type, note, period of a final game and series object (summary, completion, total games, wins per standard code), and none of them for a regular game
 # - Returns an empty list for a day with no games and skips a game with a side that has no team
 # - Raises the source error on a series competitor with an unknown team id of a final game, an invalid payload and a missing URL
+# - A bad league event still fails the postseason read, and a playoff game without a venue is read with a null venue (ADR 0064)
 # - Leaves a series competitor with an unknown team id out of the wins of a scheduled game
 # - Shares one request per day with the games function of the scoreboard adapter
 # - With by_id_first a side whose abbreviation names another franchise maps to the code of its provider id; without it the abbreviation wins
@@ -202,6 +203,37 @@ async def test_leaves_an_unknown_series_competitor_out_of_the_wins_of_a_schedule
     assert scheduled.series is not None
     assert len(scheduled.series.wins) == len(competitors) - 1
     assert "999" not in scheduled.series.wins
+
+
+@pytest.mark.anyio
+async def test_a_bad_league_event_still_fails_the_postseason_read(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("playoffs.json")
+    for competitor in payload["events"][0]["competitions"][0]["competitors"]:
+        del competitor["score"]
+    mock.get(URL).respond(json=payload)
+
+    with pytest.raises(SourceError) as raised:
+        await fetch_postseason(settings)
+
+    assert raised.value.reason.startswith(
+        f"game {payload['events'][0]['id']} is invalid"
+    )
+
+
+@pytest.mark.anyio
+async def test_a_playoff_game_without_a_venue_is_read_with_a_null_venue(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load("playoffs.json")
+    del payload["events"][0]["competitions"][0]["venue"]
+    mock.get(URL).respond(json=payload)
+
+    games = await fetch_postseason(settings)
+
+    assert len(games) == 3
+    assert games[0].game.venue is None
 
 
 @pytest.mark.anyio

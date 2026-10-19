@@ -74,6 +74,7 @@ The h2 is Barlow Condensed, `clamp(28px, 3.4vw, 40px)`, line-height 1, uppercase
   - Final: the losing team's block and score drop to opacity .45. The winner comes from the feed.
 - **Mobile scoreboard,** under 680px: two rows, each with a 48px monogram, the name (26px), `city · record` (12px) and the score right-aligned (44px). Pre-game adds a time row (36px, plus the broadcast).
 - **Pre-game venue strip:** a grid `repeat(auto-fit, minmax(min(100%, 340px), 1fr))`.
+  - Without a venue there is no arena block.
   - Arena photo: a 16:9 `BlueprintFrame` holding the photo in its original colors, with a bottom gradient to `rgba(12,14,16,.85)`. The arena name (22px, uppercase) and city sit over it. Without a city, the arena name sits alone, with no empty line. Without a photo, or when the photo fails to load, the frame shows the 44px grid with the arena name and city over it in the same type, and no gradient. The frame is never empty.
   - Info cells: Tip-off, Venue and Broadcast. Label 11px, .16em, uppercase, accent-light; value 22px Barlow Condensed; sub-line 13px, muted. The Venue cell shows the arena as its value and the city as its sub-line; without a city it has no sub-line.
 
@@ -158,7 +159,7 @@ A grid `minmax(150px, 2fr) repeat(5, minmax(76px, 1fr))`, min width 560px, scrol
 ### 11. Season series (pre-game, final)
 
 - Two columns. On the left, the summary in large type, `clamp(40px, 5vw, 64px)`: `OKC lead 2–1`, `Series tied 1–1` or `First meeting`. The meta reads `2 of 4 games played`.
-- On the right, one row per game: the date, or "This game" in accent-light for the current game; then `AWAY pts – pts HOME` with the losing side at .45 opacity; and the arena under the score, wrapping on mobile.
+- On the right, one row per game: the date, or "This game" in accent-light for the current game; then `AWAY pts – pts HOME` with the losing side at .45 opacity; and the arena under the score, wrapping on mobile; a meeting with no arena shows no arena line.
 - Before tip-off, the current game's row shows the team codes with no points.
 - The feed also marks the current game on a live page, where this section is not shown.
 - On a final game, the current game is part of the series the feed sends.

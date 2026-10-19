@@ -6,7 +6,7 @@
 // - The arena frame with the photo (empty alt, no filter class) and its caption
 // - No frame and a stat cell with no photo; the cell replaces the frame after the image fails
 // - The head coach cell, present, with the name alone and absent
-// - Swatches with the inline colors and the hex text
+// - Swatches with the inline colors and the hex text; one swatch when the secondary color is unknown (ADR 0064)
 // - The next game card, or "Season over."
 //
 // What is covered:
@@ -111,6 +111,13 @@ describe('TeamOverview cells', () => {
 		]);
 		expect(screen.getByText('#007AC1')).toBeTruthy();
 		expect(screen.getByText('#EF3B24')).toBeTruthy();
+	});
+
+	it('shows one swatch when the secondary color is unknown', () => {
+		const { container } = show({ ...overview, colors: [{ hex: '#007AC1' }] });
+		expect(container.querySelectorAll('.swatch .chip')).toHaveLength(1);
+		expect(screen.getByText('#007AC1')).toBeTruthy();
+		expect(screen.queryByText('#EF3B24')).toBeNull();
 	});
 
 	it('shows the next game card, or Season over.', () => {

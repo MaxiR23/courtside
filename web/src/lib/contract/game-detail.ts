@@ -17,7 +17,7 @@ export interface GameDetailFeed {
 	id: string;
 	status: GameStatus;
 	startTime: string;
-	venue: Venue;
+	venue: Venue | null;
 	away: DetailTeam;
 	home: DetailTeam;
 	broadcast: string | null;
@@ -270,7 +270,7 @@ export interface SeriesGame {
 	isCurrent: boolean;
 	score: Score | null;
 	winner: string | null;
-	arena: string;
+	arena: string | null;
 }
 export interface Highlight {
 	title: string;

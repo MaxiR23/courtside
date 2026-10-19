@@ -11,8 +11,9 @@
 # - The kind: a season whose team object is inactive is read, and a relocated franchise has one run per identity
 # - The kind: a second request within 7 days makes no read and one at 7 days reads again
 # - The kind: the built list carries the current build version; a stored list of an older or missing version is rebuilt on its next request inside 7 days and one of the current version makes no read (ADR 0055)
-# - The kind: a build with no readable season keeps the stored list
-# - The kind: a failed or missing current season fails the build and keeps the stored list
+# - The kind: a current season that cannot be read (failed or no team object) is named by the open run of the stored list, else the latest season read, else the team code, and the list is stored incomplete with one log line (ADR 0064)
+# - The kind: a current season that cannot be read keeps the stored runs unchanged, also when an earlier season fails with it; a current season 404 records no absence and is read again after the retry window (real adapter, ADR 0064)
+# - The kind: an incomplete list is fresh for the 10 minute retry window only, then reads the current season again
 # - season_identity: always reads the season team object and ignores a stored run, none on a 404
 # - season_names: the season code and not historical for an unchanged franchise, a relocated franchise historical with its season code, a provider code mapped before the comparison, a code with no team left out (ADR 0054)
 # - The code of a historical identity is the source's own abbreviation, never mapped; an identity equal to today's keeps the standard code, in the runs and in season_names (ADR 0055)
@@ -40,6 +41,7 @@ from pathlib import Path
 from typing import Any, cast
 
 import pytest
+import respx
 
 from app.feeds.base import FeedModel
 from app.feeds.opponent import Opponent
@@ -48,9 +50,9 @@ from app.feeds.playoffs import AwardWinner, PlayoffLeader
 from app.feeds.playoffs_finals import FinalsMvp
 from app.feeds.team import NameRun, TeamNames
 from app.jobs.on_demand import (
+    RETRY_AFTER,
     SEASON_BUILD_VERSION,
     FeedCache,
-    FeedUnavailableError,
     IdStatus,
     UnknownFeedError,
 )
@@ -335,25 +337,41 @@ async def test_a_list_of_the_current_version_inside_7_days_makes_no_read(
     assert len(kit.calls) == reads
 
 
+def stored_names(kit: NamesKit) -> TeamNames:
+    body = read_by_id(kit.path, KIND, "okc")
+    assert body is not None
+    return TeamNames.model_validate_json(body)
+
+
 @pytest.mark.anyio
-async def test_a_build_with_no_readable_season_keeps_the_stored_list(
-    kit: NamesKit,
+async def test_a_build_with_no_readable_season_names_the_current_run_from_the_stored_list(
+    kit: NamesKit, caplog: pytest.LogCaptureFixture
 ) -> None:
     await kit.serve()
-    before = kit.names.stored("okc")
+    assert stored_names(kit).complete is True
     kit.all_failing = True
 
-    await kit.serve(at=NOW + NAMES_LIFETIME)
+    with caplog.at_level(logging.WARNING, logger="app.jobs.team_names"):
+        await kit.serve(at=NOW + NAMES_LIFETIME)
 
-    assert kit.names.stored("okc") == before
+    names = stored_names(kit)
+    assert names.complete is False
+    assert identities(names.runs) == [
+        (1994, 2007, "Harbor Gulls", "Seattle", "SEA"),
+        (2008, None, "Thunder", "Oklahoma City", "OKC"),
+    ]
+    assert any(
+        r.getMessage()
+        == f"team names: okc current season {CURRENT} not read; built from stored list"
+        for r in caplog.records
+    )
     state = kit.store.feed_build(KIND, "okc")
-    assert state is not None
-    assert state.last_failure is not None
+    assert state is not None and state.last_failure is None
 
 
 @pytest.mark.anyio
 @pytest.mark.parametrize("mode", ["failing", "missing"])
-async def test_a_current_season_that_cannot_be_read_keeps_the_stored_list(
+async def test_a_failed_current_season_read_takes_the_current_run_from_the_stored_list(
     kit: NamesKit, mode: str
 ) -> None:
     await kit.serve()
@@ -362,36 +380,136 @@ async def test_a_current_season_that_cannot_be_read_keeps_the_stored_list(
 
     await kit.serve(at=NOW + NAMES_LIFETIME)
 
-    assert kit.names.stored("okc") == before
     assert before is not None
     assert before[-1].to is None
-    state = kit.store.feed_build(KIND, "okc")
-    assert state is not None
-    assert state.last_failure is not None
+    names = stored_names(kit)
+    assert names.runs == before
+    assert names.complete is False
 
 
 @pytest.mark.anyio
-async def test_a_current_season_that_cannot_be_read_and_nothing_stored_is_unavailable(
+async def test_a_partial_read_keeps_the_stored_runs_when_the_current_season_and_an_earlier_one_fail(
     kit: NamesKit,
+) -> None:
+    await kit.serve()
+    before = kit.names.stored("okc")
+    kit.failing = {CURRENT, 2000, 2010}
+
+    await kit.serve(at=NOW + NAMES_LIFETIME)
+
+    names = stored_names(kit)
+    assert before is not None and len(before) == 2
+    assert names.runs == before
+    assert names.complete is False
+
+
+@pytest.mark.anyio
+async def test_a_failed_current_season_read_with_nothing_stored_takes_the_latest_read_season(
+    kit: NamesKit, caplog: pytest.LogCaptureFixture
 ) -> None:
     kit.failing = {CURRENT}
 
-    with pytest.raises(FeedUnavailableError):
+    with caplog.at_level(logging.WARNING, logger="app.jobs.team_names"):
         await kit.serve()
 
-    assert kit.names.stored("okc") is None
+    names = stored_names(kit)
+    assert names.complete is False
+    assert identities(names.runs) == [
+        (1994, 2007, "Harbor Gulls", "Seattle", "SEA"),
+        (2008, None, "Thunder", "Oklahoma City", "OKC"),
+    ]
+    assert any(
+        r.getMessage()
+        == f"team names: okc current season {CURRENT} not read; built from season {CURRENT - 1}"
+        for r in caplog.records
+    )
 
 
 @pytest.mark.anyio
-async def test_a_build_with_no_readable_season_and_nothing_stored_is_unavailable(
-    kit: NamesKit,
+async def test_with_no_season_read_the_current_run_is_named_by_the_team_code(
+    kit: NamesKit, caplog: pytest.LogCaptureFixture
 ) -> None:
     kit.all_failing = True
 
-    with pytest.raises(FeedUnavailableError):
+    with caplog.at_level(logging.WARNING, logger="app.jobs.team_names"):
         await kit.serve()
 
-    assert kit.names.stored("okc") is None
+    names = stored_names(kit)
+    assert names.complete is False
+    assert identities(names.runs) == [(CURRENT, None, "OKC", "OKC", "OKC")]
+    assert any(
+        r.getMessage().endswith("not read; built from team code")
+        for r in caplog.records
+    )
+
+
+@pytest.mark.anyio
+async def test_an_incomplete_list_is_stale_after_the_retry_window_and_reads_the_current_season_again(
+    kit: NamesKit,
+) -> None:
+    kit.failing = {CURRENT}
+    await kit.serve()
+    first = len(kit.calls)
+
+    await kit.serve(at=NOW + RETRY_AFTER - dt.timedelta(seconds=1))
+    assert len(kit.calls) == first
+
+    kit.failing = set()
+    await kit.serve(at=NOW + RETRY_AFTER)
+    assert len(kit.calls) == 2 * first
+    assert stored_names(kit).complete is True
+
+    await kit.serve(at=NOW + RETRY_AFTER + NAMES_LIFETIME - dt.timedelta(seconds=1))
+    assert len(kit.calls) == 2 * first
+
+
+@pytest.mark.anyio
+async def test_a_current_season_404_is_not_recorded_so_the_retry_reads_it_again(
+    tmp_path: Path,
+) -> None:
+    template = "https://example.com/seasons/{season}/teams/{team_id}"
+    settings = Settings(  # type: ignore[call-arg]
+        _env_file=None, data_dir=tmp_path, season_team_url=template
+    )
+    clock = [NOW]
+    store = StateStore(tmp_path)
+    store.migrate()
+    cache = FeedCache(tmp_path, store, clock=lambda: clock[0])
+    TeamNamesFeeds(
+        settings,
+        store,
+        create_client(store, clock=lambda: clock[0]),
+        cache,
+        cast(StarsJob, FakeStars()),
+    )
+    body = {
+        "id": "25",
+        "abbreviation": "OKC",
+        "displayName": "Oklahoma City Thunder",
+        "name": "Thunder",
+        "location": "Oklahoma City",
+    }
+    with respx.mock as mock:
+        current = mock.get(f"https://example.com/seasons/{CURRENT}/teams/25").respond(
+            404
+        )
+        mock.get(url__regex=r"https://example\.com/seasons/\d+/teams/25").respond(
+            json=body
+        )
+        await cache.serve(KIND, "okc")
+        while cache.in_flight:
+            await next(iter(cache.in_flight.values()))
+            await asyncio.sleep(0)
+        assert current.call_count == 1
+        assert not store.season_team_absent("OKC", CURRENT, NOW - dt.timedelta(days=1))
+
+        clock[0] = NOW + RETRY_AFTER + dt.timedelta(hours=2)
+        await cache.serve(KIND, "okc")
+        while cache.in_flight:
+            await next(iter(cache.in_flight.values()))
+            await asyncio.sleep(0)
+
+    assert current.call_count == 2
 
 
 @pytest.mark.anyio
@@ -436,19 +554,6 @@ def test_a_relocated_franchise_has_one_run_per_identity_from_1994_to_today() -> 
         (1994, 2008, "Harbor Gulls", "Seattle", "SEA"),
         (2009, None, "Thunder", "Oklahoma City", "OKC"),
     ]
-
-
-@pytest.mark.anyio
-async def test_a_current_season_with_no_team_object_keeps_the_stored_list(
-    kit: NamesKit,
-) -> None:
-    await kit.serve()
-    before = kit.names.stored("okc")
-    kit.missing = {CURRENT}
-
-    await kit.serve(at=NOW + NAMES_LIFETIME)
-
-    assert kit.names.stored("okc") == before
 
 
 @pytest.mark.anyio

@@ -231,7 +231,7 @@ class SeriesGame(FeedModel):
     is_current: bool
     score: Score | None
     winner: TeamCode | None
-    arena: NonEmptyStr
+    arena: NonEmptyStr | None
 
     @model_validator(mode="after")
     def _require_a_winner_of_a_played_game(self) -> SeriesGame:
@@ -273,7 +273,7 @@ class GameDetailFeed(FeedModel):
     id: NonEmptyStr
     status: GameStatus
     start_time: UtcDatetime
-    venue: Venue
+    venue: Venue | None
     away: DetailTeam
     home: DetailTeam
     broadcast: NonEmptyStr | None = None
@@ -354,22 +354,28 @@ class GameDetailFeed(FeedModel):
     @model_validator(mode="after")
     def _require_league_data_of_league_sides(self) -> GameDetailFeed:
         for team in (self.away, self.home):
-            if (team.record is None) != team.guest:
-                raise ValueError("a guest side has no record and a league side has one")
+            if team.guest and team.record is not None:
+                raise ValueError("a guest side has no record")
         if self.stars is not None and not stars_match_sides(
             self.stars, self.away, self.home
         ):
             raise ValueError("a guest side has no star and a league side has one")
+        # A league side may lack its standing when the standings miss the team
+        # (ADR 0064); injuries and last games keep both directions.
         sections = (
-            ("standings", self.standings),
-            ("injuries", self.injuries),
-            ("lastGames", self.last_games),
+            ("standings", self.standings, False),
+            ("injuries", self.injuries, True),
+            ("lastGames", self.last_games, True),
         )
-        for name, section in sections:
+        for name, section, both_ways in sections:
             if section is None:
                 continue
             for side, team in ((section.away, self.away), (section.home, self.home)):
-                if (side is None) != team.guest:
+                if team.guest and side is not None:
+                    raise ValueError(
+                        f"{name} of a guest side is null and of a league side is set"
+                    )
+                if both_ways and not team.guest and side is None:
                     raise ValueError(
                         f"{name} of a guest side is null and of a league side is set"
                     )

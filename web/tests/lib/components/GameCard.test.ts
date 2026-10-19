@@ -24,6 +24,7 @@
 // - A guest side without a city shows no city and its tile is not a link
 // - A past game from the day feed (final, stats available, no highlights, no stars) renders its score and line score and no stats notice, Leaders, TeamStats or highlights, with a panel grid of exactly 2 children and the game center link (ADR 0054)
 // - The pending and unavailable stats notices stay for a final game without stats
+// - A scheduled game with no venue shows no Venue fact and keeps Tip-off and Broadcast (ADR 0064)
 // - A past game with leaders and stats read from its game detail draws both and no stats notice; with only stats it draws no leaders; a null leader value and a null stat show a dash
 //
 // What is covered:
@@ -365,6 +366,24 @@ describe('GameCard', () => {
 		expect(screen.getByText('Players to watch')).toBeTruthy();
 		expect(screen.getByText('Stephen Curry')).toBeTruthy();
 		expect(screen.getByText('LeBron James')).toBeTruthy();
+	});
+
+	it('leaves the Venue fact out of a scheduled game with no venue and keeps Tip-off and Broadcast', () => {
+		const noVenue = withDetails(scheduled, {
+			kind: 'scheduled',
+			venue: null,
+			playersToWatch: { away: awayPlayer, home: homePlayer }
+		});
+		const { container } = render(GameCard, {
+			props: { teamHref, game: noVenue, layout: 'desktop', open: true }
+		});
+		const facts = [...container.querySelectorAll('.fact')].map((e) =>
+			[...e.children].map((c) => c.textContent)
+		);
+		expect(facts).toEqual([
+			['Tip-off', '9:00 PM ET'],
+			['Broadcast', 'Courtside TV']
+		]);
 	});
 
 	it('animates the panel when it opens and not with reduced motion', async () => {

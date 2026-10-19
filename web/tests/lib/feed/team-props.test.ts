@@ -28,6 +28,7 @@
 // - names: null with zero or one run; four runs as years, name, code and last season; current run "2015–"
 //
 // What is covered:
+// - A null secondary color gives a null header strip and one swatch; a null arena gives the dash arena name; null Home and Away records hide their large cells and null points or differential hide their detail cells, the others keeping their order (ADR 0064)
 // - Pure logic on a recorded feed (tests/lib/feed/fixtures/team.json); no clock, no network
 //
 // Run with: cd web && pnpm exec vitest run tests/lib/feed/team-props.test.ts
@@ -101,6 +102,12 @@ describe('toTeamView header', () => {
 		expect(header.recordSeason).toBe('2025-26 record');
 		expect(header.conferenceLine).toBe('Western Conference · Northwest Division');
 		expect(header.colors).toEqual({ primary: '#007AC1', secondary: '#EF3B24' });
+	});
+
+	it('has no color strip when the secondary color is null', () => {
+		const source = feed();
+		source.colors = { primary: '#007AC1', secondary: null };
+		expect(view(source).header.colors).toBeNull();
 	});
 
 	it('reads the season of the record from the record, not the feed season', () => {
@@ -193,6 +200,18 @@ describe('toTeamView overview', () => {
 			sub: '6 seasons as NBA head coach'
 		});
 		expect(overview.colors).toEqual([{ hex: '#007AC1' }, { hex: '#EF3B24' }]);
+	});
+
+	it('lists one swatch when the secondary color is null', () => {
+		const source = feed();
+		source.colors = { primary: '#007AC1', secondary: null };
+		expect(view(source).sections.overview.colors).toEqual([{ hex: '#007AC1' }]);
+	});
+
+	it('gives the dash arena name when the arena is null', () => {
+		const source = feed();
+		source.arena = null;
+		expect(view(source).sections.overview.arena).toEqual({ name: '—', city: null, photo: null });
 	});
 
 	it('uses the singular for one season and hides a null coach', () => {
@@ -293,6 +312,40 @@ describe('toTeamView record', () => {
 			{ label: 'Points against', value: '109.9', sub: '9,012' },
 			{ label: 'Differential', value: '+8.4', sub: '+689' }
 		]);
+	});
+
+	it('hides the Home and Away cells when their records are null and keeps the others in order', () => {
+		const source = feed();
+		source.record.home = null;
+		source.record.away = null;
+		expect(view(source).sections.record.large.map((cell) => cell.label)).toEqual([
+			'Overall',
+			'Last 10'
+		]);
+		source.record.home = feed().record.home;
+		expect(view(source).sections.record.large.map((cell) => cell.label)).toEqual([
+			'Overall',
+			'Home',
+			'Last 10'
+		]);
+	});
+
+	it('hides the points and differential cells when they are null and keeps the others in order', () => {
+		const source = feed();
+		source.record.pointsFor = null;
+		source.record.differential = null;
+		expect(view(source).sections.record.detail.map((cell) => cell.label)).toEqual([
+			'Streak',
+			'Games behind',
+			'Playoff position',
+			'Conference',
+			'Division',
+			'Points against'
+		]);
+		source.record.pointsAgainst = null;
+		expect(view(source).sections.record.detail.map((cell) => cell.label)).not.toContain(
+			'Points against'
+		);
 	});
 
 	it('shows a dash for games behind when the feed has none', () => {

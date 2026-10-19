@@ -11,7 +11,8 @@
 # - Maps an absent, null or empty streak, games behind and seed to null
 # - Maps the division and conference records and the clinch code, a missing record to 0-0, an absent, null or empty clincher to null, every known clinch code and an unknown one to null with a log of the team code
 # - Reports whether the standings came from the rule L fallback
-# - Raises the source error on a fallback that is not of the regular season, an unknown season type, mixed seasons, without both conferences, with an unknown conference, an unknown team code, a missing stat, an invalid payload, a timeout, an error status (on both requests) and a missing URL
+# - Maps a missing home, road, average points, total points or differential stat to null, skips a team without wins or losses with a log line naming its code and keeps the provider order of the others (ADR 0064)
+# - Raises the source error on a fallback that is not of the regular season, an unknown season type, mixed seasons, without both conferences, with an unknown conference, an unknown team code, an invalid payload, a timeout, an error status (on both requests) and a missing URL
 # - Reuses the standings and the fallback for one hour
 # - A past season read sends its season query value in one request, resolves a historical abbreviation by provider id, keeps the clinchers and the seven-team division, and rejects a response of another season or season type with no fallback
 #
@@ -341,32 +342,87 @@ async def test_raises_the_source_error_on_an_unknown_team_code(
     assert error.reason == "unknown team code 'XXX'"
 
 
+NULLABLE_STATS = {
+    "home": "home",
+    "road": "road",
+    "avgpointsfor": "avg_points_for",
+    "avgpointsagainst": "avg_points_against",
+    "pointsfor": "points_for",
+    "pointsagainst": "points_against",
+    "differential": "differential",
+    "pointdifferential": "point_differential",
+}
+
+
 @pytest.mark.anyio
-async def test_raises_the_source_error_on_a_missing_stat(
+@pytest.mark.parametrize("without_value", [False, True], ids=["absent", "no-value"])
+@pytest.mark.parametrize("key", list(NULLABLE_STATS))
+async def test_maps_a_missing_split_points_or_differential_stat_to_null(
+    mock: respx.MockRouter, settings: Settings, key: str, without_value: bool
+) -> None:
+    payload = load()
+    stats = division(payload)["standings"]["entries"][0]["stats"]
+    if without_value:
+        for stat in stats:
+            if stat["type"] == key:
+                stat.pop("displayValue", None)
+                stat.pop("value", None)
+    else:
+        stats[:] = [stat for stat in stats if stat["type"] != key]
+    mock.get(URL).respond(json=payload)
+
+    standings = await fetch(settings)
+
+    boston = standings.teams["BOS"]
+    assert getattr(boston, NULLABLE_STATS[key]) is None
+    assert len(standings.teams) == 30
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("key", ["wins", "losses"])
+async def test_skips_a_team_without_wins_or_losses_with_a_log_line_naming_its_code(
+    mock: respx.MockRouter,
+    settings: Settings,
+    caplog: pytest.LogCaptureFixture,
+    key: str,
+) -> None:
+    payload = load()
+    stats = division(payload)["standings"]["entries"][0]["stats"]
+    stats[:] = [stat for stat in stats if stat["type"] != key]
+    mock.get(URL).respond(json=payload)
+
+    with caplog.at_level(logging.WARNING, logger="app.sources.division_standings"):
+        standings = await fetch(settings)
+
+    assert "BOS" not in standings.teams
+    assert len(standings.teams) == 29
+    assert [r.getMessage() for r in caplog.records] == [
+        f"division standings: team BOS skipped: team BOS has no {key} stat"
+    ]
+
+
+@pytest.mark.anyio
+async def test_keeps_the_provider_order_of_the_other_teams_after_a_skipped_one(
     mock: respx.MockRouter, settings: Settings
 ) -> None:
+    mock.get(URL).respond(json=load())
+    whole = await fetch(settings)
     payload = load()
     stats = division(payload)["standings"]["entries"][0]["stats"]
     stats[:] = [stat for stat in stats if stat["type"] != "wins"]
+    mock.get(URL).respond(json=payload)
 
-    error = await fetch_error_of(mock, settings, payload)
+    with TemporaryDirectory() as directory:
+        store = StateStore(Path(directory))
+        store.migrate()
+        async with create_client(store) as client:
+            partial = await fetch_division_standings(client, settings)
 
-    assert error.reason == "team BOS has no wins stat"
-
-
-@pytest.mark.anyio
-async def test_raises_the_source_error_on_a_stat_without_a_value(
-    mock: respx.MockRouter, settings: Settings
-) -> None:
-    payload = load()
-    stats = division(payload)["standings"]["entries"][0]["stats"]
-    for stat in stats:
-        if stat["type"] == "home":
-            del stat["displayValue"]
-
-    error = await fetch_error_of(mock, settings, payload)
-
-    assert error.reason == "team BOS has no home stat"
+    assert set(whole.teams) - set(partial.teams) == {"BOS"}
+    for code, kept in partial.teams.items():
+        assert kept.provider_order == whole.teams[code].provider_order
+        assert kept.division_order == whole.teams[code].division_order
+        assert kept.conference_order == whole.teams[code].conference_order
 
 
 @pytest.mark.anyio

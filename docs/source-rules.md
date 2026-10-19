@@ -37,7 +37,7 @@ While any game of the days shown is live:
 
 ## D. Final games
 
-A final game's detail is built once, at its final time with the ADR 0010 attempts, and never again. Its stars, highlights and highlights search URL are added when it is served, not stored in it.
+A final game's detail is built once, at its final time with the ADR 0010 attempts, and never again. After the fourth failed attempt it is built once with the summary sections null ([ADR 0064](adr/0064-degrade-one-bad-item-instead-of-failing-a-feed.md)). Its stars, highlights and highlights search URL are added when it is served, not stored in it.
 
 ## E. Fixed-time work
 

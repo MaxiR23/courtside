@@ -182,7 +182,7 @@ function header(feed: TeamFeed): TeamHeaderView {
 		cupLine: cupTeamLine(feed.cup),
 		titles: teamTitles(feed.titles),
 		colors:
-			feed.historical || feed.colors === null
+			feed.historical || feed.colors === null || feed.colors.secondary === null
 				? null
 				: { primary: feed.colors.primary, secondary: feed.colors.secondary },
 		record: record(r),
@@ -220,7 +220,11 @@ function overview(feed: TeamFeed): OverviewSection {
 				}
 			: null,
 		colors:
-			feed.colors === null ? [] : [{ hex: feed.colors.primary }, { hex: feed.colors.secondary }],
+			feed.colors === null
+				? []
+				: [feed.colors.primary, feed.colors.secondary]
+						.filter((hex): hex is string => hex !== null)
+						.map((hex) => ({ hex })),
 		nextGame: feed.nextGame ? nextGameView(feed.nextGame) : null
 	};
 }
@@ -259,31 +263,37 @@ function recordSection(feed: TeamFeed): RecordSection {
 			label: m.team_record_division(),
 			value: rank(r.divisionRank, feed.division),
 			sub: null
-		},
-		{
+		}
+	);
+	// A null field hides its cell; the cells around it keep their order.
+	if (r.pointsFor) {
+		detail.push({
 			label: m.team_record_points_for(),
 			value: formatNumber(r.pointsFor.perGame, oneDecimal),
 			sub: formatNumber(r.pointsFor.total)
-		},
-		{
+		});
+	}
+	if (r.pointsAgainst) {
+		detail.push({
 			label: m.team_record_points_against(),
 			value: formatNumber(r.pointsAgainst.perGame, oneDecimal),
 			sub: formatNumber(r.pointsAgainst.total)
-		},
-		{
+		});
+	}
+	if (r.differential) {
+		detail.push({
 			label: m.team_record_differential(),
 			value: formatNumber(r.differential.perGame, { ...oneDecimal, signDisplay: 'exceptZero' }),
 			sub: formatNumber(r.differential.total, { signDisplay: 'exceptZero' })
-		}
-	);
+		});
+	}
+	const large = [splitCell(m.team_record_overall(), r)];
+	if (r.home) large.push(splitCell(m.team_record_home(), r.home));
+	if (r.away) large.push(splitCell(m.team_record_away(), r.away));
+	large.push(splitCell(m.team_record_last_ten(), r.lastTen));
 	return {
 		meta: m.team_record_meta({ season: r.season }),
-		large: [
-			splitCell(m.team_record_overall(), r),
-			splitCell(m.team_record_home(), r.home),
-			splitCell(m.team_record_away(), r.away),
-			splitCell(m.team_record_last_ten(), r.lastTen)
-		],
+		large,
 		detail
 	};
 }

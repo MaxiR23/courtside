@@ -15,11 +15,18 @@
 # cache's cleanup, run when the set of games shown changes. Each injury carries
 # the athlete id of its league report. A guest side has no record, standing,
 # injuries or last games, and a guest game has no season series (ADR 0025).
+# A standings or injuries read that fails builds the feed with that block null,
+# a team missing from the standings has a null standing and record, and a series
+# meeting with no arena has a null arena. A final game whose four attempts
+# failed is built once, with the summary sections null, and is then known
+# (ADR 0064).
 #
 # SEE: docs/source-rules.md, docs/adr/0020-source-rules.md,
-# docs/adr/0010-final-game-attempts.md, docs/api/game-detail.md
+# docs/adr/0010-final-game-attempts.md, docs/api/game-detail.md,
+# docs/adr/0064-degrade-one-bad-item-instead-of-failing-a-feed.md
 
 import datetime as dt
+import logging
 from collections.abc import Awaitable, Callable
 from typing import Any
 
@@ -29,6 +36,7 @@ from app.feeds.game_detail import GameDetailFeed
 from app.feeds.games import GameStatus
 from app.jobs.games import (
     LIVE_INTERVAL,
+    MAX_STATS_ATTEMPTS,
     STATS_ATTEMPT_DELAYS,
     GamesJob,
     HighlightsProvider,
@@ -43,13 +51,15 @@ from app.jobs.on_demand import FeedCache, FeedKind, IdStatus
 from app.settings import Settings
 from app.sources import game_detail, league_injuries, standings, team_schedule
 from app.sources.game_detail import GameDetailSections
-from app.sources.http import Freshness, SourceClient
+from app.sources.http import Freshness, SourceClient, SourceError
 from app.sources.league_injuries import InjuryReport, LeagueInjuries
 from app.sources.scoreboard import ScoreboardGame
 from app.sources.standings import LeagueStandings
 from app.sources.team_schedule import TeamSchedule
 from app.storage.feeds import read_by_id
 from app.storage.state import StateStore
+
+logger = logging.getLogger(__name__)
 
 KIND = "games"
 PRE_GAME_FRESH = dt.timedelta(hours=1)
@@ -77,9 +87,9 @@ def _injury(report: InjuryReport) -> dict[str, Any]:
 
 def build_game_detail_feed(
     game: ScoreboardGame,
-    sections: GameDetailSections,
-    standings: LeagueStandings,
-    injuries: LeagueInjuries,
+    sections: GameDetailSections | None,
+    standings: LeagueStandings | None,
+    injuries: LeagueInjuries | None,
     away_schedule: TeamSchedule | None,
     home_schedule: TeamSchedule | None,
     *,
@@ -88,16 +98,26 @@ def build_game_detail_feed(
     highlights_search_url: SearchUrlProvider,
 ) -> GameDetailFeed:
     away, home = game.away.code, game.home.code
-    for side in (game.away, game.home):
-        if not side.guest and side.code not in standings.teams:
-            raise DetailBuildError(f"team {side.code} has no standing")
-    # A guest side has no standing, injuries or schedule (ADR 0025).
-    away_standing = None if game.away.guest or away is None else standings.teams[away]
-    home_standing = None if game.home.guest or home is None else standings.teams[home]
+    # A guest side has no standing, injuries or schedule (ADR 0025); a league side
+    # the standings miss has a null standing (ADR 0064).
+    away_standing = (
+        None
+        if game.away.guest or away is None or standings is None
+        else standings.teams.get(away)
+    )
+    home_standing = (
+        None
+        if game.home.guest or home is None or standings is None
+        else standings.teams.get(home)
+    )
     schedules = [s for s in (away_schedule, home_schedule) if s is not None]
 
     season_series: dict[str, Any] | None = None
-    if sections.season_series is not None and not (game.away.guest or game.home.guest):
+    if (
+        sections is not None
+        and sections.season_series is not None
+        and not (game.away.guest or game.home.guest)
+    ):
         meetings: list[dict[str, Any]] = []
         for meeting in sections.season_series.games:
             arena = next(
@@ -110,8 +130,6 @@ def build_game_detail_feed(
             )
             if arena is None and meeting.game_id == game.id:
                 arena = game.venue
-            if arena is None:
-                raise DetailBuildError(f"series game {meeting.game_id} has no arena")
             meetings.append(
                 {
                     "date": meeting.date,
@@ -144,12 +162,14 @@ def build_game_detail_feed(
         "cup": game.cup,
         "postseason": game.postseason,
         "all_star": game.all_star,
-        "venue": sections.venue,
-        "team_stats": sections.team_stats,
-        "box_score": sections.box_score,
-        "win_probability": sections.win_probability,
-        "win_probability_leader": sections.win_probability_leader,
-        "win_probability_periods": sections.win_probability_periods,
+        "venue": sections.venue if sections else None,
+        "team_stats": sections.team_stats if sections else None,
+        "box_score": sections.box_score if sections else None,
+        "win_probability": sections.win_probability if sections else None,
+        "win_probability_leader": sections.win_probability_leader if sections else None,
+        "win_probability_periods": sections.win_probability_periods
+        if sections
+        else None,
         "away": {
             **game.away.model_dump(by_alias=False),
             "record": away_standing.record if away_standing else None,
@@ -158,8 +178,12 @@ def build_game_detail_feed(
             **game.home.model_dump(by_alias=False),
             "record": home_standing.record if home_standing else None,
         },
-        "standings": {"away": away_standing, "home": home_standing},
-        "injuries": {
+        "standings": None
+        if standings is None
+        else {"away": away_standing, "home": home_standing},
+        "injuries": None
+        if injuries is None
+        else {
             "away": None
             if game.away.guest or away is None
             else [_injury(report) for report in injuries.teams.get(away, [])],
@@ -250,6 +274,7 @@ class GameDetailFeeds:
         if (
             game.status is GameStatus.FINAL
             and read_by_id(self._settings.data_dir, KIND, game_id) is None
+            and self._store.failed_stats_attempts(game_id) < MAX_STATS_ATTEMPTS
         ):
             return IdStatus.NOT_READY
         return IdStatus.KNOWN
@@ -259,6 +284,7 @@ class GameDetailFeeds:
         if game is None:
             raise DetailBuildError(f"game {game_id} is not shown")
         freshness: Freshness
+        out_of_attempts = False
         if game.status is GameStatus.LIVE:
             freshness = LIVE_INTERVAL
         elif game.status is GameStatus.FINAL:
@@ -271,13 +297,38 @@ class GameDetailFeeds:
             if slot is None:
                 raise DetailBuildError(f"game {game_id} has no final attempt due")
             freshness = slot
+            out_of_attempts = (
+                self._store.failed_stats_attempts(game_id) >= MAX_STATS_ATTEMPTS
+            )
         else:
             freshness = PRE_GAME_FRESH
-        sections = await self._fetch_sections(
-            self._client, game_id, self._settings, freshness
+        # The fourth failed attempt is the last: the feed is built without the
+        # summary and never asks for it again (ADR 0064).
+        sections = (
+            None
+            if out_of_attempts
+            else await self._fetch_sections(
+                self._client, game_id, self._settings, freshness
+            )
         )
-        league_standings = await self._fetch_standings(self._client, self._settings)
-        injuries = await self._fetch_injuries(self._client, self._settings)
+        league_standings: LeagueStandings | None
+        try:
+            league_standings = await self._fetch_standings(self._client, self._settings)
+        except SourceError as error:
+            logger.warning(
+                "game detail: standings of game %s not read: %s",
+                game_id,
+                error.reason,
+            )
+            league_standings = None
+        injuries: LeagueInjuries | None
+        try:
+            injuries = await self._fetch_injuries(self._client, self._settings)
+        except SourceError as error:
+            logger.warning(
+                "game detail: injuries of game %s not read: %s", game_id, error.reason
+            )
+            injuries = None
         # A guest side's schedule is never fetched (ADR 0025).
         away_schedule = (
             None

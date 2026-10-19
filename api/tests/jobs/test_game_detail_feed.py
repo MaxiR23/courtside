@@ -16,7 +16,7 @@
 # - Sets each injury's playerId from the recorded league injuries, null when the source has no athlete id
 # - Puts null highlights when the game has none
 # - Carries the game's Cup mark into the feed, and null for a game without one
-# - Rejects a game whose team has no standing, a series game with no arena and a live game without team stats
+# - A team missing its standing nulls that side only, a series meeting with no arena builds with a null arena, a build without the summary has null summary blocks, and a live game without team stats is rejected (ADR 0064)
 # - The pre-game expiry is 12 hours with tip-off more than 48 hours away, 6 hours from 48 to 12 hours, 3 hours under 12 hours and once tip-off has passed
 # - A pre-game detail is fresh until its expiry and stale at it, in each bucket
 # - The final slot is the latest attempt time passed, and none before the final time
@@ -25,7 +25,8 @@
 # - A live game viewed by two clients causes one detail source request per interval
 # - A stale live detail waits for the rebuild, so the score is never older than 30 seconds
 # - A final game's detail is built once with the ADR 0010 attempts and never again
-# - A final game is never built after the fourth failed attempt
+# - A final game with four failed attempts is known and served with null summary sections, and with attempts left and no stored feed it is not ready
+# - A failed standings or injuries read builds with that block null and one log line
 # - A stored final feed that still has the retired videos field is served without it and never rebuilt
 # - A game turning final shares one summary request with the games job
 # - A requested final game never starts a build
@@ -52,6 +53,7 @@
 import asyncio
 import datetime as dt
 import json
+import logging
 from collections.abc import Iterator
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -92,7 +94,12 @@ from app.jobs.game_detail_feed import (
     pre_game_expiry,
 )
 from app.jobs.games import STATS_ATTEMPT_DELAYS, GamesJob
-from app.jobs.on_demand import FeedCache, FeedUnavailableError, UnknownFeedError
+from app.jobs.on_demand import (
+    FeedCache,
+    FeedUnavailableError,
+    IdStatus,
+    UnknownFeedError,
+)
 from app.settings import Settings
 from app.sources.game_detail import GameDetail, GameDetailSections
 from app.sources.http import (
@@ -385,7 +392,7 @@ def test_builds_a_scheduled_game_with_records_standings_injuries_and_last_games(
     assert feed.injuries is not None and feed.injuries.away == [out]
     assert feed.last_games is not None
     assert feed.last_games.home is not None and len(feed.last_games.home) == 1
-    assert feed.venue.name == "Garden"
+    assert feed.venue is not None and feed.venue.name == "Garden"
     assert feed.stars == STARS
     assert str(feed.highlights_search_url) == SEARCH_URL
     assert feed.winner is None
@@ -601,14 +608,38 @@ def test_puts_null_highlights_when_the_game_has_none() -> None:
     assert some.highlights == [HIGHLIGHT]
 
 
-def test_rejects_a_game_whose_team_has_no_standing() -> None:
-    with pytest.raises(DetailBuildError, match="team NYK has no standing"):
-        build(game("1", GameStatus.SCHEDULED), league_standings=standings("BOS"))
+def test_a_team_missing_its_standing_nulls_that_side_only() -> None:
+    feed = build(game("1", GameStatus.SCHEDULED), league_standings=standings("BOS"))
+
+    assert feed.standings is not None
+    assert feed.standings.home is None and feed.standings.away is not None
+    assert feed.home.record is None
+    assert feed.away.record is not None and feed.away.record.wins == 3
 
 
-def test_rejects_a_series_game_with_no_arena() -> None:
-    with pytest.raises(DetailBuildError, match="series game 1 has no arena"):
-        build(game("9", GameStatus.SCHEDULED), sections(series=series("1")))
+def test_a_series_meeting_with_no_arena_builds_with_a_null_arena() -> None:
+    feed = build(game("9", GameStatus.SCHEDULED), sections(series=series("1")))
+
+    assert feed.season_series is not None
+    assert feed.season_series.games[0].arena is None
+
+
+def test_a_build_without_the_summary_sections_has_null_summary_blocks() -> None:
+    feed = build_game_detail_feed(
+        game("1", GameStatus.FINAL),
+        None,
+        standings(),
+        injuries(),
+        schedule(),
+        schedule(),
+        stars=lambda _: STARS,
+        highlights=lambda _: [],
+        highlights_search_url=lambda _: SEARCH_URL,
+    )
+
+    assert feed.venue is None and feed.team_stats is None and feed.box_score is None
+    assert feed.season_series is None and feed.win_probability is None
+    assert feed.winner == "away"
 
 
 def test_rejects_a_live_game_without_team_stats() -> None:
@@ -709,6 +740,8 @@ class Harness:
         self.requests: list[str] = []
         self.sections_fresh: list[Freshness] = []
         self.fail_standings = False
+        self.fail_injuries = False
+        self.fail_sections = False
         self.standings_calls = 0
         self.schedule_calls: list[str] = []
         self.stars: Stars | None = STARS
@@ -771,6 +804,8 @@ class Harness:
         self, client: SourceClient, game_id: str, settings: Settings, fresh: Freshness
     ) -> GameDetailSections:
         self.sections_fresh.append(fresh)
+        if self.fail_sections:
+            raise SourceError("game detail", "down")
         state = await self.read_state(game_id, fresh)
         every = [*self.games, *(g for day in self.other_days.values() for g in day)]
         status = next(g.status for g in every if g.id == game_id)
@@ -790,6 +825,8 @@ class Harness:
     async def fetch_injuries(
         self, client: SourceClient, settings: Settings
     ) -> LeagueInjuries:
+        if self.fail_injuries:
+            raise SourceError("injuries", "down")
         return injuries()
 
     async def fetch_team_schedule(
@@ -817,7 +854,9 @@ class Harness:
         return body
 
     def venue(self, body: bytes) -> str:
-        return GameDetailFeed.model_validate_json(body).venue.name
+        venue = GameDetailFeed.model_validate_json(body).venue
+        assert venue is not None
+        return venue.name
 
     def stored(self, game_id: str) -> GameDetailFeed | None:
         body = read_by_id(self.settings.data_dir, KIND, game_id)
@@ -945,7 +984,7 @@ async def turn_final(harness: Harness) -> dt.datetime:
 async def test_a_final_game_detail_is_built_once_with_the_adr_0010_attempts_and_never_again(
     harness: Harness,
 ) -> None:
-    harness.fail_standings = True
+    harness.fail_sections = True
     harness.games = [game("1", GameStatus.LIVE)]
     await harness.run(NOON)
     harness.games = [game("1", GameStatus.FINAL)]
@@ -953,18 +992,18 @@ async def test_a_final_game_detail_is_built_once_with_the_adr_0010_attempts_and_
     await harness.run(NOON + 30 * SECOND)
     final_time = NOON + 30 * SECOND
 
-    assert harness.standings_calls == 1
+    assert len(harness.sections_fresh) == 1
     assert harness.stored("1") is None
     state = harness.store.feed_build(KIND, "1")
     assert state is not None
     assert state.last_failure == final_time
     await harness.run(final_time + 2 * HOUR - SECOND)
-    assert harness.standings_calls == 1
+    assert len(harness.sections_fresh) == 1
 
-    harness.fail_standings = False
+    harness.fail_sections = False
     requests = harness.calls("1")
     await harness.run(final_time + 2 * HOUR)
-    assert harness.standings_calls == 2
+    assert len(harness.sections_fresh) == 2
     assert harness.calls("1") == requests + 1
     assert harness.sections_fresh[-1] == final_time + 2 * HOUR
     stored = harness.stored("1")
@@ -976,7 +1015,7 @@ async def test_a_final_game_detail_is_built_once_with_the_adr_0010_attempts_and_
     for later in (4 * HOUR, 6 * HOUR, 30 * HOUR):
         await harness.run(final_time + later)
         await harness.serve("1")
-    assert harness.standings_calls == 2
+    assert len(harness.sections_fresh) == 2
     assert harness.last_build("1") == built
 
 
@@ -1007,21 +1046,84 @@ async def test_a_stored_final_feed_that_still_has_videos_is_served_without_them_
 
 
 @pytest.mark.anyio
-async def test_a_final_game_is_never_built_after_the_fourth_failed_attempt(
+async def test_a_final_game_with_four_failed_attempts_is_known_and_served_with_null_summary_sections(
     harness: Harness,
 ) -> None:
-    harness.fail_standings = True
+    harness.fail_sections = True
     final_time = await turn_final(harness)
-    for delay in STATS_ATTEMPT_DELAYS[1:]:
-        await harness.run(final_time + delay)
-    assert harness.standings_calls == 4
-
-    await harness.run(final_time + 7 * HOUR)
-    with pytest.raises(FeedUnavailableError):
-        await harness.serve("1")
-
-    assert harness.standings_calls == 4
     assert harness.stored("1") is None
+    summary_reads = len(harness.sections_fresh)
+    for _ in STATS_ATTEMPT_DELAYS:
+        harness.store.record_failed_stats_attempt("1", TODAY)
+
+    assert harness.feeds.check("1") is IdStatus.KNOWN
+    body = await harness.serve("1", final_time + 7 * HOUR)
+
+    feed = GameDetailFeed.model_validate_json(body)
+    assert feed.status is GameStatus.FINAL
+    assert feed.venue is None
+    assert feed.team_stats is None
+    assert feed.box_score is None
+    assert feed.win_probability is None
+    assert feed.win_probability_leader is None
+    assert feed.win_probability_periods is None
+    assert feed.season_series is None
+    assert feed.standings is not None
+    assert feed.injuries is not None
+    assert feed.away.record is not None
+    assert len(harness.sections_fresh) == summary_reads
+    assert harness.stored("1") is not None
+
+
+@pytest.mark.anyio
+async def test_a_final_game_with_attempts_left_and_no_stored_feed_is_not_ready(
+    harness: Harness,
+) -> None:
+    harness.fail_sections = True
+    await turn_final(harness)
+    harness.store.record_failed_stats_attempt("1", TODAY)
+
+    assert harness.stored("1") is None
+    assert harness.feeds.check("1") is IdStatus.NOT_READY
+
+
+@pytest.mark.anyio
+async def test_a_failed_standings_read_builds_with_null_standings_and_records(
+    harness: Harness, caplog: pytest.LogCaptureFixture
+) -> None:
+    harness.games = [game("1", GameStatus.SCHEDULED, start=NOON + 5 * HOUR)]
+    harness.fail_standings = True
+    await harness.run(NOON)
+
+    with caplog.at_level(logging.WARNING, logger="app.jobs.game_detail_feed"):
+        body = await harness.serve("1")
+
+    feed = GameDetailFeed.model_validate_json(body)
+    assert feed.standings is None
+    assert feed.away.record is None and feed.home.record is None
+    assert feed.injuries is not None
+    assert [r.getMessage() for r in caplog.records] == [
+        "game detail: standings of game 1 not read: down"
+    ]
+
+
+@pytest.mark.anyio
+async def test_a_failed_injuries_read_builds_with_null_injuries(
+    harness: Harness, caplog: pytest.LogCaptureFixture
+) -> None:
+    harness.games = [game("1", GameStatus.SCHEDULED, start=NOON + 5 * HOUR)]
+    harness.fail_injuries = True
+    await harness.run(NOON)
+
+    with caplog.at_level(logging.WARNING, logger="app.jobs.game_detail_feed"):
+        body = await harness.serve("1")
+
+    feed = GameDetailFeed.model_validate_json(body)
+    assert feed.injuries is None
+    assert feed.standings is not None and feed.away.record is not None
+    assert [r.getMessage() for r in caplog.records] == [
+        "game detail: injuries of game 1 not read: down"
+    ]
 
 
 @pytest.mark.anyio
@@ -1193,12 +1295,12 @@ async def test_a_failed_build_keeps_the_stored_feed_and_is_listed_as_failed(
     harness.games = [game("1", GameStatus.SCHEDULED, start=NOON + 5 * HOUR)]
     await harness.run(NOON)
     first = await harness.serve("1")
-    harness.fail_standings = True
+    harness.fail_sections = True
 
     body = await harness.serve("1", NOON + 3 * HOUR)
 
     assert body == first
-    assert harness.standings_calls == 2
+    assert len(harness.sections_fresh) == 2
     assert [(f.kind, f.feed_id) for f in harness.store.failed_feed_builds()] == [
         (KIND, "1")
     ]

@@ -8,6 +8,7 @@
 # - Current round: 1, 2 when round 1 is complete and round 2 not started, 3 during the conference finals, null outside the playoffs
 # - Finals game and summary: null before game 1, set after game 3
 # - Bracket: 15 series in order in every state; label parts of an undecided series; one side decided; round 1 placement by seed pair with the play-in winners as seeds 7 and 8; round 2, round 3 and Finals placement by feeder; wins, summary and status counted from the final games (winner flag, else score), never from the series object; a series with no final game is upcoming with null wins and summary; a source series object that disagrees changes nothing; overtime from the period; a series lists only the games scheduled; a canceled game is not listed
+# - A scoreboard game with no venue builds with a null venue and does not fail the feed (ADR 0064)
 # - Bracket errors: a seed pair outside the table, a team outside its feeder, two series in one slot, an unknown competition type, a note without a game number, a conference mix, a team outside the league in a live or final game
 # - Placeholder side: a game neither live nor final with an undecided side (a guest or no code) is ignored in the play-in and in round 1, its slots keep the standings or label value
 # - Play-in: slots with places 7 to 10, games with date and time, outcomes (seed 7, loser out, seed 8), the 8th seed game takes the loser of 7th vs 8th and the winner of 9th vs 10th, the bracket seeds 7 and 8 fill once decided; fails on an unknown note and on two games of one kind
@@ -946,6 +947,21 @@ def test_the_series_games_carry_the_date_the_start_time_the_venue_and_the_winner
     assert first.winner is not None and first.winner.value == "home"
     assert first.home.code == seed(EAST, 1) and first.detail_available is False
     assert played[1].winner is not None and played[1].winner.value == "away"
+
+
+def test_a_scoreboard_game_with_no_venue_builds_with_a_null_venue() -> None:
+    games = play_ins() + series_games(
+        seed(EAST, 1), seed(EAST, 8), 1, "TB", key="east-r1-1"
+    )
+    first = games[-2]
+    games[-2] = first.model_copy(
+        update={"game": first.game.model_copy(update={"venue": None})}
+    )
+
+    played = bracket(build(games))[SeriesId.EAST_R1_1].games
+
+    assert played[0].venue is None
+    assert played[1].venue == "Example Arena"
 
 
 def test_a_late_game_has_the_us_eastern_date() -> None:

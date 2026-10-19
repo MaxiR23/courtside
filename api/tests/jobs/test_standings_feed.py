@@ -4,6 +4,7 @@
 #
 # Tested:
 # - Formats pct without the leading zero and gives none with no games
+# - Builds null home, away, points and differentials for a team missing them, and a null secondary color without an alternate color (ADR 0064)
 # - Formats games behind and points with one decimal
 # - Signs the per game and total differentials with + and U+2212, with zero unsigned
 # - Reads the provider's division games behind, a dash as none, and rejects text that is not a number
@@ -437,7 +438,44 @@ def test_builds_the_row_text_from_the_entry() -> None:
     assert (row.home, row.away, row.last_ten) == ("22-8", "18-12", "7-3")
     assert (row.division, row.conference) == ("10-2", "25-9")
     assert (row.pct, row.points_for, row.points_against) == (".667", "118.0", "107.9")
+    assert row.differential is not None and row.total is not None
     assert (row.differential.value, row.total.value) == ("+10.1", "+607")
+
+
+def test_builds_null_stats_for_a_team_missing_them() -> None:
+    [first, *others] = small()
+    missing = first.model_copy(
+        update={
+            "home": None,
+            "road": None,
+            "avg_points_for": None,
+            "avg_points_against": None,
+            "differential": None,
+            "point_differential": None,
+        }
+    )
+
+    rows = {r.code: r for r in built(missing, *others).conferences[0].teams}
+    row = rows[first.code]
+    kept = rows[others[0].code]
+
+    assert row.wins == first.wins
+    assert row.home is None and row.away is None
+    assert row.points_for is None and row.points_against is None
+    assert row.differential is None and row.total is None
+    assert row.last_ten == first.last_ten
+    assert kept.home is not None and kept.total is not None
+
+
+def test_builds_a_null_secondary_color_when_the_team_info_has_no_alternate_color() -> (
+    None
+):
+    colors = {"AAA": info().model_copy(update={"alternate_color": None})}
+
+    feed = build_standings_feed(league(*small()), colors)
+
+    by_code = {row.code: row.colors for row in feed.conferences[0].teams}
+    assert (by_code["AAA"].primary, by_code["AAA"].secondary) == ("#007ac1", None)
 
 
 def test_builds_colors_from_team_info_and_null_for_a_team_without() -> None:

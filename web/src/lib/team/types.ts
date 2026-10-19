@@ -36,7 +36,7 @@ export type NextGameView = GameLink & {
 export type OverviewSection = {
 	arena: { name: string; city: string | null; photo: string | null }; // no photo: a stat cell
 	coach: InfoCell | null;
-	colors: { hex: string }[]; // primary, secondary
+	colors: { hex: string }[]; // primary, then secondary when known
 	nextGame: NextGameView | null; // null: "Season over."
 };
 

@@ -7,7 +7,9 @@
 # - Maps each provider status, and leaves scores and clock empty outside live and final
 # - Normalizes the clock, converts the start time to UTC and appends overtime periods
 # - Maps a team outside the league to a guest side with the source code, name and city, and keeps a guest code outside the usual pattern as it is
-# - Raises the source error on a guest code equal to a league code, an unknown status, a payload missing a field, a naive start time, a live game without a clock, an empty team name or city, a timeout, an error status and a missing URL
+# - Raises the source error on a payload missing a field, a naive start time, a timeout, an error status and a missing URL
+# - Skips with one log line by event id (and no URL) a league event with a guest code equal to a league code, an unknown status, a live game without a clock, a final game without a score, an empty team name or city or no competition, and keeps the other events of the day (ADR 0064)
+# - Maps an event without a venue, or with an empty venue name, to a null venue and keeps the game (ADR 0064)
 # - Maps a team without an abbreviation to a guest side with a null code, its name and city, or to a league side by its provider id
 # - Skips a game with a side that has neither a code nor a name, and keeps the other games in provider order
 # - ScoreboardGame uses the same field types as the contract Game
@@ -24,10 +26,9 @@
 # - Keeps a final All-Star game with a score and no line score, with a null line score (ADR 0051), and still skips a final one without a score
 # - Marks the notes ALL STAR GAME and NBA All-Star Game as the round All-Star Game
 # - Skips with one log line by event id an All-Star event without a clock, with a league code, with a provider-key side without a city, with a note that is not an All-Star note or with an unknown status, and keeps the rest of the day
-# - Still raises the source error for an event with no competition
 # - The past-day path returns the day's season from leagues[0].season.year and raises the source error when it is missing or unreadable, and fetch_games ignores leagues
 # - The past-day path carries the names its payload gives the league teams, without a guest or a team lacking an abbreviation (ADR 0059); the current path carries none
-# - The past-day path maps a day with sides by team id first with the name and city of the event and an unknown id as a guest, skips a final event without a line score and one with an unknown status with one log line by event id in provider order, reads an upper-case postseason note as the title-case mark and a FINALS note as a Finals mark without a number, gives [] for a day with no event, raises the source error for an invalid payload, a timeout, an error status and a missing URL, and leaves fetch_games failing on the same bad event
+# - The past-day path maps a day with sides by team id first with the name and city of the event and an unknown id as a guest, skips a final event without a line score and one with an unknown status with one log line by event id in provider order, reads an upper-case postseason note as the title-case mark and a FINALS note as a Finals mark without a number, gives [] for a day with no event, raises the source error for an invalid payload, a timeout, an error status and a missing URL, and fetch_games skips the same bad event with a log line by event id
 #
 # What is covered:
 # - A valid response mapped, an invalid payload rejected, upstream failures handled
@@ -129,6 +130,48 @@ async def fetch_error(settings: Settings) -> SourceError:
     with pytest.raises(SourceError) as raised:
         await fetch(settings)
     return raised.value
+
+
+async def fetch_skipping(
+    mock: respx.MockRouter,
+    settings: Settings,
+    caplog: pytest.LogCaptureFixture,
+    bad: Payload,
+) -> str:
+    """Fetch a day of one bad event and one good scheduled event: the good one is
+    returned, the bad one is skipped and logged by its id, and the log carries no
+    URL. Returns the skip log line."""
+    good = event(load("day.json"), "STATUS_SCHEDULED")
+    mock.get(URL).respond(json=only(bad, good))
+
+    with caplog.at_level(logging.WARNING, logger="app.sources.scoreboard"):
+        games = await fetch(settings)
+
+    assert [g.id for g in games] == [good["id"]]
+    lines = [
+        r.getMessage()
+        for r in caplog.records
+        if r.getMessage().startswith(f"scoreboard: event {bad['id']} skipped: ")
+    ]
+    assert len(lines) == 1
+    assert "example.com" not in caplog.text
+    return lines[0]
+
+
+@pytest.mark.anyio
+async def test_maps_an_event_without_a_venue_or_with_an_empty_venue_name_to_a_null_venue(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    missing = event(load("day.json"), "STATUS_FINAL")
+    del missing["competitions"][0]["venue"]
+    empty = event(load("day.json"), "STATUS_SCHEDULED")
+    empty["competitions"][0]["venue"] = {"fullName": ""}
+    mock.get(URL).respond(json=only(missing, empty))
+
+    games = await fetch(settings)
+
+    assert [g.id for g in games] == [missing["id"], empty["id"]]
+    assert [g.venue for g in games] == [None, None]
 
 
 @pytest.mark.anyio
@@ -404,16 +447,15 @@ async def test_skips_a_game_with_a_side_that_has_neither_a_code_nor_a_name(
 
 
 @pytest.mark.anyio
-async def test_raises_the_source_error_on_a_guest_code_equal_to_a_league_code(
-    mock: respx.MockRouter, settings: Settings
+async def test_skips_an_event_with_a_guest_code_equal_to_a_league_code_and_logs_its_id(
+    mock: respx.MockRouter, settings: Settings, caplog: pytest.LogCaptureFixture
 ) -> None:
     game = event(load("day.json"), "STATUS_FINAL")
     game["competitions"][0]["competitors"][0]["team"]["abbreviation"] = "GSW"
-    mock.get(URL).respond(json=only(game))
 
-    error = await fetch_error(settings)
+    line = await fetch_skipping(mock, settings, caplog, game)
 
-    assert error.reason == "guest team code 'GSW' is a league team code"
+    assert line.endswith("guest team code 'GSW' is a league team code")
 
 
 @pytest.mark.anyio
@@ -431,16 +473,15 @@ async def test_keeps_a_guest_code_outside_the_usual_pattern_as_it_is(
 
 
 @pytest.mark.anyio
-async def test_raises_the_source_error_on_an_unknown_status(
-    mock: respx.MockRouter, settings: Settings
+async def test_skips_an_event_with_an_unknown_status_keeps_the_others_and_logs_its_id(
+    mock: respx.MockRouter, settings: Settings, caplog: pytest.LogCaptureFixture
 ) -> None:
     game = event(load("day.json"), "STATUS_FINAL")
     game["status"]["type"]["name"] = "STATUS_UNHEARD_OF"
-    mock.get(URL).respond(json=only(game))
 
-    error = await fetch_error(settings)
+    line = await fetch_skipping(mock, settings, caplog, game)
 
-    assert error.reason == "unknown game status 'STATUS_UNHEARD_OF'"
+    assert line.endswith("unknown game status 'STATUS_UNHEARD_OF'")
 
 
 @pytest.mark.anyio
@@ -469,49 +510,50 @@ async def test_raises_the_source_error_on_a_start_time_without_a_timezone(
 
 
 @pytest.mark.anyio
-async def test_raises_the_source_error_on_a_live_game_without_a_clock(
-    mock: respx.MockRouter, settings: Settings
+async def test_skips_a_live_game_without_a_clock_and_logs_its_id(
+    mock: respx.MockRouter, settings: Settings, caplog: pytest.LogCaptureFixture
 ) -> None:
     game = live(load("day.json"))
     game["status"]["displayClock"] = ""
-    mock.get(URL).respond(json=only(game))
 
-    error = await fetch_error(settings)
+    line = await fetch_skipping(mock, settings, caplog, game)
 
-    assert error.reason.startswith(f"game {game['id']} is invalid")
+    assert f"game {game['id']} is invalid" in line
 
 
 @pytest.mark.anyio
-async def test_raises_the_source_error_on_a_final_game_without_a_score(
-    mock: respx.MockRouter, settings: Settings
+async def test_skips_a_final_game_without_a_score_and_logs_its_id(
+    mock: respx.MockRouter, settings: Settings, caplog: pytest.LogCaptureFixture
 ) -> None:
     game = event(load("day.json"), "STATUS_FINAL")
     for competitor in game["competitions"][0]["competitors"]:
         del competitor["score"]
-    mock.get(URL).respond(json=only(game))
 
-    error = await fetch_error(settings)
+    line = await fetch_skipping(mock, settings, caplog, game)
 
-    assert error.reason.startswith(f"game {game['id']} is invalid")
+    assert f"game {game['id']} is invalid" in line
 
 
 @pytest.mark.anyio
 @pytest.mark.parametrize(
     ("field", "location"), [("name", "home.name"), ("location", "home")]
 )
-async def test_raises_the_source_error_on_an_empty_team_name_or_city(
-    mock: respx.MockRouter, settings: Settings, field: str, location: str
+async def test_skips_an_event_with_an_empty_team_name_or_city_and_logs_its_id(
+    mock: respx.MockRouter,
+    settings: Settings,
+    caplog: pytest.LogCaptureFixture,
+    field: str,
+    location: str,
 ) -> None:
     game = event(load("day.json"), "STATUS_FINAL")
     for competitor in game["competitions"][0]["competitors"]:
         if competitor["homeAway"] == "home":
             competitor["team"][field] = ""
-    mock.get(URL).respond(json=only(game))
 
-    error = await fetch_error(settings)
+    line = await fetch_skipping(mock, settings, caplog, game)
 
-    assert error.reason.startswith(f"game {game['id']} is invalid")
-    assert error.reason.endswith(f"at {location}")
+    assert f"game {game['id']} is invalid" in line
+    assert line.endswith(f"at {location}")
 
 
 @pytest.mark.anyio
@@ -1137,17 +1179,16 @@ async def test_skips_an_all_star_game_with_an_unknown_status(
 
 
 @pytest.mark.anyio
-async def test_an_event_without_a_competition_still_raises_the_source_error(
-    mock: respx.MockRouter, settings: Settings
+async def test_an_event_without_a_competition_is_skipped_and_logged_by_its_id(
+    mock: respx.MockRouter, settings: Settings, caplog: pytest.LogCaptureFixture
 ) -> None:
     payload = load("all-star.json")
     league = all_star_event(payload, "9100")
     league["competitions"] = []
-    mock.get(URL).respond(json=only(league))
 
-    error = await fetch_error(settings)
+    line = await fetch_skipping(mock, settings, caplog, league)
 
-    assert error.reason == "game 9100 has no competition"
+    assert line.endswith("game 9100 has no competition")
 
 
 async def fetch_past_day(settings: Settings) -> scoreboard.PastScoreboardDay:
@@ -1334,11 +1375,19 @@ async def test_the_past_day_path_raises_the_source_error_without_a_url() -> None
 
 
 @pytest.mark.anyio
-async def test_fetch_games_still_fails_on_the_bad_event_of_a_past_day(
-    mock: respx.MockRouter, settings: Settings
+async def test_fetch_games_skips_the_bad_event_of_a_past_day_and_logs_its_id(
+    mock: respx.MockRouter, settings: Settings, caplog: pytest.LogCaptureFixture
 ) -> None:
     mock.get(URL).respond(json=load("past-day.json"))
 
-    error = await fetch_error(settings)
+    with caplog.at_level(logging.WARNING, logger="app.sources.scoreboard"):
+        games = await fetch(settings)
 
-    assert error.reason.startswith("game 7002 is invalid")
+    assert "7002" not in [g.id for g in games]
+    assert "7001" in [g.id for g in games]
+    assert any(
+        r.getMessage().startswith(
+            "scoreboard: event 7002 skipped: game 7002 is invalid"
+        )
+        for r in caplog.records
+    )

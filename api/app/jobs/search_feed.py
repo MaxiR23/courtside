@@ -38,7 +38,7 @@ from app.sources import division_standings, league_injuries, team_info
 from app.sources.division_standings import DivisionStandings
 from app.sources.http import SourceClient, SourceError
 from app.sources.league_injuries import LeagueInjuries
-from app.sources.team_info import TeamInfo
+from app.sources.team_info import TeamInfo, secondary_color
 from app.sources.team_players import RosterEntry
 from app.sources.teams import TEAM_CODES
 from app.storage.state import StateStore
@@ -90,9 +90,7 @@ def build_search_feed(
                 "name": entry.name,
                 "colors": {
                     "primary": primaries[code],
-                    "secondary": (
-                        f"#{info.alternate_color}" if info is not None else None
-                    ),
+                    "secondary": (secondary_color(info) if info is not None else None),
                 },
                 "record": f"{entry.wins}-{entry.losses}",
                 "division": entry.division,

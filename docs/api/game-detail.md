@@ -29,7 +29,7 @@ The root is one game.
 | `id`                  | string                    | Game identifier                                                  | always                                |
 | `status`              | `GameStatus`              | `scheduled`, `live`, `final`, `delayed`, `postponed`, `canceled` | always                                |
 | `startTime`           | time                      | Scheduled start, UTC                                             | always                                |
-| `venue`               | `Venue`                   | Arena, city and photo                                            | always                                |
+| `venue`               | `Venue` / null            | Arena, city and photo                                            | null on a final game built without its summary ([ADR 0064](../adr/0064-degrade-one-bad-item-instead-of-failing-a-feed.md)) |
 | `away`, `home`        | `DetailTeam`              | The two teams with their records                                 | always                                |
 | `broadcast`           | string / null             | Broadcaster                                                      | null when unknown                     |
 | `period`              | integer / null            | Current period, 5 and up are overtimes                           | required when `live`                  |
@@ -44,9 +44,9 @@ The root is one game.
 | `winProbability`      | `WinProbabilityPoint[]` / null | Home win probability over the game, at least one point      | null when no data                     |
 | `winProbabilityLeader` | `WinProbabilityLeader` / null | The team ahead at the latest win probability point and its win probability | null when even or no win probability |
 | `winProbabilityPeriods` | `WinProbabilityPeriods` / null | Each period's start and the game's end, in elapsed seconds | null when no win probability |
-| `injuries`            | `Injuries` / null         | Injury reports of each team                                      | null when no data                     |
+| `injuries`            | `Injuries` / null         | Injury reports of each team                                      | null when no data or the read failed  |
 | `lastGames`           | `LastGames` / null        | Latest games of each team                                        | null when no data                     |
-| `standings`           | `Standings` / null        | Conference standing of each team                                 | null when no data                     |
+| `standings`           | `Standings` / null        | Conference standing of each team                                 | null when no data or the read failed; a league side the standings lack has a null standing |
 | `seasonSeries`        | `SeasonSeries` / null     | Games between the two teams this season                          | null when no data                     |
 | `highlights`          | `Highlight[]` / null      | Matched highlight videos, as in the [games feed](games.md)       | null when no data                     |
 | `highlightsSearchUrl` | URL / null                | Link to search for highlights, as in the [games feed](games.md)  | null when no data                     |
@@ -74,7 +74,7 @@ other status has `winner` null. Every stat leader is a side, `away` or
 | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Opponent`            | `code` (null for a guest without one), `name`, `city` (null when the source sends none), `guest`; as in the [games feed](games.md) ([ADR 0026](../adr/0026-one-guest-team-rule.md)) |
 | `Record`              | `wins`, `losses`                                                                                                                             |
-| `DetailTeam`          | `GameTeam` fields (`code`, null for a guest without one, `name`, `city`, `guest`; `city` is null for a guest the source sends without one, such as an All-Star team) plus `record` (null for a guest)                                                         |
+| `DetailTeam`          | `GameTeam` fields (`code`, null for a guest without one, `name`, `city`, `guest`; `city` is null for a guest the source sends without one, such as an All-Star team) plus `record` (null for a guest, and for a league side the standings lack)                                                         |
 | `Venue`               | `name`, `city` (null when the source has no city), `photoUrl` (null when unknown)                                                                                        |
 | `DetailTeamStats`     | `TeamStats` fields (`fieldGoalPct`, `threePointPct`, `rebounds`, `assists`, `turnovers`) plus `freeThrowPct` (0 to 1), `steals`, `blocks`; the three percentages and every count are null when the source sends none ([ADR 0055](../adr/0055-past-season-reading-rules-and-versioned-stored-data.md)) |
 | `TeamStatLeaders`     | one side (`away` or `home`) or null per row: `fieldGoalPct`, `threePointPct`, `freeThrowPct`, `rebounds`, `assists`, `turnovers`, `steals`, `blocks`       |
@@ -94,7 +94,7 @@ other status has `winner` null. Every stat leader is a side, `away` or
 | `Standings`           | `away`, `home`: `TeamStanding`, null for a guest side                                                                                                              |
 | `TeamStanding`        | `conference` (`east`, `west`), `conferenceRank`, `record`, `homeRecord`, `awayRecord`, `lastTen`: `Record`                                   |
 | `SeasonSeries`        | `totalGames`, `awayWins`, `homeWins`, `leader` (team code, null on a tie or before any game), `games`: `SeriesGame[]`                    |
-| `SeriesGame`          | `date`, `away`, `home` (team codes), `isCurrent`, `score`: `Score` / null, `winner` (team code / null), `arena`                             |
+| `SeriesGame`          | `date`, `away`, `home` (team codes), `isCurrent`, `score`: `Score` / null, `winner` (team code / null), `arena` (null when neither team schedule nor the current game knows it)                             |
 
 Rules that live in the code:
 
@@ -107,6 +107,9 @@ builds the feed.
   `standings`, `injuries`, `lastGames` and `stars` side, each null exactly
   when the side is a guest. `seasonSeries` is null on a guest game, and a
   guest side's schedule is never fetched.
+- A league side's `standing` and `record` are null when the standings read
+  failed or lack the team ([ADR 0064](../adr/0064-degrade-one-bad-item-instead-of-failing-a-feed.md));
+  a guest side's stay null.
 - `injuries.away` or `home` empty means no injuries reported; `injuries`
   `null` means no data.
 - `lastGames` lists at most five games per team, newest first; a list may be
@@ -195,7 +198,10 @@ recorded response that shows it.
   failure, 2, 4 and 6 hours after it
   ([ADR 0010](../adr/0010-final-game-attempts.md)). It is stored and never
   built again. The last stored feed stays served until then, and a request
-  answers 503 when none is stored.
+  answers 503 when none is stored. After the fourth failed attempt, the feed
+  is built once, on the games job's last slot or on request, with the summary
+  sections (`venue`, `teamStats`, `boxScore`, `winProbability` and
+  `seasonSeries`) null ([ADR 0064](../adr/0064-degrade-one-bad-item-instead-of-failing-a-feed.md)).
 - A past game's feed is built once on request, stored as its own kind and kept.
   It is never refreshed, and the games job never touches it. It is deleted when not served in 90 days and rebuilt on its next request ([ADR 0063](../adr/0063-bounded-state-and-kept-feeds.md)). A
   failed build answers 503 while nothing is stored and is not retried for 10

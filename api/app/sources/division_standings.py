@@ -12,13 +12,16 @@
 # The division and conference records and the clinch code are mapped too: a
 # missing record is 0-0 and an absent or unknown clinch code is null (an
 # unknown one is logged with the team code). The result tells whether it came
-# from the rule L second request (fallback). Streak, games behind and seed may
-# be null. The provider URL comes from Settings. Provider data never leaves
+# from the rule L second request (fallback). Every stat but wins and losses may
+# be null (the last ten and the division and conference records are 0-0); an
+# entry without wins or losses is skipped with a log line by team code
+# (ADR 0064). The provider URL comes from Settings. Provider data never leaves
 # this module. A past season is read once with its season query value, with no
 # rule L fallback, and teams are resolved by provider id first.
 #
 # SEE: docs/api/team.md, docs/api/standings.md, docs/source-rules.md,
-# api/app/sources/standings.py
+# api/app/sources/standings.py,
+# docs/adr/0064-degrade-one-bad-item-instead-of-failing-a-feed.md
 
 import datetime as dt
 import logging
@@ -120,15 +123,15 @@ class DivisionEntry(FeedModel):
     playoff_seed: int | None
     streak: str | None
     games_behind: str | None
-    home: str
-    road: str
+    home: str | None
+    road: str | None
     last_ten: str
-    avg_points_for: float
-    avg_points_against: float
-    points_for: float
-    points_against: float
-    differential: float
-    point_differential: float
+    avg_points_for: float | None
+    avg_points_against: float | None
+    points_for: float | None
+    points_against: float | None
+    differential: float | None
+    point_differential: float | None
     vs_division: str
     vs_conference: str
     clinch: Clinch | None
@@ -189,6 +192,13 @@ def _clinch(stats: dict[str, _ProviderStat], code: str) -> Clinch | None:
     return clinch
 
 
+def _code(entry: _ProviderEntry, by_id_first: bool) -> str:
+    team_id = entry.team.id
+    if by_id_first and team_id is not None and team_id in TEAM_IDS:
+        return TEAM_CODES[TEAM_IDS[team_id]]
+    return to_team_code(entry.team.abbreviation, source=SOURCE)
+
+
 def _entry(
     entry: _ProviderEntry,
     conference: Conference,
@@ -196,14 +206,8 @@ def _entry(
     division_order: int,
     conference_order: int,
     provider_order: int,
-    *,
-    by_id_first: bool = False,
+    code: str,
 ) -> dict[str, object]:
-    team_id = entry.team.id
-    if by_id_first and team_id is not None and team_id in TEAM_IDS:
-        code = TEAM_CODES[TEAM_IDS[team_id]]
-    else:
-        code = to_team_code(entry.team.abbreviation, source=SOURCE)
     stats = {stat.type: stat for stat in entry.stats}
     seed = _optional_number(stats, "playoffseed")
     return {
@@ -222,15 +226,15 @@ def _entry(
         "playoff_seed": None if seed is None else int(seed),
         "streak": _optional_text(stats, "streak"),
         "games_behind": _optional_text(stats, "gamesbehind"),
-        "home": _text(stats, "home", code),
-        "road": _text(stats, "road", code),
+        "home": _optional_text(stats, "home"),
+        "road": _optional_text(stats, "road"),
         "last_ten": _text(stats, "lasttengames", code, NO_RECORD),
-        "avg_points_for": _number(stats, "avgpointsfor", code),
-        "avg_points_against": _number(stats, "avgpointsagainst", code),
-        "points_for": _number(stats, "pointsfor", code),
-        "points_against": _number(stats, "pointsagainst", code),
-        "differential": _number(stats, "differential", code),
-        "point_differential": _number(stats, "pointdifferential", code),
+        "avg_points_for": _optional_number(stats, "avgpointsfor"),
+        "avg_points_against": _optional_number(stats, "avgpointsagainst"),
+        "points_for": _optional_number(stats, "pointsfor"),
+        "points_against": _optional_number(stats, "pointsagainst"),
+        "differential": _optional_number(stats, "differential"),
+        "point_differential": _optional_number(stats, "pointdifferential"),
         "vs_division": _text(stats, "vsdiv", code, NO_RECORD),
         "vs_conference": _text(stats, "vsconf", code, NO_RECORD),
         "clinch": _clinch(stats, code),
@@ -314,15 +318,22 @@ async def fetch_division_standings(
             for division_order, entry in enumerate(division.standings.entries, 1):
                 conference_order += 1
                 provider_order += 1
-                mapped = _entry(
-                    entry,
-                    conference,
-                    division.name,
-                    division_order,
-                    conference_order,
-                    provider_order,
-                    by_id_first=past,
-                )
+                code = _code(entry, past)
+                try:
+                    mapped = _entry(
+                        entry,
+                        conference,
+                        division.name,
+                        division_order,
+                        conference_order,
+                        provider_order,
+                        code,
+                    )
+                except SourceError as error:
+                    logger.warning(
+                        "division standings: team %s skipped: %s", code, error.reason
+                    )
+                    continue
                 teams[str(mapped["code"])] = mapped
     if seen != set(Conference):
         raise SourceError(SOURCE, "standings do not have both conferences")

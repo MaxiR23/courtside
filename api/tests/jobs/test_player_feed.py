@@ -4,6 +4,7 @@
 #
 # Tested:
 # - Parses made and attempted numbers from whole and per game text
+# - Names the drafting team from standings where a team is missing its stats (ADR 0064)
 # - Rejects made-attempted text it cannot read
 # - Converts percentages from 0-100 to 0-1
 # - Converts height to centimeters and weight to kilograms
@@ -43,7 +44,7 @@
 # - The kind: live is added while the team plays a guest without a code
 # - The kind: a live player request refreshes the game and serves its detail feed within the wait, and makes no request for an unknown id
 # - The kind: detailAvailable is true exactly for the games inside the days shown when served
-# - The kind: the career rows carry the season codes of the stored franchise names when served, read from no source; a franchise with no stored list gives a null entry and starts one names build; a second request inside the retry window of a failed names build starts none (ADR 0055)
+# - The kind: the career rows carry the season codes of the stored franchise names when served, read from no source; a franchise with no stored list gives a null entry and starts one names build; a second request inside the retry window of an incomplete names build (no season readable, ADR 0064) starts none (ADR 0055)
 # - The kind: after a stars run the cleanup deletes the feeds of players on no roster with no source request, and nothing while the rosters are not all fetched
 #
 # What is covered:
@@ -404,12 +405,13 @@ def build(
     player_id: str = "1",
     now: dt.datetime = NOW,
     detail_ids: frozenset[str] = frozenset(),
+    division: DivisionStandings | None = None,
 ) -> PlayerFeed:
     return build_player_feed(
         player_id,
         "OKC",
         team_roster or roster(),
-        standings(),
+        division or standings(),
         league or LeagueInjuries(teams={}),
         upcoming,
         summary,
@@ -551,6 +553,31 @@ def test_counts_the_regular_seasons_and_takes_the_oldest_as_the_debut() -> None:
 
 def test_gives_an_undrafted_player_a_null_draft() -> None:
     assert build(draft=None).profile.draft is None
+
+
+def test_names_the_drafting_team_from_standings_where_a_team_is_missing_its_stats() -> (
+    None
+):
+    degraded = standing(
+        "CHA",
+        "Charlotte Hornets",
+        conference=Conference.EAST,
+        home=None,
+        road=None,
+        avg_points_for=None,
+        points_for=None,
+        differential=None,
+    )
+    division = standings()
+    division.teams["CHA"] = degraded
+
+    feed = build(
+        draft=DraftPick(year=2018, round=1, pick=11, team_code="CHA"),
+        division=division,
+    )
+
+    assert feed.profile.draft is not None
+    assert feed.profile.draft.team_name == "Charlotte Hornets"
 
 
 def test_names_the_drafting_team_from_the_standings() -> None:
@@ -2016,7 +2043,7 @@ async def test_a_career_franchise_with_no_stored_names_gives_a_null_entry_and_st
 
 
 @pytest.mark.anyio
-async def test_a_second_request_inside_the_retry_window_of_a_failed_names_build_starts_none(
+async def test_a_second_request_inside_the_retry_window_of_an_incomplete_names_build_starts_none(
     kit: PlayerKit,
 ) -> None:
     names = NamesWiring(kit)
@@ -2033,7 +2060,9 @@ async def test_a_second_request_inside_the_retry_window_of_a_failed_names_build_
     assert first.seasons.regular.per_game[0].season_codes == ["TOR", None]
     assert second.seasons.regular.per_game[0].season_codes == ["TOR", None]
     assert len(names.reads) == reads
-    assert kit.store.feed_build(NAMES_KIND, "bkn").last_failure is not None  # type: ignore[union-attr]
+    body = read_by_id(kit.path, NAMES_KIND, "bkn")
+    assert body is not None
+    assert TeamNames.model_validate_json(body).complete is False
 
 
 @pytest.mark.anyio

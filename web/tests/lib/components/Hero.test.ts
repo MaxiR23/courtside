@@ -14,6 +14,7 @@
 // - Spoiler-free toggle in the nav row: pressed state and callback
 // - Parallax follows a mouse and is skipped on touch and with reduced motion
 // - A games prop of the same length keeps the rotation position and the star timer
+// - Without an arena the kicker is the tip time alone and the blurb is left out (ADR 0064)
 // - A delayed game reads "Scheduled" with the tip time and arena in the kicker, in English and Spanish
 // - While the first feed loads: the skeleton of both columns, busy and hidden from assistive tech, gone once there is a game, shimmering unless motion is reduced
 // - Shows the copy in Spanish with a Spanish browser preference
@@ -129,6 +130,16 @@ describe('Hero', () => {
 	it('shows the tip time and arena in the kicker', () => {
 		render(Hero, { props: baseProps });
 		expect(screen.getByText('10:30 PM ET · Chase Center')).toBeTruthy();
+	});
+
+	it('shows the tip time alone in the kicker and no blurb when the arena is unknown', () => {
+		const { container } = render(Hero, {
+			props: { ...baseProps, games: [{ ...oneGame, arena: null }] }
+		});
+		expect(screen.getByText('10:30 PM ET')).toBeTruthy();
+		expect(container.textContent).not.toContain('·');
+		expect(container.querySelector('.blurb')).toBeNull();
+		expect(screen.queryByText(/meet at/)).toBeNull();
 	});
 
 	it('shows the away team, then at and the home team in the heading', () => {

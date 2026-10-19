@@ -19,8 +19,10 @@
 # due time, so a first attempt is never served a detail sent before the final
 # status was observed, such as a live snapshot fetched during the same run.
 #
-# An All-Star game that fails (its live detail fetch, or its validation as a feed
-# game) is left out of the feed with a log line and never fails the run (ADR 0038).
+# A live detail fetch that fails keeps the game's previous detail and never fails
+# the run; a live game with no detail held, and an All-Star game that fails its
+# validation as a feed game, are left out of the feed with a log line (ADR 0038,
+# ADR 0064).
 #
 # The game detail feed kind reads the games of the days shown through
 # shown_games and refreshed_at; after_run lets it start the final builds and
@@ -30,14 +32,16 @@
 # cache entries fetched more than 7 days ago, games dated more than 10 days ago
 # (with their final times and attempts) and past games and player identities
 # not touched in 90 days are deleted, and the daily cleanup hook runs (main.py
-# gives it the deletion of the kept feeds not served in 90 days). Highlights
-# and past player ids are kept.
+# gives it the deletion of the kept feeds not served in 90 days). Season team
+# absences are pruned after 30 days (ADR 0064). Highlights and past player ids
+# are kept.
 #
 # SEE: docs/source-rules.md, docs/adr/0007-backend-runtime-and-data-pipeline.md,
 # docs/api/games.md,
 # docs/adr/0010-final-game-attempts.md,
 # docs/adr/0013-day-change.md, docs/adr/0014-star-guarantees.md,
-# docs/adr/0063-bounded-state-and-kept-feeds.md
+# docs/adr/0063-bounded-state-and-kept-feeds.md,
+# docs/adr/0064-degrade-one-bad-item-instead-of-failing-a-feed.md
 
 import asyncio
 import datetime as dt
@@ -64,6 +68,7 @@ from app.sources import game_detail, scoreboard
 from app.sources.game_detail import GameDetail
 from app.sources.http import Freshness, SourceClient, SourceError
 from app.sources.scoreboard import ScoreboardGame
+from app.sources.season_team import ABSENCE_LIFETIME
 from app.storage.feeds import publish_feed
 from app.storage.state import StateStore
 
@@ -207,14 +212,18 @@ def build_games_feed(
             if detail is not None:
                 data["leaders"] = detail.leaders
                 data["team_stats"] = detail.team_stats
-            if game.all_star is not None:
+            if game.all_star is not None or (
+                game.status is GameStatus.LIVE and detail is None
+            ):
                 try:
                     Game.model_validate(data)
                 except ValidationError as error:
                     first = error.errors()[0]
                     location = ".".join(str(part) for part in first["loc"])
                     logger.warning(
-                        "games: All-Star game %s skipped: %s at %s",
+                        "games: All-Star game %s skipped: %s at %s"
+                        if game.all_star is not None
+                        else "games: game %s skipped: %s at %s",
                         game.id,
                         first["type"],
                         location,
@@ -491,6 +500,7 @@ class GamesJob:
                 self._store.prune_games(today - GAMES_RETENTION)
                 self._store.prune_past_games(now - KEPT_RETENTION)
                 self._store.prune_player_identities(now - KEPT_RETENTION)
+                self._store.prune_season_team_absences(now - ABSENCE_LIFETIME)
                 try:
                     self._daily_cleanup(now)
                 except Exception:
@@ -507,10 +517,8 @@ class GamesJob:
                                 self._client, game.id, self._settings, LIVE_INTERVAL
                             )
                         except SourceError as error:
-                            if game.all_star is None:
-                                raise
                             logger.warning(
-                                "games: live detail of All-Star game %s failed: %s",
+                                "games: live detail of game %s failed: %s",
                                 game.id,
                                 error.reason,
                             )

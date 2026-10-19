@@ -757,8 +757,15 @@
           "type": "string"
         },
         "secondary": {
-          "pattern": "^#[0-9A-Fa-f]{6}$",
-          "type": "string"
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -995,10 +1002,24 @@
           "type": "string"
         },
         "home": {
-          "$ref": "#/$defs/SplitRecord"
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SplitRecord"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "away": {
-          "$ref": "#/$defs/SplitRecord"
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SplitRecord"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "lastTen": {
           "$ref": "#/$defs/SplitRecord"
@@ -1048,13 +1069,34 @@
           "default": null
         },
         "pointsFor": {
-          "$ref": "#/$defs/PointsTotal"
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PointsTotal"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "pointsAgainst": {
-          "$ref": "#/$defs/PointsTotal"
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PointsTotal"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "differential": {
-          "$ref": "#/$defs/Differential"
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Differential"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [

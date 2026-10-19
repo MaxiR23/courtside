@@ -16,7 +16,10 @@
 # game, and no All-Star flag is read (ADR 0039). An All-Star event that cannot
 # be mapped (its note, status, sides or required fields) is skipped with a log
 # line by event id: it never fails the day (ADR 0038). A final All-Star game
-# with a score and no line score is kept with a null line score (ADR 0051).
+# with a score and no line score is kept with a null line score (ADR 0051). A
+# league event whose required fields cannot be read is skipped the same way by
+# fetch_games, with a log line by event id; a missing venue is null (ADR 0064).
+# The postseason read (postseason_scoreboard) maps events strictly, unchanged.
 #
 # The past-day path, fetch_past_day, reads the same payload as fetch_games but
 # resolves a side by its team id first and skips any event that cannot be mapped,
@@ -199,7 +202,7 @@ class ScoreboardGame(FeedModel):
     home: GameTeam
     status: GameStatus
     start_time: UtcDatetime
-    venue: NonEmptyStr
+    venue: NonEmptyStr | None = None
     broadcast: NonEmptyStr | None = None
     period: PositiveInt | None = None
     clock: NonEmptyStr | None = None
@@ -403,7 +406,7 @@ def _read_event(
         "home": home_team,
         "status": status,
         "start_time": event.date.astimezone(dt.UTC),
-        "venue": competition.venue.full_name if competition.venue else None,
+        "venue": (competition.venue.full_name or None) if competition.venue else None,
         "broadcast": competition.broadcast or None,
         "cup": _cup(competition),
         "all_star": mark,
@@ -433,7 +436,8 @@ def _map_event(
     event: _ProviderEvent, *, by_id_first: bool = False
 ) -> ScoreboardGame | None:
     """Map one event. An All-Star event that cannot be mapped is skipped with a
-    log line and never fails the day (ADR 0038); any other event raises."""
+    log line and never fails the day (ADR 0038); any other event raises, and
+    `fetch_games` and `fetch_past_day` skip it (ADR 0064)."""
     if not _is_an_all_star_event(event):
         return _read_event(event, all_star=False, by_id_first=by_id_first)
     try:
@@ -468,8 +472,16 @@ async def fetch_games(
 ) -> list[ScoreboardGame]:
     """Return the games of a US Eastern day in provider order, or raise SourceError."""
     scoreboard = await _read_scoreboard(client, day, settings)
-    games = (_map_event(event) for event in scoreboard.events)
-    return [game for game in games if game is not None]
+    games: list[ScoreboardGame] = []
+    for event in scoreboard.events:
+        try:
+            game = _map_event(event)
+        except SourceError as error:
+            logger.warning("scoreboard: event %s skipped: %s", event.id, error.reason)
+            continue
+        if game is not None:
+            games.append(game)
+    return games
 
 
 def _read_season(scoreboard: _ProviderScoreboard, day: dt.date) -> int:

@@ -6,6 +6,7 @@
 // - The summary text
 // - One row per game with date, "AWAY pts – pts HOME" and arena, in the given order
 // - No rows on a first meeting
+// - A row with a null arena shows no arena text (ADR 0064)
 // - The current game row: "This game" in the accent, no points before tip-off, no dimmed side
 // - The losing side of each completed game dimmed; a completed current game shows its points
 //
@@ -64,6 +65,16 @@ describe('SeasonSeries', () => {
 			['Jan 10', 'GSW 118 – 112 LAL', 'Chase Center'],
 			['Dec 2', 'LAL 121 – 109 GSW', 'Crypto.com Arena']
 		]);
+	});
+
+	it('shows no arena text on a row with a null arena', () => {
+		const [first, second] = series.games;
+		const { container } = render(SeasonSeries, {
+			props: { series: { ...series, games: [{ ...first, arena: null }, second] } }
+		});
+		const rows = [...container.querySelectorAll('.game')];
+		expect(rows[0].querySelector('.arena')).toBeNull();
+		expect(rows[1].querySelector('.arena')?.textContent).toBe('Crypto.com Arena');
 	});
 
 	it('shows no rows on a first meeting', () => {

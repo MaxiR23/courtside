@@ -239,10 +239,12 @@
 				<dt>{m.panel_tip_off()}</dt>
 				<dd>{status.tipTime} {status.tipSuffix}</dd>
 			</div>
-			<div class="fact">
-				<dt>{m.panel_venue()}</dt>
-				<dd>{details.venue}</dd>
-			</div>
+			{#if details.venue}
+				<div class="fact">
+					<dt>{m.panel_venue()}</dt>
+					<dd>{details.venue}</dd>
+				</div>
+			{/if}
 			{#if status.network}
 				<div class="fact">
 					<dt>{m.panel_broadcast()}</dt>

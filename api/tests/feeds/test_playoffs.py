@@ -5,6 +5,7 @@
 # Tested:
 # - A valid picture feed and a valid complete feed are accepted and serialized with camelCase keys
 # - Rejects a champion outside complete, no champion when complete, a current round outside the playoffs, a finals game or summary before the finals, stages, picture, play-in, bracket or leaders out of order or of the wrong count, a line on a row other than 6 and 10, a series winner that is not a side, a winner of a series that is not complete, a conference on the finals or none on another series, a round that does not match the id, a side with both a team and currently, wins without a team, an outcome on a game that is not final, a game without an outcome that is final, a team award without its team number, a player award with one, a guest playoff team, a winner on a game that is not final, more than five leaders, ranks that do not increase, a stage status outside the four, stage dates with only one end set, a date span that runs backwards, series games out of start order and an unknown field
+# - A series game with a null venue is accepted (ADR 0064)
 # - An award takes as many winners as the source sends, six included (ADR 0055)
 # - A complete series without the wins of both sides is rejected (ADR 0055)
 # - A null play-in (a season before 2021) is accepted, while a play-in of one table or in the wrong order is still rejected
@@ -281,6 +282,20 @@ def test_accepts_a_playoffs_feed_with_a_current_round() -> None:
     feed["currentRound"] = 2
 
     assert PlayoffsFeed.model_validate(feed).current_round == 2
+
+
+def test_accepts_a_series_game_with_a_null_venue() -> None:
+    feed = picture_feed()
+    feed["bracket"][0] = series(
+        "east-r1-1",
+        top=side(team=team("ATL"), seed=1, wins=1),
+        bottom=side(team=team("BOS"), seed=8, wins=0),
+        games=[{**final_game(venue=None), "number": 1}],
+    )
+
+    parsed = PlayoffsFeed.model_validate(feed)
+
+    assert parsed.bracket[0].games[0].venue is None
 
 
 def test_accepts_a_complete_series_with_a_final_game() -> None:

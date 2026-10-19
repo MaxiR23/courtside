@@ -76,15 +76,15 @@ class StandingsRow(FeedModel):
     pct: PctText | None
     games_behind: GamesBehindText | None
     streak: Streak | None
-    home: RecordText
-    away: RecordText
+    home: RecordText | None
+    away: RecordText | None
     last_ten: RecordText
     division: RecordText
     conference: RecordText
-    points_for: PerGameText
-    points_against: PerGameText
-    differential: PerGameDifferential
-    total: TotalDifferential
+    points_for: PerGameText | None
+    points_against: PerGameText | None
+    differential: PerGameDifferential | None
+    total: TotalDifferential | None
     # The abbreviation the team had in the season on show and whether that season's
     # name, city or abbreviation differs from today's (ADR 0054). Null and false on a
     # current feed and on a stored feed from before the fields.

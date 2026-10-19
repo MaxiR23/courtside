@@ -163,6 +163,7 @@ def test_builds_a_final_past_game_with_the_day_games_score_marks_sides_and_searc
     assert feed.postseason is not None
     assert feed.postseason.stage is PostseasonStage.PLAYOFFS
     assert str(feed.highlights_search_url) == "https://example.com/search?q=x"
+    assert feed.venue is not None
     assert (feed.venue.name, feed.venue.city) == ("Arena", "City")
     assert feed.box_score is not None and feed.team_stats is not None
     assert feed.win_probability is not None and len(feed.win_probability) == 2

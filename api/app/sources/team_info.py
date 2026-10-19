@@ -2,6 +2,8 @@
 #
 # Team info adapter: fetches one team's name, colors and arena from the provider
 # and maps them to an internal team info. Colors come without the leading "#".
+# The alternate color and the franchise venue may be missing: they are null
+# (ADR 0064).
 # The provider URL comes from Settings. Provider data never leaves this module.
 #
 # cached_team_info reads the source cache only (ADR 0058).
@@ -54,15 +56,15 @@ class _ProviderVenue(_ProviderModel):
 
 
 class _ProviderFranchise(_ProviderModel):
-    venue: _ProviderVenue
+    venue: _ProviderVenue | None = None
 
 
 class _ProviderTeam(_ProviderModel):
     location: str
     name: str
     color: HexDigits
-    alternate_color: HexDigits
-    franchise: _ProviderFranchise
+    alternate_color: HexDigits | None = None
+    franchise: _ProviderFranchise | None = None
 
 
 class _ProviderTeamInfo(_ProviderModel):
@@ -75,10 +77,15 @@ class TeamInfo(FeedModel):
     location: NonEmptyStr
     name: NonEmptyStr
     color: HexDigits
-    alternate_color: HexDigits
-    venue_name: NonEmptyStr
+    alternate_color: HexDigits | None = None
+    venue_name: NonEmptyStr | None = None
     venue_city: NonEmptyStr | None = None
     venue_photo_url: NonEmptyStr | None = None
+
+
+def secondary_color(info: TeamInfo) -> str | None:
+    """The secondary color with its "#", or None when the team has none."""
+    return None if info.alternate_color is None else f"#{info.alternate_color}"
 
 
 def _location(error: ValidationError) -> str:
@@ -114,7 +121,7 @@ def _map(body: object, team_code: str) -> TeamInfo:
         ) from None
 
     team = provider.team
-    venue = team.franchise.venue
+    venue = team.franchise.venue if team.franchise else None
     try:
         return TeamInfo.model_validate(
             {
@@ -122,9 +129,11 @@ def _map(body: object, team_code: str) -> TeamInfo:
                 "name": team.name,
                 "color": team.color,
                 "alternate_color": team.alternate_color,
-                "venue_name": venue.full_name,
-                "venue_city": venue.address.city if venue.address else None,
-                "venue_photo_url": venue.images[0].href if venue.images else None,
+                "venue_name": venue.full_name if venue else None,
+                "venue_city": venue.address.city if venue and venue.address else None,
+                "venue_photo_url": venue.images[0].href
+                if venue and venue.images
+                else None,
             }
         )
     except ValidationError as error:

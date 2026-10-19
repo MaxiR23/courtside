@@ -565,7 +565,8 @@ def test_a_live_game_detail_request_waits_at_most_one_budget_in_total(
         client.portal.call(detail.games_gate.set)  # type: ignore[union-attr]
 
     assert response.status_code == 200
-    assert GameDetailFeed.model_validate_json(response.content).venue.name == "Garden"
+    venue = GameDetailFeed.model_validate_json(response.content).venue
+    assert venue is not None and venue.name == "Garden"
 
 
 BUILT = dt.datetime(2026, 1, 10, 12, 0, tzinfo=dt.UTC)
@@ -1741,6 +1742,7 @@ def test_a_game_the_games_job_has_loaded_takes_the_games_path_with_a_null_season
 
     assert response.status_code == 200
     feed = GameDetailFeed.model_validate_json(response.content)
+    assert feed.venue is not None
     assert feed.status is GameStatus.SCHEDULED and feed.venue.name == "Garden"
     assert feed.season_label is None
     assert calls == []

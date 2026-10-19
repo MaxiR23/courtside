@@ -13,7 +13,7 @@ export type HeroGame = {
 	id: string; // the game id, passed back by Match details
 	status: HeroStatus;
 	tipTime: string; // already formatted, e.g. "10:30 PM ET"
-	arena: string;
+	arena: string | null; // null: unknown, left out
 	away: { code: string; name: string; star: HeroPlayer };
 	home: { code: string; name: string; star: HeroPlayer };
 };

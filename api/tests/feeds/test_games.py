@@ -7,6 +7,7 @@
 # - A game missing a field its status requires is rejected
 # - Invalid times, codes, numbers and URLs are rejected
 # - Unknown fields are rejected
+# - A game with a null venue is accepted; a game without the venue key is rejected (ADR 0064)
 # - A leader carries one display name; stars keep first and last name
 # - A final game requires a winner, which is a side (away or home); any other status rejects one
 # - A final game carries statsAvailability; leaders and teamStats are set only when it is available; any other status rejects it
@@ -126,6 +127,23 @@ def test_accepts_a_feed_with_a_game_of_each_status(status: str) -> None:
     feed = GamesFeed.model_validate(valid_feed(valid_game(status)))
 
     assert feed.days[0].games[0].status == status
+
+
+def test_accepts_a_game_with_a_null_venue() -> None:
+    game = valid_game("scheduled")
+    game["venue"] = None
+
+    feed = GamesFeed.model_validate(valid_feed(game))
+
+    assert feed.days[0].games[0].venue is None
+
+
+def test_rejects_a_game_without_the_venue_key() -> None:
+    game = valid_game("scheduled")
+    del game["venue"]
+
+    with pytest.raises(ValidationError, match="venue"):
+        GamesFeed.model_validate(valid_feed(game))
 
 
 def test_accepts_a_day_with_no_games() -> None:

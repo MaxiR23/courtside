@@ -1,6 +1,6 @@
 # 0038. All-Star marks in core feeds
 
-- Status: Superseded by 0039 for its All-Star team test only, and by 0051 for final games without a line score only
+- Status: Superseded by 0039 for its All-Star team test only, and by 0051 for final games without a line score only, and by 0064 for league events and live details that cannot be read only
 - Date: 2026-10-14
 
 ## Context

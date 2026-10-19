@@ -19,7 +19,7 @@ The visual, interaction and data specification for the nav, the `/standings` pag
 Everything under "Implementation rules" in `docs/design.md`, `docs/design-game-detail.md` and `docs/design-profiles.md` applies, plus:
 
 - **The front end only draws.** Every value comes ready from the feed: percentage, short name, ordinal inputs (the page formats the ordinal), both games behind, signs. `/web` computes nothing except search matching and ranking, locally, with zero requests per keystroke.
-- **A missing value is `null` in the feed and renders `—`** (seed, streak, games behind). A missing clinch renders no tag.
+- **A missing value is `null` in the feed and renders `—`** (seed, streak, games behind, home, road, points and differentials). A missing clinch renders no tag.
 - **No URL and no data source name is written in `/web`.** Photos come from the feed.
 - **Every user-facing string is translatable**, in English and Spanish (Paraglide). The full list is in "Strings".
 - **Styles use tokens.** Every raw color or size in this document is mapped to an existing token or listed under "New tokens" for the implementing issue. Styles never repeat the raw value.

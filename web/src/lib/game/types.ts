@@ -185,7 +185,7 @@ export type SeriesRow = {
 	homePoints: number | null;
 	homeCode: string;
 	loser: 'away' | 'home' | null; // from the feed winner
-	arena: string;
+	arena: string | null; // null: unknown, no arena line
 };
 export type SeasonSeriesSection = {
 	summary: string; // "OKC lead 2–1", "Series tied 1–1" or "First meeting"

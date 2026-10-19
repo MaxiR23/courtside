@@ -22,6 +22,7 @@
 # - Injury status, win probability, UTC time and unknown fields are validated
 # - A guest side without a code keeps a null record, standing, injuries and last games, has no series, and may be the opponent of a last game
 # - A guest game: a null record, standing, injuries and last games on the guest side, box score players without a photo, a guest stat leader and win probability leader, no win probability and no season series
+# - A league side may have a null standing and a null record; a null venue and a null series arena are accepted
 # - A per-side section is null exactly on a guest side; a guest game has no season series; a league box score player has a photo; the two sides differ; a league side's last game may be against a guest
 # - The retired `videos` field of a stored feed is dropped when read; any other unknown field is still rejected
 # - The feed has no videos field
@@ -314,7 +315,7 @@ def test_accepts_a_final_game_with_every_section() -> None:
     feed = GameDetailFeed.model_validate(full_game())
 
     assert feed.box_score is not None
-    assert feed.venue.photo_url is not None
+    assert feed.venue is not None and feed.venue.photo_url is not None
 
 
 @pytest.mark.parametrize("key", [*OPTIONAL_SECTIONS, "venue.photoUrl", "venue.city"])
@@ -333,7 +334,7 @@ def test_accepts_a_venue_with_a_null_city() -> None:
         valid_game("scheduled", venue={"name": "Arena", "city": None})
     )
 
-    assert feed.venue.city is None
+    assert feed.venue is not None and feed.venue.city is None
     assert feed.model_dump(mode="json", by_alias=True)["venue"]["city"] is None
 
 
@@ -888,7 +889,7 @@ def test_rejects_a_section_set_on_a_guest_side(section: str) -> None:
         GameDetailFeed.model_validate(game)
 
 
-@pytest.mark.parametrize("section", ["standings", "injuries", "lastGames"])
+@pytest.mark.parametrize("section", ["injuries", "lastGames"])
 def test_rejects_a_section_null_on_a_league_side(section: str) -> None:
     game = full_game()
     game[section] = pair(None, game[section]["home"])
@@ -897,15 +898,40 @@ def test_rejects_a_section_null_on_a_league_side(section: str) -> None:
         GameDetailFeed.model_validate(game)
 
 
-def test_rejects_a_record_on_a_guest_side_and_none_on_a_league_side() -> None:
+def test_accepts_a_null_standing_and_a_null_record_on_a_league_side() -> None:
+    game = full_game()
+    game["standings"] = pair(None, game["standings"]["home"])
+    game["away"]["record"] = None
+
+    feed = GameDetailFeed.model_validate(game)
+
+    assert feed.standings is not None and feed.standings.away is None
+    assert feed.away.record is None
+
+
+def test_rejects_a_record_on_a_guest_side() -> None:
     guest = guest_detail()
     guest["away"]["record"] = record()
-    league = full_game()
-    league["away"]["record"] = None
 
-    for game in (guest, league):
-        with pytest.raises(ValidationError, match="record"):
-            GameDetailFeed.model_validate(game)
+    with pytest.raises(ValidationError, match="a guest side has no record"):
+        GameDetailFeed.model_validate(guest)
+
+
+def test_accepts_a_null_venue() -> None:
+    game = full_game()
+    game["venue"] = None
+
+    assert GameDetailFeed.model_validate(game).venue is None
+
+
+def test_accepts_a_series_game_with_a_null_arena() -> None:
+    game = full_game()
+    game["seasonSeries"]["games"][0]["arena"] = None
+
+    feed = GameDetailFeed.model_validate(game)
+
+    assert feed.season_series is not None
+    assert feed.season_series.games[0].arena is None
 
 
 def test_rejects_a_star_on_a_guest_side() -> None:
@@ -1152,9 +1178,13 @@ def test_the_other_game_detail_rules_still_apply_to_a_past_game() -> None:
             PastGameDetailFeed.model_validate(game)
 
 
-def test_game_detail_still_rejects_a_null_record_on_a_league_side() -> None:
-    with pytest.raises(ValidationError, match="record"):
-        GameDetailFeed.model_validate(past_detail())
+def test_game_detail_accepts_a_null_record_on_a_league_side() -> None:
+    game = past_detail()
+    game["standings"] = pair(None, None)
+
+    feed = GameDetailFeed.model_validate(game)
+
+    assert feed.away.record is None and feed.home.record is None
 
 
 def test_the_past_game_detail_schema_equals_the_game_detail_schema_apart_from_its_title() -> (

@@ -28,8 +28,8 @@ The root is one team.
 | `city`, `name` | string             | Identity                                                  | always                 |
 | `conference` | `Conference`         | `east` or `west`                                          | always                 |
 | `division`   | string               | Division name                                             | always                 |
-| `colors`     | `TeamColors`         | `primary`, `secondary`: hex values such as `#112233`      | always; null on a past season when no team info is cached (ADR 0059) |
-| `arena`      | `Venue` / null       | `name`, `city` (null), `photoUrl` (null), as in the [game detail feed](game-detail.md) | null on a past season |
+| `colors`     | `TeamColors`         | `primary`, `secondary`: hex values such as `#112233`; `secondary` is null when the source has none | always; null on a past season when no team info is cached (ADR 0059) |
+| `arena`      | `Venue` / null       | `name`, `city` (null), `photoUrl` (null), as in the [game detail feed](game-detail.md) | null on a past season and when the source has no franchise venue |
 | `coach`      | `Coach` / null       | `name`, `seasons`                                         | null when unknown      |
 | `season`     | season label         | Such as `2026-27`                                         | always                 |
 | `record`     | `TeamRecord`         | Record, splits, rank, playoff position and points         | always                 |
@@ -49,13 +49,13 @@ The root is one team.
 
 | Object          | Fields                                                                                                                                      |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `TeamColors`    | `primary`, `secondary`                                                                                                                      |
+| `TeamColors`    | `primary`, `secondary` (null when the source has none)                                                                                                                      |
 | `TeamCup`       | `group`: `CupGroupName` (`conference`: `east`, `west`; `letter`: `A`, `B`, `C`), `wins`, `losses` (the Cup record, as in the [Cup feed](cup.md))  |
 | `TeamTitle`     | `kind` (`nba_champions`, `nba_cup_champions`, `conference_champions`); `year` (set exactly for the two championships); `conference` (`east`, `west`; set exactly for `conference_champions`) |
 | `Coach`         | `name`, `seasons` (null)                                                                                                                    |
 | `NameRun`       | `from`, `to` (null on the run that holds the current season): end years of seasons, `from` from 1994; `name`, `location`, `code` (the standard code for a current franchise; a historical run keeps the source's own abbreviation, ADR 0055) |
 | `SplitRecord`   | `Record` fields (`wins`, `losses`) plus `winPct` (0 to 1)                                                                                   |
-| `TeamRecord`    | `SplitRecord` fields plus `season` (label of the standings season, such as `2025-26`; in the preseason it is the previous season), `home`, `away`, `lastTen`: `SplitRecord`; `streak`: `Streak` / null; `gamesBehind`: games behind the leader of the team's conference (0 for the leader), null before the team's first game; `conferenceRank` (1 to 15); `divisionRank` (1 to 8: a division held up to 8 teams until 2003-04); `playoff`: `PlayoffPosition` / null before the first game, without a seed, and on a season before 2020-21; `pointsFor`, `pointsAgainst`: `PointsTotal`; `differential`: `Differential` |
+| `TeamRecord`    | `SplitRecord` fields plus `season` (label of the standings season, such as `2025-26`; in the preseason it is the previous season), `home`, `away`: `SplitRecord` / null when the source sends none; `lastTen`: `SplitRecord`; `streak`: `Streak` / null; `gamesBehind`: games behind the leader of the team's conference (0 for the leader), null before the team's first game; `conferenceRank` (1 to 15); `divisionRank` (1 to 8: a division held up to 8 teams until 2003-04); `playoff`: `PlayoffPosition` / null before the first game, without a seed, and on a season before 2020-21; `pointsFor`, `pointsAgainst`: `PointsTotal` / null when the source sends none; `differential`: `Differential` / null when the source sends none ([ADR 0064](../adr/0064-degrade-one-bad-item-instead-of-failing-a-feed.md)) |
 | `Streak`        | `kind` (`win`, `loss`), `count`                                                                                                             |
 | `PlayoffPosition` | `status` (`seed`, `playin`, `out`), `seed`                                                                                                |
 | `PointsTotal`   | `perGame`, `total`                                                                                                                          |
@@ -143,10 +143,13 @@ The root is one team.
   carries a `buildVersion`, [ADR 0055](../adr/0055-past-season-reading-rules-and-versioned-stored-data.md)).
   A team feed is stale while its stored list is of another version. The team
   feed depends on it: a missing or stale list
-  is built first, inside the request's 20 seconds, and a failed names build keeps
-  the stored list. A names build fails when the current season's team could not
-  be read (the read failed, or it has no active team); earlier seasons that fail
-  are skipped. The names are written into the stored feed and set again from
+  is built first, inside the request's 20 seconds. When the current season's team
+  cannot be read (the read failed, or it has no team object), the build keeps the
+  stored list's runs, with the open run standing in for the current season; with
+  no stored list it uses the latest season read, else the team code. The list is
+  marked incomplete and is fresh for 10 minutes only
+  ([ADR 0064](../adr/0064-degrade-one-bad-item-instead-of-failing-a-feed.md)).
+  Earlier seasons that fail are skipped. The names are written into the stored feed and set again from
   the stored list when the feed is served.
 - The builder is `build_team_feed` and the feed kind is `TeamFeeds`, both in
   `api/app/jobs/team_feed.py`.

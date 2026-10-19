@@ -21,6 +21,7 @@
 // - A final All-Star game without a line score (untimed, ADR 0051) maps to a card without details and the home view is still shown
 // - A final game with available stats and no leaders maps to a final-without-stats card with available stats (a past day, ADR 0054); the games feed's available game still gives the played panel
 // - The feed's seven day.date strings, in order, as dayIds
+// - A scheduled game with a null venue: null details venue and a null hero arena (ADR 0064)
 //
 // What is covered:
 // - Pure logic on a recorded feed (tests/lib/feed/fixtures/games.json); no clock, no network
@@ -85,6 +86,17 @@ describe('toHomeView', () => {
 		expect(v.heroGames[0].home.name).toBe('Lakers');
 		expect(v.heroGames[0].away.code).toBe('GSW');
 		expect(v.heroGames[0].home.code).toBe('LAL');
+	});
+
+	it('gives a scheduled game with a null venue null details venue and a null hero arena', () => {
+		const source = feed();
+		const game = source.days[3].games.find((g) => g.id === 'g-sched');
+		if (!game) throw new Error('The fixture has the scheduled game');
+		game.venue = null;
+		const v = view(source);
+		const shown = todayGame(v, 'g-sched');
+		expect(shown.details).toMatchObject({ kind: 'scheduled', venue: null });
+		expect(v.heroGames.find((g) => g.id === 'g-sched')?.arena).toBeNull();
 	});
 
 	it("keeps postponed and canceled games in today's schedule", () => {
