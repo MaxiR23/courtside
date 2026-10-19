@@ -1,0 +1,47 @@
+{
+  "items": [
+    {
+      "id": { "videoId": "vid-search-clip" },
+      "snippet": {
+        "publishedAt": "2026-10-05T07:00:00Z",
+        "channelTitle": "Example Channel",
+        "title": "Player Scores 30 For The Example Town Owls | Highlights | October 4, 2026",
+        "thumbnails": {
+          "medium": {
+            "url": "https://example.com/thumbs/vid-search-clip/medium.jpg",
+            "width": 320,
+            "height": 180
+          }
+        }
+      }
+    },
+    {
+      "id": { "videoId": "vid-search-game" },
+      "snippet": {
+        "publishedAt": "2026-10-05T08:00:00Z",
+        "channelTitle": "Example Channel",
+        "title": "Harbor City Gulls at Example Town Owls | FULL GAME HIGHLIGHTS | October 4, 2026",
+        "thumbnails": {
+          "default": {
+            "url": "https://example.com/thumbs/vid-search-game/default.jpg",
+            "width": 120,
+            "height": 90
+          },
+          "high": {
+            "url": "https://example.com/thumbs/vid-search-game/high.jpg",
+            "width": 1280,
+            "height": 720
+          }
+        }
+      }
+    },
+    {
+      "id": { "videoId": "vid-search-second" },
+      "snippet": {
+        "publishedAt": "2026-10-05T09:00:00+02:00",
+        "channelTitle": "Example Channel",
+        "title": "Harbor City Gulls at Example Town Owls | FULL GAME HIGHLIGHTS | October 4, 2026"
+      }
+    }
+  ]
+}

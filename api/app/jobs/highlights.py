@@ -13,19 +13,24 @@
 # thumbnail check affects only its game.
 # Matches are kept in the job state. The games job reads the
 # highlights through highlights_of and the search URL through search_url_of.
-# The highlights backfill stores its matches through add_highlight and reads
-# attempts_over; an All-Star game is served no per-game highlight (ADR 0048).
+# Each game's final time, first-seen flag and attempts are read once and kept in
+# memory, updated on every write, so a tick reads no SQLite for a game already
+# seen (ADR 0065). The on-demand highlights search stores its matches through
+# add_highlight and reads attempts_over; an All-Star game is served no per-game
+# highlight (ADR 0048).
 #
 # SEE: docs/adr/0007-backend-runtime-and-data-pipeline.md,
 # docs/adr/0010-final-game-attempts.md,
 # docs/adr/0015-highlights-source.md,
 # docs/adr/0018-highlight-request-failures.md,
 # docs/adr/0020-source-rules.md, docs/adr/0048-highlights-backfill-and-edition-video.md,
+# docs/adr/0065-background-work-limited-to-games-highlights-and-stars.md,
 # docs/source-rules.md
 
 import datetime as dt
 import logging
 from collections.abc import Awaitable, Callable, Sequence
+from dataclasses import dataclass
 
 from app.feeds.games import Highlight
 from app.jobs.games import eastern_date
@@ -66,6 +71,13 @@ CheckThumbnail = Callable[[SourceClient, ChannelVideo], Awaitable[ChannelVideo]]
 logger = logging.getLogger(__name__)
 
 
+@dataclass
+class _GameState:
+    final_time: dt.datetime
+    first_seen: bool
+    attempts: int
+
+
 class HighlightsJob:
     name = JOB
 
@@ -89,22 +101,39 @@ class HighlightsJob:
         self._clock = clock
         self._failed_at: dict[str, dt.datetime] = {}
         self._highlights: dict[str, Highlight] = store.highlights()
+        self._states: dict[str, _GameState] = {}
+
+    def _state(self, game_id: str) -> _GameState | None:
+        cached = self._states.get(game_id)
+        if cached is not None:
+            return cached
+        final_time = self._store.final_time(game_id)
+        if final_time is None:
+            # The games job writes the final time before the game is final, so
+            # a None is only a pruned row: nothing is cached for it.
+            return None
+        state = _GameState(
+            final_time=final_time,
+            first_seen=self._store.first_seen_final(game_id),
+            attempts=self._store.highlight_attempts(game_id),
+        )
+        self._states[game_id] = state
+        return state
 
     def _due(self, game: ScoreboardGame, now: dt.datetime) -> bool:
         if game.id in self._highlights:
             return False
-        final_time = self._store.final_time(game.id)
-        if final_time is None:
+        state = self._state(game.id)
+        if state is None:
             return False
-        attempts = self._store.highlight_attempts(game.id)
+        attempts = state.attempts
         if attempts >= MAX_ATTEMPTS:
             return False
         failed_at = self._failed_at.get(game.id)
         if failed_at is not None and now - failed_at < RETRY:
             return False
-        first_seen = self._store.first_seen_final(game.id)
-        delays = FIRST_SEEN_ATTEMPT_DELAYS if first_seen else ATTEMPT_DELAYS
-        return now >= final_time + delays[attempts]
+        delays = FIRST_SEEN_ATTEMPT_DELAYS if state.first_seen else ATTEMPT_DELAYS
+        return now >= state.final_time + delays[attempts]
 
     @staticmethod
     def _log_failed(game: ScoreboardGame, number: int, reason: str) -> None:
@@ -118,7 +147,11 @@ class HighlightsJob:
 
     def _spend_attempt(self, game: ScoreboardGame, day: dt.date) -> int:
         self._failed_at.pop(game.id, None)
-        return self._store.record_highlight_attempt(game.id, day)
+        number = self._store.record_highlight_attempt(game.id, day)
+        state = self._state(game.id)
+        if state is not None:
+            state.attempts = number
+        return number
 
     def _wait_after_failed_request(
         self,
@@ -131,7 +164,7 @@ class HighlightsJob:
             "highlights for game %s: attempt %d of %d not counted, "
             "retrying in %d minutes: %s",
             game.id,
-            self._store.highlight_attempts(game.id) + 1,
+            (state.attempts if (state := self._state(game.id)) else 0) + 1,
             MAX_ATTEMPTS,
             RETRY // dt.timedelta(minutes=1),
             str(error),
@@ -139,7 +172,10 @@ class HighlightsJob:
         self._failed_at[game.id] = now + (self._clock() - started)
 
     async def run(self, now: dt.datetime) -> None:
-        due = [game for game in self._final_games() if self._due(game, now)]
+        finals = list(self._final_games())
+        kept = {game.id for game in finals}
+        self._states = {k: v for k, v in self._states.items() if k in kept}
+        due = [game for game in finals if self._due(game, now)]
         if not due:
             return
         started = self._clock()
@@ -193,7 +229,7 @@ class HighlightsJob:
             self._store.record_success(JOB, now)
 
     def add_highlight(self, game_id: str, highlight: Highlight) -> bool:
-        """Store a highlight found by the backfill. A stored match is kept:
+        """Store a highlight found by the on-demand search. A stored match is kept:
         returns False and changes nothing when the game has one."""
         if game_id in self._highlights:
             return False
@@ -204,10 +240,8 @@ class HighlightsJob:
     def attempts_over(self, game_id: str) -> bool:
         """True when the live attempts of the game are over: no final time is
         stored or all the attempts are used."""
-        return (
-            self._store.final_time(game_id) is None
-            or self._store.highlight_attempts(game_id) >= MAX_ATTEMPTS
-        )
+        state = self._state(game_id)
+        return state is None or state.attempts >= MAX_ATTEMPTS
 
     def highlights_of(self, game: ScoreboardGame) -> list[Highlight]:
         if game.all_star is not None:

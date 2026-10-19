@@ -27,6 +27,8 @@
 # - Raises the source error on an invalid roster payload, an invalid averages payload, an empty roster, an empty name, a stat that is not a number, a negative stat, an unknown team code, a timeout, an error status, a missing roster URL, a missing averages URL and a missing photo URL
 # - Maps a recorded season roster with the requested season and the provider team id, and requests the season roster URL
 # - Raises the source error on an invalid season roster payload, an error status, an unknown team code and a missing season roster URL
+# - Reads a roster from the source cache alone and sends no request
+# - Gives no cached roster when nothing is cached, the body is invalid, the code is unknown or a URL is unset
 # - Reuses a roster and the team leaders for twenty-four hours, and a player's averages while fetched at or after the time the caller gives
 #
 # What is covered:
@@ -62,6 +64,7 @@ from app.sources.team_players import (
     RosterCoach,
     RosterEntry,
     SeasonLeaders,
+    cached_roster,
     fetch_player_averages,
     fetch_roster,
     fetch_season_averages,
@@ -940,3 +943,56 @@ async def test_raises_the_source_error_when_the_season_roster_url_is_not_configu
         await season_roster_of(unset)
 
     assert raised.value.reason == "season roster URL is not configured"
+
+
+@pytest.mark.anyio
+async def test_cached_roster_maps_the_cached_body_and_sends_no_request(
+    mock: respx.MockRouter, settings: Settings, tmp_path: Path
+) -> None:
+    route = mock.get(ROSTER_URL).respond(json=load("roster.json"))
+    start = dt.datetime(2026, 1, 10, 12, 0, tzinfo=dt.UTC)
+    clock = [start]
+    async with clocked(tmp_path, clock) as client:
+        fetched = await fetch_roster(client, "GSW", settings)
+        clock[0] = start + dt.timedelta(days=30)
+
+        found = cached_roster(client, "GSW", settings)
+
+    assert route.call_count == 1
+    assert found == fetched
+
+
+@pytest.mark.anyio
+async def test_cached_roster_is_none_when_nothing_is_cached_or_the_body_is_invalid_or_a_url_is_unset(
+    mock: respx.MockRouter, settings: Settings, tmp_path: Path
+) -> None:
+    route = mock.get(ROSTER_URL).respond(json=load("roster.json"))
+    broken = load("roster.json")
+    del broken["season"]
+    mock.get("https://example.com/teams/OKC/roster").respond(json=broken)
+    async with clocked(
+        tmp_path, [dt.datetime(2026, 1, 10, 12, 0, tzinfo=dt.UTC)]
+    ) as client:
+        assert cached_roster(client, "GSW", settings) is None
+        await fetch_roster(client, "GSW", settings)
+        with pytest.raises(SourceError):
+            await fetch_roster(client, "OKC", settings)
+        calls = route.call_count
+
+        assert cached_roster(client, "GSW", settings) is not None
+        assert cached_roster(client, "OKC", settings) is None
+        assert cached_roster(client, "ZZZ", settings) is None
+        assert (
+            cached_roster(
+                client, "GSW", settings.model_copy(update={"team_roster_url": None})
+            )
+            is None
+        )
+        assert (
+            cached_roster(
+                client, "GSW", settings.model_copy(update={"player_photo_url": None})
+            )
+            is None
+        )
+
+    assert route.call_count == calls

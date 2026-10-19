@@ -13,9 +13,11 @@
 #
 # TeamNamesFeeds is a stored, non-public feed kind of the on-demand cache (it has
 # no route): the id is the lowercase team code, the list is stored at
-# feeds/team-names/{code}.json, read once per team and kept for 7 days or until
-# SEASON_BUILD_VERSION changes (a list of another or no version is stale, ADR 0055),
-# and the team feeds of the current and of a past season depend on it, so a
+# feeds/team-names/{code}.json, built once per team over every season under a
+# read budget of the number of seasons plus 2, kept while its build version is
+# the current one (a list of another or no version is stale, ADR 0055), its
+# current season read again on a team page request when that read is 24 hours
+# old (ADR 0065), and the team feeds of the current and of a past season depend on it, so a
 # missing or stale list is built first. One season team read per season; a read that fails
 # or finds no team object is skipped with a log line that carries the code and the
 # season, never a URL. A team exists in a season when its object answers: isActive
@@ -25,6 +27,12 @@
 # list the latest season read stands in, else the team code. The list is marked
 # incomplete and is fresh for the retry window only (ADR 0064). A read of the
 # current season records no absence, so a 404 there is read again (ADR 0064).
+# A list records in `missing` the past seasons whose read failed (a season with no
+# team object is not missing); its re-read (24 hours when complete, the retry
+# window when incomplete) reads the current season and every missing season, under
+# a budget of their count plus 3, and merges the reads into the stored runs, so a
+# failed or partial first build heals; a season that fails again stays missing
+# (ADR 0065).
 #
 # season_identity and season_names answer the name and city a team had in a past
 # season, always from the season team object and never from the stored runs;
@@ -47,14 +55,15 @@
 # that holds the row's end year gives the code, and an entry is null when no run
 # holds it (a season before 1994, or a franchise with no stored list). Both player
 # kinds apply it when they serve, so a rebuilt names list reaches the next served
-# feed with no player rebuild. career_runs reads the stored lists and starts, in
-# the background, the build of a list that is missing or outdated; it never waits
-# (ADR 0055).
+# feed with no player rebuild. career_runs reads the stored lists and never
+# starts a build: the career team codes come without a names list when none is
+# stored (ADR 0055, ADR 0065).
 #
 # SEE: docs/api/team.md, docs/adr/0043-season-feeds-and-franchise-names.md,
 # docs/adr/0055-past-season-reading-rules-and-versioned-stored-data.md,
 # api/app/jobs/team_feed.py,
-# docs/adr/0064-degrade-one-bad-item-instead-of-failing-a-feed.md
+# docs/adr/0064-degrade-one-bad-item-instead-of-failing-a-feed.md,
+# docs/adr/0065-background-work-limited-to-games-highlights-and-stars.md
 
 import asyncio
 import datetime as dt
@@ -84,14 +93,15 @@ from app.jobs.on_demand import (
 from app.jobs.stars import StarsJob
 from app.settings import Settings
 from app.sources import season_team
-from app.sources.http import SourceClient, SourceError
+from app.sources.http import ReadBudget, SourceClient, SourceError, within_budget
 from app.sources.season_team import SeasonTeam
 from app.sources.teams import TEAM_CODES, SeasonTeamName
 from app.storage.feeds import read_by_id
 from app.storage.state import StateStore
 
 KIND = "team-names"
-NAMES_LIFETIME = dt.timedelta(days=7)
+# A stored list's current season is read again after this long (ADR 0065).
+CURRENT_SEASON_LIFETIME = dt.timedelta(hours=24)
 TEAM_IDS = frozenset(code.lower() for code in TEAM_CODES.values())
 
 logger = logging.getLogger(__name__)
@@ -329,16 +339,17 @@ class TeamNamesBuildError(Exception):
         self.reason = reason
 
 
-def build_name_runs(
-    seasons: Sequence[tuple[int, SeasonTeam]], current_season: int
+Identity = tuple[str, str, str]
+
+
+def merge_identities(
+    seasons: Mapping[int, Identity], current_season: int
 ) -> list[NameRun]:
-    """The runs of the seasons given, oldest first. `to` is null on the run that
-    holds the current season."""
+    """The runs of the identities (name, city, code) by season, oldest first: the
+    same rule as `build_name_runs`, for identities already decided."""
     runs: list[dict[str, object]] = []
-    today = next((found for season, found in seasons if season == current_season), None)
-    for season, found in sorted(seasons, key=lambda item: item[0]):
-        code = _season_code(found, today)
-        identity = (found.name, found.location, code)
+    for season, identity in sorted(seasons.items()):
+        name, location, code = identity
         if runs and (runs[-1]["name"], runs[-1]["location"], runs[-1]["code"]) == (
             identity
         ):
@@ -348,8 +359,8 @@ def build_name_runs(
             {
                 "from": season,
                 "to": season,
-                "name": found.name,
-                "location": found.location,
+                "name": name,
+                "location": location,
                 "code": code,
             }
         )
@@ -357,6 +368,70 @@ def build_name_runs(
         if run["to"] == current_season:
             run["to"] = None
     return [NameRun.model_validate(run) for run in runs]
+
+
+def build_name_runs(
+    seasons: Sequence[tuple[int, SeasonTeam]], current_season: int
+) -> list[NameRun]:
+    """The runs of the seasons given, oldest first. `to` is null on the run that
+    holds the current season."""
+    today = next((found for season, found in seasons if season == current_season), None)
+    return merge_identities(
+        {
+            season: (found.name, found.location, _season_code(found, today))
+            for season, found in seasons
+        },
+        current_season,
+    )
+
+
+def expand_runs(runs: Sequence[NameRun], current: int) -> dict[int, Identity]:
+    """The identity of each season the runs cover; an open run reaches `current`."""
+    seasons: dict[int, Identity] = {}
+    for run in runs:
+        end = current if run.to is None else run.to
+        for season in range(run.from_, end + 1):
+            seasons[season] = (run.name, run.location, run.code)
+    return seasons
+
+
+def with_current_season(
+    runs: Sequence[NameRun], current: int, found: SeasonTeam
+) -> list[NameRun]:
+    """The runs with the current season read again: unchanged when the open run
+    has the identity read, else the open run is closed the season before and a
+    new one opens. Older runs are not recomputed."""
+    identity = (
+        found.name,
+        found.location,
+        TEAM_CODES.get(found.abbreviation, found.abbreviation),
+    )
+    opened = NameRun.model_validate(
+        {
+            "from": current,
+            "to": None,
+            "name": found.name,
+            "location": found.location,
+            "code": identity[2],
+        }
+    )
+    kept = list(runs)
+    open_index = next((i for i, run in enumerate(kept) if run.to is None), None)
+    if open_index is not None:
+        run = kept[open_index]
+        if (run.name, run.location, run.code) == identity:
+            return kept
+        if run.from_ >= current:
+            del kept[open_index]
+        else:
+            kept[open_index] = run.model_copy(update={"to": current - 1})
+        return [*kept, opened]
+    if kept:
+        last = kept[-1]
+        if last.to == current - 1 and (last.name, last.location, last.code) == identity:
+            kept[-1] = last.model_copy(update={"to": None})
+            return kept
+    return [*kept, opened]
 
 
 class TeamNamesFeeds:
@@ -374,7 +449,6 @@ class TeamNamesFeeds:
         self._store = store
         self._client = client
         self._stars = stars
-        self._cache = cache
         if fetch_season_team is None:
             self._fetch_season_team: FetchSeasonTeam = season_team.fetch_season_team
             # A read of the current season records no absence (ADR 0064).
@@ -393,7 +467,11 @@ class TeamNamesFeeds:
             return IdStatus.NOT_READY
         return IdStatus.KNOWN
 
-    async def _read(self, code: str, season: int) -> tuple[int, SeasonTeam] | None:
+    async def _read(
+        self, code: str, season: int, failed: set[int] | None = None
+    ) -> tuple[int, SeasonTeam] | None:
+        """One season team read; a season whose read raised is added to `failed`
+        (a season with no team object is not)."""
         fetch = (
             self._fetch_current
             if season == self._stars.current_season()
@@ -402,6 +480,8 @@ class TeamNamesFeeds:
         try:
             found = await fetch(self._client, code.upper(), season, self._settings)
         except SourceError as error:
+            if failed is not None:
+                failed.add(season)
             logger.warning(
                 "team names: %s season %d skipped: %s", code, season, error.reason
             )
@@ -415,8 +495,65 @@ class TeamNamesFeeds:
         current = self._stars.current_season()
         if current is None:
             raise TeamNamesBuildError("current season is not known")
+        stored_names = self._stored_names(code)
+        if stored_names is not None and is_current_build(stored_names):
+            return await within_budget(
+                ReadBudget(len(stored_names.missing) + 1 + 2),
+                f"team names: {code}",
+                lambda: self._reread_current(code, current, stored_names),
+            )
+        return await within_budget(
+            ReadBudget(current - FIRST_SEASON + 1 + 2),
+            f"team names: {code}",
+            lambda: self._full_build(code, current),
+        )
+
+    async def _reread_current(
+        self, code: str, current: int, stored: TeamNames
+    ) -> TeamNames:
+        """Read the current season and every season the stored list failed to
+        read, and merge the reads into the stored runs; with no read of the
+        current season its stored open run stays and the list is incomplete
+        (ADR 0065)."""
+        failed: set[int] = set()
+        reads = await asyncio.gather(
+            *(self._read(code, season, failed) for season in [*stored.missing, current])
+        )
+        found = [item for item in reads if item is not None]
+        today = next((item for season, item in found if season == current), None)
+        if today is None:
+            logger.warning(
+                "team names: %s current season %d not read; built from stored list",
+                code,
+                current,
+            )
+        seasons = expand_runs(stored.runs, current)
+        if today is not None:
+            seasons.pop(current, None)
+        for season, item in found:
+            seasons[season] = (item.name, item.location, _season_code(item, today))
+        missing = sorted(season for season in failed if season < current)
+        try:
+            return with_build_version(
+                TeamNames(
+                    runs=merge_identities(seasons, current),
+                    complete=today is not None,
+                    missing=missing,
+                )
+            )
+        except ValidationError as error:
+            location = ".".join(str(part) for part in error.errors()[0]["loc"])
+            raise TeamNamesBuildError(
+                f"invalid names: {error.error_count()} errors, first at {location}"
+            ) from None
+
+    async def _full_build(self, code: str, current: int) -> TeamNames:
+        failed: set[int] = set()
         read = await asyncio.gather(
-            *(self._read(code, season) for season in range(FIRST_SEASON, current + 1))
+            *(
+                self._read(code, season, failed)
+                for season in range(FIRST_SEASON, current + 1)
+            )
         )
         found = [item for item in read if item is not None]
         complete = any(season == current for season, _ in found)
@@ -434,7 +571,13 @@ class TeamNamesFeeds:
                 found = [*found, (current, self._stand_in(code, found)[0])]
         try:
             runs = stored if kept and not complete else build_name_runs(found, current)
-            return with_build_version(TeamNames(runs=runs, complete=complete))
+            return with_build_version(
+                TeamNames(
+                    runs=runs,
+                    complete=complete,
+                    missing=sorted(season for season in failed if season < current),
+                )
+            )
         except ValidationError as error:
             location = ".".join(str(part) for part in error.errors()[0]["loc"])
             raise TeamNamesBuildError(
@@ -537,22 +680,18 @@ class TeamNamesFeeds:
 
     def career_runs(self, codes: Iterable[str]) -> dict[str, list[NameRun]]:
         """The stored runs of each distinct code that has a list, an outdated one
-        included. The build of a list that is missing or outdated starts in the
-        background, unless one is in flight or failed within the retry window; this
-        never waits and reads no source."""
+        included. It never starts a build and reads no source (ADR 0065)."""
         found: dict[str, list[NameRun]] = {}
         for code in sorted(set(codes)):
             runs = self.stored(code)
             if runs is not None:
                 found[code] = runs
-            if runs is None or self.outdated(code):
-                self._cache.warm(KIND, code.lower())
         return found
 
     def is_fresh(
         self, feed: TeamNames, built_at: dt.datetime, now: dt.datetime
     ) -> bool:
-        lifetime = NAMES_LIFETIME if feed.complete else RETRY_AFTER
+        lifetime = CURRENT_SEASON_LIFETIME if feed.complete else RETRY_AFTER
         return is_current_build(feed) and now - built_at < lifetime
 
     def keep(self, code: str) -> bool:

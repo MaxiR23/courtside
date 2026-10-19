@@ -32,20 +32,21 @@ While any game of the days shown is live:
 
 - With someone present, the scoreboard day and the detail of every live game are refreshed every 30 seconds.
 - With nobody present, every 2 minutes.
+- A game still scheduled past its start is checked every minute with someone present, and every 2 minutes with nobody present ([ADR 0065](adr/0065-background-work-limited-to-games-highlights-and-stars.md)).
 - A feed request that finds its data older than 30 seconds during a live game triggers the refresh immediately, so a visitor never sees a score older than 30 seconds.
 - With no live game the live refresh stops, and it resumes at the start time of the next game of the day.
 
 ## D. Final games
 
-A final game's detail is built once, at its final time with the ADR 0010 attempts, and never again. After the fourth failed attempt it is built once with the summary sections null ([ADR 0064](adr/0064-degrade-one-bad-item-instead-of-failing-a-feed.md)). Its stars, highlights and highlights search URL are added when it is served, not stored in it.
+A final game's detail is built once, on its first request after its final time, reading the summary of the latest ADR 0010 attempt time passed ([ADR 0065](adr/0065-background-work-limited-to-games-highlights-and-stars.md)), and never again. After the fourth failed attempt it is built once with the summary sections null ([ADR 0064](adr/0064-degrade-one-bad-item-instead-of-failing-a-feed.md)). Its stars, highlights and highlights search URL are added when it is served, not stored in it.
 
 ## E. Fixed-time work
 
-Unchanged cadences: the daily scoreboard fetch of the days shown at `DAILY_FETCH_TIME`, the stars once a day, and the highlight attempts at their times. The highlights job lists the channel uploads once per run and matches every due game against that one list. The All-Star discovery reads, once a day at `DAILY_FETCH_TIME`, the scoreboard days from February 1 to March 7 of the current season (then once of the previous season) until it finds All-Star games, stores their date and ids, and never scans a season again once found. The highlights backfill runs once a day at `DAILY_FETCH_TIME` in its own task, after the games' live highlight attempts are over: it pages the channel uploads back from the newest, at most `HIGHLIGHTS_BACKFILL_PAGES` pages a day, continuing the next day from the stored page token and oldest upload reached, and never reads a page again for the same games; it also looks for each All-Star edition's video ([ADR 0048](adr/0048-highlights-backfill-and-edition-video.md)).
+Unchanged cadences: the daily scoreboard fetch of the days shown at `DAILY_FETCH_TIME`, the stars once a day, and the highlight attempts at their times. The highlights job lists the channel uploads once per run and matches every due game against that one list. Past highlights and the All-Star edition video are found by one on-demand search of the channel by query, started when a feed is served without one, at most `HIGHLIGHTS_SEARCH_DAILY_CAP` searches per US Eastern day, never repeated for a target that was searched and found none ([ADR 0065](adr/0065-background-work-limited-to-games-highlights-and-stars.md)).
 
 ## F. Stars
 
-The roster and leaders are fetched once a day per team. A player's individual averages are fetched only when needed and then kept per rule A, so a team with no leader on its roster costs at most one request per player per game played, never per day. Every star guarantee of ADR 0014 stays.
+The roster and leaders are fetched once a day per team. A player's individual averages are fetched only when needed and then kept per rule A, so a team with no leader on its roster costs at most one request per player per game played, never per day. The daily mark is the job's own last success, so a restart on a day already fetched does not fetch again; at most 4 source reads are in flight, and a failed team is retried 5 minutes after it failed, one failed team per run ([ADR 0065](adr/0065-background-work-limited-to-games-highlights-and-stars.md)). Every star guarantee of ADR 0014 stays.
 
 ## G. On demand
 
@@ -56,15 +57,15 @@ Everything else is built on request only: pre-game game detail, team feeds, play
 | Pre-game game detail, tip-off more than 48 hours away | 12 hours after the build |
 | Pre-game game detail, tip-off between 48 and 12 hours away | 6 hours after the build |
 | Pre-game game detail, tip-off under 12 hours away or passed | 3 hours after the build |
-| Team feed | When the team has a final game whose final time plus 1 hour is after the build, when the stored playoffs feed or the stored Cup feed is rebuilt after the build, and in any case 7 days after the build. Its franchise names are read once per team and kept for 7 days or until `SEASON_BUILD_VERSION` changes; a team feed is stale while its stored names are of another version |
-| Player feed | When the team has a final game whose final time plus 1 hour is after the build, and in any case 7 days after the build; a player on no roster: 7 days after the build. The season codes of its career rows are set when served from the stored franchise names; a missing or outdated names list is built in the background |
+| Team feed | When the team has a final game whose final time plus 1 hour is after the build, when the stored playoffs feed or the stored Cup feed is rebuilt after the build, and in any case 7 days after the build. Its franchise names are built once per team and kept while `SEASON_BUILD_VERSION` holds, their current season read again 24 hours after the last read (ADR 0065); a team feed is stale while its stored names are of another version |
+| Player feed | When the team has a final game whose final time plus 1 hour is after the build, and in any case 7 days after the build; a player on no roster: 7 days after the build. The season codes of its career rows are set when served from the stored franchise names; none is built by the player feed (ADR 0065) |
 | Standings feed | When any game of the league has a final time plus 1 hour after the build, and in any case 7 days after the build |
 | Search feed | When any game of the league has a final time plus 1 hour after the build, when the stars job fetches a roster after the build, and in any case 7 days after the build |
 | Cup feed | When any Cup game has a final time plus 1 hour after the build, and in any case 7 days after the build; once the championship is final, kept while its season is the current one |
 | Cup matchup feed | When either of its teams has a final game whose final time plus 1 hour is after the build, when the Cup feed it read is rebuilt, and in any case 7 days after the build |
 | Playoffs feed | When any postseason game (a game of the feed, or a final game dated inside its postseason dates) has a final time plus 1 hour after the build; while its state is picture, also when any game of the league has a final time plus 1 hour after the build; at the start of the play-in window when the build precedes it; and in any case 7 days after the build; once the Finals series is complete, kept while its season is the current one |
 | Playoffs finals feed | When any postseason game (a game of the playoffs feed it read, or a final game dated inside its postseason dates) has a final time plus 1 hour after the build, when the playoffs feed it read is rebuilt, and in any case 7 days after the build; once the Finals series is complete, kept while its season is the current one |
-| All-Star feed | While its state is live or its edition's date is today (US Eastern), 30 seconds after the build (rule C), and a request that finds it stale waits for the rebuild; before the edition, when the All-Star discovery runs after the build; once every game of the edition is final, kept while its season is the current one, but only when built at least 1 hour after the latest time the feed first saw one of its games final (before that, 30 seconds after the build) |
+| All-Star feed | While its state is live or its edition's date is today (US Eastern), 30 seconds after the build (rule C), and a request that finds it stale waits for the rebuild; before the edition, 24 hours after the build (ADR 0065); once every game of the edition is final, kept while its season is the current one, but only when built at least 1 hour after the latest time the feed first saw one of its games final (before that, 30 seconds after the build) |
 | Calendar feed | Current season: 24 hours after the build. A past season built after its last day: kept while its `buildVersion` is the current one |
 | Day feed | Every game final, or no game: kept. A non-final game: 6 hours after the build |
 | Past game detail (a final game of a stored day feed) | Kept: built once (rule D) |

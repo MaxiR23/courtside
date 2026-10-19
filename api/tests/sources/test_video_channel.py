@@ -36,6 +36,14 @@
 # - Rejects an invalid page and raises a failed request on a timeout and an error status for a page read
 # - Reads a page through the source cache, fetched at or after the given time
 # - Matches a title by the team names, the label and the date as the game matcher does
+# - Searches the channel and maps the results in order with ranked thumbnail candidates
+# - Sends the query and the result count with the key in a header, never in the URL
+# - Never stores the key of a search in the source cache
+# - search_is_cached: true only for a fresh cache entry of the same query, false for another query, an entry older than 24 hours and a missing search URL, and it sends no request
+# - Raises the source error on an invalid search payload
+# - Raises a failed request on a search timeout and an error status
+# - Raises before any request when the search URL or the key is not set
+# - Builds the highlights query from both teams, the label and the date
 #
 # What is covered:
 # - A valid response mapped, an invalid payload rejected, upstream failures handled
@@ -72,11 +80,14 @@ from app.sources.video_channel import (
     UploadsPage,
     check_thumbnail,
     find_video,
+    highlights_query,
     list_uploads,
     lookup_video,
     matches,
     read_uploads_page,
+    search_is_cached,
     search_url,
+    search_videos,
     title_matches,
     to_highlight,
 )
@@ -995,4 +1006,168 @@ def test_title_matches_by_names_label_and_date() -> None:
     assert not title_matches(TITLE, "Warriors", "Clippers", dt.date(2026, 10, 5))
     assert not title_matches(
         "Warriors Clippers October 4, 2026", "Warriors", "Clippers", DAY
+    )
+
+
+SEARCH_URL = "https://example.com/search"
+GULLS, OWLS = "Harbor City Gulls", "Example Town Owls"
+
+
+def search_settings(**values: Any) -> Settings:
+    return make_settings(
+        highlights_source_key=KEY, highlights_search_api_url=SEARCH_URL, **values
+    )
+
+
+async def search(
+    tmp_path: Path, query: str = "q", settings: Settings | None = None
+) -> list[ChannelVideo]:
+    async with clocked(tmp_path, [START]) as client:
+        return await search_videos(client, settings or search_settings(), query)
+
+
+@pytest.mark.anyio
+async def test_search_maps_the_results_in_order_with_ranked_thumbnails(
+    tmp_path: Path,
+) -> None:
+    body = (FIXTURES / "search-results.json").read_text(encoding="utf-8")
+    respx.get(SEARCH_URL).mock(return_value=httpx.Response(200, text=body))
+
+    found = await search(tmp_path)
+
+    assert [v.video_id for v in found] == [
+        "vid-search-clip",
+        "vid-search-game",
+        "vid-search-second",
+    ]
+    assert found[1].title.startswith(GULLS)
+    assert found[1].channel == "Example Channel"
+    assert found[1].thumbnail_url is None
+    assert found[1].thumbnail_candidates == (
+        "https://example.com/thumbs/vid-search-game/high.jpg",
+        "https://example.com/thumbs/vid-search-game/default.jpg",
+    )
+    assert found[2].thumbnail_candidates == ()
+    assert found[2].published_at == dt.datetime(2026, 10, 5, 7, 0, tzinfo=dt.UTC)
+    assert not title_matches(found[0].title, GULLS, OWLS, DAY)
+    assert title_matches(found[1].title, GULLS, OWLS, DAY)
+
+
+@pytest.mark.anyio
+async def test_search_sends_the_query_and_result_count_with_the_key_in_a_header_never_in_the_url(
+    tmp_path: Path,
+) -> None:
+    route = respx.get(SEARCH_URL).mock(
+        return_value=httpx.Response(200, json={"items": []})
+    )
+
+    assert await search(tmp_path, "Gulls Owls full game highlights") == []
+
+    request = route.calls.last.request
+    assert request.url.params["q"] == "Gulls Owls full game highlights"
+    assert request.url.params["maxResults"] == "10"
+    assert request.headers["X-Goog-Api-Key"] == KEY
+    assert KEY not in str(request.url)
+
+
+@pytest.mark.anyio
+async def test_search_is_cached_only_for_a_fresh_entry_of_the_same_query(
+    tmp_path: Path,
+) -> None:
+    route = respx.get(SEARCH_URL).mock(
+        return_value=httpx.Response(200, json={"items": []})
+    )
+    clock = [START]
+    settings = search_settings()
+    async with clocked(tmp_path, clock) as client:
+        assert not search_is_cached(client, settings, "q")
+
+        await search_videos(client, settings, "q")
+        assert route.call_count == 1
+
+        assert search_is_cached(client, settings, "q")
+        assert not search_is_cached(client, settings, "other")
+        assert not search_is_cached(client, make_settings(), "q")
+        assert route.call_count == 1
+
+        clock[0] = START + dt.timedelta(hours=24)
+        assert not search_is_cached(client, settings, "q")
+
+
+@pytest.mark.anyio
+async def test_search_never_stores_the_key_in_the_source_cache(tmp_path: Path) -> None:
+    respx.get(SEARCH_URL).mock(return_value=httpx.Response(200, json={"items": []}))
+
+    await search(tmp_path)
+
+    with closing(sqlite3.connect(tmp_path / STATE_FILE)) as connection:
+        stored = connection.execute("SELECT url, body FROM source_cache").fetchall()
+    assert len(stored) == 1
+    assert KEY not in str(stored)
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"items": [{"id": {"videoId": "v"}, "snippet": {"title": ""}}]},
+        {"items": [{"snippet": {}}]},
+        {"nothing": []},
+    ],
+)
+async def test_search_raises_the_source_error_on_an_invalid_payload(
+    tmp_path: Path, body: dict[str, Any]
+) -> None:
+    respx.get(SEARCH_URL).mock(return_value=httpx.Response(200, json=body))
+
+    with pytest.raises(SourceError) as raised:
+        await search(tmp_path)
+
+    assert raised.value.reason.startswith("invalid payload")
+    assert raised.value.request_failed is False
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("effect", [httpx.ReadTimeout("slow"), httpx.Response(503)])
+async def test_search_raises_a_failed_request_on_a_timeout_and_an_error_status(
+    tmp_path: Path, effect: httpx.Response | Exception
+) -> None:
+    route = respx.get(SEARCH_URL)
+    if isinstance(effect, Exception):
+        route.mock(side_effect=effect)
+    else:
+        route.mock(return_value=effect)
+
+    with pytest.raises(SourceError) as raised:
+        await search(tmp_path)
+
+    assert raised.value.request_failed is True
+    assert KEY not in str(raised.value)
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("missing", ["url", "key"])
+async def test_search_raises_before_any_request_without_the_url_or_the_key(
+    tmp_path: Path, missing: str
+) -> None:
+    route = respx.get(SEARCH_URL)
+    settings = (
+        make_settings(highlights_source_key=KEY)
+        if missing == "url"
+        else make_settings(
+            highlights_search_api_url=SEARCH_URL, highlights_source_key=""
+        )
+    )
+
+    with pytest.raises(SourceError) as raised:
+        await search(tmp_path, settings=settings)
+
+    assert raised.value.request_failed is False
+    assert route.call_count == 0
+
+
+def test_highlights_query_names_both_teams_the_label_and_the_date() -> None:
+    assert (
+        highlights_query(GULLS, OWLS, DAY)
+        == "Harbor City Gulls Example Town Owls full game highlights October 4, 2026"
     )

@@ -1,6 +1,6 @@
 # 0048. Highlights backfill and the All-Star edition video
 
-- Status: Accepted
+- Status: Superseded by 0065 for the backfill only
 - Date: 2026-10-15
 
 ## Context

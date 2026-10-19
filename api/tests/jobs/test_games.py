@@ -13,7 +13,8 @@
 # - While a game of the previous day is live, that day stays today with its live cadence; the run that sees its last live game end moves the window
 # - The morning run refreshes the days shown without moving the window and keeps the cleanup
 # - A failed fetch of the new day keeps the last valid feed and the move completes on the next run
-# - Start checks every minute from the start time, also while delayed
+# - Start checks every minute from the start time with someone present, also while delayed, and every two minutes with nobody present
+# - A request-started run checks a game past its start every minute even with nobody present
 # - Live refresh every thirty seconds, with each live game's detail
 # - Final time and one more detail when a game becomes final, no more checks afterwards
 # - A game first seen final takes that moment as its final time; a stored final time is never overwritten
@@ -791,7 +792,7 @@ async def test_does_not_check_a_game_before_its_start_time(
 
 
 @pytest.mark.anyio
-async def test_checks_a_game_every_minute_from_its_start_time_until_it_is_live(
+async def test_checks_a_game_every_minute_from_its_start_time_until_it_is_live_with_someone_present(
     settings: Settings, store: StateStore, sources: FakeSources
 ) -> None:
     start = NOON + dt.timedelta(minutes=5)
@@ -806,6 +807,42 @@ async def test_checks_a_game_every_minute_from_its_start_time_until_it_is_live(
     await job.run(start + dt.timedelta(seconds=60))
 
     assert sources.game_calls == [TODAY]
+
+
+@pytest.mark.anyio
+async def test_checks_a_game_past_its_start_every_two_minutes_with_nobody_present(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    start = NOON + dt.timedelta(minutes=5)
+    sources.games[TODAY] = [game("1", GameStatus.SCHEDULED, start)]
+    job = make_job(settings, store, sources, present=lambda now: False)
+    await job.run(NOON)
+    await job.run(start)
+    sources.game_calls.clear()
+
+    await job.run(start + dt.timedelta(minutes=1))
+    assert sources.game_calls == []
+    await job.run(start + dt.timedelta(minutes=2))
+
+    assert sources.game_calls == [TODAY]
+
+
+@pytest.mark.anyio
+async def test_a_requested_run_checks_a_game_past_its_start_every_minute_with_nobody_present(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    sources.games[TODAY] = [game("1", GameStatus.LIVE)]
+    sources.games[NEXT_DAY] = [
+        game("2", GameStatus.SCHEDULED, NOON + dt.timedelta(seconds=10))
+    ]
+    job = make_job(settings, store, sources, present=lambda now: False)
+    await job.run(NOON)
+    sources.game_calls.clear()
+    job.clock_now = NOON + seconds(61)
+
+    await job.refresh_live()
+
+    assert sources.game_calls == [TODAY, NEXT_DAY]
 
 
 @pytest.mark.anyio

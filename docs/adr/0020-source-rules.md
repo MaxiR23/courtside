@@ -1,6 +1,6 @@
 # 0020. Source rules
 
-- Status: Accepted
+- Status: Superseded by 0065 for rule D's final builds and the stars and All-Star cadences only
 - Date: 2026-10-08
 
 ## Context

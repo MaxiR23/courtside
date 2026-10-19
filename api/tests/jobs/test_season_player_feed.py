@@ -14,7 +14,7 @@
 # - The kind: the opponents of the game log are named from the game log payload with no season names read, and every log game has detail available and is registered
 # - The kind: the feed is built once and kept across a simulated restart and years later
 # - The kind: the built feed carries the current build version, a stored feed of an older or missing version is rebuilt on its next request, and one of the current version is served with no source request (ADR 0053)
-# - The kind: the career rows carry the season codes of the stored franchise names when served, with no season team read per row; a list stored later reaches the next serve with no player rebuild; a missing list gives null entries and starts its build in the background (ADR 0055)
+# - The kind: the career rows carry the season codes of the stored franchise names when served, with no season team read per row; a list stored later reaches the next serve with no player rebuild; a missing list gives null entries and a serve never starts a names build (ADR 0055, ADR 0065)
 # - The kind: a failed build with nothing stored answers unavailable
 #
 # What is covered:
@@ -601,7 +601,7 @@ async def test_a_names_list_stored_later_reaches_the_next_serve_with_no_player_r
 
 
 @pytest.mark.anyio
-async def test_a_row_is_null_without_stored_names_and_the_names_build_starts_in_the_background(
+async def test_a_player_feed_serve_never_starts_a_names_build(
     kit: SeasonPlayerKit,
 ) -> None:
     body = await kit.cache.serve(KIND, "2004-77")
@@ -609,10 +609,12 @@ async def test_a_row_is_null_without_stored_names_and_the_names_build_starts_in_
     await kit.settle()
 
     assert career_codes(first) and all(c == [None] for c in career_codes(first))
-    assert "season-team/OKC/1994" in kit.calls
-    assert kit.names.stored("okc") is not None
+    assert not any(call.startswith("season-team/") for call in kit.calls)
+    assert not any(key[0] == "team-names" for key in kit.cache.in_flight)
+    assert kit.names.stored("okc") is None
     second = PastPlayerFeed.model_validate_json(await kit.serve("2004-77"))
-    assert all(c is not None and c != [None] for c in career_codes(second))
+    assert all(c == [None] for c in career_codes(second))
+    assert kit.names.stored("okc") is None
 
 
 @pytest.mark.anyio

@@ -5,13 +5,14 @@
 # due game's full game highlights are found by title or a page holds a video
 # older than the oldest due game (rule E of docs/source-rules.md), and takes the largest 16:9 thumbnail the API
 # lists for it that the image host serves, or the largest served one when none
-# is 16:9. It also reads one page at a time for the highlights backfill and
-# keeps each upload's publish time. Builds the embed and the search link from templates. The URLs and the key come from Settings; the key
+# is 16:9. It also searches the channel by query for the on-demand highlights
+# search (ADR 0065) and keeps each upload's publish time. Builds the embed and the search link from templates. The URLs and the key come from Settings; the key
 # goes only in a request header. Provider data never leaves this module.
 #
 # SEE: docs/adr/0007-backend-runtime-and-data-pipeline.md,
 # docs/adr/0015-highlights-source.md,
-# docs/adr/0020-source-rules.md, api/app/sources/team_players.py
+# docs/adr/0020-source-rules.md, docs/adr/0065-background-work-limited-to-games-highlights-and-stars.md,
+# api/app/sources/team_players.py
 
 import datetime as dt
 import re
@@ -31,12 +32,14 @@ from pydantic.alias_generators import to_camel
 from app.feeds.base import UtcDatetime
 from app.feeds.games import FeedModel, Highlight, NonEmptyStr
 from app.settings import Settings
-from app.sources.http import SourceClient, SourceError, get_json, is_served
+from app.sources.http import SourceClient, SourceError, get_json, is_cached, is_served
 from app.sources.scoreboard import ScoreboardGame
 
 SOURCE = "video_channel"
 LABEL = "full game highlights"
 PAGE_SIZE = 50
+SEARCH_RESULTS = 10
+SEARCH_FRESH_FOR = dt.timedelta(hours=24)
 KEY_HEADER = "X-Goog-Api-Key"
 _HTTP_URL = TypeAdapter(HttpUrl)
 
@@ -102,6 +105,28 @@ class _ProviderItem(_ProviderModel):
 class _ProviderPage(_ProviderModel):
     items: list[_ProviderItem]
     next_page_token: str | None = None
+
+
+# The shape of the search response is assumed, not recorded: items[].id.videoId
+# and items[].snippet with publishedAt, channelTitle, title and thumbnails.
+class _ProviderSearchId(_ProviderModel):
+    video_id: str
+
+
+class _ProviderSearchSnippet(_ProviderModel):
+    published_at: AwareDatetime
+    channel_title: str
+    title: str
+    thumbnails: dict[str, _ProviderThumbnail] = {}
+
+
+class _ProviderSearchItem(_ProviderModel):
+    id: _ProviderSearchId
+    snippet: _ProviderSearchSnippet
+
+
+class _ProviderSearchPage(_ProviderModel):
+    items: list[_ProviderSearchItem]
 
 
 def _is_sized(thumbnail: _ProviderThumbnail) -> bool:
@@ -275,6 +300,55 @@ async def list_uploads(
         token = page.next_page_token
 
 
+def search_is_cached(client: SourceClient, settings: Settings, query: str) -> bool:
+    """Whether `search_videos` for the query would be answered from the source
+    cache, so it sends no request. False when the search API URL is not set."""
+    if settings.highlights_search_api_url is None:
+        return False
+    return is_cached(
+        client,
+        settings.highlights_search_api_url,
+        fresh=SEARCH_FRESH_FOR,
+        params={"q": query, "maxResults": SEARCH_RESULTS},
+    )
+
+
+async def search_videos(
+    client: SourceClient, settings: Settings, query: str
+) -> list[ChannelVideo]:
+    """Search the channel for a query and return the results in the provider's
+    order, with their ranked thumbnail candidates and no thumbnail checked.
+    Raises SourceError."""
+    if settings.highlights_search_api_url is None:
+        raise SourceError(SOURCE, "highlights search API URL is not configured")
+    key = settings.highlights_source_key
+    if key is None or not key.get_secret_value():
+        raise SourceError(SOURCE, "highlights source key is not configured")
+    body = await get_json(
+        client,
+        settings.highlights_search_api_url,
+        source=SOURCE,
+        fresh=SEARCH_FRESH_FOR,
+        params={"q": query, "maxResults": SEARCH_RESULTS},
+        headers={KEY_HEADER: key.get_secret_value()},
+    )
+    try:
+        page = _ProviderSearchPage.model_validate(body)
+        return [
+            ChannelVideo(
+                video_id=item.id.video_id,
+                title=item.snippet.title,
+                channel=item.snippet.channel_title,
+                published_at=item.snippet.published_at.astimezone(dt.UTC),
+                thumbnail_url=None,
+                thumbnail_candidates=tuple(_ranked_thumbnails(item.snippet.thumbnails)),
+            )
+            for item in page.items
+        ]
+    except ValidationError as error:
+        raise _invalid(error) from None
+
+
 async def check_thumbnail(client: SourceClient, video: ChannelVideo) -> ChannelVideo:
     """Return the video with the first of its thumbnail candidates the image
     host serves, or None when it serves none. Raises SourceError on a timeout
@@ -350,9 +424,14 @@ def to_highlight(video: ChannelVideo, settings: Settings) -> Highlight:
         ) from None
 
 
+def highlights_query(away: str, home: str, day: dt.date) -> str:
+    """The search words for a game's full game highlights."""
+    return f"{away} {home} {LABEL} {_title_date(day)}"
+
+
 def search_url(game: ScoreboardGame, day: dt.date, settings: Settings) -> str | None:
     """Return the search link for the game's highlights, or None when not set."""
     if settings.highlights_search_url is None:
         return None
-    query = f"{game.away.name} {game.home.name} {LABEL} {_title_date(day)}"
+    query = highlights_query(game.away.name, game.home.name, day)
     return settings.highlights_search_url.format(query=quote_plus(query))

@@ -35,9 +35,12 @@
 # - A listing with another error uses up one attempt of each due game
 # - A successful listing counts each due game as its own lookup did
 # - Serves no per-game highlight for an All-Star game even when one is stored
-# - add_highlight stores and serves a backfilled highlight and makes the game not due
+# - add_highlight stores and serves a searched highlight and makes the game not due
 # - add_highlight keeps an existing match and returns False
 # - Attempts are over with no final time or after the third attempt, and not before
+# - The kept attempts follow every write, and attempts_over reads them
+# - A game that left the final games is dropped from memory
+# - A tick reads no SQLite for a game already seen
 #
 # What is covered:
 # - Job: a successful run gives the games job its data, a failed run keeps the last valid state
@@ -1012,16 +1015,83 @@ def test_add_highlight_keeps_an_existing_match(
     assert store.highlights() == {"g1": stored_highlight()}
 
 
-def test_attempts_are_over_with_no_final_time_or_after_the_third_attempt(
+@pytest.mark.anyio
+async def test_attempts_are_over_with_no_final_time_or_after_the_third_attempt(
     tmp_path: Path, store: StateStore, lookup: FakeLookup
 ) -> None:
-    job = make_job(tmp_path, store, lookup, [])
+    job = make_job(tmp_path, store, lookup, [make_game()])
     assert job.attempts_over("g1") is True
 
     store.set_final_time("g1", GAME_DATE, FINAL_TIME)
     assert job.attempts_over("g1") is False
-    store.record_highlight_attempt("g1", GAME_DATE)
-    store.record_highlight_attempt("g1", GAME_DATE)
+    await job.run(FINAL_TIME + HOUR)
+    await job.run(FINAL_TIME + 2 * HOUR)
     assert job.attempts_over("g1") is False
-    store.record_highlight_attempt("g1", GAME_DATE)
+    await job.run(FINAL_TIME + 3 * HOUR)
     assert job.attempts_over("g1") is True
+
+
+@pytest.mark.anyio
+async def test_the_kept_attempts_follow_every_write_and_attempts_over_reads_them(
+    tmp_path: Path, store: StateStore, lookup: FakeLookup
+) -> None:
+    store.set_final_time("g1", GAME_DATE, FINAL_TIME)
+    job = make_job(tmp_path, store, lookup, [make_game()])
+
+    for hours, expected in [(1, 1), (2, 2), (3, 3)]:
+        await job.run(FINAL_TIME + hours * HOUR)
+        assert store.highlight_attempts("g1") == expected
+        assert job.attempts_over("g1") is (expected == 3)
+
+    # A new job over the same store reads the stored attempts once.
+    again = make_job(tmp_path, store, lookup, [make_game()])
+    assert again.attempts_over("g1") is True
+
+
+@pytest.mark.anyio
+async def test_a_game_that_left_the_final_games_is_dropped_from_memory(
+    tmp_path: Path, store: StateStore, lookup: FakeLookup
+) -> None:
+    store.set_final_time("g1", GAME_DATE, FINAL_TIME)
+    games = [make_game()]
+    job = make_job(tmp_path, store, lookup, games)
+    await job.run(FINAL_TIME + HOUR)
+    assert len(job._states) == 1
+
+    games.clear()
+    await job.run(FINAL_TIME + 2 * HOUR)
+
+    assert job._states == {}
+    games.append(make_game())
+    await job.run(FINAL_TIME + 2 * HOUR)
+    assert store.highlight_attempts("g1") == 2
+
+
+class CountingStore(StateStore):
+    """A state store that counts the connections it opens."""
+
+    def __init__(self, path: Path) -> None:
+        super().__init__(path)
+        self.connections = 0
+
+    def _connect(self) -> Any:
+        self.connections += 1
+        return super()._connect()
+
+
+@pytest.mark.anyio
+async def test_a_tick_reads_no_sqlite_for_a_game_already_seen(
+    tmp_path: Path, lookup: FakeLookup
+) -> None:
+    counting = CountingStore(tmp_path)
+    counting.migrate()
+    counting.set_final_time("g1", GAME_DATE, FINAL_TIME)
+    job = make_job(tmp_path, counting, lookup, [make_game()])
+    await job.run(FINAL_TIME + HOUR)
+    counting.connections = 0
+
+    await job.run(FINAL_TIME + HOUR + dt.timedelta(minutes=1))
+    await job.run(FINAL_TIME + HOUR + dt.timedelta(minutes=2))
+
+    assert counting.connections == 0
+    assert len(lookup.calls) == 1

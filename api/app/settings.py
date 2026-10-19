@@ -44,7 +44,7 @@ EXACT_PLACEHOLDERS: dict[str, frozenset[str]] = {
 # Names of settings that no longer exist. A stale .env may still carry them,
 # so they are dropped with a warning instead of stopping the backend. When a
 # setting is removed, add its name here. Any other unknown key still fails.
-RETIRED_SETTINGS = {"video_thumbnail_url"}
+RETIRED_SETTINGS = {"video_thumbnail_url", "highlights_backfill_pages"}
 
 logger = logging.getLogger(__name__)
 
@@ -128,8 +128,11 @@ class Settings(BaseSettings):
     video_embed_url: str | None = None
     # Template with {query}, the search words, already URL-encoded.
     highlights_search_url: str | None = None
-    # Pages of channel uploads the highlights backfill reads per day.
-    highlights_backfill_pages: PositiveInt = 200
+    # The channel-scoped search endpoint of the same video API, without the key.
+    # The adapter adds the query and the result count. Unset: no search runs.
+    highlights_search_api_url: str | None = None
+    # Searches the on-demand highlights search sends per US Eastern day.
+    highlights_search_daily_cap: PositiveInt = 80
     # US Eastern time of the daily schedule fetch.
     daily_fetch_time: dt.time = dt.time(6, 0)
     data_dir: Path = API_DIR / "data"

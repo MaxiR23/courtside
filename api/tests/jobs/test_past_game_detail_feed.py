@@ -7,7 +7,7 @@
 # - The builder builds a past All-Star final without a line score (ADR 0051) and a game whose sections carry null percentages (ADR 0052)
 # - The builder carries the leaders of the sections and always writes the key, null or not (ADR 0057)
 # - The builder sets the season label from the sections' season end year
-# - The builder leaves injuries, last games, standings, stars, the season series, highlights and both records null; the stored highlight is added when served (ADR 0048)
+# - The builder leaves injuries, last games, standings, stars, the season series, highlights and both records null; the stored highlight is added when served (ADR 0048) and a game served with none starts one search (ADR 0065)
 # - The builder leaves the box score, team stats and win probability null when the sections lack them
 # - A side by a known id keeps its standard code and the event's name and city, and an unknown id is a guest
 # - The builder fails for a game that is not final and for sections without a season, and wraps an invalid feed
@@ -23,6 +23,8 @@
 # - The kind: a summary without a season fails the build and stores nothing
 # - The kind: the stored highlight is added when served as a list of one, null without one and on an All-Star game, and is not stored
 # - The kind: serving reads only the highlight of its game
+# - The kind: serving a past game with no highlight starts one search and the next serve has it
+# - The kind: a past game with a stored highlight or an All-Star game starts no search
 # - The kind: a built game is registered with its day, stays known and builds its day first after its day feed is deleted and a restart, and a check touches the registered row (ADR 0063)
 # - The kind: the build sends one read under a budget of one
 # - The kind: the cleanup keeps every past game detail
@@ -37,6 +39,7 @@
 #
 # SEE: api/app/jobs/past_game_detail_feed.py
 
+import asyncio
 import datetime as dt
 import json
 import sqlite3
@@ -47,12 +50,15 @@ from typing import Any
 
 import pytest
 import respx
+from pydantic import SecretStr
 
 from app.feeds.days import DayFeed, PastGame
 from app.feeds.game_detail import PastGameDetailFeed
 from app.feeds.games import GameAllStar, GameStatus, Highlight, PostseasonStage
 from app.jobs.day_feed import KIND as DAY_KIND
 from app.jobs.day_feed import build_day_feed
+from app.jobs.highlights import HighlightsJob
+from app.jobs.highlights_search import HighlightsSearch
 from app.jobs.on_demand import (
     RETRY_AFTER,
     SEASON_BUILD_VERSION,
@@ -73,6 +79,7 @@ from app.settings import Settings
 from app.sources import scoreboard
 from app.sources.game_detail import GameDetailSections
 from app.sources.http import Freshness, SourceClient, SourceError
+from app.sources.video_channel import ChannelVideo
 from app.storage.feeds import _by_id_dir, delete_by_id, publish_by_id, read_by_id
 from app.storage.state import STATE_FILE
 from tests.feeds.test_game_detail import (
@@ -298,13 +305,46 @@ class PastKit(DayKit):
         self.sections_failing = False
         self.season: int | None = 2005
         self.leaders: Any = None
+        self.queries: list[str] = []
+        self.found: list[ChannelVideo] = []
+        search_settings = Settings(  # type: ignore[call-arg]
+            _env_file=None,
+            data_dir=path,
+            highlights_search_api_url="https://example.com/search",
+            highlights_source_key=SecretStr("test-key-value"),
+            video_embed_url="https://example.com/e/{video_id}",
+        )
+        self.search = HighlightsSearch(
+            search_settings,
+            self.store,
+            self.client,
+            HighlightsJob(search_settings, self.store, self.client, final_games=list),
+            search=self.search_channel,
+            check_thumbnail=self.check_thumbnail,
+        )
         self.past_kind = PastGameDetailFeeds(
             self.settings,
             self.store,
             self.client,
             self.cache,
             fetch_sections=self.fetch_sections,
+            search=self.search,
         )
+
+    async def search_channel(
+        self, client: SourceClient, settings: Settings, query: str
+    ) -> list[ChannelVideo]:
+        self.queries.append(query)
+        return list(self.found)
+
+    async def check_thumbnail(
+        self, client: SourceClient, video: ChannelVideo
+    ) -> ChannelVideo:
+        return video.model_copy(update={"thumbnail_url": video.thumbnail_candidates[0]})
+
+    async def drain(self) -> None:
+        for _ in range(30):
+            await asyncio.sleep(0)
 
     async def fetch_sections(
         self, client: SourceClient, game_id: str, settings: Settings, fresh: Freshness
@@ -654,6 +694,54 @@ async def test_an_all_star_game_gets_no_highlight_when_served(kit: PastKit) -> N
 
     assert served.all_star is not None
     assert served.highlights is None
+
+
+@pytest.mark.anyio
+async def test_serving_a_past_game_with_no_highlight_starts_one_search_and_the_next_serve_has_it(
+    kit: PastKit,
+) -> None:
+    await kit.store_day(game("1", GameStatus.FINAL))
+    kit.found = [
+        ChannelVideo(
+            video_id="found",
+            title="Name at Name | FULL GAME HIGHLIGHTS | September 1, 2026",
+            channel="Example Channel",
+            published_at=NOW,
+            thumbnail_url=None,
+            thumbnail_candidates=("https://example.com/thumbs/found.jpg",),
+        )
+    ]
+
+    first = PastGameDetailFeed.model_validate_json(await kit.serve_past("1"))
+    assert first.highlights is None
+    await kit.drain()
+    second = PastGameDetailFeed.model_validate_json(await kit.serve_past("1"))
+    await kit.drain()
+
+    assert kit.queries == ["Name Name full game highlights September 1, 2026"]
+    assert second.highlights is not None
+    assert str(second.highlights[0].embed_url) == "https://example.com/e/found"
+    assert kit.store.highlights()["1"] == second.highlights[0]
+
+
+@pytest.mark.anyio
+async def test_a_past_game_with_a_stored_highlight_or_an_all_star_game_starts_no_search(
+    kit: PastKit,
+) -> None:
+    mark = GameAllStar(round_label="Final", championship=True)
+    await kit.store_day(
+        game("1", GameStatus.FINAL),
+        game("2", GameStatus.FINAL, all_star=mark),
+    )
+    kit.store.set_highlight("1", clip())
+
+    await kit.serve_past("1")
+    await kit.serve_past("2")
+    await kit.drain()
+
+    assert kit.queries == []
+    assert not kit.store.highlight_searched("game", "1")
+    assert not kit.store.highlight_searched("game", "2")
 
 
 def without_leaders_key(kit: PastKit) -> bytes:

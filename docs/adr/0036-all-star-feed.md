@@ -1,6 +1,6 @@
 # 0036. All-Star feed
 
-- Status: Superseded by 0038 for the core adapters' handling of All-Star games only, and by 0048 for its serve-time per-game highlights only, and by 0056 for the previous edition's MVP only
+- Status: Superseded by 0038 for the core adapters' handling of All-Star games only, and by 0048 for its serve-time per-game highlights only, and by 0056 for the previous edition's MVP only, and by 0065 for the discovery job only
 - Date: 2026-10-14
 
 ## Context

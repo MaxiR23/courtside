@@ -5,6 +5,7 @@
 # Tested:
 # - february_days: the US Eastern February days of the end year, sorted and unique, the Eastern day of a late UTC moment, other months and years dropped, none
 # - The kind: the season check (range, formats, current and future seasons, not ready), and the target (the current season is the current feed)
+# - Serving a past edition without a video starts one on-demand search for the edition and the one before it, and none once the video is stored
 # - Discovery: only the February days the calendar lists, in order, until the first with All-Star games; the edition is stored; a stored edition reads one day and no calendar; the edition before is never discovered or read (ADR 0058)
 # - No edition: unknown, nothing stored, remembered with no further read; a stored edition overrides the memory
 # - Build: an after feed is stored at feeds/season-all-star/{season}.json and kept; a feed that is not after is not stored and logs the season
@@ -44,6 +45,7 @@ from app.feeds.all_star import AllStarFeed, AllStarState
 from app.feeds.games import Highlight
 from app.feeds.playoffs import AwardCode
 from app.jobs import all_star_feed
+from app.jobs.all_star_edition_videos import AllStarEditionVideos
 from app.jobs.on_demand import (
     SEASON_BUILD_VERSION,
     FeedUnavailableError,
@@ -155,6 +157,9 @@ class SeasonAllStarKit(AllStarKit):
             fetch_game_detail_sections=self.fetch_game_detail_sections,
             fetch_all_star_extras=self.fetch_all_star_extras,
             fetch_season_awards=self.fetch_season_awards,
+            edition_videos=AllStarEditionVideos(
+                self.store, self.search, self.client.clock
+            ),
         )
 
     async def fetch_calendar(
@@ -642,8 +647,8 @@ async def test_the_current_feeds_recap_and_previous_edition_carry_the_mvp_of_tha
     kit.days[DAY] = round_robin()
     kit.days[PREVIOUS_DAY] = earlier_games()
     kit.calendars[2026] = [at(2, 15, 2026)]
+    kit.calendars[2027] = [at(2, 14, 2027)]
     kit.stars.teams["3001"] = "BOS"
-    await kit.discover()
 
     current = AllStarFeed.model_validate_json(await kit.serve())
     season_2026 = await kit.request("2026")
@@ -685,7 +690,8 @@ async def test_both_kinds_read_the_mvp_inputs_through_read_edition_mvp_inputs(
     await kit.request("2025")
     kit.days[DAY] = round_robin()
     kit.days[PREVIOUS_DAY] = earlier_games()
-    await kit.discover()
+    kit.calendars[2026] = [at(2, 15, 2026)]
+    kit.calendars[2027] = [at(2, 14, 2027)]
     kind[0] = "current"
     await kit.serve()
 
@@ -739,3 +745,20 @@ async def test_a_stored_feed_with_the_current_version_is_served_with_no_source_r
     await kit.request()
 
     assert kit.calls == []
+
+
+@pytest.mark.anyio
+async def test_serving_a_past_edition_without_a_video_starts_one_search(
+    kit: SeasonAllStarKit,
+) -> None:
+    await kit.request("2025")
+    await kit.drain()
+
+    assert "All-Star Game 2025 full game highlights" in kit.queries
+    asked = len(kit.queries)
+    assert kit.store.highlight_searched("edition", "2025")
+
+    await kit.request("2025")
+    await kit.drain()
+
+    assert len(kit.queries) == asked
