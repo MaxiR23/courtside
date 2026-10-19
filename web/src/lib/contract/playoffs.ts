@@ -243,7 +243,7 @@ export interface PlayoffGame {
 	score: Score | null;
 	winner: Side | null;
 	overtime: boolean;
-	venue: string;
+	venue: string | null;
 	broadcast: string | null;
 	detailAvailable: boolean;
 }
@@ -311,7 +311,7 @@ export interface SeriesGame {
 	score: Score | null;
 	winner: Side | null;
 	overtime: boolean;
-	venue: string;
+	venue: string | null;
 	broadcast: string | null;
 	detailAvailable: boolean;
 	number: number;

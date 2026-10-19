@@ -5,6 +5,7 @@
 #
 # Tested:
 # - Labels a season from its end year
+# - Builds a record with null home, away, points and differential for missing stats, and the team with a null secondary color or a null arena (ADR 0064)
 # - Computes win percentages and gives 0 without games
 # - Parses home, road and last ten records
 # - Reads a win and a loss streak and gives none for a dash
@@ -347,10 +348,11 @@ def build(
     playoffs: SeasonSchedule = EMPTY,
     detail_ids: frozenset[str] = frozenset(),
     now: dt.datetime = NOW,
+    team_info: TeamInfo | None = None,
 ) -> TeamFeed:
     return build_team_feed(
         "OKC",
-        info(),
+        team_info or info(),
         standings(entry, standings_season, others),
         team_roster or roster(),
         season_leaders or leaders(),
@@ -477,6 +479,9 @@ def test_records_the_standing_with_converted_values() -> None:
     )
 
     record = feed.record
+    assert record.home is not None and record.away is not None
+    assert record.points_for is not None and record.points_against is not None
+    assert record.differential is not None
     assert (record.wins, record.losses, record.win_pct) == (30, 10, 0.75)
     assert record.home.win_pct == 0.857
     assert (record.away.wins, record.last_ten.wins) == (12, 8)
@@ -497,6 +502,59 @@ def test_records_the_standing_with_converted_values() -> None:
     assert feed.arena is not None
     assert (feed.arena.name, feed.arena.city) == ("Paycom Center", "Oklahoma City")
     assert feed.season == "2026-27"
+
+
+def test_builds_a_record_with_null_home_away_points_and_differential_for_missing_stats() -> (
+    None
+):
+    entry = standing(
+        home=None,
+        road=None,
+        avg_points_for=None,
+        points_against=None,
+        differential=None,
+    )
+
+    record = build(entry=entry).record
+
+    assert record.home is None and record.away is None
+    assert record.points_for is None
+    assert record.points_against is None
+    assert record.differential is None
+    assert (record.wins, record.losses) == (30, 10)
+    assert record.last_ten.wins == 8
+
+
+def test_builds_a_points_pair_only_when_both_the_average_and_the_total_are_known() -> (
+    None
+):
+    record = build(entry=standing(point_differential=None, points_for=None)).record
+
+    assert record.differential is None
+    assert record.points_for is None
+    assert record.points_against is not None
+    assert (record.points_against.per_game, record.points_against.total) == (
+        107.9,
+        4317,
+    )
+
+
+def test_builds_the_team_with_a_null_secondary_color_without_alternate_color() -> None:
+    feed = build(team_info=info().model_copy(update={"alternate_color": None}))
+
+    assert feed.colors is not None
+    assert (feed.colors.primary, feed.colors.secondary) == ("#007ac1", None)
+
+
+def test_builds_the_team_with_a_null_arena_without_a_franchise_venue() -> None:
+    feed = build(
+        team_info=info().model_copy(
+            update={"venue_name": None, "venue_city": None, "venue_photo_url": None}
+        )
+    )
+
+    assert feed.arena is None
+    assert feed.record.wins == 30
 
 
 def test_labels_the_record_with_the_season_of_the_standings() -> None:

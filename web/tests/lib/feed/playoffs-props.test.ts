@@ -21,6 +21,7 @@
 // - The Finals state line and every series card score composed from the wins and the winner (never the feed's English sentence), in Spanish too; a series with missing wins shows a dash
 // - Season codes drawn on the leaders, award winners, conference MVPs, Finals MVP, head to head records and averages, falling back to the team code
 // - Award names and short codes in Spanish from the award code; English short codes unchanged
+// - A scheduled series game with no venue shows its date alone (ADR 0064)
 // - Spanish copy
 //
 // What is covered:
@@ -705,6 +706,13 @@ describe('toPlayoffsView bracket', () => {
 		expect(game.away).toEqual({ code: 'QXH', score: '98', loser: true });
 		expect(game.home).toEqual({ code: 'QXA', score: '105', loser: false });
 		expect(game.when).toBeNull();
+	});
+
+	it('gives a scheduled game with no venue the date alone', () => {
+		const feed = bracket();
+		const series = feed.bracket.find((entry) => entry.id === 'east-r1-2')!;
+		series.games[4]!.venue = null;
+		expect(card('east-r1-2', feed).games[4].when).toBe('Apr 28');
 	});
 
 	it('gives a scheduled game its date and venue, and no loser', () => {

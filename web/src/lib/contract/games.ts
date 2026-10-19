@@ -26,7 +26,7 @@ export interface Game {
 	home: GameTeam;
 	status: GameStatus;
 	startTime: string;
-	venue: string;
+	venue: string | null;
 	stars: Stars;
 	highlights: Highlight[];
 	broadcast: string | null;

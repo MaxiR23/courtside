@@ -71,7 +71,7 @@ from app.sources import division_standings, season_team, team_info, team_schedul
 from app.sources.division_standings import DivisionStandings
 from app.sources.http import ReadBudget, SourceClient, within_budget
 from app.sources.season_team import SeasonTeam
-from app.sources.team_info import TeamInfo
+from app.sources.team_info import TeamInfo, secondary_color
 from app.sources.team_schedule import SeasonSchedule
 from app.sources.teams import SeasonTeamName
 from app.storage.state import StateStore
@@ -134,7 +134,7 @@ def build_season_team_feed(
             if info is None
             else {
                 "primary": f"#{info.color}",
-                "secondary": f"#{info.alternate_color}",
+                "secondary": secondary_color(info),
             },
             "arena": None,
             "coach": None,

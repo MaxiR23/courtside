@@ -60,8 +60,15 @@
           "type": "string"
         },
         "venue": {
-          "minLength": 1,
-          "type": "string"
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "stars": {
           "$ref": "#/$defs/Stars"

@@ -8,7 +8,7 @@ The game detail page is specified in [`design-game-detail.md`](design-game-detai
 
 A dark-mode, single-page site with two parts:
 
-1. **Hero.** A rotating hero that goes through the games of the day, leaving out postponed and canceled games. Each game shows the star player of each team as a transparent cutout, 7 seconds each, then the next game starts.
+1. **Hero.** A rotating hero that goes through the games of the day, leaving out postponed and canceled games. Each game shows the star player of each team as a transparent cutout, 7 seconds each, then the next game starts. Without an arena, the kicker shows the tip time alone and the blurb is left out.
 2. **Schedule.** A 7-day strip with today in the middle and the list of games for the selected day. Clicking a game expands its details: line score, top performers, team stats and, once the game is final, official highlights embedded inline.
 
 ## Implementation rules
@@ -158,7 +158,7 @@ Lucide at `stroke-width: 1.5`: `chevron-down` (expand), `play` (filled, highligh
     - Each card: a 16:9 thumbnail with a 56px solid-accent play square. Clicking it replaces the thumbnail in place with the embedded player, autoplaying. Below the thumbnail, the title in Barlow Condensed 18px and the channel in muted.
     - **No videos yet:** a single blueprint row reading "Highlights aren't in yet. They'll appear here automatically.", with a ghost link to search for the highlights.
   - **Live games** also show "Highlights will appear here after the final buzzer."
-  - **Scheduled games:** three info cells (Tip-off, Venue, Broadcast), then "Players to watch", with each team's star as a photo frame and name.
+  - **Scheduled games:** three info cells (Tip-off, Venue, Broadcast), then "Players to watch", with each team's star as a photo frame and name. The Venue cell is omitted when it is unknown, as the broadcast is.
 
 ### Before the first feed loads
 

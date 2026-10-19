@@ -34,15 +34,15 @@ export interface StandingsRow {
 	pct: string | null;
 	gamesBehind: string | null;
 	streak: Streak | null;
-	home: string;
-	away: string;
+	home: string | null;
+	away: string | null;
 	lastTen: string;
 	division: string;
 	conference: string;
-	pointsFor: string;
-	pointsAgainst: string;
-	differential: PerGameDifferential;
-	total: TotalDifferential;
+	pointsFor: string | null;
+	pointsAgainst: string | null;
+	differential: PerGameDifferential | null;
+	total: TotalDifferential | null;
 	seasonCode: string | null;
 	historical: boolean;
 }

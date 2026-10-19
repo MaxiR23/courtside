@@ -160,7 +160,7 @@ class PlayoffGame(FeedModel):
     score: Score | None
     winner: Side | None
     overtime: bool
-    venue: NonEmptyStr
+    venue: NonEmptyStr | None
     broadcast: NonEmptyStr | None
     detail_available: bool
 

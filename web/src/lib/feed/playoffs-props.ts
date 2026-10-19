@@ -653,7 +653,9 @@ function seriesGameRow(game: SeriesGame, topCode: string | null): SeriesGameRowV
 		},
 		final,
 		overtime: game.overtime,
-		when: final ? null : `${feedDate(game.date, monthDay)}${SEPARATOR}${game.venue}`
+		when: final
+			? null
+			: `${feedDate(game.date, monthDay)}${game.venue ? `${SEPARATOR}${game.venue}` : ''}`
 	};
 }
 

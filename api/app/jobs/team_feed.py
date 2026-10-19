@@ -68,7 +68,7 @@ from app.sources.division_standings import DivisionEntry, DivisionStandings
 from app.sources.game_detail import BoxScoreRosterEntry
 from app.sources.http import SourceClient, SourceError
 from app.sources.league_injuries import LeagueInjuries
-from app.sources.team_info import TeamInfo
+from app.sources.team_info import TeamInfo, secondary_color
 from app.sources.team_players import (
     PlayerAverages,
     Roster,
@@ -425,6 +425,13 @@ def team_injuries(
     return listed
 
 
+def _points(per_game: float | None, total: float | None) -> dict[str, Any] | None:
+    """A per game and total pair, or None when the source lacks either (ADR 0064)."""
+    if per_game is None or total is None:
+        return None
+    return {"per_game": round(per_game, 1), "total": round(total)}
+
+
 def _record(
     entry: DivisionEntry, season: int, entries: Iterable[DivisionEntry]
 ) -> dict[str, Any]:
@@ -434,8 +441,8 @@ def _record(
         "wins": entry.wins,
         "losses": entry.losses,
         "win_pct": win_pct(entry.wins, entry.losses),
-        "home": split_record(entry.home),
-        "away": split_record(entry.road),
+        "home": None if entry.home is None else split_record(entry.home),
+        "away": None if entry.road is None else split_record(entry.road),
         "last_ten": split_record(entry.last_ten),
         "streak": None if entry.streak is None else streak(entry.streak),
         "games_behind": (
@@ -444,18 +451,9 @@ def _record(
         "conference_rank": conference_rank(entry),
         "division_rank": entry.division_order,
         "playoff": playoff_position(entry.playoff_seed, games),
-        "points_for": {
-            "per_game": round(entry.avg_points_for, 1),
-            "total": round(entry.points_for),
-        },
-        "points_against": {
-            "per_game": round(entry.avg_points_against, 1),
-            "total": round(entry.points_against),
-        },
-        "differential": {
-            "per_game": round(entry.differential, 1),
-            "total": round(entry.point_differential),
-        },
+        "points_for": _points(entry.avg_points_for, entry.points_for),
+        "points_against": _points(entry.avg_points_against, entry.points_against),
+        "differential": _points(entry.differential, entry.point_differential),
     }
 
 
@@ -497,9 +495,11 @@ def build_team_feed(
                 "division": entry.division,
                 "colors": {
                     "primary": f"#{info.color}",
-                    "secondary": f"#{info.alternate_color}",
+                    "secondary": secondary_color(info),
                 },
-                "arena": {
+                "arena": None
+                if info.venue_name is None
+                else {
                     "name": info.venue_name,
                     "city": info.venue_city,
                     "photo_url": info.venue_photo_url,

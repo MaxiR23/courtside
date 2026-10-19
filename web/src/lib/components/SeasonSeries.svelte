@@ -24,7 +24,7 @@
 								>{game.homePoints} {game.homeCode}</span
 							>{/if}</span
 					>
-					<span class="arena">{game.arena}</span>
+					{#if game.arena}<span class="arena">{game.arena}</span>{/if}
 				</li>
 			{/each}
 		</ul>

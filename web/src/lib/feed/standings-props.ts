@@ -84,15 +84,19 @@ function rowView(row: StandingsRow, line: StandingsLine | null): StandingsRowVie
 		pct: row.pct ?? NO_VALUE,
 		gamesBehind: row.gamesBehind ?? NO_VALUE,
 		streak: streakView(row.streak),
-		home: row.home,
-		away: row.away,
+		home: row.home ?? NO_VALUE,
+		away: row.away ?? NO_VALUE,
 		lastTen: row.lastTen,
 		division: row.division,
 		conference: row.conference,
-		pointsFor: row.pointsFor,
-		pointsAgainst: row.pointsAgainst,
-		differential: { value: row.differential.value, accent: row.differential.nonNegative },
-		total: { value: row.total.value, accent: row.total.nonNegative },
+		pointsFor: row.pointsFor ?? NO_VALUE,
+		pointsAgainst: row.pointsAgainst ?? NO_VALUE,
+		differential: row.differential
+			? { value: row.differential.value, accent: row.differential.nonNegative }
+			: { value: NO_VALUE, accent: false },
+		total: row.total
+			? { value: row.total.value, accent: row.total.nonNegative }
+			: { value: NO_VALUE, accent: false },
 		lineAfter: line
 	};
 }

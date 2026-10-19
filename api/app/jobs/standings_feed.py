@@ -45,7 +45,7 @@ from app.settings import Settings
 from app.sources import division_standings, team_info
 from app.sources.division_standings import DivisionEntry, DivisionStandings
 from app.sources.http import SourceClient, SourceError
-from app.sources.team_info import TeamInfo
+from app.sources.team_info import TeamInfo, secondary_color
 from app.storage.state import StateStore
 
 KIND = "standings"
@@ -145,7 +145,7 @@ def _row(
     except TeamBuildError as error:
         raise StandingsBuildError(error.reason) from None
     colors = (
-        {"primary": f"#{info.color}", "secondary": f"#{info.alternate_color}"}
+        {"primary": f"#{info.color}", "secondary": secondary_color(info)}
         if info is not None
         else {"primary": None, "secondary": None}
     )
@@ -166,10 +166,18 @@ def _row(
         "last_ten": entry.last_ten,
         "division": entry.vs_division,
         "conference": entry.vs_conference,
-        "points_for": one_decimal(entry.avg_points_for),
-        "points_against": one_decimal(entry.avg_points_against),
-        "differential": signed_per_game(entry.differential),
-        "total": signed_total(entry.point_differential),
+        "points_for": None
+        if entry.avg_points_for is None
+        else one_decimal(entry.avg_points_for),
+        "points_against": None
+        if entry.avg_points_against is None
+        else one_decimal(entry.avg_points_against),
+        "differential": None
+        if entry.differential is None
+        else signed_per_game(entry.differential),
+        "total": None
+        if entry.point_differential is None
+        else signed_total(entry.point_differential),
     }
 
 

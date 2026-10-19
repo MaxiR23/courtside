@@ -298,7 +298,7 @@ class Game(FeedModel):
     home: GameTeam
     status: GameStatus
     start_time: UtcDatetime
-    venue: NonEmptyStr
+    venue: NonEmptyStr | None
     stars: Stars
     highlights: list[Highlight] = Field(default_factory=list)
     broadcast: NonEmptyStr | None = None

@@ -3,6 +3,7 @@
 # Tests for the search feed builder and its feed kind.
 #
 # Tested:
+# - Builds with a team missing its points and split stats (ADR 0064)
 # - Maps a team with every field: code, city, name, colors, record, division and division rank
 # - Lists the 30 teams in standard code order
 # - Gives null colors to a team whose team info is missing
@@ -176,6 +177,27 @@ def test_maps_a_team_with_every_field() -> None:
     assert okc.record == "64-18"
     assert okc.division == "Northwest"
     assert okc.division_rank == 3
+
+
+def test_builds_with_a_team_missing_its_points_and_split_stats() -> None:
+    standings = full_league()
+    standings.teams["OKC"] = standings.teams["OKC"].model_copy(
+        update={
+            "home": None,
+            "road": None,
+            "avg_points_for": None,
+            "avg_points_against": None,
+            "points_for": None,
+            "points_against": None,
+            "differential": None,
+            "point_differential": None,
+        }
+    )
+
+    feed = built(standings=standings)
+
+    assert len(feed.teams) == 30
+    assert next(t for t in feed.teams if t.code == "OKC").record is not None
 
 
 def test_lists_the_30_teams_in_standard_code_order() -> None:

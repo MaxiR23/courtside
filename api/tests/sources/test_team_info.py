@@ -5,6 +5,7 @@
 # Tested:
 # - Maps a recorded team's identity, colors without the hash, venue and photo
 # - Keeps a venue without images or city as a null photo and city
+# - Maps a team without an alternate color to a null alternate color, and one without a franchise or franchise venue to null venue fields; the secondary color helper adds the hash or gives none (ADR 0064)
 # - Requests the URL built from the provider team code, including a code that differs from the standard one
 # - Raises the source error on an invalid payload, a color that is not six hex digits, an empty venue name, an unknown team code, a timeout, an error status and a missing URL
 # - Reuses a team's info for one hour
@@ -32,7 +33,12 @@ import respx
 
 from app.settings import Settings
 from app.sources.http import SourceError, create_client
-from app.sources.team_info import TeamInfo, cached_team_info, fetch_team_info
+from app.sources.team_info import (
+    TeamInfo,
+    cached_team_info,
+    fetch_team_info,
+    secondary_color,
+)
 from app.storage.state import StateStore
 
 FIXTURES = Path(__file__).parent / "fixtures" / "team_info"
@@ -101,6 +107,52 @@ async def test_keeps_a_venue_without_images_or_city_as_null(
 
     assert (info.venue_photo_url, info.venue_city) == (None, None)
     assert info.venue_name == "Paycom Center"
+
+
+@pytest.mark.anyio
+async def test_maps_a_team_without_alternate_color_with_a_null_alternate_color(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load()
+    del payload["team"]["alternateColor"]
+    mock.get(URL).respond(json=payload)
+
+    info = await fetch(settings)
+
+    assert info.alternate_color is None
+    assert info.color == "007ac1"
+    assert secondary_color(info) is None
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("missing", ["franchise", "venue"])
+async def test_maps_a_team_without_a_franchise_venue_with_null_venue_fields(
+    mock: respx.MockRouter, settings: Settings, missing: str
+) -> None:
+    payload = load()
+    if missing == "franchise":
+        del payload["team"]["franchise"]
+    else:
+        del payload["team"]["franchise"]["venue"]
+    mock.get(URL).respond(json=payload)
+
+    info = await fetch(settings)
+
+    assert (info.venue_name, info.venue_city, info.venue_photo_url) == (
+        None,
+        None,
+        None,
+    )
+    assert (info.location, info.name) == ("Oklahoma City", "Thunder")
+
+
+@pytest.mark.anyio
+async def test_the_secondary_color_carries_the_hash(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    mock.get(URL).respond(json=load())
+
+    assert secondary_color(await fetch(settings)) == "#ef3b24"
 
 
 @pytest.mark.anyio

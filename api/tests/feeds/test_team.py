@@ -21,7 +21,8 @@
 # - Accepts a Cup mark with the group, wins and losses and a null or absent one, and rejects an unknown group letter, a missing record and a negative count
 # - Accepts names runs and rejects runs not oldest first, an open run before the last and an end before its start; serializes from as the key; reads a stored feed without names as empty
 # - Accepts a division rank of 8 and rejects 9
-# - TeamFeed rejects a null arena and null injuries; PastTeamFeed accepts every past block null, rejects each one when set, and has the team schema apart from its title
+# - TeamFeed rejects null injuries and accepts a null arena, a null secondary color, and a null home, away, points or differential in the record; the stored names read as complete without the flag
+# - TeamFeed rejects null colors and null injuries; PastTeamFeed accepts every past block null, rejects each one when set, and has the team schema apart from its title
 # - A feed with a build version is accepted, one with zero is rejected, and a stored feed without the field reads with a null version
 # - A past team feed carries a season code and the historical flag; historical without a season code is rejected; a stored feed without the fields reads as not historical (ADR 0054)
 # - A past team feed accepts null colors, leaders and roster (ADR 0059); the current feed rejects each one null
@@ -600,7 +601,11 @@ def test_serializes_a_name_run_start_as_the_from_key() -> None:
         mode="json"
     )
 
-    assert dumped == {"runs": [run(1994, None)], "buildVersion": None}
+    assert dumped == {
+        "runs": [run(1994, None)],
+        "buildVersion": None,
+        "complete": True,
+    }
 
 
 def test_the_stored_names_carry_a_build_version_and_reject_zero() -> None:
@@ -629,9 +634,44 @@ def test_accepts_a_division_rank_of_8_and_rejects_9(rank: int, valid: bool) -> N
         rejects(team)
 
 
-@pytest.mark.parametrize("name", ["arena", "injuries"])
-def test_rejects_a_null_arena_and_null_injuries_on_the_current_feed(name: str) -> None:
-    rejects({**valid_team(), name: None}, "current season")
+def test_rejects_null_injuries_on_the_current_feed() -> None:
+    rejects({**valid_team(), "injuries": None}, "current season")
+
+
+def test_accepts_a_null_arena_on_the_current_feed() -> None:
+    assert TeamFeed.model_validate({**valid_team(), "arena": None}).arena is None
+
+
+def test_accepts_a_null_secondary_color_but_rejects_null_colors_on_the_current_feed() -> (
+    None
+):
+    team = valid_team()
+    team["colors"]["secondary"] = None
+
+    assert TeamFeed.model_validate(team).colors is not None
+    rejects({**valid_team(), "colors": None}, "current season")
+
+
+@pytest.mark.parametrize(
+    "field", ["home", "away", "pointsFor", "pointsAgainst", "differential"]
+)
+def test_accepts_a_record_with_a_null_split_points_or_differential(field: str) -> None:
+    team = valid_team()
+    team["record"][field] = None
+
+    assert TeamFeed.model_validate(team).record is not None
+
+
+def test_the_stored_names_without_a_complete_flag_read_as_complete() -> None:
+    names = TeamNames.model_validate({"runs": [run(1994, None)]})
+
+    assert names.complete is True
+    assert (
+        TeamNames.model_validate(
+            {"runs": [run(1994, None)], "complete": False}
+        ).complete
+        is False
+    )
 
 
 def past_team() -> Payload:

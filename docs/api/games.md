@@ -39,7 +39,7 @@ Conventions:
 | `away`, `home`        | `GameTeam`             | The two teams                                                    | always                          |
 | `status`              | `GameStatus`           | `scheduled`, `live`, `final`, `delayed`, `postponed`, `canceled` | always                          |
 | `startTime`           | time                   | Scheduled start, UTC                                             | always                          |
-| `venue`               | string                 | Arena name                                                       | always                          |
+| `venue`               | string / null          | Arena name                                                       | null when the source has none ([ADR 0064](../adr/0064-degrade-one-bad-item-instead-of-failing-a-feed.md)) |
 | `stars`               | `Stars`                | The star of each team                                            | always                          |
 | `highlights`          | `Highlight[]`          | Matched highlight videos, may be empty                           | always                          |
 | `broadcast`           | string / null          | Broadcaster                                                      | null when unknown               |

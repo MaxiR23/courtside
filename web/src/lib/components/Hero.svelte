@@ -108,12 +108,12 @@
 
 	const kicker = $derived(
 		game
-			? `${game.status === 'delayed' ? m.hero_kicker_scheduled({ tipTime: game.tipTime }) : game.tipTime} · ${game.arena}`
+			? `${game.status === 'delayed' ? m.hero_kicker_scheduled({ tipTime: game.tipTime }) : game.tipTime}${game.arena ? ` · ${game.arena}` : ''}`
 			: ''
 	);
 
 	const blurb = $derived(
-		game
+		game?.arena
 			? m.hero_blurb({
 					awayStar: fullName(game.away.star),
 					homeStar: fullName(game.home.star),
@@ -167,9 +167,11 @@
 						>
 						<NameLink href={teamHref(game.home.code)} text={game.home.name} />
 					</h1>
-					<p class="entrance blurb" use:play={entrance('--hero-delay-blurb')}>
-						{blurb}
-					</p>
+					{#if blurb}
+						<p class="entrance blurb" use:play={entrance('--hero-delay-blurb')}>
+							{blurb}
+						</p>
+					{/if}
 					<div class="entrance buttons" use:play={entrance('--hero-delay-buttons')}>
 						<Button
 							variant="primary"

@@ -6,6 +6,8 @@
 # - Maps a recorded season team's abbreviation, names and location
 # - Maps a season team whose isActive is false, and a body without isActive
 # - Returns None on a 404
+# - A 404 is requested once and not again within 30 days, and again at 30 days; it stores no source cache entry (ADR 0064)
+# - A 404 read with record_absence=False records no absence and is requested again (ADR 0064)
 # - Requests the season and the provider team id of the code
 # - Raises the source error on an invalid payload, an unknown team code, a timeout, an error status and a missing URL
 #
@@ -16,6 +18,7 @@
 #
 # SEE: api/app/sources/season_team.py
 
+import datetime as dt
 import json
 from collections.abc import Iterator
 from pathlib import Path
@@ -183,3 +186,78 @@ async def test_raises_the_source_error_when_the_url_is_not_configured() -> None:
         error = await fetch_error(unset)
 
     assert error.reason == "season team URL is not configured"
+
+
+T0 = dt.datetime(2026, 10, 8, 15, 0, tzinfo=dt.UTC)
+
+
+@pytest.mark.anyio
+async def test_a_404_is_requested_once_and_not_again_within_30_days(
+    mock: respx.MockRouter, settings: Settings, tmp_path: Path
+) -> None:
+    route = mock.get(URL).respond(404)
+    clock = [T0]
+    store = StateStore(tmp_path)
+    store.migrate()
+    async with create_client(store, clock=lambda: clock[0]) as client:
+        first = await fetch_season_team(client, "OKC", 2004, settings)
+        assert (first, route.call_count) == (None, 1)
+
+        clock[0] = T0 + dt.timedelta(days=29)
+        within = await fetch_season_team(client, "OKC", 2004, settings)
+        assert (within, route.call_count) == (None, 1)
+
+        clock[0] = T0 + dt.timedelta(days=30)
+        after = await fetch_season_team(client, "OKC", 2004, settings)
+        assert (after, route.call_count) == (None, 2)
+
+
+@pytest.mark.anyio
+async def test_a_recorded_absence_is_of_one_team_and_one_season(
+    mock: respx.MockRouter, settings: Settings, tmp_path: Path
+) -> None:
+    mock.get(URL).respond(404)
+    other = mock.get("https://example.com/seasons/2004/teams/17").respond(
+        json=load("inactive")
+    )
+    store = StateStore(tmp_path)
+    store.migrate()
+    async with create_client(store, clock=lambda: T0) as client:
+        await fetch_season_team(client, "OKC", 2004, settings)
+        found = await fetch_season_team(client, "BKN", 2004, settings)
+
+    assert found is not None
+    assert other.call_count == 1
+
+
+@pytest.mark.anyio
+async def test_a_404_stores_no_source_cache_entry(
+    mock: respx.MockRouter, settings: Settings, tmp_path: Path
+) -> None:
+    mock.get(URL).respond(404)
+    store = StateStore(tmp_path)
+    store.migrate()
+    async with create_client(store, clock=lambda: T0) as client:
+        await fetch_season_team(client, "OKC", 2004, settings)
+
+    assert store.source_entry(URL) is None
+    assert store.season_team_absent("OKC", 2004, T0 - dt.timedelta(seconds=1))
+
+
+@pytest.mark.anyio
+async def test_a_404_with_record_absence_false_records_nothing_and_is_requested_again(
+    mock: respx.MockRouter, settings: Settings, tmp_path: Path
+) -> None:
+    route = mock.get(URL).respond(404)
+    store = StateStore(tmp_path)
+    store.migrate()
+    async with create_client(store, clock=lambda: T0) as client:
+        first = await fetch_season_team(
+            client, "OKC", 2004, settings, record_absence=False
+        )
+        second = await fetch_season_team(
+            client, "OKC", 2004, settings, record_absence=False
+        )
+
+    assert (first, second, route.call_count) == (None, None, 2)
+    assert not store.season_team_absent("OKC", 2004, T0 - dt.timedelta(days=1))

@@ -214,7 +214,7 @@ export type SeriesGameRowView = GameLink & {
 	home: { code: string; score: string; loser: boolean };
 	final: boolean;
 	overtime: boolean;
-	when: string | null; // "Apr 19 · Example Arena" while the game is not final
+	when: string | null; // "Apr 19 · Example Arena" while the game is not final; the date alone when the arena is unknown
 };
 
 export type SeriesCardView = {

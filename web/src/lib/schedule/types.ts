@@ -52,7 +52,7 @@ export type GameHighlights = {
 export type GameDetails =
 	| {
 			kind: 'scheduled';
-			venue: string;
+			venue: string | null; // null: unknown, left out
 			playersToWatch: { away: PanelPlayer | null; home: PanelPlayer | null };
 	  } // null: a guest team has no star
 	| {

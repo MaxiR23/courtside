@@ -1,6 +1,6 @@
 # api/app/storage/state.py
 #
-# Job state in SQLite: game dates, final times and whether they were first seen, highlight attempts, failed stats attempts, matched highlights, team stars, discovered All-Star editions, the video of each edition and the time each All-Star game was first seen final, the date and box-score players of past games, the player identity cache, the highlights backfill's resume point, the targets the running sweep reads for and swept targets, source cache entries, feed build times and failures and per-job outcomes.
+# Job state in SQLite: game dates, final times and whether they were first seen, highlight attempts, failed stats attempts, matched highlights, team stars, discovered All-Star editions, the video of each edition and the time each All-Star game was first seen final, the date and box-score players of past games, the player identity cache, the seasons a team did not exist, the highlights backfill's resume point, the targets the running sweep reads for and swept targets, source cache entries, feed build times and failures and per-job outcomes.
 # Schema versioned with PRAGMA user_version; MIGRATIONS run once each on startup.
 # One connection per operation, so sync endpoints can use it from the threadpool.
 #
@@ -147,6 +147,14 @@ MIGRATIONS: tuple[Migration, ...] = (
             "CREATE TABLE past_player_ids (player_id TEXT NOT NULL, "
             "scope TEXT NOT NULL, learned_at TEXT NOT NULL, "
             "PRIMARY KEY (player_id, scope))"
+        ),
+    ),
+    # The seasons a team did not exist, honored and kept 30 days (ADR 0064).
+    (
+        (
+            "CREATE TABLE season_team_absences (team_code TEXT NOT NULL, "
+            "season INTEGER NOT NULL, recorded_at TEXT NOT NULL, "
+            "PRIMARY KEY (team_code, season))"
         ),
     ),
 )
@@ -358,6 +366,38 @@ class StateStore:
         with self._connect() as connection, connection:
             connection.execute(
                 "DELETE FROM past_games WHERE touched_at < ?", (_to_text(before),)
+            )
+
+    def record_season_team_absence(
+        self, team_code: str, season: int, at: dt.datetime
+    ) -> None:
+        """Records that a team had no object in a season at `at`."""
+        with self._connect() as connection, connection:
+            connection.execute(
+                "INSERT INTO season_team_absences (team_code, season, recorded_at) "
+                "VALUES (?, ?, ?) ON CONFLICT(team_code, season) "
+                "DO UPDATE SET recorded_at = excluded.recorded_at",
+                (team_code, season, _to_text(at)),
+            )
+
+    def season_team_absent(
+        self, team_code: str, season: int, since: dt.datetime
+    ) -> bool:
+        """Whether a team's absence in a season was recorded after `since`."""
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT 1 FROM season_team_absences "
+                "WHERE team_code = ? AND season = ? AND recorded_at > ?",
+                (team_code, season, _to_text(since)),
+            ).fetchone()
+        return row is not None
+
+    def prune_season_team_absences(self, before: dt.datetime) -> None:
+        """Deletes the season team absences recorded before `before`."""
+        with self._connect() as connection, connection:
+            connection.execute(
+                "DELETE FROM season_team_absences WHERE recorded_at < ?",
+                (_to_text(before),),
             )
 
     def prune_player_identities(self, before: dt.datetime) -> None:

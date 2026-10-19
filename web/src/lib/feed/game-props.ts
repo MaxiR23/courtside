@@ -97,12 +97,12 @@ function joinParts(parts: (string | null)[]): string {
 }
 
 function statusLine(feed: GameDetailFeed): StatusLine {
-	const arena = feed.venue.name;
+	const arena = feed.venue?.name ?? null;
 	switch (feed.status) {
 		case 'live':
 			return {
 				state: 'live',
-				text: [periodText(required(feed.period), required(feed.clock)), arena].join(SEPARATOR)
+				text: joinParts([periodText(required(feed.period), required(feed.clock)), arena])
 			};
 		case 'final':
 			return {
@@ -154,7 +154,9 @@ function center(feed: GameDetailFeed): ScoreboardCenter {
 	}
 }
 
-function venueStrip(feed: GameDetailFeed): VenueStrip {
+function venueStrip(feed: GameDetailFeed): VenueStrip | null {
+	const venue = feed.venue;
+	if (venue === null) return null;
 	const cells: InfoCell[] = [];
 	if (feed.status !== 'postponed' && feed.status !== 'canceled') {
 		const { tipTime, tipSuffix } = tipParts(feed.startTime);
@@ -164,11 +166,11 @@ function venueStrip(feed: GameDetailFeed): VenueStrip {
 			sub: dateText(feed.startTime)
 		});
 	}
-	cells.push({ label: m.panel_venue(), value: feed.venue.name, sub: feed.venue.city });
+	cells.push({ label: m.panel_venue(), value: venue.name, sub: venue.city });
 	if (feed.broadcast !== null) {
 		cells.push({ label: m.panel_broadcast(), value: feed.broadcast, sub: null });
 	}
-	return { arena: feed.venue.name, city: feed.venue.city, photo: feed.venue.photoUrl, cells };
+	return { arena: venue.name, city: venue.city, photo: venue.photoUrl, cells };
 }
 
 const TAB_LABELS: Record<SectionId, () => string> = {

@@ -1016,8 +1016,15 @@
           "type": "boolean"
         },
         "venue": {
-          "minLength": 1,
-          "type": "string"
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "broadcast": {
           "anyOf": [

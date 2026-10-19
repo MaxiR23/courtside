@@ -38,6 +38,9 @@
 # - Migrates a database at version 9 adding the served and touched times and the past player ids table, keeping the rows
 # - A past game is touched when written and when its date or players are read; past games touched 91 days ago are pruned and 89 days ago kept
 # - A player identity is touched on write and on touch and pruned after 90 days
+# - Migrates a database at version 10 adding the season team absences table and keeping the rows
+# - A season team absence counts until its recorded time passes the since time, is replaced when recorded again and is pruned before the cutoff
+# - Rejects a naive absence time
 # - Touching a feed build sets its last served time and creates no row; builds not served, built or failed since the cutoff are listed
 # - Reads the highlights of the given games only
 # - Lists at most 50 failed builds, newest failure first
@@ -939,7 +942,7 @@ def test_migrating_a_database_at_the_previous_version_adds_the_all_star_editions
 
     store.migrate()
 
-    assert user_version(tmp_path) == len(real) == 10
+    assert user_version(tmp_path) == len(real) == 11
     assert [job.name for job in store.job_states()] == ["games"]
     assert store.feed_build("players", "a") is not None
     assert query(tmp_path, "SELECT COUNT(*) FROM all_star_editions") == [(0,)]
@@ -993,7 +996,7 @@ def test_migrating_a_database_at_the_all_star_editions_version_adds_the_all_star
 
     store.migrate()
 
-    assert user_version(tmp_path) == len(real) == 10
+    assert user_version(tmp_path) == len(real) == 11
     assert store.all_star_edition(2027) is not None
     assert query(tmp_path, "SELECT COUNT(*) FROM all_star_finals") == [(0,)]
 
@@ -1027,7 +1030,7 @@ def test_migrating_a_database_at_the_all_star_finals_version_adds_the_backfill_t
 
     store.migrate()
 
-    assert user_version(tmp_path) == len(real) == 10
+    assert user_version(tmp_path) == len(real) == 11
     assert store.all_star_edition(2027) is not None
     assert "g1" in store.highlights()
     for table in (
@@ -1128,7 +1131,7 @@ def test_migrating_a_database_at_version_7_adds_the_past_games_and_keeps_the_row
 
     store.migrate()
 
-    assert user_version(tmp_path) == len(real) == 10
+    assert user_version(tmp_path) == len(real) == 11
     assert store.all_star_edition(2027) is not None
     assert "g1" in store.highlights()
     assert query(tmp_path, "SELECT COUNT(*) FROM past_games") == [(0,)]
@@ -1184,7 +1187,7 @@ def test_migrating_a_database_at_version_8_adds_the_player_identities_and_keeps_
 
     store.migrate()
 
-    assert user_version(tmp_path) == len(real) == 10
+    assert user_version(tmp_path) == len(real) == 11
     assert store.past_game_players("g1", at=NOON) == '{"teams": {}}'
     assert query(tmp_path, "SELECT COUNT(*) FROM player_identities") == [(0,)]
 
@@ -1258,7 +1261,7 @@ def test_migrating_a_database_at_version_9_adds_the_served_and_touched_times_and
 
     store.migrate()
 
-    assert user_version(tmp_path) == 10
+    assert user_version(tmp_path) == 11
     assert store.feed_build("players", "a") is not None
     assert store.player_identity("p1") is not None
     served = store.last_served("players", "a")
@@ -1435,3 +1438,68 @@ def test_rejects_a_naive_learned_time(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="timezone aware"):
         store.add_past_player_ids({"1"}, "known", NOON.replace(tzinfo=None))
+
+
+def test_migrating_a_database_at_version_10_adds_the_season_team_absences_and_keeps_the_rows(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    real = state.MIGRATIONS
+    monkeypatch.setattr(state, "MIGRATIONS", real[:10])
+    store = make_store(tmp_path)
+    store.record_build("players", "a", NOON)
+    assert user_version(tmp_path) == 10
+    monkeypatch.setattr(state, "MIGRATIONS", real)
+
+    store.migrate()
+
+    assert user_version(tmp_path) == 11
+    assert store.feed_build("players", "a") is not None
+    assert "season_team_absences" in table_names(tmp_path)
+    assert query(tmp_path, "SELECT COUNT(*) FROM season_team_absences") == [(0,)]
+
+
+def test_a_season_team_absence_counts_only_when_recorded_after_the_since_time(
+    tmp_path: Path,
+) -> None:
+    store = make_store(tmp_path)
+    store.record_season_team_absence("sea", 1995, NOON)
+
+    assert store.season_team_absent("sea", 1995, NOON - dt.timedelta(seconds=1))
+    assert store.season_team_absent("sea", 1995, NOON - dt.timedelta(days=1))
+    assert not store.season_team_absent("sea", 1995, NOON)
+    assert not store.season_team_absent("sea", 1995, NOON + dt.timedelta(seconds=1))
+    assert not store.season_team_absent("sea", 1996, NOON - dt.timedelta(days=1))
+    assert not store.season_team_absent("bos", 1995, NOON - dt.timedelta(days=1))
+
+
+def test_recording_a_season_team_absence_again_replaces_its_time(
+    tmp_path: Path,
+) -> None:
+    store = make_store(tmp_path)
+    later = NOON + dt.timedelta(days=3)
+    store.record_season_team_absence("sea", 1995, NOON)
+
+    store.record_season_team_absence("sea", 1995, later)
+
+    assert query(tmp_path, "SELECT recorded_at FROM season_team_absences") == [
+        (later.isoformat(),)
+    ]
+
+
+def test_prunes_season_team_absences_recorded_before_the_cutoff_and_keeps_the_rest(
+    tmp_path: Path,
+) -> None:
+    store = make_store(tmp_path)
+    store.record_season_team_absence("sea", 1995, NOON - dt.timedelta(days=31))
+    store.record_season_team_absence("bos", 1995, NOON - dt.timedelta(days=29))
+
+    store.prune_season_team_absences(NOON - dt.timedelta(days=30))
+
+    assert query(tmp_path, "SELECT team_code FROM season_team_absences") == [("bos",)]
+
+
+def test_rejects_a_naive_absence_time(tmp_path: Path) -> None:
+    store = make_store(tmp_path)
+
+    with pytest.raises(ValueError, match="timezone aware"):
+        store.record_season_team_absence("sea", 1995, NOON.replace(tzinfo=None))

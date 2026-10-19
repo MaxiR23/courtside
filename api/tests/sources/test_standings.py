@@ -7,7 +7,8 @@
 # - Maps the team codes that differ from the standard ones
 # - Gives a team with no games and no last ten stat a last ten record of 0-0
 # - Requests the standings URL from the settings
-# - Raises the source error on an unknown conference, standings without both conferences, a missing record stat, a missing last ten stat of a team that has played, a record that is not wins and losses, an invalid payload, a rank below one, an unknown team code, a timeout, an error status and a missing URL
+# - Leaves out a team with a missing record stat, a missing last ten stat of a team that has played, a missing total or a record that is not wins and losses, keeps the others and logs its code (ADR 0064)
+# - Raises the source error on an unknown conference, standings without both conferences, an invalid payload, a rank below one, an unknown team code, a timeout, an error status and a missing URL
 # - Reuses the standings for one hour
 #
 # What is covered:
@@ -24,6 +25,7 @@
 
 import datetime as dt
 import json
+import logging
 from collections.abc import Iterator
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -101,6 +103,29 @@ async def fetch_error_of(
     return await fetch_error(settings)
 
 
+async def fetch_skipping(
+    mock: respx.MockRouter,
+    settings: Settings,
+    caplog: pytest.LogCaptureFixture,
+    payload: Payload,
+    code: str,
+    reason: str,
+) -> LeagueStandings:
+    """Fetch the payload: the team is left out, the others are kept and one log
+    line carries its code and the reason."""
+    mock.get(URL).respond(json=payload)
+
+    with caplog.at_level(logging.WARNING, logger="app.sources.standings"):
+        standings = await fetch(settings)
+
+    assert code not in standings.teams
+    assert len(standings.teams) == 6
+    assert [r.getMessage() for r in caplog.records] == [
+        f"standings: team {code} skipped: {reason}"
+    ]
+    return standings
+
+
 @pytest.mark.anyio
 async def test_maps_recorded_standings_of_both_conferences(
     mock: respx.MockRouter, settings: Settings
@@ -175,16 +200,19 @@ async def test_raises_the_source_error_without_both_conferences(
 
 @pytest.mark.anyio
 @pytest.mark.parametrize("kind", ["playoffseed", "total", "home", "road"])
-async def test_raises_the_source_error_on_a_missing_record_stat(
-    mock: respx.MockRouter, settings: Settings, kind: str
+async def test_leaves_out_a_team_with_a_missing_record_stat_and_logs_its_code(
+    mock: respx.MockRouter,
+    settings: Settings,
+    caplog: pytest.LogCaptureFixture,
+    kind: str,
 ) -> None:
     payload = load()
     stats = entry(payload, "ATL")["stats"]
     stats[:] = [s for s in stats if s["type"] != kind]
 
-    error = await fetch_error_of(mock, settings, payload)
-
-    assert error.reason == f"team ATL has no {kind} stat"
+    await fetch_skipping(
+        mock, settings, caplog, payload, "ATL", f"team ATL has no {kind} stat"
+    )
 
 
 @pytest.mark.anyio
@@ -207,42 +235,45 @@ async def test_gives_a_team_without_games_a_last_ten_of_zero_and_zero(
 
 
 @pytest.mark.anyio
-async def test_raises_the_source_error_on_a_missing_last_ten_of_a_team_that_has_played(
-    mock: respx.MockRouter, settings: Settings
+async def test_leaves_out_a_team_that_has_played_with_a_missing_last_ten_and_logs_its_code(
+    mock: respx.MockRouter, settings: Settings, caplog: pytest.LogCaptureFixture
 ) -> None:
     payload = load()
     stats = entry(payload, "ATL")["stats"]
     stats[:] = [s for s in stats if s["type"] != "lasttengames"]
 
-    error = await fetch_error_of(mock, settings, payload)
-
-    assert error.reason == "team ATL has no lasttengames stat"
+    await fetch_skipping(
+        mock, settings, caplog, payload, "ATL", "team ATL has no lasttengames stat"
+    )
 
 
 @pytest.mark.anyio
-async def test_raises_the_source_error_on_a_missing_total_of_a_team_without_last_ten(
-    mock: respx.MockRouter, settings: Settings
+async def test_leaves_out_a_team_without_last_ten_and_with_a_missing_total_and_logs_its_code(
+    mock: respx.MockRouter, settings: Settings, caplog: pytest.LogCaptureFixture
 ) -> None:
     payload = load()
     stats = entry(payload, "SA")["stats"]
     stats[:] = [s for s in stats if s["type"] != "total"]
 
-    error = await fetch_error_of(mock, settings, payload)
-
-    assert error.reason == "team SAS has no total stat"
+    await fetch_skipping(
+        mock, settings, caplog, payload, "SAS", "team SAS has no total stat"
+    )
 
 
 @pytest.mark.anyio
 @pytest.mark.parametrize("value", ["", "7", "a-b", "-1-2", "3-"])
-async def test_raises_the_source_error_on_a_record_that_is_not_wins_and_losses(
-    mock: respx.MockRouter, settings: Settings, value: str
+async def test_leaves_out_a_team_with_a_record_that_is_not_wins_and_losses_and_logs_its_code(
+    mock: respx.MockRouter,
+    settings: Settings,
+    caplog: pytest.LogCaptureFixture,
+    value: str,
 ) -> None:
     payload = load()
     stat(payload, "ATL", "home")["displayValue"] = value
 
-    error = await fetch_error_of(mock, settings, payload)
-
-    assert error.reason == "team ATL has a record that is not W-L"
+    await fetch_skipping(
+        mock, settings, caplog, payload, "ATL", "team ATL has a record that is not W-L"
+    )
 
 
 @pytest.mark.anyio

@@ -9,6 +9,7 @@
 // - A scheduled game: pre-game layout, tip time, broadcast and venue strip; delayed, postponed
 //   and canceled variants
 // - A venue without a city: no city in the strip and no sub-line under the Venue cell
+// - A null venue: no arena in the status line of a live, final or scheduled game, no venue strip; a series meeting with a null arena has a null arena (ADR 0064)
 // - The record as wins–losses; no broadcast cell when the network is unknown
 // - The tabs: the design order per layout, hidden when their data is null, highlights only with
 //   a platform name and a search URL
@@ -241,13 +242,26 @@ describe('toGameView', () => {
 	});
 
 	it('builds the venue strip with no city and a Venue cell with no sub-line when the city is null', () => {
-		const v = view({ ...asStatus('scheduled'), venue: { ...feed().venue, city: null } });
+		const v = view({ ...asStatus('scheduled'), venue: { ...feed().venue!, city: null } });
 		expect(v.header.venue?.city).toBeNull();
 		expect(v.header.venue?.cells.find((cell) => cell.label === 'Venue')).toEqual({
 			label: 'Venue',
 			value: 'Chase Center',
 			sub: null
 		});
+	});
+
+	it('leaves the arena out of the status line of a game with a null venue', () => {
+		const noVenue = (source: GameDetailFeed): GameDetailFeed => ({ ...source, venue: null });
+		expect(view(noVenue(feed())).header.status.text).toBe('Q3 · 4:12');
+		expect(view(noVenue(asFinal(feed()))).header.status.text).toBe('Final · Wednesday, October 7');
+		expect(view(noVenue(asStatus('scheduled'))).header.status.text).toBe('Wednesday, October 7');
+	});
+
+	it('has no venue strip for a pre-game game with a null venue', () => {
+		const v = view({ ...asStatus('scheduled'), venue: null });
+		expect(v.header.layout).toBe('pre-game');
+		expect(v.header.venue).toBeNull();
 	});
 
 	it('shows no time for postponed and canceled games and keeps their venue strip without a tip-off cell', () => {
@@ -304,6 +318,20 @@ describe('toGameView', () => {
 			standings: null
 		} as unknown as GameDetailFeed;
 		expect(ids(view(pre))).toEqual(['injuries', 'season-series']);
+	});
+
+	it('shows no box score tab or score section on a final game built without its summary', () => {
+		const v = view({
+			...asFinal(feed()),
+			venue: null,
+			teamStats: null,
+			boxScore: null,
+			winProbability: null,
+			seasonSeries: null
+		});
+		expect(ids(v)).not.toContain('box-score');
+		expect(v.sections.boxScore).toBeNull();
+		expect(v.header.status.text).toBe('Final · Wednesday, October 7');
 	});
 
 	it('hides the highlights tab without a video platform name or a search URL', () => {
@@ -860,6 +888,19 @@ describe('toGameView pre-game sections', () => {
 				loser: null,
 				arena: 'Chase Center'
 			}
+		]);
+	});
+
+	it('gives a series meeting with a null arena a null arena', () => {
+		const source = pre();
+		const [past, tonight] = source.seasonSeries!.games;
+		source.seasonSeries = {
+			...source.seasonSeries!,
+			games: [{ ...past, arena: null }, tonight]
+		};
+		expect(view(source).sections.seasonSeries?.games.map((game) => game.arena)).toEqual([
+			null,
+			'Chase Center'
 		]);
 	});
 

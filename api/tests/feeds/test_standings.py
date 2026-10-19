@@ -5,6 +5,7 @@
 # Tested:
 # - A valid feed is accepted and serialized with camelCase keys
 # - Colors, seed, clinch, pct, games behind and streak may be null
+# - Home, away, points for and against, differential and total may be null (ADR 0064)
 # - Rejects a pct with a leading zero, games behind without one decimal, a
 #   signed per game with an ASCII minus or a signed zero, a total with a
 #   decimal, a color without "#", an unknown clinch, a record that is not
@@ -120,6 +121,27 @@ def test_accepts_null_colors_seed_clinch_pct_games_behind_and_streak() -> None:
     assert team["seed"] is None
     assert team["pct"] is None
     assert team["colors"] == {"primary": None, "secondary": None}
+
+
+def test_accepts_a_row_with_null_home_away_points_differential_and_total() -> None:
+    payload = with_row(
+        {
+            "home": None,
+            "away": None,
+            "pointsFor": None,
+            "pointsAgainst": None,
+            "differential": None,
+            "total": None,
+        }
+    )
+
+    dumped = StandingsFeed.model_validate(payload).model_dump(
+        mode="json", by_alias=True
+    )
+
+    team = dumped["divisions"][0]["teams"][0]
+    for key in ("home", "away", "pointsFor", "pointsAgainst", "differential", "total"):
+        assert team[key] is None
 
 
 @pytest.mark.parametrize(

@@ -4,11 +4,15 @@
 # provider and maps each team to the contract's standing: conference, rank and
 # the overall, home, away and last ten records. The provider URL comes from
 # Settings. A team that has played no game has no last ten stat and gets 0-0.
+# A team whose entry cannot be read is left out with a log line by team code; an
+# unknown team code or conference still fails the read (ADR 0064).
 # Provider data never leaves this module.
 #
-# SEE: docs/api/game-detail.md, api/app/sources/team_players.py
+# SEE: docs/api/game-detail.md, api/app/sources/team_players.py,
+# docs/adr/0064-degrade-one-bad-item-instead-of-failing-a-feed.md
 
 import datetime as dt
+import logging
 
 from pydantic import BaseModel, ConfigDict, ValidationError
 from pydantic.alias_generators import to_camel
@@ -18,6 +22,8 @@ from app.feeds.games import FeedModel, TeamCode
 from app.settings import Settings
 from app.sources.http import SourceClient, SourceError, get_json
 from app.sources.teams import to_team_code
+
+logger = logging.getLogger(__name__)
 
 SOURCE = "standings"
 FRESH_FOR = dt.timedelta(hours=1)
@@ -127,7 +133,10 @@ async def fetch_standings(client: SourceClient, settings: Settings) -> LeagueSta
         seen.add(conference)
         for entry in child.standings.entries:
             code = to_team_code(entry.team.abbreviation, source=SOURCE)
-            teams[code] = _standing(code, conference, entry)
+            try:
+                teams[code] = _standing(code, conference, entry)
+            except SourceError as error:
+                logger.warning("standings: team %s skipped: %s", code, error.reason)
     if seen != set(CONFERENCES.values()):
         raise SourceError(SOURCE, "standings need both conferences")
 
