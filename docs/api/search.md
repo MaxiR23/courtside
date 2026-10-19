@@ -67,8 +67,9 @@ has `injury` null; a team missing from the standings fails the build.
   build, when the stars job fetches a roster after the build, and in any case
   7 days after the build.
 - The sources read are the division standings, the league injuries and the
-  team information of the 30 teams (1-hour freshness), through the source
-  cache.
+  team information of the 30 teams (24-hour freshness), through the source
+  cache. The build is under a read budget of 33 that counts reads only
+  ([ADR 0066](../adr/0066-cut-read-amplification-of-on-demand-builds.md)).
 - Until the stars job has fetched every roster the feed answers 503, as the
   player feed does.
 - A failed standings or injuries read fails the build: the stored feed is

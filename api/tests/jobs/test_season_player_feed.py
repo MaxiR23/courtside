@@ -15,6 +15,7 @@
 # - The kind: the feed is built once and kept across a simulated restart and years later
 # - The kind: the built feed carries the current build version, a stored feed of an older or missing version is rebuilt on its next request, and one of the current version is served with no source request (ADR 0053)
 # - The kind: the career rows carry the season codes of the stored franchise names when served, with no season team read per row; a list stored later reaches the next serve with no player rebuild; a missing list gives null entries and a serve never starts a names build (ADR 0055, ADR 0065)
+# - The kind: a season with no game log, or a player with no season row, answers 404, stores nothing and registers no game; the id is not built again; a feed with an empty game log is not kept and the cleanup deletes it (ADR 0066)
 # - The kind: a failed build with nothing stored answers unavailable
 #
 # What is covered:
@@ -323,6 +324,9 @@ class SeasonPlayerKit:
         self.past: set[str] = {"88"}
         self.calls: list[str] = []
         self.failing = False
+        # The game log and the career stats the fakes answer, when set.
+        self.log: PlayerGameLog | None = None
+        self.regular: PlayerStats | None = None
         self.season_names: dict[str, tuple[str, str]] = {}
         # The current season's team object by code, when it differs.
         self.current_names: dict[str, tuple[str, str]] = {}
@@ -379,7 +383,7 @@ class SeasonPlayerKit:
         self.calls.append(f"gamelog/{season}")
         if self.failing:
             raise SourceError("test", "game log is down")
-        return season_log()
+        return self.log if self.log is not None else season_log()
 
     async def fetch_stats(
         self,
@@ -390,7 +394,9 @@ class SeasonPlayerKit:
         playoffs: bool,
     ) -> PlayerStats:
         self.calls.append(f"stats/{playoffs}")
-        return PlayerStats() if playoffs else career_stats()
+        if playoffs:
+            return PlayerStats()
+        return self.regular if self.regular is not None else career_stats()
 
     async def fetch_season_team(
         self, client: SourceClient, code: str, season: int, settings: Settings
@@ -627,6 +633,83 @@ async def test_a_failed_build_with_nothing_stored_answers_unavailable(
         await kit.serve("2004-77")
 
     assert read_by_id(kit.path, KIND, "2004-77") is None
+
+
+def registered(kit: SeasonPlayerKit) -> list[dt.date | None]:
+    return [kit.store.past_game_date(f"g{n}", at=NOW) for n in range(1, 8)]
+
+
+@pytest.mark.anyio
+async def test_a_season_with_no_game_log_answers_404_stores_nothing_and_registers_no_game(
+    kit: SeasonPlayerKit,
+) -> None:
+    kit.log = PlayerGameLog(season=None, games=[], teams={})
+
+    with pytest.raises(UnknownFeedError):
+        await kit.serve("2004-77")
+
+    assert read_by_id(kit.path, KIND, "2004-77") is None
+    assert kit.store.feed_build(KIND, "2004-77") is None
+    assert registered(kit) == [None] * 7
+
+
+@pytest.mark.anyio
+async def test_a_player_with_no_season_row_answers_404_stores_nothing_and_registers_no_game(
+    kit: SeasonPlayerKit,
+) -> None:
+    # The log has games, but neither career stats read has a row of the season.
+    kit.regular = PlayerStats(
+        per_game=[line("2002-03", points=18.0)],
+        totals=[totals_line("2002-03")],
+        misc=[misc("2002-03")],
+    )
+
+    with pytest.raises(UnknownFeedError):
+        await kit.serve("2004-77")
+
+    assert read_by_id(kit.path, KIND, "2004-77") is None
+    assert registered(kit) == [None] * 7
+
+
+@pytest.mark.anyio
+async def test_an_unknown_id_is_not_built_again_on_the_next_request(
+    kit: SeasonPlayerKit,
+) -> None:
+    kit.log = PlayerGameLog(season=None, games=[], teams={})
+    with pytest.raises(UnknownFeedError):
+        await kit.serve("2004-77")
+    reads = list(kit.calls)
+
+    assert kit.kind.check("2004-77") is IdStatus.UNKNOWN
+    with pytest.raises(UnknownFeedError):
+        await kit.serve("2004-77")
+    assert kit.kind.check("2005-77") is IdStatus.KNOWN
+
+    assert kit.calls == reads
+
+
+@pytest.mark.anyio
+async def test_a_feed_with_an_empty_game_log_is_not_kept_and_the_cleanup_deletes_it(
+    kit: SeasonPlayerKit,
+) -> None:
+    kit.log = PlayerGameLog(season=LABEL, games=[], teams={})
+    feed = PastPlayerFeed.model_validate_json(await kit.serve("2004-77"))
+    assert feed.game_log is None
+    assert read_by_id(kit.path, KIND, "2004-77") is not None
+    assert kit.kind.keep("2004-77") is False
+
+    kit.cache.cleanup()
+
+    assert read_by_id(kit.path, KIND, "2004-77") is None
+    assert kit.store.feed_build(KIND, "2004-77") is None
+
+
+@pytest.mark.anyio
+async def test_a_feed_with_a_game_log_is_kept(kit: SeasonPlayerKit) -> None:
+    await kit.serve("2004-77")
+
+    assert kit.kind.keep("2004-77") is True
+    assert kit.kind.keep("2004-99") is True
 
 
 @pytest.mark.anyio

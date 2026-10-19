@@ -11,7 +11,8 @@
 # from the stars job's memory. It expires 1 hour after a final game of the league
 # that follows the build, 7 days after the build, and when the stars job fetches
 # a roster after the build (rule G). Colors come from team info, one read per
-# team, and are null when a read fails. The feed is never deleted.
+# team, and are null when a read fails. The build runs under READ_BUDGET reads,
+# counting reads only, so a rate-limited team info nulls its colors (ADR 0066). The feed is never deleted.
 #
 # SEE: docs/api/search.md, docs/source-rules.md, api/app/jobs/standings_feed.py
 
@@ -36,7 +37,7 @@ from app.jobs.team_feed import (
 from app.settings import Settings
 from app.sources import division_standings, league_injuries, team_info
 from app.sources.division_standings import DivisionStandings
-from app.sources.http import SourceClient, SourceError
+from app.sources.http import ReadBudget, SourceClient, SourceError, within_budget
 from app.sources.league_injuries import LeagueInjuries
 from app.sources.team_info import TeamInfo, secondary_color
 from app.sources.team_players import RosterEntry
@@ -45,6 +46,9 @@ from app.storage.state import StateStore
 
 KIND = "search"
 FEED_ID = "league"
+# The most source reads one build sends: 2 division standings (the request of
+# rule L) + 1 league injuries + 30 team infos.
+READ_BUDGET = 33
 CODES = sorted(set(TEAM_CODES.values()))
 
 
@@ -166,6 +170,13 @@ class SearchFeeds:
             return None
 
     async def build(self, feed_id: str) -> SearchFeed:
+        return await within_budget(
+            ReadBudget(READ_BUDGET, stop_on_rate_limit=False),
+            "search: league",
+            lambda: self._build(feed_id),
+        )
+
+    async def _build(self, feed_id: str) -> SearchFeed:
         standings = await self._fetch_division_standings(self._client, self._settings)
         injuries = await self._fetch_league_injuries(self._client, self._settings)
         infos = await asyncio.gather(*(self._info(code) for code in CODES))

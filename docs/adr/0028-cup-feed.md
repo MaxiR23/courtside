@@ -1,6 +1,6 @@
 # 0028. Cup feed
 
-- Status: Accepted
+- Status: Superseded by 0066 for the team feed's Cup group table reads only
 - Date: 2026-10-13
 
 ## Context

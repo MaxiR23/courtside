@@ -9,6 +9,7 @@
 # - A bad league event still fails the postseason read, and a playoff game without a venue is read with a null venue (ADR 0064)
 # - Leaves a series competitor with an unknown team id out of the wins of a scheduled game
 # - Shares one request per day with the games function of the scoreboard adapter
+# - A day read with a seven-day freshness is served from a three-day-old entry, one with a time is read again when cached before that time, and the default stays 30 seconds (ADR 0066)
 # - With by_id_first a side whose abbreviation names another franchise maps to the code of its provider id; without it the abbreviation wins
 # - fetch_postseason_schedule maps a team's postseason schedule: a final game with its competition type, series, note, period, score, arena and broadcast, with no line score, and a scheduled game; both resolve their sides by provider id (ADR 0058)
 # - fetch_postseason_schedule skips a game with a side that has neither a code nor a name, rejects an in-play game, a final game without a score and an invalid payload, and raises on an error status, an unknown team code and a missing URL
@@ -268,6 +269,43 @@ async def test_the_games_and_postseason_functions_share_one_request_for_a_day(
         await fetch_postseason_games(client, DAY, settings)
 
     assert route.call_count == 1
+
+
+@pytest.mark.anyio
+async def test_a_day_read_with_a_seven_day_freshness_is_served_from_a_three_day_old_entry(
+    mock: respx.MockRouter, settings: Settings, tmp_path: Path
+) -> None:
+    start = dt.datetime(2027, 4, 20, 12, 0, tzinfo=dt.UTC)
+    clock = [start]
+    route = mock.get(URL).respond(json=load("playoffs.json"))
+    async with clocked(tmp_path, clock) as client:
+        await fetch_postseason_games(client, DAY, settings)
+        clock[0] = start + dt.timedelta(days=3)
+        await fetch_postseason_games(client, DAY, settings, fresh=dt.timedelta(days=7))
+        assert route.call_count == 1
+        # The default stays 30 seconds: the same entry is stale after 3 days.
+        await fetch_postseason_games(client, DAY, settings)
+
+    assert route.call_count == 2
+
+
+@pytest.mark.anyio
+async def test_a_day_read_with_a_time_freshness_is_read_again_when_cached_before_that_time(
+    mock: respx.MockRouter, settings: Settings, tmp_path: Path
+) -> None:
+    start = dt.datetime(2027, 4, 20, 12, 0, tzinfo=dt.UTC)
+    clock = [start]
+    route = mock.get(URL).respond(json=load("playoffs.json"))
+    async with clocked(tmp_path, clock) as client:
+        await fetch_postseason_games(client, DAY, settings)
+        clock[0] = start + dt.timedelta(hours=2)
+        await fetch_postseason_games(client, DAY, settings, fresh=start)
+        assert route.call_count == 1
+        await fetch_postseason_games(
+            client, DAY, settings, fresh=start + dt.timedelta(hours=1)
+        )
+
+    assert route.call_count == 2
 
 
 @pytest.mark.anyio

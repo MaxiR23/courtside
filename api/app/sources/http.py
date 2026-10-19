@@ -13,10 +13,13 @@
 # A build can run under a ReadBudget (within_budget, ADR 0058): every request
 # that reaches the network counts, at most MAX_PAST_READS_IN_FLIGHT are in
 # flight, a request past the limit is refused before it is sent, and a rate
-# limit stops the build. cached_json reads the source cache and sends nothing.
+# limit stops the build. A current-season build counts reads only
+# (stop_on_rate_limit=False, ADR 0066): a rate-limited read fails as an
+# ordinary one and the build decides what to null. cached_json reads the source
+# cache and sends nothing.
 #
-# A budget can grow while a build runs (ReadBudget.extend) and can give the
-# reads made inside wide_reads their own, wider in-flight limit (ADR 0061).
+# A budget can give the reads made inside wide_reads their own, wider
+# in-flight limit (ADR 0061).
 #
 # get_json reads through the shared source cache (rule A). with_query adds
 # query values to a URL that may already have a query: adapters use it instead
@@ -103,20 +106,24 @@ MAX_PAST_READS_IN_FLIGHT = 4
 class ReadBudget:
     """The reads one build may send. A read is a request that reaches the
     network; a cache hit is not one. Once a read is refused or rate limited,
-    every later read of the build is refused too."""
+    every later read of the build is refused too. With stop_on_rate_limit
+    False a rate limit does not stop the build: only the read count does."""
 
-    def __init__(self, limit: int, *, wide_in_flight: int | None = None) -> None:
+    def __init__(
+        self,
+        limit: int,
+        *,
+        wide_in_flight: int | None = None,
+        stop_on_rate_limit: bool = True,
+    ) -> None:
         self.limit = limit
+        self.stop_on_rate_limit = stop_on_rate_limit
         self.reads = 0
         self.stopped: SourceError | None = None
         self._semaphore = asyncio.Semaphore(MAX_PAST_READS_IN_FLIGHT)
         self._wide = (
             asyncio.Semaphore(wide_in_flight) if wide_in_flight else self._semaphore
         )
-
-    def extend(self, reads: int) -> None:
-        """More reads for the rest of the build; a stopped budget stays stopped."""
-        self.limit += reads
 
     @asynccontextmanager
     async def slot(self, source: str, *, wide: bool = False) -> AsyncIterator[None]:
@@ -132,7 +139,7 @@ class ReadBudget:
             try:
                 yield
             except SourceError as error:
-                if is_rate_limited(error):
+                if self.stop_on_rate_limit and is_rate_limited(error):
                     self.stopped = SourceError(
                         error.source,
                         "rate limited",

@@ -15,7 +15,9 @@
 # unscheduled quarterfinal side with its record, a side's standing (its row in
 # its conference table) and the last period of a final game, and the scheduled game that
 # replaces it. The build reads no clock and no source. CupFeeds is the feed
-# kind of the on-demand cache: the only id is "league", the feed is stored at
+# kind of the on-demand cache: the build runs under READ_BUDGET reads (counting reads only) and reads a
+# schedule at most 24 hours old, 1 hour for a team playing today (ADR 0066); the
+# only id is "league", the feed is stored at
 # feeds/cup/league.json only when requested, and it expires 1 hour after a final
 # Cup game that follows the build and 7 days after the build (rule G). Once the
 # championship is final the feed is kept while its season is the current one,
@@ -70,7 +72,13 @@ from app.jobs.team_feed import streak as parse_streak
 from app.settings import Settings
 from app.sources import cup, team_schedule
 from app.sources.cup import GROUP_IDS, CupTable, CupTableRow, cup_round
-from app.sources.http import SourceClient, SourceError
+from app.sources.http import (
+    Freshness,
+    ReadBudget,
+    SourceClient,
+    SourceError,
+    within_budget,
+)
 from app.sources.team_schedule import ScheduledGame, SeasonSchedule
 from app.sources.teams import TEAM_CODES
 from app.storage.feeds import read_by_id
@@ -112,6 +120,12 @@ FetchConferenceTable = Callable[
     [SourceClient, int, Conference, Settings], Awaitable[CupTable]
 ]
 FetchSeasonSchedule = Callable[..., Awaitable[SeasonSchedule]]
+# A team's schedule is fresh for 24 hours, 1 hour for a team with a game today
+# (ADR 0066).
+SCHEDULE_FRESH = dt.timedelta(hours=24)
+# The most source reads one build sends: 6 group teams + 6 group tables + 2
+# conference tables + 30 team schedules, as season_cup_feed.READ_BUDGET.
+READ_BUDGET = 44
 
 
 class CupBuildError(Exception):
@@ -782,6 +796,7 @@ async def read_cup_sources(
     fetch_group_table: FetchGroupTable,
     fetch_conference_table: FetchConferenceTable,
     fetch_season_schedule: FetchSeasonSchedule,
+    schedule_fresh: Callable[[str], Freshness] | None = None,
 ) -> CupSources:
     """Read the Cup sources of one season (its end year), or raise SourceError.
     A failed schedule is skipped only when every drawn team still has its 4
@@ -810,6 +825,15 @@ async def read_cup_sources(
     results = await asyncio.gather(
         *(
             fetch_season_schedule(client, code, season, settings, playoffs=False)
+            if schedule_fresh is None
+            else fetch_season_schedule(
+                client,
+                code,
+                season,
+                settings,
+                playoffs=False,
+                fresh=schedule_fresh(code),
+            )
             for code in CODES
         ),
         return_exceptions=True,
@@ -892,6 +916,30 @@ class CupFeeds:
         season = self._stars.current_season()
         if season is None:
             raise CupBuildError("season not known yet")
+        return await within_budget(
+            ReadBudget(READ_BUDGET, stop_on_rate_limit=False),
+            f"cup: {feed_id}",
+            lambda: self._build(season),
+        )
+
+    def _schedule_fresh(self) -> Callable[[str], Freshness]:
+        """A team with a game today in the games job's shown games keeps the
+        schedule freshness of 1 hour; before the job's first run every team does."""
+        shown = self._games.shown_games()
+        if shown is None:
+            return lambda code: team_schedule.FRESH_FOR
+        today = eastern_date(self._client.clock())
+        playing = {
+            team.code
+            for game in shown
+            if eastern_date(game.start_time) == today
+            for team in (game.home, game.away)
+        }
+        return lambda code: (
+            team_schedule.FRESH_FOR if code in playing else SCHEDULE_FRESH
+        )
+
+    async def _build(self, season: int) -> CupFeed:
         return build_cup_feed(
             await read_cup_sources(
                 self._client,
@@ -901,6 +949,7 @@ class CupFeeds:
                 fetch_group_table=self._fetch_group_table,
                 fetch_conference_table=self._fetch_conference_table,
                 fetch_season_schedule=self._fetch_season_schedule,
+                schedule_fresh=self._schedule_fresh(),
             )
         )
 

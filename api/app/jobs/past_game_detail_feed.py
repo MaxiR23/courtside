@@ -13,7 +13,8 @@
 #
 # PastGameDetailFeeds is the feed kind of the on-demand cache: the id is the
 # game id, the feed is stored at feeds/past-games/{id}.json only when requested.
-# An id is known when it is a final game of a stored day feed, or a game a past
+# An id is known when it is a final game of a stored day feed (indexed at startup
+# and when a day feed is published, so a lookup reads no file), or a game a past
 # team or player feed registered with its date (ADR 0053); the day feed of that
 # date is then built first. The kind never answers not ready and reads no source
 # to answer. A feed is built once
@@ -140,19 +141,16 @@ class PastGameDetailFeeds:
         self._client = client
         self._fetch_sections = fetch_sections
         self._search = search
-        # Game id to the id of the stored day feed that lists it as final.
+        # Game id to the id of the stored day feed that lists it as final: read
+        # once at startup, then fed by index_day when a day feed is published
+        # (ADR 0066).
         self._days: dict[str, str] = {}
-        # Day ids whose stored feed had every game final: kept by rule G and
-        # never rebuilt, so they are read once.
-        self._settled: set[str] = set()
+        self._index_stored_days()
         cache.register(self.kind())
 
-    def _day_of(self, game_id: str) -> str | None:
-        day_id = self._days.get(game_id)
-        if day_id is not None:
-            return day_id
+    def _index_stored_days(self) -> None:
         data_dir = self._settings.data_dir
-        for candidate in sorted(published_ids(data_dir, DAY_KIND) - self._settled):
+        for candidate in sorted(published_ids(data_dir, DAY_KIND)):
             body = read_by_id(data_dir, DAY_KIND, candidate)
             if body is None:
                 continue
@@ -160,12 +158,15 @@ class PastGameDetailFeeds:
                 feed = DayFeed.model_validate_json(body)
             except ValidationError:
                 continue
-            games = feed.day.games
-            for stored in games:
-                if stored.status is GameStatus.FINAL:
-                    self._days[stored.id] = candidate
-            if all(stored.status is GameStatus.FINAL for stored in games):
-                self._settled.add(candidate)
+            self.index_day(candidate, feed)
+
+    def index_day(self, day_id: str, feed: DayFeed) -> None:
+        """Index the final games of a stored day feed."""
+        for stored in feed.day.games:
+            if stored.status is GameStatus.FINAL:
+                self._days[stored.id] = day_id
+
+    def _day_of(self, game_id: str) -> str | None:
         return self._days.get(game_id)
 
     def _current_day(self, day_id: str) -> DayFeed | None:

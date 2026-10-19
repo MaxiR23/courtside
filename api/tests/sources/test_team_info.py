@@ -8,7 +8,7 @@
 # - Maps a team without an alternate color to a null alternate color, and one without a franchise or franchise venue to null venue fields; the secondary color helper adds the hash or gives none (ADR 0064)
 # - Requests the URL built from the provider team code, including a code that differs from the standard one
 # - Raises the source error on an invalid payload, a color that is not six hex digits, an empty venue name, an unknown team code, a timeout, an error status and a missing URL
-# - Reuses a team's info for one hour
+# - Serves a team's info from a 20-hour-old entry and reads it again at 25 hours (ADR 0066)
 # - cached_team_info maps a cached body of any age with no request, and gives none without an entry, with an invalid body, for an unknown team code and without a configured URL (ADR 0058)
 #
 # What is covered:
@@ -249,7 +249,7 @@ async def test_raises_the_source_error_when_the_url_is_not_configured() -> None:
 
 
 @pytest.mark.anyio
-async def test_reuses_a_teams_info_for_one_hour(
+async def test_serves_team_info_from_a_20_hour_old_entry_and_reads_it_again_at_25_hours(
     mock: respx.MockRouter, settings: Settings, tmp_path: Path
 ) -> None:
     start = dt.datetime(2026, 1, 10, 12, 0, tzinfo=dt.UTC)
@@ -259,10 +259,10 @@ async def test_reuses_a_teams_info_for_one_hour(
     store.migrate()
     async with create_client(store, clock=lambda: clock[0]) as client:
         await fetch_team_info(client, "OKC", settings)
-        clock[0] = start + dt.timedelta(hours=1) - dt.timedelta(seconds=1)
+        clock[0] = start + dt.timedelta(hours=20)
         await fetch_team_info(client, "OKC", settings)
         assert route.call_count == 1
-        clock[0] = start + dt.timedelta(hours=1)
+        clock[0] = start + dt.timedelta(hours=25)
         await fetch_team_info(client, "OKC", settings)
 
     assert route.call_count == 2

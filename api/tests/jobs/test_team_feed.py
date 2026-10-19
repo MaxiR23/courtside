@@ -52,6 +52,7 @@
 # - The kind: the cleanup keeps every standard code
 # - The kind with the names wired: a names list of another or no version makes a fresh team feed stale, the rebuild builds the names first and the next served feed has both runs of a relocated franchise; a list of the current version leaves it fresh (ADR 0055)
 # - The kind with the names wired: a team build builds the missing franchise names first and stores them in the feed, fresh names are not rebuilt by a second team build, and serving sets the latest stored names
+# - The kind: with the Cup section's provider outside the Cup window or with a complete stored Cup feed no group table is read and the stored mark is used; inside the window the six tables are read; without a provider the feed has no Cup and reads no table (ADR 0066)
 # - The kind: the feed holds the team's Cup group and Cup record, read with the roster's season; null when no group table has the team, and null with the feed still built when a group table read fails
 #
 # What is covered:
@@ -1268,6 +1269,23 @@ class StubTitles:
         return self.rebuilt_at is not None and self.rebuilt_at > built_at
 
 
+class StubCupMarks:
+    """The Cup section's provider of the Cup mark: whether the team feed reads
+    the group tables, and the mark of the stored Cup feed."""
+
+    def __init__(self) -> None:
+        self.reads = True
+        self.mark: TeamCup | None = None
+        self.asked: list[tuple[int, dt.date]] = []
+
+    def reads_tables(self, season: int, today: dt.date) -> bool:
+        self.asked.append((season, today))
+        return self.reads
+
+    def stored_mark(self, team: str, season: int) -> TeamCup | None:
+        return self.mark
+
+
 class TeamKit:
     """A games job, a feed cache and the team kind over one client and one clock.
 
@@ -1275,6 +1293,9 @@ class TeamKit:
     respx route, so route calls are real source requests; `calls` lists the
     adapter calls, cached or not.
     """
+
+    # Whether the kind is given the Cup section's provider of the Cup mark.
+    with_cup_marks = True
 
     def __init__(self, path: Path) -> None:
         self.path = path
@@ -1293,6 +1314,7 @@ class TeamKit:
         self.group_seasons: list[int] = []
         self.first_titles = StubTitles()
         self.second_titles = StubTitles()
+        self.cup_marks = StubCupMarks() if self.with_cup_marks else None
         respx.get(url__startswith=SOURCE).mock(side_effect=self.answer)
         self.cache = FeedCache(path, self.store, clock=lambda: self.clock[0])
         self.games = GamesJob(
@@ -1319,6 +1341,7 @@ class TeamKit:
             fetch_season_schedule=self.fetch_season_schedule,
             fetch_group_table=self.fetch_group_table,
             title_providers=(self.first_titles, self.second_titles),
+            cup_marks=self.cup_marks,
         )
 
     async def fetch_group_table(
@@ -1694,6 +1717,68 @@ async def test_a_failed_group_table_read_leaves_cup_null_and_the_feed_built(
     assert feed.cup is None
 
 
+@pytest.mark.anyio
+async def test_no_cup_group_table_is_read_outside_the_cup_window_and_the_stored_mark_is_used(
+    kit: TeamKit,
+) -> None:
+    assert kit.cup_marks is not None
+    kit.cup_marks.reads = False
+    kit.cup_marks.mark = TeamCup(
+        group=CupGroupName(conference=Conference.WEST, letter="A"), wins=2, losses=2
+    )
+
+    feed = TeamFeed.model_validate_json(await kit.serve("okc"))
+
+    assert feed.cup == kit.cup_marks.mark
+    assert not any(call.startswith("cup/") for call in kit.calls)
+    assert kit.cup_marks.asked == [(2027, NOW.date())]
+
+
+@pytest.mark.anyio
+async def test_no_cup_group_table_is_read_when_the_stored_cup_feed_is_complete(
+    kit: TeamKit,
+) -> None:
+    assert kit.cup_marks is not None
+    kit.cup_marks.reads = False
+
+    feed = TeamFeed.model_validate_json(await kit.serve("okc"))
+
+    assert feed.cup is None
+    assert kit.group_seasons == []
+
+
+@pytest.mark.anyio
+async def test_the_six_cup_group_tables_are_read_inside_the_window_with_no_complete_feed(
+    kit: TeamKit,
+) -> None:
+    assert kit.cup_marks is not None
+    kit.cup_marks.reads = True
+    kit.cup_marks.mark = TeamCup(
+        group=CupGroupName(conference=Conference.EAST, letter="C"), wins=0, losses=0
+    )
+
+    await kit.serve("okc")
+
+    assert sum(call.startswith("cup/") for call in kit.calls) == 6
+
+
+class NoCupKit(TeamKit):
+    with_cup_marks = False
+
+
+@pytest.mark.anyio
+async def test_without_a_cup_provider_the_feed_has_no_cup_and_reads_no_table(
+    tmp_path: Path,
+) -> None:
+    kit = NoCupKit(tmp_path)
+
+    feed = TeamFeed.model_validate_json(await kit.serve("okc"))
+
+    assert feed.code == "OKC"
+    assert feed.cup is None
+    assert kit.group_seasons == []
+
+
 CHAMPIONS = TeamTitle(kind=TitleKind.NBA_CHAMPIONS, year=2027, conference=None)
 
 
@@ -1808,6 +1893,7 @@ class NamedKit(TeamKit):
             fetch_season_schedule=self.fetch_season_schedule,
             fetch_group_table=self.fetch_group_table,
             title_providers=(self.first_titles, self.second_titles),
+            cup_marks=self.cup_marks,
             names=self.names,
         )
 

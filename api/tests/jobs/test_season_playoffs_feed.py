@@ -12,7 +12,8 @@
 # - The kind: an award of six winners, a tie, is stored with all six in the source order (ADR 0055)
 # - The kind: leader and award names, photos and team links come from the player identities (ADR 0061)
 # - The kind: a player whose athlete read fails is kept with his id and a dash
-# - The kind: a second build within 30 days reads no cached player; only the first five leaders of a category are read
+# - The kind: the leaders hold three per category; award winners past the declared maximum of 52 are shown with a dash and no photo, are not read and log one warning (ADR 0066)
+# - The kind: a second build within 30 days reads no cached player; only the top three leaders of a category are read (ADR 0066)
 # - The kind: the champion record is the counted Finals winner's, with no series object (ADR 0061)
 # - The kind: a 2005 build names the leaders of the nine categories and the fourteen awards
 # - The kind: the colors come from the cached team info and are null without it
@@ -80,6 +81,7 @@ from app.jobs.season_playoffs_feed import (
     BUILD_VERSION,
     KIND,
     LEADER_READS,
+    MAX_AWARD_WINNERS,
     READ_BUDGET,
     SeasonPlayoffsFeeds,
     finals_champion,
@@ -99,7 +101,7 @@ from app.sources.postseason_scoreboard import (
     PostseasonGame,
     fetch_postseason_schedule,
 )
-from app.sources.season_awards import SeasonAwards
+from app.sources.season_awards import AwardWinnerRef, SeasonAwards
 from app.sources.season_types import SeasonWindow
 from app.sources.team_info import TeamInfo
 from app.sources.team_postseason import (
@@ -279,6 +281,7 @@ class SeasonPlayoffsKit:
         settings: Settings,
         *,
         by_id_first: bool = False,
+        fresh: Any = None,
     ) -> list[PostseasonGame]:
         self.read(f"day/{day.isoformat()}/{by_id_first}")
         return [
@@ -777,7 +780,7 @@ async def test_a_2005_build_names_leaders_in_all_nine_categories_and_the_fourtee
 
     assert feed.leaders is not None and feed.awards is not None
     assert [g.category for g in feed.leaders] == list(LeaderCategory)
-    assert all(len(g.leaders) == 5 for g in feed.leaders)
+    assert all(len(g.leaders) == 3 for g in feed.leaders)
     assert len(feed.awards) == 14
     winners = [w for a in feed.awards for w in a.winners]
     assert len(winners) == 1 * 7 + 5 * 7
@@ -958,7 +961,7 @@ async def test_a_past_season_builds_a_valid_complete_feed_reading_only_its_decla
         f"players/{game_id}" for game_id in FINALS
     ]
     athletes = sorted(n for n in kit.calls if n.startswith("athlete/"))
-    assert athletes == [f"athlete/{n}" for n in range(1, 6)]
+    assert athletes == [f"athlete/{n}" for n in range(1, 4)]
     assert len(kit.calls) - len(athletes) <= READ_BUDGET
 
 
@@ -1066,7 +1069,7 @@ async def test_leaders_and_award_winners_are_named_from_the_player_identities_wi
 
     assert feed.leaders is not None and feed.awards is not None
     for group in feed.leaders:
-        assert [row.player_id for row in group.leaders] == ["1", "2", "3", "4", "5"]
+        assert [row.player_id for row in group.leaders] == ["1", "2", "3"]
         for row in group.leaders:
             assert row.name == f"Identity Player{row.player_id}"
             assert str(row.photo_url) == f"https://example.com/h/{row.player_id}.png"
@@ -1114,12 +1117,12 @@ async def test_a_second_build_within_30_days_reads_no_cached_player(
 
     await kit.serve_season("2024", NOW + dt.timedelta(days=2))
 
-    assert first == 5 and kit.called("standings/") == 1
+    assert first == 3 and kit.called("standings/") == 1
     assert kit.called("athlete/") == 0
 
 
 @pytest.mark.anyio
-async def test_only_the_first_five_leaders_of_each_category_are_read(
+async def test_only_the_top_three_leaders_of_each_category_are_resolved(
     kit: SeasonPlayoffsKit,
 ) -> None:
     kit.leaders_source = past_leaders(8)
@@ -1127,10 +1130,88 @@ async def test_only_the_first_five_leaders_of_each_category_are_read(
     feed = PlayoffsFeed.model_validate_json(await kit.serve_season("2025"))
 
     assert sorted(n for n in kit.calls if n.startswith("athlete/")) == [
-        f"athlete/{n}" for n in range(1, 6)
+        f"athlete/{n}" for n in range(1, 4)
     ]
     assert feed.leaders is not None
-    assert all(len(group.leaders) == 5 for group in feed.leaders)
+    assert all(len(group.leaders) == 3 for group in feed.leaders)
+
+
+@pytest.mark.anyio
+async def test_the_leaders_hold_three_per_category(kit: SeasonPlayoffsKit) -> None:
+    kit.leaders_source = past_leaders(8)
+
+    feed = PlayoffsFeed.model_validate_json(await kit.serve_season("2025"))
+
+    assert feed.leaders is not None
+    assert [len(group.leaders) for group in feed.leaders] == [3] * len(LeaderCategory)
+    assert [row.rank for row in feed.leaders[0].leaders] == [1, 2, 3]
+
+
+def fifty_three_winners() -> SeasonAwards:
+    """52 distinct winners in the declared shape and a 53rd, the sixth of a tie."""
+    ids = iter(str(100 + n) for n in range(60))
+    awards = [
+        award(code, [next(ids)], team_code=seed(WEST, 1))
+        for code in (
+            AwardCode.MVP,
+            AwardCode.DPOY,
+            AwardCode.ROY,
+            AwardCode.SIXTH_MAN,
+            AwardCode.MIP,
+            AwardCode.CPOY,
+            AwardCode.FINALS_MVP,
+            AwardCode.EAST_FINALS_MVP,
+            AwardCode.WEST_FINALS_MVP,
+            AwardCode.ALL_STAR_MVP,
+            AwardCode.CUP_MVP,
+            AwardCode.TWYMAN_STOKES,
+        )
+    ]
+    awards.append(
+        award(
+            AwardCode.CUP_ALL_TOURNAMENT,
+            [next(ids) for _ in range(5)],
+            team_code=seed(WEST, 1),
+        )
+    )
+    for code, teams in (
+        (AwardCode.ALL_NBA, (1, 2, 3)),
+        (AwardCode.ALL_ROOKIE, (1, 2)),
+        (AwardCode.ALL_DEFENSIVE, (1, 2)),
+    ):
+        for team in teams:
+            awards.append(
+                award(
+                    code,
+                    [next(ids) for _ in range(5)],
+                    team,
+                    team_code=seed(WEST, 1),
+                )
+            )
+    awards[-1].winners.append(
+        AwardWinnerRef(player_id=next(ids), team_code=seed(WEST, 1))
+    )
+    return SeasonAwards(awards=awards)
+
+
+@pytest.mark.anyio
+async def test_award_winners_past_the_declared_maximum_are_shown_with_a_dash_and_not_read(
+    kit: SeasonPlayoffsKit, caplog: pytest.LogCaptureFixture
+) -> None:
+    kit.awards_source = fifty_three_winners()
+    kit.leaders_source = past_leaders(0)
+
+    with caplog.at_level(logging.WARNING):
+        feed = PlayoffsFeed.model_validate_json(await kit.serve_season("2025"))
+
+    assert feed.awards is not None
+    winners = [w for a in feed.awards for w in a.winners]
+    assert len(winners) == MAX_AWARD_WINNERS + 1
+    read = {n for n in kit.calls if n.startswith("athlete/")}
+    assert len(read) == MAX_AWARD_WINNERS
+    unread = [w for w in winners if f"athlete/{w.player_id}" not in read]
+    assert [(w.name, w.photo_url) for w in unread] == [("\u2014", None)]
+    assert any("53 award winners" in r.getMessage() for r in caplog.records)
 
 
 @pytest.mark.anyio
@@ -1388,6 +1469,7 @@ def test_a_build_with_no_postseason_window_dates_the_postseason_from_its_games()
 
 
 def test_the_constants_are_the_declared_budget_and_version() -> None:
-    assert READ_BUDGET == 63
-    assert LEADER_READS == 45
+    assert LEADER_READS == 27
+    assert MAX_AWARD_WINNERS == 52
+    assert READ_BUDGET == 63 + 27 + 52 == 142
     assert BUILD_VERSION == SEASON_BUILD_VERSION + 1

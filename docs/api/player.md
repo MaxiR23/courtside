@@ -194,6 +194,11 @@ schema as above) validated by `PastPlayerFeed`.
 - Reads: the athlete, the game log of the season and the career statistics of
   the regular season and of the playoffs, in a budget of 4 (ADR 0059); no draft,
   awards, standings, season statistics or roster read.
+- A player whose build finds no game log for the season, or no season row in
+  either career statistics read, answers 404: nothing is stored, no game is
+  registered and the id is not built again until the next restart. A stored feed
+  with an empty game log is not kept: the cleanup deletes it
+  ([ADR 0066](../adr/0066-cut-read-amplification-of-on-demand-builds.md)).
 - Known ids: a player of a current roster, of a stored past team season roster,
   of a stored past box score, or named by a stored past playoffs or Finals feed.
 - Refresh: built on request, stored at `feeds/season-players/{season}-{id}.json`,

@@ -45,7 +45,7 @@ from app.feeds.game_detail import GameResult, LastGame
 from app.feeds.games import FeedModel, NonEmptyStr, UtcDatetime
 from app.feeds.opponent import Opponent
 from app.settings import Settings
-from app.sources.http import SourceClient, SourceError, get_json, with_query
+from app.sources.http import Freshness, SourceClient, SourceError, get_json, with_query
 from app.sources.teams import (
     LEAGUE_CODES,
     TEAM_CODES,
@@ -417,12 +417,14 @@ async def fetch_season_schedule(
     *,
     playoffs: bool,
     by_id_first: bool = False,
+    fresh: Freshness = FRESH_FOR,
 ) -> SeasonSchedule:
     """Return one team's games of a season (its end year) and season type, or
     raise SourceError. With by_id_first, a past season matches the teams by
-    provider id before the abbreviation (ADR 0043)."""
+    provider id before the abbreviation (ADR 0043). `fresh` is how fresh the
+    cached schedule must be (ADR 0066); it defaults to FRESH_FOR."""
     url = season_schedule_url(team_code, season, settings, playoffs=playoffs)
-    body = await get_json(client, url, source=SOURCE, fresh=FRESH_FOR)
+    body = await get_json(client, url, source=SOURCE, fresh=fresh)
     try:
         schedule = _ProviderSchedule.model_validate(body)
     except ValidationError as error:

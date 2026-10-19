@@ -12,7 +12,7 @@
 # - A side by a known id keeps its standard code and the event's name and city, and an unknown id is a guest
 # - The builder fails for a game that is not final and for sections without a season, and wraps an invalid feed
 # - The kind: a final game of a stored day is known; an id in no day, a postponed game of a stored day and an unsafe id are unknown with no source request
-# - The kind: a day stored after the first lookup is indexed on the next lookup
+# - The kind: a newly published day feed's final games are found, a day stored before startup is indexed at startup, and an unknown id is answered without reading any day feed file (ADR 0066)
 # - The kind: a registered game with no stored day is known and builds its day first, one the day does not list as final fails the build, and an id neither stored nor registered stays unknown (ADR 0053)
 # - The kind: a request builds and stores a valid feed and a second request makes no source request
 # - The kind: after a restart the stored feed is served with no source request
@@ -80,7 +80,13 @@ from app.sources import scoreboard
 from app.sources.game_detail import GameDetailSections
 from app.sources.http import Freshness, SourceClient, SourceError
 from app.sources.video_channel import ChannelVideo
-from app.storage.feeds import _by_id_dir, delete_by_id, publish_by_id, read_by_id
+from app.storage.feeds import (
+    _by_id_dir,
+    delete_by_id,
+    publish_by_id,
+    published_ids,
+    read_by_id,
+)
 from app.storage.state import STATE_FILE
 from tests.feeds.test_game_detail import (
     box_team,
@@ -331,6 +337,11 @@ class PastKit(DayKit):
             search=self.search,
         )
 
+    def on_publish(self, day_id: str, feed: DayFeed) -> None:
+        # Wired as in main.py: a published day feed is indexed by the past kind.
+        super().on_publish(day_id, feed)
+        self.past_kind.index_day(day_id, feed)
+
     async def search_channel(
         self, client: SourceClient, settings: Settings, query: str
     ) -> list[ChannelVideo]:
@@ -396,14 +407,54 @@ async def test_the_build_sends_one_read_under_its_budget(kit: PastKit) -> None:
 
 
 @pytest.mark.anyio
-async def test_a_day_stored_after_the_first_lookup_is_indexed_on_the_next_lookup(
-    kit: PastKit,
-) -> None:
+async def test_a_newly_published_day_feeds_games_are_found(kit: PastKit) -> None:
     assert kit.past_kind.check("1") is IdStatus.UNKNOWN
 
-    await kit.store_day(game("1", GameStatus.FINAL))
+    await kit.store_day(game("1", GameStatus.FINAL), game("2", GameStatus.POSTPONED))
 
     assert kit.past_kind.check("1") is IdStatus.KNOWN
+    assert kit.past_kind.check("2") is IdStatus.UNKNOWN
+
+
+@pytest.mark.anyio
+async def test_a_day_stored_before_startup_is_indexed_at_startup(kit: PastKit) -> None:
+    await kit.store_day(game("1", GameStatus.FINAL))
+
+    restarted = PastGameDetailFeeds(
+        kit.settings,
+        kit.store,
+        kit.client,
+        FeedCache(kit.path, kit.store, clock=lambda: kit.clock[0]),
+        fetch_sections=kit.fetch_sections,
+    )
+
+    assert restarted.check("1") is IdStatus.KNOWN
+    assert restarted.check("2") is IdStatus.UNKNOWN
+
+
+@pytest.mark.anyio
+async def test_an_unknown_past_game_id_is_answered_without_reading_any_day_feed_file(
+    kit: PastKit, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    await kit.store_day(game("1", GameStatus.FINAL))
+    reads: list[str] = []
+
+    def counting_read(*args: Any) -> Any:
+        reads.append("read")
+        return read_by_id(*args)
+
+    def counting_ids(*args: Any) -> Any:
+        reads.append("ids")
+        return published_ids(*args)
+
+    monkeypatch.setattr("app.jobs.past_game_detail_feed.read_by_id", counting_read)
+    monkeypatch.setattr("app.jobs.past_game_detail_feed.published_ids", counting_ids)
+
+    assert kit.past_kind.check("999") is IdStatus.UNKNOWN
+    assert kit.past_kind.check("1") is IdStatus.KNOWN
+    assert kit.past_kind.depends_on("999") is None
+
+    assert reads == []
 
 
 @pytest.mark.anyio
@@ -597,6 +648,10 @@ async def test_the_games_job_never_refreshes_or_deletes_a_past_game_detail(
         calls.append(game_id)
         return sections()
 
+    day = with_build_version(
+        build_day_feed(NOW, PAST, 2026, [game("p1", GameStatus.FINAL)], search_url)
+    )
+    publish_by_id(tmp_path, DAY_KIND, DayFeed, PAST.isoformat(), day)
     PastGameDetailFeeds(
         harness.settings,
         harness.store,
@@ -604,10 +659,6 @@ async def test_the_games_job_never_refreshes_or_deletes_a_past_game_detail(
         harness.cache,
         fetch_sections=fetch_sections,
     )
-    day = with_build_version(
-        build_day_feed(NOW, PAST, 2026, [game("p1", GameStatus.FINAL)], search_url)
-    )
-    publish_by_id(tmp_path, DAY_KIND, DayFeed, PAST.isoformat(), day)
     harness.games = [
         live_game("1", GameStatus.SCHEDULED, start=NOON + 5 * dt.timedelta(hours=1))
     ]
@@ -640,6 +691,7 @@ async def test_an_upper_case_postseason_note_gives_the_title_case_mark_and_a_fin
         build_day_feed(NOW, day, past.season, past.games, search_url)
     )
     publish_by_id(kit.path, DAY_KIND, DayFeed, day.isoformat(), stored)
+    kit.past_kind.index_day(day.isoformat(), stored)
     by_id = {g.id: g for g in stored.day.games}
 
     marked = PastGameDetailFeed.model_validate_json(await kit.serve_past("7005"))

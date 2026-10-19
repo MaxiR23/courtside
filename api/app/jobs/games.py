@@ -25,7 +25,8 @@
 # ADR 0064).
 #
 # The game detail feed kind reads the games of the days shown through
-# shown_games and refreshed_at; after_run lets it run the
+# shown_games and refreshed_at, and the day feed reads the days through
+# shown_days; after_run lets it run the
 # cleanup.
 #
 # Once a day, with the daily fetch, the job state is pruned (ADR 0063): source
@@ -302,6 +303,12 @@ class GamesJob:
         if any(day not in self._games for day in shown):
             return None
         return [game for day in shown for game in self._games[day]]
+
+    def shown_days(self) -> list[dt.date] | None:
+        """The days shown now; None until the job has run."""
+        if self._today is None:
+            return None
+        return days_shown(self._today)
 
     def loaded_game(self, game_id: str) -> ScoreboardGame | None:
         """The game with this id in any day held now, shown or not; None when no day holds it."""

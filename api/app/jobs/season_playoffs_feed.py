@@ -9,10 +9,10 @@
 # postseason record of the two finalists and the game detail of the Finals games.
 # It reads no postseason window, no bracket scoreboard day, no team info, no
 # roster and no game detail outside the Finals. The names of leaders and award
-# winners come from the player identities (PlayerIdentities, ADR 0061): the top
-# five of each leader category and every award winner, each read once through
-# the 30-day cache; a player whose identity could not be read is kept with a dash
-# and no photo. The leader's and the winner's team is their own team link. The
+# winners come from the player identities (PlayerIdentities, ADR 0061, ADR 0066):
+# the top three of each leader category and at most MAX_AWARD_WINNERS distinct
+# award winners, each read once through the 30-day cache; a player whose identity
+# could not be read, or past that maximum, is kept with a dash and no photo. The leader's and the winner's team is their own team link. The
 # champion's postseason record is the one of the team with four counted Finals
 # wins. The colors come from the team info the
 # source cache already holds, else they are null. The league sides are named from
@@ -21,8 +21,7 @@
 # so that window is not read and the play-in block is null. Leaders, awards and
 # the finalists' records are null only when the source answers 404; any other
 # failed read fails the build, because the feed is kept for good. The budget is
-# READ_BUDGET plus the leader reads plus one read per award winner, extended once
-# the awards are known. A read past the budget or a rate limit (429, 503) fails
+# the one constant READ_BUDGET, identity reads included. A read past the budget or a rate limit (429, 503) fails
 # the build before it stores anything. A
 # past playoffs feed is stored only when it builds as complete: a postseason that
 # is not complete, or whose rounds cannot be derived, fails the build, logs the
@@ -66,7 +65,7 @@ from app.jobs.on_demand import (
 from app.jobs.player_identities import IDENTITY_READS_IN_FLIGHT, PlayerIdentities
 from app.jobs.playoffs_feed import (
     CODES,
-    MAX_LEADERS,
+    PAST_LEADERS,
     WINS_TO_WIN,
     FetchAwards,
     FetchLeaders,
@@ -119,10 +118,16 @@ FINALS_GAMES = 7
 # The most source reads one build sends (ADR 0058): 1 standings + 20 team
 # schedules + 1 play-in window + 5 play-in days (the window's Eastern dates, its end
 # included) + 1 leaders + 26 awards (the index
-# and 25 documents) + 2 finalist records + 7 Finals game details. The leader reads
-# and the award winner reads come on top of it (ADR 0061).
-READ_BUDGET = 63
-LEADER_READS = len(LeaderCategory) * MAX_LEADERS
+# and 25 documents) + 2 finalist records + 7 Finals game details = 63, plus the
+# identity reads (ADR 0061, ADR 0066): LEADER_READS leaders and at most
+# MAX_AWARD_WINNERS award winners.
+LEADER_READS = len(LeaderCategory) * PAST_LEADERS
+# The most distinct award winners read: 12 single-winner awards, the Cup
+# All-Tournament team (5), All-NBA 3 x 5, All-Rookie 2 x 5 and All-Defensive
+# 2 x 5 (AWARDS in app.sources.season_awards). A further winner is shown with a
+# dash and no photo.
+MAX_AWARD_WINNERS = 52
+READ_BUDGET = 63 + LEADER_READS + MAX_AWARD_WINNERS
 # The rules version of this kind and the past Finals (ADR 0061); any change to
 # SEASON_BUILD_VERSION moves it too.
 BUILD_VERSION = SEASON_BUILD_VERSION + 1
@@ -257,9 +262,7 @@ class SeasonPlayoffsFeeds:
             return playoffs_feed.KIND, playoffs_feed.FEED_ID
         return KIND, season
 
-    async def _read(
-        self, season: str, budget: ReadBudget
-    ) -> tuple[PlayoffsSources, DivisionStandings]:
+    async def _read(self, season: str) -> tuple[PlayoffsSources, DivisionStandings]:
         year = int(season)
         client, settings = self._client, self._settings
         play_in_read = (
@@ -298,15 +301,24 @@ class SeasonPlayoffsFeeds:
             entry.player_id
             for category in LeaderCategory
             for entry in (
-                leaders.categories.get(category, [])[:MAX_LEADERS] if leaders else []
+                leaders.categories.get(category, [])[:PAST_LEADERS] if leaders else []
             )
         ]
-        winner_ids = [
-            winner.player_id
-            for award in (awards.awards if awards else [])
-            for winner in award.winners
-        ]
-        budget.extend(LEADER_READS + len(winner_ids))
+        distinct_winners = list(
+            dict.fromkeys(
+                winner.player_id
+                for award in (awards.awards if awards else [])
+                for winner in award.winners
+            )
+        )
+        winner_ids = distinct_winners[:MAX_AWARD_WINNERS]
+        if len(distinct_winners) > MAX_AWARD_WINNERS:
+            logger.warning(
+                "season playoffs: %s has %d award winners, the first %d are read",
+                season,
+                len(distinct_winners),
+                MAX_AWARD_WINNERS,
+            )
         records, _finals_players, resolved = await asyncio.gather(
             asyncio.gather(
                 *(
@@ -348,9 +360,9 @@ class SeasonPlayoffsFeeds:
         )
         return sources, standings
 
-    async def _build(self, season: str, budget: ReadBudget) -> PlayoffsFeed:
+    async def _build(self, season: str) -> PlayoffsFeed:
         try:
-            sources, standings = await self._read(season, budget)
+            sources, standings = await self._read(season)
             feed = build_playoffs_feed(sources)
             if feed.state is not PlayoffsState.COMPLETE:
                 raise PlayoffsBuildError(f"the {season} postseason is not complete")
@@ -374,7 +386,7 @@ class SeasonPlayoffsFeeds:
     async def build(self, season: str) -> PlayoffsFeed:
         budget = ReadBudget(READ_BUDGET, wide_in_flight=IDENTITY_READS_IN_FLIGHT)
         return await within_budget(
-            budget, f"season playoffs: {season}", lambda: self._build(season, budget)
+            budget, f"season playoffs: {season}", lambda: self._build(season)
         )
 
     def stored(self, season: str) -> PlayoffsFeed | None:

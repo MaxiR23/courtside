@@ -269,7 +269,14 @@ a team with null colors.
   leaders and the awards, one scoreboard day per day of both windows from the first
   day of the play-in window (about 70), and the champion's postseason record when
   the Finals series is complete. Source freshness is 1 hour, except the scoreboard
-  days at 30 seconds, shared with the games job.
+  days: a day before today is read through the cache fresh for 7 days, or from
+  the latest final time of a postseason game of that day when later; today and
+  later days keep 30 seconds, shared with the games job; and team info, 24 hours
+  ([ADR 0066](../adr/0066-cut-read-amplification-of-on-demand-builds.md)). The
+  build runs under two read budgets that count reads only, 2 for the windows
+  then the day count plus 60 for the rest, with at most four reads in flight, so
+  a rate-limited leaders, awards or team info read only nulls its part. A past
+  build lists the first 3 leaders of each category, a current one the first 5.
 - A failed season type, standings or scoreboard day read fails the build, and so
   does a postseason game the build cannot place. A failed leaders read gives
   `leaders: null`, a failed awards read `awards: null`, a failed team info read
@@ -303,10 +310,11 @@ current season.
 
 - The current season serves the feed above: same stored file, body, ETag and
   expiry.
-- A past season is built under a read budget of 63 source reads plus 45
-  leader reads plus one read per award winner
+- A past season is built under one read budget of 142 source reads: 63 reads, 27
+  leader identity reads and at most 52 award winner identity reads
   ([ADR 0058](../adr/0058-bounded-past-competition-reads.md),
-  [ADR 0061](../adr/0061-past-playoffs-player-identities-and-finals-mvp-averages.md)): the season
+  [ADR 0061](../adr/0061-past-playoffs-player-identities-and-finals-mvp-averages.md),
+  [ADR 0066](../adr/0066-cut-read-amplification-of-on-demand-builds.md)): the season
   standings (1), the postseason schedule of the first 8 teams of each conference
   (10 from 2021; per conference the seeded teams in seed order, then the unseeded
   by best record), which gives every game with its season type (`seasonType.type`: 3, 5, missing as 3,
@@ -319,11 +327,12 @@ current season.
   info, no roster and no game detail outside the Finals. At most four reads are in
   flight at once, with no pause. A read past the budget, and a 429 or 503, fail
   the build with a logged reason and nothing stored.
-- The first 5 leaders of each category and every award winner are named from
-  their athlete object, read once through the player identity cache (kept 30
+- The first 3 leaders of each category and up to 52 distinct award winners are
+  named from their athlete object, read once through the player identity cache (kept 30
   days, at most eight reads in flight, the other reads at four). A player whose
   read failed is kept with his id, the name "—" and no photo, and is read again on
-  the next build; a rate limit stops the build. Nobody is left out. The team of a
+  the next build; a rate limit stops the build. No leader is left out; a winner
+  past the 52nd (a tie) is shown with "—" and no photo and is not read. The team of a
   leader or winner is their own team link.
 - The colors of a team come from the team info the source cache already holds,
   else they are null.

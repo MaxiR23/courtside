@@ -1719,6 +1719,10 @@ def test_a_game_the_games_job_has_loaded_takes_the_games_path_with_a_null_season
             {"venue": {"name": "Old"}, "season": 2005}
         )
 
+    stored = build_day_feed(
+        DAY_NOW, PAST, 2026, [day_game("401", GameStatus.FINAL)], search_url
+    )
+    publish_by_id(tmp_path, DAY_KIND, DayFeed, PAST.isoformat(), stored)
     PastGameDetailFeeds(
         settings,
         store,
@@ -1726,10 +1730,6 @@ def test_a_game_the_games_job_has_loaded_takes_the_games_path_with_a_null_season
         detail.app.state.feed_cache,
         fetch_sections=sections,
     )
-    stored = build_day_feed(
-        DAY_NOW, PAST, 2026, [day_game("401", GameStatus.FINAL)], search_url
-    )
-    publish_by_id(tmp_path, DAY_KIND, DayFeed, PAST.isoformat(), stored)
     with TestClient(detail.app) as client:
         client.portal.call(detail.job.run, NOW)  # type: ignore[union-attr]
         assert detail.app.state.feed_cache.status(PAST_KIND, "401") is IdStatus.KNOWN

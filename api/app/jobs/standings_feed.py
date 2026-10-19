@@ -8,7 +8,9 @@
 # sends them, win percentages, one-decimal points and games behind, signed
 # differentials with the minus sign U+2212, the season label and the state. A
 # team with no game has null pct, streak and games behind. It reads no clock and
-# no source. StandingsFeeds is the feed kind of the on-demand cache: the only id
+# no source. StandingsFeeds is the feed kind of the on-demand cache: the build
+# runs under READ_BUDGET reads, counting reads only, so a rate-limited team info
+# nulls its colors (ADR 0066); the only id
 # is "league", the feed is stored at feeds/standings/league.json only when
 # requested, and it expires 1 hour after a final game of the league that
 # follows the build and 7 days after the build (rule G). Colors come from team
@@ -44,12 +46,15 @@ from app.jobs.team_feed import streak as parse_streak
 from app.settings import Settings
 from app.sources import division_standings, team_info
 from app.sources.division_standings import DivisionEntry, DivisionStandings
-from app.sources.http import SourceClient, SourceError
+from app.sources.http import ReadBudget, SourceClient, SourceError, within_budget
 from app.sources.team_info import TeamInfo, secondary_color
 from app.storage.state import StateStore
 
 KIND = "standings"
 FEED_ID = "league"
+# The most source reads one build sends: 2 division standings (the request of
+# rule L) + 30 team infos.
+READ_BUDGET = 32
 REGULAR_SEASON_GAMES = 82
 MINUS = "−"
 CONFERENCE_NAMES = {
@@ -292,6 +297,13 @@ class StandingsFeeds:
             return None
 
     async def build(self, feed_id: str) -> StandingsFeed:
+        return await within_budget(
+            ReadBudget(READ_BUDGET, stop_on_rate_limit=False),
+            "standings: league",
+            lambda: self._build(feed_id),
+        )
+
+    async def _build(self, feed_id: str) -> StandingsFeed:
         standings = await self._fetch_division_standings(self._client, self._settings)
         codes = list(standings.teams)
         infos = await asyncio.gather(*(self._info(code) for code in codes))

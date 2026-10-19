@@ -75,8 +75,10 @@ from their names, so a day of this feed is valid against the games feed's
 - It responds 304 with no body when `If-None-Match` matches the current `ETag`.
 - It responds 404 with `{"detail": ...}`, with no source request, for an id that
   is not a `YYYY-MM-DD` date, a date before 1993-10-01, a date after today (US
-  Eastern) and a day of the stored games feed (with none stored, a day the
-  games job would show).
+  Eastern) and a day the games job shows, from its memory once it has run
+  ([ADR 0066](../adr/0066-cut-read-amplification-of-on-demand-builds.md));
+  before its first run, a day of the stored games feed (with none stored, a day
+  the games job would show).
 - It responds 503 after a failed read with nothing stored, and when the
   request's 20 seconds end before a missing feed is built.
 - Every feed request records presence.

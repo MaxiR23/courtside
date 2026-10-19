@@ -38,7 +38,7 @@ The root is one team.
 | `injuries`   | `TeamInjury[]` / null | Injury reports of the team                               | null on a past season; otherwise always, may be empty |
 | `nextGame`   | `NextGame` / null    | The next game, as in the [player feed](player.md)         | null when none         |
 | `schedule`   | `Schedule` / null    | Games grouped for display                                 | null when no data      |
-| `cup`        | `TeamCup` / null     | The team's Cup group and Cup record of the season         | null when no Cup group table has the team, and when a Cup read fails |
+| `cup`        | `TeamCup` / null     | The team's Cup group and Cup record of the season         | null when no Cup group table has the team, and when a Cup read fails. The six tables are read only from the first Cup game (November 1 until known) to December 31 while the stored Cup feed is not complete; otherwise the mark is the stored Cup feed's row of the team ([ADR 0066](../adr/0066-cut-read-amplification-of-on-demand-builds.md)) |
 | `titles`     | `TeamTitle[]` / null | The titles the team won in the current season, 1 to 3     | null when the team has no title; never an empty list |
 | `names`      | `NameRun[]`          | The identities of the franchise, oldest first             | always, may be empty   |
 | `buildVersion` | integer / null     | The rules version of a kept season feed ([ADR 0053](../adr/0053-season-level-rules-for-past-seasons.md)) | null on a current feed and on a stored feed from before the field |
@@ -127,9 +127,11 @@ The root is one team.
   started after the build minus 1 day, so a game that already left the days
   shown still expires the feed. It also expires when the stored playoffs feed or
   the stored Cup feed was built after it.
-- The sources read are the roster and the season leaders (24-hour
-  freshness) and the team information, division standings, league injuries
-  and season schedules (1-hour freshness), all through the source cache.
+- The sources read are the roster, the season leaders and the team
+  information (24-hour freshness) and the division standings, league injuries
+  and season schedules (1-hour freshness), all through the source cache. The
+  six Cup group tables are read only inside the Cup window, as the `cup` field
+  says.
   The division standings add one request for the regular season when the
   configured one is not (rule L).
 - `detailAvailable` is set when the feed is served, true for the games the
