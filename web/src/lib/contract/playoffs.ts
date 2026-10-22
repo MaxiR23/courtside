@@ -202,7 +202,16 @@ export interface PlayoffTeam {
 	guest: boolean;
 	seasonCode: string | null;
 	historical: boolean;
+	logo: TeamLogo | null;
 	colors: StandingsColors;
+}
+/**
+ * A team's logo: the one for a light background and, when the source has
+ * one, the one for a dark background.
+ */
+export interface TeamLogo {
+	light: string;
+	dark: string | null;
 }
 export interface StandingsColors {
 	primary: string | null;
@@ -257,6 +266,12 @@ export interface Opponent {
 	guest: boolean;
 	seasonCode: string | null;
 	historical: boolean;
+	logo: TeamLogo | null;
+	colors: TeamColors | null;
+}
+export interface TeamColors {
+	primary: string;
+	secondary: string | null;
 }
 export interface Score {
 	away: number;

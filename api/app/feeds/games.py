@@ -21,13 +21,14 @@ from pydantic.alias_generators import to_camel
 
 from app.feeds.base import (
     FeedModel,
+    HexColor,
     NonEmptyStr,
     Percentage,
     SideCode,
     TeamCode,
     UtcDatetime,
 )
-from app.feeds.opponent import Opponent, Side
+from app.feeds.opponent import Opponent, Side, TeamColors, TeamLogo
 
 # The base definitions live in app.feeds.base; the other feed modules import
 # them from here.
@@ -177,6 +178,18 @@ class Team(FeedModel):
     # The team's abbreviation in this past season, from that season's team object
     # (ADR 0055). Null on a current feed.
     season_code: SideCode | None = None
+    # The team's logo and colors (ADR 0068). Null on a past season, which cannot
+    # tell whether the team was renamed, and when the identity is not known.
+    logo: TeamLogo | None = None
+    colors: TeamColors | None = None
+
+    @model_validator(mode="after")
+    def _require_no_identity_of_a_past_team(self) -> Team:
+        if self.season_code is not None and (
+            self.logo is not None or self.colors is not None
+        ):
+            raise ValueError("a team of a past season has no logo and no colors")
+        return self
 
 
 class GameTeam(Opponent):
@@ -254,6 +267,14 @@ class Stars(FeedModel):
     home: Star | None
 
 
+class GameAccent(FeedModel):
+    """The color each side of a game shows in the hero (ADR 0068); null for a
+    side with no colors."""
+
+    away: HexColor | None
+    home: HexColor | None
+
+
 def stars_match_sides(stars: Stars, away: GameTeam, home: GameTeam) -> bool:
     """True when a side has no star exactly when it is a guest."""
     return (stars.away is None) == away.guest and (stars.home is None) == home.guest
@@ -314,6 +335,8 @@ class Game(FeedModel):
     cup: GameCup | None = None
     postseason: GamePostseason | None = None
     all_star: GameAllStar | None = None
+    # The hero colors of the two sides (ADR 0068). Null on a day feed's game.
+    accent: GameAccent | None = None
 
     @model_validator(mode="after")
     def _require_fields_of_status(self) -> Game:

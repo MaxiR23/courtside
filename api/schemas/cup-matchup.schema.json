@@ -480,6 +480,28 @@
         "historical": {
           "default": false,
           "type": "boolean"
+        },
+        "logo": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TeamLogo"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "colors": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TeamColors"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -488,7 +510,9 @@
         "city",
         "guest",
         "seasonCode",
-        "historical"
+        "historical",
+        "logo",
+        "colors"
       ],
       "title": "Opponent",
       "type": "object"
@@ -717,6 +741,32 @@
       "title": "StatLeaders",
       "type": "object"
     },
+    "TeamColors": {
+      "additionalProperties": false,
+      "properties": {
+        "primary": {
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "type": "string"
+        },
+        "secondary": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "primary",
+        "secondary"
+      ],
+      "title": "TeamColors",
+      "type": "object"
+    },
     "TeamInjury": {
       "additionalProperties": false,
       "properties": {
@@ -782,6 +832,37 @@
         "updatedAt"
       ],
       "title": "TeamInjury",
+      "type": "object"
+    },
+    "TeamLogo": {
+      "additionalProperties": false,
+      "description": "A team's logo: the one for a light background and, when the source has\none, the one for a dark background.",
+      "properties": {
+        "light": {
+          "format": "uri",
+          "maxLength": 2083,
+          "minLength": 1,
+          "type": "string"
+        },
+        "dark": {
+          "anyOf": [
+            {
+              "format": "uri",
+              "maxLength": 2083,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "light",
+        "dark"
+      ],
+      "title": "TeamLogo",
       "type": "object"
     }
   },

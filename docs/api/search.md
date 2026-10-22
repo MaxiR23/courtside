@@ -30,11 +30,11 @@ Conventions:
 
 | Object             | Fields                                                                                                                                                                                         |
 | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `SearchTeam`       | `code`, `city`, `name`, `colors`: `StandingsColors`; `record`: such as `64-18`; `division`: the division name; `divisionRank`: integer 1 to 5 or null, formatted by the page                     |
+| `SearchTeam`       | `code`, `city`, `name`, `colors`: `StandingsColors`; `record`: such as `64-18`; `division`: the division name; `divisionRank`: integer 1 to 5 or null, formatted by the page; `logo`: `TeamLogo` / null ([ADR 0068](../adr/0068-shared-team-identity-and-hero-accents.md)) |
 | `StandingsColors`  | `primary`, `secondary`: hex values such as `#112233`, each null when the team information is not available                                                                                     |
 | `SearchPlayer`     | `id`, `name`: the display name, else first and last name; `shortName`: first initial, a period and the last name; `number` (null), `position` (null), `positionAbbr` (null), `photoUrl` (null); `injury`: `SearchInjury` / null; `team`: `SearchPlayerTeam` |
 | `SearchInjury`     | `status`: the league injury status                                                                                                                                                             |
-| `SearchPlayerTeam` | `code`, `primary`: the team's primary color as a hex value, null when the team information is not available                                                                                    |
+| `SearchPlayerTeam` | `code`, `primary`: the team's primary color as a hex value, null when the team information is not available; `logo`: `TeamLogo` / null and `colors`: `TeamColors` / null ([ADR 0068](../adr/0068-shared-team-identity-and-hero-accents.md)) (`primary` stays) |
 
 ## Rules that live in the code
 

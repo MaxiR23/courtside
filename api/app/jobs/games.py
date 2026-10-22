@@ -8,7 +8,10 @@
 # are inputs, supplied by other jobs. The first feed after a start waits until
 # every team has a star (a guest side has none, ADR 0025), so no published
 # league side ever lacks one. The winner of a final game is a side, away or home
-# (ADR 0026), since a guest side may have no code.
+# (ADR 0026), since a guest side may have no code. The team identities (logo and
+# colors) are an input from the stars job too: each league side carries its identity
+# and every game its hero accent, set when the feed is built; the feed is published
+# again when the identities change (ADR 0068, ADR 0012).
 #
 # A final game's detail is fetched when it becomes final and, after a failure,
 # 2, 4 and 6 hours after its final time; the failed attempts are stored.
@@ -49,6 +52,7 @@ import datetime as dt
 import logging
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from collections.abc import Set as AbstractSet
+from types import MappingProxyType
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -64,6 +68,7 @@ from app.feeds.games import (
 )
 from app.feeds.opponent import Side
 from app.jobs.on_demand import KEPT_RETENTION, MISSING_WAIT_SECONDS
+from app.jobs.team_identity import game_accent, identified
 from app.settings import Settings
 from app.sources import game_detail, scoreboard
 from app.sources.game_detail import GameDetail
@@ -71,7 +76,7 @@ from app.sources.http import Freshness, SourceClient, SourceError
 from app.sources.scoreboard import ScoreboardGame
 from app.sources.season_team import ABSENCE_LIFETIME
 from app.storage.feeds import publish_feed
-from app.storage.state import StateStore
+from app.storage.state import StateStore, TeamIdentity
 
 logger = logging.getLogger(__name__)
 
@@ -113,6 +118,15 @@ _UNFINISHED = (GameStatus.SCHEDULED, GameStatus.LIVE, GameStatus.DELAYED)
 def no_stars(game: ScoreboardGame) -> Stars | None:
     """Default when no stars provider is given: every game then lacks its stars."""
     return None
+
+
+IdentitiesProvider = Callable[[], Mapping[str, TeamIdentity]]
+NO_IDENTITIES: Mapping[str, TeamIdentity] = MappingProxyType({})
+
+
+def no_identities() -> Mapping[str, TeamIdentity]:
+    """Default when no identities provider is given: no side then has a logo or colors."""
+    return NO_IDENTITIES
 
 
 def stars_always_ready() -> bool:
@@ -196,6 +210,7 @@ def build_games_feed(
     highlights_search_url: SearchUrlProvider,
     highlights: HighlightsProvider = no_highlights,
     out_of_stats_attempts: AbstractSet[str] = frozenset(),
+    identities: Mapping[str, TeamIdentity] = NO_IDENTITIES,
 ) -> GamesFeed:
     built_days: list[dict[str, Any]] = []
     for day, games in days:
@@ -233,7 +248,7 @@ def build_games_feed(
             built_games.append(data)
         built_days.append({"date": day, "games": built_games})
     try:
-        return GamesFeed.model_validate(
+        feed = GamesFeed.model_validate(
             {"generated_at": generated_at, "days": built_days}
         )
     except ValidationError as error:
@@ -241,6 +256,31 @@ def build_games_feed(
         raise FeedBuildError(
             f"invalid feed: {error.error_count()} errors, first at {location}"
         ) from None
+    return _with_identities(feed, identities)
+
+
+def _with_identities(
+    feed: GamesFeed, identities: Mapping[str, TeamIdentity]
+) -> GamesFeed:
+    """The feed with the identity on each side of every game and the accent of
+    each game (ADR 0068)."""
+    days = []
+    for day in feed.days:
+        games = []
+        for game in day.games:
+            away = identified(game.away, identities)
+            home = identified(game.home, identities)
+            games.append(
+                game.model_copy(
+                    update={
+                        "away": away,
+                        "home": home,
+                        "accent": game_accent(away, home),
+                    }
+                )
+            )
+        days.append(day.model_copy(update={"games": games}))
+    return feed.model_copy(update={"days": days})
 
 
 class GamesJob:
@@ -255,6 +295,7 @@ class GamesJob:
         fetch_games: FetchGames = scoreboard.fetch_games,
         fetch_game_detail: FetchGameDetail = game_detail.fetch_game_detail,
         stars: StarsProvider = no_stars,
+        identities: IdentitiesProvider = no_identities,
         stars_ready: StarsReady = stars_always_ready,
         highlights_search_url: SearchUrlProvider = no_highlights_search_url,
         highlights: HighlightsProvider = no_highlights,
@@ -274,12 +315,14 @@ class GamesJob:
         self._fetch_games = fetch_games
         self._fetch_game_detail = fetch_game_detail
         self._stars = stars
+        self._identities = identities
         self._stars_ready = stars_ready
         self._has_published = False
         self._highlights_search_url = highlights_search_url
         self._highlights = highlights
         self._published_highlights: dict[str, list[Highlight]] = {}
         self._published_stars: dict[str, Stars | None] = {}
+        self._published_identities: dict[str, TeamIdentity] = {}
         self._games: dict[dt.date, list[ScoreboardGame]] = {}
         self._fetched_at: dict[dt.date, dt.datetime] = {}
         self._details: dict[str, GameDetail] = {}
@@ -558,6 +601,7 @@ class GamesJob:
             and not moved
             and self._current_highlights() == self._published_highlights
             and self._current_stars() == self._published_stars
+            and dict(self._identities()) == self._published_identities
         ):
             return
         out = {
@@ -566,6 +610,7 @@ class GamesJob:
             if g.id not in self._details
             and self._store.failed_stats_attempts(g.id) >= MAX_STATS_ATTEMPTS
         }
+        identities = dict(self._identities())
         try:
             feed = build_games_feed(
                 now,
@@ -575,6 +620,7 @@ class GamesJob:
                 self._highlights_search_url,
                 highlights=self._highlights,
                 out_of_stats_attempts=out,
+                identities=identities,
             )
         except FeedBuildError as error:
             self._store.record_failure(JOB, now, error.reason)
@@ -582,6 +628,7 @@ class GamesJob:
         if publish_feed(self._settings.data_dir, FEED, feed):
             self._published_highlights = self._current_highlights()
             self._published_stars = self._current_stars()
+            self._published_identities = identities
             self._has_published = True
             self._store.record_success(JOB, now)
         else:

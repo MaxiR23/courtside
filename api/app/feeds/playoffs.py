@@ -106,7 +106,8 @@ class DateSpan(FeedModel):
 class PlayoffTeam(Opponent):
     """A league team of the postseason with its colors."""
 
-    colors: StandingsColors
+    # Keeps the colors of its build, not the identity's (ADR 0068).
+    colors: StandingsColors  # type: ignore[assignment]
 
     @model_validator(mode="after")
     def _require_a_league_team(self) -> PlayoffTeam:

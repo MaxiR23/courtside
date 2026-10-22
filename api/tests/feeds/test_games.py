@@ -23,6 +23,8 @@
 # - Accepts a final All-Star game without a lineScore (ADR 0051) and rejects a final league game without it
 # - Accepts a game with an All-Star mark, a null mark and no key, and rejects a mark with an empty round or without the Championship flag
 # - Accepts a guest side with a null city and rejects a league side with a null city
+# - Accepts a game with an accent of two hex colors or of nulls and rejects a bad hex; a stored game without an accent reads as null (ADR 0068)
+# - A Team of a past season has no logo and no colors (ADR 0068)
 #
 # What is covered:
 # - A valid feed is accepted and an invalid one is rejected
@@ -38,7 +40,7 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from app.feeds.games import GamesFeed
+from app.feeds.games import GamesFeed, Team
 
 Payload = dict[str, Any]
 
@@ -886,4 +888,49 @@ def test_rejects_a_league_side_with_a_null_city() -> None:
     with pytest.raises(ValidationError, match="a league team has a city"):
         GamesFeed.model_validate(
             valid_feed(valid_game("scheduled", away={**team("AAA"), "city": None}))
+        )
+
+
+def test_accepts_a_game_with_an_accent_of_two_colors_or_of_nulls() -> None:
+    for accent in (
+        {"away": "#F58426", "home": "#0077C0"},
+        {"away": None, "home": None},
+    ):
+        feed = GamesFeed.model_validate(
+            valid_feed(valid_game("scheduled", accent=accent))
+        )
+
+        assert feed.days[0].games[0].accent is not None
+        assert feed.days[0].games[0].accent.model_dump() == accent
+
+
+def test_rejects_an_accent_that_is_not_a_hex_color() -> None:
+    with pytest.raises(ValidationError, match="home"):
+        GamesFeed.model_validate(
+            valid_feed(
+                valid_game("scheduled", accent={"away": "#F58426", "home": "blue"})
+            )
+        )
+
+
+def test_a_game_without_an_accent_reads_as_null() -> None:
+    feed = GamesFeed.model_validate(valid_feed(valid_game("scheduled")))
+
+    assert feed.days[0].games[0].accent is None
+
+
+def test_a_team_of_a_past_season_has_no_logo_and_no_colors() -> None:
+    base = {"code": "BKN", "name": "Nets", "city": "Brooklyn"}
+    colors = {"primary": "#000000", "secondary": None}
+
+    assert Team.model_validate({**base, "colors": colors}).colors is not None
+    with pytest.raises(ValidationError, match="no logo and no colors"):
+        Team.model_validate({**base, "seasonCode": "NJN", "colors": colors})
+    with pytest.raises(ValidationError, match="no logo and no colors"):
+        Team.model_validate(
+            {
+                **base,
+                "seasonCode": "NJN",
+                "logo": {"light": "https://example.com/a.svg", "dark": None},
+            }
         )

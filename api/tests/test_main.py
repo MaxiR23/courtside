@@ -17,6 +17,7 @@
 # - Does not start the schedulers when jobs are off
 # - Wires the on-demand highlights search into the game detail, past game detail and All-Star kinds, with the highlights job's attempts check
 # - Wires the stars and highlights providers and the stars readiness check into the games job
+# - Wires the stars job's team identities into the games job and into the feed cache as its identities provider (ADR 0068)
 # - Wires the games job, the feed cache, stars and highlights into the game detail feeds
 # - Wires presence and the after-run hook into the games job
 # - Wires the team, player, standings, search, Cup, Cup matchup, playoffs, playoffs finals, season Cup, season Cup matchup, season playoffs, season playoffs finals and season All-Star feed kinds into the feed cache, the season Cup, season playoffs and season All-Star feeds into app.state, the player feeds into app.state, and the cleanup into the stars job's after-run hook
@@ -47,6 +48,7 @@ from fastapi.testclient import TestClient
 
 from app import main
 from app.feeds.games import FeedModel
+from app.feeds.opponent import TeamColors
 from app.jobs.all_star_edition_videos import AllStarEditionVideos
 from app.jobs.all_star_feed import AllStarFeeds
 from app.jobs.game_detail_feed import GameDetailFeeds
@@ -65,7 +67,13 @@ from app.settings import Settings
 from app.sources.http import create_client
 from app.storage import state
 from app.storage.feeds import publish_by_id, published_ids
-from app.storage.state import MIGRATIONS, STATE_FILE, StateMigrationError, StateStore
+from app.storage.state import (
+    MIGRATIONS,
+    STATE_FILE,
+    StateMigrationError,
+    StateStore,
+    TeamIdentity,
+)
 from tests.jobs.test_past_player_ids import store_team
 
 ALLOWED = "https://allowed.example"
@@ -282,8 +290,33 @@ def test_wires_the_stars_and_highlights_providers_into_the_games_job(
     kwargs = built["games_kwargs"]
     assert kwargs["stars"] == built["stars"].stars_of
     assert kwargs["stars_ready"] == built["stars"].has_every_star
+    assert kwargs["identities"] == built["stars"].team_identities
     assert kwargs["highlights"] == built["HighlightsJob"].highlights_of
     assert kwargs["highlights_search_url"] == built["HighlightsJob"].search_url_of
+
+
+def test_the_feed_cache_takes_its_identities_from_the_stars_job(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    built: dict[str, Any] = {}
+
+    class RecordingStars(StarsJob):
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            super().__init__(*args, **kwargs)
+            built["stars"] = self
+
+    monkeypatch.setattr(main, "StarsJob", RecordingStars)
+    identity = TeamIdentity(
+        code="OKC", logo=None, colors=TeamColors(primary="#007AC1", secondary=None)
+    )
+    StateStore(tmp_path).migrate()
+    StateStore(tmp_path).set_team_identity(identity)
+
+    with make_client(tmp_path, []) as client:
+        cache = client.app.state.feed_cache  # type: ignore[attr-defined]
+        provided = cache._identities()
+
+    assert provided == built["stars"].team_identities() == {"OKC": identity}
 
 
 def test_wires_the_games_jobs_final_games_into_the_stars_job(

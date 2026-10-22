@@ -44,7 +44,7 @@ from app.feeds.games import (
     TeamCode,
     UtcDatetime,
 )
-from app.feeds.opponent import Opponent, Side
+from app.feeds.opponent import Opponent, Side, TeamLogo
 from app.feeds.standings import StandingsColors
 
 MAX_TOP5 = 5
@@ -80,6 +80,7 @@ class LeagueTeam(FeedModel):
 
     code: TeamCode
     colors: StandingsColors
+    logo: TeamLogo | None = None
 
 
 class BroadcastKind(StrEnum):

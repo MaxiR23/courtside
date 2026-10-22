@@ -35,7 +35,7 @@ from app.feeds.games import (
     TeamCode,
     UtcDatetime,
 )
-from app.feeds.opponent import Opponent
+from app.feeds.opponent import Opponent, TeamColors, TeamLogo
 from app.feeds.player import (
     GameKind,
     GameTag,
@@ -43,13 +43,6 @@ from app.feeds.player import (
     NextGame,
     SeasonLabel,
 )
-
-HexColor = Annotated[str, StringConstraints(pattern=r"^#[0-9A-Fa-f]{6}$")]
-
-
-class TeamColors(FeedModel):
-    primary: HexColor
-    secondary: HexColor | None
 
 
 class Coach(FeedModel):
@@ -305,11 +298,15 @@ class TeamFeed(FeedModel):
     # a current feed and on a stored feed from before the fields.
     season_code: NonEmptyStr | None = None
     historical: bool = False
+    # The team's logo (ADR 0068); null on a historical team and when unknown.
+    logo: TeamLogo | None = None
 
     @model_validator(mode="after")
     def _require_a_season_code_of_a_historical_team(self) -> TeamFeed:
         if self.historical and self.season_code is None:
             raise ValueError("a historical team has a season code")
+        if self.historical and self.logo is not None:
+            raise ValueError("a historical team has no logo")
         return self
 
     @model_validator(mode="after")

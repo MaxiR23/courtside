@@ -15,6 +15,10 @@
 # A kind may set after_publish: it is called with the id and the feed once a build
 # has been stored (ADR 0066).
 #
+# A served feed carries the team identities (logo and colors) on every league team
+# object in it, put there when it is served and never stored, so a kept feed picks up
+# a new logo with no rebuild (ADR 0068).
+#
 # prune_unserved deletes the stored file and build row of the ids of the given kinds not served in
 # KEPT_RETENTION; they are built again on their next request (ADR 0063).
 #
@@ -24,7 +28,7 @@
 import asyncio
 import datetime as dt
 import logging
-from collections.abc import Awaitable, Callable, Iterable
+from collections.abc import Awaitable, Callable, Iterable, Mapping
 from enum import StrEnum
 from pathlib import Path
 from typing import Any
@@ -32,6 +36,7 @@ from typing import Any
 from pydantic import BaseModel, ValidationError
 
 from app.jobs.scheduler import utc_now
+from app.jobs.team_identity import with_identities
 from app.sources.http import SourceError
 from app.storage.feeds import (
     GAME_ID,
@@ -40,7 +45,7 @@ from app.storage.feeds import (
     published_ids,
     read_by_id,
 )
-from app.storage.state import StateStore
+from app.storage.state import StateStore, TeamIdentity
 
 logger = logging.getLogger(__name__)
 
@@ -132,7 +137,9 @@ class FeedCache:
         clock: Callable[[], dt.datetime] = utc_now,
         wait: float = MISSING_WAIT_SECONDS,
         build_timeout: float = BUILD_TIMEOUT_SECONDS,
+        identities: Callable[[], Mapping[str, TeamIdentity]] | None = None,
     ) -> None:
+        self._identities = identities
         self._data_dir = data_dir
         self._store = store
         self._clock = clock
@@ -281,12 +288,13 @@ class FeedCache:
     def _respond(
         self, kind: FeedKind[Any], feed_id: str, feed: BaseModel, body: bytes
     ) -> bytes:
-        if kind.serve_with is None:
+        if kind.serve_with is None and self._identities is None:
             return body
         try:
-            served = kind.model.model_validate(
-                kind.serve_with(feed_id, feed).model_dump(mode="json")
-            )
+            added = feed if kind.serve_with is None else kind.serve_with(feed_id, feed)
+            if self._identities is not None:
+                added = with_identities(added, self._identities())
+            served = kind.model.model_validate(added.model_dump(mode="json"))
         except ValidationError:
             logger.error(
                 "feed %s %s serve-time additions are invalid", kind.name, feed_id

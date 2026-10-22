@@ -64,6 +64,20 @@ export interface Opponent {
 	guest: boolean;
 	seasonCode: string | null;
 	historical: boolean;
+	logo: TeamLogo | null;
+	colors: TeamColors | null;
+}
+/**
+ * A team's logo: the one for a light background and, when the source has
+ * one, the one for a dark background.
+ */
+export interface TeamLogo {
+	light: string;
+	dark: string | null;
+}
+export interface TeamColors {
+	primary: string;
+	secondary: string | null;
 }
 export interface AllStarTeamResult {
 	gameId: string;
@@ -90,6 +104,7 @@ export interface RosterTile {
 export interface LeagueTeam {
 	code: string;
 	colors: StandingsColors;
+	logo: TeamLogo | null;
 }
 export interface StandingsColors {
 	primary: string | null;

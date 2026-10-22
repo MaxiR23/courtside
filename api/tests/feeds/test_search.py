@@ -11,6 +11,7 @@
 #   status, a photo URL that is not a URL and an unknown field
 #
 # What is covered:
+# - A team and a player team with a logo are accepted, and the player team's colors without "#" are rejected (ADR 0068)
 # - A valid feed is accepted and an invalid one is rejected
 # - Happy path, edge cases (null optionals) and error cases of each pattern
 #   and limit
@@ -36,6 +37,7 @@ def team(index: int = 0) -> Payload:
         "city": "Oklahoma City",
         "name": "Thunder",
         "colors": {"primary": "#007AC1", "secondary": "#EF3B24"},
+        "logo": None,
         "record": "64-18",
         "division": "Northwest",
         "divisionRank": 1,
@@ -52,7 +54,7 @@ def player() -> Payload:
         "positionAbbr": "PG",
         "photoUrl": "https://example.com/p.png",
         "injury": {"status": "out"},
-        "team": {"code": "OKC", "primary": "#007AC1"},
+        "team": {"code": "OKC", "primary": "#007AC1", "logo": None, "colors": None},
     }
 
 
@@ -144,3 +146,34 @@ def test_rejects_29_teams() -> None:
 def test_rejects_an_invalid_value(payload: Payload) -> None:
     with pytest.raises(ValidationError):
         SearchFeed.model_validate(copy.deepcopy(payload))
+
+
+def test_accepts_a_team_and_a_player_team_with_a_logo_and_colors() -> None:
+    logo = {"light": "https://example.com/a.svg", "dark": None}
+    payload = feed()
+    payload["teams"][0]["logo"] = logo
+    payload["players"][0]["team"].update(
+        {"logo": logo, "colors": {"primary": "#007AC1", "secondary": None}}
+    )
+
+    parsed = SearchFeed.model_validate(payload)
+
+    assert parsed.teams[0].logo is not None
+    assert parsed.players[0].team.logo is not None
+    assert parsed.players[0].team.colors is not None
+
+
+def test_rejects_player_team_colors_without_a_hash() -> None:
+    with pytest.raises(ValidationError, match="primary"):
+        SearchFeed.model_validate(
+            with_player(
+                {
+                    "team": {
+                        "code": "OKC",
+                        "primary": None,
+                        "logo": None,
+                        "colors": {"primary": "007AC1", "secondary": None},
+                    }
+                }
+            )
+        )

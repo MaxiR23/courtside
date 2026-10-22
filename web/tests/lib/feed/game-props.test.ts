@@ -768,7 +768,9 @@ describe('toGameView pre-game sections', () => {
 						city: null,
 						guest: false,
 						seasonCode: null,
-						historical: false
+						historical: false,
+						logo: null,
+						colors: null
 					},
 					isHome: true,
 					result: 'win',
@@ -994,7 +996,9 @@ describe('toGameView with a guest team', () => {
 			record: null,
 			guest: true,
 			seasonCode: null,
-			historical: false
+			historical: false,
+			logo: null,
+			colors: null
 		};
 		return {
 			...source,
@@ -1098,7 +1102,14 @@ describe('toGameView with a guest team without a code', () => {
 	function codeless(source: GameDetailFeed): GameDetailFeed {
 		return {
 			...source,
-			away: { ...mariners, record: null, seasonCode: null, historical: false },
+			away: {
+				...mariners,
+				record: null,
+				seasonCode: null,
+				historical: false,
+				logo: null,
+				colors: null
+			},
 			stars: { away: null, home: source.stars!.home },
 			winProbabilityLeader: { side: 'away', winProbability: 0.75 },
 			winProbability: [{ elapsedSeconds: 60, homeWinProbability: 0.25 }],
@@ -1162,7 +1173,9 @@ describe('toGameView with the All-Star mark', () => {
 				record: null,
 				guest: true,
 				seasonCode: null,
-				historical: false
+				historical: false,
+				logo: null,
+				colors: null
 			}
 		};
 		expect(view(source).header.away.city).toBeNull();

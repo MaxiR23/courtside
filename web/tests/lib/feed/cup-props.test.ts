@@ -90,13 +90,27 @@ describe('toCupView header', () => {
 		expect(
 			atStage(
 				'championship',
-				(f) => (f.champion = { ...champion, seasonCode: null, historical: false })
+				(f) =>
+					(f.champion = {
+						...champion,
+						seasonCode: null,
+						historical: false,
+						logo: null,
+						colors: null
+					})
 			).header.champion
 		).toBeNull();
 		expect(
 			atStage(
 				'complete',
-				(f) => (f.champion = { ...champion, seasonCode: null, historical: false })
+				(f) =>
+					(f.champion = {
+						...champion,
+						seasonCode: null,
+						historical: false,
+						logo: null,
+						colors: null
+					})
 			).header.champion
 		).toEqual(champion);
 		expect(atStage('complete').header.champion).toBeNull();
@@ -106,7 +120,8 @@ describe('toCupView header', () => {
 		const guest = { code: null, name: 'Visitors', city: 'Faraway', guest: true };
 		const v = atStage(
 			'complete',
-			(f) => (f.champion = { ...guest, seasonCode: null, historical: false })
+			(f) =>
+				(f.champion = { ...guest, seasonCode: null, historical: false, logo: null, colors: null })
 		);
 		expect(v.header.champion).toEqual(guest);
 	});

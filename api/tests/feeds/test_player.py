@@ -5,6 +5,7 @@
 # Tested:
 # - A player with every section is accepted; every nullable field may be null
 #   and is serialized as null
+# - A team with a season code has no logo and no colors (ADR 0068)
 # - A season row's seasonCodes accept a null entry and reject another length than its teams; an award accepts a code and a team number up to three (ADR 0055)
 # - A game tag keeps its kind with null conference, round and game; its round
 #   is 1 to 4 and its kind is known
@@ -774,3 +775,14 @@ def test_accepts_a_build_version_and_rejects_zero_and_reads_none_as_null() -> No
     assert PlayerFeed.model_validate({**stored, "buildVersion": 1}).build_version == 1
     with pytest.raises(ValidationError):
         PlayerFeed.model_validate({**stored, "buildVersion": 0})
+
+
+def test_rejects_a_team_with_a_season_code_and_a_logo() -> None:
+    player = valid_player()
+    player["team"]["logo"] = {"light": "https://example.com/a.svg", "dark": None}
+
+    team = PlayerFeed.model_validate(player).team
+    assert team is not None and team.logo is not None
+
+    player["team"]["seasonCode"] = "AAB"
+    rejects(player, "no logo and no colors")

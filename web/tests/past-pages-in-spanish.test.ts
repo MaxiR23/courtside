@@ -192,7 +192,14 @@ function dayWithSeries(): DayFeed {
 
 function pastPlayer(): PlayerFeed {
 	const feed = read<PlayerFeed>('player-past.json');
-	feed.team = { code: 'BKN', name: 'Nets', city: 'Brooklyn', seasonCode: 'NJ' };
+	feed.team = {
+		code: 'BKN',
+		name: 'Nets',
+		city: 'Brooklyn',
+		seasonCode: 'NJ',
+		logo: null,
+		colors: null
+	};
 	const row = feed.seasons.regular.perGame[0];
 	row.teams = ['BKN'];
 	row.seasonCodes = ['NJ'];

@@ -24,6 +24,7 @@
 # - TeamFeed rejects null injuries and accepts a null arena, a null secondary color, and a null home, away, points or differential in the record; the stored names read as complete without the flag
 # - TeamFeed rejects null colors and null injuries; PastTeamFeed accepts every past block null, rejects each one when set, and has the team schema apart from its title
 # - A feed with a build version is accepted, one with zero is rejected, and a stored feed without the field reads with a null version
+# - A team feed accepts a logo and a historical team feed with a logo is rejected (ADR 0068)
 # - A past team feed carries a season code and the historical flag; historical without a season code is rejected; a stored feed without the fields reads as not historical (ADR 0054)
 # - A past team feed accepts null colors, leaders and roster (ADR 0059); the current feed rejects each one null
 # - A leader with a null position is accepted
@@ -773,3 +774,13 @@ def test_a_stored_team_feed_without_the_fields_still_validates() -> None:
     parsed = TeamFeed.model_validate(valid_team())
 
     assert (parsed.season_code, parsed.historical) == (None, False)
+
+
+def test_accepts_a_team_feed_with_a_logo_and_rejects_a_historical_one() -> None:
+    team = valid_team()
+    team["logo"] = {"light": "https://example.com/a.svg", "dark": None}
+
+    assert TeamFeed.model_validate(team).logo is not None
+
+    team.update({"seasonCode": "SEA", "historical": True})
+    rejects(team, "no logo")

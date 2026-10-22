@@ -29,6 +29,7 @@ The root is one team.
 | `conference` | `Conference`         | `east` or `west`                                          | always                 |
 | `division`   | string               | Division name                                             | always                 |
 | `colors`     | `TeamColors`         | `primary`, `secondary`: hex values such as `#112233`; `secondary` is null when the source has none | always; null on a past season when no team info is cached (ADR 0059) |
+| `logo`       | `TeamLogo` / null    | `light`, `dark` (null): URLs of the team's logo, as in the [games feed](games.md) ([ADR 0068](../adr/0068-shared-team-identity-and-hero-accents.md)) | always; null on a historical team and when the identity is not known |
 | `arena`      | `Venue` / null       | `name`, `city` (null), `photoUrl` (null), as in the [game detail feed](game-detail.md) | null on a past season and when the source has no franchise venue |
 | `coach`      | `Coach` / null       | `name`, `seasons`                                         | null when unknown      |
 | `season`     | season label         | Such as `2026-27`                                         | always                 |

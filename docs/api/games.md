@@ -55,6 +55,15 @@ Conventions:
 | `cup`                 | `GameCup` / null       | The Cup mark: the round the game belongs to                      | null when the game is not a Cup game |
 | `postseason`          | `GamePostseason` / null | The play-in or playoff mark                                     | null for a game that is neither a play-in nor a playoff game, and for a play-in game whose note cannot be read; a playoff game always has a mark ([ADR 0050](../adr/0050-postseason-mark-of-every-series-game.md)) |
 | `allStar`             | `GameAllStar` / null   | The All-Star mark                                                | null for a game that is not an All-Star game |
+| `accent`              | `GameAccent` / null    | The hero color of each side ([ADR 0068](../adr/0068-shared-team-identity-and-hero-accents.md)) | set on every game of the games feed; null on a game of the day feed |
+
+The accent of a game is set on every game of the games feed, because the choice
+of the hero games belongs to the web ([ADR 0012](../adr/0012-hero-rotation.md)).
+A side's color is its primary, or its secondary when the primary's lightness
+(OKLab L) is below 0.36 and the side has a secondary. The home side is resolved
+first; the away color then takes its secondary when its OKLab distance to the home
+color is below 0.12 and it has one. A side with no colors, such as a guest, has a
+null accent.
 
 A `live` game requires `period`, `clock`, `lineScore`, `score`, `leaders`
 and `teamStats`. A `final` game requires `lineScore` (not a final All-Star game, which has a score and may have no line score), `score`, `winner`, `statsAvailability`
@@ -69,8 +78,11 @@ and `highlightsSearchUrl`; any other status has `winner` and
 | `GameCup`   | `stage` (`group`, `quarterfinals`, `semifinals`, `championship`), taken from the game's note |
 | `GamePostseason` | `stage` (`playin`, `playoffs`, `finals`); `round` (1 to 4: 1 to 3 are `playoffs`, 4 is `finals`; null for `playin` and for a `playoffs` game whose round cannot be read); `conference` (`east`, `west`; null for `finals`, for `playin` it is set, and for a `playoffs` game it is null exactly when `round` is); `number` (game number 1 to 7; null for `playin` and when the note gives none); `summary` (the series summary; null when the source has none, always null for `playin`); `playIn` (`seven_eight`, `nine_ten`, `eighth_seed`; set exactly for `playin`); `stakes` (`game_7`, `elimination`, `can_clinch`, `clinched`; null for none); `awayWins`, `homeWins` (0 to 4: the series wins of the game's two sides, from the series object; null for `playin` and when the source gives none); `seriesWinner` (`away`, `home`: the side that won the series, set only when the series object says it is complete and the wins differ; [ADR 0055](../adr/0055-past-season-reading-rules-and-versioned-stored-data.md)) |
 | `GameAllStar` | `roundLabel` (the round as the source writes it: "Round Robin", "Semifinals", "Championship"; the format suffix is not part of it; "All-Star Game" for the notes "ALL STAR GAME" and "NBA All-Star Game"); `championship` (true for the round `Championship`) |
-| `Team`      | `code` (three capital letters), `name`, `city`, `seasonCode` (the team's abbreviation in a past season, null otherwise; [ADR 0055](../adr/0055-past-season-reading-rules-and-versioned-stored-data.md)) |
-| `Opponent`  | `code` (null for a guest without one), `name`, `city` (null when the source sends none), `guest`, `seasonCode` (null; that season's abbreviation on a past feed, from the season team object), `historical` (false; true when that season's name, city or code differs from today's, [ADR 0054](../adr/0054-historical-sides-and-past-pages.md)); a league code is three capital letters, a guest code any non-empty string, and a guest has a code or a name and neither `seasonCode` nor `historical` |
+| `Team`      | `code` (three capital letters), `name`, `city`, `seasonCode` (the team's abbreviation in a past season, null otherwise; [ADR 0055](../adr/0055-past-season-reading-rules-and-versioned-stored-data.md)); `logo` and `colors`, as in `Opponent`, null on a past season, which cannot tell whether the team was renamed |
+| `Opponent`  | `code` (null for a guest without one), `name`, `city` (null when the source sends none), `guest`, `seasonCode` (null; that season's abbreviation on a past feed, from the season team object), `historical` (false; true when that season's name, city or code differs from today's, [ADR 0054](../adr/0054-historical-sides-and-past-pages.md)); a league code is three capital letters, a guest code any non-empty string, and a guest has a code or a name and neither `seasonCode` nor `historical`; `logo`: `TeamLogo` / null and `colors`: `TeamColors` / null, the team's identity ([ADR 0068](../adr/0068-shared-team-identity-and-hero-accents.md)), both null on a guest, a historical side (`logo`) and a team whose identity is not known yet |
+| `TeamLogo`  | `light` (URL), `dark` (URL / null: the logo for a dark background) |
+| `TeamColors` | `primary`, `secondary`: hex values such as `#112233`; `secondary` is null when the source has none |
+| `GameAccent` | `away`, `home`: the hex color each side shows in the hero, null for a side with no colors; the rule is below |
 | `GameTeam`  | `Opponent` with a required `name`; `city` required for a league team, null for a guest the source sends without one and for an All-Star team |
 | `Player`    | `playerId`, `firstName`, `lastName`, `teamCode`, `photoUrl`                                                 |
 | `Leader`    | `playerId`, `displayName` (as the source gives it), `teamCode` (null for a guest without a code), `photoUrl`, `points`, `rebounds`, `assists` (each null when the source sends none, [ADR 0055](../adr/0055-past-season-reading-rules-and-versioned-stored-data.md)); `photoUrl` is null only for a guest player without a headshot |
@@ -179,6 +191,11 @@ a failure, 2, 4 and 6 hours after the final time.
   same attempt times (see [game detail](game-detail.md)), without waiting for
   it.
 
+- The same job reads each team's info once in its daily run, within the 24-hour
+  freshness and the four reads in flight, and keeps the team's logo and colors
+  ([ADR 0068](../adr/0068-shared-team-identity-and-hero-accents.md)). A failed
+  read keeps the stored identity and never fails the team or the run. The games
+  feed is published again when an identity changes.
 - The stars of all teams are fetched concurrently in their own task and never
   delay the live refresh. After a start, no games feed is published until
   every team has a star ([ADR 0014](../adr/0014-star-guarantees.md)).

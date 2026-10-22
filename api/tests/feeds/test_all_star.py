@@ -19,6 +19,7 @@
 # - A team record that differs from its results and a result that does not match its scores are rejected
 # - An edition, a previous edition and a recap accept an edition highlight or null; a feed without the key reads it as null; an invalid edition highlight is rejected
 # - A format: a target score with untimed, periods and minutes, both shapes or neither rejected, untimed without a target score rejected, the retired formatLine key rejected
+# - A league team accepts a logo (ADR 0068)
 # - A feed with a build version is accepted, one with zero is rejected, and a stored feed without the field reads with a null version
 #
 # - Accepts null Top 5 values, null MVP values and totals that are null when any line is null, and rejects a total that is not null then (ADR 0055)
@@ -43,6 +44,7 @@ from app.feeds.all_star import (
     AllStarMvp,
     AllStarTeamBox,
     AllStarTeamResult,
+    LeagueTeam,
     TeamStatKind,
 )
 
@@ -816,3 +818,21 @@ def test_rejects_the_retired_format_line_key() -> None:
 
     with pytest.raises(ValidationError):
         AllStarFeed.model_validate(data)
+
+
+def test_a_league_team_accepts_a_logo() -> None:
+    team = LeagueTeam.model_validate(
+        {
+            "code": "OKC",
+            "colors": {"primary": "#007AC1", "secondary": None},
+            "logo": {"light": "https://example.com/okc.svg", "dark": None},
+        }
+    )
+
+    assert team.logo is not None
+    assert (
+        LeagueTeam.model_validate(
+            {"code": "OKC", "colors": {"primary": None, "secondary": None}}
+        ).logo
+        is None
+    )

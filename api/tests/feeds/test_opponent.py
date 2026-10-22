@@ -9,6 +9,7 @@
 # - A league opponent without a code or with a lowercase code is rejected
 # - A guest with neither a code nor a name is rejected
 # - Side is away or home
+# - A league side carries a logo and colors (ADR 0068): both default to null, a dark-less logo is accepted, a guest with either and a historical side with a logo are rejected, a logo with a non-URL light and colors without "#" are rejected, and a PlayoffTeam keeps StandingsColors beside a logo
 #
 # What is covered:
 # - A league side carries a season code and the historical flag (ADR 0054): both default to null and false, a historical side without a season code and a guest with either are rejected, and both serialize in camelCase
@@ -24,6 +25,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.feeds.opponent import Opponent, Side
+from app.feeds.playoffs import PlayoffTeam
 
 Payload = dict[str, Any]
 
@@ -130,3 +132,64 @@ def test_serializes_season_code_and_historical_in_camel_case() -> None:
     ).model_dump(by_alias=True)
 
     assert dumped["seasonCode"] == "SEA" and dumped["historical"] is True
+
+
+LOGO = {
+    "light": "https://example.com/okc.svg",
+    "dark": "https://example.com/okc-dark.svg",
+}
+COLORS = {"primary": "#007AC1", "secondary": "#EF3B24"}
+
+
+def test_defaults_to_no_logo_and_no_colors() -> None:
+    opponent = Opponent.model_validate(league())
+
+    assert (opponent.logo, opponent.colors) == (None, None)
+
+
+def test_accepts_a_league_side_with_a_logo_and_colors() -> None:
+    opponent = Opponent.model_validate(league(logo=LOGO, colors=COLORS))
+
+    assert opponent.logo is not None and opponent.colors is not None
+    assert str(opponent.logo.light) == LOGO["light"]
+    assert opponent.colors.secondary == "#EF3B24"
+
+
+def test_accepts_a_logo_without_a_dark_version_and_colors_without_a_secondary() -> None:
+    opponent = Opponent.model_validate(
+        league(
+            logo={"light": LOGO["light"], "dark": None},
+            colors={"primary": "#007AC1", "secondary": None},
+        )
+    )
+
+    assert opponent.logo is not None and opponent.logo.dark is None
+    assert opponent.colors is not None and opponent.colors.secondary is None
+
+
+def test_rejects_a_guest_with_a_logo_or_colors() -> None:
+    with pytest.raises(ValidationError, match="no logo and no colors"):
+        Opponent.model_validate(guest(logo=LOGO))
+    with pytest.raises(ValidationError, match="no logo and no colors"):
+        Opponent.model_validate(guest(colors=COLORS))
+
+
+def test_rejects_a_historical_side_with_a_logo() -> None:
+    with pytest.raises(ValidationError, match="no logo"):
+        Opponent.model_validate(league(seasonCode="SEA", historical=True, logo=LOGO))
+
+
+def test_rejects_a_logo_that_is_not_a_url_and_colors_without_a_hash() -> None:
+    with pytest.raises(ValidationError, match="light"):
+        Opponent.model_validate(league(logo={"light": "not a url", "dark": None}))
+    with pytest.raises(ValidationError, match="primary"):
+        Opponent.model_validate(league(colors={"primary": "007AC1", "secondary": None}))
+
+
+def test_a_playoff_team_keeps_its_standings_colors_and_gains_a_logo() -> None:
+    team = PlayoffTeam.model_validate(
+        league(colors={"primary": None, "secondary": None}, logo=LOGO)
+    )
+
+    assert team.logo is not None
+    assert team.colors.primary is None

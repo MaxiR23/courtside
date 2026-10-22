@@ -9,6 +9,7 @@
 # - Requests the URL built from the provider team code, including a code that differs from the standard one
 # - Raises the source error on an invalid payload, a color that is not six hex digits, an empty venue name, an unknown team code, a timeout, an error status and a missing URL
 # - Serves a team's info from a 20-hour-old entry and reads it again at 25 hours (ADR 0066)
+# - Maps the light logo (tagged default) and the dark logo (tagged dark) of an invented club; a payload with no default logo has no logo even with a dark one; a default logo that is not an http(s) URL drops the logo and keeps the info; a payload with no dark logo maps a null dark and one with no logos key maps no logo (ADR 0068)
 # - cached_team_info maps a cached body of any age with no request, and gives none without an entry, with an invalid body, for an unknown team code and without a configured URL (ADR 0058)
 #
 # What is covered:
@@ -46,6 +47,11 @@ TEMPLATE = "https://example.com/teams/{team}"
 URL = "https://example.com/teams/OKC"
 
 Payload = dict[str, Any]
+
+
+def load_logos() -> Payload:
+    payload: Payload = json.loads((FIXTURES / "logos.json").read_text(encoding="utf-8"))
+    return payload
 
 
 def load() -> Payload:
@@ -314,3 +320,79 @@ async def test_cached_team_info_is_none_for_an_unknown_code_or_an_unconfigured_u
         assert cached_team_info(client, "XXX", settings) is None
         unset = Settings(_env_file=None)  # type: ignore[call-arg]
         assert cached_team_info(client, "OKC", unset) is None
+
+
+@pytest.mark.anyio
+async def test_maps_the_light_and_dark_logos(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    mock.get(URL).respond(json=load_logos())
+
+    info = await fetch(settings)
+
+    assert info.logo is not None
+    assert str(info.logo.light) == "https://example.com/i/teamlogos/default/gulls.svg"
+    assert info.logo.dark is not None
+    assert str(info.logo.dark) == "https://example.com/i/teamlogos/dark/gulls.svg"
+
+
+@pytest.mark.anyio
+async def test_a_payload_without_a_default_logo_has_no_logo_even_with_a_dark_one(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load_logos()
+    payload["team"]["logos"] = [payload["team"]["logos"][1]]
+    mock.get(URL).respond(json=payload)
+
+    assert (await fetch(settings)).logo is None
+
+
+@pytest.mark.anyio
+async def test_a_default_logo_that_is_not_an_http_url_drops_the_logo_and_keeps_the_info(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load_logos()
+    payload["team"]["logos"][2]["href"] = "javascript:alert(1)"
+    mock.get(URL).respond(json=payload)
+
+    info = await fetch(settings)
+
+    assert info.logo is None
+    assert info.color == "0b3d91"
+
+
+@pytest.mark.anyio
+async def test_a_payload_without_a_dark_logo_maps_a_null_dark(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    payload = load_logos()
+    payload["team"]["logos"] = [payload["team"]["logos"][2]]
+    mock.get(URL).respond(json=payload)
+
+    info = await fetch(settings)
+
+    assert info.logo is not None and info.logo.dark is None
+
+
+@pytest.mark.anyio
+async def test_a_payload_without_a_logos_key_maps_no_logo(
+    mock: respx.MockRouter, settings: Settings
+) -> None:
+    mock.get(URL).respond(json=load())
+
+    assert (await fetch(settings)).logo is None
+
+
+@pytest.mark.anyio
+async def test_cached_team_info_maps_the_logos_of_a_cached_body(
+    mock: respx.MockRouter, settings: Settings, tmp_path: Path
+) -> None:
+    start = dt.datetime(2026, 1, 10, 12, 0, tzinfo=dt.UTC)
+    store = StateStore(tmp_path)
+    store.migrate()
+    store.set_source_entry(URL, json.dumps(load_logos()), start)
+    async with create_client(store, clock=lambda: start) as client:
+        info = cached_team_info(client, "OKC", settings)
+
+    assert info is not None and info.logo is not None
+    assert str(info.logo.light) == "https://example.com/i/teamlogos/default/gulls.svg"

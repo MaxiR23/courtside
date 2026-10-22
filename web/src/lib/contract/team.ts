@@ -33,6 +33,7 @@ export interface TeamFeed {
 	buildVersion: number | null;
 	seasonCode: string | null;
 	historical: boolean;
+	logo: TeamLogo | null;
 }
 export interface TeamColors {
 	primary: string;
@@ -144,6 +145,16 @@ export interface Opponent {
 	guest: boolean;
 	seasonCode: string | null;
 	historical: boolean;
+	logo: TeamLogo | null;
+	colors: TeamColors | null;
+}
+/**
+ * A team's logo: the one for a light background and, when the source has
+ * one, the one for a dark background.
+ */
+export interface TeamLogo {
+	light: string;
+	dark: string | null;
 }
 export interface GameTag {
 	kind: TagKind;

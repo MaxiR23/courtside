@@ -32,6 +32,7 @@ SeasonLabel = Annotated[str, StringConstraints(pattern=r"^\d{4}-\d{2}$")]
 # A guest side keeps the provider's own code, whatever it looks like (ADR 0025).
 SideCode = NonEmptyStr
 Percentage = Annotated[float, Field(ge=0, le=1)]
+HexColor = Annotated[str, StringConstraints(pattern=r"^#[0-9A-Fa-f]{6}$")]
 
 
 class AwardCode(StrEnum):

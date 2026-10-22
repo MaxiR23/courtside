@@ -28,7 +28,7 @@ The root is one player.
 | `firstName`, `lastName` | string         | Identity                                                           | always                                   |
 | `number`       | `JerseyNumber` / null   | Jersey number as text (`00` and `0` differ)                        | null when unknown                        |
 | `position`     | string                  | Position name                                                      | always                                   |
-| `team`         | `Team` / null           | `code`, `name`, `city`, as in the [games feed](games.md)           | null for a player on no current roster, and on a past season with no game log; on a past season it also carries `seasonCode` |
+| `team`         | `Team` / null           | `code`, `name`, `city`, as in the [games feed](games.md)           | null for a player on no current roster, and on a past season with no game log; on a past season it also carries `seasonCode`; it also carries `logo` and `colors` ([ADR 0068](../adr/0068-shared-team-identity-and-hero-accents.md)), both null on a past season |
 | `photoUrl`     | URL / null              | Photo                                                              | null when unknown                        |
 | `injury`       | `PlayerInjury` / null   | Current injury report                                              | null when healthy                        |
 | `profile`      | `Profile`               | Biographical data, each field null when unknown                    | always                                   |
@@ -50,7 +50,7 @@ The root is one player.
 
 | Object             | Fields                                                                                                                                         |
 | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Opponent`         | `code` (null for a guest without one), `name`, `city` (null when the source sends none), `guest`; as in the [games feed](games.md) ([ADR 0026](../adr/0026-one-guest-team-rule.md)) |
+| `Opponent`         | `code` (null for a guest without one), `name`, `city` (null when the source sends none), `guest`; as in the [games feed](games.md) ([ADR 0026](../adr/0026-one-guest-team-rule.md)); `logo` and `colors`, as in the [games feed](games.md) ([ADR 0068](../adr/0068-shared-team-identity-and-hero-accents.md)) |
 | `GameTag`          | `kind` (`cup`, `playoffs`, `allstar`), `conference` (`east`, `west` / null), `round` (1 to 4 / null, 4 is the Finals), `game` (number / null)  |
 | `NextGame`         | `gameId`, `startTime`, `opponent`: `Opponent`, `isHome`, `tag`: `GameTag` / null, `arena`, `city` (null), `broadcast` (null), `detailAvailable`    |
 | `PlayerInjury`     | `status` (the game detail feed's `InjuryStatus`), `comment` (null when none), `updatedAt`                                                      |

@@ -1,0 +1,24 @@
+{
+  "team": {
+    "id": "99",
+    "abbreviation": "OKC",
+    "location": "Harbor City",
+    "name": "Gulls",
+    "color": "0b3d91",
+    "alternateColor": "f2a900",
+    "logos": [
+      {
+        "href": "https://example.com/i/teamlogos/scoreboard/gulls.png",
+        "rel": ["full", "scoreboard"]
+      },
+      {
+        "href": "https://example.com/i/teamlogos/dark/gulls.svg",
+        "rel": ["full", "dark"]
+      },
+      {
+        "href": "https://example.com/i/teamlogos/default/gulls.svg",
+        "rel": ["full", "default"]
+      }
+    ]
+  }
+}

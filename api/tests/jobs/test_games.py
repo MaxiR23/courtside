@@ -60,6 +60,8 @@
 # - The after-run hook is called after every run, also after a failed fetch
 # - A request refresh never runs at the same time as a scheduled run
 #
+# - The builder gives each league side its identity's logo and colors, a guest side none and each game an accent by the rule; without identities the sides and the accent are null; the job publishes again when only the identities change and not when nothing changed (ADR 0068)
+#
 # What is covered:
 # - Pure logic: happy path, edge cases, error case
 # - Job: successful publication, failed run keeps the last valid feed
@@ -104,6 +106,7 @@ from app.feeds.games import (
     StatsAvailability,
     TeamStats,
 )
+from app.feeds.opponent import TeamColors, TeamLogo
 from app.jobs.games import (
     JOB,
     LIVE_INTERVAL,
@@ -124,7 +127,7 @@ from app.sources.game_detail import GameDetail
 from app.sources.http import Freshness, SourceError, create_client
 from app.sources.scoreboard import ScoreboardGame
 from app.storage.feeds import read_feed
-from app.storage.state import StateStore
+from app.storage.state import StateStore, TeamIdentity
 
 SCOREBOARD_FIXTURES = Path(__file__).parents[1] / "sources" / "fixtures" / "scoreboard"
 TODAY = dt.date(2026, 10, 5)
@@ -2406,3 +2409,88 @@ async def test_a_failed_live_detail_fetch_of_an_all_star_game_keeps_its_previous
     assert shown.leaders == ALL_STAR_DETAIL.leaders
     assert feed.generated_at == later
     assert reason(store) is None
+
+
+# Group: team identities (ADR 0068)
+
+
+def identity(code: str, primary: str, secondary: str | None) -> TeamIdentity:
+    return TeamIdentity(
+        code=code,
+        logo=TeamLogo(light=HttpUrl(f"https://example.com/{code}.svg"), dark=None),
+        colors=TeamColors(primary=primary, secondary=secondary),
+    )
+
+
+IDENTITIES = {
+    "BOS": identity("BOS", "#008348", "#ffffff"),
+    "NYK": identity("NYK", "#006bb6", "#f58426"),
+}
+
+
+def test_builder_gives_each_league_side_its_identity_and_each_game_its_accent() -> None:
+    feed = build(game("1", GameStatus.FINAL), identities=IDENTITIES)
+
+    built = feed.days[0].games[0]
+    assert built.away.logo is not None
+    assert str(built.away.logo.light) == "https://example.com/BOS.svg"
+    assert built.home.colors == IDENTITIES["NYK"].colors
+    assert built.accent is not None
+    assert (built.accent.away, built.accent.home) == ("#008348", "#006bb6")
+
+
+def test_builder_gives_a_guest_side_no_identity_and_no_accent() -> None:
+    feed = build_games_feed(
+        NOON,
+        [(TODAY, [guest_game("g", GameStatus.FINAL)])],
+        {"g": GUEST_DETAIL},
+        guest_stars,
+        lambda _: SEARCH_URL,
+        identities=IDENTITIES,
+    )
+
+    built = feed.days[0].games[0]
+    assert (built.away.logo, built.away.colors) == (None, None)
+    assert built.home.logo is not None
+    assert built.accent is not None
+    assert built.accent.away is None
+    assert built.accent.home == "#006bb6"
+
+
+def test_builder_without_identities_gives_null_sides_and_a_null_accent() -> None:
+    built = build(game("1", GameStatus.FINAL)).days[0].games[0]
+
+    assert (built.away.logo, built.away.colors) == (None, None)
+    assert (built.home.logo, built.home.colors) == (None, None)
+    assert built.accent is not None
+    assert (built.accent.away, built.accent.home) == (None, None)
+
+
+@pytest.mark.anyio
+async def test_republishes_when_only_the_identities_change_and_not_when_nothing_changed(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    sources.games[TODAY] = [game("1", GameStatus.FINAL)]
+    current = {"identities": dict(IDENTITIES)}
+    job = make_job(settings, store, sources, identities=lambda: current["identities"])
+    await job.run(NOON)
+    sources.game_calls.clear()
+    sources.detail_calls.clear()
+    published = read_feed(settings.data_dir, "games")
+
+    await job.run(NOON + dt.timedelta(minutes=5))
+    assert read_feed(settings.data_dir, "games") == published
+
+    current["identities"] = {
+        **IDENTITIES,
+        "BOS": identity("BOS", "#112233", None),
+    }
+    later = NOON + dt.timedelta(minutes=10)
+    await job.run(later)
+
+    assert sources.game_calls == []
+    assert sources.detail_calls == []
+    feed = GamesFeed.model_validate_json(read_feed(settings.data_dir, "games") or b"")
+    away = feed.days[3].games[0].away
+    assert away.colors == current["identities"]["BOS"].colors
+    assert store.job_states()[0].last_success == later

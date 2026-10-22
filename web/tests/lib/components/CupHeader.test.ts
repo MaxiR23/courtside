@@ -82,7 +82,9 @@ describe('CupHeader', () => {
 			city: 'Alderton',
 			guest: false,
 			seasonCode: null,
-			historical: false
+			historical: false,
+			logo: null,
+			colors: null
 		});
 		const { container } = render(CupHeader, { props: props({ header }) });
 		expect(container.querySelector('.champion-label')?.textContent).toBe('Champion');
@@ -98,7 +100,9 @@ describe('CupHeader', () => {
 			city: 'Faraway',
 			guest: true,
 			seasonCode: null,
-			historical: false
+			historical: false,
+			logo: null,
+			colors: null
 		});
 		const { container } = render(CupHeader, { props: props({ header }) });
 		expect(container.querySelector('.champion-name')?.textContent?.trim()).toBe('Visitors');
