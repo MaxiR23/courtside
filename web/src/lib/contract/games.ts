@@ -42,6 +42,7 @@ export interface Game {
 	cup: GameCup | null;
 	postseason: GamePostseason | null;
 	allStar: GameAllStar | null;
+	accent: GameAccent | null;
 }
 /**
  * A side of a game: one of the 30 teams, or a guest team outside the league.
@@ -54,6 +55,20 @@ export interface GameTeam {
 	guest: boolean;
 	seasonCode: string | null;
 	historical: boolean;
+	logo: TeamLogo | null;
+	colors: TeamColors | null;
+}
+/**
+ * A team's logo: the one for a light background and, when the source has
+ * one, the one for a dark background.
+ */
+export interface TeamLogo {
+	light: string;
+	dark: string | null;
+}
+export interface TeamColors {
+	primary: string;
+	secondary: string | null;
 }
 export interface Stars {
 	away: Star | null;
@@ -139,4 +154,12 @@ export interface GamePostseason {
 export interface GameAllStar {
 	roundLabel: string;
 	championship: boolean;
+}
+/**
+ * The color each side of a game shows in the hero (ADR 0068); null for a
+ * side with no colors.
+ */
+export interface GameAccent {
+	away: string | null;
+	home: string | null;
 }

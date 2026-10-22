@@ -84,7 +84,9 @@ def create_app(settings: Settings | None = None, *, run_jobs: bool = True) -> Fa
         store.migrate()
         client = create_client(store)
         presence = Presence()
-        feed_cache = FeedCache(settings.data_dir, store)
+        feed_cache = FeedCache(
+            settings.data_dir, store, identities=lambda: stars_job.team_identities()
+        )
 
         def daily_cleanup(now: dt.datetime) -> None:
             # The player ids of the stored feeds are kept before any is deleted.
@@ -108,6 +110,7 @@ def create_app(settings: Settings | None = None, *, run_jobs: bool = True) -> Fa
             store,
             client,
             stars=stars_job.stars_of,
+            identities=stars_job.team_identities,
             stars_ready=stars_job.has_every_star,
             highlights=highlights_job.highlights_of,
             highlights_search_url=highlights_job.search_url_of,

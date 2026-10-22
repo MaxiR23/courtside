@@ -7,6 +7,7 @@
 # - One schema file is written per feed
 # - The schema forbids unknown fields and lists nullable fields as required
 # - Fields carry no title
+# - Every team object of every feed carries a logo, and one with a code and a logo carries colors (ADR 0068)
 #
 # What is covered:
 # - Happy path, edge case (no field titles) and error case (stale file)
@@ -151,3 +152,54 @@ def test_all_star_schema_lists_nullable_fields_as_required() -> None:
     schema: dict[str, Any] = json.loads(render_schema(AllStarFeed))
 
     assert "previous" in schema["required"]
+
+
+def _team_definitions(schema: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    definitions = {"(root)": schema, **schema.get("$defs", {})}
+    return {
+        name: definition
+        for name, definition in definitions.items()
+        if {"code", "logo"} <= set(definition.get("properties", {}))
+    }
+
+
+@pytest.mark.parametrize(("name", "model"), FEEDS.items(), ids=list(FEEDS))
+def test_every_team_object_with_a_logo_also_has_colors(
+    name: str, model: type[BaseModel]
+) -> None:
+    schema: dict[str, Any] = json.loads(render_schema(model))
+
+    for definition_name, definition in _team_definitions(schema).items():
+        assert "colors" in definition["properties"], definition_name
+        assert "logo" in definition["required"], definition_name
+
+
+@pytest.mark.parametrize(("name", "model"), FEEDS.items(), ids=list(FEEDS))
+def test_every_opponent_side_carries_a_logo_and_colors(
+    name: str, model: type[BaseModel]
+) -> None:
+    schema: dict[str, Any] = json.loads(render_schema(model))
+    sides = [
+        definition
+        for definition in schema.get("$defs", {}).values()
+        if "guest" in definition.get("properties", {})
+    ]
+
+    for side in sides:
+        assert {"logo", "colors"} <= set(side["properties"])
+
+
+def test_the_team_objects_outside_opponent_carry_a_logo() -> None:
+    expected = {
+        "standings": "StandingsRow",
+        "search": "SearchTeam",
+        "all-star": "LeagueTeam",
+        "player": "Team",
+    }
+    for feed_name, definition in expected.items():
+        schema: dict[str, Any] = json.loads(render_schema(FEEDS[feed_name]))
+        assert "logo" in schema["$defs"][definition]["properties"], definition
+    search: dict[str, Any] = json.loads(render_schema(SearchFeed))
+    assert {"logo", "colors"} <= set(search["$defs"]["SearchPlayerTeam"]["properties"])
+    team: dict[str, Any] = json.loads(render_schema(TeamFeed))
+    assert "logo" in team["properties"]

@@ -307,6 +307,17 @@
         "historical": {
           "default": false,
           "type": "boolean"
+        },
+        "logo": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TeamLogo"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -331,7 +342,8 @@
         "differential",
         "total",
         "seasonCode",
-        "historical"
+        "historical",
+        "logo"
       ],
       "title": "StandingsRow",
       "type": "object"
@@ -360,6 +372,37 @@
         "count"
       ],
       "title": "Streak",
+      "type": "object"
+    },
+    "TeamLogo": {
+      "additionalProperties": false,
+      "description": "A team's logo: the one for a light background and, when the source has\none, the one for a dark background.",
+      "properties": {
+        "light": {
+          "format": "uri",
+          "maxLength": 2083,
+          "minLength": 1,
+          "type": "string"
+        },
+        "dark": {
+          "anyOf": [
+            {
+              "format": "uri",
+              "maxLength": 2083,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "light",
+        "dark"
+      ],
+      "title": "TeamLogo",
       "type": "object"
     },
     "TotalDifferential": {

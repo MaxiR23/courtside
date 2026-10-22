@@ -651,11 +651,19 @@ describe('toTeamView in Spanish', () => {
 describe('toTeamView with a guest opponent without a code', () => {
 	it('keeps the guest as the opponent of the next game and of a schedule row', () => {
 		const source = feed();
-		source.nextGame!.opponent = { ...mariners, seasonCode: null, historical: false };
+		source.nextGame!.opponent = {
+			...mariners,
+			seasonCode: null,
+			historical: false,
+			logo: null,
+			colors: null
+		};
 		source.schedule!.groups[0]!.games[0]!.opponent = {
 			...mariners,
 			seasonCode: null,
-			historical: false
+			historical: false,
+			logo: null,
+			colors: null
 		};
 		const v = view(source);
 		expect(v.sections.overview.nextGame?.opponent).toEqual({ team: mariners, isHome: false });

@@ -34,6 +34,8 @@ The league sides of a day are named from the scoreboard payload (name and city),
 from their names, so a day of this feed is valid against the games feed's
 `Game` schema. The rules of a past game:
 
+- **Accent**: null ([ADR 0068](../adr/0068-shared-team-identity-and-hero-accents.md)). The hero is a feature of the games feed. The league sides of a
+  day carry `logo` and `colors` like those of the games feed.
 - **Stars**: null on both sides. The games feed's rule "null exactly on a
   guest side" applies to the games feed only.
 - **Highlights**: the stored highlight of a final game, added when served

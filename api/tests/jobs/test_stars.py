@@ -53,6 +53,11 @@
 # - Has no latest roster fetch before any fetch, has the clock time of the latest roster fetch after a run, and a run with no due teams does not move it
 # - Has no current season before a fetch and the season of the latest fetched roster after a run
 # - Calls after_run after a run with due teams and not after a run with none
+# - A run reads each team's info once and keeps 30 identities in the store and in memory; with no team info URL it reads nothing (ADR 0068)
+# - A team whose info read fails keeps its stored identity, still gets its star and the run records success
+# - A new job loads the stored identities before any fetch; a returned copy does not change the job's identities
+# - A restart on a day already fetched makes no team info request, and a retried team makes no second team info request inside the freshness
+# - Team info reads count in the four reads in flight
 #
 # What is covered:
 # - Pure logic: happy path, edge cases, error case
@@ -84,6 +89,7 @@ from app.settings import Settings
 from app.sources import team_players
 from app.sources.http import Freshness, SourceError, create_client
 from app.sources.scoreboard import ScoreboardGame
+from app.sources.team_info import TeamInfo
 from app.sources.team_players import PlayerAverages, Roster, RosterEntry
 from app.sources.teams import TEAM_CODES
 from app.storage.state import StateStore
@@ -955,13 +961,26 @@ def read_fixture(name: str) -> dict[str, Any]:
     return payload
 
 
+def read_team_info() -> dict[str, Any]:
+    payload: dict[str, Any] = json.loads(
+        (
+            FIXTURES.parent.parent.parent
+            / "sources"
+            / "fixtures"
+            / "team_info"
+            / "okc.json"
+        ).read_text(encoding="utf-8")
+    )
+    return payload
+
+
 class RequestsHarness:
     """A stars job over the real adapters, one client and one counted respx route.
 
     Route answers are source requests: the source cache decides which go out.
     """
 
-    def __init__(self, path: Path) -> None:
+    def __init__(self, path: Path, *, with_team_info: bool = False) -> None:
         self.clock = [MORNING]
         self.store = StateStore(path)
         self.store.migrate()
@@ -972,6 +991,7 @@ class RequestsHarness:
             team_averages_url=BASE + "seasons/{season}/teams/{team}/leaders",
             player_averages_url=BASE + "seasons/{season}/athletes/{player_id}/stats",
             player_photo_url=BASE + "players/{player_id}.png",
+            team_info_url=BASE + "info/{team}" if with_team_info else None,
         )
         self.paths: list[str] = []
         self.games: list[ScoreboardGame] = []
@@ -989,6 +1009,8 @@ class RequestsHarness:
         path = request.url.path
         self.paths.append(path)
         parts = path.strip("/").split("/")
+        if parts[0] == "info":
+            return httpx.Response(200, json=read_team_info())
         if parts[0] == "teams":
             code = TEAM_CODES[parts[1]]
             roster = read_fixture("roster.json")
@@ -1033,6 +1055,11 @@ class RequestsHarness:
 @pytest.fixture
 def requests(tmp_path: Path) -> RequestsHarness:
     return RequestsHarness(tmp_path)
+
+
+@pytest.fixture
+def requests_with_info(tmp_path: Path) -> RequestsHarness:
+    return RequestsHarness(tmp_path, with_team_info=True)
 
 
 @pytest.mark.anyio
@@ -1352,3 +1379,214 @@ async def test_a_run_never_fetches_a_guest_roster(
 
     assert sorted(sources.roster_calls) == sorted(CODES)
     assert job.stars_of(a_guest_game("NYK")) is not None
+
+
+# Group: team identities (ADR 0068)
+
+
+def info_for(code: str) -> TeamInfo:
+    return TeamInfo(
+        location=code.title(),
+        name="Team",
+        color="0b3d91",
+        alternate_color="f2a900" if code != "BOS" else None,
+    )
+
+
+class FakeTeamInfo:
+    def __init__(self) -> None:
+        self.calls: list[str] = []
+        self.errors: set[str] = set()
+
+    async def fetch(
+        self, client: httpx.AsyncClient, code: str, settings: Settings
+    ) -> TeamInfo:
+        self.calls.append(code)
+        if code in self.errors:
+            raise SourceError("team_info", "request failed")
+        return info_for(code)
+
+
+@pytest.fixture
+def info_settings(tmp_path: Path) -> Settings:
+    return Settings(  # type: ignore[call-arg]
+        _env_file=None, data_dir=tmp_path, team_info_url=BASE + "info/{team}"
+    )
+
+
+@pytest.mark.anyio
+async def test_a_run_reads_each_teams_info_once_and_keeps_the_identities(
+    info_settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    info = FakeTeamInfo()
+    job = make_job(info_settings, store, sources, fetch_team_info=info.fetch)
+
+    await job.run(NOON)
+
+    assert sorted(info.calls) == sorted(CODES)
+    assert len(store.team_identities()) == 30
+    assert sorted(job.team_identities()) == sorted(CODES)
+    assert job.team_identities()["BOS"].colors.primary == "#0b3d91"
+    assert job.team_identities()["BOS"].colors.secondary is None
+    assert job.team_identities()["NYK"].colors.secondary == "#f2a900"
+
+
+@pytest.mark.anyio
+async def test_it_reads_no_team_info_when_no_url_is_configured(
+    settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    info = FakeTeamInfo()
+    job = make_job(settings, store, sources, fetch_team_info=info.fetch)
+
+    await job.run(NOON)
+
+    assert info.calls == []
+    assert job.team_identities() == {}
+    assert job.has_every_star()
+
+
+@pytest.mark.anyio
+async def test_a_failed_info_read_keeps_the_stored_identity_and_the_star(
+    info_settings: Settings,
+    store: StateStore,
+    sources: FakeSources,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    info = FakeTeamInfo()
+    first = make_job(info_settings, store, sources, fetch_team_info=info.fetch)
+    await first.run(NOON)
+    kept = first.team_identities()["BOS"]
+    info.errors.add("BOS")
+    second = make_job(info_settings, store, sources, fetch_team_info=info.fetch)
+
+    with caplog.at_level("WARNING"):
+        await second.run(NEXT_MORNING)
+
+    assert second.team_identities()["BOS"] == kept
+    assert store.team_identities()["BOS"] == kept
+    assert store.stars()["BOS"].player_id == "BOS2"
+    assert any("team BOS identity kept" in r.getMessage() for r in caplog.records)
+    states = {state.name: state for state in store.job_states()}
+    assert states[JOB].last_success == NEXT_MORNING
+    assert states[JOB].last_failure is None
+
+
+@pytest.mark.anyio
+async def test_a_failed_info_read_with_no_stored_identity_leaves_none(
+    info_settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    info = FakeTeamInfo()
+    info.errors.add("BOS")
+    job = make_job(info_settings, store, sources, fetch_team_info=info.fetch)
+
+    await job.run(NOON)
+
+    assert "BOS" not in job.team_identities()
+    assert len(job.team_identities()) == 29
+    assert "BOS" in store.stars()
+
+
+@pytest.mark.anyio
+async def test_a_new_job_loads_the_stored_identities_before_any_fetch(
+    info_settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    info = FakeTeamInfo()
+    await make_job(info_settings, store, sources, fetch_team_info=info.fetch).run(NOON)
+    info.calls.clear()
+
+    job = make_job(info_settings, store, sources, fetch_team_info=info.fetch)
+
+    assert len(job.team_identities()) == 30
+    assert info.calls == []
+    job.team_identities().clear()
+    assert len(job.team_identities()) == 30
+
+
+@pytest.mark.anyio
+async def test_a_restart_on_a_day_already_fetched_makes_no_team_info_request(
+    requests_with_info: RequestsHarness, tmp_path: Path
+) -> None:
+    await requests_with_info.run(MORNING)
+    first = [p for p in requests_with_info.paths if p.startswith("/info/")]
+    assert len(first) == 30
+
+    restarted = StarsJob(
+        requests_with_info.settings,
+        requests_with_info.store,
+        create_client(
+            requests_with_info.store, clock=lambda: requests_with_info.clock[0]
+        ),
+        clock=lambda: requests_with_info.clock[0],
+    )
+    requests_with_info.clock[0] = MORNING + dt.timedelta(hours=1)
+    await restarted.run(MORNING + dt.timedelta(hours=1))
+
+    after = [p for p in requests_with_info.paths if p.startswith("/info/")]
+    assert len(after) == 30
+    assert len(restarted.team_identities()) == 30
+
+
+@pytest.mark.anyio
+async def test_a_retried_team_makes_no_second_team_info_request_inside_the_freshness(
+    requests_with_info: RequestsHarness,
+) -> None:
+    requests_with_info.failing_once.add("BOS1")
+
+    await requests_with_info.run(MORNING)
+    await requests_with_info.run(MORNING + RETRY)
+
+    assert "BOS" in requests_with_info.store.stars()
+    info_paths = [p for p in requests_with_info.paths if p.startswith("/info/")]
+    assert len(info_paths) == 30
+    assert len(set(info_paths)) == 30
+
+
+@pytest.mark.anyio
+async def test_team_info_reads_count_in_the_four_reads_in_flight(
+    info_settings: Settings, store: StateStore, sources: FakeSources
+) -> None:
+    in_flight = 0
+    most = 0
+    info = FakeTeamInfo()
+
+    async def counted_info(
+        client: httpx.AsyncClient, code: str, settings: Settings
+    ) -> TeamInfo:
+        nonlocal in_flight, most
+        in_flight += 1
+        most = max(most, in_flight)
+        for _ in range(3):
+            await asyncio.sleep(0)
+        try:
+            return await info.fetch(client, code, settings)
+        finally:
+            in_flight -= 1
+
+    async def counted_roster(
+        client: httpx.AsyncClient, code: str, settings: Settings
+    ) -> Roster:
+        nonlocal in_flight, most
+        in_flight += 1
+        most = max(most, in_flight)
+        for _ in range(3):
+            await asyncio.sleep(0)
+        try:
+            return await sources.fetch_roster(client, code, settings)
+        finally:
+            in_flight -= 1
+
+    job = StarsJob(
+        info_settings,
+        store,
+        create_client(store),
+        fetch_roster=counted_roster,
+        fetch_season_averages=sources.fetch_season_averages,
+        fetch_player_averages=sources.fetch_player_averages,
+        fetch_team_info=counted_info,
+        clock=lambda: NOON,
+    )
+
+    await job.run(NOON)
+
+    assert most == 4
+    assert len(job.team_identities()) == 30

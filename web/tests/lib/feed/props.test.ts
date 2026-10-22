@@ -55,7 +55,13 @@ const todayGame = (v: HomeView, id: string): ScheduleGame => {
 };
 
 // A side as the contract types it: the season fields of a current feed are null and false.
-const side = <T extends object>(team: T) => ({ ...team, seasonCode: null, historical: false });
+const side = <T extends object>(team: T) => ({
+	...team,
+	seasonCode: null,
+	historical: false,
+	logo: null,
+	colors: null
+});
 
 describe('toHomeView', () => {
 	it('sets dayIds to the seven feed dates in order', () => {

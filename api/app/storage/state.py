@@ -1,6 +1,6 @@
 # api/app/storage/state.py
 #
-# Job state in SQLite: game dates, final times and whether they were first seen, highlight attempts, failed stats attempts, matched highlights, team stars, discovered All-Star editions, the video of each edition and the time each All-Star game was first seen final, the date and box-score players of past games, the player identity cache, the seasons a team did not exist, the targets the highlights search found no video for and its searches per day, source cache entries, feed build times and failures and per-job outcomes.
+# Job state in SQLite: game dates, final times and whether they were first seen, highlight attempts, failed stats attempts, matched highlights, team stars, team identities (logo and colors), discovered All-Star editions, the video of each edition and the time each All-Star game was first seen final, the date and box-score players of past games, the player identity cache, the seasons a team did not exist, the targets the highlights search found no video for and its searches per day, source cache entries, feed build times and failures and per-job outcomes.
 # Schema versioned with PRAGMA user_version; MIGRATIONS run once each on startup.
 # One connection per operation, so sync endpoints can use it from the threadpool.
 #
@@ -17,7 +17,15 @@ from typing import Annotated, Literal
 
 from pydantic import Field
 
-from app.feeds.games import FeedModel, Highlight, NonEmptyStr, Star, UtcDatetime
+from app.feeds.games import (
+    FeedModel,
+    Highlight,
+    NonEmptyStr,
+    Star,
+    TeamCode,
+    UtcDatetime,
+)
+from app.feeds.opponent import TeamColors, TeamLogo
 
 logger = logging.getLogger(__name__)
 
@@ -173,6 +181,10 @@ MIGRATIONS: tuple[Migration, ...] = (
             "searches INTEGER NOT NULL)"
         ),
     ),
+    # The team identities the stars job keeps (ADR 0068).
+    (
+        "CREATE TABLE team_identities (team_code TEXT PRIMARY KEY, identity TEXT NOT NULL)",
+    ),
 )
 
 
@@ -201,6 +213,14 @@ class AllStarEditionRecord(FeedModel):
     season: int
     game_date: dt.date
     game_ids: Annotated[list[NonEmptyStr], Field(min_length=1)]
+
+
+class TeamIdentity(FeedModel):
+    """A team's logo and colors, as the stars job read them. Never reaches a feed."""
+
+    code: TeamCode
+    logo: TeamLogo | None
+    colors: TeamColors
 
 
 class SourceEntry(FeedModel):
@@ -299,6 +319,21 @@ class StateStore:
         with self._connect() as connection:
             rows = connection.execute("SELECT team_code, star FROM stars").fetchall()
         return {code: Star.model_validate_json(text) for code, text in rows}
+
+    def set_team_identity(self, identity: TeamIdentity) -> None:
+        with self._connect() as connection, connection:
+            connection.execute(
+                "INSERT INTO team_identities (team_code, identity) VALUES (?, ?) "
+                "ON CONFLICT(team_code) DO UPDATE SET identity = excluded.identity",
+                (identity.code, identity.model_dump_json()),
+            )
+
+    def team_identities(self) -> dict[str, TeamIdentity]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT team_code, identity FROM team_identities"
+            ).fetchall()
+        return {code: TeamIdentity.model_validate_json(text) for code, text in rows}
 
     def set_highlight(self, game_id: str, highlight: Highlight) -> None:
         with self._connect() as connection, connection:

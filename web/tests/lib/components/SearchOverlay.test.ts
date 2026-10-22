@@ -49,7 +49,7 @@ const manyPlayers = (): SearchFeed => {
 		positionAbbr: null,
 		photoUrl: null,
 		injury: null,
-		team: { code: 'OKC', primary: null }
+		team: { code: 'OKC', primary: null, logo: null, colors: null }
 	}));
 	return { ...feed, players: [...feed.players, ...extra] };
 };

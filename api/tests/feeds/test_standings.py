@@ -14,6 +14,7 @@
 # - A feed with a build version is accepted, one with zero is rejected, and a stored feed without the field reads with a null version
 #
 # What is covered:
+# - A row with a logo is accepted and a historical row with a logo is rejected (ADR 0068)
 # - A row with a season code and the historical flag is accepted, historical without a season code is rejected, and a stored feed without the fields reads as not historical (ADR 0054)
 # - A valid feed is accepted and an invalid one is rejected
 # - Happy path, edge cases (null optionals) and error cases of each pattern
@@ -58,6 +59,7 @@ def row() -> Payload:
         "total": {"value": "+914", "nonNegative": True},
         "seasonCode": None,
         "historical": False,
+        "logo": None,
     }
 
 
@@ -238,3 +240,15 @@ def test_a_stored_row_without_the_fields_still_validates() -> None:
     parsed = StandingsFeed.model_validate(payload)
 
     assert parsed.divisions[0].teams[0].historical is False
+
+
+def test_accepts_a_row_with_a_logo_and_rejects_a_historical_row_with_one() -> None:
+    logo = {"light": "https://example.com/a.svg", "dark": None}
+
+    parsed = StandingsFeed.model_validate(with_row({"logo": logo}))
+    assert parsed.divisions[0].teams[0].logo is not None
+
+    with pytest.raises(ValidationError, match="no logo"):
+        StandingsFeed.model_validate(
+            with_row({"logo": logo, "seasonCode": "SEA", "historical": True})
+        )

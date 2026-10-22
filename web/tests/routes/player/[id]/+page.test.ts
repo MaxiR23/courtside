@@ -92,7 +92,9 @@ const withLive = (): PlayerFeed => {
 			city: null,
 			guest: false,
 			seasonCode: null,
-			historical: false
+			historical: false,
+			logo: null,
+			colors: null
 		},
 		isHome: false,
 		period: 3,

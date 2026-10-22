@@ -18,10 +18,12 @@ from pydantic import (
     model_validator,
 )
 
+from app.feeds.base import HexColor
 from app.feeds.game_detail import Conference
 from app.feeds.games import FeedModel, NonEmptyStr, TeamCode
+from app.feeds.opponent import TeamLogo
 from app.feeds.player import SeasonLabel
-from app.feeds.team import HexColor, Streak
+from app.feeds.team import Streak
 
 RecordText = Annotated[str, StringConstraints(pattern=r"^\d+-\d+$")]
 PctText = Annotated[str, StringConstraints(pattern=r"^(\.\d{3}|1\.000)$")]
@@ -90,11 +92,15 @@ class StandingsRow(FeedModel):
     # current feed and on a stored feed from before the fields.
     season_code: NonEmptyStr | None = None
     historical: bool = False
+    # The team's logo (ADR 0068); null on a historical row and when unknown.
+    logo: TeamLogo | None = None
 
     @model_validator(mode="after")
     def _require_a_season_code_of_a_historical_row(self) -> StandingsRow:
         if self.historical and self.season_code is None:
             raise ValueError("a historical row has a season code")
+        if self.historical and self.logo is not None:
+            raise ValueError("a historical row has no logo")
         return self
 
 

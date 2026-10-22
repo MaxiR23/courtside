@@ -11,11 +11,12 @@ from typing import Annotated
 
 from pydantic import Field, HttpUrl
 
+from app.feeds.base import HexColor
 from app.feeds.game_detail import InjuryStatus
 from app.feeds.games import FeedModel, NonEmptyStr, TeamCode
+from app.feeds.opponent import TeamColors, TeamLogo
 from app.feeds.player import JerseyNumber
 from app.feeds.standings import RecordText, StandingsColors
-from app.feeds.team import HexColor
 
 TEAM_COUNT = 30
 
@@ -25,6 +26,7 @@ class SearchTeam(FeedModel):
     city: NonEmptyStr
     name: NonEmptyStr
     colors: StandingsColors
+    logo: TeamLogo | None = None
     record: RecordText
     division: NonEmptyStr
     division_rank: Annotated[int, Field(ge=1, le=5)] | None
@@ -37,6 +39,8 @@ class SearchInjury(FeedModel):
 class SearchPlayerTeam(FeedModel):
     code: TeamCode
     primary: HexColor | None
+    logo: TeamLogo | None = None
+    colors: TeamColors | None = None
 
 
 class SearchPlayer(FeedModel):

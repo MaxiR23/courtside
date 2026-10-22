@@ -32,6 +32,7 @@ const team = (code: string, city: string, name: string): SearchTeam => ({
 	city,
 	name,
 	colors: { primary: null, secondary: null },
+	logo: null,
 	record: '0-0',
 	division: 'Northwest',
 	divisionRank: 1
@@ -51,7 +52,7 @@ const player = (
 	positionAbbr: null,
 	photoUrl,
 	injury: null,
-	team: { code: teamCode, primary: null }
+	team: { code: teamCode, primary: null, logo: null, colors: null }
 });
 
 const feed = (players: SearchPlayer[]): SearchFeed =>

@@ -45,6 +45,7 @@ export interface StandingsRow {
 	total: TotalDifferential | null;
 	seasonCode: string | null;
 	historical: boolean;
+	logo: TeamLogo | null;
 }
 export interface StandingsColors {
 	primary: string | null;
@@ -61,6 +62,14 @@ export interface PerGameDifferential {
 export interface TotalDifferential {
 	value: string;
 	nonNegative: boolean;
+}
+/**
+ * A team's logo: the one for a light background and, when the source has
+ * one, the one for a dark background.
+ */
+export interface TeamLogo {
+	light: string;
+	dark: string | null;
 }
 export interface DivisionGroup {
 	name: string;

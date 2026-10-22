@@ -3,7 +3,10 @@
 # Team info adapter: fetches one team's name, colors and arena from the provider
 # and maps them to an internal team info. Colors come without the leading "#".
 # The alternate color and the franchise venue may be missing: they are null
-# (ADR 0064).
+# (ADR 0064). The logo is the entry tagged "default" (light background) and, when
+# there is one, the entry tagged "dark"; an entry whose address is not an http(s)
+# URL is dropped, and a team with no usable "default" logo has no logo, never an
+# error (ADR 0064, ADR 0068).
 # The provider URL comes from Settings. Provider data never leaves this module.
 #
 # A team's info is fresh for 24 hours (ADR 0066).
@@ -17,12 +20,15 @@ from typing import Annotated
 from pydantic import (
     BaseModel,
     ConfigDict,
+    HttpUrl,
     StringConstraints,
+    TypeAdapter,
     ValidationError,
 )
 from pydantic.alias_generators import to_camel
 
 from app.feeds.games import FeedModel, NonEmptyStr
+from app.feeds.opponent import TeamLogo
 from app.settings import Settings
 from app.sources.http import SourceClient, SourceError, cached_json, get_json
 from app.sources.teams import TEAM_CODES
@@ -34,6 +40,7 @@ PROVIDER_CODES: dict[str, str] = {
 }
 
 HexDigits = Annotated[str, StringConstraints(pattern=r"^[0-9A-Fa-f]{6}$")]
+_HTTP_URL = TypeAdapter(HttpUrl)
 
 
 class _ProviderModel(BaseModel):
@@ -48,6 +55,11 @@ class _ProviderAddress(_ProviderModel):
 
 class _ProviderImage(_ProviderModel):
     href: str
+
+
+class _ProviderLogo(_ProviderModel):
+    href: str
+    rel: list[str] = []
 
 
 class _ProviderVenue(_ProviderModel):
@@ -66,6 +78,7 @@ class _ProviderTeam(_ProviderModel):
     color: HexDigits
     alternate_color: HexDigits | None = None
     franchise: _ProviderFranchise | None = None
+    logos: list[_ProviderLogo] = []
 
 
 class _ProviderTeamInfo(_ProviderModel):
@@ -82,6 +95,7 @@ class TeamInfo(FeedModel):
     venue_name: NonEmptyStr | None = None
     venue_city: NonEmptyStr | None = None
     venue_photo_url: NonEmptyStr | None = None
+    logo: TeamLogo | None = None
 
 
 def secondary_color(info: TeamInfo) -> str | None:
@@ -112,6 +126,26 @@ async def fetch_team_info(
     return _map(body, team_code)
 
 
+def _logo_href(logos: list[_ProviderLogo], tag: str) -> str | None:
+    """The address of the first logo with the tag that is an http(s) URL."""
+    for logo in logos:
+        if tag not in logo.rel:
+            continue
+        try:
+            _HTTP_URL.validate_python(logo.href)
+        except ValidationError:
+            continue
+        return logo.href
+    return None
+
+
+def _logo(logos: list[_ProviderLogo]) -> dict[str, str | None] | None:
+    light = _logo_href(logos, "default")
+    if light is None:
+        return None
+    return {"light": light, "dark": _logo_href(logos, "dark")}
+
+
 def _map(body: object, team_code: str) -> TeamInfo:
     try:
         provider = _ProviderTeamInfo.model_validate(body)
@@ -135,6 +169,7 @@ def _map(body: object, team_code: str) -> TeamInfo:
                 "venue_photo_url": venue.images[0].href
                 if venue and venue.images
                 else None,
+                "logo": _logo(team.logos),
             }
         )
     except ValidationError as error:

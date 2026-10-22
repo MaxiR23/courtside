@@ -49,6 +49,7 @@ export interface SearchTeam {
 	city: string;
 	name: string;
 	colors: StandingsColors;
+	logo: TeamLogo | null;
 	record: string;
 	division: string;
 	divisionRank: number | null;
@@ -56,6 +57,14 @@ export interface SearchTeam {
 export interface StandingsColors {
 	primary: string | null;
 	secondary: string | null;
+}
+/**
+ * A team's logo: the one for a light background and, when the source has
+ * one, the one for a dark background.
+ */
+export interface TeamLogo {
+	light: string;
+	dark: string | null;
 }
 export interface SearchPlayer {
 	id: string;
@@ -74,4 +83,10 @@ export interface SearchInjury {
 export interface SearchPlayerTeam {
 	code: string;
 	primary: string | null;
+	logo: TeamLogo | null;
+	colors: TeamColors | null;
+}
+export interface TeamColors {
+	primary: string;
+	secondary: string | null;
 }

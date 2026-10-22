@@ -20,23 +20,34 @@
 # the time of the latest roster fetch for the search feed, and calls after_run
 # after a run with due teams.
 #
+# The job also reads each team's info in the same run, through the adapter's 24-hour
+# freshness, and keeps the team's identity (logo and colors) in the state store and
+# in memory (ADR 0068). An identity read that fails is logged and changes nothing: the
+# stored identity stays, and the team's star, its retries, the daily mark and the job's
+# health are those of the star alone. The identity reads count in the reads in flight.
+#
 # SEE: docs/adr/0007-backend-runtime-and-data-pipeline.md, docs/adr/0014-star-guarantees.md, docs/source-rules.md, docs/adr/0020-source-rules.md,
 # docs/adr/0065-background-work-limited-to-games-highlights-and-stars.md
 
 import asyncio
 import datetime as dt
+import logging
 from collections.abc import Awaitable, Callable, Sequence
 
 from app.feeds.games import Star, Stars
 from app.jobs.games import EASTERN, AfterRun, eastern_date, no_after_run
 from app.jobs.scheduler import utc_now
+from app.jobs.team_identity import identity_of
 from app.settings import Settings
-from app.sources import team_players
+from app.sources import team_info, team_players
 from app.sources.http import Freshness, SourceClient, SourceError
 from app.sources.scoreboard import ScoreboardGame
+from app.sources.team_info import TeamInfo
 from app.sources.team_players import PlayerAverages, Roster, RosterEntry
 from app.sources.teams import TEAM_CODES
-from app.storage.state import StateStore
+from app.storage.state import StateStore, TeamIdentity
+
+logger = logging.getLogger(__name__)
 
 JOB = "stars"
 RETRY = dt.timedelta(minutes=5)
@@ -54,6 +65,7 @@ FetchSeasonAverages = Callable[
 FetchPlayerAverages = Callable[
     [SourceClient, str, int, Settings, Freshness], Awaitable[PlayerAverages | None]
 ]
+FetchTeamInfo = Callable[[SourceClient, str, Settings], Awaitable[TeamInfo]]
 CachedRoster = Callable[[SourceClient, str, Settings], Roster | None]
 FinalGames = Callable[[], Sequence[ScoreboardGame]]
 
@@ -97,6 +109,7 @@ class StarsJob:
         fetch_season_averages: FetchSeasonAverages = team_players.fetch_season_averages,
         fetch_player_averages: FetchPlayerAverages = team_players.fetch_player_averages,
         cached_roster: CachedRoster = team_players.cached_roster,
+        fetch_team_info: FetchTeamInfo = team_info.fetch_team_info,
         final_games: FinalGames = no_final_games,
         clock: Callable[[], dt.datetime] = utc_now,
         after_run: AfterRun = no_after_run,
@@ -108,6 +121,7 @@ class StarsJob:
         self._fetch_season_averages = fetch_season_averages
         self._fetch_player_averages = fetch_player_averages
         self._cached_roster = cached_roster
+        self._fetch_team_info = fetch_team_info
         self._final_games = final_games
         self._reads = asyncio.Semaphore(READS_IN_FLIGHT)
         self._clock = clock
@@ -118,6 +132,7 @@ class StarsJob:
         self._latest_roster_fetch: dt.datetime | None = None
         self._season: int | None = None
         self._stars: dict[str, Star] = store.stars()
+        self._identities: dict[str, TeamIdentity] = store.team_identities()
         self._daily_fetched_at: dt.datetime | None = self._last_success()
         # A restart on a day already fetched fills the rosters from the cache.
         self._restore = self._daily_fetched_at is not None
@@ -158,6 +173,22 @@ class StarsJob:
         self._roster_fetched.add(code)
         self._roster_entries[code] = list(roster.entries)
         self._latest_roster_fetch = self._clock()
+
+    async def _update_identity(self, code: str) -> None:
+        """Read the team's info and keep its identity; a failed read keeps the
+        stored identity and fails nothing (ADR 0068). With no team info URL
+        there is nothing to read."""
+        if self._settings.team_info_url is None:
+            return
+        try:
+            async with self._reads:
+                info = await self._fetch_team_info(self._client, code, self._settings)
+        except SourceError as error:
+            logger.warning("stars: team %s identity kept: %s", code, error)
+            return
+        identity = identity_of(code, info)
+        self._store.set_team_identity(identity)
+        self._identities[code] = identity
 
     async def _update_team(self, code: str) -> None:
         async with self._reads:
@@ -230,6 +261,7 @@ class StarsJob:
         started = self._clock()
 
         async def attempt(code: str) -> str | None:
+            await self._update_identity(code)
             try:
                 await self._update_team(code)
             except SourceError as error:
@@ -252,6 +284,10 @@ class StarsJob:
     def has_every_star(self) -> bool:
         """True once every team has a star, stored or fetched."""
         return all(code in self._stars for code in TEAM_CODES.values())
+
+    def team_identities(self) -> dict[str, TeamIdentity]:
+        """The identity (logo and colors) of each team known, by standard code."""
+        return dict(self._identities)
 
     def player_team(self, player_id: str) -> str | None:
         """The standard code of the team whose latest fetched roster lists the player."""

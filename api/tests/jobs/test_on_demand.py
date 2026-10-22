@@ -20,6 +20,8 @@
 # - Records an unexpected build error by its type and an invalid built feed as not written
 # - Serve-time additions are in the response and not in the stored file
 # - Serves the stored feed without additions when the additions make it invalid
+# - With an identities provider a served feed carries the identity on every league side, nested and in lists, after the kind's serve_with additions, a served feed whose root is a league team object gets its logo, the stored file stays without it, and additions that make it invalid serve the stored body (ADR 0068)
+# - With no provider and no serve_with the body is the stored one byte for byte
 # - Keeps stored feeds and build times across a restart with no build on startup
 # - Serves a stored feed with no build time as stale and rebuilds it
 # - Treats a stored file that fails validation as missing and builds it
@@ -66,9 +68,10 @@ from pathlib import Path
 
 import pytest
 import respx
-from pydantic import BaseModel
+from pydantic import BaseModel, HttpUrl
 
-from app.feeds.games import FeedModel
+from app.feeds.games import FeedModel, GameTeam
+from app.feeds.opponent import TeamColors, TeamLogo
 from app.jobs.on_demand import (
     BUILD_TIMEOUT_SECONDS,
     MAX_BUILDS,
@@ -87,7 +90,7 @@ from app.jobs.on_demand import (
 from app.jobs.playoffs_feed import PlayoffsBuildError
 from app.sources.http import SourceError
 from app.storage.feeds import publish_by_id, published_ids, read_by_id
-from app.storage.state import StateStore
+from app.storage.state import StateStore, TeamIdentity
 
 T = dt.datetime(2026, 1, 10, 12, 0, tzinfo=dt.UTC)
 HOUR = dt.timedelta(hours=1)
@@ -1445,3 +1448,92 @@ async def test_a_pruned_feed_is_built_again_on_its_next_request(
 
     assert body == body_of(1)
     assert setup.fake.builds == 2
+
+
+class Sided(FeedModel):
+    """A feed with a league team object at its root, a nested side and a list of sides."""
+
+    id: str
+    code: str
+    logo: TeamLogo | None = None
+    next: GameTeam
+    sides: list[GameTeam]
+    extra: str | None = None
+
+
+OKC = TeamIdentity(
+    code="OKC",
+    logo=TeamLogo(light=HttpUrl("https://example.com/okc.svg"), dark=None),
+    colors=TeamColors(primary="#007AC1", secondary=None),
+)
+
+
+def sided_kind(serve_with: object = None) -> FeedKind[Sided]:
+    async def build(feed_id: str) -> Sided:
+        side = GameTeam(code="OKC", name="Thunder", city="Oklahoma City")
+        return Sided(id=feed_id, code="OKC", next=side, sides=[side, side])
+
+    return FeedKind(
+        "sided",
+        Sided,
+        check=lambda feed_id: IdStatus.KNOWN,
+        build=build,
+        is_fresh=lambda feed, built_at, now: now - built_at < HOUR,
+        keep=lambda feed_id: True,
+        serve_with=serve_with,  # type: ignore[arg-type]
+    )
+
+
+@pytest.mark.anyio
+async def test_an_identities_provider_stamps_every_side_after_the_additions(
+    tmp_path: Path,
+) -> None:
+    store = StateStore(tmp_path)
+    store.migrate()
+    cache = FeedCache(tmp_path, store, clock=lambda: T, identities=lambda: {"OKC": OKC})
+    cache.register(
+        sided_kind(lambda feed_id, feed: feed.model_copy(update={"extra": "hi"}))
+    )
+
+    served = Sided.model_validate_json(await cache.serve("sided", "s1"))
+
+    assert served.extra == "hi"
+    assert served.logo == OKC.logo
+    assert served.next.logo == OKC.logo
+    assert served.next.colors == OKC.colors
+    assert [side.logo for side in served.sides] == [OKC.logo, OKC.logo]
+    stored = Sided.model_validate_json(read_by_id(tmp_path, "sided", "s1") or b"")
+    assert stored.logo is None
+    assert stored.next.logo is None and stored.extra is None
+
+
+@pytest.mark.anyio
+async def test_with_no_provider_and_no_serve_with_the_body_is_the_stored_one(
+    tmp_path: Path,
+) -> None:
+    store = StateStore(tmp_path)
+    store.migrate()
+    cache = FeedCache(tmp_path, store, clock=lambda: T)
+    cache.register(sided_kind())
+
+    body = await cache.serve("sided", "s1")
+
+    assert body == read_by_id(tmp_path, "sided", "s1")
+
+
+@pytest.mark.anyio
+async def test_additions_that_make_a_stamped_feed_invalid_serve_the_stored_body(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    store = StateStore(tmp_path)
+    store.migrate()
+    cache = FeedCache(tmp_path, store, clock=lambda: T, identities=lambda: {"OKC": OKC})
+    cache.register(
+        sided_kind(lambda feed_id, feed: feed.model_copy(update={"code": 5}))
+    )
+
+    with caplog.at_level(logging.ERROR):
+        body = await cache.serve("sided", "s1")
+
+    assert body == read_by_id(tmp_path, "sided", "s1")
+    assert "serve-time additions are invalid" in caplog.text

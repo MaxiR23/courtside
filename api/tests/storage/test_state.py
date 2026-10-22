@@ -75,6 +75,7 @@
 # - Migrates a database at version 7 with rows to the past games version keeping them
 # - Migrates a database at version 8 to the player identities version keeping the rows, stores, replaces and reads a player identity with its time, and reports none for an unknown player
 # - A registered date never overwrites stored players, storing players keeps the registered date, and a game with a date and no players has no players
+# - Migrates a database at version 12 to the team identities, keeping the rows; stores, replaces and reads a team identity (logo and colors); a new database has none (ADR 0068)
 #
 # What is covered:
 # - Happy path, edge cases (unknown game, repeat migration, restart, no jobs, no stars, pre-migration database), error case (naive time, failed migration)
@@ -94,6 +95,7 @@ import pytest
 from pydantic import HttpUrl
 
 from app.feeds.games import Highlight, Star
+from app.feeds.opponent import TeamColors, TeamLogo
 from app.storage import state
 from app.storage.state import (
     MIGRATIONS,
@@ -101,6 +103,7 @@ from app.storage.state import (
     STATE_FILE,
     StateMigrationError,
     StateStore,
+    TeamIdentity,
 )
 
 NOON = dt.datetime(2026, 1, 10, 12, 0, tzinfo=dt.UTC)
@@ -942,7 +945,7 @@ def test_migrating_a_database_at_the_previous_version_adds_the_all_star_editions
 
     store.migrate()
 
-    assert user_version(tmp_path) == len(real) == 12
+    assert user_version(tmp_path) == len(real) == 13
     assert [job.name for job in store.job_states()] == ["games"]
     assert store.feed_build("players", "a") is not None
     assert query(tmp_path, "SELECT COUNT(*) FROM all_star_editions") == [(0,)]
@@ -996,7 +999,7 @@ def test_migrating_a_database_at_the_all_star_editions_version_adds_the_all_star
 
     store.migrate()
 
-    assert user_version(tmp_path) == len(real) == 12
+    assert user_version(tmp_path) == len(real) == 13
     assert store.all_star_edition(2027) is not None
     assert query(tmp_path, "SELECT COUNT(*) FROM all_star_finals") == [(0,)]
 
@@ -1059,7 +1062,7 @@ def test_migrating_a_database_at_version_11_drops_the_backfill_tables_and_the_re
 
     store.migrate()
 
-    assert user_version(tmp_path) == len(real) == 12
+    assert user_version(tmp_path) == len(real) == 13
     assert "g1" in store.highlights()
     assert store.all_star_edition_highlight(2027) is not None
     assert [job.name for job in store.job_states()] == ["games", "stars"]
@@ -1153,7 +1156,7 @@ def test_migrating_a_database_at_version_7_adds_the_past_games_and_keeps_the_row
 
     store.migrate()
 
-    assert user_version(tmp_path) == len(real) == 12
+    assert user_version(tmp_path) == len(real) == 13
     assert store.all_star_edition(2027) is not None
     assert "g1" in store.highlights()
     assert query(tmp_path, "SELECT COUNT(*) FROM past_games") == [(0,)]
@@ -1209,7 +1212,7 @@ def test_migrating_a_database_at_version_8_adds_the_player_identities_and_keeps_
 
     store.migrate()
 
-    assert user_version(tmp_path) == len(real) == 12
+    assert user_version(tmp_path) == len(real) == 13
     assert store.past_game_players("g1", at=NOON) == '{"teams": {}}'
     assert query(tmp_path, "SELECT COUNT(*) FROM player_identities") == [(0,)]
 
@@ -1283,7 +1286,7 @@ def test_migrating_a_database_at_version_9_adds_the_served_and_touched_times_and
 
     store.migrate()
 
-    assert user_version(tmp_path) == len(real) == 12
+    assert user_version(tmp_path) == len(real) == 13
     assert store.feed_build("players", "a") is not None
     assert store.player_identity("p1") is not None
     served = store.last_served("players", "a")
@@ -1474,7 +1477,7 @@ def test_migrating_a_database_at_version_10_adds_the_season_team_absences_and_ke
 
     store.migrate()
 
-    assert user_version(tmp_path) == len(real) == 12
+    assert user_version(tmp_path) == len(real) == 13
     assert store.feed_build("players", "a") is not None
     assert "season_team_absences" in table_names(tmp_path)
     assert query(tmp_path, "SELECT COUNT(*) FROM season_team_absences") == [(0,)]
@@ -1525,3 +1528,49 @@ def test_rejects_a_naive_absence_time(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="timezone aware"):
         store.record_season_team_absence("sea", 1995, NOON.replace(tzinfo=None))
+
+
+def an_identity(code: str = "OKC", primary: str = "#007AC1") -> TeamIdentity:
+    return TeamIdentity(
+        code=code,
+        logo=TeamLogo(light=HttpUrl("https://example.com/a.svg"), dark=None),
+        colors=TeamColors(primary=primary, secondary=None),
+    )
+
+
+def test_migrating_a_database_at_version_12_adds_the_team_identities_and_keeps_the_rows(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    real = state.MIGRATIONS
+    monkeypatch.setattr(state, "MIGRATIONS", real[:12])
+    store = make_store(tmp_path)
+    execute(
+        tmp_path,
+        "INSERT INTO stars (team_code, star) VALUES ('OKC', '{}')",
+    )
+    assert user_version(tmp_path) == 12
+    monkeypatch.setattr(state, "MIGRATIONS", real)
+
+    store.migrate()
+
+    assert user_version(tmp_path) == len(real) == 13
+    assert query(tmp_path, "SELECT team_code FROM stars") == [("OKC",)]
+    assert query(tmp_path, "SELECT COUNT(*) FROM team_identities") == [(0,)]
+
+
+def test_a_team_identity_is_stored_replaced_and_read(tmp_path: Path) -> None:
+    store = make_store(tmp_path)
+
+    store.set_team_identity(an_identity())
+    store.set_team_identity(an_identity("BOS"))
+    store.set_team_identity(an_identity("OKC", primary="#112233"))
+    identities = store.team_identities()
+
+    assert sorted(identities) == ["BOS", "OKC"]
+    assert identities["OKC"].colors.primary == "#112233"
+    assert identities["OKC"].logo is not None
+    assert query(tmp_path, "SELECT COUNT(*) FROM team_identities") == [(2,)]
+
+
+def test_a_new_database_has_no_team_identities(tmp_path: Path) -> None:
+    assert make_store(tmp_path).team_identities() == {}

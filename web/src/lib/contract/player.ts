@@ -67,6 +67,20 @@ export interface Team {
 	name: string;
 	city: string;
 	seasonCode: string | null;
+	logo: TeamLogo | null;
+	colors: TeamColors | null;
+}
+/**
+ * A team's logo: the one for a light background and, when the source has
+ * one, the one for a dark background.
+ */
+export interface TeamLogo {
+	light: string;
+	dark: string | null;
+}
+export interface TeamColors {
+	primary: string;
+	secondary: string | null;
 }
 export interface PlayerInjury {
 	status: InjuryStatus;
@@ -138,6 +152,8 @@ export interface Opponent {
 	guest: boolean;
 	seasonCode: string | null;
 	historical: boolean;
+	logo: TeamLogo | null;
+	colors: TeamColors | null;
 }
 export interface GameTag {
 	kind: TagKind;

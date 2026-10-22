@@ -82,7 +82,9 @@ const liveFeed = (period = 3, line: typeof LINE | null = LINE): PlayerFeed => {
 			city: null,
 			guest: false,
 			seasonCode: null,
-			historical: false
+			historical: false,
+			logo: null,
+			colors: null
 		},
 		isHome: false,
 		period,
@@ -786,9 +788,23 @@ describe('toPlayerView season codes', () => {
 
 	it('draws the season code of the team in the header', () => {
 		const source = feed();
-		source.team = { code: 'NOP', name: 'Pelicans', city: 'New Orleans', seasonCode: 'NO' };
+		source.team = {
+			code: 'NOP',
+			name: 'Pelicans',
+			city: 'New Orleans',
+			seasonCode: 'NO',
+			logo: null,
+			colors: null
+		};
 		expect(view(source).header.teamCode).toBe('NO');
-		source.team = { code: 'NOP', name: 'Pelicans', city: 'New Orleans', seasonCode: null };
+		source.team = {
+			code: 'NOP',
+			name: 'Pelicans',
+			city: 'New Orleans',
+			seasonCode: null,
+			logo: null,
+			colors: null
+		};
 		expect(view(source).header.teamCode).toBe('NOP');
 	});
 });
