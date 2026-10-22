@@ -6,6 +6,7 @@
 // - The scroll lock sets overflow hidden and restores the previous inline value
 // - Tab from the last focusable element goes to the first; Shift+Tab from the first to the last
 // - Tab in the middle is left alone
+// - moveToBody moves a node to the end of the body and removes it on destroy
 // - A select is a wrap end: Shift+Tab from a first select goes to the last, and a disabled select is skipped
 //
 // What is covered:
@@ -16,7 +17,7 @@
 // SEE: web/src/lib/search/dialog.ts
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { keepFocusInside, lockBodyScroll } from '../../../src/lib/search/dialog';
+import { keepFocusInside, lockBodyScroll, moveToBody } from '../../../src/lib/search/dialog';
 
 afterEach(() => {
 	document.body.innerHTML = '';
@@ -96,5 +97,28 @@ describe('keepFocusInside', () => {
 		const event = new KeyboardEvent('keydown', { key: 'a', cancelable: true });
 		keepFocusInside(event, box);
 		expect(event.defaultPrevented).toBe(false);
+	});
+});
+
+describe('moveToBody', () => {
+	it('moves a nested node to the end of the body', () => {
+		document.body.innerHTML = '<div id="outer"><div id="inner"></div></div><p id="after"></p>';
+		const node = document.getElementById('inner') as HTMLElement;
+		moveToBody(node);
+		expect(document.body.lastElementChild).toBe(node);
+	});
+
+	it('moves a node already in the body to the end', () => {
+		document.body.innerHTML = '<div id="first"></div><p id="last"></p>';
+		const node = document.getElementById('first') as HTMLElement;
+		moveToBody(node);
+		expect(document.body.lastElementChild).toBe(node);
+	});
+
+	it('removes the node from the document on destroy', () => {
+		document.body.innerHTML = '<div id="n"></div>';
+		const node = document.getElementById('n') as HTMLElement;
+		moveToBody(node).destroy();
+		expect(document.body.contains(node)).toBe(false);
 	});
 });

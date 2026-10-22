@@ -18,7 +18,7 @@
 //
 // SEE: web/src/lib/components/PlayoffsHeader.svelte
 import type { ResolvedPathname } from '$app/types';
-import { render, screen } from '@testing-library/svelte';
+import { fireEvent, render, screen } from '@testing-library/svelte';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -51,8 +51,9 @@ afterEach(() => {
 });
 
 describe('PlayoffsHeader', () => {
-	it('draws the nav with Playoffs current', () => {
+	it('draws the nav with Playoffs current', async () => {
 		show({ header: header('playoffs-picture.json') });
+		await fireEvent.click(screen.getByRole('button', { name: 'Tournaments' }));
 		const link = screen.getByRole('link', { name: 'Playoffs' });
 		expect(link.getAttribute('aria-current')).toBe('page');
 		expect(link.getAttribute('href')).toBe('/playoffs');

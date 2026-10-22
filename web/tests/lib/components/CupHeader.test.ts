@@ -18,7 +18,7 @@
 //
 // SEE: web/src/lib/components/CupHeader.svelte
 import type { ResolvedPathname } from '$app/types';
-import { render, screen } from '@testing-library/svelte';
+import { fireEvent, render, screen } from '@testing-library/svelte';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -69,8 +69,9 @@ describe('CupHeader', () => {
 		expect(container.querySelector('.champion')).toBeNull();
 	});
 
-	it('marks Cup current in the nav', () => {
+	it('marks Cup current in the nav', async () => {
 		render(CupHeader, { props: props() });
+		await fireEvent.click(screen.getByRole('button', { name: 'Tournaments' }));
 		expect(screen.getByRole('link', { name: 'Cup' }).getAttribute('aria-current')).toBe('page');
 		expect(screen.getByRole('link', { name: 'All games' }).getAttribute('href')).toBe('/');
 		expect(screen.getByRole('link', { name: 'Standings' }).getAttribute('href')).toBe('/standings');
@@ -124,10 +125,11 @@ describe('CupHeader', () => {
 		expect(container.querySelector('.bones')?.getAttribute('aria-hidden')).toBe('true');
 	});
 
-	it('shows Spanish copy', () => {
+	it('shows Spanish copy', async () => {
 		preferLanguages(['es-ES']);
 		render(CupHeader, { props: props() });
 		expect(screen.getByRole('heading', { level: 1, name: 'Copa NBA' })).toBeTruthy();
+		await fireEvent.click(screen.getByRole('button', { name: 'Torneos' }));
 		expect(screen.getByRole('link', { name: 'Copa' }).getAttribute('aria-current')).toBe('page');
 	});
 });

@@ -9,6 +9,7 @@
 // - The Finals frame in accent and the Champion label only once the Finals is complete
 // - A click on a card sets level 2, pressed on "2 Series", and lists its games; no list at level 1
 // - Previous, next and the arrow keys inside the bracket move the selection
+// - An Esc already taken by another handler (defaultPrevented) does not zoom out
 // - Esc and a click on the viewport background go back to level 1; a click on the games list does not
 // - A native scroll of the viewport goes back to 0 and pans the camera; the arrow keys move the focus to the selected card
 // - The layer's style holds only the transform after every input
@@ -242,6 +243,16 @@ describe('PlayoffBracket levels', () => {
 		await fireEvent.click(screen.getByRole('button', { name: /^2\s*Series/ }));
 		await fireEvent.keyDown(window, { key: 'Escape' });
 		expect(pressed('1')).toBe('true');
+	});
+
+	it('ignores an Esc another handler already took', async () => {
+		show();
+		await fireEvent.click(screen.getByRole('button', { name: /^2\s*Series/ }));
+		const event = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true });
+		event.preventDefault();
+		window.dispatchEvent(event);
+		await tick();
+		expect(pressed('2')).toBe('true');
 	});
 
 	it('goes back to level 1 on a click on the viewport background, not on the games list', async () => {

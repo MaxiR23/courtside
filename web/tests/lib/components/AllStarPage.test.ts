@@ -101,10 +101,11 @@ describe('AllStarPage', () => {
 		expect(screen.queryByText(UNAVAILABLE)).toBeNull();
 	});
 
-	it('shows the nav, the title and the unavailable row when unavailable', () => {
+	it('shows the nav, the title and the unavailable row when unavailable', async () => {
 		const { container } = show({ kind: 'unavailable' });
 		expect(screen.getByRole('heading', { level: 1, name: 'All-Star' })).toBeTruthy();
 		expect(screen.getByText(UNAVAILABLE)).toBeTruthy();
+		await fireEvent.click(screen.getByRole('button', { name: 'Tournaments' }));
 		expect(screen.getByRole('link', { name: 'All-Star' }).getAttribute('aria-current')).toBe(
 			'page'
 		);

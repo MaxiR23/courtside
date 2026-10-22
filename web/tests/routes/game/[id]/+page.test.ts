@@ -29,7 +29,7 @@
 // Run with: cd web && pnpm exec vitest run "tests/routes/game/[id]/+page.test.ts"
 //
 // SEE: web/src/routes/game/[id]/+page.svelte
-import { render, screen } from '@testing-library/svelte';
+import { fireEvent, render, screen } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -144,6 +144,7 @@ describe('game detail page', () => {
 		stubFetch(answerWith(recorded()));
 		await renderPage();
 		expect(screen.getByRole('link', { name: 'Standings' }).getAttribute('href')).toBe('/standings');
+		await fireEvent.click(screen.getByRole('button', { name: 'Tournaments' }));
 		const cup = screen.getByRole('link', { name: 'Cup' });
 		expect(cup.getAttribute('href')).toBe('/cup');
 		expect(cup.getAttribute('aria-current')).toBeNull();

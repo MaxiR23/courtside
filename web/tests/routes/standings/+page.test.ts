@@ -26,7 +26,7 @@
 // Run with: cd web && pnpm exec vitest run tests/routes/standings/+page.test.ts
 //
 // SEE: web/src/routes/standings/+page.svelte
-import { render, screen } from '@testing-library/svelte';
+import { fireEvent, render, screen } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -144,6 +144,7 @@ describe('standings page', () => {
 		const standings = screen.getByRole('link', { name: 'Standings' });
 		expect(standings.getAttribute('aria-current')).toBe('page');
 		expect(standings.getAttribute('href')).toBe('/standings');
+		await fireEvent.click(screen.getByRole('button', { name: 'Tournaments' }));
 		const cup = screen.getByRole('link', { name: 'Cup' });
 		expect(cup.getAttribute('href')).toBe('/cup');
 		expect(cup.getAttribute('aria-current')).toBeNull();
