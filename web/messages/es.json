@@ -1,7 +1,7 @@
 {
 	"$schema": "https://inlang.com/schema/inlang-message-format",
 	"site_name": "Courtside",
-	"footer_disclaimer": "Proyecto personal. Sin afiliación con la NBA.",
+	"identity_footer_disclaimer": "Sitio no oficial. Sin afiliación con la NBA ni sus equipos. Nombres y logos son propiedad de sus dueños.",
 	"live_badge": "EN VIVO",
 	"status_tonight": "Esta noche",
 	"status_live": "En vivo",
@@ -15,6 +15,8 @@
 	"nav_spoiler_free": "Sin spoilers",
 	"nav_standings": "Clasificación",
 	"hero_at": "en",
+	"identity_hero_slide_away": "Mostrar a {team}, visitante",
+	"identity_hero_slide_home": "Mostrar a {team}, local",
 	"hero_blurb": "{awayStar} y {homeStar} se enfrentan en {arena}.",
 	"hero_match_details": "Detalles del partido",
 	"hero_all_games": "Todos los partidos",

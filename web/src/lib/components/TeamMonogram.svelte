@@ -17,17 +17,24 @@
 			| 'playoffs-champion'
 			| 'cup-node'
 			| 'allstar-league'
-			| 'names';
+			| 'names'
+			| 'fill'; // the whole box of the parent
 		href?: ResolvedPathname;
+		logo?: string | null; // an image URL drawn in the box in place of the code; null or absent: the code
+		onlogoerror?: () => void;
 	};
 
-	let { code, size, href }: Props = $props();
+	let { code, size, href, logo = null, onlogoerror }: Props = $props();
 </script>
 
 {#if href}
-	<a class="team-monogram {size} linked" {href}>{code}</a>
+	<a class="team-monogram {size} linked" class:logo={logo !== null} {href}
+		>{#if logo !== null}<img src={logo} alt={code} onerror={onlogoerror} />{:else}{code}{/if}</a
+	>
 {:else}
-	<span class="team-monogram {size}">{code}</span>
+	<span class="team-monogram {size}" class:logo={logo !== null}
+		>{#if logo !== null}<img src={logo} alt="" onerror={onlogoerror} />{:else}{code}{/if}</span
+	>
 {/if}
 
 <style>
@@ -41,6 +48,17 @@
 		font-family: var(--font-heading);
 		font-weight: var(--font-weight-semibold);
 		font-size: var(--body-size);
+	}
+
+	.logo {
+		border-color: transparent;
+	}
+
+	.logo img {
+		display: block;
+		width: 100%;
+		height: 100%;
+		object-fit: contain;
 	}
 
 	.linked {
@@ -119,6 +137,11 @@
 	.allstar-league {
 		width: var(--allstar-box-monogram-size);
 		height: var(--allstar-box-monogram-size);
+	}
+
+	.fill {
+		width: 100%;
+		height: 100%;
 	}
 
 	.header-mobile {

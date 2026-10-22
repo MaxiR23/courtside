@@ -9,7 +9,11 @@
 // - One game shows no position; no games shows the nav row only, with no timer
 // - Both headline team names link to the team page
 // - Delayed status in the status tag; Match details receives the game on screen
-// - Slide indicator: starts on the away star, jumps on click, advances with autoplay
+// - Slide selectors: start on the away star, jump on click, advance after 5 seconds with autoplay and restart the wait on a click
+// - The away and home logos in the title and the selectors; the tricode, the background word and the card layers of the active side
+// - A side with no logo and no accent shows the monogram and the neutral accent
+// - A new featured game starts at its away slide; a games prop of another length resets to the first game
+// - Reduced motion: no animated track fill, and a click still changes the slide
 // - Progress fill: none with autoplay off, on the active item with autoplay
 // - Spoiler-free toggle in the nav row: pressed state and callback
 // - Parallax follows a mouse and is skipped on touch and with reduced motion
@@ -31,7 +35,7 @@ import { fireEvent, render, screen } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { HeroGame, HeroPlayer } from '../../../src/lib/hero/types';
+import type { HeroGame, HeroPlayer, HeroSide } from '../../../src/lib/hero/types';
 import { preferLanguages } from '../../prefer-languages';
 
 import Hero from '../../../src/lib/components/Hero.svelte';
@@ -46,17 +50,48 @@ const star = (firstName: string, lastName: string, teamCode: string, teamName: s
 		photo: `/${lastName}.svg`
 	}) satisfies HeroPlayer;
 
+const marinersLogo = {
+	light: 'https://example.com/hbr-light.svg',
+	dark: 'https://example.com/hbr-dark.svg'
+};
+const owlsLogo = { light: 'https://example.com/pvo-light.svg', dark: null };
+
+const side = (
+	code: string,
+	name: string,
+	city: string,
+	starOf: HeroPlayer,
+	identity: Partial<Pick<HeroSide, 'logo' | 'accent'>> = {}
+): HeroSide => ({
+	code,
+	name,
+	city,
+	guest: false,
+	logo: null,
+	accent: null,
+	...identity,
+	star: starOf
+});
+
 const oneGame: HeroGame = {
 	id: 'g1',
 	status: 'tonight',
 	tipTime: '10:30 PM ET',
-	arena: 'Chase Center',
-	away: {
-		code: 'GSW',
-		name: 'Warriors',
-		star: star('Stephen', 'Curry', 'GSW', 'Golden State Warriors')
-	},
-	home: { code: 'LAL', name: 'Lakers', star: star('LeBron', 'James', 'LAL', 'Los Angeles Lakers') }
+	arena: 'Harbor Arena',
+	away: side(
+		'HBR',
+		'Mariners',
+		'Harbor City',
+		star('Ines', 'Varga', 'HBR', 'Harbor City Mariners'),
+		{
+			logo: marinersLogo,
+			accent: '#1f6f8b'
+		}
+	),
+	home: side('PVO', 'Owls', 'Pine Valley', star('Tomas', 'Okafor', 'PVO', 'Pine Valley Owls'), {
+		logo: owlsLogo,
+		accent: '#c9822b'
+	})
 };
 
 // A game numbered n, whose stars are "AwayN" and "HomeN".
@@ -65,16 +100,8 @@ const numbered = (n: number): HeroGame => ({
 	status: 'tonight',
 	tipTime: '7:00 PM ET',
 	arena: `Arena ${n}`,
-	away: {
-		code: 'AAA',
-		name: `Away Team ${n}`,
-		star: star('A', `Away${n}`, 'AAA', `City Away ${n}`)
-	},
-	home: {
-		code: 'HHH',
-		name: `Home Team ${n}`,
-		star: star('H', `Home${n}`, 'HHH', `City Home ${n}`)
-	}
+	away: side('AAA', `Away Team ${n}`, 'City', star('A', `Away${n}`, 'AAA', `City Away ${n}`)),
+	home: side('HHH', `Home Team ${n}`, 'City', star('H', `Home${n}`, 'HHH', `City Home ${n}`))
 });
 const games = (count: number) => Array.from({ length: count }, (_, i) => numbered(i + 1));
 
@@ -108,7 +135,7 @@ afterEach(() => {
 });
 
 function indicatorItems(container: HTMLElement) {
-	return container.querySelectorAll<HTMLButtonElement>('.indicator-item');
+	return container.querySelectorAll<HTMLButtonElement>('button.selector');
 }
 
 describe('Hero', () => {
@@ -129,7 +156,7 @@ describe('Hero', () => {
 
 	it('shows the tip time and arena in the kicker', () => {
 		render(Hero, { props: baseProps });
-		expect(screen.getByText('10:30 PM ET · Chase Center')).toBeTruthy();
+		expect(screen.getByText('10:30 PM ET · Harbor Arena')).toBeTruthy();
 	});
 
 	it('shows the tip time alone in the kicker and no blurb when the arena is unknown', () => {
@@ -145,12 +172,12 @@ describe('Hero', () => {
 	it('shows the away team, then at and the home team in the heading', () => {
 		render(Hero, { props: baseProps });
 		const heading = screen.getByRole('heading', { level: 1 });
-		expect(heading.textContent).toMatch(/^\s*Warriors\s*at\s+Lakers\s*$/);
+		expect(heading.textContent).toMatch(/^\s*Mariners\s*at\s+Owls\s*$/);
 	});
 
 	it('shows the blurb naming both stars and the arena', () => {
 		render(Hero, { props: baseProps });
-		expect(screen.getByText('Stephen Curry and LeBron James meet at Chase Center.')).toBeTruthy();
+		expect(screen.getByText('Ines Varga and Tomas Okafor meet at Harbor Arena.')).toBeTruthy();
 	});
 
 	it('calls the match details action with the game on screen when Match details is clicked', async () => {
@@ -170,23 +197,22 @@ describe('Hero', () => {
 		const { container } = render(Hero, { props: baseProps });
 		const items = indicatorItems(container);
 		expect(items[0].getAttribute('aria-current')).toBe('true');
-		expect(items[0].textContent).toContain('01');
 		expect(items[1].getAttribute('aria-current')).toBeNull();
-		expect(container.querySelector('.watermark.active')?.textContent).toBe('Curry');
+		expect(container.querySelector('.word.active')?.textContent).toBe('Varga');
 	});
 
 	it('jumps to the home star when its indicator item is clicked', async () => {
 		const { container } = render(Hero, { props: baseProps });
 		await fireEvent.click(indicatorItems(container)[1]);
 		expect(indicatorItems(container)[1].getAttribute('aria-current')).toBe('true');
-		expect(container.querySelector('.watermark.active')?.textContent).toBe('James');
+		expect(container.querySelector('.word.active')?.textContent).toBe('Okafor');
 	});
 
-	it('advances to the home star after 7 seconds with autoplay', async () => {
+	it('advances to the home star after 5 seconds with autoplay', async () => {
 		vi.useFakeTimers();
 		const { container } = render(Hero, { props: { ...baseProps, autoplay: true } });
 		await tick();
-		vi.advanceTimersByTime(7000);
+		vi.advanceTimersByTime(5000);
 		await tick();
 		expect(indicatorItems(container)[1].getAttribute('aria-current')).toBe('true');
 	});
@@ -194,14 +220,14 @@ describe('Hero', () => {
 	it('shows no progress fill when autoplay is off', async () => {
 		const { container } = render(Hero, { props: baseProps });
 		await tick();
-		expect(container.querySelector('.fill')).toBeNull();
+		expect(container.querySelector('.track-fill')).toBeNull();
 	});
 
 	it("fills the active item's track with autoplay", async () => {
 		vi.useFakeTimers();
 		const { container } = render(Hero, { props: { ...baseProps, autoplay: true } });
 		await tick();
-		const fills = container.querySelectorAll('.fill');
+		const fills = container.querySelectorAll('.track-fill');
 		expect(fills).toHaveLength(1);
 		expect(indicatorItems(container)[0].contains(fills[0])).toBe(true);
 	});
@@ -271,7 +297,7 @@ describe('Hero', () => {
 		expect(screen.getByText('Esta noche')).toBeTruthy();
 		expect(screen.getByRole('heading', { level: 1 }).textContent).toContain('en');
 		expect(
-			screen.getByText('Stephen Curry y LeBron James se enfrentan en Chase Center.')
+			screen.getByText('Ines Varga y Tomas Okafor se enfrentan en Harbor Arena.')
 		).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Detalles del partido' })).toBeTruthy();
 		expect(screen.getByRole('link', { name: 'Todos los partidos' })).toBeTruthy();
@@ -294,22 +320,22 @@ describe('Hero', () => {
 
 describe('Hero with several games', () => {
 	const activeWatermark = (container: HTMLElement) =>
-		container.querySelector('.watermark.active')?.textContent;
+		container.querySelector('.word.active')?.textContent;
 	const position = (container: HTMLElement) =>
 		container.querySelector('.position')?.textContent?.replace(/\s+/g, ' ').trim();
 
-	it('rotates to the next game after both stars (14 seconds)', async () => {
+	it('rotates to the next game after both stars (10 seconds)', async () => {
 		vi.useFakeTimers();
 		const { container } = render(Hero, {
 			props: { ...baseProps, games: games(3), autoplay: true }
 		});
 		await tick();
 		expect(activeWatermark(container)).toBe('Away1');
-		vi.advanceTimersByTime(7000);
+		vi.advanceTimersByTime(5000);
 		await tick();
 		expect(activeWatermark(container)).toBe('Home1');
 		expect(screen.getByRole('heading', { level: 1 }).textContent).toContain('Away Team 1');
-		vi.advanceTimersByTime(7000);
+		vi.advanceTimersByTime(5000);
 		await tick();
 		expect(activeWatermark(container)).toBe('Away2');
 		expect(screen.getByRole('heading', { level: 1 }).textContent).toContain('Away Team 2');
@@ -322,7 +348,7 @@ describe('Hero with several games', () => {
 			props: { ...baseProps, games: games(2), autoplay: true }
 		});
 		await tick();
-		vi.advanceTimersByTime(7000 * 4);
+		vi.advanceTimersByTime(5000 * 4);
 		await tick();
 		expect(activeWatermark(container)).toBe('Away1');
 		expect(position(container)).toBe('01 / 02');
@@ -334,7 +360,7 @@ describe('Hero with several games', () => {
 			props: { ...baseProps, games: games(10), autoplay: true }
 		});
 		await tick();
-		vi.advanceTimersByTime(7000 * 4);
+		vi.advanceTimersByTime(5000 * 4);
 		await tick();
 		expect(position(container)).toBe('03 / 10');
 	});
@@ -345,12 +371,12 @@ describe('Hero with several games', () => {
 			props: { ...baseProps, games: games(3), autoplay: true }
 		});
 		await tick();
-		vi.advanceTimersByTime(7000 * 2);
+		vi.advanceTimersByTime(5000 * 2);
 		await tick();
 		const items = indicatorItems(container);
 		expect(items).toHaveLength(2);
-		expect(items[0].textContent).toContain('Away2');
-		expect(items[1].textContent).toContain('Home2');
+		expect(items[0].textContent).toContain('Away Team 2');
+		expect(items[1].textContent).toContain('Home Team 2');
 		await fireEvent.click(items[1]);
 		expect(activeWatermark(container)).toBe('Home2');
 	});
@@ -362,7 +388,7 @@ describe('Hero with several games', () => {
 			props: { ...baseProps, games: games(3), onMatchDetails, autoplay: true }
 		});
 		await tick();
-		vi.advanceTimersByTime(7000 * 2);
+		vi.advanceTimersByTime(5000 * 2);
 		await tick();
 		await fireEvent.click(screen.getByRole('button', { name: 'Match details' }));
 		expect(onMatchDetails).toHaveBeenCalledWith('g2');
@@ -374,7 +400,7 @@ describe('Hero with several games', () => {
 			props: { ...baseProps, games: games(3), autoplay: true }
 		});
 		await tick();
-		vi.advanceTimersByTime(7000 * 2);
+		vi.advanceTimersByTime(5000 * 2);
 		await tick();
 		await rerender({ games: games(3) });
 		expect(activeWatermark(container)).toBe('Away2');
@@ -387,7 +413,7 @@ describe('Hero with several games', () => {
 			props: { ...baseProps, games: games(2), autoplay: true }
 		});
 		await tick();
-		vi.advanceTimersByTime(5000);
+		vi.advanceTimersByTime(3000);
 		await tick();
 		await rerender({ games: games(2) });
 		vi.advanceTimersByTime(2500);
@@ -410,14 +436,14 @@ describe('Hero with one game or none', () => {
 	it('shows Delayed in the tag and Scheduled with the tip time and arena in the kicker for a delayed game', () => {
 		render(Hero, { props: { ...baseProps, games: [{ ...oneGame, status: 'delayed' }] } });
 		expect(screen.getByText('Delayed')).toBeTruthy();
-		expect(screen.getByText('Scheduled 10:30 PM ET · Chase Center')).toBeTruthy();
+		expect(screen.getByText('Scheduled 10:30 PM ET · Harbor Arena')).toBeTruthy();
 	});
 
 	it('shows the delayed kicker in Spanish with a Spanish preference', () => {
 		preferLanguages(['es-ES']);
 		render(Hero, { props: { ...baseProps, games: [{ ...oneGame, status: 'delayed' }] } });
 		expect(screen.getByText('Retrasado')).toBeTruthy();
-		expect(screen.getByText('Programado 10:30 PM ET · Chase Center')).toBeTruthy();
+		expect(screen.getByText('Programado 10:30 PM ET · Harbor Arena')).toBeTruthy();
 	});
 
 	it('shows only the nav row and no timer with no games', async () => {
@@ -426,7 +452,7 @@ describe('Hero with one game or none', () => {
 		await tick();
 		expect(vi.getTimerCount()).toBe(0);
 		expect(container.querySelector('.columns')).toBeNull();
-		expect(container.querySelector('.watermark')).toBeNull();
+		expect(container.querySelector('.word')).toBeNull();
 		expect(screen.queryByRole('heading', { level: 1 })).toBeNull();
 		expect(screen.getByRole('button', { name: 'Spoiler-free' })).toBeTruthy();
 	});
@@ -496,8 +522,8 @@ describe('Hero while the first feed loads', () => {
 		const heading = screen.getByRole('heading', { level: 1 });
 		const links = [...heading.querySelectorAll('a')];
 		expect(links.map((a) => [a.textContent, a.getAttribute('href')])).toEqual([
-			['Warriors', '/team/gsw'],
-			['Lakers', '/team/lal']
+			['Mariners', '/team/hbr'],
+			['Owls', '/team/pvo']
 		]);
 	});
 
@@ -516,5 +542,144 @@ describe('Hero while the first feed loads', () => {
 		const cup = screen.getByRole('link', { name: 'Cup' });
 		expect(cup.getAttribute('href')).toBe('/cup');
 		expect(cup.getAttribute('aria-current')).toBeNull();
+	});
+});
+
+describe('Hero team identity', () => {
+	const NEUTRAL = 'var(--identity-neutral-accent)';
+	const accentOf = (el: Element | null) =>
+		(el as HTMLElement).style.getPropertyValue('--side-accent');
+
+	it('renders the away and home logos in the title and in the selectors', () => {
+		const { container } = render(Hero, { props: baseProps });
+		const srcs = (selector: string) =>
+			[...container.querySelectorAll(`${selector} img`)].map((img) => img.getAttribute('src'));
+		expect(srcs('.headline')).toEqual([
+			'https://example.com/hbr-dark.svg',
+			'https://example.com/pvo-light.svg'
+		]);
+		expect(srcs('.indicator')).toEqual([
+			'https://example.com/hbr-dark.svg',
+			'https://example.com/pvo-light.svg'
+		]);
+	});
+
+	it('renders the tricode, the background word and the card layers of the active side', () => {
+		const { container } = render(Hero, { props: baseProps });
+		expect([...container.querySelectorAll('.tricode')].map((t) => t.textContent?.trim())).toEqual([
+			'HBR',
+			'PVO'
+		]);
+		expect(container.querySelector('.word.active')?.textContent).toBe('Varga');
+		expect(accentOf(container.querySelector('.word.active'))).toBe('#1f6f8b');
+		expect(container.querySelector('.slide:not([aria-hidden]) .logo-layer img')).not.toBeNull();
+		expect(container.querySelector('.strip')?.textContent).toContain('Ines Varga');
+		expect(accentOf(container.querySelector('.player-card'))).toBe('#1f6f8b');
+	});
+
+	it('shows the monogram and the neutral accent for a side with no logo and no accent', () => {
+		const bare = {
+			...oneGame,
+			home: { ...oneGame.home, logo: null, accent: null }
+		};
+		const { container } = render(Hero, { props: { ...baseProps, games: [bare] } });
+		const home = container.querySelectorAll('button.selector')[1];
+		expect(home.querySelector('img')).toBeNull();
+		expect(home.querySelector('.team-monogram')?.textContent).toBe('PVO');
+		expect(accentOf(home)).toBe(NEUTRAL);
+		expect(container.querySelectorAll('.headline img')).toHaveLength(1);
+		expect(container.querySelectorAll('.headline .title-logo')).toHaveLength(2);
+		for (const mark of container.querySelectorAll('.headline .title-logo')) {
+			expect(mark.getAttribute('aria-hidden')).toBe('true');
+		}
+		expect(screen.getByRole('heading', { level: 1, name: /^Mariners\s*at\s+Owls$/ })).toBeTruthy();
+		expect(container.querySelectorAll('.headline .team-monogram:not(.logo)')).toHaveLength(1);
+		expect(accentOf(container.querySelectorAll('.slide')[1])).toBe(NEUTRAL);
+		// The other side keeps its accent.
+		expect(accentOf(container.querySelectorAll('button.selector')[0])).toBe('#1f6f8b');
+		expect(accentOf(container.querySelectorAll('.word')[1])).toBe(NEUTRAL);
+	});
+
+	it('names the selectors for the away and the home team', () => {
+		render(Hero, { props: baseProps });
+		expect(screen.getByRole('button', { name: 'Show Mariners, away' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Show Owls, home' })).toBeTruthy();
+	});
+});
+
+describe('Hero slide timing', () => {
+	const current = (container: HTMLElement) =>
+		container.querySelector('button.selector[aria-current="true"]')?.getAttribute('aria-label');
+
+	it('starts at the away slide', async () => {
+		vi.useFakeTimers();
+		const { container } = render(Hero, { props: { ...baseProps, autoplay: true } });
+		await tick();
+		expect(current(container)).toBe('Show Mariners, away');
+	});
+
+	it('advances to the home slide after 5 seconds and not before', async () => {
+		vi.useFakeTimers();
+		const { container } = render(Hero, { props: { ...baseProps, autoplay: true } });
+		await tick();
+		vi.advanceTimersByTime(4999);
+		await tick();
+		expect(current(container)).toBe('Show Mariners, away');
+		vi.advanceTimersByTime(1);
+		await tick();
+		expect(current(container)).toBe('Show Owls, home');
+	});
+
+	it('goes to the clicked slide and restarts the timer', async () => {
+		vi.useFakeTimers();
+		const { container } = render(Hero, { props: { ...baseProps, autoplay: true } });
+		await tick();
+		vi.advanceTimersByTime(3000);
+		await tick();
+		await fireEvent.click(screen.getByRole('button', { name: 'Show Owls, home' }));
+		expect(current(container)).toBe('Show Owls, home');
+		vi.advanceTimersByTime(4999);
+		await tick();
+		expect(current(container)).toBe('Show Owls, home');
+		vi.advanceTimersByTime(1);
+		await tick();
+		expect(current(container)).toBe('Show Mariners, away');
+	});
+
+	it('starts a new featured game at its away slide', async () => {
+		vi.useFakeTimers();
+		const { container } = render(Hero, {
+			props: { ...baseProps, games: games(2), autoplay: true }
+		});
+		await tick();
+		vi.advanceTimersByTime(10000);
+		await tick();
+		expect(current(container)).toBe('Show Away Team 2, away');
+		expect(screen.getByRole('heading', { level: 1 }).textContent).toContain('Away Team 2');
+	});
+
+	it('resets to the away slide of the first game when the games prop has another length', async () => {
+		vi.useFakeTimers();
+		const { container, rerender } = render(Hero, {
+			props: { ...baseProps, games: games(3), autoplay: true }
+		});
+		await tick();
+		vi.advanceTimersByTime(10000);
+		await tick();
+		expect(current(container)).toBe('Show Away Team 2, away');
+		await rerender({ games: games(2) });
+		expect(current(container)).toBe('Show Away Team 1, away');
+	});
+
+	it('does not animate the track fill with reduced motion, and a click still changes the slide', async () => {
+		const animate = vi.fn(() => ({ cancel: vi.fn() }));
+		Object.assign(HTMLElement.prototype, { animate });
+		mediaWith([REDUCED]);
+		const { container } = render(Hero, { props: { ...baseProps, autoplay: true } });
+		await tick();
+		expect(container.querySelectorAll('.track-fill')).toHaveLength(1);
+		await fireEvent.click(screen.getByRole('button', { name: 'Show Owls, home' }));
+		expect(current(container)).toBe('Show Owls, home');
+		expect(animate).not.toHaveBeenCalled();
 	});
 });

@@ -34,34 +34,34 @@ describe('Slideshow', () => {
 		expect(new Slideshow(2).current).toBe(0);
 	});
 
-	it('advances to the next slide after 7 seconds', () => {
+	it('advances to the next slide after 5 seconds', () => {
 		const show = new Slideshow(2);
 		show.start();
-		vi.advanceTimersByTime(7000);
+		vi.advanceTimersByTime(5000);
 		expect(show.current).toBe(1);
 	});
 
 	it('wraps back to the first slide after the last', () => {
 		const show = new Slideshow(2);
 		show.start();
-		vi.advanceTimersByTime(14000);
+		vi.advanceTimersByTime(10000);
 		expect(show.current).toBe(0);
 	});
 
 	it('does not advance before the interval ends', () => {
 		const show = new Slideshow(2);
 		show.start();
-		vi.advanceTimersByTime(6999);
+		vi.advanceTimersByTime(4999);
 		expect(show.current).toBe(0);
 	});
 
-	it('jumps to a slide and restarts the 7 second wait', () => {
+	it('jumps to a slide and restarts the 5 second wait', () => {
 		const show = new Slideshow(3);
 		show.start();
-		vi.advanceTimersByTime(5000);
+		vi.advanceTimersByTime(3000);
 		show.goTo(2);
 		expect(show.current).toBe(2);
-		vi.advanceTimersByTime(6999);
+		vi.advanceTimersByTime(4999);
 		expect(show.current).toBe(2);
 		vi.advanceTimersByTime(1);
 		expect(show.current).toBe(0);
@@ -71,7 +71,7 @@ describe('Slideshow', () => {
 		const show = new Slideshow(2);
 		show.start();
 		const before = show.cycle;
-		vi.advanceTimersByTime(7000);
+		vi.advanceTimersByTime(5000);
 		expect(show.cycle).toBe(before + 1);
 		show.goTo(0);
 		expect(show.cycle).toBe(before + 2);
@@ -89,7 +89,7 @@ describe('Slideshow', () => {
 		const show = new Slideshow(3);
 		show.start();
 		show.start();
-		vi.advanceTimersByTime(7000);
+		vi.advanceTimersByTime(5000);
 		expect(show.current).toBe(1);
 	});
 
@@ -105,7 +105,7 @@ describe('Slideshow', () => {
 		expect(() => new Slideshow(1.5)).toThrow(RangeError);
 	});
 
-	it('exports a 7 second interval matching the --hero-slide-interval token', () => {
+	it('exports a 5 second interval matching the --hero-slide-interval token', () => {
 		const css = readFileSync(
 			join(import.meta.dirname, '../../../src/lib/styles/tokens.css'),
 			'utf8'

@@ -62,7 +62,7 @@ describe('root layout', () => {
 		expect(screen.getByText('Page content')).toBeTruthy();
 	});
 
-	it('loads only Barlow 400 and 500 and Barlow Condensed 400, 500 and 600', () => {
+	it('loads only Barlow 400 and 500 and Barlow Condensed 400, 500, 600 and 700', () => {
 		renderLayout();
 		const links = [
 			...document.head.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]')
@@ -70,7 +70,7 @@ describe('root layout', () => {
 		expect(links).toHaveLength(1);
 		expect(new URL(links[0].href).searchParams.getAll('family')).toEqual([
 			'Barlow:wght@400;500',
-			'Barlow Condensed:wght@400;500;600'
+			'Barlow Condensed:wght@400;500;600;700'
 		]);
 	});
 

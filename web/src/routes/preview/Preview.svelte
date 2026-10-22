@@ -248,8 +248,24 @@
 		status,
 		tipTime: '10:30 PM ET',
 		arena: 'Chase Center',
-		away: { code: 'GSW', name: 'Warriors', star: away },
-		home: { code: 'LAL', name: 'Lakers', star: home }
+		away: {
+			code: 'GSW',
+			name: 'Warriors',
+			city: null,
+			guest: false,
+			logo: null,
+			accent: null,
+			star: away
+		},
+		home: {
+			code: 'LAL',
+			name: 'Lakers',
+			city: null,
+			guest: false,
+			logo: null,
+			accent: null,
+			star: home
+		}
 	});
 	const heroGames: HeroGame[] = [
 		heroGame('one', 'tonight'),

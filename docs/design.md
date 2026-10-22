@@ -8,7 +8,7 @@ The game detail page is specified in [`design-game-detail.md`](design-game-detai
 
 A dark-mode, single-page site with two parts:
 
-1. **Hero.** A rotating hero that goes through the games of the day, leaving out postponed and canceled games. Each game shows the star player of each team as a transparent cutout, 7 seconds each, then the next game starts. Without an arena, the kicker shows the tip time alone and the blurb is left out.
+1. **Hero.** A rotating hero that goes through the games of the day, leaving out postponed and canceled games. Each game shows the star player of each team as a transparent cutout, 5 seconds each, then the next game starts. Without an arena, the kicker shows the tip time alone and the blurb is left out.
 2. **Schedule.** A 7-day strip with today in the middle and the list of games for the selected day. Clicking a game expands its details: line score, top performers, team stats and, once the game is final, official highlights embedded inline.
 
 ## Implementation rules
@@ -27,7 +27,7 @@ A dark-mode, single-page site with two parts:
 |---|---|
 | `BlueprintFrame` | The framed box with corner registration marks, used across the site |
 | `Hero` | The top section, rotating through the games of the day |
-| `PlayerCutout` | A player's transparent photo, framed and lit |
+| `HeroPlayerCard` | The hero player card: the player's cutout over the logo, tricode and glow layers, with the player strip, specified in `docs/design-team-identity.md`, "Right column: player card" |
 | `DayStrip` | The 7-day selector |
 | `ScheduleSkeleton` | The schedule's placeholder while the first feed loads: the day strip and game cards |
 | `GameCard` | One game, with its desktop and mobile rows and its expanded panel |
@@ -72,8 +72,8 @@ The only color besides the neutrals is the steel accent. No team colors, except 
 
 | Element | Size | Notes |
 |---|---|---|
-| Hero h1 | `clamp(54px, 9.5vw, 148px)` | line-height .86, letter-spacing -.02em, uppercase. The second line starts with "at" in muted at .42em |
-| Hero watermark | `clamp(180px, 26vw, 420px)` | Transparent fill, `-webkit-text-stroke: 1px rgba(235,232,227,.13)` |
+| Hero h1 | `clamp(54px, 8.5vw, 132px)` | line-height .86, letter-spacing -.02em, uppercase. The second line starts with "at" in muted at .42em |
+| Hero watermark | `clamp(180px, 26vw, 420px)` | Transparent fill, a 1px stroke in the side's accent at 28% alpha (see `docs/design-team-identity.md`, "Background word") |
 | Section h2 | `clamp(40px, 5vw, 64px)` | line-height .95 |
 | Team name, desktop row | `clamp(18px, 2.2vw, 26px)` | Uppercase |
 | Team name, mobile row | 20px | |
@@ -86,11 +86,11 @@ The only color besides the neutrals is the steel accent. No team colors, except 
 ### Shape and elevation
 
 - **Square corners everywhere** (radius 0).
-- **Blueprint frame:** a 1px divider border plus four "+" registration marks, 11 by 11px, made of 1px lines in `color-mix(in srgb, ink 55%, transparent)`, centered on each corner (offset -6px). Used on game cards, the hero image frame, the player chip, highlight cards and the primary button.
-- **Hero frame shadow:** `0 50px 100px -24px rgba(0,0,0,.9), 0 20px 40px -20px rgba(0,0,0,.7)`.
+- **Blueprint frame:** a 1px divider border plus four "+" registration marks, 11 by 11px, made of 1px lines in `color-mix(in srgb, ink 55%, transparent)`, centered on each corner (offset -6px). Used on game cards, the hero image frame, highlight cards and the primary button.
+- **Hero frame shadow:** `0 50px 100px -24px rgba(0,0,0,.9)`.
 - **Floor shadow** under the hero frame: an ellipse, `radial-gradient(rgba(0,0,0,.9), transparent 70%)`, blur 10px, 56px below the frame.
 - **Skeleton widths:** tag and indicator 72px, kicker and buttons 160px, short lines 40% and long lines 80% of the column.
-- **Accent glow** behind the hero frame: `radial-gradient(circle at 50% 45%, rgba(116,157,196,.24), transparent 62%)`, extending 18% past the frame on every side.
+- **Accent glow** behind the hero frame: the outer glow in the active side's accent, extending 18% past the frame on every side, and the inner glow of each slide; both are specified in `docs/design-team-identity.md`, "Right column: player card".
 
 ### Spacing
 
@@ -113,23 +113,23 @@ Lucide at `stroke-width: 1.5`: `chevron-down` (expand), `play` (filled, highligh
 ### 1. Hero
 
 - **Nav row:** the brand mark (a 22px square outline in accent with an 8px solid accent square inside) and "COURTSIDE" in Barlow Condensed 20px with .12em letter-spacing. Then "Games" (current: ink with a 1px accent underline) and "Standings" (muted, ink on hover), both at `--nav-link-size` / `--nav-link-letter-spacing`, then today's date in muted ("Sun, Oct 4, 2026") and the spoiler-free toggle. See `docs/design-standings-search.md`, "Nav (every page)". The row wraps on narrow screens.
-- **Layout:** a two-column grid, `repeat(auto-fit, minmax(min(100%, 440px), 1fr))`, that stacks on mobile. Gap `clamp(40px, 6vw, 96px)`, min-height `min(820px, 88vh)`.
+- **Layout:** a two-column grid, `repeat(auto-fit, minmax(min(100%, 440px), 1fr))`, that stacks on mobile. Gap `clamp(40px, 6vw, 96px)`, min-height `min(780px, 84vh)`.
 - **Background:** an 88px square grid of faint lines. A huge outlined watermark of the current star's short name sits behind the content on the right.
 - **Left column, top to bottom:**
   1. A status tag, "Tonight", "Live now", "Final", "Delayed", "Postponed" or "Canceled", 11px in a 1px divider box. Next to it the kicker with the tip time and arena, such as "10:30 PM ET · Chase Center". For a delayed game the kicker reads "Scheduled" and the original tip time and arena, such as "Scheduled 7:30 PM ET · Chase Center".
-  2. The h1: the away team name, a line break, then "at" and the home team name.
+  2. The h1: the away logo and name, a line break, then "at", the home logo and name, specified in `docs/design-team-identity.md`, "Home hero", "Left column", item 2. The logos are silent for assistive technology.
   3. A blurb: "{Away star} and {Home star} meet at {Arena}."
   4. Buttons. **Match details** is the primary button (solid accent, dark text, blueprint marks): it selects today, expands the game on screen and smooth-scrolls to it. **All games** is a secondary outlined button linking to the schedule.
-  5. A slide indicator with two items. Each has a 2px progress track whose fill (`#94bce3`) grows linearly over 7s on the active item, so it shows the progress of the current star. Under it, "01" or "02" and the player's short name: the active one in ink, the inactive in muted. Clicking an item jumps to that star. Next to the items, the current game's position among the games in the rotation, such as "03 / 10".
+  5. Two slide selectors (a 2px track filled in the side's accent over 5s on the active one, the team's `TeamMark` and the team name), specified in `docs/design-team-identity.md`, "Home hero", "Left column", item 4. Clicking an item jumps to that star. Next to the items, the current game's position among the games in the rotation, such as "03 / 10".
 
   The status tag, kicker, h1 and blurb always follow the game on screen.
 
-  **Rotation.** The hero goes through the games of the day in feed order, leaving out postponed and canceled games, which stay in the schedule list. Delayed games stay in the rotation. Each game shows its two stars, 7 seconds each, then the next game starts. After the last game it returns to the first. With one game, the hero behaves as a single game: its two stars alternate and the position is not shown. With no games, or when every game of the day is postponed or canceled, the hero shows no game.
-- **Right column:** the image frame, max-width 500px, aspect ratio 4:5. A blueprint frame filled with frame-fill, a 44px grid and the accent glow.
+  **Rotation.** The hero goes through the games of the day in feed order, leaving out postponed and canceled games, which stay in the schedule list. Delayed games stay in the rotation. Each game shows its two stars, 5 seconds each, then the next game starts. After the last game it returns to the first. With one game, the hero behaves as a single game: its two stars alternate and the position is not shown. With no games, or when every game of the day is postponed or canceled, the hero shows no game.
+- **Right column:** the image frame, max-width 500px, aspect ratio 4:5. A blueprint frame filled with frame-fill and a 44px grid; the glows are specified in `docs/design-team-identity.md`, "Right column: player card".
   - The star's cutout is a transparent player photo in full color, anchored to the bottom center at **172% of the frame width**, so the head pops out above the frame's top edge. The bottom is clipped with `clip-path: inset(-30% 0 0 0)`.
   - Image filter: `drop-shadow(0 0 1px rgba(148,188,227,.35)) drop-shadow(0 30px 30px rgba(0,0,0,.7)) contrast(1.05)`.
-  - A bottom fade covers the lowest 30% of the frame, from `rgba(12,14,16,.85)` to transparent.
-  - **Player chip:** it overlaps the frame's bottom-left corner (left `clamp(-28px, -2vw, -10px)`, bottom 36px). A blueprint frame in `rgba(12,14,16,.82)` with a 12px backdrop blur, holding the team code (34px, accent-light), the first name (11px uppercase, muted), the last name (22px Barlow Condensed) and the full team name (12px, muted).
+  - The bottom scrim and the layers behind the cutout (the glows, the team logo, the tricode) are specified in `docs/design-team-identity.md`, "Right column: player card".
+  - **Player strip:** the hero has no player chip; the strip with the team mark, the player and the team is specified in `docs/design-team-identity.md`, "Home hero", "Right column: player card".
 
 ### 2. Schedule
 
@@ -167,14 +167,14 @@ Until the first feed loads, the hero and the schedule show skeletons shaped like
 
 ### 3. Footer
 
-"COURTSIDE" on the left. "Personal project. Not affiliated with the NBA." on the right, 12px, muted.
+"COURTSIDE" on the left. "Unofficial site, not affiliated with the NBA or its teams. Names and logos belong to their owners." on the right, 12px, muted.
 
 ## Interactions and motion
 
 | What | How |
 |---|---|
 | Hero entrance | Each block fades in from opacity 0 and translateY(28px). Delays: tag .1s, h1 .2s, blurb .32s, buttons .44s, indicator .6s, each lasting .9 to 1s. The image frame comes in from translateY(60px) scale(.94) over 1.4s, starting at .25s |
-| Hero slide change | Every 7s, and it can be turned off. The cutouts cross-fade over 1s; the incoming one rises from translateY(36px) scale(.95). The watermark cross-fades over 1.1s |
+| Hero slide change | Every 5s, and it can be turned off. The cutouts cross-fade over 1s; the incoming one rises from translateY(24px) scale(.97). The watermark cross-fades over 1.1s |
 | Idle float | The image frame bobs translateY 0 to -16px and back over 6s, ease-in-out, looping. The floor shadow scales X from 1 to .82 and opacity from 1 to .6 in sync |
 | Mouse parallax | With the pointer position x and y in [-1, 1] over the hero, the frame tilts `rotateY(x·7deg) rotateX(-y·6deg)` (perspective 1200px, .5s) and the watermark moves `translate(-x·30px, -y·18px)` (.6s). Resets on mouse leave. Skipped on touch devices |
 | Expand and collapse | Grid rows 0fr to 1fr over .55s. The content fades in over .45s with a .12s delay and rises from -10px. The border turns accent and the open tint fades in over .35s. Stat bars grow from 0 to their value over .9s with a .2s delay. Only one card is open at a time |

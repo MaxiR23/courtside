@@ -156,7 +156,9 @@ describe('home page with a feed', () => {
 	it("renders the hero, the schedule with today's games and the footer from a recorded feed", async () => {
 		stubFetch(answerWith(recorded()));
 		const { container } = await renderPage();
-		expect(screen.getByRole('heading', { level: 1 }).textContent).toMatch(/Warriors\s*at\s+Lakers/);
+		expect(
+			screen.getByRole('heading', { level: 1, name: /^Warriors\s*at\s+Lakers$/ })
+		).toBeTruthy();
 		expect(screen.getByRole('heading', { level: 2 }).textContent?.trim()).toBe('Sunday, October 4');
 		expect(container.querySelectorAll('ul.games > li')).toHaveLength(6);
 		expect(screen.getByText('Updated 5 min ago')).toBeTruthy();
@@ -165,7 +167,7 @@ describe('home page with a feed', () => {
 		expect(screen.getByText('Canceled', { selector: '.status-line' })).toBeTruthy();
 		expect(
 			within(screen.getByRole('contentinfo')).getByText(
-				'Personal project. Not affiliated with the NBA.'
+				'Unofficial site, not affiliated with the NBA or its teams. Names and logos belong to their owners.'
 			)
 		).toBeTruthy();
 		expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -441,7 +443,9 @@ describe('home page without data', () => {
 		await settle();
 		expect(container.querySelector('.hero-skeleton')).toBeNull();
 		expect(container.querySelector('.schedule-skeleton')).toBeNull();
-		expect(screen.getByRole('heading', { level: 1 }).textContent).toMatch(/Warriors\s*at\s+Lakers/);
+		expect(
+			screen.getByRole('heading', { level: 1, name: /^Warriors\s*at\s+Lakers$/ })
+		).toBeTruthy();
 		expect(container.querySelectorAll('ul.games > li')).toHaveLength(6);
 	});
 
@@ -480,7 +484,7 @@ describe('home page language', () => {
 		await renderPage();
 		expect(
 			within(screen.getByRole('contentinfo')).getByText(
-				'Personal project. Not affiliated with the NBA.'
+				'Unofficial site, not affiliated with the NBA or its teams. Names and logos belong to their owners.'
 			)
 		).toBeTruthy();
 	});
@@ -490,7 +494,7 @@ describe('home page language', () => {
 		await renderPage();
 		expect(
 			within(screen.getByRole('contentinfo')).getByText(
-				'Proyecto personal. Sin afiliación con la NBA.'
+				'Sitio no oficial. Sin afiliación con la NBA ni sus equipos. Nombres y logos son propiedad de sus dueños.'
 			)
 		).toBeTruthy();
 	});
@@ -500,7 +504,7 @@ describe('home page language', () => {
 		await renderPage();
 		expect(
 			within(screen.getByRole('contentinfo')).getByText(
-				'Proyecto personal. Sin afiliación con la NBA.'
+				'Sitio no oficial. Sin afiliación con la NBA ni sus equipos. Nombres y logos son propiedad de sus dueños.'
 			)
 		).toBeTruthy();
 	});
@@ -510,7 +514,7 @@ describe('home page language', () => {
 		await renderPage();
 		expect(
 			within(screen.getByRole('contentinfo')).getByText(
-				'Personal project. Not affiliated with the NBA.'
+				'Unofficial site, not affiliated with the NBA or its teams. Names and logos belong to their owners.'
 			)
 		).toBeTruthy();
 	});
@@ -520,7 +524,7 @@ describe('home page language', () => {
 		await renderPage();
 		expect(
 			within(screen.getByRole('contentinfo')).getByText(
-				'Personal project. Not affiliated with the NBA.'
+				'Unofficial site, not affiliated with the NBA or its teams. Names and logos belong to their owners.'
 			)
 		).toBeTruthy();
 	});

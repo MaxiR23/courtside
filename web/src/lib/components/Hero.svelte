@@ -5,18 +5,13 @@
 	import Kicker from '#lib/components/Kicker.svelte';
 	import NameLink from '#lib/components/NameLink.svelte';
 	import NavRow from '#lib/components/NavRow.svelte';
-	import PlayerCutout from '#lib/components/PlayerCutout.svelte';
+	import HeroBackgroundWord from '#lib/components/HeroBackgroundWord.svelte';
+	import HeroPlayerCard from '#lib/components/HeroPlayerCard.svelte';
+	import HeroSlideSelector from '#lib/components/HeroSlideSelector.svelte';
 	import StatusTag from '#lib/components/StatusTag.svelte';
+	import TeamMark from '#lib/components/TeamMark.svelte';
 	import type { DateCalendar } from '#lib/calendar/types.ts';
-	import {
-		crossfade,
-		type CrossfadeParams,
-		entrance,
-		frameEntrance,
-		Glide,
-		play,
-		progressFill
-	} from '#lib/hero/motion.ts';
+	import { entrance, frameEntrance, Glide, play } from '#lib/hero/motion.ts';
 	import { parallaxAllowed, pointerPosition } from '#lib/hero/parallax.ts';
 	import { Slideshow } from '#lib/hero/slideshow.svelte.ts';
 	import type { HeroGame, HeroPlayer } from '#lib/hero/types.ts';
@@ -54,21 +49,13 @@
 		calendar
 	}: Props = $props();
 
-	const watermarkFade = (active: boolean): CrossfadeParams => ({
-		active,
-		hidden: () => ({ opacity: 0 }),
-		shown: { opacity: 1 },
-		durationToken: '--hero-watermark-fade-duration'
-	});
-
 	// Two slides per game: the away star, then the home star. The count is a primitive, so a
 	// new games array of the same length keeps the slideshow and its position.
 	const slideCount = $derived(Math.max(1, games.length * 2));
 	const slideshow = $derived(new Slideshow(slideCount));
 	const gameIndex = $derived(Math.floor(slideshow.current / 2));
 	const game = $derived(games[gameIndex]);
-	const stars = $derived(games.flatMap((g) => [g.away.star, g.home.star]));
-	const indicatorSlides = $derived([gameIndex * 2, gameIndex * 2 + 1]);
+	const slides = $derived(games.flatMap((g) => [g.away, g.home]));
 
 	const running = $derived(autoplay && games.length > 0);
 
@@ -136,12 +123,12 @@
 >
 	<div class="grid-bg" aria-hidden="true"></div>
 	<div class="watermark-layer" aria-hidden="true" bind:this={watermarks}>
-		{#each stars as slide, i (i)}
-			<span
-				class="watermark"
-				class:active={i === slideshow.current}
-				use:crossfade={watermarkFade(i === slideshow.current)}>{slide.shortName}</span
-			>
+		{#each slides as slide, i (i)}
+			<HeroBackgroundWord
+				text={slide.star.shortName}
+				accent={slide.accent}
+				active={i === slideshow.current}
+			/>
 		{/each}
 	</div>
 
@@ -162,10 +149,14 @@
 						<Kicker text={kicker} />
 					</div>
 					<h1 class="entrance headline" use:play={entrance('--hero-delay-h1')}>
-						<NameLink href={teamHref(game.away.code)} text={game.away.name} /><br /><span class="at"
-							>{m.hero_at()}</span
+						<span class="title-logo" aria-hidden="true"
+							><TeamMark team={game.away} part="tile" size="fill" logo={game.away.logo} /></span
+						><NameLink href={teamHref(game.away.code)} text={game.away.name} /><br /><span
+							class="at">{m.hero_at()}</span
 						>
-						<NameLink href={teamHref(game.home.code)} text={game.home.name} />
+						<span class="title-logo" aria-hidden="true"
+							><TeamMark team={game.home} part="tile" size="fill" logo={game.home.logo} /></span
+						><NameLink href={teamHref(game.home.code)} text={game.home.name} />
 					</h1>
 					{#if blurb}
 						<p class="entrance blurb" use:play={entrance('--hero-delay-blurb')}>
@@ -181,28 +172,15 @@
 						<Button variant="secondary" label={m.hero_all_games()} href={scheduleHref} />
 					</div>
 					<div class="entrance indicator" use:play={entrance('--hero-delay-indicator')}>
-						{#each indicatorSlides as i (i)}
-							{@const slide = stars[i]}
-							{@const isActive = i === slideshow.current}
-							<button
-								type="button"
-								class="indicator-item"
-								class:active={isActive}
-								aria-current={isActive ? 'true' : undefined}
-								onclick={() => slideshow.goTo(i)}
-							>
-								<span class="track">
-									{#if isActive && running}
-										{#key slideshow.cycle}
-											<span class="fill" use:play={progressFill}></span>
-										{/key}
-									{/if}
-								</span>
-								<span class="indicator-label">
-									<span class="number">{pad((i % 2) + 1)}</span>
-									<span>{slide.shortName}</span>
-								</span>
-							</button>
+						{#each [gameIndex * 2, gameIndex * 2 + 1] as i (i)}
+							<HeroSlideSelector
+								side={slides[i]}
+								place={i % 2 === 0 ? 'away' : 'home'}
+								active={i === slideshow.current}
+								{running}
+								cycle={slideshow.cycle}
+								onselect={() => slideshow.goTo(i)}
+							/>
 						{/each}
 						{#if games.length > 1}
 							<span class="position">{pad(gameIndex + 1)} / {pad(games.length)}</span>
@@ -213,7 +191,7 @@
 				<div class="visual">
 					<div class="parallax" bind:this={parallax}>
 						<div class="frame-entrance" use:play={frameEntrance}>
-							<PlayerCutout players={stars} active={slideshow.current} {teamHref} />
+							<HeroPlayerCard sides={slides} active={slideshow.current} {teamHref} />
 						</div>
 					</div>
 				</div>
@@ -253,7 +231,8 @@
 		--pointer-y: 0;
 		position: relative;
 		overflow: hidden;
-		padding: var(--side-padding);
+		padding: var(--identity-hero-pad-top) var(--side-padding) var(--identity-hero-pad-bottom);
+		border-bottom: var(--hairline) solid var(--color-divider);
 	}
 
 	.grid-bg {
@@ -276,21 +255,8 @@
 			calc(var(--pointer-x) * var(--hero-watermark-shift-x)),
 			calc(var(--pointer-y) * var(--hero-watermark-shift-y))
 		);
+		opacity: var(--identity-word-stroke-alpha);
 		pointer-events: none;
-	}
-
-	.watermark {
-		position: absolute;
-		font-family: var(--font-heading);
-		font-size: var(--hero-watermark-size);
-		text-transform: uppercase;
-		color: transparent;
-		-webkit-text-stroke: var(--hero-watermark-stroke);
-		opacity: 0;
-	}
-
-	.watermark.active {
-		opacity: 1;
 	}
 
 	.content {
@@ -311,7 +277,7 @@
 		display: flex;
 		flex-direction: column;
 		align-items: flex-start;
-		gap: var(--panel-section-gap);
+		gap: var(--identity-left-gap);
 	}
 
 	.tag {
@@ -328,6 +294,14 @@
 		line-height: var(--hero-h1-line-height);
 		letter-spacing: var(--hero-h1-letter-spacing);
 		text-transform: uppercase;
+	}
+
+	.title-logo {
+		display: inline-block;
+		width: var(--identity-title-logo-size);
+		height: var(--identity-title-logo-size);
+		margin-right: var(--identity-title-logo-gap);
+		vertical-align: baseline;
 	}
 
 	.at {
@@ -349,55 +323,17 @@
 	}
 
 	.indicator {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--panel-section-gap);
-	}
-
-	.indicator-item {
-		display: flex;
-		flex-direction: column;
-		justify-content: flex-end;
-		gap: var(--game-list-gap);
-		min-height: var(--hit-target-size);
-		padding: 0;
-		background: transparent;
-		border: 0;
-		font: inherit;
-		color: var(--color-muted);
-		cursor: pointer;
-	}
-
-	.indicator-item.active {
-		color: var(--color-ink);
-	}
-
-	.track {
-		display: block;
-		height: var(--progress-track-height);
-		background: var(--color-divider);
-	}
-
-	.fill {
-		display: block;
-		height: 100%;
-		background: var(--color-accent-light);
-		transform-origin: left;
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, var(--identity-selector-max-width)));
+		gap: var(--identity-selector-gap);
 	}
 
 	.position {
-		align-self: flex-end;
+		grid-column: 1 / -1;
+		align-self: end;
 		font-size: var(--label-size);
 		letter-spacing: var(--label-letter-spacing);
 		color: var(--color-muted);
-	}
-
-	.indicator-label {
-		display: flex;
-		gap: var(--game-list-gap);
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
 	}
 
 	.visual {

@@ -22,7 +22,7 @@ Everything under "Implementation rules" in `docs/design.md` applies, plus:
 - **A section with no data is hidden, together with its tab.** This is how the page handles data a source does not provide for a given game.
 - **Every user-facing string is translatable**, in English and Spanish. The copy in this document is the English text.
 - **Team and player names never break inside a word.** Long names wrap only at spaces. Text that still does not fit is reduced in size by its clamp, never split.
-- **Every player photo falls back to the placeholder** used by `PlayerCutout` when it fails to load. Alternative text is never shown in place of an image.
+- **Every player photo falls back to the placeholder** used by `HeroPlayerCard` when it fails to load. Alternative text is never shown in place of an image.
 - **Shared components are reused:** `BlueprintFrame`, `TeamMonogram`, `LiveBadge`, `StatusTag`, `Kicker`, `LineScore`, `TeamStats`, `Highlights` and the loading skeletons. A section extends a shared component instead of copying it.
 
 ### New components

@@ -15,6 +15,8 @@
 // - Uses the cup-node box in a bracket node
 // - Uses the allstar-league box for a player's league team
 // - Uses the names box in the franchise names timeline
+// - Uses the fill box of its parent
+// - Draws a logo image in the box in place of the code, and calls back on its error
 // - Links the code to the href when one is given, and renders a span without one
 //
 // What is covered:
@@ -24,8 +26,8 @@
 //
 // SEE: web/src/lib/components/TeamMonogram.svelte
 import type { ResolvedPathname } from '$app/types';
-import { render, screen } from '@testing-library/svelte';
-import { describe, expect, it } from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/svelte';
+import { describe, expect, it, vi } from 'vitest';
 
 import TeamMonogram from '../../../src/lib/components/TeamMonogram.svelte';
 
@@ -123,5 +125,35 @@ describe('TeamMonogram', () => {
 		const { container } = render(TeamMonogram, { props: { code: 'LKV', size: 'names' } });
 		expect(screen.getByText('LKV').classList.contains('names')).toBe(true);
 		expect(container.querySelector('a')).toBeNull();
+	});
+
+	it('uses the fill box of its parent', () => {
+		render(TeamMonogram, { props: { code: 'GSW', size: 'fill' } });
+		expect(screen.getByText('GSW').classList.contains('fill')).toBe(true);
+	});
+
+	it('draws the logo in the box and calls back on the image error', async () => {
+		const onlogoerror = vi.fn();
+		const { container } = render(TeamMonogram, {
+			props: { code: 'GSW', size: 'fill', logo: 'https://example.com/a.svg', onlogoerror }
+		});
+		const box = container.querySelector('.team-monogram');
+		expect(box?.classList.contains('logo')).toBe(true);
+		expect(box?.classList.contains('fill')).toBe(true);
+		expect(box?.textContent).toBe('');
+		await fireEvent.error(container.querySelector('img') as HTMLImageElement);
+		expect(onlogoerror).toHaveBeenCalledOnce();
+	});
+
+	it('names a linked logo by its code', () => {
+		render(TeamMonogram, {
+			props: {
+				code: 'GSW',
+				size: 'large',
+				logo: 'https://example.com/a.svg',
+				href: '/team/gsw' as ResolvedPathname
+			}
+		});
+		expect(screen.getByRole('link', { name: 'GSW' })).toBeTruthy();
 	});
 });
