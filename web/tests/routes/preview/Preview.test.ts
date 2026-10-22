@@ -169,7 +169,9 @@ describe('component preview', { timeout: 30_000 }, () => {
 		render(Preview);
 		expect(screen.getByRole('heading', { level: 2, name: 'SiteFooter' })).toBeTruthy();
 		expect(
-			within(sectionOf('SiteFooter')).getByText('Personal project. Not affiliated with the NBA.')
+			within(sectionOf('SiteFooter')).getByText(
+				'Unofficial site, not affiliated with the NBA or its teams. Names and logos belong to their owners.'
+			)
 		).toBeTruthy();
 	});
 

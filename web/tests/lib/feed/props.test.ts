@@ -20,6 +20,7 @@
 // - The All-Star mark of a game: filled from the feed's mark, null for a null mark and for a feed without the key; a game whose guest sides have no city maps with a null city; an All-Star game is never a hero game and the league games stay
 // - A final All-Star game without a line score (untimed, ADR 0051) maps to a card without details and the home view is still shown
 // - A final game with available stats and no leaders maps to a final-without-stats card with available stats (a past day, ADR 0054); the games feed's available game still gives the played panel
+// - A hero side carries the feed's logo and its side of the game accent; a null accent, no accent object and a feed without the keys map to null
 // - The feed's seven day.date strings, in order, as dayIds
 // - A scheduled game with a null venue: null details venue and a null hero arena (ADR 0064)
 //
@@ -567,5 +568,61 @@ describe('toHomeView with the All-Star mark', () => {
 		expect(v.heroGames.map((g) => g.id)).not.toContain('g-sched');
 		expect(v.heroGames.map((g) => g.id)).toEqual(['g-live', 'g-final', 'g-delayed']);
 		expect(v.days[3].games).toHaveLength(6);
+	});
+});
+
+describe('the identity of a hero side', () => {
+	const heroOf = (source: GamesFeed) => {
+		const game = view(source).heroGames[0];
+		if (!game) throw new Error('The fixture has a hero game');
+		return game;
+	};
+	const firstHeroFeedGame = (source: GamesFeed) => {
+		const id = view(source).heroGames[0]?.id;
+		const game = source.days[3].games.find((g) => g.id === id);
+		if (!game) throw new Error('The fixture has a hero game');
+		return game;
+	};
+
+	it("carries the feed's logo and accent of each side", () => {
+		const source = feed();
+		const game = firstHeroFeedGame(source);
+		game.away.logo = {
+			light: 'https://example.com/hbr-light.svg',
+			dark: 'https://example.com/hbr-dark.svg'
+		};
+		game.home.logo = { light: 'https://example.com/pvo-light.svg', dark: null };
+		game.accent = { away: '#1f6f8b', home: '#c9822b' };
+		const hero = heroOf(source);
+		expect(hero.away.logo).toEqual(game.away.logo);
+		expect(hero.home.logo).toEqual(game.home.logo);
+		expect(hero.away.accent).toBe('#1f6f8b');
+		expect(hero.home.accent).toBe('#c9822b');
+	});
+
+	it('maps a side with a null accent, and a game with a null accent, to a null accent', () => {
+		const source = feed();
+		const game = firstHeroFeedGame(source);
+		game.accent = { away: '#1f6f8b', home: null };
+		expect(heroOf(source).away.accent).toBe('#1f6f8b');
+		expect(heroOf(source).home.accent).toBeNull();
+		game.accent = null;
+		expect(heroOf(source).away.accent).toBeNull();
+		expect(heroOf(source).home.accent).toBeNull();
+	});
+
+	it('maps a null logo to null', () => {
+		const source = feed();
+		const game = firstHeroFeedGame(source);
+		game.away.logo = null;
+		expect(heroOf(source).away.logo).toBeNull();
+	});
+
+	it('maps a feed without the logo and accent keys to nulls', () => {
+		const hero = heroOf(feed());
+		for (const side of [hero.away, hero.home]) {
+			expect(side.logo).toBeNull();
+			expect(side.accent).toBeNull();
+		}
 	});
 });

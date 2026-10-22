@@ -1,4 +1,4 @@
-export const SLIDE_INTERVAL_MS = 7000;
+export const SLIDE_INTERVAL_MS = 5000;
 
 export class Slideshow {
 	current = $state(0);

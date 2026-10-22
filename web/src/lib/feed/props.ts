@@ -259,19 +259,26 @@ function scheduleGame(game: Game, options: Options): ScheduleGame {
 function heroGame(game: Game): HeroGame {
 	const status: HeroStatus = game.status === 'scheduled' ? 'tonight' : game.status;
 	const { tipTime, tipSuffix } = tipParts(game.startTime);
+	// A feed built before ADR 0068 has no logo or accent key: the monogram and the neutral accent.
 	return {
 		id: game.id,
 		status,
 		tipTime: `${tipTime} ${tipSuffix}`,
 		arena: game.venue,
 		away: {
+			...teamMark(game.away),
 			code: required(game.away.code),
 			name: game.away.name,
+			logo: game.away.logo ?? null,
+			accent: game.accent?.away ?? null,
 			star: heroPlayer(required(game.stars.away), game.away)
 		},
 		home: {
+			...teamMark(game.home),
 			code: required(game.home.code),
 			name: game.home.name,
+			logo: game.home.logo ?? null,
+			accent: game.accent?.home ?? null,
 			star: heroPlayer(required(game.stars.home), game.home)
 		}
 	};

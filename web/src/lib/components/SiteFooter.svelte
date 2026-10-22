@@ -4,7 +4,7 @@
 
 <footer class="site-footer">
 	<span class="name">{m.site_name()}</span>
-	<span class="disclaimer">{m.footer_disclaimer()}</span>
+	<span class="disclaimer">{m.identity_footer_disclaimer()}</span>
 </footer>
 
 <style>

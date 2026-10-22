@@ -27,12 +27,20 @@ describe('SiteFooter', () => {
 	it('shows the brand name and the not-affiliated line', () => {
 		render(SiteFooter);
 		expect(screen.getByText('Courtside')).toBeTruthy();
-		expect(screen.getByText('Personal project. Not affiliated with the NBA.')).toBeTruthy();
+		expect(
+			screen.getByText(
+				'Unofficial site, not affiliated with the NBA or its teams. Names and logos belong to their owners.'
+			)
+		).toBeTruthy();
 	});
 
 	it('shows the not-affiliated line in Spanish with a Spanish preference', () => {
 		preferLanguages(['es-ES']);
 		render(SiteFooter);
-		expect(screen.getByText('Proyecto personal. Sin afiliación con la NBA.')).toBeTruthy();
+		expect(
+			screen.getByText(
+				'Sitio no oficial. Sin afiliación con la NBA ni sus equipos. Nombres y logos son propiedad de sus dueños.'
+			)
+		).toBeTruthy();
 	});
 });
