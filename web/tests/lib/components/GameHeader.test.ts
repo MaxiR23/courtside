@@ -108,11 +108,12 @@ function show(header: GameHeaderView | null, layout: RowLayout = 'desktop', load
 }
 
 describe('GameHeader', () => {
-	it('shows the brand and an All games link to the home in the nav row', () => {
+	it('shows the brand and an All games link to the home in the nav row', async () => {
 		show(null);
 		expect(screen.getByText('Courtside')).toBeTruthy();
 		expect(screen.getByRole('link', { name: 'All games' }).getAttribute('href')).toBe('/');
 		expect(screen.getByRole('link', { name: 'Standings' }).getAttribute('href')).toBe('/standings');
+		await fireEvent.click(screen.getByRole('button', { name: 'Tournaments' }));
 		const cup = screen.getByRole('link', { name: 'Cup' });
 		expect(cup.getAttribute('href')).toBe('/cup');
 		expect(cup.getAttribute('aria-current')).toBeNull();

@@ -140,13 +140,14 @@ describe('PlayerHeader', () => {
 		expect(container.querySelectorAll('.bone').length).toBeGreaterThan(0);
 	});
 
-	it('shows only the nav row with a null header', () => {
+	it('shows only the nav row with a null header', async () => {
 		const { container } = show({ header: null });
 		expect(container.querySelector('header')?.getAttribute('aria-busy')).toBeNull();
 		expect(container.querySelector('h1')).toBeNull();
 		expect(container.querySelector('.bone')).toBeNull();
 		expect(screen.getByRole('link', { name: 'All games' })).toBeTruthy();
 		expect(screen.getByRole('link', { name: 'Standings' }).getAttribute('href')).toBe('/standings');
+		await fireEvent.click(screen.getByRole('button', { name: 'Tournaments' }));
 		const cup = screen.getByRole('link', { name: 'Cup' });
 		expect(cup.getAttribute('href')).toBe('/cup');
 		expect(cup.getAttribute('aria-current')).toBeNull();

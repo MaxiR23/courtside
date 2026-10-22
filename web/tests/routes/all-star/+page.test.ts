@@ -28,7 +28,7 @@
 // Run with: cd web && pnpm exec vitest run tests/routes/all-star/+page.test.ts
 //
 // SEE: web/src/routes/all-star/+page.svelte
-import { render, screen } from '@testing-library/svelte';
+import { fireEvent, render, screen } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -147,6 +147,7 @@ describe('All-Star page', () => {
 		stubFetch(answerWith(fixture('after')));
 		await renderPage();
 		expect(screen.getByRole('button', { name: 'Search' })).toBeTruthy();
+		await fireEvent.click(screen.getByRole('button', { name: 'Tournaments' }));
 		const link = screen.getByRole('link', { name: 'All-Star' });
 		expect(link.getAttribute('aria-current')).toBe('page');
 		expect(link.getAttribute('href')).toBe('/all-star');

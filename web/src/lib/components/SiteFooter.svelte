@@ -22,7 +22,7 @@
 
 	.name {
 		font-family: var(--font-heading);
-		font-size: var(--brand-size);
+		font-size: var(--footer-brand-size);
 		letter-spacing: var(--brand-letter-spacing);
 		text-transform: uppercase;
 	}

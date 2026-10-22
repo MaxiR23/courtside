@@ -171,6 +171,7 @@ describe('Cup page', () => {
 			'Bracket',
 			'Cup games'
 		]);
+		await fireEvent.click(screen.getByRole('button', { name: 'Tournaments' }));
 		const cup = screen.getByRole('link', { name: 'Cup' });
 		expect(cup.getAttribute('aria-current')).toBe('page');
 		expect(cup.getAttribute('href')).toBe('/cup');
@@ -332,6 +333,7 @@ describe('Cup page', () => {
 		preferLanguages(['es-ES']);
 		stubFetch(answerWith(recorded()));
 		await renderPage();
+		await fireEvent.click(screen.getByRole('button', { name: 'Torneos' }));
 		expect(screen.getByRole('link', { name: 'Copa' })).toBeTruthy();
 		expect(screen.getByRole('heading', { level: 1, name: 'Copa NBA' })).toBeTruthy();
 		expect(

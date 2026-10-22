@@ -227,8 +227,9 @@ describe('AllStarHeader, before', () => {
 });
 
 describe('AllStarHeader, nav and states', () => {
-	it('marks All-Star current in the nav', () => {
+	it('marks All-Star current in the nav', async () => {
 		show('after');
+		await fireEvent.click(screen.getByRole('button', { name: 'Tournaments' }));
 		const link = screen.getByRole('link', { name: 'All-Star' });
 		expect(link.getAttribute('aria-current')).toBe('page');
 		expect(screen.getByRole('button', { name: 'Search' })).toBeTruthy();

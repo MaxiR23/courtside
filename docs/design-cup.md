@@ -53,7 +53,7 @@ Everything under "Implementation rules" in `docs/design.md`, `docs/design-standi
 
 ## Nav
 
-- Links: Games · Standings · Cup, then the search trigger. Same rules as the standings page: two rows below 680px. Cup is active on `/cup`.
+- Links: the desktop row reads Games · Standings · Tournaments ▾, with Cup, All-Star and Playoffs inside the dropdown, then the search trigger. Same rules as the other pages (`docs/design.md`, "Nav row (every page)"). Cup is active on `/cup`.
 
 ## Header
 
@@ -218,7 +218,7 @@ The line joins the group and the record with " · " in markup. The feed sends th
 
 ## Responsive
 
-- Under 680px: the nav is two rows, the stage strip is 2x2, the bracket uses the vertical world without zoom controls, the matchup panel and player card are full-screen sheets, and the Cup games list is a single column.
+- Under 680px: the nav is one row with the menu button, the stage strip is 2x2, the bracket uses the vertical world without zoom controls, the matchup panel and player card are full-screen sheets, and the Cup games list is a single column.
 - Group cards reflow through their auto-fill grid; tables scroll horizontally with a sticky first column.
 
 ## New tokens

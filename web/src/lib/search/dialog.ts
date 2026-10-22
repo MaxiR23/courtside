@@ -1,4 +1,4 @@
-// DOM helpers for the search dialog: the scroll lock and the focus trap.
+// DOM helpers for dialogs: the scroll lock, the focus trap and the move to the body.
 
 /** Locks the page's scroll. Returns the function that restores the previous inline value. */
 export function lockBodyScroll(body: HTMLElement): () => void {
@@ -28,4 +28,10 @@ export function keepFocusInside(event: KeyboardEvent, container: HTMLElement): v
 		event.preventDefault();
 		first.focus();
 	}
+}
+
+/** Moves the node to the end of the body, out of any ancestor that would contain a fixed element. */
+export function moveToBody(node: HTMLElement): { destroy: () => void } {
+	document.body.appendChild(node);
+	return { destroy: () => node.remove() };
 }

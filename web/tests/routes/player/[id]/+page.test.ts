@@ -30,7 +30,7 @@
 // Run with: cd web && pnpm exec vitest run "tests/routes/player/[id]/+page.test.ts"
 //
 // SEE: web/src/routes/player/[id]/+page.svelte
-import { render, screen } from '@testing-library/svelte';
+import { fireEvent, render, screen } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -189,6 +189,7 @@ describe('player page', () => {
 		expect(container.querySelector('.mini-score')?.textContent).toBe('#2 S. Gilgeous-Alexander');
 		expect(screen.getByRole('contentinfo')).toBeTruthy();
 		expect(screen.getByRole('link', { name: 'Standings' }).getAttribute('href')).toBe('/standings');
+		await fireEvent.click(screen.getByRole('button', { name: 'Tournaments' }));
 		const cup = screen.getByRole('link', { name: 'Cup' });
 		expect(cup.getAttribute('href')).toBe('/cup');
 		expect(cup.getAttribute('aria-current')).toBeNull();

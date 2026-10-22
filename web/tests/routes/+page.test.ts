@@ -262,9 +262,10 @@ describe('home page with a feed', () => {
 		expect(within(final).queryByText('Highlights')).toBeNull();
 	});
 
-	it('shows Games current, then Standings, Cup, All-Star, Playoffs, then the date in the nav row', async () => {
+	it('shows Games current, then Standings, Cup, All-Star, Playoffs under Tournaments, then the date in the nav row', async () => {
 		stubFetch(answerWith(recorded()));
 		const { container } = await renderPage();
+		await fireEvent.click(screen.getByRole('button', { name: 'Tournaments' }));
 		const links = container.querySelector('nav .links') as HTMLElement;
 		const [games, standings, cup, allStar, playoffs] = [...links.querySelectorAll('a')];
 		expect(games.textContent?.trim()).toBe('Games');
@@ -282,7 +283,7 @@ describe('home page with a feed', () => {
 		expect(playoffs.textContent?.trim()).toBe('Playoffs');
 		expect(playoffs.getAttribute('href')).toBe('/playoffs');
 		expect(playoffs.getAttribute('aria-current')).toBeNull();
-		expect(links.children[5]?.querySelector('time')?.textContent).toBe('Sun, Oct 4, 2026');
+		expect(links.children[3]?.querySelector('time')?.textContent).toBe('Sun, Oct 4, 2026');
 	});
 
 	it('toggles spoiler-free mode from the nav row', async () => {

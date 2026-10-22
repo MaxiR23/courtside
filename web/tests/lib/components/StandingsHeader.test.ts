@@ -45,8 +45,9 @@ afterEach(() => {
 });
 
 describe('StandingsHeader', () => {
-	it('links Cup to /cup and does not mark it current', () => {
+	it('links Cup to /cup and does not mark it current', async () => {
 		render(StandingsHeader, { props: props() });
+		await fireEvent.click(screen.getByRole('button', { name: 'Tournaments' }));
 		const cup = screen.getByRole('link', { name: 'Cup' });
 		expect(cup.getAttribute('href')).toBe('/cup');
 		expect(cup.getAttribute('aria-current')).toBeNull();

@@ -18,7 +18,7 @@
 // Run with: cd web && pnpm exec vitest run tests/routes/all-star/previous/+page.test.ts
 //
 // SEE: web/src/routes/all-star/previous/+page.svelte
-import { render, screen } from '@testing-library/svelte';
+import { fireEvent, render, screen } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -111,6 +111,7 @@ describe('Previous edition page', () => {
 	it('marks All-Star as the current page', async () => {
 		stubFetch(answerWith(withPrevious()));
 		await renderPage();
+		await fireEvent.click(screen.getByRole('button', { name: 'Tournaments' }));
 		const link = screen.getByRole('link', { name: 'All-Star' });
 		expect(link.getAttribute('aria-current')).toBe('page');
 		expect(link.getAttribute('href')).toBe('/all-star');

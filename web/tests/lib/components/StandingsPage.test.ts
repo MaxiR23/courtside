@@ -60,8 +60,9 @@ afterEach(() => {
 });
 
 describe('StandingsPage', () => {
-	it('links Cup in the nav to /cup without marking it current', () => {
+	it('links Cup in the nav to /cup without marking it current', async () => {
 		show(ready());
+		await fireEvent.click(screen.getByRole('button', { name: 'Tournaments' }));
 		const cup = screen.getByRole('link', { name: 'Cup' });
 		expect(cup.getAttribute('href')).toBe('/cup');
 		expect(cup.getAttribute('aria-current')).toBeNull();

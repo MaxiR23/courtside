@@ -527,7 +527,7 @@ describe('Hero while the first feed loads', () => {
 		]);
 	});
 
-	it('passes Home through to the nav row: Games current, Standings linked', () => {
+	it('passes Home through to the nav row: Games current, Standings linked', async () => {
 		render(Hero, {
 			props: {
 				...baseProps,
@@ -539,6 +539,7 @@ describe('Hero while the first feed loads', () => {
 		const standings = screen.getByRole('link', { name: 'Standings' });
 		expect(standings.getAttribute('href')).toBe('/standings');
 		expect(standings.getAttribute('aria-current')).toBeNull();
+		await fireEvent.click(screen.getByRole('button', { name: 'Tournaments' }));
 		const cup = screen.getByRole('link', { name: 'Cup' });
 		expect(cup.getAttribute('href')).toBe('/cup');
 		expect(cup.getAttribute('aria-current')).toBeNull();

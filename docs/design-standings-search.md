@@ -50,11 +50,11 @@ Everything under "Implementation rules" in `docs/design.md`, `docs/design-game-d
 
 ## Nav (every page)
 
-- Order: logo, page links ("Games" or "All games", "Standings", "Cup", the date on Home), search trigger. The Cup link's current state is in `docs/design-cup.md`, "Nav".
+- Order and grouping: see `docs/design.md`, "Nav row (every page)". The Cup link's current state is in `docs/design-cup.md`, "Nav".
 - "Games" is shown on Home; "All games" on every other page (it links to Home).
 - Current page link: ink with a 1px accent underline. Other links: muted, ink on hover. Link text uses `--nav-link-size` and `--nav-link-letter-spacing`.
 - **Desktop trigger,** 240x40: the search icon (`--nav-icon-size`) and the placeholder "Search player or team", nothing else. Radius 10px.
-- **Below 680px:** two rows. Row 1: the logo on the left and a 40x40 icon-only trigger on the right. Row 2: the links, as a full-width break (`flex-basis: 100%` and `order`).
+- **Below 680px:** the logo, a 40x40 icon-only trigger and the menu button; the links are in the menu sheet (`docs/design.md`).
 - The trigger is a button with an accessible name "Search".
 
 ## Standings page
@@ -211,7 +211,7 @@ A section under the tables, with the label "Key":
 ## Responsive
 
 - Under 680px:
-  - The nav is two rows (logo and icon trigger, then the links).
+  - The nav is one row (logo, icon trigger and menu button); the links are in the menu sheet.
   - The standings table scrolls horizontally inside `overflow-x: auto`; Seed and Team stay pinned; the team column has a 178px minimum; the city is hidden.
   - The search overlay is a full-screen sheet with a "Cancel" button; player rows use the short name and "#2 · G"; players are capped at 6.
 - Every other part reflows without a breakpoint.

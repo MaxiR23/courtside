@@ -20,7 +20,7 @@
 //
 // SEE: web/src/lib/components/TeamHeader.svelte
 import type { ResolvedPathname } from '$app/types';
-import { render, screen } from '@testing-library/svelte';
+import { fireEvent, render, screen } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
 
 import TeamHeader from '../../../src/lib/components/TeamHeader.svelte';
@@ -129,7 +129,7 @@ describe('TeamHeader', () => {
 		expect(screen.getByText('Season 2022-23')).toBeTruthy();
 	});
 
-	it('shows only the nav row with no header', () => {
+	it('shows only the nav row with no header', async () => {
 		const { container } = render(TeamHeader, {
 			props: {
 				header: null,
@@ -140,6 +140,7 @@ describe('TeamHeader', () => {
 		});
 		expect(screen.getByRole('link', { name: 'All games' }).getAttribute('href')).toBe('/');
 		expect(screen.getByRole('link', { name: 'Standings' }).getAttribute('href')).toBe('/standings');
+		await fireEvent.click(screen.getByRole('button', { name: 'Tournaments' }));
 		const cup = screen.getByRole('link', { name: 'Cup' });
 		expect(cup.getAttribute('href')).toBe('/cup');
 		expect(cup.getAttribute('aria-current')).toBeNull();

@@ -73,7 +73,7 @@ Everything under "Implementation rules" in `docs/design.md` and `docs/design-cup
 
 ## Nav
 
-- Links: Games · Standings · Cup · Playoffs, then the search trigger. Same rules as the standings page: two rows below 680px. Playoffs is active on `/playoffs`.
+- Links: the desktop row reads Games · Standings · Tournaments ▾, with Cup, All-Star and Playoffs inside the dropdown, then the search trigger. Same rules as the other pages (`docs/design.md`, "Nav row (every page)"). Playoffs is active on `/playoffs`.
 
 ## Header
 
@@ -292,7 +292,7 @@ Same size, letter spacing and truncation as the Cup tag: 11px, .16em, uppercase,
 
 ## Responsive
 
-- Under 680px: the nav is two rows, the stage strip is 2x2 plus one cell, the hero is compact (trophy 150px, stats 2x2), the game tabs and the award cards are snap scrollers (132px and 156px), the leader tabs are chips, the bracket is stacked rounds with a bottom sheet and no zoom controls.
+- Under 680px: the nav is one row with the menu button, the stage strip is 2x2 plus one cell, the hero is compact (trophy 150px, stats 2x2), the game tabs and the award cards are snap scrollers (132px and 156px), the leader tabs are chips, the bracket is stacked rounds with a bottom sheet and no zoom controls.
 - Tables scroll horizontally with a sticky first column.
 
 ## New tokens

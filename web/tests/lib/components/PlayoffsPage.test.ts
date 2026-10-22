@@ -205,9 +205,10 @@ describe('PlayoffsPage', () => {
 		expect(screen.queryByText(/^Season /)).toBeNull();
 	});
 
-	it('unavailable: the unavailable row under the nav and the footer', () => {
+	it('unavailable: the unavailable row under the nav and the footer', async () => {
 		const { container } = show({ kind: 'unavailable' });
 		expect(screen.getByText(UNAVAILABLE)).toBeTruthy();
+		await fireEvent.click(screen.getByRole('button', { name: 'Tournaments' }));
 		expect(screen.getByRole('link', { name: 'Playoffs' }).getAttribute('aria-current')).toBe(
 			'page'
 		);

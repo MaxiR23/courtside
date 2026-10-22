@@ -115,7 +115,13 @@
 	}
 
 	function onWindowKeydown(event: KeyboardEvent) {
-		if (event.key === 'Escape' && interactive && camera.level === 2 && sheet === null) {
+		if (
+			event.key === 'Escape' &&
+			!event.defaultPrevented &&
+			interactive &&
+			camera.level === 2 &&
+			sheet === null
+		) {
 			camera.overview();
 		}
 	}

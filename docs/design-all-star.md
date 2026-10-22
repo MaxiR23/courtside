@@ -64,8 +64,8 @@ Everything under "Implementation rules" in `docs/design.md`, `docs/design-cup.md
 
 ## Nav
 
-- Links: Games · Standings · Cup · All-Star · Playoffs, then the search trigger. All-Star sits between Cup and Playoffs. Same rules as the other pages: two rows below 680px. All-Star is active on `/all-star`.
-- Mobile: sticky 56px header with blur (`rgba(12, 14, 16, .92)`, `backdrop-filter: blur(12px)`), the standard two-row nav rules below 680px.
+- Links: the desktop row reads Games · Standings · Tournaments ▾, with Cup, All-Star and Playoffs inside the dropdown, in that order, then the search trigger. Same rules as the other pages (`docs/design.md`, "Nav row (every page)"). All-Star is active on `/all-star`.
+- Mobile: sticky 56px header with blur (`rgba(12, 14, 16, .92)`, `backdrop-filter: blur(12px)`). Below 680px the links live in the menu sheet, as `docs/design.md`, "Nav row (every page)", describes.
 
 ## Header
 
@@ -247,7 +247,7 @@ Same size, letter spacing and truncation as the other stage tags: 11px, .16em, u
 
 Under 680px (the 390px design):
 
-- Side padding 18px, section gap 56px. The sticky 56px header with blur and the two-row nav.
+- Side padding 18px, section gap 56px. The sticky 56px header with blur and the one-row nav with the menu button.
 - Hero after: the h1 `clamp(58px, 17vw, 84px)`, a 116x156 MVP thumb with corner marks and a solid "MVP" tag linking to `#mvp`, the score at 44px, the stats 2x2, the buttons 48px in two columns.
 - Hero live: the framed live scoreboard (score 56px, clock 22px); tapping it selects the live game and scrolls to `#games`.
 - Hero before: the h1, the outlined year `clamp(96px, 30vw, 140px)`, the three "To be confirmed" rows, the button.
