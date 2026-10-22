@@ -6,6 +6,7 @@
 // - Ten rows in feed order with seed, team, record and GB
 // - The Playoffs line after row 6 (solid) and the Play-In line after row 10 (dashed), with their captions
 // - Clinch tags and the team strip; — cells in the preseason; team links
+// - The team logos: the feed logo of a row in its tile, the code for a null logo
 //
 // What is covered:
 // - Each state a table can show, drawn from props with no fetch
@@ -105,5 +106,21 @@ describe('PlayoffPicture', () => {
 	it('links each team name to its team page', () => {
 		show();
 		expect(screen.getByRole('link', { name: 'Owls' }).getAttribute('href')).toBe('/team/qxa');
+	});
+});
+
+describe('PlayoffPicture logos', () => {
+	it('draws the logo of a row in its tile and the code for a null logo', () => {
+		const source = feed();
+		source.picture[0]!.rows[0]!.team.logo = {
+			light: 'https://example.com/a-light.svg',
+			dark: 'https://example.com/a-dark.svg'
+		};
+		const { container } = show(source);
+		const boxes = [...container.querySelectorAll('.row.body .team-monogram')];
+		expect(boxes[0]!.querySelector('img')?.getAttribute('src')).toBe(
+			'https://example.com/a-dark.svg'
+		);
+		expect(boxes[1]!.querySelector('img')).toBeNull();
 	});
 });

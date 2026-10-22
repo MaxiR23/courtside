@@ -71,6 +71,7 @@
 				aria-pressed={side === option}
 				onclick={() => (side = option)}
 			>
+				<TeamMark part="tile" team={box[option].team} size="inline" logo={box[option].team.logo} />
 				<TeamMark part={layout === 'desktop' ? 'name' : 'label'} team={box[option].team} />
 			</button>
 		{/each}
@@ -140,6 +141,9 @@
 	}
 
 	.side {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--identity-inline-mark-gap);
 		min-height: var(--hit-target-size);
 		padding: 0 var(--game-list-gap);
 		border: 0;

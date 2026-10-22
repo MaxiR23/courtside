@@ -63,7 +63,7 @@
 
 {#snippet teamBlock(team: HeaderTeam, side: 'away' | 'home')}
 	<div class="team {side}" class:dimmed={isLoser(side)}>
-		<TeamMark part="tile" {team} size="header" {teamHref} />
+		<TeamMark part="tile" {team} size="header" logo={team.logo} {teamHref} />
 		{#if team.city}<span class="city">{team.city}</span>{/if}
 		<h1 class="name">
 			<TeamMark part="name" {team} {teamHref} />
@@ -116,7 +116,7 @@
 						{@const side = entry.side}
 						{@const team = entry.team}
 						<div class="row" class:dimmed={isLoser(side)}>
-							<TeamMark part="tile" {team} size="header-mobile" {teamHref} />
+							<TeamMark part="tile" {team} size="header-mobile" logo={team.logo} {teamHref} />
 							<div class="who">
 								<h1 class="name">
 									<TeamMark part="name" {team} {teamHref} />

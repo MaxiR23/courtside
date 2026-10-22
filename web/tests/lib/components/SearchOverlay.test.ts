@@ -11,6 +11,7 @@
 // - Cap: 8 players on desktop and 6 on mobile with "Show all N players", which lifts the cap
 // - Keyboard: the first row is active, ArrowDown and ArrowUp wrap, Enter clicks the active link, hover sets the active row, Tab wraps to the input
 // - Loading: no results until the index arrives; a 503, a rejected load and a missing URL show the unavailable line
+// - Team logos: a team and a player's team with a feed logo draw it, the others draw their code
 // - Typing never loads again
 // - Spanish: labels, buttons, the no-results line and the unavailable line
 //
@@ -332,5 +333,30 @@ describe('Spanish', () => {
 		mount(() => Promise.reject(new Error('503')), 'mobile');
 		expect(screen.getByRole('button', { name: 'Cancelar' })).toBeTruthy();
 		expect(await screen.findByText(/Los datos no están disponibles/)).toBeTruthy();
+	});
+});
+
+describe('team logos', () => {
+	it('draws the logo of a team and of a player team, and the code for the others', async () => {
+		const logo = {
+			light: 'https://example.com/okc-light.svg',
+			dark: 'https://example.com/okc-dark.svg'
+		};
+		const source = recorded();
+		source.teams.find((t) => t.code === 'OKC')!.logo = logo;
+		source.players.find((p) => p.id === '1628983')!.team.logo = logo;
+		mount(() => Promise.resolve(source));
+		await type('okc');
+		await screen.findAllByRole('link');
+		const team = document.querySelector('.team-monogram.search');
+		expect(team?.querySelector('img')?.getAttribute('src')).toBe(
+			'https://example.com/okc-dark.svg'
+		);
+		const marks = [...document.querySelectorAll('.team-monogram.inline')];
+		expect(marks[0]!.querySelector('img')?.getAttribute('src')).toBe(
+			'https://example.com/okc-dark.svg'
+		);
+		expect(marks[1]!.querySelector('img')).toBeNull();
+		expect(marks[1]!.textContent).toBe('OKC');
 	});
 });

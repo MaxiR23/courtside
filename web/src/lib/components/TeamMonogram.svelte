@@ -18,22 +18,43 @@
 			| 'cup-node'
 			| 'allstar-league'
 			| 'names'
+			| 'inline'
 			| 'fill'; // the whole box of the parent
 		href?: ResolvedPathname;
 		logo?: string | null; // an image URL drawn in the box in place of the code; null or absent: the code
+		logoAlt?: string | null; // the alt text of a logo standing alone; null or absent: the logo is hidden from assistive technology
 		onlogoerror?: () => void;
 	};
 
-	let { code, size, href, logo = null, onlogoerror }: Props = $props();
+	let { code, size, href, logo = null, logoAlt = null, onlogoerror }: Props = $props();
 </script>
 
 {#if href}
-	<a class="team-monogram {size} linked" class:logo={logo !== null} {href}
-		>{#if logo !== null}<img src={logo} alt={code} onerror={onlogoerror} />{:else}{code}{/if}</a
+	<a
+		class="team-monogram {size} linked"
+		class:logo={logo !== null}
+		{href}
+		aria-label={logo !== null && logoAlt == null ? code : undefined}
+		>{#if logo !== null}<img
+				src={logo}
+				alt={logoAlt ?? ''}
+				aria-hidden={logoAlt == null ? 'true' : undefined}
+				loading="lazy"
+				onerror={onlogoerror}
+			/>{:else}{code}{/if}</a
 	>
 {:else}
-	<span class="team-monogram {size}" class:logo={logo !== null}
-		>{#if logo !== null}<img src={logo} alt="" onerror={onlogoerror} />{:else}{code}{/if}</span
+	<span
+		class="team-monogram {size}"
+		class:logo={logo !== null}
+		aria-hidden={size === 'inline' && logoAlt == null ? 'true' : undefined}
+		>{#if logo !== null}<img
+				src={logo}
+				alt={logoAlt ?? ''}
+				aria-hidden={logoAlt == null ? 'true' : undefined}
+				loading="lazy"
+				onerror={onlogoerror}
+			/>{:else}{code}{/if}</span
 	>
 {/if}
 
@@ -137,6 +158,12 @@
 	.allstar-league {
 		width: var(--allstar-box-monogram-size);
 		height: var(--allstar-box-monogram-size);
+	}
+
+	.inline {
+		width: var(--identity-inline-mark);
+		height: var(--identity-inline-mark);
+		font-size: var(--label-size);
 	}
 
 	.fill {

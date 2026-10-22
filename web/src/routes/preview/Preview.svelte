@@ -962,7 +962,7 @@
 	];
 	const teamView: TeamView = {
 		header: {
-			code: 'GSW',
+			team: { code: 'GSW', name: 'Warriors', city: 'Golden State', guest: false },
 			city: 'Golden State',
 			name: 'Warriors',
 			conferenceLine: 'Western Conference · Pacific Division',
@@ -1313,6 +1313,7 @@
 	const playerView: PlayerView = {
 		header: {
 			teamCode: 'OKC',
+			team: league('OKC'),
 			status: { label: 'Active', injured: false },
 			firstName: 'Shai',
 			lastName: 'Gilgeous-Alexander',

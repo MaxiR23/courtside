@@ -7,6 +7,7 @@
 // - The strip is set only with both colors
 // - The long position in Spanish (ADR 0054)
 // - Player line and short line; a null number, position or abbreviation drops its part
+// - The team mark of both rows: the feed's logo, a null logo leaving the key out
 // - Injury status, team color and photo pass through
 //
 // What is covered:
@@ -122,5 +123,33 @@ describe('toSearchPlayerRow position', () => {
 		const row = toSearchPlayerRow({ ...player('1628983'), position: 'Guard', positionAbbr: 'G' });
 		expect(row.line).toContain('Escolta (G)');
 		expect(row.lineShort).toContain('G');
+	});
+});
+
+describe('search team marks', () => {
+	it("carries the feed's logo to the team row and the player row", () => {
+		const source = feed();
+		const logo = { light: 'https://example.com/okc-light.svg', dark: null };
+		source.teams[0]!.logo = logo;
+		source.players[0]!.team.logo = logo;
+		expect(toSearchTeamRow(source.teams[0]!).team.logo).toEqual(logo);
+		expect(toSearchPlayerRow(source.players[0]!).team.logo).toEqual(logo);
+	});
+
+	it('leaves the key out for a null logo and builds the player mark from the code', () => {
+		const source = feed();
+		source.teams[0]!.logo = null;
+		source.players[0]!.team.logo = null;
+		const teamRow = toSearchTeamRow(source.teams[0]!);
+		expect('logo' in teamRow.team).toBe(false);
+		expect(teamRow.team.code).toBe(source.teams[0]!.code);
+		const playerRow = toSearchPlayerRow(source.players[0]!);
+		expect('logo' in playerRow.team).toBe(false);
+		expect(playerRow.team).toEqual({
+			code: source.players[0]!.team.code,
+			name: null,
+			city: null,
+			guest: false
+		});
 	});
 });

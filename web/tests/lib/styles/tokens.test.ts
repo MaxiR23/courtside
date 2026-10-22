@@ -191,6 +191,8 @@ const expected: Record<string, string> = {
 	'--identity-strip-name-size': '26px',
 	'--identity-strip-name-tracking': '0.04em',
 	'--identity-strip-team-tracking': '0.12em',
+	'--identity-inline-mark': '20px',
+	'--identity-inline-mark-gap': '6px',
 	'--identity-settle-duration': '1.2s',
 	'--list-entrance-offset': '18px',
 	'--list-entrance-duration': '600ms',

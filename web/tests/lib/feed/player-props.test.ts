@@ -4,6 +4,7 @@
 //
 // Tested:
 // - The header: line, status tag, injury card, hero stats (rank sub-line, null rank, null summary)
+// - The header's team view: the feed's logo, a null logo, no team, the season code of a past team
 // - The tabs in order and the mini name; sections without data leave with their tab
 // - The profile cells: formatting, sub-lines, a null draft (Undrafted on the current season, no cell on a past season), null fields leaving their cell
 // - The next game, the live card view, its null line and a live line value the feed has as null (ADR 0055)
@@ -806,5 +807,42 @@ describe('toPlayerView season codes', () => {
 			colors: null
 		};
 		expect(view(source).header.teamCode).toBe('NOP');
+	});
+});
+
+describe('toPlayerView header team mark', () => {
+	const team = {
+		code: 'OKC',
+		name: 'Thunder',
+		city: 'Oklahoma City',
+		seasonCode: null,
+		logo: null,
+		colors: null
+	};
+
+	it("carries the feed's logo, and leaves the key out for a null logo", () => {
+		const source = feed();
+		source.team = { ...team, logo: { light: 'https://example.com/okc-light.svg', dark: null } };
+		expect(view(source).header.team).toEqual({
+			code: 'OKC',
+			name: 'Thunder',
+			city: 'Oklahoma City',
+			guest: false,
+			logo: { light: 'https://example.com/okc-light.svg', dark: null }
+		});
+		source.team = team;
+		expect('logo' in view(source).header.team!).toBe(false);
+	});
+
+	it('is null without a team', () => {
+		const source = feed();
+		source.team = null;
+		expect(view(source).header.team).toBeNull();
+	});
+
+	it('shows the season code of a past team', () => {
+		const source = feed();
+		source.team = { ...team, code: 'NOP', seasonCode: 'NO' };
+		expect(view(source).header.team?.historicalCode).toBe('NO');
 	});
 });

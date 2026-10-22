@@ -17,6 +17,7 @@
 	"hero_at": "at",
 	"identity_hero_slide_away": "Show {team}, away",
 	"identity_hero_slide_home": "Show {team}, home",
+	"identity_mark_alt": "{team} logo",
 	"hero_blurb": "{awayStar} and {homeStar} meet at {arena}.",
 	"hero_match_details": "Match details",
 	"hero_all_games": "All games",

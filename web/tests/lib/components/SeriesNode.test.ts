@@ -11,6 +11,7 @@
 // - The Finals champion class
 // - A click opens the series with its id and button; the card is a native button named from the series
 // - Focus is reported as true only when the button matches :focus-visible
+// - The team logos: inline before the code of a decided side, none for an undecided one
 //
 // What is covered:
 // - Each state the card shows, drawn from props with no fetch
@@ -46,8 +47,9 @@ describe('SeriesNode decided', () => {
 		const { container } = show(card('east-r1-2'));
 		const rows = [...container.querySelectorAll('.row')];
 		expect(rows).toHaveLength(2);
-		expect(rows[0].textContent?.replace(/\s+/g, ' ').trim()).toBe('4 QXD 2');
-		expect(rows[1].textContent?.replace(/\s+/g, ' ').trim()).toBe('5 QXE 2');
+		expect(rows[0].textContent?.replace(/\s+/g, ' ').trim()).toBe('4 QXDQXD 2');
+		expect(rows[1].textContent?.replace(/\s+/g, ' ').trim()).toBe('5 QXEQXE 2');
+		expect(rows[0].querySelector('.code .team-monogram.inline')?.textContent).toBe('QXD');
 	});
 
 	it('draws the team strip with the two colors', () => {
@@ -149,5 +151,23 @@ describe('SeriesNode seed', () => {
 		series.top = { ...series.top, seed: '' };
 		const { container } = show(series);
 		expect(container.querySelector('.row .seed')?.textContent).toBe('');
+	});
+});
+
+describe('SeriesNode logos', () => {
+	it('draws the logo inline before the code of a decided side, and none for an undecided one', () => {
+		const series = card('east-r1-2');
+		series.top.team!.logo = {
+			light: 'https://example.com/x-light.svg',
+			dark: 'https://example.com/x-dark.svg'
+		};
+		const { container } = show(series);
+		const marks = [...container.querySelectorAll('.code .team-monogram.inline')];
+		expect(marks[0]!.querySelector('img')?.getAttribute('src')).toBe(
+			'https://example.com/x-dark.svg'
+		);
+		expect(marks[1]!.querySelector('img')).toBeNull();
+		const undecided = show(card('east-r2-2'));
+		expect(undecided.container.querySelectorAll('.team-monogram')).toHaveLength(0);
 	});
 });

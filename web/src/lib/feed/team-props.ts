@@ -172,7 +172,7 @@ function header(feed: TeamFeed): TeamHeaderView {
 		cells.push({ label: m.team_cell_playoffs(), value: playoffLabel(r.playoff), sub: null });
 	}
 	return {
-		code: shownCode(feed),
+		team: teamMark(feed),
 		city: feed.city,
 		name: feed.name,
 		conferenceLine: [

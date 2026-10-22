@@ -10,6 +10,7 @@
 // - The footer in every state
 // - Spanish copy
 // - The season select reaches the header in the ready, loading and unavailable states, and is absent without the prop
+// - The team logos on both layouts: the feed logo in a row's box, the code for a null logo
 //
 // What is covered:
 // - Each page state, drawn from props with no fetch; the view comes from the recorded feed
@@ -150,5 +151,32 @@ describe('StandingsPage season selector', () => {
 	it('draws no select without the prop', () => {
 		show(ready());
 		expect(screen.queryByRole('combobox')).toBeNull();
+	});
+});
+
+describe('StandingsPage logos', () => {
+	it('draws the feed logo of a row in its box on both layouts, and the code for the others', () => {
+		const source = feed();
+		source.conferences[0]!.teams[0]!.logo = {
+			light: 'https://example.com/a-light.svg',
+			dark: 'https://example.com/a-dark.svg'
+		};
+		for (const layout of ['desktop', 'mobile'] as const) {
+			const { container, unmount } = render(StandingsPage, {
+				props: {
+					state: { kind: 'ready', view: toStandingsView(source) },
+					allGamesHref: HOME,
+					standingsHref: STANDINGS,
+					layout,
+					teamHref
+				}
+			});
+			const boxes = [...container.querySelectorAll('.row.body .team-monogram.standings')];
+			expect(boxes[0]!.querySelector('img')?.getAttribute('src')).toBe(
+				'https://example.com/a-dark.svg'
+			);
+			expect(boxes[1]!.querySelector('img')).toBeNull();
+			unmount();
+		}
 	});
 });

@@ -96,7 +96,13 @@
 	{#if layout === 'desktop'}
 		<span class="row desktop">
 			<span class="team away">
-				<TeamMark part="tile" team={game.away} size="large" teamHref={rowHref} />
+				<TeamMark
+					part="tile"
+					team={game.away}
+					size="large"
+					logo={game.away.logo}
+					teamHref={rowHref}
+				/>
 				<span class="names" class:dimmed={loser === 'away'}>
 					<span class="name"><TeamMark part="name" team={game.away} teamHref={rowHref} /></span>
 					{#if game.away.city}<span class="city">{game.away.city}</span>{/if}
@@ -129,7 +135,13 @@
 					<span class="name"><TeamMark part="name" team={game.home} teamHref={rowHref} /></span>
 					{#if game.home.city}<span class="city">{game.home.city}</span>{/if}
 				</span>
-				<TeamMark part="tile" team={game.home} size="large" teamHref={rowHref} />
+				<TeamMark
+					part="tile"
+					team={game.home}
+					size="large"
+					logo={game.home.logo}
+					teamHref={rowHref}
+				/>
 			</span>
 			{@render chevron()}
 		</span>
@@ -151,7 +163,13 @@
 			</span>
 			{#each entries as entry (entry.side)}
 				<span class="mobile-team">
-					<TeamMark part="tile" team={entry.team} size="small" teamHref={rowHref} />
+					<TeamMark
+						part="tile"
+						team={entry.team}
+						size="small"
+						logo={entry.team.logo}
+						teamHref={rowHref}
+					/>
 					<span class="names" class:dimmed={loser === entry.side}>
 						<span class="name"><TeamMark part="name" team={entry.team} teamHref={rowHref} /></span>
 						{#if entry.team.city}<span class="city">{entry.team.city}</span>{/if}
@@ -254,11 +272,21 @@
 		</dl>
 		<p class="watch-title">{m.panel_players_to_watch()}</p>
 		<div class="watch">
-			{#each [details.playersToWatch.away, details.playersToWatch.home].filter((p) => p !== null) as player (player.teamCode)}
-				<div class="watch-player">
-					<PlayerPhoto {player} />
-					<span class="watch-name">{player.firstName} {player.lastName}</span>
-				</div>
+			{#each entries as entry (entry.side)}
+				{@const player = details.playersToWatch[entry.side]}
+				{#if player !== null}
+					<div class="watch-player">
+						<PlayerPhoto {player} />
+						<TeamMark
+							part="tile"
+							team={entry.team}
+							size="inline"
+							logo={entry.team.logo}
+							standalone
+						/>
+						<span class="watch-name">{player.firstName} {player.lastName}</span>
+					</div>
+				{/if}
 			{/each}
 		</div>
 		{@render gameCenter()}

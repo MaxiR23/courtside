@@ -10,6 +10,7 @@
 // - The stat line in Spanish with a Spanish browser preference
 // - A guest leader: the team code is plain text and a missing photo shows the initials
 // - A guest leader without a code shows the name of the guest, with no link
+// - The inline mark before each code: the feed logo hidden, the monogram for a null logo
 //
 // What is covered:
 // - Happy path, the photo error interaction and Spanish
@@ -25,6 +26,13 @@ import type { Leader } from '../../../src/lib/schedule/types';
 import { preferLanguages } from '../../prefer-languages';
 
 import Leaders from '../../../src/lib/components/Leaders.svelte';
+
+// The text of an element without the text of its inline monograms.
+const textOf = (element: Element): string | undefined => {
+	const copy = element.cloneNode(true) as Element;
+	copy.querySelectorAll('.team-monogram').forEach((mark) => mark.remove());
+	return copy.textContent ?? undefined;
+};
 
 const teamHref = (code: string) => `/team/${code.toLowerCase()}` as ResolvedPathname;
 
@@ -56,7 +64,7 @@ describe('Leaders', () => {
 		const { container } = render(Leaders, { props: { away, home, teamHref } });
 		const leaders = [...container.querySelectorAll('.leader')];
 		expect(leaders).toHaveLength(2);
-		expect(leaders[0].querySelector('.leader-code')?.textContent).toBe('GSW');
+		expect(textOf(leaders[0].querySelector('.leader-code')!)).toBe('GSW');
 		expect(leaders[0].querySelector('.leader-name')?.textContent).toBe('Stephen Curry');
 		expect(leaders[0].querySelector('.leader-line')?.textContent?.trim()).toBe(
 			'34 PTS · 3 REB · 8 AST'
@@ -112,7 +120,7 @@ describe('Leaders of a guest team', () => {
 	it('shows the guest code as plain text and the league code as a link', () => {
 		const { container } = render(Leaders, { props: { away: guest, home, teamHref } });
 		const codes = [...container.querySelectorAll('.leader-code')];
-		expect(codes[0].textContent).toBe('HCM');
+		expect(textOf(codes[0])).toBe('HCM');
 		expect(codes[0].querySelector('a')).toBeNull();
 		expect(codes[1].querySelector('a')?.getAttribute('href')).toBe('/team/lal');
 	});
@@ -133,8 +141,33 @@ describe('Leaders of a guest team without a code', () => {
 		};
 		const { container } = render(Leaders, { props: { away: codeless, home, teamHref } });
 		const codes = [...container.querySelectorAll('.leader-code')];
-		expect(codes[0].textContent).toBe('Mariners');
+		expect(textOf(codes[0])).toBe('Mariners');
 		expect(codes[0].querySelector('a')).toBeNull();
 		expect(codes[1].querySelector('a')?.getAttribute('href')).toBe('/team/lal');
+	});
+});
+
+describe('Leaders team marks', () => {
+	it("draws the team's logo before the code, hidden, and the monogram for a null logo", () => {
+		const logo = {
+			light: 'https://example.com/gsw-light.svg',
+			dark: 'https://example.com/gsw-dark.svg'
+		};
+		const { container } = render(Leaders, {
+			props: { away: { ...away, team: { ...away.team, logo } }, home, teamHref }
+		});
+		const marks = [...container.querySelectorAll('.leader-code .team-monogram.inline')];
+		expect(marks[0]!.querySelector('img')?.getAttribute('src')).toBe(
+			'https://example.com/gsw-dark.svg'
+		);
+		expect(marks[0]!.querySelector('img')?.getAttribute('aria-hidden')).toBe('true');
+		expect(marks[1]!.querySelector('img')).toBeNull();
+		expect(marks[1]!.textContent).toBe(home.team.code);
+	});
+
+	it('leaves out the inline marks with marks false', () => {
+		const { container } = render(Leaders, { props: { away, home, teamHref, marks: false } });
+		expect(container.querySelectorAll('.leader-code .team-monogram').length).toBe(0);
+		expect(container.querySelectorAll('.leader-code a').length).toBe(2);
 	});
 });

@@ -2,6 +2,7 @@
 import type { SearchPlayer, SearchTeam } from '#lib/contract/search.ts';
 import { positionName } from '#lib/format/position.ts';
 import { m } from '#lib/paraglide/messages.js';
+import { teamMark } from '#lib/team/mark.ts';
 import type { SearchPlayerRow, SearchTeamRow } from '#lib/search/types.ts';
 
 const SEPARATOR = ' · ';
@@ -10,6 +11,7 @@ export function toSearchTeamRow(team: SearchTeam): SearchTeamRow {
 	const { primary, secondary } = team.colors;
 	return {
 		code: team.code,
+		team: teamMark(team),
 		city: team.city,
 		name: team.name,
 		meta:
@@ -45,6 +47,7 @@ export function toSearchPlayerRow(player: SearchPlayer): SearchPlayerRow {
 		photo: player.photoUrl,
 		injury: player.injury?.status ?? null,
 		teamCode: player.team.code,
+		team: teamMark({ code: player.team.code, name: null, city: null, logo: player.team.logo }),
 		teamColor: player.team.primary
 	};
 }

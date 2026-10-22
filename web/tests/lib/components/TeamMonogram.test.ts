@@ -15,7 +15,10 @@
 // - Uses the cup-node box in a bracket node
 // - Uses the allstar-league box for a player's league team
 // - Uses the names box in the franchise names timeline
-// - Uses the fill box of its parent
+// - Uses the fill box of its parent and the inline box before a team's text
+// - A logo is hidden from assistive technology without logoAlt and has its alt text with one
+// - A linked hidden logo is named by its code through aria-label, a linked logo with logoAlt by that text
+// - A monogram has neither aria-label nor aria-hidden, except an inline one, which is hidden
 // - Draws a logo image in the box in place of the code, and calls back on its error
 // - Links the code to the href when one is given, and renders a span without one
 //
@@ -155,5 +158,83 @@ describe('TeamMonogram', () => {
 			}
 		});
 		expect(screen.getByRole('link', { name: 'GSW' })).toBeTruthy();
+	});
+
+	it('uses the inline box, with the code and with a logo', () => {
+		const plain = render(TeamMonogram, { props: { code: 'GSW', size: 'inline' } });
+		expect(screen.getByText('GSW').classList.contains('inline')).toBe(true);
+		plain.unmount();
+		const { container } = render(TeamMonogram, {
+			props: { code: 'GSW', size: 'inline', logo: 'https://example.com/a.svg' }
+		});
+		const box = container.querySelector('.team-monogram');
+		expect(box?.classList.contains('inline')).toBe(true);
+		expect(box?.querySelector('img')).not.toBeNull();
+	});
+
+	it('loads a logo lazily, linked or not', () => {
+		const plain = render(TeamMonogram, {
+			props: { code: 'GSW', size: 'large', logo: 'https://example.com/a.svg' }
+		});
+		expect(plain.container.querySelector('img')?.getAttribute('loading')).toBe('lazy');
+		plain.unmount();
+		const linked = render(TeamMonogram, {
+			props: {
+				code: 'GSW',
+				size: 'large',
+				href: '/team/gsw' as ResolvedPathname,
+				logo: 'https://example.com/a.svg'
+			}
+		});
+		expect(linked.container.querySelector('img')?.getAttribute('loading')).toBe('lazy');
+	});
+
+	it('hides a logo without logoAlt and names it with logoAlt', () => {
+		const hidden = render(TeamMonogram, {
+			props: { code: 'GSW', size: 'large', logo: 'https://example.com/a.svg' }
+		});
+		const img = hidden.container.querySelector('img');
+		expect(img?.getAttribute('alt')).toBe('');
+		expect(img?.getAttribute('aria-hidden')).toBe('true');
+		hidden.unmount();
+		const named = render(TeamMonogram, {
+			props: {
+				code: 'GSW',
+				size: 'large',
+				logo: 'https://example.com/a.svg',
+				logoAlt: 'Warriors logo'
+			}
+		});
+		expect(screen.getByAltText('Warriors logo').getAttribute('aria-hidden')).toBeNull();
+		named.unmount();
+	});
+
+	it('names a linked logo by logoAlt when there is one', () => {
+		const { container } = render(TeamMonogram, {
+			props: {
+				code: 'GSW',
+				size: 'large',
+				logo: 'https://example.com/a.svg',
+				logoAlt: 'Warriors logo',
+				href: '/team/gsw' as ResolvedPathname
+			}
+		});
+		expect(container.querySelector('a')?.getAttribute('aria-label')).toBeNull();
+		expect(screen.getByRole('link', { name: 'Warriors logo' })).toBeTruthy();
+	});
+
+	it('gives a monogram no aria-label and no aria-hidden, except an inline one', () => {
+		const large = render(TeamMonogram, {
+			props: { code: 'GSW', size: 'large', href: '/team/gsw' as ResolvedPathname }
+		});
+		const link = large.container.querySelector('a');
+		expect(link?.getAttribute('aria-label')).toBeNull();
+		expect(link?.getAttribute('aria-hidden')).toBeNull();
+		large.unmount();
+		const span = render(TeamMonogram, { props: { code: 'GSW', size: 'large' } });
+		expect(span.container.querySelector('span')?.getAttribute('aria-hidden')).toBeNull();
+		span.unmount();
+		const inline = render(TeamMonogram, { props: { code: 'GSW', size: 'inline' } });
+		expect(inline.container.querySelector('span')?.getAttribute('aria-hidden')).toBe('true');
 	});
 });

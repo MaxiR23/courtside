@@ -139,27 +139,27 @@ Lucide at `stroke-width: 1.5`: `chevron-down` (expand), `play` (filled, highligh
 - **Data unavailable (temporary):** when the games feed cannot be loaded, a single blueprint row in place of the schedule, styled like the day with no games, reads "Data isn't available right now. Check back later.". It stays until the missing data design is decided (see "Open decisions" in `docs/architecture.md`). A day with no data in a loaded feed is still undecided.
 - **Game card,** a blueprint frame:
   - **Desktop row, width 680px and up:** grid `minmax(0,1fr) auto minmax(0,1fr) 24px`.
-    - Away team: a 46px monogram box with the team's code (a guest without a code shows the initials of its display name, the first and last word's initial, uppercased), the team name and the city in muted.
+    - Away team: a 46px box with the team logo, or the monogram with the team's code when it has none (a guest without a code shows the initials of its display name, the first and last word's initial, uppercased), the team name and the city in muted.
     - Center: a status line, then the score or the tip time. The status line is "FINAL", or the live badge plus the period and clock ("Q3 · 4:12"), or "DELAYED", "POSTPONED" or "CANCELED" for those games, with no score and no tip time (those cards do not expand), or the TV network. The TV network is omitted when it is unknown.
     - Home team: mirrored and right-aligned.
     - A chevron that rotates 180 degrees when the card is open.
   - **Mobile row, under 680px:**
     - A status line with the chevron on the right.
-    - Two team rows, each with a 38px monogram (same content), the name and city, and the score right-aligned.
+    - Two team rows, each with a 38px box (same content), the name and city, and the score right-aligned.
     - Scheduled games show the tip time and network in the status line, such as "9:00 PM ET · Courtside TV".
   - **Final games:** the losing team's name and score drop to opacity .42.
   - **Live badge:** small and outlined, never a dot. It reads "LIVE" at 9.5px with .16em letter-spacing, a 1px accent border and accent-light text, padding 1px by 5px.
 - **Expanded panel:** a 1px divider, then the content below it.
   - **Live and final games** get a three-column auto-fit grid, min 280px per column:
-    - **Line score:** a grid `1fr repeat(4, 34px) 46px`. The header row reads "Team 1 2 3 4 T". Quarters in muted, the total in Barlow Condensed 17px. Unplayed quarters show "–". Overtime periods add columns.
-    - **Top performers:** one per team. Each has a 72 by 56px frame holding the full-color player photo (bottom-anchored, 120% width, `drop-shadow(0 6px 8px rgba(0,0,0,.6))`), the team code, the name, and the line "34 PTS · 3 REB · 8 AST".
+    - **Line score:** a grid `1fr repeat(4, 34px) 46px`. The header row reads "Team 1 2 3 4 T". Each team's code has its 20px inline logo before it. Quarters in muted, the total in Barlow Condensed 17px. Unplayed quarters show "–". Overtime periods add columns.
+    - **Top performers:** one per team. Each has a 72 by 56px frame holding the full-color player photo (bottom-anchored, 120% width, `drop-shadow(0 6px 8px rgba(0,0,0,.6))`), the team code with its 20px inline logo before it, the name, and the line "34 PTS · 3 REB · 8 AST".
     - **Team stats:** FG%, 3P%, Rebounds, Assists and Turnovers. Each row shows the away value, the label and the home value, above two 3px bars that grow out from the center. The leading side is in accent and ink; the other side in bar-neutral and muted. For turnovers, lower is better.
   - **Final games without stats:** in place of top performers and team stats, one muted line in body-small reading "Stats will be available soon." while they are pending, or "Stats aren't available for this game." once they will not come. The line score and the highlights stay. A final game on a past day whose stats are available but which has no leaders shows no line at all, only the link to the game center (ADR 0054).
   - **Final games, highlights:** the kicker "HIGHLIGHTS" with the video platform's name on the right, and a grid of video cards, min 320px per column and at most two per row; a lone video keeps the width of one column.
     - Each card: a 16:9 thumbnail with a 56px solid-accent play square. Clicking it replaces the thumbnail in place with the embedded player, autoplaying. Below the thumbnail, the title in Barlow Condensed 18px and the channel in muted.
     - **No videos yet:** a single blueprint row reading "Highlights aren't in yet. They'll appear here automatically.", with a ghost link to search for the highlights.
   - **Live games** also show "Highlights will appear here after the final buzzer."
-  - **Scheduled games:** three info cells (Tip-off, Venue, Broadcast), then "Players to watch", with each team's star as a photo frame and name. The Venue cell is omitted when it is unknown, as the broadcast is.
+  - **Scheduled games:** three info cells (Tip-off, Venue, Broadcast), then "Players to watch", with each team's star as a photo frame, the team's 20px inline logo and the name. The Venue cell is omitted when it is unknown, as the broadcast is.
 
 ### Before the first feed loads
 
@@ -202,4 +202,4 @@ Until the first feed loads, the hero and the schedule show skeletons shaped like
 - **Player photos:** transparent PNG cutouts, one per player.
 - **Video thumbnails:** provided with each highlight.
 - **Fonts:** Barlow and Barlow Condensed from Google Fonts.
-- No other images. Team logos are replaced by monograms (the team code, or the initials of a guest's name) on purpose.
+- No other images. Team logos come from the feeds and are drawn by `TeamMark`, per `docs/design-team-identity.md`; a team without one shows its monogram (the team code, or the initials of a guest's name).

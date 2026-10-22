@@ -10,6 +10,7 @@
 // - A linked row is a link to the game and an unlinked row is not
 // - Played and upcoming right columns; the mobile class
 // - A guest opponent without a code reads with its name, as plain text
+// - The opponent marks: the feed logo before the versus label on upcoming and played rows, the monogram of a guest
 //
 // What is covered:
 // - Each state the section shows, plus the chip interaction
@@ -169,5 +170,43 @@ describe('TeamSchedule with a guest opponent without a code', () => {
 		});
 		expect(screen.getByText('@ Mariners')).toBeTruthy();
 		expect(container.querySelector('.opponent a')).toBeNull();
+	});
+});
+
+describe('TeamSchedule opponent marks', () => {
+	const logo = {
+		light: 'https://example.com/den-light.svg',
+		dark: 'https://example.com/den-dark.svg'
+	};
+	const harbor = { code: null, name: 'Mariners', city: 'Harbor City', guest: true };
+
+	it('draws the opponent logo before the versus label on upcoming and played rows', async () => {
+		const next = upcoming('g-next', true, null);
+		next.opponent.team = { ...next.opponent.team, logo };
+		const won = played('g-won', true);
+		won.opponent.team = { ...won.opponent.team, logo };
+		const value: ScheduleSection = {
+			groups: [{ key: 'a', label: 'A', rows: [next, won] }],
+			defaultKey: 'a'
+		};
+		const { container } = show(value);
+		const marks = [...container.querySelectorAll('.opponent .team-monogram.inline')];
+		expect(marks).toHaveLength(2);
+		for (const mark of marks) {
+			expect(mark.querySelector('img')?.getAttribute('src')).toBe(
+				'https://example.com/den-dark.svg'
+			);
+			expect(mark.querySelector('img')?.getAttribute('aria-hidden')).toBe('true');
+		}
+	});
+
+	it('draws the monogram of a guest opponent', () => {
+		const row = played('g-won', true);
+		row.opponent.team = harbor;
+		const { container } = show({
+			groups: [{ key: 'a', label: 'A', rows: [row] }],
+			defaultKey: 'a'
+		});
+		expect(container.querySelector('.opponent .team-monogram.inline')?.textContent).toBe('HM');
 	});
 });

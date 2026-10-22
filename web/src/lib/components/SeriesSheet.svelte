@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { ResolvedPathname } from '$app/types';
 	import SeriesGameLine from '#lib/components/SeriesGameLine.svelte';
+	import TeamMark from '#lib/components/TeamMark.svelte';
 	import { play } from '#lib/hero/motion.ts';
 	import { m } from '#lib/paraglide/messages.js';
 	import { sheetSlide } from '#lib/playoffs/motion.ts';
@@ -53,6 +54,7 @@
 			<p class="side" class:loser={side.loser}>
 				{#if side.team}
 					<span class="seed">{side.seed}</span>
+					<TeamMark part="tile" team={side.team} size="inline" logo={side.team.logo} />
 					<span class="code">{side.label}</span>
 					<span class="wins">{side.wins}</span>
 				{:else}
@@ -143,8 +145,8 @@
 
 	.side {
 		display: flex;
-		align-items: baseline;
-		gap: var(--day-strip-gap);
+		align-items: center;
+		gap: var(--identity-inline-mark-gap);
 		margin: 0;
 		font-family: var(--font-heading);
 		font-size: var(--body-size);

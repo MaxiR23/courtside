@@ -8,6 +8,7 @@
 // - No line when it is empty
 // - The injury tag follows the status (out, questionable, doubtful, day-to-day) and is absent without an injury
 // - The team bar is in the primary color, plain when null
+// - The team row draws the logo in the search box and the player row an inline logo before the code, on both layouts; a null logo draws the monogram
 // - The active class follows the prop; mouseenter calls onHover; click calls onOpen
 //
 // What is covered:
@@ -26,6 +27,7 @@ import SearchResultRow from '../../../src/lib/components/SearchResultRow.svelte'
 
 const team: SearchTeamRow = {
 	code: 'OKC',
+	team: { code: 'OKC', name: 'Thunder', city: 'Oklahoma City', guest: false },
 	city: 'Oklahoma City',
 	name: 'Thunder',
 	meta: 'OKC · 1st in Northwest',
@@ -41,6 +43,7 @@ const player: SearchPlayerRow = {
 	photo: 'https://cdn.example.com/players/1628983.png',
 	injury: null,
 	teamCode: 'OKC',
+	team: { code: 'OKC', name: null, city: null, guest: false },
 	teamColor: '#007ac1'
 };
 
@@ -152,7 +155,7 @@ describe('SearchResultRow, player', () => {
 		const bar = container.querySelector<HTMLElement>('.bar');
 		expect(bar?.style.backgroundColor).toBe('rgb(0, 122, 193)');
 		expect(bar?.classList.contains('plain')).toBe(false);
-		expect(screen.getByText('OKC')).toBeTruthy();
+		expect(container.querySelector('.team .code')?.textContent).toBe('OKC');
 		unmount();
 		const plain = render(SearchResultRow, {
 			props: { ...playerBase, row: playerRow({ teamColor: null }) }
@@ -177,5 +180,47 @@ describe('SearchResultRow, interaction', () => {
 		expect(onHover).toHaveBeenCalledTimes(1);
 		await fireEvent.click(screen.getByRole('link'));
 		expect(onOpen).toHaveBeenCalledTimes(1);
+	});
+});
+
+describe('SearchResultRow, logos', () => {
+	const logo = {
+		light: 'https://example.com/okc-light.svg',
+		dark: 'https://example.com/okc-dark.svg'
+	};
+
+	it('draws the team logo in the search box, and the code with a null logo', () => {
+		const withLogo = render(SearchResultRow, {
+			props: { ...base, row: teamRow({ team: { ...team.team, logo } }) }
+		});
+		const box = withLogo.container.querySelector('.team-monogram.search');
+		expect(box?.querySelector('img')?.getAttribute('src')).toBe('https://example.com/okc-dark.svg');
+		expect(box?.querySelector('img')?.getAttribute('aria-hidden')).toBe('true');
+		withLogo.unmount();
+		const plain = render(SearchResultRow, { props: { ...base, row: teamRow() } });
+		const code = plain.container.querySelector('.team-monogram.search');
+		expect(code?.querySelector('img')).toBeNull();
+		expect(code?.textContent).toBe('OKC');
+	});
+
+	it('draws the inline logo before the team code of a player, on both layouts', () => {
+		for (const layout of ['desktop', 'mobile'] as const) {
+			const { container, unmount } = render(SearchResultRow, {
+				props: { ...base, layout, row: playerRow({ team: { ...player.team, logo } }) }
+			});
+			const mark = container.querySelector('.team .team-monogram.inline');
+			expect(mark?.querySelector('img')?.getAttribute('src')).toBe(
+				'https://example.com/okc-dark.svg'
+			);
+			expect(mark?.nextElementSibling?.classList.contains('code')).toBe(true);
+			unmount();
+		}
+	});
+
+	it('draws the monogram of a player team with a null logo', () => {
+		const { container } = render(SearchResultRow, { props: { ...base, row: playerRow() } });
+		const mark = container.querySelector('.team .team-monogram.inline');
+		expect(mark?.querySelector('img')).toBeNull();
+		expect(mark?.textContent).toBe('OKC');
 	});
 });

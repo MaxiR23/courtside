@@ -9,6 +9,7 @@
 // - Focus starts on Close
 // - Esc, the scrim and Close call onClose
 // - Spanish copy
+// - The team logos: inline before the label of a decided side, none for an undecided one
 //
 // What is covered:
 // - The sheet drawn from props with no fetch; the slide itself is not asserted (jsdom does not animate)
@@ -58,8 +59,8 @@ describe('SeriesSheet', () => {
 		const { container } = show();
 		const sides = [...container.querySelectorAll('.sides > .side')];
 		expect(sides.map((side) => side.textContent?.replace(/\s+/g, ' ').trim())).toEqual([
-			'4 QXD 2',
-			'5 QXE 2'
+			'4 QXD QXD 2',
+			'5 QXE QXE 2'
 		]);
 	});
 
@@ -124,5 +125,28 @@ describe('SeriesSheet', () => {
 		show();
 		expect(screen.getByRole('button', { name: 'Cerrar' })).toBeTruthy();
 		expect(screen.getByRole('dialog', { name: 'Este · Ronda 1' })).toBeTruthy();
+	});
+});
+
+describe('SeriesSheet logos', () => {
+	it('draws the logo inline before the label of a decided side', () => {
+		const series = card('east-r1-2');
+		series.top.team!.logo = {
+			light: 'https://example.com/x-light.svg',
+			dark: 'https://example.com/x-dark.svg'
+		};
+		render(SeriesSheet, { props: { series, gameHref, onClose: vi.fn() } });
+		const marks = [...document.querySelectorAll('.sides .team-monogram.inline')];
+		expect(marks).toHaveLength(2);
+		expect(marks[0]!.querySelector('img')?.getAttribute('src')).toBe(
+			'https://example.com/x-dark.svg'
+		);
+		expect(marks[0]!.nextElementSibling?.classList.contains('code')).toBe(true);
+		expect(marks[1]!.querySelector('img')).toBeNull();
+	});
+
+	it('draws no mark for an undecided side', () => {
+		render(SeriesSheet, { props: { series: card('east-r2-2'), gameHref, onClose: vi.fn() } });
+		expect(document.querySelectorAll('.sides .team-monogram')).toHaveLength(0);
 	});
 });

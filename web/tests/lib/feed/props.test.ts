@@ -23,6 +23,7 @@
 // - A hero side carries the feed's logo and its side of the game accent; a null accent, no accent object and a feed without the keys map to null
 // - The feed's seven day.date strings, in order, as dayIds
 // - A scheduled game with a null venue: null details venue and a null hero arena (ADR 0064)
+// - A schedule side carries the feed's logo into its view; a null logo leaves the key out
 //
 // What is covered:
 // - Pure logic on a recorded feed (tests/lib/feed/fixtures/games.json); no clock, no network
@@ -624,5 +625,16 @@ describe('the identity of a hero side', () => {
 			expect(side.logo).toBeNull();
 			expect(side.accent).toBeNull();
 		}
+	});
+});
+
+describe('toHomeView team logos', () => {
+	it("carries the feed's logo of a schedule side into its view, and no key for a null logo", () => {
+		const source = feed();
+		const game = source.days[3]!.games.find((g) => g.id === 'g-final')!;
+		game.away.logo = { light: 'https://example.com/a-light.svg', dark: null };
+		const shown = todayGame(view(source), 'g-final');
+		expect(shown.away.logo).toEqual({ light: 'https://example.com/a-light.svg', dark: null });
+		expect('logo' in shown.home).toBe(false);
 	});
 });

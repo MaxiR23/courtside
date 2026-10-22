@@ -9,6 +9,7 @@
 // - Clinch tones, the eliminated row, the accents and the plain tile for null colors
 // - The playoff and play-in lines (lineAfter): repeated seeds, missing seeds, null seeds, feed order
 // - The key's seven codes with their labels; the state line, final and regular, singular and plural
+// - A row's logo reaches its team view; a null logo leaves the key out
 // - A historical row shows its season code and no strip; a past season has no lines note (ADR 0054)
 // - A past season (option past): "Final standings", the season tag, the clinchers as sent, no seed separator lines; Spanish
 //
@@ -79,7 +80,7 @@ describe('toStandingsView rows', () => {
 	it("draws every column's value as the feed sends it", () => {
 		expect(view().conference[0]?.rows[0]).toEqual({
 			code: 'BOS',
-			tile: 'BOS',
+			team: { code: 'BOS', name: 'Celtics', city: 'Boston', guest: false },
 			seed: '1',
 			city: 'Boston',
 			name: 'Celtics',
@@ -261,6 +262,22 @@ describe('toStandingsView key and header', () => {
 	});
 });
 
+describe('toStandingsView logo', () => {
+	it("carries the feed's logo of a row, and leaves the key out for a null logo", () => {
+		const source = feed();
+		source.conferences[0]!.teams[0]!.logo = {
+			light: 'https://example.com/bos-light.svg',
+			dark: 'https://example.com/bos-dark.svg'
+		};
+		const rows = toStandingsView(source).conference[0]!.rows;
+		expect(rows[0]!.team.logo).toEqual({
+			light: 'https://example.com/bos-light.svg',
+			dark: 'https://example.com/bos-dark.svg'
+		});
+		expect('logo' in rows[1]!.team).toBe(false);
+	});
+});
+
 describe('toStandingsView past season', () => {
 	it('reads Final standings and the season tag from the feed', () => {
 		const v = toStandingsView(pastFeed(), { past: true });
@@ -288,10 +305,10 @@ describe('toStandingsView past season', () => {
 	it("shows the season code of a historical row, links with today's code and draws no strip", () => {
 		const rows = toStandingsView(pastFeed(), { past: true }).conference[0]!.rows;
 		const nyk = rows.find((r) => r.code === 'NYK')!;
-		expect(nyk.tile).toBe('SEA');
+		expect(nyk.team.historicalCode).toBe('SEA');
 		expect(nyk.strip).toBeNull();
 		const bos = rows.find((r) => r.code === 'BOS')!;
-		expect(bos.tile).toBe('BOS');
+		expect(bos.team.historicalCode).toBeUndefined();
 		expect(bos.strip).not.toBeNull();
 	});
 

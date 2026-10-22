@@ -7,6 +7,7 @@
 	import SeasonSelect from '#lib/components/SeasonSelect.svelte';
 	import SeasonTag from '#lib/components/SeasonTag.svelte';
 	import StatusTag from '#lib/components/StatusTag.svelte';
+	import TeamMark from '#lib/components/TeamMark.svelte';
 	import { play } from '#lib/hero/motion.ts';
 	import type { RowLayout } from '#lib/schedule/types.ts';
 	import type { PlayerHeaderView } from '#lib/player/types.ts';
@@ -53,6 +54,12 @@
 			<div class="top">
 				<div class="text">
 					<div class="tags">
+						{#if header.team}<TeamMark
+								part="tile"
+								team={header.team}
+								size="inline"
+								logo={header.team.logo}
+							/>{/if}
 						{#if header.teamCode !== null}<StatusTag text={header.teamCode} />{/if}
 						{#if header.status}
 							<StatusTag text={header.status.label} accent={header.status.injured} />
@@ -158,6 +165,7 @@
 
 	.tags {
 		display: flex;
+		align-items: center;
 		flex-wrap: wrap;
 		gap: var(--day-strip-gap);
 	}

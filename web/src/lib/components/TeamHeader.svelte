@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { ResolvedPathname } from '$app/types';
 	import CupTeamLine from '#lib/components/CupTeamLine.svelte';
-	import TeamMonogram from '#lib/components/TeamMonogram.svelte';
+	import TeamMark from '#lib/components/TeamMark.svelte';
 	import NavRow from '#lib/components/NavRow.svelte';
 	import SeasonSelect from '#lib/components/SeasonSelect.svelte';
 	import SeasonTag from '#lib/components/SeasonTag.svelte';
@@ -47,7 +47,7 @@
 			<div class="columns">
 				<div class="identity">
 					<div class="code-box">
-						<TeamMonogram code={header.code} size="team" />
+						<TeamMark team={header.team} part="tile" size="team" logo={header.team.logo} />
 						{#if header.colors}
 							<span class="strip" aria-hidden="true">
 								<span class="half" style:background-color={header.colors.primary}></span>

@@ -9,6 +9,7 @@
 // - Only the nav and the h1 without a header; bones and aria-busy while loading
 // - The season tag when the header has one; the select on desktop (after the nav) and mobile (full), its onChange; none without the prop
 // - Spanish copy
+// - The champion logo: in the cup-champion box, the code for a null logo
 //
 // What is covered:
 // - Each state the header shows, drawn from props with no fetch
@@ -169,5 +170,34 @@ describe('CupHeader season selector and tag', () => {
 	it('draws no select without the prop', () => {
 		render(CupHeader, { props: props() });
 		expect(screen.queryByRole('combobox')).toBeNull();
+	});
+});
+
+describe('CupHeader champion logo', () => {
+	const champion = {
+		code: 'QXA',
+		name: 'Herons',
+		city: 'Alderton',
+		guest: false,
+		seasonCode: null,
+		historical: false,
+		logo: null,
+		colors: null
+	};
+
+	it('draws the champion logo in the cup-champion box, and the code for a null logo', () => {
+		const withLogo = complete({
+			...champion,
+			logo: { light: 'https://example.com/x-light.svg', dark: 'https://example.com/x-dark.svg' }
+		});
+		const first = render(CupHeader, { props: props({ header: withLogo }) });
+		const box = first.container.querySelector('.champion .team-monogram');
+		expect(box?.classList.contains('cup-champion')).toBe(true);
+		expect(box?.querySelector('img')?.getAttribute('src')).toBe('https://example.com/x-dark.svg');
+		first.unmount();
+		const second = render(CupHeader, { props: props({ header: complete(champion) }) });
+		const plain = second.container.querySelector('.champion .team-monogram');
+		expect(plain?.querySelector('img')).toBeNull();
+		expect(plain?.textContent).toBe('QXA');
 	});
 });

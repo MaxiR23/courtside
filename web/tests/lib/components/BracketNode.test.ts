@@ -11,6 +11,7 @@
 // - A click opens the node with its id; it is a native button, so Enter and Tab work; focus changes are reported
 // - Focus is reported as true only when the button matches :focus-visible
 // - Spanish copy
+// - The team logos: the cup-node box before the code at level 1, in the cup-node box at level 2, none for an empty slot
 //
 // What is covered:
 // - Each state the node shows, drawn from props with no fetch
@@ -50,8 +51,12 @@ afterEach(() => {
 describe('BracketNode level 1', () => {
 	it('shows the code and score of each decided side', () => {
 		const { container } = show(node('final', 'cup-complete.json'));
-		expect(screen.getByText('QXA')).toBeTruthy();
-		expect(screen.getByText('UXA')).toBeTruthy();
+		const codes = [...container.querySelectorAll('.code')].map((c) => {
+			const copy = c.cloneNode(true) as Element;
+			copy.querySelectorAll('.team-monogram').forEach((mark) => mark.remove());
+			return copy.textContent;
+		});
+		expect(codes).toEqual(['QXA', 'UXA']);
 		expect([...container.querySelectorAll('.score')].map((s) => s.textContent)).toEqual([
 			'124',
 			'120'
@@ -189,5 +194,36 @@ describe('BracketNode in Spanish', () => {
 		expect(screen.getByText('Este · preclasificado 1 · Mejor ganador de grupo')).toBeTruthy();
 		show(node('final', 'cup-complete.json'), 2);
 		expect(screen.getByText('Sede neutral')).toBeTruthy();
+	});
+});
+
+describe('BracketNode logos', () => {
+	const logo = {
+		light: 'https://example.com/x-light.svg',
+		dark: 'https://example.com/x-dark.svg'
+	};
+
+	it('draws the logo in the cup-node box before the code at level 1', () => {
+		const view = node('final', 'cup-complete.json');
+		view.top.team!.logo = logo;
+		const { container } = show(view);
+		const marks = [...container.querySelectorAll('.code .team-monogram.cup-node')];
+		expect(marks[0]!.querySelector('img')?.getAttribute('src')).toBe(
+			'https://example.com/x-dark.svg'
+		);
+		expect(marks[0]!.querySelector('img')?.getAttribute('aria-hidden')).toBe('true');
+		expect(marks[1]!.querySelector('img')).toBeNull();
+	});
+
+	it('draws the logo in the cup-node box at level 2, and no mark for an empty slot', () => {
+		const view = node('final', 'cup-complete.json');
+		view.top.team!.logo = logo;
+		const { container } = show(view, 2);
+		const boxes = [...container.querySelectorAll('.team-monogram')];
+		expect(boxes[0]!.classList.contains('cup-node')).toBe(true);
+		expect(boxes[0]!.querySelector('img')).not.toBeNull();
+		expect(boxes[1]!.querySelector('img')).toBeNull();
+		const empty = show(node('east-qf-1'), 2);
+		expect(empty.container.querySelectorAll('.team-monogram')).toHaveLength(0);
 	});
 });

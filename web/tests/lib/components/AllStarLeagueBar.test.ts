@@ -24,7 +24,14 @@ const halves = (container: HTMLElement) =>
 describe('AllStarLeagueBar', () => {
 	it('colors the two halves with the league colors', () => {
 		const { container } = render(AllStarLeagueBar, {
-			props: { league: { code: 'HBR', primary: '#1d428a', secondary: '#ffc72c' } }
+			props: {
+				league: {
+					code: 'HBR',
+					team: { code: 'HBR', name: null, city: null, guest: false },
+					primary: '#1d428a',
+					secondary: '#ffc72c'
+				}
+			}
 		});
 		expect(halves(container)).toEqual(['rgb(29, 66, 138)', 'rgb(255, 199, 44)']);
 		expect(container.querySelector('.league-bar')?.getAttribute('aria-hidden')).toBe('true');
@@ -32,7 +39,14 @@ describe('AllStarLeagueBar', () => {
 
 	it('uses a neutral color for a missing color', () => {
 		const { container } = render(AllStarLeagueBar, {
-			props: { league: { code: 'HBR', primary: null, secondary: '#ffc72c' } }
+			props: {
+				league: {
+					code: 'HBR',
+					team: { code: 'HBR', name: null, city: null, guest: false },
+					primary: null,
+					secondary: '#ffc72c'
+				}
+			}
 		});
 		expect(halves(container)[0]).toBe('var(--color-bar-neutral)');
 	});

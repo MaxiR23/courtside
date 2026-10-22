@@ -33,14 +33,21 @@
 		<span class="side" class:winner={side.winner} class:loser={loserOf(side, sides[1 - i])}>
 			{#if level === 1}
 				{#if side.team}
-					<span class="code"><TeamMark team={side.team} part="label" /></span>
+					<span class="code"
+						><TeamMark
+							team={side.team}
+							part="tile"
+							size="cup-node"
+							logo={side.team.logo}
+						/><TeamMark team={side.team} part="label" /></span
+					>
 				{:else if side.label !== null}
 					<span class="slot-label">{side.label}</span>
 				{/if}
 				{#if side.score !== null}<span class="score">{side.score}</span>{/if}
 			{:else}
 				{#if side.team}
-					<TeamMark team={side.team} part="tile" size="cup-node" />
+					<TeamMark team={side.team} part="tile" size="cup-node" logo={side.team.logo} />
 				{:else}
 					<span class="empty-tile"></span>
 				{/if}
@@ -116,6 +123,9 @@
 	}
 
 	.code {
+		display: flex;
+		align-items: center;
+		gap: var(--bracket-node-padding);
 		flex: 1;
 		min-width: 0;
 		font-size: var(--bracket-code-size);

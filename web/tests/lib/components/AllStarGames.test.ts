@@ -175,6 +175,12 @@ describe('AllStarGames', () => {
 		expect(show('after', 'mobile').container.querySelector('.leaders')).toBeNull();
 	});
 
+	it('draws no team mark before the leaders codes', () => {
+		const { container } = show();
+		expect(container.querySelectorAll('.leaders .leader-code').length).toBeGreaterThan(0);
+		expect(container.querySelectorAll('.leader-code .team-monogram').length).toBe(0);
+	});
+
 	it('keeps the cards row in its scrolling container on mobile', () => {
 		const { container } = show('after', 'mobile');
 		const cards = container.querySelector('.all-star-games.mobile .cards');

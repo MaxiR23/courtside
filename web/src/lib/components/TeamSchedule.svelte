@@ -30,6 +30,11 @@
 	<span class="game">
 		<span class="opponent"
 			><TeamMark
+				part="tile"
+				team={row.opponent.team}
+				size="inline"
+				logo={row.opponent.team.logo}
+			/><TeamMark
 				part="label"
 				team={row.opponent.team}
 				versus={row.opponent.isHome ? 'home' : 'away'}
@@ -178,6 +183,9 @@
 	}
 
 	.opponent {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--identity-inline-mark-gap);
 		font-family: var(--font-heading);
 		font-size: var(--injury-name-size);
 	}

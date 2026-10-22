@@ -11,6 +11,7 @@
 // - Unavailable: the data unavailable row, in English and in Spanish
 // - The footer in every state
 // - A card opens and closes from its toggle, one at a time
+// - The team logos: a side logo in the large box, the monogram of the guest and historical sides
 //
 // What is covered:
 // - Each page state, drawn from props with no fetch
@@ -149,5 +150,24 @@ describe('DayPage', () => {
 		render(DayPage, { props: props({ kind: 'unavailable' }) });
 		expect(screen.queryByText("Data isn't available right now. Check back later.")).toBeNull();
 		expect(screen.getByText(/disponibles/i)).toBeTruthy();
+	});
+});
+
+describe('DayPage team logos', () => {
+	it('draws a side logo in the large box and the monogram of the guest and historical sides', () => {
+		const state = ready();
+		if (state.kind !== 'ready') throw new Error('not ready');
+		state.view.games[0]!.away.logo = {
+			light: 'https://example.com/a-light.svg',
+			dark: 'https://example.com/a-dark.svg'
+		};
+		const { container } = render(DayPage, { props: props(state) });
+		const boxes = [...container.querySelectorAll('.row .team-monogram.large')];
+		expect(boxes).toHaveLength(4);
+		expect(boxes[0]!.querySelector('img')?.getAttribute('src')).toBe(
+			'https://example.com/a-dark.svg'
+		);
+		expect(boxes.slice(1).every((box) => box.querySelector('img') === null)).toBe(true);
+		expect(boxes.slice(1).every((box) => (box.textContent ?? '') !== '')).toBe(true);
 	});
 });

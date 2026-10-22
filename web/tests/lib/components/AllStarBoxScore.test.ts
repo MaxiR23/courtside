@@ -10,6 +10,7 @@
 // - The top points accent, the negative plus-minus muted, the totals row
 // - The mobile hint, the sticky column class and the short name with the meta line
 // - No link for the All-Star team itself
+// - The league logo: in the allstar-league box with the alt "<code> logo", linked to the team page; the code for a null logo; no league mark on mobile
 //
 // What is covered:
 // - Each state the table shows, drawn from the recorded feeds
@@ -163,5 +164,42 @@ describe('AllStarBoxScore', () => {
 		expect(totals.textContent).toContain('Totals');
 		expect(totals.querySelector('.cell.points')?.textContent).toBe('24');
 		expect(totals.querySelector('.cell.fieldGoals')?.textContent).toBe('12-18');
+	});
+});
+
+describe('AllStarBoxScore league logo', () => {
+	const withLogo = () => {
+		const source = structuredClone(box('g1'));
+		source.away.rows[0]!.league!.team.logo = {
+			light: 'https://example.com/hbr-light.svg',
+			dark: 'https://example.com/hbr-dark.svg'
+		};
+		return source;
+	};
+	const render_ = (source = withLogo(), layout: 'desktop' | 'mobile' = 'desktop') =>
+		render(AllStarBoxScore, {
+			props: { box: source, tab: 'away', onTab: () => {}, layout, teamHref, playerHref }
+		});
+
+	it('draws the league logo in the allstar-league box, named and linked to the team page', () => {
+		const { container } = render_();
+		const link = container.querySelector('a.team-monogram.allstar-league');
+		expect(link?.getAttribute('href')).toBe('/team/hbr');
+		expect(link?.querySelector('img')?.getAttribute('src')).toBe(
+			'https://example.com/hbr-dark.svg'
+		);
+		expect(screen.getByRole('link', { name: 'HBR logo' }).getAttribute('href')).toBe('/team/hbr');
+	});
+
+	it('draws the code with a null league logo', () => {
+		const { container } = show();
+		const link = container.querySelector('a.team-monogram.allstar-league');
+		expect(link?.querySelector('img')).toBeNull();
+		expect(link?.textContent).toBe('HBR');
+	});
+
+	it('draws no league mark on the mobile layout', () => {
+		const { container } = render_(withLogo(), 'mobile');
+		expect(container.querySelector('.team-monogram')).toBeNull();
 	});
 });

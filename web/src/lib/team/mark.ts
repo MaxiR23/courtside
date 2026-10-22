@@ -6,6 +6,7 @@
 // SEE: docs/adr/0025-guest-teams.md, docs/adr/0026-one-guest-team-rule.md,
 // docs/adr/0054-historical-sides-and-past-pages.md
 
+import type { TeamLogo } from '#lib/contract/games.ts';
 import { initials } from '#lib/format/initials.ts';
 
 export type TeamMarkTeam = {
@@ -14,6 +15,7 @@ export type TeamMarkTeam = {
 	city: string | null;
 	guest: boolean; // a team outside the league: never a link
 	historicalCode?: string | null; // the code of a past season to show for a historical side; absent: show code
+	logo?: TeamLogo | null; // the feed's logo; absent or null: the monogram
 };
 
 /** The view of a feed side or opponent; a feed built before the guest field has no key: a league team. */
@@ -24,13 +26,15 @@ export function teamMark(team: {
 	guest?: boolean;
 	seasonCode?: string | null;
 	historical?: boolean;
+	logo?: TeamLogo | null;
 }): TeamMarkTeam {
 	return {
 		code: team.code,
 		name: team.name,
 		city: team.city,
 		guest: team.guest ?? false,
-		...(team.historical === true && team.seasonCode ? { historicalCode: team.seasonCode } : {})
+		...(team.historical === true && team.seasonCode ? { historicalCode: team.seasonCode } : {}),
+		...(team.logo ? { logo: team.logo } : {})
 	};
 }
 

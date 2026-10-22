@@ -147,7 +147,12 @@
 						<p class="score-status">{status}</p>
 					</div>
 					{#if detail.leaders && layout === 'desktop'}
-						<Leaders away={detail.leaders.away} home={detail.leaders.home} {teamHref} />
+						<Leaders
+							away={detail.leaders.away}
+							home={detail.leaders.home}
+							{teamHref}
+							marks={false}
+						/>
 					{/if}
 					{#if detail.teamStats}
 						<div class="stats">

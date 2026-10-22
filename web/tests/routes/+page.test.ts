@@ -19,6 +19,7 @@
 // - Selects the DayStrip day of ?day= after a navigation; a later or malformed day keeps today; a past day outside the feed goes to /day/ with replaceState; a later poll does not move the selection
 // - The calendar sheet links a day of the feed to /?day=YYYY-MM-DD and a day outside the feed to /day/YYYY-MM-DD; a day after today is not a link
 // - Before the games feed loads, the sheet links no day after the client's US Eastern today and sends the calendar's window days to the home (ADR 0054)
+// - Team logos: a side's feed logo in the game card's large box, the code monogram for a null logo and the initials of a guest side added in memory
 //
 // What is covered:
 // - The page wired end to end: config, fetch, polling, props layer, hero, schedule, footer
@@ -623,5 +624,30 @@ describe('home page calendar sheet', () => {
 		expect(
 			(within(dialog).getByRole('button', { name: 'Next month' }) as HTMLButtonElement).disabled
 		).toBe(true);
+	});
+});
+
+describe('home page team logos', () => {
+	it('draws the feed logo of a side, the code for a null logo and the initials of a guest', async () => {
+		const feed = recorded();
+		const games = feed.days.flatMap((day) => day.games);
+		const final = games.find((game) => game.id === 'g-final')!;
+		final.away.logo = {
+			light: 'https://example.com/a-light.svg',
+			dark: 'https://example.com/a-dark.svg'
+		};
+		final.home = { ...final.home, code: null, name: 'Mariners', city: 'Harbor City', guest: true };
+		stubFetch(answerWith(feed));
+		const { container } = await renderPage();
+		const boxes = [...card(container, 'g-final').querySelectorAll('.row .team-monogram.large')];
+		expect(boxes[0]!.querySelector('img')?.getAttribute('src')).toBe(
+			'https://example.com/a-dark.svg'
+		);
+		expect(boxes[1]!.querySelector('img')).toBeNull();
+		expect(boxes[1]!.textContent).toBe('HM');
+		const other = container.querySelector(
+			'ul.games > li:not(:has(#game-g-final)) .team-monogram.large'
+		);
+		expect(other?.querySelector('img')).toBeNull();
 	});
 });

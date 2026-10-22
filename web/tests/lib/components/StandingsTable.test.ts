@@ -12,6 +12,7 @@
 // - A historical row draws its season code in the box, links with today's code and has no strip (ADR 0054)
 // - The desktop table carries no mobile class
 // - Spanish copy
+// - The team logos: the feed logo in the standings box on both layouts, the code for a null logo and a historical row, the monogram in place after an image error
 //
 // What is covered:
 // - The groups of the recorded feed (tests/lib/feed/fixtures/standings.json) through the props layer
@@ -24,7 +25,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import type { ResolvedPathname } from '$app/types';
-import { render, screen } from '@testing-library/svelte';
+import { fireEvent, render, screen } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import StandingsTable from '../../../src/lib/components/StandingsTable.svelte';
@@ -216,5 +217,54 @@ describe('StandingsTable', () => {
 		expect(screen.getByText('Racha')).toBeTruthy();
 		expect(screen.getByText('Puesto')).toBeTruthy();
 		expect(container.querySelector('.row.body .cell.accent')?.textContent).toBe('G3');
+	});
+});
+
+describe('StandingsTable logos', () => {
+	const withLogo = (): StandingsGroupView => {
+		const source = JSON.parse(
+			readFileSync(join(__dirname, '..', 'feed', 'fixtures', 'standings.json'), 'utf8')
+		) as StandingsFeed;
+		source.conferences[0]!.teams[0]!.logo = {
+			light: 'https://example.com/bos-light.svg',
+			dark: 'https://example.com/bos-dark.svg'
+		};
+		return toStandingsView(source).conference[0]!;
+	};
+
+	it('draws the logo in the standings box on both layouts, and the code for a null logo', () => {
+		for (const layout of ['desktop', 'mobile'] as const) {
+			const { container, unmount } = show(withLogo(), layout);
+			const boxes = bodyRows(container).map((row) => row.querySelector('.team-monogram'));
+			expect(boxes[0]?.classList.contains('standings')).toBe(true);
+			expect(boxes[0]?.querySelector('img')?.getAttribute('src')).toBe(
+				'https://example.com/bos-dark.svg'
+			);
+			expect(boxes[1]?.querySelector('img')).toBeNull();
+			expect(boxes[1]?.textContent).toBe('NYK');
+			unmount();
+		}
+	});
+
+	it('draws the monogram in the same box after an image error', async () => {
+		const { container } = show(withLogo());
+		await fireEvent.error(container.querySelector('.team-monogram img') as HTMLImageElement);
+		const box = bodyRows(container)[0]!.querySelector('.team-monogram');
+		expect(box?.classList.contains('standings')).toBe(true);
+		expect(box?.textContent).toBe('BOS');
+	});
+
+	it('draws the season code of a historical row', () => {
+		const past = toStandingsView(
+			JSON.parse(
+				readFileSync(join(__dirname, '..', 'feed', 'fixtures', 'standings-past.json'), 'utf8')
+			) as StandingsFeed,
+			{ past: true }
+		).conference[0]!;
+		const { container } = show(past);
+		const codes = bodyRows(container).map(
+			(row) => row.querySelector('.team-monogram')?.textContent
+		);
+		expect(codes).toContain('SEA');
 	});
 });

@@ -2,7 +2,7 @@
 	import type { ResolvedPathname } from '$app/types';
 	import PlayerAvatar from '#lib/components/PlayerAvatar.svelte';
 	import StatusTag from '#lib/components/StatusTag.svelte';
-	import TeamMonogram from '#lib/components/TeamMonogram.svelte';
+	import TeamMark from '#lib/components/TeamMark.svelte';
 	import type { SearchPlayerRow, SearchTeamRow } from '#lib/search/types.ts';
 	import type { RowLayout } from '#lib/schedule/types.ts';
 
@@ -30,7 +30,7 @@
 >
 	{#if row.kind === 'team'}
 		<span class="tile" class:plain={!row.team.strip}>
-			<TeamMonogram code={row.team.code} size="search" />
+			<TeamMark team={row.team.team} part="tile" size="search" logo={row.team.team.logo} />
 			{#if row.team.strip}
 				<span class="strip" aria-hidden="true">
 					<span class="half" style:background-color={row.team.strip.primary}></span>
@@ -63,6 +63,7 @@
 				style:background-color={row.player.teamColor}
 				aria-hidden="true"
 			></span>
+			<TeamMark part="tile" team={row.player.team} size="inline" logo={row.player.team.logo} />
 			<span class="code">{row.player.teamCode}</span>
 		</span>
 	{/if}

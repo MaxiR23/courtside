@@ -14,9 +14,10 @@ export type AllStarMarkView = {
 
 export type AllStarSectionId = 'last-time' | 'mvp' | 'games' | 'teams';
 
-/** A league team's monogram: its code and the two colors of its bar (null when the feed has none). */
+/** A league team's mark (its logo, else its code) and the two colors of its bar (null when the feed has none). */
 export type LeagueMarkView = {
 	code: string;
+	team: TeamMarkTeam;
 	primary: string | null;
 	secondary: string | null;
 };

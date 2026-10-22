@@ -56,7 +56,13 @@
 				</div>
 				{#if header.champion}
 					<div class="champion">
-						<TeamMark team={header.champion} part="tile" size="cup-champion" {teamHref} />
+						<TeamMark
+							team={header.champion}
+							part="tile"
+							size="cup-champion"
+							logo={header.champion.logo}
+							{teamHref}
+						/>
 						<div class="champion-text">
 							<span class="champion-label">{m.cup_champion()}</span>
 							{#if header.champion.city}<span class="city">{header.champion.city}</span>{/if}

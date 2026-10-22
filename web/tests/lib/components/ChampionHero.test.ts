@@ -8,6 +8,7 @@
 // - Relive the series only when the series section exists; the buttons scroll to #series and #bracket
 // - The stats count up and show the final values when the timeout ends
 // - Under reduced motion the final values show at once
+// - The champion logo: in the playoffs-champion box with the strip kept, the code for a null logo
 //
 // What is covered:
 // - Each state the hero shows, drawn from props with no fetch
@@ -137,5 +138,26 @@ describe('ChampionHero', () => {
 			'+142'
 		]);
 		expect(vi.getTimerCount()).toBe(0);
+	});
+});
+
+describe('ChampionHero logo', () => {
+	it('draws the champion logo in the playoffs-champion box, and the code for a null logo', () => {
+		const withLogo = hero();
+		withLogo.team.logo = {
+			light: 'https://example.com/x-light.svg',
+			dark: 'https://example.com/x-dark.svg'
+		};
+		const first = render(ChampionHero, {
+			props: { hero: withLogo, layout: 'desktop', teamHref, showRelive: true }
+		});
+		const box = first.container.querySelector('.tile .team-monogram');
+		expect(box?.classList.contains('playoffs-champion')).toBe(true);
+		expect(box?.querySelector('img')?.getAttribute('src')).toBe('https://example.com/x-dark.svg');
+		expect(first.container.querySelectorAll('.strip .half')).toHaveLength(2);
+		first.unmount();
+		const plain = show().container.querySelector('.tile .team-monogram');
+		expect(plain?.querySelector('img')).toBeNull();
+		expect(plain?.textContent).toBe('QXA');
 	});
 });

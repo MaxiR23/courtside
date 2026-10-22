@@ -9,7 +9,7 @@ export type TeamSectionId = 'overview' | 'record' | 'leaders' | 'roster' | 'inju
 export type TeamTab = { id: TeamSectionId; label: string };
 
 export type TeamHeaderView = {
-	code: string; // three letters, monogram: the season code of a historical past team
+	team: TeamMarkTeam; // the box: the logo, else the code (the season code of a historical past team)
 	city: string; // e.g. "Oklahoma City"
 	name: string; // e.g. "Thunder"
 	conferenceLine: string; // "Western Conference · Northwest Division"

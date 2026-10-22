@@ -11,6 +11,7 @@
 // - The All-Star tag in the tags when the header has one, none without it, and it is not a link
 // - The season tag when the header has one; the select on desktop and mobile, with no header, and its onChange; none without the prop
 // - A null status draws no status tag
+// - The team mark: the feed logo before the code tag, the monogram for a null logo and the season code of a past team, none without a team
 //
 // What is covered:
 // - Each state, drawn from props with no fetch
@@ -30,6 +31,7 @@ const STANDINGS = '/standings' as ResolvedPathname;
 
 const header: PlayerHeaderView = {
 	teamCode: 'OKC',
+	team: null,
 	status: { label: 'Active', injured: false },
 	firstName: 'Shai',
 	lastName: 'Gilgeous-Alexander',
@@ -262,5 +264,35 @@ describe('PlayerHeader with no status', () => {
 		show({ header: { ...header, status: null } });
 		expect(screen.getByText('OKC')).toBeTruthy();
 		expect(screen.queryByText('Active')).toBeNull();
+	});
+});
+
+describe('PlayerHeader team mark', () => {
+	const team = { code: 'OKC', name: 'Thunder', city: 'Oklahoma City', guest: false };
+	const logo = {
+		light: 'https://example.com/okc-light.svg',
+		dark: 'https://example.com/okc-dark.svg'
+	};
+
+	it('draws the team logo before the code tag, hidden', () => {
+		const { container } = show({ header: { ...header, team: { ...team, logo } } });
+		const mark = container.querySelector('.tags .team-monogram.inline');
+		expect(mark?.querySelector('img')?.getAttribute('src')).toBe(
+			'https://example.com/okc-dark.svg'
+		);
+		expect(mark?.nextElementSibling?.textContent).toBe('OKC');
+	});
+
+	it('draws the monogram of a team with a null logo, and of a past team its season code', () => {
+		const plain = show({ header: { ...header, team } });
+		expect(plain.container.querySelector('.tags .team-monogram')?.textContent).toBe('OKC');
+		plain.unmount();
+		const past = show({ header: { ...header, team: { ...team, historicalCode: 'SEA' } } });
+		expect(past.container.querySelector('.tags .team-monogram')?.textContent).toBe('SEA');
+	});
+
+	it('draws no mark without a team', () => {
+		const { container } = show({ header });
+		expect(container.querySelector('.tags .team-monogram')).toBeNull();
 	});
 });

@@ -17,6 +17,7 @@
 // - The Cup tag first in the status line, before the live badge, the date and the venue; none for a game without the mark
 // - The postseason mark first in the status line, before the live badge and the status text, for a scheduled and a live game; none for a regular game; the Cup tag unchanged
 // - The All-Star mark first in the status line of a scheduled game, then the round, the solid tag for the Championship, none without the mark, and no city for a guest side without one
+// - The team logos: the feed logo in the header and header-mobile boxes, a guest drawing its monogram
 //
 // What is covered:
 // - Each state the header shows
@@ -466,6 +467,34 @@ describe('GameHeader with the All-Star mark', () => {
 			);
 			expect(container.querySelector('.city')).toBeNull();
 			expect(container.querySelector('.meta')?.textContent ?? '').toBe('');
+			unmount();
+		}
+	});
+});
+
+describe('GameHeader team logos', () => {
+	const logo = {
+		light: 'https://example.com/lal-light.svg',
+		dark: 'https://example.com/lal-dark.svg'
+	};
+	const harbor = { code: null, name: 'Mariners', city: 'Harbor City', record: null, guest: true };
+
+	it('draws the logo in the header box on desktop and in the header-mobile box on mobile', () => {
+		for (const [layout, size] of [
+			['desktop', 'header'],
+			['mobile', 'header-mobile']
+		] as const) {
+			const { container, unmount } = show(
+				{ ...final, away: { ...away, logo }, home: { ...harbor } },
+				layout
+			);
+			const boxes = [...container.querySelectorAll('.team-monogram')];
+			expect(boxes[0]!.classList.contains(size)).toBe(true);
+			expect(boxes[0]!.querySelector('img')?.getAttribute('src')).toBe(
+				'https://example.com/lal-dark.svg'
+			);
+			expect(boxes[1]!.querySelector('img')).toBeNull();
+			expect(boxes[1]!.textContent).toBe('HM');
 			unmount();
 		}
 	});
