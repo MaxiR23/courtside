@@ -15,6 +15,7 @@
 // - A final game has no Videos section and keeps its highlights
 // - The not-found row in Spanish with a Spanish browser preference
 // - A past game (fixtures/game-detail-past.json): the season label next to the date, the side with a code links to its team page, the guest side is not a link, and no hidden section renders a heading or an empty section
+// - The team logos: the feed logo in the header box on both layouts, the code for a null logo
 //
 // What is covered:
 // - Each page state, drawn from props with no fetch
@@ -498,5 +499,40 @@ describe('GamePage with a past game', () => {
 		expect(
 			screen.queryByRole('heading', { name: /Injuries|Box score|Last games|Standings|Highlights/ })
 		).toBeNull();
+	});
+});
+
+describe('GamePage team logos', () => {
+	it('draws the logo in the header box on both layouts, and the code for a null logo', () => {
+		const withLogo: GameView = {
+			...view,
+			header: {
+				...view.header,
+				away: {
+					...view.header.away,
+					logo: { light: 'https://example.com/a-light.svg', dark: 'https://example.com/a-dark.svg' }
+				}
+			}
+		};
+		for (const [layout, size] of [
+			['desktop', 'header'],
+			['mobile', 'header-mobile']
+		] as const) {
+			const { container, unmount } = render(GamePage, {
+				props: {
+					state: { kind: 'ready', view: withLogo } as GamePageState,
+					allGamesHref: HOME,
+					standingsHref: STANDINGS,
+					layout,
+					teamHref,
+					playerHref
+				}
+			});
+			const box = container.querySelector(`.team-monogram.${size}`);
+			expect(box?.querySelector('img')?.getAttribute('src')).toBe('https://example.com/a-dark.svg');
+			unmount();
+		}
+		const { container } = show({ kind: 'ready', view });
+		expect(container.querySelector('.team-monogram.header img')).toBeNull();
 	});
 });

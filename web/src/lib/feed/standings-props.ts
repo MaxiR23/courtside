@@ -1,6 +1,7 @@
 import type { Clinch, Conference, StandingsFeed, StandingsRow } from '#lib/contract/standings.ts';
 import { formatNumber } from '#lib/format/locale.ts';
 import { m } from '#lib/paraglide/messages.js';
+import { teamMark } from '#lib/team/mark.ts';
 import type {
 	ClinchTone,
 	ClinchView,
@@ -71,7 +72,7 @@ function rowView(row: StandingsRow, line: StandingsLine | null): StandingsRowVie
 	const { primary, secondary } = row.colors;
 	return {
 		code: row.code,
-		tile: row.historical && row.seasonCode ? row.seasonCode : row.code,
+		team: teamMark(row),
 		seed: row.seed === null ? NO_VALUE : String(row.seed),
 		city: row.city,
 		name: row.name,

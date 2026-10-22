@@ -119,7 +119,12 @@
 			<div class="teams">
 				{#each view.sides as side, i (i)}
 					<div class="team-line">
-						{#if side.team}<TeamMark team={side.team} part="tile" size="small" />{/if}
+						{#if side.team}<TeamMark
+								team={side.team}
+								part="tile"
+								size="small"
+								logo={side.team.logo}
+							/>{/if}
 						<span class="team-name">{side.name}</span>
 						{#if side.score !== null}<span class="score">{side.score}</span>{/if}
 					</div>

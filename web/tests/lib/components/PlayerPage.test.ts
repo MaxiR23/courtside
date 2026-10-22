@@ -14,6 +14,7 @@
 // - The footer in every state, no nested interactive element, Spanish
 // - The season select reaches the header in every state, and is absent without the prop
 // - hideNext renders no next game card and no "Season over."
+// - The team logo before the team tag on both layouts, the code for a null logo
 //
 // What is covered:
 // - Each page state, drawn from props with no fetch; the view comes from the recorded player feed
@@ -281,5 +282,28 @@ describe('PlayerPage next game card', () => {
 		show(ready({ ...feed(), nextGame: null, team: null, active: false }));
 		expect(screen.queryByText('Season over.')).toBeNull();
 		expect(screen.getByText('Retired')).toBeTruthy();
+	});
+});
+
+describe('PlayerPage team logo', () => {
+	it('draws the team logo before the team tag on both layouts, and the code for a null logo', () => {
+		const source = feed();
+		source.team!.logo = {
+			light: 'https://example.com/a-light.svg',
+			dark: 'https://example.com/a-dark.svg'
+		};
+		for (const layout of ['desktop', 'mobile'] as const) {
+			const { container, unmount } = show(ready(source), layout);
+			expect(container.querySelector('.tags .team-monogram.inline img')?.getAttribute('src')).toBe(
+				'https://example.com/a-dark.svg'
+			);
+			unmount();
+		}
+		source.team!.logo = null;
+		const { container } = show(ready(source));
+		expect(container.querySelector('.tags .team-monogram.inline img')).toBeNull();
+		expect(container.querySelector('.tags .team-monogram.inline')?.textContent).toBe(
+			source.team!.code
+		);
 	});
 });

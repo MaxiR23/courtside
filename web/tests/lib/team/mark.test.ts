@@ -7,6 +7,7 @@
 // - teamLabel gives the code, else the name, else nothing
 // - teamMark treats a missing guest key as a league team and keeps the fields
 // - A historical side shows its season code as tile and label, a side that is not historical or has no season code keeps its code, and adds no key (ADR 0054)
+// - A side that has a logo keeps it; a null logo and a feed object without the key add no logo key
 //
 // What is covered:
 // - Happy path, the guest without a code and edge cases (no city, no name)
@@ -84,5 +85,18 @@ describe('a historical side', () => {
 	it('adds no key to a side that is not historical', () => {
 		expect(teamMark({ ...league, seasonCode: null, historical: false })).toEqual(league);
 		expect(Object.keys(teamMark(league))).not.toContain('historicalCode');
+	});
+});
+
+describe('teamMark logo', () => {
+	const logo = { light: 'https://example.com/den-light.svg', dark: null };
+
+	it('copies the logo of a side that has one', () => {
+		expect(teamMark({ ...league, logo }).logo).toEqual(logo);
+	});
+
+	it('leaves the key out for a null logo and for a feed object without the key', () => {
+		expect('logo' in teamMark({ ...league, logo: null })).toBe(false);
+		expect('logo' in teamMark(league)).toBe(false);
 	});
 });

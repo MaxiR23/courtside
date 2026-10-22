@@ -6,6 +6,7 @@
 // - The header: record, win percentage, the season of the record under the win percentage,
 //   conference line and its four cells; the Streak cell left out with a null streak, the
 //   Playoffs cell with a null playoff; Play-in and Out
+// - The header's team view carries the feed's logo; a null logo leaves the key out
 // - The tabs in order and the mini text; sections without data leave with their tab
 // - The overview: arena, coach line (singular and plural, and none without seasons), colors, the next game (tag, ET date,
 //   "@ DEN", place and time lines, links) and a null next game
@@ -91,10 +92,28 @@ describe('toTeamView Cup line', () => {
 	});
 });
 
+describe('toTeamView header logo', () => {
+	it("carries the feed's logo, and leaves the key out for a null logo", () => {
+		const source = feed();
+		source.logo = { light: 'https://example.com/okc-light.svg', dark: null };
+		expect(view(source).header.team.logo).toEqual({
+			light: 'https://example.com/okc-light.svg',
+			dark: null
+		});
+		source.logo = null;
+		expect('logo' in view(source).header.team).toBe(false);
+	});
+});
+
 describe('toTeamView header', () => {
 	it('formats the record, win percentage, conference line and colors', () => {
 		const { header } = view();
-		expect(header.code).toBe('OKC');
+		expect(header.team).toEqual({
+			code: 'OKC',
+			name: 'Thunder',
+			city: 'Oklahoma City',
+			guest: false
+		});
 		expect(header.city).toBe('Oklahoma City');
 		expect(header.name).toBe('Thunder');
 		expect(header.record).toBe('57–25');
@@ -727,7 +746,7 @@ describe('toTeamView past season', () => {
 
 	it('shows the season code of a historical past team and draws no strip', () => {
 		const v = toTeamView(pastFeed(), { past: true });
-		expect(v.header.code).toBe('SEA');
+		expect(v.header.team.historicalCode).toBe('SEA');
 		expect(v.header.colors).toBeNull();
 		expect(v.mini.startsWith('SEA ')).toBe(true);
 	});
@@ -735,7 +754,8 @@ describe('toTeamView past season', () => {
 	it('keeps the code and the colors of a past team that kept its name', () => {
 		const source = { ...pastFeed(), seasonCode: 'OKC', historical: false };
 		const v = toTeamView(source, { past: true });
-		expect(v.header.code).toBe('OKC');
+		expect(v.header.team.historicalCode).toBeUndefined();
+		expect(v.header.team.code).toBe('OKC');
 		expect(v.header.colors).toEqual({ primary: '#007AC1', secondary: '#EF3B24' });
 	});
 

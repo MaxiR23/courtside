@@ -14,7 +14,7 @@ Decisions in force for this design:
 
 1. **A shared team identity per league team**, kept by the backend and refreshed daily: code, logo (light and dark variants, `null` when the team has none), primary color and secondary color (`null` when absent). Every league team object in every feed carries the logo and the colors. Guest sides and historical sides carry `null` logo and `null` colors and keep the neutral monogram.
 2. **Hero color rule**, computed by the backend for each hero game and sent as an accent per side. See "Hero color rule".
-3. **One `TeamMark` component draws the logo everywhere.** `TeamMark` is the existing component (`part`: tile, label, name), extended with an optional `logo` for its tile. The tile draws the logo (the dark variant on the dark ground, the light variant as fallback) inside `TeamMonogram`'s box, at the size variant asked, in place of the monogram, and the monogram when the logo is `null` or fails to load. The home hero is the first placement; the other placements come in the next issue. Team colors appear only as data (bars, fills, the hero accent), never as page chrome. The site accent stays.
+3. **One `TeamMark` component draws the logo everywhere.** `TeamMark` is the existing component (`part`: tile, label, name), extended with an optional `logo` for its tile. The tile draws the logo (the dark variant on the dark ground, the light variant as fallback) inside `TeamMonogram`'s box, at the size variant asked, in place of the monogram, and the monogram when the logo is `null` or fails to load. Every placement listed under "TeamMark placements" draws it. Team colors appear only as data (bars, fills, the hero accent), never as page chrome. The site accent stays.
 4. **A footer line on every page**, in the page language. See "Footer".
 
 ## Implementation rules
@@ -26,7 +26,8 @@ Everything under "Implementation rules" in `docs/design.md` applies, plus:
 - **Every user-facing string is translatable**, in English and Spanish.
 - **A value that is missing renders `—`. A missing logo renders the monogram.**
 - **Team colors are data, not chrome.** They are used only for the color bars of the team page, bars and fills that show a team's data, and the hero accent. Borders, buttons, links, focus rings, tags and backgrounds of the page keep the site tokens and the site accent.
-- **Every logo image has an empty alt text** when the team name is written next to it, and the team name as alt text when it stands alone.
+- **A logo next to a written team name or code is hidden from assistive technology** (`aria-hidden`, empty alt text; a linked one keeps the code as its link name). A logo standing alone has the alt text `identity_mark_alt`. An inline monogram drawn next to its own written code is `aria-hidden` like the logo it stands for.
+- **Team logos load lazily** (`loading="lazy"` on every logo image); the browser still loads at once the ones in the viewport.
 - **Logos never stretch:** `object-fit: contain` in a square box.
 - **Shared components are reused:** `BlueprintFrame`, `Kicker`, `StatusTag`, the loading skeletons and the footer.
 
@@ -34,7 +35,7 @@ Everything under "Implementation rules" in `docs/design.md` applies, plus:
 
 | Component | What it is |
 |---|---|
-| `TeamMark` | The existing component, extended: the tile draws the team logo at a size variant in `TeamMonogram`'s box (which gains the `fill` size), or the monogram when the logo is `null` or fails to load. It draws the logo in place of the monogram |
+| `TeamMark` | The existing component, extended: the tile draws the team logo at a size variant in `TeamMonogram`'s box (which gains the `fill` and `inline` sizes), or the monogram when the logo is `null` or fails to load. It draws the logo in place of the monogram |
 | `HeroSlideSelector` | One slide button of the home hero: the 2px timer track, the logo and the team name |
 | `HeroPlayerCard` | The right column of the home hero: the frame, the layers of each slide and the player strip |
 | `HeroBackgroundWord` | The outlined star short name behind the hero |
@@ -122,17 +123,19 @@ Every page shows the footer line below, in the page language, in the footer in p
 
 ## TeamMark placements
 
-`TeamMark` has the same sizes as `TeamMonogram`, plus `fill` (the whole box of its parent). The hero is the only placement so far; the others come in the next issue.
+`TeamMark` has the sizes of `TeamMonogram`, plus `fill` (the whole box of its parent) and `inline` (20px, a logo or monogram before a team's code or name). A placement that drew a monogram keeps its size and draws the logo in its box. A placement that drew only text gets an `inline` mark before that text, which stays.
 
 | Surface | Placements |
 |---|---|
-| Home | Score bar, game list, players to watch, leaders |
-| Game page | Header, box score tabs, team stats, play-by-play |
-| Standings | Each row and the playoff picture |
-| Team | A large logo in the hero (the color bars stay); opponent logos in the schedule and the results |
-| Player | Current team; the career table |
-| Search | Team results and player results |
-| Cup, playoffs, All-Star | Brackets, series headers, champion cards. The All-Star league monograms are replaced by logos; All-Star sides keep the sigla box |
+| Home | Game list tiles (`large`, `small`); `inline` marks before the codes of the line score and of the leaders, and beside each player to watch |
+| Game page | Header tiles (`header`, `header-mobile`); `inline` marks in the box score tabs and in the line score of the score section. There is no play-by-play, and the team stats name no team |
+| Standings | Each row (`standings`). The playoff picture is on `/playoffs` and draws the same tile |
+| Team | The hero tile (`team`, the color bars stay); an `inline` mark before the opponent of each row of the schedule and the results |
+| Player | An `inline` mark before the current team tag. The career table keeps its codes: its rows carry no logo |
+| Search | Team results (`search`); an `inline` mark before the team code of player results |
+| Cup | Bracket level 2 (`cup-node`), level 1 (`cup-node` before the code, a world-space size with its gap from `--bracket-node-padding`, so the mark is legible at the bracket's scale), matchup panel (`small`), champion (`cup-champion`) |
+| Playoffs | `inline` marks in the bracket nodes, the series sheet and before the leaders' codes in the Finals series; the champion hero (`playoffs-champion`) |
+| All-Star | The league logo of the box score (`allstar-league`, desktop only). All-Star sides keep the sigla box |
 | Day page | Cards as the home |
 | Mobile and phone layouts | The same placements at their sizes |
 
@@ -198,6 +201,8 @@ Added to `web/src/lib/styles/tokens.css` by the implementing issue. Values not l
 |---|---|---|
 | `--identity-neutral-accent` | `var(--color-accent)` (`#749dc4`) | Accent of a side with no colors |
 | `--identity-hero-pad-top` | `clamp(16px, 4vw, 40px)` | Hero padding |
+| `--identity-inline-mark` | `20px` | Logo or monogram before a team's code or name where no monogram was drawn |
+| `--identity-inline-mark-gap` | `6px` | Gap between the inline mark and its text |
 | `--identity-hero-pad-bottom` | `clamp(56px, 6vw, 80px)` | Hero padding |
 | `--identity-word-leading` | .8 | Background word |
 | `--identity-word-tracking` | `-.02em` | Background word |
@@ -264,8 +269,9 @@ The kicker size and tracking are those of the shared `Kicker`. The lightness flo
 | `identity_footer_disclaimer` | Unofficial site, not affiliated with the NBA or its teams. Names and logos belong to their owners. | Sitio no oficial. Sin afiliación con la NBA ni sus equipos. Nombres y logos son propiedad de sus dueños. |
 | `identity_hero_slide_away` | Show {team}, away | Mostrar a {team}, visitante |
 | `identity_hero_slide_home` | Show {team}, home | Mostrar a {team}, local |
+| `identity_mark_alt` | {team} logo | Logo de {team} |
 
-The "Tonight" tag, "at", the kicker and "{city} {team}" keep their existing strings (`status_tonight`, `hero_at`, the kicker built from the tip time and arena, the team name built by the props layer), as do the paragraph and the other hero strings; the keys above are the new ones. `identity_mark_alt` ("{team} logo" / "Logo de {team}") comes with the next issue's standalone logos. The star's short name, the city, the team name, the arena, the tip-off time and the tricode come from the feed. The footer line replaces the previous footer disclaimer string.
+The "Tonight" tag, "at", the kicker and "{city} {team}" keep their existing strings (`status_tonight`, `hero_at`, the kicker built from the tip time and arena, the team name built by the props layer), as do the paragraph and the other hero strings; the keys above are the new ones. The star's short name, the city, the team name, the arena, the tip-off time and the tricode come from the feed. The footer line replaces the previous footer disclaimer string.
 
 ## Feed contract
 

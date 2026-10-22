@@ -42,6 +42,7 @@
 		{@const team = entry.team}
 		<div class="line">
 			<span class="team-cell">
+				<TeamMark part="tile" {team} size="inline" logo={team.logo} />
 				<TeamMark part="label" {team} {teamHref} />
 				{#if detail && team.code !== null && team.name}<span class="team-name"
 						><TeamMark part="name" {team} {teamHref} /></span
@@ -103,13 +104,16 @@
 	}
 
 	.team-cell {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--identity-inline-mark-gap);
 		font-family: var(--font-heading);
 		font-weight: var(--font-weight-semibold);
 	}
 
 	.detail .line:not(.head) .team-cell {
 		display: flex;
-		align-items: baseline;
+		align-items: center;
 		gap: var(--day-strip-gap);
 		min-width: 0;
 		font-size: var(--detail-line-score-code-size);

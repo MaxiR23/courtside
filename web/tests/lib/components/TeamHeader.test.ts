@@ -5,6 +5,7 @@
 // Tested:
 // - The h1, city, conference line, record, win percentage, the season of the record and cells
 // - The two halves of the color strip carry the feed colors as inline backgrounds; a historical identity (null colors) draws the season code and no strip (ADR 0054)
+// - The box draws the feed logo in the team size with the strip still drawn; a null logo draws the code
 // - The season tag stays on the unavailable state (no header, a seasonTag) and the skeleton wins while loading
 // - Only the nav row with no header; the skeleton and aria-busy while loading
 // - The Cup line after the conference line, linking to the Cup page; none without the mark
@@ -29,7 +30,7 @@ const HOME = '/' as ResolvedPathname;
 const STANDINGS = '/standings' as ResolvedPathname;
 
 const header: TeamHeaderView = {
-	code: 'OKC',
+	team: { code: 'OKC', name: 'Thunder', city: 'Oklahoma City', guest: false },
 	city: 'Oklahoma City',
 	name: 'Thunder',
 	conferenceLine: 'Western Conference · Northwest Division',
@@ -105,7 +106,7 @@ describe('TeamHeader', () => {
 	it('draws the season code in the box and no strip for a historical identity', () => {
 		const { container } = render(TeamHeader, {
 			props: {
-				header: { ...header, code: 'SEA', colors: null },
+				header: { ...header, team: { ...header.team, historicalCode: 'SEA' }, colors: null },
 				allGamesHref: HOME,
 				standingsHref: STANDINGS,
 				layout: 'desktop'
@@ -334,5 +335,31 @@ describe('TeamHeader season selector and tag', () => {
 			props: { header, allGamesHref: HOME, standingsHref: STANDINGS, layout: 'desktop' as const }
 		});
 		expect(screen.queryByRole('combobox')).toBeNull();
+	});
+});
+
+describe('TeamHeader logo', () => {
+	const show = (view: TeamHeaderView) =>
+		render(TeamHeader, {
+			props: { header: view, allGamesHref: HOME, standingsHref: STANDINGS, layout: 'desktop' }
+		});
+
+	it('draws the logo in the team box, hidden, and keeps the strip', () => {
+		const logo = {
+			light: 'https://example.com/okc-light.svg',
+			dark: 'https://example.com/okc-dark.svg'
+		};
+		const { container } = show({ ...header, team: { ...header.team, logo } });
+		const box = container.querySelector('.team-monogram.team');
+		expect(box?.querySelector('img')?.getAttribute('src')).toBe('https://example.com/okc-dark.svg');
+		expect(box?.querySelector('img')?.getAttribute('aria-hidden')).toBe('true');
+		expect(container.querySelectorAll('.strip .half')).toHaveLength(2);
+	});
+
+	it('draws the code with a null logo', () => {
+		const { container } = show(header);
+		const box = container.querySelector('.team-monogram.team');
+		expect(box?.querySelector('img')).toBeNull();
+		expect(box?.textContent).toBe('OKC');
 	});
 });

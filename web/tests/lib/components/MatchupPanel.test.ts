@@ -11,6 +11,7 @@
 // - Close calls onClose and has the focus on open
 // - The mobile sheet class and aria-modal
 // - Spanish copy
+// - The team logos: the logo of a side in the small box, the code for a null logo
 //
 // What is covered:
 // - Each state the panel shows, drawn from props with no fetch
@@ -229,5 +230,23 @@ describe('MatchupPanel in Spanish', () => {
 		expect(screen.getAllByText('Recorrido')).toHaveLength(2);
 		expect(screen.getByRole('link', { name: 'Página del partido →' })).toBeTruthy();
 		expect(screen.getByText('Sede neutral')).toBeTruthy();
+	});
+});
+
+describe('MatchupPanel logos', () => {
+	it('draws the logo of a side in the small box, and the code for a null logo', () => {
+		const state = ready();
+		if (state.kind !== 'ready') throw new Error('not ready');
+		state.view.sides[0]!.team!.logo = {
+			light: 'https://example.com/x-light.svg',
+			dark: 'https://example.com/x-dark.svg'
+		};
+		const { container } = show(state);
+		const boxes = [...container.querySelectorAll('.team-line .team-monogram')];
+		expect(boxes[0]!.classList.contains('small')).toBe(true);
+		expect(boxes[0]!.querySelector('img')?.getAttribute('src')).toBe(
+			'https://example.com/x-dark.svg'
+		);
+		expect(boxes[1]!.querySelector('img')).toBeNull();
 	});
 });

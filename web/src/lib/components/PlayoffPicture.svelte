@@ -33,7 +33,7 @@
 					<span class="cell team" role="rowheader">
 						<span class="seed">{row.seed}</span>
 						<span class="tile" class:plain={!row.strip}>
-							<TeamMark team={row.team} part="tile" size="standings" />
+							<TeamMark team={row.team} part="tile" size="standings" logo={row.team.logo} />
 							{#if row.strip}
 								<span class="strip" aria-hidden="true">
 									<span class="half" style:background-color={row.strip.primary}></span>

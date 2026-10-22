@@ -11,6 +11,7 @@
 // - Detail mode: OT1 and OT2 labels, and the team name next to the code
 // - A guest team code and name are plain text
 // - A guest without a code shows its name unlinked and the league team links
+// - The inline mark before each team's code: the feed's logo hidden from assistive technology, the monogram for a null logo
 //
 // What is covered:
 // - Regulation, live and overtime games, plus Spanish
@@ -39,15 +40,55 @@ const side = (code: string | null, name: string | null = null, guest = false) =>
 	guest
 });
 
+// The text of an element without the text of its inline monograms.
+const textOf = (element: Element): string | undefined => {
+	const copy = element.cloneNode(true) as Element;
+	copy.querySelectorAll('.team-monogram').forEach((mark) => mark.remove());
+	return copy.textContent?.trim();
+};
+
 const rows = (container: HTMLElement) =>
-	[...container.querySelectorAll('.line')].map((line) =>
-		[...line.children].map((cell) => cell.textContent?.trim())
-	);
+	[...container.querySelectorAll('.line')].map((line) => [...line.children].map(textOf));
 
 const regulation = {
 	away: { team: side('GSW'), periods: [28, 26, 24, 34], total: 112 },
 	home: { team: side('LAL'), periods: [25, 27, 22, 30], total: 104 }
 };
+
+describe('LineScore team marks', () => {
+	it("draws the team's logo in the inline box before the code, hidden", () => {
+		const { container } = render(LineScore, {
+			props: {
+				teamHref,
+				away: {
+					team: {
+						...side('GSW'),
+						logo: {
+							light: 'https://example.com/gsw-light.svg',
+							dark: 'https://example.com/gsw-dark.svg'
+						}
+					},
+					periods: [28],
+					total: 28
+				},
+				home: { team: side('LAL'), periods: [25], total: 25 }
+			}
+		});
+		const cells = [...container.querySelectorAll('.line:not(.head) .team-cell')];
+		const logo = cells[0]!.querySelector('.team-monogram.inline img');
+		expect(logo?.getAttribute('src')).toBe('https://example.com/gsw-dark.svg');
+		expect(logo?.getAttribute('aria-hidden')).toBe('true');
+		expect(cells[0]!.firstElementChild?.classList.contains('team-monogram')).toBe(true);
+	});
+
+	it('draws the monogram of a team with a null logo, hidden', () => {
+		const { container } = render(LineScore, { props: { ...regulation, teamHref } });
+		const mark = container.querySelector('.line:not(.head) .team-monogram.inline');
+		expect(mark?.querySelector('img')).toBeNull();
+		expect(mark?.textContent).toBe('GSW');
+		expect(mark?.getAttribute('aria-hidden')).toBe('true');
+	});
+});
 
 describe('LineScore', () => {
 	it("shows the header Team 1 2 3 4 T and each team's points per quarter and total", () => {

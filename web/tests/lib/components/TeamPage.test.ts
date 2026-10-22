@@ -15,6 +15,7 @@
 // - A past view without a roster and leaders renders no such section or tab
 // - A past view hides Overview, Injuries and the roster status column; no-team shows "No team this season."
 // - The names timeline renders under the header with four runs and not with none
+// - The hero logo on both layouts with the strip kept, the code for a null logo
 //
 // What is covered:
 // - Each page state, drawn from props with no fetch; the view comes from the recorded team feed
@@ -266,5 +267,27 @@ describe('TeamPage names timeline', () => {
 	it('renders no timeline without seasonHref', () => {
 		showWith({ kind: 'ready', view: toTeamView(pastFeed(), { past: true }) });
 		expect(screen.queryByText('Names')).toBeNull();
+	});
+});
+
+describe('TeamPage logo', () => {
+	it('draws the feed logo in the team box of the hero on both layouts, keeping the strip', () => {
+		const source = feed();
+		source.logo = {
+			light: 'https://example.com/a-light.svg',
+			dark: 'https://example.com/a-dark.svg'
+		};
+		for (const layout of ['desktop', 'mobile'] as const) {
+			const { container, unmount } = show(ready(source), layout);
+			const box = container.querySelector('.team-monogram.team');
+			expect(box?.querySelector('img')?.getAttribute('src')).toBe('https://example.com/a-dark.svg');
+			expect(container.querySelectorAll('.strip .half').length).toBeGreaterThan(0);
+			unmount();
+		}
+	});
+
+	it('draws the code in the team box with a null logo', () => {
+		const { container } = show(ready());
+		expect(container.querySelector('.team-monogram.team')?.textContent).toBe('OKC');
 	});
 });

@@ -13,6 +13,7 @@
 // - The name shows the name of the team, or its label without one
 // - The tile draws the dark logo, else the light one, else the monogram
 // - The tile falls back to the monogram in the same box after an image error, and tries a new logo again
+// - A standalone logo reads "Nuggets logo" or "Logo de Nuggets"; a guest without a code uses its name; a logo that is not standalone is hidden
 // - The logo is drawn in every size variant, and a linked logo keeps the code as its name
 //
 // What is covered:
@@ -23,9 +24,10 @@
 // SEE: web/src/lib/components/TeamMark.svelte
 import type { ResolvedPathname } from '$app/types';
 import { fireEvent, render, screen } from '@testing-library/svelte';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import TeamMark from '../../../src/lib/components/TeamMark.svelte';
+import { preferLanguages } from '../../prefer-languages';
 
 const teamHref = (code: string) => `/team/${code.toLowerCase()}` as ResolvedPathname;
 const league = { code: 'DEN', name: 'Nuggets', city: 'Denver', guest: false };
@@ -34,6 +36,10 @@ const logo = {
 	dark: 'https://example.com/dark.svg'
 };
 const mariners = { code: null, name: 'Mariners', city: 'Harbor City', guest: true };
+
+afterEach(() => {
+	vi.restoreAllMocks();
+});
 
 describe('TeamMark', () => {
 	it("links a historical side to today's team while showing its season code", () => {
@@ -183,6 +189,7 @@ describe('TeamMark', () => {
 			'cup-node',
 			'allstar-league',
 			'names',
+			'inline',
 			'fill'
 		] as const;
 		for (const size of sizes) {
@@ -202,5 +209,40 @@ describe('TeamMark', () => {
 	it('keeps the code as the accessible name of a linked logo', () => {
 		render(TeamMark, { props: { team: league, part: 'tile', logo, teamHref } });
 		expect(screen.getByRole('link', { name: 'DEN' }).getAttribute('href')).toBe('/team/den');
+	});
+
+	it('draws the monogram after the image error in the inline box too', async () => {
+		const { container } = render(TeamMark, {
+			props: { team: league, part: 'tile', size: 'inline', logo }
+		});
+		await fireEvent.error(container.querySelector('img') as HTMLImageElement);
+		const box = container.querySelector('.team-monogram');
+		expect(box?.classList.contains('inline')).toBe(true);
+		expect(box?.querySelector('img')).toBeNull();
+		expect(box?.textContent).toBe('DEN');
+	});
+
+	it('reads a standalone logo as "<team> logo", in English and in Spanish', () => {
+		const props = { team: league, part: 'tile', logo, standalone: true } as const;
+		const english = render(TeamMark, { props });
+		expect(screen.getByAltText('Nuggets logo').getAttribute('aria-hidden')).toBeNull();
+		english.unmount();
+		preferLanguages(['es']);
+		render(TeamMark, { props });
+		expect(screen.getByAltText('Logo de Nuggets')).toBeTruthy();
+	});
+
+	it('names a standalone logo of a guest without a code by its name', () => {
+		render(TeamMark, {
+			props: { team: mariners, part: 'tile', logo, standalone: true }
+		});
+		expect(screen.getByAltText('Mariners logo')).toBeTruthy();
+	});
+
+	it('hides a logo that is not standalone', () => {
+		const { container } = render(TeamMark, { props: { team: league, part: 'tile', logo } });
+		const img = container.querySelector('img');
+		expect(img?.getAttribute('alt')).toBe('');
+		expect(img?.getAttribute('aria-hidden')).toBe('true');
 	});
 });

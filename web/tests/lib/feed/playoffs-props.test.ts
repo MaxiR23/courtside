@@ -23,6 +23,7 @@
 // - Award names and short codes in Spanish from the award code; English short codes unchanged
 // - A scheduled series game with no venue shows its date alone (ADR 0064)
 // - Spanish copy
+// - The champion carries the feed's logo into the hero view; a null logo leaves the key out
 //
 // What is covered:
 // - Pure logic on invented feeds (tests/lib/feed/fixtures/playoffs-*.json); no clock, no network
@@ -1046,5 +1047,21 @@ describe('toPlayoffsView award names and codes', () => {
 		expect(awardName('all_defensive', 2)).toBe('Mejor quinteto defensivo (2.º)');
 		expect(awardName('all_defensive', 9)).toBeNull();
 		expect(awardShortCode('twyman_stokes')).toBeNull();
+	});
+});
+
+describe('toPlayoffsView team logos', () => {
+	it("carries the feed's logo of the champion into the hero, and no key for a null logo", () => {
+		const withLogo = inState('complete', (f) => {
+			f.champion!.team.logo = { light: 'https://example.com/a-light.svg', dark: null };
+		});
+		expect(view(withLogo).header.hero!.team.logo).toEqual({
+			light: 'https://example.com/a-light.svg',
+			dark: null
+		});
+		const plain = inState('complete', (f) => {
+			f.champion!.team.logo = null;
+		});
+		expect('logo' in view(plain).header.hero!.team).toBe(false);
 	});
 });

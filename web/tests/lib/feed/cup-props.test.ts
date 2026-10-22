@@ -20,6 +20,7 @@
 // - The known map mirrors the feed; the champion's name only when complete
 // - The season tag: null on the current season, "Season 2026-27" on a past one, in both languages
 // - Spanish copy of the state line, a group title and a stage label
+// - The champion carries the feed's logo into the header view; a null logo leaves the key out
 //
 // What is covered:
 // - Pure logic on an invented feed (tests/lib/feed/fixtures/cup.json); no clock, no network
@@ -623,5 +624,18 @@ describe('toCupView season tag', () => {
 	it('writes the season tag in Spanish', () => {
 		preferLanguages(['es']);
 		expect(toCupView(feed(), { past: true }).header.tag).toBe('Temporada 2026-27');
+	});
+});
+
+describe('toCupView team logos', () => {
+	it("carries the feed's logo of the champion into the header, and no key for a null logo", () => {
+		const source = complete();
+		source.champion!.logo = { light: 'https://example.com/a-light.svg', dark: null };
+		expect(view(source).header.champion?.logo).toEqual({
+			light: 'https://example.com/a-light.svg',
+			dark: null
+		});
+		source.champion!.logo = null;
+		expect('logo' in view(source).header.champion!).toBe(false);
 	});
 });

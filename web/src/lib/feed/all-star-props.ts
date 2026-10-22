@@ -94,7 +94,12 @@ const nameOf = (team: Opponent): string => team.name ?? team.code ?? NO_VALUE;
 
 const league = (found: LeagueTeam | null): LeagueMarkView | null =>
 	found
-		? { code: found.code, primary: found.colors.primary, secondary: found.colors.secondary }
+		? {
+				code: found.code,
+				team: teamMark({ code: found.code, name: null, city: null, logo: found.logo }),
+				primary: found.colors.primary,
+				secondary: found.colors.secondary
+			}
 		: null;
 
 const dateLine = (edition: Pick<AllStarEdition, 'date' | 'venue'>): string | null =>

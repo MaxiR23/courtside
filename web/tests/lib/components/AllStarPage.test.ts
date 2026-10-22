@@ -9,6 +9,7 @@
 // - The MVP box link selects the Championship and scrolls to #games
 // - Tapping the live scoreboard on mobile selects the live game and scrolls to #games
 // - The live tick runs only in the live state
+// - A league logo in the box score; the All-Star sigla boxes hold no image
 //
 // What is covered:
 // - Each state the page shows, drawn from the recorded feeds
@@ -161,5 +162,26 @@ describe('AllStarPage', () => {
 		expect(container.querySelector('.sections')?.classList.contains('mobile')).toBe(true);
 		expect(container.querySelector('.sections .all-star-games.mobile .cards')).not.toBeNull();
 		expect(container.querySelector('.nav.sticky')).not.toBeNull();
+	});
+});
+
+describe('AllStarPage team logos', () => {
+	it('draws a league logo in the box score and keeps the sigla boxes free of images', () => {
+		const view = structuredClone(viewOf('after'));
+		for (const box of Object.values(view.boxes)) {
+			for (const row of [...(box?.away.rows ?? []), ...(box?.home.rows ?? [])]) {
+				if (row.league) {
+					row.league.team.logo = {
+						light: 'https://example.com/a-light.svg',
+						dark: 'https://example.com/a-dark.svg'
+					};
+				}
+			}
+		}
+		const { container } = show({ kind: 'ready', view });
+		const logos = [...container.querySelectorAll('.team-monogram.allstar-league img')];
+		expect(logos.length).toBeGreaterThan(0);
+		expect(logos[0]!.getAttribute('src')).toBe('https://example.com/a-dark.svg');
+		expect(container.querySelectorAll('.sigla img')).toHaveLength(0);
 	});
 });

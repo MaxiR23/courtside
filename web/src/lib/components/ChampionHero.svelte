@@ -56,7 +56,13 @@
 		</div>
 		<div class="champion">
 			<span class="tile">
-				<TeamMark team={hero.team} part="tile" size="playoffs-champion" {teamHref} />
+				<TeamMark
+					team={hero.team}
+					part="tile"
+					size="playoffs-champion"
+					logo={hero.team.logo}
+					{teamHref}
+				/>
 				{#if hero.strip}
 					<span class="strip" aria-hidden="true">
 						<span class="half" style:background-color={hero.strip.primary}></span>

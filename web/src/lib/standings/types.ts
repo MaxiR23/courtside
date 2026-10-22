@@ -1,5 +1,7 @@
 // Props of the standings page. Components get pre-formatted strings and never a contract type.
 
+import type { TeamMarkTeam } from '#lib/team/mark.ts';
+
 export type StandingsGrouping = 'conference' | 'division';
 
 export type ClinchTone = 'accent' | 'ink' | 'muted';
@@ -10,7 +12,7 @@ export type StandingsLine = 'playoff' | 'play-in';
 
 export type StandingsRowView = {
 	code: string; // "OKC", the link: today's code
-	tile: string; // the code shown in the box: the season code of a historical row, else code
+	team: TeamMarkTeam; // the box: the logo, else the code (the season code of a historical row)
 	seed: string; // "1", or "—"
 	city: string;
 	name: string;

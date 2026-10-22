@@ -11,6 +11,7 @@
 // - The unavailable state of a past season keeps the Season tag; the current season's has none (ADR 0054)
 // - Unavailable: the unavailable row under the nav; the footer in every state
 // - Spanish copy
+// - The team logos: the champion logo in the hero, a playoff picture row's logo, the code for a null logo
 //
 // What is covered:
 // - Each state the page shows, drawn from props with no fetch
@@ -225,5 +226,37 @@ describe('PlayoffsPage', () => {
 			'Líderes',
 			'Premios'
 		]);
+	});
+});
+
+describe('PlayoffsPage team logos', () => {
+	const logo = {
+		light: 'https://example.com/a-light.svg',
+		dark: 'https://example.com/a-dark.svg'
+	};
+
+	it('draws the champion logo in the champion hero, and the code for a null logo', () => {
+		const state = ready('complete');
+		if (state.kind !== 'ready') throw new Error('not ready');
+		state.view.header.hero!.team.logo = logo;
+		const { container } = show(state);
+		const box = container.querySelector('.team-monogram.playoffs-champion');
+		expect(box?.querySelector('img')?.getAttribute('src')).toBe('https://example.com/a-dark.svg');
+		const plain = show(ready('complete')).container.querySelectorAll(
+			'.team-monogram.playoffs-champion'
+		);
+		expect(plain[plain.length - 1]!.querySelector('img')).toBeNull();
+	});
+
+	it('draws the logo of a row of the playoff picture', () => {
+		const state = ready('picture');
+		if (state.kind !== 'ready') throw new Error('not ready');
+		state.view.picture[0]!.rows[0]!.team.logo = logo;
+		const { container } = show(state);
+		const boxes = [...container.querySelectorAll('.row.body .team-monogram.standings')];
+		expect(boxes[0]!.querySelector('img')?.getAttribute('src')).toBe(
+			'https://example.com/a-dark.svg'
+		);
+		expect(boxes[1]!.querySelector('img')).toBeNull();
 	});
 });

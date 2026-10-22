@@ -145,6 +145,12 @@ function header(feed: PlayerFeed, past: boolean): PlayerHeaderView {
 					? null
 					: m.past_player_free_agent()
 				: m.past_player_retired(),
+		team: feed.team
+			? {
+					...teamMark(feed.team),
+					...(feed.team.seasonCode ? { historicalCode: feed.team.seasonCode } : {})
+				}
+			: null,
 		status: injury
 			? { label: INJURY_LABELS[injury.status](), injured: true }
 			: past || !feed.active

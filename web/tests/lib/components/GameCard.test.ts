@@ -13,6 +13,7 @@
 // - Highlights on final games only: videos, pending, play callback, player removed on close
 // - Delayed, postponed and canceled games: status line only, no score, no tip time, no toggle
 // - A scheduled game with no known network
+// - The team logos: each side's logo in the large and small box on both rows, the monogram for a null logo and a guest, the monogram in the same box after an image error; the players to watch show the inline logo with the alt "<team> logo"
 // - Team names and monograms: plain text with no link inside the button of a card that expands; links to the team page on a card that cannot expand; line score and leader codes link in the open panel
 // - Spoiler-free mode: final cards that can expand hide the score and the dimming until open
 // - The Game center link on open live, final, final without stats and scheduled cards, after the stats, notice or players to watch; none without detailHref or on a card that cannot expand; Spanish copy
@@ -1199,5 +1200,83 @@ describe('GameCard with a past game', () => {
 			expect(screen.getByText('Bo Quill')).toBeTruthy();
 			expect(container.querySelector('.team-stats')).toBeNull();
 		});
+	});
+});
+
+describe('GameCard team logos', () => {
+	const awayLogo = {
+		light: 'https://example.com/gsw-light.svg',
+		dark: 'https://example.com/gsw-dark.svg'
+	};
+	const logoGame: ScheduleGame = { ...scheduled, away: { ...away, logo: awayLogo } };
+	const harbor = { code: null, name: 'Mariners', city: 'Harbor City', guest: true };
+
+	it('draws each side logo in the large box on the desktop row', () => {
+		const { container } = render(GameCard, {
+			props: { teamHref, game: logoGame, layout: 'desktop' }
+		});
+		const boxes = [...container.querySelectorAll('.row .team-monogram')];
+		expect(boxes).toHaveLength(2);
+		expect(boxes.every((box) => box.classList.contains('large'))).toBe(true);
+		expect(boxes[0]!.querySelector('img')?.getAttribute('src')).toBe(
+			'https://example.com/gsw-dark.svg'
+		);
+		expect(boxes[0]!.querySelector('img')?.getAttribute('aria-hidden')).toBe('true');
+		expect(boxes[1]!.querySelector('img')).toBeNull();
+		expect(boxes[1]!.textContent).toBe('LAL');
+	});
+
+	it('draws each side logo in the small box on the mobile row', () => {
+		const { container } = render(GameCard, {
+			props: { teamHref, game: logoGame, layout: 'mobile' }
+		});
+		const boxes = [...container.querySelectorAll('.mobile-team .team-monogram')];
+		expect(boxes.every((box) => box.classList.contains('small'))).toBe(true);
+		expect(boxes[0]!.querySelector('img')?.getAttribute('src')).toBe(
+			'https://example.com/gsw-dark.svg'
+		);
+		expect(boxes[1]!.querySelector('img')).toBeNull();
+	});
+
+	it('draws the monogram of a guest side, and the same box after an image error', async () => {
+		const { container } = render(GameCard, {
+			props: { teamHref, game: { ...logoGame, home: harbor }, layout: 'desktop' }
+		});
+		const boxes = [...container.querySelectorAll('.row .team-monogram')];
+		expect(boxes[1]!.textContent).toBe('HM');
+		await fireEvent.error(boxes[0]!.querySelector('img') as HTMLImageElement);
+		const after = container.querySelector('.row .team-monogram');
+		expect(after?.classList.contains('large')).toBe(true);
+		expect(after?.querySelector('img')).toBeNull();
+		expect(after?.textContent).toBe('GSW');
+	});
+
+	it('shows the inline logo of each side with its alt text beside the players to watch', () => {
+		const game = withDetails(logoGame, {
+			kind: 'scheduled',
+			venue: null,
+			playersToWatch: { away: awayPlayer, home: homePlayer }
+		});
+		const { container } = render(GameCard, {
+			props: { teamHref, game, layout: 'desktop', open: true }
+		});
+		const marks = [...container.querySelectorAll('.watch-player .team-monogram.inline')];
+		expect(marks).toHaveLength(2);
+		expect(screen.getByAltText('Warriors logo').getAttribute('aria-hidden')).toBeNull();
+		expect(marks[1]!.textContent).toBe('LAL');
+		expect(marks[1]!.getAttribute('aria-hidden')).toBeNull();
+	});
+
+	it('leaves out the mark of a side with no player to watch', () => {
+		const game = withDetails(logoGame, {
+			kind: 'scheduled',
+			venue: null,
+			playersToWatch: { away: null, home: homePlayer }
+		});
+		const { container } = render(GameCard, {
+			props: { teamHref, game, layout: 'desktop', open: true }
+		});
+		expect(container.querySelectorAll('.watch-player')).toHaveLength(1);
+		expect(container.querySelectorAll('.watch-player .team-monogram')).toHaveLength(1);
 	});
 });

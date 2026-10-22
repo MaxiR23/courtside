@@ -37,7 +37,12 @@
 						<span class="half" style:background-color={side.strip.secondary}></span>
 					{/if}
 				</span>
-				<span class="code"><TeamMark team={side.team} part="label" /></span>
+				<span class="code"
+					><TeamMark team={side.team} part="tile" size="inline" logo={side.team.logo} /><TeamMark
+						team={side.team}
+						part="label"
+					/></span
+				>
 				<span class="wins">{side.wins}</span>
 			{:else}
 				<span class="slot-label" title={side.label}>{side.label}</span>
@@ -119,6 +124,9 @@
 	}
 
 	.code {
+		display: flex;
+		align-items: center;
+		gap: var(--identity-inline-mark-gap);
 		flex: 1;
 		min-width: 0;
 		overflow: hidden;

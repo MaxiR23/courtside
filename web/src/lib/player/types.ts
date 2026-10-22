@@ -10,6 +10,7 @@ export type PlayerTab = { id: PlayerSectionId; label: string };
 
 export type PlayerHeaderView = {
 	teamCode: string | null; // "OKC", the team tag; null: no team tag (a past season with no team name stored)
+	team: TeamMarkTeam | null; // the mark before the team tag; null: no team
 	status: { label: string; injured: boolean } | null; // "Active", or the injury label in accent; null: no status tag
 	tag?: string | null; // "Season 2004-05" on a past season; null or absent: no tag
 	firstName: string;

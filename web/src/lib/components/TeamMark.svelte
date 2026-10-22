@@ -19,11 +19,12 @@
 		part: 'tile' | 'label' | 'name';
 		size?: ComponentProps<typeof TeamMonogram>['size']; // tile only
 		logo?: TeamLogo | null; // tile only: absent or null draws the monogram
+		standalone?: boolean; // tile only: no team name or code is written next to it, so the logo carries the alt text
 		versus?: 'home' | 'away'; // label only: "vs DEN" or "@ DEN", never a link
 		teamHref?: (code: string) => ResolvedPathname; // absent: never a link
 	};
 
-	let { team, part, size = 'large', logo, versus, teamHref }: Props = $props();
+	let { team, part, size = 'large', logo, standalone = false, versus, teamHref }: Props = $props();
 
 	const url = $derived(logo ? (logo.dark ?? logo.light) : null);
 	let failedUrl = $state<string | null>(null);
@@ -46,6 +47,7 @@
 		{size}
 		href={href ?? undefined}
 		logo={shown}
+		logoAlt={standalone ? m.identity_mark_alt({ team: team.name ?? label }) : null}
 		onlogoerror={() => (failedUrl = url)}
 	/>
 {:else if part === 'label'}

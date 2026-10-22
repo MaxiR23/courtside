@@ -2,7 +2,7 @@
 	import type { ResolvedPathname } from '$app/types';
 	import ClinchTag from '#lib/components/ClinchTag.svelte';
 	import SectionHead from '#lib/components/SectionHead.svelte';
-	import TeamMonogram from '#lib/components/TeamMonogram.svelte';
+	import TeamMark from '#lib/components/TeamMark.svelte';
 	import { m } from '#lib/paraglide/messages.js';
 	import type { RowLayout } from '#lib/schedule/types.ts';
 	import type { StandingsGroupView } from '#lib/standings/types.ts';
@@ -53,7 +53,7 @@
 						<span class="seed">{row.seed}</span>
 						<a class="team-link" href={teamHref(row.code)}>
 							<span class="tile" class:plain={!row.strip}>
-								<TeamMonogram code={row.tile} size="standings" />
+								<TeamMark team={row.team} part="tile" size="standings" logo={row.team.logo} />
 								{#if row.strip}
 									<span class="strip" aria-hidden="true">
 										<span class="half" style:background-color={row.strip.primary}></span>

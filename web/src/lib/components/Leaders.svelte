@@ -10,9 +10,10 @@
 		away: Leader;
 		home: Leader;
 		teamHref: (code: string) => ResolvedPathname;
+		marks?: boolean; // the inline mark before each code; false leaves it out
 	};
 
-	let { away, home, teamHref }: Props = $props();
+	let { away, home, teamHref, marks = true }: Props = $props();
 
 	const NO_VALUE = '—';
 	const stat = (value: number | null): string => (value === null ? NO_VALUE : formatNumber(value));
@@ -38,7 +39,14 @@
 		<div class="leader">
 			<PlayerPhoto player={leader} />
 			<span class="info">
-				<span class="leader-code"><TeamMark part="label" team={leader.team} {teamHref} /></span>
+				<span class="leader-code"
+					>{#if marks}<TeamMark
+							part="tile"
+							team={leader.team}
+							size="inline"
+							logo={leader.team.logo}
+						/>{/if}<TeamMark part="label" team={leader.team} {teamHref} /></span
+				>
 				<span class="leader-name">{leader.firstName} {leader.lastName}</span>
 				<span class="leader-line">{leader.line}</span>
 			</span>
@@ -66,6 +74,9 @@
 	}
 
 	.leader-code {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--identity-inline-mark-gap);
 		font-size: var(--label-size);
 		letter-spacing: var(--label-letter-spacing);
 		color: var(--color-accent-light);

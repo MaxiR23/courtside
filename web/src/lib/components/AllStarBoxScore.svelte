@@ -3,7 +3,7 @@
 	import AllStarLeagueBar from '#lib/components/AllStarLeagueBar.svelte';
 	import NameLink from '#lib/components/NameLink.svelte';
 	import PlayerAvatar from '#lib/components/PlayerAvatar.svelte';
-	import TeamMonogram from '#lib/components/TeamMonogram.svelte';
+	import TeamMark from '#lib/components/TeamMark.svelte';
 	import type { BoxRowView, GameBoxView } from '#lib/all-star/types.ts';
 	import type { BoxTab } from '#lib/all-star/selection.svelte.ts';
 	import { m } from '#lib/paraglide/messages.js';
@@ -158,10 +158,13 @@
 								</span>
 								{#if row.league && layout === 'desktop'}
 									<span class="league">
-										<TeamMonogram
-											code={row.league.code}
+										<TeamMark
+											team={row.league.team}
+											part="tile"
 											size="allstar-league"
-											href={teamHref(row.league.code)}
+											logo={row.league.team.logo}
+											{teamHref}
+											standalone
 										/>
 										<AllStarLeagueBar league={row.league} />
 									</span>

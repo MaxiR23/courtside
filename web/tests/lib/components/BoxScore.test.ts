@@ -5,6 +5,7 @@
 // Tested:
 // - The away team is selected first, with its starters, bench and totals
 // - The toggle switches to the home team; team names on desktop, codes on mobile
+// - The inline mark in each toggle button: the feed logo hidden, the monogram for a null logo, the button's name unchanged
 // - FG%, 3P% and FT% sit under the shooting columns in the totals
 // - A positive plus-minus keeps its sign and is marked; zero and negative are not
 // - Without a plus-minus in the feed (plusMinus false) the +/- header and cells are not drawn and the table takes the eight-column class
@@ -81,6 +82,13 @@ const home: BoxScoreTeam = {
 };
 const box: BoxScoreSection = { away, home, plusMinus: true };
 
+// The text of an element without the text of its inline monograms.
+const textOf = (element: Element): string | undefined => {
+	const copy = element.cloneNode(true) as Element;
+	copy.querySelectorAll('.team-monogram').forEach((mark) => mark.remove());
+	return copy.textContent?.trim();
+};
+
 const playerHref = (id: string) => `/player/${id}` as ResolvedPathname;
 
 const rowsText = (container: HTMLElement) =>
@@ -116,14 +124,13 @@ describe('BoxScore', () => {
 
 	it('shows team names in the toggle on desktop and codes on mobile', () => {
 		const desktop = render(BoxScore, { props: { box, layout: 'desktop', playerHref } });
-		expect(
-			[...desktop.container.querySelectorAll('.side')].map((b) => b.textContent?.trim())
-		).toEqual(['Lakers', 'Warriors']);
+		expect([...desktop.container.querySelectorAll('.side')].map(textOf)).toEqual([
+			'Lakers',
+			'Warriors'
+		]);
 		desktop.unmount();
 		const mobile = render(BoxScore, { props: { box, layout: 'mobile', playerHref } });
-		expect(
-			[...mobile.container.querySelectorAll('.side')].map((b) => b.textContent?.trim())
-		).toEqual(['LAL', 'GSW']);
+		expect([...mobile.container.querySelectorAll('.side')].map(textOf)).toEqual(['LAL', 'GSW']);
 	});
 
 	it('shows FG%, 3P% and FT% under the shooting columns in the totals', () => {
@@ -233,7 +240,7 @@ describe('BoxScore with a guest team without a code', () => {
 			const { container, unmount } = render(BoxScore, {
 				props: { box: codelessBox, layout, playerHref }
 			});
-			const sides = [...container.querySelectorAll('.side')].map((b) => b.textContent?.trim());
+			const sides = [...container.querySelectorAll('.side')].map(textOf);
 			expect(sides[0]).toBe('Mariners');
 			expect(container.querySelector('.toggle a')).toBeNull();
 			unmount();
@@ -281,5 +288,30 @@ describe('BoxScore without a plus-minus', () => {
 		expect(container.querySelector('.head')?.textContent).toContain('+/-');
 		expect(container.querySelector('.table')?.classList.contains('no-plus-minus')).toBe(false);
 		expect(container.querySelector('.body')?.children).toHaveLength(15);
+	});
+});
+
+describe('BoxScore toggle marks', () => {
+	it("draws each team's logo or monogram before its name, and keeps the button's name", () => {
+		const logo = {
+			light: 'https://example.com/lal-light.svg',
+			dark: 'https://example.com/lal-dark.svg'
+		};
+		const withLogo: BoxScoreSection = { ...box, away: { ...away, team: { ...away.team, logo } } };
+		for (const layout of ['desktop', 'mobile'] as const) {
+			const { container, unmount } = render(BoxScore, {
+				props: { box: withLogo, layout, playerHref }
+			});
+			const marks = [...container.querySelectorAll('.side .team-monogram.inline')];
+			expect(marks[0]!.querySelector('img')?.getAttribute('src')).toBe(
+				'https://example.com/lal-dark.svg'
+			);
+			expect(marks[0]!.querySelector('img')?.getAttribute('aria-hidden')).toBe('true');
+			expect(marks[1]!.querySelector('img')).toBeNull();
+			expect(marks[1]!.textContent).toBe('GSW');
+			const names = layout === 'desktop' ? ['Lakers', 'Warriors'] : ['LAL', 'GSW'];
+			for (const name of names) expect(screen.getByRole('button', { name })).toBeTruthy();
+			unmount();
+		}
 	});
 });

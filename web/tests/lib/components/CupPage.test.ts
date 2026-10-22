@@ -10,6 +10,7 @@
 // - The unavailable state of a past season keeps the Season tag; the current season's has none (ADR 0054)
 // - Unavailable: the unavailable row under the nav; the footer in every state
 // - Spanish copy
+// - The champion logo in the cup-champion box, the code for a null logo
 //
 // What is covered:
 // - Each state the page shows, drawn from props with no fetch
@@ -190,5 +191,41 @@ describe('CupPage', () => {
 				'Los datos no están disponibles en este momento. Vuelve a consultar más tarde.'
 			)
 		).toBeTruthy();
+	});
+});
+
+describe('CupPage champion logo', () => {
+	it('draws the champion logo in the cup-champion box, and the code for a null logo', () => {
+		const champion = (logo: CupFeed['champion'] extends infer C ? C : never) => ({
+			code: 'QXA',
+			name: 'Herons',
+			city: 'Alderton',
+			guest: false,
+			seasonCode: null,
+			historical: false,
+			logo,
+			colors: null
+		});
+		const withLogo = ready((f) => {
+			f.stage = 'complete';
+			f.champion = champion({
+				light: 'https://example.com/a-light.svg',
+				dark: 'https://example.com/a-dark.svg'
+			} as never) as CupFeed['champion'];
+		});
+		const first = show(withLogo);
+		expect(
+			first.container.querySelector('.team-monogram.cup-champion img')?.getAttribute('src')
+		).toBe('https://example.com/a-dark.svg');
+		first.unmount();
+		const second = show(
+			ready((f) => {
+				f.stage = 'complete';
+				f.champion = champion(null as never) as CupFeed['champion'];
+			})
+		);
+		const box = second.container.querySelector('.team-monogram.cup-champion');
+		expect(box?.querySelector('img')).toBeNull();
+		expect(box?.textContent).toBe('QXA');
 	});
 });

@@ -26,6 +26,7 @@
 // What is covered:
 // - The format line from the parts in English and Spanish, and the round labels, the eliminated placement and the result rows in Spanish; an unknown round as sent (ADR 0054)
 // - Recorded feeds (tests/lib/feed/fixtures/all-star-*.json) cloned and edited per case
+// - The league mark of a box score row carries the feed's logo, and has no logo key without one
 // - Every value is read from the feed field: nothing is counted or compared here
 //
 // Run with: cd web && pnpm exec vitest run tests/lib/feed/all-star-props.test.ts
@@ -616,7 +617,12 @@ describe('the box score', () => {
 
 	it('has the league colors of a player the feed placed', () => {
 		const row = current(after()).boxes.g1!.away.rows[0];
-		expect(row.league).toEqual({ code: 'HBR', primary: '#1d428a', secondary: '#ffc72c' });
+		expect(row.league).toEqual({
+			code: 'HBR',
+			team: { code: 'HBR', name: null, city: null, guest: false },
+			primary: '#1d428a',
+			secondary: '#ffc72c'
+		});
 	});
 
 	it('has the totals row', () => {
@@ -935,5 +941,21 @@ describe('the round labels in Spanish', () => {
 		feed.edition.games[0].roundLabel = 'Skills Challenge';
 		preferLanguages(['es']);
 		expect(current(feed).games[0].round?.text).toBe('Skills Challenge');
+	});
+});
+
+describe('the league mark', () => {
+	it("carries the feed's logo, and leaves the key out when the feed has none", () => {
+		const source = after();
+		const row = () => current(source).boxes.g1!.away.rows[0]!;
+		expect('logo' in row().league!.team).toBe(false);
+		game(source, 'g1').boxScore!.away.players[0]!.leagueTeam!.logo = {
+			light: 'https://example.com/hbr-light.svg',
+			dark: null
+		};
+		expect(row().league!.team.logo).toEqual({
+			light: 'https://example.com/hbr-light.svg',
+			dark: null
+		});
 	});
 });

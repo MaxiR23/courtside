@@ -31,6 +31,7 @@
 // - The Cup mark: the header tag, none for a null mark
 // - The postseason mark: the header mark filled from the feed, none for a null mark
 // - The All-Star mark: the header mark filled from the feed, none for a null mark and a feed without the key; a guest side without a city maps to a header team with a null city
+// - A side carries the feed's logo into the header view; a null logo leaves the key out
 //
 // What is covered:
 // - Pure logic on a recorded feed (tests/lib/feed/fixtures/game-detail.json); no clock, no network
@@ -1179,5 +1180,16 @@ describe('toGameView with the All-Star mark', () => {
 			}
 		};
 		expect(view(source).header.away.city).toBeNull();
+	});
+});
+
+describe('toGameView team logos', () => {
+	it("carries the feed's logo of a side into the header, and no key for a null logo", () => {
+		const source = feed();
+		source.away.logo = { light: 'https://example.com/a-light.svg', dark: null };
+		source.home.logo = null;
+		const shown = view(source).header;
+		expect(shown.away.logo).toEqual({ light: 'https://example.com/a-light.svg', dark: null });
+		expect('logo' in shown.home).toBe(false);
 	});
 });

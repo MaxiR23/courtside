@@ -17,6 +17,7 @@
 	"hero_at": "en",
 	"identity_hero_slide_away": "Mostrar a {team}, visitante",
 	"identity_hero_slide_home": "Mostrar a {team}, local",
+	"identity_mark_alt": "Logo de {team}",
 	"hero_blurb": "{awayStar} y {homeStar} se enfrentan en {arena}.",
 	"hero_match_details": "Detalles del partido",
 	"hero_all_games": "Todos los partidos",
