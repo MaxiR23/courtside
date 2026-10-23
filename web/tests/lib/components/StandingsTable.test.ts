@@ -6,6 +6,7 @@
 // - The h2 and the meta; the 16 header labels; every cell of a row
 // - One link per row, to the team page with the lowercase code
 // - The playoff and play-in lines only after the rows the view marks
+// - The playoff and play-in lines are solid divider rules, with no dash pattern (read from the source)
 // - A clinch tag only for rows with a clinch; an eliminated row is muted
 // - Accents on a win streak, Diff and Tot; a plain tile for null colors
 // - The mobile layout hides the city; the team cell is the sticky rowheader
@@ -266,5 +267,14 @@ describe('StandingsTable logos', () => {
 			(row) => row.querySelector('.team-monogram')?.textContent
 		);
 		expect(codes).toContain('SEA');
+	});
+
+	it('draws the playoff and play-in lines as solid divider rules', () => {
+		const source = readFileSync(
+			join(__dirname, '..', '..', '..', 'src', 'lib', 'components', 'StandingsTable.svelte'),
+			'utf8'
+		);
+		expect(source).toContain('border-top: var(--hairline) solid var(--color-divider)');
+		expect(source).not.toMatch(/stroke-dasharray|dashed|dotted|--standings-line-dash|<line\b/);
 	});
 });

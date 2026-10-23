@@ -112,14 +112,14 @@ One tag per team, the highest status. Tags use `--injury-tag-size` and `--tag-pa
 
 ### 5. Playoff and play-in lines
 
-Conference view only. A dashed accent line under seed 6 ("Playoff line") and under seed 10 ("Play-in line"). The lines are decorative: they carry no text in the table and are explained in the key. Dash pattern: `--standings-line-dash`.
+Conference view only. A solid 1px divider line (`--hairline`, `--color-divider`) under seed 6 ("Playoff line") and under seed 10 ("Play-in line"). The lines are decorative: they carry no text in the table and are explained in the key.
 
 ### 6. Key
 
 A section under the tables, with the label "Key":
 
 - The seven codes with their meaning (see "Clinch tags").
-- A note: "GB, Div and Conf are within the group shown. Diff is per game, Tot is the season total. The dashed lines mark seed 6 and seed 10."
+- A note: "GB, Div and Conf are within the group shown. Diff is per game, Tot is the season total. The lines mark seed 6 and seed 10."
 
 ## Search overlay
 
@@ -247,7 +247,7 @@ To add to `web/src/lib/styles/tokens.css` in the implementing issue. Values belo
 | `--standings-monogram-size` | 34px | Table tile |
 | `--standings-strip-height` | 3px | Table tile strip |
 | `--standings-team-column-page-min` | 178px | Team column minimum (the existing `--standings-team-column-min` belongs to the game detail table) |
-| `--standings-line-dash` | 4 4 | Playoff and play-in lines |
+| `--standings-line-dash` | 4 4 | Dashed frames and rows of the playoff bracket |
 
 Mapped to existing tokens: active toggle `rgba(116, 157, 196, 0.14)` is `--toggle-active-fill`; row hover `rgba(116, 157, 196, 0.06)` is `--box-row-hover`; label color `#94bce3` is `--color-accent-light`; label size and spacing are `--label-size` and `--label-letter-spacing`; the 19px name is `--player-name-size`; the 680px break is `--game-row-breakpoint`; the divider is `--color-divider`.
 
@@ -303,9 +303,9 @@ Mapped to existing tokens: active toggle `rgba(116, 157, 196, 0.14)` is `--toggl
 | `clinch_pb` | In play-in position | En posición de play-in |
 | `clinch_e` | Eliminated | Eliminado |
 | `standings_key_note` | GB, Div and Conf are within the group shown. Diff is per game, Tot is the season total. | DP, Div y Conf son dentro del grupo mostrado. Dif es por partido, Tot es el total de la temporada. |
-| `standings_key_lines` | The dashed lines mark seed 6 and seed 10. | Las líneas discontinuas marcan el puesto 6 y el 10. |
+| `standings_key_lines` | The lines mark seed 6 and seed 10. | Las líneas marcan el puesto 6 y el 10. |
 
-`standings_key_lines` follows `standings_key_note` and is hidden on a past season, which draws no dashed lines.
+`standings_key_lines` follows `standings_key_note` and is hidden on a past season, which draws no seed lines.
 
 Notes:
 

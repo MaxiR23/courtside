@@ -62,7 +62,7 @@ export type WildCardRowView = {
 	total: Signed;
 	pointsFor: string;
 	tag: ClinchView | null;
-	lineAfter: boolean; // the dashed wild card line goes under this row
+	lineAfter: boolean; // the wild card line goes under this row
 };
 
 export type WildCardView = { key: string; title: string; rows: WildCardRowView[] };

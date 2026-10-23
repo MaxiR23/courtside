@@ -84,9 +84,7 @@
 					<span class="cell" class:accent={row.total.accent} role="cell">{row.total.value}</span>
 				</div>
 				{#if row.lineAfter}
-					<div class="line {row.lineAfter}" aria-hidden="true">
-						<svg><line x1="0" y1="50%" x2="100%" y2="50%" /></svg>
-					</div>
+					<div class="line {row.lineAfter}" aria-hidden="true"></div>
 				{/if}
 			{/each}
 		</div>
@@ -236,15 +234,7 @@
 		color: var(--color-muted);
 	}
 
-	.line svg {
-		display: block;
-		width: 100%;
-		height: var(--hairline);
-	}
-
-	.line line {
-		stroke: var(--color-accent);
-		stroke-dasharray: var(--standings-line-dash);
-		vector-effect: non-scaling-stroke;
+	.line {
+		border-top: var(--hairline) solid var(--color-divider);
 	}
 </style>

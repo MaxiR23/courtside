@@ -4,7 +4,7 @@
 //
 // Tested:
 // - Ten rows in feed order with seed, team, record and GB
-// - The Playoffs line after row 6 (solid) and the Play-In line after row 10 (dashed), with their captions
+// - The Playoffs line after row 6 and the Play-In line after row 10, both solid divider rules, with their captions
 // - Clinch tags and the team strip; — cells in the preseason; team links
 // - The team logos: the feed logo of a row in its tile, the code for a null logo
 //
@@ -122,5 +122,20 @@ describe('PlayoffPicture logos', () => {
 			'https://example.com/a-dark.svg'
 		);
 		expect(boxes[1]!.querySelector('img')).toBeNull();
+	});
+
+	it('draws both lines as solid divider rules', () => {
+		const source = readFileSync(
+			join(__dirname, '..', '..', '..', 'src', 'lib', 'components', 'PlayoffPicture.svelte'),
+			'utf8'
+		);
+		expect(source).toContain('border-top: var(--hairline) solid var(--color-divider)');
+		expect(source).not.toMatch(/stroke-dasharray|dashed|dotted|--standings-line-dash|<line\b/);
+		const { container } = show();
+		const lines = [...container.querySelectorAll('.line')];
+		expect(lines).toHaveLength(2);
+		for (const line of lines) {
+			expect(line.querySelector('.rule')?.getAttribute('aria-hidden')).toBe('true');
+		}
 	});
 });
