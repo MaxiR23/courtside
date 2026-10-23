@@ -132,7 +132,19 @@ def create_app(settings: Settings | None = None, *, run_jobs: bool = True) -> Fa
         )
         StandingsFeeds(settings, store, client, feed_cache, games_job)
         SearchFeeds(settings, store, client, feed_cache, games_job, stars_job)
-        cup_feeds = CupFeeds(settings, store, client, feed_cache, games_job, stars_job)
+        team_names = TeamNamesFeeds(settings, store, client, feed_cache, stars_job)
+        season_cups = SeasonCupFeeds(
+            settings, store, client, feed_cache, stars_job, team_names
+        )
+        cup_feeds = CupFeeds(
+            settings,
+            store,
+            client,
+            feed_cache,
+            games_job,
+            stars_job,
+            previous=season_cups,
+        )
         CupMatchupFeeds(
             settings, store, client, feed_cache, games_job, stars_job, cup_feeds
         )
@@ -147,7 +159,6 @@ def create_app(settings: Settings | None = None, *, run_jobs: bool = True) -> Fa
                 (SEASON_FINALS_KIND, finals_player_ids),
             ),
         )
-        team_names = TeamNamesFeeds(settings, store, client, feed_cache, stars_job)
         team_feeds = TeamFeeds(
             settings,
             store,
@@ -198,9 +209,6 @@ def create_app(settings: Settings | None = None, *, run_jobs: bool = True) -> Fa
             stars_job,
             past_ids,
             team_names,
-        )
-        season_cups = SeasonCupFeeds(
-            settings, store, client, feed_cache, stars_job, team_names
         )
         season_cup_matchups = SeasonCupMatchupFeeds(
             settings, store, client, feed_cache, stars_job, season_cups

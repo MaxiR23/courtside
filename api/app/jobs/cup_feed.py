@@ -27,7 +27,10 @@
 # the past season kind (season_cup_feed.py) uses it too. In a past season the
 # seeds the quarterfinals were drawn by are not known (the tables are those of the
 # end of the season), so the two quarterfinals of a conference are placed by start
-# time, then id, with a seed label of no seed (ADR 0053).
+# time, then id, with a seed label of no seed (ADR 0053). The past Cup feed of the
+# season before is built first through the cache under its own budget (the current
+# budget is unchanged), and its stored champion is copied as the defending champion,
+# null without one; a failure there never fails the feed (ADR 0064).
 #
 # SEE: docs/api/cup.md, docs/adr/0028-cup-feed.md, api/app/jobs/standings_feed.py
 
@@ -36,7 +39,7 @@ import datetime as dt
 import re
 from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Protocol
 
 from pydantic import ValidationError
 
@@ -52,7 +55,7 @@ from app.feeds.cup import (
 )
 from app.feeds.game_detail import Conference
 from app.feeds.games import CupRound, GameStatus
-from app.feeds.opponent import Side
+from app.feeds.opponent import Opponent, Side
 from app.jobs.games import GamesJob
 from app.jobs.on_demand import FeedCache, FeedKind, IdStatus
 from app.jobs.standings_feed import (
@@ -134,6 +137,23 @@ class CupBuildError(Exception):
     def __init__(self, reason: str) -> None:
         super().__init__(reason)
         self.reason = reason
+
+
+class PreviousCups(Protocol):
+    """The past Cup kind the current Cup feed reads its defending champion from."""
+
+    def previous_cup(self, season: int) -> tuple[str, str] | None:
+        """The (kind, id) of the past Cup feed of the season before, or none."""
+        ...
+
+    def defending_champion(self, season: int) -> Opponent | None:
+        """The champion of the stored past Cup feed of the season before. Reads no source."""
+        ...
+
+
+def with_defending_champion(feed: CupFeed, champion: Opponent | None) -> CupFeed:
+    """The feed with the champion of the previous season's Cup."""
+    return feed.model_copy(update={"defending_champion": champion})
 
 
 @dataclass(frozen=True)
@@ -880,10 +900,12 @@ class CupFeeds:
         fetch_group_table: FetchGroupTable = cup.fetch_group_table,
         fetch_conference_table: FetchConferenceTable = cup.fetch_conference_table,
         fetch_season_schedule: FetchSeasonSchedule = team_schedule.fetch_season_schedule,
+        previous: PreviousCups | None = None,
     ) -> None:
         self._settings = settings
         self._store = store
         self._client = client
+        self._previous = previous
         self._games = games
         self._stars = stars
         self._fetch_group_teams = fetch_group_teams
@@ -939,18 +961,29 @@ class CupFeeds:
             team_schedule.FRESH_FOR if code in playing else SCHEDULE_FRESH
         )
 
+    def depends_on(self, feed_id: str) -> tuple[str, str] | None:
+        season = self._stars.current_season()
+        if self._previous is None or season is None:
+            return None
+        return self._previous.previous_cup(season)
+
     async def _build(self, season: int) -> CupFeed:
-        return build_cup_feed(
-            await read_cup_sources(
-                self._client,
-                self._settings,
-                season,
-                fetch_group_teams=self._fetch_group_teams,
-                fetch_group_table=self._fetch_group_table,
-                fetch_conference_table=self._fetch_conference_table,
-                fetch_season_schedule=self._fetch_season_schedule,
-                schedule_fresh=self._schedule_fresh(),
-            )
+        return with_defending_champion(
+            build_cup_feed(
+                await read_cup_sources(
+                    self._client,
+                    self._settings,
+                    season,
+                    fetch_group_teams=self._fetch_group_teams,
+                    fetch_group_table=self._fetch_group_table,
+                    fetch_conference_table=self._fetch_conference_table,
+                    fetch_season_schedule=self._fetch_season_schedule,
+                    schedule_fresh=self._schedule_fresh(),
+                )
+            ),
+            None
+            if self._previous is None
+            else self._previous.defending_champion(season),
         )
 
     def final_times(
@@ -992,4 +1025,5 @@ class CupFeeds:
             is_fresh=self.is_fresh,
             keep=self.keep,
             serve_with=self.serve_with,
+            depends_on=self.depends_on,
         )

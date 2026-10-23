@@ -19,7 +19,9 @@
 # (target) to the current Cup feed, as the calendar's current is (ADR 0042). A
 # feed is built once and kept (rule G): it is deleted with its build row when not served in 90 days and rebuilt
 # on its next request (ADR 0063), and rebuilt otherwise only when its build
-# version is not the current one (ADR 0053).
+# version is not the current one (ADR 0053). The defending champion is the champion of
+# the stored past feed of the season before, with no build and no read (the ADR 0058
+# previous edition rule); it is null when that feed is not stored.
 #
 # SEE: docs/api/cup.md, docs/adr/0045-season-competition-feeds.md,
 # docs/adr/0058-bounded-past-competition-reads.md,
@@ -30,6 +32,7 @@ import datetime as dt
 import functools
 
 from app.feeds.cup import CupFeed, CupStage
+from app.feeds.opponent import Opponent
 from app.jobs import cup_feed
 from app.jobs.cup_feed import (
     CupBuildError,
@@ -39,6 +42,7 @@ from app.jobs.cup_feed import (
     FetchSeasonSchedule,
     build_cup_feed,
     read_cup_sources,
+    with_defending_champion,
 )
 from app.jobs.on_demand import (
     FeedCache,
@@ -49,6 +53,7 @@ from app.jobs.on_demand import (
 )
 from app.jobs.season_standings_feed import past_season_status
 from app.jobs.stars import StarsJob
+from app.jobs.team_feed import season_label
 from app.jobs.team_names import TeamNamesFeeds, named_sides, payload_names
 from app.settings import Settings
 from app.sources import cup, team_schedule
@@ -141,7 +146,29 @@ class SeasonCupFeeds:
             for code in sorted(identities)
             if (stored := self._names.stored(code))
         }
-        return with_build_version(named_sides(feed, payload_names(identities, runs)))
+        return with_build_version(
+            with_defending_champion(
+                named_sides(feed, payload_names(identities, runs)),
+                self.defending_champion(int(season)),
+            )
+        )
+
+    def previous_cup(self, season: int) -> tuple[str, str] | None:
+        """The (kind, id) of the past Cup feed of the season before, or none before
+        the second Cup."""
+        previous = season - 1
+        return None if previous < FIRST_CUP_SEASON else (KIND, str(previous))
+
+    def defending_champion(self, season: int) -> Opponent | None:
+        """The champion of the stored past Cup feed of the season before, or none
+        without one. Reads no source."""
+        previous = season - 1
+        if previous < FIRST_CUP_SEASON:
+            return None
+        feed = self.stored(str(previous))
+        if feed is None or feed.season != season_label(previous):
+            return None
+        return feed.champion
 
     def stored(self, season: str) -> CupFeed | None:
         """The stored Cup feed of a season, or none when missing or invalid."""

@@ -37,6 +37,7 @@
 # - The kind: detailAvailable is set when served from the loaded games and not stored
 # - The kind: the cleanup keeps league
 # - The kind: it reads the stored feed, and none when missing or invalid
+# - The kind: with no previous Cup provider it depends on nothing and serves a null defending champion
 #
 # What is covered:
 # - Pure conversions: happy path, edges and errors; the built feed validates
@@ -51,6 +52,7 @@
 
 import asyncio
 import datetime as dt
+import json
 from collections.abc import Iterator, Sequence
 from pathlib import Path
 from typing import Any, cast
@@ -85,6 +87,7 @@ from app.jobs.cup_feed import (
     CupBuildError,
     CupFeeds,
     CupSources,
+    PreviousCups,
     build_cup_feed,
 )
 from app.jobs.games import GamesJob
@@ -861,6 +864,20 @@ class FakeStars:
         return self.season
 
 
+class LatePreviousCups:
+    """The previous Cup provider the kit hands to the kind before the past kind
+    exists: it forwards to target and answers none while target is none."""
+
+    def __init__(self) -> None:
+        self.target: PreviousCups | None = None
+
+    def previous_cup(self, season: int) -> tuple[str, str] | None:
+        return None if self.target is None else self.target.previous_cup(season)
+
+    def defending_champion(self, season: int) -> Opponent | None:
+        return None if self.target is None else self.target.defending_champion(season)
+
+
 class CupKit:
     """A games job, a feed cache and the Cup kind over one client and one clock,
     with fake adapters that count their calls."""
@@ -881,6 +898,7 @@ class CupKit:
         self.pairs: list[Pair] = [*group_pairs(all_final())]
         self.scoreboard: dict[dt.date, list[ScoreboardGame]] = {}
         self.stars = FakeStars()
+        self.previous = LatePreviousCups()
         self.cache = FeedCache(path, self.store, clock=lambda: self.clock[0])
         self.games = GamesJob(
             self.settings,
@@ -900,6 +918,7 @@ class CupKit:
             fetch_group_table=self.fetch_group_table,
             fetch_conference_table=self.fetch_conference_table,
             fetch_season_schedule=self.fetch_season_schedule,
+            previous=self.previous,
         )
 
     def read(self, name: str) -> None:
@@ -1339,3 +1358,21 @@ async def test_the_kind_reads_the_stored_feed_and_none_when_missing_or_invalid(
     assert stored is not None and stored == kit.stored()
     (kit.path / "feeds" / KIND / "league.json").write_text("{not json", "utf-8")
     assert kit.cup.stored() is None
+
+
+@pytest.mark.anyio
+async def test_the_kind_depends_on_nothing_without_a_previous_cup_provider(
+    kit: CupKit,
+) -> None:
+    alone = CupFeeds(
+        kit.settings,
+        kit.store,
+        kit.client,
+        FeedCache(kit.path, kit.store, clock=lambda: kit.clock[0]),
+        kit.games,
+        cast(StarsJob, kit.stars),
+    )
+
+    assert alone.depends_on("league") is None
+    body = await kit.serve()
+    assert json.loads(body)["defendingChampion"] is None
