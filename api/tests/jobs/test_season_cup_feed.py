@@ -17,6 +17,9 @@
 # - The kind: an invalid id answers unknown and a not ready season answers unavailable, with no source request
 # - The kind: detailAvailable is false
 # - The kind: the cleanup keeps it
+# - The current feed carries the stored previous champion as the defending champion, builds a missing previous feed first and stores it, and builds with a null one when there is no previous Cup or the previous build fails (retried only after 10 minutes)
+# - A past feed carries the champion of the stored feed of the season before with no read, and null when it is not stored or for the first Cup
+# - previous_cup names the season before from the second Cup
 #
 # What is covered:
 # - Pure status logic: happy path, edges and errors
@@ -132,6 +135,7 @@ class SeasonCupKit(MatchupKit):
             fetch_conference_table=self.fetch_past_conference,
             fetch_season_schedule=self.fetch_past_schedule,
         )
+        self.previous.target = self.season_cups
 
     def start(self) -> None:
         """A new cache and kind over the same data directory: a restart."""
@@ -450,3 +454,120 @@ async def test_a_stored_feed_with_the_current_version_is_served_with_no_source_r
     await kit.serve_season("2025", NOW + YEARS)
 
     assert kit.calls == []
+
+
+HARBOR = SeasonTeamName(abbreviation="DAL", name="Harbor Gulls", location="Seattle")
+
+
+def champion_of(body: bytes, key: str) -> dict[str, object]:
+    found = json.loads(body)[key]
+    assert isinstance(found, dict)
+    return found
+
+
+@pytest.mark.anyio
+async def test_the_current_feed_carries_the_stored_previous_champion_as_defending_champion(
+    kit: SeasonCupKit,
+) -> None:
+    kit.payload_names = {"DAL": HARBOR}
+    previous = await kit.serve_season("2026")
+    kit.calls.clear()
+
+    body = await kit.serve()
+
+    assert champion_of(body, "defendingChampion") == champion_of(previous, "champion")
+    assert champion_of(body, "defendingChampion")["name"] == "Harbor Gulls"
+    assert kit.called("p-schedule/") == 0
+
+
+@pytest.mark.anyio
+async def test_a_missing_previous_cup_is_built_first_and_stored(
+    kit: SeasonCupKit,
+) -> None:
+    kit.payload_names = {"DAL": HARBOR}
+
+    body = await kit.serve()
+
+    stored = read_by_id(kit.path, KIND, "2026")
+    assert stored is not None
+    assert kit.store.feed_build(KIND, "2026") is not None
+    assert champion_of(body, "defendingChampion") == champion_of(stored, "champion")
+    assert kit.called("p-schedule/") == 30
+    assert kit.called("schedule/") == 30
+
+
+@pytest.mark.anyio
+async def test_with_no_previous_cup_the_defending_champion_is_null_and_the_feed_builds(
+    kit: SeasonCupKit,
+) -> None:
+    kit.stars.season = 2024
+
+    body = await kit.serve()
+
+    assert json.loads(body)["defendingChampion"] is None
+    assert kit.called("p-schedule/") == 0
+    assert not (kit.path / "feeds" / KIND).exists()
+
+
+@pytest.mark.anyio
+async def test_a_failing_previous_build_leaves_a_null_defending_champion_and_the_feed_builds(
+    kit: SeasonCupKit,
+) -> None:
+    kit.failing = {"teams/eastA/2026"}
+
+    body = await kit.serve()
+
+    assert json.loads(body)["defendingChampion"] is None
+    assert kit.stored() is not None
+    failure = kit.store.feed_build(KIND, "2026")
+    assert failure is not None and failure.last_failure_reason
+    assert read_by_id(kit.path, KIND, "2026") is None
+    attempts = kit.called("teams/eastA/2026")
+    kit.clock[0] = kit.clock[0] + dt.timedelta(minutes=1)
+    await kit.cache.serve(CUP_KIND, CUP_FEED_ID)
+    await kit.settle()
+    assert kit.called("teams/eastA/2026") == attempts
+
+
+@pytest.mark.anyio
+async def test_a_past_feed_carries_the_stored_champion_of_the_season_before(
+    kit: SeasonCupKit,
+) -> None:
+    kit.payload_names = {"DAL": HARBOR}
+    earlier = await kit.serve_season("2025")
+    kit.calls.clear()
+
+    body = await kit.serve_season("2026")
+
+    assert champion_of(body, "defendingChampion") == champion_of(earlier, "champion")
+    assert kit.called("p-schedule/") == 30
+    assert not any(name.endswith("/2025") for name in kit.calls if "/" in name)
+
+
+@pytest.mark.anyio
+async def test_a_past_feed_without_a_stored_previous_feed_has_no_defending_champion_and_reads_nothing_for_it(
+    kit: SeasonCupKit,
+) -> None:
+    body = await kit.serve_season("2026")
+
+    assert json.loads(body)["defendingChampion"] is None
+    assert kit.called("p-schedule/") == 30
+    assert all(
+        name.endswith("/2026") for name in kit.calls if name.startswith("teams/")
+    )
+    assert read_by_id(kit.path, KIND, "2025") is None
+
+
+@pytest.mark.anyio
+async def test_the_first_cup_has_no_defending_champion(kit: SeasonCupKit) -> None:
+    body = await kit.serve_season("2024")
+
+    assert json.loads(body)["defendingChampion"] is None
+
+
+def test_previous_cup_names_the_season_before_from_the_second_cup(
+    kit: SeasonCupKit,
+) -> None:
+    assert kit.season_cups.previous_cup(2027) == (KIND, "2026")
+    assert kit.season_cups.previous_cup(2025) == (KIND, "2024")
+    assert kit.season_cups.previous_cup(2024) is None

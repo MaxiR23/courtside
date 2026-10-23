@@ -6,7 +6,8 @@
 # standings, the knockout bracket with its seeding rules, every Cup game by day
 # and the stage of the competition. A final game has its last period, and a side
 # with a team has its standing (seed, group and record). Labels are keys and parts, never prose: the
-# page writes the words. Every team is an Opponent.
+# page writes the words. Every team is an Opponent. The defending champion is the
+# previous season's champion.
 #
 # SEE: docs/api/cup.md, docs/adr/0028-cup-feed.md
 
@@ -284,6 +285,10 @@ class CupFeed(FeedModel):
     group_games_played: Annotated[int, Field(ge=0, le=GROUP_GAMES_TOTAL)]
     group_games_total: Literal[60]
     champion: Opponent | None
+    # The champion of the previous season's Cup, as its past Cup feed stores it; null
+    # without a previous Cup, a stored previous feed or its champion, and on a stored
+    # feed from before the field.
+    defending_champion: Opponent | None = None
     stages: Annotated[list[StageEntry], Field(min_length=4, max_length=4)]
     groups: Annotated[list[CupGroup], Field(min_length=6, max_length=6)]
     wild_card: Annotated[list[WildCardTable], Field(min_length=2, max_length=2)]

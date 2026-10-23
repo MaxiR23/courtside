@@ -6,6 +6,7 @@
 # - A valid feed is accepted and serialized with camelCase keys
 # - A not drawn feed, a feed with a champion and a feed with scheduled bracket games are accepted
 # - Rejects a champion before the Cup is complete, no champion when complete, 5 groups, groups out of order, stages out of order, the wrong slot order, a winner on a game that is not final, a final game without a score, a championship that counts in the standings, a semifinal not on a neutral court, a side with both a team and a projection, a period on a game that is not final, a standing without a team, a seed of 0 or 5, stage dates with only one end set, a group that is final without its 10 games, stage counts that do not add up, a final slot with a conference, a record that is not W-L, a group letter outside A to C and an unknown field
+# - A defending champion is accepted at any stage and serialized as defendingChampion, a stored feed without it reads null, and one that is not a team is rejected
 # - A feed with a build version is accepted, one with zero is rejected, and a stored feed without the field reads with a null version
 #
 # What is covered:
@@ -473,3 +474,29 @@ def test_accepts_a_build_version_and_rejects_zero_and_reads_none_as_null() -> No
     assert CupFeed.model_validate({**stored, "buildVersion": 1}).build_version == 1
     with pytest.raises(ValidationError):
         CupFeed.model_validate({**stored, "buildVersion": 0})
+
+
+def test_accepts_a_defending_champion_at_any_stage_and_reads_none_as_null() -> None:
+    not_drawn = valid_feed()
+    assert CupFeed.model_validate(not_drawn).defending_champion is None
+    not_drawn["defendingChampion"] = team("DAL")
+    parsed = CupFeed.model_validate(not_drawn)
+    assert parsed.defending_champion is not None
+    assert parsed.defending_champion.code == "DAL"
+    assert (
+        parsed.model_dump(by_alias=True, mode="json")["defendingChampion"]["code"]
+        == "DAL"
+    )
+
+    complete = valid_feed()
+    complete["stage"] = "complete"
+    complete["champion"] = team()
+    complete["defendingChampion"] = team("DAL")
+    assert CupFeed.model_validate(complete).defending_champion is not None
+
+
+def test_rejects_a_defending_champion_that_is_not_a_team() -> None:
+    feed = valid_feed()
+    feed["defendingChampion"] = {**team(), "code": "ab"}
+
+    rejects(feed, "defendingChampion")

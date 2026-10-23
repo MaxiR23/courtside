@@ -10,6 +10,7 @@
 # - A 429 and a 503 stop the build with the reason "rate limited", logged and recorded, with nothing stored and no new request inside the retry window
 # - The Finals build after the playoffs build makes at most 12 reads, and the Cup matchup after the Cup 2
 # - The five budgets are 142, 12, 44, 2 and 60
+# - The current Cup after a cold previous season builds both under 44 reads each: the previous season's reads are not counted in the current build
 # - The identity reads of the playoffs build reach eight in flight, and a rate limit on one stops the build with nothing stored (ADR 0061)
 # - The worst-case playoffs build (20 schedules, 5 play-in days, 26 awards reads, a 7-game Finals, 27 leader reads, 52 award winner reads) sends exactly READ_BUDGET reads, and one read fewer allowed fails with "read budget of N reached"
 #
@@ -40,6 +41,7 @@ import respx
 
 from app.feeds.playoffs import AwardCode, LeaderCategory
 from app.jobs import (
+    cup_feed,
     season_all_star_feed,
     season_cup_feed,
     season_cup_matchup_feed,
@@ -411,6 +413,29 @@ async def test_the_cup_matchup_after_the_cup_makes_at_most_2_reads(
 
     assert cup_reads <= 44
     assert 0 < run.recorder.count <= 2
+
+
+@pytest.mark.anyio
+async def test_the_current_cup_after_a_cold_previous_season_keeps_each_build_in_its_own_budget(
+    tmp_path: Path, router: respx.MockRouter
+) -> None:
+    kit = SeasonCupKit(tmp_path)
+    recorder = ReadRecorder()
+    recorder.install(router)
+    count_reads([kit.cup, kit.season_cups], kit.client)
+
+    await kit.serve()
+
+    assert read_by_id(kit.path, cup_feed.KIND, cup_feed.FEED_ID) is not None
+    assert read_by_id(kit.path, season_cup_feed.KIND, "2026") is not None
+    assert cup_feed.READ_BUDGET == 44 == season_cup_feed.READ_BUDGET
+    assert recorder.count > 44
+    assert recorder.by_adapter() == {
+        "group_teams": 12,
+        "group_table": 12,
+        "conference_table": 4,
+        "season_schedule": 60,
+    }
 
 
 AWARD_DOCUMENTS = 25

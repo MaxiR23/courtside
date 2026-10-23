@@ -1129,6 +1129,17 @@
         }
       ]
     },
+    "defendingChampion": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Opponent"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
     "stages": {
       "items": {
         "$ref": "#/$defs/StageEntry"
@@ -1185,6 +1196,7 @@
     "groupGamesPlayed",
     "groupGamesTotal",
     "champion",
+    "defendingChampion",
     "stages",
     "groups",
     "wildCard",

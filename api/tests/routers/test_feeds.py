@@ -2015,7 +2015,9 @@ def test_the_current_season_serves_the_current_cup_feeds_and_stores_no_season_fe
     assert season.headers["etag"] == current.headers["etag"]
     assert season_matchup.content == current_matchup.content
     assert season_matchup.headers["etag"] == current_matchup.headers["etag"]
-    assert not (kit.path / "feeds" / "season-cup").exists()
+    # The current Cup builds the previous season's past feed first; the current
+    # season itself is never stored as a season feed.
+    assert not (kit.path / "feeds" / "season-cup" / "2027.json").exists()
     assert not (kit.path / "feeds" / "season-cup-matchups").exists()
 
 

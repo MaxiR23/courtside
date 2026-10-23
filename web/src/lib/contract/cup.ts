@@ -31,6 +31,7 @@ export interface CupFeed {
 	groupGamesPlayed: number;
 	groupGamesTotal: 60;
 	champion: Opponent | null;
+	defendingChampion: Opponent | null;
 	/**
 	 * @minItems 4
 	 * @maxItems 4

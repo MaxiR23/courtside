@@ -33,6 +33,7 @@ Conventions:
 | `groupGamesPlayed` | integer (0 to 60)  | Final group games                                                    | always  |
 | `groupGamesTotal`  | integer            | Always 60                                                            | always  |
 | `champion`         | `Opponent` / null  | The winner of the championship                                       | set exactly when `stage` is `complete` |
+| `defendingChampion` | `Opponent` / null | The champion of the previous season's Cup, as its past Cup feed stores it | null for the first Cup (2023-24), when the previous feed is not built or not stored, and on a stored feed from before the field |
 | `stages`           | `StageEntry[]`     | Exactly 4, in the order group, quarterfinals, semifinals, championship | always |
 | `groups`           | `CupGroup[]`       | Exactly 6: East A to C, then West A to C                             | always  |
 | `wildCard`         | `WildCardTable[]`  | East then West                                                       | always  |
@@ -153,6 +154,11 @@ the [standings feed](standings.md), the [team feed](team.md) and the
     team's group from the draw; `wins` and `losses` are the row's. A team in no
     table row has none, and a projected side has none (its record is in
     `projected`).
+18. **Defending champion.** The `champion` of the previous season's stored past
+    Cup feed, copied as stored (name, city, `seasonCode` and `historical`; logo
+    and colors are added when the feed is served, ADR 0068). It is null when there
+    is no previous Cup, when that feed is missing, or when it has no champion. A
+    failure there never fails the feed (ADR 0064).
 
 The note of a game maps to its round:
 
@@ -207,6 +213,9 @@ and a row with no clinch are all valid.
   job's first run). The build is under a read budget of 44 that counts reads only: a rate-limited
   read fails as an ordinary one
   ([ADR 0066](../adr/0066-cut-read-amplification-of-on-demand-builds.md)).
+- The past Cup feed of the season before is built first when missing (retried
+  after 10 minutes when it failed) and keeps its own read budget of 44; the
+  current build's budget of 44 is unchanged.
 - A failed group or conference read fails the build. A failed schedule read, a
   rate-limited one included, is skipped only when every drawn team still has its 4 group games among the
   schedules read and no knockout game can exist yet; otherwise the build fails.
@@ -249,6 +258,10 @@ current season.
   league sides are named from the names the 30 schedules give the teams (read as in rule 1), with
   `seasonCode` and `historical` ([ADR 0054](../adr/0054-historical-sides-and-past-pages.md),
   [ADR 0058](../adr/0058-bounded-past-competition-reads.md)).
+- A past feed reads the stored feed of the season before with no build and no
+  read, so its `defendingChampion` is null when that feed was not stored when it
+  was built, and stays null while the feed is kept (as the All-Star previous
+  edition, [ADR 0058](../adr/0058-bounded-past-competition-reads.md)).
 - The two quarterfinals of a conference are placed by start time, then id (the
   seeds they were drawn by are not known), and each side's label is a `seed`
   label with a null `seed`; a third quarterfinal in a conference fails the build
