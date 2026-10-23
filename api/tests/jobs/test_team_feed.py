@@ -54,6 +54,8 @@
 # - The kind with the names wired: a team build builds the missing franchise names first and stores them in the feed, fresh names are not rebuilt by a second team build, and serving sets the latest stored names
 # - The kind: with the Cup section's provider outside the Cup window or with a complete stored Cup feed no group table is read and the stored mark is used; inside the window the six tables are read; without a provider the feed has no Cup and reads no table (ADR 0066)
 # - The kind: the feed holds the team's Cup group and Cup record, read with the roster's season; null when no group table has the team, and null with the feed still built when a group table read fails
+# - The next daily fetch is the first fetch time in US Eastern strictly after the build, across both daylight saving changes and for a non-default time (ADR 0069)
+# - The kind: a feed built with a rule L fallback (the division standings or the previous season's leaders) is fresh before the next daily fetch and stale at it, also across a daylight saving change; a final game still expires it earlier; a build without the fallback, a stored row with no record and the player feed's reading keep the current rule; a rebuild without the fallback clears it (ADR 0069)
 #
 # What is covered:
 # - Pure conversions: happy path, edges and errors; the built feed validates
@@ -66,6 +68,7 @@
 import asyncio
 import datetime as dt
 import json
+import sqlite3
 from collections.abc import Iterator, Sequence
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -112,6 +115,7 @@ from app.jobs.team_feed import (
     eastern_month,
     feed_expired,
     game_kind_and_tag,
+    next_daily_fetch,
     next_game,
     playoff_position,
     roster_status,
@@ -1210,6 +1214,55 @@ def test_feed_expired_ignores_a_final_game_whose_hour_ended_at_or_before_the_bui
     assert not feed_expired(NOW, NOW + HOUR, [NOW - 2 * HOUR])
 
 
+def eastern(year: int, month: int, day: int, hour: int, minute: int) -> dt.datetime:
+    zone = ZoneInfo("America/New_York")
+    return dt.datetime(year, month, day, hour, minute, tzinfo=zone)
+
+
+def test_next_daily_fetch_of_a_build_before_the_fetch_time_is_that_day() -> None:
+    built = eastern(2026, 10, 8, 5, 0)
+
+    assert next_daily_fetch(built, dt.time(6, 0)) == eastern(2026, 10, 8, 6, 0)
+
+
+def test_next_daily_fetch_of_a_build_at_or_after_the_fetch_time_is_the_next_day() -> (
+    None
+):
+    at = dt.time(6, 0)
+
+    assert next_daily_fetch(eastern(2026, 10, 8, 6, 0), at) == eastern(
+        2026, 10, 9, 6, 0
+    )
+    assert next_daily_fetch(eastern(2026, 10, 8, 11, 0), at) == eastern(
+        2026, 10, 9, 6, 0
+    )
+
+
+def test_next_daily_fetch_across_the_fall_change_is_24_hours_later() -> None:
+    built = dt.datetime(2026, 10, 31, 11, 0, tzinfo=dt.UTC)
+
+    fetch = next_daily_fetch(built, dt.time(6, 0))
+
+    assert fetch == dt.datetime(2026, 11, 1, 11, 0, tzinfo=dt.UTC)
+    assert fetch - built == 24 * HOUR
+
+
+def test_next_daily_fetch_across_the_spring_change_is_22_hours_later() -> None:
+    built = dt.datetime(2027, 3, 13, 12, 0, tzinfo=dt.UTC)
+
+    fetch = next_daily_fetch(built, dt.time(6, 0))
+
+    assert fetch == dt.datetime(2027, 3, 14, 10, 0, tzinfo=dt.UTC)
+    assert fetch - built == 22 * HOUR
+
+
+def test_next_daily_fetch_honors_a_non_default_time() -> None:
+    assert next_daily_fetch(NOW, dt.time(9, 30)) == eastern(2026, 10, 9, 9, 30)
+    assert next_daily_fetch(eastern(2026, 10, 8, 9, 0), dt.time(9, 30)) == eastern(
+        2026, 10, 8, 9, 30
+    )
+
+
 def test_with_team_detail_sets_detail_availability_exactly_for_the_ids_given() -> None:
     feed = build(
         regular=season(game("a"), game("b", START + DAY), game("c", START + 2 * DAY)),
@@ -1315,6 +1368,8 @@ class TeamKit:
         self.first_titles = StubTitles()
         self.second_titles = StubTitles()
         self.cup_marks = StubCupMarks() if self.with_cup_marks else None
+        self.leaders_season = 2027
+        self.standings_fallback = False
         respx.get(url__startswith=SOURCE).mock(side_effect=self.answer)
         self.cache = FeedCache(path, self.store, clock=lambda: self.clock[0])
         self.games = GamesJob(
@@ -1394,7 +1449,7 @@ class TeamKit:
         self, client: SourceClient, team_roster: Roster, settings: Settings
     ) -> SeasonLeaders:
         await self.read("leaders", dt.timedelta(hours=24))
-        return leaders()
+        return leaders(season=self.leaders_season)
 
     async def fetch_team_info(
         self, client: SourceClient, team: str, settings: Settings
@@ -1406,7 +1461,7 @@ class TeamKit:
         self, client: SourceClient, settings: Settings
     ) -> DivisionStandings:
         await self.read("standings", HOUR)
-        return standings()
+        return standings().model_copy(update={"fallback": self.standings_fallback})
 
     async def fetch_league_injuries(
         self, client: SourceClient, settings: Settings
@@ -1531,6 +1586,122 @@ async def test_a_feed_is_fresh_before_a_final_game_plus_1_hour_and_stale_at_it(
 
     assert kit.called("roster/OKC") == 2
     assert kit.last_build("okc") == final + HOUR
+
+
+NEXT_FETCH = NOW + 19 * HOUR
+
+
+@pytest.mark.anyio
+async def test_a_feed_built_with_the_standings_fallback_expires_at_the_next_daily_fetch(
+    kit: TeamKit,
+) -> None:
+    kit.standings_fallback = True
+    await kit.serve("okc")
+
+    await kit.serve("okc", NEXT_FETCH - SECOND)
+    assert kit.called("roster/OKC") == 1
+    await kit.serve("okc", NEXT_FETCH)
+
+    assert kit.called("roster/OKC") == 2
+
+
+@pytest.mark.anyio
+async def test_a_feed_built_with_the_previous_seasons_leaders_expires_at_the_next_daily_fetch(
+    kit: TeamKit,
+) -> None:
+    kit.leaders_season = 2026
+    await kit.serve("okc")
+
+    await kit.serve("okc", NEXT_FETCH - SECOND)
+    assert kit.called("roster/OKC") == 1
+    await kit.serve("okc", NEXT_FETCH)
+
+    assert kit.called("roster/OKC") == 2
+
+
+@pytest.mark.anyio
+async def test_a_fallback_feed_built_after_the_fetch_time_expires_the_next_day_across_the_fall_change(
+    kit: TeamKit,
+) -> None:
+    kit.standings_fallback = True
+    built = dt.datetime(2026, 10, 31, 11, 0, tzinfo=dt.UTC)
+    await kit.serve("okc", built)
+
+    await kit.serve("okc", dt.datetime(2026, 11, 1, 10, 59, 59, tzinfo=dt.UTC))
+    assert kit.called("roster/OKC") == 1
+    await kit.serve("okc", dt.datetime(2026, 11, 1, 11, 0, tzinfo=dt.UTC))
+
+    assert kit.called("roster/OKC") == 2
+
+
+@pytest.mark.anyio
+async def test_a_fallback_feed_still_expires_earlier_on_a_final_game_plus_1_hour(
+    kit: TeamKit,
+) -> None:
+    final = NOW + 2 * HOUR
+    kit.standings_fallback = True
+    kit.scoreboard[TODAY] = [scoreboard("f1", GameStatus.FINAL, NOW - HOUR)]
+    kit.store.set_final_time("f1", TODAY, final)
+    await kit.run_games()
+    await kit.serve("okc")
+
+    await kit.serve("okc", final + HOUR - SECOND)
+    assert kit.called("roster/OKC") == 1
+    await kit.serve("okc", final + HOUR)
+
+    assert kit.called("roster/OKC") == 2
+
+
+@pytest.mark.anyio
+async def test_a_feed_built_without_the_fallback_stays_fresh_after_the_daily_fetch(
+    kit: TeamKit,
+) -> None:
+    await kit.serve("okc")
+
+    await kit.serve("okc", NEXT_FETCH)
+    await kit.serve("okc", NEXT_FETCH + DAY)
+
+    assert kit.called("roster/OKC") == 1
+
+
+@pytest.mark.anyio
+async def test_a_fallback_feed_with_no_stored_record_keeps_the_current_rule(
+    kit: TeamKit,
+) -> None:
+    kit.standings_fallback = True
+    await kit.serve("okc")
+    connection = sqlite3.connect(kit.path / "state.sqlite3")
+    with connection:
+        connection.execute("UPDATE feed_builds SET fallback = NULL")
+    connection.close()
+
+    await kit.serve("okc", NEXT_FETCH)
+
+    assert kit.called("roster/OKC") == 1
+
+
+@pytest.mark.anyio
+async def test_a_rebuild_without_the_fallback_clears_the_daily_expiry(
+    kit: TeamKit,
+) -> None:
+    kit.standings_fallback = True
+    await kit.serve("okc")
+    kit.standings_fallback = False
+    await kit.serve("okc", NEXT_FETCH)
+    assert kit.called("roster/OKC") == 2
+
+    await kit.serve("okc", NEXT_FETCH + DAY)
+    assert kit.called("roster/OKC") == 2
+
+
+@pytest.mark.anyio
+async def test_the_player_feeds_reading_of_the_team_expiry_ignores_the_daily_fetch(
+    kit: TeamKit,
+) -> None:
+    kit.standings_fallback = True
+    await kit.serve("okc")
+
+    assert not kit.teams.expired("OKC", None, NOW, NEXT_FETCH + HOUR)
 
 
 @pytest.mark.anyio

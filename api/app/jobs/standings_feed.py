@@ -13,7 +13,9 @@
 # nulls its colors (ADR 0066); the only id
 # is "league", the feed is stored at feeds/standings/league.json only when
 # requested, and it expires 1 hour after a final game of the league that
-# follows the build and 7 days after the build (rule G). Colors come from team
+# follows the build and 7 days after the build (rule G); a build that used the
+# rule L fallback also expires at the first DAILY_FETCH_TIME (US Eastern) after
+# the build, recorded with the build in the state store (ADR 0069). Colors come from team
 # info, one read per team, and are null when a read fails. The feed is never
 # deleted.
 #
@@ -40,6 +42,7 @@ from app.jobs.team_feed import (
     TeamBuildError,
     conference_games_behind,
     feed_expired,
+    next_daily_fetch,
     season_label,
 )
 from app.jobs.team_feed import streak as parse_streak
@@ -285,6 +288,7 @@ class StandingsFeeds:
         self._games = games
         self._fetch_division_standings = fetch_division_standings
         self._fetch_team_info = fetch_team_info
+        self._built_with_fallback: dict[str, bool] = {}
         cache.register(self.kind())
 
     def check(self, feed_id: str) -> IdStatus:
@@ -307,7 +311,14 @@ class StandingsFeeds:
         standings = await self._fetch_division_standings(self._client, self._settings)
         codes = list(standings.teams)
         infos = await asyncio.gather(*(self._info(code) for code in codes))
-        return build_standings_feed(standings, dict(zip(codes, infos, strict=True)))
+        feed = build_standings_feed(standings, dict(zip(codes, infos, strict=True)))
+        self._built_with_fallback[feed_id] = standings.fallback
+        return feed
+
+    def after_publish(self, feed_id: str, feed: StandingsFeed) -> None:
+        self._store.set_build_fallback(
+            KIND, feed_id, self._built_with_fallback.pop(feed_id, False)
+        )
 
     def final_times(self, built_at: dt.datetime, now: dt.datetime) -> list[dt.datetime]:
         """The final times of the league's games that can expire a feed built at built_at."""
@@ -318,6 +329,10 @@ class StandingsFeeds:
     def is_fresh(
         self, feed: StandingsFeed, built_at: dt.datetime, now: dt.datetime
     ) -> bool:
+        if self._store.build_fallback(KIND, FEED_ID) and now >= next_daily_fetch(
+            built_at, self._settings.daily_fetch_time
+        ):
+            return False
         return not feed_expired(built_at, now, self.final_times(built_at, now))
 
     def keep(self, feed_id: str) -> bool:
@@ -331,4 +346,5 @@ class StandingsFeeds:
             build=self.build,
             is_fresh=self.is_fresh,
             keep=self.keep,
+            after_publish=self.after_publish,
         )
