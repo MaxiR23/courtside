@@ -8,6 +8,7 @@ import type {
 	CupStage,
 	CupTag,
 	GroupRow,
+	Opponent,
 	PerGameDifferential,
 	SlotRule,
 	SlotSide,
@@ -26,6 +27,7 @@ import type {
 	CupGameRowView,
 	CupGameStatusView,
 	CupGroupView,
+	CupHeaderTeam,
 	CupHeaderView,
 	CupLegendEntry,
 	CupSectionId,
@@ -42,7 +44,7 @@ import { feedDate } from '#lib/feed/team-props.ts';
 import { formatNumber } from '#lib/format/locale.ts';
 import { m } from '#lib/paraglide/messages.js';
 import type { ClinchView } from '#lib/standings/types.ts';
-import { teamLabel, teamMark } from '#lib/team/mark.ts';
+import { teamLabel, teamMark, teamTile } from '#lib/team/mark.ts';
 
 const NO_VALUE = '—';
 const STAGE_DATE_SEPARATOR = ' – ';
@@ -157,13 +159,55 @@ function stageDates(entry: StageEntry): string {
 	return `${first}${STAGE_DATE_SEPARATOR}${feedDate(entry.lastDate, options)}`;
 }
 
-function stageView(entry: StageEntry): StageView {
+// A historical team has no team color (ADR 0054); a missing secondary leaves no bar.
+const strip = (team: Opponent): CupHeaderTeam['strip'] =>
+	!team.historical && team.colors !== null && team.colors.secondary !== null
+		? { primary: team.colors.primary, secondary: team.colors.secondary }
+		: null;
+
+// The champion once the Cup is complete, else the defending champion; no team, no decoration.
+function headerTeam(feed: CupFeed): CupHeaderTeam | null {
+	const complete = feed.stage === 'complete';
+	const team = complete ? feed.champion : feed.defendingChampion;
+	if (team === null) return null;
+	const mark = teamMark(team);
+	return {
+		team: mark,
+		label: complete ? m.cup_champion() : m.cup_defending_champion(),
+		accent: complete ? feed.championAccent : feed.defendingChampionAccent,
+		strip: strip(team),
+		outline: teamTile(mark)
+	};
+}
+
+// The city of the first game of the round, in the feed's order, that has one.
+function roundCity(round: CupRound, bracket: BracketSlot[]): string | null {
+	for (const slot of bracket) {
+		if (slot.round === round && slot.game?.city) return slot.game.city;
+	}
+	return null;
+}
+
+function stageNote(stage: CupRound, bracket: BracketSlot[]): string | null {
+	switch (stage) {
+		case 'group':
+			return m.cup_note_group();
+		case 'quarterfinals':
+			return m.cup_note_qf();
+		case 'semifinals':
+		case 'championship':
+			return roundCity(stage, bracket);
+	}
+}
+
+function stageView(entry: StageEntry, bracket: BracketSlot[]): StageView {
 	return {
 		key: entry.stage,
 		label: ROUND_LABEL[entry.stage](),
 		dates: stageDates(entry),
 		status: entry.status,
-		statusLabel: STATUS_LABEL[entry.status]()
+		statusLabel: STATUS_LABEL[entry.status](),
+		note: stageNote(entry.stage, bracket)
 	};
 }
 
@@ -171,8 +215,8 @@ function headerView(feed: CupFeed, past: boolean): CupHeaderView {
 	return {
 		season: feed.season,
 		stateLine: stateLine(feed),
-		champion: feed.stage === 'complete' && feed.champion ? teamMark(feed.champion) : null,
-		stages: feed.stages.map(stageView),
+		team: headerTeam(feed),
+		stages: feed.stages.map((entry) => stageView(entry, feed.bracket)),
 		tag: past ? m.past_season_tag({ label: feed.season }) : null
 	};
 }

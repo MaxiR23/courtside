@@ -399,6 +399,9 @@
 	"cup_status_in_progress": "In progress",
 	"cup_status_next": "Next",
 	"cup_status_upcoming": "Upcoming",
+	"cup_defending_champion": "Defending champion",
+	"cup_note_group": "4 games per team",
+	"cup_note_qf": "Higher seed hosts",
 	"cup_group_teams": [
 		{
 			"declarations": ["input n", "local nPlural = n: plural"],

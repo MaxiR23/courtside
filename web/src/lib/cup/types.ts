@@ -15,12 +15,21 @@ export type StageView = {
 	dates: string; // "Nov 4 – Dec 2", a single date, or "TBD"
 	status: StageStatus;
 	statusLabel: string; // "In progress"
+	note: string | null; // "4 games per team", "Higher seed hosts", the semifinal or championship city; null: no note
+};
+
+export type CupHeaderTeam = {
+	team: TeamMarkTeam; // the name links to the team page (never for a guest)
+	label: string; // "Champion" or "Defending champion"
+	accent: string | null; // the feed's resolved color (ADR 0072); null: the neutral accent
+	strip: { primary: string; secondary: string } | null; // the bar; null: no bar
+	outline: string; // the outlined text: the code, else the initials (teamTile)
 };
 
 export type CupHeaderView = {
 	season: string;
 	stateLine: string;
-	champion: TeamMarkTeam | null; // only when the Cup is complete
+	team: CupHeaderTeam | null; // the champion when complete, else the defending champion; null: no decoration, no team row
 	stages: StageView[];
 	tag: string | null; // "Season 2023-24" on a past season
 };

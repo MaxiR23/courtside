@@ -6,6 +6,9 @@
 	"groupGamesPlayed": 16,
 	"groupGamesTotal": 60,
 	"champion": null,
+	"defendingChampion": null,
+	"championAccent": null,
+	"defendingChampionAccent": null,
 	"stages": [
 		{
 			"stage": "group",
