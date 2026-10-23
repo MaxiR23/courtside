@@ -6,7 +6,7 @@
 // - A lazy image with the name as its alt text
 // - Initials with no photo, and after the image fails to load
 // - A new photo URL tries again after a failure
-// - The roster, leader, team-leader, search, cup-card, playoffs-avatar and playoffs-card size classes
+// - The roster, leader, team-leader, search, cup-card, playoffs-avatar, playoffs-card, playoffs-mvp and playoffs-conference-mvp size classes
 // - The seven All-Star size classes
 //
 // What is covered:
@@ -113,6 +113,17 @@ describe('PlayerAvatar', () => {
 		});
 		expect(container.querySelector('.avatar')?.classList.contains('playoffs-avatar')).toBe(true);
 		expect(screen.getByRole('img', { name: 'Ada Byrne' }).textContent).toBe('AB');
+	});
+
+	it('uses the playoffs-mvp and playoffs-conference-mvp size classes and shows initials without a photo', () => {
+		for (const size of ['playoffs-mvp', 'playoffs-conference-mvp'] as const) {
+			const { container, unmount } = render(PlayerAvatar, {
+				props: { name: 'Ada Byrne', photo: null, size }
+			});
+			expect(container.querySelector('.avatar')?.classList.contains(size)).toBe(true);
+			expect(screen.getByRole('img', { name: 'Ada Byrne' }).textContent).toBe('AB');
+			unmount();
+		}
 	});
 
 	it('uses each All-Star size class', () => {

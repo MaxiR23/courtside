@@ -18,6 +18,8 @@
 			| 'allstar-league'
 			| 'names'
 			| 'inline'
+			| 'playoffs-mvp-team'
+			| 'playoffs-mvp-logo'
 			| 'fill'; // the whole box of the parent
 		href?: ResolvedPathname;
 		logo?: string | null; // an image URL drawn in the box in place of the code; null or absent: the code
@@ -108,6 +110,16 @@
 	.injury {
 		width: var(--injury-monogram-size);
 		height: var(--injury-monogram-size);
+	}
+
+	.playoffs-mvp-team {
+		width: var(--playoffs-mvp-team-mark);
+		height: var(--playoffs-mvp-team-mark);
+	}
+
+	.playoffs-mvp-logo {
+		width: var(--playoffs-conf-logo);
+		height: var(--playoffs-conf-logo);
 	}
 
 	.team {

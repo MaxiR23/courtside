@@ -1,11 +1,16 @@
 <script lang="ts">
-	type Props = { title: string; meta?: string | null; emphasis?: boolean };
+	type Props = {
+		title: string;
+		meta?: string | null;
+		emphasis?: boolean;
+		size?: 'default' | 'mvp';
+	};
 
-	let { title, meta = null, emphasis = false }: Props = $props();
+	let { title, meta = null, emphasis = false, size = 'default' }: Props = $props();
 </script>
 
 <div class="section-head">
-	<h2>{title}</h2>
+	<h2 class:mvp={size === 'mvp'}>{title}</h2>
 	{#if meta}<span class="meta" class:emphasis>{meta}</span>{/if}
 </div>
 
@@ -24,6 +29,10 @@
 		font-size: var(--detail-section-h2-size);
 		line-height: var(--detail-section-h2-line-height);
 		text-transform: uppercase;
+	}
+
+	.section-head h2.mvp {
+		font-size: var(--playoffs-mvp-title-size);
 	}
 
 	.meta {
