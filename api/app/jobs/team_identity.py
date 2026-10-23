@@ -23,7 +23,12 @@
 # away color is then too close to the home color, away shows its secondary. The
 # distance is measured in OKLab. A side with no colors has no accent.
 #
+# with_identities also gives each season row of a player feed one logo per team: the
+# identity's logo of a team only when the row's season code for it equals the team's
+# code (today's code); null for a historical, unknown or unidentified team (ADR 0070).
+#
 # SEE: docs/design-team-identity.md, docs/adr/0068-shared-team-identity-and-hero-accents.md,
+# docs/adr/0070-team-logos-in-the-player-career-rows.md,
 # api/app/jobs/team_names.py
 
 import math
@@ -33,7 +38,8 @@ from typing import Any
 from pydantic import BaseModel
 
 from app.feeds.games import GameAccent
-from app.feeds.opponent import Opponent, TeamColors
+from app.feeds.opponent import Opponent, TeamColors, TeamLogo
+from app.feeds.player import SeasonRow
 from app.sources.team_info import TeamInfo, secondary_color
 from app.storage.state import TeamIdentity
 
@@ -84,10 +90,26 @@ def identified[T: BaseModel](team: T, identities: Mapping[str, TeamIdentity]) ->
     return team.model_copy(update=update)
 
 
+def season_logos(
+    row: SeasonRow, identities: Mapping[str, TeamIdentity]
+) -> list[TeamLogo | None]:
+    """The logo of each team of a season row: its identity's, only when the row's
+    season code is today's code; null for a historical or unknown season code and
+    for a team with no identity."""
+    codes = row.season_codes or [None] * len(row.teams)
+    logos: list[TeamLogo | None] = []
+    for team, code in zip(row.teams, codes, strict=True):
+        identity = identities.get(team) if code == team else None
+        logos.append(None if identity is None else identity.logo)
+    return logos
+
+
 def _stamped(value: Any, identities: Mapping[str, TeamIdentity]) -> Any:
     if isinstance(value, BaseModel):
         if _is_team_object(value):
             value = identified(value, identities)
+        if isinstance(value, SeasonRow):
+            value = value.model_copy(update={"logos": season_logos(value, identities)})
         return value.model_copy(
             update={
                 name: _stamped(getattr(value, name), identities)

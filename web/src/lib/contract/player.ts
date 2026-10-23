@@ -294,6 +294,7 @@ export interface SeasonRow {
 	 */
 	teams: [string, ...string[]];
 	seasonCodes: (string | null)[] | null;
+	logos: (TeamLogo | null)[] | null;
 }
 export interface CareerRows {
 	perGame: StatRow;

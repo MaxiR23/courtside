@@ -21,6 +21,7 @@
 # - Serve-time additions are in the response and not in the stored file
 # - Serves the stored feed without additions when the additions make it invalid
 # - With an identities provider a served feed carries the identity on every league side, nested and in lists, after the kind's serve_with additions, a served feed whose root is a league team object gets its logo, the stored file stays without it, and additions that make it invalid serve the stored body (ADR 0068)
+# - With an identities provider a stored player feed from before the season logos is served with them, valid, with no build and no source read, and the stored file stays without them (ADR 0070)
 # - With no provider and no serve_with the body is the stored one byte for byte
 # - Keeps stored feeds and build times across a restart with no build on startup
 # - Serves a stored feed with no build time as stale and rebuilds it
@@ -72,6 +73,7 @@ from pydantic import BaseModel, HttpUrl
 
 from app.feeds.games import FeedModel, GameTeam
 from app.feeds.opponent import TeamColors, TeamLogo
+from app.feeds.player import PlayerFeed
 from app.jobs.on_demand import (
     BUILD_TIMEOUT_SECONDS,
     MAX_BUILDS,
@@ -91,6 +93,7 @@ from app.jobs.playoffs_feed import PlayoffsBuildError
 from app.sources.http import SourceError
 from app.storage.feeds import publish_by_id, published_ids, read_by_id
 from app.storage.state import StateStore, TeamIdentity
+from tests.feeds.test_player import valid_player
 
 T = dt.datetime(2026, 1, 10, 12, 0, tzinfo=dt.UTC)
 HOUR = dt.timedelta(hours=1)
@@ -1505,6 +1508,49 @@ async def test_an_identities_provider_stamps_every_side_after_the_additions(
     stored = Sided.model_validate_json(read_by_id(tmp_path, "sided", "s1") or b"")
     assert stored.logo is None
     assert stored.next.logo is None and stored.extra is None
+
+
+@pytest.mark.anyio
+async def test_an_identities_provider_adds_the_season_logos_to_a_stored_player_feed_from_before(
+    tmp_path: Path,
+) -> None:
+    store = StateStore(tmp_path)
+    store.migrate()
+    payload = valid_player()
+    rows = payload["seasons"]["regular"]["perGame"]
+    rows[0]["teams"], rows[0]["seasonCodes"] = ["OKC"], ["OKC"]
+    stored_body = PlayerFeed.model_validate(payload).model_dump_json(by_alias=True)
+    feeds_dir = tmp_path / "feeds" / "players"
+    feeds_dir.mkdir(parents=True)
+    (feeds_dir / "p1.json").write_bytes(stored_body.encode())
+    store.record_build("players", "p1", T)
+    builds: list[str] = []
+
+    async def build(feed_id: str) -> PlayerFeed:
+        builds.append(feed_id)
+        raise AssertionError("a fresh feed is never built")
+
+    cache = FeedCache(tmp_path, store, clock=lambda: T, identities=lambda: {"OKC": OKC})
+    cache.register(
+        FeedKind(
+            "players",
+            PlayerFeed,
+            check=lambda feed_id: IdStatus.KNOWN,
+            build=build,
+            is_fresh=lambda feed, built_at, now: now - built_at < HOUR,
+            keep=lambda feed_id: True,
+        )
+    )
+
+    with respx.mock:
+        body = await cache.serve("players", "p1")
+
+    served = PlayerFeed.model_validate_json(body)
+    per_game = served.seasons.regular.per_game
+    assert per_game[0].logos == [OKC.logo]
+    assert per_game[1].logos == [None]
+    assert builds == []
+    assert read_by_id(tmp_path, "players", "p1") == stored_body.encode()
 
 
 @pytest.mark.anyio

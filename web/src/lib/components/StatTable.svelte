@@ -51,7 +51,18 @@
 					{:else}
 						<span class="label">{@render label(row)}</span>
 					{/if}
-					{#if row.sub}<span class="sub">{row.sub}</span>{/if}
+					{#if row.teams}
+						<span class="sub teams"
+							>{#each row.teams as team, i (i)}<span class="team"
+									>{#if i > 0}<span class="sep">{SEPARATOR}</span>{/if}<TeamMark
+										part="tile"
+										{team}
+										size="inline"
+										logo={team.logo}
+									/><TeamMark part="label" {team} /></span
+								>{/each}</span
+						>
+					{:else if row.sub}<span class="sub">{row.sub}</span>{/if}
 				</span>
 				{#each row.cells as cell, i (i)}
 					{@const column = table.columns[i]}
@@ -130,6 +141,24 @@
 	.sub {
 		font-size: var(--caption-size);
 		color: var(--color-muted);
+	}
+
+	.teams {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		white-space: normal;
+	}
+
+	.sep {
+		white-space: pre;
+	}
+
+	.team {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--identity-inline-mark-gap);
+		white-space: nowrap;
 	}
 
 	.muted {

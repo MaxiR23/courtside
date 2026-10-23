@@ -459,12 +459,13 @@ describe('toPlayerView seasons', () => {
 
 	it('lists the seasons newest first with the teams and the Career row last', () => {
 		const rows = view().sections.seasons?.regular.perGame.rows;
-		expect(rows?.map((r) => [r.label, r.sub])).toEqual([
-			['2025-26', 'OKC'],
-			['2024-25', 'LAC · OKC'],
-			['2018-19', 'LAC'],
+		expect(rows?.map((r) => [r.label, r.teams?.map((t) => t.code) ?? null])).toEqual([
+			['2025-26', ['OKC']],
+			['2024-25', ['LAC', 'OKC']],
+			['2018-19', ['LAC']],
 			['Career', null]
 		]);
+		expect(rows?.map((r) => r.sub)).toEqual([null, null, null, null]);
 	});
 
 	it('formats made–attempted with one decimal per game and whole in totals', () => {
@@ -783,8 +784,26 @@ describe('toPlayerView season codes', () => {
 		rows[1].teams = ['LAC', 'OKC'];
 		rows[1].seasonCodes = [null, 'NJ'];
 		rows[2].seasonCodes = null;
-		const subs = view(source).sections.seasons?.regular.perGame.rows.map((r) => r.sub);
-		expect(subs?.slice(0, 3)).toEqual(['NO', 'LAC · NJ', 'LAC']);
+		const views = view(source).sections.seasons?.regular.perGame.rows;
+		const shown = views?.map((r) => r.teams?.map((t) => t.historicalCode ?? t.code));
+		expect(shown?.slice(0, 3)).toEqual([['NO'], ['LAC', 'NJ'], ['LAC']]);
+	});
+
+	it('gives each team of a season row the logo of the feed at its index, and none when logos is null or absent', () => {
+		const source = feed();
+		const logo = { light: 'https://example.com/lac.svg', dark: null };
+		const rows = source.seasons.regular.perGame;
+		rows[1].logos = [logo, null];
+		rows[2].logos = null;
+		const views = view(source).sections.seasons?.regular.perGame.rows;
+		expect(views?.[1]?.teams?.map((t) => t.logo ?? null)).toEqual([logo, null]);
+		expect(views?.[0]?.teams?.[0]?.logo).toBeUndefined();
+		expect(views?.[2]?.teams?.[0]?.logo).toBeUndefined();
+	});
+
+	it('gives the Career row no teams', () => {
+		const rows = view().sections.seasons?.regular.perGame.rows;
+		expect(rows?.at(-1)?.teams).toBeUndefined();
 	});
 
 	it('draws the season code of the team in the header', () => {

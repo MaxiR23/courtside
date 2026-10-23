@@ -66,6 +66,7 @@ export type StatRowView = {
 	accent?: boolean;
 	link?: GameLink | null;
 	opponent?: { team: TeamMarkTeam; isHome: boolean } | null; // the game log's opponent, drawn after the label; null or absent: none
+	teams?: TeamMarkTeam[] | null; // a season row's teams, drawn under the label as an inline mark before each code, joined by " · "; null or absent: none
 	cells: StatCell[]; // follow the column order
 };
 

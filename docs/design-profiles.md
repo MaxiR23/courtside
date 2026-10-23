@@ -91,7 +91,7 @@ Meta: "Regular season, playoffs and career". Rows: Regular season and Playoffs o
 ### 5. Season by season
 
 - Two segmented controls: **Per game / Totals** and **Regular / Playoffs**. The Playoffs option is hidden when the player has no playoff seasons.
-- Rows newest first, with the team code under the season. A season played for more than one team shows its combined row with all the codes, such as `DAL · LAL`. Each code is the code the team had that season (`seasonCodes` of the row), such as `NJ` for a 2004-05 row of a team now in Brooklyn; while a code is not yet known (null), the row shows its `teams` code (ADR 0055). The player header of a past season shows the season's code of the team. The last row is Career.
+- Rows newest first, with the team code under the season. A season played for more than one team shows its combined row with all the codes, such as `DAL · LAL`. Each code is the code the team had that season (`seasonCodes` of the row), such as `NJ` for a 2004-05 row of a team now in Brooklyn; while a code is not yet known (null), the row shows its `teams` code (ADR 0055). The player header of a past season shows the season's code of the team. Each code is preceded by an `inline` `TeamMark` (the logo, else the monogram of the code shown), hidden from assistive technology; the Career row has none. The last row is Career.
 - Columns: GP, GS, MIN, FG (made–attempted), FG%, 3PT, 3P%, FT, FT%, OREB, DREB, REB, AST, BLK, STL, PF, TOV, PTS. In Totals the MIN column is not shown.
 
 ### 6. Milestones

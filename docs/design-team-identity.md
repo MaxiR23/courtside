@@ -131,7 +131,7 @@ Every page shows the footer line below, in the page language, in the footer in p
 | Game page | Header tiles (`header`, `header-mobile`); `inline` marks in the box score tabs and in the line score of the score section. There is no play-by-play, and the team stats name no team |
 | Standings | Each row (`standings`). The playoff picture is on `/playoffs` and draws the same tile |
 | Team | The hero tile (`team`, the color bars stay); an `inline` mark before the opponent of each row of the schedule and the results |
-| Player | An `inline` mark before the current team tag. The career table keeps its codes: its rows carry no logo |
+| Player | An `inline` mark before the current team tag. An `inline` mark before each team code of the season-by-season rows (the monogram on a historical row); none on the Career row |
 | Search | Team results (`search`); an `inline` mark before the team code of player results |
 | Cup | Bracket level 2 (`cup-node`), level 1 (`cup-node` before the code, a world-space size with its gap from `--bracket-node-padding`, so the mark is legible at the bracket's scale), matchup panel (`small`), champion (`cup-champion`) |
 | Playoffs | `inline` marks in the bracket nodes, the series sheet and before the leaders' codes in the Finals series; the champion hero (`playoffs-champion`) |

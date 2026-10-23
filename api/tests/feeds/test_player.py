@@ -7,6 +7,7 @@
 #   and is serialized as null
 # - A team with a season code has no logo and no colors (ADR 0068)
 # - A season row's seasonCodes accept a null entry and reject another length than its teams; an award accepts a code and a team number up to three (ADR 0055)
+# - A season row's logos accept a null entry and reject another length than its teams, and a stored row without them reads null (ADR 0070)
 # - A game tag keeps its kind with null conference, round and game; its round
 #   is 1 to 4 and its kind is known
 # - The live block: the line may be null, and is the line of the player
@@ -503,6 +504,32 @@ def test_rejects_season_codes_of_another_length_than_the_teams(
     player["seasons"]["regular"]["perGame"][0]["seasonCodes"] = codes
 
     rejects(player, "seasonCodes")
+
+
+def test_accepts_season_logos_with_a_null_entry_and_a_stored_row_without_them() -> None:
+    player = valid_player()
+    row = player["seasons"]["regular"]["perGame"][0]
+    row["teams"] = ["AAA", "BBB"]
+    row["logos"] = [{"light": "https://example.com/aaa.svg", "dark": None}, None]
+
+    parsed = PlayerFeed.model_validate(player)
+
+    logos = parsed.seasons.regular.per_game[0].logos
+    assert logos is not None
+    assert logos[0] is not None
+    assert str(logos[0].light) == "https://example.com/aaa.svg"
+    assert logos[1] is None
+    assert parsed.seasons.regular.per_game[1].logos is None
+
+
+@pytest.mark.parametrize("logos", [[], [None, None]])
+def test_rejects_season_logos_of_another_length_than_the_teams(
+    logos: list[None],
+) -> None:
+    player = valid_player()
+    player["seasons"]["regular"]["perGame"][0]["logos"] = logos
+
+    rejects(player, "logos")
 
 
 def test_accepts_an_award_with_a_code_and_a_team_number_and_rejects_a_team_above_three() -> (
