@@ -5,6 +5,7 @@
 // Tested:
 // - Ready: the sections in group order in group play and the draw, in knockout order after
 // - The bracket sits in the Bracket section in both section orders, with no placeholder text; Groups not drawn yet before the draw; the legend
+// - On a phone the bracket section draws the tree with its own Knockout rounds heading
 // - One More columns state widens every group card
 // - Loading: the header and the table skeleton are aria-busy
 // - The unavailable state of a past season keeps the Season tag; the current season's has none (ADR 0054)
@@ -53,13 +54,13 @@ const ready = (change: (f: CupFeed) => void = () => {}): CupPageState => {
 	return { kind: 'ready', view: toCupView(source) };
 };
 
-const show = (state: CupPageState) =>
+const show = (state: CupPageState, layout: 'desktop' | 'mobile' = 'desktop') =>
 	render(CupPage, {
 		props: {
 			state,
 			allGamesHref: HOME,
 			standingsHref: STANDINGS,
-			layout: 'desktop' as const,
+			layout,
 			teamHref,
 			gameHref,
 			playerHref,
@@ -96,6 +97,14 @@ describe('CupPage', () => {
 			expect(section?.querySelectorAll('.node')).toHaveLength(7);
 			unmount();
 		}
+	});
+
+	it('ready: on a phone the bracket section draws the tree with its own heading', () => {
+		const { container } = show(ready(), 'mobile');
+		expect(headings()).toEqual(['Groups', 'Wild card', 'Knockout rounds', 'Cup games']);
+		const section = container.querySelector('#bracket');
+		expect(section?.querySelector('.tree')).not.toBeNull();
+		expect(section?.querySelector('.viewport')).toBeNull();
 	});
 
 	it('ready: says the groups are not drawn yet instead of the groups', () => {

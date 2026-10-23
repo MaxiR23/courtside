@@ -9,6 +9,7 @@
 // - Quarterfinal 1 feeds the top, quarterfinal 2 the bottom, the East semifinal the final's top
 // - Round labels per column or row, and the champion anchor under the final
 // - The sizes match the --bracket-* tokens
+// - TREE_ROWS: the three rows, their cards and columns, every slot once, every column inside the 8 tracks
 //
 // What is covered:
 // - Happy path, mirroring and the token cross-check
@@ -30,7 +31,8 @@ import {
 	NODE,
 	roundLabels,
 	SLOT_IDS,
-	TICK_SIZE
+	TICK_SIZE,
+	TREE_ROWS
 } from '../../../src/lib/cup/bracket-layout';
 
 const tokensCss = readFileSync(join(process.cwd(), 'src/lib/styles/tokens.css'), 'utf8');
@@ -181,5 +183,46 @@ describe('tokens', () => {
 		expect(MOBILE_WORLD.width).toBe(token('--bracket-mobile-width'));
 		expect(MOBILE_WORLD.height).toBe(token('--bracket-mobile-height'));
 		expect(TICK_SIZE).toBe(token('--bracket-tick-size'));
+	});
+});
+
+describe('mobile tree rows', () => {
+	it('has the quarterfinals, semifinals and championship rows in order', () => {
+		expect(TREE_ROWS.map((row) => row.key)).toEqual([
+			'quarterfinals',
+			'semifinals',
+			'championship'
+		]);
+	});
+
+	it('places the cards of each row on the issue columns, East first', () => {
+		expect(TREE_ROWS.map((row) => row.cards.map((card) => [card.id, card.column]))).toEqual([
+			[
+				['east-qf-1', '1 / 3'],
+				['east-qf-2', '3 / 5'],
+				['west-qf-1', '5 / 7'],
+				['west-qf-2', '7 / 9']
+			],
+			[
+				['east-sf', '2 / 4'],
+				['west-sf', '6 / 8']
+			],
+			[['final', '3 / 7']]
+		]);
+	});
+
+	it('holds every slot exactly once', () => {
+		const ids = TREE_ROWS.flatMap((row) => row.cards.map((card) => card.id));
+		expect(ids).toHaveLength(SLOT_IDS.length);
+		expect([...ids].sort()).toEqual([...SLOT_IDS].sort());
+	});
+
+	it('keeps every column inside the 8 tracks', () => {
+		for (const card of TREE_ROWS.flatMap((row) => row.cards)) {
+			const [start, end] = card.column.split(' / ').map(Number) as [number, number];
+			expect(start).toBeGreaterThanOrEqual(1);
+			expect(end).toBeLessThanOrEqual(9);
+			expect(start).toBeLessThan(end);
+		}
 	});
 });

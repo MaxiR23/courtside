@@ -97,7 +97,7 @@
 						{/each}
 					</div>
 				{:else if id === 'bracket'}
-					<SectionHead title={m.cup_bracket()} />
+					{#if layout === 'desktop'}<SectionHead title={m.cup_bracket()} />{/if}
 					<CupBracket bracket={view.bracket} {layout} {matchup} {gameHref} {playerHref} />
 				{:else}
 					<SectionHead title={m.cup_games()} />

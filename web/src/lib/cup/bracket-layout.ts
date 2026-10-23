@@ -1,5 +1,5 @@
 // World geometry of the Cup bracket: where the 7 nodes sit, the connectors between them, the round
-// labels and the champion anchor, for the desktop world and the vertical mobile world. Pure, in world
+// labels and the champion anchor, for the desktop world and the vertical mobile world, and the rows of the mobile tree. Pure, in world
 // units. The sizes mirror the --bracket-* tokens; tests/lib/cup/bracket-layout.test.ts pins them.
 
 import { elbowPath, type Point } from '#lib/bracket/geometry.ts';
@@ -124,3 +124,27 @@ export function championAnchor(world: World): Point {
 	const final = nodesOf(world).final;
 	return { x: final.x + NODE.width / 2, y: final.y + NODE.height + CHAMPION_GAP };
 }
+
+export type TreeCard = { id: SlotId; column: string }; // a grid-column value of the 8-column row
+export type TreeRow = { key: RoundKey; cards: TreeCard[] };
+
+/** The mobile tree: three rows of an 8-column grid, East on the left (docs/design-cup.md, "Mobile"). */
+export const TREE_ROWS: TreeRow[] = [
+	{
+		key: 'quarterfinals',
+		cards: [
+			{ id: 'east-qf-1', column: '1 / 3' },
+			{ id: 'east-qf-2', column: '3 / 5' },
+			{ id: 'west-qf-1', column: '5 / 7' },
+			{ id: 'west-qf-2', column: '7 / 9' }
+		]
+	},
+	{
+		key: 'semifinals',
+		cards: [
+			{ id: 'east-sf', column: '2 / 4' },
+			{ id: 'west-sf', column: '6 / 8' }
+		]
+	},
+	{ key: 'championship', cards: [{ id: 'final', column: '3 / 7' }] }
+];

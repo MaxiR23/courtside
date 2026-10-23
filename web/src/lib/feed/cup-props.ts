@@ -371,20 +371,40 @@ function bracketSide(side: SlotSide, game: CupGame | null): BracketSideView {
 	};
 }
 
+// The accent of the side that won: the feed's resolved color (ADR 0072); null: the neutral accent.
+function winnerAccent(slot: BracketSlot, top: BracketSideView, bottom: BracketSideView) {
+	return top.winner
+		? (slot.accent?.top ?? null)
+		: bottom.winner
+			? (slot.accent?.bottom ?? null)
+			: null;
+}
+
 function bracketNode(slot: BracketSlot): BracketNodeView {
 	const { game } = slot;
+	const top = bracketSide(slot.top, game);
+	const bottom = bracketSide(slot.bottom, game);
 	return {
 		id: slot.id,
 		roundLabel: ROUND_LABEL[slot.round](),
 		mirrored: slot.conference === 'west',
 		final: slot.id === 'final',
-		top: bracketSide(slot.top, game),
-		bottom: bracketSide(slot.bottom, game),
+		top,
+		bottom,
 		date: game ? feedDate(game.date, { month: 'short', day: 'numeric' }) : null,
 		venue: game ? game.venue : null,
 		broadcast: game ? game.broadcast : null,
-		neutral: game ? game.neutralSite : false
+		neutral: game ? game.neutralSite : false,
+		gameLink: game ? { gameId: game.id, linked: game.detailAvailable } : null,
+		rule: game?.winner ? { accent: winnerAccent(slot, top, bottom) } : null
 	};
+}
+
+function treeLabel(bracket: BracketSlot[], round: CupRound): string {
+	const city = roundCity(round, bracket);
+	return city === null
+		? ROUND_LABEL[round]()
+		: m.cup_round_city({ round: ROUND_LABEL[round](), city });
 }
 
 function bracketView(feed: CupFeed): BracketView {
@@ -402,7 +422,14 @@ function bracketView(feed: CupFeed): BracketView {
 			semifinals: ROUND_LABEL.semifinals(),
 			championship: ROUND_LABEL.championship()
 		},
-		champion: champion ? (champion.name ?? teamLabel(teamMark(champion))) : null
+		champion: champion ? (champion.name ?? teamLabel(teamMark(champion))) : null,
+		// The Cup is played in the season's first year: "2026-27" is the 2026 NBA Cup.
+		kicker: m.cup_bracket_kicker({ year: feed.season.slice(0, 4) }),
+		treeLabels: {
+			quarterfinals: ROUND_LABEL.quarterfinals(),
+			semifinals: treeLabel(feed.bracket, 'semifinals'),
+			championship: treeLabel(feed.bracket, 'championship')
+		}
 	};
 }
 

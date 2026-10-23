@@ -1,13 +1,13 @@
 <script lang="ts">
 	import type { ResolvedPathname } from '$app/types';
 	import BracketNode from '#lib/components/BracketNode.svelte';
+	import CupBracketTree from '#lib/components/CupBracketTree.svelte';
 	import MatchupPanel from '#lib/components/MatchupPanel.svelte';
 	import type { SlotId } from '#lib/contract/cup.ts';
 	import {
 		championAnchor,
 		connectors,
 		DESKTOP_WORLD,
-		MOBILE_WORLD,
 		NODE,
 		nodesOf,
 		roundLabels,
@@ -39,13 +39,12 @@
 	let opener: HTMLButtonElement | null = null;
 
 	const interactive = $derived(layout === 'desktop');
-	const world = $derived(interactive ? DESKTOP_WORLD : MOBILE_WORLD);
+	const world = DESKTOP_WORLD;
 	const nodes = $derived(nodesOf(world));
 	const lines = $derived(connectors(world));
 	const labels = $derived(roundLabels(world));
 	const champion = $derived(championAnchor(world));
-	// The mobile bracket never zooms: it stays at level 1.
-	const level = $derived(interactive ? camera.level : 1);
+	const level = $derived(camera.level);
 	const finalNode = $derived(bracket.nodes.find((node) => node.final));
 
 	const panelState = $derived<MatchupPanelState>(
@@ -131,128 +130,132 @@
 
 <svelte:window onresize={measure} onkeydown={onKeydown} />
 
-<div class="bracket" class:mobile={!interactive}>
-	<div
-		class="viewport"
-		role="group"
-		aria-label={m.cup_bracket()}
-		class:interactive
-		bind:this={viewport}
-		onpointerdown={(event) => camera.pointerDown(event)}
-		onpointermove={(event) => camera.pointerMove(event)}
-		onpointerup={(event) => camera.pointerUp(event)}
-		onpointercancel={(event) => camera.pointerUp(event)}
-		onclickcapture={swallowDragClick}
-		onscroll={absorbScroll}
-	>
-		<div class="layer" class:mobile={!interactive} bind:this={layer}>
-			<svg
-				class="lines"
-				viewBox="0 0 {world.width} {world.height}"
-				aria-hidden="true"
-				focusable="false"
-			>
-				{#each lines as line (line.from)}
-					<path
-						class="connector"
-						class:known={bracket.known[`${line.to}:${line.side}`]}
-						d={line.d}
-						vector-effect="non-scaling-stroke"
-					/>
-				{/each}
-				{#each bracket.nodes as node (node.id)}
-					{@const at = nodes[node.id]}
-					<rect
-						class="frame"
-						class:final={node.final}
-						x={at.x}
-						y={at.y}
-						width={NODE.width}
-						height={NODE.height}
-						vector-effect="non-scaling-stroke"
-					/>
-					{#each ticks(at.x, at.y) as d (d)}
-						<path class="tick" {d} vector-effect="non-scaling-stroke" />
+{#if interactive}
+	<div class="bracket">
+		<div
+			class="viewport"
+			role="group"
+			aria-label={m.cup_bracket()}
+			class:interactive
+			bind:this={viewport}
+			onpointerdown={(event) => camera.pointerDown(event)}
+			onpointermove={(event) => camera.pointerMove(event)}
+			onpointerup={(event) => camera.pointerUp(event)}
+			onpointercancel={(event) => camera.pointerUp(event)}
+			onclickcapture={swallowDragClick}
+			onscroll={absorbScroll}
+		>
+			<div class="layer" bind:this={layer}>
+				<svg
+					class="lines"
+					viewBox="0 0 {world.width} {world.height}"
+					aria-hidden="true"
+					focusable="false"
+				>
+					{#each lines as line (line.from)}
+						<path
+							class="connector"
+							class:known={bracket.known[`${line.to}:${line.side}`]}
+							d={line.d}
+							vector-effect="non-scaling-stroke"
+						/>
 					{/each}
-					{#if focused === node.id}
+					{#each bracket.nodes as node (node.id)}
+						{@const at = nodes[node.id]}
 						<rect
-							class="focus"
+							class="frame"
+							class:final={node.final}
 							x={at.x}
 							y={at.y}
 							width={NODE.width}
 							height={NODE.height}
 							vector-effect="non-scaling-stroke"
 						/>
+						{#each ticks(at.x, at.y) as d (d)}
+							<path class="tick" {d} vector-effect="non-scaling-stroke" />
+						{/each}
+						{#if focused === node.id}
+							<rect
+								class="focus"
+								x={at.x}
+								y={at.y}
+								width={NODE.width}
+								height={NODE.height}
+								vector-effect="non-scaling-stroke"
+							/>
+						{/if}
+					{/each}
+				</svg>
+				{#each bracket.nodes as node (node.id)}
+					<div class="slot" style:left="{nodes[node.id].x}px" style:top="{nodes[node.id].y}px">
+						<BracketNode {node} {level} onOpen={open} onFocusChange={focusChange(node.id)} />
+					</div>
+				{/each}
+				{#if level === 1}
+					{#each labels as label, i (i)}
+						<span class="round-label" style:left="{label.x}px" style:top="{label.y}px">
+							{bracket.rounds[label.key]}
+						</span>
+					{/each}
+					{#if bracket.champion && finalNode}
+						<span class="champion" style:left="{champion.x}px" style:top="{champion.y}px">
+							<span class="champion-label">{m.cup_champion()}</span>
+							{bracket.champion}
+						</span>
 					{/if}
-				{/each}
-			</svg>
-			{#each bracket.nodes as node (node.id)}
-				<div class="slot" style:left="{nodes[node.id].x}px" style:top="{nodes[node.id].y}px">
-					<BracketNode {node} {level} onOpen={open} onFocusChange={focusChange(node.id)} />
-				</div>
-			{/each}
-			{#if level === 1}
-				{#each labels as label, i (i)}
-					<span class="round-label" style:left="{label.x}px" style:top="{label.y}px">
-						{bracket.rounds[label.key]}
-					</span>
-				{/each}
-				{#if bracket.champion && finalNode}
-					<span class="champion" style:left="{champion.x}px" style:top="{champion.y}px">
-						<span class="champion-label">{m.cup_champion()}</span>
-						{bracket.champion}
-					</span>
 				{/if}
+			</div>
+			{#if interactive}
+				<div class="controls" role="group" onpointerdown={stopPointer}>
+					<div class="levels">
+						<button
+							type="button"
+							class="control"
+							aria-pressed={camera.level === 1}
+							onclick={() => camera.goToLevel(1)}
+						>
+							<span class="num">1</span>
+							{m.cup_level_1()}
+						</button>
+						<button
+							type="button"
+							class="control"
+							aria-pressed={camera.level === 2}
+							onclick={() => camera.goToLevel(2)}
+						>
+							<span class="num">2</span>
+							{m.cup_level_2()}
+						</button>
+					</div>
+					<div class="zoom">
+						<button
+							type="button"
+							class="control"
+							aria-label={m.cup_zoom_in()}
+							onclick={() => camera.zoomIn()}
+						>
+							+
+						</button>
+						<button
+							type="button"
+							class="control"
+							aria-label={m.cup_zoom_out()}
+							onclick={() => camera.zoomOut()}
+						>
+							−
+						</button>
+						<button type="button" class="control" onclick={() => camera.fit()}>
+							{m.cup_zoom_fit()}
+						</button>
+					</div>
+					<p class="hint">{m.cup_hint()}</p>
+				</div>
 			{/if}
 		</div>
-		{#if interactive}
-			<div class="controls" role="group" onpointerdown={stopPointer}>
-				<div class="levels">
-					<button
-						type="button"
-						class="control"
-						aria-pressed={camera.level === 1}
-						onclick={() => camera.goToLevel(1)}
-					>
-						<span class="num">1</span>
-						{m.cup_level_1()}
-					</button>
-					<button
-						type="button"
-						class="control"
-						aria-pressed={camera.level === 2}
-						onclick={() => camera.goToLevel(2)}
-					>
-						<span class="num">2</span>
-						{m.cup_level_2()}
-					</button>
-				</div>
-				<div class="zoom">
-					<button
-						type="button"
-						class="control"
-						aria-label={m.cup_zoom_in()}
-						onclick={() => camera.zoomIn()}
-					>
-						+
-					</button>
-					<button
-						type="button"
-						class="control"
-						aria-label={m.cup_zoom_out()}
-						onclick={() => camera.zoomOut()}
-					>
-						−
-					</button>
-					<button type="button" class="control" onclick={() => camera.fit()}>
-						{m.cup_zoom_fit()}
-					</button>
-				</div>
-				<p class="hint">{m.cup_hint()}</p>
-			</div>
-		{/if}
 	</div>
-</div>
+{:else}
+	<CupBracketTree {bracket} {gameHref} onOpen={open} />
+{/if}
 
 {#if matchup.openId !== null}
 	<MatchupPanel
@@ -280,11 +283,6 @@
 		user-select: none;
 	}
 
-	.mobile .viewport {
-		height: var(--bracket-mobile-viewport);
-		touch-action: auto;
-	}
-
 	.viewport.interactive {
 		touch-action: none;
 		cursor: grab;
@@ -298,11 +296,6 @@
 		height: var(--bracket-world-height);
 		transform-origin: 0 0;
 		will-change: transform;
-	}
-
-	.layer.mobile {
-		width: var(--bracket-mobile-width);
-		height: var(--bracket-mobile-height);
 	}
 
 	.lines {

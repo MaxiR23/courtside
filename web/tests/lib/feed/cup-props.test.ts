@@ -22,6 +22,7 @@
 // - The season tag: null on the current season, "Season 2026-27" on a past one, in both languages
 // - Spanish copy of the state line, a group title, a stage label, the notes and the defending champion label
 // - The header team carries the feed's logo; a null logo leaves the key out
+// - The mobile tree: the kicker year from the season, the row labels with the first city, the node gameLink and the winner's rule accent
 //
 // What is covered:
 // - Pure logic on an invented feed (tests/lib/feed/fixtures/cup.json); no clock, no network
@@ -634,6 +635,75 @@ describe('toCupView bracket', () => {
 			semifinals: 'Semifinals',
 			championship: 'Championship'
 		});
+	});
+
+	it('writes the kicker from the first year of the season', () => {
+		expect(view().bracket.kicker).toBe('2026 NBA Cup');
+		preferLanguages(['es']);
+		expect(view().bracket.kicker).toBe('Copa NBA 2026');
+	});
+
+	it('writes the tree labels without a city when no game has one', () => {
+		expect(view().bracket.treeLabels).toEqual({
+			quarterfinals: 'Quarterfinals',
+			semifinals: 'Semifinals',
+			championship: 'Championship'
+		});
+	});
+
+	it('writes the tree labels with the city of the round', () => {
+		expect(view(complete()).bracket.treeLabels).toEqual({
+			quarterfinals: 'Quarterfinals',
+			semifinals: 'Semifinals · Alderton',
+			championship: 'Championship · Alderton'
+		});
+	});
+
+	it('takes the city of the first semifinal that has one, in feed order', () => {
+		const f = complete();
+		f.bracket[2]!.game!.city = null;
+		f.bracket[4]!.game!.city = 'Example Bay';
+		expect(view(f).bracket.treeLabels.semifinals).toBe('Semifinals · Example Bay');
+		f.bracket[4]!.game!.city = null;
+		expect(view(f).bracket.treeLabels.semifinals).toBe('Semifinals');
+	});
+
+	it('writes the tree labels in Spanish', () => {
+		preferLanguages(['es']);
+		const labels = view(complete()).bracket.treeLabels;
+		expect(labels.championship).toBe('Final · Alderton');
+		expect(labels.semifinals).toBe('Semifinales · Alderton');
+	});
+
+	it('gives the node a game link only when it has a game', () => {
+		expect(view().bracket.nodes.every((n) => n.gameLink === null)).toBe(true);
+		const f = complete();
+		expect(node(view(f), 'final').gameLink).toEqual({ gameId: '9100004', linked: true });
+		f.bracket[3]!.game!.detailAvailable = false;
+		expect(node(view(f), 'final').gameLink).toEqual({ gameId: '9100004', linked: false });
+	});
+
+	it('gives the winner line the accent of the side that won', () => {
+		expect(view().bracket.nodes.every((n) => n.rule === null)).toBe(true);
+		const f = complete();
+		for (const slot of f.bracket) slot.accent = { top: '#123456', bottom: '#654321' };
+		const v = view(f);
+		// The top side won the final; the bottom side (away) won the West semifinal.
+		expect(node(v, 'final').rule).toEqual({ accent: '#123456' });
+		expect(node(v, 'west-sf').rule).toEqual({ accent: '#654321' });
+	});
+
+	it('gives the winner line a null accent without a resolved color', () => {
+		expect(node(view(complete()), 'final').rule).toEqual({ accent: null });
+		const f = complete();
+		f.bracket[3]!.accent = { top: null, bottom: '#654321' };
+		expect(node(view(f), 'final').rule).toEqual({ accent: null });
+	});
+
+	it('gives no winner line to a game with no winner', () => {
+		const f = complete();
+		f.bracket[3]!.game!.winner = null;
+		expect(node(view(f), 'final').rule).toBeNull();
 	});
 
 	it('mirrors the known flags of the feed', () => {
