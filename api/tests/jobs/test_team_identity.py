@@ -7,6 +7,7 @@
 # - identified sets the logo and colors of a league side, nulls them on a guest, a historical side and a code with no identity, and on a PlayoffTeam sets only the logo and keeps the colors it was built with
 # - identified gives a logo to a StandingsRow, a SearchTeam, a LeagueTeam and a TeamFeed and keeps their colors; it gives a logo and colors to a SearchPlayerTeam and to a current Team; it nulls both on a Team with a season code and the logo of a historical StandingsRow and TeamFeed; it keeps the logo of a non-historical past StandingsRow
 # - with_identities reaches sides in nested models, lists and optional fields, in every Opponent subclass (GameTeam, DetailTeam, PlayoffTeam), and the root of a model that is a league team object, and returns a validated model
+# - with_identities gives each season row of a player feed the logo of each team whose season code is its code, in per game, totals and playoffs rows; null for a historical, unknown or unidentified team; a list of nulls with no season codes; it reads a stored feed without logos and a past player feed, and leaves the career rows alone (ADR 0070)
 # - game_accent for NYK at ORL, MIL at BOS, LAL at PHX and OKC at DEN; a team with no secondary keeps its primary; a guest side gets null and the other side keeps its rule; two sides with no colors give null and null
 # - oklab of white has lightness 1 and of black 0
 #
@@ -27,6 +28,7 @@ from app.feeds.all_star import LeagueTeam
 from app.feeds.game_detail import DetailTeam
 from app.feeds.games import FeedModel, GameTeam, Team
 from app.feeds.opponent import Opponent, TeamColors, TeamLogo
+from app.feeds.player import PastPlayerFeed, PlayerFeed
 from app.feeds.playoffs import PlayoffTeam
 from app.feeds.search import SearchPlayerTeam, SearchTeam
 from app.feeds.standings import StandingsColors, StandingsRow
@@ -40,6 +42,7 @@ from app.jobs.team_identity import (
 )
 from app.sources.team_info import TeamInfo
 from app.storage.state import TeamIdentity
+from tests.feeds.test_player import past_player, split, valid_player
 
 LOGO = TeamLogo(light=HttpUrl("https://example.com/okc.svg"), dark=None)
 BUILT = StandingsColors(primary="#111111", secondary=None)
@@ -272,6 +275,97 @@ def test_with_identities_stamps_a_root_that_holds_a_date() -> None:
     result = with_identities(Dated(at=dt.date(2026, 1, 1), code="OKC"), IDENTITIES)
 
     assert result.logo == LOGO
+
+
+AAA_LOGO = TeamLogo(light=HttpUrl("https://example.com/aaa.svg"), dark=None)
+BBB_LOGO = TeamLogo(light=HttpUrl("https://example.com/bbb.svg"), dark=None)
+SEASON_COLORS = TeamColors(primary="#111111", secondary=None)
+SEASON_IDENTITIES = {
+    "AAA": TeamIdentity(code="AAA", logo=AAA_LOGO, colors=SEASON_COLORS),
+    "BBB": TeamIdentity(code="BBB", logo=BBB_LOGO, colors=SEASON_COLORS),
+}
+
+
+def with_row(
+    payload: dict[str, Any], teams: list[str], codes: list[str | None] | None
+) -> dict[str, Any]:
+    seasons = payload["seasons"]
+    seasons["playoffs"] = split(["2025-26"])
+    for rows in (
+        seasons["regular"]["perGame"],
+        seasons["regular"]["totals"],
+        seasons["playoffs"]["perGame"],
+        seasons["playoffs"]["totals"],
+    ):
+        row = rows[0]
+        row["teams"] = teams
+        if codes is not None:
+            row["seasonCodes"] = codes
+    return payload
+
+
+def test_with_identities_gives_each_season_row_the_logo_of_each_current_team() -> None:
+    payload = with_row(valid_player(), ["AAA", "BBB"], ["AAA", "BBB"])
+
+    result = with_identities(PlayerFeed.model_validate(payload), SEASON_IDENTITIES)
+
+    for rows in (
+        result.seasons.regular.per_game,
+        result.seasons.regular.totals,
+        result.seasons.playoffs.per_game,
+        result.seasons.playoffs.totals,
+    ):
+        assert rows[0].logos == [AAA_LOGO, BBB_LOGO]
+
+
+def test_with_identities_nulls_the_logo_of_a_historical_unknown_or_unidentified_team() -> (
+    None
+):
+    payload = with_row(valid_player(), ["AAA", "BBB", "CCC"], ["OLD", None, "CCC"])
+
+    result = with_identities(PlayerFeed.model_validate(payload), SEASON_IDENTITIES)
+
+    assert result.seasons.regular.per_game[0].logos == [None, None, None]
+
+
+def test_with_identities_nulls_every_logo_of_a_row_without_season_codes() -> None:
+    payload = with_row(valid_player(), ["AAA", "BBB"], None)
+
+    result = with_identities(PlayerFeed.model_validate(payload), SEASON_IDENTITIES)
+
+    assert result.seasons.regular.per_game[0].logos == [None, None]
+
+
+def test_with_identities_reads_a_stored_player_feed_without_logos() -> None:
+    payload = with_row(valid_player(), ["AAA"], ["AAA"])
+    stored = PlayerFeed.model_validate(payload)
+    assert stored.seasons.regular.per_game[0].logos is None
+
+    result = with_identities(stored, SEASON_IDENTITIES)
+
+    assert isinstance(result, PlayerFeed)
+    assert result.seasons.regular.per_game[0].logos == [AAA_LOGO]
+
+
+def test_with_identities_applies_the_same_rule_to_a_past_player_feed() -> None:
+    payload = past_player()
+    rows = payload["seasons"]["regular"]["perGame"]
+    rows[0]["teams"], rows[0]["seasonCodes"] = ["AAA"], ["AAA"]
+    rows[1]["teams"], rows[1]["seasonCodes"] = ["AAA"], ["OLD"]
+
+    result = with_identities(PastPlayerFeed.model_validate(payload), SEASON_IDENTITIES)
+
+    assert result.seasons.regular.per_game[0].logos == [AAA_LOGO]
+    assert result.seasons.regular.per_game[1].logos == [None]
+
+
+def test_with_identities_leaves_the_career_rows_alone() -> None:
+    payload = with_row(valid_player(), ["AAA"], ["AAA"])
+    before = PlayerFeed.model_validate(payload)
+
+    result = with_identities(before, SEASON_IDENTITIES)
+
+    assert result.seasons.regular.career == before.seasons.regular.career
 
 
 # The colors are inputs of the rule; their OKLab numbers were checked by hand.

@@ -410,7 +410,18 @@ function seasonTable(
 	const views: StatRowView[] = rows.map((row) => ({
 		key: row.season,
 		label: row.season,
-		sub: row.teams.map((team, i) => row.seasonCodes?.[i] ?? team).join(SEPARATOR),
+		sub: null,
+		// The season's code when known (ADR 0055), and the logo the feed gives (null on a historical row).
+		teams: row.teams.map((code, i) =>
+			teamMark({
+				code,
+				name: null,
+				city: null,
+				seasonCode: row.seasonCodes?.[i] ?? null,
+				historical: true,
+				logo: row.logos?.[i] ?? null
+			})
+		),
 		...(shown !== null && row.season === shown ? { accent: true } : {}),
 		cells: seasonCells(row, totals)
 	}));

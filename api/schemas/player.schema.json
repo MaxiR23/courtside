@@ -1502,6 +1502,27 @@
             }
           ],
           "default": null
+        },
+        "logos": {
+          "anyOf": [
+            {
+              "items": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/TeamLogo"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -1528,7 +1549,8 @@
         "points",
         "season",
         "teams",
-        "seasonCodes"
+        "seasonCodes",
+        "logos"
       ],
       "title": "SeasonRow",
       "type": "object"

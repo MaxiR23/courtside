@@ -37,7 +37,7 @@ from app.feeds.games import (
     TeamCode,
     UtcDatetime,
 )
-from app.feeds.opponent import Opponent
+from app.feeds.opponent import Opponent, TeamLogo
 
 # The base definitions live in app.feeds.base; the other feed modules import
 # them from here.
@@ -266,11 +266,22 @@ class SeasonRow(StatRow):
     # names run holds the season; the whole field is null when the names are not
     # applied.
     season_codes: list[SideCode | None] | None = None
+    # The logo of each of the teams, in the same order, from the team identities when
+    # the feed is served (ADR 0070): null for a team with no identity and for a
+    # season code that is not today's code or is not known. The whole field is null
+    # when the identities are not applied.
+    logos: list[TeamLogo | None] | None = None
 
     @model_validator(mode="after")
     def _require_a_season_code_for_each_team(self) -> SeasonRow:
         if self.season_codes is not None and len(self.season_codes) != len(self.teams):
             raise ValueError("seasonCodes has one entry for each team")
+        return self
+
+    @model_validator(mode="after")
+    def _require_a_logo_entry_for_each_team(self) -> SeasonRow:
+        if self.logos is not None and len(self.logos) != len(self.teams):
+            raise ValueError("logos has one entry for each team")
         return self
 
 

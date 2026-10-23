@@ -7,6 +7,7 @@
 // - Totals removes MIN and switches the rows; Playoffs shows the playoff rows
 // - No Playoffs button without playoff seasons
 // - aria-pressed follows the selection
+// - A season row draws an inline mark before each code and the Career row draws none (ADR 0070)
 //
 // What is covered:
 // - Each case, from the recorded player feed through the props layer
@@ -51,7 +52,8 @@ describe('SeasonsTable', () => {
 		expect(screen.getByRole('button', { name: 'Regular' }).getAttribute('aria-pressed')).toBe(
 			'true'
 		);
-		expect(screen.getByText('LAC · OKC')).toBeTruthy();
+		const row = screen.getAllByRole('rowheader')[1]!;
+		expect(row.textContent?.replace(/\s+/g, ' ')).toContain('LAC · OKC');
 	});
 
 	it('removes MIN and switches the rows with Totals', async () => {
@@ -82,5 +84,21 @@ describe('SeasonsTable', () => {
 		show(source);
 		expect(screen.queryByRole('button', { name: 'Playoffs' })).toBeNull();
 		expect(screen.queryByRole('group', { name: 'Season type' })).toBeNull();
+	});
+
+	it('draws an inline mark before each code of a season row and none on the Career row', () => {
+		const source = feed();
+		source.seasons.regular.perGame[1].logos = [
+			{ light: 'https://example.com/lac.svg', dark: null },
+			{ light: 'https://example.com/okc.svg', dark: null }
+		];
+		show(source);
+		const rows = screen.getAllByRole('rowheader');
+		expect(rows[1]!.querySelectorAll('.team-monogram.inline')).toHaveLength(2);
+		expect(rows[1]!.querySelectorAll('img')).toHaveLength(2);
+		expect(rows[0]!.querySelectorAll('.team-monogram.inline')).toHaveLength(1);
+		expect(rows[3]!.querySelector('.team-monogram')).toBeNull();
+		expect(rows[1]!.textContent).toContain('LAC');
+		expect(rows[1]!.textContent).toContain('OKC');
 	});
 });

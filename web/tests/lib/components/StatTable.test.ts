@@ -7,7 +7,10 @@
 // - One row per entry with a sticky row header holding the label and sub-line
 // - The muted and points classes, the result cell's win mark, the accent row
 // - A link only on a linked row, with the href from gameHref
+// - A row with teams draws an inline mark before each code, joined by " · ", hidden from assistive technology; a row with only a sub draws it as before; a row with neither draws no mark (ADR 0070)
 // - A row with an opponent draws it after the label ("Apr 29 · @ MEM"), inside the link of a linked row; a row without one is unchanged
+//
+// - Three teams draw three marks, and the teams line wraps inside the first column with each team kept whole
 //
 // What is covered:
 // - Structure and classes from props; jsdom computes no layout
@@ -16,6 +19,8 @@
 //
 // SEE: web/src/lib/components/StatTable.svelte
 import type { ResolvedPathname } from '$app/types';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { render, screen } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
 
@@ -141,5 +146,99 @@ describe('StatTable opponent', () => {
 		expect(container.querySelector('.label')?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
 			'Apr 26 · @ Mariners'
 		);
+	});
+});
+
+describe('StatTable teams', () => {
+	const team = (code: string, logo?: { light: string; dark: string | null }) => ({
+		code,
+		name: null,
+		city: null,
+		guest: false,
+		...(logo ? { logo } : {})
+	});
+	const teamsTable: StatTableView = {
+		...table,
+		rows: [
+			{
+				key: 'a',
+				label: '2024-25',
+				sub: null,
+				teams: [
+					team('LAC', {
+						light: 'https://example.com/lac.svg',
+						dark: 'https://example.com/lac-dark.svg'
+					}),
+					team('OKC')
+				],
+				cells: ['x', 'y', 'z']
+			},
+			{ key: 'b', label: '2023-24', sub: 'Only sub', cells: ['x', 'y', 'z'] },
+			{ key: 'c', label: 'Career', sub: null, cells: ['x', 'y', 'z'] }
+		]
+	};
+	const showTeams = () =>
+		render(StatTable, { props: { table: teamsTable, labelHeader: 'Season', gameHref } });
+
+	it('draws an inline mark before each code, the first with the logo and the second a monogram', () => {
+		const { container } = showTeams();
+		const marks = [
+			...container.querySelectorAll('.body')[0]!.querySelectorAll('.team-monogram.inline')
+		];
+		expect(marks).toHaveLength(2);
+		const image = marks[0]!.querySelector('img')!;
+		expect(image.getAttribute('src')).toBe('https://example.com/lac-dark.svg');
+		expect(image.getAttribute('aria-hidden')).toBe('true');
+		expect(image.getAttribute('alt')).toBe('');
+		expect(marks[0]!.getAttribute('aria-hidden')).toBe('true');
+		expect(marks[1]!.querySelector('img')).toBeNull();
+		expect(marks[1]!.textContent).toBe('OKC');
+		expect(marks[1]!.getAttribute('aria-hidden')).toBe('true');
+	});
+
+	it('writes the codes after the marks joined by a dot', () => {
+		const { container } = showTeams();
+		const sub = container.querySelector('.body .sub.teams')!;
+		expect(sub.textContent?.replace(/\s+/g, ' ').trim()).toContain('LAC · OKC');
+	});
+
+	it('draws a sub as text when there are no teams, and no mark on a row with neither', () => {
+		const { container } = showTeams();
+		const rows = container.querySelectorAll('.body');
+		expect(rows[1]!.querySelector('.sub')?.textContent).toBe('Only sub');
+		expect(rows[1]!.querySelector('.team-monogram')).toBeNull();
+		expect(rows[2]!.querySelector('.team-monogram')).toBeNull();
+		expect(rows[2]!.querySelector('.sub')).toBeNull();
+	});
+
+	it('draws three marks for a row with three teams', () => {
+		const three: StatTableView = {
+			...table,
+			rows: [
+				{
+					key: 'a',
+					label: '2024-25',
+					sub: null,
+					teams: [team('LAC'), team('OKC'), team('MEM')],
+					cells: ['x', 'y', 'z']
+				}
+			]
+		};
+		const { container } = render(StatTable, {
+			props: { table: three, labelHeader: 'Season', gameHref }
+		});
+		expect(container.querySelectorAll('.body .team .team-monogram.inline')).toHaveLength(3);
+		expect(container.querySelectorAll('.body .team')).toHaveLength(3);
+	});
+
+	it('wraps the teams line and keeps each team unit unbroken', () => {
+		const source = readFileSync(
+			join(import.meta.dirname, '../../../src/lib/components/StatTable.svelte'),
+			'utf8'
+		);
+		const rule = (selector: string) =>
+			new RegExp(`\\n\\t${selector} \\{([^}]*)\\}`).exec(source)?.[1] ?? '';
+		expect(rule('\\.teams')).toContain('flex-wrap: wrap');
+		expect(rule('\\.team')).toContain('white-space: nowrap');
 	});
 });
