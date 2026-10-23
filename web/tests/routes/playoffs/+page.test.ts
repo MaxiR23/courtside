@@ -213,7 +213,7 @@ describe('Playoffs page', () => {
 			'play-in',
 			'awards'
 		]);
-		expect(screen.getByRole('heading', { level: 1, name: 'Champions' })).toBeTruthy();
+		expect(screen.getByRole('heading', { level: 1 }).textContent).toContain('Harbor');
 	});
 
 	it('loads the finals feed in the finals state as well', async () => {
@@ -229,7 +229,7 @@ describe('Playoffs page', () => {
 			finalsAnswer = answerStatus(status);
 			const { container, unmount } = await renderPage();
 			expect(ids(container)).toEqual(['leaders', 'bracket', 'play-in', 'awards']);
-			expect(screen.getByRole('heading', { level: 1, name: 'Champions' })).toBeTruthy();
+			expect(screen.getByRole('heading', { level: 1 }).textContent).toContain('Harbor');
 			unmount();
 		}
 	});

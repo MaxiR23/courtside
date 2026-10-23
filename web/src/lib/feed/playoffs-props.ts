@@ -285,49 +285,48 @@ function stateLine(feed: PlayoffsFeed): string {
 	}
 }
 
-function heroView(champion: Champion): ChampionHeroView {
+function heroView(champion: Champion, finals: Series | undefined): ChampionHeroView {
 	const year = feedDate(champion.lastDate, { year: 'numeric' });
-	const team = champion.team.name ?? teamLabel(teamMark(champion.team));
-	const score = `${formatNumber(champion.wins)}–${formatNumber(champion.losses)}`;
+	const mark = teamMark(champion.team);
+	const opponentTeam = [finals?.top.team, finals?.bottom.team].find(
+		(team) => team != null && team.code !== champion.team.code
+	);
+	const opponent = opponentTeam
+		? (opponentTeam.city ?? opponentTeam.name ?? teamLabel(teamMark(opponentTeam)))
+		: NO_VALUE;
+	const games = (finals?.games ?? [])
+		.filter((game) => game.status === 'final')
+		.map((game) => {
+			const side =
+				game.home.code === champion.team.code
+					? 'home'
+					: game.away.code === champion.team.code
+						? 'away'
+						: null;
+			const other = side === 'home' ? 'away' : 'home';
+			return {
+				key: game.id,
+				label: m.playoffs_game_tab({ n: formatNumber(game.number) }),
+				score:
+					side && game.score
+						? `${formatNumber(game.score[side])}–${formatNumber(game.score[other])}`
+						: NO_VALUE,
+				win: side !== null && game.winner === side
+			};
+		});
 	return {
-		tag: m.playoffs_hero_tag({ year }),
-		result: m.playoffs_hero_result({
-			team,
-			score,
+		label: m.playoffs_hero_label({ year }),
+		team: mark,
+		city: champion.team.city,
+		name: champion.team.name ?? teamLabel(mark),
+		subline: m.playoffs_hero_subline({
+			won: formatNumber(champion.wins),
+			lost: formatNumber(champion.losses),
+			opponent,
 			dates: dateRange(champion.firstDate, champion.lastDate)
 		}),
-		title: m.playoffs_hero_title(),
-		plateLabel: m.playoffs_hero_champions({ year }),
-		trophyTitle: m.playoffs_hero_champions({ year }),
-		team: teamMark(champion.team),
-		city: champion.team.city,
-		strip: strip(champion.team),
-		stats: [
-			{
-				key: 'record',
-				label: m.playoffs_hero_record(),
-				value: champion.record ?? NO_VALUE,
-				accent: false
-			},
-			{
-				key: 'home',
-				label: m.playoffs_hero_home(),
-				value: champion.home ?? NO_VALUE,
-				accent: false
-			},
-			{
-				key: 'road',
-				label: m.playoffs_hero_road(),
-				value: champion.road ?? NO_VALUE,
-				accent: false
-			},
-			{
-				key: 'diff',
-				label: m.playoffs_hero_diff(),
-				value: champion.pointDifferential.value,
-				accent: true
-			}
-		]
+		accent: champion.accent ?? null,
+		games
 	};
 }
 
@@ -339,7 +338,12 @@ function headerView(feed: PlayoffsFeed, past: boolean): PlayoffsHeaderView {
 		stages: feed.stages
 			.filter((entry) => entry.stage !== 'playin' || feed.playIn !== null)
 			.map(stageView),
-		hero: feed.champion ? heroView(feed.champion) : null,
+		hero: feed.champion
+			? heroView(
+					feed.champion,
+					feed.bracket.find((series) => series.conference === null)
+				)
+			: null,
 		tag: past ? m.past_season_tag({ label: feed.season }) : null
 	};
 }

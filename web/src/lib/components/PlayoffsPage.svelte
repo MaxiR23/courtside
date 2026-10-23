@@ -71,7 +71,7 @@
 		{standingsHref}
 		{layout}
 		{teamHref}
-		showRelive={view.sections.includes('series')}
+		linkSeries={view.sections.includes('series')}
 		{seasonSelect}
 	/>
 	<div class="sections">

@@ -11,7 +11,6 @@
 // - Uses the standings box on the standings page
 // - Uses the search box in the search overlay
 // - Uses the cup-draw box in the Cup draw list and the cup-champion box in the Cup header
-// - Uses the playoffs-champion box in the playoffs hero
 // - Uses the cup-node box in a bracket node
 // - Uses the allstar-league box for a player's league team
 // - Uses the names box in the franchise names timeline
@@ -108,11 +107,6 @@ describe('TeamMonogram', () => {
 	it('renders the cup-node size', () => {
 		render(TeamMonogram, { props: { code: 'QXC', size: 'cup-node' } });
 		expect(screen.getByText('QXC').classList.contains('cup-node')).toBe(true);
-	});
-
-	it('renders the playoffs-champion size', () => {
-		render(TeamMonogram, { props: { code: 'QXD', size: 'playoffs-champion' } });
-		expect(screen.getByText('QXD').classList.contains('playoffs-champion')).toBe(true);
 	});
 
 	it('renders the allstar-league size, linked to the team page', () => {

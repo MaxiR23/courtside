@@ -3,16 +3,17 @@
 // Tests for the ChampionHero component.
 //
 // Tested:
-// - The tag, the result line, the Champions title, the team name and the four stats with the differential in accent
-// - The trophy drawing on the desktop plate; the compact hero on mobile
-// - Relive the series only when the series section exists; the buttons scroll to #series and #bracket
-// - The stats count up and show the final values when the timeout ends
-// - Under reduced motion the final values show at once
-// - The champion logo: in the playoffs-champion box with the strip kept, the code for a null logo
+// - The label, the h1 with the city and the team link, the subline
+// - One strip column per final Finals game, 4-1 and 4-3 series, with .loss on the lost games
+// - The logo in the .logo box (hidden from assistive technology), the code for a null logo
+// - The trophy drawing hidden from assistive technology
+// - The glow color: the accent of the feed, the neutral accent for null
+// - No buttons, stats or plate, and no timers
+// - The strip links to #series and scrolls (smooth, or at once under reduced motion) only when the series section exists
+// - The mobile layout keeps the logo, the trophy and the strip
 //
 // What is covered:
 // - Each state the hero shows, drawn from props with no fetch
-// - Fake timers; no animation frame is asserted (docs/testing.md)
 //
 // Run with: cd web && pnpm exec vitest run tests/lib/components/ChampionHero.test.ts
 //
@@ -26,16 +27,50 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PlayoffsFeed } from '../../../src/lib/contract/playoffs';
 import { toPlayoffsView } from '../../../src/lib/feed/playoffs-props';
 import ChampionHero from '../../../src/lib/components/ChampionHero.svelte';
+import type { ChampionHeroView } from '../../../src/lib/playoffs/types';
 
 const teamHref = (code: string) => `/team/${code.toLowerCase()}` as ResolvedPathname;
-const hero = () => {
+
+// The complete fixture with scores: the champion QXA wins G1, G2, G4, G5 and loses G3.
+const hero = (games = 5, accent: string | null = '#1d4e89'): ChampionHeroView => {
 	const feed = JSON.parse(
 		readFileSync(join(__dirname, '..', 'feed', 'fixtures', 'playoffs-complete.json'), 'utf8')
 	) as PlayoffsFeed;
+	const finals = feed.bracket.find((series) => series.conference === null)!;
+	const results = [
+		[105, 95],
+		[110, 100],
+		[98, 101],
+		[99, 90],
+		[102, 97]
+	];
+	finals.games.forEach((game, i) => {
+		const [champion, opponent] = results[i];
+		const home = game.home.code === 'QXA';
+		game.score = home ? { home: champion, away: opponent } : { away: champion, home: opponent };
+		game.winner = champion > opponent ? (home ? 'home' : 'away') : home ? 'away' : 'home';
+	});
+	if (games === 7) {
+		(finals.games as unknown[]).push(
+			{ ...finals.games[2]!, id: 'g106', number: 6 },
+			{ ...finals.games[2]!, id: 'g107', number: 7 }
+		);
+		feed.champion!.losses = 3;
+	}
+	feed.champion!.accent = accent;
 	return toPlayoffsView(feed, null).header.hero!;
 };
-const show = (showRelive = true, layout: 'desktop' | 'mobile' = 'desktop') =>
-	render(ChampionHero, { props: { hero: hero(), layout, teamHref, showRelive } });
+const show = (
+	options: { linkSeries?: boolean; layout?: 'desktop' | 'mobile'; view?: ChampionHeroView } = {}
+) =>
+	render(ChampionHero, {
+		props: {
+			hero: options.view ?? hero(),
+			layout: options.layout ?? 'desktop',
+			teamHref,
+			linkSeries: options.linkSeries ?? true
+		}
+	});
 
 const motion = (reduced: boolean) =>
 	vi.stubGlobal(
@@ -45,8 +80,6 @@ const motion = (reduced: boolean) =>
 
 beforeEach(() => {
 	vi.useFakeTimers();
-	document.documentElement.style.setProperty('--playoffs-count-duration', '1.4s');
-	document.documentElement.style.setProperty('--playoffs-count-timeout', '1.6s');
 	motion(false);
 });
 
@@ -54,110 +87,142 @@ afterEach(() => {
 	vi.restoreAllMocks();
 	vi.unstubAllGlobals();
 	vi.useRealTimers();
-	document.documentElement.removeAttribute('style');
 	document.body.innerHTML = '';
 });
 
 describe('ChampionHero', () => {
-	it('shows the tag, the result line, the title, the team and the trophy', () => {
+	it('shows the label, the headline, the subline and a column per game of a 4-1 series', () => {
 		const { container } = show();
-		expect(screen.getByText('2027 NBA Finals')).toBeTruthy();
-		expect(screen.getByText('Owls win series 4–1 · Jun 4 – Jun 19')).toBeTruthy();
-		expect(screen.getByRole('heading', { level: 1, name: 'Champions' })).toBeTruthy();
-		expect(screen.getByText('Harbor')).toBeTruthy();
+		expect(container.querySelector('.label')?.textContent).toBe('2027 NBA Champions');
+		const h1 = screen.getByRole('heading', { level: 1 });
+		expect(h1.textContent).toContain('Harbor');
 		expect(screen.getByRole('link', { name: 'Owls' }).getAttribute('href')).toBe('/team/qxa');
-		expect(screen.getByRole('img', { name: '2027 champions' })).toBeTruthy();
-		expect(container.querySelector('.plate-label')?.textContent).toBe('2027 champions');
-		expect(container.querySelectorAll('.strip .half')).toHaveLength(2);
+		expect(screen.getByText('Won the series 4–1 over Summit · Jun 4 – Jun 19')).toBeTruthy();
+		const games = [...container.querySelectorAll('.strip .game')];
+		expect(
+			games.map((g) => [g.querySelector('.n')?.textContent, g.querySelector('.score')?.textContent])
+		).toEqual([
+			['G1', '105–95'],
+			['G2', '110–100'],
+			['G3', '98–101'],
+			['G4', '99–90'],
+			['G5', '102–97']
+		]);
+		expect(games.map((g) => g.classList.contains('loss'))).toEqual([
+			false,
+			false,
+			true,
+			false,
+			false
+		]);
 	});
 
-	it('shows the four stats with the point differential in accent', async () => {
+	it('draws seven columns and the 4-3 subline for a seven game series', () => {
+		const { container } = show({ view: hero(7) });
+		expect(container.querySelectorAll('.strip .game')).toHaveLength(7);
+		expect(container.querySelectorAll('.strip .game.loss')).toHaveLength(3);
+		expect(screen.getByText('Won the series 4–3 over Summit · Jun 4 – Jun 19')).toBeTruthy();
+	});
+
+	it('draws the trophy hidden from assistive technology', () => {
 		const { container } = show();
-		const stats = [...container.querySelectorAll('.stat')].map((s) => [
-			s.querySelector('dt')?.textContent,
-			s.classList.contains('accent')
-		]);
-		expect(stats).toEqual([
-			['Postseason record', false],
-			['Home', false],
-			['Road', false],
-			['Point differential', true]
-		]);
+		const trophy = container.querySelector('.trophy');
+		expect(trophy?.getAttribute('aria-hidden')).toBe('true');
+		expect(trophy?.querySelector('svg')).not.toBeNull();
 	});
 
-	it('draws the trophy beside the headline on mobile and no plate', () => {
-		const { container } = show(true, 'mobile');
+	it('sets the glow color from the accent, and the neutral accent for null', () => {
+		const first = show();
+		expect(
+			first.container
+				.querySelector<HTMLElement>('.champion-hero')
+				?.style.getPropertyValue('--side-accent')
+		).toBe('#1d4e89');
+		first.unmount();
+		const plain = show({ view: hero(5, null) });
+		expect(
+			plain.container
+				.querySelector<HTMLElement>('.champion-hero')
+				?.style.getPropertyValue('--side-accent')
+		).toBe('var(--identity-neutral-accent)');
+	});
+
+	it('has no buttons, stats or plate and starts no timer', () => {
+		const { container } = show();
+		expect(screen.queryAllByRole('button')).toHaveLength(0);
+		expect(container.querySelector('.stats')).toBeNull();
+		expect(container.querySelector('dl')).toBeNull();
 		expect(container.querySelector('.plate')).toBeNull();
-		expect(container.querySelector('.trophy-mobile svg')).not.toBeNull();
+		expect(vi.getTimerCount()).toBe(0);
+	});
+
+	it('keeps the logo, the trophy and the strip on mobile', () => {
+		const { container } = show({ layout: 'mobile' });
 		expect(container.querySelector('.champion-hero')?.classList.contains('mobile')).toBe(true);
+		expect(container.querySelector('.logo .team-monogram')).not.toBeNull();
+		expect(container.querySelector('.trophy svg')).not.toBeNull();
+		expect(container.querySelectorAll('.strip .game')).toHaveLength(5);
 	});
+});
 
-	it('draws Relive the series only when the series section exists', () => {
-		show(false);
-		expect(screen.queryByRole('button', { name: 'Relive the series' })).toBeNull();
-		expect(screen.getByRole('button', { name: 'Full bracket' })).toBeTruthy();
-	});
+describe('ChampionHero strip', () => {
+	const addSeries = () => {
+		const section = document.createElement('section');
+		section.id = 'series';
+		document.body.append(section);
+	};
 
-	it('scrolls to the series and to the bracket', async () => {
-		for (const id of ['series', 'bracket']) {
-			const section = document.createElement('section');
-			section.id = id;
-			document.body.append(section);
-		}
+	it('links to the series and scrolls smoothly on a click', async () => {
+		addSeries();
 		const scrolled: string[] = [];
 		Element.prototype.scrollIntoView = vi.fn(function (this: Element) {
 			scrolled.push(this.id);
 		});
 		show();
-		await fireEvent.click(screen.getByRole('button', { name: 'Relive the series' }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Full bracket' }));
-		expect(scrolled).toEqual(['series', 'bracket']);
+		const link = screen.getByRole('link', { name: 'Finals game scores' });
+		expect(link.getAttribute('href')).toBe('#series');
+		await fireEvent.click(link);
+		expect(scrolled).toEqual(['series']);
 		expect(Element.prototype.scrollIntoView).toHaveBeenCalledWith({
 			behavior: 'smooth',
 			block: 'start'
 		});
 	});
 
-	it('counts the stats up from zero and shows the final values when the timeout ends', async () => {
-		const { container } = show();
-		await vi.advanceTimersByTimeAsync(0);
-		const values = () => [...container.querySelectorAll('dd')].map((d) => d.textContent);
-		expect(values()).toEqual(['0-0', '0-0', '0-0', '+0']);
-		await vi.advanceTimersByTimeAsync(1600);
-		expect(values()).toEqual(['16-6', '9-2', '7-4', '+142']);
+	it('scrolls at once under reduced motion', async () => {
+		motion(true);
+		addSeries();
+		Element.prototype.scrollIntoView = vi.fn();
+		show();
+		await fireEvent.click(screen.getByRole('link', { name: 'Finals game scores' }));
+		expect(Element.prototype.scrollIntoView).toHaveBeenCalledWith({
+			behavior: 'auto',
+			block: 'start'
+		});
 	});
 
-	it('shows the final values at once under reduced motion and scrolls without smoothing', async () => {
-		motion(true);
-		const { container } = show();
-		await vi.advanceTimersByTimeAsync(0);
-		expect([...container.querySelectorAll('dd')].map((d) => d.textContent)).toEqual([
-			'16-6',
-			'9-2',
-			'7-4',
-			'+142'
-		]);
-		expect(vi.getTimerCount()).toBe(0);
+	it('draws the same strip with no link without the series section', () => {
+		show({ linkSeries: false });
+		expect(screen.queryByRole('link', { name: 'Finals game scores' })).toBeNull();
+		const group = screen.getByRole('group', { name: 'Finals game scores' });
+		expect(group.querySelectorAll('.game')).toHaveLength(5);
 	});
 });
 
 describe('ChampionHero logo', () => {
-	it('draws the champion logo in the playoffs-champion box, and the code for a null logo', () => {
+	it('draws the champion logo in the logo box, and the code for a null logo', () => {
 		const withLogo = hero();
 		withLogo.team.logo = {
 			light: 'https://example.com/x-light.svg',
 			dark: 'https://example.com/x-dark.svg'
 		};
-		const first = render(ChampionHero, {
-			props: { hero: withLogo, layout: 'desktop', teamHref, showRelive: true }
-		});
-		const box = first.container.querySelector('.tile .team-monogram');
-		expect(box?.classList.contains('playoffs-champion')).toBe(true);
+		const first = show({ view: withLogo });
+		const box = first.container.querySelector('.logo');
+		expect(box?.getAttribute('aria-hidden')).toBe('true');
 		expect(box?.querySelector('img')?.getAttribute('src')).toBe('https://example.com/x-dark.svg');
-		expect(first.container.querySelectorAll('.strip .half')).toHaveLength(2);
 		first.unmount();
-		const plain = show().container.querySelector('.tile .team-monogram');
+		const plain = show().container.querySelector('.logo');
 		expect(plain?.querySelector('img')).toBeNull();
-		expect(plain?.textContent).toBe('QXA');
+		expect(plain?.textContent).toContain('QXA');
 	});
 });
