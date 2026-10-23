@@ -9,8 +9,15 @@
 		"code": "QXA",
 		"name": "Herons",
 		"city": "Alderton",
-		"guest": false
+		"guest": false,
+		"seasonCode": null,
+		"historical": false,
+		"logo": null,
+		"colors": null
 	},
+	"defendingChampion": null,
+	"championAccent": null,
+	"defendingChampionAccent": null,
 	"stages": [
 		{
 			"stage": "group",

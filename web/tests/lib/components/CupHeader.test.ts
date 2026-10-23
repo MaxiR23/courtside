@@ -3,13 +3,15 @@
 // Tests for the CupHeader component.
 //
 // Tested:
-// - The season tag, the state line and the h1 with the stage strip
-// - The champion block only when complete, with the team link; a guest champion is not a link
+// - The year tag, the state line and the h1 with the four-step timeline
+// - The decoration and the team row: the champion when complete, the defending champion before; the label, the outline, the logo, the bar and the accent; no links in the decoration
+// - No decoration and no team row without a team; the rest of the header stays
+// - The timeline: complete and in-progress classes, status texts, dates with their notes
+// - The mobile layout class
 // - The nav with Cup current
 // - Only the nav and the h1 without a header; bones and aria-busy while loading
 // - The season tag when the header has one; the select on desktop (after the nav) and mobile (full), its onChange; none without the prop
 // - Spanish copy
-// - The champion logo: in the cup-champion box, the code for a null logo
 //
 // What is covered:
 // - Each state the header shows, drawn from props with no fetch
@@ -52,21 +54,40 @@ const props = (extra: Record<string, unknown> = {}) => ({
 	...extra
 });
 
-const complete = (champion: CupFeed['champion']) => {
+const club = (change: Record<string, unknown> = {}) => ({
+	code: 'QXA',
+	name: 'Herons',
+	city: 'Alderton',
+	guest: false,
+	seasonCode: null,
+	historical: false,
+	logo: null,
+	colors: null,
+	...change
+});
+
+const complete = (champion: CupFeed['champion'], accent: string | null = null) => {
 	const source = feed();
 	source.stage = 'complete';
 	source.champion = champion;
+	source.championAccent = accent;
+	return view(source).header;
+};
+
+const defending = (team: CupFeed['defendingChampion'], accent: string | null = null) => {
+	const source = feed();
+	source.defendingChampion = team;
+	source.defendingChampionAccent = accent;
 	return view(source).header;
 };
 
 describe('CupHeader', () => {
-	it('renders the season tag, the state line, the h1 and the stage strip', () => {
+	it('renders the year tag, the state line, the h1 and the timeline', () => {
 		const { container } = render(CupHeader, { props: props() });
-		expect(screen.getByText('2026-27')).toBeTruthy();
+		expect(container.querySelector('.year-tag')?.textContent).toBe('2026-27');
 		expect(screen.getByText('Group play · 16 of 60 games played')).toBeTruthy();
 		expect(screen.getByRole('heading', { level: 1, name: 'NBA Cup' })).toBeTruthy();
-		expect(container.querySelectorAll('ol li')).toHaveLength(4);
-		expect(container.querySelector('.champion')).toBeNull();
+		expect(container.querySelectorAll('ol.cup-timeline li')).toHaveLength(4);
 	});
 
 	it('marks Cup current in the nav', async () => {
@@ -77,38 +98,113 @@ describe('CupHeader', () => {
 		expect(screen.getByRole('link', { name: 'Standings' }).getAttribute('href')).toBe('/standings');
 	});
 
-	it('shows the champion with a link to its team when the Cup is complete', () => {
-		const header = complete({
-			code: 'QXA',
-			name: 'Herons',
-			city: 'Alderton',
-			guest: false,
-			seasonCode: null,
-			historical: false,
-			logo: null,
-			colors: null
-		});
+	it('shows the champion decoration and team row when the Cup is complete', () => {
+		const colors = { primary: '#111111', secondary: '#222222' };
+		const header = complete(club({ colors }), '#abcdef');
 		const { container } = render(CupHeader, { props: props({ header }) });
-		expect(container.querySelector('.champion-label')?.textContent).toBe('Champion');
-		expect(container.querySelector('.city')?.textContent).toBe('Alderton');
-		const links = [...container.querySelectorAll('.champion a')].map((a) => a.getAttribute('href'));
-		expect(links).toEqual(['/team/qxa', '/team/qxa']);
+		expect(container.querySelector('.decor')?.getAttribute('aria-hidden')).toBe('true');
+		expect(container.querySelector('.outline')?.textContent).toBe('QXA');
+		expect(container.querySelector('.team-label')?.textContent).toBe('Champion');
+		expect(container.querySelector('.team-name a')?.getAttribute('href')).toBe('/team/qxa');
+		const halves = [...container.querySelectorAll<HTMLElement>('.bar .half')];
+		expect(halves.map((half) => half.style.backgroundColor)).toEqual([
+			'rgb(17, 17, 17)',
+			'rgb(34, 34, 34)'
+		]);
+		expect(container.querySelector('header')?.style.getPropertyValue('--side-accent')).toBe(
+			'#abcdef'
+		);
+		expect(container.querySelectorAll('.decor a')).toHaveLength(0);
+	});
+
+	it('uses the neutral accent and no bar when the feed has no color', () => {
+		const { container } = render(CupHeader, { props: props({ header: complete(club()) }) });
+		expect(container.querySelector('header')?.style.getPropertyValue('--side-accent')).toBe(
+			'var(--identity-neutral-accent)'
+		);
+		expect(container.querySelector('.bar')).toBeNull();
 	});
 
 	it('does not link a guest champion', () => {
-		const header = complete({
-			code: null,
-			name: 'Visitors',
-			city: 'Faraway',
-			guest: true,
-			seasonCode: null,
-			historical: false,
-			logo: null,
-			colors: null
-		});
+		const header = complete(club({ code: null, name: 'Visitors', city: 'Faraway', guest: true }));
 		const { container } = render(CupHeader, { props: props({ header }) });
-		expect(container.querySelector('.champion-name')?.textContent?.trim()).toBe('Visitors');
-		expect(container.querySelectorAll('.champion a')).toHaveLength(0);
+		expect(container.querySelector('.team-name')?.textContent?.trim()).toBe('Visitors');
+		expect(container.querySelectorAll('.team-name a')).toHaveLength(0);
+	});
+
+	it('shows the defending champion during group play', () => {
+		const header = defending(club(), '#123456');
+		const { container } = render(CupHeader, { props: props({ header }) });
+		expect(container.querySelector('.team-label')?.textContent).toBe('Defending champion');
+		expect(screen.getByText('Group play · 16 of 60 games played')).toBeTruthy();
+		expect(container.querySelector('.decor')).not.toBeNull();
+		expect(container.querySelector('header')?.style.getPropertyValue('--side-accent')).toBe(
+			'#123456'
+		);
+	});
+
+	it('draws no decoration and no team row without a defending champion', () => {
+		const { container } = render(CupHeader, { props: props() });
+		expect(container.querySelector('.decor')).toBeNull();
+		expect(container.querySelector('.team-row')).toBeNull();
+		expect(container.querySelector('header')?.style.getPropertyValue('--side-accent')).toBe('');
+		expect(container.querySelector('.year-tag')?.textContent).toBe('2026-27');
+		expect(screen.getByText('Group play · 16 of 60 games played')).toBeTruthy();
+		expect(screen.getByRole('heading', { level: 1, name: 'NBA Cup' })).toBeTruthy();
+		expect(container.querySelectorAll('ol.cup-timeline li')).toHaveLength(4);
+	});
+
+	it('marks the timeline steps and writes their status and dates', () => {
+		const { container } = render(CupHeader, { props: props() });
+		const steps = [...container.querySelectorAll('ol.cup-timeline li')];
+		expect(steps.map((step) => step.classList.contains('complete'))).toEqual([
+			false,
+			false,
+			false,
+			false
+		]);
+		expect(steps.map((step) => step.classList.contains('in-progress'))).toEqual([
+			true,
+			false,
+			false,
+			false
+		]);
+		expect(steps.map((step) => step.querySelector('.status')?.textContent)).toEqual([
+			'In progress',
+			'Next',
+			'Upcoming',
+			'Upcoming'
+		]);
+		expect(steps.map((step) => step.querySelector('.dates')?.textContent)).toEqual([
+			'Nov 4 – Dec 2 · 4 games per team',
+			'Dec 8 · Higher seed hosts',
+			'TBD',
+			'Dec 16'
+		]);
+	});
+
+	it('marks a complete step', () => {
+		const source = feed();
+		source.stages[0].status = 'complete';
+		const { container } = render(CupHeader, { props: props({ header: view(source).header }) });
+		const steps = container.querySelectorAll('ol.cup-timeline li');
+		expect(steps[0]?.classList.contains('complete')).toBe(true);
+		expect(steps[0]?.classList.contains('in-progress')).toBe(false);
+		expect(steps[0]?.querySelector('.status')?.textContent).toBe('Complete');
+	});
+
+	it('draws the mobile layout', () => {
+		const { container } = render(CupHeader, { props: props({ layout: 'mobile' }) });
+		expect(container.querySelector('header')?.classList.contains('mobile')).toBe(true);
+		expect(container.querySelector('header')?.classList.contains('desktop')).toBe(false);
+	});
+
+	it('marks Cup current in the nav', async () => {
+		render(CupHeader, { props: props() });
+		await fireEvent.click(screen.getByRole('button', { name: 'Tournaments' }));
+		expect(screen.getByRole('link', { name: 'Cup' }).getAttribute('aria-current')).toBe('page');
+		expect(screen.getByRole('link', { name: 'All games' }).getAttribute('href')).toBe('/');
+		expect(screen.getByRole('link', { name: 'Standings' }).getAttribute('href')).toBe('/standings');
 	});
 
 	it('renders only the nav and the h1 without a header', () => {
@@ -131,6 +227,15 @@ describe('CupHeader', () => {
 		expect(screen.getByRole('heading', { level: 1, name: 'Copa NBA' })).toBeTruthy();
 		await fireEvent.click(screen.getByRole('button', { name: 'Torneos' }));
 		expect(screen.getByRole('link', { name: 'Copa' }).getAttribute('aria-current')).toBe('page');
+	});
+
+	it('shows the Spanish defending champion label and note', () => {
+		preferLanguages(['es-ES']);
+		const source = feed();
+		source.defendingChampion = club() as CupFeed['defendingChampion'];
+		const { container } = render(CupHeader, { props: props({ header: view(source).header }) });
+		expect(container.querySelector('.team-label')?.textContent).toBe('Campeón vigente');
+		expect(container.querySelector('.dates')?.textContent).toContain('4 partidos por equipo');
 	});
 });
 
@@ -175,31 +280,21 @@ describe('CupHeader season selector and tag', () => {
 	});
 });
 
-describe('CupHeader champion logo', () => {
-	const champion = {
-		code: 'QXA',
-		name: 'Herons',
-		city: 'Alderton',
-		guest: false,
-		seasonCode: null,
-		historical: false,
-		logo: null,
-		colors: null
-	};
-
-	it('draws the champion logo in the cup-champion box, and the code for a null logo', () => {
-		const withLogo = complete({
-			...champion,
-			logo: { light: 'https://example.com/x-light.svg', dark: 'https://example.com/x-dark.svg' }
-		});
+describe('CupHeader decoration logo', () => {
+	it('draws the logo as a decoration, and none for a null logo', () => {
+		const withLogo = complete(
+			club({
+				logo: { light: 'https://example.com/x-light.svg', dark: 'https://example.com/x-dark.svg' }
+			})
+		);
 		const first = render(CupHeader, { props: props({ header: withLogo }) });
-		const box = first.container.querySelector('.champion .team-monogram');
-		expect(box?.classList.contains('cup-champion')).toBe(true);
-		expect(box?.querySelector('img')?.getAttribute('src')).toBe('https://example.com/x-dark.svg');
+		expect(first.container.querySelector('.decor .logo img')?.getAttribute('src')).toBe(
+			'https://example.com/x-dark.svg'
+		);
+		expect(first.container.querySelectorAll('.decor a')).toHaveLength(0);
 		first.unmount();
-		const second = render(CupHeader, { props: props({ header: complete(champion) }) });
-		const plain = second.container.querySelector('.champion .team-monogram');
-		expect(plain?.querySelector('img')).toBeNull();
-		expect(plain?.textContent).toBe('QXA');
+		const second = render(CupHeader, { props: props({ header: complete(club()) }) });
+		expect(second.container.querySelector('.decor .logo')).toBeNull();
+		expect(second.container.querySelector('.outline')?.textContent).toBe('QXA');
 	});
 });

@@ -4,7 +4,8 @@
 //
 // Tested:
 // - The state line for each of the six stages, not drawn and a null first game date
-// - The champion only when the Cup is complete
+// - The header team: the champion when complete, else the defending champion; label, accent, bar and outline; null without a team
+// - The stage notes: group and quarterfinal texts, the semifinal and championship city
 // - The four stages: a single date, a range, "TBD", and their status labels
 // - The section order per stage (groups first in draw and group play, the bracket first after)
 // - Group rows are drawn by position whatever the feed order; a null position goes after the numbered rows in feed order
@@ -19,8 +20,8 @@
 // - Known sides: name, meta of seed, group and record, scores and winner on the right side, a missing standing leaves meta null
 // - The known map mirrors the feed; the champion's name only when complete
 // - The season tag: null on the current season, "Season 2026-27" on a past one, in both languages
-// - Spanish copy of the state line, a group title and a stage label
-// - The champion carries the feed's logo into the header view; a null logo leaves the key out
+// - Spanish copy of the state line, a group title, a stage label, the notes and the defending champion label
+// - The header team carries the feed's logo; a null logo leaves the key out
 //
 // What is covered:
 // - Pure logic on an invented feed (tests/lib/feed/fixtures/cup.json); no clock, no network
@@ -32,7 +33,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { CupFeed, CupStage } from '../../../src/lib/contract/cup';
+import type { CupFeed, CupGame, CupStage, Opponent } from '../../../src/lib/contract/cup';
 import type { CupView } from '../../../src/lib/cup/types';
 import { slotLabel, toCupView } from '../../../src/lib/feed/cup-props';
 import { preferLanguages } from '../../prefer-languages';
@@ -85,46 +86,128 @@ describe('toCupView header', () => {
 		expect(atStage('complete').header.stateLine).toBe('Complete');
 	});
 
-	it('has a champion only when the Cup is complete and the feed names one', () => {
-		const champion = { code: 'QXA', name: 'Herons', city: 'Alderton', guest: false };
-		expect(view().header.champion).toBeNull();
-		expect(
-			atStage(
-				'championship',
-				(f) =>
-					(f.champion = {
-						...champion,
-						seasonCode: null,
-						historical: false,
-						logo: null,
-						colors: null
-					})
-			).header.champion
-		).toBeNull();
-		expect(
-			atStage(
-				'complete',
-				(f) =>
-					(f.champion = {
-						...champion,
-						seasonCode: null,
-						historical: false,
-						logo: null,
-						colors: null
-					})
-			).header.champion
-		).toEqual(champion);
-		expect(atStage('complete').header.champion).toBeNull();
+	it('has no header team without a defending champion before the Cup is complete', () => {
+		expect(view().header.team).toBeNull();
+		expect(atStage('complete').header.team).toBeNull();
 	});
 
-	it('keeps a guest champion marked as a guest', () => {
-		const guest = { code: null, name: 'Visitors', city: 'Faraway', guest: true };
-		const v = atStage(
-			'complete',
-			(f) =>
-				(f.champion = { ...guest, seasonCode: null, historical: false, logo: null, colors: null })
-		);
-		expect(v.header.champion).toEqual(guest);
+	it('uses the defending champion at each stage before complete', () => {
+		for (const stage of ['draw', 'group', 'quarterfinals', 'semifinals', 'championship'] as const) {
+			const v = atStage(stage, (f) => {
+				f.defendingChampion = club();
+				f.defendingChampionAccent = '#123456';
+			});
+			expect(v.header.team?.label).toBe('Defending champion');
+			expect(v.header.team?.accent).toBe('#123456');
+			expect(v.header.team?.outline).toBe('QXA');
+		}
+	});
+
+	it('draws the defending champion, not the champion, before complete', () => {
+		const v = atStage('championship', (f) => {
+			f.champion = club({ code: 'ZZZ', name: 'Other' });
+			f.defendingChampion = club();
+		});
+		expect(v.header.team?.team.code).toBe('QXA');
+		expect(v.header.team?.label).toBe('Defending champion');
+	});
+
+	it('uses the champion with its accent when the Cup is complete', () => {
+		const v = atStage('complete', (f) => {
+			f.champion = club({ code: 'ZZZ', name: 'Other' });
+			f.championAccent = '#abcdef';
+			f.defendingChampion = club();
+			f.defendingChampionAccent = '#123456';
+		});
+		expect(v.header.team?.team.code).toBe('ZZZ');
+		expect(v.header.team?.label).toBe('Champion');
+		expect(v.header.team?.accent).toBe('#abcdef');
+	});
+
+	it('does not fall back to the defending champion when complete with no champion', () => {
+		expect(atStage('complete', (f) => (f.defendingChampion = club())).header.team).toBeNull();
+	});
+
+	it('keeps a null accent null', () => {
+		expect(atStage('group', (f) => (f.defendingChampion = club())).header.team?.accent).toBeNull();
+	});
+
+	it('gives the bar only with both colors and a current team', () => {
+		const strip = (change: Partial<Opponent>) =>
+			atStage('group', (f) => (f.defendingChampion = club(change))).header.team?.strip;
+		const colors = { primary: '#111111', secondary: '#222222' } as Opponent['colors'];
+		expect(strip({ colors })).toEqual({ primary: '#111111', secondary: '#222222' });
+		expect(strip({ colors: null })).toBeNull();
+		expect(
+			strip({ colors: { primary: '#111111', secondary: null } as Opponent['colors'] })
+		).toBeNull();
+		expect(strip({ colors, historical: true })).toBeNull();
+	});
+
+	it('keeps a guest champion marked as a guest, with the initials as the outline', () => {
+		const v = atStage('complete', (f) => {
+			f.champion = club({ code: null, name: 'Visitors', city: 'Faraway', guest: true });
+		});
+		expect(v.header.team?.team).toEqual({
+			code: null,
+			name: 'Visitors',
+			city: 'Faraway',
+			guest: true
+		});
+		expect(v.header.team?.outline).toBe('FV');
+	});
+
+	it('carries the feed logo into the team, and no key for a null logo', () => {
+		const logo = { light: 'https://example.com/a-light.svg', dark: null };
+		const withLogo = atStage('group', (f) => (f.defendingChampion = club({ logo })));
+		expect(withLogo.header.team?.team.logo).toEqual(logo);
+		const without = atStage('group', (f) => (f.defendingChampion = club()));
+		expect('logo' in without.header.team!.team).toBe(false);
+	});
+});
+
+const club = (change: Partial<Opponent> = {}): Opponent => ({
+	code: 'QXA',
+	name: 'Herons',
+	city: 'Alderton',
+	guest: false,
+	seasonCode: null,
+	historical: false,
+	logo: null,
+	colors: null,
+	...change
+});
+
+const gameIn = (city: string | null): CupGame => ({ ...complete().games.days[0]!.games[0]!, city });
+
+describe('toCupView stage notes', () => {
+	const notes = (change: (f: CupFeed) => void = () => {}) =>
+		atStage('group', change).header.stages.map((stage) => stage.note);
+
+	it('writes the group and quarterfinal notes and leaves the others empty', () => {
+		expect(notes()).toEqual(['4 games per team', 'Higher seed hosts', null, null]);
+	});
+
+	it('uses the semifinal city, the East one first', () => {
+		expect(notes((f) => (f.bracket[2].game = gameIn('Example City')))[2]).toBe('Example City');
+		expect(
+			notes((f) => {
+				f.bracket[2].game = gameIn('East City');
+				f.bracket[4].game = gameIn('West City');
+			})[2]
+		).toBe('East City');
+	});
+
+	it('uses the West semifinal city when only it has one', () => {
+		expect(notes((f) => (f.bracket[4].game = gameIn('West City')))[2]).toBe('West City');
+	});
+
+	it('leaves the note empty for a game with no city', () => {
+		expect(notes((f) => (f.bracket[2].game = gameIn(null)))[2]).toBeNull();
+	});
+
+	it('uses the final city for the championship', () => {
+		expect(notes((f) => (f.bracket[3].game = gameIn('Final City')))[3]).toBe('Final City');
 	});
 });
 
@@ -609,6 +692,10 @@ describe('toCupView in Spanish', () => {
 		expect(v.groups[0]?.meta).toBe('6 de 10 partidos');
 		expect(v.header.stages[2]?.dates).toBe('Por definir');
 		expect(v.legend[0]?.label).toBe('Ganó el grupo');
+		expect(v.header.stages[0]?.note).toBe('4 partidos por equipo');
+		expect(v.header.stages[1]?.note).toBe('Local el mejor sembrado');
+		const team = atStage('group', (f) => (f.defendingChampion = club())).header.team;
+		expect(team?.label).toBe('Campeón vigente');
 	});
 });
 
@@ -624,18 +711,5 @@ describe('toCupView season tag', () => {
 	it('writes the season tag in Spanish', () => {
 		preferLanguages(['es']);
 		expect(toCupView(feed(), { past: true }).header.tag).toBe('Temporada 2026-27');
-	});
-});
-
-describe('toCupView team logos', () => {
-	it("carries the feed's logo of the champion into the header, and no key for a null logo", () => {
-		const source = complete();
-		source.champion!.logo = { light: 'https://example.com/a-light.svg', dark: null };
-		expect(view(source).header.champion?.logo).toEqual({
-			light: 'https://example.com/a-light.svg',
-			dark: null
-		});
-		source.champion!.logo = null;
-		expect('logo' in view(source).header.champion!).toBe(false);
 	});
 });

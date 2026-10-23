@@ -421,7 +421,7 @@ describe('Cup page season selector', () => {
 		expect(calls).toEqual([CAL_URL, pastUrl(2025)]);
 		expect(screen.getByText('Season 2026-27')).toBeTruthy();
 		expect(container.querySelector('.live-badge')).toBeNull();
-		expect(container.querySelector('.stage-strip .current')).toBeNull();
+		expect(container.querySelector('.cup-timeline .in-progress')).toBeNull();
 	});
 
 	it('does not poll a past season', async () => {
