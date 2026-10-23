@@ -3,7 +3,7 @@
 # Tests for the playoffs finals feed builder and its feed kind.
 #
 # Tested:
-# - Games: only the final Finals games in number order with the stored series game; games not played are absent; an overtime game keeps overtime; a scheduled game is not listed
+# - Games: only the final Finals games in number order with the stored series game; games not played are absent; an overtime game keeps overtime and its overtime count; a scheduled game is not listed
 # - Leaders come from the detail; a failed detail leaves the leaders, the curve and the deficit null and keeps the score
 # - Curve team: the champion when complete, the leader at 3-1, the top side at 2-2; an away curve team gets one minus the home value to 3 decimals; no win probability gives a null curve
 # - Largest deficit: its value and the second of the first play at it; null when never trailed, with no scored plays and with no read
@@ -346,6 +346,16 @@ def test_an_overtime_game_keeps_overtime() -> None:
     overtime = build_playoffs(games, players={}, awards=None)
 
     assert [g.overtime for g in _finals_games(plain)] == [False, False, False]
+    assert [g.overtime for g in _finals_games(overtime)] == [False, True, False]
+
+
+def test_an_overtime_game_keeps_its_overtime_count() -> None:
+    games = postseason("TTT")
+    index = next(i for i, g in enumerate(games) if g.game.id == "finals-2")
+    games[index] = games[index].model_copy(update={"period": 5})
+    overtime = build_playoffs(games, players={}, awards=None)
+
+    assert [g.overtime_periods for g in _finals_games(overtime)] == [0, 1, 0]
     assert [g.overtime for g in _finals_games(overtime)] == [False, True, False]
 
 

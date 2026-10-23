@@ -57,7 +57,7 @@ Conventions:
 | `PlayInSlotLabel`    | `key`: `place`, `loser_of` or `winner_of`; `place` (7 to 10, set exactly for `place`); `game`: `PlayInGameKind` (set exactly for `loser_of` and `winner_of`)                         |
 | `PlayInOutcome`      | `seed` (7, 8 or null); `loserOut`: true when the loser is out                                                                                                                       |
 | `PlayoffGame`        | `id`; `date` (US Eastern); `startTime`; `away`, `home`: `Opponent`; `status`: `GameStatus`; `score`: `Score` / null (set when final); `winner` (`away`, `home`, null; only when final); `overtime` (false before the game; true when the period is 5 or more); `venue` (null when the source has none, [ADR 0064](../adr/0064-degrade-one-bad-item-instead-of-failing-a-feed.md)); `broadcast` (null); `detailAvailable` |
-| `SeriesGame`         | A `PlayoffGame` plus `number` (1 to 7), from the game note                                                                                                                          |
+| `SeriesGame`         | A `PlayoffGame` plus `number` (1 to 7), from the game note; `overtimePeriods` (the period minus 4 from the 5th period, 0 in regulation; null when not live or final, with no period, and on a stored feed from before the field)                                                                                                                        |
 | `Series`             | `id`: `SeriesId`; `round` (1 to 4); `conference` (null for the Finals only); `top`, `bottom`: `SeriesSide`; `status`: `upcoming`, `in_progress`, `complete`; `summary` (derived: `{code} wins series 4-{n}`, `{code} leads series {a}-{b}`, `Series tied {a}-{a}`; null while upcoming); `winner` (team code, set exactly when complete); a complete series has the `wins` of both sides; `games`: `SeriesGame[]` (up to 7, in start order, only the games the source lists) |
 | `SeriesId`           | `east-r1-1` to `east-r1-4`, `east-r2-1`, `east-r2-2`, `east-r3`, `finals`, `west-r3`, `west-r2-1`, `west-r2-2`, `west-r1-1` to `west-r1-4`                                          |
 | `SeriesSide`         | `label`: `SeriesLabel`; `team`: `PlayoffTeam` / null; `seed` (1 to 15, only with a team; null with a team in a season feed without seeds); `wins` (0 to 4, counted from the series' final games, null while the series is upcoming, only with a team); `currently`: `PlayoffTeam` / null (never both a team and `currently`) |
@@ -82,7 +82,9 @@ Conventions:
    the play-in and 3 is the postseason. A canceled game is dropped and a repeated
    game id keeps one game. `date` is the US Eastern date of the start time;
    `winner` is the side with more points of a final game; `overtime` is true for
-   a live or final game whose period is 5 or more.
+   a live or final game whose period is 5 or more. A series game's
+   `overtimePeriods` is its period minus 4 from the 5th period and 0 in
+   regulation; null when the game is not live or final or has no period.
 3. **State.** `complete` when a Finals team has four counted wins;
    else `finals` when any Finals game was read; else `playoffs` when any round 1
    game is live or final; else `playin` on or after the first day of the play-in
@@ -430,7 +432,7 @@ team), then the bottom side.
 
 1. **Games.** The Finals series games of the playoffs feed whose status is
    `final`, in number order, each with its `SeriesGame` as stored: score,
-   `overtime`, `winner`, id and number. A live or scheduled game is not listed;
+   `overtime`, `overtimePeriods`, `winner`, id and number. A live or scheduled game is not listed;
    games 5 to 7 that are not played are absent.
 2. **Curve team.** The champion when the series is complete; else the side with
    more series wins; with tied wins, the top side of the Finals series.
