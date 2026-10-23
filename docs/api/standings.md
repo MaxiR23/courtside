@@ -86,7 +86,8 @@ wins, and missing colors are all valid.
 - Built on request under rule G of
   [`docs/source-rules.md`](../source-rules.md) and expiring as its table
   says: when any game of the league has a final time plus 1 hour after the
-  build, and in any case 7 days after the build. The final games are the ones
+  build, at the first `DAILY_FETCH_TIME` (US Eastern, 06:00 by default) after
+  the build when the build used the rule L fallback (ADR 0069), and in any case 7 days after the build. The final games are the ones
   the games job holds.
 - The sources read are the division standings (1-hour freshness) and the team
   information of the 30 teams (24-hour freshness), through the source cache. The

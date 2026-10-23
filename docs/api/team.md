@@ -127,7 +127,10 @@ The root is one team.
   are the ones the games job holds and the games of the stored schedule that
   started after the build minus 1 day, so a game that already left the days
   shown still expires the feed. It also expires when the stored playoffs feed or
-  the stored Cup feed was built after it.
+  the stored Cup feed was built after it. A build that used the rule L fallback
+  (the division standings, or the leaders of the previous season) also expires
+  at the first `DAILY_FETCH_TIME` (US Eastern, 06:00 by default) after the build
+  (ADR 0069).
 - The sources read are the roster, the season leaders and the team
   information (24-hour freshness) and the division standings, league injuries
   and season schedules (1-hour freshness), all through the source cache. The

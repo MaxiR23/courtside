@@ -1,10 +1,10 @@
 # api/app/storage/state.py
 #
-# Job state in SQLite: game dates, final times and whether they were first seen, highlight attempts, failed stats attempts, matched highlights, team stars, team identities (logo and colors), discovered All-Star editions, the video of each edition and the time each All-Star game was first seen final, the date and box-score players of past games, the player identity cache, the seasons a team did not exist, the targets the highlights search found no video for and its searches per day, source cache entries, feed build times and failures and per-job outcomes.
+# Job state in SQLite: game dates, final times and whether they were first seen, highlight attempts, failed stats attempts, matched highlights, team stars, team identities (logo and colors), discovered All-Star editions, the video of each edition and the time each All-Star game was first seen final, the date and box-score players of past games, the player identity cache, the seasons a team did not exist, the targets the highlights search found no video for and its searches per day, source cache entries, feed build times and failures, whether a standings or team build used the rule L fallback and per-job outcomes.
 # Schema versioned with PRAGMA user_version; MIGRATIONS run once each on startup.
 # One connection per operation, so sync endpoints can use it from the threadpool.
 #
-# SEE: docs/adr/0007-backend-runtime-and-data-pipeline.md, docs/adr/0063-bounded-state-and-kept-feeds.md, docs/source-rules.md
+# SEE: docs/adr/0007-backend-runtime-and-data-pipeline.md, docs/adr/0063-bounded-state-and-kept-feeds.md, docs/adr/0069-daily-expiry-of-fallback-standings-and-team-feeds.md, docs/source-rules.md
 
 import datetime as dt
 import json
@@ -185,6 +185,8 @@ MIGRATIONS: tuple[Migration, ...] = (
     (
         "CREATE TABLE team_identities (team_code TEXT PRIMARY KEY, identity TEXT NOT NULL)",
     ),
+    # Whether a standings or team build used the rule L fallback (ADR 0069).
+    ("ALTER TABLE feed_builds ADD COLUMN fallback INTEGER",),
 )
 
 
@@ -608,6 +610,23 @@ class StateStore:
                 "last_build = excluded.last_build",
                 (kind, feed_id, text),
             )
+
+    def set_build_fallback(self, kind: str, feed_id: str, fallback: bool) -> None:
+        """Sets whether the last build used the rule L fallback; a feed with no
+        build row gets none."""
+        with self._connect() as connection, connection:
+            connection.execute(
+                "UPDATE feed_builds SET fallback = ? WHERE kind = ? AND feed_id = ?",
+                (int(fallback), kind, feed_id),
+            )
+
+    def build_fallback(self, kind: str, feed_id: str) -> bool | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT fallback FROM feed_builds WHERE kind = ? AND feed_id = ?",
+                (kind, feed_id),
+            ).fetchone()
+        return None if row is None or row[0] is None else bool(row[0])
 
     def record_build_failure(
         self, kind: str, feed_id: str, at: dt.datetime, reason: str

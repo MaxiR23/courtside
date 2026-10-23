@@ -33,6 +33,7 @@
 # - The kind: fresh before a final game of the league plus 1 hour and stale at it
 # - The kind: fresh before 7 days and stale at 7 days, and a final game whose hour ended before the build does not expire it
 # - The kind: the cleanup keeps league
+# - The kind: a build with the rule L fallback is fresh before the next daily fetch and stale at it, also across a daylight saving change; a build without it and a stored row with no record keep the current rule; a rebuild without the fallback clears it (ADR 0069)
 #
 # What is covered:
 # - Pure conversions: happy path, edges and errors; the built feed validates
@@ -45,6 +46,7 @@
 import asyncio
 import datetime as dt
 import json
+import sqlite3
 from collections.abc import Iterator
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -746,6 +748,7 @@ class StandingsKit:
         self.requests: list[str] = []
         self.calls: list[str] = []
         self.failing: set[str] = set()
+        self.fallback = False
         self.scoreboard: dict[dt.date, list[ScoreboardGame]] = {}
         respx.get(url__startswith=SOURCE).mock(side_effect=self.answer)
         self.cache = FeedCache(path, self.store, clock=lambda: self.clock[0])
@@ -796,7 +799,7 @@ class StandingsKit:
         self, client: SourceClient, settings: Settings
     ) -> DivisionStandings:
         await self.read("standings", HOUR)
-        return full_league()
+        return full_league().model_copy(update={"fallback": self.fallback})
 
     async def fetch_team_info(
         self, client: SourceClient, team: str, settings: Settings
@@ -989,6 +992,80 @@ async def test_a_feed_is_fresh_before_7_days_and_stale_at_7_days(
     await kit.serve(NOW + FEED_LIFETIME)
 
     assert kit.called("standings") == 2
+
+
+NEXT_FETCH = NOW + 19 * HOUR
+
+
+@pytest.mark.anyio
+async def test_a_feed_built_with_the_fallback_expires_at_the_next_daily_fetch(
+    kit: StandingsKit,
+) -> None:
+    kit.fallback = True
+    await kit.serve()
+
+    await kit.serve(NEXT_FETCH - SECOND)
+    assert kit.called("standings") == 1
+    await kit.serve(NEXT_FETCH)
+
+    assert kit.called("standings") == 2
+
+
+@pytest.mark.anyio
+async def test_a_fallback_build_after_the_fetch_time_expires_the_next_day_across_the_fall_change(
+    kit: StandingsKit,
+) -> None:
+    kit.fallback = True
+    await kit.serve(dt.datetime(2026, 10, 31, 11, 0, tzinfo=dt.UTC))
+
+    await kit.serve(dt.datetime(2026, 11, 1, 10, 59, 59, tzinfo=dt.UTC))
+    assert kit.called("standings") == 1
+    await kit.serve(dt.datetime(2026, 11, 1, 11, 0, tzinfo=dt.UTC))
+
+    assert kit.called("standings") == 2
+
+
+@pytest.mark.anyio
+async def test_a_rebuild_without_the_fallback_clears_the_daily_expiry(
+    kit: StandingsKit,
+) -> None:
+    kit.fallback = True
+    await kit.serve()
+    kit.fallback = False
+    await kit.serve(NEXT_FETCH)
+    assert kit.called("standings") == 2
+
+    await kit.serve(NEXT_FETCH + 24 * HOUR)
+
+    assert kit.called("standings") == 2
+
+
+@pytest.mark.anyio
+async def test_a_feed_built_without_the_fallback_stays_fresh_after_the_daily_fetch(
+    kit: StandingsKit,
+) -> None:
+    await kit.serve()
+
+    await kit.serve(NEXT_FETCH)
+    await kit.serve(NEXT_FETCH + 24 * HOUR)
+
+    assert kit.called("standings") == 1
+
+
+@pytest.mark.anyio
+async def test_a_fallback_feed_with_no_stored_record_keeps_the_current_rule(
+    kit: StandingsKit,
+) -> None:
+    kit.fallback = True
+    await kit.serve()
+    connection = sqlite3.connect(kit.path / "state.sqlite3")
+    with connection:
+        connection.execute("UPDATE feed_builds SET fallback = NULL")
+    connection.close()
+
+    await kit.serve(NEXT_FETCH)
+
+    assert kit.called("standings") == 1
 
 
 @pytest.mark.anyio

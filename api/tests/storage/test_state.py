@@ -76,6 +76,7 @@
 # - Migrates a database at version 8 to the player identities version keeping the rows, stores, replaces and reads a player identity with its time, and reports none for an unknown player
 # - A registered date never overwrites stored players, storing players keeps the registered date, and a game with a date and no players has no players
 # - Migrates a database at version 12 to the team identities, keeping the rows; stores, replaces and reads a team identity (logo and colors); a new database has none (ADR 0068)
+# - Migrates a database at version 13 to the build fallback column keeping the rows; records whether a build used the rule L fallback and replaces it, a later record_build keeps it, a feed with no build row gets none (ADR 0069)
 #
 # What is covered:
 # - Happy path, edge cases (unknown game, repeat migration, restart, no jobs, no stars, pre-migration database), error case (naive time, failed migration)
@@ -945,7 +946,7 @@ def test_migrating_a_database_at_the_previous_version_adds_the_all_star_editions
 
     store.migrate()
 
-    assert user_version(tmp_path) == len(real) == 13
+    assert user_version(tmp_path) == len(real) == 14
     assert [job.name for job in store.job_states()] == ["games"]
     assert store.feed_build("players", "a") is not None
     assert query(tmp_path, "SELECT COUNT(*) FROM all_star_editions") == [(0,)]
@@ -999,7 +1000,7 @@ def test_migrating_a_database_at_the_all_star_editions_version_adds_the_all_star
 
     store.migrate()
 
-    assert user_version(tmp_path) == len(real) == 13
+    assert user_version(tmp_path) == len(real) == 14
     assert store.all_star_edition(2027) is not None
     assert query(tmp_path, "SELECT COUNT(*) FROM all_star_finals") == [(0,)]
 
@@ -1062,7 +1063,7 @@ def test_migrating_a_database_at_version_11_drops_the_backfill_tables_and_the_re
 
     store.migrate()
 
-    assert user_version(tmp_path) == len(real) == 13
+    assert user_version(tmp_path) == len(real) == 14
     assert "g1" in store.highlights()
     assert store.all_star_edition_highlight(2027) is not None
     assert [job.name for job in store.job_states()] == ["games", "stars"]
@@ -1156,7 +1157,7 @@ def test_migrating_a_database_at_version_7_adds_the_past_games_and_keeps_the_row
 
     store.migrate()
 
-    assert user_version(tmp_path) == len(real) == 13
+    assert user_version(tmp_path) == len(real) == 14
     assert store.all_star_edition(2027) is not None
     assert "g1" in store.highlights()
     assert query(tmp_path, "SELECT COUNT(*) FROM past_games") == [(0,)]
@@ -1212,7 +1213,7 @@ def test_migrating_a_database_at_version_8_adds_the_player_identities_and_keeps_
 
     store.migrate()
 
-    assert user_version(tmp_path) == len(real) == 13
+    assert user_version(tmp_path) == len(real) == 14
     assert store.past_game_players("g1", at=NOON) == '{"teams": {}}'
     assert query(tmp_path, "SELECT COUNT(*) FROM player_identities") == [(0,)]
 
@@ -1286,7 +1287,7 @@ def test_migrating_a_database_at_version_9_adds_the_served_and_touched_times_and
 
     store.migrate()
 
-    assert user_version(tmp_path) == len(real) == 13
+    assert user_version(tmp_path) == len(real) == 14
     assert store.feed_build("players", "a") is not None
     assert store.player_identity("p1") is not None
     served = store.last_served("players", "a")
@@ -1477,7 +1478,7 @@ def test_migrating_a_database_at_version_10_adds_the_season_team_absences_and_ke
 
     store.migrate()
 
-    assert user_version(tmp_path) == len(real) == 13
+    assert user_version(tmp_path) == len(real) == 14
     assert store.feed_build("players", "a") is not None
     assert "season_team_absences" in table_names(tmp_path)
     assert query(tmp_path, "SELECT COUNT(*) FROM season_team_absences") == [(0,)]
@@ -1553,7 +1554,7 @@ def test_migrating_a_database_at_version_12_adds_the_team_identities_and_keeps_t
 
     store.migrate()
 
-    assert user_version(tmp_path) == len(real) == 13
+    assert user_version(tmp_path) == len(real) == 14
     assert query(tmp_path, "SELECT team_code FROM stars") == [("OKC",)]
     assert query(tmp_path, "SELECT COUNT(*) FROM team_identities") == [(0,)]
 
@@ -1574,3 +1575,52 @@ def test_a_team_identity_is_stored_replaced_and_read(tmp_path: Path) -> None:
 
 def test_a_new_database_has_no_team_identities(tmp_path: Path) -> None:
     assert make_store(tmp_path).team_identities() == {}
+
+
+def test_migrating_a_database_at_version_13_adds_the_build_fallback_and_keeps_the_rows(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    real = state.MIGRATIONS
+    monkeypatch.setattr(state, "MIGRATIONS", real[:13])
+    store = make_store(tmp_path)
+    execute(
+        tmp_path,
+        "INSERT INTO feed_builds (kind, feed_id, last_build) "
+        "VALUES ('team', 'okc', '2026-10-08T15:00:00+00:00')",
+    )
+    assert user_version(tmp_path) == 13
+    monkeypatch.setattr(state, "MIGRATIONS", real)
+
+    store.migrate()
+
+    assert user_version(tmp_path) == len(real) == 14
+    assert query(tmp_path, "SELECT kind, feed_id FROM feed_builds") == [("team", "okc")]
+    assert store.build_fallback("team", "okc") is None
+
+
+def test_a_build_fallback_is_recorded_replaced_and_kept_by_a_later_build(
+    tmp_path: Path,
+) -> None:
+    store = make_store(tmp_path)
+    store.record_build("team", "okc", NOON)
+
+    store.set_build_fallback("team", "okc", True)
+    first = store.build_fallback("team", "okc")
+    store.record_build("team", "okc", NOON)
+    kept = store.build_fallback("team", "okc")
+    store.set_build_fallback("team", "okc", False)
+
+    assert first is True
+    assert kept is True
+    assert store.build_fallback("team", "okc") is False
+
+
+def test_a_build_fallback_of_a_feed_with_no_build_row_creates_none(
+    tmp_path: Path,
+) -> None:
+    store = make_store(tmp_path)
+
+    store.set_build_fallback("team", "okc", True)
+
+    assert store.build_fallback("team", "okc") is None
+    assert query(tmp_path, "SELECT COUNT(*) FROM feed_builds") == [(0,)]

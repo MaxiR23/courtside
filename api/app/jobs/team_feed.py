@@ -13,8 +13,10 @@
 # feed kind of the on-demand cache: the ids are the 30 lowercase standard codes,
 # the feed is stored at feeds/teams/{code}.json only when requested, it expires 1
 # hour after a final game of the team that follows the build and 7 days after the
-# build (rule G), and detailAvailable is set when it is served, from the games of
-# the days shown. The feed carries the team's Cup group and record, read from
+# build (rule G); a build that used the rule L fallback (the division standings or
+# the previous season's leaders) also expires at the first DAILY_FETCH_TIME (US
+# Eastern) after the build (ADR 0069), and detailAvailable is set when it is
+# served, from the games of the days shown. The feed carries the team's Cup group and record, read from
 # the six Cup group tables of the season while the Cup window is open and the
 # Cup is not complete, else from the stored Cup feed, both through the injected
 # Cup mark provider of the Cup section (ADR 0066); it is none when no table has
@@ -564,6 +566,16 @@ def feed_expired(
     return any(built_at < time + AFTER_FINAL <= now for time in final_times)
 
 
+def next_daily_fetch(built_at: dt.datetime, at: dt.time) -> dt.datetime:
+    """The first `at` in US Eastern strictly after built_at: a fallback feed
+    expires then (rule G, ADR 0069)."""
+    day = eastern_date(built_at)
+    morning = dt.datetime.combine(day, at, tzinfo=EASTERN)
+    if morning <= built_at:
+        morning = dt.datetime.combine(day + dt.timedelta(days=1), at, tzinfo=EASTERN)
+    return morning
+
+
 def with_team_detail(feed: TeamFeed, ids: AbstractSet[str]) -> TeamFeed:
     """The feed with detailAvailable true exactly for the games with an id given."""
     data = feed.model_dump(by_alias=False)
@@ -654,6 +666,7 @@ class TeamFeeds:
         self._title_providers = tuple(title_providers)
         self._cup_marks = cup_marks
         self._names = names
+        self._built_with_fallback: dict[str, bool] = {}
         cache.register(self.kind())
 
     def check(self, code: str) -> IdStatus:
@@ -682,7 +695,7 @@ class TeamFeeds:
         playoffs = await self._fetch_season_schedule(
             self._client, team, roster.season, self._settings, playoffs=True
         )
-        return build_team_feed(
+        feed = build_team_feed(
             team,
             info,
             standings,
@@ -699,6 +712,15 @@ class TeamFeeds:
                 for provider in self._title_providers
             ),
             names=self._names.stored(code) if self._names else None,
+        )
+        self._built_with_fallback[code] = (
+            standings.fallback or leaders.season != roster.season
+        )
+        return feed
+
+    def after_publish(self, code: str, feed: TeamFeed) -> None:
+        self._store.set_build_fallback(
+            KIND, code, self._built_with_fallback.pop(code, False)
         )
 
     async def _cup(self, team: str, season: int) -> TeamCup | None:
@@ -785,6 +807,10 @@ class TeamFeeds:
         # (ADR 0055).
         if self._names is not None and self._names.outdated(feed.code.lower()):
             return False
+        if self._store.build_fallback(
+            KIND, feed.code.lower()
+        ) and now >= next_daily_fetch(built_at, self._settings.daily_fetch_time):
+            return False
         return not self.expired(feed.code, feed.schedule, built_at, now)
 
     def serve_with(self, code: str, feed: TeamFeed) -> TeamFeed:
@@ -805,4 +831,5 @@ class TeamFeeds:
             keep=self.keep,
             serve_with=self.serve_with,
             depends_on=self.depends_on,
+            after_publish=self.after_publish,
         )
