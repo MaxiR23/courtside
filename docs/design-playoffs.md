@@ -92,7 +92,7 @@ Everything under "Implementation rules" in `docs/design.md` and `docs/design-cup
 ## Picture state
 
 - Two conference tables, East and West, reusing the standings table: seed, team (monogram, name), record, GB and the clinch tag. The rows are seeds 1 to 10 in conference order, from the standings data in the feed.
-- **Playoff line:** a solid accent line under seed 6, labeled "Playoffs". **Play-in line:** a dashed accent line under seed 10, labeled "Play-In". Seeds 7 to 10 sit between the two lines.
+- **Playoff line:** a solid 1px divider line under seed 6, labeled "Playoffs". **Play-in line:** a solid 1px divider line under seed 10, labeled "Play-In". Seeds 7 to 10 sit between the two lines.
 - Below the tables: the bracket with "To be decided" slots labeled by seed (see "Bracket"), then the play-in strip with its four slots (see "Play-in").
 - The tables and the clinch tags are the standings values, not recomputed.
 

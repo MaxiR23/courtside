@@ -4,7 +4,7 @@
 //
 // Tested:
 // - The Key label, seven tags with their meanings and the note
-// - The dashed lines sentence only when lines is true
+// - The seed lines sentence only when lines is true
 // - Spanish copy
 //
 // What is covered:
@@ -51,12 +51,12 @@ describe('StandingsKey', () => {
 		expect(screen.getByText('Clinched play-in')).toBeTruthy();
 		expect(screen.getByText('Eliminated')).toBeTruthy();
 		expect(container.querySelector('.note')?.textContent).toContain('Diff is per game');
-		expect(screen.getByText('The dashed lines mark seed 6 and seed 10.')).toBeTruthy();
+		expect(screen.getByText('The lines mark seed 6 and seed 10.')).toBeTruthy();
 	});
 
-	it('draws the dashed lines sentence only when lines is true', () => {
+	it('draws the seed lines sentence only when lines is true', () => {
 		render(StandingsKey, { props: { entries: entries(), lines: false } });
-		expect(screen.queryByText(/dashed lines/)).toBeNull();
+		expect(screen.queryByText(/The lines mark/)).toBeNull();
 		expect(screen.getByText(/Diff is per game/)).toBeTruthy();
 	});
 
@@ -65,5 +65,6 @@ describe('StandingsKey', () => {
 		render(StandingsKey, { props: { entries: entries(), lines: true } });
 		expect(screen.getByText('Leyenda')).toBeTruthy();
 		expect(screen.getByText('Eliminado')).toBeTruthy();
+		expect(screen.getByText('Las líneas marcan el puesto 6 y el 10.')).toBeTruthy();
 	});
 });

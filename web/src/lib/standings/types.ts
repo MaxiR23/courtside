@@ -52,7 +52,7 @@ export type StandingsView = {
 	conference: StandingsGroupView[];
 	division: StandingsGroupView[];
 	key: StandingsKeyEntry[]; // the 7 codes in table order
-	lines: boolean; // the dashed seed lines are drawn: false on a past season
+	lines: boolean; // the seed lines are drawn: false on a past season
 };
 
 export type StandingsPageState =

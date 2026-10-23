@@ -75,7 +75,7 @@ Everything under "Implementation rules" in `docs/design.md`, `docs/design-standi
 ## Wild card
 
 - One table per conference with the non-winners in conference order: Rank · Team · Group · W-L · Diff · PF.
-- A dashed accent "Wild card line" under rank 1. The `x` tag shows when the feed has it.
+- A solid 1px divider "Wild card line" under rank 1. The `x` tag shows when the feed has it.
 
 ## Bracket
 

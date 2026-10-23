@@ -4,7 +4,7 @@
 	import { m } from '#lib/paraglide/messages.js';
 	import type { StandingsKeyEntry } from '#lib/standings/types.ts';
 
-	type Props = { entries: StandingsKeyEntry[]; lines: boolean }; // lines: the dashed seed lines are drawn
+	type Props = { entries: StandingsKeyEntry[]; lines: boolean }; // lines: the seed lines are drawn
 
 	let { entries, lines }: Props = $props();
 </script>

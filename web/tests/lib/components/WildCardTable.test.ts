@@ -5,6 +5,7 @@
 // Tested:
 // - The title, the six headers and the rows in order
 // - The wild card line right after rank 1 and nowhere else
+// - The wild card line is a solid divider rule, with no dash pattern (read from the source)
 // - The x tag when present and none otherwise; Spanish copy
 //
 // What is covered:
@@ -90,5 +91,17 @@ describe('WildCardTable', () => {
 		show();
 		expect(screen.getByRole('heading', { level: 3, name: 'Conferencia Este' })).toBeTruthy();
 		expect(screen.getByText('Línea del comodín')).toBeTruthy();
+	});
+
+	it('draws the wild card line as a solid divider rule', () => {
+		const source = readFileSync(
+			join(__dirname, '..', '..', '..', 'src', 'lib', 'components', 'WildCardTable.svelte'),
+			'utf8'
+		);
+		expect(source).toContain('border-top: var(--hairline) solid var(--color-divider)');
+		expect(source).not.toMatch(/stroke-dasharray|dashed|dotted|--standings-line-dash|<line\b/);
+		const { container } = show();
+		expect(container.querySelector('.line .rule')?.getAttribute('aria-hidden')).toBe('true');
+		expect(screen.getByText('Wild card line')).toBeTruthy();
 	});
 });

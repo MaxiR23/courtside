@@ -46,7 +46,7 @@
 				</div>
 				{#if row.lineAfter}
 					<div class="line">
-						<svg aria-hidden="true"><line x1="0" y1="50%" x2="100%" y2="50%" /></svg>
+						<span class="rule" aria-hidden="true"></span>
 						<span class="caption">{m.cup_wild_card_line()}</span>
 					</div>
 				{/if}
@@ -144,15 +144,9 @@
 		gap: var(--game-list-gap);
 	}
 
-	.line svg {
+	.rule {
 		flex: 1;
-		height: var(--hairline);
-	}
-
-	.line line {
-		stroke: var(--color-accent);
-		stroke-dasharray: var(--standings-line-dash);
-		vector-effect: non-scaling-stroke;
+		border-top: var(--hairline) solid var(--color-divider);
 	}
 
 	.caption {

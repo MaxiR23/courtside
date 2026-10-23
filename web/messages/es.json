@@ -319,7 +319,7 @@
 	"clinch_pb": "En posición de play-in",
 	"clinch_e": "Eliminado",
 	"standings_key_note": "DP, Div y Conf son dentro del grupo mostrado. Dif es por partido, Tot es el total de la temporada.",
-	"standings_key_lines": "Las líneas discontinuas marcan el puesto 6 y el 10.",
+	"standings_key_lines": "Las líneas marcan el puesto 6 y el 10.",
 	"search_trigger_label": "Buscar",
 	"search_placeholder": "Buscar jugador o equipo",
 	"search_clear": "Borrar",

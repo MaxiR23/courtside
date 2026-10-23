@@ -50,7 +50,7 @@ function lastIndexOfSeed(seeds: (number | null)[], seed: number): number {
 	return seeds.lastIndexOf(seed);
 }
 
-/** The dashed line goes under the last row of seed 6 and under the last row of seed 10. */
+/** The line goes under the last row of seed 6 and under the last row of seed 10. */
 export function lineAfter(seeds: (number | null)[]): (StandingsLine | null)[] {
 	const playoff = lastIndexOfSeed(seeds, PLAYOFF_SEED);
 	const playIn = lastIndexOfSeed(seeds, PLAY_IN_SEED);
