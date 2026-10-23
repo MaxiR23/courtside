@@ -5,7 +5,7 @@
 // Tested:
 // - Ready: each of the five states draws its sections in the design's order
 // - The bracket is in every state with its 15 series
-// - A click on a game in the Finals card selects that game in the series section and scrolls to it
+// - The complete state selects the Finals in the bracket and shows its result panel; the play-in heading is an H3
 // - Without the finals feed only the four finals sections go
 // - Loading: the header and the skeleton are aria-busy
 // - The unavailable state of a past season keeps the Season tag; the current season's has none (ADR 0054)
@@ -37,6 +37,7 @@ const HOME = '/' as ResolvedPathname;
 const STANDINGS = '/standings' as ResolvedPathname;
 const teamHref = (code: string) => `/team/${code.toLowerCase()}` as ResolvedPathname;
 const gameHref = (id: string) => `/game/${id}` as ResolvedPathname;
+const seriesHref = (id: string) => `/playoffs/series?id=${id}` as ResolvedPathname;
 const UNAVAILABLE = "Data isn't available right now. Check back later.";
 
 const read = <T>(file: string): T =>
@@ -64,8 +65,11 @@ const show = (state: PlayoffsPageState) =>
 			allGamesHref: HOME,
 			standingsHref: STANDINGS,
 			layout: 'desktop' as const,
+			bracketLayout: 'desktop' as const,
 			teamHref,
-			gameHref
+			gameHref,
+			seriesHref,
+			openSeries: vi.fn()
 		}
 	});
 const ids = (container: HTMLElement) =>
@@ -93,7 +97,6 @@ describe('PlayoffsPage', () => {
 			'East',
 			'West',
 			'Bracket',
-			'Play-In',
 			'Leaders',
 			'Awards'
 		]);
@@ -148,23 +151,23 @@ describe('PlayoffsPage', () => {
 		}
 	});
 
-	it('ready: a click on a Finals game in the bracket selects it in the series section', async () => {
-		const scrollIntoView = vi.fn();
-		Element.prototype.scrollIntoView = scrollIntoView;
+	it('ready: the complete state selects the Finals in the bracket and shows its result', () => {
 		const { container } = show(ready('complete'));
-		const tabs = () => [...container.querySelectorAll('#series .tab')];
-		expect(tabs()[0]?.getAttribute('aria-pressed')).toBe('true');
-		await fireEvent.click(
-			container.querySelector('#bracket .series.champion, #bracket .series:nth-child(1)')!
+		const section = container.querySelector('#bracket')!;
+		expect(section.querySelectorAll('.series.selected')).toHaveLength(1);
+		expect(section.querySelector('section.result .headline')?.textContent).toBe('QXA wins 4–1');
+		expect(container.querySelectorAll('#series .tab')[0]?.getAttribute('aria-pressed')).toBe(
+			'true'
 		);
-		await fireEvent.click(screen.getByRole('button', { name: /NBA Finals/ }));
-		const rows = [...container.querySelectorAll('#bracket .games .game-button')];
-		expect(rows).toHaveLength(5);
-		await fireEvent.click(rows[3]);
-		expect(tabs()[3]?.getAttribute('aria-pressed')).toBe('true');
-		expect(tabs()[0]?.getAttribute('aria-pressed')).toBe('false');
-		expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'auto', block: 'start' });
-		delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+	});
+
+	it('ready: the play-in has an H3 and no section heading', () => {
+		const { container } = show(ready('picture'));
+		expect(
+			[...container.querySelectorAll('#play-in h2, #play-in h3')].map(
+				(h) => h.tagName + h.textContent
+			)
+		).toEqual(['H3Play-in']);
 	});
 
 	it('ready: collapses the play-in after round 1 starts', () => {
@@ -196,8 +199,11 @@ describe('PlayoffsPage', () => {
 			allGamesHref: HOME,
 			standingsHref: STANDINGS,
 			layout: 'desktop' as const,
+			bracketLayout: 'desktop' as const,
 			teamHref,
-			gameHref
+			gameHref,
+			seriesHref,
+			openSeries: vi.fn()
 		};
 		const { unmount } = render(PlayoffsPage, { props: { ...props, seasonTag: 'Season 2022-23' } });
 		expect(screen.getByText('Season 2022-23')).toBeTruthy();
@@ -224,7 +230,6 @@ describe('PlayoffsPage', () => {
 			'Este',
 			'Oeste',
 			'Cuadro',
-			'Play-In',
 			'Líderes',
 			'Premios'
 		]);

@@ -19,6 +19,7 @@
 // - The unavailable state of a past season keeps the Season tag; a calendar that answers 503 shows the current season and no select (ADR 0054)
 // - With ?season: loads the calendar, then the season playoffs and finals feeds, once each; no polling; the tag; 503 and 404 states
 // - A malformed, unlisted or current ?season loads the current feeds and polls them; the select lists every calendar season and navigates with goto
+// - The bracket's Full series link and second tap keep ?season on a past season and have none on the current one
 // - A past feed with no play-in, no head to head values, no leaders and no awards closes the sections with no gap; a null seed draws no number
 // - The current season keeps the head to head of all-null bars and the dash of a null seed
 //
@@ -442,6 +443,39 @@ describe('Playoffs page season selector', () => {
 		expect(countOf(pastUrl(2005))).toBe(1);
 		expect(countOf(pastFinalsUrl(2005))).toBe(1);
 		expect(countOf(CAL_URL)).toBe(1);
+	});
+
+	it('links the Full series of the bracket with the season of a past season, and without one on the current season', async () => {
+		stubRoutes({
+			[CAL_URL]: [answerWith(calendarFeed())],
+			[pastUrl(2005)]: [answerWith(inState('complete'))],
+			[pastFinalsUrl(2005)]: [answerWith(finalsFeed())]
+		});
+		const past = await renderSeason('?season=2005');
+		expect(
+			past.container.querySelector('#bracket section.result a.full')?.getAttribute('href')
+		).toBe('/playoffs/series?id=finals&season=2005');
+		past.unmount();
+		stubRoutes({
+			[CAL_URL]: [answerWith(calendarFeed())],
+			[FEED_URL]: [answerWith(inState('complete'))],
+			[FINALS_URL]: [answerWith(finalsFeed())]
+		});
+		const current = await renderSeason('');
+		expect(
+			current.container.querySelector('#bracket section.result a.full')?.getAttribute('href')
+		).toBe('/playoffs/series?id=finals');
+	});
+
+	it('goes to the full series page on a second tap, keeping the season of a past season', async () => {
+		stubRoutes({
+			[CAL_URL]: [answerWith(calendarFeed())],
+			[pastUrl(2005)]: [answerWith(inState('complete'))],
+			[pastFinalsUrl(2005)]: [answerWith(finalsFeed())]
+		});
+		const { container } = await renderSeason('?season=2005');
+		await fireEvent.click(container.querySelector('#bracket button.series.selected')!);
+		expect(seasonMocks.goto).toHaveBeenLastCalledWith('/playoffs/series?id=finals&season=2005');
 	});
 
 	it('requests no finals feed of a past season that has not reached the Finals', async () => {

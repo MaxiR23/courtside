@@ -3,11 +3,13 @@
 // Tests for the PlayInStrip component.
 //
 // Tested:
-// - One card per conference with three games each
+// - The Play-in H3 above two conference columns (a label, not a heading) of three game cards each
 // - To be decided with the regular season place and the Currently line before play
-// - Scores and outcomes after a game; the date and time before it
+// - Codes, points and the loser row after a game; the seed note in the accent class and the out note muted
+// - The date and time before a game
 // - A game link only when the game is linked
-// - Collapsed: titles and outcome lines only
+// - Collapsed: titles and notes only
+// - Spanish notes
 //
 // What is covered:
 // - Each state a game can show, drawn from props with no fetch
@@ -24,6 +26,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { PlayoffsFeed } from '../../../src/lib/contract/playoffs';
 import { toPlayoffsView } from '../../../src/lib/feed/playoffs-props';
 import PlayInStrip from '../../../src/lib/components/PlayInStrip.svelte';
+import { preferLanguages } from '../../prefer-languages';
 
 const teamHref = (code: string) => `/team/${code.toLowerCase()}` as ResolvedPathname;
 const gameHref = (id: string) => `/game/${id}` as ResolvedPathname;
@@ -48,12 +51,15 @@ afterEach(() => {
 });
 
 describe('PlayInStrip', () => {
-	it('draws one card per conference with three games each', () => {
+	it('draws the Play-in heading above two conference columns of three games each', () => {
 		const { container } = show('playoffs-picture.json');
-		expect(screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual([
-			'East · Play-In',
-			'West · Play-In'
+		expect(screen.getAllByRole('heading').map((h) => [h.tagName, h.textContent])).toEqual([
+			['H3', 'Play-in']
 		]);
+		expect(
+			[...container.querySelectorAll('.conference > .label')].map((l) => l.textContent)
+		).toEqual(['East', 'West']);
+		expect(container.querySelectorAll('.conference')).toHaveLength(2);
 		expect(container.querySelectorAll('.game')).toHaveLength(6);
 		expect(
 			[...container.querySelectorAll('.game-title')].slice(0, 3).map((t) => t.textContent)
@@ -71,17 +77,39 @@ describe('PlayInStrip', () => {
 		expect(container.querySelectorAll('.game')[2]?.textContent).toContain('Winner of 9th vs 10th');
 	});
 
-	it('draws scores and outcomes after a game, and the date and time before it', () => {
+	it('draws the codes and points after a game, with the loser row marked', () => {
 		const { container } = show('playoffs-playin.json');
 		const games = [...container.querySelectorAll('.game')];
+		expect([...games[0]!.querySelectorAll('.slot-name')].map((n) => n.textContent)).toEqual([
+			'QXG',
+			'QXH'
+		]);
 		expect([...games[0]!.querySelectorAll('.score')].map((s) => s.textContent)).toEqual([
 			'108',
 			'101'
 		]);
-		expect(games[0]!.querySelector('.outcome')?.textContent).toBe('QXG → No. 7');
-		expect(games[1]!.querySelector('.outcome')?.textContent).toBe('QXI out');
-		expect(games[2]!.querySelector('.when')?.textContent).toMatch(/^Apr 17 · /);
-		expect(games[2]!.querySelector('.score')).toBeNull();
+		expect(
+			[...games[0]!.querySelectorAll('.slot')].map((s) => s.classList.contains('loser'))
+		).toEqual([false, true]);
+		expect(games[2]!.querySelector('.slot.loser')).toBeNull();
+	});
+
+	it('marks a seed note in the accent class and an out note as muted', () => {
+		const { container } = show('playoffs-playin.json');
+		const games = [...container.querySelectorAll('.game')];
+		const seed = games[0]!.querySelector('.note')!;
+		expect(seed.textContent).toBe('QXG → No. 7');
+		expect(seed.classList.contains('seed')).toBe(true);
+		const out = games[1]!.querySelector('.note')!;
+		expect(out.textContent).toBe('QXI out');
+		expect(out.classList.contains('seed')).toBe(false);
+	});
+
+	it('draws the date and time of a game that is not final, and no score', () => {
+		const { container } = show('playoffs-playin.json');
+		const game = container.querySelectorAll('.game')[2]!;
+		expect(game.querySelector('.when')?.textContent).toMatch(/^Apr 17 · /);
+		expect(game.querySelector('.score')).toBeNull();
 	});
 
 	it('links a game only when it is linked', () => {
@@ -93,7 +121,7 @@ describe('PlayInStrip', () => {
 		expect(links[0]?.getAttribute('href')).toBe('/game/g1');
 	});
 
-	it('collapses to the titles and the outcome lines', () => {
+	it('collapses to the titles and the notes', () => {
 		const { container } = show('playoffs-playin.json', true, (f) => {
 			f.playIn![0].games[0].game!.detailAvailable = true;
 		});
@@ -105,5 +133,15 @@ describe('PlayInStrip', () => {
 		expect(games[0]!.querySelector('a')).toBeNull();
 		expect(games[0]!.textContent).toContain('7th vs 8th');
 		expect(games[0]!.textContent).toContain('QXG → No. 7');
+	});
+
+	it('writes the notes and the heading in Spanish', () => {
+		preferLanguages(['es-ES']);
+		const { container } = show('playoffs-playin.json');
+		expect(screen.getByRole('heading', { level: 3 }).textContent).toBe('Play-in');
+		expect(
+			[...container.querySelectorAll('.conference > .label')].map((l) => l.textContent)
+		).toEqual(['Este', 'Oeste']);
+		expect(container.querySelector('.note')?.textContent).toMatch(/^QXG → /);
 	});
 });

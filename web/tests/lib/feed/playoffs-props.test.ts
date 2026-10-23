@@ -8,13 +8,14 @@
 // - A historical team has no strip and shows its season code; a team that kept its name keeps its colors (ADR 0054)
 // - The state line of each state, the stage strip (TBD, ranges, one date, statuses)
 // - The picture tables: seeds in feed order, the line markers, clinch tags, — in the preseason
-// - The play-in: To be decided slots, places, the 8th seed labels, outcomes, links, the collapsed flag
+// - The play-in: To be decided slots, places, the 8th seed labels, seed and out notes, the loser flag, links, the collapsed flag
 // - The champion hero: label, city and name, subline with the opponent and dates, the feed's accent, one score column per final Finals game
 // - The finals series: tabs, OT, the champion's wins, video, no chart for a missing or bad curve, the deficit marker
 // - The road to the title, the head to head bars, the postseason averages
 // - The leaders tabs and the awards cards, the All-NBA team names
 // - The bracket: 15 series and 16 round 1 slots in every state, slot labels, Currently and To be decided notes,
-//   the loser, rows from the top team's point of view, OT, scheduled games, missing values, the Champion flag
+//   the loser, the kicker, the headline and lead side, the resolved side colors and filled segments, game cells
+//   (G{n}, at the home team, OT tag, winner, score and accent), scheduled games, missing values, the Champion flag
 // - Past seasons (the past option): the season tag; no play-in section or stage with a null play-in; the head to head only with a bar value; no seed number for a null seed
 // - The current season keeps the head to head of an all-null finals feed and the dash of a null seed
 // - Leaders and awards null, the Finals MVP absent: the sections close with no gap
@@ -407,7 +408,7 @@ describe('toPlayoffsView picture', () => {
 describe('toPlayoffsView play-in', () => {
 	it('labels undecided play-in slots To be decided with the regular season place', () => {
 		const east = view(picture()).playIn[0];
-		expect(east.title).toBe('East · Play-In');
+		expect(east.title).toBe('East');
 		const first = east.games[0];
 		expect(first.title).toBe('7th vs 8th');
 		expect(first.top).toMatchObject({
@@ -430,23 +431,35 @@ describe('toPlayoffsView play-in', () => {
 		expect(game.bottom.place).toBe('Winner of 9th vs 10th');
 	});
 
-	it('writes the play-in outcomes QXG → No. 7 and QXJ out once a game is final', () => {
+	it('writes the play-in notes QXG → No. 7 and QXJ out once a game is final', () => {
 		const east = view(playin()).playIn[0];
-		expect(east.games[0].outcomes).toEqual(['QXG → No. 7']);
-		expect(east.games[0].top).toMatchObject({ label: 'Falcons', place: null });
+		expect(east.games[0].notes).toEqual([{ text: 'QXG → No. 7', kind: 'seed' }]);
+		expect(east.games[0].top).toMatchObject({ label: 'QXG', place: null });
 		expect(east.games[0].score).toEqual({ top: '108', bottom: '101' });
 		expect(east.games[0].when).toBeNull();
-		expect(east.games[1].outcomes).toEqual(['QXI out']);
+		expect(east.games[1].notes).toEqual([{ text: 'QXI out', kind: 'out' }]);
 		expect(east.games[1].score).toEqual({ top: '97', bottom: '99' });
 		const done = view(complete()).playIn[0].games[2];
-		expect(done.outcomes).toEqual(['QXH → No. 8', 'QXJ out']);
+		expect(done.notes).toEqual([
+			{ text: 'QXH → No. 8', kind: 'seed' },
+			{ text: 'QXJ out', kind: 'out' }
+		]);
+	});
+
+	it('flags the loser of a final play-in game only, and titles each column by conference', () => {
+		const east = view(playin()).playIn[0];
+		expect(east.games[0].top.loser).toBe(false);
+		expect(east.games[0].bottom.loser).toBe(true);
+		expect(east.games[2].top.loser).toBe(false);
+		expect(east.games[2].bottom.loser).toBe(false);
+		expect(view(playin()).playIn.map((card) => card.title)).toEqual(['East', 'West']);
 	});
 
 	it('shows the date and the tip time of a game that is not final', () => {
 		const game = view(playin()).playIn[0].games[2];
 		expect(game.when).toMatch(/^Apr 17 · \d{1,2}:\d{2} [AP]M/);
 		expect(game.score).toBeNull();
-		expect(game.top.label).toBe('Bison');
+		expect(game.top.label).toBe('QXH');
 	});
 
 	it('links a play-in game only when its detail is available', () => {
@@ -837,11 +850,100 @@ describe('toPlayoffsView bracket', () => {
 		expect(games[0].overtime).toBe(false);
 	});
 
-	it('reads each row from the top team, vs at home and at away', () => {
+	it('labels each game G{n} and at the home team', () => {
 		const games = card('east-r1-1').games;
-		expect(games[0].label).toBe('G1 · vs QXH');
-		expect(games[2].label).toBe('G3 · at QXH');
-		expect(games[4].label).toBe('G5 · vs QXH');
+		expect(games.map((game) => game.number)).toEqual(['G1', 'G2', 'G3', 'G4', 'G5']);
+		expect(games.map((game) => game.at)).toEqual([
+			'at QXA',
+			'at QXA',
+			'at QXH',
+			'at QXH',
+			'at QXA'
+		]);
+	});
+
+	it('writes the OT tag from the exact count, the flag on an old feed, and none in regulation', () => {
+		const feed = bracket();
+		feed.bracket[0].games[0]!.overtimePeriods = 2;
+		const games = card('east-r1-1', feed).games;
+		expect(games[0].overtimeTag).toBe('2OT');
+		expect(games[2].overtimeTag).toBe('OT');
+		expect(games[1].overtimeTag).toBeNull();
+		feed.bracket[0].games[1]!.overtimePeriods = 0;
+		expect(card('east-r1-1', feed).games[1].overtimeTag).toBeNull();
+	});
+
+	it('gives the game winner its logo team, its score first and its side accent', () => {
+		const feed = bracket();
+		feed.bracket[0].accent = { top: '#112233', bottom: '#445566' };
+		const games = card('east-r1-1', feed).games;
+		expect(games[0].winner).toMatchObject({ code: 'QXA', score: '105–98' });
+		expect(games[0].winner?.team.code).toBe('QXA');
+		expect(games[0].accent).toBe('#112233');
+		expect(games[2].winner).toMatchObject({ code: 'QXH', score: '112–110' });
+		expect(games[2].accent).toBe('#445566');
+		expect(games[3].winner).toMatchObject({ code: 'QXA', score: '104–99' });
+		expect(games[3].accent).toBe('#112233');
+	});
+
+	it('gives a game with no winner no winner team and no accent', () => {
+		const feed = bracket();
+		feed.bracket[1].accent = { top: '#112233', bottom: '#445566' };
+		const game = card('east-r1-2', feed).games[4];
+		expect(game.winner).toBeNull();
+		expect(game.accent).toBeNull();
+	});
+
+	it('gives a winner no accent when the series has none', () => {
+		const game = card('east-r1-1').games[0];
+		expect(game.winner?.code).toBe('QXA');
+		expect(game.accent).toBeNull();
+	});
+
+	it("reads each side's resolved color from the feed, null with no accent or no team", () => {
+		const feed = bracket();
+		feed.bracket[0].accent = { top: '#112233', bottom: '#445566' };
+		const series = card('east-r1-1', feed);
+		expect(series.top.accent).toBe('#112233');
+		expect(series.bottom.accent).toBe('#445566');
+		expect(card('east-r1-1').top.accent).toBeNull();
+		expect(card('east-r2-2', feed).top.accent).toBeNull();
+	});
+
+	it('counts the filled segments from the wins, 0 for missing wins', () => {
+		expect(card('east-r1-1').top.filled).toBe(4);
+		expect(card('east-r1-1').bottom.filled).toBe(1);
+		expect(card('east-r1-3').top.filled).toBe(0);
+		expect(card('east-r1-4').top.filled).toBe(0);
+		expect(card('east-r2-2').top.filled).toBe(0);
+	});
+
+	it('writes the headline and the lead side: winner, leader, tie and missing wins', () => {
+		const won = card('east-r1-1');
+		expect(won.headline).toBe('QXA wins 4–1');
+		expect(won.lead).toBe('top');
+		const feed = bracket();
+		feed.bracket[1].top.wins = 1;
+		feed.bracket[1].bottom.wins = 3;
+		const leading = card('east-r1-2', feed);
+		expect(leading.headline).toBe('QXE leads 3–1');
+		expect(leading.lead).toBe('bottom');
+		const tied = card('east-r1-2');
+		expect(tied.headline).toBe('Series tied 2–2');
+		expect(tied.lead).toBe('top');
+		expect(card('east-r1-4').headline).toBe('—');
+		expect(card('east-r1-4').lead).toBe('top');
+	});
+
+	it('takes the lead from the winner when the bottom side won', () => {
+		const feed = bracket();
+		feed.bracket[0].winner = 'QXH';
+		expect(card('east-r1-1', feed).lead).toBe('bottom');
+		expect(card('east-r1-1', feed).headline).toBe('QXH wins 1–4');
+	});
+
+	it('writes the kicker from the last postseason date', () => {
+		expect(view(bracket()).bracket.kicker).toBe('2027 NBA Playoffs');
 	});
 
 	it('mutes the losing side of a final game and writes its scores', () => {
@@ -904,8 +1006,14 @@ describe('toPlayoffsView bracket', () => {
 
 	it('writes the bracket in Spanish', () => {
 		preferLanguages(['es-ES']);
-		expect(card('east-r1-1').games[0].label).toBe('P1 · ante QXH');
-		expect(card('east-r1-1').games[2].label).toBe('P3 · en QXH');
+		const games = card('east-r1-1').games;
+		expect(games[0].number).toBe('P1');
+		expect(games[0].at).toBe('en QXA');
+		expect(view(bracket()).bracket.kicker).toBe('Playoffs de la NBA 2027');
+		const feed = bracket();
+		feed.bracket[0].games[0]!.overtimePeriods = 2;
+		expect(card('east-r1-1', feed).games[0].overtimeTag).toBe('2TE');
+		expect(card('east-r1-1').headline).toBe('QXA gana 4–1');
 		expect(card('west-r1-1').bottom.label).toBe('Ganador del play-in del Oeste');
 	});
 });

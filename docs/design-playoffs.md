@@ -193,7 +193,7 @@ A plain grid at 1:1: no translate, no scale and no camera, so it renders sharp a
 No zoom and no sideways scroll at any width.
 
 - **Seven rows** in the same order, each with a 9.5px centered label (NBA Finals in accent light), each an 8-column grid with a 4px gap. Cards span 2 columns: R1 at `1/3`, `3/5`, `5/7`, `7/9`; semifinals at `2/4` and `6/8`; the conference finals at `4/6`; the NBA Finals at `3/7`.
-- **Card:** padding 5px; seed 8.5px, logo 14px, code 12px, wins 13px; segments 2px tall with a 2px gap. The Finals card: padding `6px 10px`, logo 20px, code 16px, wins 18px.
+- **Card:** padding 5px; no seed (a 2-column card is about 55px wide inside at 320px, so the seed stays on the desktop map, in the sheet and on the full series page); logo 14px, code 12px, wins 13px, in tight tracks (3px row gap, a wins track with no minimum); segments 2px tall with a 2px gap. The Finals card: padding `6px 10px`, logo 20px, code 16px, wins 18px.
 
 ### Interaction
 
@@ -344,6 +344,8 @@ To add to `web/src/lib/styles/tokens.css` in the implementing issue. Values not 
 | `--playoffs-finals-card-border` | accent light at 45% | Finals card border |
 | `--playoffs-selected-bg` | accent at 12% | Selected series card |
 | `--playoffs-segment-height` | 3px | Wins segment (2px in the vertical tree) |
+| `--playoffs-tree-row-gap` | 3px | Gap between the logo, code and wins in a tree card row |
+| `--playoffs-tree-wins-column` | 0px | Minimum width of the wins track in a tree card row |
 | `--playoffs-segment-empty` | ink at 12% | Empty wins segment |
 | `--playoffs-sheet-bg` | `#11161b` | Series sheet panel |
 | `--playoffs-sheet-button-height` | 48px | "Full series" button in the sheet |

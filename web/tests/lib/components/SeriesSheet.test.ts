@@ -3,13 +3,13 @@
 // Tests for the SeriesSheet component.
 //
 // Tested:
-// - A modal dialog named by the round title, with the series score
-// - One row per listed game, a link to the game page only when the game has a detail page
+// - A modal dialog named by the round title, with the headline and the lead team's logo
+// - One cell per listed game, a link to the game page only when the game has a detail page
+// - The "Full series" link points to the series page
 // - The body scroll is locked while open and restored on unmount
 // - Focus starts on Close
-// - Esc, the scrim and Close call onClose
+// - Esc, the scrim and Close call onClose; Tab stays inside the sheet
 // - Spanish copy
-// - The team logos: inline before the label of a decided side, none for an undecided one
 //
 // What is covered:
 // - The sheet drawn from props with no fetch; the slide itself is not asserted (jsdom does not animate)
@@ -30,6 +30,7 @@ import type { SeriesCardView } from '../../../src/lib/playoffs/types';
 import { preferLanguages } from '../../prefer-languages';
 
 const gameHref = (id: string) => `/game/${id}` as ResolvedPathname;
+const seriesHref = (id: string) => `/playoffs/series?id=${id}` as ResolvedPathname;
 
 const card = (id: string): SeriesCardView =>
 	toPlayoffsView(
@@ -40,7 +41,7 @@ const card = (id: string): SeriesCardView =>
 	).bracket.series.find((series) => series.id === id)!;
 
 const show = (id = 'east-r1-2', onClose = vi.fn()) =>
-	render(SeriesSheet, { props: { series: card(id), gameHref, onClose } });
+	render(SeriesSheet, { props: { series: card(id), gameHref, seriesHref, onClose } });
 
 afterEach(() => {
 	vi.restoreAllMocks();
@@ -48,26 +49,36 @@ afterEach(() => {
 });
 
 describe('SeriesSheet', () => {
-	it('is a modal dialog named by the round title, with the series score', () => {
+	it('is a modal dialog named by the round title, with the headline', () => {
 		show();
 		const dialog = screen.getByRole('dialog', { name: 'East · Round 1' });
 		expect(dialog.getAttribute('aria-modal')).toBe('true');
-		expect(screen.getByText('Series tied 2–2')).toBeTruthy();
+		expect(screen.getByRole('heading', { name: 'Series tied 2–2' })).toBeTruthy();
 	});
 
-	it('shows both sides with seed, code and wins', () => {
-		const { container } = show();
-		const sides = [...container.querySelectorAll('.sides > .side')];
-		expect(sides.map((side) => side.textContent?.replace(/\s+/g, ' ').trim())).toEqual([
-			'4 QXD QXD 2',
-			'5 QXE QXE 2'
-		]);
+	it('writes who wins or leads in the headline', () => {
+		show('east-r1-1');
+		expect(screen.getByRole('heading').textContent).toBe('QXA wins 4–1');
+	});
+
+	it('shows the logo of the lead team', () => {
+		const series = card('east-r1-1');
+		series.top.team!.logo = {
+			light: 'https://example.com/x-light.svg',
+			dark: 'https://example.com/x-dark.svg'
+		};
+		const { container } = render(SeriesSheet, {
+			props: { series, gameHref, seriesHref, onClose: vi.fn() }
+		});
+		expect(container.querySelector('.logo img')?.getAttribute('src')).toBe(
+			'https://example.com/x-dark.svg'
+		);
 	});
 
 	it('lists one row per game and links only the games with a detail page', () => {
 		const { container } = show();
 		expect(container.querySelectorAll('.game')).toHaveLength(5);
-		const links = [...container.querySelectorAll('a')];
+		const links = [...container.querySelectorAll('.games a')];
 		expect(links.map((a) => a.getAttribute('href'))).toEqual([
 			'/game/b201',
 			'/game/b202',
@@ -76,16 +87,17 @@ describe('SeriesSheet', () => {
 		]);
 	});
 
-	it('lists no row for a series with no games', () => {
+	it('lists no cell for a series with no games', () => {
 		const { container } = show('east-r1-4');
 		expect(container.querySelectorAll('.game')).toHaveLength(0);
-		expect(container.querySelector('.sides > .score')?.textContent).toBe('—');
+		expect(screen.getByRole('heading').textContent).toBe('—');
 	});
 
-	it('shows the slot label of an undecided side', () => {
-		show('east-r2-1');
-		expect(screen.getByText('Winner of East R1 2')).toBeTruthy();
-		expect(screen.getByText('To be decided')).toBeTruthy();
+	it('links Full series to the series page', () => {
+		show('east-r1-2');
+		expect(screen.getByRole('link', { name: 'Full series →' }).getAttribute('href')).toBe(
+			'/playoffs/series?id=east-r1-2'
+		);
 	});
 
 	it('locks the body scroll while open and restores it on unmount', () => {
@@ -124,29 +136,7 @@ describe('SeriesSheet', () => {
 		preferLanguages(['es-ES']);
 		show();
 		expect(screen.getByRole('button', { name: 'Cerrar' })).toBeTruthy();
+		expect(screen.getByRole('link', { name: 'Serie completa →' })).toBeTruthy();
 		expect(screen.getByRole('dialog', { name: 'Este · Ronda 1' })).toBeTruthy();
-	});
-});
-
-describe('SeriesSheet logos', () => {
-	it('draws the logo inline before the label of a decided side', () => {
-		const series = card('east-r1-2');
-		series.top.team!.logo = {
-			light: 'https://example.com/x-light.svg',
-			dark: 'https://example.com/x-dark.svg'
-		};
-		render(SeriesSheet, { props: { series, gameHref, onClose: vi.fn() } });
-		const marks = [...document.querySelectorAll('.sides .team-monogram.inline')];
-		expect(marks).toHaveLength(2);
-		expect(marks[0]!.querySelector('img')?.getAttribute('src')).toBe(
-			'https://example.com/x-dark.svg'
-		);
-		expect(marks[0]!.nextElementSibling?.classList.contains('code')).toBe(true);
-		expect(marks[1]!.querySelector('img')).toBeNull();
-	});
-
-	it('draws no mark for an undecided side', () => {
-		render(SeriesSheet, { props: { series: card('east-r2-2'), gameHref, onClose: vi.fn() } });
-		expect(document.querySelectorAll('.sides .team-monogram')).toHaveLength(0);
 	});
 });

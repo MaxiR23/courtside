@@ -1,6 +1,5 @@
 <script lang="ts">
 	import type { ResolvedPathname } from '$app/types';
-	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
 	import TeamMark from '#lib/components/TeamMark.svelte';
 	import { m } from '#lib/paraglide/messages.js';
 	import type { PlayInSlotView, PlayInView } from '#lib/playoffs/types.ts';
@@ -8,7 +7,7 @@
 
 	type Props = {
 		playIn: PlayInView[];
-		collapsed: boolean; // round 1 has started: only the titles and the outcomes
+		collapsed: boolean; // round 1 has started: only the titles and the notes
 		layout: RowLayout;
 		teamHref: (code: string) => ResolvedPathname;
 		gameHref: (id: string) => ResolvedPathname;
@@ -18,9 +17,11 @@
 </script>
 
 {#snippet slotRow(side: PlayInSlotView, score: string | null)}
-	<div class="slot" class:undecided={side.team === null}>
+	<div class="slot" class:undecided={side.team === null} class:loser={side.loser}>
 		{#if side.team}
-			<TeamMark team={side.team} part="tile" size="standings" {teamHref} />
+			<span class="logo">
+				<TeamMark team={side.team} part="tile" size="fill" logo={side.team.logo} {teamHref} />
+			</span>
 			<span class="slot-name">{side.label}</span>
 		{:else}
 			<span class="slot-text">
@@ -33,11 +34,12 @@
 	</div>
 {/snippet}
 
-<div class="play-in-strip" class:mobile={layout === 'mobile'}>
-	{#each playIn as card (card.key)}
-		<BlueprintFrame>
-			<section class="card">
-				<h3>{card.title}</h3>
+<div class="play-in" class:mobile={layout === 'mobile'}>
+	<h3>{m.playoffs_playin_heading()}</h3>
+	<div class="strip">
+		{#each playIn as card (card.key)}
+			<div class="conference">
+				<span class="label">{card.title}</span>
 				<ul class="games">
 					{#each card.games as game (game.key)}
 						<li class="game" class:collapsed>
@@ -47,8 +49,8 @@
 								{@render slotRow(game.bottom, game.score?.bottom ?? null)}
 								{#if game.when}<span class="when">{game.when}</span>{/if}
 							{/if}
-							{#each game.outcomes as outcome (outcome)}
-								<span class="outcome">{outcome}</span>
+							{#each game.notes as note (note.text)}
+								<span class="note" class:seed={note.kind === 'seed'}>{note.text}</span>
 							{/each}
 							{#if !collapsed && game.linked}
 								<a class="game-link" href={gameHref(game.gameId)}>{m.playoffs_game_page()}</a>
@@ -56,22 +58,16 @@
 						</li>
 					{/each}
 				</ul>
-			</section>
-		</BlueprintFrame>
-	{/each}
+			</div>
+		{/each}
+	</div>
 </div>
 
 <style>
-	.play-in-strip {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--detail-column-min)), 1fr));
-		gap: var(--panel-section-gap);
-	}
-
-	.card {
+	.play-in {
 		display: grid;
 		gap: var(--game-list-gap);
-		padding: var(--game-list-gap);
+		min-width: 0;
 	}
 
 	h3 {
@@ -82,9 +78,32 @@
 		text-transform: uppercase;
 	}
 
-	.games {
+	.strip {
+		display: grid;
+		grid-template-columns: repeat(
+			auto-fit,
+			minmax(min(100%, var(--playoffs-playin-column-min)), 1fr)
+		);
+		gap: var(--panel-section-gap);
+	}
+
+	.conference {
 		display: grid;
 		gap: var(--game-list-gap);
+		align-content: start;
+		min-width: 0;
+	}
+
+	.label {
+		font-size: var(--playoffs-col-title-size);
+		letter-spacing: var(--label-letter-spacing);
+		text-transform: uppercase;
+		color: var(--color-muted);
+	}
+
+	.games {
+		display: grid;
+		gap: var(--playoffs-games-gap);
 		margin: 0;
 		padding: 0;
 		list-style: none;
@@ -93,8 +112,9 @@
 	.game {
 		display: grid;
 		gap: var(--day-strip-gap);
-		padding-bottom: var(--game-list-gap);
-		border-bottom: var(--hairline) solid var(--color-row-rule);
+		padding: var(--playoffs-card-padding);
+		border: var(--hairline) solid var(--playoffs-card-border);
+		background: var(--playoffs-card-bg);
 	}
 
 	.game-title {
@@ -107,8 +127,19 @@
 	.slot {
 		display: flex;
 		align-items: center;
-		gap: var(--game-list-gap);
-		min-height: var(--hit-target-size);
+		gap: var(--identity-inline-mark-gap);
+		min-height: var(--playoffs-card-logo);
+	}
+
+	.loser {
+		opacity: var(--playoffs-loser-opacity);
+	}
+
+	.logo {
+		display: block;
+		flex: none;
+		width: var(--playoffs-card-logo);
+		height: var(--playoffs-card-logo);
 	}
 
 	.slot-text {
@@ -122,7 +153,7 @@
 		text-overflow: ellipsis;
 		white-space: nowrap;
 		font-family: var(--font-heading);
-		font-size: var(--box-name-size);
+		font-size: var(--playoffs-card-code-size);
 	}
 
 	.undecided .slot-name {
@@ -137,7 +168,7 @@
 	.score {
 		margin-left: auto;
 		font-family: var(--font-heading);
-		font-size: var(--box-points-size);
+		font-size: var(--playoffs-card-code-size);
 		font-variant-numeric: tabular-nums;
 	}
 
@@ -146,14 +177,17 @@
 		color: var(--color-muted);
 	}
 
-	.outcome {
+	.note {
 		font-size: var(--body-size-small);
+		color: var(--color-muted);
+	}
+
+	.note.seed {
 		color: var(--color-accent-light);
 	}
 
 	.collapsed {
-		padding-bottom: 0;
-		border-bottom: 0;
+		gap: var(--hairline);
 	}
 
 	.game-link {

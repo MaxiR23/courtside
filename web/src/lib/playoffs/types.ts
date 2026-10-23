@@ -73,9 +73,10 @@ export type PictureTableView = { key: Conference; title: string; rows: PictureRo
 
 export type PlayInSlotView = {
 	team: TeamMarkTeam | null;
-	label: string; // the team name, or "To be decided"
+	label: string; // the team code, or "To be decided"
 	place: string | null; // the regular season place of an undecided slot: "7th", "Loser of 7th vs 8th"
 	currently: string | null; // "Currently QXA"
+	loser: boolean; // the game is final and the other side won it: drawn at 50%
 };
 
 export type PlayInGameView = GameLink & {
@@ -85,10 +86,10 @@ export type PlayInGameView = GameLink & {
 	bottom: PlayInSlotView;
 	score: { top: string; bottom: string } | null;
 	when: string | null; // "Apr 14 · 7:30 PM ET" while the game is not final
-	outcomes: string[]; // "QXA → No. 7", "QXB out"
+	notes: { text: string; kind: 'seed' | 'out' }[]; // "QXA → No. 7" (seed), "QXB out" (out)
 };
 
-export type PlayInView = { key: Conference; title: string; games: PlayInGameView[] };
+export type PlayInView = { key: Conference; title: string; games: PlayInGameView[] }; // title: "East", "West"
 
 export type FinalsMvpView = {
 	name: string;
@@ -208,6 +209,8 @@ export type SeriesSideView = {
 	seed: string; // "1", or "—" (current season); "" with no team, or no seed on a past season
 	wins: string; // "3", or "—"; "" with no team
 	strip: { primary: string; secondary: string } | null;
+	accent: string | null; // the feed's resolved color (ADR 0072); null: undecided, a past season, or no color
+	filled: number; // the wins to fill in the 4 segments; 0 with no wins
 	label: string; // the team's code or name, or the slot label ("East #1 seed")
 	note: string | null; // an undecided side: "Currently QXA" or "To be decided"
 	loser: boolean;
@@ -215,7 +218,11 @@ export type SeriesSideView = {
 
 export type SeriesGameRowView = GameLink & {
 	key: string; // the game id
-	label: string; // "G1 · at QXA"
+	number: string; // "G1"
+	at: string; // "at QXH": the home team
+	overtimeTag: string | null; // "OT", "2OT"; null in regulation
+	winner: { team: TeamMarkTeam; code: string; score: string } | null; // the winner, its points first: "105–95"
+	accent: string | null; // the winner's resolved color from the feed; null: none
 	away: { code: string; score: string; loser: boolean };
 	home: { code: string; score: string; loser: boolean };
 	final: boolean;
@@ -234,10 +241,15 @@ export type SeriesCardView = {
 	complete: boolean;
 	champion: boolean; // final and complete: the accent border and the Champion label
 	score: string; // the summary, else "3–1" from the wins, else "—"
+	headline: string; // "QXA wins 4–2", "QXA leads 3–2", the tied text, or "—"
+	lead: 'top' | 'bottom'; // the side whose logo the result shows: the winner, else the one with more wins, else the top
 	games: SeriesGameRowView[];
 };
 
-export type PlayoffBracketView = { series: SeriesCardView[] };
+export type PlayoffBracketView = {
+	kicker: string; // "2027 NBA Playoffs"
+	series: SeriesCardView[];
+};
 
 export type PlayoffsView = {
 	header: PlayoffsHeaderView;

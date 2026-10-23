@@ -15,6 +15,7 @@
 	import RoadToTitle from '#lib/components/RoadToTitle.svelte';
 	import SectionHead from '#lib/components/SectionHead.svelte';
 	import SiteFooter from '#lib/components/SiteFooter.svelte';
+	import type { SeriesId } from '#lib/contract/playoffs.ts';
 	import { play } from '#lib/hero/motion.ts';
 	import { m } from '#lib/paraglide/messages.js';
 	import type { PlayoffsPageState } from '#lib/playoffs/types.ts';
@@ -27,8 +28,11 @@
 		allGamesHref: ResolvedPathname;
 		standingsHref: ResolvedPathname;
 		layout: RowLayout;
+		bracketLayout: RowLayout; // the bracket breaks at 1180px, not at the page's 680px
 		teamHref: (code: string) => ResolvedPathname;
 		gameHref: (id: string) => ResolvedPathname;
+		seriesHref: (id: SeriesId) => ResolvedPathname;
+		openSeries: (id: SeriesId) => void;
 		seasonSelect?: SeasonControl | null; // null: no selector
 		seasonTag?: string | null; // "Season 2022-23": the unavailable state of a past season keeps it
 	};
@@ -39,28 +43,19 @@
 		allGamesHref,
 		standingsHref,
 		layout,
+		bracketLayout,
 		teamHref,
 		gameHref,
+		seriesHref,
+		openSeries,
 		seasonSelect = null,
 		seasonTag = null
 	}: Props = $props();
 
 	const ROW_BONES = [0, 1, 2, 3, 4, 5];
 
-	// The Finals game selected in the series section, set by a click on a game of the bracket.
+	// The Finals game selected in the series section.
 	let finalsGame = $state(0);
-
-	// Scrolls like the section tabs: smooth, or at once under reduced motion.
-	function selectFinalsGame(id: string, series: { key: string }[]) {
-		const index = series.findIndex((game) => game.key === id);
-		if (index < 0) return;
-		finalsGame = index;
-		const reduced =
-			typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-		document
-			.getElementById('series')
-			?.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' });
-	}
 </script>
 
 {#if page.kind === 'ready'}
@@ -87,16 +82,14 @@
 						{/each}
 					</div>
 				{:else if id === 'bracket'}
-					<SectionHead title={m.playoffs_bracket()} />
 					<PlayoffBracket
 						bracket={view.bracket}
-						{layout}
+						layout={bracketLayout}
 						{gameHref}
-						finalsSelectable={view.sections.includes('series') ? view.series.map((g) => g.key) : []}
-						onFinalsGame={(id) => selectFinalsGame(id, view.series)}
+						{seriesHref}
+						{openSeries}
 					/>
 				{:else if id === 'play-in'}
-					<SectionHead title={m.playoffs_playin_title()} />
 					<PlayInStrip
 						playIn={view.playIn}
 						collapsed={view.playInCollapsed}

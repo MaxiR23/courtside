@@ -125,6 +125,7 @@ const link = (path: string) => (value: string) =>
 const teamHref = link('/team/');
 const playerHref = link('/player/');
 const gameHref = link('/game/');
+const seriesHref = (id: string) => `/playoffs/series?id=${id}` as ResolvedPathname;
 
 type Layout = 'mobile' | 'desktop';
 type Page = {
@@ -353,8 +354,11 @@ const PAGES: Page[] = [
 				allGamesHref: HOME,
 				standingsHref: STANDINGS,
 				layout,
+				bracketLayout: layout,
 				teamHref,
-				gameHref
+				gameHref,
+				seriesHref,
+				openSeries: () => {}
 			};
 		})
 	})),
