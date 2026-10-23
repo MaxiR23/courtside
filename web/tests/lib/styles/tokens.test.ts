@@ -84,7 +84,6 @@ const expected: Record<string, string> = {
 	'--floor-shadow-offset': '56px',
 	'--accent-glow-extent': '18%',
 	'--brand-mark-size': '22px',
-	'--brand-mark-inner-size': '8px',
 	'--hero-grid-size': '88px',
 	'--hero-frame-grid-size': '44px',
 	'--hero-frame-max-width': '500px',

@@ -134,7 +134,7 @@
 
 <nav class="nav-row" class:mobile={layout === 'mobile'}>
 	<span class="brand">
-		<span class="brand-mark" aria-hidden="true"></span>
+		<img class="brand-logo" src="/logo-mark.svg" alt="" aria-hidden="true" />
 		<span class="brand-name">{m.site_name()}</span>
 	</span>
 	{#if layout === 'desktop'}
@@ -244,20 +244,10 @@
 		margin-inline-end: auto;
 	}
 
-	.brand-mark {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
+	.brand-logo {
+		flex: none;
 		width: var(--brand-mark-size);
 		height: var(--brand-mark-size);
-		border: var(--hairline) solid var(--color-accent);
-	}
-
-	.brand-mark::after {
-		content: '';
-		width: var(--brand-mark-inner-size);
-		height: var(--brand-mark-inner-size);
-		background: var(--color-accent);
 	}
 
 	.brand-name {
