@@ -1,12 +1,13 @@
 # Design: Playoffs
 
-The visual, interaction and data specification of the playoffs page (`/playoffs`), the Playoffs link in the nav, the 16-team bracket and the play-in, the champion hero, the Finals MVP card, the Finals series, the road to the title, the head to head, the leaders, the awards, and the tournament tags and titles on the home card, the game page header and the team page header. It extends `docs/design.md` and `docs/design-cup.md`: every token, rule and shared component defined there applies here, and only new values are listed under "New tokens". The bracket camera is shared with the Cup (ADR 0034). The player card, games list, header, stage strip and marks are reused (ADR 0030, ADR 0031); nothing in the Cup behavior changes.
+The visual, interaction and data specification of the playoffs page (`/playoffs`), the Playoffs link in the nav, the 16-team bracket, the play-in and the full series page (`/playoffs/series`), the champion hero, the Finals MVP card, the Finals series, the road to the title, the head to head, the leaders, the awards, and the tournament tags and titles on the home card, the game page header and the team page header. It extends `docs/design.md` and `docs/design-cup.md`: every token, rule and shared component defined there applies here, and only new values are listed under "New tokens". The playoffs bracket is a plain grid at 1:1 with no camera (ADR 0071); the Cup keeps the shared camera (ADR 0034). The player card, games list, header, stage strip and marks are reused (ADR 0030, ADR 0031); nothing in the Cup behavior changes.
 
 ## Overview
 
 | Page | Route | Feeds |
 |---|---|---|
 | Playoffs | `/playoffs` | `/feeds/playoffs.json`, `/feeds/playoffs/finals.json` |
+| Full series | `/playoffs/series?id={SeriesId}` | the same feeds (the Finals feed only for the Finals leaders) |
 
 - Current season only. The page exists all season long.
 - The postseason has the play-in (four days in the middle of April: six games), four rounds of best-of-seven series (round 1, conference semifinals, conference finals, NBA Finals) and 15 series in all, eight in round 1, four in the conference semifinals, two in the conference finals and one in the Finals.
@@ -28,10 +29,10 @@ Everything under "Implementation rules" in `docs/design.md` and `docs/design-cup
 - **Nothing is hardcoded in `/web`:** no team, venue, broadcast, date, round name list for a given year or award winner. No data source name, video platform or URL is written in `/web`.
 - **Every user-facing string is translatable**, in English and Spanish. Long labels truncate with an ellipsis and never wrap in a table cell.
 - **A value that is missing renders `—`. A block that is missing hides its section. The bracket always shows its slots.**
-- **Pan and zoom of the bracket only write `style.transform`.**
-- **Shared components are reused:** nav row, `TeamMonogram`, `StatusTag`, `Kicker`, `BlueprintFrame`, `ClinchTag`, `StandingsTable` patterns, `StageStrip`, the shared bracket camera (ADR 0034), `PlayerCard`, `CupGames` list patterns, the loading skeletons and the footer. A game row or a "Game page →" link goes to `/game/{id}` only when the game exists.
+- **The bracket is a plain grid at 1:1:** no translate, no scale and no import of `web/src/lib/bracket/` (ADR 0071).
+- **Shared components are reused:** nav row, `TeamMonogram`, `StatusTag`, `Kicker`, `BlueprintFrame`, `ClinchTag`, `StandingsTable` patterns, `StageStrip`, `PlayerCard`, `CupGames` list patterns, the loading skeletons and the footer. A game row or a "Game page →" link goes to `/game/{id}` only when the game exists.
 - **No headline and no story text** from any source is published. The page shows scores, leaders and numbers only.
-- **Counting animation:** the hero counts up and a timeout forces the final values; under reduced motion the final values show at once.
+- **No counting animation:** the hero shows its final values at once.
 
 ### New components
 
@@ -40,12 +41,13 @@ Everything under "Implementation rules" in `docs/design.md` and `docs/design-cup
 | `PlayoffsHeader` | Season tag, state line, h1 and stage strip (reuses `StageStrip`) |
 | `PlayoffPicture` | The two conference tables of the picture state, with the playoff and play-in lines |
 | `PlayInStrip` | One play-in card per conference |
-| `PlayoffBracket` | The 16-team bracket: camera, world, connectors, level switcher, controls (reuses the shared bracket camera, ADR 0034) |
-| `SeriesNode` | One series card at level 1 and level 2 |
-| `SeriesGameLine` | One game row of a series: game number, home/away and score, used at level 2 and in the sheet |
-| `SeriesSheet` | The mobile bottom sheet of one series |
-| `ChampionHero` | The complete-state hero: tag, h1, champion, stats row, buttons, plate |
-| `TrophyDrawing` | The original line-drawn trophy |
+| `PlayoffBracket` | The 16-team bracket as a plain grid: the seven-column map, the vertical tree, the result panel (no camera, ADR 0071) |
+| `SeriesNode` | One series card (desktop map and vertical tree) |
+| `SeriesGameLine` | One game cell of a series, used in the result panel and the sheet |
+| `SeriesSheet` | The bottom sheet of one series under 1180px |
+| `SeriesPage` | The full series page |
+| `ChampionHero` | The complete-state hero: trophy and label, h1, subline, logo, game strip |
+| `TrophyDrawing` | The small original line-drawn trophy |
 | `FinalsMvpCard` | The Finals MVP card |
 | `ConferenceMvpCard` | A conference finals MVP card |
 | `FinalsSeries` | Game tabs and the selected game |
@@ -98,31 +100,33 @@ Everything under "Implementation rules" in `docs/design.md` and `docs/design-cup
 
 ## Champion hero
 
-The complete state opens with the hero.
+The complete state opens with the hero (`ChampionHero`, used by `PlayoffsHeader`). It has no background photo, no stats row, no buttons and no plate.
 
-- 56px grid background of ink at 3.5%.
-- **Left column:**
-  - Tag `{year} NBA Finals` (accent outline) and a line `{Team} win series 4–1 · {dates}`; the result and the dates come from the feed.
-  - H1 "Champions", `clamp(76px, 12.5vw, 196px)`, line-height .82.
-  - A 58px monogram with a two-color strip and the full team name.
-  - A ruled row of four stats: postseason record, home record, road record and the point differential in accent. The point differential is summed by the backend from the postseason game scores.
-  - The stats count up over 1.4s; a 1.6s timeout forces the final values. Under reduced motion the final values show at once.
-  - Two buttons: "Relive the series" (the page's only solid button; it scrolls to the series section) and "Full bracket" (outline; it scrolls to the bracket).
-- **Right column:** a plate with a 26:30 ratio and accent corner ticks. It holds the original trophy drawing, drawn in accent light at a 1.3px line, or the Finals MVP photo when the feed has no drawing flag. The label `{year} champions` sits at the top left.
-- There is no franchise history and no records ticker.
-- **Mobile:** a compact hero; the trophy is 150px tall beside the headline; the stats are 2x2.
+- **Section:** full width, a 1px bottom divider, the ground background plus an 88px grid of 1px lines at ink 3.5%. Content max-width 1440px, centered. Padding top `clamp(40px, 6vw, 88px)`, sides `clamp(20px, 3vw, 40px)`, bottom `clamp(32px, 4vw, 48px)`.
+- **Glow:** a radial circle of the champion's resolved team color (ADR 0068) at 32%, `min(900px, 80vw)` wide, anchored right behind the logo.
+- **Main row:** a grid of `repeat(auto-fit, minmax(min(100%, 460px), 1fr))`.
+  - **Left:** a small trophy line drawing (26x54, 1.5px stroke, accent light) beside the label "{year} NBA Champions" (13px, .16em tracking, uppercase, accent light). The H1 "{city}<br>{team}" at `clamp(72px, 10.5vw, 156px)`, line-height .82, uppercase. A subline (18px): "Won the series {W}–{L} over {opponent city} · {dates}"; the result, the opponent and the dates come from the feed.
+  - **Right:** the champion's logo from the feed's `logo` object, up to 520px square, `object-fit: contain`, `filter: drop-shadow(0 30px 40px rgba(0, 0, 0, .6))`.
+- **Game strip:** one equal column per Finals game played (4 to 7), under a 1px top border at ink 18%. Each column shows "G{n}" (11px, uppercase, muted) above the score from the champion's side (such as `105–95`) at `clamp(20px, 2.4vw, 28px)`; a win in ink, a loss muted. The whole strip is one link to the Finals series section on the page (the scroll the old "Relive the series" button did).
+- **Mobile (under 680px):** the trophy is 16x34 and the label 11px; the logo is centered at 230px above the H1; the H1 is 72px; the subline 15px; the strip scores 18px; the grid background 44px.
+- There is no franchise history and no records ticker, and no count-up.
 
 ### Trophy drawing
 
-- An original line drawing in the site's blueprint style: a cup on a stepped base, two handles, thin construction lines and small tick marks, drawn only with lines. It is not a copy of any real trophy. It carries no name, no dimensions and no materials, and no text.
-- It is one inline SVG with a stroke and no fill, `vector-effect: non-scaling-stroke`, and an accessible title "{year} champions".
+- The trophy is a small original line drawing in the site's blueprint style: a cup on a stepped base with two handles, drawn only with lines. It is not a copy of any real trophy and carries no name, no dimensions, no materials and no text.
+- It is one inline SVG with a stroke and no fill, `vector-effect: non-scaling-stroke`, and an accessible title "{year} NBA Champions". It is decorative beside the label and hidden from assistive technology when the label is next to it.
 
 ## Finals MVP
 
-- A card with corner ticks. The photo sits on a radial accent glow. Under it: the name and the label "Finals MVP".
-- A 2x2 grid: postseason points per game, the best game points in accent (the best scoring game of the series, from the box scores), rebounds · assists, and games. There are no votes.
-- **Conference finals MVPs** sit beside it as horizontal cards (photo, name, "East finals MVP" or "West finals MVP", team code).
-- When the feed has no Finals MVP, the card is not drawn and the conference finals MVPs show alone; with neither, the section is hidden.
+Replaces the content of `FinalsMvpCard` and `ConferenceMvpCard` in their section of the page.
+
+- H2 "Finals MVP", `clamp(32px, 3.4vw, 44px)`, uppercase, with a 24px gap below.
+- **Two columns** of `minmax(0, 1fr) minmax(0, 1fr)`, gap 24px, `align-items: stretch`; one column under 900px.
+- **Left: the MVP card** in a `BlueprintFrame`, with an inner grid of `200px minmax(0, 1fr)`.
+  - **Photo panel:** min-height 250px, `overflow: hidden`, background `radial-gradient(circle at 50% 80%, <team resolved color at 32%>, transparent 70%)`. The feed's `photoUrl` cutout is 300px wide, bottom-anchored, centered, with `drop-shadow(0 14px 16px rgba(0, 0, 0, .6))`. No logo sits behind the player.
+  - **Info panel:** padding `24px 28px`, a 1px left divider, `justify-content: space-between`. The label "Finals MVP" (11px, .16em, uppercase, accent light); the name (36px, uppercase); a team row (18px logo plus the team name, 13px, muted); a 2x2 stat grid, gap `16px 20px`, each cell a value (30px) above its label (10.5px, uppercase, muted): points per game, best game (the value in accent light), rebounds · assists, and games. The stats are the postseason averages of ADR 0061; there are no votes.
+- **Right: the conference finals MVPs:** two blueprint cards with a 12px gap, each `flex: 1`, so together they match the height of the left card. Each card is a grid of `120px minmax(0, 1fr) auto`: a photo cell at the full card height with a glow of the team color at 35% and the cutout 170px wide, bottom-anchored; a text cell with the award label ("East Finals MVP" or "West Finals MVP", 10.5px, accent light), the name (24px, uppercase) and the team name (12.5px, muted); and the team logo at 36px at the right edge with a 22px right margin, replacing the tricode text.
+- **Missing data keeps its rules:** no Finals MVP hides the left card; no conference MVP hides that card; neither hides the section. A missing stat shows `—`.
 
 ## The series
 
@@ -133,7 +137,7 @@ The complete state opens with the hero.
   - The score, the two leaders of the game with photos (name, team, line) and a link "Game page →".
 - There is no headline and no story text.
 - **Mobile:** the tabs become a horizontal snap scroller of 132px cards.
-- A click on a game inside the Finals series in the bracket selects that game here and scrolls to the section.
+- The hero's game strip links to this section.
 
 ## Road to the title
 
@@ -163,44 +167,62 @@ The complete state opens with the hero.
 
 ## Bracket
 
-Levels 1 and 2, as in the Cup, with 16 teams.
+A plain grid at 1:1: no translate, no scale and no camera, so it renders sharp at every browser zoom (ADR 0071). The playoffs section does not import `web/src/lib/bracket/`. It replaces `PlayoffBracket`, `BracketNode` and `SeriesNode` usage on the page and restyles `SeriesSheet` and `PlayInStrip`. The Cup is not touched.
 
-### World (desktop, 680px and wider)
+### Header
 
-- World 1400x650. Seven columns, 176px wide, every 204px, left to right: East round 1 · East semifinals · East finals · NBA Finals · West finals · West semifinals · West round 1.
-- Row centers: round 1 at 105, 235, 365 and 495; the semifinals at 170 and 430; the conference finals and the Finals at 300.
-- **Series card:** two 33px rows. Each row: seed, a 4px team bar, the code and the wins. The loser is muted. The Finals card has an accent border and a "Champion" label when the series is complete.
-- **Connectors:** orthogonal SVG lines at ink 20%, with `vector-effect: non-scaling-stroke`. A connector whose feeder series is complete is drawn at accent.
-- Card frames, dashed frames and the focus ring are drawn in the connectors layer with `vector-effect: non-scaling-stroke`, as on the Cup nodes, so borders keep their width at every zoom.
+"{year} NBA Playoffs" (12px, accent light) and the H2 "Bracket" at `clamp(44px, 5vw, 72px)`. On the right, the helper text "Tap a series for the result. Tap it again to open the full series." (14px, muted).
 
-### Camera
+### Desktop map (1180px and wider)
 
-- The Cup camera: one layer with translate and scale, `transform-origin: 0 0`, a transition of 0.8s `cubic-bezier(.2, .7, .1, 1)`.
-- **Level 1** fits the whole bracket. **Level 2** fits one series plus its games, up to 4.4x. The list of games fades in (0.45s, with a 0.35s delay): rows `G1 · at NYK`, the winner and the score in ink, the loser muted, "OT" in accent. A game that is not scheduled is not listed.
-- **Controls:** a segmented switch "1 Bracket / 2 Series" at the top left; previous and next at the top right, cycling the 15 series in bracket order; the keyboard arrows and Esc; a click outside the series zooms out. In the Finals card a click on a game selects it in the series section.
-- Under reduced motion the camera moves without the transition.
+- **Seven columns**, left to right: East R1, East Semis, East Finals, NBA Finals, West Finals, West Semis, West R1. Tracks `repeat(3, minmax(0, 1fr)) minmax(0, 1.25fr) repeat(3, minmax(0, 1fr))`, gap 14px.
+- **Column title:** 11px, uppercase, centered, with a bottom divider; the Finals title in accent light, the others muted.
+- **Cards** spread with `justify-content: space-around` in a column whose height is set by the four first-round cards (no minimum height), so each later round sits between its two feeders and the whole bracket, its titles and its heading fit in one 1280x720 screen.
+- **Series card:** a 1px border at ink 16%, background ground at 88%, padding `6px 12px`. Two team rows: the seed (11px, muted, right-aligned, 14px column), the logo 22px, the code 17px and the wins right-aligned in a 20px column. Under each row, 4 segments 3px tall with a 3px gap, filled in the team's resolved color (one per win) and empty at ink 12%. The eliminated team's row is at 50% opacity. Hover: accent border. Selected: background accent at 12% and an accent border.
+- **Finals card:** padding `6px 14px`, a border of accent light at 45%, logo 30px, code 22px, wins 30px. No trophy and no extra height.
 
 ### Undecided series
 
-- A dashed card with the slot label: "East #1 seed", "Winner of East R1 1", "Winner of East semifinal 1", "East play-in winner". During the regular season, a "Currently XXX" line from the standings seeds.
+- A dashed card with the slot label: "East #1 seed", "Winner of East R1 1", "Winner of East semifinal 1", "East play-in winner". During the regular season, a "Currently XXX" line from the standings seeds. They are not selectable.
 - A series with one side decided shows that side and a dashed row for the other.
 - The bracket always shows its 15 series and 16 slots, with or without data.
 
+### Under 1180px: the vertical tree
+
+No zoom and no sideways scroll at any width.
+
+- **Seven rows** in the same order, each with a 9.5px centered label (NBA Finals in accent light), each an 8-column grid with a 4px gap. Cards span 2 columns: R1 at `1/3`, `3/5`, `5/7`, `7/9`; semifinals at `2/4` and `6/8`; the conference finals at `4/6`; the NBA Finals at `3/7`.
+- **Card:** padding 5px; seed 8.5px, logo 14px, code 12px, wins 13px; segments 2px tall with a 2px gap. The Finals card: padding `6px 10px`, logo 20px, code 16px, wins 18px.
+
+### Interaction
+
+- The first tap selects a series. A second tap on the selected series, when it is complete, opens the full series page (`/playoffs/series`); an unfinished series stays selected.
+- **Desktop:** the result panel shows below the bracket. The Finals series is selected by default once it has a game; before that nothing is selected and the panel is hidden.
+- **Under 1180px:** the first tap opens the bottom sheet (`SeriesSheet`), which keeps its slide, scrim, Esc, body scroll lock and 86vh cap, and is styled: panel background `--playoffs-sheet-bg` (`#11161b`), a 1px accent top border, the winner logo at 36px, the round label, the headline at 24px, a 44px close button, the games in a 4-column grid and a full-width 48px accent button "Full series →".
+
+### Result panel and sheet content
+
+- A `BlueprintFrame` with 4 corner marks. **Top row:** the winner logo at 48px; the round label (11px, uppercase, muted) above the headline "{CODE} wins 4–2" or "{CODE} leads 3–2" (32px, uppercase); the other team's logo at 30px and 60% opacity. On the right, the accent button "Full series →" (accent background, ground text, 16px, uppercase; hover accent light) to the full series page. The wins and the winner come from the feed and are never counted by `/web`.
+- **Games grid** `repeat(auto-fill, minmax(130px, 1fr))`, gap 10px. Each cell shows "G{n}", "at {HOME}", the OT tag in accent light ("OT", "2OT", from the game's `overtimePeriods`), the winner logo at 20px and "{CODE} {ws}–{ls}", and a 2px line in the winner's resolved color. A cell links to the game page when `detailAvailable`. A game that is not scheduled is not listed.
+
 ### Play-in
 
-- One card per conference with three games: 7th vs 8th, 9th vs 10th and the game for the 8th seed. Each game shows the two teams, the score once played and the outcome ("PHI → No. 7", "MIA out").
-- A slot that is not decided reads "To be decided" with the regular season place ("Loser of 7th vs 8th", "Winner of 9th vs 10th"). The slots fill as each game is final.
-- The strip appears in the `picture` and `playin` states; in later states it stays below the bracket as a record, collapsed to the outcomes.
-
-### Mobile (under 680px)
-
-- Stacked rounds, in this order: East round 1 (2x2) → East semifinals → East finals → NBA Finals → West finals → West semifinals → West round 1.
-- A tap on a series opens a bottom sheet: a `translateY` slide of 0.5s, a maximum height of 86vh, a 60% scrim, the body scroll locked. It shows the score and every game of the series in 44px rows, each linking to its game page. Esc and a tap on the scrim close it.
-- There are no zoom controls.
+- Below the bracket: the H3 "Play-in". East and West side by side in `minmax(min(100%, 520px), 1fr)`, three cards each (7th vs 8th, 9th vs 10th, the 8th seed game). Each card: the label, two rows with the logo, the code and the points (the loser at 50%), and the note ("PHI → No. 7" in accent light, "MIA out" muted).
+- A slot that is not decided reads "To be decided" with the regular season place ("Loser of 7th vs 8th", "Winner of 9th vs 10th"), as before. The slots fill as each game is final.
+- It keeps its rule on which states show it: the strip appears in the `picture` and `playin` states; in later states it stays below the bracket as a record, collapsed to the outcomes.
 
 ### Out of this design
 
-Continuous zoom levels with rosters inside the bracket, and pinch-to-enter.
+Zoom levels, pinch and rosters inside the bracket.
+
+## Full series
+
+A new page at `/playoffs/series?id={SeriesId}`, browser-rendered like `/playoffs` (`ssr = false`, the fallback page of `docs/deploy.md`). It keeps the `season` query parameter as `/playoffs` does and reads the same playoffs feed (for the Finals also the Finals feed, for the leaders). Designed at 390px; on wider screens the same layout is centered with a max-width of 720px. Component: `SeriesPage`.
+
+- **Top bar:** "← Bracket" (back to `/playoffs`, same season, scrolled to the bracket) and "{year} NBA Playoffs" (10px, uppercase, muted).
+- **Hero:** two glows in each team's resolved color at 22%, left and right; the round label (10px, accent light); a three-column row: the team (72px logo, code 20px, "No. {seed} seed" 10px muted, a 32x3 bar in its color), the score in the middle (72px, the leader in ink, the other muted), and the other team. The losing team is at 60% when the series is complete. The status line "{CODE} wins the series 4–1" or "{CODE} leads 3–2" (14px) and the dates of the first and last game (12px, muted).
+- **"Game by game"** (H3, 24px): one card per game played or scheduled, linking to its game page when `detailAvailable`. The card: "Game {n}" (16px); "{date} · {venue}" (12px, muted; "at {HOME}" when the venue is null); the OT tag in accent light; a chevron. Two columns, each with the logo at 22px, the code at 16px and the points at 24px (the loser at 50%). For the Finals only, a leader line from the Finals feed ("{name} {pts} PTS · {name} {pts} PTS", 12px, muted). A 2px line in the winner's color.
+- **Not available:** an unknown or undecided series id shows the existing "not available" message row with the back link.
 
 ## Tournament tags and titles
 
@@ -251,7 +273,8 @@ Same size, letter spacing and truncation as the Cup tag: 11px, .16em, uppercase,
 | Play-in before any game | The four slots show "To be decided" with the regular season places (7th, 8th, 9th, 10th); the games show their date and time |
 | Play-in after each game | The card shows the score and the outcome ("PHI → No. 7", "MIA out"); the winner fills its slot; the 8th seed game takes the loser of 7th vs 8th and the winner of 9th vs 10th; the bracket slot fills when the seed is decided |
 | Series with games 5 to 7 not scheduled | No tab, no row, no list entry for them; the series summary still shows ("Series tied 2–2") |
-| Series not started | The card shows the seeds and codes with wins `0` (or `—` when the feed has none); no games list; level 2 shows the first game's date and venue when scheduled |
+| Series not started | The card shows the seeds and codes with wins `0` (or `—` when the feed has none) and empty segments; the result panel and the sheet list no games, or the scheduled ones only |
+| Full series id unknown or undecided | The existing "not available" message row with the back link to the bracket |
 | Game with overtime | "OT" after the score in the tab, in the games list in accent, and in the sheet row; "Final/OT" in the status |
 | No highlights | The 16:9 placeholder "Highlights not available"; the rest of the game block shows |
 | Win probability missing | The chart is not drawn; the score, the leaders and the link show |
@@ -279,20 +302,17 @@ Same size, letter spacing and truncation as the Cup tag: 11px, .16em, uppercase,
 | What | How |
 |---|---|
 | Polling | Playoffs and finals feeds every 5 minutes once the playoffs feed's `state` is `complete`, every 60 seconds otherwise; paused while the tab is hidden and refreshed when it is visible again |
-| Bracket camera | The Cup camera: 0.8s `cubic-bezier(.2, .7, .1, 1)`; none under reduced motion |
-| Series zoom | Level 2 game list fades in over 0.45s with a 0.35s delay |
-| Prev / next, arrows, Esc | Cycle the 15 series in bracket order; Esc and a click outside zoom out |
-| Finals card game click | Selects the game in the series section |
-| Hero stats | Count up over 1.4s; a 1.6s timeout forces the final values; none under reduced motion |
+| Series card | First tap selects (desktop: the result panel shows below; under 1180px: the sheet opens); a second tap on a complete selected series opens `/playoffs/series` |
+| Hero game strip | One link that scrolls to the Finals series section |
 | Game tabs | Select the game; the active tab has an accent bottom rule |
 | Leader tabs | Switch the category |
 | Head to head tabs | Switch the finalist in the averages table |
-| Mobile series sheet | `translateY` over 0.5s, 60% scrim, body scroll locked |
-| Focus | `:focus-visible` as on the home. A Tab onto a card outside the level 2 view shifts the camera so the card is visible, as in the Cup. The arrow keys move the focus to the newly selected card. Every focus ring, the Finals game buttons included, stays 2px at any zoom |
+| Series sheet (under 1180px) | `translateY` over 0.5s, 60% scrim, body scroll locked, Esc and a tap on the scrim close it; none of the slide under reduced motion |
+| Focus | `:focus-visible` as on the home |
 
 ## Responsive
 
-- Under 680px: the nav is one row with the menu button, the stage strip is 2x2 plus one cell, the hero is compact (trophy 150px, stats 2x2), the game tabs and the award cards are snap scrollers (132px and 156px), the leader tabs are chips, the bracket is stacked rounds with a bottom sheet and no zoom controls.
+- Under 680px: the nav is one row with the menu button, the stage strip is 2x2 plus one cell, the hero is compact (logo 230px above the H1, 72px H1), the game tabs and the award cards are snap scrollers (132px and 156px), the leader tabs are chips, the Finals MVP section is one column under 900px, and the bracket is the vertical tree with a bottom sheet under 1180px, with no zoom and no sideways scroll. The full series page is designed at 390px and centered at 720px on wider screens.
 - Tables scroll horizontally with a sticky first column.
 
 ## New tokens
@@ -302,17 +322,36 @@ To add to `web/src/lib/styles/tokens.css` in the implementing issue. Values not 
 | Token (suggested) | Value | Use |
 |---|---|---|
 | `--playoffs-title-size` | `clamp(56px, 9vw, 128px)` | H1 |
-| `--playoffs-hero-title-size` | `clamp(76px, 12.5vw, 196px)` | Hero H1 |
-| `--playoffs-hero-title-size-mobile` | `clamp(36px, 12vw, 76px)` | Hero H1 under the mobile layout, next to the trophy |
-| `--playoffs-hero-title-leading` | .82 | Hero H1 line height |
-| `--playoffs-hero-grid-size` | 56px | Hero grid background |
+| `--playoffs-hero-title-size` | `clamp(72px, 10.5vw, 156px)` | Hero H1 (72px on mobile) |
+| `--playoffs-hero-grid-size` | 88px | Hero grid background (44px on mobile) |
 | `--playoffs-hero-grid-alpha` | .035 | Hero grid ink opacity |
-| `--playoffs-champion-mark` | 58px | Champion monogram |
-| `--playoffs-plate-ratio` | 26 / 30 | Hero plate |
-| `--playoffs-trophy-stroke` | 1.3px | Trophy line |
-| `--playoffs-trophy-mobile-height` | 150px | Mobile trophy |
-| `--playoffs-count-duration` | 1.4s | Hero count-up |
-| `--playoffs-count-timeout` | 1.6s | Final values forced |
+| `--playoffs-hero-glow-alpha` | .32 | Hero, MVP photo panel glow of the team color |
+| `--playoffs-hero-logo-size` | 520px | Hero logo, up to (230px on mobile) |
+| `--playoffs-hero-strip-score-size` | `clamp(20px, 2.4vw, 28px)` | Hero game strip score (18px on mobile) |
+| `--playoffs-hero-strip-rule` | ink at 18% | Hero game strip top border |
+| `--playoffs-trophy-stroke` | 1.5px | Hero trophy line |
+| `--playoffs-mvp-title-size` | `clamp(32px, 3.4vw, 44px)` | Finals MVP H2 |
+| `--playoffs-mvp-photo-width` | 300px | Finals MVP cutout (170px for a conference MVP) |
+| `--playoffs-conf-glow-alpha` | .35 | Conference MVP photo glow |
+| `--playoffs-bracket-title-size` | `clamp(44px, 5vw, 72px)` | Bracket H2 |
+| `--playoffs-bracket-break` | 1180px | Desktop map / vertical tree switch |
+| `--playoffs-bracket-columns` | `repeat(3, minmax(0, 1fr)) minmax(0, 1.25fr) repeat(3, minmax(0, 1fr))` | Desktop map tracks |
+| `--playoffs-bracket-gap` | 14px | Desktop map gap (4px in the vertical tree) |
+| `--playoffs-card-border` | ink at 16% | Series card border |
+| `--playoffs-card-bg` | ground at 88% | Series card background |
+| `--playoffs-finals-card-border` | accent light at 45% | Finals card border |
+| `--playoffs-selected-bg` | accent at 12% | Selected series card |
+| `--playoffs-segment-height` | 3px | Wins segment (2px in the vertical tree) |
+| `--playoffs-segment-empty` | ink at 12% | Empty wins segment |
+| `--playoffs-sheet-bg` | `#11161b` | Series sheet panel |
+| `--playoffs-sheet-button-height` | 48px | "Full series" button in the sheet |
+| `--playoffs-sheet-close-size` | 44px | Sheet close button |
+| `--playoffs-games-min` | 130px | Result panel game cell min width |
+| `--playoffs-series-max-width` | 720px | Full series page on wide screens |
+| `--playoffs-series-score-size` | 72px | Full series hero score |
+| `--playoffs-series-glow-alpha` | .22 | Full series hero glows |
+| `--playoffs-series-logo-size` | 72px | Full series hero logo |
+| `--playoffs-hero-title-leading` | .82 | Hero H1 line height |
 | `--playoffs-stage-columns` | 5 | Stage strip |
 | `--playoffs-tag-border` | ink at 35% | Play-In and Playoffs tags |
 | `--playoffs-mark-gap` | 6px | Gap inside the postseason mark |
@@ -324,26 +363,9 @@ To add to `web/src/lib/styles/tokens.css` in the implementing issue. Values not 
 | `--playoffs-avatar-size` | 30px | Averages table photo |
 | `--playoffs-tab-rule` | 2px | Active game tab rule |
 | `--playoffs-card-photo-size` | 96px | Finals MVP and award card photo |
-| `--playoffs-world-width` | 1400px | Desktop world |
-| `--playoffs-world-height` | 650px | Desktop world |
-| `--playoffs-column-width` | 176px | Bracket column |
-| `--playoffs-column-step` | 204px | Bracket column spacing |
-| `--playoffs-row-height` | 33px | Series card row |
-| `--playoffs-team-bar` | 4px | Series card team bar |
-| `--playoffs-line-color` | ink at 20% | Connector |
-| `--playoffs-camera-duration` | 0.8s | Camera transition |
-| `--playoffs-camera-easing` | `cubic-bezier(.2, .7, .1, 1)` | Camera transition |
-| `--playoffs-series-zoom-max` | 4.4 | Level 2 zoom ceiling |
-| `--playoffs-games-fade` | 0.45s | Game list fade |
-| `--playoffs-games-fade-delay` | 0.35s | Game list fade delay |
 | `--playoffs-sheet-duration` | 0.5s | Mobile sheet |
 | `--playoffs-sheet-max-height` | 86vh | Mobile sheet |
 | `--playoffs-sheet-scrim` | `rgba(0, 0, 0, .6)` | Mobile sheet scrim |
-| `--playoffs-sheet-row` | 44px | Mobile sheet game row |
-| `--playoffs-viewport-height` | `clamp(360px, 46vw, 650px)` | Bracket viewport (not in the design: plan choice) |
-| `--playoffs-game-row-height` | 8px | Level 2 game row, in world units (plan choice) |
-| `--playoffs-game-text-size` | 4px | Level 2 game text, in world units (plan choice) |
-| `--playoffs-games-gap` | 4px | Gap between a card and its games, in world units (plan choice) |
 
 Mapped to existing tokens: the divider is `--color-divider`; accent text is `--color-accent-light`; label size and spacing are `--label-size` and `--label-letter-spacing`; the 680px break is `--game-row-breakpoint`; ground text on the accent tag is the ground token.
 
@@ -379,19 +401,38 @@ Mapped to existing tokens: the divider is `--color-divider`; accent text is `--c
 | `playoffs_col_gb` | GB | DIF |
 | `playoffs_east` | East | Este |
 | `playoffs_west` | West | Oeste |
-| `playoffs_hero_tag` | {year} NBA Finals | Finales de la NBA {year} |
-| `playoffs_hero_result` | {team} win series {score} · {dates} | {team} ganan la serie {score} · {dates} |
-| `playoffs_hero_title` | Champions | Campeones |
-| `playoffs_hero_champions` | {year} champions | Campeones {year} |
-| `playoffs_hero_record` | Postseason record | Récord de postemporada |
-| `playoffs_hero_home` | Home | Local |
-| `playoffs_hero_road` | Road | Visitante |
-| `playoffs_hero_diff` | Point differential | Diferencial de puntos |
-| `playoffs_relive` | Relive the series | Revive la serie |
-| `playoffs_full_bracket` | Full bracket | Cuadro completo |
+| `playoffs_hero_label` | {year} NBA Champions | Campeones de la NBA {year} |
+| `playoffs_hero_subline` | Won the series {won}–{lost} over {opponent} · {dates} | Ganó la serie {won}–{lost} ante {opponent} · {dates} |
+| `playoffs_hero_strip` | Finals game scores | Resultados de las Finales |
+| `playoffs_ecf_mvp` | East Finals MVP | MVP de la final del Este |
+| `playoffs_wcf_mvp` | West Finals MVP | MVP de la final del Oeste |
+| `playoffs_bracket_kicker` | {year} NBA Playoffs | Playoffs de la NBA {year} |
+| `playoffs_bracket_help` | Tap a series for the result. Tap it again to open the full series. | Toca una serie para ver el resultado. Tócala otra vez para abrir la serie completa. |
+| `playoffs_col_east_r1` | East R1 | 1.ª ronda Este |
+| `playoffs_col_east_semis` | East Semis | Semis Este |
+| `playoffs_col_east_finals` | East Finals | Final Este |
+| `playoffs_col_nba_finals` | NBA Finals | Finales de la NBA |
+| `playoffs_col_west_finals` | West Finals | Final Oeste |
+| `playoffs_col_west_semis` | West Semis | Semis Oeste |
+| `playoffs_col_west_r1` | West R1 | 1.ª ronda Oeste |
+| `playoffs_result_wins` | {team} wins {won}–{lost} | {team} gana {won}–{lost} |
+| `playoffs_result_leads` | {team} leads {leading}–{trailing} | {team} lidera {leading}–{trailing} |
+| `playoffs_full_series` | Full series → | Serie completa → |
+| `playoffs_game_at` | at {team} | en {team} |
+| `playoffs_game_n` | G{n} | P{n} |
+| `playoffs_ot_n` | {n}OT | {n}TE |
+| `playoffs_sheet_close` | Close | Cerrar |
+| `playoffs_playin_heading` | Play-in | Play-in |
+| `playoffs_series_back` | ← Bracket | ← Cuadro |
+| `playoffs_series_seed` | No. {seed} seed | Cabeza de serie n.º {seed} |
+| `playoffs_series_status_wins` | {team} wins the series {won}–{lost} | {team} gana la serie {won}–{lost} |
+| `playoffs_series_status_leads` | {team} leads {leading}–{trailing} | {team} lidera {leading}–{trailing} |
+| `playoffs_series_by_game` | Game by game | Partido a partido |
+| `playoffs_series_game` | Game {n} | Partido {n} |
+| `playoffs_series_game_venue` | {date} · {venue} | {date} · {venue} |
+| `playoffs_series_leaders` | {name} {pts} PTS · {name2} {pts2} PTS | {name} {pts} PTS · {name2} {pts2} PTS |
+| `playoffs_series_unavailable` | This series isn't available. | Esta serie no está disponible. |
 | `playoffs_finals_mvp` | Finals MVP | MVP de las Finales |
-| `playoffs_ecf_mvp` | East finals MVP | MVP de la final del Este |
-| `playoffs_wcf_mvp` | West finals MVP | MVP de la final del Oeste |
 | `playoffs_mvp_ppg` | Points per game | Puntos por partido |
 | `playoffs_mvp_best` | Best game | Mejor partido |
 | `playoffs_mvp_reb_ast` | REB · AST | REB · AST |
@@ -454,10 +495,6 @@ Mapped to existing tokens: the divider is `--color-divider`; accent text is `--c
 | `playoffs_award_all_defense` | All-Defensive {n} Team | Mejor quinteto defensivo ({n}.º) |
 | `playoffs_award_twyman` | Twyman-Stokes Teammate Award | Premio Twyman-Stokes al compañero |
 | `playoffs_bracket` | Bracket | Cuadro |
-| `playoffs_level_1` | Bracket | Cuadro |
-| `playoffs_level_2` | Series | Serie |
-| `playoffs_prev` | Previous series | Serie anterior |
-| `playoffs_next` | Next series | Serie siguiente |
 | `playoffs_champion` | Champion | Campeón |
 | `playoffs_tbd_slot` | To be decided | Por decidir |
 | `playoffs_currently` | Currently {team} | Actualmente {team} |
@@ -466,9 +503,6 @@ Mapped to existing tokens: the divider is `--color-divider`; accent text is `--c
 | `playoffs_slot_r2_winner` | Winner of {conference} semifinal {n} | Ganador de la semifinal {n} del {conference} |
 | `playoffs_slot_r3_winner` | Winner of {conference} finals | Ganador de la final del {conference} |
 | `playoffs_slot_playin_winner` | {conference} play-in winner | Ganador del play-in del {conference} |
-| `playoffs_game_at` | G{n} · at {team} | P{n} · en {team} |
-| `playoffs_game_home` | G{n} · vs {team} | P{n} · ante {team} |
-| `playoffs_sheet_close` | Close | Cerrar |
 | `playoffs_playin_title` | Play-In | Play-In |
 | `playoffs_playin_7v8` | 7th vs 8th | 7.º contra 8.º |
 | `playoffs_playin_9v10` | 9th vs 10th | 9.º contra 10.º |
