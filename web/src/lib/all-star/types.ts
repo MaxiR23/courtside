@@ -221,6 +221,7 @@ export type LastTimeView = {
 		playerId: string;
 		name: string;
 		photo: string | null;
+		jersey: string | null; // the feed's jersey; null: no watermark
 		league: LeagueMarkView | null;
 		summary: string;
 	} | null;

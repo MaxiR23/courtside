@@ -298,8 +298,11 @@
 	--team-detail-cell-min: 180px;
 	--arena-aspect: 16 / 10;
 	--team-swatch-size: 26px;
-	--team-leader-value-size: 56px;
+	--team-leader-value-size: clamp(44px, 5vw, 64px);
 	--team-leader-photo-width: 96px;
+	--team-leader-cutout-width: 55%;
+	--team-leader-min-height: 220px;
+	--team-leader-min-height-mobile: 180px;
 	--roster-photo-size: 40px;
 	--roster-player-column: 220px;
 	--roster-player-column-mobile: 170px;
@@ -452,6 +455,10 @@
 	--allstar-mvp-total-size: 40px;
 	--allstar-mvp-line-size: 22px;
 	--allstar-mvp-photo-height-mobile: 250px;
+	--allstar-last-mvp-photo-width: 40%;
+	--allstar-last-mvp-name-size: clamp(32px, 4vw, 44px);
+	--allstar-last-mvp-league-size: 28px;
+	--allstar-last-mvp-photo-height-mobile: 220px;
 	--allstar-championship-score-size: clamp(72px, 9vw, 124px);
 	--allstar-card-min: 230px;
 	--allstar-card-mobile: 224px;

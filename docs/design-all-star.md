@@ -107,7 +107,7 @@ Before state only, and only when the previous edition is in the feed.
 
 - Two framed cards, `repeat(auto-fit, minmax(min(100%, 420px), 1fr))`:
   - The champion card: kicker "Champions of the day", the champion's name 600 `clamp(44px, 5.6vw, 72px)`, "date · venue", the Championship score at 56px in accent.
-  - The MVP card: a photo column (initials fallback), the name, the league team, and "{pts} PTS · across {n} games".
+  - The MVP card: a photo column 40% of the card, with the headshot filling it bottom-anchored over the plate's radial glow in the accent and the jersey number watermark (no watermark without a jersey; initials without a photo); the name 600 `clamp(32px, 4vw, 44px)`, the league team code at 28px over its bar, and "{pts} PTS · across {n} games".
 - Link below: "Every game, box score and highlight from {prev} →". It opens that edition's `after` view.
 - When the previous edition has no MVP, the MVP card is not drawn and the champion card takes the row.
 
@@ -252,6 +252,7 @@ Under 680px (the 390px design):
 - Hero live: the framed live scoreboard (score 56px, clock 22px); tapping it selects the live game and scrolls to `#games`.
 - Hero before: the h1, the outlined year `clamp(96px, 30vw, 140px)`, the three "To be confirmed" rows, the button.
 - MVP: the photo 250px tall on top, the info below; the Championship card is one tappable block.
+- Last time: the MVP photo 220px tall on top, the info below.
 - Game cards: a horizontal strip of 224px cards with `scroll-snap-type: x mandatory`; the selected card has a 1px accent-light border.
 - The detail stacks: scoreboard, video, venue 2x2, Top 5 (44px photos), team statistics. The two leader cards are dropped on mobile.
 - Box score: horizontal scroll, minimum width 660px, a sticky player column (184px, opaque, right divider) with the short name and "#5 · G · MIN". Columns: Pts · Reb · Ast · Min · Stl · Blk · FG · 3P · +/−. The hint "Swipe for more columns" shows above.
@@ -289,6 +290,10 @@ To add to `web/src/lib/styles/tokens.css` in the implementing issue. Values not 
 | `--allstar-mvp-total-size` | 40px | MVP day total |
 | `--allstar-mvp-line-size` | 22px | MVP game line |
 | `--allstar-mvp-photo-height-mobile` | 250px | Mobile MVP photo |
+| `--allstar-last-mvp-photo-width` | 40% | Last time MVP photo column |
+| `--allstar-last-mvp-name-size` | `clamp(32px, 4vw, 44px)` | Last time MVP name |
+| `--allstar-last-mvp-league-size` | 28px | Last time MVP league code |
+| `--allstar-last-mvp-photo-height-mobile` | 220px | Mobile Last time MVP photo |
 | `--allstar-championship-score-size` | `clamp(72px, 9vw, 124px)` | Championship scoreline |
 | `--allstar-card-min` | 230px | Game card |
 | `--allstar-card-mobile` | 224px | Mobile game card |
