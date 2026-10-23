@@ -189,6 +189,8 @@ describe('TeamMark', () => {
 			'allstar-league',
 			'names',
 			'inline',
+			'playoffs-mvp-team',
+			'playoffs-mvp-logo',
 			'fill'
 		] as const;
 		for (const size of sizes) {

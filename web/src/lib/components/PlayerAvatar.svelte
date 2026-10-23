@@ -18,7 +18,9 @@
 			| 'allstar-roster'
 			| 'allstar-roster-mobile'
 			| 'allstar-mvp'
-			| 'allstar-plate';
+			| 'allstar-plate'
+			| 'playoffs-mvp'
+			| 'playoffs-conference-mvp';
 	};
 
 	let { name, photo, size }: Props = $props();
@@ -74,6 +76,32 @@
 
 	.team-leader .photo-placeholder {
 		font-size: var(--player-name-size);
+	}
+
+	.playoffs-mvp,
+	.playoffs-conference-mvp {
+		width: 100%;
+		height: 100%;
+		background: none;
+	}
+
+	.playoffs-mvp img,
+	.playoffs-conference-mvp img {
+		position: absolute;
+		bottom: 0;
+		left: 50%;
+		translate: -50% 0;
+		height: auto;
+		object-fit: contain;
+		filter: var(--playoffs-mvp-cutout-filter);
+	}
+
+	.playoffs-mvp img {
+		width: var(--playoffs-mvp-photo-width);
+	}
+
+	.playoffs-conference-mvp img {
+		width: var(--playoffs-conf-photo-width);
 	}
 
 	.search {

@@ -125,6 +125,7 @@ Replaces the content of `FinalsMvpCard` and `ConferenceMvpCard` in their section
 - **Left: the MVP card** in a `BlueprintFrame`, with an inner grid of `200px minmax(0, 1fr)`.
   - **Photo panel:** min-height 250px, `overflow: hidden`, background `radial-gradient(circle at 50% 80%, <team resolved color at 32%>, transparent 70%)`. The feed's `photoUrl` cutout is 300px wide, bottom-anchored, centered, with `drop-shadow(0 14px 16px rgba(0, 0, 0, .6))`. No logo sits behind the player.
   - **Info panel:** padding `24px 28px`, a 1px left divider, `justify-content: space-between`. The label "Finals MVP" (11px, .16em, uppercase, accent light); the name (36px, uppercase); a team row (18px logo plus the team name, 13px, muted); a 2x2 stat grid, gap `16px 20px`, each cell a value (30px) above its label (10.5px, uppercase, muted): points per game, best game (the value in accent light), rebounds · assists, and games. The stats are the postseason averages of ADR 0061; there are no votes.
+  - **Under 680px:** the inner grid is one column (`--playoffs-mvp-photo-columns-mobile`). The photo panel stacks above the info panel at full width, with the same 250px height, glow and cutout; the info panel keeps its padding and moves its divider from the left to the top, so the 2x2 stats fit.
 - **Right: the conference finals MVPs:** two blueprint cards with a 12px gap, each `flex: 1`, so together they match the height of the left card. Each card is a grid of `120px minmax(0, 1fr) auto`: a photo cell at the full card height with a glow of the team color at 35% and the cutout 170px wide, bottom-anchored; a text cell with the award label ("East Finals MVP" or "West Finals MVP", 10.5px, accent light), the name (24px, uppercase) and the team name (12.5px, muted); and the team logo at 36px at the right edge with a 22px right margin, replacing the tricode text.
 - **Missing data keeps its rules:** no Finals MVP hides the left card; no conference MVP hides that card; neither hides the section. A missing stat shows `—`.
 
@@ -312,7 +313,7 @@ Same size, letter spacing and truncation as the Cup tag: 11px, .16em, uppercase,
 
 ## Responsive
 
-- Under 680px: the nav is one row with the menu button, the stage strip is 2x2 plus one cell, the hero is compact (logo 230px above the H1, 72px H1), the game tabs and the award cards are snap scrollers (132px and 156px), the leader tabs are chips, the Finals MVP section is one column under 900px, and the bracket is the vertical tree with a bottom sheet under 1180px, with no zoom and no sideways scroll. The full series page is designed at 390px and centered at 720px on wider screens.
+- Under 680px: the nav is one row with the menu button, the stage strip is 2x2 plus one cell, the hero is compact (logo 230px above the H1, 72px H1), the game tabs and the award cards are snap scrollers (132px and 156px), the leader tabs are chips, the Finals MVP section is one column under 900px and its MVP card stacks the photo above the info panel, and the bracket is the vertical tree with a bottom sheet under 1180px, with no zoom and no sideways scroll. The full series page is designed at 390px and centered at 720px on wider screens.
 - Tables scroll horizontally with a sticky first column.
 
 ## New tokens
@@ -331,6 +332,7 @@ To add to `web/src/lib/styles/tokens.css` in the implementing issue. Values not 
 | `--playoffs-hero-strip-rule` | ink at 18% | Hero game strip top border |
 | `--playoffs-trophy-stroke` | 1.5px | Hero trophy line |
 | `--playoffs-mvp-title-size` | `clamp(32px, 3.4vw, 44px)` | Finals MVP H2 |
+| `--playoffs-mvp-photo-columns-mobile` | `minmax(0, 1fr)` | Finals MVP card inner grid under 680px |
 | `--playoffs-mvp-photo-width` | 300px | Finals MVP cutout (170px for a conference MVP) |
 | `--playoffs-conf-glow-alpha` | .35 | Conference MVP photo glow |
 | `--playoffs-bracket-title-size` | `clamp(44px, 5vw, 72px)` | Bracket H2 |

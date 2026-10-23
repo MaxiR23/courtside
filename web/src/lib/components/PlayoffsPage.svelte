@@ -105,13 +105,17 @@
 						{gameHref}
 					/>
 				{:else if id === 'finals-mvp'}
-					<SectionHead title={m.playoffs_finals_mvp()} />
-					<div class="mvps">
-						{#if view.finalsMvp}<FinalsMvpCard mvp={view.finalsMvp} />{/if}
-						<div class="conference-mvps">
-							{#each view.conferenceMvps as mvp (mvp.key)}
-								<ConferenceMvpCard {mvp} />
-							{/each}
+					<div class="mvp-section">
+						<SectionHead title={m.playoffs_finals_mvp()} size="mvp" />
+						<div class="mvps">
+							{#if view.finalsMvp}<FinalsMvpCard mvp={view.finalsMvp} {layout} />{/if}
+							{#if view.conferenceMvps.length > 0}
+								<div class="conference-mvps">
+									{#each view.conferenceMvps as mvp (mvp.key)}
+										<div class="conference-slot"><ConferenceMvpCard {mvp} /></div>
+									{/each}
+								</div>
+							{/if}
 						</div>
 					</div>
 				{:else if id === 'series'}
@@ -216,16 +220,27 @@
 		min-width: 0;
 	}
 
+	.mvp-section {
+		display: grid;
+		gap: var(--playoffs-mvp-title-gap);
+	}
+
 	.mvps {
 		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--panel-column-min)), 1fr));
-		gap: var(--panel-section-gap);
-		align-items: start;
+		grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--playoffs-mvp-column-min)), 1fr));
+		gap: var(--playoffs-mvp-column-gap);
+		align-items: stretch;
 	}
 
 	.conference-mvps {
+		display: flex;
+		flex-direction: column;
+		gap: var(--playoffs-conf-gap);
+	}
+
+	.conference-slot {
 		display: grid;
-		gap: var(--game-list-gap);
+		flex: 1;
 	}
 
 	.bones {

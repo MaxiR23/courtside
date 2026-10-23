@@ -94,6 +94,9 @@ export type FinalsMvpView = {
 	name: string;
 	photo: string | null;
 	team: string;
+	teamName: string; // the team's full name, or the drawn code when the team is not in the bracket
+	mark: TeamMarkTeam; // the logo tile; the monogram of the drawn code when the team is not found
+	accent: string | null; // the team's resolved color from the feed (ADR 0072); null: the neutral accent
 	stats: {
 		key: 'ppg' | 'best' | 'rebast' | 'games';
 		label: string;
@@ -108,6 +111,9 @@ export type ConferenceMvpView = {
 	photo: string | null;
 	label: string; // "East finals MVP"
 	team: string;
+	teamName: string; // the team's full name, or the drawn code when the team is not in the bracket
+	mark: TeamMarkTeam; // the logo tile; the monogram of the drawn code when the team is not found
+	accent: string | null; // the team's resolved color from the feed (ADR 0072); null: the neutral accent
 };
 
 export type FinalsChartView = {

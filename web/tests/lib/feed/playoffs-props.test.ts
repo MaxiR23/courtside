@@ -24,6 +24,7 @@
 // - A scheduled series game with no venue shows its date alone (ADR 0064)
 // - Spanish copy
 // - The champion carries the feed's logo into the hero view; a null logo leaves the key out
+// - The MVP cards get the team's full name and logo from the bracket, the feed's accent, and the drawn code when the team is not in the bracket
 //
 // What is covered:
 // - Pure logic on invented feeds (tests/lib/feed/fixtures/playoffs-*.json); no clock, no network
@@ -167,8 +168,8 @@ describe('toPlayoffsView sections', () => {
 		expect(v.finalsMvp).toBeNull();
 		expect(v.sections).toContain('finals-mvp');
 		expect(v.conferenceMvps.map((mvp) => [mvp.key, mvp.name, mvp.label, mvp.team])).toEqual([
-			['east', 'Kai Lowe', 'East finals MVP', 'QXA'],
-			['west', 'Moe Nash', 'West finals MVP', 'QYA']
+			['east', 'Kai Lowe', 'East Finals MVP', 'QXA'],
+			['west', 'Moe Nash', 'West Finals MVP', 'QYA']
 		]);
 	});
 
@@ -262,6 +263,60 @@ describe('toPlayoffsView header', () => {
 		f.champion!.accent = null;
 		expect(f.champion!.team.colors.primary).not.toBeNull();
 		expect(view(f).header.hero!.accent).toBeNull();
+	});
+
+	it('gives the Finals MVP the full name and the logo of its team from the bracket', () => {
+		const f = complete();
+		const logo = { light: 'https://cdn.example.com/qxa.svg', dark: null };
+		finalsOf(f).top.team!.logo = logo;
+		const mvp = view(f, finalsFeed()).finalsMvp!;
+		expect(mvp.teamName).toBe('Harbor Owls');
+		expect(mvp.mark.code).toBe('QXA');
+		expect(mvp.mark.logo).toEqual(logo);
+	});
+
+	it('gives each conference MVP its team from any series of the bracket', () => {
+		const cards = view(complete(), finalsFeed()).conferenceMvps;
+		expect(cards.map((c) => [c.teamName, c.mark.code])).toEqual([
+			['Harbor Owls', 'QXA'],
+			['Summit Wolves', 'QYA']
+		]);
+	});
+
+	it('falls back to the drawn code with no logo when the team is not in the bracket', () => {
+		const f = complete();
+		f.awards!.find((a) => a.code === 'east_finals_mvp')!.winners[0]!.teamCode = 'QZZ';
+		f.awards!.find((a) => a.code === 'west_finals_mvp')!.winners[0]!.teamCode = null;
+		const [east, west] = view(f, finalsFeed()).conferenceMvps;
+		expect(east!.teamName).toBe('QZZ');
+		expect(east!.mark).toEqual({ code: 'QZZ', name: null, city: null, guest: false });
+		expect(west!.teamName).toBe('—');
+		expect(west!.mark).toEqual({ code: '—', name: null, city: null, guest: false });
+	});
+
+	it('copies the accent of each MVP and computes no color', () => {
+		const f = complete();
+		const finals = finalsFeed();
+		finals.finalsMvp!.accent = '#1d4e89';
+		f.awards!.find((a) => a.code === 'east_finals_mvp')!.winners[0]!.accent = '#5a2d82';
+		let v = view(f, finals);
+		expect(v.finalsMvp!.accent).toBe('#1d4e89');
+		expect(v.conferenceMvps[0]!.accent).toBe('#5a2d82');
+		finals.finalsMvp!.accent = null;
+		f.awards!.find((a) => a.code === 'east_finals_mvp')!.winners[0]!.accent = null;
+		expect(finalsOf(f).top.team!.colors.primary).not.toBeNull();
+		v = view(f, finals);
+		expect(v.finalsMvp!.accent).toBeNull();
+		expect(v.conferenceMvps[0]!.accent).toBeNull();
+		expect(v.conferenceMvps[1]!.accent).toBeNull();
+	});
+
+	it('gives a historical team its season code on the mark', () => {
+		const f = complete();
+		const team = finalsOf(f).top.team!;
+		team.historical = true;
+		team.seasonCode = 'QXH';
+		expect(view(f, finalsFeed()).finalsMvp!.mark.historicalCode).toBe('QXH');
 	});
 
 	it('shows — for a final game with no score, leaves out a game not final and falls back on the opponent name', () => {

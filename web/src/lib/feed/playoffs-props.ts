@@ -67,7 +67,7 @@ import type {
 	SeriesGameView,
 	SeriesSideView
 } from '#lib/playoffs/types.ts';
-import { teamLabel, teamMark } from '#lib/team/mark.ts';
+import { teamLabel, teamMark, type TeamMarkTeam } from '#lib/team/mark.ts';
 
 const NO_VALUE = '—';
 const SEPARATOR = ' · ';
@@ -454,12 +454,13 @@ function playInView(playIn: PlayIn): PlayInView {
 	};
 }
 
-function finalsMvpView(mvp: FinalsMvp | null): FinalsMvpView {
+function finalsMvpView(mvp: FinalsMvp | null, feed: PlayoffsFeed): FinalsMvpView {
 	if (mvp === null) return null;
 	return {
 		name: mvp.name,
 		photo: mvp.photoUrl,
 		team: drawn(mvp),
+		...mvpTeam(feed, mvp),
 		stats: [
 			{
 				key: 'ppg',
@@ -489,13 +490,13 @@ function finalsMvpView(mvp: FinalsMvp | null): FinalsMvpView {
 	};
 }
 
-function conferenceMvps(awards: Award[] | null): ConferenceMvpView[] {
+function conferenceMvps(feed: PlayoffsFeed): ConferenceMvpView[] {
 	const sources = [
 		{ key: 'east', code: 'east_finals_mvp', label: m.playoffs_ecf_mvp },
 		{ key: 'west', code: 'west_finals_mvp', label: m.playoffs_wcf_mvp }
 	] as const;
 	return sources.flatMap((source) => {
-		const winner = awards?.find((award) => award.code === source.code)?.winners[0];
+		const winner = feed.awards?.find((award) => award.code === source.code)?.winners[0];
 		return winner
 			? [
 					{
@@ -503,7 +504,8 @@ function conferenceMvps(awards: Award[] | null): ConferenceMvpView[] {
 						name: winner.name,
 						photo: winner.photoUrl,
 						label: source.label(),
-						team: drawn(winner)
+						team: drawn(winner),
+						...mvpTeam(feed, winner)
 					}
 				]
 			: [];
@@ -725,6 +727,28 @@ function roadCard(road: RoadTeam): RoadCardView {
 	};
 }
 
+// The team object of a code among the bracket's sides; null when no side has it.
+function bracketTeam(feed: PlayoffsFeed, teamCode: string | null): PlayoffTeam | null {
+	if (teamCode === null) return null;
+	for (const series of feed.bracket)
+		for (const side of [series.top, series.bottom])
+			if (side.team?.code === teamCode) return side.team;
+	return null;
+}
+
+// The team name and logo of an MVP come from the bracket; the color is the feed's (ADR 0072).
+function mvpTeam(
+	feed: PlayoffsFeed,
+	entry: { teamCode: string | null; seasonCode: string | null; accent: string | null }
+): { teamName: string; mark: TeamMarkTeam; accent: string | null } {
+	const team = bracketTeam(feed, entry.teamCode);
+	return {
+		teamName: team ? fullName(team) : drawn(entry),
+		mark: team ? teamMark(team) : { code: drawn(entry), name: null, city: null, guest: false },
+		accent: entry.accent ?? null
+	};
+}
+
 // The primary color of a finalist; none for a historical team.
 function colorOf(finals: PlayoffsFinalsFeed, teamCode: string): string | null {
 	const team = finals.road.find((road) => road.team.code === teamCode)?.team;
@@ -876,8 +900,8 @@ export function toPlayoffsView(
 	const statistics =
 		finals !== null &&
 		(!past || finals.headToHead.bars.some((bar) => bar.values.some((v) => v.value !== null)));
-	const finalsMvp = finals ? finalsMvpView(finals.finalsMvp) : null;
-	const conference = conferenceMvps(feed.awards);
+	const finalsMvp = finals ? finalsMvpView(finals.finalsMvp, feed) : null;
+	const conference = conferenceMvps(feed);
 	const present: Record<PlayoffsSectionId, boolean> = {
 		picture: feed.state === 'picture',
 		bracket: true,

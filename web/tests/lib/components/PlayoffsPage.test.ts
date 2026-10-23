@@ -11,6 +11,7 @@
 // - The unavailable state of a past season keeps the Season tag; the current season's has none (ADR 0054)
 // - Unavailable: the unavailable row under the nav; the footer in every state
 // - Spanish copy
+// - The Finals MVP section: the Finals card and both conference cards, and each missing winner hides only its card
 // - The team logos: the champion logo in the hero, a playoff picture row's logo, the code for a null logo
 //
 // What is covered:
@@ -259,5 +260,66 @@ describe('PlayoffsPage team logos', () => {
 			'https://example.com/a-dark.svg'
 		);
 		expect(boxes[1]!.querySelector('img')).toBeNull();
+	});
+});
+
+describe('PlayoffsPage Finals MVP section', () => {
+	const section = (
+		change: (f: PlayoffsFeed, finals: PlayoffsFinalsFeed) => void = () => {}
+	): HTMLElement => {
+		const feed = read<PlayoffsFeed>('playoffs-complete.json');
+		const finals = read<PlayoffsFinalsFeed>('playoffs-finals.json');
+		change(feed, finals);
+		const { container } = show({ kind: 'ready', view: toPlayoffsView(feed, finals) });
+		return container.querySelector<HTMLElement>('#finals-mvp') ?? document.createElement('div');
+	};
+	const without = (feed: PlayoffsFeed, ...codes: string[]) => {
+		feed.awards = feed.awards!.filter((a) => !codes.includes(a.code));
+	};
+
+	it('draws the Finals MVP card and both conference cards with all three winners', () => {
+		const el = section();
+		expect(el.querySelectorAll('.finals-mvp')).toHaveLength(1);
+		expect(el.querySelectorAll('.conference-slot')).toHaveLength(2);
+		const h2 = el.querySelector('h2');
+		expect(h2?.textContent).toBe('Finals MVP');
+		expect(h2?.classList.contains('mvp')).toBe(true);
+	});
+
+	it('hides only the Finals MVP card with no Finals MVP', () => {
+		const el = section((_, finals) => (finals.finalsMvp = null));
+		expect(el.querySelector('.finals-mvp')).toBeNull();
+		expect(el.querySelectorAll('.conference-slot')).toHaveLength(2);
+	});
+
+	it('hides only the East card with no East finals MVP', () => {
+		const el = section((f) => without(f, 'east_finals_mvp'));
+		expect(el.querySelectorAll('.conference-slot')).toHaveLength(1);
+		expect(el.textContent).toContain('West Finals MVP');
+		expect(el.textContent).not.toContain('East Finals MVP');
+		expect(el.querySelector('.finals-mvp')).not.toBeNull();
+	});
+
+	it('hides only the West card with no West finals MVP', () => {
+		const el = section((f) => without(f, 'west_finals_mvp'));
+		expect(el.querySelectorAll('.conference-slot')).toHaveLength(1);
+		expect(el.textContent).toContain('East Finals MVP');
+		expect(el.textContent).not.toContain('West Finals MVP');
+		expect(el.querySelector('.finals-mvp')).not.toBeNull();
+	});
+
+	it('hides the conference column with neither conference MVP', () => {
+		const el = section((f) => without(f, 'east_finals_mvp', 'west_finals_mvp'));
+		expect(el.querySelector('.conference-mvps')).toBeNull();
+		expect(el.querySelector('.finals-mvp')).not.toBeNull();
+	});
+
+	it('hides the section with no winner at all', () => {
+		const feed = read<PlayoffsFeed>('playoffs-complete.json');
+		const finals = read<PlayoffsFinalsFeed>('playoffs-finals.json');
+		finals.finalsMvp = null;
+		without(feed, 'east_finals_mvp', 'west_finals_mvp');
+		const { container } = show({ kind: 'ready', view: toPlayoffsView(feed, finals) });
+		expect(container.querySelector('#finals-mvp')).toBeNull();
 	});
 });

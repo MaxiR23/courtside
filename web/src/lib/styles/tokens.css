@@ -446,6 +446,36 @@
 	--playoffs-game-text-size: 4px;
 	--playoffs-games-gap: 4px;
 
+	/* Playoffs Finals MVP */
+	--playoffs-mvp-title-size: clamp(32px, 3.4vw, 44px);
+	--playoffs-mvp-title-gap: 24px;
+	--playoffs-mvp-column-gap: 24px;
+	/* Two columns from a 900px viewport: (900 - 2 * 36 side padding - 24 gap) / 2. */
+	--playoffs-mvp-column-min: 402px;
+	--playoffs-mvp-photo-columns: 200px minmax(0, 1fr);
+	--playoffs-mvp-photo-columns-mobile: minmax(0, 1fr);
+	--playoffs-mvp-photo-min-height: 250px;
+	--playoffs-mvp-photo-width: 300px;
+	--playoffs-mvp-cutout-filter: drop-shadow(0 14px 16px rgba(0, 0, 0, 0.6));
+	--playoffs-mvp-glow-position: 50% 80%;
+	--playoffs-mvp-glow-falloff: 70%;
+	--playoffs-mvp-info-padding: 24px 28px;
+	--playoffs-mvp-name-size: 36px;
+	--playoffs-mvp-team-size: 13px;
+	--playoffs-mvp-team-mark: 18px;
+	--playoffs-mvp-stats-gap: 16px 20px;
+	--playoffs-mvp-stat-value-size: 30px;
+	--playoffs-mvp-stat-label-size: 10.5px;
+	--playoffs-conf-gap: 12px;
+	--playoffs-conf-columns: 120px minmax(0, 1fr) auto;
+	--playoffs-conf-photo-width: 170px;
+	--playoffs-conf-glow-alpha: 0.35;
+	--playoffs-conf-label-size: 10.5px;
+	--playoffs-conf-name-size: 24px;
+	--playoffs-conf-team-size: 12.5px;
+	--playoffs-conf-logo: 36px;
+	--playoffs-conf-logo-margin: 22px;
+
 	/* All-Star */
 	--allstar-hero-title-size: clamp(72px, 11vw, 176px);
 	--allstar-hero-title-size-mobile: clamp(58px, 17vw, 84px);

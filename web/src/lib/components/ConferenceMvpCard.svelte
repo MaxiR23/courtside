@@ -1,6 +1,7 @@
 <script lang="ts">
 	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
 	import PlayerAvatar from '#lib/components/PlayerAvatar.svelte';
+	import TeamMark from '#lib/components/TeamMark.svelte';
 	import type { ConferenceMvpView } from '#lib/playoffs/types.ts';
 
 	type Props = { mvp: ConferenceMvpView };
@@ -10,27 +11,57 @@
 
 <BlueprintFrame>
 	<div class="conference-mvp">
-		<PlayerAvatar name={mvp.name} photo={mvp.photo} size="roster" />
-		<div class="who">
-			<span class="name">{mvp.name}</span>
-			<span class="label">{mvp.label}</span>
+		<div class="photo" style:--side-accent={mvp.accent ?? 'var(--identity-neutral-accent)'}>
+			<span class="glow" aria-hidden="true"></span>
+			<PlayerAvatar name={mvp.name} photo={mvp.photo} size="playoffs-conference-mvp" />
 		</div>
-		<span class="team">{mvp.team}</span>
+		<div class="who">
+			<span class="label">{mvp.label}</span>
+			<span class="name">{mvp.name}</span>
+			<span class="team">{mvp.teamName}</span>
+		</div>
+		<span class="logo">
+			<TeamMark team={mvp.mark} part="tile" size="playoffs-mvp-logo" logo={mvp.mark.logo} />
+		</span>
 	</div>
 </BlueprintFrame>
 
 <style>
 	.conference-mvp {
-		display: flex;
+		display: grid;
+		grid-template-columns: var(--playoffs-conf-columns);
 		align-items: center;
-		gap: var(--game-list-gap);
-		padding: var(--game-list-gap);
+		height: 100%;
+	}
+
+	.photo {
+		position: relative;
+		align-self: stretch;
+		overflow: hidden;
+	}
+
+	.glow {
+		position: absolute;
+		inset: 0;
+		background: radial-gradient(
+			circle at var(--playoffs-mvp-glow-position),
+			var(--side-accent),
+			transparent var(--playoffs-mvp-glow-falloff)
+		);
+		opacity: var(--playoffs-conf-glow-alpha);
+		pointer-events: none;
 	}
 
 	.who {
 		display: grid;
-		flex: 1;
 		min-width: 0;
+	}
+
+	.label {
+		font-size: var(--playoffs-conf-label-size);
+		letter-spacing: var(--label-letter-spacing);
+		text-transform: uppercase;
+		color: var(--color-accent-light);
 	}
 
 	.name {
@@ -38,19 +69,17 @@
 		text-overflow: ellipsis;
 		white-space: nowrap;
 		font-family: var(--font-heading);
-		font-size: var(--box-name-size);
-	}
-
-	.label {
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
+		font-weight: var(--font-weight-bold);
+		font-size: var(--playoffs-conf-name-size);
 		text-transform: uppercase;
-		color: var(--color-muted);
 	}
 
 	.team {
-		font-family: var(--font-heading);
-		font-size: var(--box-name-size);
-		color: var(--color-accent-light);
+		font-size: var(--playoffs-conf-team-size);
+		color: var(--color-muted);
+	}
+
+	.logo {
+		margin-right: var(--playoffs-conf-logo-margin);
 	}
 </style>

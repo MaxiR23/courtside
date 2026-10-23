@@ -12,6 +12,7 @@
 // - Uses the search box in the search overlay
 // - Uses the cup-draw box in the Cup draw list and the cup-champion box in the Cup header
 // - Uses the cup-node box in a bracket node
+// - Uses the playoffs-mvp-team box in the Finals MVP team row and the playoffs-mvp-logo box in a conference MVP card
 // - Uses the allstar-league box for a player's league team
 // - Uses the names box in the franchise names timeline
 // - Uses the fill box of its parent and the inline box before a team's text
@@ -107,6 +108,13 @@ describe('TeamMonogram', () => {
 	it('renders the cup-node size', () => {
 		render(TeamMonogram, { props: { code: 'QXC', size: 'cup-node' } });
 		expect(screen.getByText('QXC').classList.contains('cup-node')).toBe(true);
+	});
+
+	it('renders the playoffs-mvp-team and playoffs-mvp-logo sizes', () => {
+		render(TeamMonogram, { props: { code: 'QXA', size: 'playoffs-mvp-team' } });
+		expect(screen.getByText('QXA').classList.contains('playoffs-mvp-team')).toBe(true);
+		render(TeamMonogram, { props: { code: 'QXB', size: 'playoffs-mvp-logo' } });
+		expect(screen.getByText('QXB').classList.contains('playoffs-mvp-logo')).toBe(true);
 	});
 
 	it('renders the allstar-league size, linked to the team page', () => {
