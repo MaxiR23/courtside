@@ -41,14 +41,15 @@ const FLAG: Record<Stakes, () => string> = {
 export function seriesSummary(
 	first: SummarySide,
 	second: SummarySide,
-	winner: 'first' | 'second' | null
+	winner: 'first' | 'second' | null,
+	words = { wins: m.playoffs_series_wins, leads: m.playoffs_series_leads }
 ): string | null {
 	if (first.wins === null || second.wins === null) return null;
 	const a = formatNumber(first.wins);
 	if (winner !== null) {
 		const won = winner === 'first' ? first : second;
 		const lost = winner === 'first' ? second : first;
-		return m.playoffs_series_wins({
+		return words.wins({
 			team: won.label,
 			won: formatNumber(won.wins ?? 0),
 			lost: formatNumber(lost.wins ?? 0)
@@ -57,7 +58,7 @@ export function seriesSummary(
 	if (first.wins === second.wins) return m.game_series_tied({ wins: a });
 	const leading = first.wins > second.wins ? first : second;
 	const trailing = leading === first ? second : first;
-	return m.playoffs_series_leads({
+	return words.leads({
 		team: leading.label,
 		leading: formatNumber(leading.wins ?? 0),
 		trailing: formatNumber(trailing.wins ?? 0)

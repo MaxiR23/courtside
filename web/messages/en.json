@@ -758,5 +758,17 @@
 	"past_player_free_agent": "Free agent",
 	"past_team_no_season": "No team this season.",
 	"seasons_cup_no_roster": "Rosters are shown for the current season only",
-	"seasons_edition_highlights": "Edition highlights"
+	"seasons_edition_highlights": "Edition highlights",
+	"playoffs_bracket_kicker": "{year} NBA Playoffs",
+	"playoffs_ot_n": "{n}OT",
+	"playoffs_series_back": "← Bracket",
+	"playoffs_series_seed": "No. {seed} seed",
+	"playoffs_series_status_wins": "{team} wins the series {won}–{lost}",
+	"playoffs_series_status_leads": "{team} leads {leading}–{trailing}",
+	"playoffs_series_by_game": "Game by game",
+	"playoffs_series_game": "Game {n}",
+	"playoffs_series_game_venue": "{date} · {venue}",
+	"playoffs_series_at": "at {team}",
+	"playoffs_series_leaders": "{name} {pts} PTS · {name2} {pts2} PTS",
+	"playoffs_series_unavailable": "This series isn't available."
 }
