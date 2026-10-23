@@ -11,7 +11,7 @@
 // - A drag of 10px pans and the click that ends it opens nothing; a 3px drag then a click opens the node
 // - The layer's style holds only the transform after every input
 // - Reduced motion: Fit does not animate and lands at once
-// - Mobile: no controls and no hint, the wheel ignored, a tap opens the sheet
+// - Mobile: the tree, no camera (no viewport, layer, controls or hint), a wheel left to the page, a tap opens the sheet, Esc returns the focus, a linked card opens the game and not the sheet, a resize to desktop brings the camera back
 // - A native scroll of the viewport (focus scrolling it) is absorbed: scrollLeft goes back to 0 and the layer moves by the same amount
 // - Closing the panel returns the focus without scrolling
 // - Keyboard: Tab to a node, Esc closes the player card only, Esc again closes the panel and returns the focus to the node
@@ -108,20 +108,6 @@ describe('CupBracket layout', () => {
 			['3900px', '380px'],
 			['5200px', '0px'],
 			['5200px', '760px']
-		]);
-	});
-
-	it('places the nodes from the mobile layout', () => {
-		const { container } = show('mobile');
-		const slots = [...container.querySelectorAll<HTMLElement>('.slot')];
-		expect(slots.map((s) => [s.style.left, s.style.top])).toEqual([
-			['0px', '0px'],
-			['1300px', '0px'],
-			['650px', '760px'],
-			['650px', '1520px'],
-			['650px', '2280px'],
-			['0px', '3040px'],
-			['1300px', '3040px']
 		]);
 	});
 
@@ -293,35 +279,66 @@ describe('CupBracket reduced motion', () => {
 });
 
 describe('CupBracket on a phone', () => {
-	it('has no controls and no hint', () => {
+	it('draws the tree with no camera, controls or hint', () => {
 		const { container } = show('mobile');
-		expect(container.querySelector('.controls')).toBeNull();
+		expect(container.querySelector('.tree')).not.toBeNull();
+		for (const selector of ['.viewport', '.layer', '.controls', '.node']) {
+			expect(container.querySelector(selector)).toBeNull();
+		}
 		expect(screen.queryByText('Scroll to zoom, drag to pan')).toBeNull();
 		expect(screen.queryByRole('button', { name: 'Zoom in' })).toBeNull();
 	});
 
-	it('ignores the wheel and stays at level 1', () => {
+	it('leaves a ctrl+wheel to the page', () => {
 		const { container } = show('mobile');
-		const before = layerOf(container).style.transform;
 		const event = new WheelEvent('wheel', {
 			deltaY: -300,
 			ctrlKey: true,
 			bubbles: true,
 			cancelable: true
 		});
-		viewportOf(container).dispatchEvent(event);
+		container.querySelector('.tree')!.dispatchEvent(event);
 		expect(event.defaultPrevented).toBe(false);
-		expect(layerOf(container).style.transform).toBe(before);
-		expect(container.querySelectorAll('.code').length).toBeGreaterThan(0);
 	});
 
 	it('opens the sheet on a tap', async () => {
-		show('mobile');
+		show('mobile', 'cup.json');
 		await fireEvent.click(nodeButton(/^Championship ·/));
 		await settle();
 		const sheet = screen.getByRole('dialog', { name: 'Championship' });
 		expect(sheet.getAttribute('aria-modal')).toBe('true');
 		expect(load).toHaveBeenCalledWith('final');
+	});
+
+	it('closes the sheet on Esc and returns the focus to the card', async () => {
+		show('mobile', 'cup.json');
+		const button = nodeButton(/^Championship ·/);
+		await fireEvent.click(button);
+		await settle();
+		await fireEvent.keyDown(window, { key: 'Escape' });
+		await tick();
+		expect(screen.queryByRole('dialog')).toBeNull();
+		expect(document.activeElement).toBe(button);
+	});
+
+	it('opens the game page from a linked card and loads no matchup', async () => {
+		show('mobile');
+		const link = screen.getByRole('link', { name: /^Championship ·/ });
+		expect(link.getAttribute('href')).toBe('/game/9100004');
+		link.addEventListener('click', (event) => event.preventDefault());
+		await fireEvent.click(link);
+		await settle();
+		expect(load).not.toHaveBeenCalled();
+		expect(screen.queryByRole('dialog')).toBeNull();
+	});
+
+	it('brings the camera back when the layout becomes desktop', async () => {
+		const { container, rerender } = show('mobile');
+		await rerender({ bracket: bracketOf(), layout: 'desktop', matchup, gameHref, playerHref });
+		await tick();
+		expect(container.querySelector('.viewport')).not.toBeNull();
+		expect(container.querySelectorAll('.node')).toHaveLength(7);
+		expect(container.querySelector('.tree')).toBeNull();
 	});
 });
 

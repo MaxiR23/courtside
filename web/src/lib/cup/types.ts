@@ -1,5 +1,6 @@
 // Props of the Cup page. Components get pre-formatted strings and never a contract type.
 
+import type { RoundKey } from '#lib/cup/bracket-layout.ts';
 import type { CupRound, SlotId, StageStatus } from '#lib/contract/cup.ts';
 import type { InjuryTagStatus } from '#lib/game/types.ts';
 import type { HeroStatus } from '#lib/hero/types.ts';
@@ -123,6 +124,8 @@ export type BracketNodeView = {
 	venue: string | null;
 	broadcast: string | null;
 	neutral: boolean;
+	gameLink: GameLink | null; // null: no game yet; linked: the game page opens on a tap (mobile tree)
+	rule: { accent: string | null } | null; // the winner's line; accent null: the neutral accent; null: no winner yet
 };
 
 export type BracketView = {
@@ -130,6 +133,8 @@ export type BracketView = {
 	known: Record<`${SlotId}:${'top' | 'bottom'}`, boolean>; // the feed's `known`, for the connectors
 	rounds: Record<'quarterfinals' | 'semifinals' | 'championship', string>; // the round labels of the columns
 	champion: string | null; // the champion's name, when the Cup is complete
+	kicker: string; // "2026 NBA Cup", above the mobile tree
+	treeLabels: Record<RoundKey, string>; // the mobile tree's row labels: "Quarterfinals", "Semifinals · Alderton", "Championship"
 };
 
 export type CupView = {
