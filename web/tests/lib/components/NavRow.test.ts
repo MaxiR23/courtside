@@ -3,7 +3,7 @@
 // Tests for the NavRow component, the one nav drawn on every page.
 //
 // Tested:
-// - Shows the brand name and hides the brand mark from assistive technology
+// - Shows the logo mark image (/logo-mark.svg, alt empty, aria-hidden) before the brand name on both layouts; no square brand mark
 // - Desktop: Games, Standings and a Tournaments button; no Cup, All-Star or Playoffs link while it is closed
 // - Desktop Home: Games, Standings, Tournaments, the date and the Spoiler-free toggle, in that order
 // - Tournaments: aria-expanded follows its state; it lists Cup, All-Star and Playoffs with their routes
@@ -27,7 +27,7 @@
 // - Spanish: Partidos, Clasificación, Torneos, Copa, All-Star, Playoffs, Sin spoilers, Todos los partidos, the mobile menu
 // - With home.calendar the date is a button with aria-haspopup="dialog" in the same place; without it the date stays a plain time
 // - With no selected day the sheet opens on the month of the date shown
-// - Sources: the 48px sheet rows, the 44px dropdown items and menu button, the nav type tokens
+// - Sources: the 48px sheet rows, the 44px dropdown items and menu button, the nav type tokens, the 22px logo mark through --brand-mark-size
 //
 // What is covered:
 // - Every page state (home, standings, cup, all-star, playoffs, detail), both layouts, dropdown closed and open, sheet closed and open, with and without a calendar
@@ -174,10 +174,17 @@ describe('NavRow with a calendar', () => {
 });
 
 describe('NavRow on desktop', () => {
-	it('shows the brand name and hides the brand mark from assistive technology', () => {
+	it('shows the logo mark before the brand name, hidden from assistive technology', () => {
 		const { container } = render(NavRow, { props: homeProps });
 		expect(screen.getByText('Courtside')).toBeTruthy();
-		expect(container.querySelector('.brand-mark')?.getAttribute('aria-hidden')).toBe('true');
+		const logo = container.querySelector('.brand img');
+		expect(logo).not.toBeNull();
+		expect(logo?.getAttribute('src')).toBe('/logo-mark.svg');
+		expect(logo?.getAttribute('alt')).toBe('');
+		expect(logo?.getAttribute('aria-hidden')).toBe('true');
+		expect(container.querySelector('.brand')?.firstElementChild).toBe(logo);
+		expect(logo?.nextElementSibling?.classList.contains('brand-name')).toBe(true);
+		expect(container.querySelector('.brand-mark')).toBeNull();
 	});
 
 	it('shows Games, Standings and Tournaments, and no seasonal link while it is closed', () => {
@@ -424,6 +431,7 @@ describe('NavRow on mobile', () => {
 		const children = [...nav.children];
 		expect(children).toHaveLength(3);
 		expect(children[0]?.classList.contains('brand')).toBe(true);
+		expect(children[0]?.querySelector('img')?.getAttribute('src')).toBe('/logo-mark.svg');
 		expect(children[1]).toBe(screen.getByRole('button', { name: 'Search' }));
 		const menu = screen.getByRole('button', { name: 'Open menu' });
 		expect(children[2]).toBe(menu);
@@ -582,6 +590,16 @@ describe('the nav sources', () => {
 		expect(sets(row, '.item', 'min-height', 'var(--hit-target-size)')).toBe(true);
 		expect(sets(row, '.menu-button', 'width', 'var(--hit-target-size)')).toBe(true);
 		expect(sets(row, '.menu-button', 'height', 'var(--hit-target-size)')).toBe(true);
+	});
+
+	it('sizes the logo mark through --brand-mark-size and drops the inner square token', () => {
+		expect(sets(row, '.brand-logo', 'width', 'var(--brand-mark-size)')).toBe(true);
+		expect(sets(row, '.brand-logo', 'height', 'var(--brand-mark-size)')).toBe(true);
+		expect(rulesOf(row).some((r) => r.selectors.some((s) => s.startsWith('.brand-mark')))).toBe(
+			false
+		);
+		expect(tokens).toContain('--brand-mark-size: 22px;');
+		expect(tokens).not.toContain('--brand-mark-inner-size');
 	});
 
 	it('sets the sizes through tokens', () => {
