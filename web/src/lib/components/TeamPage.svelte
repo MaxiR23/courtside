@@ -67,7 +67,7 @@
 		{#if sections.leaders}
 			<section id="leaders">
 				<SectionHead title={m.team_section_leaders()} meta={sections.leaders.meta} />
-				<TeamLeaders leaders={sections.leaders} {playerHref} />
+				<TeamLeaders leaders={sections.leaders} {layout} {playerHref} />
 			</section>
 		{/if}
 		{#if sections.roster}

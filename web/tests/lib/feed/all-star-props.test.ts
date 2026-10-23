@@ -21,6 +21,7 @@
 // - A Top 5 value, a box score count and a shooting split the feed has as null show a dash (ADR 0055)
 // - The MVP, the scoreline with the winner first, and 2, 3 and 4 team days
 // - The previous view: the after view of previousEdition with the previous year, null without it
+// - The Last time MVP carries the feed's jersey, null without one
 // - The edition video on the current, after and previous views, null without it; the Last time video URL; the season tag from the label passed in
 //
 // What is covered:
@@ -152,6 +153,7 @@ describe('Last time', () => {
 		});
 		expect(last.mvp).toMatchObject({ playerId: '4001', name: 'Gus Imagined' });
 		expect(last.mvp?.summary).toBe('24 PTS · across 2 games');
+		expect(last.mvp?.jersey).toBe('21');
 		expect(last.link).toBe('Every game, box score and highlight from 2026 →');
 	});
 
@@ -161,6 +163,12 @@ describe('Last time', () => {
 		const last = current(feed).lastTime!;
 		expect(last.mvp).toBeNull();
 		expect(last.champion.name).toBe('Team Dunes');
+	});
+
+	it('passes a null jersey when the previous MVP has none', () => {
+		const feed = before();
+		feed.previous!.mvp!.jersey = null;
+		expect(current(feed).lastTime!.mvp!.jersey).toBeNull();
 	});
 
 	it('is not drawn while live or after', () => {

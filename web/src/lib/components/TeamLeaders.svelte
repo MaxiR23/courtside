@@ -2,11 +2,16 @@
 	import type { ResolvedPathname } from '$app/types';
 	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
 	import PlayerAvatar from '#lib/components/PlayerAvatar.svelte';
+	import type { RowLayout } from '#lib/schedule/types.ts';
 	import type { LeadersSection } from '#lib/team/types.ts';
 
-	type Props = { leaders: LeadersSection; playerHref: (id: string) => ResolvedPathname };
+	type Props = {
+		leaders: LeadersSection;
+		layout: RowLayout;
+		playerHref: (id: string) => ResolvedPathname;
+	};
 
-	let { leaders, playerHref }: Props = $props();
+	let { leaders, layout, playerHref }: Props = $props();
 </script>
 
 <ul class="leaders">
@@ -14,14 +19,16 @@
 		<li>
 			<a class="card-link" href={playerHref(card.playerId)}>
 				<BlueprintFrame>
-					<div class="card">
+					<div class="card" class:mobile={layout === 'mobile'}>
+						<span class="cutout">
+							<PlayerAvatar name={card.name} photo={card.photo} size="team-leader" />
+						</span>
 						<div class="text">
 							<span class="label">{card.label}</span>
 							<span class="value">{card.value}</span>
 							<span class="name">{card.name}</span>
 							<span class="line">{card.line}</span>
 						</div>
-						<PlayerAvatar name={card.name} photo={card.photo} size="leader" />
 					</div>
 				</BlueprintFrame>
 			</a>
@@ -51,12 +58,25 @@
 	}
 
 	.card {
-		display: grid;
-		grid-template-columns: 1fr var(--team-leader-photo-width);
-		min-height: 100%;
+		position: relative;
+		overflow: hidden;
+		min-height: var(--team-leader-min-height);
+	}
+
+	.card.mobile {
+		min-height: var(--team-leader-min-height-mobile);
+	}
+
+	.cutout {
+		position: absolute;
+		top: 0;
+		right: 0;
+		bottom: 0;
+		width: var(--team-leader-cutout-width);
 	}
 
 	.text {
+		position: relative;
 		display: grid;
 		align-content: start;
 		gap: var(--day-strip-gap);

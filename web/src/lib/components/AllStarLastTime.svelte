@@ -47,7 +47,8 @@
 			<BlueprintFrame marks="allstar">
 				<a class="mvp-card" href={playerHref(mvp.playerId)}>
 					<span class="photo">
-						<PlayerAvatar name={mvp.name} photo={mvp.photo} size="allstar-mvp" />
+						{#if mvp.jersey}<span class="watermark" aria-hidden="true">{mvp.jersey}</span>{/if}
+						<PlayerAvatar name={mvp.name} photo={mvp.photo} size="allstar-plate" />
 					</span>
 					<span class="info">
 						<span class="name">{mvp.name}</span>
@@ -119,31 +120,61 @@
 
 	.mvp-card {
 		display: grid;
-		grid-template-columns: var(--allstar-sigla-size) 1fr;
-		gap: var(--panel-section-gap);
-		align-items: center;
+		grid-template-columns: var(--allstar-last-mvp-photo-width) 1fr;
+		align-items: stretch;
 		box-sizing: border-box;
 		height: 100%;
-		padding: var(--panel-section-gap);
 		color: inherit;
 		text-decoration: none;
 	}
 
+	.mobile .mvp-card {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
 	.photo {
+		position: relative;
 		display: block;
-		width: var(--allstar-top5-photo-size);
-		height: var(--allstar-top5-photo-size);
+		min-height: 0;
+		overflow: hidden;
+		background:
+			radial-gradient(ellipse at 50% 100%, var(--allstar-plate-glow), transparent 70%),
+			var(--color-frame-fill);
+	}
+
+	.mobile .photo {
+		height: var(--allstar-last-mvp-photo-height-mobile);
+	}
+
+	.photo :global(.avatar) {
+		position: absolute;
+		bottom: 0;
+	}
+
+	.watermark {
+		position: absolute;
+		inset: 0;
+		display: grid;
+		place-items: center;
+		font-family: var(--font-heading);
+		font-size: var(--hero-watermark-size);
+		color: var(--allstar-watermark-ink);
+		line-height: 1;
+		pointer-events: none;
 	}
 
 	.info {
 		display: grid;
+		align-content: center;
+		padding: var(--panel-section-gap);
 		gap: var(--day-strip-gap);
 		min-width: 0;
 	}
 
 	.name {
 		font-family: var(--font-heading);
-		font-size: var(--allstar-team-name-size);
+		font-weight: var(--font-weight-semibold);
+		font-size: var(--allstar-last-mvp-name-size);
 	}
 
 	.league {
@@ -155,7 +186,7 @@
 
 	.league-code {
 		font-family: var(--font-heading);
-		font-size: var(--body-size);
+		font-size: var(--allstar-last-mvp-league-size);
 	}
 
 	.summary {

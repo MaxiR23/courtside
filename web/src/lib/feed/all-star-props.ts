@@ -584,6 +584,7 @@ function lastTime(feed: AllStarFeed): LastTimeView | null {
 					playerId: previous.mvp.playerId,
 					name: previous.mvp.name,
 					photo: previous.mvp.photoUrl,
+					jersey: previous.mvp.jersey,
 					league: league(previous.mvp.leagueTeam),
 					summary: m.allstar_mvp_summary({
 						pts: integer(previous.mvp.totals.points),

@@ -7,6 +7,7 @@
 		size:
 			| 'roster'
 			| 'leader'
+			| 'team-leader'
 			| 'search'
 			| 'cup-card'
 			| 'playoffs-avatar'
@@ -54,6 +55,25 @@
 		align-self: stretch;
 		width: var(--team-leader-photo-width);
 		height: 100%;
+	}
+
+	.team-leader {
+		width: 100%;
+		height: 100%;
+		background: none;
+	}
+
+	.team-leader img {
+		position: absolute;
+		right: 0;
+		bottom: 0;
+		object-fit: contain;
+		object-position: bottom right;
+		filter: var(--hero-cutout-filter);
+	}
+
+	.team-leader .photo-placeholder {
+		font-size: var(--player-name-size);
 	}
 
 	.search {

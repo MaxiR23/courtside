@@ -138,7 +138,7 @@ The meta names the season of the record, such as `2025-26 · regular season`.
 
 ### 5. Team leaders
 
-Three blueprint cards, min 280px: Points, Rebounds and Assists per game. Value 56px, the player name, `#2 · Guard`, and the photo on the right in a 96px column (initials without one). The meta names the season the values belong to. Each card links to the player page.
+Three blueprint cards, min 280px: Points, Rebounds and Assists per game. Card min-height 220px (180px under 680px). Value 600 `clamp(44px, 5vw, 64px)`, the player name, `#2 · Guard`. The photo is a cutout drawn behind the texts: full card height, bottom-anchored and right-aligned, 55% of the card width, with the hero cutout filter (`--hero-cutout-filter`); initials without one. The meta names the season the values belong to. Each card links to the player page.
 
 ### 6. Roster
 
