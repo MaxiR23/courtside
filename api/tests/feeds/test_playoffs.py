@@ -10,6 +10,7 @@
 # - A complete series without the wins of both sides is rejected (ADR 0055)
 # - A null play-in (a season before 2021) is accepted, while a play-in of one table or in the wrong order is still rejected
 # - A feed with a build version is accepted, one with zero is rejected, and a stored feed without the field reads with a null version
+# - A series game takes an overtime count that agrees with overtime and a played status, rejects a scheduled game with one, a disagreeing or negative count and a play-in game with one, and a stored game without the field reads with a null count
 #
 # What is covered:
 # - A valid feed is accepted and an invalid one is rejected
@@ -312,6 +313,56 @@ def test_accepts_a_complete_series_with_a_final_game() -> None:
     )
 
     PlayoffsFeed.model_validate(feed)
+
+
+def series_feed_with(game_payload: Payload) -> Payload:
+    feed = picture_feed()
+    feed["bracket"][0] = series(
+        "east-r1-1",
+        top=side(team=team("ATL"), seed=1, wins=1),
+        bottom=side(team=team("BOS"), seed=8, wins=0),
+        games=[{**game_payload, "number": 1}],
+    )
+    return feed
+
+
+@pytest.mark.parametrize(("overtime", "periods"), [(True, 2), (True, 1), (False, 0)])
+def test_accepts_a_series_game_with_its_overtime_count(
+    overtime: bool, periods: int
+) -> None:
+    feed = series_feed_with(final_game(overtime=overtime, overtimePeriods=periods))
+
+    parsed = PlayoffsFeed.model_validate(feed)
+
+    assert parsed.bracket[0].games[0].overtime_periods == periods
+
+
+def test_rejects_overtime_periods_on_a_scheduled_game() -> None:
+    rejected(series_feed_with(game(overtimePeriods=0)))
+
+
+@pytest.mark.parametrize(("overtime", "periods"), [(True, 0), (False, 1)])
+def test_rejects_overtime_periods_that_disagree_with_overtime(
+    overtime: bool, periods: int
+) -> None:
+    rejected(series_feed_with(final_game(overtime=overtime, overtimePeriods=periods)))
+
+
+def test_rejects_a_negative_overtime_count() -> None:
+    rejected(series_feed_with(final_game(overtimePeriods=-1)))
+
+
+def test_a_stored_series_game_without_the_field_reads_with_a_null_count() -> None:
+    parsed = PlayoffsFeed.model_validate(series_feed_with(final_game()))
+
+    assert parsed.bracket[0].games[0].overtime_periods is None
+
+
+def test_a_play_in_game_takes_no_overtime_count() -> None:
+    feed = picture_feed()
+    feed["playIn"][0]["games"][0]["game"] = final_game(overtimePeriods=0)
+
+    rejected(feed)
 
 
 def test_rejects_a_champion_outside_complete() -> None:

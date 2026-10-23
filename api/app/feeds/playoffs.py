@@ -179,6 +179,20 @@ class PlayoffGame(FeedModel):
 
 class SeriesGame(PlayoffGame):
     number: Annotated[int, Field(ge=1, le=7)]
+    # Overtimes played: the period minus 4 from the 5th period, 0 in regulation;
+    # null before the game, with no period and on a stored feed from before the
+    # field.
+    overtime_periods: NonNegativeInt | None = None
+
+    @model_validator(mode="after")
+    def _require_overtime_periods_of_a_played_game(self) -> SeriesGame:
+        if self.overtime_periods is None:
+            return self
+        if self.status not in (GameStatus.LIVE, GameStatus.FINAL):
+            raise ValueError(f"a {self.status} game has no overtime periods")
+        if self.overtime != (self.overtime_periods > 0):
+            raise ValueError("overtime is set exactly when overtimes were played")
+        return self
 
 
 class PlayInSlotKey(StrEnum):

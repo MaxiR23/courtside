@@ -65,6 +65,7 @@ export interface SeriesGame {
 	broadcast: string | null;
 	detailAvailable: boolean;
 	number: number;
+	overtimePeriods: number | null;
 }
 /**
  * A team a game is played against: a league team or a guest.

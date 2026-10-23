@@ -1080,6 +1080,18 @@
           "maximum": 7,
           "minimum": 1,
           "type": "integer"
+        },
+        "overtimePeriods": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -1095,7 +1107,8 @@
         "venue",
         "broadcast",
         "detailAvailable",
-        "number"
+        "number",
+        "overtimePeriods"
       ],
       "title": "SeriesGame",
       "type": "object"

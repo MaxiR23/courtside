@@ -7,7 +7,7 @@
 # - Stages: statuses (next play-in in picture, overlapping rounds, complete), first and last US Eastern dates, null dates with no game
 # - Current round: 1, 2 when round 1 is complete and round 2 not started, 3 during the conference finals, null outside the playoffs
 # - Finals game and summary: null before game 1, set after game 3
-# - Bracket: 15 series in order in every state; label parts of an undecided series; one side decided; round 1 placement by seed pair with the play-in winners as seeds 7 and 8; round 2, round 3 and Finals placement by feeder; wins, summary and status counted from the final games (winner flag, else score), never from the series object; a series with no final game is upcoming with null wins and summary; a source series object that disagrees changes nothing; overtime from the period; a series lists only the games scheduled; a canceled game is not listed
+# - Bracket: 15 series in order in every state; label parts of an undecided series; one side decided; round 1 placement by seed pair with the play-in winners as seeds 7 and 8; round 2, round 3 and Finals placement by feeder; wins, summary and status counted from the final games (winner flag, else score), never from the series object; a series with no final game is upcoming with null wins and summary; a source series object that disagrees changes nothing; overtime and the overtime count (0, 1, 2, null when scheduled or with no period) from the period; a series lists only the games scheduled; a canceled game is not listed
 # - A scoreboard game with no venue builds with a null venue and does not fail the feed (ADR 0064)
 # - Bracket errors: a seed pair outside the table, a team outside its feeder, two series in one slot, an unknown competition type, a note without a game number, a conference mix, a team outside the league in a live or final game
 # - Placeholder side: a game neither live nor final with an undecided side (a guest or no code) is ignored in the play-in and in round 1, its slots keep the standings or label value
@@ -912,6 +912,60 @@ def test_an_overtime_game_is_flagged_from_the_period() -> None:
     played = bracket(build(games))[SeriesId.EAST_R1_1].games
 
     assert [g.overtime for g in played] == [True, False]
+
+
+def test_the_overtime_count_comes_from_the_period() -> None:
+    games = play_ins() + series_games(
+        seed(EAST, 1), seed(EAST, 8), 1, "TTT", key="east-r1-1"
+    )
+    for index, period in zip((-3, -2, -1), (4, 5, 6), strict=True):
+        games[index] = games[index].model_copy(update={"period": period})
+
+    played = bracket(build(games))[SeriesId.EAST_R1_1].games
+
+    assert [g.overtime_periods for g in played] == [0, 1, 2]
+    assert [g.overtime for g in played] == [False, True, True]
+
+
+def test_a_scheduled_game_has_no_overtime_count() -> None:
+    games = play_ins() + series_games(
+        seed(EAST, 1), seed(EAST, 8), 1, "T", key="east-r1-1", scheduled=1
+    )
+
+    played = bracket(build(games))[SeriesId.EAST_R1_1].games
+
+    assert played[-1].overtime_periods is None
+    assert played[-1].overtime is False
+
+
+@pytest.mark.parametrize(("period", "count"), [(5, 1), (3, 0)])
+def test_a_live_game_counts_its_overtimes(period: int, count: int) -> None:
+    games = play_ins() + series_games(
+        seed(EAST, 1), seed(EAST, 8), 1, "T", key="east-r1-1", scheduled=1
+    )
+    games[-1] = games[-1].model_copy(
+        update={
+            "game": games[-1].game.model_copy(update={"status": GameStatus.LIVE}),
+            "period": period,
+        }
+    )
+
+    played = bracket(build(games))[SeriesId.EAST_R1_1].games
+
+    assert played[-1].overtime_periods == count
+    assert played[-1].overtime is (count > 0)
+
+
+def test_a_played_game_with_no_period_has_no_overtime_count() -> None:
+    games = play_ins() + series_games(
+        seed(EAST, 1), seed(EAST, 8), 1, "T", key="east-r1-1"
+    )
+    games[-1] = games[-1].model_copy(update={"period": None})
+
+    played = bracket(build(games))[SeriesId.EAST_R1_1].games
+
+    assert played[0].overtime_periods is None
+    assert played[0].overtime is False
 
 
 def test_a_canceled_game_is_not_listed() -> None:

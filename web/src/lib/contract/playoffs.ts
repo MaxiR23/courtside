@@ -330,6 +330,7 @@ export interface SeriesGame {
 	broadcast: string | null;
 	detailAvailable: boolean;
 	number: number;
+	overtimePeriods: number | null;
 }
 export interface Champion {
 	team: PlayoffTeam;

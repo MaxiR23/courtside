@@ -440,6 +440,16 @@ def finals_winner(games: Sequence[PostseasonGame]) -> str | None:
     return winners[0] if len(winners) == 1 else None
 
 
+def overtime_periods(game: PostseasonGame) -> int | None:
+    """The overtimes of a live or final game with a known period: 0 in
+    regulation; null otherwise."""
+    if game.game.status not in (GameStatus.LIVE, GameStatus.FINAL):
+        return None
+    if game.period is None:
+        return None
+    return max(game.period - (OVERTIME_PERIOD - 1), 0)
+
+
 def _live_or_final(game: PostseasonGame) -> bool:
     return game.game.status in (GameStatus.LIVE, GameStatus.FINAL)
 
@@ -618,7 +628,11 @@ class _Builder:
     def series_game(
         self, game: PostseasonGame, games: Sequence[PostseasonGame]
     ) -> dict[str, Any]:
-        return {**self.game(game), "number": self.game_number(game, games)}
+        return {
+            **self.game(game),
+            "number": self.game_number(game, games),
+            "overtime_periods": overtime_periods(game),
+        }
 
     # Series placement
 
