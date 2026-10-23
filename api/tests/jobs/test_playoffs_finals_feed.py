@@ -20,6 +20,7 @@
 # - The kind: expiry (a postseason final game plus 1 hour, the playoffs feed rebuilt, 7 days, kept when complete while the season is current)
 # - The kind: serving reads only the highlights of the Finals games
 # - The kind: highlights and detailAvailable are added when served and not stored; the cleanup keeps league
+# - Resolved colors (ADR 0072): the Finals MVP's color is added when served and not stored, and is null with no identity for its team or no Finals MVP
 #
 # What is covered:
 # - Pure conversions: happy path, edges and errors; the built feed validates
@@ -63,6 +64,7 @@ from app.jobs.playoffs_finals_feed import (
     FinalsSources,
     PlayoffsFinalsFeeds,
     build_finals_feed,
+    with_accents,
 )
 from app.jobs.stars import StarsJob
 from app.jobs.team_feed import FEED_LIFETIME
@@ -86,6 +88,7 @@ from tests.jobs.test_playoffs_feed import (
     award,
     both,
     finals,
+    identities_of,
     play_ins,
     player,
     round_one,
@@ -1103,3 +1106,33 @@ async def test_serve_with_reads_only_the_highlights_of_the_finals_games(
     assert len(seen) == 1 and "other" not in seen[0]
     assert "finals-2" in seen[0]
     assert [g.highlights for g in served.games] == [None, [clip], None, None]
+
+
+@pytest.mark.anyio
+async def test_the_finals_mvp_color_is_added_when_served_and_not_stored(
+    kit: FinalsKit,
+) -> None:
+    kit.stars.identities = identities_of()
+
+    served = PlayoffsFinalsFeed.model_validate_json(await kit.serve_finals())
+
+    assert served.finals_mvp is not None
+    assert served.finals_mvp.accent == "#0077c0"
+    stored = kit.stored_finals()
+    assert stored is not None and stored.finals_mvp is not None
+    assert stored.finals_mvp.accent is None
+
+
+@pytest.mark.anyio
+async def test_the_finals_mvp_color_is_null_with_no_identity(
+    kit: FinalsKit,
+) -> None:
+    served = PlayoffsFinalsFeed.model_validate_json(await kit.serve_finals())
+
+    assert served.finals_mvp is not None and served.finals_mvp.accent is None
+
+
+def test_with_accents_leaves_a_feed_with_no_finals_mvp_alone() -> None:
+    feed = built(playoffs_of(mvp=False))
+
+    assert with_accents(feed, identities_of()) == feed

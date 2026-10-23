@@ -17,6 +17,7 @@
 # - The kind: an invalid id answers unknown and a not ready season answers unavailable, with no source request
 # - The kind: detailAvailable is false
 # - The kind: the cleanup keeps it
+# - Resolved colors (ADR 0072): a past Cup is served with the slot pairs and the champion's color, and a stored feed written without the keys is served with them and no source request
 # - The current feed carries the stored previous champion as the defending champion, builds a missing previous feed first and stores it, and builds with a null one when there is no previous Cup or the previous build fails (retried only after 10 minutes)
 # - A past feed carries the champion of the stored feed of the season before with no read, and null when it is not stored or for the first Cup
 # - previous_cup names the season before from the second Cup
@@ -36,7 +37,7 @@ import datetime as dt
 import json
 from collections.abc import Iterator
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 import pytest
 import respx
@@ -47,6 +48,7 @@ from app.feeds.games import CupRound
 from app.jobs.cup_feed import CODES
 from app.jobs.cup_feed import FEED_ID as CUP_FEED_ID
 from app.jobs.cup_feed import KIND as CUP_KIND
+from app.jobs.cup_feed import with_accents as cup_with_accents
 from app.jobs.on_demand import (
     SEASON_BUILD_VERSION,
     FeedCache,
@@ -73,6 +75,7 @@ from tests.jobs.test_cup_feed import (
     NOW,
     all_final,
     group_pairs,
+    identities_of,
     knockouts,
     schedules_of,
     shared_seed_cup,
@@ -274,6 +277,14 @@ async def test_the_build_declares_44_reads_and_sends_no_calendar_day_or_detail_r
     )
 
 
+def served_equals_stored(kit: SeasonCupKit, served: bytes) -> bool:
+    """The served feed is the stored one plus its resolved colors (ADR 0072)."""
+    body = read_by_id(kit.path, KIND, "2025")
+    assert body is not None
+    stored = CupFeed.model_validate_json(body)
+    return cup_with_accents(stored, {}) == CupFeed.model_validate_json(served)
+
+
 @pytest.mark.anyio
 async def test_a_stored_feed_is_never_rebuilt_even_years_later_or_after_a_restart(
     kit: SeasonCupKit,
@@ -287,7 +298,7 @@ async def test_a_stored_feed_is_never_rebuilt_even_years_later_or_after_a_restar
 
     assert first == second == later == restarted
     assert kit.calls == calls
-    assert read_by_id(kit.path, KIND, "2025") == first
+    assert served_equals_stored(kit, first)
 
 
 @pytest.mark.anyio
@@ -367,7 +378,7 @@ async def test_the_cleanup_keeps_the_feed(kit: SeasonCupKit) -> None:
 
     kit.cache.cleanup()
 
-    assert read_by_id(kit.path, KIND, "2025") == body
+    assert served_equals_stored(kit, body)
 
 
 IN_SEASON_NOTES = {
@@ -571,3 +582,34 @@ def test_previous_cup_names_the_season_before_from_the_second_cup(
     assert kit.season_cups.previous_cup(2027) == (KIND, "2026")
     assert kit.season_cups.previous_cup(2025) == (KIND, "2024")
     assert kit.season_cups.previous_cup(2024) is None
+
+
+def without_accents(value: Any) -> Any:
+    keys = {"accent", "championAccent", "defendingChampionAccent"}
+    if isinstance(value, dict):
+        return {k: without_accents(v) for k, v in value.items() if k not in keys}
+    if isinstance(value, list):
+        return [without_accents(item) for item in value]
+    return value
+
+
+@pytest.mark.anyio
+async def test_a_stored_feed_without_the_colors_is_served_with_them_and_no_request(
+    kit: SeasonCupKit,
+) -> None:
+    kit.stars.identities = identities_of()
+    await kit.serve_season("2025")
+    path = kit.path / "feeds" / KIND / "2025.json"
+    stripped = without_accents(json.loads(path.read_bytes()))
+    path.write_text(json.dumps(stripped), encoding="utf-8")
+    assert "ccent" not in path.read_text(encoding="utf-8")
+    kit.calls.clear()
+
+    served = CupFeed.model_validate_json(await kit.serve_season("2025"))
+
+    assert kit.calls == []
+    assert served.champion is not None
+    assert served.champion_accent == "#0077c0"
+    assert served.bracket and all(s.accent is not None for s in served.bracket)
+    first = served.bracket[0].accent
+    assert first is not None and first.top == "#0077c0" and first.bottom == "#c4ced4"

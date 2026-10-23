@@ -36,6 +36,7 @@
 # - The kind: a complete feed stays fresh past 7 days and after later final Cup games, and is stale once the season changes
 # - The kind: detailAvailable is set when served from the loaded games and not stored
 # - The kind: the cleanup keeps league
+# - Resolved colors (ADR 0072): a served feed carries the slot pairs and the champions' colors and the stored file none; the smaller seed goes first whichever side it is on, then the home side of the game, then the top side; an undecided side, a side with no identity and a missing champion give null
 # - The kind: it reads the stored feed, and none when missing or invalid
 # - The kind: with no previous Cup provider it depends on nothing and serves a null defending champion
 #
@@ -78,7 +79,7 @@ from app.feeds.games import (
     LineScore,
     Score,
 )
-from app.feeds.opponent import Opponent
+from app.feeds.opponent import Opponent, TeamColors
 from app.jobs.cup_feed import (
     CODES,
     FEED_ID,
@@ -89,6 +90,8 @@ from app.jobs.cup_feed import (
     CupSources,
     PreviousCups,
     build_cup_feed,
+    slot_accent,
+    with_accents,
 )
 from app.jobs.games import GamesJob
 from app.jobs.on_demand import (
@@ -113,7 +116,7 @@ from app.sources.http import (
 from app.sources.scoreboard import ScoreboardGame
 from app.sources.team_schedule import ScheduledGame, SeasonSchedule
 from app.storage.feeds import read_by_id
-from app.storage.state import StateStore
+from app.storage.state import StateStore, TeamIdentity
 
 EAST, WEST = Conference.EAST, Conference.WEST
 GROUPS: dict[tuple[Conference, str], list[str]] = {
@@ -859,6 +862,10 @@ def scoreboard(game_id: str, cup: bool, final: bool = True) -> ScoreboardGame:
 class FakeStars:
     def __init__(self) -> None:
         self.season: int | None = 2027
+        self.identities: dict[str, TeamIdentity] = {}
+
+    def team_identities(self) -> dict[str, TeamIdentity]:
+        return dict(self.identities)
 
     def current_season(self) -> int | None:
         return self.season
@@ -1376,3 +1383,115 @@ async def test_the_kind_depends_on_nothing_without_a_previous_cup_provider(
     assert alone.depends_on("league") is None
     body = await kit.serve()
     assert json.loads(body)["defendingChampion"] is None
+
+
+# Resolved colors (ADR 0072)
+
+BRIGHT = TeamColors(primary="#0077c0", secondary="#c4ced4")
+DARK = TeamColors(primary="#101820", secondary="#ef3b24")
+
+
+def identities_of(**more: TeamColors) -> dict[str, TeamIdentity]:
+    """Every league team has the bright colors; a code in more has its own."""
+    colors = dict.fromkeys(CODES, BRIGHT) | more
+    return {
+        code: TeamIdentity(code=code, logo=None, colors=value)
+        for code, value in colors.items()
+    }
+
+
+def complete() -> CupFeed:
+    return build([*group_pairs(all_final()), *knockouts(3, 3)])
+
+
+@pytest.mark.anyio
+async def test_a_served_feed_carries_the_resolved_colors_and_the_stored_file_none(
+    kit: CupKit,
+) -> None:
+    kit.pairs = [*group_pairs(all_final()), *knockouts(3, 3)]
+    kit.stars.identities = identities_of(DAL=DARK)
+
+    served = CupFeed.model_validate_json(await kit.serve())
+
+    stored = kit.stored()
+    assert stored is not None
+    assert stored.champion_accent is None and stored.defending_champion_accent is None
+    assert all(s.accent is None for s in stored.bracket)
+    assert served.champion is not None and served.champion.code == "DAL"
+    assert served.champion_accent == "#ef3b24"
+    assert served.defending_champion_accent is None
+    first = slot(served, SlotId.EAST_QF_1).accent
+    assert first is not None
+    assert (first.top, first.bottom) == ("#0077c0", "#c4ced4")
+
+
+def test_the_defending_champion_color_follows_the_same_rule() -> None:
+    feed = complete().model_copy(
+        update={"defending_champion": Opponent(code="ATL", name=None, city=None)}
+    )
+
+    served = with_accents(feed, identities_of(ATL=DARK))
+
+    assert served.defending_champion_accent == "#ef3b24"
+    assert with_accents(feed, {}).defending_champion_accent is None
+
+
+def test_the_smaller_seed_goes_first_whichever_side_it_is_on() -> None:
+    feed = complete()
+    quarter = slot(feed, SlotId.EAST_QF_1)
+    swapped = quarter.model_copy(update={"top": quarter.bottom, "bottom": quarter.top})
+
+    assert slot_accent(quarter, identities_of()).model_dump() == {
+        "top": "#0077c0",
+        "bottom": "#c4ced4",
+    }
+    assert slot_accent(swapped, identities_of()).model_dump() == {
+        "top": "#c4ced4",
+        "bottom": "#0077c0",
+    }
+
+
+def test_equal_seeds_put_the_away_side_of_the_game_second() -> None:
+    final = slot(complete(), SlotId.FINAL)
+
+    assert final.game is not None and final.game.away.code == "ATL"
+    assert final.top.team is not None and final.top.team.code == "ATL"
+    assert slot_accent(final, identities_of()).model_dump() == {
+        "top": "#c4ced4",
+        "bottom": "#0077c0",
+    }
+
+
+def test_missing_seeds_with_no_game_put_the_top_side_first() -> None:
+    final = slot(complete(), SlotId.FINAL)
+    bare = final.model_copy(
+        update={
+            "game": None,
+            "top": final.top.model_copy(update={"standing": None}),
+            "bottom": final.bottom.model_copy(update={"standing": None}),
+        }
+    )
+
+    assert slot_accent(bare, identities_of()).model_dump() == {
+        "top": "#0077c0",
+        "bottom": "#c4ced4",
+    }
+
+
+def test_a_side_with_no_team_or_no_identity_gets_null() -> None:
+    feed = build([*group_pairs(all_final()), *knockouts(0, 0)])
+    undecided = slot(feed, SlotId.FINAL)
+    quarter = slot(complete(), SlotId.EAST_QF_1)
+    identities = identities_of()
+    del identities["BOS"]
+
+    assert undecided.top.team is None and undecided.bottom.team is None
+    assert slot_accent(undecided, identities_of()).model_dump() == {
+        "top": None,
+        "bottom": None,
+    }
+    assert slot_accent(quarter, identities).model_dump() == {
+        "top": "#0077c0",
+        "bottom": None,
+    }
+    assert with_accents(feed, identities_of()).champion_accent is None

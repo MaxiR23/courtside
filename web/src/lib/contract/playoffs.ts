@@ -302,6 +302,7 @@ export interface Series {
 		| [SeriesGame, SeriesGame, SeriesGame, SeriesGame, SeriesGame]
 		| [SeriesGame, SeriesGame, SeriesGame, SeriesGame, SeriesGame, SeriesGame]
 		| [SeriesGame, SeriesGame, SeriesGame, SeriesGame, SeriesGame, SeriesGame, SeriesGame];
+	accent: SeriesAccent | null;
 }
 export interface SeriesSide {
 	label: SeriesLabel;
@@ -332,6 +333,14 @@ export interface SeriesGame {
 	number: number;
 	overtimePeriods: number | null;
 }
+/**
+ * The resolved color of each side of a series (ADR 0072); null for a side with
+ * no team or no colors.
+ */
+export interface SeriesAccent {
+	top: string | null;
+	bottom: string | null;
+}
 export interface Champion {
 	team: PlayoffTeam;
 	wins: 4;
@@ -342,6 +351,7 @@ export interface Champion {
 	home: string | null;
 	road: string | null;
 	pointDifferential: TotalDifferential;
+	accent: string | null;
 }
 export interface TotalDifferential {
 	value: string;
@@ -383,4 +393,5 @@ export interface AwardWinner {
 	photoUrl: string | null;
 	teamCode: string | null;
 	seasonCode: string | null;
+	accent: string | null;
 }

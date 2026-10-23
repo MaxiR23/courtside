@@ -32,6 +32,8 @@ export interface CupFeed {
 	groupGamesTotal: 60;
 	champion: Opponent | null;
 	defendingChampion: Opponent | null;
+	championAccent: string | null;
+	defendingChampionAccent: string | null;
 	/**
 	 * @minItems 4
 	 * @maxItems 4
@@ -176,6 +178,7 @@ export interface BracketSlot {
 	top: SlotSide;
 	bottom: SlotSide;
 	game: CupGame | null;
+	accent: SlotAccent | null;
 }
 export interface SlotSide {
 	label: SlotLabel;
@@ -223,6 +226,14 @@ export interface CupGame {
 export interface Score {
 	away: number;
 	home: number;
+}
+/**
+ * The resolved color of each side of a bracket slot (ADR 0072); null for a side
+ * with no team or no colors.
+ */
+export interface SlotAccent {
+	top: string | null;
+	bottom: string | null;
 }
 export interface CupGames {
 	days: CupDay[];

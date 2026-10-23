@@ -32,7 +32,9 @@
 # budget is unchanged), and its stored champion is copied as the defending champion,
 # null without one; a failure there never fails the feed (ADR 0064).
 #
-# SEE: docs/api/cup.md, docs/adr/0028-cup-feed.md, api/app/jobs/standings_feed.py
+# SEE: docs/api/cup.md, docs/adr/0028-cup-feed.md,
+# docs/adr/0072-resolved-team-colors-in-the-playoffs-and-cup-feeds.md,
+# api/app/jobs/standings_feed.py
 
 import asyncio
 import datetime as dt
@@ -47,9 +49,11 @@ from app.feeds.cup import (
     GROUP_GAMES,
     GROUP_GAMES_TOTAL,
     ROUNDS,
+    BracketSlot,
     CupFeed,
     CupStage,
     CupTag,
+    SlotAccent,
     SlotId,
     StageStatus,
 )
@@ -72,6 +76,7 @@ from app.jobs.team_feed import (
     season_label,
 )
 from app.jobs.team_feed import streak as parse_streak
+from app.jobs.team_identity import pair_colors, resolved_color, team_colors
 from app.settings import Settings
 from app.sources import cup, team_schedule
 from app.sources.cup import GROUP_IDS, CupTable, CupTableRow, cup_round
@@ -85,7 +90,7 @@ from app.sources.http import (
 from app.sources.team_schedule import ScheduledGame, SeasonSchedule
 from app.sources.teams import TEAM_CODES
 from app.storage.feeds import read_by_id
-from app.storage.state import StateStore
+from app.storage.state import StateStore, TeamIdentity
 
 KIND = "cup"
 FEED_ID = "league"
@@ -886,6 +891,47 @@ async def read_cup_sources(
     )
 
 
+def slot_accent(
+    slot: BracketSlot, identities: Mapping[str, TeamIdentity]
+) -> SlotAccent:
+    """The resolved color of each side of a bracket slot. The smaller seed goes first
+    in the pair rule; with equal or missing seeds, the home side of the game does;
+    with no game, the top side does (ADR 0072)."""
+    top = team_colors(slot.top.team, identities)
+    bottom = team_colors(slot.bottom.team, identities)
+    top_standing, bottom_standing = slot.top.standing, slot.bottom.standing
+    top_seed = None if top_standing is None else top_standing.seed
+    bottom_seed = None if bottom_standing is None else bottom_standing.seed
+    if top_seed is not None and bottom_seed is not None and top_seed != bottom_seed:
+        bottom_first = bottom_seed < top_seed
+    elif slot.game is not None and slot.bottom.team is not None:
+        bottom_first = slot.bottom.team.code != slot.game.away.code
+    else:
+        bottom_first = False
+    if bottom_first:
+        bottom_color, top_color = pair_colors(bottom, top)
+    else:
+        top_color, bottom_color = pair_colors(top, bottom)
+    return SlotAccent(top=top_color, bottom=bottom_color)
+
+
+def with_accents(feed: CupFeed, identities: Mapping[str, TeamIdentity]) -> CupFeed:
+    """The feed with the resolved team colors of its bracket slots and champions,
+    added when it is served (ADR 0072)."""
+    return feed.model_copy(
+        update={
+            "bracket": [
+                slot.model_copy(update={"accent": slot_accent(slot, identities)})
+                for slot in feed.bracket
+            ],
+            "champion_accent": resolved_color(team_colors(feed.champion, identities)),
+            "defending_champion_accent": resolved_color(
+                team_colors(feed.defending_champion, identities)
+            ),
+        }
+    )
+
+
 class CupFeeds:
     def __init__(
         self,
@@ -1011,7 +1057,7 @@ class CupFeeds:
         for slot in data["bracket"]:
             if slot["game"] is not None:
                 slot["game"]["detail_available"] = slot["game"]["id"] in ids
-        return CupFeed.model_validate(data)
+        return with_accents(CupFeed.model_validate(data), self._stars.team_identities())
 
     def keep(self, feed_id: str) -> bool:
         return feed_id == FEED_ID

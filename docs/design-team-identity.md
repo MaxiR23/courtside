@@ -285,6 +285,15 @@ Keys are camelCase. Nullable fields are always present and `null` when absent. T
 - A guest side and a historical side carry `null` logo and `null` colors.
 - The identity is kept by the backend and refreshed daily; a feed carries the stored values.
 
+### Playoffs, Finals and Cup resolved colors
+
+[ADR 0072](adr/0072-resolved-team-colors-in-the-playoffs-and-cup-feeds.md) adds the resolved color of the rule above, from the team identity, added when the feed is served:
+
+- Playoffs: `Series.accent` (`top`, `bottom`), `Champion.accent`, and `AwardWinner.accent` on the winners of `finals_mvp`, `east_finals_mvp` and `west_finals_mvp` only.
+- Finals: `FinalsMvp.accent`.
+- Cup: `BracketSlot.accent` (`top`, `bottom`), `championAccent` and `defendingChampionAccent`.
+- A value is `null` for a side with no team, a guest, a historical side, a code with no identity or a renamed plain code; `/web` draws `null` with the neutral accent `#749dc4`.
+
 ### Home feed hero game
 
 - Per side, an `accent` (hex string) resolved by the hero color rule, home first then away; `null` for a side with no colors, and the web draws the neutral accent `#749dc4`. `Game.accent` is itself `null` on the day feed.

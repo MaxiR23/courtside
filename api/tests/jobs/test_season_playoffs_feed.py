@@ -25,6 +25,7 @@
 # - The kind: a season without seeds has null side seeds
 # - The kind: an invalid id answers unknown and a not ready season answers unavailable, with no source request
 # - The kind: detailAvailable is false; the cleanup keeps it
+# - Resolved colors (ADR 0072): a past feed is served with the series pairs and the champion's color, a historical side and a historical champion get null, and a stored feed written without the keys is served with them and no source request
 # - The kind: a 2005 build whose schedules are read by the real adapter and send no name key builds the complete feed
 # - The kind: a 2005 build from schedules that carry no series object and empty notes (seasonType and winner flags only) reaches the complete state with the derived series, Finals line and champion
 # - schedule_teams, finals_games and finals_champion
@@ -53,6 +54,7 @@ import pytest
 import respx
 
 from app.feeds.game_detail import Conference
+from app.feeds.opponent import TeamColors
 from app.feeds.playoffs import (
     AwardCode,
     LeaderCategory,
@@ -76,6 +78,7 @@ from app.jobs.playoffs_feed import (
     PlayoffsBuildError,
     PlayoffsSources,
     build_playoffs_feed,
+    with_accents,
 )
 from app.jobs.season_playoffs_feed import (
     BUILD_VERSION,
@@ -111,7 +114,7 @@ from app.sources.team_postseason import (
 from app.sources.team_schedule import PROVIDER_CODES, season_schedule_url
 from app.sources.teams import PROVIDER_IDS, TEAM_CODES
 from app.storage.feeds import publish_by_id, read_by_id
-from app.storage.state import StateStore
+from app.storage.state import StateStore, TeamIdentity
 from tests.jobs.fake_season_teams import FakeSeasonTeams, league_sides
 from tests.jobs.test_playoffs_feed import (
     ALL,
@@ -965,6 +968,14 @@ async def test_a_past_season_builds_a_valid_complete_feed_reading_only_its_decla
     assert len(kit.calls) - len(athletes) <= READ_BUDGET
 
 
+def served_equals_stored(kit: SeasonPlayoffsKit, served: bytes) -> bool:
+    """The served feed is the stored one plus its resolved colors (ADR 0072)."""
+    body = read_by_id(kit.path, KIND, "2025")
+    assert body is not None
+    stored = PlayoffsFeed.model_validate_json(body)
+    return with_accents(stored, {}) == PlayoffsFeed.model_validate_json(served)
+
+
 @pytest.mark.anyio
 async def test_a_stored_feed_is_never_rebuilt_even_years_later_or_after_a_restart(
     kit: SeasonPlayoffsKit,
@@ -978,7 +989,7 @@ async def test_a_stored_feed_is_never_rebuilt_even_years_later_or_after_a_restar
 
     assert first == second == later == restarted
     assert kit.calls == calls
-    assert read_by_id(kit.path, KIND, "2025") == first
+    assert served_equals_stored(kit, first)
 
 
 @pytest.mark.anyio
@@ -1375,7 +1386,7 @@ async def test_the_cleanup_keeps_the_feed(kit: SeasonPlayoffsKit) -> None:
 
     kit.cache.cleanup()
 
-    assert read_by_id(kit.path, KIND, "2025") == body
+    assert served_equals_stored(kit, body)
 
 
 def conferences_of(season: DivisionStandings) -> dict[str, Conference]:
@@ -1473,3 +1484,73 @@ def test_the_constants_are_the_declared_budget_and_version() -> None:
     assert MAX_AWARD_WINNERS == 52
     assert READ_BUDGET == 63 + 27 + 52 == 142
     assert BUILD_VERSION == SEASON_BUILD_VERSION + 1
+
+
+def identities_of() -> dict[str, TeamIdentity]:
+    colors = TeamColors(primary="#0077c0", secondary="#c4ced4")
+    return {code: TeamIdentity(code=code, logo=None, colors=colors) for code in ALL}
+
+
+def without_accents(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {k: without_accents(v) for k, v in value.items() if k != "accent"}
+    if isinstance(value, list):
+        return [without_accents(item) for item in value]
+    return value
+
+
+@pytest.mark.anyio
+async def test_a_stored_feed_without_the_colors_is_served_with_them_and_no_request(
+    kit: SeasonPlayoffsKit,
+) -> None:
+    kit.stars.identities = identities_of()
+    await kit.serve_season("2025")
+    path = kit.path / "feeds" / KIND / "2025.json"
+    stripped = without_accents(json.loads(path.read_bytes()))
+    path.write_text(json.dumps(stripped), encoding="utf-8")
+    assert "accent" not in path.read_text(encoding="utf-8")
+    kit.calls.clear()
+
+    served = PlayoffsFeed.model_validate_json(await kit.serve_season("2025"))
+
+    assert kit.calls == []
+    assert served.champion is not None and served.champion.accent == "#0077c0"
+    assert served.bracket
+    for series in served.bracket:
+        assert series.accent is not None
+        assert series.accent.top == "#0077c0" and series.accent.bottom == "#c4ced4"
+
+
+@pytest.mark.anyio
+async def test_a_historical_side_and_a_historical_champion_get_null(
+    kit: SeasonPlayoffsKit,
+) -> None:
+    await kit.serve_season("2025")
+    stored = kit.stored("2025")
+    assert stored is not None and stored.champion is not None
+    first = stored.bracket[0]
+    assert first.top.team is not None
+    historical = first.model_copy(
+        update={
+            "top": first.top.model_copy(
+                update={"team": first.top.team.model_copy(update={"historical": True})}
+            )
+        }
+    )
+    feed = stored.model_copy(
+        update={
+            "bracket": [historical, *stored.bracket[1:]],
+            "champion": stored.champion.model_copy(
+                update={
+                    "team": stored.champion.team.model_copy(update={"historical": True})
+                }
+            ),
+        }
+    )
+
+    served = with_accents(feed, identities_of())
+
+    assert served.bracket[0].accent is not None
+    assert served.bracket[0].accent.top is None
+    assert served.bracket[0].accent.bottom is not None
+    assert served.champion is not None and served.champion.accent is None

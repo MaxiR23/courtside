@@ -103,6 +103,18 @@
             }
           ],
           "default": null
+        },
+        "accent": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -110,7 +122,8 @@
         "name",
         "photoUrl",
         "teamCode",
-        "seasonCode"
+        "seasonCode",
+        "accent"
       ],
       "title": "AwardWinner",
       "type": "object"
@@ -173,6 +186,18 @@
         },
         "pointDifferential": {
           "$ref": "#/$defs/TotalDifferential"
+        },
+        "accent": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -184,7 +209,8 @@
         "record",
         "home",
         "road",
-        "pointDifferential"
+        "pointDifferential",
+        "accent"
       ],
       "title": "Champion",
       "type": "object"
@@ -1052,6 +1078,17 @@
           },
           "maxItems": 7,
           "type": "array"
+        },
+        "accent": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SeriesAccent"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -1063,9 +1100,44 @@
         "status",
         "summary",
         "winner",
-        "games"
+        "games",
+        "accent"
       ],
       "title": "Series",
+      "type": "object"
+    },
+    "SeriesAccent": {
+      "additionalProperties": false,
+      "description": "The resolved color of each side of a series (ADR 0072); null for a side with\nno team or no colors.",
+      "properties": {
+        "top": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "bottom": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "top",
+        "bottom"
+      ],
+      "title": "SeriesAccent",
       "type": "object"
     },
     "SeriesGame": {

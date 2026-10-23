@@ -23,12 +23,17 @@
 # away color is then too close to the home color, away shows its secondary. The
 # distance is measured in OKLab. A side with no colors has no accent.
 #
+# team_colors and code_colors find the identity colors of a team object and of a plain
+# code; resolved_color gives one side's color; pair_colors is the pair rule above, which
+# game_accent calls (ADR 0072 reuses them for the playoffs, Finals and Cup feeds).
+#
 # with_identities also gives each season row of a player feed one logo per team: the
 # identity's logo of a team only when the row's season code for it equals the team's
 # code (today's code); null for a historical, unknown or unidentified team (ADR 0070).
 #
 # SEE: docs/design-team-identity.md, docs/adr/0068-shared-team-identity-and-hero-accents.md,
 # docs/adr/0070-team-logos-in-the-player-career-rows.md,
+# docs/adr/0072-resolved-team-colors-in-the-playoffs-and-cup-feeds.md,
 # api/app/jobs/team_names.py
 
 import math
@@ -73,17 +78,47 @@ def _is_historical(team: BaseModel) -> bool:
     return getattr(team, "season_code", None) is not None
 
 
+def _identity(
+    team: BaseModel, identities: Mapping[str, TeamIdentity]
+) -> TeamIdentity | None:
+    code = getattr(team, "code", None)
+    return (
+        None
+        if getattr(team, "guest", False) or code is None or _is_historical(team)
+        else identities.get(str(code))
+    )
+
+
+def team_colors(
+    team: BaseModel | None, identities: Mapping[str, TeamIdentity]
+) -> TeamColors | None:
+    """The identity colors of a team object, by the rules of identified; null for no
+    team, a guest, a historical object and a code with no identity."""
+    if team is None:
+        return None
+    identity = _identity(team, identities)
+    return None if identity is None else identity.colors
+
+
+def code_colors(
+    code: str | None,
+    season_code: str | None,
+    identities: Mapping[str, TeamIdentity],
+) -> TeamColors | None:
+    """The identity colors of a plain team code; null for no code, a season code that
+    differs from the code (a renamed team, ADR 0070) and an unknown code."""
+    if code is None or (season_code is not None and season_code != code):
+        return None
+    identity = identities.get(code)
+    return None if identity is None else identity.colors
+
+
 def identified[T: BaseModel](team: T, identities: Mapping[str, TeamIdentity]) -> T:
     """The team object with the logo (and the colors, where its model leaves them
     optional) of its identity; null for a guest, a historical object and a code
     with no identity."""
     fields = type(team).model_fields
-    code = getattr(team, "code", None)
-    identity = (
-        None
-        if getattr(team, "guest", False) or code is None or _is_historical(team)
-        else identities.get(str(code))
-    )
+    identity = _identity(team, identities)
     update: dict[str, Any] = {"logo": None if identity is None else identity.logo}
     if "colors" in fields and not fields["colors"].is_required():
         update["colors"] = None if identity is None else identity.colors
@@ -155,17 +190,32 @@ def _resolved(colors: TeamColors) -> str:
     return colors.primary
 
 
+def resolved_color(colors: TeamColors | None) -> str | None:
+    """The color a side shows: its primary, or its secondary when too dark; null for
+    no colors."""
+    return None if colors is None else _resolved(colors)
+
+
+def pair_colors(
+    first: TeamColors | None, second: TeamColors | None
+) -> tuple[str | None, str | None]:
+    """The resolved colors of two sides, first and second. The second takes its
+    secondary when its color is too close to the first's."""
+    first_color = None if first is None else _resolved(first)
+    second_color = None if second is None else _resolved(second)
+    if (
+        second is not None
+        and second.secondary is not None
+        and second_color == second.primary
+        and first_color is not None
+        and second_color is not None
+        and math.dist(oklab(second_color), oklab(first_color)) < DISTANCE_FLOOR
+    ):
+        second_color = second.secondary
+    return first_color, second_color
+
+
 def game_accent(away: Opponent, home: Opponent) -> GameAccent:
     """The hero color of each side of a game."""
-    home_color = None if home.colors is None else _resolved(home.colors)
-    away_color = None if away.colors is None else _resolved(away.colors)
-    if (
-        away.colors is not None
-        and away.colors.secondary is not None
-        and away_color == away.colors.primary
-        and home_color is not None
-        and away_color is not None
-        and math.dist(oklab(away_color), oklab(home_color)) < DISTANCE_FLOOR
-    ):
-        away_color = away.colors.secondary
+    home_color, away_color = pair_colors(home.colors, away.colors)
     return GameAccent(away=away_color, home=home_color)

@@ -18,6 +18,7 @@
 # - An unknown field is rejected
 # - The dump has camelCase keys
 # - A feed with a build version is accepted, one with zero is rejected, and a stored feed without the field reads with a null version
+# - The Finals MVP takes a resolved color or null (ADR 0072), rejects a bad hex, and a stored feed without it reads null
 #
 # What is covered:
 # - A valid feed is accepted and an invalid one is rejected
@@ -264,5 +265,20 @@ def test_still_rejects_averages_in_the_wrong_order_and_of_the_wrong_length() -> 
 
     data = valid()
     data["averages"] = data["averages"][:1]
+    with pytest.raises(ValidationError):
+        check(data)
+
+
+def test_accepts_a_finals_mvp_color_rejects_a_bad_hex_and_reads_none_as_null() -> None:
+    data = valid()
+    assert data["finalsMvp"] is not None
+    stored = check(data).finals_mvp
+    assert stored is not None and stored.accent is None
+
+    data["finalsMvp"]["accent"] = "#0077C0"
+    parsed = check(data)
+    assert parsed.finals_mvp is not None and parsed.finals_mvp.accent == "#0077C0"
+
+    data["finalsMvp"]["accent"] = "#12345"
     with pytest.raises(ValidationError):
         check(data)

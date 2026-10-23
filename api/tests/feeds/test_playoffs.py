@@ -11,6 +11,7 @@
 # - A null play-in (a season before 2021) is accepted, while a play-in of one table or in the wrong order is still rejected
 # - A feed with a build version is accepted, one with zero is rejected, and a stored feed without the field reads with a null version
 # - A series game takes an overtime count that agrees with overtime and a played status, rejects a scheduled game with one, a disagreeing or negative count and a play-in game with one, and a stored game without the field reads with a null count
+# - The resolved colors of ADR 0072 (a series pair, the champion, an award winner) are accepted as colors or nulls, a bad hex is rejected, and a stored feed without them reads them as null
 #
 # What is covered:
 # - A valid feed is accepted and an invalid one is rejected
@@ -763,3 +764,38 @@ def test_accepts_a_build_version_and_rejects_zero_and_reads_none_as_null() -> No
     assert PlayoffsFeed.model_validate({**stored, "buildVersion": 1}).build_version == 1
     with pytest.raises(ValidationError):
         PlayoffsFeed.model_validate({**stored, "buildVersion": 0})
+
+
+def test_accepts_the_resolved_colors_or_nulls_and_reads_a_stored_feed_without_them() -> (
+    None
+):
+    stored = PlayoffsFeed.model_validate(complete_feed())
+    assert stored.champion is not None and stored.awards is not None
+    assert stored.champion.accent is None
+    assert stored.bracket[0].accent is None
+    assert stored.awards[0].winners[0].accent is None
+
+    feed = complete_feed()
+    feed["bracket"][0]["accent"] = {"top": "#0077C0", "bottom": None}
+    feed["champion"]["accent"] = "#F58426"
+    feed["awards"][0]["winners"][0]["accent"] = "#0077C0"
+    parsed = PlayoffsFeed.model_validate(feed)
+
+    assert parsed.bracket[0].accent is not None
+    assert parsed.bracket[0].accent.model_dump() == {
+        "top": "#0077C0",
+        "bottom": None,
+    }
+    assert parsed.champion is not None and parsed.champion.accent == "#F58426"
+    assert parsed.awards is not None
+    assert parsed.awards[0].winners[0].accent == "#0077C0"
+
+
+def test_rejects_a_resolved_color_that_is_not_a_hex_color() -> None:
+    feed = complete_feed()
+    feed["champion"]["accent"] = "#12345"
+    rejected(feed)
+
+    feed = complete_feed()
+    feed["bracket"][0]["accent"] = {"top": "blue", "bottom": None}
+    rejected(feed)

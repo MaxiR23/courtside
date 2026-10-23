@@ -9,6 +9,10 @@
 # - with_identities reaches sides in nested models, lists and optional fields, in every Opponent subclass (GameTeam, DetailTeam, PlayoffTeam), and the root of a model that is a league team object, and returns a validated model
 # - with_identities gives each season row of a player feed the logo of each team whose season code is its code, in per game, totals and playoffs rows; null for a historical, unknown or unidentified team; a list of nulls with no season codes; it reads a stored feed without logos and a past player feed, and leaves the career rows alone (ADR 0070)
 # - game_accent for NYK at ORL, MIL at BOS, LAL at PHX and OKC at DEN; a team with no secondary keeps its primary; a guest side gets null and the other side keeps its rule; two sides with no colors give null and null
+# - team_colors gives the identity colors of a league side and null for no team, a guest, a historical side, a code with no identity and a PlayoffTeam with no identity, ignoring the colors a PlayoffTeam was built with
+# - code_colors gives the identity colors of a code with no season code or the same season code, and null for no code, a different season code and an unknown code
+# - resolved_color gives the primary, the secondary of a dark primary, and null for no colors
+# - pair_colors gives the first side its rule, moves the second to its secondary when too close, and gives null for a missing side
 # - oklab of white has lightness 1 and of black 0
 #
 # What is covered:
@@ -34,10 +38,14 @@ from app.feeds.search import SearchPlayerTeam, SearchTeam
 from app.feeds.standings import StandingsColors, StandingsRow
 from app.feeds.team import TeamFeed
 from app.jobs.team_identity import (
+    code_colors,
     game_accent,
     identified,
     identity_of,
     oklab,
+    pair_colors,
+    resolved_color,
+    team_colors,
     with_identities,
 )
 from app.sources.team_info import TeamInfo
@@ -444,3 +452,53 @@ def test_oklab_of_white_and_black() -> None:
 
     assert white[0] == pytest.approx(1, abs=1e-6)
     assert black[0] == pytest.approx(0, abs=1e-6)
+
+
+def test_team_colors_gives_the_identity_colors_of_a_league_side() -> None:
+    built = PlayoffTeam(code="OKC", name=None, city=None, colors=BUILT)
+
+    assert team_colors(side(), IDENTITIES) == IDENTITIES["OKC"].colors
+    assert team_colors(built, IDENTITIES) == IDENTITIES["OKC"].colors
+
+
+def test_team_colors_is_null_for_no_team_a_guest_a_historical_side_and_an_unknown_code() -> (
+    None
+):
+    guest = Opponent(code="OKC", name="Gulls", city=None, guest=True)
+    historical = side(season_code="SEA", historical=True)
+    built = PlayoffTeam(code="BOS", name=None, city=None, colors=BUILT)
+
+    assert team_colors(None, IDENTITIES) is None
+    nameless = Opponent(code=None, name="X", city=None, guest=True)
+    for team in (guest, historical, side("BOS"), nameless, built):
+        assert team_colors(team, IDENTITIES) is None
+
+
+def test_code_colors_follows_the_season_code() -> None:
+    colors = IDENTITIES["OKC"].colors
+
+    assert code_colors("OKC", None, IDENTITIES) == colors
+    assert code_colors("OKC", "OKC", IDENTITIES) == colors
+    assert code_colors("OKC", "SEA", IDENTITIES) is None
+    assert code_colors(None, None, IDENTITIES) is None
+    assert code_colors("BOS", None, IDENTITIES) is None
+
+
+def test_resolved_color_gives_the_primary_the_secondary_of_a_dark_one_or_null() -> None:
+    assert resolved_color(TeamColors(primary="#007ac1", secondary="#ef3b24")) == (
+        "#007ac1"
+    )
+    assert resolved_color(TeamColors(primary="#101820", secondary="#ef3b24")) == (
+        "#ef3b24"
+    )
+    assert resolved_color(None) is None
+
+
+def test_pair_colors_orders_the_sides_and_keeps_a_missing_side_null() -> None:
+    near = TeamColors(primary="#0077c0", secondary="#c4ced4")
+    other = TeamColors(primary="#006bb6", secondary="#f58426")
+
+    assert pair_colors(near, other) == ("#0077c0", "#f58426")
+    assert pair_colors(other, near) == ("#006bb6", "#c4ced4")
+    assert pair_colors(None, other) == (None, "#006bb6")
+    assert pair_colors(near, None) == ("#0077c0", None)

@@ -72,7 +72,8 @@
 # (ADR 0058).
 #
 # SEE: docs/api/playoffs.md, docs/adr/0032-playoffs-feed.md,
-# docs/adr/0046-season-playoffs-feeds.md, api/app/jobs/standings_feed.py
+# docs/adr/0046-season-playoffs-feeds.md, docs/adr/0072-resolved-team-colors-in-the-playoffs-and-cup-feeds.md,
+# api/app/jobs/standings_feed.py
 
 import asyncio
 import datetime as dt
@@ -93,6 +94,8 @@ from app.feeds.playoffs import (
     PlayoffsState,
     PlayoffStage,
     PlayoffStageStatus,
+    Series,
+    SeriesAccent,
     SeriesId,
     SeriesLabelKey,
     SeriesStatus,
@@ -116,6 +119,12 @@ from app.jobs.team_feed import (
     feed_expired,
     player_name,
     season_label,
+)
+from app.jobs.team_identity import (
+    code_colors,
+    pair_colors,
+    resolved_color,
+    team_colors,
 )
 from app.settings import Settings
 from app.sources import (
@@ -155,7 +164,7 @@ from app.sources.team_players import RosterEntry
 from app.sources.team_postseason import TeamPostseasonRecord
 from app.sources.teams import TEAM_CODES
 from app.storage.feeds import read_by_id
-from app.storage.state import StateStore
+from app.storage.state import StateStore, TeamIdentity
 
 KIND = "playoffs"
 FEED_ID = "league"
@@ -1260,6 +1269,72 @@ def build_playoffs_feed(sources: PlayoffsSources) -> PlayoffsFeed:
     return _Builder(sources).build()
 
 
+# The awards whose winners carry a team color (ADR 0072).
+FINALS_AWARDS = frozenset(
+    {AwardCode.FINALS_MVP, AwardCode.EAST_FINALS_MVP, AwardCode.WEST_FINALS_MVP}
+)
+
+
+def series_accent(
+    series: Series, identities: Mapping[str, TeamIdentity]
+) -> SeriesAccent:
+    """The resolved color of each side of a series. The higher seed goes first in the
+    pair rule; with equal or missing seeds, the top side does (ADR 0072)."""
+    top = team_colors(series.top.team, identities)
+    bottom = team_colors(series.bottom.team, identities)
+    top_seed, bottom_seed = series.top.seed, series.bottom.seed
+    if top_seed is not None and bottom_seed is not None and bottom_seed < top_seed:
+        bottom_color, top_color = pair_colors(bottom, top)
+    else:
+        top_color, bottom_color = pair_colors(top, bottom)
+    return SeriesAccent(top=top_color, bottom=bottom_color)
+
+
+def with_accents(
+    feed: PlayoffsFeed, identities: Mapping[str, TeamIdentity]
+) -> PlayoffsFeed:
+    """The feed with the resolved team colors of its series, champion and Finals MVP
+    winners, added when it is served (ADR 0072)."""
+    champion = feed.champion
+    if champion is not None:
+        champion = champion.model_copy(
+            update={"accent": resolved_color(team_colors(champion.team, identities))}
+        )
+    awards = feed.awards
+    if awards is not None:
+        awards = [
+            award.model_copy(
+                update={
+                    "winners": [
+                        winner.model_copy(
+                            update={
+                                "accent": resolved_color(
+                                    code_colors(
+                                        winner.team_code, winner.season_code, identities
+                                    )
+                                )
+                                if award.code in FINALS_AWARDS
+                                else None
+                            }
+                        )
+                        for winner in award.winners
+                    ]
+                }
+            )
+            for award in awards
+        ]
+    return feed.model_copy(
+        update={
+            "bracket": [
+                series.model_copy(update={"accent": series_accent(series, identities)})
+                for series in feed.bracket
+            ],
+            "champion": champion,
+            "awards": awards,
+        }
+    )
+
+
 class PlayoffsFeeds:
     def __init__(
         self,
@@ -1509,7 +1584,9 @@ class PlayoffsFeeds:
         for series in data["bracket"]:
             for game in series["games"]:
                 game["detail_available"] = game["id"] in ids
-        return PlayoffsFeed.model_validate(data)
+        return with_accents(
+            PlayoffsFeed.model_validate(data), self._stars.team_identities()
+        )
 
     def keep(self, feed_id: str) -> bool:
         return feed_id == FEED_ID

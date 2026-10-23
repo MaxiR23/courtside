@@ -28,6 +28,7 @@
 # - The kind: a failed leaders, awards, team info or champion record read only nulls its part; the record is read only for the champion of a complete Finals
 # - The kind: expiry (a final postseason game of the feed or of the games job inside the postseason dates plus 1 hour; a picture feed also at a final league game plus 1 hour; the start of the play-in window; 7 days; a complete feed kept while its season is current)
 # - The kind: detailAvailable is set from the loaded games and not stored; the cleanup keeps league; stored() reads the stored feed
+# - Resolved colors (ADR 0072): a served feed carries the series pairs, the champion and the Finals MVP winners' colors and the stored file none; a dark primary resolves to the secondary; the lower seed takes its secondary when too close, whichever side it is on; a side with no identity, a currently side and a winner with a different season code give null; other awards give null
 #
 # What is covered:
 # - Pure logic: happy path, edges and errors; the built feed validates
@@ -50,7 +51,7 @@ import respx
 
 from app.feeds.game_detail import Conference
 from app.feeds.games import GamePostseason, GameStatus, GameTeam, LineScore, Score
-from app.feeds.opponent import Side
+from app.feeds.opponent import Side, TeamColors
 from app.feeds.playoffs import (
     AwardCode,
     LeaderCategory,
@@ -85,6 +86,8 @@ from app.jobs.playoffs_feed import (
     group_series,
     postseason_days,
     reads_days,
+    series_accent,
+    with_accents,
 )
 from app.jobs.stars import StarsJob
 from app.jobs.team_feed import FEED_LIFETIME
@@ -107,7 +110,7 @@ from app.sources.team_players import RosterEntry
 from app.sources.team_postseason import TeamPostseasonRecord
 from app.sources.teams import TEAM_CODES
 from app.storage.feeds import read_by_id
-from app.storage.state import StateStore
+from app.storage.state import StateStore, TeamIdentity
 from tests.jobs.test_standings_feed import league, team
 from tests.jobs.test_team_feed import info
 
@@ -1625,6 +1628,10 @@ class FakeStars:
     def __init__(self) -> None:
         self.season: int | None = 2027
         self.ready = True
+        self.identities: dict[str, TeamIdentity] = {}
+
+    def team_identities(self) -> dict[str, TeamIdentity]:
+        return dict(self.identities)
 
     def current_season(self) -> int | None:
         return self.season
@@ -2567,3 +2574,156 @@ def test_finals_winner_needs_four_counted_finals_wins_and_reads_no_series_object
 ):
     assert finals_winner(without_series(everything("TTBTT"))) == seed(EAST, 1)
     assert finals_winner(without_series(everything("TT"))) is None
+
+
+# Resolved colors (ADR 0072)
+
+BRIGHT = TeamColors(primary="#0077c0", secondary="#c4ced4")
+DARK = TeamColors(primary="#101820", secondary="#ef3b24")
+
+
+def identities_of(**more: TeamColors) -> dict[str, TeamIdentity]:
+    """Every league team has the bright colors; a code in more has its own."""
+    colors = dict.fromkeys(ALL, BRIGHT) | more
+    return {
+        code: TeamIdentity(code=code, logo=None, colors=value)
+        for code, value in colors.items()
+    }
+
+
+def finals_series(feed: PlayoffsFeed) -> Any:
+    return bracket(feed)[SeriesId.FINALS]
+
+
+def first_round(feed: PlayoffsFeed) -> Any:
+    return bracket(feed)[SeriesId.EAST_R1_1]
+
+
+@pytest.mark.anyio
+async def test_a_served_feed_carries_the_resolved_colors_and_the_stored_file_none(
+    kit: PlayoffsKit,
+) -> None:
+    kit.stars.identities = identities_of(**{seed(EAST, 1): DARK})
+    kit.load(everything())
+
+    served = PlayoffsFeed.model_validate_json(await kit.serve())
+
+    stored = kit.stored()
+    assert stored is not None and stored.champion is not None
+    assert stored.champion.accent is None
+    assert all(series.accent is None for series in stored.bracket)
+    assert served.champion is not None
+    assert served.champion.team.code == seed(EAST, 1)
+    assert served.champion.accent == "#ef3b24"
+    first = first_round(served)
+    assert codes(first.top) == seed(EAST, 1) and codes(first.bottom) == seed(EAST, 8)
+    assert first.accent.model_dump() == {"top": "#ef3b24", "bottom": "#0077c0"}
+    for series in served.bracket:
+        assert series.accent is not None
+
+
+def test_a_dark_primary_resolves_to_the_secondary_on_the_champion() -> None:
+    feed = build(everything())
+
+    served = with_accents(feed, identities_of(**{seed(EAST, 1): DARK}))
+
+    assert served.champion is not None
+    assert served.champion.accent == "#ef3b24"
+    assert feed.champion is not None and feed.champion.accent is None
+
+
+def test_the_lower_seed_takes_its_secondary_when_too_close_whichever_side_it_is_on() -> (
+    None
+):
+    feed = build(everything())
+    series = first_round(feed)
+    identities = identities_of()
+
+    straight = series_accent(series, identities)
+    swapped = series.model_copy(update={"top": series.bottom, "bottom": series.top})
+
+    assert straight.model_dump() == {"top": "#0077c0", "bottom": "#c4ced4"}
+    assert series_accent(swapped, identities).model_dump() == {
+        "top": "#c4ced4",
+        "bottom": "#0077c0",
+    }
+
+
+def test_the_top_side_goes_first_with_equal_or_missing_seeds() -> None:
+    series = finals_series(build(everything()))
+    unseeded = series.model_copy(
+        update={
+            "top": series.top.model_copy(update={"seed": None}),
+            "bottom": series.bottom.model_copy(update={"seed": None}),
+        }
+    )
+
+    assert series_accent(series, identities_of()).model_dump() == {
+        "top": "#0077c0",
+        "bottom": "#c4ced4",
+    }
+    assert series_accent(unseeded, identities_of()).model_dump() == {
+        "top": "#0077c0",
+        "bottom": "#c4ced4",
+    }
+
+
+def test_a_side_with_no_identity_or_only_currently_gets_null() -> None:
+    series = first_round(build(everything()))
+    identities = identities_of()
+    del identities[seed(EAST, 8)]
+    waiting = series.model_copy(
+        update={
+            "bottom": series.bottom.model_copy(
+                update={
+                    "team": None,
+                    "currently": series.bottom.team,
+                    "seed": None,
+                    "wins": None,
+                }
+            )
+        }
+    )
+
+    assert series_accent(series, identities).model_dump() == {
+        "top": "#0077c0",
+        "bottom": None,
+    }
+    assert series_accent(waiting, identities_of()).model_dump() == {
+        "top": "#0077c0",
+        "bottom": None,
+    }
+
+
+def test_only_the_finals_mvp_winners_carry_a_color_and_a_renamed_team_gets_null() -> (
+    None
+):
+    awards = SeasonAwards(
+        awards=[
+            award(AwardCode.FINALS_MVP, ["1"]),
+            award(AwardCode.EAST_FINALS_MVP, ["2"]),
+            award(AwardCode.WEST_FINALS_MVP, ["3"]),
+            award(AwardCode.MVP, ["4"]),
+        ]
+    )
+    feed = build(everything(), awards=awards)
+    assert feed.awards is not None
+    renamed = feed.awards[0].winners[0].model_copy(update={"season_code": "SEA"})
+
+    served = with_accents(feed, identities_of())
+
+    assert served.awards is not None
+    by_code = {a.code: a.winners[0].accent for a in served.awards}
+    assert by_code[AwardCode.FINALS_MVP] == "#0077c0"
+    assert by_code[AwardCode.EAST_FINALS_MVP] == "#0077c0"
+    assert by_code[AwardCode.WEST_FINALS_MVP] == "#0077c0"
+    assert by_code[AwardCode.MVP] is None
+    again = feed.model_copy(
+        update={
+            "awards": [
+                feed.awards[0].model_copy(update={"winners": [renamed]}),
+                *feed.awards[1:],
+            ]
+        }
+    )
+    assert with_accents(again, identities_of()).awards[0].winners[0].accent is None  # type: ignore[index]
