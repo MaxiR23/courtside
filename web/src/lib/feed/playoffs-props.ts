@@ -65,6 +65,10 @@ import type {
 	SeriesCardView,
 	SeriesGameRowView,
 	SeriesGameView,
+	SeriesHeroSideView,
+	SeriesPageGameSideView,
+	SeriesPageGameView,
+	SeriesPageView,
 	SeriesSideView
 } from '#lib/playoffs/types.ts';
 import { teamLabel, teamMark, type TeamMarkTeam } from '#lib/team/mark.ts';
@@ -249,7 +253,10 @@ function finalsStateLine(feed: PlayoffsFeed): string {
 		: m.playoffs_state_finals();
 }
 
-function seriesSummaryOf(series: Series): string | null {
+function seriesSummaryOf(
+	series: Series,
+	words?: Parameters<typeof seriesSummary>[3]
+): string | null {
 	const topCode = series.top.team?.code ?? null;
 	const bottomCode = series.bottom.team?.code ?? null;
 	const winner =
@@ -263,7 +270,8 @@ function seriesSummaryOf(series: Series): string | null {
 	return seriesSummary(
 		{ label: series.top.team ? code(series.top.team) : NO_VALUE, wins: series.top.wins },
 		{ label: series.bottom.team ? code(series.bottom.team) : NO_VALUE, wins: series.bottom.wins },
-		winner
+		winner,
+		words
 	);
 }
 
@@ -927,5 +935,122 @@ export function toPlayoffsView(
 		headToHead: statistics && finals ? headToHeadView(finals) : null,
 		leaders: leaderTabs(feed),
 		awards: (feed.awards ?? []).map(awardView)
+	};
+}
+
+// A feed stored before the exact count has only the flag.
+function overtimeTag(game: SeriesGame): string | null {
+	const periods = game.overtimePeriods ?? (game.overtime ? 1 : 0);
+	if (periods <= 0) return null;
+	return periods === 1 ? m.playoffs_ot() : m.playoffs_ot_n({ n: formatNumber(periods) });
+}
+
+function heroSide(
+	side: SeriesSide,
+	series: Series,
+	accent: string | null | undefined,
+	past: boolean
+): SeriesHeroSideView {
+	const team = side.team as PlayoffTeam;
+	const other = side === series.top ? series.bottom : series.top;
+	let lead = true;
+	if (series.winner !== null) lead = team.code === series.winner;
+	else if (side.wins !== null && other.wins !== null) lead = side.wins >= other.wins;
+	return {
+		team: teamMark(team),
+		code: code(team),
+		seed:
+			side.seed === null && past
+				? null
+				: m.playoffs_series_seed({ seed: orDash(side.seed, integer) }),
+		wins: orDash(side.wins, integer),
+		accent: accent ?? null,
+		lead,
+		loser: series.status === 'complete' && series.winner !== null && team.code !== series.winner
+	};
+}
+
+function pageGame(
+	game: SeriesGame,
+	series: Series,
+	finals: PlayoffsFinalsFeed | null
+): SeriesPageGameView {
+	const topCode = series.top.team?.code ?? null;
+	const order: ['away' | 'home', 'away' | 'home'] =
+		game.home.code === topCode ? ['home', 'away'] : ['away', 'home'];
+	const side = (key: 'away' | 'home'): SeriesPageGameSideView => ({
+		team: teamMark(game[key]),
+		code: code(game[key]),
+		score: scoreText(game.score?.[key] ?? null),
+		loser: game.status === 'final' && game.winner !== null && game.winner !== key
+	});
+	const entry =
+		series.conference === null ? finals?.games.find((e) => e.game.id === game.id) : null;
+	const pair = entry?.leaders
+		? order.map((key) => {
+				const lead = entry.leaders![key];
+				return { name: lead.displayName, pts: orDash(lead.points, integer) };
+			})
+		: null;
+	let rule: SeriesPageGameView['rule'] = null;
+	if (game.winner !== null) {
+		const winnerCode = game[game.winner].code;
+		const onTop = series.top.team?.code === winnerCode;
+		const onBottom = series.bottom.team?.code === winnerCode;
+		rule = {
+			accent: (onTop ? series.accent?.top : onBottom ? series.accent?.bottom : null) ?? null
+		};
+	}
+	return {
+		gameId: game.id,
+		linked: game.detailAvailable,
+		key: game.id,
+		title: m.playoffs_series_game({ n: formatNumber(game.number) }),
+		meta: m.playoffs_series_game_venue({
+			date: feedDate(game.date, monthDay),
+			venue: game.venue ?? m.playoffs_series_at({ team: code(game.home) })
+		}),
+		overtimeTag: overtimeTag(game),
+		sides: [side(order[0]), side(order[1])],
+		leaders: pair
+			? m.playoffs_series_leaders({
+					name: pair[0].name,
+					pts: pair[0].pts,
+					name2: pair[1].name,
+					pts2: pair[1].pts
+				})
+			: null,
+		rule
+	};
+}
+
+/**
+ * The full series page's props for one series of the bracket. Null for an unknown id and for a
+ * series with an undecided side: the page then says the series is not available.
+ */
+export function toSeriesPageView(
+	feed: PlayoffsFeed,
+	finals: PlayoffsFinalsFeed | null,
+	id: string,
+	options: { past?: boolean } = {}
+): SeriesPageView | null {
+	const series = feed.bracket.find((s) => s.id === id);
+	if (!series || !series.top.team || !series.bottom.team) return null;
+	const past = options.past ?? false;
+	const first = series.games[0];
+	const last = series.games[series.games.length - 1];
+	return {
+		kicker: m.playoffs_bracket_kicker({
+			year: feedDate(feed.postseasonDates.lastDate, { year: 'numeric' })
+		}),
+		round: roundTitle(series),
+		top: heroSide(series.top, series, series.accent?.top, past),
+		bottom: heroSide(series.bottom, series, series.accent?.bottom, past),
+		status: seriesSummaryOf(series, {
+			wins: m.playoffs_series_status_wins,
+			leads: m.playoffs_series_status_leads
+		}),
+		dates: first ? dateRange(first.date, last.date) : null,
+		games: series.games.map((game) => pageGame(game, series, finals))
 	};
 }

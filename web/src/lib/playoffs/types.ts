@@ -258,6 +258,49 @@ export type PlayoffsView = {
 export type PlayoffsPageState =
 	{ kind: 'loading' } | { kind: 'unavailable' } | { kind: 'ready'; view: PlayoffsView };
 
+export type SeriesHeroSideView = {
+	team: TeamMarkTeam; // the logo comes from team.logo
+	code: string; // "QXA", the season code for a historical side
+	seed: string | null; // "No. 1 seed"; null: no seed line (a null seed on a past season)
+	wins: string; // "4", or "—"
+	accent: string | null; // the feed's resolved color (ADR 0072); null: the neutral accent
+	lead: boolean; // the score in ink; false only for the trailing side
+	loser: boolean; // the series is complete and this side lost: drawn at 60%
+};
+
+export type SeriesPageGameSideView = {
+	team: TeamMarkTeam;
+	code: string;
+	score: string; // "105", or "—"
+	loser: boolean; // a final game this side lost: drawn at 50%
+};
+
+export type SeriesPageGameView = GameLink & {
+	key: string; // the game id
+	title: string; // "Game 3"
+	meta: string; // "Apr 19 · Example Arena", or "Apr 19 · at QXA" with no venue
+	overtimeTag: string | null; // "OT", "2OT"; null in regulation
+	sides: [SeriesPageGameSideView, SeriesPageGameSideView]; // top team first
+	leaders: string | null; // Finals only: "Aaron Away1 25 PTS · Bea Home1 22 PTS"
+	rule: { accent: string | null } | null; // the winner's line; null: no winner yet
+};
+
+export type SeriesPageView = {
+	kicker: string; // "2027 NBA Playoffs"
+	round: string; // "East · Round 1", "NBA Finals"
+	top: SeriesHeroSideView;
+	bottom: SeriesHeroSideView;
+	status: string | null; // "QXA wins the series 4–1"; null when a side's wins are missing
+	dates: string | null; // "Apr 19 – Apr 29"; null with no games
+	games: SeriesPageGameView[];
+};
+
+export type SeriesPageState =
+	| { kind: 'loading' }
+	| { kind: 'unavailable' }
+	| { kind: 'not-found' }
+	| { kind: 'ready'; view: SeriesPageView };
+
 // A postseason game's mark: its tag, context line and stakes flag, already written (ADR 0035).
 export type PostseasonMarkView = {
 	tag: string; // "Play-In", "Playoffs", "NBA Finals"

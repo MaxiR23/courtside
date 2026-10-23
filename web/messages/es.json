@@ -705,5 +705,17 @@
 	"past_player_free_agent": "Agente libre",
 	"past_team_no_season": "Sin equipo esta temporada.",
 	"seasons_cup_no_roster": "Las plantillas solo se muestran de la temporada actual",
-	"seasons_edition_highlights": "Resumen de la edición"
+	"seasons_edition_highlights": "Resumen de la edición",
+	"playoffs_bracket_kicker": "Playoffs de la NBA {year}",
+	"playoffs_ot_n": "{n}TE",
+	"playoffs_series_back": "← Cuadro",
+	"playoffs_series_seed": "Cabeza de serie n.º {seed}",
+	"playoffs_series_status_wins": "{team} gana la serie {won}–{lost}",
+	"playoffs_series_status_leads": "{team} lidera {leading}–{trailing}",
+	"playoffs_series_by_game": "Partido a partido",
+	"playoffs_series_game": "Partido {n}",
+	"playoffs_series_game_venue": "{date} · {venue}",
+	"playoffs_series_at": "en {team}",
+	"playoffs_series_leaders": "{name} {pts} PTS · {name2} {pts2} PTS",
+	"playoffs_series_unavailable": "Esta serie no está disponible."
 }

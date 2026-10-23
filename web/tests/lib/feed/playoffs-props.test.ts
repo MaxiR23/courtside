@@ -18,6 +18,8 @@
 // - Past seasons (the past option): the season tag; no play-in section or stage with a null play-in; the head to head only with a bar value; no seed number for a null seed
 // - The current season keeps the head to head of an all-null finals feed and the dash of a null seed
 // - Leaders and awards null, the Finals MVP absent: the sections close with no gap
+// - The full series page view (toSeriesPageView): hero sides, status, dates, game cards, OT tags, venue fallback,
+//   Finals leader lines, past seasons, missing wins, null accents, unknown and undecided series, Spanish
 // - The Finals state line and every series card score composed from the wins and the winner (never the feed's English sentence), in Spanish too; a series with missing wins shows a dash
 // - Season codes drawn on the leaders, award winners, conference MVPs, Finals MVP, head to head records and averages, falling back to the team code
 // - Award names and short codes in Spanish from the award code; English short codes unchanged
@@ -38,7 +40,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { PlayoffsFeed, PlayoffsState } from '../../../src/lib/contract/playoffs';
 import type { PlayoffsFinalsFeed } from '../../../src/lib/contract/playoffs-finals';
-import { awardName, awardShortCode, toPlayoffsView } from '../../../src/lib/feed/playoffs-props';
+import {
+	awardName,
+	awardShortCode,
+	toPlayoffsView,
+	toSeriesPageView
+} from '../../../src/lib/feed/playoffs-props';
 import type { PlayoffsView } from '../../../src/lib/playoffs/types';
 import { preferLanguages } from '../../prefer-languages';
 
@@ -1198,5 +1205,167 @@ describe('toPlayoffsView team logos', () => {
 			f.champion!.team.logo = null;
 		});
 		expect('logo' in view(plain).header.hero!.team).toBe(false);
+	});
+});
+
+describe('toSeriesPageView', () => {
+	const series = (id: string, f: PlayoffsFeed = bracket()) => {
+		const found = f.bracket.find((s) => s.id === id)!;
+		return found;
+	};
+	const withAccent = () => {
+		const f = bracket();
+		series('east-r1-1', f).accent = { top: '#112233', bottom: '#445566' };
+		return f;
+	};
+	const page = (
+		f: PlayoffsFeed,
+		id: string,
+		finals: PlayoffsFinalsFeed | null = null,
+		past = false
+	) => toSeriesPageView(f, finals, id, { past })!;
+
+	it('draws a complete series', () => {
+		const v = page(withAccent(), 'east-r1-1');
+		expect(v.kicker).toBe('2027 NBA Playoffs');
+		expect(v.round).toBe('East · Round 1');
+		expect(v.top).toMatchObject({
+			code: 'QXA',
+			seed: 'No. 1 seed',
+			wins: '4',
+			lead: true,
+			loser: false,
+			accent: '#112233'
+		});
+		expect(v.bottom).toMatchObject({
+			code: 'QXH',
+			seed: 'No. 8 seed',
+			wins: '1',
+			lead: false,
+			loser: true,
+			accent: '#445566'
+		});
+		expect(v.status).toBe('QXA wins the series 4–1');
+		expect(v.dates).toBe('Apr 19 – Apr 28');
+		expect(v.games.map((g) => g.title)).toEqual(['Game 1', 'Game 2', 'Game 3', 'Game 4', 'Game 5']);
+		const g1 = v.games[0];
+		expect(g1.meta).toBe('Apr 19 · Example Arena');
+		expect(g1.sides.map((s) => [s.code, s.score, s.loser])).toEqual([
+			['QXA', '105', false],
+			['QXH', '98', true]
+		]);
+		expect(g1).toMatchObject({ gameId: 'b101', linked: true, key: 'b101', leaders: null });
+		expect(g1.rule).toEqual({ accent: '#112233' });
+		expect(v.games[2].rule).toEqual({ accent: '#445566' });
+	});
+
+	it('writes a tie and a lead', () => {
+		const tied = page(bracket(), 'east-r1-2');
+		expect(tied.status).toBe('Series tied 2–2');
+		expect(tied.top.lead).toBe(true);
+		expect(tied.bottom.lead).toBe(true);
+		const f = bracket();
+		series('east-r1-2', f).top.wins = 3;
+		const led = page(f, 'east-r1-2');
+		expect(led.status).toBe('QXD leads 3–2');
+		expect(led.top.lead).toBe(true);
+		expect(led.bottom.lead).toBe(false);
+		expect(led.bottom.loser).toBe(false);
+	});
+
+	it('tags overtime games', () => {
+		const f = bracket();
+		const games = series('east-r1-1', f).games;
+		expect(page(f, 'east-r1-1').games.map((g) => g.overtimeTag)).toEqual([
+			null,
+			null,
+			'OT',
+			null,
+			null
+		]);
+		games[2]!.overtimePeriods = 2;
+		expect(page(f, 'east-r1-1').games[2].overtimeTag).toBe('2OT');
+		games[2]!.overtimePeriods = 0;
+		games[2]!.overtime = false;
+		expect(page(f, 'east-r1-1').games[2].overtimeTag).toBeNull();
+	});
+
+	it('names the home team when the venue is missing', () => {
+		const f = bracket();
+		series('east-r1-1', f).games[0]!.venue = null;
+		expect(page(f, 'east-r1-1').games[0].meta).toBe('Apr 19 · at QXA');
+	});
+
+	it('draws a scheduled game with dashes and no rule', () => {
+		const g = page(bracket(), 'east-r1-3').games[0];
+		expect(g.sides.map((s) => [s.score, s.loser])).toEqual([
+			['—', false],
+			['—', false]
+		]);
+		expect(g.rule).toBeNull();
+		expect(g.linked).toBe(false);
+	});
+
+	it('returns null for an unknown or undecided series', () => {
+		const f = bracket();
+		expect(toSeriesPageView(f, null, 'east-r2-1')).toBeNull();
+		expect(toSeriesPageView(f, null, 'east-r2-2')).toBeNull();
+		expect(toSeriesPageView(f, null, 'nope')).toBeNull();
+		expect(toSeriesPageView(f, null, '')).toBeNull();
+	});
+
+	it('writes the Finals leaders in the order of the sides', () => {
+		const f = scored(complete());
+		const v = page(f, 'finals', finalsFeed());
+		expect(v.games[0].leaders).toBe('Bea Home1 27 PTS · Aaron Away1 25 PTS');
+		expect(v.games[2].leaders).toBe('Aaron Away3 27 PTS · Bea Home3 25 PTS');
+		expect(v.games[4].leaders).toBeNull();
+		expect(page(f, 'finals').games.every((g) => g.leaders === null)).toBe(true);
+	});
+
+	it('gives no leader line to a series other than the Finals', () => {
+		const v = page(bracket(), 'east-r1-1', finalsFeed());
+		expect(v.games.every((g) => g.leaders === null)).toBe(true);
+	});
+
+	it('draws no seed line for a null seed on a past season, a dash on the current one', () => {
+		expect(page(bracket(), 'east-r1-4', null, true).bottom.seed).toBeNull();
+		expect(page(bracket(), 'east-r1-4').bottom.seed).toBe('No. — seed');
+	});
+
+	it('has no status and a dash for a missing win count', () => {
+		const f = bracket();
+		series('east-r1-1', f).bottom.wins = null;
+		const v = page(f, 'east-r1-1');
+		expect(v.status).toBeNull();
+		expect(v.bottom.wins).toBe('—');
+	});
+
+	it('has no dates for a series with no games', () => {
+		const f = bracket();
+		const s = series('east-r1-1', f);
+		(s as { games: unknown[] }).games = [];
+		expect(page(f, 'east-r1-1').dates).toBeNull();
+		expect(page(f, 'east-r1-1').games).toEqual([]);
+	});
+
+	it('has a null accent when the series has none', () => {
+		const v = page(bracket(), 'east-r1-1');
+		expect(v.top.accent).toBeNull();
+		expect(v.bottom.accent).toBeNull();
+		expect(v.games[0].rule).toEqual({ accent: null });
+	});
+
+	it('writes the Spanish strings', () => {
+		preferLanguages(['es-ES']);
+		const f = bracket();
+		const games = series('east-r1-1', f).games;
+		games[2]!.overtimePeriods = 2;
+		games[0]!.venue = null;
+		const v = page(f, 'east-r1-1');
+		expect(v.status).toBe('QXA gana la serie 4–1');
+		expect(v.games[0].title).toBe('Partido 1');
+		expect(v.games[2].overtimeTag).toBe('2TE');
+		expect(v.games[0].meta.endsWith('en QXA')).toBe(true);
 	});
 });
