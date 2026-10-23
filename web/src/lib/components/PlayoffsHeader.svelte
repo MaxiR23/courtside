@@ -20,7 +20,7 @@
 		standingsHref: ResolvedPathname;
 		layout: RowLayout;
 		teamHref: (code: string) => ResolvedPathname;
-		showRelive?: boolean; // the series section is on the page
+		linkSeries?: boolean; // the series section is on the page
 		seasonSelect?: SeasonControl | null; // null: no selector
 		seasonTag?: string | null; // "Season 2022-23": kept on the unavailable state of a past season
 	};
@@ -32,11 +32,20 @@
 		standingsHref,
 		layout,
 		teamHref,
-		showRelive = false,
+		linkSeries = false,
 		seasonSelect = null,
 		seasonTag = null
 	}: Props = $props();
 </script>
+
+{#snippet rest()}
+	{#if header}
+		<StageStrip stages={header.stages} {layout} columns={header.stages.length === 5 ? 5 : 4} />
+	{/if}
+	{#if seasonSelect && layout === 'mobile'}
+		<div class="season-row"><SeasonSelect {...seasonSelect} full /></div>
+	{/if}
+{/snippet}
 
 <header class="playoffs-header" aria-busy={loading && !header ? 'true' : undefined}>
 	<div class="content">
@@ -51,12 +60,9 @@
 				{#if header.tag}<SeasonTag text={header.tag} />{/if}
 				<span class="state-line">{header.stateLine}</span>
 			</div>
-			{#if header.hero}
-				<ChampionHero hero={header.hero} {layout} {teamHref} {showRelive} />
-			{:else}
+			{#if !header.hero}
 				<h1>{m.playoffs_title()}</h1>
 			{/if}
-			<StageStrip stages={header.stages} {layout} columns={header.stages.length === 5 ? 5 : 4} />
 		{:else}
 			<h1>{m.playoffs_title()}</h1>
 			{#if loading}
@@ -68,10 +74,16 @@
 				<div class="season-line"><SeasonTag text={seasonTag} /></div>
 			{/if}
 		{/if}
-		{#if seasonSelect && layout === 'mobile'}
-			<div class="season-row"><SeasonSelect {...seasonSelect} full /></div>
+		{#if !header?.hero}
+			{@render rest()}
 		{/if}
 	</div>
+	{#if header?.hero}
+		<ChampionHero hero={header.hero} {layout} {teamHref} {linkSeries} />
+		<div class="content">
+			{@render rest()}
+		</div>
+	{/if}
 </header>
 
 <style>

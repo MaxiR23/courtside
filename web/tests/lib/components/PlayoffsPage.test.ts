@@ -132,8 +132,8 @@ describe('PlayoffsPage', () => {
 			'play-in',
 			'awards'
 		]);
-		expect(screen.getByRole('heading', { level: 1, name: 'Champions' })).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Relive the series' })).toBeTruthy();
+		expect(screen.getByRole('heading', { level: 1 }).textContent).toContain('Harbor');
+		expect(screen.getByRole('link', { name: 'Finals game scores' })).toBeTruthy();
 	});
 
 	it('ready: the bracket is in every state with its 15 series', () => {
@@ -177,9 +177,9 @@ describe('PlayoffsPage', () => {
 	it('ready: without the finals feed only the four finals sections go and the hero stays', () => {
 		const { container } = show(ready('complete', false));
 		expect(ids(container)).toEqual(['leaders', 'bracket', 'play-in', 'awards']);
-		expect(screen.getByRole('heading', { level: 1, name: 'Champions' })).toBeTruthy();
-		expect(screen.queryByRole('button', { name: 'Relive the series' })).toBeNull();
-		expect(screen.getByRole('button', { name: 'Full bracket' })).toBeTruthy();
+		expect(screen.getByRole('heading', { level: 1 }).textContent).toContain('Harbor');
+		expect(screen.queryByRole('link', { name: 'Finals game scores' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Full bracket' })).toBeNull();
 	});
 
 	it('loading: the header and the skeleton are aria-busy', () => {
@@ -241,10 +241,10 @@ describe('PlayoffsPage team logos', () => {
 		if (state.kind !== 'ready') throw new Error('not ready');
 		state.view.header.hero!.team.logo = logo;
 		const { container } = show(state);
-		const box = container.querySelector('.team-monogram.playoffs-champion');
+		const box = container.querySelector('.champion-hero .logo .team-monogram');
 		expect(box?.querySelector('img')?.getAttribute('src')).toBe('https://example.com/a-dark.svg');
 		const plain = show(ready('complete')).container.querySelectorAll(
-			'.team-monogram.playoffs-champion'
+			'.champion-hero .logo .team-monogram'
 		);
 		expect(plain[plain.length - 1]!.querySelector('img')).toBeNull();
 	});

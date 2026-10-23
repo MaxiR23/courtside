@@ -85,11 +85,17 @@ describe('PlayoffsHeader', () => {
 	});
 
 	it('draws the champion hero instead of the title in the complete state', () => {
-		show({ header: header('playoffs-complete.json'), showRelive: true });
-		expect(screen.getByRole('heading', { level: 1, name: 'Champions' })).toBeTruthy();
+		const { container } = show({ header: header('playoffs-complete.json'), linkSeries: true });
+		const hero = container.querySelector('.champion-hero')!;
+		expect(screen.getByRole('heading', { level: 1 }).textContent).toContain('Harbor');
 		expect(screen.queryByRole('heading', { level: 1, name: 'Playoffs' })).toBeNull();
-		expect(screen.getByRole('button', { name: 'Relive the series' })).toBeTruthy();
+		expect(screen.getByRole('link', { name: 'Finals game scores' })).toBeTruthy();
 		expect(screen.getAllByText('Complete').length).toBeGreaterThan(0);
+		expect(hero.closest('.content')).toBeNull();
+		const before = (a: Element, b: Element) =>
+			Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+		expect(before(container.querySelector('.season-line')!, hero)).toBe(true);
+		expect(before(hero, container.querySelector('.stage-strip')!)).toBe(true);
 	});
 
 	it('shows the bones and aria-busy while loading', () => {

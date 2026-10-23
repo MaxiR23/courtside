@@ -34,21 +34,21 @@ export type PlayoffStageView = {
 	statusLabel: string; // "In progress"
 };
 
+export type ChampionGameView = {
+	key: string; // the game id
+	label: string; // "G3"
+	score: string; // "105–95", the champion's points first; "—" without a score
+	win: boolean; // the champion won it: ink; otherwise muted
+};
+
 export type ChampionHeroView = {
-	tag: string; // "2026 NBA Finals"
-	result: string; // "Harbor Owls win series 4–1 · Jun 4 – Jun 19"
-	title: string; // "Champions"
-	plateLabel: string; // "2026 champions"
-	trophyTitle: string; // the accessible title of the drawing
-	team: TeamMarkTeam;
-	city: string | null;
-	strip: { primary: string; secondary: string } | null;
-	stats: {
-		key: 'record' | 'home' | 'road' | 'diff';
-		label: string;
-		value: string;
-		accent: boolean;
-	}[];
+	label: string; // "2027 NBA Champions", also the trophy's accessible title
+	team: TeamMarkTeam; // the logo comes from team.logo
+	city: string | null; // first line of the h1; null: the h1 has only the team line
+	name: string; // "Owls": the team name, else its label
+	subline: string; // "Won the series 4–1 over Summit · Jun 4 – Jun 19"
+	accent: string | null; // the champion's resolved color from the feed (ADR 0072); null: the neutral accent
+	games: ChampionGameView[]; // one per final Finals game, in feed order
 };
 
 export type PlayoffsHeaderView = {

@@ -9,7 +9,7 @@
 // - The state line of each state, the stage strip (TBD, ranges, one date, statuses)
 // - The picture tables: seeds in feed order, the line markers, clinch tags, — in the preseason
 // - The play-in: To be decided slots, places, the 8th seed labels, outcomes, links, the collapsed flag
-// - The champion hero: tag, result line, four stats, — for a missing record
+// - The champion hero: label, city and name, subline with the opponent and dates, the feed's accent, one score column per final Finals game
 // - The finals series: tabs, OT, the champion's wins, video, no chart for a missing or bad curve, the deficit marker
 // - The road to the title, the head to head bars, the postseason averages
 // - The leaders tabs and the awards cards, the All-NBA team names
@@ -52,6 +52,27 @@ const finalsFeed = () => read<PlayoffsFinalsFeed>('playoffs-finals.json');
 
 const view = (feed: PlayoffsFeed, finals: PlayoffsFinalsFeed | null = null): PlayoffsView =>
 	toPlayoffsView(feed, finals);
+
+// The Finals series of a feed.
+const finalsOf = (f: PlayoffsFeed) => f.bracket.find((series) => series.conference === null)!;
+
+// Gives the Finals games of the complete fixture a score and a winner: QXA (champion points first) wins G1, G2, G4, G5.
+const scored = (f: PlayoffsFeed): PlayoffsFeed => {
+	const results = [
+		[105, 95],
+		[110, 100],
+		[98, 101],
+		[99, 90],
+		[102, 97]
+	];
+	finalsOf(f).games.forEach((game, i) => {
+		const [champion, opponent] = results[i];
+		const home = game.home.code === 'QXA';
+		game.score = home ? { home: champion, away: opponent } : { away: champion, home: opponent };
+		game.winner = champion > opponent ? (home ? 'home' : 'away') : home ? 'away' : 'home';
+	});
+	return f;
+};
 
 // A state derived from the complete fixture, with the fields the state sets.
 const inState = (
@@ -205,29 +226,74 @@ describe('toPlayoffsView header', () => {
 		expect(stages[4].statusLabel).toBe('Complete');
 	});
 
-	it('builds the champion hero with the tag, the result line, the four stats and — for a missing record', () => {
-		const hero = view(complete()).header.hero!;
-		expect(hero.tag).toBe('2027 NBA Finals');
-		expect(hero.result).toBe('Owls win series 4–1 · Jun 4 – Jun 19');
-		expect(hero.title).toBe('Champions');
-		expect(hero.plateLabel).toBe('2027 champions');
-		expect(hero.team.code).toBe('QXA');
+	it('builds the champion hero: label, city, name, subline and a column per final game', () => {
+		const hero = view(scored(complete())).header.hero!;
+		expect(hero.label).toBe('2027 NBA Champions');
 		expect(hero.city).toBe('Harbor');
-		expect(hero.strip).toEqual({ primary: '#1d4e89', secondary: '#f2c14e' });
-		expect(hero.stats.map((s) => [s.key, s.label, s.value, s.accent])).toEqual([
-			['record', 'Postseason record', '16-6', false],
-			['home', 'Home', '9-2', false],
-			['road', 'Road', '7-4', false],
-			['diff', 'Point differential', '+142', true]
+		expect(hero.name).toBe('Owls');
+		expect(hero.team.code).toBe('QXA');
+		expect(hero.subline).toBe('Won the series 4–1 over Summit · Jun 4 – Jun 19');
+		expect(hero.games.map((g) => [g.label, g.score, g.win])).toEqual([
+			['G1', '105–95', true],
+			['G2', '110–100', true],
+			['G3', '98–101', false],
+			['G4', '99–90', true],
+			['G5', '102–97', true]
 		]);
+	});
+
+	it('builds the hero of a seven game series', () => {
+		const f = scored(complete());
+		const finals = finalsOf(f);
+		(finals.games as unknown[]).push(
+			{ ...finals.games[4]!, id: 'g106', number: 6 },
+			{ ...finals.games[3]!, id: 'g107', number: 7 }
+		);
+		f.champion!.losses = 3;
+		const hero = view(f).header.hero!;
+		expect(hero.games).toHaveLength(7);
+		expect(hero.subline).toBe('Won the series 4–3 over Summit · Jun 4 – Jun 19');
+	});
+
+	it('copies the accent of the champion and computes no color', () => {
 		const f = complete();
-		f.champion!.record = null;
-		f.champion!.home = null;
-		f.champion!.road = null;
-		f.champion!.team.colors.secondary = null;
-		const missing = view(f).header.hero!;
-		expect(missing.stats.map((s) => s.value)).toEqual(['—', '—', '—', '+142']);
-		expect(missing.strip).toBeNull();
+		f.champion!.accent = '#1d4e89';
+		expect(view(f).header.hero!.accent).toBe('#1d4e89');
+		f.champion!.accent = null;
+		expect(f.champion!.team.colors.primary).not.toBeNull();
+		expect(view(f).header.hero!.accent).toBeNull();
+	});
+
+	it('shows — for a final game with no score, leaves out a game not final and falls back on the opponent name', () => {
+		const f = complete();
+		const finals = finalsOf(f);
+		finals.games[4]!.status = 'scheduled';
+		finals.bottom.team!.city = null;
+		const hero = view(f).header.hero!;
+		expect(hero.games.map((g) => [g.score, g.win])).toEqual([
+			['—', false],
+			['—', false],
+			['—', false],
+			['—', false]
+		]);
+		expect(hero.subline).toContain('over Wolves · ');
+	});
+
+	it('shows — for the opponent and no games without a Finals series', () => {
+		const f = complete();
+		f.bracket = f.bracket.filter((series) => series.conference !== null) as typeof f.bracket;
+		const hero = view(f).header.hero!;
+		expect(hero.games).toEqual([]);
+		expect(hero.subline).toBe('Won the series 4–1 over — · Jun 4 – Jun 19');
+	});
+
+	it('shows — for a game where neither side is the champion', () => {
+		const f = scored(complete());
+		const game = finalsOf(f).games[0]!;
+		game.home.code = 'QZZ';
+		game.away.code = 'QYY';
+		const hero = view(f).header.hero!;
+		expect(hero.games[0]).toMatchObject({ score: '—', win: false });
 	});
 
 	it('has no hero before the postseason is complete', () => {
@@ -787,8 +853,9 @@ describe('toPlayoffsView Spanish', () => {
 		preferLanguages(['es-ES']);
 		const v = view(complete(), finalsFeed());
 		expect(v.header.stateLine).toBe('Completa');
-		expect(v.header.hero?.tag).toBe('Finales de la NBA 2027');
-		expect(v.header.hero?.title).toBe('Campeones');
+		expect(v.header.hero?.label).toBe('Campeones de la NBA 2027');
+		expect(v.header.hero?.subline).toMatch(/^Ganó la serie 4–1 ante Summit · /);
+		expect(v.header.hero?.games[0].label).toBe('P1');
 		expect(v.header.stages[1].label).toBe('Ronda 1');
 		expect(v.series[0].tab).toBe('P1');
 		expect(v.headToHead?.bars[0].label).toBe('Puntos por partido');
@@ -852,12 +919,11 @@ describe('toPlayoffsView past seasons', () => {
 		expect(historical.label).toBe('SEA');
 	});
 
-	it('draws no strip for a historical champion and keeps its season code on the mark', () => {
+	it('keeps its season code on the mark', () => {
 		const f = complete();
 		f.champion!.team.seasonCode = 'SEA';
 		f.champion!.team.historical = true;
 		const hero = toPlayoffsView(f, null, past).header.hero!;
-		expect(hero.strip).toBeNull();
 		expect(hero.team).toMatchObject({ code: 'QXA', historicalCode: 'SEA' });
 	});
 

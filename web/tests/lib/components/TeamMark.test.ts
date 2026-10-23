@@ -185,7 +185,6 @@ describe('TeamMark', () => {
 			'search',
 			'cup-draw',
 			'cup-champion',
-			'playoffs-champion',
 			'cup-node',
 			'allstar-league',
 			'names',
