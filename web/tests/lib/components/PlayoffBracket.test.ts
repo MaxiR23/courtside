@@ -3,46 +3,51 @@
 // Tests for the PlayoffBracket component.
 //
 // Tested:
-// - Desktop: 15 series buttons placed from the layout, in every state's fixture
-// - 14 connectors, in the complete class exactly where the feeder series is complete; every SVG stroke is non-scaling
-// - Dashed frames for series with no team, a dashed row for a series with one team
-// - The Finals frame in accent and the Champion label only once the Finals is complete
-// - A click on a card sets level 2, pressed on "2 Series", and lists its games; no list at level 1
-// - Previous, next and the arrow keys inside the bracket move the selection
-// - An Esc already taken by another handler (defaultPrevented) does not zoom out
-// - Esc and a click on the viewport background go back to level 1; a click on the games list does not
-// - A native scroll of the viewport goes back to 0 and pans the camera; the arrow keys move the focus to the selected card
-// - The layer's style holds only the transform after every input
-// - Reduced motion: no animation
-// - A Finals game button draws its focus ring as a non-scaling SVG rect
-// - In the Finals games list a selectable game is a button that calls onFinalsGame; any other is not a button
-// - Mobile: no controls, 7 rounds in the design order, East round 1 with four cards, a tap opens the sheet, the scrim and Esc close it and return the focus
+// - The header: the kicker, the H2 and the helper text
+// - Desktop: 15 series in 7 titled columns, in every state's fixture; no zoom controls and no transform
+// - Mobile: 15 series in 7 titled rows, each card at the grid-column of its span
+// - Selection: nothing selected and no result panel while the Finals has no game; the Finals selected by default once it has one
+// - A tap selects a series and moves the panel; a second tap on an unfinished series keeps it selected
+// - A second tap on a complete series opens its full series page
+// - An undecided series is not a button and a click on it changes nothing
+// - The result panel: the headline, one cell per game, a game link only when the game is linked, and the Full series link
+// - Mobile: a first tap opens the sheet, Close and Esc return the focus to the card, a second tap on a complete series opens its page
 //
 // What is covered:
-// - The component with a real camera, element sizes stubbed, no network
+// - The component with its real selection, no network and no layout (jsdom measures nothing)
 //
 // Run with: cd web && pnpm exec vitest run tests/lib/components/PlayoffBracket.test.ts
 //
 // SEE: web/src/lib/components/PlayoffBracket.svelte
 import type { ResolvedPathname } from '$app/types';
 import { fireEvent, render, screen } from '@testing-library/svelte';
-import { tick } from 'svelte';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import PlayoffBracket from '../../../src/lib/components/PlayoffBracket.svelte';
 import type { PlayoffsFeed } from '../../../src/lib/contract/playoffs';
 import { toPlayoffsView } from '../../../src/lib/feed/playoffs-props';
-import { SERIES_AT, SERIES_IDS } from '../../../src/lib/playoffs/bracket-layout';
+import { BRACKET_GROUPS, treeSpan } from '../../../src/lib/playoffs/bracket-grid';
 
 const gameHref = (id: string) => `/game/${id}` as ResolvedPathname;
+const seriesHref = (id: string) => `/playoffs/series?id=${id}` as ResolvedPathname;
 
 const FIXTURES = [
 	'playoffs-picture.json',
 	'playoffs-playin.json',
 	'playoffs-bracket.json',
 	'playoffs-complete.json'
+];
+
+const TITLES = [
+	'East R1',
+	'East Semis',
+	'East Finals',
+	'NBA Finals',
+	'West Finals',
+	'West Semis',
+	'West R1'
 ];
 
 const bracketOf = (name = 'playoffs-bracket.json') =>
@@ -56,335 +61,211 @@ const bracketOf = (name = 'playoffs-bracket.json') =>
 const show = (
 	layout: 'desktop' | 'mobile' = 'desktop',
 	name = 'playoffs-bracket.json',
-	finalsSelectable: string[] = [],
-	onFinalsGame = vi.fn()
+	openSeries = vi.fn()
 ) =>
 	render(PlayoffBracket, {
-		props: { bracket: bracketOf(name), layout, gameHref, finalsSelectable, onFinalsGame }
+		props: { bracket: bracketOf(name), layout, gameHref, seriesHref, openSeries }
 	});
 
-const layerOf = (container: Element) => container.querySelector('.layer') as HTMLElement;
-const viewportOf = (container: Element) => container.querySelector('.viewport') as HTMLElement;
-const pressed = (name: string) =>
-	screen.getByRole('button', { name: new RegExp(`^${name}\\b`) }).getAttribute('aria-pressed');
-const styleIsOnlyTransform = (container: Element) =>
-	expect(layerOf(container).getAttribute('style')).toMatch(/^transform: [^;]+;?$/);
-
-const reducedMotion = () =>
-	vi.stubGlobal('matchMedia', (query: string) => ({
-		matches: query === '(prefers-reduced-motion: reduce)'
-	}));
-
-beforeEach(() => {
-	Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
-		configurable: true,
-		get: () => 1200
-	});
-	Object.defineProperty(HTMLElement.prototype, 'clientHeight', {
-		configurable: true,
-		get: () => 500
-	});
-});
+const card = (name: string) => screen.getByRole('button', { name });
+const finalsCard = () => screen.getByRole('button', { name: /NBA Finals/ });
+const QXA_QXH = 'East · Round 1 · QXA · QXH';
+const QXD_QXE = 'East · Round 1 · QXD · QXE';
 
 afterEach(() => {
 	vi.restoreAllMocks();
-	vi.unstubAllGlobals();
-	delete (HTMLElement.prototype as { animate?: unknown }).animate;
-	delete (HTMLElement.prototype as { clientWidth?: unknown }).clientWidth;
-	delete (HTMLElement.prototype as { clientHeight?: unknown }).clientHeight;
 	document.body.style.overflow = '';
 });
 
-describe('PlayoffBracket layout', () => {
-	it('renders the 15 series as buttons in every state', () => {
+describe('PlayoffBracket header', () => {
+	it('shows the kicker, the H2 and the helper text', () => {
+		const { container } = show();
+		expect(container.querySelector('.kicker')?.textContent).toBe('2027 NBA Playoffs');
+		expect(screen.getByRole('heading', { level: 2 }).textContent).toBe('Bracket');
+		expect(container.querySelector('.help')?.textContent).toBe(
+			'Tap a series for the result. Tap it again to open the full series.'
+		);
+	});
+});
+
+describe('PlayoffBracket map', () => {
+	it('draws 15 series in 7 titled columns in every state', () => {
 		for (const name of FIXTURES) {
 			const { container, unmount } = show('desktop', name);
-			const buttons = [...container.querySelectorAll('.series')];
-			expect(buttons).toHaveLength(15);
-			expect(buttons.every((b) => b.tagName === 'BUTTON' && !b.hasAttribute('tabindex'))).toBe(
-				true
-			);
+			expect(container.querySelectorAll('.series')).toHaveLength(15);
+			const groups = [...container.querySelectorAll('.map > .group')];
+			expect(groups.map((g) => g.querySelector('.title')?.textContent)).toEqual(TITLES);
+			expect(groups.map((g) => g.querySelectorAll('.series').length)).toEqual([
+				4, 2, 1, 1, 1, 2, 4
+			]);
 			unmount();
 		}
 	});
 
-	it('places the cards from the layout', () => {
+	it('is a labelled group with the Finals title in its own class', () => {
 		const { container } = show();
-		const slots = [...container.querySelectorAll<HTMLElement>('.slot')];
-		expect(slots.map((s) => [s.style.left, s.style.top])).toEqual(
-			SERIES_IDS.map((id) => [`${SERIES_AT[id].x}px`, `${SERIES_AT[id].y}px`])
-		);
-	});
-
-	it('draws 14 connectors, accent exactly where the feeder series is complete', () => {
-		const { container } = show();
-		const lines = [...container.querySelectorAll('.connector')];
-		expect(lines).toHaveLength(14);
-		expect(lines.filter((l) => l.classList.contains('complete'))).toHaveLength(1);
-		const done = show('desktop', 'playoffs-complete.json');
-		const completeCount = bracketOf('playoffs-complete.json').series.filter(
-			(s) => s.complete && s.id !== 'finals'
-		).length;
-		expect(done.container.querySelectorAll('.connector.complete')).toHaveLength(completeCount);
-	});
-
-	it('draws every SVG stroke non-scaling', () => {
-		const { container } = show();
-		const strokes = [...container.querySelectorAll('svg path, svg rect')];
-		expect(strokes.length).toBeGreaterThan(14);
-		expect(strokes.every((s) => s.getAttribute('vector-effect') === 'non-scaling-stroke')).toBe(
-			true
-		);
-	});
-
-	it('dashes the frame of a series with no team and the empty row of one with a single team', () => {
-		const series = bracketOf().series;
-		const { container } = show();
-		expect(container.querySelectorAll('.frame.dashed')).toHaveLength(
-			series.filter((s) => s.decided === 'none').length
-		);
-		expect(container.querySelectorAll('.row-dash')).toHaveLength(
-			series.filter((s) => s.decided === 'one').length
-		);
-	});
-
-	it('draws the Finals frame in accent and the Champion label only once it is complete', () => {
-		const open = show();
-		expect(open.container.querySelector('.frame.champion')).toBeNull();
-		expect(screen.queryByText('Champion')).toBeNull();
-		open.unmount();
-		const done = show('desktop', 'playoffs-complete.json');
-		expect(done.container.querySelectorAll('.frame.champion')).toHaveLength(1);
-		expect(screen.getByText('Champion')).toBeTruthy();
-	});
-
-	it('is a labelled group', () => {
-		show();
 		expect(screen.getByRole('group', { name: 'Bracket' })).toBeTruthy();
+		expect(
+			[...container.querySelectorAll('.title.finals')].map((title) => title.textContent)
+		).toEqual(['NBA Finals']);
+	});
+
+	it('has no zoom or level controls and no transform', () => {
+		const { container } = show();
+		expect(container.querySelector('.controls, .viewport, .layer, svg')).toBeNull();
+		expect(
+			screen.queryByRole('button', { name: /Next series|Previous series|Series$/ })
+		).toBeNull();
+		expect(container.querySelectorAll('[style*="transform"]')).toHaveLength(0);
 	});
 });
 
-describe('PlayoffBracket levels', () => {
-	it('starts at level 1 with no games list, the fit in the layer', () => {
-		const { container } = show();
-		expect(pressed('1')).toBe('true');
-		expect(pressed('2')).toBe('false');
-		expect(container.querySelector('.games')).toBeNull();
-		expect(layerOf(container).style.transform).toMatch(/^translate\(.+\) scale\(/);
-		styleIsOnlyTransform(container);
+describe('PlayoffBracket tree', () => {
+	it('draws 15 series in 7 titled rows, each at the grid-column of its span', () => {
+		const { container } = show('mobile');
+		const rows = [...container.querySelectorAll('div.tree > section.row')];
+		expect(rows.map((r) => r.querySelector('.label')?.textContent)).toEqual(TITLES);
+		const slots = [...container.querySelectorAll<HTMLElement>('.slot')];
+		expect(slots).toHaveLength(15);
+		expect(slots.map((slot) => slot.style.gridColumn)).toEqual(
+			BRACKET_GROUPS.flatMap((group) => group.ids).map((id) => treeSpan(id))
+		);
+		expect(container.querySelectorAll('.series.tree')).toHaveLength(15);
 	});
 
-	it('goes to level 2 on a card click and lists the games of that series', async () => {
-		const { container } = show();
-		await fireEvent.click(screen.getByRole('button', { name: 'East · Round 1 · QXA · QXH' }));
-		expect(pressed('2')).toBe('true');
-		expect(pressed('1')).toBe('false');
-		expect(container.querySelectorAll('.games .game')).toHaveLength(5);
-		expect(screen.getByText('G3 · at QXH')).toBeTruthy();
-		styleIsOnlyTransform(container);
-	});
-
-	it('goes back to level 1 from the segmented switch and keeps the games list away', async () => {
-		const { container } = show();
-		await fireEvent.click(screen.getByRole('button', { name: 'East · Round 1 · QXA · QXH' }));
-		await fireEvent.click(screen.getByRole('button', { name: /^1\s*Bracket/ }));
-		expect(pressed('1')).toBe('true');
-		expect(container.querySelector('.games')).toBeNull();
-	});
-
-	it('goes to the first series from "2 Series" with nothing selected', async () => {
-		const { container } = show();
-		await fireEvent.click(screen.getByRole('button', { name: /^2\s*Series/ }));
-		expect(pressed('2')).toBe('true');
-		expect(container.querySelectorAll('.games .game')).toHaveLength(5);
-	});
-
-	it('moves the selection with next and previous', async () => {
-		const { container } = show();
-		await fireEvent.click(screen.getByRole('button', { name: 'Next series' }));
-		expect(container.querySelectorAll('.games .game')).toHaveLength(5);
-		await fireEvent.click(screen.getByRole('button', { name: 'Next series' }));
-		expect(container.querySelectorAll('.games .game')).toHaveLength(5);
-		await fireEvent.click(screen.getByRole('button', { name: 'Next series' }));
-		expect(container.querySelectorAll('.games .game')).toHaveLength(1);
-		await fireEvent.click(screen.getByRole('button', { name: 'Previous series' }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Previous series' }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Previous series' }));
-		await tick();
-		expect(pressed('2')).toBe('true');
-		expect(container.querySelectorAll('.games .game')).toHaveLength(0);
-	});
-
-	it('moves the selection with the arrow keys while focus is inside the bracket', async () => {
-		const { container } = show();
-		const control = screen.getByRole('button', { name: /^1\s*Bracket/ });
-		control.focus();
-		await fireEvent.keyDown(control, { key: 'ArrowRight' });
-		expect(container.querySelectorAll('.games .game')).toHaveLength(5);
-		await fireEvent.keyDown(control, { key: 'ArrowDown' });
-		expect(container.querySelectorAll('.games .game')).toHaveLength(5);
-		await fireEvent.keyDown(control, { key: 'ArrowDown' });
-		expect(container.querySelectorAll('.games .game')).toHaveLength(1);
-		await fireEvent.keyDown(control, { key: 'ArrowLeft' });
-		await fireEvent.keyDown(control, { key: 'ArrowUp' });
-		await fireEvent.keyDown(control, { key: 'ArrowUp' });
-		expect(container.querySelectorAll('.games .game')).toHaveLength(0);
-		expect(pressed('2')).toBe('true');
-	});
-
-	it('does not take arrow keys pressed outside the bracket', async () => {
-		show();
-		await fireEvent.keyDown(document.body, { key: 'ArrowRight' });
-		expect(pressed('1')).toBe('true');
-	});
-
-	it('goes back to level 1 on Esc', async () => {
-		show();
-		await fireEvent.click(screen.getByRole('button', { name: /^2\s*Series/ }));
-		await fireEvent.keyDown(window, { key: 'Escape' });
-		expect(pressed('1')).toBe('true');
-	});
-
-	it('ignores an Esc another handler already took', async () => {
-		show();
-		await fireEvent.click(screen.getByRole('button', { name: /^2\s*Series/ }));
-		const event = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true });
-		event.preventDefault();
-		window.dispatchEvent(event);
-		await tick();
-		expect(pressed('2')).toBe('true');
-	});
-
-	it('goes back to level 1 on a click on the viewport background, not on the games list', async () => {
-		const { container } = show();
-		await fireEvent.click(screen.getByRole('button', { name: /^2\s*Series/ }));
-		await fireEvent.click(container.querySelector('.games .game')!);
-		expect(pressed('2')).toBe('true');
-		await fireEvent.click(viewportOf(container));
-		expect(pressed('1')).toBe('true');
-	});
-
-	it('keeps level 1 on a click on the viewport background', async () => {
-		const { container } = show();
-		await fireEvent.click(viewportOf(container));
-		expect(pressed('1')).toBe('true');
-	});
-
-	it('keeps the layer style as only the transform after every input', async () => {
-		const { container } = show();
-		await fireEvent.click(screen.getByRole('button', { name: 'Next series' }));
-		styleIsOnlyTransform(container);
-		await fireEvent.keyDown(window, { key: 'Escape' });
-		styleIsOnlyTransform(container);
-		await fireEvent.click(screen.getByRole('button', { name: 'Previous series' }));
-		styleIsOnlyTransform(container);
-	});
-
-	it('absorbs a native scroll of the viewport: back to 0, and the camera pans', async () => {
-		const { container } = show();
-		const viewport = viewportOf(container);
-		const before = layerOf(container).style.transform;
-		viewport.scrollLeft = 40;
-		await fireEvent.scroll(viewport);
-		expect(viewport.scrollLeft).toBe(0);
-		expect(layerOf(container).style.transform).not.toBe(before);
-		styleIsOnlyTransform(container);
-	});
-
-	it('moves the focus to the next and the previous series card with the arrow keys', async () => {
-		const { container } = show();
-		const cards = () => [...container.querySelectorAll<HTMLButtonElement>('.slot > button')];
-		cards()[0].focus();
-		await fireEvent.keyDown(cards()[0], { key: 'ArrowRight' });
-		expect(document.activeElement).toBe(cards()[0]);
-		await fireEvent.keyDown(cards()[0], { key: 'ArrowRight' });
-		expect(document.activeElement).toBe(cards()[1]);
-		await fireEvent.keyDown(cards()[1], { key: 'ArrowRight' });
-		expect(document.activeElement).toBe(cards()[2]);
-		await fireEvent.keyDown(cards()[2], { key: 'ArrowLeft' });
-		expect(document.activeElement).toBe(cards()[1]);
-	});
-
-	it('animates the camera, and does not under reduced motion', async () => {
-		const animate = vi.fn(() => ({ cancel: vi.fn() }));
-		(HTMLElement.prototype as { animate?: unknown }).animate = animate;
-		show();
-		await fireEvent.click(screen.getByRole('button', { name: 'Next series' }));
-		expect(animate).toHaveBeenCalled();
-		animate.mockClear();
-		reducedMotion();
-		await fireEvent.click(screen.getByRole('button', { name: 'Next series' }));
-		expect(animate).not.toHaveBeenCalled();
+	it('draws the tree in every state', () => {
+		for (const name of FIXTURES) {
+			const { container, unmount } = show('mobile', name);
+			expect(container.querySelectorAll('.series')).toHaveLength(15);
+			unmount();
+		}
 	});
 });
 
-describe('PlayoffBracket Finals games', () => {
-	it('makes a selectable Finals game a button that selects it, and leaves the others plain', async () => {
-		const onFinalsGame = vi.fn();
-		const { container } = show('desktop', 'playoffs-complete.json', ['g101'], onFinalsGame);
-		await fireEvent.click(screen.getByRole('button', { name: /NBA Finals/ }));
-		const rows = [...container.querySelectorAll('.games .game')];
-		expect(rows.length).toBeGreaterThan(1);
-		expect(rows[0].querySelector('button')).not.toBeNull();
-		expect(rows[1].querySelector('button')).toBeNull();
-		await fireEvent.click(rows[0].querySelector('button')!);
-		expect(onFinalsGame).toHaveBeenCalledWith('g101');
+describe('PlayoffBracket selection', () => {
+	it('selects nothing and shows no result while the Finals has no game', () => {
+		const { container } = show();
+		expect(container.querySelectorAll('.series.selected')).toHaveLength(0);
+		expect(container.querySelector('section.result')).toBeNull();
 	});
 
-	it('draws the focus ring of a Finals game button non-scaling, not with the global outline', async () => {
-		const { container } = show('desktop', 'playoffs-complete.json', ['g101']);
-		await fireEvent.click(screen.getByRole('button', { name: /NBA Finals/ }));
-		const button = container.querySelector('.games .game-button')!;
-		const rect = button.querySelector('svg.ring rect')!;
-		expect(rect.getAttribute('vector-effect')).toBe('non-scaling-stroke');
+	it('selects the Finals by default once it has a game, and shows its result', () => {
+		const { container } = show('desktop', 'playoffs-complete.json');
+		expect(container.querySelectorAll('.series.selected')).toHaveLength(1);
+		expect(finalsCard().getAttribute('aria-pressed')).toBe('true');
+		expect(container.querySelector('.result .headline')?.textContent).toBe('QXA wins 4–1');
+		expect(container.querySelectorAll('.result .games .game')).toHaveLength(5);
 	});
 
-	it('makes no game button in a series other than the Finals', async () => {
-		const { container } = show('desktop', 'playoffs-bracket.json', ['b101']);
-		await fireEvent.click(container.querySelectorAll('.series')[0]);
-		expect(container.querySelectorAll('.games .game').length).toBeGreaterThan(0);
-		expect(container.querySelector('.games button')).toBeNull();
+	it('moves the result to a tapped series, and keeps an unfinished one selected on a second tap', async () => {
+		const openSeries = vi.fn();
+		const { container } = show('desktop', 'playoffs-bracket.json', openSeries);
+		await fireEvent.click(card(QXD_QXE));
+		expect(card(QXD_QXE).getAttribute('aria-pressed')).toBe('true');
+		expect(container.querySelector('.result .headline')?.textContent).toBe('Series tied 2–2');
+		await fireEvent.click(card(QXA_QXH));
+		expect(card(QXD_QXE).getAttribute('aria-pressed')).toBe('false');
+		expect(container.querySelector('.result .headline')?.textContent).toBe('QXA wins 4–1');
+		await fireEvent.click(card(QXD_QXE));
+		await fireEvent.click(card(QXD_QXE));
+		expect(card(QXD_QXE).getAttribute('aria-pressed')).toBe('true');
+		expect(openSeries).not.toHaveBeenCalled();
+	});
+
+	it('opens the full series on a second tap of a complete series', async () => {
+		const openSeries = vi.fn();
+		show('desktop', 'playoffs-bracket.json', openSeries);
+		await fireEvent.click(card(QXA_QXH));
+		expect(openSeries).not.toHaveBeenCalled();
+		await fireEvent.click(card(QXA_QXH));
+		expect(openSeries).toHaveBeenCalledWith('east-r1-1');
+	});
+
+	it('opens the Finals on its first tap when it is complete and selected by default', async () => {
+		const openSeries = vi.fn();
+		show('desktop', 'playoffs-complete.json', openSeries);
+		await fireEvent.click(finalsCard());
+		expect(openSeries).toHaveBeenCalledWith('finals');
+	});
+
+	it('does not select an undecided series', async () => {
+		const openSeries = vi.fn();
+		const { container } = show('desktop', 'playoffs-bracket.json', openSeries);
+		const undecided = [...container.querySelectorAll('.series')].filter(
+			(node) => node.tagName !== 'BUTTON'
+		);
+		expect(undecided).toHaveLength(8);
+		await fireEvent.click(undecided[0]);
+		expect(container.querySelectorAll('.series.selected')).toHaveLength(0);
+		expect(container.querySelector('section.result')).toBeNull();
+		expect(openSeries).not.toHaveBeenCalled();
 	});
 });
 
-describe('PlayoffBracket mobile', () => {
-	it('has no zoom controls and no viewport', () => {
-		const { container } = show('mobile');
-		expect(container.querySelector('.controls')).toBeNull();
-		expect(container.querySelector('.viewport')).toBeNull();
-		expect(screen.queryByRole('button', { name: /Bracket/ })).toBeNull();
+describe('PlayoffBracket result panel', () => {
+	it('links a game cell only when the game is linked, and Full series to the series page', async () => {
+		const { container } = show();
+		await fireEvent.click(card(QXD_QXE));
+		expect(container.querySelectorAll('.result .games .game')).toHaveLength(5);
+		expect(
+			[...container.querySelectorAll('.result .games a')].map((a) => a.getAttribute('href'))
+		).toEqual(['/game/b201', '/game/b202', '/game/b203', '/game/b204']);
+		expect(screen.getByRole('link', { name: 'Full series →' }).getAttribute('href')).toBe(
+			'/playoffs/series?id=east-r1-2'
+		);
 	});
 
-	it('stacks 7 rounds in the design order, East round 1 with four cards', () => {
-		const { container } = show('mobile');
-		const rounds = [...container.querySelectorAll('.round')];
-		expect(rounds.map((r) => r.querySelector('.round-title')?.textContent)).toEqual([
-			'East · Round 1',
-			'East · Conference semifinals',
-			'East · Conference finals',
-			'NBA Finals',
-			'West · Conference finals',
-			'West · Conference semifinals',
-			'West · Round 1'
-		]);
-		expect(rounds[0].querySelectorAll('.series')).toHaveLength(4);
-		expect(container.querySelectorAll('.series')).toHaveLength(15);
+	it('shows the round, the headline and both logos', async () => {
+		const { container } = show();
+		await fireEvent.click(card(QXA_QXH));
+		expect(container.querySelector('.result .round')?.textContent).toBe('East · Round 1');
+		expect(container.querySelectorAll('.result .lead-logo, .result .other-logo')).toHaveLength(2);
 	});
 
-	it('opens the sheet on a tap, closes it with the scrim and returns the focus to the card', async () => {
+	it('lists no cell for a series with no games', async () => {
+		const { container } = show();
+		await fireEvent.click(card('East · Round 1 · QXB · QXG'));
+		expect(container.querySelector('.result .headline')?.textContent).toBe('—');
+		expect(container.querySelectorAll('.result .games .game')).toHaveLength(0);
+	});
+});
+
+describe('PlayoffBracket phone sheet', () => {
+	it('opens the sheet on a first tap, with no result panel', async () => {
 		const { container } = show('mobile');
-		const card = screen.getByRole('button', { name: 'East · Round 1 · QXD · QXE' });
-		await fireEvent.click(card);
+		await fireEvent.click(card(QXD_QXE));
 		expect(screen.getByRole('dialog', { name: 'East · Round 1' })).toBeTruthy();
-		await fireEvent.click(container.ownerDocument.querySelector('.scrim')!);
+		expect(container.querySelector('section.result')).toBeNull();
+	});
+
+	it('closes the sheet with the scrim and returns the focus to the card', async () => {
+		show('mobile');
+		await fireEvent.click(card(QXD_QXE));
+		await fireEvent.click(document.querySelector('.scrim')!);
 		expect(screen.queryByRole('dialog')).toBeNull();
-		expect(document.activeElement).toBe(card);
+		expect(document.activeElement).toBe(card(QXD_QXE));
 	});
 
 	it('closes the sheet with Esc', async () => {
 		show('mobile');
-		await fireEvent.click(screen.getByRole('button', { name: 'East · Round 1 · QXD · QXE' }));
+		await fireEvent.click(card(QXD_QXE));
 		await fireEvent.keyDown(window, { key: 'Escape' });
+		expect(screen.queryByRole('dialog')).toBeNull();
+	});
+
+	it('opens the full series on a second tap of a complete series', async () => {
+		const openSeries = vi.fn();
+		show('mobile', 'playoffs-bracket.json', openSeries);
+		await fireEvent.click(card(QXA_QXH));
+		await fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+		expect(openSeries).not.toHaveBeenCalled();
+		await fireEvent.click(card(QXA_QXH));
+		expect(openSeries).toHaveBeenCalledWith('east-r1-1');
+	});
+
+	it('does not preselect the Finals on the phone', () => {
+		const { container } = show('mobile', 'playoffs-complete.json');
+		expect(container.querySelectorAll('.series.selected')).toHaveLength(0);
 		expect(screen.queryByRole('dialog')).toBeNull();
 	});
 });

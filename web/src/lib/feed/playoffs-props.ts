@@ -338,6 +338,12 @@ function heroView(champion: Champion, finals: Series | undefined): ChampionHeroV
 	};
 }
 
+function bracketKicker(feed: PlayoffsFeed): string {
+	return m.playoffs_bracket_kicker({
+		year: feedDate(feed.postseasonDates.lastDate, { year: 'numeric' })
+	});
+}
+
 function headerView(feed: PlayoffsFeed, past: boolean): PlayoffsHeaderView {
 	return {
 		season: feed.season,
@@ -397,10 +403,24 @@ function slotPlace(slot: PlayInSlot): string | null {
 	}
 }
 
-function slotView(slot: PlayInSlot): PlayInSlotView {
+// The game is final and the other side won it.
+function slotLoser(slot: PlayInSlot, game: PlayInGame['game']): boolean {
+	if (!game || game.status !== 'final' || game.winner === null || slot.team?.code == null) {
+		return false;
+	}
+	return game[game.winner].code !== slot.team.code;
+}
+
+function slotView(slot: PlayInSlot, game: PlayInGame['game']): PlayInSlotView {
 	if (slot.team) {
 		const team = teamMark(slot.team);
-		return { team, label: team.name ?? teamLabel(team), place: null, currently: null };
+		return {
+			team,
+			label: teamLabel(team),
+			place: null,
+			currently: null,
+			loser: slotLoser(slot, game)
+		};
 	}
 	return {
 		team: null,
@@ -408,7 +428,8 @@ function slotView(slot: PlayInSlot): PlayInSlotView {
 		place: slotPlace(slot),
 		currently: slot.currently
 			? m.playoffs_currently({ team: teamLabel(teamMark(slot.currently)) })
-			: null
+			: null,
+		loser: false
 	};
 }
 
@@ -420,16 +441,19 @@ function slotScore(slot: PlayInSlot, game: PlayInGame['game']): string | null {
 	return null;
 }
 
-function outcomes(entry: PlayInGame): string[] {
+function notes(entry: PlayInGame): PlayInGameView['notes'] {
 	const { game, outcome } = entry;
 	if (!game || !outcome || game.winner === null) return [];
 	const winner = code(game[game.winner]);
 	const loser = code(game[game.winner === 'away' ? 'home' : 'away']);
-	const lines: string[] = [];
+	const lines: PlayInGameView['notes'] = [];
 	if (outcome.seed !== null) {
-		lines.push(m.playoffs_playin_to_seed({ team: winner, seed: formatNumber(outcome.seed) }));
+		lines.push({
+			text: m.playoffs_playin_to_seed({ team: winner, seed: formatNumber(outcome.seed) }),
+			kind: 'seed'
+		});
 	}
-	if (outcome.loserOut) lines.push(m.playoffs_playin_out({ team: loser }));
+	if (outcome.loserOut) lines.push({ text: m.playoffs_playin_out({ team: loser }), kind: 'out' });
 	return lines;
 }
 
@@ -443,21 +467,21 @@ function playInGame(entry: PlayInGame): PlayInGameView {
 		linked: game?.detailAvailable ?? false,
 		key: entry.kind,
 		title: PLAY_IN_TITLE[entry.kind](),
-		top: slotView(entry.top),
-		bottom: slotView(entry.bottom),
+		top: slotView(entry.top, game),
+		bottom: slotView(entry.bottom, game),
 		score: top !== null && bottom !== null ? { top, bottom } : null,
 		when:
 			game && tip && game.status !== 'final'
 				? `${feedDate(game.date, monthDay)}${SEPARATOR}${tip.tipTime} ${tip.tipSuffix}`
 				: null,
-		outcomes: outcomes(entry)
+		notes: notes(entry)
 	};
 }
 
 function playInView(playIn: PlayIn): PlayInView {
 	return {
 		key: playIn.conference,
-		title: `${CONFERENCE_TITLE[playIn.conference]()}${SEPARATOR}${m.playoffs_playin_title()}`,
+		title: CONFERENCE_TITLE[playIn.conference](),
 		games: playIn.games.map(playInGame)
 	};
 }
@@ -615,6 +639,8 @@ function seriesSide(side: SeriesSide, series: Series, past: boolean): SeriesSide
 			seed: side.seed === null && past ? '' : orDash(side.seed, integer),
 			wins: orDash(side.wins, integer),
 			strip: strip(side.team),
+			accent: (side === series.top ? series.accent?.top : series.accent?.bottom) ?? null,
+			filled: side.wins ?? 0,
 			label: code(side.team),
 			note: null,
 			loser: series.winner !== null && side.team.code !== series.winner
@@ -625,6 +651,8 @@ function seriesSide(side: SeriesSide, series: Series, past: boolean): SeriesSide
 		seed: '',
 		wins: '',
 		strip: null,
+		accent: null,
+		filled: 0,
 		label: slotLabel(side.label),
 		note: side.currently
 			? m.playoffs_currently({ team: teamLabel(teamMark(side.currently)) })
@@ -641,20 +669,39 @@ function roundTitle(series: Series): string {
 
 const scoreText = (value: number | null): string => orDash(value, integer);
 
-// A row reads from the top team's point of view: "G1 · vs QXH" at home, "G3 · at QXH" away.
-function seriesGameRow(game: SeriesGame, topCode: string | null): SeriesGameRowView {
+// The resolved color of the side that won the game; null with no winner or no accent.
+function winnerAccent(game: SeriesGame, series: Series): string | null {
+	if (game.winner === null) return null;
+	const winnerCode = game[game.winner].code;
+	if (series.top.team?.code === winnerCode) return series.accent?.top ?? null;
+	if (series.bottom.team?.code === winnerCode) return series.accent?.bottom ?? null;
+	return null;
+}
+
+// A cell reads "G1", "at QXH" (the home team), the OT tag and, once final, the winner and its score.
+function seriesGameRow(game: SeriesGame, series: Series): SeriesGameRowView {
 	const final = game.status === 'final';
-	const n = formatNumber(game.number);
-	const topIsHome = topCode !== null && topCode === game.home.code;
-	const label = topIsHome
-		? m.playoffs_game_home({ n, team: code(game.away) })
-		: m.playoffs_game_at({ n, team: code(game.home) });
 	const decided = final && game.winner !== null;
+	const winnerSide = game.winner;
+	const loserSide = winnerSide === 'away' ? 'home' : 'away';
 	return {
 		gameId: game.id,
 		linked: game.detailAvailable,
 		key: game.id,
-		label,
+		number: m.playoffs_game_n({ n: formatNumber(game.number) }),
+		at: m.playoffs_series_at({ team: code(game.home) }),
+		overtimeTag: overtimeTag(game),
+		winner:
+			decided && winnerSide !== null
+				? {
+						team: teamMark(game[winnerSide]),
+						code: code(game[winnerSide]),
+						score: game.score
+							? `${scoreText(game.score[winnerSide])}–${scoreText(game.score[loserSide])}`
+							: NO_VALUE
+					}
+				: null,
+		accent: winnerAccent(game, series),
 		away: {
 			code: code(game.away),
 			score: scoreText(game.score?.away ?? null),
@@ -671,6 +718,13 @@ function seriesGameRow(game: SeriesGame, topCode: string | null): SeriesGameRowV
 			? null
 			: `${feedDate(game.date, monthDay)}${game.venue ? `${SEPARATOR}${game.venue}` : ''}`
 	};
+}
+
+// The side the result shows first: the winner, else the one with more wins, else the top.
+function leadSide(series: Series): 'top' | 'bottom' {
+	if (series.winner !== null) return series.bottom.team?.code === series.winner ? 'bottom' : 'top';
+	const { top, bottom } = series;
+	return top.wins !== null && bottom.wins !== null && bottom.wins > top.wins ? 'bottom' : 'top';
 }
 
 function seriesCard(series: Series, past: boolean): SeriesCardView {
@@ -690,12 +744,21 @@ function seriesCard(series: Series, past: boolean): SeriesCardView {
 		complete,
 		champion: final && complete,
 		score: seriesSummaryOf(series) ?? NO_VALUE,
-		games: series.games.map((game) => seriesGameRow(game, series.top.team?.code ?? null))
+		headline:
+			seriesSummaryOf(series, {
+				wins: m.playoffs_result_wins,
+				leads: m.playoffs_result_leads
+			}) ?? NO_VALUE,
+		lead: leadSide(series),
+		games: series.games.map((game) => seriesGameRow(game, series))
 	};
 }
 
 function bracketView(feed: PlayoffsFeed, past: boolean): PlayoffBracketView {
-	return { series: feed.bracket.map((series) => seriesCard(series, past)) };
+	return {
+		kicker: bracketKicker(feed),
+		series: feed.bracket.map((series) => seriesCard(series, past))
+	};
 }
 
 function roadCard(road: RoadTeam): RoadCardView {
@@ -992,15 +1055,8 @@ function pageGame(
 				return { name: lead.displayName, pts: orDash(lead.points, integer) };
 			})
 		: null;
-	let rule: SeriesPageGameView['rule'] = null;
-	if (game.winner !== null) {
-		const winnerCode = game[game.winner].code;
-		const onTop = series.top.team?.code === winnerCode;
-		const onBottom = series.bottom.team?.code === winnerCode;
-		rule = {
-			accent: (onTop ? series.accent?.top : onBottom ? series.accent?.bottom : null) ?? null
-		};
-	}
+	const rule: SeriesPageGameView['rule'] =
+		game.winner === null ? null : { accent: winnerAccent(game, series) };
 	return {
 		gameId: game.id,
 		linked: game.detailAvailable,
@@ -1040,9 +1096,7 @@ export function toSeriesPageView(
 	const first = series.games[0];
 	const last = series.games[series.games.length - 1];
 	return {
-		kicker: m.playoffs_bracket_kicker({
-			year: feedDate(feed.postseasonDates.lastDate, { year: 'numeric' })
-		}),
+		kicker: bracketKicker(feed),
 		round: roundTitle(series),
 		top: heroSide(series.top, series, series.accent?.top, past),
 		bottom: heroSide(series.bottom, series, series.accent?.bottom, past),
