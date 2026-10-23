@@ -29,7 +29,7 @@ Everything under "Implementation rules" in `docs/design.md`, `docs/design-standi
 
 | Component | What it is |
 |---|---|
-| `CupHeader` | Season tag, state line, h1, champion block and stage strip |
+| `CupHeader` | Year tag, state text, h1, the team row, the decorative layer and the stage timeline |
 | `StageStrip` | The four stage columns with dates and status |
 | `GroupCard` | One group: title, meta, draw list or table, "More columns" toggle |
 | `GroupTable` | The group table with tags |
@@ -57,11 +57,23 @@ Everything under "Implementation rules" in `docs/design.md`, `docs/design-standi
 
 ## Header
 
-- Season tag (accent outline) and a state line: "Groups drawn · Play starts {date}" / "Group play · N of 60 games played" / "Quarterfinals" / "Semifinals" / "Championship" / "Complete". All text comes from the feed values.
-- H1 "NBA Cup", `clamp(56px, 9vw, 128px)`.
-- When complete, a champion block on the right: 52px monogram with accent border, "Champion", the full team name, linking to the team.
-- **Stage strip**, 4 columns: Group play · Quarterfinals · Semifinals · Championship, each with its dates (or "TBD") and a status: Complete / In progress / Next / Upcoming. The current stage has a 2px accent top rule, a completed one 1px accent, the others a divider. 2x2 below 680px.
-- **Section order:** draw and group stages: Groups, Wild card, Bracket, Games. Knockout stages: Bracket, Groups, Wild card, Games.
+Replaces the content of `CupHeader`. The nav above and everything below stay as they are, including the section order.
+
+- **Header box:** `position: relative; overflow: hidden`, a 1px bottom divider, the ground background plus an 88px grid of 1px lines at ink 3.5%. The existing padding stays (`clamp(20px, 4vw, 48px)` on the sides, max-width 1320px), a flex column with a 48px gap.
+- **Decorative layer** (`pointer-events: none`), from the team of the state (see "States"): a 900x900 radial glow of its resolved team color (ADR 0068) at 30% at `right: -140px`, vertically centered; its code outlined at 230px (Barlow Condensed 700, line-height .8, transparent fill, a 1px stroke of its resolved color at 35%) at `right: 48px; top: 64px`; its logo (from the feed's `logo` object) at 300x300 at `right: 96px; top: 40px`, with `drop-shadow(0 30px 40px rgba(0, 0, 0, .65))`. The logo stays above the timeline and the outline never runs into the H1.
+- **Title block:** max-width 640px, min-height 300px, bottom-aligned, 18px gap.
+  - A row with the year tag (14px, padding `3px 9px`, a 1px accent border, accent light text) and the state text (12px, .14em tracking, uppercase, muted).
+  - The H1 "NBA Cup" at `clamp(56px, 9vw, 150px)`, line-height .82.
+  - The team row: a 44x6 bar split between the team's primary and secondary colors, the label (11px, accent light) and the team name (30px, uppercase), linking to the team page.
+- **Stage timeline:** an `<ol>` with `repeat(auto-fit, minmax(min(100%, 170px), 1fr))`, column gap 20px. Each step has a top border with 14px top padding, the name (19px, .06em, uppercase), the dates plus a fixed note (12.5px, muted) and the status (11px, .14em, uppercase). The notes: group play "· 4 games per team", quarterfinals "· Higher seed hosts", semifinals and championship "· {city}" from their game when known. Complete: a 1px accent border, the name in ink, "Complete" muted. In progress: a 2px accent border, the name in ink, "In progress" in accent light. Next and upcoming: a 1px ink 18% border, the name and the status muted.
+- **Mobile (under 680px):** the grid is 44px; the logo 150px at `right: 28px; top: 20px`; the outline 130px; the glow 480px; the title block min-height 236px with the tag and the state text absolutely at the top left; the H1 84px; the bar 32x5, the label 10px, the name 22px; the timeline 2x2 with gap `16px 14px`, names 16px, dates 12px, status 10px.
+
+### States
+
+- **complete:** the decoration and the bar use the Cup champion; label "Champion"; state text "Complete".
+- **draw, groups, knockout:** the same layout with the feed's `defendingChampion`; label "Defending champion"; the state text keeps its current strings.
+- **No team for the state** (no defending champion): the decoration and the team row are not drawn; the title block and the timeline stay.
+- The section order does not change: draw and group stages: Groups, Wild card, Bracket, Games. Knockout stages: Bracket, Groups, Wild card, Games.
 
 ## Groups
 
@@ -105,8 +117,15 @@ Levels 1 and 2 only.
 
 ### Mobile (under 680px)
 
-- Vertical world 2400x3600: East QFs on top, East SF, Final, West SF, West QFs at the bottom.
-- Fit shows the whole bracket at level 1 in a viewport of `min(70vh, 620px)`. No zoom controls. Tap opens the sheet. The page scrolls normally.
+Under 680px only, a grid tree replaces the vertical camera world of `CupBracket`. The desktop bracket and its camera stay as they are.
+
+- **Heading:** "{year} NBA Cup" (10px, accent light) and the H2 "Knockout rounds" (40px).
+- **Labels:** a two-column row "East" | "West" (10px, uppercase, muted, bottom divider).
+- **Rows**, each with a 9.5px centered label and an 8-column grid with a 6px gap: Quarterfinals, 4 cards at `1/3`, `3/5`, `5/7`, `7/9`; "Semifinals · {city}", cards at `2/4` and `6/8`; "Championship · {city}" (label in accent light), one card at `3/7`. The city comes from the games; without it the label is the round name alone.
+- **Card:** a border at ink 16% (the championship accent light at 45%), background ground at 88%, padding 7px (championship `10px 12px`); the date (9px, uppercase, muted); two rows with the logo 15px (22px), the code and the score 13px (18px), the loser at 50%; a 2px line in the winner's resolved color once final.
+- **Tap:** a card with a game that has its detail opens the game page; otherwise it opens today's matchup sheet. Undecided slots keep their dashed label and rule text.
+- Everything fits the width with no zoom and no sideways scroll at 320px.
+- The tree has no camera and no zoom controls, and the Cup's mobile world tokens (`--bracket-mobile-*`) are no longer used.
 
 ### Out of this design
 
@@ -218,7 +237,7 @@ The line joins the group and the record with " · " in markup. The feed sends th
 
 ## Responsive
 
-- Under 680px: the nav is one row with the menu button, the stage strip is 2x2, the bracket uses the vertical world without zoom controls, the matchup panel and player card are full-screen sheets, and the Cup games list is a single column.
+- Under 680px: the nav is one row with the menu button, the stage strip is 2x2, the header is compact (logo 150px, timeline 2x2) and the bracket is a grid tree without a camera or zoom controls, the matchup panel and player card are full-screen sheets, and the Cup games list is a single column.
 - Group cards reflow through their auto-fill grid; tables scroll horizontally with a sticky first column.
 
 ## New tokens
@@ -227,8 +246,19 @@ To add to `web/src/lib/styles/tokens.css` in the implementing issue. Values not 
 
 | Token (suggested) | Value | Use |
 |---|---|---|
-| `--cup-title-size` | `clamp(56px, 9vw, 128px)` | H1 |
-| `--cup-champion-mark` | 52px | Champion monogram |
+| `--cup-title-size` | `clamp(56px, 9vw, 150px)` | H1 (84px on mobile) |
+| `--cup-champion-bar-width` | 44px | Team row bar (32px on mobile; 6px tall, 5px on mobile) |
+| `--cup-header-grid-size` | 88px | Header grid (44px on mobile) |
+| `--cup-header-glow-size` | 900px | Header glow (480px on mobile) |
+| `--cup-header-glow-alpha` | .30 | Header glow of the team color |
+| `--cup-header-outline-size` | 230px | Outlined team code (130px on mobile) |
+| `--cup-header-outline-alpha` | .35 | Outline stroke |
+| `--cup-header-logo-size` | 300px | Header logo (150px on mobile) |
+| `--cup-header-title-min-height` | 300px | Title block (236px on mobile) |
+| `--cup-timeline-min` | 170px | Timeline step min width |
+| `--cup-tree-gap` | 6px | Mobile bracket grid gap |
+| `--cup-tree-card-border` | ink at 16% | Mobile bracket card border |
+| `--cup-tree-final-border` | accent light at 45% | Mobile championship card border |
 | `--cup-stage-rule-current` | 2px | Current stage rule |
 | `--cup-stage-rule-done` | 1px | Completed stage rule |
 | `--cup-group-min` | 380px | Group card min width |
@@ -238,8 +268,6 @@ To add to `web/src/lib/styles/tokens.css` in the implementing issue. Values not 
 | `--bracket-world-height` | 1320px | Desktop world |
 | `--bracket-node-width` | 1100px | Node |
 | `--bracket-node-height` | 560px | Node |
-| `--bracket-mobile-width` | 2400px | Mobile world |
-| `--bracket-mobile-height` | 3600px | Mobile world |
 | `--bracket-node-bg` | `#0f1215` | Node background |
 | `--bracket-line-known-color` | accent (`var(--color-accent)`) | Connector with known winner |
 | `--bracket-line-known-width` | 1.5px | Connector with known winner |
@@ -251,7 +279,6 @@ To add to `web/src/lib/styles/tokens.css` in the implementing issue. Values not 
 | `--bracket-zoom-max` | 4 | Zoom ceiling |
 | `--bracket-drag-threshold` | 6px | Drag threshold |
 | `--bracket-fly-duration` | 560ms | Fly animation |
-| `--bracket-mobile-viewport` | `min(70vh, 620px)` | Mobile viewport |
 | `--cup-panel-width` | 480px | Matchup panel |
 | `--cup-card-width` | 340px | Player card |
 | `--bracket-viewport-height` | `clamp(360px, 36vw, 560px)` | Desktop bracket viewport height |
@@ -284,6 +311,13 @@ Mapped to existing tokens: the divider is `--color-divider`; accent text is `--c
 | `cup_state_final` | Championship | Final |
 | `cup_state_complete` | Complete | Completa |
 | `cup_champion` | Champion | Campeón |
+| `cup_defending_champion` | Defending champion | Campeón vigente |
+| `cup_note_group` | · 4 games per team | · 4 partidos por equipo |
+| `cup_note_qf` | · Higher seed hosts | · Local el mejor sembrado |
+| `cup_note_city` | · {city} | · {city} |
+| `cup_bracket_kicker` | {year} NBA Cup | Copa NBA {year} |
+| `cup_knockout_rounds` | Knockout rounds | Fases eliminatorias |
+| `cup_round_city` | {round} · {city} | {round} · {city} |
 | `cup_stage_group` | Group play | Fase de grupos |
 | `cup_tbd` | TBD | Por definir |
 | `cup_status_complete` | Complete | Completa |

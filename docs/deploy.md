@@ -55,7 +55,7 @@ domains below are placeholders.
    `VIDEO_PLATFORM_NAME`.
 3. `cd web && pnpm install --frozen-lockfile && pnpm run build`
 4. Upload the contents of `web/build/` to the static host. Configure the static
-   host to serve `200.html` for `/standings`, `/cup`, `/playoffs`, `/all-star`, `/all-star/previous` and for every `/day/*`, `/game/*`, `/player/*` and `/team/*` path that is not a file (those pages
+   host to serve `200.html` for `/standings`, `/cup`, `/playoffs`, `/playoffs/series`, `/all-star`, `/all-star/previous` and for every `/day/*`, `/game/*`, `/player/*` and `/team/*` path that is not a file (those pages
    are rendered in the browser from it, ADR 0020 and ADR 0021).
 
 The settings are read at build time: changing them means rebuilding and
