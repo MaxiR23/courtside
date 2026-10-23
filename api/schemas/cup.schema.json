@@ -34,6 +34,17 @@
               "type": "null"
             }
           ]
+        },
+        "accent": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SlotAccent"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -42,7 +53,8 @@
         "conference",
         "top",
         "bottom",
-        "game"
+        "game",
+        "accent"
       ],
       "title": "BracketSlot",
       "type": "object"
@@ -682,6 +694,40 @@
       "title": "SideStanding",
       "type": "object"
     },
+    "SlotAccent": {
+      "additionalProperties": false,
+      "description": "The resolved color of each side of a bracket slot (ADR 0072); null for a side\nwith no team or no colors.",
+      "properties": {
+        "top": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "bottom": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "top",
+        "bottom"
+      ],
+      "title": "SlotAccent",
+      "type": "object"
+    },
     "SlotId": {
       "enum": [
         "east-qf-1",
@@ -1140,6 +1186,30 @@
       ],
       "default": null
     },
+    "championAccent": {
+      "anyOf": [
+        {
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "defendingChampionAccent": {
+      "anyOf": [
+        {
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
     "stages": {
       "items": {
         "$ref": "#/$defs/StageEntry"
@@ -1197,6 +1267,8 @@
     "groupGamesTotal",
     "champion",
     "defendingChampion",
+    "championAccent",
+    "defendingChampionAccent",
     "stages",
     "groups",
     "wildCard",

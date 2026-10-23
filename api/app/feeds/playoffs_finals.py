@@ -10,7 +10,8 @@
 # list that has one entry per finalist lists the Finals top side, then the
 # bottom side.
 #
-# SEE: docs/api/playoffs.md, docs/adr/0033-playoffs-finals-feed.md
+# SEE: docs/api/playoffs.md, docs/adr/0033-playoffs-finals-feed.md,
+# docs/adr/0072-resolved-team-colors-in-the-playoffs-and-cup-feeds.md
 
 from enum import StrEnum
 from itertools import pairwise
@@ -25,6 +26,7 @@ from pydantic import (
     model_validator,
 )
 
+from app.feeds.base import HexColor
 from app.feeds.game_detail import GameResult, WinProbabilityPeriods
 from app.feeds.games import (
     FeedModel,
@@ -98,6 +100,8 @@ class FinalsMvp(FeedModel):
     # The team's abbreviation in this past season, from that season's team object
     # (ADR 0055). Null on a current feed.
     season_code: SideCode | None = None
+    # The resolved team color (ADR 0072), added when served; null in the stored file.
+    accent: HexColor | None = None
     games: NonNegativeInt | None
     points: NonNegativeFloat | None
     rebounds: NonNegativeFloat | None

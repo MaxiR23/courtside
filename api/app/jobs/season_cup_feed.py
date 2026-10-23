@@ -24,6 +24,7 @@
 # previous edition rule); it is null when that feed is not stored.
 #
 # SEE: docs/api/cup.md, docs/adr/0045-season-competition-feeds.md,
+# docs/adr/0072-resolved-team-colors-in-the-playoffs-and-cup-feeds.md,
 # docs/adr/0058-bounded-past-competition-reads.md,
 # api/app/jobs/cup_feed.py
 
@@ -183,6 +184,9 @@ class SeasonCupFeeds:
     def is_fresh(self, feed: CupFeed, built_at: dt.datetime, now: dt.datetime) -> bool:
         return is_current_build(feed)
 
+    def serve_with(self, feed_id: str, feed: CupFeed) -> CupFeed:
+        return cup_feed.with_accents(feed, self._stars.team_identities())
+
     def keep(self, feed_id: str) -> bool:
         return True
 
@@ -194,4 +198,5 @@ class SeasonCupFeeds:
             build=self.build,
             is_fresh=self.is_fresh,
             keep=self.keep,
+            serve_with=self.serve_with,
         )

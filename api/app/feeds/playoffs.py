@@ -10,7 +10,8 @@
 # keys and parts, never prose: the page writes the words. Every team is an
 # Opponent with its colors. The stage status is this feed's own enum.
 #
-# SEE: docs/api/playoffs.md, docs/adr/0032-playoffs-feed.md
+# SEE: docs/api/playoffs.md, docs/adr/0032-playoffs-feed.md,
+# docs/adr/0072-resolved-team-colors-in-the-playoffs-and-cup-feeds.md
 
 import datetime as dt
 from enum import StrEnum
@@ -25,7 +26,7 @@ from pydantic import (
     model_validator,
 )
 
-from app.feeds.base import AwardCode
+from app.feeds.base import AwardCode, HexColor
 from app.feeds.games import (
     Conference,
     FeedModel,
@@ -343,6 +344,14 @@ class SeriesStatus(StrEnum):
     COMPLETE = "complete"
 
 
+class SeriesAccent(FeedModel):
+    """The resolved color of each side of a series (ADR 0072); null for a side with
+    no team or no colors."""
+
+    top: HexColor | None
+    bottom: HexColor | None
+
+
 class Series(FeedModel):
     id: SeriesId
     round: Round
@@ -353,6 +362,8 @@ class Series(FeedModel):
     summary: NonEmptyStr | None
     winner: TeamCode | None
     games: Annotated[list[SeriesGame], Field(max_length=7)]
+    # The resolved team color (ADR 0072), added when served; null in the stored file.
+    accent: SeriesAccent | None = None
 
     @model_validator(mode="after")
     def _require_no_conference_for_the_finals(self) -> Series:
@@ -403,6 +414,8 @@ class Champion(FeedModel):
     home: RecordText | None
     road: RecordText | None
     point_differential: TotalDifferential
+    # The resolved team color (ADR 0072), added when served; null in the stored file.
+    accent: HexColor | None = None
 
 
 class LeaderCategory(StrEnum):
@@ -457,6 +470,9 @@ class AwardWinner(FeedModel):
     # The team's abbreviation in this past season, from that season's team object
     # (ADR 0055). Null on a current feed.
     season_code: SideCode | None = None
+    # The resolved team color (ADR 0072), added when served; set only on the winners
+    # of finals_mvp, east_finals_mvp and west_finals_mvp, null in the stored file.
+    accent: HexColor | None = None
 
 
 class Award(FeedModel):

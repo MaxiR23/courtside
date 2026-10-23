@@ -37,6 +37,7 @@
 # when its build version is not BUILD_VERSION, the version of this kind (ADR 0053, ADR 0061).
 #
 # SEE: docs/api/playoffs.md, docs/adr/0046-season-playoffs-feeds.md,
+# docs/adr/0072-resolved-team-colors-in-the-playoffs-and-cup-feeds.md,
 # docs/adr/0058-bounded-past-competition-reads.md,
 # docs/adr/0061-past-playoffs-player-identities-and-finals-mvp-averages.md,
 # api/app/jobs/playoffs_feed.py
@@ -404,6 +405,9 @@ class SeasonPlayoffsFeeds:
     ) -> bool:
         return is_current_build(feed, BUILD_VERSION)
 
+    def serve_with(self, feed_id: str, feed: PlayoffsFeed) -> PlayoffsFeed:
+        return playoffs_feed.with_accents(feed, self._stars.team_identities())
+
     def keep(self, feed_id: str) -> bool:
         return True
 
@@ -415,6 +419,7 @@ class SeasonPlayoffsFeeds:
             build=self.build,
             is_fresh=self.is_fresh,
             keep=self.keep,
+            serve_with=self.serve_with,
         )
 
 

@@ -147,6 +147,7 @@ export interface FinalsMvp {
 	photoUrl: string | null;
 	teamCode: string | null;
 	seasonCode: string | null;
+	accent: string | null;
 	games: number | null;
 	points: number | null;
 	rebounds: number | null;

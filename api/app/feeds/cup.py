@@ -9,7 +9,8 @@
 # page writes the words. Every team is an Opponent. The defending champion is the
 # previous season's champion.
 #
-# SEE: docs/api/cup.md, docs/adr/0028-cup-feed.md
+# SEE: docs/api/cup.md, docs/adr/0028-cup-feed.md,
+# docs/adr/0072-resolved-team-colors-in-the-playoffs-and-cup-feeds.md
 
 import datetime as dt
 from enum import StrEnum
@@ -17,6 +18,7 @@ from typing import Annotated, Literal
 
 from pydantic import Field, NonNegativeInt, PositiveInt, model_validator
 
+from app.feeds.base import HexColor
 from app.feeds.game_detail import Conference
 from app.feeds.games import (
     CupRound,
@@ -262,6 +264,14 @@ class SlotSide(FeedModel):
         return self
 
 
+class SlotAccent(FeedModel):
+    """The resolved color of each side of a bracket slot (ADR 0072); null for a side
+    with no team or no colors."""
+
+    top: HexColor | None
+    bottom: HexColor | None
+
+
 class BracketSlot(FeedModel):
     id: SlotId
     round: CupRound
@@ -269,6 +279,8 @@ class BracketSlot(FeedModel):
     top: SlotSide
     bottom: SlotSide
     game: CupGame | None
+    # The resolved team color (ADR 0072), added when served; null in the stored file.
+    accent: SlotAccent | None = None
 
     @model_validator(mode="after")
     def _require_no_conference_for_the_final(self) -> BracketSlot:
@@ -289,6 +301,10 @@ class CupFeed(FeedModel):
     # without a previous Cup, a stored previous feed or its champion, and on a stored
     # feed from before the field.
     defending_champion: Opponent | None = None
+    # The resolved team color (ADR 0072), added when served; null in the stored file.
+    champion_accent: HexColor | None = None
+    # The resolved team color (ADR 0072), added when served; null in the stored file.
+    defending_champion_accent: HexColor | None = None
     stages: Annotated[list[StageEntry], Field(min_length=4, max_length=4)]
     groups: Annotated[list[CupGroup], Field(min_length=6, max_length=6)]
     wild_card: Annotated[list[WildCardTable], Field(min_length=2, max_length=2)]

@@ -34,6 +34,8 @@ Conventions:
 | `groupGamesTotal`  | integer            | Always 60                                                            | always  |
 | `champion`         | `Opponent` / null  | The winner of the championship                                       | set exactly when `stage` is `complete` |
 | `defendingChampion` | `Opponent` / null | The champion of the previous season's Cup, as its past Cup feed stores it | null for the first Cup (2023-24), when the previous feed is not built or not stored, and on a stored feed from before the field |
+| `championAccent`   | hex / null         | The resolved color of `champion` by the rule of the team identity ([ADR 0072](../adr/0072-resolved-team-colors-in-the-playoffs-and-cup-feeds.md)) | null with no champion or identity; added when served |
+| `defendingChampionAccent` | hex / null | The resolved color of `defendingChampion` ([ADR 0072](../adr/0072-resolved-team-colors-in-the-playoffs-and-cup-feeds.md)) | null with none or no identity; added when served |
 | `stages`           | `StageEntry[]`     | Exactly 4, in the order group, quarterfinals, semifinals, championship | always |
 | `groups`           | `CupGroup[]`       | Exactly 6: East A to C, then West A to C                             | always  |
 | `wildCard`         | `WildCardTable[]`  | East then West                                                       | always  |
@@ -57,7 +59,8 @@ Conventions:
 | `CupDay`         | `date`; `games`: `CupGame[]` (at least one) by start time, then id                                                                                                       |
 | `StageCounts`    | `all` (the sum of the rounds), `group`, `quarterfinals`, `semifinals`, `championship`                                                                                    |
 | `CupGame`        | `id`; `stage`: `CupRound`; `date` (US Eastern); `startTime`; `away`, `home`: `Opponent`; `status`: `GameStatus`; `score`: `Score` / null (set only when final); `winner` (`away`, `home`, null); `period` (the last period of a final game, 5 and up are overtimes; null when not final or not sent); `broadcast` (null); `venue`; `city` (null); `neutralSite`; `countsInStandings`; `detailAvailable` |
-| `BracketSlot`    | `id`: `SlotId`; `round`: `CupRound`; `conference` (null for the final only); `top`, `bottom`: `SlotSide`; `game`: `CupGame` / null                                      |
+| `BracketSlot`    | `id`: `SlotId`; `round`: `CupRound`; `conference` (null for the final only); `top`, `bottom`: `SlotSide`; `game`: `CupGame` / null `accent`: `SlotAccent` / null, added when served ([ADR 0072](../adr/0072-resolved-team-colors-in-the-playoffs-and-cup-feeds.md)). |
+| `SlotAccent`     | `top`, `bottom`: hex / null: the resolved color of each side; the smaller seed goes first in the pair rule, then the home side of the game, then the top side; null for a side with no team or no identity ([ADR 0072](../adr/0072-resolved-team-colors-in-the-playoffs-and-cup-feeds.md)) |
 | `SlotId`         | `east-qf-1`, `east-qf-2`, `east-sf`, `final`, `west-sf`, `west-qf-1`, `west-qf-2`                                                                                        |
 | `SlotSide`       | `label`: `SlotLabel`; `rule`: `SlotRule`; `known`; `team`: `Opponent` / null; `projected`: `Projection` / null (never both a team and a projection); `standing`: `SideStanding` / null (set only with a team) |
 | `SideStanding`   | `seed` (1 to 4, 4 is the wild card, null below row 4); `group`: `CupGroupName` / null; `wins`, `losses` (the team's conference table row)                               |

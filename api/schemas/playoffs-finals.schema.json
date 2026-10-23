@@ -197,6 +197,18 @@
           ],
           "default": null
         },
+        "accent": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "games": {
           "anyOf": [
             {
@@ -258,6 +270,7 @@
         "photoUrl",
         "teamCode",
         "seasonCode",
+        "accent",
         "games",
         "points",
         "rebounds",

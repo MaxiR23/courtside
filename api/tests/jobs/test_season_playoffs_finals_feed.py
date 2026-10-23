@@ -66,7 +66,7 @@ from app.sources.season_awards import SeasonAwards
 from app.sources.team_postseason import TeamPostseasonRecord, TeamPostseasonStats
 from app.storage.feeds import publish_by_id, read_by_id
 from tests.jobs.fake_season_teams import league_sides
-from tests.jobs.test_playoffs_feed import HOUR, NOW, award
+from tests.jobs.test_playoffs_feed import HOUR, NOW, award, identities_of
 from tests.jobs.test_playoffs_finals_feed import (
     BOTTOM,
     TOP,
@@ -601,3 +601,34 @@ async def test_serve_with_reads_only_the_highlights_of_the_finals_games(
 
     assert seen == [ids]
     assert feed.games[0].highlights == [clip]
+
+
+@pytest.mark.anyio
+async def test_the_finals_mvp_color_is_added_when_served_and_not_stored(
+    kit: FinalsKit,
+) -> None:
+    kit.stars.identities = identities_of()
+
+    served = PlayoffsFinalsFeed.model_validate_json(await kit.serve_finals("2025"))
+
+    assert served.finals_mvp is not None
+    assert served.finals_mvp.accent == "#0077c0"
+    stored = kit.stored_finals("2025")
+    assert stored is not None and stored.finals_mvp is not None
+    assert stored.finals_mvp.accent is None
+
+
+@pytest.mark.anyio
+async def test_the_finals_mvp_color_is_null_for_a_renamed_team_or_no_identity(
+    kit: FinalsKit,
+) -> None:
+    kit.standing = named_standings(2025)
+    kit.stars.identities = identities_of()
+
+    renamed = PlayoffsFinalsFeed.model_validate_json(await kit.serve_finals("2025"))
+    kit.stars.identities = {}
+    unknown = PlayoffsFinalsFeed.model_validate_json(await kit.serve_finals("2025"))
+
+    assert renamed.finals_mvp is not None and renamed.finals_mvp.season_code == "SEA"
+    assert renamed.finals_mvp.accent is None
+    assert unknown.finals_mvp is not None and unknown.finals_mvp.accent is None

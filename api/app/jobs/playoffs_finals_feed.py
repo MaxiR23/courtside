@@ -38,6 +38,7 @@
 # postseason averages of at most FINALS_ROSTER_READS players per finalist (ADR 0067).
 #
 # SEE: docs/api/playoffs.md, docs/adr/0033-playoffs-finals-feed.md,
+# docs/adr/0072-resolved-team-colors-in-the-playoffs-and-cup-feeds.md,
 # api/app/jobs/playoffs_feed.py,
 # docs/adr/0067-read-budgets-of-every-on-demand-build.md
 
@@ -73,6 +74,7 @@ from app.jobs.team_feed import (
     roster_order,
     season_label,
 )
+from app.jobs.team_identity import code_colors, resolved_color
 from app.settings import Settings
 from app.sources import finals_plays, game_detail, player_stats, team_postseason
 from app.sources.finals_plays import PlayScore
@@ -87,7 +89,7 @@ from app.sources.http import (
 from app.sources.player_stats import PlayerStats, StatLine
 from app.sources.team_players import RosterEntry
 from app.sources.team_postseason import TeamPostseasonRecord, TeamPostseasonStats
-from app.storage.state import StateStore
+from app.storage.state import StateStore, TeamIdentity
 
 logger = logging.getLogger(__name__)
 
@@ -467,6 +469,20 @@ def build_finals_feed(sources: FinalsSources) -> PlayoffsFinalsFeed:
         ) from None
 
 
+def with_accents(
+    feed: PlayoffsFinalsFeed, identities: Mapping[str, TeamIdentity]
+) -> PlayoffsFinalsFeed:
+    """The feed with the resolved team color of its Finals MVP, added when it is
+    served (ADR 0072)."""
+    mvp = feed.finals_mvp
+    if mvp is None:
+        return feed
+    accent = resolved_color(code_colors(mvp.team_code, mvp.season_code, identities))
+    return feed.model_copy(
+        update={"finals_mvp": mvp.model_copy(update={"accent": accent})}
+    )
+
+
 class PlayoffsFinalsFeeds:
     def __init__(
         self,
@@ -686,7 +702,9 @@ class PlayoffsFinalsFeeds:
             entry["highlights"] = (
                 None if found is None else [found.model_dump(by_alias=False)]
             )
-        return PlayoffsFinalsFeed.model_validate(data)
+        return with_accents(
+            PlayoffsFinalsFeed.model_validate(data), self._stars.team_identities()
+        )
 
     def keep(self, feed_id: str) -> bool:
         return feed_id == FEED_ID

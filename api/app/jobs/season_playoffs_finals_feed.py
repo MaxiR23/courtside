@@ -27,6 +27,7 @@
 # sides (identities_of), with no read (ADR 0054, ADR 0058).
 #
 # SEE: docs/api/playoffs.md, docs/adr/0046-season-playoffs-feeds.md,
+# docs/adr/0072-resolved-team-colors-in-the-playoffs-and-cup-feeds.md,
 # docs/adr/0048-highlights-backfill-and-edition-video.md,
 # docs/adr/0058-bounded-past-competition-reads.md,
 # docs/adr/0061-past-playoffs-player-identities-and-finals-mvp-averages.md,
@@ -255,7 +256,9 @@ class SeasonPlayoffsFinalsFeeds:
             entry["highlights"] = (
                 None if found is None else [found.model_dump(by_alias=False)]
             )
-        return PlayoffsFinalsFeed.model_validate(data)
+        return playoffs_finals_feed.with_accents(
+            PlayoffsFinalsFeed.model_validate(data), self._stars.team_identities()
+        )
 
     def keep(self, feed_id: str) -> bool:
         return True
