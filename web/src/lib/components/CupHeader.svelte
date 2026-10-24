@@ -47,22 +47,6 @@
 		: undefined}
 >
 	<div class="grid-bg" aria-hidden="true"></div>
-	{#if header?.team}
-		<div class="decor" aria-hidden="true">
-			<div class="glow"></div>
-			<span class="outline">{header.team.outline}</span>
-			{#if header.team.team.logo}
-				<span class="logo"
-					><TeamMark
-						team={header.team.team}
-						part="tile"
-						size="fill"
-						logo={header.team.team.logo}
-					/></span
-				>
-			{/if}
-		</div>
-	{/if}
 	<div class="content">
 		<NavRow page="cup" gamesHref={allGamesHref} {standingsHref} {layout} />
 		{#if seasonSelect && layout === 'desktop'}
@@ -70,43 +54,65 @@
 		{/if}
 
 		{#if header}
-			<div class="title-block">
-				<div class="tag-row">
-					<span class="year-tag">{header.season}</span>
-					{#if header.tag}<SeasonTag text={header.tag} />{/if}
-					<span class="state-line">{header.stateLine}</span>
-				</div>
-				<h1>{m.cup_title()}</h1>
+			<div class="title-area">
 				{#if header.team}
-					<div class="team-row">
-						{#if header.team.strip}
-							<span class="bar" aria-hidden="true"
-								><span class="half" style:background-color={header.team.strip.primary}></span><span
-									class="half"
-									style:background-color={header.team.strip.secondary}
-								></span></span
+					<div class="decor" aria-hidden="true">
+						<div class="glow"></div>
+						<span class="outline">{header.team.outline}</span>
+						{#if header.team.team.logo}
+							<span class="logo"
+								><TeamMark
+									team={header.team.team}
+									part="tile"
+									size="fill"
+									logo={header.team.team.logo}
+								/></span
 							>
 						{/if}
-						<span class="team-label">{header.team.label}</span>
-						<span class="team-name"
-							><TeamMark team={header.team.team} part="name" {teamHref} /></span
-						>
 					</div>
 				{/if}
+				<div class="title-block">
+					<div class="tag-row">
+						{#if header.tag}<SeasonTag text={header.tag} />{:else}<span class="year-tag"
+								>{header.season}</span
+							>{/if}
+						<span class="state-line">{header.stateLine}</span>
+					</div>
+					<h1>{m.cup_title()}</h1>
+					{#if header.team}
+						<div class="team-row">
+							{#if header.team.strip}
+								<span class="bar" aria-hidden="true"
+									><span class="half" style:background-color={header.team.strip.primary}
+									></span><span class="half" style:background-color={header.team.strip.secondary}
+									></span></span
+								>
+							{/if}
+							<span class="team-label">{header.team.label}</span>
+							<span class="team-name"
+								>{#if header.team.team.city}{header.team.team.city + ' '}{/if}<TeamMark
+									team={header.team.team}
+									part="name"
+									{teamHref}
+								/></span
+							>
+						</div>
+					{/if}
+				</div>
+				<ol class="cup-timeline">
+					{#each header.stages as stage (stage.key)}
+						<li
+							class="step"
+							class:complete={stage.status === 'complete'}
+							class:in-progress={stage.status === 'in_progress'}
+						>
+							<span class="name">{stage.label}</span>
+							<span class="dates">{datesLine(stage)}</span>
+							<span class="status">{stage.statusLabel}</span>
+						</li>
+					{/each}
+				</ol>
 			</div>
-			<ol class="cup-timeline">
-				{#each header.stages as stage (stage.key)}
-					<li
-						class="step"
-						class:complete={stage.status === 'complete'}
-						class:in-progress={stage.status === 'in_progress'}
-					>
-						<span class="name">{stage.label}</span>
-						<span class="dates">{datesLine(stage)}</span>
-						<span class="status">{stage.statusLabel}</span>
-					</li>
-				{/each}
-			</ol>
 		{:else}
 			<h1>{m.cup_title()}</h1>
 			{#if loading}
@@ -309,7 +315,15 @@
 		font-size: var(--cup-champion-name-size-mobile);
 	}
 
+	.title-area {
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		gap: var(--cup-header-gap);
+	}
+
 	.cup-timeline {
+		position: relative;
 		display: grid;
 		grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--cup-timeline-min)), 1fr));
 		column-gap: var(--cup-timeline-gap);
