@@ -1,6 +1,6 @@
 # 0032. Playoffs feed
 
-- Status: Superseded by 0035 for its scoreboard function only, and by 0060 for the series values, the complete state and the champion's Finals result only
+- Status: Superseded by 0035 for its scoreboard function only, and by 0060 for the series values, the complete state and the champion's Finals result only, and by 0073 for the champion's postseason record, home, road and point differential and the record read only
 - Date: 2026-10-14
 
 ## Context

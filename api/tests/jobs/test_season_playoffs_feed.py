@@ -5,7 +5,7 @@
 # Tested:
 # - past_season_status through check: 1993, abc, 02025, 2025 with a trailing newline, the current season and a future season are unknown; 1994 and the season before the current one are known; an unknown current season is not ready for a well-formed id from 1994
 # - target: the current season maps to the current playoffs feed, a past season to the season kind, and an unknown current season to the season kind
-# - The kind: a past season builds a valid complete feed, reading the standings, 20 team schedules, the play-in window and days, the leaders, the awards, two finalist records, the Finals game players and one athlete read per leader and winner, and no postseason window, team info or roster (ADR 0058, ADR 0061)
+# - The kind: a past season builds a valid complete feed, reading the standings, 20 team schedules, the play-in window and days, the leaders, the awards, the Finals game players and one athlete read per leader and winner, and no postseason window, team info or roster (ADR 0058, ADR 0061)
 # - The kind: a season before 2021 reads 16 team schedules and no play-in; a seedless standings reads the best records
 # - The kind: the league sides are named from the standings payload with the season code and the historical flag, and name_sides is never called (ADR 0054, ADR 0058)
 # - The kind: the leaders and award winners carry the season code of their team (ADR 0055)
@@ -14,21 +14,21 @@
 # - The kind: a player whose athlete read fails is kept with his id and a dash
 # - The kind: the leaders hold three per category; award winners past the declared maximum of 52 are shown with a dash and no photo, are not read and log one warning (ADR 0066)
 # - The kind: a second build within 30 days reads no cached player; only the top three leaders of a category are read (ADR 0066)
-# - The kind: the champion record is the counted Finals winner's, with no series object (ADR 0061)
 # - The kind: a 2005 build names the leaders of the nine categories and the fourteen awards
 # - The kind: the colors come from the cached team info and are null without it
 # - The kind: the built feed carries BUILD_VERSION, a stored feed of an older, newer or missing version is rebuilt on its next request, and one of BUILD_VERSION is served with no source request (ADR 0053)
 # - The kind: the feed is stored under season-playoffs and rebuilt only for another version: a second request, a request years later and a restart all serve with no source call; nothing is written under playoffs
-# - The kind: a leaders, awards or champion record read that answers 404 is null; any other failure answers unavailable and stores nothing
+# - The kind: a leaders or awards read that answers 404 is null; any other failure answers unavailable and stores nothing
 # - The kind: a derivation that does not give 8-4-2-1 answers unavailable, stores nothing and logs the reason
 # - The kind: a postseason that is not complete answers unavailable and stores nothing
 # - The kind: a season without seeds has null side seeds
 # - The kind: an invalid id answers unknown and a not ready season answers unavailable, with no source request
 # - The kind: detailAvailable is false; the cleanup keeps it
 # - Resolved colors (ADR 0072): a past feed is served with the series pairs and the champion's color, a historical side and a historical champion get null, and a stored feed written without the keys is served with them and no source request
+# - The kind: a stored feed whose champion still carries the retired record, home, road and point differential is served without them, with no source request, and stored_player_ids reads it (ADR 0073)
 # - The kind: a 2005 build whose schedules are read by the real adapter and send no name key builds the complete feed
 # - The kind: a 2005 build from schedules that carry no series object and empty notes (seasonType and winner flags only) reaches the complete state with the derived series, Finals line and champion
-# - schedule_teams, finals_games and finals_champion
+# - schedule_teams and finals_games
 # - The builder with no postseason window dates the postseason from the play-in window or the games
 #
 # What is covered:
@@ -87,9 +87,9 @@ from app.jobs.season_playoffs_feed import (
     MAX_AWARD_WINNERS,
     READ_BUDGET,
     SeasonPlayoffsFeeds,
-    finals_champion,
     finals_games,
     schedule_teams,
+    stored_player_ids,
 )
 from app.jobs.stars import StarsJob
 from app.jobs.team_names import KIND as NAMES_KIND
@@ -107,10 +107,6 @@ from app.sources.postseason_scoreboard import (
 from app.sources.season_awards import AwardWinnerRef, SeasonAwards
 from app.sources.season_types import SeasonWindow
 from app.sources.team_info import TeamInfo
-from app.sources.team_postseason import (
-    TeamPostseasonRecord,
-    fetch_team_postseason_record,
-)
 from app.sources.team_schedule import PROVIDER_CODES, season_schedule_url
 from app.sources.teams import PROVIDER_IDS, TEAM_CODES
 from app.storage.feeds import publish_by_id, read_by_id
@@ -249,7 +245,6 @@ class SeasonPlayoffsKit:
             fetch_division_standings=self.fetch_division_standings,
             fetch_postseason_leaders=self.fetch_postseason_leaders,
             fetch_season_awards=self.fetch_season_awards,
-            fetch_team_postseason_record=self.fetch_team_postseason_record,
             fetch_game_players=self.fetch_game_players,
         )
 
@@ -330,12 +325,6 @@ class SeasonPlayoffsKit:
         return self.awards_source or SeasonAwards(
             awards=[award(AwardCode.MVP, ["1"], team_code=CHAMPION)]
         )
-
-    async def fetch_team_postseason_record(
-        self, client: SourceClient, team: str, season: int, settings: Settings
-    ) -> TeamPostseasonRecord:
-        self.read(f"record/{team}/{season}")
-        return TeamPostseasonRecord(overall="16-6", home="9-2", road="7-4")
 
     async def fetch_player_athlete(
         self, client: SourceClient, player_id: str, settings: Settings
@@ -690,57 +679,6 @@ async def test_a_2005_build_from_schedules_with_no_series_and_empty_notes_reache
     assert read_by_id(kit.path, KIND, "2005") is not None
 
 
-RECORD_FIXTURE = (
-    Path(__file__).parents[1]
-    / "sources"
-    / "fixtures"
-    / "team_postseason"
-    / "record-2005.json"
-)
-RECORD_TEMPLATE = "https://example.com/{season}/teams/{team_id}/record"
-
-
-class RealRecordKit(RealScheduleKit):
-    """The 2005 kit whose finalist records go through the real adapter: the
-    champion's payload is the recorded one, the runner-up's another."""
-
-    def __init__(self, path: Path) -> None:
-        super().__init__(path)
-        self.settings = self.settings.model_copy(
-            update={"team_postseason_record_url": RECORD_TEMPLATE}
-        )
-        self.start()
-
-    async def fetch_team_postseason_record(
-        self, client: SourceClient, team: str, season: int, settings: Settings
-    ) -> TeamPostseasonRecord:
-        self.read(f"record/{team}/{season}")
-        url = RECORD_TEMPLATE.format(season=season, team_id=PROVIDER_IDS[team])
-        payload = json.loads(RECORD_FIXTURE.read_text(encoding="utf-8"))
-        if team != "SAS":
-            payload["items"][0]["summary"] = "10-10"
-        respx.get(url).respond(json=payload)
-        return await fetch_team_postseason_record(client, team, season, settings)
-
-
-@pytest.mark.anyio
-async def test_the_champion_record_is_the_counted_finals_winners_with_no_series_object(
-    tmp_path: Path,
-) -> None:
-    kit = RealRecordKit(tmp_path)
-    kit.standing = standings_2005()
-    kit.load(games_2005())
-
-    feed = PlayoffsFeed.model_validate_json(await kit.serve_season("2005"))
-
-    assert feed.champion is not None and str(feed.champion.team.code) == "SAS"
-    assert (feed.champion.record, feed.champion.home, feed.champion.road) == (
-        "16-7",
-        "9-3",
-        "7-4",
-    )
-
-
 FOURTEEN_AWARDS = [
     (AwardCode.MVP, 1, None),
     (AwardCode.DPOY, 1, None),
@@ -948,7 +886,6 @@ async def test_a_past_season_builds_a_valid_complete_feed_reading_only_its_decla
     assert feed.season == "2024-25"
     assert feed.state is PlayoffsState.COMPLETE
     assert feed.champion is not None and str(feed.champion.team.code) == CHAMPION
-    assert feed.champion.record == "16-6"
     assert feed.leaders is not None and feed.leaders[0].leaders
     assert feed.awards is not None and feed.awards[0].winners
     assert kit.calls.count("standings/2025") == 1
@@ -956,9 +893,7 @@ async def test_a_past_season_builds_a_valid_complete_feed_reading_only_its_decla
     assert kit.called("type/") == 1 and "type/2025/5" in kit.calls
     days = [n for n in kit.calls if n.startswith("day/")]
     assert len(days) == 5 and all(n.endswith("/True") for n in days)
-    assert sorted(n for n in kit.calls if n.startswith("record/")) == sorted(
-        [f"record/{CHAMPION}/2025", f"record/{RUNNER_UP}/2025"]
-    )
+    assert not any(n.startswith("record/") for n in kit.calls)
     assert "leaders/2025" in kit.calls and "awards/2025" in kit.calls
     assert sorted(n for n in kit.calls if n.startswith("players/")) == [
         f"players/{game_id}" for game_id in FINALS
@@ -1028,10 +963,8 @@ async def test_the_first_play_in_season_reads_the_play_in_window_and_its_days(
 
 
 @pytest.mark.anyio
-@pytest.mark.parametrize(
-    "name", ["leaders/2025", "awards/2025", f"record/{CHAMPION}/2025"]
-)
-async def test_a_leaders_awards_or_record_read_that_answers_404_is_null(
+@pytest.mark.parametrize("name", ["leaders/2025", "awards/2025"])
+async def test_a_leaders_or_awards_read_that_answers_404_is_null(
     kit: SeasonPlayoffsKit, name: str
 ) -> None:
     kit.not_found = {name}
@@ -1039,7 +972,6 @@ async def test_a_leaders_awards_or_record_read_that_answers_404_is_null(
     feed = PlayoffsFeed.model_validate_json(await kit.serve_season("2025"))
 
     assert feed.champion is not None
-    assert (feed.champion.record is None) == name.startswith("record")
     assert (feed.leaders is None) == name.startswith("leaders")
     assert (feed.awards is None) == name.startswith("awards")
 
@@ -1050,7 +982,6 @@ async def test_a_leaders_awards_or_record_read_that_answers_404_is_null(
     [
         "leaders/2025",
         "awards/2025",
-        f"record/{CHAMPION}/2025",
         f"schedule/{ALL[3]}/2025",
         "standings/2025",
         "type/2025/5",
@@ -1438,14 +1369,6 @@ def test_finals_games_fail_without_or_with_two_pairs_across_the_conferences() ->
         finals_games(past_games() + second, table)
 
 
-def test_finals_champion_is_the_team_with_four_counted_wins() -> None:
-    games = [g for g in past_games() if "finals" in g.game.id]
-
-    assert finals_champion(games) == CHAMPION
-    assert finals_champion([g for g in games if g.game.id != "finals-5"]) is None
-    assert finals_champion([]) is None
-
-
 def test_a_build_with_no_postseason_window_dates_the_postseason_from_its_games() -> (
     None
 ):
@@ -1461,7 +1384,6 @@ def test_a_build_with_no_postseason_window_dates_the_postseason_from_its_games()
         "players": {},
         "leaders": None,
         "awards": None,
-        "champion_record": None,
         "past": True,
     }
 
@@ -1482,7 +1404,7 @@ def test_a_build_with_no_postseason_window_dates_the_postseason_from_its_games()
 def test_the_constants_are_the_declared_budget_and_version() -> None:
     assert LEADER_READS == 27
     assert MAX_AWARD_WINNERS == 52
-    assert READ_BUDGET == 63 + 27 + 52 == 142
+    assert READ_BUDGET == 61 + 27 + 52 == 140
     assert BUILD_VERSION == SEASON_BUILD_VERSION + 1
 
 
@@ -1519,6 +1441,42 @@ async def test_a_stored_feed_without_the_colors_is_served_with_them_and_no_reque
     for series in served.bracket:
         assert series.accent is not None
         assert series.accent.top == "#0077c0" and series.accent.bottom == "#c4ced4"
+
+
+@pytest.mark.anyio
+async def test_a_stored_feed_with_the_retired_champion_fields_is_served_without_them_and_no_request(
+    kit: SeasonPlayoffsKit,
+) -> None:
+    served_first = PlayoffsFeed.model_validate_json(await kit.serve_season("2025"))
+    path = kit.path / "feeds" / KIND / "2025.json"
+    stored = json.loads(path.read_bytes())
+    stored["champion"].update(
+        {
+            "record": "16-6",
+            "home": "9-2",
+            "road": "7-4",
+            "pointDifferential": {"value": "+142", "nonNegative": True},
+        }
+    )
+    path.write_text(json.dumps(stored), encoding="utf-8")
+    kit.calls.clear()
+
+    body = await kit.serve_season("2025")
+
+    assert kit.calls == []
+    champion = json.loads(body)["champion"]
+    for key in ("record", "home", "road", "pointDifferential"):
+        assert key not in champion
+    expected = {
+        leader.player_id
+        for group in served_first.leaders or []
+        for leader in group.leaders
+    } | {
+        winner.player_id
+        for award in served_first.awards or []
+        for winner in award.winners
+    }
+    assert stored_player_ids(path.read_bytes()) == expected
 
 
 @pytest.mark.anyio

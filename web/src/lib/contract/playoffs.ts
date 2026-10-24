@@ -347,15 +347,7 @@ export interface Champion {
 	losses: number;
 	firstDate: string;
 	lastDate: string;
-	record: string | null;
-	home: string | null;
-	road: string | null;
-	pointDifferential: TotalDifferential;
 	accent: string | null;
-}
-export interface TotalDifferential {
-	value: string;
-	nonNegative: boolean;
 }
 export interface LeaderGroup {
 	category: LeaderCategory;

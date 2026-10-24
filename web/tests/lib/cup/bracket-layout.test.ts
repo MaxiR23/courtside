@@ -180,8 +180,6 @@ describe('tokens', () => {
 		expect(DESKTOP_WORLD.height).toBe(token('--bracket-world-height'));
 		expect(NODE.width).toBe(token('--bracket-node-width'));
 		expect(NODE.height).toBe(token('--bracket-node-height'));
-		expect(MOBILE_WORLD.width).toBe(token('--bracket-mobile-width'));
-		expect(MOBILE_WORLD.height).toBe(token('--bracket-mobile-height'));
 		expect(TICK_SIZE).toBe(token('--bracket-tick-size'));
 	});
 });

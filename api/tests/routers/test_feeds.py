@@ -2068,7 +2068,6 @@ class SeasonPlayoffs:
             fetch_team_info=kit.fetch_team_info,
             fetch_postseason_leaders=kit.fetch_postseason_leaders,
             fetch_season_awards=kit.fetch_season_awards,
-            fetch_team_postseason_record=kit.fetch_team_postseason_record,
         )
         PlayoffsFinalsFeeds(
             kit.settings,

@@ -9,7 +9,7 @@
 # - At most four narrow requests are in flight in each build (and, in the playoffs build, at most eight identity reads), and no build pauses
 # - A 429 and a 503 stop the build with the reason "rate limited", logged and recorded, with nothing stored and no new request inside the retry window
 # - The Finals build after the playoffs build makes at most 12 reads, and the Cup matchup after the Cup 2
-# - The five budgets are 142, 12, 44, 2 and 60
+# - The five budgets are 140, 12, 44, 2 and 60
 # - The current Cup after a cold previous season builds both under 44 reads each: the previous season's reads are not counted in the current build
 # - The identity reads of the playoffs build reach eight in flight, and a rate limit on one stops the build with nothing stored (ADR 0061)
 # - The worst-case playoffs build (20 schedules, 5 play-in days, 26 awards reads, a 7-game Finals, 27 leader reads, 52 award winner reads) sends exactly READ_BUDGET reads, and one read fewer allowed fails with "read budget of N reached"
@@ -136,7 +136,7 @@ CASES = [
         season_playoffs_feed,
         season_playoffs_feed.KIND,
         "2025",
-        142,
+        140,
         nothing,
         serve_playoffs,
         "postseason_schedule",
@@ -147,7 +147,6 @@ CASES = [
             "postseason_games": 5,
             "postseason_leaders": 1,
             "season_awards": 1,
-            "team_postseason_record": 2,
             "game": 5,
             "player_athlete": 3,
         },
@@ -282,8 +281,8 @@ def run(
 
 
 def test_the_five_budgets_are_the_declared_ones() -> None:
-    assert [case.module.READ_BUDGET for case in CASES] == [142, 12, 44, 2, 60]
-    assert [case.budget for case in CASES] == [142, 12, 44, 2, 60]
+    assert [case.module.READ_BUDGET for case in CASES] == [140, 12, 44, 2, 60]
+    assert [case.budget for case in CASES] == [140, 12, 44, 2, 60]
     assert season_playoffs_feed.LEADER_READS == 27
 
 

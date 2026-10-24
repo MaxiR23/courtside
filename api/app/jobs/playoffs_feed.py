@@ -2,8 +2,8 @@
 #
 # Playoffs feed builder: a pure function from the season windows, the division
 # standings, the team colors, the postseason games of every day read, the rosters
-# the stars job keeps, the postseason leaders, the season awards and the
-# champion's postseason record to the playoffs feed. The build reads no clock
+# the stars job keeps, the postseason leaders, the season awards to the
+# playoffs feed. The build reads no clock
 # and no source: the build date is an input.
 #
 # The state is complete once a Finals team has four counted wins, else finals
@@ -29,8 +29,7 @@
 # tables are the first ten teams of each conference in seed order; before the
 # season starts (the standings are of another season or every team has 0 games)
 # the rows carry no record, seed or clinch. The champion is set when complete: the
-# Finals result, its dates, the postseason record from the record read and the
-# point differential over the champion's final postseason games. Leaders and
+# Finals result and its dates. Leaders and
 # awards name players from the rosters; a player on no roster is left out. A past
 # build names leaders and award winners from the player identities it is given
 # (ADR 0061).
@@ -45,8 +44,8 @@
 # the build precedes it, and 7 days after the build (rule G). Once the Finals
 # series is complete the feed is kept while its season is the current one, the
 # season of the stars job's latest roster. A season type, standings or scoreboard
-# day that fails fails the build; leaders, awards, team info and the champion's
-# record only null their part. The feed is never deleted.
+# day that fails fails the build; leaders, awards and team info only
+# null their part. The feed is never deleted.
 #
 # The build runs in two budgeted phases that count reads only, so a rate-limited
 # read nulls its part as an ordinary failed one (ADR 0066): WINDOW_READS for the
@@ -73,6 +72,7 @@
 #
 # SEE: docs/api/playoffs.md, docs/adr/0032-playoffs-feed.md,
 # docs/adr/0046-season-playoffs-feeds.md, docs/adr/0072-resolved-team-colors-in-the-playoffs-and-cup-feeds.md,
+# docs/adr/0073-no-champion-record-or-point-differential-in-the-playoffs-feed.md,
 # api/app/jobs/standings_feed.py
 
 import asyncio
@@ -108,7 +108,6 @@ from app.jobs.standings_feed import (
     conference_order_key,
     leader_of,
     seed_of,
-    signed_total,
 )
 from app.jobs.stars import StarsJob
 from app.jobs.team_feed import (
@@ -134,7 +133,6 @@ from app.sources import (
     season_awards,
     season_types,
     team_info,
-    team_postseason,
 )
 from app.sources.division_standings import DivisionStandings
 from app.sources.game_detail import BoxScoreRosterEntry
@@ -161,7 +159,6 @@ from app.sources.season_awards import SeasonAwards
 from app.sources.season_types import PLAY_IN, POSTSEASON, SeasonWindow
 from app.sources.team_info import TeamInfo, secondary_color
 from app.sources.team_players import RosterEntry
-from app.sources.team_postseason import TeamPostseasonRecord
 from app.sources.teams import TEAM_CODES
 from app.storage.feeds import read_by_id
 from app.storage.state import StateStore, TeamIdentity
@@ -193,8 +190,8 @@ PAST_DAY_FRESH = dt.timedelta(days=7)
 WINDOW_READS = 2
 # The other reads of a current build besides one per scoreboard day: 2 division
 # standings (rule L) + 30 team infos + 1 leaders + 26 awards (the index and 25
-# documents) + 1 champion record.
-OTHER_READS = 60
+# documents).
+OTHER_READS = 59
 UNNAMED = "—"
 OVERTIME_PERIOD = 5
 
@@ -202,9 +199,6 @@ FetchSeasonType = Callable[[SourceClient, int, int, Settings], Awaitable[SeasonW
 FetchPostseasonGames = Callable[..., Awaitable[list[PostseasonGame]]]
 FetchLeaders = Callable[[SourceClient, int, Settings], Awaitable[PostseasonLeaders]]
 FetchAwards = Callable[[SourceClient, int, Settings], Awaitable[SeasonAwards]]
-FetchRecord = Callable[
-    [SourceClient, str, int, Settings], Awaitable[TeamPostseasonRecord]
-]
 
 
 class PlayoffsBuildError(Exception):
@@ -230,7 +224,6 @@ class PlayoffsSources:
     players: Mapping[str, tuple[str, RosterEntry | BoxScoreRosterEntry]]
     leaders: PostseasonLeaders | None
     awards: SeasonAwards | None
-    champion_record: TeamPostseasonRecord | None
     past: bool = False
     # Set only by a past build (ADR 0061): leaders and winners are named from it
     # and never left out.
@@ -433,20 +426,6 @@ def series_wins(games: Sequence[PostseasonGame]) -> dict[str, int]:
         if code is not None:
             wins[code] = wins.get(code, 0) + 1
     return wins
-
-
-def finals_winner(games: Sequence[PostseasonGame]) -> str | None:
-    """The Finals team with four counted wins; none when no team has them."""
-    finals = [
-        game
-        for game in _unique_games(games)
-        if game.season_type == POSTSEASON
-        and ROUNDS.get(game.competition_type or "") == 4
-    ]
-    winners = [
-        code for code, wins in series_wins(finals).items() if wins >= WINS_TO_WIN
-    ]
-    return winners[0] if len(winners) == 1 else None
 
 
 def overtime_periods(game: PostseasonGame) -> int | None:
@@ -1097,29 +1076,13 @@ class _Builder:
         assert info.winner is not None and info.wins is not None
         winner = info.winner
         loser = finals.bottom if winner == finals.top else finals.top
-        record = self.sources.champion_record
         dates = [eastern_date(g.game.start_time) for g in finals.games]
-        points = 0
-        for placed in self.placed.values():
-            for game in placed.games:
-                score = game.game.score
-                if game.game.status is not GameStatus.FINAL or score is None:
-                    continue
-                home, away = _codes(game)
-                if winner == home:
-                    points += score.home - score.away
-                elif winner == away:
-                    points += score.away - score.home
         return {
             "team": self.team(winner),
             "wins": info.wins[winner],
             "losses": info.wins[loser],
             "first_date": min(dates),
             "last_date": max(dates),
-            "record": None if record is None else record.overall,
-            "home": None if record is None else record.home,
-            "road": None if record is None else record.road,
-            "point_differential": signed_total(points),
         }
 
     # Leaders and awards
@@ -1357,9 +1320,6 @@ class PlayoffsFeeds:
             postseason_leaders.fetch_postseason_leaders
         ),
         fetch_season_awards: FetchAwards = season_awards.fetch_season_awards,
-        fetch_team_postseason_record: FetchRecord = (
-            team_postseason.fetch_team_postseason_record
-        ),
     ) -> None:
         self._settings = settings
         self._store = store
@@ -1372,7 +1332,6 @@ class PlayoffsFeeds:
         self._fetch_team_info = fetch_team_info
         self._fetch_postseason_leaders = fetch_postseason_leaders
         self._fetch_season_awards = fetch_season_awards
-        self._fetch_team_postseason_record = fetch_team_postseason_record
         cache.register(self.kind())
 
     def check(self, feed_id: str) -> IdStatus:
@@ -1411,14 +1370,6 @@ class PlayoffsFeeds:
     async def _awards(self, season: int) -> SeasonAwards | None:
         try:
             return await self._fetch_season_awards(self._client, season, self._settings)
-        except SourceError:
-            return None
-
-    async def _record(self, code: str, season: int) -> TeamPostseasonRecord | None:
-        try:
-            return await self._fetch_team_postseason_record(
-                self._client, code, season, self._settings
-            )
         except SourceError:
             return None
 
@@ -1507,8 +1458,6 @@ class PlayoffsFeeds:
             ),
         )
         games = [game for day in day_games for game in day]
-        winner = finals_winner(games)
-        record = None if winner is None else await self._record(winner, season)
         players = {
             entry.player_id: (code, entry)
             for code, entries in self._stars.roster_entries().items()
@@ -1527,7 +1476,6 @@ class PlayoffsFeeds:
                 players=players,
                 leaders=leaders,
                 awards=awards,
-                champion_record=record,
             )
         )
 

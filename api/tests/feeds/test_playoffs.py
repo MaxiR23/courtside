@@ -12,6 +12,7 @@
 # - A feed with a build version is accepted, one with zero is rejected, and a stored feed without the field reads with a null version
 # - A series game takes an overtime count that agrees with overtime and a played status, rejects a scheduled game with one, a disagreeing or negative count and a play-in game with one, and a stored game without the field reads with a null count
 # - The resolved colors of ADR 0072 (a series pair, the champion, an award winner) are accepted as colors or nulls, a bad hex is rejected, and a stored feed without them reads them as null
+# - A stored feed whose champion carries the retired record, home, road and point differential reads without them, the model has no such fields and another unknown champion field is rejected (ADR 0073)
 #
 # What is covered:
 # - A valid feed is accepted and an invalid one is rejected
@@ -22,12 +23,13 @@
 # SEE: api/app/feeds/playoffs.py
 
 import copy
+import json
 from typing import Any
 
 import pytest
 from pydantic import ValidationError
 
-from app.feeds.playoffs import PlayoffsFeed
+from app.feeds.playoffs import Champion, PlayoffsFeed
 
 Payload = dict[str, Any]
 
@@ -220,10 +222,6 @@ def complete_feed() -> Payload:
         "losses": 2,
         "firstDate": "2027-06-04",
         "lastDate": "2027-06-20",
-        "record": "16-6",
-        "home": None,
-        "road": None,
-        "pointDifferential": {"value": "−12", "nonNegative": False},
     }
     feed["leaders"] = [
         {
@@ -798,4 +796,37 @@ def test_rejects_a_resolved_color_that_is_not_a_hex_color() -> None:
 
     feed = complete_feed()
     feed["bracket"][0]["accent"] = {"top": "blue", "bottom": None}
+    rejected(feed)
+
+
+def test_drops_the_retired_champion_fields_of_a_stored_feed() -> None:
+    stored = complete_feed()
+    stored["champion"] = {
+        **stored["champion"],
+        "record": "16-6",
+        "home": "9-2",
+        "road": "7-4",
+        "pointDifferential": {"value": "+142", "nonNegative": True},
+    }
+
+    feed = PlayoffsFeed.model_validate_json(json.dumps(stored))
+
+    dumped = feed.model_dump(mode="json", by_alias=True)
+    for key in ("record", "home", "road", "pointDifferential"):
+        assert key not in dumped["champion"]
+    assert dumped == PlayoffsFeed.model_validate(complete_feed()).model_dump(
+        mode="json", by_alias=True
+    )
+
+
+def test_the_champion_has_no_record_or_differential_fields() -> None:
+    retired = {"record", "home", "road", "point_differential"}
+
+    assert retired.isdisjoint(Champion.model_fields)
+
+
+def test_rejects_an_unknown_champion_field() -> None:
+    feed = complete_feed()
+    feed["champion"]["extra"] = 1
+
     rejected(feed)

@@ -25,7 +25,7 @@ The visual, interaction and data specification of the playoffs page (`/playoffs`
 
 Everything under "Implementation rules" in `docs/design.md` and `docs/design-cup.md` applies, plus:
 
-- **`/web` computes nothing.** State, current round, stage dates and statuses, seeds, clinch tags, games behind, series wins, series summaries, winners, stakes flags, context lines, the point differential, records, averages, leaders, ranks, the largest deficit, the best scoring game, bar values and which side of a bar is better, the number of games to show and every count all come ready from the feeds. The page writes the fixed words around them. Slot labels are the exception: the feed sends them as keys and parts (conference, round, seed, place), never prose, and the page writes the words.
+- **`/web` computes nothing.** State, current round, stage dates and statuses, seeds, clinch tags, games behind, series wins, series summaries, winners, stakes flags, context lines, records, averages, leaders, ranks, the largest deficit, the best scoring game, bar values and which side of a bar is better, the number of games to show and every count all come ready from the feeds. The page writes the fixed words around them. Slot labels are the exception: the feed sends them as keys and parts (conference, round, seed, place), never prose, and the page writes the words.
 - **Nothing is hardcoded in `/web`:** no team, venue, broadcast, date, round name list for a given year or award winner. No data source name, video platform or URL is written in `/web`.
 - **Every user-facing string is translatable**, in English and Spanish. Long labels truncate with an ellipsis and never wrap in a table cell.
 - **A value that is missing renders `—`. A block that is missing hides its section. The bracket always shows its slots.**
@@ -512,7 +512,6 @@ Mapped to existing tokens: the divider is `--color-divider`; accent text is `--c
 | `playoffs_award_all_defense` | All-Defensive {n} Team | Mejor quinteto defensivo ({n}.º) |
 | `playoffs_award_twyman` | Twyman-Stokes Teammate Award | Premio Twyman-Stokes al compañero |
 | `playoffs_bracket` | Bracket | Cuadro |
-| `playoffs_champion` | Champion | Campeón |
 | `playoffs_tbd_slot` | To be decided | Por decidir |
 | `playoffs_currently` | Currently {team} | Actualmente {team} |
 | `playoffs_slot_seed` | {conference} #{seed} seed | {conference} · cabeza de serie {seed} |
@@ -520,7 +519,6 @@ Mapped to existing tokens: the divider is `--color-divider`; accent text is `--c
 | `playoffs_slot_r2_winner` | Winner of {conference} semifinal {n} | Ganador de la semifinal {n} del {conference} |
 | `playoffs_slot_r3_winner` | Winner of {conference} finals | Ganador de la final del {conference} |
 | `playoffs_slot_playin_winner` | {conference} play-in winner | Ganador del play-in del {conference} |
-| `playoffs_playin_title` | Play-In | Play-In |
 | `playoffs_playin_7v8` | 7th vs 8th | 7.º contra 8.º |
 | `playoffs_playin_9v10` | 9th vs 10th | 9.º contra 10.º |
 | `playoffs_playin_8th` | 8th seed game | Partido por el 8.º puesto |
@@ -560,7 +558,7 @@ Mapped to existing tokens: the divider is `--color-divider`; accent text is `--c
 | `playoffs_title_east` | East Champions | Campeones del Este |
 | `playoffs_title_west` | West Champions | Campeones del Oeste |
 
-The series wins and winner (the page writes the summary, "NYK leads 3-1" or "Series tied 2-2", from them), stage dates, the "Currently" team, play-in outcomes and the point differential come from the feed; slot labels and play-in slots are sent as keys and parts, and the page writes the words with the keys above. The other keys are the fixed words around them. Strings for the Cup marks stay in `docs/design-cup.md`.
+The series wins and winner (the page writes the summary, "NYK leads 3-1" or "Series tied 2-2", from them), stage dates, the "Currently" team, and play-in outcomes come from the feed; slot labels and play-in slots are sent as keys and parts, and the page writes the words with the keys above. The other keys are the fixed words around them. Strings for the Cup marks stay in `docs/design-cup.md`.
 
 ## Feed contract
 
@@ -572,7 +570,7 @@ Keys are camelCase. Nullable fields are always present and `null` when absent. T
 - The picture tables: per conference, seeds 1 to 10 with team, record, GB, clinch tag and the line markers.
 - The play-in: per conference the three games with teams, scores, status, date, game id when the game exists, the outcome and the slots with their regular season places.
 - The bracket: the 15 series in bracket order, each with round, conference, slot labels as keys and parts, both teams (code, name, color, seed), wins per team and the series summary from the feed, status, winner, the "Currently" team during the regular season, and the games played (game number, date, home and away, scores, overtime flag, winner, game id when it exists, venue, broadcast).
-- The champion block when complete: team, series result, dates, postseason record, home, road and the point differential, and the drawing flag for the plate.
+- The champion block when complete: team, series result and dates.
 - The leaders: nine categories, each with the five leaders (rank, player, photo, team, value).
 - The awards: the awards with winners (player or team of five players, photo, team) and the code of each.
 - The conference finals MVPs and the Finals MVP block (name, photo, postseason averages).
