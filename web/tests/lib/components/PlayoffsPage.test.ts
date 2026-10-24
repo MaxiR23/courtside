@@ -137,7 +137,7 @@ describe('PlayoffsPage', () => {
 			'awards'
 		]);
 		expect(screen.getByRole('heading', { level: 1 }).textContent).toContain('Harbor');
-		expect(screen.getByRole('link', { name: 'Finals game scores' })).toBeTruthy();
+		expect(container.querySelector('a.strip[href="#series"]')).not.toBeNull();
 	});
 
 	it('ready: the bracket is in every state with its 15 series', () => {
@@ -182,7 +182,7 @@ describe('PlayoffsPage', () => {
 		const { container } = show(ready('complete', false));
 		expect(ids(container)).toEqual(['leaders', 'bracket', 'play-in', 'awards']);
 		expect(screen.getByRole('heading', { level: 1 }).textContent).toContain('Harbor');
-		expect(screen.queryByRole('link', { name: 'Finals game scores' })).toBeNull();
+		expect(container.querySelector('a.strip')).toBeNull();
 		expect(screen.queryByRole('button', { name: 'Full bracket' })).toBeNull();
 	});
 

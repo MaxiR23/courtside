@@ -312,14 +312,20 @@ function heroView(champion: Champion, finals: Series | undefined): ChampionHeroV
 						? 'away'
 						: null;
 			const other = side === 'home' ? 'away' : 'home';
+			const score =
+				side && game.score
+					? `${formatNumber(game.score[side])}–${formatNumber(game.score[other])}`
+					: NO_VALUE;
+			const win = side !== null && game.winner === side;
 			return {
 				key: game.id,
 				label: m.playoffs_game_tab({ n: formatNumber(game.number) }),
-				score:
-					side && game.score
-						? `${formatNumber(game.score[side])}–${formatNumber(game.score[other])}`
-						: NO_VALUE,
-				win: side !== null && game.winner === side
+				score,
+				win,
+				spoken: (win ? m.playoffs_hero_game_won : m.playoffs_hero_game_lost)({
+					n: formatNumber(game.number),
+					score
+				})
 			};
 		});
 	return {

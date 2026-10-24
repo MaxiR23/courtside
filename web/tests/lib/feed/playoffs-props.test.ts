@@ -9,7 +9,7 @@
 // - The state line of each state, the stage strip (TBD, ranges, one date, statuses)
 // - The picture tables: seeds in feed order, the line markers, clinch tags, — in the preseason
 // - The play-in: To be decided slots, places, the 8th seed labels, seed and out notes, the loser flag, links, the collapsed flag
-// - The champion hero: label, city and name, subline with the opponent and dates, the feed's accent, one score column per final Finals game
+// - The champion hero: label, city and name, subline with the opponent and dates, the feed's accent, one score column per final Finals game, its spoken text (won/lost, no score, Spanish)
 // - The finals series: tabs, OT, the champion's wins, video, no chart for a missing or bad curve, the deficit marker
 // - The road to the title, the head to head bars, the postseason averages
 // - The leaders tabs and the awards cards, the All-NBA team names
@@ -249,6 +249,20 @@ describe('toPlayoffsView header', () => {
 			['G4', '99–90', true],
 			['G5', '102–97', true]
 		]);
+		expect(hero.games.map((g) => g.spoken)).toEqual([
+			'Game 1, 105–95, won',
+			'Game 2, 110–100, won',
+			'Game 3, 98–101, lost',
+			'Game 4, 99–90, won',
+			'Game 5, 102–97, won'
+		]);
+	});
+
+	it('reads the hero columns in Spanish', () => {
+		preferLanguages(['es']);
+		const hero = view(scored(complete())).header.hero!;
+		expect(hero.games[2]!.spoken).toBe('Partido 3, 98–101, perdido');
+		expect(hero.games[0]!.spoken).toBe('Partido 1, 105–95, ganado');
 	});
 
 	it('builds the hero of a seven game series', () => {
@@ -339,6 +353,7 @@ describe('toPlayoffsView header', () => {
 			['—', false],
 			['—', false]
 		]);
+		expect(hero.games.every((g) => g.spoken.includes('—'))).toBe(true);
 		expect(hero.subline).toContain('over Wolves · ');
 	});
 

@@ -518,6 +518,8 @@
 	"playoffs_hero_label": "{year} NBA Champions",
 	"playoffs_hero_subline": "Won the series {won}–{lost} over {opponent} · {dates}",
 	"playoffs_hero_strip": "Finals game scores",
+	"playoffs_hero_game_won": "Game {n}, {score}, won",
+	"playoffs_hero_game_lost": "Game {n}, {score}, lost",
 	"playoffs_finals_mvp": "Finals MVP",
 	"playoffs_ecf_mvp": "East Finals MVP",
 	"playoffs_wcf_mvp": "West Finals MVP",
