@@ -9,6 +9,7 @@
 // - An undecided series is not a button: the slot label and the note, each with its full text as title (ADR 0054); a one-sided series has one team row and one dashed row
 // - A click calls onTap with the id and the button; the card is a native button named from the series
 // - The team logos: before the code of a decided side, none for an undecided one
+// - The Finals border class is off on a selected Finals card and on in every other Finals state; the style source keeps the border out of `.series.finals`
 //
 // What is covered:
 // - Each state the card shows, drawn from props with no fetch
@@ -45,6 +46,41 @@ const show = (
 			onTap: options.onTap ?? vi.fn()
 		}
 	});
+
+type Declaration = { property: string; value: string };
+type Rule = { selectors: string[]; declarations: Declaration[] };
+
+function styleOf(source: string): string {
+	const match = source.match(/<style[^>]*>([\s\S]*?)<\/style>/);
+	return (match?.[1] ?? '').replace(/\/\*[\s\S]*?\*\//g, '');
+}
+
+function rulesOf(style: string): Rule[] {
+	const rules: Rule[] = [];
+	for (const match of style.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+		const declarations = (match[2] ?? '')
+			.split(';')
+			.map((part) => part.trim())
+			.filter((part) => part.includes(':'))
+			.map((part) => {
+				const index = part.indexOf(':');
+				return {
+					property: part.slice(0, index).trim().toLowerCase(),
+					value: part.slice(index + 1).trim()
+				};
+			});
+		const selectors = (match[1] ?? '').split(',').map((selector) => selector.trim());
+		rules.push({ selectors, declarations });
+	}
+	return rules;
+}
+
+const styleSource = styleOf(
+	readFileSync(join(__dirname, '..', '..', '..', 'src/lib/components/SeriesNode.svelte'), 'utf8')
+);
+const rules = rulesOf(styleSource);
+const declared = (selector: string) =>
+	rules.filter((rule) => rule.selectors.includes(selector)).flatMap((rule) => rule.declarations);
 
 const filled = (row: Element) =>
 	[...row.querySelectorAll('.segment')].map((segment) => segment.classList.contains('filled'));
@@ -139,6 +175,75 @@ describe('SeriesNode classes', () => {
 		picked.unmount();
 		show(card('east-r1-1'));
 		expect(screen.getByRole('button').getAttribute('aria-pressed')).toBe('false');
+	});
+});
+
+describe('SeriesNode Finals selection', () => {
+	const classes = (container: Element) => container.querySelector('.series')!.classList;
+
+	it('drops the Finals border on a selected Finals card and keeps the Finals sizes', () => {
+		const { container } = show(card('finals', 'playoffs-complete.json'), { selected: true });
+		expect(classes(container).contains('selected')).toBe(true);
+		expect(classes(container).contains('finals')).toBe(true);
+		expect(classes(container).contains('finals-border')).toBe(false);
+		expect(screen.getByRole('button').getAttribute('aria-pressed')).toBe('true');
+	});
+
+	it('keeps the Finals border on an unselected Finals card', () => {
+		const { container } = show(card('finals', 'playoffs-complete.json'));
+		expect(classes(container).contains('finals')).toBe(true);
+		expect(classes(container).contains('finals-border')).toBe(true);
+	});
+
+	it('keeps the Finals border on an undecided Finals card', () => {
+		const { container } = show(card('finals'));
+		expect(container.querySelector('div.series')).not.toBeNull();
+		expect(classes(container).contains('finals-border')).toBe(true);
+	});
+
+	it('never gives a non-Finals card the Finals border', () => {
+		const plain = show(card('east-r1-1'));
+		expect(classes(plain.container).contains('finals-border')).toBe(false);
+		plain.unmount();
+		const picked = show(card('east-r1-1'), { selected: true });
+		expect(classes(picked.container).contains('finals-border')).toBe(false);
+	});
+
+	it('drops the Finals border on a selected tree Finals card', () => {
+		const { container } = show(card('finals', 'playoffs-complete.json'), {
+			layout: 'mobile',
+			selected: true
+		});
+		for (const name of ['tree', 'finals', 'selected']) {
+			expect(classes(container).contains(name)).toBe(true);
+		}
+		expect(classes(container).contains('finals-border')).toBe(false);
+	});
+
+	it('declares the Finals border apart from the Finals sizes in the style source', () => {
+		expect(rules.length).toBeGreaterThan(0);
+		expect(declared('.series.finals').some((d) => d.property === 'border-color')).toBe(false);
+		const sizes = declared('.series.finals');
+		for (const [property, value] of [
+			['--card-padding', 'var(--playoffs-finals-card-padding)'],
+			['--card-logo', 'var(--playoffs-finals-logo)'],
+			['--card-code-size', 'var(--playoffs-finals-code-size)'],
+			['--card-wins-size', 'var(--playoffs-finals-wins-size)']
+		]) {
+			expect(sizes).toContainEqual({ property, value });
+		}
+		expect(declared('.series.finals-border')).toContainEqual({
+			property: 'border-color',
+			value: 'var(--playoffs-finals-card-border)'
+		});
+		expect(declared('.series.selected')).toContainEqual({
+			property: 'border-color',
+			value: 'var(--color-accent)'
+		});
+		expect(declared('.series.selected')).toContainEqual({
+			property: 'background',
+			value: 'var(--playoffs-selected-bg)'
+		});
 	});
 });
 

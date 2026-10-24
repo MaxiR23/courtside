@@ -464,6 +464,7 @@ const expected: Record<string, string> = {
 	'--playoffs-conf-gap': '12px',
 	'--playoffs-conf-columns': '120px minmax(0, 1fr) auto',
 	'--playoffs-conf-photo-width': '170px',
+	'--playoffs-conf-photo-min-height': '118px',
 	'--playoffs-conf-glow-alpha': '0.35',
 	'--playoffs-conf-label-size': '10.5px',
 	'--playoffs-conf-name-size': '24px',
