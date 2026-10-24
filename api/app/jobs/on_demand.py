@@ -19,11 +19,15 @@
 # object in it, put there when it is served and never stored, so a kept feed picks up
 # a new logo with no rebuild (ADR 0068).
 #
+# When the serve-time additions of any kind are invalid, the feed is served as its model reads the
+# stored file, never as the stored bytes, so a retired field is never served (ADR 0073).
+#
 # prune_unserved deletes the stored file and build row of the ids of the given kinds not served in
 # KEPT_RETENTION; they are built again on their next request (ADR 0063).
 #
 # SEE: docs/source-rules.md, docs/adr/0020-source-rules.md, docs/adr/0062-bounded-upstream-reads-and-on-demand-builds.md,
-# docs/adr/0063-bounded-state-and-kept-feeds.md
+# docs/adr/0063-bounded-state-and-kept-feeds.md,
+# docs/adr/0073-no-champion-record-or-point-differential-in-the-playoffs-feed.md
 
 import asyncio
 import datetime as dt
@@ -299,7 +303,7 @@ class FeedCache:
             logger.error(
                 "feed %s %s serve-time additions are invalid", kind.name, feed_id
             )
-            return body
+            return bytes(feed.model_dump_json().encode("utf-8"))
         return bytes(served.model_dump_json().encode("utf-8"))
 
     def _start(self, kind: FeedKind[Any], feed_id: str) -> asyncio.Task[bool]:

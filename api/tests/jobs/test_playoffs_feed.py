@@ -26,6 +26,7 @@
 # - The kind: no scoreboard day is read before the play-in window and every day of both windows inside it
 # - The kind: a failed season type, standings or scoreboard day answers unavailable and is not retried for 10 minutes; a failed rebuild keeps and serves the stored feed
 # - The kind: a failed leaders, awards or team info read only nulls its part; a complete build reads no postseason record (ADR 0073)
+# - The kind: a stored feed whose champion still carries the retired record, home, road and point differential is served without them and otherwise unchanged, also when the serve-time additions are invalid, with no source request and no rebuild (ADR 0073)
 # - The kind: expiry (a final postseason game of the feed or of the games job inside the postseason dates plus 1 hour; a picture feed also at a final league game plus 1 hour; the start of the play-in window; 7 days; a complete feed kept while its season is current)
 # - The kind: detailAvailable is set from the loaded games and not stored; the cleanup keeps league; stored() reads the stored feed
 # - Resolved colors (ADR 0072): a served feed carries the series pairs, the champion and the Finals MVP winners' colors and the stored file none; a dark primary resolves to the secondary; the lower seed takes its secondary when too close, whichever side it is on; a side with no identity, a currently side and a winner with a different season code give null; other awards give null
@@ -42,6 +43,8 @@
 
 import asyncio
 import datetime as dt
+import json
+import logging
 from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any, cast
@@ -63,6 +66,7 @@ from app.feeds.playoffs import (
     SeriesStatus,
 )
 from app.feeds.standings import Clinch
+from app.jobs import playoffs_feed
 from app.jobs.games import GamesJob
 from app.jobs.on_demand import (
     RETRY_AFTER,
@@ -1993,6 +1997,57 @@ async def test_a_complete_build_reads_no_postseason_record(kit: PlayoffsKit) -> 
     assert names <= {"type", "day", "standings", "info", "leaders", "awards"}
     stored = kit.stored()
     assert stored is not None and stored.champion is not None
+
+
+@pytest.mark.anyio
+async def test_a_stored_feed_with_the_retired_champion_fields_is_served_without_them_and_no_request(
+    kit: PlayoffsKit,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    kit.load(everything())
+    first = await kit.serve()
+    path = kit.path / "feeds" / KIND / f"{FEED_ID}.json"
+    original = json.loads(path.read_bytes())
+    assert original["champion"] is not None
+    original["champion"].update(
+        {
+            "record": "16-6",
+            "home": "9-2",
+            "road": "7-4",
+            "pointDifferential": {"value": "+142", "nonNegative": True},
+        }
+    )
+    path.write_text(json.dumps(original), encoding="utf-8")
+    built = kit.last_build()
+    kit.calls.clear()
+
+    body = await kit.serve()
+
+    assert kit.calls == []
+    assert kit.last_build() == built
+    for key in ("record", "home", "road", "pointDifferential"):
+        assert key not in json.loads(body)["champion"]
+    assert json.loads(body) == json.loads(first)
+
+    monkeypatch.setattr(
+        playoffs_feed,
+        "with_accents",
+        lambda feed, identities: feed.model_copy(update={"finals_game": 9}),
+    )
+    with caplog.at_level(logging.ERROR):
+        body = await kit.serve()
+
+    assert "serve-time additions are invalid" in caplog.text
+    assert kit.calls == []
+    assert kit.last_build() == built
+    served = json.loads(body)
+    for key in ("record", "home", "road", "pointDifferential"):
+        assert key not in served["champion"]
+    expected = json.loads(path.read_bytes())
+    for key in ("record", "home", "road", "pointDifferential"):
+        del expected["champion"][key]
+    assert served == expected
 
 
 def a_game_id(kit: PlayoffsKit) -> str:
