@@ -130,7 +130,7 @@ describe('PlayoffPicture logos', () => {
 			'utf8'
 		);
 		expect(source).toContain('border-top: var(--hairline) solid var(--color-divider)');
-		expect(source).not.toMatch(/stroke-dasharray|dashed|dotted|--standings-line-dash|<line\b/);
+		expect(source).not.toMatch(/stroke-dasharray|dashed|dotted|<line\b/);
 		const { container } = show();
 		const lines = [...container.querySelectorAll('.line')];
 		expect(lines).toHaveLength(2);

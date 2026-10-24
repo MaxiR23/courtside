@@ -61,8 +61,6 @@
 	"panel_highlights_search": "Buscar resúmenes en {platform}",
 	"panel_highlights_play": "Reproducir {title}",
 	"game_scheduled": "Programado",
-	"game_halftime": "Descanso",
-	"game_end_of_period": "Fin del {period}",
 	"game_overtime": "PR{number}",
 	"game_not_found": "Partido no encontrado.",
 	"game_tabs_label": "Secciones",

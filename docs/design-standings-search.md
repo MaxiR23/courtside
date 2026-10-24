@@ -247,7 +247,6 @@ To add to `web/src/lib/styles/tokens.css` in the implementing issue. Values belo
 | `--standings-monogram-size` | 34px | Table tile |
 | `--standings-strip-height` | 3px | Table tile strip |
 | `--standings-team-column-page-min` | 178px | Team column minimum (the existing `--standings-team-column-min` belongs to the game detail table) |
-| `--standings-line-dash` | 4 4 | Dashed frames and rows of the playoff bracket |
 
 Mapped to existing tokens: active toggle `rgba(116, 157, 196, 0.14)` is `--toggle-active-fill`; row hover `rgba(116, 157, 196, 0.06)` is `--box-row-hover`; label color `#94bce3` is `--color-accent-light`; label size and spacing are `--label-size` and `--label-letter-spacing`; the 19px name is `--player-name-size`; the 680px break is `--game-row-breakpoint`; the divider is `--color-divider`.
 

@@ -99,7 +99,7 @@ describe('WildCardTable', () => {
 			'utf8'
 		);
 		expect(source).toContain('border-top: var(--hairline) solid var(--color-divider)');
-		expect(source).not.toMatch(/stroke-dasharray|dashed|dotted|--standings-line-dash|<line\b/);
+		expect(source).not.toMatch(/stroke-dasharray|dashed|dotted|<line\b/);
 		const { container } = show();
 		expect(container.querySelector('.line .rule')?.getAttribute('aria-hidden')).toBe('true');
 		expect(screen.getByText('Wild card line')).toBeTruthy();
