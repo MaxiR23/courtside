@@ -355,6 +355,7 @@ const PAGES: Page[] = [
 				standingsHref: STANDINGS,
 				layout,
 				bracketLayout: layout,
+				mvpLayout: layout,
 				teamHref,
 				gameHref,
 				seriesHref,

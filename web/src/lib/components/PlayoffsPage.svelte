@@ -29,6 +29,7 @@
 		standingsHref: ResolvedPathname;
 		layout: RowLayout;
 		bracketLayout: RowLayout; // the bracket breaks at 1180px, not at the page's 680px
+		mvpLayout: RowLayout; // the Finals MVP section breaks at 900px, not at the page's 680px
 		teamHref: (code: string) => ResolvedPathname;
 		gameHref: (id: string) => ResolvedPathname;
 		seriesHref: (id: SeriesId) => ResolvedPathname;
@@ -44,6 +45,7 @@
 		standingsHref,
 		layout,
 		bracketLayout,
+		mvpLayout,
 		teamHref,
 		gameHref,
 		seriesHref,
@@ -100,7 +102,7 @@
 				{:else if id === 'finals-mvp'}
 					<div class="mvp-section">
 						<SectionHead title={m.playoffs_finals_mvp()} size="mvp" />
-						<div class="mvps">
+						<div class="mvps" class:mobile={mvpLayout === 'mobile'}>
 							{#if view.finalsMvp}<FinalsMvpCard mvp={view.finalsMvp} {layout} />{/if}
 							{#if view.conferenceMvps.length > 0}
 								<div class="conference-mvps">
@@ -220,9 +222,13 @@
 
 	.mvps {
 		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--playoffs-mvp-column-min)), 1fr));
+		grid-template-columns: repeat(2, minmax(0, 1fr));
 		gap: var(--playoffs-mvp-column-gap);
 		align-items: stretch;
+	}
+
+	.mvps.mobile {
+		grid-template-columns: minmax(0, 1fr);
 	}
 
 	.conference-mvps {

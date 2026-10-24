@@ -335,13 +335,16 @@ describe('SeriesPage layouts', () => {
 	});
 
 	it.each([
-		['loading', { kind: 'loading' }, '[aria-busy="true"]'],
-		['unavailable', { kind: 'unavailable' }, null],
-		['not-found', { kind: 'not-found' }, null]
-	] as [string, SeriesPageState, string | null][])('mobile: %s renders', (_n, state, sel) => {
-		const { container } = show(state, 'mobile');
-		if (sel) expect(container.querySelector(sel)).toBeTruthy();
-		else expect(container.querySelector('.message, [role], p, a')).toBeTruthy();
-		expect(container.querySelector('footer')).toBeTruthy();
-	});
+		['loading', { kind: 'loading' }, '[aria-busy="true"]', null],
+		['unavailable', { kind: 'unavailable' }, null, UNAVAILABLE],
+		['not-found', { kind: 'not-found' }, null, "This series isn't available."]
+	] as [string, SeriesPageState, string | null, string | null][])(
+		'mobile: %s renders',
+		(_n, state, sel, text) => {
+			const { container } = show(state, 'mobile');
+			if (sel) expect(container.querySelector(sel)).toBeTruthy();
+			if (text) expect(screen.getByText(text)).toBeTruthy();
+			expect(container.querySelector('footer')).toBeTruthy();
+		}
+	);
 });

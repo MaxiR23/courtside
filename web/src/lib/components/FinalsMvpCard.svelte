@@ -16,7 +16,7 @@
 	<div class="finals-mvp" class:mobile={layout === 'mobile'}>
 		<div class="photo" style:--side-accent={mvp.accent ?? 'var(--identity-neutral-accent)'}>
 			<span class="glow" aria-hidden="true"></span>
-			<PlayerAvatar name={mvp.name} photo={mvp.photo} size="playoffs-mvp" />
+			<PlayerAvatar name={mvp.name} photo={mvp.photo} size="playoffs-mvp" clip="bottom" />
 		</div>
 		<div class="info">
 			<Kicker text={m.playoffs_finals_mvp()} />

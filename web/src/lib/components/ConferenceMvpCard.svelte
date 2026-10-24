@@ -13,7 +13,12 @@
 	<div class="conference-mvp">
 		<div class="photo" style:--side-accent={mvp.accent ?? 'var(--identity-neutral-accent)'}>
 			<span class="glow" aria-hidden="true"></span>
-			<PlayerAvatar name={mvp.name} photo={mvp.photo} size="playoffs-conference-mvp" />
+			<PlayerAvatar
+				name={mvp.name}
+				photo={mvp.photo}
+				size="playoffs-conference-mvp"
+				clip="bottom"
+			/>
 		</div>
 		<div class="who">
 			<span class="label">{mvp.label}</span>
@@ -37,7 +42,6 @@
 	.photo {
 		position: relative;
 		align-self: stretch;
-		min-height: var(--playoffs-conf-photo-min-height);
 		overflow: hidden;
 	}
 
