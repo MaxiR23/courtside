@@ -53,6 +53,7 @@
 		type="button"
 		class="series"
 		class:finals={series.final}
+		class:finals-border={series.final && !selected}
 		class:tree={layout === 'mobile'}
 		class:selected
 		aria-label={series.name}
@@ -65,6 +66,7 @@
 	<div
 		class="series"
 		class:finals={series.final}
+		class:finals-border={series.final}
 		class:tree={layout === 'mobile'}
 		class:one={series.decided === 'one'}
 		class:none={series.decided === 'none'}
@@ -118,6 +120,9 @@
 		--card-logo: var(--playoffs-finals-logo);
 		--card-code-size: var(--playoffs-finals-code-size);
 		--card-wins-size: var(--playoffs-finals-wins-size);
+	}
+
+	.series.finals-border {
 		border-color: var(--playoffs-finals-card-border);
 	}
 

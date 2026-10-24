@@ -37,6 +37,7 @@
 	.photo {
 		position: relative;
 		align-self: stretch;
+		min-height: var(--playoffs-conf-photo-min-height);
 		overflow: hidden;
 	}
 
