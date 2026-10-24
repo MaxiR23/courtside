@@ -62,10 +62,14 @@
 	<div class="grid-bg" aria-hidden="true"></div>
 	<div class="inner">
 		<div class="label-row">
-			<span class="trophy" aria-hidden="true"><TrophyDrawing title={hero.label} /></span>
-			<span class="label">{hero.label}</span>
-			{#if tag}<SeasonTag text={tag} />{:else}<StatusTag text={season} accent />{/if}
-			<span class="state-line">{stateLine}</span>
+			<span class="line title-line">
+				<span class="trophy" aria-hidden="true"><TrophyDrawing title={hero.label} /></span>
+				<span class="label">{hero.label}</span>
+			</span>
+			<span class="line state-group">
+				{#if tag}<SeasonTag text={tag} />{:else}<StatusTag text={season} accent />{/if}
+				<span class="state-line">{stateLine}</span>
+			</span>
 			{#if seasonSelect && layout === 'desktop'}
 				<div class="season-select"><SeasonSelect {...seasonSelect} /></div>
 			{/if}
@@ -161,6 +165,22 @@
 		flex-wrap: wrap;
 		align-items: center;
 		gap: var(--game-list-gap);
+	}
+
+	.line {
+		display: contents;
+	}
+
+	.mobile .label-row {
+		flex-direction: column;
+		align-items: flex-start;
+	}
+
+	.mobile .line {
+		display: flex;
+		align-items: center;
+		gap: var(--game-list-gap);
+		white-space: nowrap;
 	}
 
 	.state-line {

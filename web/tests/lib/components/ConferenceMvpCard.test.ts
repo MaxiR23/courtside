@@ -6,7 +6,8 @@
 // - The label, the name, the team name and the logo in place of the code; the monogram with no logo
 // - The team accent on the photo cell
 // - Initials without a photo
-// - The photo cell keeps a min-height floor from a token, and the overflow clip; the floor equals the two-column cell height and never grows the two-column layout
+// - The photo cell keeps the overflow clip, has no height floor, and the cutout takes no height from it
+//   (the two-column stack is driven by the Finals card, not by the photo)
 //
 // What is covered:
 // - Each state the card shows, drawn from props with no fetch
@@ -67,13 +68,6 @@ function rulesOf(style: string): Rule[] {
 	return rules;
 }
 
-const tokenPx = (name: string): number => {
-	const css = readFileSync(join(srcDir, 'styles/tokens.css'), 'utf8');
-	const match = css.match(new RegExp(`${name}:\\s*([0-9.]+)px;`));
-	expect(match, name).not.toBeNull();
-	return Number(match![1]);
-};
-
 afterEach(() => {
 	vi.restoreAllMocks();
 });
@@ -129,30 +123,31 @@ describe('ConferenceMvpCard photo cell', () => {
 		.filter((rule) => rule.selectors.includes('.photo'))
 		.flatMap((rule) => rule.declarations);
 
-	it('floors the cell height with a token and keeps the overflow clip', () => {
+	it('keeps the overflow clip and has no height floor', () => {
 		expect(rules.length).toBeGreaterThan(0);
 		expect(photo.length).toBeGreaterThan(0);
-		expect(photo).toContainEqual({
-			property: 'min-height',
-			value: 'var(--playoffs-conf-photo-min-height)'
-		});
 		expect(photo).toContainEqual({ property: 'overflow', value: 'hidden' });
+		expect(photo.some((d) => d.property === 'min-height')).toBe(false);
 	});
 
-	it('never makes the two-column layout taller than the Finals MVP card', () => {
-		const hairline = tokenPx('--hairline');
-		const floor = tokenPx('--playoffs-conf-photo-min-height');
-		expect(2 * (floor + 2 * hairline) + tokenPx('--playoffs-conf-gap')).toBeLessThanOrEqual(
-			tokenPx('--playoffs-mvp-photo-min-height') + 2 * hairline
-		);
+	it('passes the bottom-only clip to the avatar', () => {
+		const { container } = render(ConferenceMvpCard, { props: { mvp: mvps()[0]! } });
+		expect(container.querySelector('.photo .avatar')?.classList.contains('clip-bottom')).toBe(true);
 	});
 
-	it('equals the two-column cell height, so one column matches two columns', () => {
-		const hairline = tokenPx('--hairline');
-		expect(tokenPx('--playoffs-conf-photo-min-height')).toBe(
-			(tokenPx('--playoffs-mvp-photo-min-height') + 2 * hairline - tokenPx('--playoffs-conf-gap')) /
-				2 -
-				2 * hairline
+	it('takes no height from the cutout: the avatar is out of flow', () => {
+		const { container } = render(ConferenceMvpCard, { props: { mvp: mvps()[0]! } });
+		expect(container.querySelector('.photo .avatar')?.classList.contains('clip-bottom')).toBe(true);
+		const avatarRules = rulesOf(
+			styleOf(readFileSync(join(srcDir, 'components/PlayerAvatar.svelte'), 'utf8'))
 		);
+		const clip = avatarRules
+			.filter((rule) => rule.selectors.includes('.avatar.clip-bottom'))
+			.flatMap((rule) => rule.declarations);
+		expect(avatarRules.length).toBeGreaterThan(0);
+		expect(clip.length).toBeGreaterThan(0);
+		expect(clip).toContainEqual({ property: 'position', value: 'absolute' });
+		expect(clip).toContainEqual({ property: 'inset', value: '0' });
+		expect(photo).toContainEqual({ property: 'position', value: 'relative' });
 	});
 });

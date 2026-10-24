@@ -12,6 +12,7 @@
 // - Unavailable: the unavailable row under the nav; the footer in every state
 // - Spanish copy
 // - The Finals MVP section: the Finals card and both conference cards, and each missing winner hides only its card
+// - The Finals MVP columns: the mobile class from mvpLayout, and the 2-column and 1-column rules in the stylesheet
 // - The team logos: the champion logo in the hero, a playoff picture row's logo, the code for a null logo
 //
 // What is covered:
@@ -58,7 +59,7 @@ const ready = (
 	return { kind: 'ready', view: toPlayoffsView(source, finals) };
 };
 
-const show = (state: PlayoffsPageState) =>
+const show = (state: PlayoffsPageState, mvpLayout: 'desktop' | 'mobile' = 'desktop') =>
 	render(PlayoffsPage, {
 		props: {
 			state,
@@ -66,6 +67,7 @@ const show = (state: PlayoffsPageState) =>
 			standingsHref: STANDINGS,
 			layout: 'desktop' as const,
 			bracketLayout: 'desktop' as const,
+			mvpLayout,
 			teamHref,
 			gameHref,
 			seriesHref,
@@ -200,6 +202,7 @@ describe('PlayoffsPage', () => {
 			standingsHref: STANDINGS,
 			layout: 'desktop' as const,
 			bracketLayout: 'desktop' as const,
+			mvpLayout: 'desktop' as const,
 			teamHref,
 			gameHref,
 			seriesHref,
@@ -289,6 +292,43 @@ describe('PlayoffsPage Finals MVP section', () => {
 		const h2 = el.querySelector('h2');
 		expect(h2?.textContent).toBe('Finals MVP');
 		expect(h2?.classList.contains('mvp')).toBe(true);
+	});
+
+	it('draws two columns at 900px and wider and one below', () => {
+		const feed = read<PlayoffsFeed>('playoffs-complete.json');
+		const finals = read<PlayoffsFinalsFeed>('playoffs-finals.json');
+		const state: PlayoffsPageState = { kind: 'ready', view: toPlayoffsView(feed, finals) };
+		const wide = show(state, 'desktop');
+		expect(wide.container.querySelector('#finals-mvp .mvps')?.classList.contains('mobile')).toBe(
+			false
+		);
+		wide.unmount();
+		const narrow = show(state, 'mobile');
+		expect(narrow.container.querySelector('#finals-mvp .mvps')?.classList.contains('mobile')).toBe(
+			true
+		);
+	});
+
+	it('takes its columns from the MVP breakpoint rule', () => {
+		const style =
+			readFileSync(
+				join(__dirname, '..', '..', '..', 'src/lib/components/PlayoffsPage.svelte'),
+				'utf8'
+			)
+				.match(/<style[^>]*>([\s\S]*?)<\/style>/)?.[1]!
+				.replace(/\/\*[\s\S]*?\*\//g, '') ?? '';
+		const columns = (selector: string): string | undefined => {
+			for (const m of style.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+				if (m[1]!.trim() !== selector) continue;
+				const found = m[2]!.match(/grid-template-columns:\s*([^;]+);/);
+				if (found) return found[1]!.trim();
+			}
+			return undefined;
+		};
+		expect(style.length).toBeGreaterThan(0);
+		expect(columns('.mvps')).toBe('repeat(2, minmax(0, 1fr))');
+		expect(columns('.mvps.mobile')).toBe('minmax(0, 1fr)');
+		expect(style).not.toContain('--playoffs-mvp-column-min');
 	});
 
 	it('hides only the Finals MVP card with no Finals MVP', () => {

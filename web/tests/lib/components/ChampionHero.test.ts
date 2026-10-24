@@ -12,6 +12,7 @@
 // - The strip links to #series and scrolls (smooth, or at once under reduced motion) only when the series section exists
 // - The first row: trophy, label, one season tag (the past tag replaces the season), the state line, the desktop selector
 // - The strip link has no label of its own: it reads "Game {n}, {score}, won/lost" per column; the group keeps its name
+// - The first row on mobile is two lines (title, then tag and state); on desktop one row with the selector last; the rules that do it
 // - The mobile layout keeps the logo, the trophy and the strip
 //
 // What is covered:
@@ -289,5 +290,64 @@ describe('ChampionHero logo', () => {
 		const plain = show().container.querySelector('.logo');
 		expect(plain?.querySelector('img')).toBeNull();
 		expect(plain?.textContent).toContain('QXA');
+	});
+});
+
+describe('ChampionHero first row lines', () => {
+	const select = () => ({
+		seasons: [{ season: 2027, seasonLabel: '2026-27' }],
+		value: 2027,
+		onChange: vi.fn()
+	});
+
+	it.each([
+		['2026-27', null],
+		['Season 2025-26', 'Season 2025-26']
+	])('splits the first row into two lines on mobile (%s)', (tagText, tag) => {
+		const { container } = show({ layout: 'mobile', tag });
+		const lines = container.querySelectorAll('.label-row > .line');
+		expect(lines).toHaveLength(2);
+		expect(lines[0]!.querySelector('.trophy')).not.toBeNull();
+		expect(lines[0]!.querySelector('.label')?.textContent).toBe('2027 NBA Champions');
+		expect(lines[0]!.textContent).not.toContain(tagText);
+		expect(lines[1]!.textContent).toContain(tagText);
+		expect(lines[1]!.querySelector('.state-line')?.textContent).toBe('Complete');
+		expect(lines[1]!.querySelector('.label')).toBeNull();
+		expect(container.querySelector('.champion-hero')?.classList.contains('mobile')).toBe(true);
+	});
+
+	it('keeps one row with the selector at its end on desktop', () => {
+		const { container } = show({ seasonSelect: select() });
+		const row = container.querySelector('.label-row')!;
+		expect(row.lastElementChild?.classList.contains('season-select')).toBe(true);
+		const children = [...row.children];
+		const lines = row.querySelectorAll(':scope > .line');
+		expect(lines).toHaveLength(2);
+		for (const line of lines) expect(children.indexOf(line)).toBeLessThan(children.length - 1);
+		expect(container.querySelector('.champion-hero')?.classList.contains('mobile')).toBe(false);
+	});
+
+	it('lays the lines out only on mobile', () => {
+		const style = (
+			readFileSync(
+				join(__dirname, '..', '..', '..', 'src/lib/components/ChampionHero.svelte'),
+				'utf8'
+			).match(/<style[^>]*>([\s\S]*?)<\/style>/)?.[1] ?? ''
+		).replace(/\/\*[\s\S]*?\*\//g, '');
+		const declarations = (selector: string): string[] =>
+			[...style.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+				.filter((m) => m[1]!.trim() === selector)
+				.flatMap((m) =>
+					m[2]!
+						.split(';')
+						.map((d) => d.trim().replace(/\s+/g, ' '))
+						.filter(Boolean)
+				);
+		expect(style.length).toBeGreaterThan(0);
+		expect(declarations('.line')).toEqual(['display: contents']);
+		expect(declarations('.mobile .label-row')).toContain('flex-direction: column');
+		expect(declarations('.mobile .line')).toEqual(
+			expect.arrayContaining(['display: flex', 'white-space: nowrap'])
+		);
 	});
 });

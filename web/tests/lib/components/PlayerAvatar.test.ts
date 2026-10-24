@@ -8,6 +8,7 @@
 // - A new photo URL tries again after a failure
 // - The roster, leader, team-leader, search, cup-card, playoffs-avatar, playoffs-card, playoffs-mvp and playoffs-conference-mvp size classes
 // - The seven All-Star size classes
+// - The clip prop: clip-bottom only with clip bottom, and the safe end alignment rules
 //
 // What is covered:
 // - Each state the avatar shows, plus the error event
@@ -16,6 +17,8 @@
 //
 // SEE: web/src/lib/components/PlayerAvatar.svelte
 import { fireEvent, render, screen } from '@testing-library/svelte';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import PlayerAvatar from '../../../src/lib/components/PlayerAvatar.svelte';
@@ -142,5 +145,64 @@ describe('PlayerAvatar', () => {
 			expect(container.querySelector('.avatar')?.classList.contains(size)).toBe(true);
 			unmount();
 		}
+	});
+});
+
+describe('PlayerAvatar clip prop', () => {
+	const style = (
+		readFileSync(
+			join(__dirname, '..', '..', '..', 'src/lib/components/PlayerAvatar.svelte'),
+			'utf8'
+		).match(/<style[^>]*>([\s\S]*?)<\/style>/)?.[1] ?? ''
+	).replace(/\/\*[\s\S]*?\*\//g, '');
+	const declarations = (selector: string): string[] =>
+		[...style.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+			.filter((m) => m[1]!.split(',').some((s) => s.trim() === selector))
+			.flatMap((m) =>
+				m[2]!
+					.split(';')
+					.map((d) => d.trim().replace(/\s+/g, ' '))
+					.filter(Boolean)
+			);
+
+	it('clips only at the bottom with clip bottom', () => {
+		const { container } = render(PlayerAvatar, {
+			props: {
+				name: 'Kai Lowe',
+				photo: 'https://example.com/a.png',
+				size: 'playoffs-conference-mvp',
+				clip: 'bottom'
+			}
+		});
+		const avatar = container.querySelector('.avatar');
+		expect(avatar?.classList.contains('clip-bottom')).toBe(true);
+		expect(avatar?.classList.contains('playoffs-conference-mvp')).toBe(true);
+		expect(container.querySelector('img')).not.toBeNull();
+	});
+
+	it('keeps the default clip without the prop', () => {
+		for (const size of ['roster', 'playoffs-conference-mvp'] as const) {
+			const { container, unmount } = render(PlayerAvatar, {
+				props: { name: 'Kai Lowe', photo: 'https://example.com/a.png', size }
+			});
+			expect(container.querySelector('.avatar')?.classList.contains('clip-bottom')).toBe(false);
+			unmount();
+		}
+	});
+
+	it('anchors the image with safe end alignment under clip bottom', () => {
+		expect(style.length).toBeGreaterThan(0);
+		expect(declarations('.avatar.clip-bottom')).toEqual(
+			expect.arrayContaining([
+				'display: flex',
+				'flex-direction: column',
+				'justify-content: safe flex-end',
+				'align-items: center'
+			])
+		);
+		expect(declarations('.avatar.clip-bottom img')).toEqual(
+			expect.arrayContaining(['position: static', 'translate: none'])
+		);
+		expect(declarations('.avatar')).toContain('overflow: hidden');
 	});
 });

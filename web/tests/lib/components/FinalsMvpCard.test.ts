@@ -8,6 +8,7 @@
 // - The team accent on the photo panel, the neutral accent with none
 // - Initials without a photo; — for a missing value
 // - The mobile layout class, absent on desktop
+// - The cutout clips only at the bottom (clip-bottom on the avatar)
 //
 // What is covered:
 // - Each state the card shows, drawn from props with no fetch
@@ -113,6 +114,11 @@ describe('FinalsMvpCard', () => {
 		});
 		expect(screen.getByRole('img', { name: 'Kai Lowe' }).textContent).toBe('KL');
 		expect(screen.getAllByText('—')).toHaveLength(2);
+	});
+
+	it('clips the cutout only at the bottom', () => {
+		const { container } = render(FinalsMvpCard, { props: { mvp: mvp() } });
+		expect(container.querySelector('.photo .avatar')?.classList.contains('clip-bottom')).toBe(true);
 	});
 
 	it('stacks the photo above the info in the mobile layout only', () => {

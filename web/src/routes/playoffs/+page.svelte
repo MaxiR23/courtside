@@ -21,7 +21,7 @@
 	import { FeedOnce } from '#lib/feed/once.svelte.ts';
 	import { toPlayoffsView } from '#lib/feed/playoffs-props.ts';
 	import { FeedPoller, playoffsPollInterval } from '#lib/feed/poller.svelte.ts';
-	import { bracketWideViewport } from '#lib/playoffs/layout.ts';
+	import { bracketWideViewport, mvpWideViewport } from '#lib/playoffs/layout.ts';
 	import { seriesHref as seriesHrefOf } from '#lib/playoffs/links.ts';
 	import type { PlayoffsPageState } from '#lib/playoffs/types.ts';
 	import { wideViewport } from '#lib/schedule/layout.ts';
@@ -138,6 +138,7 @@
 
 	const wide = wideViewport();
 	const bracketWide = bracketWideViewport();
+	const mvpWide = mvpWideViewport();
 	const teamHref = (code: string) => resolve('/team/[code]', { code: code.toLowerCase() });
 	const gameHref = (id: string) => resolve('/game/[id]', { id });
 	const seriesHref = (id: SeriesId) => seriesHrefOf(id, typeof shown === 'number' ? shown : null);
@@ -150,6 +151,7 @@
 	standingsHref={resolve('/standings')}
 	layout={wide.current ? 'desktop' : 'mobile'}
 	bracketLayout={bracketWide.current ? 'desktop' : 'mobile'}
+	mvpLayout={mvpWide.current ? 'desktop' : 'mobile'}
 	{teamHref}
 	{gameHref}
 	{seriesHref}

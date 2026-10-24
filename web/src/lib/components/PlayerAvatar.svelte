@@ -21,9 +21,10 @@
 			| 'allstar-plate'
 			| 'playoffs-mvp'
 			| 'playoffs-conference-mvp';
+		clip?: 'all' | 'bottom'; // bottom: out of flow, so the image never sets the cell height; a taller one loses only its bottom
 	};
 
-	let { name, photo, size }: Props = $props();
+	let { name, photo, size, clip = 'all' }: Props = $props();
 
 	// Keyed by photo URL, so a new URL tries again after a failure.
 	let failedPhoto = $state<string | null>(null);
@@ -31,7 +32,7 @@
 	const initials = $derived(initialsOf(name));
 </script>
 
-<span class="avatar {size}">
+<span class="avatar {size}" class:clip-bottom={clip === 'bottom'}>
 	{#if photo && showPhoto}
 		<img src={photo} alt={name} loading="lazy" onerror={() => (failedPhoto = photo)} />
 	{:else}
@@ -102,6 +103,21 @@
 
 	.playoffs-conference-mvp img {
 		width: var(--playoffs-conf-photo-width);
+	}
+
+	.avatar.clip-bottom {
+		position: absolute;
+		inset: 0;
+		display: flex;
+		flex-direction: column;
+		justify-content: safe flex-end;
+		align-items: center;
+	}
+
+	.avatar.clip-bottom img {
+		position: static;
+		flex: none;
+		translate: none;
 	}
 
 	.search {
