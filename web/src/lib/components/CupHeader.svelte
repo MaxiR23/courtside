@@ -55,49 +55,51 @@
 
 		{#if header}
 			<div class="title-area">
-				{#if header.team}
-					<div class="decor" aria-hidden="true">
-						<div class="glow"></div>
-						<span class="outline">{header.team.outline}</span>
-						{#if header.team.team.logo}
-							<span class="logo"
-								><TeamMark
-									team={header.team.team}
-									part="tile"
-									size="fill"
-									logo={header.team.team.logo}
-								/></span
-							>
+				<div class="title-block">
+					<div class="title-text">
+						{#if header.team}
+							<div class="decor" aria-hidden="true">
+								<div class="glow"></div>
+								<span class="outline">{header.team.outline}</span>
+								{#if header.team.team.logo}
+									<span class="logo"
+										><TeamMark
+											team={header.team.team}
+											part="tile"
+											size="fill"
+											logo={header.team.team.logo}
+										/></span
+									>
+								{/if}
+							</div>
+						{/if}
+						<div class="tag-row">
+							{#if header.tag}<SeasonTag text={header.tag} />{:else}<span class="year-tag"
+									>{header.season}</span
+								>{/if}
+							<span class="state-line">{header.stateLine}</span>
+						</div>
+						<h1>{m.cup_title()}</h1>
+						{#if header.team}
+							<div class="team-row">
+								{#if header.team.strip}
+									<span class="bar" aria-hidden="true"
+										><span class="half" style:background-color={header.team.strip.primary}
+										></span><span class="half" style:background-color={header.team.strip.secondary}
+										></span></span
+									>
+								{/if}
+								<span class="team-label">{header.team.label}</span>
+								<span class="team-name"
+									>{#if header.team.team.city}{header.team.team.city + ' '}{/if}<TeamMark
+										team={header.team.team}
+										part="name"
+										{teamHref}
+									/></span
+								>
+							</div>
 						{/if}
 					</div>
-				{/if}
-				<div class="title-block">
-					<div class="tag-row">
-						{#if header.tag}<SeasonTag text={header.tag} />{:else}<span class="year-tag"
-								>{header.season}</span
-							>{/if}
-						<span class="state-line">{header.stateLine}</span>
-					</div>
-					<h1>{m.cup_title()}</h1>
-					{#if header.team}
-						<div class="team-row">
-							{#if header.team.strip}
-								<span class="bar" aria-hidden="true"
-									><span class="half" style:background-color={header.team.strip.primary}
-									></span><span class="half" style:background-color={header.team.strip.secondary}
-									></span></span
-								>
-							{/if}
-							<span class="team-label">{header.team.label}</span>
-							<span class="team-name"
-								>{#if header.team.team.city}{header.team.team.city + ' '}{/if}<TeamMark
-									team={header.team.team}
-									part="name"
-									{teamHref}
-								/></span
-							>
-						</div>
-					{/if}
 				</div>
 				<ol class="cup-timeline">
 					{#each header.stages as stage (stage.key)}
@@ -153,15 +155,28 @@
 
 	.decor {
 		position: absolute;
-		inset: 0;
+		right: var(--cup-header-logo-right);
+		top: 50%;
+		z-index: -1;
+		width: var(--cup-header-logo-size);
+		height: var(--cup-header-logo-size);
+		transform: translateY(-50%);
 		pointer-events: none;
+	}
+
+	.mobile .decor {
+		right: var(--cup-header-logo-right-mobile);
+		top: 0;
+		width: var(--cup-header-logo-size-mobile);
+		height: var(--cup-header-logo-size-mobile);
+		transform: none;
 	}
 
 	.glow {
 		position: absolute;
-		right: var(--cup-header-glow-right);
+		left: 50%;
 		top: 50%;
-		transform: translateY(-50%);
+		transform: translate(-50%, -50%);
 		width: var(--cup-header-glow-size);
 		height: var(--cup-header-glow-size);
 		background: radial-gradient(
@@ -179,8 +194,9 @@
 
 	.outline {
 		position: absolute;
-		right: var(--cup-header-outline-right);
-		top: var(--cup-header-outline-top);
+		left: 50%;
+		top: 50%;
+		transform: translate(-50%, -50%);
 		font-family: var(--font-heading);
 		font-weight: var(--font-weight-bold);
 		font-size: var(--cup-header-outline-size);
@@ -196,18 +212,8 @@
 
 	.logo {
 		position: absolute;
-		right: var(--cup-header-logo-right);
-		top: var(--cup-header-logo-top);
-		width: var(--cup-header-logo-size);
-		height: var(--cup-header-logo-size);
+		inset: 0;
 		filter: var(--cup-header-logo-shadow);
-	}
-
-	.mobile .logo {
-		right: var(--cup-header-logo-right-mobile);
-		top: var(--cup-header-logo-top-mobile);
-		width: var(--cup-header-logo-size-mobile);
-		height: var(--cup-header-logo-size-mobile);
 	}
 
 	.content {
@@ -222,12 +228,30 @@
 
 	.title-block {
 		position: relative;
+		isolation: isolate;
 		display: flex;
 		flex-direction: column;
 		justify-content: flex-end;
-		gap: var(--cup-header-title-gap);
-		max-width: var(--cup-header-title-max-width);
 		min-height: var(--cup-header-title-min-height);
+		clip-path: inset(
+			calc(-1 * var(--cup-header-gap)) calc(-1 * var(--cup-header-clip-reach))
+				calc(-1 * var(--cup-header-clip-reach))
+		);
+	}
+
+	.title-text {
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		gap: var(--cup-header-title-gap);
+	}
+
+	.title-text > :not(.decor) {
+		max-width: var(--cup-header-title-max-width);
+	}
+
+	.mobile .title-text {
+		position: static;
 	}
 
 	.mobile .title-block {

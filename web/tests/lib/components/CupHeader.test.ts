@@ -8,9 +8,10 @@
 // - No decoration and no team row without a team; the rest of the header stays
 // - The timeline: complete and in-progress classes, status texts, dates with their notes
 // - The mobile layout class
+// - The decoration clipped at the 48px gap above the title block (stylesheet source)
 // - The nav with Cup current
 // - Only the nav and the h1 without a header; bones and aria-busy while loading
-// - The decoration inside the title area; the champion's city and name
+// - The decoration inside the title block's text wrapper (desktop and mobile), before the tag row; the champion's city and name
 // - The season tag when the header has one; the select on desktop (after the nav) and mobile (full), its onChange; none without the prop
 // - Spanish copy
 //
@@ -144,19 +145,48 @@ describe('CupHeader', () => {
 		expect(container.querySelector('.team-name')?.textContent?.trim()).toBe('Herons');
 	});
 
-	it('places the decoration inside the title area, not on the header box', () => {
+	it('places the decoration inside the title block, before the title text', () => {
 		const { container } = render(CupHeader, {
 			props: props({ header: complete(club()), seasonSelect: seasonSelectProp() })
 		});
 		const area = container.querySelector('.title-area');
-		expect(container.querySelector('.title-area > .decor')).not.toBeNull();
+		expect(container.querySelector('.title-block > .title-text > .decor')).not.toBeNull();
+		expect(container.querySelector('.title-block > .decor')).toBeNull();
+		expect(container.querySelector('.title-block > .title-text > .tag-row')).not.toBeNull();
+		expect(container.querySelector('.title-block > .title-text > h1')).not.toBeNull();
+		expect(container.querySelector('.title-block > .title-text > .team-row')).not.toBeNull();
+		expect(container.querySelector('.title-area > .decor')).toBeNull();
 		expect(container.querySelector('header > .decor')).toBeNull();
 		expect(container.querySelector('.content > .decor')).toBeNull();
-		expect(area?.querySelector('.title-block')).not.toBeNull();
-		expect(area?.querySelector('ol.cup-timeline')).not.toBeNull();
+		expect(
+			container.querySelector('.title-text')?.firstElementChild?.classList.contains('decor')
+		).toBe(true);
+		expect(container.querySelector('.decor .glow')).not.toBeNull();
+		expect(container.querySelector('.decor .outline')).not.toBeNull();
+		expect(container.querySelector('.title-block ol.cup-timeline')).toBeNull();
+		expect(container.querySelector('.title-area > ol.cup-timeline')).not.toBeNull();
 		expect(area?.querySelector('nav')).toBeNull();
 		expect(area?.querySelector('.season-row')).toBeNull();
 		expect(container.querySelector('.season-row')).not.toBeNull();
+	});
+
+	it('clips the decoration at the gap above the title block', () => {
+		const source = readFileSync(
+			join(__dirname, '..', '..', '..', 'src', 'lib', 'components', 'CupHeader.svelte'),
+			'utf8'
+		);
+		const rule = /\n\t\.title-block \{([^}]*)\}/.exec(source)?.[1] ?? '';
+		expect(rule.replace(/\s+/g, ' ')).toContain(
+			'clip-path: inset( calc(-1 * var(--cup-header-gap))'
+		);
+	});
+
+	it('places the decoration inside the title block on mobile', () => {
+		const { container } = render(CupHeader, {
+			props: props({ header: complete(club()), layout: 'mobile' })
+		});
+		expect(container.querySelector('.title-block > .title-text > .decor')).not.toBeNull();
+		expect(container.querySelector('.title-area > .decor')).toBeNull();
 	});
 
 	it('does not link a guest champion', () => {
@@ -334,13 +364,13 @@ describe('CupHeader decoration logo', () => {
 			})
 		);
 		const first = render(CupHeader, { props: props({ header: withLogo }) });
-		expect(first.container.querySelector('.decor .logo img')?.getAttribute('src')).toBe(
-			'https://example.com/x-dark.svg'
-		);
+		expect(
+			first.container.querySelector('.title-text > .decor .logo img')?.getAttribute('src')
+		).toBe('https://example.com/x-dark.svg');
 		expect(first.container.querySelectorAll('.decor a')).toHaveLength(0);
 		first.unmount();
 		const second = render(CupHeader, { props: props({ header: complete(club()) }) });
-		expect(second.container.querySelector('.decor .logo')).toBeNull();
+		expect(second.container.querySelector('.title-text > .decor .logo')).toBeNull();
 		expect(second.container.querySelector('.outline')?.textContent).toBe('QXA');
 	});
 });
