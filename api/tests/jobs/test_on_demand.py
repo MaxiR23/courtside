@@ -20,7 +20,8 @@
 # - Records an unexpected build error by its type and an invalid built feed as not written
 # - Serve-time additions are in the response and not in the stored file
 # - Serves the stored feed without additions when the additions make it invalid
-# - With an identities provider a served feed carries the identity on every league side, nested and in lists, after the kind's serve_with additions, a served feed whose root is a league team object gets its logo, the stored file stays without it, and additions that make it invalid serve the stored body (ADR 0068)
+# - Every kind serves the stored feed through its model, not the stored bytes, when the serve-time additions are invalid; with no write and no build
+# - With an identities provider a served feed carries the identity on every league side, nested and in lists, after the kind's serve_with additions, a served feed whose root is a league team object gets its logo, the stored file stays without it, and additions that make it invalid serve the stored feed through its model (ADR 0068, ADR 0073)
 # - With an identities provider a stored player feed from before the season logos is served with them, valid, with no build and no source read, and the stored file stays without them (ADR 0070)
 # - With no provider and no serve_with the body is the stored one byte for byte
 # - Keeps stored feeds and build times across a restart with no build on startup
@@ -542,6 +543,30 @@ async def test_serves_the_stored_feed_without_additions_when_they_make_it_invali
 
     assert body == body_of(1)
     assert "serve-time additions are invalid" in caplog.text
+
+
+@pytest.mark.anyio
+async def test_a_default_kind_serves_the_stored_model_not_the_stored_bytes_when_the_additions_are_invalid(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    setup = Setup(tmp_path, Fake("extras"))
+    fake = Fake()
+    setup.cache = FeedCache(tmp_path, setup.store, clock=lambda: T)
+    setup.cache.register(
+        fake.kind(lambda feed_id, feed: feed.model_copy(update={"version": "x"}))
+    )
+    await setup.cache.serve("players", "p1")
+    stored = b'{"id": "p1", "version": 1}'
+    (tmp_path / "feeds" / "players" / "p1.json").write_bytes(stored)
+    builds = fake.builds
+
+    with caplog.at_level(logging.ERROR):
+        body = await setup.cache.serve("players", "p1")
+
+    assert body == body_of(1)
+    assert "serve-time additions are invalid" in caplog.text
+    assert fake.builds == builds
+    assert read_by_id(tmp_path, "players", "p1") == stored
 
 
 @pytest.mark.anyio

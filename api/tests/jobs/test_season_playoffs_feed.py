@@ -26,6 +26,7 @@
 # - The kind: detailAvailable is false; the cleanup keeps it
 # - Resolved colors (ADR 0072): a past feed is served with the series pairs and the champion's color, a historical side and a historical champion get null, and a stored feed written without the keys is served with them and no source request
 # - The kind: a stored feed whose champion still carries the retired record, home, road and point differential is served without them, with no source request, and stored_player_ids reads it (ADR 0073)
+# - The kind: the same stored feed is otherwise unchanged and served without the retired fields also when the serve-time additions are invalid, with no rebuild (ADR 0073)
 # - The kind: a 2005 build whose schedules are read by the real adapter and send no name key builds the complete feed
 # - The kind: a 2005 build from schedules that carry no series object and empty notes (seasonType and winner flags only) reaches the complete state with the derived series, Finals line and champion
 # - schedule_teams and finals_games
@@ -63,6 +64,7 @@ from app.feeds.playoffs import (
     SeriesId,
 )
 from app.feeds.team import NameRun, TeamNames
+from app.jobs import playoffs_feed
 from app.jobs.on_demand import (
     SEASON_BUILD_VERSION,
     FeedCache,
@@ -1477,6 +1479,53 @@ async def test_a_stored_feed_with_the_retired_champion_fields_is_served_without_
         for winner in award.winners
     }
     assert stored_player_ids(path.read_bytes()) == expected
+
+
+@pytest.mark.anyio
+async def test_a_stored_feed_with_the_retired_champion_fields_is_served_without_them_when_the_additions_are_invalid(
+    kit: SeasonPlayoffsKit,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    first = await kit.serve_season("2025")
+    path = kit.path / "feeds" / KIND / "2025.json"
+    original = json.loads(path.read_bytes())
+    original["champion"].update(
+        {
+            "record": "16-6",
+            "home": "9-2",
+            "road": "7-4",
+            "pointDifferential": {"value": "+142", "nonNegative": True},
+        }
+    )
+    path.write_text(json.dumps(original), encoding="utf-8")
+    state = kit.store.feed_build(KIND, "2025")
+    kit.calls.clear()
+
+    body = await kit.serve_season("2025")
+
+    assert json.loads(body) == json.loads(first)
+    assert kit.calls == []
+    assert kit.store.feed_build(KIND, "2025") == state
+
+    monkeypatch.setattr(
+        playoffs_feed,
+        "with_accents",
+        lambda feed, identities: feed.model_copy(update={"finals_game": 9}),
+    )
+    with caplog.at_level(logging.ERROR):
+        body = await kit.serve_season("2025")
+
+    assert "serve-time additions are invalid" in caplog.text
+    assert kit.calls == []
+    assert kit.store.feed_build(KIND, "2025") == state
+    served = json.loads(body)
+    for key in ("record", "home", "road", "pointDifferential"):
+        assert key not in served["champion"]
+    expected = json.loads(path.read_bytes())
+    for key in ("record", "home", "road", "pointDifferential"):
+        del expected["champion"][key]
+    assert served == expected
 
 
 @pytest.mark.anyio

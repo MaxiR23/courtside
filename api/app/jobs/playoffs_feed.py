@@ -2,7 +2,7 @@
 #
 # Playoffs feed builder: a pure function from the season windows, the division
 # standings, the team colors, the postseason games of every day read, the rosters
-# the stars job keeps, the postseason leaders, the season awards to the
+# the stars job keeps, the postseason leaders and the season awards to the
 # playoffs feed. The build reads no clock
 # and no source: the build date is an input.
 #
