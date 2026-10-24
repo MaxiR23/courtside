@@ -108,6 +108,19 @@
 		return { kind: 'loading' };
 	});
 
+	// "← Bracket" on the full series page links here with #bracket. The section exists only once
+	// the feed is in, so the page scrolls to it then, once. Without the hash nothing scrolls.
+	let landed = false;
+	$effect(() => {
+		if (landed || pageState.kind !== 'ready' || page.url.hash !== '#bracket') return;
+		landed = true;
+		const reduced =
+			typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+		document
+			.getElementById('bracket')
+			?.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' });
+	});
+
 	const seasonHref = (season: number) =>
 		calendar?.feed && season === currentSeason(calendar.feed)
 			? resolve('/playoffs')

@@ -22,6 +22,7 @@
 // - The bracket's Full series link and second tap keep ?season on a past season and have none on the current one
 // - A past feed with no play-in, no head to head values, no leaders and no awards closes the sections with no gap; a null seed draws no number
 // - The current season keeps the head to head of all-null bars and the dash of a null seed
+// - With #bracket the page scrolls to the bracket once after the feed loads; without it nothing scrolls
 //
 // What is covered:
 // - The page wired end to end: config, fetch, polling, props layer, header, sections, footer
@@ -634,5 +635,45 @@ describe('Playoffs page season selector', () => {
 		});
 		await renderSeason('?season=2005');
 		expect(screen.getByText('Temporada 2026-27')).toBeTruthy();
+	});
+});
+
+describe('Bracket landing', () => {
+	const original = Element.prototype.scrollIntoView;
+	let scrolled: { id: string; options: unknown }[];
+
+	beforeEach(() => {
+		scrolled = [];
+		Element.prototype.scrollIntoView = vi.fn(function (this: Element, options?: unknown) {
+			scrolled.push({ id: this.id, options });
+		});
+	});
+
+	afterEach(() => {
+		Element.prototype.scrollIntoView = original;
+		seasonMocks.url = new URL('http://localhost/');
+	});
+
+	it('scrolls to the bracket once the feed has loaded, and not again on a later poll', async () => {
+		seasonMocks.url = new URL('http://localhost/playoffs#bracket');
+		let finish: (answer: unknown) => void = () => {};
+		stubFetch(() => new Promise((resolve) => (finish = resolve)), answerWith(inState('finals')));
+		await renderPage();
+		expect(scrolled).toEqual([]);
+		finish({ ok: true, status: 200, json: () => Promise.resolve(inState('finals')) });
+		await settle();
+		expect(scrolled).toEqual([{ id: 'bracket', options: { behavior: 'auto', block: 'start' } }]);
+		await vi.advanceTimersByTimeAsync(60_000);
+		await tick();
+		expect(fetchMock.mock.calls.filter((call) => call[0] === FEED_URL)).toHaveLength(2);
+		expect(scrolled).toHaveLength(1);
+	});
+
+	it('does not scroll without the hash', async () => {
+		seasonMocks.url = new URL('http://localhost/playoffs');
+		stubFetch(answerWith(inState('finals')));
+		await renderPage();
+		expect(screen.getAllByText('Bracket').length).toBeGreaterThan(0);
+		expect(scrolled).toEqual([]);
 	});
 });
