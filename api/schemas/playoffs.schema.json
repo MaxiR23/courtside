@@ -151,42 +151,6 @@
           "format": "date",
           "type": "string"
         },
-        "record": {
-          "anyOf": [
-            {
-              "pattern": "^\\d+-\\d+$",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "home": {
-          "anyOf": [
-            {
-              "pattern": "^\\d+-\\d+$",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "road": {
-          "anyOf": [
-            {
-              "pattern": "^\\d+-\\d+$",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "pointDifferential": {
-          "$ref": "#/$defs/TotalDifferential"
-        },
         "accent": {
           "anyOf": [
             {
@@ -206,10 +170,6 @@
         "losses",
         "firstDate",
         "lastDate",
-        "record",
-        "home",
-        "road",
-        "pointDifferential",
         "accent"
       ],
       "title": "Champion",
@@ -1490,24 +1450,6 @@
         "dark"
       ],
       "title": "TeamLogo",
-      "type": "object"
-    },
-    "TotalDifferential": {
-      "additionalProperties": false,
-      "properties": {
-        "value": {
-          "pattern": "^([+\u2212][1-9]\\d*|0)$",
-          "type": "string"
-        },
-        "nonNegative": {
-          "type": "boolean"
-        }
-      },
-      "required": [
-        "value",
-        "nonNegative"
-      ],
-      "title": "TotalDifferential",
       "type": "object"
     }
   },

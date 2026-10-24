@@ -7,7 +7,7 @@
 # - A complete build stores a feed, and the requests that reach the network are at most the declared budget (playoffs: the two window reads plus the day count plus the other reads)
 # - Over budget (the constant cut to 3, the window reads of the playoffs to 1), the build fails, the reason "read budget of N reached" is logged and recorded, nothing is stored and no request goes past the budget
 # - At most four requests are in flight in each build, and exactly four in the playoffs scoreboard days and the Cup schedules
-# - The budgets are 2 + 60, 44, 32 and 33
+# - The budgets are 2 + 59, 44, 32 and 33
 # - The four builds count reads only (ADR 0066): a rate-limited Cup schedule read is skipped and the Cup feed is stored, with no "rate limited" reason recorded or logged; a rate-limited Cup group or conference table read fails the build as an ordinary failed read
 # - The standings and search builds: a rate-limited team info leaves null colors and the build succeeds; a rate-limited standings read, and a rate-limited season type read of the playoffs, fail the build as an ordinary failed read (ADR 0066)
 #
@@ -222,7 +222,7 @@ def run(
 
 
 def test_the_budgets_are_the_declared_ones() -> None:
-    assert playoffs_feed.WINDOW_READS == 2 and playoffs_feed.OTHER_READS == 60
+    assert playoffs_feed.WINDOW_READS == 2 and playoffs_feed.OTHER_READS == 59
     assert [case.budget for case in CASES[1:]] == [44, 32, 33]
     assert cup_feed.READ_BUDGET == 44
     assert standings_feed.READ_BUDGET == 32

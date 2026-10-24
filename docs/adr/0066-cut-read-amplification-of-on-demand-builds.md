@@ -1,6 +1,6 @@
 # 0066. Cut read amplification of on-demand builds
 
-- Status: Accepted
+- Status: Superseded by 0073 for the current playoffs `OTHER_READS` and the season playoffs `READ_BUDGET` only
 - Date: 2026-10-19
 
 ## Context

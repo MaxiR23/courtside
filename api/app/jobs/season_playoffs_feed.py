@@ -6,20 +6,19 @@
 # standings, the postseason schedule of each team that can have played a series
 # (the first 8 of each conference, 10 from 2021), the play-in window and its
 # scoreboard days (from 2021), the postseason leaders, the season awards, the
-# postseason record of the two finalists and the game detail of the Finals games.
+# game detail of the Finals games.
 # It reads no postseason window, no bracket scoreboard day, no team info, no
 # roster and no game detail outside the Finals. The names of leaders and award
 # winners come from the player identities (PlayerIdentities, ADR 0061, ADR 0066):
 # the top three of each leader category and at most MAX_AWARD_WINNERS distinct
 # award winners, each read once through the 30-day cache; a player whose identity
 # could not be read, or past that maximum, is kept with a dash and no photo. The leader's and the winner's team is their own team link. The
-# champion's postseason record is the one of the team with four counted Finals
-# wins. The colors come from the team info the
+# colors come from the team info the
 # source cache already holds, else they are null. The league sides are named from
 # the standings payload (payload_names), with the season code and the historical
 # flag (ADR 0054), with no season team read. A season before 2021 has no play-in,
-# so that window is not read and the play-in block is null. Leaders, awards and
-# the finalists' records are null only when the source answers 404; any other
+# so that window is not read and the play-in block is null. Leaders and
+# awards are null only when the source answers 404; any other
 # failed read fails the build, because the feed is kept for good. The budget is
 # the one constant READ_BUDGET, identity reads included. A read past the budget or a rate limit (429, 503) fails
 # the build before it stores anything. A
@@ -38,6 +37,7 @@
 #
 # SEE: docs/api/playoffs.md, docs/adr/0046-season-playoffs-feeds.md,
 # docs/adr/0072-resolved-team-colors-in-the-playoffs-and-cup-feeds.md,
+# docs/adr/0073-no-champion-record-or-point-differential-in-the-playoffs-feed.md,
 # docs/adr/0058-bounded-past-competition-reads.md,
 # docs/adr/0061-past-playoffs-player-identities-and-finals-mvp-averages.md,
 # api/app/jobs/playoffs_feed.py
@@ -67,17 +67,14 @@ from app.jobs.player_identities import IDENTITY_READS_IN_FLIGHT, PlayerIdentitie
 from app.jobs.playoffs_feed import (
     CODES,
     PAST_LEADERS,
-    WINS_TO_WIN,
     FetchAwards,
     FetchLeaders,
-    FetchRecord,
     FetchSeasonType,
     PlayoffsBuildError,
     PlayoffsSources,
     _unique_games,
     build_playoffs_feed,
     postseason_days,
-    series_wins,
 )
 from app.jobs.season_standings_feed import past_season_status
 from app.jobs.standings_feed import seed_of
@@ -93,7 +90,6 @@ from app.sources import (
     season_awards,
     season_types,
     team_info,
-    team_postseason,
 )
 from app.sources.division_standings import DivisionEntry, DivisionStandings
 from app.sources.game_detail import GamePlayers
@@ -119,7 +115,7 @@ FINALS_GAMES = 7
 # The most source reads one build sends (ADR 0058): 1 standings + 20 team
 # schedules + 1 play-in window + 5 play-in days (the window's Eastern dates, its end
 # included) + 1 leaders + 26 awards (the index
-# and 25 documents) + 2 finalist records + 7 Finals game details = 63, plus the
+# and 25 documents) + 7 Finals game details = 61, plus the
 # identity reads (ADR 0061, ADR 0066): LEADER_READS leaders and at most
 # MAX_AWARD_WINNERS award winners.
 LEADER_READS = len(LeaderCategory) * PAST_LEADERS
@@ -128,7 +124,7 @@ LEADER_READS = len(LeaderCategory) * PAST_LEADERS
 # 2 x 5 (AWARDS in app.sources.season_awards). A further winner is shown with a
 # dash and no photo.
 MAX_AWARD_WINNERS = 52
-READ_BUDGET = 63 + LEADER_READS + MAX_AWARD_WINNERS
+READ_BUDGET = 61 + LEADER_READS + MAX_AWARD_WINNERS
 # The rules version of this kind and the past Finals (ADR 0061); any change to
 # SEASON_BUILD_VERSION moves it too.
 BUILD_VERSION = SEASON_BUILD_VERSION + 1
@@ -200,14 +196,6 @@ def finals_games(
     return across[0]
 
 
-def finals_champion(games: Sequence[PostseasonGame]) -> str | None:
-    """The only team with four counted wins over the Finals games, else none."""
-    champions = [
-        code for code, wins in series_wins(games).items() if wins >= WINS_TO_WIN
-    ]
-    return champions[0] if len(champions) == 1 else None
-
-
 class SeasonPlayoffsFeeds:
     def __init__(
         self,
@@ -231,9 +219,6 @@ class SeasonPlayoffsFeeds:
             postseason_leaders.fetch_postseason_leaders
         ),
         fetch_season_awards: FetchAwards = season_awards.fetch_season_awards,
-        fetch_team_postseason_record: FetchRecord = (
-            team_postseason.fetch_team_postseason_record
-        ),
         fetch_game_players: FetchGamePlayers = game_detail.fetch_past_game_players,
     ) -> None:
         self._settings = settings
@@ -248,7 +233,6 @@ class SeasonPlayoffsFeeds:
         self._fetch_division_standings = fetch_division_standings
         self._fetch_postseason_leaders = fetch_postseason_leaders
         self._fetch_season_awards = fetch_season_awards
-        self._fetch_team_postseason_record = fetch_team_postseason_record
         self._fetch_game_players = fetch_game_players
         cache.register(self.kind())
 
@@ -295,9 +279,6 @@ class SeasonPlayoffsFeeds:
         games = [game for group in (*schedules, *days) for game in group]
         conferences = {code: e.conference for code, e in standings.teams.items()}
         finals = finals_games(games, conferences)
-        finalists = sorted(
-            {finals[0].game.home.code or "", finals[0].game.away.code or ""}
-        )
         ids = [
             entry.player_id
             for category in LeaderCategory
@@ -320,15 +301,7 @@ class SeasonPlayoffsFeeds:
                 len(distinct_winners),
                 MAX_AWARD_WINNERS,
             )
-        records, _finals_players, resolved = await asyncio.gather(
-            asyncio.gather(
-                *(
-                    none_on_404(
-                        self._fetch_team_postseason_record(client, code, year, settings)
-                    )
-                    for code in finalists
-                )
-            ),
+        _finals_players, resolved = await asyncio.gather(
             asyncio.gather(
                 *(
                     self._fetch_game_players(
@@ -340,7 +313,6 @@ class SeasonPlayoffsFeeds:
             ),
             self._identities.resolve([*ids, *winner_ids]),
         )
-        by_code = dict(zip(finalists, records, strict=True))
         colors = {
             code: team_info.cached_team_info(client, code, settings) for code in CODES
         }
@@ -356,7 +328,6 @@ class SeasonPlayoffsFeeds:
             identities=resolved,
             leaders=leaders,
             awards=awards,
-            champion_record=by_code.get(finals_champion(finals) or ""),
             past=True,
         )
         return sources, standings

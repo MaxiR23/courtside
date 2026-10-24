@@ -12,11 +12,11 @@
 # - Bracket errors: a seed pair outside the table, a team outside its feeder, two series in one slot, an unknown competition type, a note without a game number, a conference mix, a team outside the league in a live or final game
 # - Placeholder side: a game neither live nor final with an undecided side (a guest or no code) is ignored in the play-in and in round 1, its slots keep the standings or label value
 # - Play-in: slots with places 7 to 10, games with date and time, outcomes (seed 7, loser out, seed 8), the 8th seed game takes the loser of 7th vs 8th and the winner of 9th vs 10th, the bracket seeds 7 and 8 fill once decided; fails on an unknown note and on two games of one kind
-# - Champion: null until complete; the Finals result, dates, record, home and road from the record read, the point differential over the postseason games only with the minus sign U+2212; null record values with no record read
+# - Champion: null until complete; the Finals result and dates
 # - Leaders: nine categories with five leaders and ranks, fewer leaders keep their ranks, a leader on no roster leaves a rank gap, a missing photo is null, null when the read failed or no category has a leader
 # - Awards: code order, team awards of up to five, an award with no winner on a roster is not in the feed, null when the read failed or none has a winner
 # - Picture: rows in conference order with games behind, no record, seed or clinch in the preseason
-# - Helpers: postseason_days, reads_days, group_series, finals_winner (four counted wins, no series object), counted winner (flag over score, score without a flag)
+# - Helpers: postseason_days, reads_days, group_series, counted winner (flag over score, score without a flag)
 # - Errors: an invalid feed is wrapped in a build error
 # - Past season (past=True, ADR 0046): no play-in window gives a null play-in, seeds 1 to 8 from the standings, seed labels for 7 and 8 and the dates of the postseason window; derive_series (15 series in rounds 8-4-2-1, the Finals the only series across the conferences, and each failure with its reason); a postseason with no competition type builds through the derivation while a current one still fails; round 1 placed by the round 2 series with null seeds, failing on a conference without 2 round 2 series; game numbers by order when the note has none; play-in and game notes in any letter case
 # - The kind: an id other than league answers unknown with no build; not ready with no season or rosters; no build without a request; a request builds and stores and a second reads storage
@@ -25,7 +25,7 @@
 # - A past build lists three leaders per category and a current build five (ADR 0066)
 # - The kind: no scoreboard day is read before the play-in window and every day of both windows inside it
 # - The kind: a failed season type, standings or scoreboard day answers unavailable and is not retried for 10 minutes; a failed rebuild keeps and serves the stored feed
-# - The kind: a failed leaders, awards, team info or champion record read only nulls its part; the record is read only for the champion of a complete Finals
+# - The kind: a failed leaders, awards or team info read only nulls its part; a complete build reads no postseason record (ADR 0073)
 # - The kind: expiry (a final postseason game of the feed or of the games job inside the postseason dates plus 1 hour; a picture feed also at a final league game plus 1 hour; the start of the play-in window; 7 days; a complete feed kept while its season is current)
 # - The kind: detailAvailable is set from the loaded games and not stored; the cleanup keeps league; stored() reads the stored feed
 # - Resolved colors (ADR 0072): a served feed carries the series pairs, the champion and the Finals MVP winners' colors and the stored file none; a dark primary resolves to the secondary; the lower seed takes its secondary when too close, whichever side it is on; a side with no identity, a currently side and a winner with a different season code give null; other awards give null
@@ -82,7 +82,6 @@ from app.jobs.playoffs_feed import (
     build_playoffs_feed,
     day_freshness,
     derive_series,
-    finals_winner,
     group_series,
     postseason_days,
     reads_days,
@@ -107,7 +106,6 @@ from app.sources.season_awards import AwardWinnerRef, SeasonAward, SeasonAwards
 from app.sources.season_types import SeasonWindow
 from app.sources.team_info import TeamInfo
 from app.sources.team_players import RosterEntry
-from app.sources.team_postseason import TeamPostseasonRecord
 from app.sources.teams import TEAM_CODES
 from app.storage.feeds import read_by_id
 from app.storage.state import StateStore, TeamIdentity
@@ -410,7 +408,6 @@ def build(
         "players": roster(),
         "leaders": None,
         "awards": None,
-        "champion_record": None,
     }
     return build_playoffs_feed(PlayoffsSources(**(values | changes)))
 
@@ -1301,12 +1298,8 @@ def test_the_champion_is_null_until_the_finals_series_is_complete() -> None:
     assert feed.champion is None
 
 
-def test_the_champion_has_the_result_the_dates_the_record_and_the_differential() -> (
-    None
-):
-    record = TeamPostseasonRecord(overall="16-6", home="9-2", road="7-4")
-
-    feed = build(everything("TBTTT"), champion_record=record)
+def test_the_champion_has_the_result_and_the_dates() -> None:
+    feed = build(everything("TBTTT"))
 
     champion = feed.champion
     assert champion is not None
@@ -1316,62 +1309,6 @@ def test_the_champion_has_the_result_the_dates_the_record_and_the_differential()
         dt.date(2027, 6, 4),
         dt.date(2027, 6, 8),
     )
-    assert (champion.record, champion.home, champion.road) == ("16-6", "9-2", "7-4")
-    assert champion.point_differential.value == "+150"
-    assert champion.point_differential.non_negative is True
-
-
-def test_the_point_differential_counts_postseason_games_only() -> None:
-    games = everything("TBTTT")
-    # A play-in game of the champion lost by 100 points must not count.
-    index = next(i for i, g in enumerate(games) if g.game.id == "pi-west-nine_ten")
-    games[index] = post(
-        "pi-west-nine_ten",
-        seed(EAST, 1),
-        seed(WEST, 10),
-        PLAY_IN_DAY,
-        season_type=5,
-        scores=(0, 100),
-        note="NBA Play-In - West - 9th Place vs 10th Place",
-    )
-
-    feed = build(games)
-
-    assert feed.champion is not None
-    assert feed.champion.point_differential.value == "+150"
-
-
-def test_the_point_differential_is_signed_with_the_minus_sign_when_negative() -> None:
-    flipped = [
-        g.model_copy(
-            update={
-                "game": g.game.model_copy(
-                    update={
-                        "score": Score(home=g.game.score.away, away=g.game.score.home)
-                    }
-                ),
-                "winner": Side.HOME
-                if g.game.score.home > g.game.score.away
-                else Side.AWAY,
-            }
-        )
-        if g.season_type == 3 and g.game.score is not None
-        else g
-        for g in everything("TBTTT")
-    ]
-
-    feed = build(flipped)
-
-    assert feed.champion is not None
-    assert feed.champion.point_differential.value == "−150"
-    assert feed.champion.point_differential.non_negative is False
-
-
-def test_the_champion_record_values_are_null_when_the_record_read_failed() -> None:
-    champion = build(everything()).champion
-
-    assert champion is not None
-    assert (champion.record, champion.home, champion.road) == (None, None, None)
 
 
 # Leaders
@@ -1579,15 +1516,6 @@ def test_group_series_keeps_only_postseason_games_by_round_and_pair() -> None:
     assert [g.game.id for g in groups[next(iter(groups))]] == ["a-1", "a-2"]
 
 
-def test_finals_winner_is_the_team_with_more_wins_of_a_completed_finals_series() -> (
-    None
-):
-    assert finals_winner(everything("TTBTT")) == seed(EAST, 1)
-    assert finals_winner(everything("BBTBB")) == seed(WEST, 1)
-    assert finals_winner(everything("TT")) is None
-    assert finals_winner(play_ins()) is None
-
-
 def test_an_invalid_feed_is_wrapped_in_a_build_error_with_the_first_location() -> None:
     entries = standings(changes={seed(EAST, 1): {"wins": -1}})
 
@@ -1693,7 +1621,6 @@ class PlayoffsKit:
             fetch_team_info=self.fetch_team_info,
             fetch_postseason_leaders=self.fetch_postseason_leaders,
             fetch_season_awards=self.fetch_season_awards,
-            fetch_team_postseason_record=self.fetch_team_postseason_record,
         )
 
     def read(self, name: str) -> None:
@@ -1751,12 +1678,6 @@ class PlayoffsKit:
     ) -> SeasonAwards:
         self.read("awards")
         return SeasonAwards(awards=[award(AwardCode.MVP, ["1"])])
-
-    async def fetch_team_postseason_record(
-        self, client: SourceClient, team: str, season: int, settings: Settings
-    ) -> TeamPostseasonRecord:
-        self.read(f"record/{team}")
-        return TeamPostseasonRecord(overall="16-6", home="9-2", road="7-4")
 
     def load(self, games: list[PostseasonGame]) -> None:
         self.days = {}
@@ -2063,33 +1984,15 @@ async def test_a_failed_leaders_awards_or_team_info_read_only_nulls_its_part(
 
 
 @pytest.mark.anyio
-async def test_the_postseason_record_is_read_only_for_the_champion_of_a_complete_finals(
-    kit: PlayoffsKit,
-) -> None:
-    kit.load(everything("TTT"))
+async def test_a_complete_build_reads_no_postseason_record(kit: PlayoffsKit) -> None:
+    kit.load(everything())
+
     await kit.serve()
-    assert kit.called("record/") == 0
 
-    kit.load(everything("TTTT"))
-    await kit.serve(NOW + FEED_LIFETIME)
-
-    assert kit.called("record/") == 1 and kit.called(f"record/{seed(EAST, 1)}") == 1
+    names = {name.split("/")[0] for name in kit.calls}
+    assert names <= {"type", "day", "standings", "info", "leaders", "awards"}
     stored = kit.stored()
     assert stored is not None and stored.champion is not None
-    assert stored.champion.record == "16-6"
-
-
-@pytest.mark.anyio
-async def test_a_failed_champion_record_read_only_nulls_the_record(
-    kit: PlayoffsKit,
-) -> None:
-    kit.load(everything())
-    kit.failing.add(f"record/{seed(EAST, 1)}")
-
-    champion = PlayoffsFeed.model_validate_json(await kit.serve()).champion
-
-    assert champion is not None
-    assert (champion.record, champion.home, champion.road) == (None, None, None)
 
 
 def a_game_id(kit: PlayoffsKit) -> str:
@@ -2537,7 +2440,6 @@ def test_a_source_series_object_that_disagrees_with_the_games_changes_nothing() 
 
     assert feed == build(plain)
     assert feed.state is PlayoffsState.FINALS
-    assert finals_winner(disagreeing) is None
 
 
 def test_the_winner_flag_counts_over_the_score_and_the_score_counts_without_a_flag() -> (
@@ -2567,13 +2469,6 @@ def test_it_fails_on_a_series_where_both_teams_have_four_counted_wins() -> None:
     games = series_games(top, bottom, 1, "TTTTBBBB", key="east-r1-1")
 
     failing(play_ins() + without_series(games), "complete with tied wins")
-
-
-def test_finals_winner_needs_four_counted_finals_wins_and_reads_no_series_object() -> (
-    None
-):
-    assert finals_winner(without_series(everything("TTBTT"))) == seed(EAST, 1)
-    assert finals_winner(without_series(everything("TT"))) is None
 
 
 # Resolved colors (ADR 0072)

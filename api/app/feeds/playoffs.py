@@ -11,12 +11,13 @@
 # Opponent with its colors. The stage status is this feed's own enum.
 #
 # SEE: docs/api/playoffs.md, docs/adr/0032-playoffs-feed.md,
-# docs/adr/0072-resolved-team-colors-in-the-playoffs-and-cup-feeds.md
+# docs/adr/0072-resolved-team-colors-in-the-playoffs-and-cup-feeds.md,
+# docs/adr/0073-no-champion-record-or-point-differential-in-the-playoffs-feed.md
 
 import datetime as dt
 from enum import StrEnum
 from itertools import pairwise
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import (
     Field,
@@ -43,9 +44,7 @@ from app.feeds.player import SeasonLabel
 from app.feeds.standings import (
     Clinch,
     GamesBehindText,
-    RecordText,
     StandingsColors,
-    TotalDifferential,
 )
 
 # AwardCode lives in app.feeds.base; the other modules import it from here.
@@ -404,18 +403,34 @@ class Series(FeedModel):
         return self
 
 
+# Fields a stored playoffs feed may still carry in its champion after their
+# removal from the model (ADR 0073). They are dropped when the feed is read, so
+# a stored current or past feed keeps loading with no rebuild. Any other unknown
+# field still fails.
+RETIRED_CHAMPION_FIELDS = frozenset(
+    {"record", "home", "road", "pointDifferential", "point_differential"}
+)
+
+
 class Champion(FeedModel):
     team: PlayoffTeam
     wins: Literal[4]
     losses: Annotated[int, Field(ge=0, le=3)]
     first_date: dt.date
     last_date: dt.date
-    record: RecordText | None
-    home: RecordText | None
-    road: RecordText | None
-    point_differential: TotalDifferential
     # The resolved team color (ADR 0072), added when served; null in the stored file.
     accent: HexColor | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _drop_retired_fields(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        return {
+            key: value
+            for key, value in data.items()
+            if key not in RETIRED_CHAMPION_FIELDS
+        }
 
 
 class LeaderCategory(StrEnum):

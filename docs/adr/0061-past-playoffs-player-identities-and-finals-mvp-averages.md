@@ -1,6 +1,6 @@
 # 0061. Past playoffs player identities and Finals MVP averages
 
-- Status: Superseded by 0066 for the past playoffs leader count and read budget only
+- Status: Superseded by 0066 for the past playoffs leader count and read budget only, and by 0073 for the champion's record and the 63 reads of the budget only
 - Date: 2026-10-18
 
 ## Context

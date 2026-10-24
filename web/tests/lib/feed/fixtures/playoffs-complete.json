@@ -1358,14 +1358,7 @@
 		"wins": 4,
 		"losses": 1,
 		"firstDate": "2027-06-04",
-		"lastDate": "2027-06-19",
-		"record": "16-6",
-		"home": "9-2",
-		"road": "7-4",
-		"pointDifferential": {
-			"value": "+142",
-			"nonNegative": true
-		}
+		"lastDate": "2027-06-19"
 	},
 	"leaders": [
 		{

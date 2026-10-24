@@ -126,7 +126,7 @@ Under 680px only, a grid tree replaces the vertical camera world of `CupBracket`
 - **Card:** a border at ink 16% (the championship accent light at 45%), background ground at 88%, padding 7px (championship `10px 12px`); the date (9px, uppercase, muted); two rows with the logo 15px (22px), the code and the score 13px (18px), the loser at 50%; a 2px line in the winner's resolved color once final.
 - **Tap:** a card with a game that has its detail opens the game page; otherwise it opens today's matchup sheet. Undecided slots keep their dashed label and rule text.
 - Everything fits the width with no zoom and no sideways scroll at 320px.
-- The tree has no camera and no zoom controls, and the Cup's mobile world tokens (`--bracket-mobile-*`) are no longer used.
+- The tree has no camera and no zoom controls.
 
 ### Out of this design
 

@@ -63,7 +63,7 @@ Conventions:
 | `SeriesId`           | `east-r1-1` to `east-r1-4`, `east-r2-1`, `east-r2-2`, `east-r3`, `finals`, `west-r3`, `west-r2-1`, `west-r2-2`, `west-r1-1` to `west-r1-4`                                          |
 | `SeriesSide`         | `label`: `SeriesLabel`; `team`: `PlayoffTeam` / null; `seed` (1 to 15, only with a team; null with a team in a season feed without seeds); `wins` (0 to 4, counted from the series' final games, null while the series is upcoming, only with a team); `currently`: `PlayoffTeam` / null (never both a team and `currently`) |
 | `SeriesLabel`        | `key`: `seed` (seeds 1 to 6; 1 to 8 in a season feed before 2021; in a season without seeds, the slot's nominal seed), `playin_winner` (seeds 7 and 8, only with a play-in), `round_1_winner`, `round_2_winner`, `round_3_winner`; `conference`; `seed` (1 to 8; for `seed` and `playin_winner`); `series` (1 to 4; for `round_1_winner` and `round_2_winner`) |
-| `Champion`           | `team`: `PlayoffTeam`; `wins` (always 4); `losses` (0 to 3); `firstDate`, `lastDate`: the Finals games; `record`, `home`, `road`: postseason records such as `16-6` (null when the record read failed); `pointDifferential`: `TotalDifferential` over the champion's final postseason games `accent`: hex / null, the resolved color of the champion team by its identity, added when served ([ADR 0072](../adr/0072-resolved-team-colors-in-the-playoffs-and-cup-feeds.md)). |
+| `Champion`           | `team`: `PlayoffTeam`; `wins` (always 4); `losses` (0 to 3); `firstDate`, `lastDate`: the Finals games; `accent`: hex / null, the resolved color of the champion team by its identity, added when served ([ADR 0072](../adr/0072-resolved-team-colors-in-the-playoffs-and-cup-feeds.md)). |
 | `LeaderCategory`     | `points`, `rebounds`, `assists`, `steals`, `blocks`, `field_goal_pct`, `threes_made`, `double_doubles`, `minutes`                                                                   |
 | `LeaderGroup`        | `category`; `leaders`: `PlayoffLeader[]` (up to 5)                                                                                                                                   |
 | `PlayoffLeader`      | `rank` (the position in the source list, so a left out leader leaves a gap in the current feed; the past feed never leaves one out); `playerId`; `name` ("—" on a past season when the identity read failed, [ADR 0061](../adr/0061-past-playoffs-player-identities-and-finals-mvp-averages.md)); `photoUrl` (null, also null on a past season when the identity read failed); `teamCode` (in a past season, the leader's team link); `value` (text as the source sends it); `seasonCode` (the team's abbreviation in that past season from the standings payload of the past playoffs build (ADR 0058), null on a current feed; [ADR 0055](../adr/0055-past-season-reading-rules-and-versioned-stored-data.md)) |
@@ -174,10 +174,8 @@ Conventions:
     `currently`, the team with that seed in the standings. Later rounds carry the
     winner of the feeder series once it is complete.
 14. **Champion.** Set when complete: the team and its result from the counted
-    Finals wins, the dates of the Finals games, `record`, `home` and `road` from
-    the postseason record read, and the point differential summed over the
-    champion's final postseason games (type 3 only), with the minus sign U+2212
-    when negative. The champion block has no drawing flag.
+    Finals wins and the dates of the Finals games. The champion block has no
+    drawing flag.
 15. **Leaders.** The first five entries of each of the nine categories, with the
     rank of their position in the source list. The name and photo come from the
     rosters the stars job keeps; a leader on no current roster is left out.
@@ -248,7 +246,7 @@ described in the [team feed](team.md); they read this feed's `champion` and its
 
 Valid feeds include: the preseason (no record, seed or clinch), a `picture` with
 no game read, a play-in with no game scheduled, a series with games 5 to 7 not
-listed, a series with a summary and no game, a champion with no record, `leaders`
+listed, a series with a summary and no game, `leaders`
 or `awards` null, a category with fewer than five leaders, a leader rank gap, and
 a team with null colors.
 
@@ -270,21 +268,19 @@ a team with null colors.
   the season changes.
 - A cold build reads 2 season types, the division standings, 30 team infos, the
   leaders and the awards, one scoreboard day per day of both windows from the first
-  day of the play-in window (about 70), and the champion's postseason record when
-  the Finals series is complete. Source freshness is 1 hour, except the scoreboard
+  day of the play-in window (about 70). Source freshness is 1 hour, except the scoreboard
   days: a day before today is read through the cache fresh for 7 days, or from
   the latest final time of a postseason game of that day when later; today and
   later days keep 30 seconds, shared with the games job; and team info, 24 hours
   ([ADR 0066](../adr/0066-cut-read-amplification-of-on-demand-builds.md)). The
   build runs under two read budgets that count reads only, 2 for the windows
-  then the day count plus 60 for the rest, with at most four reads in flight, so
+  then the day count plus 59 for the rest, with at most four reads in flight, so
   a rate-limited leaders, awards or team info read only nulls its part. A past
   build lists the first 3 leaders of each category, a current one the first 5.
 - A failed season type, standings or scoreboard day read fails the build, and so
   does a postseason game the build cannot place. A failed leaders read gives
   `leaders: null`, a failed awards read `awards: null`, a failed team info read
-  null colors for that team and a failed record read null `record`, `home` and
-  `road`.
+  null colors for that team.
 - A failed build keeps the stored feed and is listed under `feeds` in `/health`;
   it is not retried for 10 minutes on request.
 - `detailAvailable` is set when the feed is served, from the games the games job
@@ -313,17 +309,18 @@ current season.
 
 - The current season serves the feed above: same stored file, body, ETag and
   expiry.
-- A past season is built under one read budget of 142 source reads: 63 reads, 27
+- A past season is built under one read budget of 140 source reads: 61 reads, 27
   leader identity reads and at most 52 award winner identity reads
   ([ADR 0058](../adr/0058-bounded-past-competition-reads.md),
   [ADR 0061](../adr/0061-past-playoffs-player-identities-and-finals-mvp-averages.md),
-  [ADR 0066](../adr/0066-cut-read-amplification-of-on-demand-builds.md)): the season
+  [ADR 0066](../adr/0066-cut-read-amplification-of-on-demand-builds.md),
+  [ADR 0073](../adr/0073-no-champion-record-or-point-differential-in-the-playoffs-feed.md)): the season
   standings (1), the postseason schedule of the first 8 teams of each conference
   (10 from 2021; per conference the seeded teams in seed order, then the unseeded
   by best record), which gives every game with its season type (`seasonType.type`: 3, 5, missing as 3,
   any other skipped), its winner flags and its competition type when the source
   sends one (20), the play-in window (1) and its scoreboard days (5, the window's Eastern dates, its end included) from 2021, the
-  leaders (1), the awards (up to 26), the records of the two finalists (2) and the
+  leaders (1), the awards (up to 26) and the
   game details of the Finals games (7), the sides of games resolved by provider
   id first and named as the [Cup feed](cup.md) rule 1 reads a name from a
   schedule. It reads no postseason window, no bracket scoreboard day, no team
@@ -359,9 +356,7 @@ current season.
   is placed.
 - A game whose note has no game number takes its position in its series in start
   order. Play-in and game notes are read in any letter case.
-- The champion's record is the one of the team with four counted wins over the
-  Finals games, never the team of the source's series object.
-- The leaders, the awards and the champion's record are null only when the source
+- The leaders and the awards are null only when the source
   answers 404. Any other failed read fails the build.
 - It must build as `complete`, or the build fails and nothing is stored.
   `detailAvailable` is false.
