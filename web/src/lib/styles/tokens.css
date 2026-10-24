@@ -586,11 +586,14 @@
 
 	/* Playoffs full series */
 	--playoffs-series-max-width: 720px;
-	--playoffs-series-score-size: 72px;
+	--playoffs-series-score-size: clamp(88px, 9vw, 128px);
+	--playoffs-series-score-size-mobile: 72px;
 	--playoffs-series-glow-alpha: 0.22;
-	--playoffs-series-logo-size: 72px;
+	--playoffs-series-logo-size: 140px;
+	--playoffs-series-logo-size-mobile: 72px;
 	--playoffs-series-label-size: 10px;
-	--playoffs-series-code-size: 20px;
+	--playoffs-series-code-size: 28px;
+	--playoffs-series-code-size-mobile: 20px;
 	--playoffs-series-bar-width: 32px;
 	--playoffs-series-bar-height: 3px;
 	--playoffs-series-loser-opacity: 0.6;
@@ -601,11 +604,13 @@
 	--playoffs-series-cards-gap: 10px;
 	--playoffs-series-card-padding: 14px 16px;
 	--playoffs-series-game-title-size: 16px;
-	--playoffs-series-game-logo: 22px;
+	--playoffs-series-game-logo: 32px;
+	--playoffs-series-game-logo-mobile: 22px;
 	--playoffs-series-game-code-size: 16px;
 	--playoffs-series-game-points-size: 24px;
 	--playoffs-series-game-loser-opacity: 0.5;
 	--playoffs-series-game-rule: 2px;
+	--playoffs-series-games-max-width: 960px;
 
 	/* All-Star */
 	--allstar-hero-title-size: clamp(72px, 11vw, 176px);

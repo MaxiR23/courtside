@@ -19,7 +19,7 @@
 		state: SeriesPageState;
 		allGamesHref: ResolvedPathname;
 		standingsHref: ResolvedPathname;
-		layout: RowLayout; // the nav row only; the page itself has one layout
+		layout: RowLayout; // the nav row and the page: the desktop page from 680px
 		bracketHref: ResolvedPathname;
 		gameHref: (id: string) => ResolvedPathname;
 	};
@@ -31,7 +31,7 @@
 </script>
 
 <NavRow page="playoffs" gamesHref={allGamesHref} {standingsHref} {layout} />
-<div class="content">
+<div class="content" class:mobile={layout === 'mobile'}>
 	<div class="top-bar">
 		<a class="back" href={bracketHref}>{m.playoffs_series_back()}</a>
 		{#if page.kind === 'ready'}
@@ -113,17 +113,38 @@
 			<svg class="chevron" viewBox="0 0 12 12" aria-hidden="true"><path d="m4 2 4 4-4 4" /></svg>
 		{/if}
 	</span>
-	<span class="columns">
-		{#each game.sides as side, index (index)}
-			<span class="game-side" class:loser={side.loser}>
-				<span class="mark">
-					<TeamMark team={side.team} part="tile" size="fill" logo={side.team.logo} />
+	{#if layout === 'mobile'}
+		<span class="columns">
+			{#each game.sides as side, index (index)}
+				<span class="game-side" class:loser={side.loser}>
+					<span class="mark">
+						<TeamMark team={side.team} part="tile" size="fill" logo={side.team.logo} />
+					</span>
+					<span class="game-code">{side.code}</span>
+					<span class="points">{side.score}</span>
 				</span>
-				<span class="game-code">{side.code}</span>
-				<span class="points">{side.score}</span>
+			{/each}
+		</span>
+	{:else}
+		{@const [a, b] = game.sides}
+		<span class="score-grid">
+			<span class="game-side" class:loser={a.loser}>
+				<span class="mark"
+					><TeamMark team={a.team} part="tile" size="fill" logo={a.team.logo} /></span
+				>
+				<span class="game-code">{a.code}</span>
 			</span>
-		{/each}
-	</span>
+			<span class="points" class:loser={a.loser}>{a.score}</span>
+			<span class="game-dash">–</span>
+			<span class="points" class:loser={b.loser}>{b.score}</span>
+			<span class="game-side end" class:loser={b.loser}>
+				<span class="game-code">{b.code}</span>
+				<span class="mark"
+					><TeamMark team={b.team} part="tile" size="fill" logo={b.team.logo} /></span
+				>
+			</span>
+		</span>
+	{/if}
 	{#if game.leaders}<span class="leaders">{game.leaders}</span>{/if}
 	{#if game.rule}
 		<span class="rule" style:--side-accent={game.rule.accent ?? 'var(--identity-neutral-accent)'}
@@ -135,7 +156,7 @@
 
 <style>
 	.content {
-		max-width: var(--playoffs-series-max-width);
+		max-width: var(--content-max-width);
 		margin: 0 auto;
 		padding: var(--side-padding);
 	}
@@ -174,7 +195,6 @@
 
 	.hero {
 		position: relative;
-		overflow: hidden;
 		display: grid;
 		justify-items: center;
 		gap: var(--playoffs-series-hero-gap);
@@ -184,10 +204,8 @@
 
 	.glow {
 		position: absolute;
-		top: 50%;
-		width: var(--playoffs-series-glow-size);
+		inset-block: 0;
 		aspect-ratio: 1;
-		transform: translateY(-50%);
 		background: radial-gradient(
 			circle,
 			var(--side-accent),
@@ -199,12 +217,10 @@
 
 	.glow.left {
 		left: 0;
-		transform: translate(-50%, -50%);
 	}
 
 	.glow.right {
 		right: 0;
-		transform: translate(50%, -50%);
 	}
 
 	.round {
@@ -410,5 +426,71 @@
 
 	.block-bone {
 		aspect-ratio: 2;
+	}
+
+	.games {
+		max-width: var(--playoffs-series-games-max-width);
+		margin-inline: auto;
+	}
+
+	.score-grid {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto auto auto minmax(0, 1fr);
+		align-items: center;
+		gap: var(--game-list-gap);
+	}
+
+	.score-grid .end {
+		justify-content: flex-end;
+	}
+
+	.score-grid .loser {
+		opacity: var(--playoffs-series-game-loser-opacity);
+	}
+
+	.game-dash {
+		font-family: var(--font-heading);
+		font-size: var(--playoffs-series-game-points-size);
+		color: var(--color-muted);
+	}
+
+	.content.mobile {
+		max-width: var(--playoffs-series-max-width);
+	}
+
+	.mobile .hero {
+		overflow: hidden;
+	}
+
+	.mobile .glow {
+		inset-block: auto;
+		top: 50%;
+		width: var(--playoffs-series-glow-size);
+	}
+
+	.mobile .glow.left {
+		transform: translate(-50%, -50%);
+	}
+
+	.mobile .glow.right {
+		transform: translate(50%, -50%);
+	}
+
+	.mobile .logo {
+		width: var(--playoffs-series-logo-size-mobile);
+		height: var(--playoffs-series-logo-size-mobile);
+	}
+
+	.mobile .code {
+		font-size: var(--playoffs-series-code-size-mobile);
+	}
+
+	.mobile .scores {
+		font-size: var(--playoffs-series-score-size-mobile);
+	}
+
+	.mobile .mark {
+		width: var(--playoffs-series-game-logo-mobile);
+		height: var(--playoffs-series-game-logo-mobile);
 	}
 </style>

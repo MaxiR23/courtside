@@ -10,6 +10,7 @@
 // - The game cards: one per game, a link and a chevron only when linked, the OT tag, the leader line, the rule
 // - The team logo when the side has one, and the code tile when it has none
 // - Loading is aria-busy; unavailable and not-found draw their message; the footer in every state
+// - Desktop and mobile layouts: the 5-cell score row and the two-column row, the mobile class
 // - Spanish copy
 //
 // What is covered:
@@ -55,13 +56,13 @@ const ready = (view: SeriesPageView = viewOf('east-r1-1')): SeriesPageState => (
 	view
 });
 
-const show = (state: SeriesPageState) =>
+const show = (state: SeriesPageState, layout: 'desktop' | 'mobile' = 'desktop') =>
 	render(SeriesPage, {
 		props: {
 			state,
 			allGamesHref: HOME,
 			standingsHref: STANDINGS,
-			layout: 'desktop' as const,
+			layout,
 			bracketHref: BRACKET,
 			gameHref
 		}
@@ -267,5 +268,80 @@ describe('SeriesPage other states', () => {
 		first.unmount();
 		show({ kind: 'not-found' });
 		expect(screen.getByText('Esta serie no está disponible.')).toBeTruthy();
+	});
+});
+
+describe('SeriesPage layouts', () => {
+	const names = (el: Element) =>
+		[...el.children].map((c) => [...c.classList].filter((k) => k !== 'loser' && k !== 'end')[0]);
+
+	it('desktop: a 5-cell score row per card, in order, with the loser dimmed', () => {
+		const { container } = show(ready());
+		expect(container.querySelector('.content')!.classList.contains('mobile')).toBe(false);
+		const cards = container.querySelectorAll('ol .card');
+		for (const card of cards) {
+			expect(card.querySelectorAll('.score-grid')).toHaveLength(1);
+			expect(card.querySelector('.columns')).toBeNull();
+		}
+		const grid = cards[0].querySelector('.score-grid')!;
+		expect(names(grid)).toEqual(['game-side', 'points', 'game-dash', 'points', 'game-side']);
+		const [left, p1, dash, p2, right] = [...grid.children];
+		expect(names(left)).toEqual(['mark', 'game-code']);
+		expect(left.querySelector('.game-code')!.textContent).toBe('QXA');
+		expect(p1.textContent).toBe('105');
+		expect(dash.textContent).toBe('–');
+		expect(p2.textContent).toBe('98');
+		expect(right.classList.contains('end')).toBe(true);
+		expect(names(right)).toEqual(['game-code', 'mark']);
+		expect(right.querySelector('.game-code')!.textContent).toBe('QXH');
+		expect([left, p1].some((e) => e.classList.contains('loser'))).toBe(false);
+		expect([p2, right].every((e) => e.classList.contains('loser'))).toBe(true);
+	});
+
+	it('desktop: each mark holds a logo or the monogram', () => {
+		const { container } = show(ready());
+		const marks = container.querySelectorAll('ol .card .mark');
+		expect(marks.length).toBeGreaterThan(0);
+		for (const mark of marks) {
+			expect(mark.querySelector('img') ?? mark.querySelector('.team-monogram')).toBeTruthy();
+		}
+	});
+
+	it('mobile: two columns, each side with mark, code and points', () => {
+		const { container } = show(ready(), 'mobile');
+		expect(container.querySelector('.content')!.classList.contains('mobile')).toBe(true);
+		const card = container.querySelector('ol .card')!;
+		expect(card.querySelector('.score-grid')).toBeNull();
+		expect(card.querySelector('.game-dash')).toBeNull();
+		const sides = card.querySelectorAll('.columns .game-side');
+		expect(sides).toHaveLength(2);
+		for (const side of sides) expect(names(side)).toEqual(['mark', 'game-code', 'points']);
+		expect(sides[0].classList.contains('loser')).toBe(false);
+		expect(sides[1].classList.contains('loser')).toBe(true);
+	});
+
+	it('mobile: the ready state draws the h1, codes, scores and footer', () => {
+		const { container } = show(ready(), 'mobile');
+		expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('East · Round 1');
+		expect([...container.querySelectorAll('.side .code')].map((e) => e.textContent)).toEqual([
+			'QXA',
+			'QXH'
+		]);
+		expect([...container.querySelectorAll('.scores .wins')].map((e) => e.textContent)).toEqual([
+			'4',
+			'1'
+		]);
+		expect(container.querySelector('footer')).toBeTruthy();
+	});
+
+	it.each([
+		['loading', { kind: 'loading' }, '[aria-busy="true"]'],
+		['unavailable', { kind: 'unavailable' }, null],
+		['not-found', { kind: 'not-found' }, null]
+	] as [string, SeriesPageState, string | null][])('mobile: %s renders', (_n, state, sel) => {
+		const { container } = show(state, 'mobile');
+		if (sel) expect(container.querySelector(sel)).toBeTruthy();
+		else expect(container.querySelector('.message, [role], p, a')).toBeTruthy();
+		expect(container.querySelector('footer')).toBeTruthy();
 	});
 });

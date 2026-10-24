@@ -219,11 +219,11 @@ Zoom levels, pinch and rosters inside the bracket.
 
 ## Full series
 
-A new page at `/playoffs/series?id={SeriesId}`, browser-rendered like `/playoffs` (`ssr = false`, the fallback page of `docs/deploy.md`). It keeps the `season` query parameter as `/playoffs` does and reads the same playoffs feed (for the Finals also the Finals feed, for the leaders). Designed at 390px; on wider screens the same layout is centered with a max-width of 720px. Component: `SeriesPage`.
+A new page at `/playoffs/series?id={SeriesId}`, browser-rendered like `/playoffs` (`ssr = false`, the fallback page of `docs/deploy.md`). It keeps the `season` query parameter as `/playoffs` does and reads the same playoffs feed (for the Finals also the Finals feed, for the leaders). Under 680px the page is the 390px design in a column of at most 720px; at 680px and wider the content spans the page content width (`--content-max-width`). Component: `SeriesPage`.
 
-- **Top bar:** "← Bracket" (back to `/playoffs`, same season, scrolled to the bracket) and "{year} NBA Playoffs" (10px, uppercase, muted).
-- **Hero:** two glows in each team's resolved color at 22%, left and right; the round label (10px, accent light); a three-column row: the team (72px logo, code 20px, "No. {seed} seed" 10px muted, a 32x3 bar in its color), the score in the middle (72px, the leader in ink, the other muted), and the other team. The losing team is at 60% when the series is complete. The status line "{CODE} wins the series 4–1" or "{CODE} leads 3–2" (14px) and the dates of the first and last game (12px, muted).
-- **"Game by game"** (H3, 24px): one card per game played or scheduled, linking to its game page when `detailAvailable`. The card: "Game {n}" (16px); "{date} · {venue}" (12px, muted; "at {HOME}" when the venue is null); the OT tag in accent light; a chevron. Two columns, each with the logo at 22px, the code at 16px and the points at 24px (the loser at 50%). For the Finals only, a leader line from the Finals feed ("{name} {pts} PTS · {name} {pts} PTS", 12px, muted). A 2px line in the winner's color.
+- **Top bar:** "← Bracket" (links to `/playoffs#bracket`, same season; `/playoffs` scrolls to the bracket section once its feed has loaded, smooth and at once under reduced motion, and nothing scrolls without the hash) and "{year} NBA Playoffs" (10px, uppercase, muted).
+- **Hero:** two glows in each team's resolved color at 22%, left and right; the round label (10px, accent light); at 680px and wider the hero has no clip: each glow is a square as tall as the hero, inside the section, fading to transparent inside it; on mobile the glows sit half outside a clipped hero. A three-column row: the team (logo 140px, code 28px; on mobile 72px and 20px, "No. {seed} seed" 10px muted, a 32x3 bar in its color), the score in the middle (`clamp(88px, 9vw, 128px)`; 72px on mobile, the leader in ink, the other muted), and the other team. The losing team is at 60% when the series is complete. The status line "{CODE} wins the series 4–1" or "{CODE} leads 3–2" (14px) and the dates of the first and last game (12px, muted).
+- **"Game by game"** (H3, 24px): one card per game played or scheduled, linking to its game page when `detailAvailable`. The card: "Game {n}" (16px); "{date} · {venue}" (12px, muted; "at {HOME}" when the venue is null); the OT tag in accent light; a chevron. At 680px and wider the list is at most 960px wide, centered, and the score row is a 5-column grid (logo and code, points, a muted dash, points, code and logo) with logos at 32px and the loser at 50%. Under 680px: two columns, each with the logo at 22px, the code at 16px and the points at 24px (the loser at 50%). For the Finals only, a leader line from the Finals feed ("{name} {pts} PTS · {name} {pts} PTS", 12px, muted). A 2px line in the winner's color.
 - **Not available:** an unknown or undecided series id shows the existing "not available" message row with the back link.
 
 ## Tournament tags and titles
@@ -309,12 +309,13 @@ Same size, letter spacing and truncation as the Cup tag: 11px, .16em, uppercase,
 | Game tabs | Select the game; the active tab has an accent bottom rule |
 | Leader tabs | Switch the category |
 | Head to head tabs | Switch the finalist in the averages table |
+| Bracket landing | `/playoffs#bracket` scrolls to the bracket once the playoffs feed has loaded; smooth, at once under reduced motion; never again on later polls |
 | Series sheet (under 1180px) | `translateY` over 0.5s, 60% scrim, body scroll locked, Esc and a tap on the scrim close it; none of the slide under reduced motion |
 | Focus | `:focus-visible` as on the home |
 
 ## Responsive
 
-- Under 680px: the nav is one row with the menu button, the stage strip is 2x2 plus one cell, the hero is compact (logo 230px above the H1, 72px H1), the game tabs and the award cards are snap scrollers (132px and 156px), the leader tabs are chips, the Finals MVP section is one column under 900px and its MVP card stacks the photo above the info panel, and the bracket is the vertical tree with a bottom sheet under 1180px, with no zoom and no sideways scroll. The full series page is designed at 390px and centered at 720px on wider screens.
+- Under 680px: the nav is one row with the menu button, the stage strip is 2x2 plus one cell, the hero is compact (logo 230px above the H1, 72px H1), the game tabs and the award cards are snap scrollers (132px and 156px), the leader tabs are chips, the Finals MVP section is one column under 900px and its MVP card stacks the photo above the info panel, and the bracket is the vertical tree with a bottom sheet under 1180px, with no zoom and no sideways scroll. The full series page is the 390px design in a column of at most 720px under 680px, and spans the content width from 680px.
 - Tables scroll horizontally with a sticky first column.
 
 ## New tokens
@@ -353,10 +354,17 @@ To add to `web/src/lib/styles/tokens.css` in the implementing issue. Values not 
 | `--playoffs-sheet-button-height` | 48px | "Full series" button in the sheet |
 | `--playoffs-sheet-close-size` | 44px | Sheet close button |
 | `--playoffs-games-min` | 130px | Result panel game cell min width |
-| `--playoffs-series-max-width` | 720px | Full series page on wide screens |
-| `--playoffs-series-score-size` | 72px | Full series hero score |
+| `--playoffs-series-max-width` | 720px | Full series page column under 680px |
+| `--playoffs-series-score-size` | clamp(88px, 9vw, 128px) | Full series hero score (72px on mobile) |
 | `--playoffs-series-glow-alpha` | .22 | Full series hero glows |
-| `--playoffs-series-logo-size` | 72px | Full series hero logo |
+| `--playoffs-series-logo-size` | 140px | Full series hero logo (72px on mobile) |
+| `--playoffs-series-code-size` | 28px | Full series hero code (20px on mobile) |
+| `--playoffs-series-game-logo` | 32px | Full series card logo (22px on mobile) |
+| `--playoffs-series-games-max-width` | 960px | Full series game list on wide screens |
+| `--playoffs-series-score-size-mobile` | 72px | Full series hero score on mobile |
+| `--playoffs-series-logo-size-mobile` | 72px | Full series hero logo on mobile |
+| `--playoffs-series-code-size-mobile` | 20px | Full series hero code on mobile |
+| `--playoffs-series-game-logo-mobile` | 22px | Full series card logo on mobile |
 | `--playoffs-hero-title-leading` | .82 | Hero H1 line height |
 | `--playoffs-stage-columns` | 5 | Stage strip |
 | `--playoffs-tag-border` | ink at 35% | Play-In and Playoffs tags |
