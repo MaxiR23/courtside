@@ -29,7 +29,7 @@ Everything under "Implementation rules" in `docs/design.md`, `docs/design-standi
 
 | Component | What it is |
 |---|---|
-| `CupHeader` | Year tag, state text, h1, the team row, the decorative layer and the stage timeline |
+| `CupHeader` | Year tag or season tag, state text, h1, the team row, the decorative layer and the stage timeline |
 | `StageStrip` | The four stage columns with dates and status |
 | `GroupCard` | One group: title, meta, draw list or table, "More columns" toggle |
 | `GroupTable` | The group table with tags |
@@ -60,13 +60,14 @@ Everything under "Implementation rules" in `docs/design.md`, `docs/design-standi
 Replaces the content of `CupHeader`. The nav above and everything below stay as they are, including the section order.
 
 - **Header box:** `position: relative; overflow: hidden`, a 1px bottom divider, the ground background plus an 88px grid of 1px lines at ink 3.5%. The existing padding stays (`clamp(20px, 4vw, 48px)` on the sides, max-width 1320px), a flex column with a 48px gap.
-- **Decorative layer** (`pointer-events: none`), from the team of the state (see "States"): a 900x900 radial glow of its resolved team color (ADR 0068) at 30% at `right: -140px`, vertically centered; its code outlined at 230px (Barlow Condensed 700, line-height .8, transparent fill, a 1px stroke of its resolved color at 35%) at `right: 48px; top: 64px`; its logo (from the feed's `logo` object) at 300x300 at `right: 96px; top: 40px`, with `drop-shadow(0 30px 40px rgba(0, 0, 0, .65))`. The logo stays above the timeline and the outline never runs into the H1.
+- **Title area:** a wrapper (`position: relative`, flex column, 48px gap) that holds the decorative layer, the title block and the stage timeline. It sits below the nav and the season row, so the decoration never overlaps them. Its top is the top of the title block: on mobile that is the tag row, which sits absolutely at the top; on desktop the title block is bottom-aligned within its 300px min-height, so the tag row sits lower and the logo and outline start above it.
+- **Decorative layer** (`pointer-events: none`, positioned against the title area), from the team of the state (see "States"): a 900x900 radial glow of its resolved team color (ADR 0068) at 30% at `right: -140px`, vertically centered; its code outlined at 230px (Barlow Condensed 700, line-height .8, transparent fill, a 1px stroke of its resolved color at 35%) at `right: 48px; top: 24px`; its logo (from the feed's `logo` object) at 300x300 at `right: 96px; top: 0`, with `drop-shadow(0 30px 40px rgba(0, 0, 0, .65))`. The logo stays above the timeline and the outline never runs into the H1.
 - **Title block:** max-width 640px, min-height 300px, bottom-aligned, 18px gap.
-  - A row with the year tag (14px, padding `3px 9px`, a 1px accent border, accent light text) and the state text (12px, .14em tracking, uppercase, muted).
+  - A row with the year tag (on a past season, the "Season YYYY-YY" tag replaces it and shows alone; 14px, padding `3px 9px`, a 1px accent border, accent light text) and the state text (12px, .14em tracking, uppercase, muted).
   - The H1 "NBA Cup" at `clamp(56px, 9vw, 150px)`, line-height .82.
-  - The team row: a 44x6 bar split between the team's primary and secondary colors, the label (11px, accent light) and the team name (30px, uppercase), linking to the team page.
+  - The team row: a 44x6 bar split between the team's primary and secondary colors, the label (11px, accent light) and the team's city and name (30px, uppercase, for example "New York Knicks"), the name linking to the team page.
 - **Stage timeline:** an `<ol>` with `repeat(auto-fit, minmax(min(100%, 170px), 1fr))`, column gap 20px. Each step has a top border with 14px top padding, the name (19px, .06em, uppercase), the dates plus a fixed note (12.5px, muted) and the status (11px, .14em, uppercase). The notes: group play "· 4 games per team", quarterfinals "· Higher seed hosts", semifinals and championship "· {city}" from their game when known. Complete: a 1px accent border, the name in ink, "Complete" muted. In progress: a 2px accent border, the name in ink, "In progress" in accent light. Next and upcoming: a 1px ink 18% border, the name and the status muted.
-- **Mobile (under 680px):** the grid is 44px; the logo 150px at `right: 28px; top: 20px`; the outline 130px; the glow 480px; the title block min-height 236px with the tag and the state text absolutely at the top left; the H1 84px; the bar 32x5, the label 10px, the name 22px; the timeline 2x2 with gap `16px 14px`, names 16px, dates 12px, status 10px.
+- **Mobile (under 680px):** the grid is 44px; the logo 150px at `right: 28px; top: 20px` of the title area (the outline keeps the shared 24px top); the outline 130px; the glow 480px; the title block min-height 236px with the tag and the state text absolutely at the top left; the H1 84px; the bar 32x5, the label 10px, the name 22px; the timeline 2x2 with gap `16px 14px`, names 16px, dates 12px, status 10px.
 
 ### States
 

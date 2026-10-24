@@ -3,13 +3,14 @@
 // Tests for the CupHeader component.
 //
 // Tested:
-// - The year tag, the state line and the h1 with the four-step timeline
+// - The year tag (or the past season tag in its place), the state line and the h1 with the four-step timeline
 // - The decoration and the team row: the champion when complete, the defending champion before; the label, the outline, the logo, the bar and the accent; no links in the decoration
 // - No decoration and no team row without a team; the rest of the header stays
 // - The timeline: complete and in-progress classes, status texts, dates with their notes
 // - The mobile layout class
 // - The nav with Cup current
 // - Only the nav and the h1 without a header; bones and aria-busy while loading
+// - The decoration inside the title area; the champion's city and name
 // - The season tag when the header has one; the select on desktop (after the nav) and mobile (full), its onChange; none without the prop
 // - Spanish copy
 //
@@ -81,6 +82,12 @@ const defending = (team: CupFeed['defendingChampion'], accent: string | null = n
 	return view(source).header;
 };
 
+const seasonSelectProp = () => ({
+	seasons: [{ season: 2027, seasonLabel: '2026-27' }],
+	value: 2027,
+	onChange: vi.fn()
+});
+
 describe('CupHeader', () => {
 	it('renders the year tag, the state line, the h1 and the timeline', () => {
 		const { container } = render(CupHeader, { props: props() });
@@ -125,10 +132,37 @@ describe('CupHeader', () => {
 		expect(container.querySelector('.bar')).toBeNull();
 	});
 
+	it('writes the champion city and name, linking the team page', () => {
+		const { container } = render(CupHeader, { props: props({ header: complete(club()) }) });
+		expect(container.querySelector('.team-name')?.textContent?.trim()).toBe('Alderton Herons');
+		expect(container.querySelector('.team-name a')?.getAttribute('href')).toBe('/team/qxa');
+	});
+
+	it('writes only the name when the team has no city', () => {
+		const header = complete(club({ city: null }));
+		const { container } = render(CupHeader, { props: props({ header }) });
+		expect(container.querySelector('.team-name')?.textContent?.trim()).toBe('Herons');
+	});
+
+	it('places the decoration inside the title area, not on the header box', () => {
+		const { container } = render(CupHeader, {
+			props: props({ header: complete(club()), seasonSelect: seasonSelectProp() })
+		});
+		const area = container.querySelector('.title-area');
+		expect(container.querySelector('.title-area > .decor')).not.toBeNull();
+		expect(container.querySelector('header > .decor')).toBeNull();
+		expect(container.querySelector('.content > .decor')).toBeNull();
+		expect(area?.querySelector('.title-block')).not.toBeNull();
+		expect(area?.querySelector('ol.cup-timeline')).not.toBeNull();
+		expect(area?.querySelector('nav')).toBeNull();
+		expect(area?.querySelector('.season-row')).toBeNull();
+		expect(container.querySelector('.season-row')).not.toBeNull();
+	});
+
 	it('does not link a guest champion', () => {
 		const header = complete(club({ code: null, name: 'Visitors', city: 'Faraway', guest: true }));
 		const { container } = render(CupHeader, { props: props({ header }) });
-		expect(container.querySelector('.team-name')?.textContent?.trim()).toBe('Visitors');
+		expect(container.querySelector('.team-name')?.textContent?.trim()).toBe('Faraway Visitors');
 		expect(container.querySelectorAll('.team-name a')).toHaveLength(0);
 	});
 
@@ -146,6 +180,8 @@ describe('CupHeader', () => {
 	it('draws no decoration and no team row without a defending champion', () => {
 		const { container } = render(CupHeader, { props: props() });
 		expect(container.querySelector('.decor')).toBeNull();
+		expect(container.querySelector('.title-area .title-block')).not.toBeNull();
+		expect(container.querySelector('.title-area ol.cup-timeline')).not.toBeNull();
 		expect(container.querySelector('.team-row')).toBeNull();
 		expect(container.querySelector('header')?.style.getPropertyValue('--side-accent')).toBe('');
 		expect(container.querySelector('.year-tag')?.textContent).toBe('2026-27');
@@ -249,13 +285,23 @@ describe('CupHeader season selector and tag', () => {
 		onChange
 	});
 
-	it('draws the season tag only when the header has one', () => {
+	it('draws only the past season tag on a past season', () => {
 		const tagged = { ...view().header, tag: 'Season 2024-25' };
-		const { unmount } = render(CupHeader, { props: props({ header: tagged }) });
+		const { container, unmount } = render(CupHeader, { props: props({ header: tagged }) });
 		expect(screen.getByText('Season 2024-25')).toBeTruthy();
+		expect(container.querySelector('.year-tag')).toBeNull();
+		expect(screen.getByText('Group play · 16 of 60 games played')).toBeTruthy();
 		unmount();
-		render(CupHeader, { props: props() });
+		const plain = render(CupHeader, { props: props() });
 		expect(screen.queryByText('Season 2024-25')).toBeNull();
+		expect(plain.container.querySelector('.year-tag')?.textContent).toBe('2026-27');
+	});
+
+	it('draws only the past season tag from a past feed', () => {
+		const header = toCupView(feed(), { past: true }).header;
+		const { container } = render(CupHeader, { props: props({ header }) });
+		expect(screen.getAllByText('Season 2026-27')).toHaveLength(1);
+		expect(container.querySelector('.year-tag')).toBeNull();
 	});
 
 	it('draws the select on desktop and calls onChange with the end year', () => {

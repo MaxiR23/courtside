@@ -358,11 +358,11 @@
 	--cup-header-outline-size-mobile: 130px;
 	--cup-header-outline-alpha: 0.35;
 	--cup-header-outline-right: 48px;
-	--cup-header-outline-top: 64px;
+	--cup-header-outline-top: 24px;
 	--cup-header-logo-size: 300px;
 	--cup-header-logo-size-mobile: 150px;
 	--cup-header-logo-right: 96px;
-	--cup-header-logo-top: 40px;
+	--cup-header-logo-top: 0;
 	--cup-header-logo-right-mobile: 28px;
 	--cup-header-logo-top-mobile: 20px;
 	--cup-header-logo-shadow: drop-shadow(0 30px 40px rgba(0, 0, 0, 0.65));
