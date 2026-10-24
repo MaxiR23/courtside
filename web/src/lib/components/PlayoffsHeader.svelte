@@ -50,17 +50,19 @@
 <header class="playoffs-header" aria-busy={loading && !header ? 'true' : undefined}>
 	<div class="content">
 		<NavRow page="playoffs" gamesHref={allGamesHref} {standingsHref} {layout} />
-		{#if seasonSelect && layout === 'desktop'}
+		{#if seasonSelect && layout === 'desktop' && !header?.hero}
 			<div class="season-row"><SeasonSelect {...seasonSelect} /></div>
 		{/if}
 
 		{#if header}
-			<div class="season-line">
-				<StatusTag text={header.season} accent />
-				{#if header.tag}<SeasonTag text={header.tag} />{/if}
-				<span class="state-line">{header.stateLine}</span>
-			</div>
 			{#if !header.hero}
+				<div class="season-line">
+					{#if header.tag}<SeasonTag text={header.tag} />{:else}<StatusTag
+							text={header.season}
+							accent
+						/>{/if}
+					<span class="state-line">{header.stateLine}</span>
+				</div>
 				<h1>{m.playoffs_title()}</h1>
 			{/if}
 		{:else}
@@ -79,7 +81,16 @@
 		{/if}
 	</div>
 	{#if header?.hero}
-		<ChampionHero hero={header.hero} {layout} {teamHref} {linkSeries} />
+		<ChampionHero
+			hero={header.hero}
+			{layout}
+			{teamHref}
+			{linkSeries}
+			season={header.season}
+			tag={header.tag}
+			stateLine={header.stateLine}
+			{seasonSelect}
+		/>
 		<div class="content">
 			{@render rest()}
 		</div>

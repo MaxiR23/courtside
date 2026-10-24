@@ -10,6 +10,8 @@
 // - The glow color: the accent of the feed, the neutral accent for null
 // - No buttons, stats or plate, and no timers
 // - The strip links to #series and scrolls (smooth, or at once under reduced motion) only when the series section exists
+// - The first row: trophy, label, one season tag (the past tag replaces the season), the state line, the desktop selector
+// - The strip link has no label of its own: it reads "Game {n}, {score}, won/lost" per column; the group keeps its name
 // - The mobile layout keeps the logo, the trophy and the strip
 //
 // What is covered:
@@ -27,6 +29,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PlayoffsFeed } from '../../../src/lib/contract/playoffs';
 import { toPlayoffsView } from '../../../src/lib/feed/playoffs-props';
 import ChampionHero from '../../../src/lib/components/ChampionHero.svelte';
+import type { SeasonControl } from '../../../src/lib/season/types';
 import type { ChampionHeroView } from '../../../src/lib/playoffs/types';
 
 const teamHref = (code: string) => `/team/${code.toLowerCase()}` as ResolvedPathname;
@@ -61,14 +64,24 @@ const hero = (games = 5, accent: string | null = '#1d4e89'): ChampionHeroView =>
 	return toPlayoffsView(feed, null).header.hero!;
 };
 const show = (
-	options: { linkSeries?: boolean; layout?: 'desktop' | 'mobile'; view?: ChampionHeroView } = {}
+	options: {
+		linkSeries?: boolean;
+		layout?: 'desktop' | 'mobile';
+		view?: ChampionHeroView;
+		tag?: string | null;
+		seasonSelect?: SeasonControl | null;
+	} = {}
 ) =>
 	render(ChampionHero, {
 		props: {
 			hero: options.view ?? hero(),
 			layout: options.layout ?? 'desktop',
 			teamHref,
-			linkSeries: options.linkSeries ?? true
+			linkSeries: options.linkSeries ?? true,
+			season: '2026-27',
+			tag: options.tag ?? null,
+			stateLine: 'Complete',
+			seasonSelect: options.seasonSelect ?? null
 		}
 	});
 
@@ -179,7 +192,7 @@ describe('ChampionHero strip', () => {
 			scrolled.push(this.id);
 		});
 		show();
-		const link = screen.getByRole('link', { name: 'Finals game scores' });
+		const link = screen.getByRole('link', { name: /Game 1, 105–95, won/ });
 		expect(link.getAttribute('href')).toBe('#series');
 		await fireEvent.click(link);
 		expect(scrolled).toEqual(['series']);
@@ -194,7 +207,7 @@ describe('ChampionHero strip', () => {
 		addSeries();
 		Element.prototype.scrollIntoView = vi.fn();
 		show();
-		await fireEvent.click(screen.getByRole('link', { name: 'Finals game scores' }));
+		await fireEvent.click(screen.getByRole('link', { name: /Game 1, 105–95, won/ }));
 		expect(Element.prototype.scrollIntoView).toHaveBeenCalledWith({
 			behavior: 'auto',
 			block: 'start'
@@ -203,9 +216,61 @@ describe('ChampionHero strip', () => {
 
 	it('draws the same strip with no link without the series section', () => {
 		show({ linkSeries: false });
-		expect(screen.queryByRole('link', { name: 'Finals game scores' })).toBeNull();
+		expect(screen.queryByRole('link', { name: /Game 1/ })).toBeNull();
+		expect(document.querySelector('a.strip')).toBeNull();
 		const group = screen.getByRole('group', { name: 'Finals game scores' });
 		expect(group.querySelectorAll('.game')).toHaveLength(5);
+	});
+});
+
+describe('ChampionHero first row and strip name', () => {
+	const select = (onChange = vi.fn()) => ({
+		seasons: [
+			{ season: 2027, seasonLabel: '2026-27' },
+			{ season: 2025, seasonLabel: '2024-25' }
+		],
+		value: 2027,
+		onChange
+	});
+
+	it('puts the label, one season tag and the state text in the first row of the inner box', () => {
+		const { container } = show();
+		const row = container.querySelector('.label-row')!;
+		expect(container.querySelector('.inner')?.firstElementChild).toBe(row);
+		expect(row.querySelector('.label')?.textContent).toBe('2027 NBA Champions');
+		expect(row.textContent).toContain('2026-27');
+		expect(row.textContent).toContain('Complete');
+	});
+
+	it('draws only the past tag on a past season', () => {
+		const { container } = show({ tag: 'Season 2025-26' });
+		expect(screen.getByText('Season 2025-26')).toBeTruthy();
+		expect(screen.queryByText('2026-27')).toBeNull();
+		expect(container.querySelector('.label-row')?.textContent).toContain('Season 2025-26');
+	});
+
+	it('draws the selector at the end of the row on desktop and none on mobile', () => {
+		const onChange = vi.fn();
+		const { container, unmount } = show({ seasonSelect: select(onChange) });
+		const box = screen.getByRole('combobox', { name: 'Season' }) as HTMLSelectElement;
+		expect(container.querySelector('.label-row')?.contains(box)).toBe(true);
+		box.value = '2025';
+		box.dispatchEvent(new Event('change', { bubbles: true }));
+		expect(onChange).toHaveBeenCalledWith(2025);
+		unmount();
+		show({ layout: 'mobile', seasonSelect: select() });
+		expect(screen.queryByRole('combobox')).toBeNull();
+	});
+
+	it('names the strip link from its columns and hides the visible text', () => {
+		const { container } = show();
+		const link = container.querySelector('a.strip')!;
+		expect(link.hasAttribute('aria-label')).toBe(false);
+		expect(screen.getByRole('link', { name: /Game 3, 98–101, lost/ })).toBeTruthy();
+		expect(screen.getByRole('link', { name: /Game 1, 105–95, won/ })).toBeTruthy();
+		for (const el of container.querySelectorAll('.strip .n, .strip .score')) {
+			expect(el.getAttribute('aria-hidden')).toBe('true');
+		}
 	});
 });
 

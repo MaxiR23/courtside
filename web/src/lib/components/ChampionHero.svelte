@@ -1,19 +1,36 @@
 <script lang="ts">
 	import type { ResolvedPathname } from '$app/types';
+	import SeasonSelect from '#lib/components/SeasonSelect.svelte';
+	import SeasonTag from '#lib/components/SeasonTag.svelte';
+	import StatusTag from '#lib/components/StatusTag.svelte';
 	import TeamMark from '#lib/components/TeamMark.svelte';
 	import TrophyDrawing from '#lib/components/TrophyDrawing.svelte';
 	import { m } from '#lib/paraglide/messages.js';
 	import type { ChampionHeroView } from '#lib/playoffs/types.ts';
 	import type { RowLayout } from '#lib/schedule/types.ts';
+	import type { SeasonControl } from '#lib/season/types.ts';
 
 	type Props = {
 		hero: ChampionHeroView;
 		layout: RowLayout;
 		teamHref: (code: string) => ResolvedPathname;
 		linkSeries: boolean; // the series section is on the page: the strip links to it
+		season: string; // "2026-27"
+		tag: string | null; // "Season 2025-26" on a past season
+		stateLine: string;
+		seasonSelect?: SeasonControl | null; // null: no selector
 	};
 
-	let { hero, layout, teamHref, linkSeries }: Props = $props();
+	let {
+		hero,
+		layout,
+		teamHref,
+		linkSeries,
+		season,
+		tag,
+		stateLine,
+		seasonSelect = null
+	}: Props = $props();
 
 	const reduced =
 		typeof window !== 'undefined' &&
@@ -30,8 +47,9 @@
 {#snippet columns()}
 	{#each hero.games as game (game.key)}
 		<span class="game" class:loss={!game.win}>
-			<span class="n">{game.label}</span>
-			<span class="score">{game.score}</span>
+			<span class="n" aria-hidden="true">{game.label}</span>
+			<span class="score" aria-hidden="true">{game.score}</span>
+			<span class="hidden">{game.spoken}</span>
 		</span>
 	{/each}
 {/snippet}
@@ -43,12 +61,17 @@
 >
 	<div class="grid-bg" aria-hidden="true"></div>
 	<div class="inner">
+		<div class="label-row">
+			<span class="trophy" aria-hidden="true"><TrophyDrawing title={hero.label} /></span>
+			<span class="label">{hero.label}</span>
+			{#if tag}<SeasonTag text={tag} />{:else}<StatusTag text={season} accent />{/if}
+			<span class="state-line">{stateLine}</span>
+			{#if seasonSelect && layout === 'desktop'}
+				<div class="season-select"><SeasonSelect {...seasonSelect} /></div>
+			{/if}
+		</div>
 		<div class="main">
 			<div class="copy">
-				<div class="label-row">
-					<span class="trophy" aria-hidden="true"><TrophyDrawing title={hero.label} /></span>
-					<span class="label">{hero.label}</span>
-				</div>
 				<h1>
 					{#if hero.city}{hero.city}<br />{/if}<TeamMark team={hero.team} part="name" {teamHref} />
 				</h1>
@@ -66,7 +89,6 @@
 				<a
 					class="strip"
 					href="#series"
-					aria-label={m.playoffs_hero_strip()}
 					onclick={(event) => {
 						event.preventDefault();
 						scrollTo('series');
@@ -136,8 +158,18 @@
 
 	.label-row {
 		display: flex;
+		flex-wrap: wrap;
 		align-items: center;
 		gap: var(--game-list-gap);
+	}
+
+	.state-line {
+		font-size: var(--body-size-small);
+		color: var(--color-muted);
+	}
+
+	.season-select {
+		margin-inline-start: auto;
 	}
 
 	.trophy {
@@ -242,6 +274,16 @@
 		gap: var(--day-strip-gap);
 		padding-top: var(--game-list-gap);
 		min-width: 0;
+		position: relative;
+	}
+
+	.hidden {
+		position: absolute;
+		width: var(--hairline);
+		height: var(--hairline);
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
 	}
 
 	.n {

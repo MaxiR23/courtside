@@ -39,6 +39,7 @@ export type ChampionGameView = {
 	label: string; // "G3"
 	score: string; // "105–95", the champion's points first; "—" without a score
 	win: boolean; // the champion won it: ink; otherwise muted
+	spoken: string; // "Game 3, 98–101, lost": the column read by screen readers
 };
 
 export type ChampionHeroView = {

@@ -8,6 +8,8 @@
 // - The Playoffs title in every state but complete; the champion hero instead of it in complete
 // - Loading: bones and aria-busy; a null header shows only the nav and the title
 // - The season tag when the header has one; the select on desktop and mobile (full), its onChange; none without the prop
+// - With the hero: no season line or desktop season row above it; the hero's first row holds the season, the state text and the selector
+// - One season tag: the past tag replaces the season, with and without the hero
 // - Four stages draw a four-column strip
 // - Spanish copy
 //
@@ -89,12 +91,14 @@ describe('PlayoffsHeader', () => {
 		const hero = container.querySelector('.champion-hero')!;
 		expect(screen.getByRole('heading', { level: 1 }).textContent).toContain('Harbor');
 		expect(screen.queryByRole('heading', { level: 1, name: 'Playoffs' })).toBeNull();
-		expect(screen.getByRole('link', { name: 'Finals game scores' })).toBeTruthy();
+		expect(container.querySelector('a.strip')).not.toBeNull();
 		expect(screen.getAllByText('Complete').length).toBeGreaterThan(0);
 		expect(hero.closest('.content')).toBeNull();
 		const before = (a: Element, b: Element) =>
 			Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
-		expect(before(container.querySelector('.season-line')!, hero)).toBe(true);
+		expect(container.querySelector('.season-line')).toBeNull();
+		expect(container.querySelector('.season-row')).toBeNull();
+		expect(hero.querySelector('.label-row')?.textContent).toContain('Complete');
 		expect(before(hero, container.querySelector('.stage-strip')!)).toBe(true);
 	});
 
@@ -138,6 +142,38 @@ describe('PlayoffsHeader season selector and tag', () => {
 		unmount();
 		show({ header: header('playoffs-picture.json') });
 		expect(screen.queryByText('Season 2024-25')).toBeNull();
+	});
+
+	it('draws one tag: the past tag replaces the season, with and without the hero', () => {
+		const picture = { ...header('playoffs-picture.json'), tag: 'Season 2024-25' };
+		const { unmount } = show({ header: picture });
+		expect(screen.getByText('Season 2024-25')).toBeTruthy();
+		expect(screen.queryByText('2026-27')).toBeNull();
+		unmount();
+		const done = { ...header('playoffs-complete.json'), tag: 'Season 2024-25' };
+		show({ header: done });
+		expect(screen.getByText('Season 2024-25')).toBeTruthy();
+		expect(screen.queryByText(done.season)).toBeNull();
+	});
+
+	it('with the hero draws one select: in the hero on desktop, below the stage strip on mobile', () => {
+		const complete = header('playoffs-complete.json');
+		const desktop = show({ header: complete, seasonSelect: seasonSelect() });
+		expect(screen.getAllByRole('combobox')).toHaveLength(1);
+		expect(
+			desktop.container.querySelector('.champion-hero')?.contains(screen.getByRole('combobox'))
+		).toBe(true);
+		desktop.unmount();
+		const mobile = show({ header: complete, layout: 'mobile', seasonSelect: seasonSelect() });
+		const box = screen.getByRole('combobox');
+		expect(screen.getAllByRole('combobox')).toHaveLength(1);
+		expect(mobile.container.querySelector('.champion-hero')?.contains(box)).toBe(false);
+		expect(
+			Boolean(
+				mobile.container.querySelector('.stage-strip')!.compareDocumentPosition(box) &
+				Node.DOCUMENT_POSITION_FOLLOWING
+			)
+		).toBe(true);
 	});
 
 	it('draws the select on desktop and calls onChange with the end year', () => {
