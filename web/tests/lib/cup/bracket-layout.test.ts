@@ -4,10 +4,9 @@
 //
 // Tested:
 // - The 7 desktop positions equal the design's, West is the East mirrored, every node lies inside its world
-// - The mobile rows run East quarterfinals, East semifinal, final, West semifinal, West quarterfinals with 200-unit gaps
-// - 6 connectors per world, orthogonal, starting and ending on node edges
+// - 6 connectors, orthogonal, starting and ending on node edges
 // - Quarterfinal 1 feeds the top, quarterfinal 2 the bottom, the East semifinal the final's top
-// - Round labels per column or row, and the champion anchor under the final
+// - Round labels per column, and the champion anchor under the final
 // - The sizes match the --bracket-* tokens
 // - TREE_ROWS: the three rows, their cards and columns, every slot once, every column inside the 8 tracks
 //
@@ -26,8 +25,6 @@ import {
 	connectors,
 	DESKTOP_NODES,
 	DESKTOP_WORLD,
-	MOBILE_NODES,
-	MOBILE_WORLD,
 	NODE,
 	roundLabels,
 	SLOT_IDS,
@@ -76,36 +73,9 @@ describe('desktop world', () => {
 	});
 });
 
-describe('mobile world', () => {
-	it('stacks East quarterfinals, East semifinal, final, West semifinal and West quarterfinals', () => {
-		const rows = [
-			[MOBILE_NODES['east-qf-1'], MOBILE_NODES['east-qf-2']],
-			[MOBILE_NODES['east-sf']],
-			[MOBILE_NODES.final],
-			[MOBILE_NODES['west-sf']],
-			[MOBILE_NODES['west-qf-1'], MOBILE_NODES['west-qf-2']]
-		];
-		const tops = rows.map((row) => row[0].y);
-		expect(tops).toEqual([0, 760, 1520, 2280, 3040]);
-		for (let i = 1; i < tops.length; i++) {
-			expect(tops[i] - (tops[i - 1] + NODE.height)).toBe(200);
-		}
-		expect(MOBILE_NODES['east-qf-2'].x - (MOBILE_NODES['east-qf-1'].x + NODE.width)).toBe(200);
-	});
-
-	it('keeps every node inside the world, with the single nodes centered', () => {
-		for (const id of SLOT_IDS) {
-			const { x, y } = MOBILE_NODES[id];
-			expect(x + NODE.width).toBeLessThanOrEqual(MOBILE_WORLD.width);
-			expect(y + NODE.height).toBeLessThanOrEqual(MOBILE_WORLD.height);
-		}
-		expect(MOBILE_NODES.final.x).toBe((MOBILE_WORLD.width - NODE.width) / 2);
-	});
-});
-
 describe('connectors', () => {
-	it.each([DESKTOP_WORLD, MOBILE_WORLD])('has 6 orthogonal paths in the $kind world', (world) => {
-		const list = connectors(world);
+	it('has 6 orthogonal paths in the desktop world', () => {
+		const list = connectors(DESKTOP_WORLD);
 		expect(list).toHaveLength(6);
 		for (const { d } of list) {
 			const commands = d.match(/[A-Za-z]/g);
@@ -133,15 +103,6 @@ describe('connectors', () => {
 		expect(list[4].d).toBe('M 2400 660 H 2500 V 660 H 2600');
 		expect(list[5].d).toBe('M 3900 660 H 3800 V 660 H 3700');
 	});
-
-	it('runs the mobile paths from the bottom (East) or top (West) middle to the facing edge', () => {
-		const list = connectors(MOBILE_WORLD);
-		expect(list[0].d).toBe('M 550 560 V 660 H 1200 V 760');
-		expect(list[1].d).toBe('M 1850 560 V 660 H 1200 V 760');
-		expect(list[2].d).toBe('M 550 3040 V 2940 H 1200 V 2840');
-		expect(list[4].d).toBe('M 1200 1320 V 1420 H 1200 V 1520');
-		expect(list[5].d).toBe('M 1200 2280 V 2180 H 1200 V 2080');
-	});
 });
 
 describe('round labels and champion', () => {
@@ -155,22 +116,8 @@ describe('round labels and champion', () => {
 		]);
 	});
 
-	it('puts one label above each mobile row, centered', () => {
-		const labels = roundLabels(MOBILE_WORLD);
-		expect(labels.map((l) => l.key)).toEqual([
-			'quarterfinals',
-			'semifinals',
-			'championship',
-			'semifinals',
-			'quarterfinals'
-		]);
-		expect(labels.map((l) => l.y)).toEqual([-120, 640, 1400, 2160, 2920]);
-		expect(labels.every((l) => l.x === 1200)).toBe(true);
-	});
-
 	it('anchors the champion under the final', () => {
 		expect(championAnchor(DESKTOP_WORLD)).toEqual({ x: 3150, y: 1000 });
-		expect(championAnchor(MOBILE_WORLD)).toEqual({ x: 1200, y: 2140 });
 	});
 });
 

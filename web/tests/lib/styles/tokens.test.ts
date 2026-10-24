@@ -293,7 +293,6 @@ const expected: Record<string, string> = {
 	'--standings-monogram-size': '34px',
 	'--standings-strip-height': '3px',
 	'--standings-team-column-page-min': '178px',
-	'--standings-line-dash': '4 4',
 	'--series-summary-size': 'clamp(40px, 5vw, 64px)',
 	'--team-code-box-size': 'clamp(64px, 7vw, 88px)',
 	'--team-color-strip-height': '5px',

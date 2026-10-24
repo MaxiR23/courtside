@@ -1,17 +1,16 @@
 // World geometry of the Cup bracket: where the 7 nodes sit, the connectors between them, the round
-// labels and the champion anchor, for the desktop world and the vertical mobile world, and the rows of the mobile tree. Pure, in world
+// labels and the champion anchor of the desktop world, and the rows of the mobile tree. Pure, in world
 // units. The sizes mirror the --bracket-* tokens; tests/lib/cup/bracket-layout.test.ts pins them.
 
 import { elbowPath, type Point } from '#lib/bracket/geometry.ts';
 import type { SlotId } from '#lib/contract/cup.ts';
 
-export type WorldKind = 'desktop' | 'mobile';
+export type WorldKind = 'desktop';
 export type World = { kind: WorldKind; width: number; height: number };
 export type { Point } from '#lib/bracket/geometry.ts';
 export type RoundKey = 'quarterfinals' | 'semifinals' | 'championship';
 
 export const DESKTOP_WORLD: World = { kind: 'desktop', width: 6300, height: 1320 };
-export const MOBILE_WORLD: World = { kind: 'mobile', width: 2400, height: 3600 };
 export const NODE = { width: 1100, height: 560 };
 
 /** World units kept free around the world when it is fitted: room for the round labels. */
@@ -43,21 +42,12 @@ export const DESKTOP_NODES: Record<SlotId, Point> = {
 	'west-qf-2': { x: 5200, y: 760 }
 };
 
-export const MOBILE_NODES: Record<SlotId, Point> = {
-	'east-qf-1': { x: 0, y: 0 },
-	'east-qf-2': { x: 1300, y: 0 },
-	'east-sf': { x: 650, y: 760 },
-	final: { x: 650, y: 1520 },
-	'west-sf': { x: 650, y: 2280 },
-	'west-qf-1': { x: 0, y: 3040 },
-	'west-qf-2': { x: 1300, y: 3040 }
-};
-
 export type Connector = { from: SlotId; to: SlotId; side: 'top' | 'bottom'; d: string };
 export type RoundLabel = { key: RoundKey; x: number; y: number };
 
-export const nodesOf = (world: World): Record<SlotId, Point> =>
-	world.kind === 'desktop' ? DESKTOP_NODES : MOBILE_NODES;
+const NODES_BY_KIND: Record<WorldKind, Record<SlotId, Point>> = { desktop: DESKTOP_NODES };
+
+export const nodesOf = (world: World): Record<SlotId, Point> => NODES_BY_KIND[world.kind];
 
 type Feeder = { from: SlotId; to: SlotId; side: 'top' | 'bottom' };
 
@@ -74,27 +64,14 @@ const FEEDERS: Feeder[] = [
 
 const isWest = (id: SlotId): boolean => id.startsWith('west');
 
-function mobilePath(from: Point, to: Point, west: boolean): string {
-	const x1 = from.x + NODE.width / 2;
-	const x2 = to.x + NODE.width / 2;
-	const y1 = west ? from.y : from.y + NODE.height;
-	const y2 = west ? to.y + NODE.height : to.y;
-	const ym = (y1 + y2) / 2;
-	return `M ${x1} ${y1} V ${ym} H ${x2} V ${y2}`;
-}
-
 /** The 6 orthogonal connectors, in feeder order, each ending on the `side` of its `to` node. */
 export function connectors(world: World): Connector[] {
 	const nodes = nodesOf(world);
-	const path =
-		world.kind === 'desktop'
-			? (from: Point, to: Point, west: boolean) => elbowPath(from, to, NODE, west)
-			: mobilePath;
 	return FEEDERS.map(({ from, to, side }) => ({
 		from,
 		to,
 		side,
-		d: path(nodes[from], nodes[to], isWest(from))
+		d: elbowPath(nodes[from], nodes[to], NODE, isWest(from))
 	}));
 }
 
@@ -106,7 +83,7 @@ const COLUMNS: { key: RoundKey; ids: SlotId[] }[] = [
 	{ key: 'quarterfinals', ids: ['west-qf-1', 'west-qf-2'] }
 ];
 
-/** One label per column (desktop) or per row (mobile), centered above the top node of its group. */
+/** One label per column, centered above the top node of its group. */
 export function roundLabels(world: World): RoundLabel[] {
 	const nodes = nodesOf(world);
 	return COLUMNS.map(({ key, ids }) => {
@@ -114,7 +91,7 @@ export function roundLabels(world: World): RoundLabel[] {
 		const top = Math.min(...points.map((p) => p.y));
 		const left = Math.min(...points.map((p) => p.x));
 		const right = Math.max(...points.map((p) => p.x + NODE.width));
-		const x = world.kind === 'desktop' ? (left + right) / 2 : world.width / 2;
+		const x = (left + right) / 2;
 		return { key, x, y: top - LABEL_GAP };
 	});
 }

@@ -118,7 +118,7 @@ Levels 1 and 2 only.
 
 ### Mobile (under 680px)
 
-Under 680px only, a grid tree replaces the vertical camera world of `CupBracket`. The desktop bracket and its camera stay as they are.
+Under 680px only, a grid tree replaces the camera world of `CupBracket`. The desktop bracket and its camera stay as they are.
 
 - **Heading:** "{year} NBA Cup" (10px, accent light) and the H2 "Knockout rounds" (40px).
 - **Labels:** a two-column row "East" | "West" (10px, uppercase, muted, bottom divider).
