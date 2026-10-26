@@ -48,3 +48,51 @@ export type EmptyDayView = {
 	text: string; // "Next games: Tue, Oct 6 · 5 games" or the two-weeks message
 	goTo: { date: string; label: string } | null; // date 'YYYY-MM-DD'; null: outside the games feed window or no next game
 };
+
+export type HomeStandingsRowView = {
+	code: string; // the each-block key
+	seed: string; // "1", or "—" when the feed has no seed
+	team: TeamMarkTeam; // logo, else the code
+	record: string; // "34–7"
+	gamesBehind: string; // "1.0", or "—" for the leader
+};
+
+export type HomeConferenceTabView = {
+	key: string; // "east" | "west"
+	label: string; // "East"
+	rows: HomeStandingsRowView[]; // the first 6 rows in feed order
+	playIn: HomeStandingsRowView[]; // rows 7 to 10 in feed order; empty: no footnote
+};
+
+export type HomePathSeriesView = {
+	key: string; // the round key, for the each-block key
+	round: string; // "First round"
+	opponent: TeamMarkTeam;
+	accent: string | null; // the opponent's resolved color; null: the neutral accent
+	result: string; // "4–2", from the finalist's side
+	won: boolean;
+};
+
+export type HomeFinalistTabView = {
+	key: string; // the team code, else "finalist-0" / "finalist-1"
+	team: TeamMarkTeam;
+	series: HomePathSeriesView[]; // three, in round order
+};
+
+export type HomeStandingsView =
+	| { kind: 'standings'; title: string; tabs: HomeConferenceTabView[] }
+	| { kind: 'finalsPath'; title: string; tabs: HomeFinalistTabView[] };
+
+export type HomeLeaderView = {
+	key: string; // the category key
+	category: string; // "Points per game"
+	team: TeamMarkTeam | null; // null: no team link in the feed
+	name: string; // a dash when the identity was not read
+	photo: string | null; // null: the empty photo box
+	value: string; // "31.4"
+};
+
+export type HomeLeadersView = {
+	title: string; // "This season", "Playoffs", "2025-26 season"
+	leaders: HomeLeaderView[]; // feed order, one to four
+};

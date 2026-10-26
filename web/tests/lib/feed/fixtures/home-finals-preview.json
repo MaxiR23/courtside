@@ -1,0 +1,200 @@
+{
+	"season": "2026-27",
+	"date": "2027-05-30",
+	"scenario": "finalsPreview",
+	"comingUp": [
+		{
+			"key": "finals",
+			"startDate": "2027-06-03",
+			"endDate": null,
+			"status": "upcoming"
+		}
+	],
+	"nextGame": null,
+	"lastGames": null,
+	"leaders": {
+		"title": "playoffs",
+		"seasonLabel": null,
+		"categories": [
+			{
+				"category": "points",
+				"playerId": "p-201",
+				"name": "Dev Marsh",
+				"photoUrl": "https://example.com/p-201.png",
+				"team": {
+					"code": "EST",
+					"logo": null,
+					"colors": null,
+					"accent": null
+				},
+				"value": "29.8"
+			}
+		]
+	},
+	"finalsPath": {
+		"finalists": [
+			{
+				"team": {
+					"code": "EST",
+					"name": "Easterners",
+					"city": "East City",
+					"guest": false,
+					"seasonCode": null,
+					"historical": false,
+					"logo": {
+						"light": "https://example.com/est.svg",
+						"dark": null
+					},
+					"colors": {
+						"primary": "#1D4E89",
+						"secondary": null
+					}
+				},
+				"accent": "#1D4E89",
+				"series": [
+					{
+						"round": "firstRound",
+						"opponent": {
+							"code": "NRT",
+							"name": "Northerners",
+							"city": "North City",
+							"guest": false,
+							"seasonCode": null,
+							"historical": false,
+							"logo": {
+								"light": "https://example.com/nrt.svg",
+								"dark": null
+							},
+							"colors": {
+								"primary": "#1D4E89",
+								"secondary": null
+							}
+						},
+						"result": "4–1",
+						"won": true,
+						"accent": "#1D4E89"
+					},
+					{
+						"round": "conferenceSemifinals",
+						"opponent": {
+							"code": "STH",
+							"name": "Southerners",
+							"city": "South City",
+							"guest": false,
+							"seasonCode": null,
+							"historical": false,
+							"logo": null,
+							"colors": null
+						},
+						"result": "4–3",
+						"won": true,
+						"accent": null
+					},
+					{
+						"round": "conferenceFinals",
+						"opponent": {
+							"code": "CEN",
+							"name": "Centrals",
+							"city": "Central City",
+							"guest": false,
+							"seasonCode": null,
+							"historical": false,
+							"logo": {
+								"light": "https://example.com/cen.svg",
+								"dark": null
+							},
+							"colors": {
+								"primary": "#B5332E",
+								"secondary": null
+							}
+						},
+						"result": "4–2",
+						"won": true,
+						"accent": "#B5332E"
+					}
+				]
+			},
+			{
+				"team": {
+					"code": "WST",
+					"name": "Westerners",
+					"city": "West City",
+					"guest": false,
+					"seasonCode": null,
+					"historical": false,
+					"logo": null,
+					"colors": null
+				},
+				"accent": null,
+				"series": [
+					{
+						"round": "firstRound",
+						"opponent": {
+							"code": "MTN",
+							"name": "Mountaineers",
+							"city": "Mountain City",
+							"guest": false,
+							"seasonCode": null,
+							"historical": false,
+							"logo": {
+								"light": "https://example.com/mtn.svg",
+								"dark": null
+							},
+							"colors": {
+								"primary": "#2E7D4F",
+								"secondary": null
+							}
+						},
+						"result": "4–0",
+						"won": true,
+						"accent": "#2E7D4F"
+					},
+					{
+						"round": "conferenceSemifinals",
+						"opponent": {
+							"code": "PAC",
+							"name": "Pacifics",
+							"city": "Pacific City",
+							"guest": false,
+							"seasonCode": null,
+							"historical": false,
+							"logo": {
+								"light": "https://example.com/pac.svg",
+								"dark": null
+							},
+							"colors": {
+								"primary": "#F2C14E",
+								"secondary": null
+							}
+						},
+						"result": "4–2",
+						"won": true,
+						"accent": "#F2C14E"
+					},
+					{
+						"round": "conferenceFinals",
+						"opponent": {
+							"code": "DST",
+							"name": "Desert",
+							"city": "Desert City",
+							"guest": false,
+							"seasonCode": null,
+							"historical": false,
+							"logo": {
+								"light": "https://example.com/dst.svg",
+								"dark": null
+							},
+							"colors": {
+								"primary": "#B5332E",
+								"secondary": null
+							}
+						},
+						"result": "4–3",
+						"won": true,
+						"accent": "#B5332E"
+					}
+				]
+			}
+		]
+	}
+}

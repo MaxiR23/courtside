@@ -12,6 +12,9 @@
 // - Last games: null cases, the five titles and the count in both languages, the seven labels with and without a game number, order, ids, loser flags, accent, team mark
 // - The empty-day box: next day and count, Go to only inside the games window, the two-weeks message, null without the feed, Spanish
 // - The schedule is hidden in the offseason only
+// - Compact standings: East then West, the first 6 rows and the play-in rows 7 to 10 in feed order, record, games behind, null seed, empty conferences, null cases, every non-Finals scenario
+// - The Finals preview: the two finalists with three series each, labels in both languages, the standings feed ignored, null without finalsPath
+// - Leaders: null cases, one to four leaders in feed order, category labels and the titles in both languages, null photo and team kept
 //
 // What is covered:
 // - Pure logic on an invented feed (tests/lib/feed/fixtures/home.json); no clock, no network
@@ -26,13 +29,17 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type {
 	ComingUpKey,
 	HomeFeed,
+	HomeLeader,
 	HomeScenario,
 	LastGameLabel,
 	LastGamesTitleKey
 } from '../../../src/lib/contract/home';
+import type { StandingsFeed } from '../../../src/lib/contract/standings';
 import {
 	hidesSchedule,
 	toEmptyDayView,
+	toHomeLeadersView,
+	toHomeStandingsView,
 	toLastGamesView,
 	toNoGamesView
 } from '../../../src/lib/feed/home-props';
@@ -41,6 +48,12 @@ import { preferLanguages } from '../../prefer-languages';
 const feed = (): HomeFeed =>
 	JSON.parse(readFileSync(join(__dirname, 'fixtures', 'home.json'), 'utf8')) as HomeFeed;
 const TODAY = '2026-10-04';
+const preview = (): HomeFeed =>
+	JSON.parse(
+		readFileSync(join(__dirname, 'fixtures', 'home-finals-preview.json'), 'utf8')
+	) as HomeFeed;
+const standings = (): StandingsFeed =>
+	JSON.parse(readFileSync(join(__dirname, 'fixtures', 'standings.json'), 'utf8')) as StandingsFeed;
 
 afterEach(() => {
 	vi.restoreAllMocks();
@@ -334,5 +347,204 @@ describe('hidesSchedule', () => {
 
 	it('keeps it without the feed', () => {
 		expect(hidesSchedule(null)).toBe(false);
+	});
+});
+
+describe('toHomeStandingsView', () => {
+	it('draws the compact standings with no home feed', () => {
+		const view = toHomeStandingsView(null, standings());
+		expect(view?.kind).toBe('standings');
+		expect(view?.title).toBe('Standings');
+		expect(view?.tabs.map((t) => t.key)).toEqual(['east', 'west']);
+		expect(view?.tabs.map((t) => ('label' in t ? t.label : ''))).toEqual(['East', 'West']);
+	});
+
+	it('takes the top 6 and the play-in rows 7 to 10 of the East in feed order', () => {
+		const view = toHomeStandingsView(null, standings());
+		if (view?.kind !== 'standings') throw new Error('expected standings');
+		const [east, west] = view.tabs;
+		expect(east.rows.map((r) => r.code)).toEqual(['BOS', 'NYK', 'CLE', 'ORL', 'MIL', 'IND']);
+		expect(east.rows.map((r) => r.seed)).toEqual(['1', '2', '3', '4', '5', '6']);
+		expect(east.playIn.map((r) => r.code)).toEqual(['MIA', 'PHI', 'CHI', 'ATL']);
+		expect(east.playIn.map((r) => r.seed)).toEqual(['7', '8', '9', '10']);
+		const all = [...east.rows, ...east.playIn].map((r) => r.code);
+		expect(all).not.toContain('BKN');
+		expect(west.rows).toHaveLength(2);
+		expect(west.playIn).toEqual([]);
+	});
+
+	it('gives the record with an en dash and the games behind', () => {
+		const feed = standings();
+		const view = toHomeStandingsView(null, feed);
+		if (view?.kind !== 'standings') throw new Error('expected standings');
+		const [first, second] = view.tabs[0].rows;
+		expect(first.record).toBe(
+			`${feed.conferences[0].teams[0].wins}–${feed.conferences[0].teams[0].losses}`
+		);
+		expect(first.record).toContain('–');
+		expect(first.gamesBehind).toBe('—');
+		expect(second.gamesBehind).toBe(feed.conferences[0].teams[1].gamesBehind);
+	});
+
+	it('shows a dash for a team with no seed', () => {
+		const feed = standings();
+		feed.conferences[0].teams[0].seed = null;
+		const view = toHomeStandingsView(null, feed);
+		if (view?.kind !== 'standings') throw new Error('expected standings');
+		expect(view.tabs[0].rows[0].seed).toBe('—');
+	});
+
+	it('leaves out a conference with no teams and gives null when both are empty', () => {
+		const feed = standings();
+		feed.conferences[1].teams = [];
+		const view = toHomeStandingsView(null, feed);
+		expect(view?.tabs.map((t) => t.key)).toEqual(['east']);
+		feed.conferences[0].teams = [];
+		expect(toHomeStandingsView(null, feed)).toBeNull();
+	});
+
+	it('gives null without the standings feed', () => {
+		expect(toHomeStandingsView(null, null)).toBeNull();
+		expect(toHomeStandingsView(feed(), null)).toBeNull();
+	});
+
+	it.each(['offDay', 'allStarBreak', 'offseason'] as const)(
+		'draws the compact standings in the %s scenario',
+		(scenario) => {
+			const home = feed();
+			home.scenario = scenario;
+			expect(toHomeStandingsView(home, standings())?.kind).toBe('standings');
+		}
+	);
+
+	it('labels the conferences in Spanish', () => {
+		preferLanguages(['es']);
+		const view = toHomeStandingsView(null, standings());
+		expect(view?.title).toBe('Clasificación');
+		expect(view?.tabs.map((t) => ('label' in t ? t.label : ''))).toEqual(['Este', 'Oeste']);
+	});
+
+	it('draws each finalist path in the Finals preview', () => {
+		const view = toHomeStandingsView(preview(), null);
+		if (view?.kind !== 'finalsPath') throw new Error('expected finalsPath');
+		expect(view.title).toBe('Road to the Finals');
+		expect(view.tabs.map((t) => t.key)).toEqual(['EST', 'WST']);
+		const [east] = view.tabs;
+		expect(east.series.map((s) => s.round)).toEqual([
+			'First round',
+			'Conference semifinals',
+			'Conference finals'
+		]);
+		expect(east.series.map((s) => s.opponent.code)).toEqual(['NRT', 'STH', 'CEN']);
+		expect(east.series[0].opponent.logo?.light).toBe('https://example.com/nrt.svg');
+		expect(east.series[1].opponent.logo).toBeUndefined();
+		expect(east.series.map((s) => s.accent)).toEqual(['#1D4E89', null, '#B5332E']);
+		expect(east.series.map((s) => s.result)).toEqual(['4–1', '4–3', '4–2']);
+		expect(east.series.every((s) => s.won)).toBe(true);
+	});
+
+	it('ignores the standings feed in the Finals preview', () => {
+		const view = toHomeStandingsView(preview(), standings());
+		expect(view?.kind).toBe('finalsPath');
+	});
+
+	it('gives null in the Finals preview without a finals path, even with standings', () => {
+		const home = preview();
+		home.finalsPath = null;
+		expect(toHomeStandingsView(home, standings())).toBeNull();
+	});
+
+	it('labels the Finals path in Spanish', () => {
+		preferLanguages(['es']);
+		const view = toHomeStandingsView(preview(), null);
+		if (view?.kind !== 'finalsPath') throw new Error('expected finalsPath');
+		expect(view.title).toBe('Camino a las Finales');
+		expect(view.tabs[0].series.map((s) => s.round)).toEqual([
+			'Primera ronda',
+			'Semifinales de conferencia',
+			'Finales de conferencia'
+		]);
+	});
+});
+
+describe('toHomeLeadersView', () => {
+	it('gives null for no feed and for null leaders', () => {
+		expect(toHomeLeadersView(null)).toBeNull();
+		const home = feed();
+		home.leaders = null;
+		expect(toHomeLeadersView(home)).toBeNull();
+	});
+
+	it('gives four leaders in feed order with their values', () => {
+		const view = toHomeLeadersView(feed());
+		expect(view?.leaders.map((l) => l.key)).toEqual(['points', 'rebounds', 'assists', 'blocks']);
+		expect(view?.leaders.map((l) => l.category)).toEqual([
+			'Points per game',
+			'Rebounds per game',
+			'Assists per game',
+			'Blocks per game'
+		]);
+		expect(view?.leaders.map((l) => l.value)).toEqual(['31.4', '13.1', '10.2', '3.0']);
+	});
+
+	it('gives the category labels in Spanish', () => {
+		preferLanguages(['es']);
+		expect(toHomeLeadersView(feed())?.leaders.map((l) => l.category)).toEqual([
+			'Puntos por partido',
+			'Rebotes por partido',
+			'Asistencias por partido',
+			'Tapones por partido'
+		]);
+	});
+
+	it('gives exactly the categories the feed sends', () => {
+		const home = feed();
+		const [points, , , blocks] = home.leaders!.categories as [
+			HomeLeader,
+			HomeLeader,
+			HomeLeader,
+			HomeLeader
+		];
+		home.leaders!.categories = [points, blocks];
+		expect(toHomeLeadersView(home)?.leaders.map((l) => l.key)).toEqual(['points', 'blocks']);
+		home.leaders!.categories = [points];
+		expect(toHomeLeadersView(home)?.leaders.map((l) => l.key)).toEqual(['points']);
+	});
+
+	it('gives the title of each key in English and Spanish', () => {
+		const home = feed();
+		home.leaders!.title = 'season';
+		expect(toHomeLeadersView(home)?.title).toBe('This season');
+		home.leaders!.title = 'playoffs';
+		expect(toHomeLeadersView(home)?.title).toBe('Playoffs');
+		home.leaders!.title = 'previousSeason';
+		home.leaders!.seasonLabel = '2025-26';
+		expect(toHomeLeadersView(home)?.title).toBe('2025-26 season');
+		home.leaders!.seasonLabel = null;
+		expect(toHomeLeadersView(home)?.title).toBe('Last season');
+		preferLanguages(['es']);
+		home.leaders!.title = 'season';
+		expect(toHomeLeadersView(home)?.title).toBe('Esta temporada');
+		home.leaders!.title = 'previousSeason';
+		home.leaders!.seasonLabel = '2025-26';
+		expect(toHomeLeadersView(home)?.title).toBe('Temporada 2025-26');
+		home.leaders!.seasonLabel = null;
+		expect(toHomeLeadersView(home)?.title).toBe('Temporada pasada');
+	});
+
+	it('keeps a null photo, a null team and a dash name', () => {
+		const leaders = toHomeLeadersView(feed())!.leaders;
+		expect(leaders[0].photo).toBe('https://example.com/p-101.png');
+		expect(leaders[1].photo).toBeNull();
+		expect(leaders[2].team).toBeNull();
+		expect(leaders[3].name).toBe('—');
+	});
+
+	it('gives the team code and logo to the team mark', () => {
+		const [points, rebounds] = toHomeLeadersView(feed())!.leaders;
+		expect(points.team?.code).toBe('NRT');
+		expect(points.team?.logo?.light).toBe('https://example.com/nrt.svg');
+		expect(rebounds.team?.code).toBe('STH');
+		expect(rebounds.team?.logo).toBeUndefined();
 	});
 });

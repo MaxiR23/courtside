@@ -35,6 +35,8 @@
 	--home-last-games-loser-opacity: 0.45;
 	--home-last-games-label-column: 200px;
 	--home-last-games-accent-width: 3px;
+	--home-standings-accent-width: 3px;
+	--home-leaders-row-height: 72px;
 	--hero-watermark-size: clamp(180px, 26vw, 420px);
 	--section-h2-size: clamp(40px, 5vw, 64px);
 	--section-h2-line-height: 0.95;

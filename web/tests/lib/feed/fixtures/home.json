@@ -80,6 +80,53 @@
 			}
 		]
 	},
-	"leaders": null,
+	"leaders": {
+		"title": "season",
+		"seasonLabel": null,
+		"categories": [
+			{
+				"category": "points",
+				"playerId": "p-101",
+				"name": "Aron Vale",
+				"photoUrl": "https://example.com/p-101.png",
+				"team": {
+					"code": "NRT",
+					"logo": { "light": "https://example.com/nrt.svg", "dark": null },
+					"colors": { "primary": "#1D4E89", "secondary": null },
+					"accent": "#1D4E89"
+				},
+				"value": "31.4"
+			},
+			{
+				"category": "rebounds",
+				"playerId": "p-102",
+				"name": "Bram Okoro",
+				"photoUrl": null,
+				"team": { "code": "STH", "logo": null, "colors": null, "accent": null },
+				"value": "13.1"
+			},
+			{
+				"category": "assists",
+				"playerId": "p-103",
+				"name": "Cal Ruiz",
+				"photoUrl": "https://example.com/p-103.png",
+				"team": null,
+				"value": "10.2"
+			},
+			{
+				"category": "blocks",
+				"playerId": "p-104",
+				"name": "—",
+				"photoUrl": null,
+				"team": {
+					"code": "WST",
+					"logo": { "light": "https://example.com/wst.svg", "dark": null },
+					"colors": { "primary": "#2E7D4F", "secondary": null },
+					"accent": "#2E7D4F"
+				},
+				"value": "3.0"
+			}
+		]
+	},
 	"finalsPath": null
 }

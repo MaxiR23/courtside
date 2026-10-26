@@ -39,6 +39,8 @@ A dark-mode, single-page site with two parts:
 | `NoGamesHero` | The hero copy on a day with no games: scenario tag, date, title, paragraph and next tip-off |
 | `ComingUp` | The dated events of the Coming up window, as a card on desktop and a section on mobile |
 | `HomeLastGames` | The final games of the most recent game day on the home with no games: desktop rows and mobile cards |
+| `HomeStandings` | The home's compact standings: East / West, the top 6 and the play-in footnote; in the Finals preview each finalist's path |
+| `HomeLeaders` | The home's per-game leaders, one row per category the feed sends (one to four), with photo, category and team, name and value |
 | `ScheduleEmptyDay` | The home's box for a selected day with no games: the next game day or the two-weeks message, and the Go to button |
 | `NameLink` | A player or team name as a link, or as plain text when the href is null |
 
@@ -243,9 +245,15 @@ Built as `ScheduleEmptyDay`: the title "No games on this day", the text "Next ga
 
 From the existing standings feed, no new feed. An East / West segmented control, the top 6 rows (rank, team with logo, W–L, GB), the play-in teams 7 to 10 as a footnote, and "Full standings →" to `/standings`. In the Finals preview the tabs become the two finalists and the table shows each one's path from `finalsPath`: for each finalist its three series (round, opponent with logo and resolved color, result as wins–losses, won).
 
+Built as `HomeStandings`. The standings feed is loaded once, the first time today has no games, and is never polled: a day with no games does not move the table. The header is the h2 "Standings" with "Full standings →" on the right. The segmented control is the standings page's toggle (East / West). Columns: `#` (the seed, "—" when none), Team (logo and name), W–L and GB ("—" for the leader). The rows are 1 to 6 of the feed's seed order, and the footnote "Play-In · 7 XXX · 8 XXX · 9 XXX · 10 XXX" comes from rows 7 to 10, absent when the conference has no such rows. In the Finals preview the h2 is "Road to the Finals", there is no full standings link and the tabs are the two finalists (logo and name, East first). Columns: Round, Opponent (accent bar `--home-standings-accent-width`, 3px, in the opponent's resolved color, the neutral accent when null, with logo and name), Series (`4–2`) and Won / Lost. The section is hidden when the standings feed is loading, failed or not configured, and in the Finals preview when `finalsPath` is null (the regular-season table is not a stand-in). While the home feed loads in the Finals preview the compact standings may show first, then switch to the finalists. Spoiler-free does not apply: records and series results show as on `/standings`.
+
 ### Leaders
 
-From the home feed: four rows, one per category (points, rebounds, assists, blocks per game). Each row has a photo thumbnail anchored bottom-left so the head is never cut, the category and team, the name and the value. The title comes from a key: the season, the playoffs (Finals preview) or the previous season with its label (offseason). The section is hidden when `leaders` is null; a player with no photo shows our empty photo box. Percentage categories are excluded: early in the season there is no qualifying minimum.
+From the home feed: one row per category the feed sends, one to four, in the order points, rebounds, assists, blocks per game. A category with no leader is left out by the backend, never shown empty. Each row has a photo thumbnail anchored bottom-left so the head is never cut, the category and team, the name and the value. The title comes from a key: the season, the playoffs (Finals preview) or the previous season with its label (offseason). The section is hidden when `leaders` is null; a player with no photo shows our empty photo box. Percentage categories are excluded: early in the season there is no qualifying minimum.
+
+Built as `HomeLeaders`: the header is the kicker "Leaders" and the title as the h2 ("This season", "Playoffs" or "{season} season"). The categories read "Points per game", "Rebounds per game", "Assists per game" and "Blocks per game". The row is `--home-leaders-row-height` (72px) high: the photo at `--team-leader-photo-width` through `PlayerAvatar` size `leader`, the meta line (category · team code), the name and the value. Rows stack in one column with no placeholder rows. The section is hidden when `leaders` is null or the home feed is loading, failed or not configured.
+
+On the page, desktop puts the two sections side by side after the schedule; one present section takes the full width; mobile stacks Standings then Leaders.
 
 ### Deviations from the design handoff
 

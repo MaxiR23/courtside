@@ -25,6 +25,8 @@
 // - Last games after the home feed loads, in the documented order, with links to the game pages; absent when null, failed, not configured or on a day with games
 // - The empty-day box on a selected day with no games: next day and count, Go to link to /?day= inside the window, none outside it, the two-weeks message, the old row without the home feed
 // - The offseason hides the schedule and Last games takes the schedule anchor; the other scenarios keep it; spoiler-free hides the Last games scores
+// - Standings and Leaders after the schedule on a day with no games: the standings feed requested once, never on a day with games; two columns on a wide screen and stacked on a narrow one
+// - Each of the two sections hidden when its feed fails, is not configured or its data is null, the rest of the page still rendered; the Finals preview shows the finalists, and nothing without finalsPath; one to four leader rows; Spanish
 // - Team logos: a side's feed logo in the game card's large box, the code monogram for a null logo and the initials of a guest side added in memory
 //
 // What is covered:
@@ -43,7 +45,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { CalendarFeed } from '../../src/lib/contract/calendar';
 import type { GamesFeed } from '../../src/lib/contract/games';
-import type { HomeFeed } from '../../src/lib/contract/home';
+import type { HomeFeed, HomeLeader } from '../../src/lib/contract/home';
 import { IDLE_POLL_MS, SLOW_POLL_MS } from '../../src/lib/feed/poller.svelte';
 import { preferLanguages } from '../prefer-languages';
 
@@ -64,6 +66,7 @@ const config = vi.hoisted(() => ({
 	url: undefined as string | undefined,
 	calendarUrl: undefined as string | undefined,
 	homeUrl: undefined as string | undefined,
+	standingsUrl: undefined as string | undefined,
 	platform: undefined as string | undefined
 }));
 vi.mock('../../src/lib/feed/config', () => ({
@@ -76,6 +79,9 @@ vi.mock('../../src/lib/feed/config', () => ({
 	get homeFeedUrl() {
 		return config.homeUrl;
 	},
+	get standingsFeedUrl() {
+		return config.standingsUrl;
+	},
 	get videoPlatformName() {
 		return config.platform;
 	}
@@ -83,6 +89,7 @@ vi.mock('../../src/lib/feed/config', () => ({
 
 const FEED_URL = 'https://feeds.example.com/games.json';
 const HOME_URL = 'https://feeds.example.com/home.json';
+const STANDINGS_URL = 'https://feeds.example.com/standings.json';
 const CALENDAR_TEMPLATE = 'https://feeds.example.com/seasons/{season}/calendar.json';
 const CALENDAR_URL = 'https://feeds.example.com/seasons/current/calendar.json';
 // The current season: two days of the games feed and one day outside it.
@@ -104,6 +111,7 @@ const recorded = (): GamesFeed =>
 
 type Answer = () => Promise<unknown>;
 let homeAnswers: Answer[] = [];
+let standingsAnswers: Answer[] = [];
 let answers: Answer[];
 let fetchMock: ReturnType<typeof vi.fn>;
 const answerWith =
@@ -120,6 +128,7 @@ const homeAnswerWith =
 	(feed: HomeFeed): Answer =>
 	() =>
 		Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(feed) });
+const standingsCalls = () => fetchMock.mock.calls.filter(([url]) => url === STANDINGS_URL).length;
 const homeCalls = () => fetchMock.mock.calls.filter(([url]) => url === HOME_URL).length;
 
 /** The recorded feed with no game at all today. */
@@ -146,6 +155,11 @@ function stubFetch(...next: Answer[]) {
 		}
 		if (url === HOME_URL) {
 			const answer = homeAnswers.length > 1 ? homeAnswers.shift() : homeAnswers[0];
+			if (!answer) throw new Error(`Unexpected URL ${url}`);
+			return answer();
+		}
+		if (url === STANDINGS_URL) {
+			const answer = standingsAnswers.length > 1 ? standingsAnswers.shift() : standingsAnswers[0];
 			if (!answer) throw new Error(`Unexpected URL ${url}`);
 			return answer();
 		}
@@ -177,7 +191,9 @@ beforeEach(() => {
 	config.url = FEED_URL;
 	config.calendarUrl = undefined;
 	config.homeUrl = undefined;
+	config.standingsUrl = undefined;
 	homeAnswers = [];
+	standingsAnswers = [];
 	navigation.callbacks = [];
 	navigation.goto.mockReset();
 	config.platform = 'Video platform';
@@ -951,5 +967,183 @@ describe('home page on a day with no games', () => {
 				expect(container.querySelector('#schedule')).not.toBeNull();
 			}
 		);
+	});
+
+	describe('with Standings and Leaders', () => {
+		const standingsFeed = () =>
+			JSON.parse(
+				readFileSync(join(__dirname, '..', 'lib', 'feed', 'fixtures', 'standings.json'), 'utf8')
+			);
+		const previewFeed = (): HomeFeed =>
+			JSON.parse(
+				readFileSync(
+					join(__dirname, '..', 'lib', 'feed', 'fixtures', 'home-finals-preview.json'),
+					'utf8'
+				)
+			) as HomeFeed;
+		const standingsOk: Answer = () =>
+			Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(standingsFeed()) });
+		const setup = async (
+			options: {
+				home?: Answer | HomeFeed | null;
+				standings?: Answer | null;
+				edit?: (feed: HomeFeed) => void;
+			} = {}
+		) => {
+			const { home = homeFeed(), standings = standingsOk, edit = () => {} } = options;
+			config.homeUrl = home === null ? undefined : HOME_URL;
+			config.standingsUrl = standings === null ? undefined : STANDINGS_URL;
+			if (home !== null) {
+				if (typeof home === 'function') homeAnswers = [home];
+				else {
+					edit(home);
+					homeAnswers = [homeAnswerWith(home)];
+				}
+			}
+			standingsAnswers = standings === null ? [] : [standings];
+			stubFetch(answerWith(withoutGamesToday()));
+			const result = await renderPage();
+			await settle();
+			return result;
+		};
+
+		it('shows Standings and Leaders after the schedule and before the footer', async () => {
+			const { container } = await setup();
+			const wrapper = container.querySelector('.standings-leaders') as HTMLElement;
+			expect(wrapper).not.toBeNull();
+			expect(container.querySelector('#schedule')?.nextElementSibling).toBe(wrapper);
+			expect(wrapper.nextElementSibling?.tagName).toBe('FOOTER');
+			const standings = wrapper.querySelector('.home-standings') as HTMLElement;
+			expect(within(standings).getByRole('heading', { level: 2 }).textContent).toBe('Standings');
+			expect(standings.querySelectorAll('tbody tr')).toHaveLength(6);
+			const leaders = wrapper.querySelector('.home-leaders') as HTMLElement;
+			expect(within(leaders).getByRole('heading', { level: 2 }).textContent).toBe('This season');
+			expect(leaders.querySelectorAll('li.leader')).toHaveLength(4);
+		});
+
+		it('requests the standings feed once across several games polls', async () => {
+			await setup();
+			await vi.advanceTimersByTimeAsync(IDLE_POLL_MS * 2 + SLOW_POLL_MS);
+			await settle();
+			expect(standingsCalls()).toBe(1);
+		});
+
+		it('requests neither feed and renders no section on a day with games', async () => {
+			config.homeUrl = HOME_URL;
+			config.standingsUrl = STANDINGS_URL;
+			homeAnswers = [homeAnswerWith(homeFeed())];
+			standingsAnswers = [standingsOk];
+			stubFetch(answerWith(recorded()));
+			const { container } = await renderPage();
+			await vi.advanceTimersByTimeAsync(IDLE_POLL_MS);
+			expect(homeCalls()).toBe(0);
+			expect(standingsCalls()).toBe(0);
+			expect(container.querySelector('.standings-leaders')).toBeNull();
+		});
+
+		it('puts the sections in two columns on a wide screen', async () => {
+			const { container } = await setup();
+			const wrapper = container.querySelector('.standings-leaders') as HTMLElement;
+			expect(wrapper.classList.contains('columns')).toBe(true);
+			const source = readFileSync(
+				join(__dirname, '..', '..', 'src', 'routes', '+page.svelte'),
+				'utf8'
+			);
+			expect(source).toMatch(/\.columns\s*\{\s*grid-template-columns:\s*repeat\(auto-fit,/);
+		});
+
+		it('stacks Standings then Leaders on a narrow screen', async () => {
+			mobile();
+			const { container } = await setup();
+			const wrapper = container.querySelector('.standings-leaders') as HTMLElement;
+			expect(wrapper.classList.contains('columns')).toBe(false);
+			expect([...wrapper.children].map((c) => c.className.split(' ')[0])).toEqual([
+				'home-standings',
+				'home-leaders'
+			]);
+		});
+
+		it('hides Standings when the standings feed fails and keeps Leaders and the rest', async () => {
+			const { container } = await setup({ standings: answerFailing });
+			expect(container.querySelector('.home-standings')).toBeNull();
+			expect(container.querySelector('.home-leaders')).not.toBeNull();
+			expect(container.querySelector('.hero')).not.toBeNull();
+			expect(container.querySelector('#schedule')).not.toBeNull();
+		});
+
+		it('hides Standings, with no request, when the standings feed is not configured', async () => {
+			const { container } = await setup({ standings: null });
+			expect(container.querySelector('.home-standings')).toBeNull();
+			expect(container.querySelector('.home-leaders')).not.toBeNull();
+			expect(standingsCalls()).toBe(0);
+		});
+
+		it('hides Leaders when the home feed fails and keeps the compact standings', async () => {
+			const { container } = await setup({ home: answerFailing });
+			expect(container.querySelector('.home-leaders')).toBeNull();
+			expect(container.querySelector('.home-standings')).not.toBeNull();
+		});
+
+		it('renders no wrapper when both feeds fail', async () => {
+			const { container } = await setup({ home: answerFailing, standings: answerFailing });
+			expect(container.querySelector('.standings-leaders')).toBeNull();
+			expect(container.querySelector('.hero')).not.toBeNull();
+			expect(container.querySelector('#schedule')).not.toBeNull();
+		});
+
+		it('hides Leaders when the feed has none and gives the wrapper to Standings', async () => {
+			const { container } = await setup({
+				edit: (feed) => {
+					feed.leaders = null;
+				}
+			});
+			expect(container.querySelector('.home-leaders')).toBeNull();
+			expect(container.querySelector('.standings-leaders > .home-standings')).not.toBeNull();
+		});
+
+		it('shows one row per leader the feed sends', async () => {
+			const { container } = await setup({
+				edit: (feed) => {
+					const [points, , , blocks] = feed.leaders!.categories as [
+						HomeLeader,
+						HomeLeader,
+						HomeLeader,
+						HomeLeader
+					];
+					feed.leaders!.categories = [points, blocks];
+				}
+			});
+			expect(container.querySelectorAll('.home-leaders li.leader')).toHaveLength(2);
+		});
+
+		it('shows the finalists in the Finals preview', async () => {
+			const { container } = await setup({ home: previewFeed() });
+			const standings = container.querySelector('.home-standings') as HTMLElement;
+			expect(within(standings).getByRole('heading', { level: 2 }).textContent).toBe(
+				'Road to the Finals'
+			);
+			expect(within(standings).getByRole('button', { name: /Easterners/ })).toBeTruthy();
+			expect(within(standings).queryByRole('button', { name: 'East' })).toBeNull();
+		});
+
+		it('hides Standings in the Finals preview without a finals path', async () => {
+			const { container } = await setup({
+				home: previewFeed(),
+				edit: (feed) => {
+					feed.finalsPath = null;
+				}
+			});
+			expect(container.querySelector('.home-standings')).toBeNull();
+			expect(container.querySelector('.home-leaders')).not.toBeNull();
+		});
+
+		it('shows the section titles in Spanish', async () => {
+			preferLanguages(['es']);
+			const { container } = await setup();
+			const headings = [...container.querySelectorAll('.standings-leaders h2')].map(
+				(h) => h.textContent
+			);
+			expect(headings).toEqual(['Clasificación', 'Esta temporada']);
+		});
 	});
 });
