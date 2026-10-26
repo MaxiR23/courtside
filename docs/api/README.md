@@ -23,3 +23,5 @@ regenerated, with the TypeScript types, by `scripts/contract.sh`.
 - [`all-star.md`](all-star.md): the All-Star feed and its season feed.
 - [`calendar.md`](calendar.md): the calendar feed of a season.
 - [`days.md`](days.md): the day feed of a past day.
+- [`home.md`](home.md): the home feed of a day with no games.
+- [`power-ranking.md`](power-ranking.md): the power ranking feed.

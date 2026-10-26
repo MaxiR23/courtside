@@ -62,6 +62,8 @@ Feeds are produced either by scheduled jobs (live data and fixed-time work, rule
   - `seasons/{season}/cup.json` and `seasons/{season}/cup/matchups/{id}.json`: the Cup and one Cup matchup of a season from 2024 (the current season serves the current Cup feeds), a past season built once on request, as set in [`adr/0045-season-competition-feeds.md`](adr/0045-season-competition-feeds.md).
   - `seasons/{season}/playoffs.json` and `seasons/{season}/playoffs/finals.json`: the playoffs and the playoffs finals feed of a season from 1994 (the current season serves the current playoffs feeds), a past season built once on request, as set in [`adr/0046-season-playoffs-feeds.md`](adr/0046-season-playoffs-feeds.md).
   - `seasons/{season}/all-star.json`: the All-Star edition of a season from 1994 in its after state (the current season serves the current All-Star feed), a past season built once on request, as set in [`adr/0047-season-all-star-feed.md`](adr/0047-season-all-star-feed.md).
+  - `home.json`: the home of a day with no games (scenario, Coming up, next game, last games, leaders and the Finals path), built on demand and drawn by `/`, as set in [`adr/0074-home-feed.md`](adr/0074-home-feed.md).
+  - `power-ranking.json`: the regular season power ranking of the 30 teams, built on demand and drawn by `/standings`, as set in [`adr/0075-power-ranking-feed.md`](adr/0075-power-ranking-feed.md).
   - `games/{id}.json`: one detail feed per game in the days shown, built on request (a final game's once, at its final time), drawn by the front end's `/game/{id}` route. Its route is set in [`adr/0020-source-rules.md`](adr/0020-source-rules.md), first set by ADR 0019; its refresh, retries and deletion follow [`adr/0020-source-rules.md`](adr/0020-source-rules.md). The same route also serves one per final game of a stored day feed, built once on request and kept, as set in [`adr/0041-past-game-detail.md`](adr/0041-past-game-detail.md).
   - `players/{id}.json` and `teams/{code}.json`: one feed per player and per team, built on demand and drawn by `/player/{id}` and `/team/{code}`, as set in [`adr/0021-player-and-team-pages.md`](adr/0021-player-and-team-pages.md).
   - Seasonal feeds, such as playoffs or All-Star, added only while their section exists.
@@ -453,6 +455,14 @@ Recorded in [`adr/0072-resolved-team-colors-in-the-playoffs-and-cup-feeds.md`](a
 Recorded in [`adr/0073-no-champion-record-or-point-differential-in-the-playoffs-feed.md`](adr/0073-no-champion-record-or-point-differential-in-the-playoffs-feed.md):
 
 - **No champion record or point differential in the playoffs feed**: the playoffs champion has no `record`, `home`, `road` or `pointDifferential`; the current build reads no postseason record (`OTHER_READS` 59) and the past build no finalist record (`READ_BUDGET` 140: 61, 27, 52). A stored playoffs feed, current or past, whose champion still carries them is read with them dropped (`RETIRED_CHAMPION_FIELDS`), not rebuilt; any other unknown key still fails. The Finals feeds keep their finalist records.
+
+Recorded in [`adr/0074-home-feed.md`](adr/0074-home-feed.md):
+
+- **Home feed**: `/feeds/home.json` (id `league`) is built on demand and decides the scenario of a day with no games (`offDay`, `allStarBreak`, `finalsPreview`, `offseason`) from the dates, with `comingUp` (the next big event within 14 days or in progress, always in the offseason), `nextGame`, `lastGames` (from the games job memory inside the games feed window, else from the day feed), `leaders` and, in the Finals preview, `finalsPath`. The Cup, All-Star and playoffs feeds are built as dependencies only inside their windows. Rebuilt at the first US Eastern day change, and one hour after the build while an item of `comingUp` is `now`. Budget: season types 4, next game day scoreboard 1, leaders 1, identities 4. A failed read nulls its field.
+
+Recorded in [`adr/0075-power-ranking-feed.md`](adr/0075-power-ranking-feed.md):
+
+- **Power ranking feed**: `/feeds/power-ranking.json` (id `league`) is built on demand and is `available` only between the regular season start and end, with the regular-season run of 30 teams each with a non-empty rating; otherwise `unavailable` with no teams and no read. The provider `rank` is never used, a negative rating rank is a tie. Rebuilt at the first US Eastern day change. Budget: 2 page reads.
 
 ## Future
 

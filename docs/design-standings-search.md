@@ -121,6 +121,16 @@ A section under the tables, with the label "Key":
 - The seven codes with their meaning (see "Clinch tags").
 - A note: "GB, Div and Conf are within the group shown. Diff is per game, Tot is the season total. The lines mark seed 6 and seed 10."
 
+## Power ranking
+
+A section on `/standings`, below the standings table, for the current season only and for the regular season only (ADR 0075, `docs/api/power-ranking.md`). It is shown when the feed's state is `available` and hidden otherwise: on a past season, when `unavailable` and when the load fails. The page never breaks. `/web` computes nothing: the ranks, texts, the minus sign (U+2212), the muted flags and `titleShare` come ready.
+
+- **Header:** a kicker, the title "Power ranking" and the note "Regular season · Updated daily".
+- **Desktop columns:** `#`, Team (logo, name, city), Record, Rating (negative muted), Off, Def, Proj., Playoffs (muted under 10%, from the feed's flag) and Title (a bar scaled by `titleShare`, plus the value). A tied rank shows as tied.
+- **Top 10 by default.** A toggle "Show all 30 teams" / "Show top 10"; rows 11 to 30 are rendered only when shown.
+- **Mobile:** each row shows rank, logo and name, W–L, Title % and a chevron. A row expands to Rating, Proj., Playoffs and Off / Def. One row is open at a time; the chevron rotates.
+- All strings are in `en.json` and `es.json`; styles use tokens.
+
 ## Search overlay
 
 ### 1. Opening and closing
