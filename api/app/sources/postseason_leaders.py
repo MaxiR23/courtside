@@ -8,12 +8,13 @@
 # is absent. An athlete is read from the provider athlete id in its link, never
 # by following the link. A leader's team code comes from its team link, null
 # when the link is absent or is not a league team. The provider URL comes from Settings. Provider data
-# never leaves this module.
+# never leaves this module. The parsing is shared with season_leaders.py.
 #
 # SEE: docs/api/playoffs.md, docs/adr/0032-playoffs-feed.md,
-# api/app/sources/depth_chart.py
+# api/app/sources/depth_chart.py, api/app/sources/season_leaders.py
 
 import datetime as dt
+from collections.abc import Mapping
 
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -85,21 +86,62 @@ def _location(error: ValidationError) -> str:
     return ".".join(str(part) for part in error.errors()[0]["loc"])
 
 
-def _athlete_id(ref: str) -> str:
+def _invalid(source: str, error: ValidationError) -> SourceError:
+    return SourceError(
+        source,
+        f"invalid payload: {error.error_count()} errors, first at {_location(error)}",
+    )
+
+
+def _athlete_id(ref: str, source: str) -> str:
     parts = httpx.URL(ref).path.rstrip("/").split("/")
     if "athletes" not in parts[:-1]:
-        raise SourceError(SOURCE, "athlete link has no athlete id")
+        raise SourceError(source, "athlete link has no athlete id")
     return parts[parts.index("athletes") + 1]
 
 
-def _team_code(ref: str | None) -> str | None:
+def _team_code(ref: str | None, source: str) -> str | None:
     if ref is None:
         return None
     parts = httpx.URL(ref).path.rstrip("/").split("/")
     if "teams" not in parts[:-1]:
         return None
     team_id = parts[parts.index("teams") + 1]
-    return team_code_of_id(team_id, source=SOURCE) if team_id in TEAM_IDS else None
+    return team_code_of_id(team_id, source=source) if team_id in TEAM_IDS else None
+
+
+class _Categories(FeedModel):
+    categories: dict[LeaderCategory, list[LeaderEntry]]
+
+
+def parse_leaders(
+    body: object, *, source: str, names: Mapping[str, LeaderCategory]
+) -> dict[LeaderCategory, list[LeaderEntry]]:
+    """Map a leaders payload to the leaders of each named category in the
+    provider's order, or raise SourceError under `source`."""
+    try:
+        provider = _ProviderLeaders.model_validate(body)
+    except ValidationError as error:
+        raise _invalid(source, error) from None
+    categories: dict[LeaderCategory, list[dict[str, str | None]]] = {}
+    for category in provider.categories:
+        known = names.get(category.name)
+        if known is None or not category.leaders:
+            continue
+        categories[known] = [
+            {
+                "player_id": _athlete_id(leader.athlete.ref, source),
+                "value": leader.display_value,
+                "team_code": _team_code(
+                    None if leader.team is None else leader.team.ref, source
+                ),
+            }
+            for leader in category.leaders
+        ]
+    try:
+        return _Categories.model_validate({"categories": categories}).categories
+    except ValidationError as error:
+        raise _invalid(source, error) from None
 
 
 async def fetch_postseason_leaders(
@@ -110,32 +152,6 @@ async def fetch_postseason_leaders(
         raise SourceError(SOURCE, "postseason leaders URL is not configured")
     url = settings.postseason_leaders_url.format(season=season)
     body = await get_json(client, url, source=SOURCE, fresh=FRESH_FOR)
-    try:
-        provider = _ProviderLeaders.model_validate(body)
-    except ValidationError as error:
-        raise SourceError(
-            SOURCE,
-            f"invalid payload: {error.error_count()} errors, first at {_location(error)}",
-        ) from None
-    categories: dict[LeaderCategory, list[dict[str, str | None]]] = {}
-    for category in provider.categories:
-        known = CATEGORIES.get(category.name)
-        if known is None or not category.leaders:
-            continue
-        categories[known] = [
-            {
-                "player_id": _athlete_id(leader.athlete.ref),
-                "value": leader.display_value,
-                "team_code": _team_code(
-                    None if leader.team is None else leader.team.ref
-                ),
-            }
-            for leader in category.leaders
-        ]
-    try:
-        return PostseasonLeaders.model_validate({"categories": categories})
-    except ValidationError as error:
-        raise SourceError(
-            SOURCE,
-            f"invalid payload: {error.error_count()} errors, first at {_location(error)}",
-        ) from None
+    return PostseasonLeaders.model_validate(
+        {"categories": parse_leaders(body, source=SOURCE, names=CATEGORIES)}
+    )

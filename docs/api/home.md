@@ -75,3 +75,11 @@ Season types 4, the next game day scoreboard 1, leaders 1, player identities 4. 
 All-Star and playoffs feeds are built as dependencies only inside their windows and keep
 their own budgets. The leaders URL is the Settings template `season_leaders_url`
 (`{season}`).
+
+- **`SEASON_LEADERS_URL`** (`{season}`): `{"categories": [{"name", "leaders":
+  [{"displayValue", "athlete": {"$ref"}, "team": {"$ref"}}]}]}`. The names read are
+  `pointsPerGame`, `reboundsPerGame`, `assistsPerGame` and `blocksPerGame`; any other
+  category is ignored. The athlete id is the path part after `athletes` in the link,
+  and the link is never followed. The team code is the id after `teams` in the team
+  link, mapped to a league team; it is null when the link is absent or is not a league
+  team.
