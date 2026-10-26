@@ -30,7 +30,7 @@ Conventions:
 | Object | Fields |
 | --- | --- |
 | `PowerRankingTeam` | `rank` (1 to 30), `tied`, `team`: `PowerRankingIdentity`, `record` (wins-losses, such as `3-1`), `rating` (signed one-decimal text with the minus sign U+2212, zero unsigned), `ratingNegative` (true only for a negative rating), `offense`, `defense` (signed texts like `rating`), `projected` (the rounded projected wins-losses, such as `54-28`), `playoffs`, `title` (the provider's display texts as sent, such as `>99.9%` or `<0.1%`), `playoffsLow` (the playoffs chance is under 10%, read from its display text), `titleShare` (0 to 1: the title chance over the highest title chance of the 30, the rank 1 team's in the normal case; 0 for every team when that is 0) |
-| `PowerRankingIdentity` | `code`, `name` (null: from the cached team info, null when the cache has none), `city` (null: same source), `logo` (null: added when served, [ADR 0068](../adr/0068-shared-team-identity-and-hero-accents.md)), `colors` (null: added when served), `accent` (null: the resolved color, added when served, [ADR 0072](../adr/0072-resolved-team-colors-in-the-playoffs-and-cup-feeds.md)) |
+| `PowerRankingIdentity` | `code`, `name` (null: from the stored standings feed of the current season, else the cached team info, null with neither, [ADR 0078](../adr/0078-power-ranking-names-from-the-stored-standings-feed.md)), `city` (null: same source, taken with the name), `logo` (null: added when served, [ADR 0068](../adr/0068-shared-team-identity-and-hero-accents.md)), `colors` (null: added when served), `accent` (null: the resolved color, added when served, [ADR 0072](../adr/0072-resolved-team-colors-in-the-playoffs-and-cup-feeds.md)) |
 
 ## Rules that live in the code
 
@@ -43,13 +43,17 @@ Conventions:
   rating rank is a tie (absolute rank plus `tied`). Teams are ordered by rank and a tie
   keeps the provider's order.
 - The numeric team id maps to a team code through the teams module; no team read. The
-  name and city come from the team info already in the source cache, with no request.
+  name and city come from the stored standings feed of the current season, read from
+  disk with no request (warmed and never awaited when none of the season is stored);
+  else from the team info already in the source cache, with no request.
 - A failed season type or index read fails the build: the stored feed is kept and served,
   and with none stored the request answers 503. The failure is not retried for 10 minutes.
 
 ## Refresh
 
-On demand. Rebuilt at the first US Eastern day change after the build.
+On demand. Rebuilt at the first US Eastern day change after the build, and 1 hour after
+the build when any team's name is null; a stale feed is served at once and rebuilt in the
+background.
 
 ## Read budget
 

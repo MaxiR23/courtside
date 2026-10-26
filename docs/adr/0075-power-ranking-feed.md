@@ -1,6 +1,6 @@
 # 0075. Power ranking feed
 
-- Status: Accepted
+- Status: Superseded by 0078 for its freshness only
 - Date: 2026-10-26
 
 ## Context

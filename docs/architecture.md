@@ -462,7 +462,7 @@ Recorded in [`adr/0074-home-feed.md`](adr/0074-home-feed.md):
 
 Recorded in [`adr/0075-power-ranking-feed.md`](adr/0075-power-ranking-feed.md):
 
-- **Power ranking feed**: `/feeds/power-ranking.json` (id `league`) is built on demand and is `available` only between the regular season start and end, with the regular-season run of 30 teams each with a non-empty rating; otherwise `unavailable` with no teams and no read. The provider `rank` is never used, a negative rating rank is a tie. Rebuilt at the first US Eastern day change. Budget: 2 page reads.
+- **Power ranking feed**: `/feeds/power-ranking.json` (id `league`) is built on demand and is `available` only between the regular season start and end, with the regular-season run of 30 teams each with a non-empty rating; otherwise `unavailable` with no teams and no read. The provider `rank` is never used, a negative rating rank is a tie. Rebuilt at the first US Eastern day change, and 1 hour after the build while any name is null (since `adr/0078`). Budget: 2 page reads.
 - **Note on ADR 0075** (the ADR is not edited): `titleShare` is taken over the highest title chance of the 30 teams, not over the top team's. One season-type read is sent besides the 2 page reads and is budgeted apart, so the 2 page reads stay true. Both points are written in `docs/api/power-ranking.md` and `docs/source-rules.md`.
 
 Recorded in [`adr/0076-coming-up-links-to-seasonal-pages.md`](adr/0076-coming-up-links-to-seasonal-pages.md):
@@ -472,6 +472,10 @@ Recorded in [`adr/0076-coming-up-links-to-seasonal-pages.md`](adr/0076-coming-up
 Recorded in [`adr/0077-home-warms-its-dependencies.md`](adr/0077-home-warms-its-dependencies.md):
 
 - **Home warms its dependencies**: the home build awaits only the calendar and the day feed of the last-games day; it warms the Cup (regular season, none of this season stored or not complete), All-Star (February 1 to March 7) and playoffs (play-in start to postseason end) feeds, never waits on them and reads them as stored. The home is stale once a build of one of them other than the one it read is recorded (with no memory of it, one after the home's build), and is then served at once and rebuilt in the background.
+
+Recorded in [`adr/0078-power-ranking-names-from-the-stored-standings-feed.md`](adr/0078-power-ranking-names-from-the-stored-standings-feed.md):
+
+- **Power ranking names**: a team's name and city come from the stored standings feed of the current season (no request), else the cached team info, else null. With teams to name and no standings feed of the season stored, the build warms it and never waits. A feed with any null name is fresh for 1 hour after its build and is then served at once and rebuilt in the background; a complete one stays fresh until the US Eastern day change.
 
 ## Future
 
