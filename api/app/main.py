@@ -19,6 +19,7 @@ from app.jobs.game_detail_feed import GameDetailFeeds
 from app.jobs.games import GamesJob
 from app.jobs.highlights import HighlightsJob
 from app.jobs.highlights_search import HighlightsSearch
+from app.jobs.home_feed import HomeFeeds
 from app.jobs.on_demand import FeedCache
 from app.jobs.past_game_detail_feed import KIND as PAST_GAMES_KIND
 from app.jobs.past_game_detail_feed import PastGameDetailFeeds
@@ -258,6 +259,16 @@ def create_app(settings: Settings | None = None, *, run_jobs: bool = True) -> Fa
             games_job,
             team_names,
             on_publish=lambda day_id, feed: past_details.index_day(day_id, feed),
+        )
+        HomeFeeds(
+            settings,
+            store,
+            client,
+            feed_cache,
+            games_job,
+            stars_job,
+            cup_feeds,
+            playoffs_feeds,
         )
         past_details = PastGameDetailFeeds(
             settings, store, client, feed_cache, search=highlights_search

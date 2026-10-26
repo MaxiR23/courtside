@@ -1,0 +1,530 @@
+{
+  "$defs": {
+    "ComingUpItem": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "$ref": "#/$defs/ComingUpKey"
+        },
+        "startDate": {
+          "format": "date",
+          "type": "string"
+        },
+        "endDate": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "status": {
+          "$ref": "#/$defs/ComingUpStatus"
+        }
+      },
+      "required": [
+        "key",
+        "startDate",
+        "endDate",
+        "status"
+      ],
+      "title": "ComingUpItem",
+      "type": "object"
+    },
+    "ComingUpKey": {
+      "enum": [
+        "openingNight",
+        "cupGroupStage",
+        "cupKnockout",
+        "cupFinal",
+        "allStar",
+        "playIn",
+        "playoffs",
+        "finals",
+        "preseason"
+      ],
+      "title": "ComingUpKey",
+      "type": "string"
+    },
+    "ComingUpStatus": {
+      "enum": [
+        "done",
+        "now",
+        "upcoming"
+      ],
+      "title": "ComingUpStatus",
+      "type": "string"
+    },
+    "GameAccent": {
+      "additionalProperties": false,
+      "description": "The color each side of a game shows in the hero (ADR 0068); null for a\nside with no colors.",
+      "properties": {
+        "away": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "home": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "away",
+        "home"
+      ],
+      "title": "GameAccent",
+      "type": "object"
+    },
+    "HomeScenario": {
+      "enum": [
+        "offDay",
+        "allStarBreak",
+        "finalsPreview",
+        "offseason"
+      ],
+      "title": "HomeScenario",
+      "type": "string"
+    },
+    "LastGame": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "away": {
+          "$ref": "#/$defs/Opponent"
+        },
+        "home": {
+          "$ref": "#/$defs/Opponent"
+        },
+        "score": {
+          "$ref": "#/$defs/Score"
+        },
+        "winner": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Side"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "label": {
+          "$ref": "#/$defs/LastGameLabel"
+        },
+        "gameNumber": {
+          "anyOf": [
+            {
+              "maximum": 7,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "accent": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GameAccent"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "id",
+        "away",
+        "home",
+        "score",
+        "winner",
+        "label",
+        "gameNumber",
+        "accent"
+      ],
+      "title": "LastGame",
+      "type": "object"
+    },
+    "LastGameLabel": {
+      "enum": [
+        "final",
+        "finalOvertime",
+        "playIn",
+        "firstRound",
+        "conferenceSemifinals",
+        "conferenceFinals",
+        "finals"
+      ],
+      "title": "LastGameLabel",
+      "type": "string"
+    },
+    "LastGames": {
+      "additionalProperties": false,
+      "properties": {
+        "date": {
+          "format": "date",
+          "type": "string"
+        },
+        "title": {
+          "$ref": "#/$defs/LastGamesTitle"
+        },
+        "games": {
+          "items": {
+            "$ref": "#/$defs/LastGame"
+          },
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "date",
+        "title",
+        "games"
+      ],
+      "title": "LastGames",
+      "type": "object"
+    },
+    "LastGamesTitle": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "$ref": "#/$defs/LastGamesTitleKey"
+        },
+        "days": {
+          "anyOf": [
+            {
+              "minimum": 2,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "key",
+        "days"
+      ],
+      "title": "LastGamesTitle",
+      "type": "object"
+    },
+    "LastGamesTitleKey": {
+      "enum": [
+        "lastNight",
+        "daysAgo",
+        "beforeTheBreak",
+        "conferenceFinals",
+        "lastGamesPlayed"
+      ],
+      "title": "LastGamesTitleKey",
+      "type": "string"
+    },
+    "NextGame": {
+      "additionalProperties": false,
+      "properties": {
+        "date": {
+          "format": "date",
+          "type": "string"
+        },
+        "firstTipOff": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "broadcast": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "gameCount": {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        "inGamesWindow": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "date",
+        "firstTipOff",
+        "broadcast",
+        "gameCount",
+        "inGamesWindow"
+      ],
+      "title": "NextGame",
+      "type": "object"
+    },
+    "Opponent": {
+      "additionalProperties": false,
+      "description": "A team a game is played against: a league team or a guest.",
+      "properties": {
+        "code": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "city": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "guest": {
+          "default": false,
+          "type": "boolean"
+        },
+        "seasonCode": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "historical": {
+          "default": false,
+          "type": "boolean"
+        },
+        "logo": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TeamLogo"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "colors": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TeamColors"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "code",
+        "name",
+        "city",
+        "guest",
+        "seasonCode",
+        "historical",
+        "logo",
+        "colors"
+      ],
+      "title": "Opponent",
+      "type": "object"
+    },
+    "Score": {
+      "additionalProperties": false,
+      "properties": {
+        "away": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "home": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "away",
+        "home"
+      ],
+      "title": "Score",
+      "type": "object"
+    },
+    "Side": {
+      "enum": [
+        "away",
+        "home"
+      ],
+      "title": "Side",
+      "type": "string"
+    },
+    "TeamColors": {
+      "additionalProperties": false,
+      "properties": {
+        "primary": {
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "type": "string"
+        },
+        "secondary": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "primary",
+        "secondary"
+      ],
+      "title": "TeamColors",
+      "type": "object"
+    },
+    "TeamLogo": {
+      "additionalProperties": false,
+      "description": "A team's logo: the one for a light background and, when the source has\none, the one for a dark background.",
+      "properties": {
+        "light": {
+          "format": "uri",
+          "maxLength": 2083,
+          "minLength": 1,
+          "type": "string"
+        },
+        "dark": {
+          "anyOf": [
+            {
+              "format": "uri",
+              "maxLength": 2083,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "light",
+        "dark"
+      ],
+      "title": "TeamLogo",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "season": {
+      "pattern": "^\\d{4}-\\d{2}$",
+      "type": "string"
+    },
+    "date": {
+      "format": "date",
+      "type": "string"
+    },
+    "scenario": {
+      "$ref": "#/$defs/HomeScenario"
+    },
+    "comingUp": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/ComingUpItem"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "nextGame": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/NextGame"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "lastGames": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/LastGames"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "leaders": {
+      "type": "null"
+    },
+    "finalsPath": {
+      "type": "null"
+    }
+  },
+  "required": [
+    "season",
+    "date",
+    "scenario",
+    "comingUp",
+    "nextGame",
+    "lastGames",
+    "leaders",
+    "finalsPath"
+  ],
+  "title": "HomeFeed",
+  "type": "object"
+}
