@@ -1,0 +1,45 @@
+{
+ "categories": [
+  {
+   "name": "pointsPerGame",
+   "leaders": [
+    {
+     "displayValue": "30.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/100?lang=en"
+     },
+     "team": {
+      "$ref": "https://example.com/v2/seasons/2027/teams/2?lang=en"
+     }
+    },
+    {
+     "displayValue": "29.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/101?lang=en"
+     },
+     "team": {
+      "$ref": "https://example.com/v2/seasons/2027/teams/4?lang=en"
+     }
+    }
+   ]
+  },
+  {
+   "name": "reboundsPerGame",
+   "leaders": []
+  },
+  {
+   "name": "assistsPerGame",
+   "leaders": [
+    {
+     "displayValue": "10.0",
+     "athlete": {
+      "$ref": "https://example.com/v2/athletes/300?lang=en"
+     },
+     "team": {
+      "$ref": "https://example.com/v2/seasons/2027/teams/1?lang=en"
+     }
+    }
+   ]
+  }
+ ]
+}

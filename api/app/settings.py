@@ -36,6 +36,7 @@ EXACT_PLACEHOLDERS: dict[str, frozenset[str]] = {
     "season_roster_url": frozenset({"season", "team_id"}),
     "season_type_url": frozenset({"season", "type"}),
     "postseason_leaders_url": frozenset({"season"}),
+    "season_leaders_url": frozenset({"season"}),
     "team_postseason_record_url": frozenset({"season", "team_id"}),
     "team_postseason_stats_url": frozenset({"season", "team_id"}),
     "season_awards_url": frozenset({"season"}),
@@ -112,6 +113,9 @@ class Settings(BaseSettings):
     season_type_url: str | None = None
     # Template with {season}: the postseason leaders by category.
     postseason_leaders_url: str | None = None
+    # Template with {season}, the end year of the season: the regular-season
+    # leaders by category. The template's own query selects the regular season.
+    season_leaders_url: str | None = None
     # Template with {season} and {team_id}, the provider's team id: the
     # postseason record of one team (overall, home and road).
     team_postseason_record_url: str | None = None
