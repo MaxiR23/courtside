@@ -5,7 +5,8 @@
 # SEE: docs/api/games.md, docs/api/game-detail.md, docs/api/player.md, docs/api/team.md,
 # docs/api/standings.md, docs/api/search.md, docs/api/cup.md,
 # docs/api/cup-matchup.md, docs/api/playoffs.md, docs/api/all-star.md,
-# docs/api/calendar.md, docs/api/days.md, docs/adr/0041-past-game-detail.md,
+# docs/api/calendar.md, docs/api/days.md, docs/api/home.md, docs/adr/0074-home-feed.md,
+# docs/adr/0041-past-game-detail.md,
 # docs/adr/0043-season-feeds-and-franchise-names.md,
 # docs/adr/0045-season-competition-feeds.md,
 # docs/adr/0046-season-playoffs-feeds.md,
@@ -24,6 +25,8 @@ from app.jobs.cup_feed import KIND as CUP_KIND
 from app.jobs.cup_matchup_feed import KIND as MATCHUP_KIND
 from app.jobs.day_feed import KIND as DAY_KIND
 from app.jobs.game_detail_feed import KIND
+from app.jobs.home_feed import FEED_ID as HOME_ID
+from app.jobs.home_feed import KIND as HOME_KIND
 from app.jobs.on_demand import (
     FeedCache,
     FeedUnavailableError,
@@ -109,6 +112,13 @@ async def read_team_feed(code: str, request: Request) -> Response:
 async def read_standings_feed(request: Request) -> Response:
     return await serve_on_demand(
         request.app.state.feed_cache, STANDINGS_KIND, STANDINGS_ID, request
+    )
+
+
+@router.get("/feeds/home.json")
+async def read_home_feed(request: Request) -> Response:
+    return await serve_on_demand(
+        request.app.state.feed_cache, HOME_KIND, HOME_ID, request
     )
 
 

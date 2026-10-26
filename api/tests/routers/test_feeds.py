@@ -23,6 +23,7 @@
 # - Serves a team feed with Cache-Control and ETag, answers 304 for a matching ETag, 404 for an unknown or uppercase code and 503 when the build fails
 # - Serves a player feed with Cache-Control and ETag, answers 304 for a matching ETag, 404 for an id in no roster once the rosters are fetched and 503 before, also through the app with no jobs
 # - A team and a player request record presence
+# - Serves the home feed with Cache-Control and ETag, answers 304 for a matching ETag, 503 while the season is not known, keeps serving the stored feed when a rebuild fails and answers 200 with a null next game when the scoreboard read fails
 # - Serves the standings feed with Cache-Control and ETag, answers 304 for a matching ETag, 503 when the read fails with nothing stored and keeps serving the stored feed when a rebuild fails
 # - Serves the search feed with Cache-Control and ETag, with 30 teams and every roster player, and answers 304 for a matching ETag
 # - Responds 503 with a JSON error for the search feed before the rosters are fetched or when the standings read fails with nothing stored, and keeps serving the stored feed when a rebuild fails
@@ -91,6 +92,7 @@ from app.feeds.cup_matchup import CupMatchupFeed
 from app.feeds.days import DayFeed
 from app.feeds.game_detail import GameDetailFeed, PastGameDetailFeed
 from app.feeds.games import GamesFeed, GameStatus, Star, Stars
+from app.feeds.home import HomeFeed
 from app.feeds.player import PastPlayerFeed, PlayerFeed
 from app.feeds.playoffs import PlayoffsFeed
 from app.feeds.playoffs_finals import PlayoffsFinalsFeed
@@ -130,6 +132,7 @@ from tests.jobs.test_cup_matchup_feed import MatchupKit
 from tests.jobs.test_day_feed import NOW as DAY_NOW
 from tests.jobs.test_day_feed import PAST, DayKit, search_url
 from tests.jobs.test_day_feed import game as day_game
+from tests.jobs.test_home_feed import HomeKit
 from tests.jobs.test_past_game_detail_feed import PastKit
 from tests.jobs.test_player_feed import PlayerKit, player
 from tests.jobs.test_playoffs_feed import (
@@ -866,6 +869,86 @@ def test_keeps_serving_the_stored_standings_when_a_rebuild_fails(
 
     assert response.status_code == 200
     assert response.content == first.content
+
+
+class Home:
+    """An app with the feeds router and the home kind over the home kit's fakes."""
+
+    def __init__(self, path: Path) -> None:
+        self.kit = HomeKit(path)
+        self.kit.calendars[2027] = [dt.date(2027, 1, 19), dt.date(2027, 1, 27)]
+        self.app = FastAPI()
+        self.app.include_router(feeds_router.router)
+        self.app.state.settings = self.kit.settings
+        self.app.state.presence = Presence(clock=lambda: self.kit.clock[0])
+        self.app.state.games_job = self.kit.games
+        self.app.state.feed_cache = self.kit.cache
+
+
+@pytest.fixture
+def home(tmp_path: Path) -> Iterator[Home]:
+    with respx.mock:
+        yield Home(tmp_path)
+
+
+def test_serves_the_home_feed_with_cache_control_and_an_etag(home: Home) -> None:
+    with TestClient(home.app) as client:
+        response = client.get("/feeds/home.json")
+
+    assert response.status_code == 200
+    feed = HomeFeed.model_validate_json(response.content)
+    assert feed.season == "2026-27"
+    assert feed.leaders is None and feed.finals_path is None
+    assert response.headers["content-type"] == "application/json"
+    assert response.headers["cache-control"] == CACHE_CONTROL
+    etag = response.headers["etag"]
+    assert etag.startswith('"') and etag.endswith('"')
+
+
+def test_responds_304_when_the_home_etag_matches(home: Home) -> None:
+    with TestClient(home.app) as client:
+        first = client.get("/feeds/home.json")
+
+        response = client.get(
+            "/feeds/home.json", headers={"If-None-Match": first.headers["etag"]}
+        )
+
+    assert response.status_code == 304
+    assert response.content == b""
+
+
+def test_responds_503_for_the_home_feed_while_the_season_is_not_known(
+    home: Home,
+) -> None:
+    home.kit.stars.season = None
+    with TestClient(home.app) as client:
+        response = client.get("/feeds/home.json")
+
+    assert response.status_code == 503
+    assert isinstance(response.json()["detail"], str)
+
+
+def test_keeps_serving_the_stored_home_feed_when_a_rebuild_fails(home: Home) -> None:
+    with TestClient(home.app) as client:
+        first = client.get("/feeds/home.json")
+        home.kit.clock[0] += dt.timedelta(days=1)
+        home.kit.stars.season = None
+
+        response = client.get("/feeds/home.json")
+
+    assert response.status_code == 200
+    assert response.content == first.content
+
+
+def test_serves_the_home_feed_with_a_null_next_game_when_the_scoreboard_read_fails(
+    home: Home,
+) -> None:
+    home.kit.failing.add("day/2027-01-27")
+    with TestClient(home.app) as client:
+        response = client.get("/feeds/home.json")
+
+    assert response.status_code == 200
+    assert HomeFeed.model_validate_json(response.content).next_game is None
 
 
 class Search:

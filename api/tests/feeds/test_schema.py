@@ -5,7 +5,7 @@
 # Tested:
 # - The committed schema of each feed matches its models
 # - One schema file is written per feed
-# - The schema forbids unknown fields and lists nullable fields as required
+# - The schema forbids unknown fields and lists nullable fields as required, the home schema included
 # - Fields carry no title
 # - Every team object of every feed carries a logo, and one with a code and a logo carries colors (ADR 0068)
 #
@@ -20,7 +20,8 @@
 # api/schemas/search.schema.json, api/schemas/cup.schema.json,
 # api/schemas/cup-matchup.schema.json, api/schemas/playoffs.schema.json,
 # api/schemas/playoffs-finals.schema.json, api/schemas/all-star.schema.json,
-# api/schemas/calendar.schema.json, api/schemas/days.schema.json
+# api/schemas/calendar.schema.json, api/schemas/days.schema.json,
+# api/schemas/home.schema.json
 
 import json
 from pathlib import Path
@@ -36,6 +37,7 @@ from app.feeds.cup_matchup import CupMatchupFeed
 from app.feeds.days import DayFeed
 from app.feeds.game_detail import GameDetailFeed
 from app.feeds.games import GamesFeed
+from app.feeds.home import HomeFeed
 from app.feeds.player import PlayerFeed
 from app.feeds.playoffs import PlayoffsFeed
 from app.feeds.playoffs_finals import PlayoffsFinalsFeed
@@ -76,6 +78,7 @@ def test_writes_one_schema_file_per_feed(tmp_path: Path) -> None:
         tmp_path / "all-star.schema.json",
         tmp_path / "calendar.schema.json",
         tmp_path / "days.schema.json",
+        tmp_path / "home.schema.json",
     ]
     assert written[0].read_text(encoding="utf-8") == render_schema(GamesFeed)
     assert written[1].read_text(encoding="utf-8") == render_schema(GameDetailFeed)
@@ -90,6 +93,7 @@ def test_writes_one_schema_file_per_feed(tmp_path: Path) -> None:
     assert written[10].read_text(encoding="utf-8") == render_schema(AllStarFeed)
     assert written[11].read_text(encoding="utf-8") == render_schema(CalendarFeed)
     assert written[12].read_text(encoding="utf-8") == render_schema(DayFeed)
+    assert written[13].read_text(encoding="utf-8") == render_schema(HomeFeed)
 
 
 def test_schema_forbids_unknown_fields() -> None:
@@ -134,6 +138,13 @@ def test_cup_schema_lists_nullable_fields_as_required() -> None:
     schema: dict[str, Any] = json.loads(render_schema(CupFeed))
 
     assert "champion" in schema["required"]
+
+
+def test_home_schema_lists_nullable_fields_as_required() -> None:
+    schema: dict[str, Any] = json.loads(render_schema(HomeFeed))
+
+    for name in ("comingUp", "nextGame", "lastGames", "leaders", "finalsPath"):
+        assert name in schema["required"]
 
 
 def test_cup_matchup_schema_lists_nullable_fields_as_required() -> None:

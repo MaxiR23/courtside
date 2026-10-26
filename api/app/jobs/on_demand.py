@@ -6,6 +6,10 @@
 # built first when missing or stale, before the build takes one of the build slots. A build may find that
 # its id is unknown: it raises UnknownFeedError after the kind's check learns it, and the request answers unknown.
 #
+# A kind may set prepare: it runs before the build takes a slot, may read under its own budget and may make
+# any number of feeds fresh through the ensure it is given; each keeps its own budget, and at the cap of
+# MAX_QUEUED_BUILDS an ensured feed is used as stored.
+#
 # A failed build or dependency is recorded with the error's own reason when it carries a non-empty one,
 # else with its type.
 #
@@ -91,6 +95,9 @@ def is_current_build(feed: BaseModel, version: int = SEASON_BUILD_VERSION) -> bo
     return getattr(feed, "build_version", None) == version
 
 
+Ensure = Callable[[str, str], Awaitable[None]]
+
+
 class IdStatus(StrEnum):
     KNOWN = "known"
     UNKNOWN = "unknown"
@@ -119,6 +126,7 @@ class FeedKind[M: BaseModel]:
         wait_when_stale: Callable[[str], bool] | None = None,
         depends_on: Callable[[str], tuple[str, str] | None] | None = None,
         after_publish: Callable[[str, M], None] | None = None,
+        prepare: Callable[[str, Ensure], Awaitable[None]] | None = None,
     ) -> None:
         self.name = name
         self.model = model
@@ -130,6 +138,7 @@ class FeedKind[M: BaseModel]:
         self.wait_when_stale = wait_when_stale
         self.depends_on = depends_on
         self.after_publish = after_publish
+        self.prepare = prepare
 
 
 class FeedCache:
@@ -359,11 +368,14 @@ class FeedCache:
         await asyncio.shield(task)
 
     async def _build(self, kind: FeedKind[Any], feed_id: str) -> bool:
-        if kind.depends_on is not None:
+        if kind.depends_on is not None or kind.prepare is not None:
             try:
-                pair = kind.depends_on(feed_id)
-                if pair is not None:
-                    await self._ensure(*pair)
+                if kind.depends_on is not None:
+                    pair = kind.depends_on(feed_id)
+                    if pair is not None:
+                        await self._ensure(*pair)
+                if kind.prepare is not None:
+                    await kind.prepare(feed_id, self._ensure)
             except Exception as error:  # noqa: BLE001 - a failed build must never escape
                 self._store.record_build_failure(
                     kind.name,

@@ -40,6 +40,10 @@
 # - A fresh dependency is not rebuilt and a stale one is rebuilt before the build
 # - A dependency build already in flight is joined: one build of it in total
 # - Five dependent builds of five missing dependencies finish while at most 4 builds run at once
+# - A build whose kind sets prepare builds every feed the hook ensures, in order, before itself
+# - A feed the hook ensures that is fresh is not rebuilt
+# - An exception raised by the hook is recorded as a failed build of the feed and never raised
+# - Five builds whose hook waits on a gated feed finish while at most 4 builds run at once
 # - A dependency inside its 10-minute backoff is not rebuilt and the dependent build still runs
 # - A dependency id its kind does not know is skipped with no build
 # - An exception raised while ensuring the dependency is recorded as a failed build of the dependent feed and never raised
@@ -82,6 +86,7 @@ from app.jobs.on_demand import (
     MISSING_WAIT_SECONDS,
     RETRY_AFTER,
     SEASON_BUILD_VERSION,
+    Ensure,
     FeedCache,
     FeedKind,
     FeedUnavailableError,
@@ -151,6 +156,7 @@ class Fake:
         serve_with: object = None,
         depends_on: object = None,
         after_publish: object = None,
+        prepare: object = None,
     ) -> FeedKind[FakeFeed]:
         return FeedKind(
             self.name,
@@ -162,6 +168,7 @@ class Fake:
             serve_with=serve_with,  # type: ignore[arg-type]
             depends_on=depends_on,  # type: ignore[arg-type]
             after_publish=after_publish,  # type: ignore[arg-type]
+            prepare=prepare,  # type: ignore[arg-type]
         )
 
 
@@ -1065,6 +1072,99 @@ async def test_an_error_ensuring_the_dependency_is_recorded_as_a_failed_build_an
     assert state is not None
     assert state.last_failure_reason == "unexpected error: RuntimeError"
     assert dep.setup.stored("p1") is None
+
+
+class Prepared:
+    """A kind (players) whose prepare hook ensures feeds of another kind (teams)."""
+
+    def __init__(self, path: Path, ids: dict[str, list[str]] | None = None) -> None:
+        self.teams = Fake("teams")
+        self.players = Fake("players")
+        self.order: list[str] = []
+        self.ids = ids or {}
+        self.error: Exception | None = None
+        self.setup = Setup(path, self.teams)
+        self.setup.cache.register(self.players.kind(prepare=self.prepare))
+        for fake in (self.teams, self.players):
+            self._record(fake)
+
+    async def prepare(self, feed_id: str, ensure: Ensure) -> None:
+        if self.error is not None:
+            raise self.error
+        for team in self.ids.get(feed_id, ["t1", "t2"]):
+            await ensure("teams", team)
+
+    def _record(self, fake: Fake) -> None:
+        build = fake.build
+
+        async def recorded(feed_id: str) -> FakeFeed:
+            self.order.append(f"{fake.name}:{feed_id}")
+            return await build(feed_id)
+
+        fake.build = recorded  # type: ignore[method-assign]
+        self.setup.cache._kinds[fake.name].build = recorded
+
+
+@pytest.mark.anyio
+async def test_a_kind_with_prepare_builds_every_feed_it_ensures_before_itself(
+    tmp_path: Path,
+) -> None:
+    prep = Prepared(tmp_path)
+
+    body = await prep.setup.cache.serve("players", "p1")
+
+    assert prep.order == ["teams:t1", "teams:t2", "players:p1"]
+    assert body == body_of(1)
+    assert read_by_id(tmp_path, "teams", "t2") == body_of(1, "t2")
+
+
+@pytest.mark.anyio
+async def test_prepare_ensuring_a_fresh_feed_rebuilds_nothing(tmp_path: Path) -> None:
+    prep = Prepared(tmp_path)
+    await prep.setup.cache.serve("teams", "t1")
+    await prep.setup.cache.serve("teams", "t2")
+    prep.order.clear()
+
+    await prep.setup.cache.serve("players", "p1")
+
+    assert prep.order == ["players:p1"]
+
+
+@pytest.mark.anyio
+async def test_an_error_in_prepare_is_recorded_as_a_failed_build_and_never_raised(
+    tmp_path: Path,
+) -> None:
+    prep = Prepared(tmp_path)
+    prep.error = RuntimeError("boom")
+
+    with pytest.raises(FeedUnavailableError):
+        await prep.setup.cache.serve("players", "p1")
+
+    assert prep.players.builds == 0
+    state = prep.setup.store.feed_build("players", "p1")
+    assert state is not None
+    assert state.last_failure_reason == "unexpected error: RuntimeError"
+    assert prep.setup.stored("p1") is None
+
+
+@pytest.mark.anyio
+async def test_prepare_runs_before_the_build_takes_a_slot(tmp_path: Path) -> None:
+    prep = Prepared(tmp_path, {f"p{n}": [f"t{n}"] for n in range(5)})
+    prep.teams.gate = asyncio.Event()
+    tasks = [
+        asyncio.create_task(prep.setup.cache.serve("players", f"p{n}"))
+        for n in range(5)
+    ]
+    for _ in range(20):
+        await asyncio.sleep(0)
+
+    prep.teams.gate.set()
+    bodies = await asyncio.wait_for(asyncio.gather(*tasks), 5)
+
+    assert bodies == [body_of(1, f"p{n}") for n in range(5)]
+    assert prep.teams.builds == 5
+    assert prep.teams.peak <= MAX_BUILDS
+    assert prep.players.peak <= MAX_BUILDS
 
 
 @pytest.mark.anyio

@@ -1,9 +1,9 @@
 # api/app/sources/season_types.py
 #
-# Season type adapter: fetches the start and end of one season type (2 regular
-# season, 5 play-in, 3 postseason) of a season from the provider and maps them to
-# UTC instants. The window is read as the provider sends it: the playoffs feed
-# turns it into US Eastern dates. A payload without both dates, or with an end
+# Season type adapter: fetches the start and end of one season type (1 preseason,
+# 2 regular season, 5 play-in, 3 postseason) of a season from the provider and
+# maps them to UTC instants. The window is read as the provider sends it: the
+# playoffs feed turns it into US Eastern dates. A payload without both dates, or with an end
 # that is not after the start, is rejected. The provider URL comes from Settings.
 # Provider data never leaves this module.
 #
@@ -26,6 +26,7 @@ from app.sources.http import SourceClient, SourceError, get_json
 
 SOURCE = "season_type"
 FRESH_FOR = dt.timedelta(hours=1)
+PRESEASON = 1
 REGULAR_SEASON = 2
 PLAY_IN = 5
 POSTSEASON = 3

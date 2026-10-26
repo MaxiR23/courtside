@@ -3,7 +3,7 @@
 # Tests for the season type adapter.
 #
 # Tested:
-# - Maps the regular season, the play-in and the postseason to their windows in UTC
+# - Maps the preseason, the regular season, the play-in and the postseason to their windows in UTC
 # - Requests the URL built from the season and the season type
 # - Raises the source error on a missing end date, an end before the start, an invalid payload, a timeout, an error status and a missing URL
 # - Reuses a read for one hour
@@ -32,6 +32,7 @@ from app.sources.http import SourceError, create_client
 from app.sources.season_types import (
     PLAY_IN,
     POSTSEASON,
+    PRESEASON,
     REGULAR_SEASON,
     SeasonWindow,
     fetch_season_type,
@@ -75,6 +76,12 @@ async def window(
     ("season_type", "name", "start", "end"),
     [
         (
+            PRESEASON,
+            "preseason.json",
+            dt.datetime(2026, 9, 30, 7, tzinfo=dt.UTC),
+            dt.datetime(2026, 10, 20, 6, 59, tzinfo=dt.UTC),
+        ),
+        (
             REGULAR_SEASON,
             "regular-season.json",
             dt.datetime(2026, 10, 20, 7, tzinfo=dt.UTC),
@@ -93,7 +100,7 @@ async def window(
             dt.datetime(2027, 6, 21, 6, 59, tzinfo=dt.UTC),
         ),
     ],
-    ids=["regular season", "play-in", "postseason"],
+    ids=["preseason", "regular season", "play-in", "postseason"],
 )
 async def test_maps_a_season_type_to_its_window_in_utc(
     mock: respx.MockRouter,
