@@ -43,15 +43,27 @@
 # Cup, All-Star and playoffs feeds, and the day feed of the lastGames day when it is
 # outside the games window. The feed expires at the first US Eastern day change after
 # the build, and 1 hour after the build while an item of comingUp is now (rule G).
-# The feed is never deleted. A failed read nulls only the field it feeds. leaders and
-# finalsPath are always null here.
+# The feed is never deleted. A failed read nulls only the field it feeds.
+#
+# leaders is the first leader of each per-game category (points, rebounds, assists and
+# blocks, in that order). In the Finals preview they come from the stored playoffs feed,
+# titled playoffs, with no read. In the offseason they are the regular-season leaders of
+# the last finished season, titled previousSeason with that season's label; in every
+# other scenario those of the current season, titled season. The names and photos come
+# from the shared player identities (at most 4 reads, 30 days cached); a leader whose
+# identity was not read keeps a dash and no photo. leaders is null when the read failed
+# or no category has a leader.
+#
+# finalsPath exists only in the Finals preview: for each finalist, East first, the three
+# series it won in rounds 1 to 3 with the opponent, the result and who won. It is null
+# when any series, winner or team is missing.
 #
 # SEE: docs/api/home.md, docs/adr/0074-home-feed.md, docs/source-rules.md
 
 import asyncio
 import datetime as dt
-from collections.abc import Sequence
-from dataclasses import dataclass
+from collections.abc import Awaitable, Callable, Mapping, Sequence
+from dataclasses import dataclass, field
 
 from pydantic import ValidationError
 
@@ -63,7 +75,14 @@ from app.feeds.home import (
     ComingUpItem,
     ComingUpKey,
     ComingUpStatus,
+    FinalistPath,
+    FinalsPath,
     HomeFeed,
+    HomeLeader,
+    HomeLeaderCategory,
+    HomeLeaders,
+    HomeLeadersTitle,
+    HomeLeaderTeam,
     HomeScenario,
     LastGame,
     LastGameLabel,
@@ -71,9 +90,18 @@ from app.feeds.home import (
     LastGamesTitle,
     LastGamesTitleKey,
     NextGame,
+    PathRound,
+    PathSeries,
 )
 from app.feeds.opponent import Opponent
-from app.feeds.playoffs import PlayoffsFeed, SeriesId, SeriesStatus
+from app.feeds.playoffs import (
+    LeaderCategory,
+    PlayoffsFeed,
+    Series,
+    SeriesId,
+    SeriesStatus,
+    round_of_series,
+)
 from app.jobs import all_star_feed, cup_feed, playoffs_feed
 from app.jobs.calendar_feed import KIND as CALENDAR_KIND
 from app.jobs.cup_feed import CupFeeds
@@ -86,14 +114,23 @@ from app.jobs.games import (
     final_winner,
 )
 from app.jobs.on_demand import Ensure, FeedCache, FeedKind, IdStatus
-from app.jobs.playoffs_feed import FetchSeasonType, PlayoffsFeeds
+from app.jobs.player_identities import PlayerIdentities
+from app.jobs.playoffs_feed import UNNAMED, FetchSeasonType, PlayoffsFeeds
 from app.jobs.stars import StarsJob
-from app.jobs.team_feed import eastern_date, season_label
-from app.jobs.team_identity import game_accent, identified
+from app.jobs.team_feed import eastern_date, player_name, season_label
+from app.jobs.team_identity import (
+    code_colors,
+    game_accent,
+    identified,
+    resolved_color,
+    team_colors,
+)
 from app.settings import Settings
-from app.sources import scoreboard, season_types
+from app.sources import scoreboard, season_leaders, season_types
 from app.sources.http import ReadBudget, SourceClient, SourceError, within_budget
+from app.sources.player_draft import PlayerAthlete
 from app.sources.scoreboard import ScoreboardGame
+from app.sources.season_leaders import SeasonLeaders
 from app.sources.season_types import (
     PLAY_IN,
     POSTSEASON,
@@ -114,10 +151,14 @@ NOW_FRESH_FOR = dt.timedelta(hours=1)
 # games feed window, expires this long after its build, or once the memory is loaded.
 MEMORY_FRESH_FOR = dt.timedelta(hours=1)
 # The most source reads one build sends (ADR 0074): the season types, then the next
-# game day scoreboard; the calendar, Cup, All-Star, playoffs and day feeds built first
-# keep their own budgets.
+# game day scoreboard, then the leaders and the identities of the leaders; the calendar,
+# Cup, All-Star, playoffs and day feeds built first keep their own budgets.
 SEASON_TYPE_READS = 4
 SCOREBOARD_READS = 1
+LEADER_READS = 1
+IDENTITY_READS = len(HomeLeaderCategory)
+
+FetchSeasonLeaders = Callable[[SourceClient, int, Settings], Awaitable[SeasonLeaders]]
 
 GameOfDay = ScoreboardGame | PastGame
 KEY_ORDER = list(ComingUpKey)
@@ -164,6 +205,8 @@ class HomeSources:
     next_games: list[ScoreboardGame] | None
     last_day: dt.date | None
     last_day_games: Sequence[GameOfDay] | None
+    season_leaders: SeasonLeaders | None = None
+    identities: Mapping[str, PlayerAthlete | None] = field(default_factory=dict)
 
 
 def window_dates(window: SeasonWindow | None) -> tuple[dt.date, dt.date] | None:
@@ -474,6 +517,164 @@ def _last_games(sources: HomeSources, scenario: HomeScenario) -> LastGames | Non
     )
 
 
+def leaders_season(season: int, windows: SeasonWindows) -> int:
+    """The last finished season in the offseason: the current one once the postseason
+    ended (the windows are then the next season's), else the one before."""
+    return season if windows.next_season else season - 1
+
+
+def leader_ids(leaders: SeasonLeaders) -> list[str]:
+    """The player id of the first leader of each category, without repeats."""
+    ids: list[str] = []
+    for category in HomeLeaderCategory:
+        entries = leaders.categories.get(LeaderCategory(category.value))
+        if entries:
+            ids.append(entries[0].player_id)
+    return list(dict.fromkeys(ids))
+
+
+def _playoff_leaders(playoffs: PlayoffsFeed | None) -> list[HomeLeader]:
+    if playoffs is None or playoffs.leaders is None:
+        return []
+    groups = {group.category.value: group for group in playoffs.leaders}
+    found: list[HomeLeader] = []
+    for category in HomeLeaderCategory:
+        group = groups.get(category.value)
+        if group is None or not group.leaders:
+            continue
+        leader = group.leaders[0]
+        found.append(
+            HomeLeader(
+                category=category,
+                player_id=leader.player_id,
+                name=leader.name,
+                photo_url=leader.photo_url,
+                team=HomeLeaderTeam(code=leader.team_code),
+                value=leader.value,
+            )
+        )
+    return found
+
+
+def _season_leaders(sources: HomeSources) -> list[HomeLeader]:
+    if sources.season_leaders is None:
+        return []
+    found: list[HomeLeader] = []
+    for category in HomeLeaderCategory:
+        entries = sources.season_leaders.categories.get(LeaderCategory(category.value))
+        if not entries:
+            continue
+        entry = entries[0]
+        athlete = sources.identities.get(entry.player_id)
+        found.append(
+            HomeLeader.model_validate(
+                {
+                    "category": category,
+                    "player_id": entry.player_id,
+                    "name": UNNAMED if athlete is None else player_name(athlete.entry),
+                    "photo_url": None
+                    if athlete is None
+                    else athlete.entry.headshot_url,
+                    "team": None
+                    if entry.team_code is None
+                    else HomeLeaderTeam(code=entry.team_code),
+                    "value": entry.value,
+                }
+            )
+        )
+    return found
+
+
+def home_leaders(sources: HomeSources, scenario: HomeScenario) -> HomeLeaders | None:
+    """The first leader of each category, or none when there is no leader."""
+    try:
+        if scenario is HomeScenario.FINALS_PREVIEW:
+            categories = _playoff_leaders(sources.playoffs)
+            title, label = HomeLeadersTitle.PLAYOFFS, None
+        else:
+            categories = _season_leaders(sources)
+            if scenario is HomeScenario.OFFSEASON:
+                title = HomeLeadersTitle.PREVIOUS_SEASON
+                label = season_label(leaders_season(sources.season, sources.windows))
+            else:
+                title, label = HomeLeadersTitle.SEASON, None
+        if not categories:
+            return None
+        return HomeLeaders(title=title, season_label=label, categories=categories)
+    except ValidationError:
+        return None
+
+
+def _path_series(series: Series, code: str, round_: PathRound) -> PathSeries | None:
+    """The series a finalist won, from its side; none when a team or a win count is
+    missing."""
+    sides = [series.top, series.bottom]
+    own = next((s for s in sides if s.team is not None and s.team.code == code), None)
+    other = next((s for s in sides if s is not own), None)
+    if (
+        own is None
+        or other is None
+        or other.team is None
+        or own.wins is None
+        or other.wins is None
+    ):
+        return None
+    return PathSeries(
+        round=round_,
+        opponent=_side(other.team),
+        result=f"{own.wins}\u2013{other.wins}",
+        won=series.winner == code,
+    )
+
+
+def _finalist_path(
+    playoffs: PlayoffsFeed, conference_final: Series
+) -> FinalistPath | None:
+    code = conference_final.winner
+    if code is None:
+        return None
+    rounds = list(PathRound)
+    path: dict[PathRound, PathSeries] = {}
+    team = None
+    for series in playoffs.bracket:
+        number = round_of_series(series.id)
+        if series.winner != code or not 1 <= number <= len(rounds):
+            continue
+        round_ = rounds[number - 1]
+        built = _path_series(series, code, round_)
+        if built is None or round_ in path:
+            return None
+        path[round_] = built
+        for side in (series.top, series.bottom):
+            if side.team is not None and side.team.code == code:
+                team = side.team
+    if team is None or list(path) != rounds:
+        return None
+    return FinalistPath(team=_side(team), series=[path[round_] for round_ in rounds])
+
+
+def finals_path(playoffs: PlayoffsFeed | None) -> FinalsPath | None:
+    """How each finalist reached the Finals, East first; none when a piece is missing."""
+    if playoffs is None:
+        return None
+    by_id = {series.id: series for series in playoffs.bracket}
+    try:
+        finalists: list[FinalistPath] = []
+        for series_id in (SeriesId.EAST_R3, SeriesId.WEST_R3):
+            conference_final = by_id.get(series_id)
+            built = (
+                None
+                if conference_final is None
+                else _finalist_path(playoffs, conference_final)
+            )
+            if built is None:
+                return None
+            finalists.append(built)
+        return FinalsPath(finalists=finalists)
+    except ValidationError:
+        return None
+
+
 def build_home_feed(sources: HomeSources) -> HomeFeed:
     """Build the home feed; raise HomeBuildError when it is not valid."""
     scenario = scenario_of(
@@ -498,8 +699,12 @@ def build_home_feed(sources: HomeSources) -> HomeFeed:
             coming_up=coming_up(events(sources, offseason), sources.today, offseason),
             next_game=upcoming,
             last_games=_last_games(sources, scenario),
-            leaders=None,
-            finals_path=None,
+            leaders=home_leaders(sources, scenario),
+            finals_path=(
+                finals_path(sources.playoffs)
+                if scenario is HomeScenario.FINALS_PREVIEW
+                else None
+            ),
         )
     except ValidationError as error:
         location = ".".join(str(part) for part in error.errors()[0]["loc"])
@@ -519,9 +724,11 @@ class HomeFeeds:
         stars: StarsJob,
         cup: CupFeeds,
         playoffs: PlayoffsFeeds,
+        identities: PlayerIdentities,
         *,
         fetch_season_type: FetchSeasonType = season_types.fetch_season_type,
         fetch_games: FetchGames = scoreboard.fetch_games,
+        fetch_season_leaders: FetchSeasonLeaders = season_leaders.fetch_season_leaders,
     ) -> None:
         self._settings = settings
         self._store = store
@@ -530,8 +737,10 @@ class HomeFeeds:
         self._stars = stars
         self._cup = cup
         self._playoffs = playoffs
+        self._identities = identities
         self._fetch_season_type = fetch_season_type
         self._fetch_games = fetch_games
+        self._fetch_season_leaders = fetch_season_leaders
         self._prepared: dict[str, SeasonWindows] = {}
         # True until the first build: a stored feed from an earlier process is not
         # known to have used the memory.
@@ -718,6 +927,45 @@ class HomeFeeds:
         except SourceError:
             return None
 
+    async def _season_leaders(self, season: int) -> SeasonLeaders | None:
+        try:
+            return await within_budget(
+                ReadBudget(LEADER_READS, stop_on_rate_limit=False),
+                "home: leaders",
+                lambda: self._fetch_season_leaders(
+                    self._client, season, self._settings
+                ),
+            )
+        except SourceError:
+            return None
+
+    async def _identities_of(
+        self, ids: Sequence[str]
+    ) -> Mapping[str, PlayerAthlete | None]:
+        if not ids:
+            return {}
+
+        async def one(player_id: str) -> PlayerAthlete | None:
+            # A rate-limited read nulls only that player; the others keep theirs.
+            try:
+                return (await self._identities.resolve([player_id]))[player_id]
+            except SourceError:
+                return None
+
+        async def all_of() -> dict[str, PlayerAthlete | None]:
+            unique = list(dict.fromkeys(ids))
+            found = await asyncio.gather(*(one(i) for i in unique))
+            return dict(zip(unique, found, strict=True))
+
+        try:
+            return await within_budget(
+                ReadBudget(IDENTITY_READS, stop_on_rate_limit=False),
+                "home: player identities",
+                all_of,
+            )
+        except SourceError:
+            return {}
+
     async def build(self, feed_id: str) -> HomeFeed:
         season = self._stars.current_season()
         if season is None:
@@ -750,6 +998,16 @@ class HomeFeeds:
                 if window_days is not None and day in window_days
                 else await self._next_games(day)
             )
+        leaders: SeasonLeaders | None = None
+        identities: Mapping[str, PlayerAthlete | None] = {}
+        if scenario is not HomeScenario.FINALS_PREVIEW:
+            leaders = await self._season_leaders(
+                leaders_season(season, windows)
+                if scenario is HomeScenario.OFFSEASON
+                else season
+            )
+            if leaders is not None:
+                identities = await self._identities_of(leader_ids(leaders))
         return build_home_feed(
             HomeSources(
                 season=season,
@@ -763,6 +1021,8 @@ class HomeFeeds:
                 next_games=next_games,
                 last_day=last_day,
                 last_day_games=last_day_games,
+                season_leaders=leaders,
+                identities=identities,
             )
         )
 
@@ -783,25 +1043,71 @@ class HomeFeeds:
         )
 
     def serve_with(self, feed_id: str, feed: HomeFeed) -> HomeFeed:
-        if feed.last_games is None:
+        if (
+            feed.last_games is None
+            and feed.leaders is None
+            and feed.finals_path is None
+        ):
             return feed
         identities = self._stars.team_identities()
-        games = [
-            game.model_copy(
-                update={
-                    "accent": game_accent(
-                        identified(game.away, identities),
-                        identified(game.home, identities),
-                    )
-                }
+        update: dict[str, object] = {}
+        if feed.last_games is not None:
+            games = [
+                game.model_copy(
+                    update={
+                        "accent": game_accent(
+                            identified(game.away, identities),
+                            identified(game.home, identities),
+                        )
+                    }
+                )
+                for game in feed.last_games.games
+            ]
+            update["last_games"] = feed.last_games.model_copy(update={"games": games})
+        if feed.leaders is not None:
+            leaders = [
+                leader
+                if leader.team is None
+                else leader.model_copy(
+                    update={
+                        "team": leader.team.model_copy(
+                            update={
+                                "accent": resolved_color(
+                                    code_colors(leader.team.code, None, identities)
+                                )
+                            }
+                        )
+                    }
+                )
+                for leader in feed.leaders.categories
+            ]
+            update["leaders"] = feed.leaders.model_copy(update={"categories": leaders})
+        if feed.finals_path is not None:
+            finalists = [
+                finalist.model_copy(
+                    update={
+                        "accent": resolved_color(
+                            team_colors(finalist.team, identities)
+                        ),
+                        "series": [
+                            item.model_copy(
+                                update={
+                                    "accent": resolved_color(
+                                        team_colors(item.opponent, identities)
+                                    )
+                                }
+                            )
+                            for item in finalist.series
+                        ],
+                    }
+                )
+                for finalist in feed.finals_path.finalists
+            ]
+            update["finals_path"] = feed.finals_path.model_copy(
+                update={"finalists": finalists}
             )
-            for game in feed.last_games.games
-        ]
-        last_games = feed.last_games.model_copy(update={"games": games})
         return HomeFeed.model_validate(
-            feed.model_copy(update={"last_games": last_games}).model_dump(
-                by_alias=False
-            )
+            feed.model_copy(update=update).model_dump(by_alias=False)
         )
 
     def keep(self, feed_id: str) -> bool:

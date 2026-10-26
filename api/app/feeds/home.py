@@ -6,18 +6,28 @@
 # The game sides, score, winner and accent are the games feed's shapes (Opponent,
 # Score, Side, GameAccent); the logo and colors of a side and the accent of a game are
 # added when the feed is served, never stored (ADR 0068).
+# The leaders (one per per-game category) and the Finals path (the way each finalist
+# reached the Finals) are the home's own shapes; their teams are the feed's Opponent.
 #
 # SEE: docs/api/home.md, docs/adr/0074-home-feed.md
 
 import datetime as dt
 from enum import StrEnum
+from itertools import pairwise
 from typing import Annotated
 
-from pydantic import Field, PositiveInt, model_validator
+from pydantic import Field, HttpUrl, PositiveInt, StringConstraints, model_validator
 
-from app.feeds.base import FeedModel, NonEmptyStr, SeasonLabel, UtcDatetime
+from app.feeds.base import (
+    FeedModel,
+    HexColor,
+    NonEmptyStr,
+    SeasonLabel,
+    TeamCode,
+    UtcDatetime,
+)
 from app.feeds.games import GameAccent, Score
-from app.feeds.opponent import Opponent, Side
+from app.feeds.opponent import Opponent, Side, TeamColors, TeamLogo
 
 
 class HomeScenario(StrEnum):
@@ -131,6 +141,99 @@ class LastGames(FeedModel):
     games: Annotated[list[LastGame], Field(min_length=1)]
 
 
+class HomeLeadersTitle(StrEnum):
+    SEASON = "season"
+    PLAYOFFS = "playoffs"
+    PREVIOUS_SEASON = "previousSeason"
+
+
+# Per-game only, in display order; the values equal app.feeds.playoffs.LeaderCategory's.
+class HomeLeaderCategory(StrEnum):
+    POINTS = "points"
+    REBOUNDS = "rebounds"
+    ASSISTS = "assists"
+    BLOCKS = "blocks"
+
+
+class HomeLeaderTeam(FeedModel):
+    code: TeamCode
+    # The logo and colors (ADR 0068) and the resolved color (ADR 0072), added when
+    # served; null in the stored file.
+    logo: TeamLogo | None = None
+    colors: TeamColors | None = None
+    accent: HexColor | None = None
+
+
+class HomeLeader(FeedModel):
+    category: HomeLeaderCategory
+    player_id: NonEmptyStr
+    # A dash when the identity was not read.
+    name: NonEmptyStr
+    photo_url: HttpUrl | None
+    team: HomeLeaderTeam | None
+    value: NonEmptyStr
+
+
+class HomeLeaders(FeedModel):
+    title: HomeLeadersTitle
+    season_label: SeasonLabel | None
+    categories: Annotated[list[HomeLeader], Field(min_length=1, max_length=4)]
+
+    @model_validator(mode="after")
+    def _require_the_label_exactly_for_the_previous_season(self) -> HomeLeaders:
+        if (self.season_label is not None) != (
+            self.title is HomeLeadersTitle.PREVIOUS_SEASON
+        ):
+            raise ValueError(
+                "the season label is set exactly when the title is previousSeason"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _require_the_categories_in_order(self) -> HomeLeaders:
+        order = list(HomeLeaderCategory)
+        positions = [order.index(leader.category) for leader in self.categories]
+        if any(a >= b for a, b in pairwise(positions)):
+            raise ValueError("the categories follow the display order, with no repeat")
+        return self
+
+
+class PathRound(StrEnum):
+    FIRST_ROUND = "firstRound"
+    CONFERENCE_SEMIFINALS = "conferenceSemifinals"
+    CONFERENCE_FINALS = "conferenceFinals"
+
+
+# Own wins, an en dash (U+2013), then the opponent's wins.
+SeriesResult = Annotated[str, StringConstraints(pattern=r"^[0-4]–[0-4]$")]
+
+
+class PathSeries(FeedModel):
+    round: PathRound
+    opponent: Opponent
+    result: SeriesResult
+    won: bool
+    # The opponent's resolved color (ADR 0072), added when served; null when stored.
+    accent: HexColor | None = None
+
+
+class FinalistPath(FeedModel):
+    team: Opponent
+    # The finalist's resolved color (ADR 0072), added when served; null when stored.
+    accent: HexColor | None = None
+    series: Annotated[list[PathSeries], Field(min_length=3, max_length=3)]
+
+    @model_validator(mode="after")
+    def _require_the_rounds_in_order(self) -> FinalistPath:
+        if [s.round for s in self.series] != list(PathRound):
+            raise ValueError("the series follow the round order")
+        return self
+
+
+class FinalsPath(FeedModel):
+    finalists: Annotated[list[FinalistPath], Field(min_length=2, max_length=2)]
+
+
 class HomeFeed(FeedModel):
     season: SeasonLabel
     date: dt.date
@@ -138,6 +241,5 @@ class HomeFeed(FeedModel):
     coming_up: Annotated[list[ComingUpItem], Field(min_length=1)] | None
     next_game: NextGame | None
     last_games: LastGames | None
-    # Filled by part 2 (issue 4); always null here.
-    leaders: None
-    finals_path: None
+    leaders: HomeLeaders | None
+    finals_path: FinalsPath | None
