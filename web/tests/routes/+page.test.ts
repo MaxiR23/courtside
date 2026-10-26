@@ -19,6 +19,9 @@
 // - Selects the DayStrip day of ?day= after a navigation; a later or malformed day keeps today; a past day outside the feed goes to /day/ with replaceState; a later poll does not move the selection
 // - The calendar sheet links a day of the feed to /?day=YYYY-MM-DD and a day outside the feed to /day/YYYY-MM-DD; a day after today is not a link
 // - Before the games feed loads, the sheet links no day after the client's US Eastern today and sends the calendar's window days to the home (ADR 0054)
+// - A day with games never requests the home feed; a day with only postponed and canceled games keeps the hero with no game and requests nothing
+// - A day with no games requests the home feed once, across several games polls, and the hero shows the chip, the title and the Coming up card (a section after the hero on mobile)
+// - A failed or unconfigured home feed leaves the date and the title only, with no Coming up, and the schedule still renders; Spanish title
 // - Team logos: a side's feed logo in the game card's large box, the code monogram for a null logo and the initials of a guest side added in memory
 //
 // What is covered:
@@ -37,6 +40,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { CalendarFeed } from '../../src/lib/contract/calendar';
 import type { GamesFeed } from '../../src/lib/contract/games';
+import type { HomeFeed } from '../../src/lib/contract/home';
+import { IDLE_POLL_MS, SLOW_POLL_MS } from '../../src/lib/feed/poller.svelte';
 import { preferLanguages } from '../prefer-languages';
 
 import Page from '../../src/routes/+page.svelte';
@@ -55,6 +60,7 @@ vi.mock('$app/navigation', () => ({
 const config = vi.hoisted(() => ({
 	url: undefined as string | undefined,
 	calendarUrl: undefined as string | undefined,
+	homeUrl: undefined as string | undefined,
 	platform: undefined as string | undefined
 }));
 vi.mock('../../src/lib/feed/config', () => ({
@@ -64,12 +70,16 @@ vi.mock('../../src/lib/feed/config', () => ({
 	get calendarFeedUrl() {
 		return config.calendarUrl;
 	},
+	get homeFeedUrl() {
+		return config.homeUrl;
+	},
 	get videoPlatformName() {
 		return config.platform;
 	}
 }));
 
 const FEED_URL = 'https://feeds.example.com/games.json';
+const HOME_URL = 'https://feeds.example.com/home.json';
 const CALENDAR_TEMPLATE = 'https://feeds.example.com/seasons/{season}/calendar.json';
 const CALENDAR_URL = 'https://feeds.example.com/seasons/current/calendar.json';
 // The current season: two days of the games feed and one day outside it.
@@ -90,6 +100,7 @@ const recorded = (): GamesFeed =>
 	) as GamesFeed;
 
 type Answer = () => Promise<unknown>;
+let homeAnswers: Answer[] = [];
 let answers: Answer[];
 let fetchMock: ReturnType<typeof vi.fn>;
 const answerWith =
@@ -97,6 +108,23 @@ const answerWith =
 	() =>
 		Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(feed) });
 const answerFailing: Answer = () => Promise.reject(new TypeError('Failed to fetch'));
+
+const homeFeed = (): HomeFeed =>
+	JSON.parse(
+		readFileSync(join(__dirname, '..', 'lib', 'feed', 'fixtures', 'home.json'), 'utf8')
+	) as HomeFeed;
+const homeAnswerWith =
+	(feed: HomeFeed): Answer =>
+	() =>
+		Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(feed) });
+const homeCalls = () => fetchMock.mock.calls.filter(([url]) => url === HOME_URL).length;
+
+/** The recorded feed with no game at all today. */
+const withoutGamesToday = (): GamesFeed => {
+	const feed = recorded();
+	feed.days[3].games = [];
+	return feed;
+};
 
 /** The recorded feed once it is already past its live game: nothing is live. */
 const withoutLive = (): GamesFeed => {
@@ -112,6 +140,11 @@ function stubFetch(...next: Answer[]) {
 	fetchMock = vi.fn((url: string) => {
 		if (url === CALENDAR_URL) {
 			return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(calendar()) });
+		}
+		if (url === HOME_URL) {
+			const answer = homeAnswers.length > 1 ? homeAnswers.shift() : homeAnswers[0];
+			if (!answer) throw new Error(`Unexpected URL ${url}`);
+			return answer();
 		}
 		if (url !== FEED_URL) throw new Error(`Unexpected URL ${url}`);
 		const answer = answers.length > 1 ? answers.shift() : answers[0];
@@ -140,6 +173,8 @@ beforeEach(() => {
 	vi.setSystemTime(new Date('2026-10-04T23:05:00Z'));
 	config.url = FEED_URL;
 	config.calendarUrl = undefined;
+	config.homeUrl = undefined;
+	homeAnswers = [];
 	navigation.callbacks = [];
 	navigation.goto.mockReset();
 	config.platform = 'Video platform';
@@ -650,5 +685,108 @@ describe('home page team logos', () => {
 			'ul.games > li:not(:has(#game-g-final)) .team-monogram.large'
 		);
 		expect(other?.querySelector('img')).toBeNull();
+	});
+});
+
+describe('home page on a day with no games', () => {
+	const mobile = () =>
+		vi.stubGlobal('matchMedia', (query: string) => ({
+			matches: false,
+			media: query,
+			addEventListener: () => {},
+			removeEventListener: () => {}
+		}));
+
+	it('never requests the home feed on a day with games', async () => {
+		config.homeUrl = HOME_URL;
+		homeAnswers = [homeAnswerWith(homeFeed())];
+		stubFetch(answerWith(recorded()));
+		const { container } = await renderPage();
+		await vi.advanceTimersByTimeAsync(IDLE_POLL_MS);
+		expect(homeCalls()).toBe(0);
+		expect(screen.queryByText('No games today')).toBeNull();
+		expect(container.querySelector('.hero .headline')).not.toBeNull();
+	});
+
+	it('keeps the hero with no game when every game of today is postponed or canceled', async () => {
+		config.homeUrl = HOME_URL;
+		homeAnswers = [homeAnswerWith(homeFeed())];
+		const feed = recorded();
+		feed.days[3].games = feed.days[3].games.filter(
+			(g) => g.id === 'g-postponed' || g.id === 'g-canceled'
+		);
+		stubFetch(answerWith(feed));
+		await renderPage();
+		expect(homeCalls()).toBe(0);
+		expect(screen.queryByText('No games today')).toBeNull();
+	});
+
+	it('requests the home feed once and shows the chip, the title and the Coming up card', async () => {
+		config.homeUrl = HOME_URL;
+		homeAnswers = [homeAnswerWith(homeFeed())];
+		stubFetch(answerWith(withoutGamesToday()));
+		const { container } = await renderPage();
+		await vi.advanceTimersByTimeAsync(IDLE_POLL_MS * 2 + SLOW_POLL_MS);
+		await settle();
+		expect(homeCalls()).toBe(1);
+		const hero = container.querySelector('.hero') as HTMLElement;
+		expect(within(hero).getByRole('heading', { level: 1 }).textContent).toBe('No games today');
+		expect(within(hero).getByText('Off day')).toBeTruthy();
+		expect(within(hero).getByText('Sunday, October 4')).toBeTruthy();
+		expect(
+			within(hero).getByText('Next tip-off: Tue, Oct 6 · 7:00 PM ET', { exact: false })
+		).toBeTruthy();
+		expect(within(hero).getByText('Courtside TV', { exact: false })).toBeTruthy();
+		expect(hero.querySelector('aside.coming-up')).not.toBeNull();
+		expect(container.querySelectorAll('.coming-up')).toHaveLength(1);
+	});
+
+	it('puts Coming up in a section after the hero on a narrow screen', async () => {
+		mobile();
+		config.homeUrl = HOME_URL;
+		homeAnswers = [homeAnswerWith(homeFeed())];
+		stubFetch(answerWith(withoutGamesToday()));
+		const { container } = await renderPage();
+		const hero = container.querySelector('.hero') as HTMLElement;
+		const section = container.querySelector('section.coming-up.mobile') as HTMLElement;
+		expect(section).not.toBeNull();
+		expect(hero.contains(section)).toBe(false);
+		expect(hero.nextElementSibling).toBe(section);
+		expect(section.nextElementSibling?.id).toBe('schedule');
+		expect(hero.querySelector('.coming-up')).toBeNull();
+	});
+
+	it('shows the date and the title only when the home feed fails', async () => {
+		config.homeUrl = HOME_URL;
+		homeAnswers = [
+			answerFailing,
+			() => Promise.resolve({ ok: false, status: 503, json: () => Promise.resolve({}) })
+		];
+		stubFetch(answerWith(withoutGamesToday()));
+		const { container } = await renderPage();
+		await settle();
+		const hero = container.querySelector('.hero') as HTMLElement;
+		expect(within(hero).getByRole('heading', { level: 1 }).textContent).toBe('No games today');
+		expect(within(hero).getByText('Sunday, October 4')).toBeTruthy();
+		expect(hero.querySelector('.status-tag')).toBeNull();
+		expect(hero.querySelector('.paragraph')).toBeNull();
+		expect(container.querySelector('.coming-up')).toBeNull();
+		expect(container.querySelector('#schedule')).not.toBeNull();
+		expect(homeCalls()).toBe(1);
+	});
+
+	it('shows the date and the title only, with no request, when the home feed is not configured', async () => {
+		stubFetch(answerWith(withoutGamesToday()));
+		const { container } = await renderPage();
+		expect(homeCalls()).toBe(0);
+		expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('No games today');
+		expect(container.querySelector('.coming-up')).toBeNull();
+	});
+
+	it('shows the title in Spanish with a Spanish preference', async () => {
+		preferLanguages(['es']);
+		stubFetch(answerWith(withoutGamesToday()));
+		await renderPage();
+		expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Hoy no hay partidos');
 	});
 });

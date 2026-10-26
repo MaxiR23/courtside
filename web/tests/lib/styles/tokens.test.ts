@@ -51,6 +51,8 @@ const expected: Record<string, string> = {
 	'--hero-h1-line-height': '0.86',
 	'--hero-h1-letter-spacing': '-0.02em',
 	'--hero-h1-at-size': '0.42em',
+	'--home-no-games-title-size': '124px',
+	'--home-no-games-title-size-mobile': '56px',
 	'--hero-watermark-size': 'clamp(180px, 26vw, 420px)',
 	'--section-h2-size': 'clamp(40px, 5vw, 64px)',
 	'--section-h2-line-height': '0.95',

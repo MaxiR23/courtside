@@ -2,6 +2,7 @@
 	import { afterNavigate, goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { onMount, tick, untrack } from 'svelte';
+	import ComingUp from '#lib/components/ComingUp.svelte';
 	import Hero from '#lib/components/Hero.svelte';
 	import MessageRow from '#lib/components/MessageRow.svelte';
 	import Schedule from '#lib/components/Schedule.svelte';
@@ -9,12 +10,20 @@
 	import SiteFooter from '#lib/components/SiteFooter.svelte';
 	import { easternToday } from '#lib/calendar/month.ts';
 	import type { DateCalendar } from '#lib/calendar/types.ts';
-	import { calendarFeedUrl, gamesFeedUrl, videoPlatformName } from '#lib/feed/config.ts';
+	import {
+		calendarFeedUrl,
+		gamesFeedUrl,
+		homeFeedUrl,
+		videoPlatformName
+	} from '#lib/feed/config.ts';
 	import {
 		calendarFeedUrl as calendarFeedUrlOf,
 		loadCalendarFeed,
-		loadGamesFeed
+		loadGamesFeed,
+		loadHomeFeed
 	} from '#lib/feed/load.ts';
+	import { toNoGamesView } from '#lib/feed/home-props.ts';
+	import { FeedOnce } from '#lib/feed/once.svelte.ts';
 	import { GamesFeedPoller } from '#lib/feed/poller.svelte.ts';
 	import { toHomeView } from '#lib/feed/props.ts';
 	import { m } from '#lib/paraglide/messages.js';
@@ -54,6 +63,21 @@
 	const today = $derived(view?.today ?? clockToday);
 
 	const TODAY_INDEX = 3; // the middle of the seven days, as in DayStrip
+
+	const homeUrl = homeFeedUrl;
+	const homeFeed = homeUrl ? new FeedOnce(() => loadHomeFeed(homeUrl)) : undefined;
+	const noGamesToday = $derived(view?.noGamesToday === true);
+	// The home feed loads once, the first time today has no games, and is never polled (ADR 0074).
+	// No cleanup on purpose: a later games poll that flips `noGamesToday` must not drop the load.
+	let homeStarted = false;
+	$effect(() => {
+		if (!noGamesToday || homeStarted || !homeFeed) return;
+		homeStarted = true;
+		untrack(() => homeFeed.start());
+	});
+	const noGames = $derived(
+		view?.noGamesToday ? toNoGamesView(view.dayIds[TODAY_INDEX], homeFeed?.feed ?? null) : null
+	);
 	let selected = $state(TODAY_INDEX);
 	let openId = $state<string | null>(null);
 
@@ -120,7 +144,12 @@
 		onSpoilerFreeToggle={() => spoilerFree.toggle()}
 		{teamHref}
 		{calendar}
+		{noGames}
 	/>
+{/if}
+
+{#if noGames?.comingUp && !wide.current}
+	<ComingUp items={noGames.comingUp} layout="mobile" />
 {/if}
 
 {#if view}

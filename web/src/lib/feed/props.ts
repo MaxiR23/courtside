@@ -35,6 +35,7 @@ export type HomeView = {
 	heroGames: HeroGame[]; // the games of today in feed order, without postponed, canceled and guest games
 	days: ScheduleDay[]; // seven days
 	dayIds: string[]; // the feed's day.date strings, in order
+	noGamesToday: boolean; // today, days[3], has no game at all (postponed, canceled and guest games count as games)
 	updatedMinutesAgo: number;
 };
 
@@ -311,6 +312,7 @@ export function toHomeView(feed: GamesFeed, receivedAt: Date, options: Options):
 				.map(heroGame),
 			days,
 			dayIds: feed.days.map((day) => day.date),
+			noGamesToday: today.games.length === 0,
 			updatedMinutesAgo: Math.max(0, Math.floor((receivedAt.getTime() - generatedAt) / 60_000))
 		};
 	} catch (error) {

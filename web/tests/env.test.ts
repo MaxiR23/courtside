@@ -15,6 +15,7 @@
 // - PLAYOFFS_FEED_URL: accepts an absolute URL; empty or missing is undefined; rejects a relative URL
 // - PLAYOFFS_FINALS_FEED_URL: accepts an absolute URL; empty or missing is undefined; rejects a relative URL
 // - ALL_STAR_FEED_URL: accepts an absolute URL; empty or missing is undefined; rejects a relative URL
+// - HOME_FEED_URL: accepts an absolute URL; empty or missing is undefined; rejects a relative URL
 // - CALENDAR_FEED_URL: accepts an absolute URL with {season}; empty or missing is undefined
 // - CALENDAR_FEED_URL: rejects a relative URL and an absolute URL without {season}
 // - DAY_FEED_URL: accepts an absolute URL with {date}; empty or missing is undefined
@@ -56,6 +57,7 @@ const validate = (
 		| 'PLAYOFFS_FEED_URL'
 		| 'PLAYOFFS_FINALS_FEED_URL'
 		| 'ALL_STAR_FEED_URL'
+		| 'HOME_FEED_URL'
 		| 'CALENDAR_FEED_URL'
 		| 'DAY_FEED_URL',
 	value: string | undefined
@@ -239,6 +241,24 @@ describe('ALL_STAR_FEED_URL', () => {
 	it('rejects a relative URL', () => {
 		expect(validate('ALL_STAR_FEED_URL', '/all-star.json')).toEqual({
 			issues: [{ message: 'ALL_STAR_FEED_URL must be an absolute URL' }]
+		});
+	});
+});
+
+describe('HOME_FEED_URL', () => {
+	it('accepts an absolute URL and returns it', () => {
+		const url = 'https://feeds.example.com/home.json';
+		expect(validate('HOME_FEED_URL', url)).toEqual({ value: url });
+	});
+
+	it('returns undefined for an empty or missing value', () => {
+		expect(validate('HOME_FEED_URL', '')).toEqual({ value: undefined });
+		expect(validate('HOME_FEED_URL', undefined)).toEqual({ value: undefined });
+	});
+
+	it('rejects a relative URL', () => {
+		expect(validate('HOME_FEED_URL', '/home.json')).toEqual({
+			issues: [{ message: 'HOME_FEED_URL must be an absolute URL' }]
 		});
 	});
 });

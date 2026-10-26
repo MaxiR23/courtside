@@ -22,6 +22,7 @@
 // - A delayed game reads "Scheduled" with the tip time and arena in the kicker, in English and Spanish
 // - While the first feed loads: the skeleton of both columns, busy and hidden from assistive tech, gone once there is a game, shimmering unless motion is reduced
 // - Shows the copy in Spanish with a Spanish browser preference
+// - A day with no games and a noGames view: the nav row and the no-games title, with no slide selector, position or timer; the skeleton still comes first while loading
 //
 // What is covered:
 // - Each state the hero shows, plus interaction
@@ -455,6 +456,39 @@ describe('Hero with one game or none', () => {
 		expect(container.querySelector('.word')).toBeNull();
 		expect(screen.queryByRole('heading', { level: 1 })).toBeNull();
 		expect(screen.getByRole('button', { name: 'Spoiler-free' })).toBeTruthy();
+	});
+});
+
+describe('Hero on a day with no games', () => {
+	const noGames = {
+		date: 'Sunday, October 4',
+		tag: 'Off day',
+		paragraph: 'A rest day across the league.',
+		nextTipOff: null,
+		broadcast: null,
+		comingUp: null
+	};
+
+	it('shows the nav row and the no-games title, with no rotation and no timer', async () => {
+		vi.useFakeTimers();
+		const { container } = render(Hero, {
+			props: { ...baseProps, games: [], autoplay: true, noGames }
+		});
+		await tick();
+		expect(vi.getTimerCount()).toBe(0);
+		expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('No games today');
+		expect(screen.getByRole('button', { name: 'Spoiler-free' })).toBeTruthy();
+		expect(container.querySelector('.position')).toBeNull();
+		expect(container.querySelector('.indicator')).toBeNull();
+		expect(container.querySelector('.word')).toBeNull();
+	});
+
+	it('still shows the skeleton while the first feed loads', () => {
+		const { container } = render(Hero, {
+			props: { ...baseProps, games: [], loading: true, noGames }
+		});
+		expect(container.querySelector('.hero-skeleton')).not.toBeNull();
+		expect(screen.queryByRole('heading', { level: 1 })).toBeNull();
 	});
 });
 

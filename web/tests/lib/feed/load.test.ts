@@ -15,6 +15,7 @@
 // - loadPlayoffsFeed returns the playoffs feed and reports 503, network and body failures
 // - loadPlayoffsFinalsFeed returns the finals feed, reports a 404 as not-found and every other failure
 // - loadAllStarFeed returns the All-Star feed and reports 503, network and body failures
+// - loadHomeFeed returns the home feed and reports 503, network and body failures
 // - cupMatchupFeedUrl puts the encoded slot id in place of every {id}
 // - loadCupMatchupFeed returns the matchup feed with a no-cache request, reports a 404 as not-found and every other failure
 // - loadSearchFeed returns the search feed with a no-cache request and reports 503, network and body failures
@@ -42,6 +43,7 @@ import {
 	loadPlayerFeed,
 	loadPlayoffsFeed,
 	loadAllStarFeed,
+	loadHomeFeed,
 	loadPlayoffsFinalsFeed,
 	loadSearchFeed,
 	loadCupFeed,
@@ -547,6 +549,46 @@ describe('loadAllStarFeed', () => {
 			json({ state: 'live', edition: { teams: [] } })
 		);
 		await expect(loadAllStarFeed(ALL_STAR_URL, noGames)).rejects.toMatchObject({ reason: 'body' });
+	});
+});
+
+const HOME_URL = 'https://feeds.example.com/home.json';
+
+describe('loadHomeFeed', () => {
+	it('returns the parsed home feed on a 200, asking for JSON from the given URL', async () => {
+		const feed = { season: '2026-27', date: '2026-10-04', scenario: 'offDay' };
+		const fetchFn = urlFetchAnswering(HOME_URL, () => json(feed));
+		await expect(loadHomeFeed(HOME_URL, fetchFn)).resolves.toEqual(feed);
+		expect(fetchFn).toHaveBeenCalledWith(HOME_URL, {
+			headers: { accept: 'application/json' },
+			signal: expect.anything()
+		});
+	});
+
+	it('throws a status error on a 503', async () => {
+		const fetchFn = urlFetchAnswering(HOME_URL, () => json({ detail: 'no' }, 503));
+		await expect(loadHomeFeed(HOME_URL, fetchFn)).rejects.toMatchObject({
+			name: 'FeedLoadError',
+			reason: 'status'
+		});
+	});
+
+	it('throws a network error', async () => {
+		const fetchFn = urlFetchAnswering(HOME_URL, () =>
+			Promise.reject(new TypeError('Failed to fetch'))
+		);
+		await expect(loadHomeFeed(HOME_URL, fetchFn)).rejects.toMatchObject({ reason: 'network' });
+	});
+
+	it('throws a body error on a non-JSON body and on JSON without a scenario or date', async () => {
+		const html = urlFetchAnswering(HOME_URL, () =>
+			Promise.resolve(new Response('<html>', { status: 200 }))
+		);
+		await expect(loadHomeFeed(HOME_URL, html)).rejects.toMatchObject({ reason: 'body' });
+		for (const body of [null, 'x', { date: '2026-10-04' }, { scenario: 'offDay' }]) {
+			const bad = urlFetchAnswering(HOME_URL, () => json(body));
+			await expect(loadHomeFeed(HOME_URL, bad)).rejects.toMatchObject({ reason: 'body' });
+		}
 	});
 });
 
