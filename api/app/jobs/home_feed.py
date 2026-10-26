@@ -19,9 +19,10 @@
 # comingUp lists the events of the season: Opening Night, the Cup group stage, knockout
 # rounds (the quarterfinals to the semifinals) and final, the All-Star game, the
 # play-in, the playoffs and the Finals (the date of its first game). The Cup dates come
-# only from a stored Cup feed of this season: with none, the Cup items are left out. An
-# event with no date is left out, never invented. The status of an item is upcoming
-# before its start, now from its start to its end, and done after. Outside the
+# only from a stored Cup feed of this season: with none, the Cup items are left out
+# until the warmed build is stored. An event with no date is left out, never invented.
+# The status of an item is upcoming before its start, now from its start to its end,
+# and done after. Outside the
 # offseason comingUp is null unless an item is now or an upcoming one starts in
 # COMING_UP_DAYS days or less; once open it lists the now items, the upcoming ones
 # starting in COMING_UP_DAYS days or less and the done ones that ended COMING_UP_DAYS
@@ -39,10 +40,15 @@
 # is stored at feeds/home/league.json only when requested, and it answers 503 (not
 # ready) until the stars job knows the season. Before the build slot, prepare reads the
 # season types and makes fresh, through the cache, the calendar of the season (and of
-# the previous one when it has no earlier day), then, each only inside its window, the
-# Cup, All-Star and playoffs feeds, and the day feed of the lastGames day when it is
-# outside the games window. The feed expires at the first US Eastern day change after
-# the build, and 1 hour after the build while an item of comingUp is now (rule G).
+# the previous one when it has no earlier day) and the day feed of the lastGames day
+# when it is outside the games window. Each only inside its window, it then warms
+# (starts and never waits on) the Cup feed (in the regular season, when none of this
+# season is stored or it is not complete), the All-Star feed (February 1 to March 7)
+# and the playoffs feed (play-in start to postseason end); the build reads them only as
+# stored. The feed expires at the first US Eastern day change after the build, 1 hour
+# after the build while an item of comingUp is now (rule G), and once a Cup, All-Star
+# or playoffs build other than the one it read is recorded (with no memory of it, one
+# after the build).
 # The feed is never deleted. A failed read nulls only the field it feeds.
 #
 # leaders is the first leader of each per-game category (points, rebounds, assists and
@@ -58,7 +64,8 @@
 # series it won in rounds 1 to 3 with the opponent, the result and who won. It is null
 # when any series, winner or team is missing.
 #
-# SEE: docs/api/home.md, docs/adr/0074-home-feed.md, docs/source-rules.md
+# SEE: docs/api/home.md, docs/adr/0074-home-feed.md,
+# docs/adr/0077-home-warms-its-dependencies.md, docs/source-rules.md
 
 import asyncio
 import datetime as dt
@@ -151,12 +158,20 @@ NOW_FRESH_FOR = dt.timedelta(hours=1)
 # games feed window, expires this long after its build, or once the memory is loaded.
 MEMORY_FRESH_FOR = dt.timedelta(hours=1)
 # The most source reads one build sends (ADR 0074): the season types, then the next
-# game day scoreboard, then the leaders and the identities of the leaders; the calendar,
-# Cup, All-Star, playoffs and day feeds built first keep their own budgets.
+# game day scoreboard, then the leaders and the identities of the leaders; the calendar
+# and day feeds built first and the Cup, All-Star and playoffs feeds warmed keep their
+# own budgets.
 SEASON_TYPE_READS = 4
 SCOREBOARD_READS = 1
 LEADER_READS = 1
 IDENTITY_READS = len(HomeLeaderCategory)
+# The feeds the home warms and never waits on (ADR 0077); it reads them only as stored,
+# and is stale once one of them is built again.
+DEPENDENCIES = (
+    (cup_feed.KIND, cup_feed.FEED_ID),
+    (all_star_feed.KIND, all_star_feed.FEED_ID),
+    (playoffs_feed.KIND, playoffs_feed.FEED_ID),
+)
 
 FetchSeasonLeaders = Callable[[SourceClient, int, Settings], Awaitable[SeasonLeaders]]
 
@@ -745,6 +760,11 @@ class HomeFeeds:
         # True until the first build: a stored feed from an earlier process is not
         # known to have used the memory.
         self._without_memory = True
+        self._cache = cache
+        # The build rows of the dependencies read by the build in progress, and by the
+        # stored feed (None until the first publish of this process).
+        self._pending_builds: dict[tuple[str, str], dt.datetime | None] | None = None
+        self._dependency_builds: dict[tuple[str, str], dt.datetime | None] | None = None
         cache.register(self.kind())
 
     def check(self, feed_id: str) -> IdStatus:
@@ -844,6 +864,51 @@ class HomeFeeds:
             and play_in[0] <= today <= postseason[1]
         )
 
+    @staticmethod
+    def _in_regular_season(today: dt.date, windows: SeasonWindows) -> bool:
+        regular = window_dates(windows.regular)
+        return (
+            regular is not None
+            and not windows.next_season
+            and regular[0] <= today <= regular[1]
+        )
+
+    def _warm_dependencies(
+        self, season: int, today: dt.date, windows: SeasonWindows
+    ) -> None:
+        if self._in_regular_season(today, windows):
+            cup = self._cup_of_season(season)
+            if cup is None or cup.stage is not CupStage.COMPLETE:
+                self._cache.warm(cup_feed.KIND, cup_feed.FEED_ID)
+        starts, ends = (
+            dt.date(season, *all_star_feed.EDITION_WINDOW[0]),
+            dt.date(season, *all_star_feed.EDITION_WINDOW[1]),
+        )
+        if starts <= today <= ends:
+            self._cache.warm(all_star_feed.KIND, all_star_feed.FEED_ID)
+        if self._in_playoffs_window(today, windows):
+            self._cache.warm(playoffs_feed.KIND, playoffs_feed.FEED_ID)
+
+    def _dependency_build_times(self) -> dict[tuple[str, str], dt.datetime | None]:
+        return {
+            key: (state.last_build if (state := self._store.feed_build(*key)) else None)
+            for key in DEPENDENCIES
+        }
+
+    def _dependency_rebuilt(self, built_at: dt.datetime) -> bool:
+        """A Cup, All-Star or playoffs build other than the one the stored feed read;
+        with no memory of it (an earlier process), one after built_at."""
+        seen = self._dependency_builds
+        for key, at in self._dependency_build_times().items():
+            if at is None:
+                continue
+            if seen is None:
+                if at > built_at:
+                    return True
+            elif at != seen.get(key):
+                return True
+        return False
+
     def _all_star_date(self, season: int) -> dt.date | None:
         edition = self._store.all_star_edition(season)
         return None if edition is None else edition.game_date
@@ -858,32 +923,13 @@ class HomeFeeds:
         today = self.today()
         windows = await self._read_windows(season, today)
         self._prepared[feed_id] = windows
-        # Outside the budget above, so the ensured builds never inherit it.
+        # Outside the budget above, so the ensured and warmed builds never inherit it.
         await ensure(CALENDAR_KIND, str(season))
         current = self._calendar(season)
         if (
             current is None or not any(day < today for day in current)
         ) and season - 1 >= FIRST_SEASON:
             await ensure(CALENDAR_KIND, str(season - 1))
-        starts, ends = (
-            dt.date(season, *all_star_feed.EDITION_WINDOW[0]),
-            dt.date(season, *all_star_feed.EDITION_WINDOW[1]),
-        )
-        cup = self._cup.stored()
-        wanted: list[tuple[str, str]] = []
-        if (
-            cup is not None
-            and cup.season == season_label(season)
-            and cup.first_game_date is not None
-            and cup.first_game_date <= today
-            and cup.stage is not CupStage.COMPLETE
-        ):
-            wanted.append((cup_feed.KIND, cup_feed.FEED_ID))
-        if starts <= today <= ends:
-            wanted.append((all_star_feed.KIND, all_star_feed.FEED_ID))
-        if self._in_playoffs_window(today, windows):
-            wanted.append((playoffs_feed.KIND, playoffs_feed.FEED_ID))
-        await asyncio.gather(*(ensure(kind, id_) for kind, id_ in wanted))
         calendar_days = self._calendar_days(season)
         scenario = scenario_of(
             today,
@@ -900,6 +946,7 @@ class HomeFeeds:
         )
         if day is not None and day not in self._window_days(today):
             await ensure(DAY_KIND, day.isoformat())
+        self._warm_dependencies(season, today, windows)
 
     def _day_games(self, day: dt.date) -> list[ScoreboardGame] | None:
         games = self._games.shown_games()
@@ -972,6 +1019,7 @@ class HomeFeeds:
             raise HomeBuildError("season not known yet")
         today = self.today()
         self._without_memory = False
+        self._pending_builds = self._dependency_build_times()
         windows = self._prepared.pop(feed_id, None)
         if windows is None:
             windows = await self._read_windows(season, today)
@@ -1026,12 +1074,17 @@ class HomeFeeds:
             )
         )
 
+    def after_publish(self, feed_id: str, feed: HomeFeed) -> None:
+        self._dependency_builds = self._pending_builds
+
     def is_fresh(self, feed: HomeFeed, built_at: dt.datetime, now: dt.datetime) -> bool:
         if self.today() != feed.date:
             return False
         now_item = any(
             item.status is ComingUpStatus.NOW for item in feed.coming_up or []
         )
+        if self._dependency_rebuilt(built_at):
+            return False
         if now_item and now - built_at >= NOW_FRESH_FOR:
             return False
         return not (
@@ -1123,4 +1176,5 @@ class HomeFeeds:
             keep=self.keep,
             serve_with=self.serve_with,
             prepare=self.prepare,
+            after_publish=self.after_publish,
         )

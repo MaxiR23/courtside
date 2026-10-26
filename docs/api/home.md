@@ -62,7 +62,9 @@ Conventions:
 - The status of an item is `upcoming` before its start date, `now` from the start date to
   the end date (the start date alone for a single day) and `done` after.
 - The Cup items come from the stored Cup feed of the season (its first game date and its
-  stages); with none, they are left out. The Finals item is the date of Finals Game 1 of
+  stages); with none, they are left out. In the regular season the home warms the Cup
+  feed when none of this season is stored or it is not complete, and the next home build
+  after it is stored shows them. The Finals item is the date of Finals Game 1 of
   the stored playoffs feed. The All-Star item is the date the All-Star build recorded.
 - The season calendar is the calendar feed of the season, built first as a dependency
   (and the previous season's when the current one has no earlier day).
@@ -98,16 +100,20 @@ after the build while an item of `comingUp` is `now` (the games feed's today, AD
 A build that needed the games job memory for the last or next game day while it was not
 loaded has those fields `null`; it expires once the memory is loaded, or one hour after
 the build, whichever comes first. A feed stored by an earlier process is treated the
-same way, once, until the process builds it again.
+same way, once, until the process builds it again. It is also stale once a Cup,
+All-Star or playoffs build other than the one it read is recorded (for a feed stored by
+an earlier process, one after its build). A stale home is served at once and rebuilt in
+the background. No home request waits on those builds.
 
 ## Read budget
 
 Season types 4 (the postseason first, then three more of this season or two of the next)
 and the next game day scoreboard 1, read only for a day outside the games feed window;
 leaders 1 (none in `finalsPreview`) and at most 4 player identities, read through the
-shared reader with its 30-day cache ([ADR 0061](../adr/0061-past-playoffs-player-identities-and-finals-mvp-averages.md)). The calendar feed, and the Cup,
-All-Star, playoffs and day feeds, are built first as dependencies only inside their
-windows and keep their own budgets. The leaders URL is the Settings template
+shared reader with its 30-day cache ([ADR 0061](../adr/0061-past-playoffs-player-identities-and-finals-mvp-averages.md)). The calendar feed
+and the day feed are built first as dependencies; the Cup, All-Star and playoffs feeds
+are warmed only inside their windows and never awaited (ADR 0077). All keep their own
+budgets. The leaders URL is the Settings template
 `season_leaders_url` (`{season}`).
 
 - **`SEASON_LEADERS_URL`** (`{season}`): `{"categories": [{"name", "leaders":

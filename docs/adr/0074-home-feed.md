@@ -1,6 +1,6 @@
 # 0074. Home feed for a day with no games
 
-- Status: Accepted
+- Status: Superseded by 0077 for its Cup, All-Star and playoffs dependencies only
 - Date: 2026-10-26
 
 ## Context
