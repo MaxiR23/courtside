@@ -3,12 +3,14 @@
 	import { resolve } from '$app/paths';
 	import { onMount, tick, untrack } from 'svelte';
 	import ComingUp from '#lib/components/ComingUp.svelte';
+	import HomeLastGames from '#lib/components/HomeLastGames.svelte';
 	import Hero from '#lib/components/Hero.svelte';
 	import MessageRow from '#lib/components/MessageRow.svelte';
 	import Schedule from '#lib/components/Schedule.svelte';
 	import ScheduleSkeleton from '#lib/components/ScheduleSkeleton.svelte';
 	import SiteFooter from '#lib/components/SiteFooter.svelte';
 	import { easternToday } from '#lib/calendar/month.ts';
+	import type { HomeLastGamesView } from '#lib/home/types.ts';
 	import type { DateCalendar } from '#lib/calendar/types.ts';
 	import {
 		calendarFeedUrl,
@@ -22,7 +24,12 @@
 		loadGamesFeed,
 		loadHomeFeed
 	} from '#lib/feed/load.ts';
-	import { toNoGamesView } from '#lib/feed/home-props.ts';
+	import {
+		hidesSchedule,
+		toEmptyDayView,
+		toLastGamesView,
+		toNoGamesView
+	} from '#lib/feed/home-props.ts';
 	import { FeedOnce } from '#lib/feed/once.svelte.ts';
 	import { GamesFeedPoller } from '#lib/feed/poller.svelte.ts';
 	import { toHomeView } from '#lib/feed/props.ts';
@@ -78,6 +85,12 @@
 	const noGames = $derived(
 		view?.noGamesToday ? toNoGamesView(view.dayIds[TODAY_INDEX], homeFeed?.feed ?? null) : null
 	);
+	const windowHref = (date: string) => resolve(`/?day=${date}`);
+	// The home feed only while today has no games, as `noGames` (ADR 0074).
+	const home = $derived(view?.noGamesToday ? (homeFeed?.feed ?? null) : null);
+	const lastGames = $derived(toLastGamesView(home));
+	const emptyDay = $derived(toEmptyDayView(home));
+	const scheduleHidden = $derived(hidesSchedule(home));
 	let selected = $state(TODAY_INDEX);
 	let openId = $state<string | null>(null);
 
@@ -116,7 +129,7 @@
 		// Until the games feed has loaded, today is the US Eastern date of the client clock.
 		today: view?.dayIds[TODAY_INDEX] ?? easternToday(clockToday ?? new Date()),
 		windowDays: view?.dayIds ?? null,
-		windowHref: (date: string) => resolve(`/?day=${date}`),
+		windowHref,
 		dayHref: (date: string) => resolve('/day/[date]', { date })
 	});
 
@@ -152,16 +165,41 @@
 	<ComingUp items={noGames.comingUp} layout="mobile" />
 {/if}
 
-{#if view}
-	<Schedule
-		days={view.days}
-		updatedMinutesAgo={view.updatedMinutesAgo}
-		bind:selected
-		bind:openId
+{#snippet lastGamesSection(view: HomeLastGamesView)}
+	<HomeLastGames
+		{view}
+		layout={wide.current ? 'desktop' : 'mobile'}
 		spoilerFree={spoilerFree.on}
 		{gameHref}
-		{teamHref}
 	/>
+{/snippet}
+
+{#if lastGames}
+	{#if scheduleHidden}
+		<!-- With the schedule hidden, Last games takes the `schedule` anchor: the nav's Games link
+		and the calendar's /?day= links land here instead of on nothing. -->
+		<div id="schedule">
+			{@render lastGamesSection(lastGames)}
+		</div>
+	{:else}
+		{@render lastGamesSection(lastGames)}
+	{/if}
+{/if}
+
+{#if view}
+	{#if !scheduleHidden}
+		<Schedule
+			days={view.days}
+			updatedMinutesAgo={view.updatedMinutesAgo}
+			bind:selected
+			bind:openId
+			spoilerFree={spoilerFree.on}
+			{gameHref}
+			{teamHref}
+			{emptyDay}
+			{windowHref}
+		/>
+	{/if}
 {:else if unavailable}
 	<section class="unavailable" id="schedule">
 		<MessageRow text={m.feed_unavailable()} />

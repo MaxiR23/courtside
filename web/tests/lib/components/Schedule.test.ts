@@ -14,6 +14,7 @@
 // - Only one game card is open at a time; clicking an open card closes it
 // - The open card can be bound from outside; each card has an anchor id; the section has the schedule anchor
 // - The playing highlight stops when its card closes, another opens or the day changes
+// - The empty-day box replaces the no-games row when emptyDay and windowHref are given; a day with games shows no box; without either the old row shows
 // - Spoiler-free mode hides final scores until a card opens
 // - Spanish copy, including the no-games message, with a Spanish browser preference
 //
@@ -432,5 +433,33 @@ describe('Schedule', () => {
 		expect(hrefs).toContain('/team/gsw');
 		expect(hrefs).toContain('/team/lal');
 		expect(container.querySelectorAll('button a, a a')).toHaveLength(0);
+	});
+
+	describe('empty-day box', () => {
+		const emptyDay = {
+			title: 'No games on this day',
+			text: 'Next games: Tue, Oct 6 · 5 games',
+			goTo: { date: '2026-10-06', label: 'Go to Tue, Oct 6 →' }
+		};
+		const windowHref = (date: string) => `/?day=${date}` as ResolvedPathname;
+
+		it('shows the box instead of the no-games row on a day with no games', () => {
+			render(Schedule, { props: { ...props, selected: 1, emptyDay, windowHref } });
+			expect(screen.getByText('No games on this day')).toBeTruthy();
+			expect(screen.queryByText('No games scheduled for this day.')).toBeNull();
+		});
+
+		it('shows the games and no box on a day with games', () => {
+			render(Schedule, { props: { ...props, selected: 3, emptyDay, windowHref } });
+			expect(screen.queryByText('No games on this day')).toBeNull();
+		});
+
+		it('keeps the old row without windowHref or without emptyDay', () => {
+			const { unmount } = render(Schedule, { props: { ...props, selected: 1, emptyDay } });
+			expect(screen.getByText('No games scheduled for this day.')).toBeTruthy();
+			unmount();
+			render(Schedule, { props: { ...props, selected: 1, windowHref } });
+			expect(screen.getByText('No games scheduled for this day.')).toBeTruthy();
+		});
 	});
 });

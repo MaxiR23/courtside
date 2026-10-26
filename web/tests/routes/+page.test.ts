@@ -22,6 +22,9 @@
 // - A day with games never requests the home feed; a day with only postponed and canceled games keeps the hero with no game and requests nothing
 // - A day with no games requests the home feed once, across several games polls, and the hero shows the chip, the title and the Coming up card (a section after the hero on mobile)
 // - A failed or unconfigured home feed leaves the date and the title only, with no Coming up, and the schedule still renders; Spanish title
+// - Last games after the home feed loads, in the documented order, with links to the game pages; absent when null, failed, not configured or on a day with games
+// - The empty-day box on a selected day with no games: next day and count, Go to link to /?day= inside the window, none outside it, the two-weeks message, the old row without the home feed
+// - The offseason hides the schedule and Last games takes the schedule anchor; the other scenarios keep it; spoiler-free hides the Last games scores
 // - Team logos: a side's feed logo in the game card's large box, the code monogram for a null logo and the initials of a guest side added in memory
 //
 // What is covered:
@@ -752,7 +755,9 @@ describe('home page on a day with no games', () => {
 		expect(section).not.toBeNull();
 		expect(hero.contains(section)).toBe(false);
 		expect(hero.nextElementSibling).toBe(section);
-		expect(section.nextElementSibling?.id).toBe('schedule');
+		const last = section.nextElementSibling as HTMLElement;
+		expect(last.classList.contains('last-games')).toBe(true);
+		expect(last.nextElementSibling?.id).toBe('schedule');
 		expect(hero.querySelector('.coming-up')).toBeNull();
 	});
 
@@ -788,5 +793,163 @@ describe('home page on a day with no games', () => {
 		stubFetch(answerWith(withoutGamesToday()));
 		await renderPage();
 		expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Hoy no hay partidos');
+	});
+
+	describe('with the home feed in', () => {
+		const setup = async (edit: (feed: HomeFeed) => void = () => {}) => {
+			config.homeUrl = HOME_URL;
+			const feed = homeFeed();
+			edit(feed);
+			homeAnswers = [homeAnswerWith(feed)];
+			stubFetch(answerWith(withoutGamesToday()));
+			const result = await renderPage();
+			await settle();
+			return result;
+		};
+		const links = (container: HTMLElement) =>
+			[...container.querySelectorAll<HTMLAnchorElement>('a')].map((a) => a.getAttribute('href'));
+
+		it('shows Last games with its title and two links to the game pages', async () => {
+			const { container } = await setup();
+			const section = container.querySelector('section.last-games') as HTMLElement;
+			expect(within(section).getByRole('heading', { level: 2 }).textContent).toBe('Last night');
+			const hrefs = [...section.querySelectorAll('a')].map((a) => a.getAttribute('href'));
+			expect(hrefs).toEqual(['/game/g-last-1', '/game/g-last-2']);
+		});
+
+		it('orders the hero, Last games and the schedule on a wide screen', async () => {
+			const { container } = await setup();
+			const hero = container.querySelector('.hero') as HTMLElement;
+			const last = container.querySelector('section.last-games') as HTMLElement;
+			expect(hero.nextElementSibling).toBe(last);
+			expect(last.nextElementSibling?.id).toBe('schedule');
+		});
+
+		it('hides Last games when the feed carries none', async () => {
+			const { container } = await setup((feed) => {
+				feed.lastGames = null;
+			});
+			expect(container.querySelector('.last-games')).toBeNull();
+			expect(container.querySelector('#schedule')).not.toBeNull();
+		});
+
+		it('hides Last games when the home feed fails or is not configured', async () => {
+			config.homeUrl = HOME_URL;
+			homeAnswers = [answerFailing];
+			stubFetch(answerWith(withoutGamesToday()));
+			const failed = await renderPage();
+			await settle();
+			expect(failed.container.querySelector('.last-games')).toBeNull();
+			failed.unmount();
+			config.homeUrl = undefined;
+			stubFetch(answerWith(withoutGamesToday()));
+			const absent = await renderPage();
+			expect(absent.container.querySelector('.last-games')).toBeNull();
+		});
+
+		it('hides Last games on a day with games', async () => {
+			config.homeUrl = HOME_URL;
+			homeAnswers = [homeAnswerWith(homeFeed())];
+			stubFetch(answerWith(recorded()));
+			const { container } = await renderPage();
+			expect(container.querySelector('.last-games')).toBeNull();
+		});
+
+		it('hides the scores of Last games with spoiler-free on', async () => {
+			const { container } = await setup();
+			const section = container.querySelector('section.last-games') as HTMLElement;
+			expect(within(section).getByText('104')).toBeTruthy();
+			await fireEvent.click(screen.getByRole('button', { name: 'Spoiler-free' }));
+			await settle();
+			expect(within(section).queryByText('104')).toBeNull();
+			expect(within(section).getAllByText('Tap to reveal')).toHaveLength(2);
+		});
+
+		it('shows the empty-day box on today with the next games and a Go to link', async () => {
+			const { container } = await setup();
+			const schedule = container.querySelector('#schedule') as HTMLElement;
+			expect(within(schedule).getByText('No games on this day')).toBeTruthy();
+			expect(within(schedule).getByText('Next games: Tue, Oct 6 · 5 games')).toBeTruthy();
+			expect(within(schedule).queryByText('No games scheduled for this day.')).toBeNull();
+			const goTo = within(schedule).getByRole('link', { name: 'Go to Tue, Oct 6 →' });
+			expect(goTo.getAttribute('href')).toBe('/?day=2026-10-06');
+		});
+
+		it('selects the next game day after the navigation the Go to link makes', async () => {
+			const { container } = await setup();
+			navigate('?day=2026-10-06');
+			await settle();
+			const schedule = container.querySelector('#schedule') as HTMLElement;
+			expect(within(schedule).getByRole('heading', { level: 2 }).textContent).toBe(
+				'Tuesday, October 6'
+			);
+		});
+
+		it('shows the text and no button outside the games feed window', async () => {
+			const { container } = await setup((feed) => {
+				if (feed.nextGame) feed.nextGame.inGamesWindow = false;
+			});
+			const schedule = container.querySelector('#schedule') as HTMLElement;
+			expect(within(schedule).getByText('Next games: Tue, Oct 6 · 5 games')).toBeTruthy();
+			expect(within(schedule).queryByRole('link', { name: /Go to/ })).toBeNull();
+			expect(links(container).some((href) => href?.startsWith('/day/2026-10-0'))).toBe(false);
+		});
+
+		it('shows the two-weeks message and no button without a next game', async () => {
+			const { container } = await setup((feed) => {
+				feed.nextGame = null;
+			});
+			const schedule = container.querySelector('#schedule') as HTMLElement;
+			expect(within(schedule).getByText('No games scheduled in the next two weeks.')).toBeTruthy();
+			expect(within(schedule).queryByRole('link', { name: /Go to/ })).toBeNull();
+		});
+
+		it('keeps the old row when the home feed failed', async () => {
+			config.homeUrl = HOME_URL;
+			homeAnswers = [answerFailing];
+			stubFetch(answerWith(withoutGamesToday()));
+			const { container } = await renderPage();
+			await settle();
+			const schedule = container.querySelector('#schedule') as HTMLElement;
+			expect(within(schedule).getByText('No games scheduled for this day.')).toBeTruthy();
+			expect(within(schedule).queryByText('No games on this day')).toBeNull();
+		});
+
+		it('hides the schedule in the offseason and keeps Last games', async () => {
+			const { container } = await setup((feed) => {
+				feed.scenario = 'offseason';
+			});
+			expect(container.querySelector('.schedule')).toBeNull();
+			expect(container.querySelector('.last-games')).not.toBeNull();
+		});
+
+		it('gives the schedule anchor to Last games in the offseason', async () => {
+			const { container } = await setup((feed) => {
+				feed.scenario = 'offseason';
+			});
+			const anchors = container.querySelectorAll('#schedule');
+			expect(anchors).toHaveLength(1);
+			expect(anchors[0].querySelector('.last-games')).not.toBeNull();
+		});
+
+		it('keeps the schedule anchor on the schedule outside the offseason', async () => {
+			const { container } = await setup((feed) => {
+				feed.scenario = 'offDay';
+			});
+			const anchors = container.querySelectorAll('#schedule');
+			expect(anchors).toHaveLength(1);
+			expect(anchors[0].classList.contains('schedule')).toBe(true);
+			expect(anchors[0].querySelector('.last-games')).toBeNull();
+		});
+
+		it.each(['offDay', 'allStarBreak', 'finalsPreview'] as const)(
+			'keeps the schedule in the %s scenario',
+			async (scenario) => {
+				const { container } = await setup((feed) => {
+					feed.scenario = scenario;
+				});
+				expect(container.querySelector('#schedule')).not.toBeNull();
+			}
+		);
 	});
 });

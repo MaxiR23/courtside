@@ -4,7 +4,9 @@
 	import GameCard from '#lib/components/GameCard.svelte';
 	import Kicker from '#lib/components/Kicker.svelte';
 	import MessageRow from '#lib/components/MessageRow.svelte';
+	import ScheduleEmptyDay from '#lib/components/ScheduleEmptyDay.svelte';
 	import { formatDate, formatNumber } from '#lib/format/locale.ts';
+	import type { EmptyDayView } from '#lib/home/types.ts';
 	import { m } from '#lib/paraglide/messages.js';
 	import { ListEntrance } from '#lib/schedule/entrance.svelte.ts';
 	import { cardAnchor, wideViewport } from '#lib/schedule/layout.ts';
@@ -19,6 +21,8 @@
 		spoilerFree?: boolean; // hides final scores until a card is opened
 		gameHref: (id: string) => ResolvedPathname; // the detail page of a game
 		teamHref: (code: string) => ResolvedPathname; // the page of a team
+		emptyDay?: EmptyDayView | null; // the home with no games: the box in place of the no-games row
+		windowHref?: (date: string) => ResolvedPathname; // a day of the games feed: /?day=YYYY-MM-DD
 	};
 
 	let {
@@ -28,7 +32,9 @@
 		openId = $bindable(null),
 		spoilerFree = false,
 		gameHref,
-		teamHref
+		teamHref,
+		emptyDay = null,
+		windowHref
 	}: Props = $props();
 
 	const wide = wideViewport();
@@ -101,6 +107,8 @@
 						</li>
 					{/each}
 				</ul>
+			{:else if emptyDay && windowHref}
+				<ScheduleEmptyDay view={emptyDay} {windowHref} />
 			{:else}
 				<MessageRow text={m.schedule_no_games()} />
 			{/if}

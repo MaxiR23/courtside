@@ -9,6 +9,9 @@
 // - Coming up: null when the feed's is null; items in feed order; a single day and a range; the status labels
 // - The link target of each of the nine keys
 // - A null feed gives the date only
+// - Last games: null cases, the five titles and the count in both languages, the seven labels with and without a game number, order, ids, loser flags, accent, team mark
+// - The empty-day box: next day and count, Go to only inside the games window, the two-weeks message, null without the feed, Spanish
+// - The schedule is hidden in the offseason only
 //
 // What is covered:
 // - Pure logic on an invented feed (tests/lib/feed/fixtures/home.json); no clock, no network
@@ -20,8 +23,19 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { ComingUpKey, HomeFeed, HomeScenario } from '../../../src/lib/contract/home';
-import { toNoGamesView } from '../../../src/lib/feed/home-props';
+import type {
+	ComingUpKey,
+	HomeFeed,
+	HomeScenario,
+	LastGameLabel,
+	LastGamesTitleKey
+} from '../../../src/lib/contract/home';
+import {
+	hidesSchedule,
+	toEmptyDayView,
+	toLastGamesView,
+	toNoGamesView
+} from '../../../src/lib/feed/home-props';
 import { preferLanguages } from '../../prefer-languages';
 
 const feed = (): HomeFeed =>
@@ -159,5 +173,166 @@ describe('toNoGamesView', () => {
 			broadcast: null,
 			comingUp: null
 		});
+	});
+});
+
+describe('toLastGamesView', () => {
+	const lastWith = (key: LastGamesTitleKey, days: number | null) => {
+		const source = feed();
+		source.lastGames!.title = { key, days };
+		return source;
+	};
+
+	it('is null for a null feed and for no last games', () => {
+		expect(toLastGamesView(null)).toBeNull();
+		const source = feed();
+		source.lastGames = null;
+		expect(toLastGamesView(source)).toBeNull();
+	});
+
+	it.each([
+		['lastNight', null, 'Last night', 'Anoche'],
+		['daysAgo', 3, '3 days ago', 'Hace 3 días'],
+		['beforeTheBreak', null, 'Before the break', 'Antes de la pausa'],
+		['conferenceFinals', null, 'Conference finals', 'Finales de conferencia'],
+		['lastGamesPlayed', null, 'Last games played', 'Últimos partidos jugados']
+	] as const)('titles %s in English and Spanish', (key, days, en, es) => {
+		expect(toLastGamesView(lastWith(key, days))!.title).toBe(en);
+		preferLanguages(['es']);
+		expect(toLastGamesView(lastWith(key, days))!.title).toBe(es);
+	});
+
+	it('falls back to the last games played for days ago without days', () => {
+		expect(toLastGamesView(lastWith('daysAgo', null))!.title).toBe('Last games played');
+	});
+
+	it('counts the games in both languages', () => {
+		expect(toLastGamesView(feed())!.count).toBe('2 games');
+		preferLanguages(['es']);
+		expect(toLastGamesView(feed())!.count).toBe('2 partidos');
+		const one = feed();
+		one.lastGames!.games = [one.lastGames!.games[0]];
+		preferLanguages(['en']);
+		expect(toLastGamesView(one)!.count).toBe('1 game');
+	});
+
+	it.each([
+		['final', 'Final'],
+		['finalOvertime', 'Final/OT'],
+		['playIn', 'Play-In'],
+		['firstRound', 'First round'],
+		['conferenceSemifinals', 'Conference semifinals'],
+		['conferenceFinals', 'Conference finals'],
+		['finals', 'Finals']
+	] as const)('labels %s, with and without a game number', (label: LastGameLabel, text) => {
+		const source = feed();
+		source.lastGames!.games[0].label = label;
+		source.lastGames!.games[0].gameNumber = null;
+		expect(toLastGamesView(source)!.games[0].label).toBe(text);
+		source.lastGames!.games[0].gameNumber = 3;
+		expect(toLastGamesView(source)!.games[0].label).toBe(`${text} · Game 3`);
+	});
+
+	it('labels in Spanish with the game number', () => {
+		preferLanguages(['es']);
+		const source = feed();
+		source.lastGames!.games[0].label = 'firstRound';
+		source.lastGames!.games[0].gameNumber = 3;
+		expect(toLastGamesView(source)!.games[0].label).toBe('Primera ronda · Partido 3');
+	});
+
+	it('keeps the feed order and the ids', () => {
+		expect(toLastGamesView(feed())!.games.map((g) => g.id)).toEqual(['g-last-1', 'g-last-2']);
+	});
+
+	it('flags the loser only on the side that is not the winner', () => {
+		const [first, second] = toLastGamesView(feed())!.games;
+		expect([first.away.loser, first.home.loser]).toEqual([true, false]);
+		expect([second.away.loser, second.home.loser]).toEqual([false, true]);
+		const source = feed();
+		source.lastGames!.games[0].winner = null;
+		const tied = toLastGamesView(source)!.games[0];
+		expect([tied.away.loser, tied.home.loser]).toEqual([false, false]);
+	});
+
+	it('maps the scores, the accent and the team of each side', () => {
+		const [first, second] = toLastGamesView(feed())!.games;
+		expect([first.away.score, first.home.score]).toEqual([104, 112]);
+		expect(first.away.accent).toBe('#1D4E89');
+		expect(second.away.accent).toBeNull();
+		expect(second.home.accent).toBe('#2E7D4F');
+		expect(first.home.team).toMatchObject({
+			code: 'STH',
+			name: 'Southerners',
+			city: 'South City',
+			logo: { light: 'https://example.com/sth.svg', dark: 'https://example.com/sth-dark.svg' }
+		});
+		expect(second.away.team.logo).toBeUndefined();
+	});
+
+	it('gives no accent when the feed has none', () => {
+		const source = feed();
+		source.lastGames!.games[0].accent = null;
+		const side = toLastGamesView(source)!.games[0];
+		expect([side.away.accent, side.home.accent]).toEqual([null, null]);
+	});
+});
+
+describe('toEmptyDayView', () => {
+	it('is null for a null feed', () => {
+		expect(toEmptyDayView(null)).toBeNull();
+	});
+
+	it('gives the next game day, its count and the Go to inside the window', () => {
+		expect(toEmptyDayView(feed())).toEqual({
+			title: 'No games on this day',
+			text: 'Next games: Tue, Oct 6 · 5 games',
+			goTo: { date: '2026-10-06', label: 'Go to Tue, Oct 6 →' }
+		});
+	});
+
+	it('gives no Go to outside the window', () => {
+		const source = feed();
+		source.nextGame!.inGamesWindow = false;
+		expect(toEmptyDayView(source)).toMatchObject({
+			text: 'Next games: Tue, Oct 6 · 5 games',
+			goTo: null
+		});
+	});
+
+	it('gives the two-weeks message without a next game', () => {
+		const source = feed();
+		source.nextGame = null;
+		expect(toEmptyDayView(source)).toMatchObject({
+			text: 'No games scheduled in the next two weeks.',
+			goTo: null
+		});
+	});
+
+	it('speaks Spanish', () => {
+		preferLanguages(['es']);
+		const view = toEmptyDayView(feed())!;
+		expect(view.title).toBe('No hay partidos este día');
+		expect(view.text).toContain('Próximos partidos:');
+		expect(view.goTo!.label).toMatch(/^Ir a .* →$/);
+		const source = feed();
+		source.nextGame = null;
+		expect(toEmptyDayView(source)!.text).toBe(
+			'No hay partidos programados en las próximas dos semanas.'
+		);
+	});
+});
+
+describe('hidesSchedule', () => {
+	it('hides the schedule in the offseason', () => {
+		expect(hidesSchedule({ ...feed(), scenario: 'offseason' })).toBe(true);
+	});
+
+	it.each(['offDay', 'allStarBreak', 'finalsPreview'] as const)('keeps it in %s', (scenario) => {
+		expect(hidesSchedule({ ...feed(), scenario })).toBe(false);
+	});
+
+	it('keeps it without the feed', () => {
+		expect(hidesSchedule(null)).toBe(false);
 	});
 });
