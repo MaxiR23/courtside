@@ -15,7 +15,71 @@
 		"gameCount": 5,
 		"inGamesWindow": true
 	},
-	"lastGames": null,
+	"lastGames": {
+		"date": "2026-10-03",
+		"title": { "key": "lastNight", "days": null },
+		"games": [
+			{
+				"id": "g-last-1",
+				"away": {
+					"code": "NRT",
+					"name": "Northerners",
+					"city": "North City",
+					"guest": false,
+					"seasonCode": null,
+					"historical": false,
+					"logo": { "light": "https://example.com/nrt.svg", "dark": null },
+					"colors": { "primary": "#1D4E89", "secondary": null }
+				},
+				"home": {
+					"code": "STH",
+					"name": "Southerners",
+					"city": "South City",
+					"guest": false,
+					"seasonCode": null,
+					"historical": false,
+					"logo": {
+						"light": "https://example.com/sth.svg",
+						"dark": "https://example.com/sth-dark.svg"
+					},
+					"colors": { "primary": "#B5332E", "secondary": "#F2C14E" }
+				},
+				"score": { "away": 104, "home": 112 },
+				"winner": "home",
+				"label": "final",
+				"gameNumber": null,
+				"accent": { "away": "#1D4E89", "home": "#B5332E" }
+			},
+			{
+				"id": "g-last-2",
+				"away": {
+					"code": "EST",
+					"name": "Easterners",
+					"city": "East City",
+					"guest": false,
+					"seasonCode": null,
+					"historical": false,
+					"logo": null,
+					"colors": null
+				},
+				"home": {
+					"code": "WST",
+					"name": "Westerners",
+					"city": "West City",
+					"guest": false,
+					"seasonCode": null,
+					"historical": false,
+					"logo": { "light": "https://example.com/wst.svg", "dark": null },
+					"colors": { "primary": "#2E7D4F", "secondary": null }
+				},
+				"score": { "away": 121, "home": 118 },
+				"winner": "away",
+				"label": "finalOvertime",
+				"gameNumber": null,
+				"accent": { "away": null, "home": "#2E7D4F" }
+			}
+		]
+	},
 	"leaders": null,
 	"finalsPath": null
 }

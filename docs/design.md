@@ -38,6 +38,8 @@ A dark-mode, single-page site with two parts:
 | `MessageRow` | A single blueprint row holding one muted message |
 | `NoGamesHero` | The hero copy on a day with no games: scenario tag, date, title, paragraph and next tip-off |
 | `ComingUp` | The dated events of the Coming up window, as a card on desktop and a section on mobile |
+| `HomeLastGames` | The final games of the most recent game day on the home with no games: desktop rows and mobile cards |
+| `ScheduleEmptyDay` | The home's box for a selected day with no games: the next game day or the two-weeks message, and the Go to button |
 | `NameLink` | A player or team name as a link, or as plain text when the href is null |
 
 ## Design tokens
@@ -229,9 +231,13 @@ Item layout: the date ("Nov 4", or "Nov 4 – Dec 3" for a range), the title, th
 
 The most recent day with games before today. The title comes from a key: "Last night" (yesterday), "N days ago", "Before the break" (All-Star break), "Conference finals" (Finals preview) or "Last games played" (offseason). The game count is on the right. Desktop rows: label (Final or the playoff round and game), away side, score, home side mirrored. Mobile: cards. The losing side drops to 45% opacity (token). Each game links to its game page.
 
+Built as `HomeLastGames`: the header is the kicker "Last games", the title as the h2 and the count "N games" on the right. The five titles read "Last night", "{N} days ago", "Before the break", "Conference finals" and "Last games played". The labels read "Final", "Final/OT", "Play-In", "First round", "Conference semifinals", "Conference finals" and "Finals", with " · Game {n}" added when the feed has a game number. Desktop row columns: the label (`--home-last-games-label-column`, 200px), the away side, the score and the home side mirrored. The mobile card holds the label and two team rows with the score right-aligned. Each side has an accent bar (`--home-last-games-accent-width`, 3px) in the feed's resolved color, or the neutral accent when it is null. The loser drops to `--home-last-games-loser-opacity` (.45). The whole row or card links to `/game/{id}`. With spoiler-free on, the scores and the dimming are hidden and "Tap to reveal" shows in their place. The section is hidden when `lastGames` is null or the home feed is loading, failed or not configured. It sits after Coming up (mobile) and before the schedule.
+
 ### Schedule
 
-Our 7-day strip and list stay below (`Schedule.svelte`, `DayStrip.svelte`: 3 days back, today, 3 ahead). On the home only, a selected day with no games shows the empty-day box in place of "No games scheduled for this day.": the title, "Next games: {day} · N games", or "No games scheduled in the next two weeks." when `nextGame` is null. The button "Go to {day}" shows only when the next game day is inside the games feed window, and selects that day with `/?day=` as the calendar sheet does. Outside the window there is no button: no page exists for a future day (`/day/` is for past days only, `docs/design-past-dates.md`). `DayPage.svelte` keeps its message. In the offseason the schedule is hidden (seven empty days say nothing); Last games is shown.
+Our 7-day strip and list stay below (`Schedule.svelte`, `DayStrip.svelte`: 3 days back, today, 3 ahead). On the home only, a selected day with no games shows the empty-day box in place of "No games scheduled for this day.": the title, "Next games: {day} · N games", or "No games scheduled in the next two weeks." when `nextGame` is null. The button "Go to {day}" shows only when the next game day is inside the games feed window, and selects that day with `/?day=` as the calendar sheet does. Outside the window there is no button: no page exists for a future day (`/day/` is for past days only, `docs/design-past-dates.md`). `DayPage.svelte` keeps its message. In the offseason the schedule is hidden (seven empty days say nothing); Last games is shown and carries the `schedule` anchor, so the nav's Games link (`/#schedule`) and the calendar's `/?day=` links land on it.
+
+Built as `ScheduleEmptyDay`: the title "No games on this day", the text "Next games: {day} · {N games}" with the day as "Tue, Oct 6", or "No games scheduled in the next two weeks.", and the secondary button "Go to {day} →". The box shows on any selected day with no games while the home feed is in. Without the home feed (loading, failed, not configured, or a day with games today) the row keeps "No games scheduled for this day.". The schedule is hidden once the home feed says `offseason`; while that feed loads the seven empty days show first.
 
 ### Standings (compact)
 
