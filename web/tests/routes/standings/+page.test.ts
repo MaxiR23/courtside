@@ -16,6 +16,7 @@
 // - With ?season: loads the calendar, then only the season feed, once; no polling; loading, 503 and 404 states
 // - An invalid, unlisted or current ?season loads the current feed and polls it; a late calendar does not reload it
 // - Calendar 503 or no calendar URL: the current season and no select
+// - Power ranking: current season only, hidden when unavailable, failed, unconfigured or on a past season; polled
 // - The select lists the right seasons and navigates with goto; Spanish
 //
 // What is covered:
@@ -55,7 +56,10 @@ vi.mock('$app/navigation', async (importOriginal) => ({
 	goto: seasonMocks.goto
 }));
 
-const config = vi.hoisted(() => ({ url: undefined as string | undefined }));
+const config = vi.hoisted(() => ({
+	url: undefined as string | undefined,
+	powerRanking: undefined as string | undefined
+}));
 vi.mock('../../../src/lib/feed/config', () => ({
 	get calendarFeedUrl() {
 		return seasonMocks.calendar;
@@ -65,6 +69,9 @@ vi.mock('../../../src/lib/feed/config', () => ({
 	},
 	get standingsFeedUrl() {
 		return config.url;
+	},
+	get powerRankingFeedUrl() {
+		return config.powerRanking;
 	}
 }));
 
@@ -114,6 +121,7 @@ beforeEach(() => {
 	vi.useFakeTimers();
 	vi.setSystemTime(new Date('2026-10-07T23:30:00Z'));
 	config.url = FEED_URL;
+	config.powerRanking = undefined;
 });
 
 afterEach(() => {
@@ -458,5 +466,112 @@ describe('standings page season selector', () => {
 		await renderSeason('?season=2005');
 		expect(screen.getByText('Temporada 2004-05')).toBeTruthy();
 		expect(screen.getByText('Clasificación final')).toBeTruthy();
+	});
+});
+
+const RANKING_URL = 'https://feeds.example.com/power-ranking.json';
+const rankingRecorded = () =>
+	JSON.parse(readFileSync(join(fixtures, 'power-ranking.json'), 'utf8'));
+const sectionOrNull = () => screen.queryByRole('region', { name: 'Power ranking' });
+const sectionRows = () => sectionOrNull()?.querySelectorAll('.body, .item').length;
+
+describe('standings page power ranking', () => {
+	beforeEach(() => {
+		config.powerRanking = RANKING_URL;
+	});
+
+	afterEach(() => {
+		seasonMocks.calendar = undefined;
+		seasonMocks.past = undefined;
+		seasonMocks.url = new URL('http://localhost/');
+	});
+
+	it('renders the section under the standings with 10 rows for the current season', async () => {
+		stubRoutes({
+			[FEED_URL]: [answerJson(recorded())],
+			[RANKING_URL]: [answerJson(rankingRecorded())]
+		});
+		await renderSeason('');
+		expect(sectionRows()).toBe(10);
+		expect(screen.getByText('Eastern Conference')).toBeTruthy();
+	});
+
+	it('hides the section when the feed is unavailable and keeps the standings', async () => {
+		stubRoutes({
+			[FEED_URL]: [answerJson(recorded())],
+			[RANKING_URL]: [answerJson({ season: '2026-27', state: 'unavailable', teams: [] })]
+		});
+		await renderSeason('');
+		expect(sectionOrNull()).toBeNull();
+		expect(screen.getByText('Eastern Conference')).toBeTruthy();
+	});
+
+	it('hides the section on a 503 and on a network failure and keeps the standings', async () => {
+		for (const failing of [answerStatus(503), answerFailing]) {
+			stubRoutes({ [FEED_URL]: [answerJson(recorded())], [RANKING_URL]: [failing] });
+			const { unmount } = await renderSeason('');
+			expect(sectionOrNull()).toBeNull();
+			expect(screen.getByText('Eastern Conference')).toBeTruthy();
+			unmount();
+		}
+	});
+
+	it('makes no request and shows no section without a URL', async () => {
+		config.powerRanking = undefined;
+		stubRoutes({ [FEED_URL]: [answerJson(recorded())] });
+		await renderSeason('');
+		expect(calls).toEqual([FEED_URL]);
+		expect(sectionOrNull()).toBeNull();
+	});
+
+	it('makes no request and shows no section on a past season', async () => {
+		seasonMocks.calendar = CAL_TEMPLATE;
+		seasonMocks.past = PAST_TEMPLATE;
+		stubRoutes({
+			[CAL_URL]: [answerJson(calendarFeed())],
+			[pastUrl(2005)]: [answerJson(pastRecorded())],
+			[RANKING_URL]: [answerJson(rankingRecorded())]
+		});
+		await renderSeason('?season=2005');
+		await vi.advanceTimersByTimeAsync(10 * 60_000);
+		expect(countOf(RANKING_URL)).toBe(0);
+		expect(sectionOrNull()).toBeNull();
+	});
+
+	it('polls again after 5 minutes once loaded', async () => {
+		stubRoutes({
+			[FEED_URL]: [answerJson(recorded())],
+			[RANKING_URL]: [answerJson(rankingRecorded())]
+		});
+		await renderSeason('');
+		await vi.advanceTimersByTimeAsync(299_999);
+		expect(countOf(RANKING_URL)).toBe(1);
+		await vi.advanceTimersByTimeAsync(1);
+		expect(countOf(RANKING_URL)).toBe(2);
+	});
+
+	it('polls again after 60 seconds when the first load failed, and then shows the section', async () => {
+		stubRoutes({
+			[FEED_URL]: [answerJson(recorded())],
+			[RANKING_URL]: [answerStatus(503), answerJson(rankingRecorded())]
+		});
+		await renderSeason('');
+		expect(sectionOrNull()).toBeNull();
+		await vi.advanceTimersByTimeAsync(60_000);
+		await settleAll();
+		expect(countOf(RANKING_URL)).toBe(2);
+		expect(sectionRows()).toBe(10);
+	});
+
+	it('keeps the section on screen when a later poll fails', async () => {
+		stubRoutes({
+			[FEED_URL]: [answerJson(recorded())],
+			[RANKING_URL]: [answerJson(rankingRecorded()), answerStatus(503)]
+		});
+		await renderSeason('');
+		await vi.advanceTimersByTimeAsync(300_000);
+		await settleAll();
+		expect(countOf(RANKING_URL)).toBe(2);
+		expect(sectionRows()).toBe(10);
 	});
 });

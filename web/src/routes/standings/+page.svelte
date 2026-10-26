@@ -3,15 +3,26 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import StandingsPage from '#lib/components/StandingsPage.svelte';
-	import { calendarFeedUrl, seasonStandingsFeedUrl, standingsFeedUrl } from '#lib/feed/config.ts';
+	import {
+		calendarFeedUrl,
+		powerRankingFeedUrl,
+		seasonStandingsFeedUrl,
+		standingsFeedUrl
+	} from '#lib/feed/config.ts';
 	import {
 		calendarFeedUrl as calendarFeedUrlOf,
 		loadCalendarFeed,
+		loadPowerRankingFeed,
 		loadStandingsFeed,
 		seasonStandingsFeedUrl as seasonStandingsFeedUrlOf
 	} from '#lib/feed/load.ts';
 	import { FeedOnce } from '#lib/feed/once.svelte.ts';
-	import { FeedPoller, standingsPollInterval } from '#lib/feed/poller.svelte.ts';
+	import {
+		FeedPoller,
+		powerRankingPollInterval,
+		standingsPollInterval
+	} from '#lib/feed/poller.svelte.ts';
+	import { toPowerRankingView } from '#lib/feed/power-ranking-props.ts';
 	import { toStandingsView } from '#lib/feed/standings-props.ts';
 	import { wideViewport } from '#lib/schedule/layout.ts';
 	import { currentSeason, requestedSeason, seasonOnShow } from '#lib/season/seasons.ts';
@@ -44,6 +55,17 @@
 	});
 
 	$effect(() => source?.start());
+
+	// The power ranking: the current season only (ADR 0075); hidden on a past season, when
+	// unavailable and when no load has succeeded.
+	const rankingUrl = powerRankingFeedUrl;
+	const ranking = $derived(
+		shown === 'current' && rankingUrl
+			? new FeedPoller(() => loadPowerRankingFeed(rankingUrl), powerRankingPollInterval)
+			: undefined
+	);
+	$effect(() => ranking?.start());
+	const powerRanking = $derived(ranking?.feed ? toPowerRankingView(ranking.feed) : null);
 
 	const view = $derived(source?.feed ? toStandingsView(source.feed, { past }) : null);
 
@@ -82,4 +104,5 @@
 	layout={wide.current ? 'desktop' : 'mobile'}
 	{teamHref}
 	{seasonSelect}
+	{powerRanking}
 />

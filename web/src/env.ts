@@ -95,6 +95,16 @@ export const variables = defineEnvVars({
 			return value;
 		}
 	},
+	POWER_RANKING_FEED_URL: {
+		public: true,
+		static: true,
+		description: 'Absolute URL of the power ranking feed, read at build time',
+		schema: (value) => {
+			if (!value) return undefined;
+			if (!URL.canParse(value)) throw new Error('POWER_RANKING_FEED_URL must be an absolute URL');
+			return value;
+		}
+	},
 	GAME_DETAIL_FEED_URL: {
 		public: true,
 		static: true,

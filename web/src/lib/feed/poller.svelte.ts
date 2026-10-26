@@ -3,6 +3,7 @@ import type { GameDetailFeed } from '#lib/contract/game-detail.ts';
 import type { GamesFeed } from '#lib/contract/games.ts';
 import type { PlayerFeed } from '#lib/contract/player.ts';
 import type { PlayoffsFeed } from '#lib/contract/playoffs.ts';
+import type { PowerRankingFeed } from '#lib/contract/power-ranking.ts';
 import type { StandingsFeed } from '#lib/contract/standings.ts';
 import type { CupFeed } from '#lib/contract/cup.ts';
 import type { TeamFeed } from '#lib/contract/team.ts';
@@ -37,6 +38,11 @@ export function teamPollInterval(feed: TeamFeed | null): number {
 /** docs/design-standings-search.md, Polling: every 5 min once final, every 60 s otherwise. */
 export function standingsPollInterval(feed: StandingsFeed | null): number {
 	return feed?.state === 'final' ? SLOW_POLL_MS : IDLE_POLL_MS;
+}
+
+/** docs/design-standings-search.md, Polling: the power ranking every 5 min once loaded, every 60 s while none has loaded. */
+export function powerRankingPollInterval(feed: PowerRankingFeed | null): number {
+	return feed ? SLOW_POLL_MS : IDLE_POLL_MS;
 }
 
 /** docs/design-cup.md, Polling: every 5 min once the Cup is complete, every 60 s otherwise. */

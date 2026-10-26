@@ -2,6 +2,7 @@
 	import type { ResolvedPathname } from '$app/types';
 	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
 	import MessageRow from '#lib/components/MessageRow.svelte';
+	import PowerRanking from '#lib/components/PowerRanking.svelte';
 	import SiteFooter from '#lib/components/SiteFooter.svelte';
 	import StandingsHeader from '#lib/components/StandingsHeader.svelte';
 	import StandingsKey from '#lib/components/StandingsKey.svelte';
@@ -11,7 +12,11 @@
 	import type { RowLayout } from '#lib/schedule/types.ts';
 	import type { SeasonControl } from '#lib/season/types.ts';
 	import { shimmer } from '#lib/skeleton/motion.ts';
-	import type { StandingsGrouping, StandingsPageState } from '#lib/standings/types.ts';
+	import type {
+		PowerRankingView,
+		StandingsGrouping,
+		StandingsPageState
+	} from '#lib/standings/types.ts';
 
 	type Props = {
 		state: StandingsPageState;
@@ -20,6 +25,7 @@
 		layout: RowLayout;
 		teamHref: (code: string) => ResolvedPathname;
 		seasonSelect?: SeasonControl | null; // null: no selector
+		powerRanking?: PowerRankingView | null; // null: no power ranking section
 	};
 
 	// `state` is renamed so the `$state` rune is not read as a store of the prop.
@@ -29,7 +35,8 @@
 		standingsHref,
 		layout,
 		teamHref,
-		seasonSelect = null
+		seasonSelect = null,
+		powerRanking = null
 	}: Props = $props();
 
 	// Not kept between visits.
@@ -54,6 +61,7 @@
 			<StandingsTable {group} {layout} {teamHref} />
 		{/each}
 		<StandingsKey entries={page.view.key} lines={page.view.lines} />
+		{#if powerRanking}<PowerRanking view={powerRanking} {layout} />{/if}
 	</div>
 {:else if page.kind === 'loading'}
 	<StandingsHeader

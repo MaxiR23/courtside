@@ -57,3 +57,26 @@ export type StandingsView = {
 
 export type StandingsPageState =
 	{ kind: 'loading' } | { kind: 'unavailable' } | { kind: 'ready'; view: StandingsView };
+
+export type PowerRankingRowView = {
+	code: string; // the each-block key
+	rank: string; // "3", or "T3" when tied (power_ranking_rank_tied)
+	tied: boolean;
+	team: TeamMarkTeam; // teamMark(): code, name (null: the code is shown), city, logo
+	record: string; // the feed's text, "3-1"
+	rating: string; // "+7.3", "−2.1"
+	ratingMuted: boolean; // the feed's ratingNegative
+	offense: string;
+	defense: string;
+	projected: string; // "54-28"
+	playoffs: string; // ">99.9%"
+	playoffsMuted: boolean; // the feed's playoffsLow
+	title: string; // "18.2%"
+	titleShare: number; // the feed's titleShare, 0 to 1, as sent
+};
+
+export type PowerRankingView = {
+	teams: PowerRankingRowView[]; // feed order (by rank)
+	showAllLabel: string; // "Show all 30 teams"
+	showTopLabel: string; // "Show top 10"
+};

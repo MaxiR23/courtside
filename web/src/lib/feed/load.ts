@@ -7,6 +7,7 @@ import type { CupMatchupFeed } from '#lib/contract/cup-matchup.ts';
 import type { HomeFeed } from '#lib/contract/home.ts';
 import type { GamesFeed } from '#lib/contract/games.ts';
 import type { PlayerFeed } from '#lib/contract/player.ts';
+import type { PowerRankingFeed } from '#lib/contract/power-ranking.ts';
 import type { PlayoffsFeed } from '#lib/contract/playoffs.ts';
 import type { PlayoffsFinalsFeed } from '#lib/contract/playoffs-finals.ts';
 import type { SearchFeed } from '#lib/contract/search.ts';
@@ -250,6 +251,27 @@ export async function loadHomeFeed(url: string, fetchFn: typeof fetch = fetch): 
 		throw new FeedLoadError('body', 'The home feed has no scenario or date');
 	}
 	return body as HomeFeed;
+}
+
+/**
+ * Fetches the power ranking feed. The body is only checked for its shape: an object with a
+ * string `state` and a `teams` array.
+ */
+export async function loadPowerRankingFeed(
+	url: string,
+	fetchFn: typeof fetch = fetch
+): Promise<PowerRankingFeed> {
+	const body = await fetchFeedBody(url, 'The power ranking feed', fetchFn);
+	const feed = body as Partial<PowerRankingFeed> | null;
+	if (
+		typeof body !== 'object' ||
+		feed === null ||
+		typeof feed.state !== 'string' ||
+		!Array.isArray(feed.teams)
+	) {
+		throw new FeedLoadError('body', 'The power ranking feed has no state or teams');
+	}
+	return body as PowerRankingFeed;
 }
 
 /** The URL of one Cup matchup feed: the template with the encoded slot id in place of {id}. */

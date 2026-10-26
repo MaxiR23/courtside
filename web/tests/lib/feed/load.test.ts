@@ -16,6 +16,7 @@
 // - loadPlayoffsFinalsFeed returns the finals feed, reports a 404 as not-found and every other failure
 // - loadAllStarFeed returns the All-Star feed and reports 503, network and body failures
 // - loadHomeFeed returns the home feed and reports 503, network and body failures
+// - loadPowerRankingFeed returns the power ranking feed and reports 503, network and body failures
 // - cupMatchupFeedUrl puts the encoded slot id in place of every {id}
 // - loadCupMatchupFeed returns the matchup feed with a no-cache request, reports a 404 as not-found and every other failure
 // - loadSearchFeed returns the search feed with a no-cache request and reports 503, network and body failures
@@ -44,6 +45,7 @@ import {
 	loadPlayoffsFeed,
 	loadAllStarFeed,
 	loadHomeFeed,
+	loadPowerRankingFeed,
 	loadPlayoffsFinalsFeed,
 	loadSearchFeed,
 	loadCupFeed,
@@ -588,6 +590,58 @@ describe('loadHomeFeed', () => {
 		for (const body of [null, 'x', { date: '2026-10-04' }, { scenario: 'offDay' }]) {
 			const bad = urlFetchAnswering(HOME_URL, () => json(body));
 			await expect(loadHomeFeed(HOME_URL, bad)).rejects.toMatchObject({ reason: 'body' });
+		}
+	});
+});
+
+const POWER_RANKING_URL = 'https://feeds.example.com/power-ranking.json';
+
+describe('loadPowerRankingFeed', () => {
+	it('returns the parsed power ranking feed on a 200, asking for JSON from the given URL', async () => {
+		const feed = { season: '2026-27', state: 'unavailable', teams: [] };
+		const fetchFn = urlFetchAnswering(POWER_RANKING_URL, () => json(feed));
+		await expect(loadPowerRankingFeed(POWER_RANKING_URL, fetchFn)).resolves.toEqual(feed);
+		expect(fetchFn).toHaveBeenCalledWith(POWER_RANKING_URL, {
+			headers: { accept: 'application/json' },
+			signal: expect.anything()
+		});
+	});
+
+	it('throws a status error on a 503', async () => {
+		const fetchFn = urlFetchAnswering(POWER_RANKING_URL, () => json({ detail: 'no' }, 503));
+		await expect(loadPowerRankingFeed(POWER_RANKING_URL, fetchFn)).rejects.toMatchObject({
+			name: 'FeedLoadError',
+			reason: 'status'
+		});
+	});
+
+	it('throws a network error', async () => {
+		const fetchFn = urlFetchAnswering(POWER_RANKING_URL, () =>
+			Promise.reject(new TypeError('Failed to fetch'))
+		);
+		await expect(loadPowerRankingFeed(POWER_RANKING_URL, fetchFn)).rejects.toMatchObject({
+			reason: 'network'
+		});
+	});
+
+	it('throws a body error on a non-JSON body and on JSON without a state or a teams array', async () => {
+		const html = urlFetchAnswering(POWER_RANKING_URL, () =>
+			Promise.resolve(new Response('<html>', { status: 200 }))
+		);
+		await expect(loadPowerRankingFeed(POWER_RANKING_URL, html)).rejects.toMatchObject({
+			reason: 'body'
+		});
+		for (const body of [
+			null,
+			'x',
+			{ teams: [] },
+			{ state: 'available' },
+			{ state: 'available', teams: 'x' }
+		]) {
+			const bad = urlFetchAnswering(POWER_RANKING_URL, () => json(body));
+			await expect(loadPowerRankingFeed(POWER_RANKING_URL, bad)).rejects.toMatchObject({
+				reason: 'body'
+			});
 		}
 	});
 });

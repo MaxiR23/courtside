@@ -10,6 +10,7 @@
 // - The footer in every state
 // - Spanish copy
 // - The season select reaches the header in the ready, loading and unavailable states, and is absent without the prop
+// - The power ranking section sits below the key when ready with a view; absent when null, absent or not ready
 // - The team logos on both layouts: the feed logo in a row's box, the code for a null logo
 //
 // What is covered:
@@ -26,9 +27,11 @@ import { fireEvent, render, screen } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import StandingsPage from '../../../src/lib/components/StandingsPage.svelte';
+import type { PowerRankingFeed } from '../../../src/lib/contract/power-ranking';
 import type { StandingsFeed } from '../../../src/lib/contract/standings';
+import { toPowerRankingView } from '../../../src/lib/feed/power-ranking-props';
 import { toStandingsView } from '../../../src/lib/feed/standings-props';
-import type { StandingsPageState } from '../../../src/lib/standings/types';
+import type { PowerRankingView, StandingsPageState } from '../../../src/lib/standings/types';
 import { preferLanguages } from '../../prefer-languages';
 
 const HOME = '/' as ResolvedPathname;
@@ -39,6 +42,13 @@ const feed = (): StandingsFeed =>
 	JSON.parse(
 		readFileSync(join(__dirname, '..', 'feed', 'fixtures', 'standings.json'), 'utf8')
 	) as StandingsFeed;
+
+const ranking = (): PowerRankingView =>
+	toPowerRankingView(
+		JSON.parse(
+			readFileSync(join(__dirname, '..', 'feed', 'fixtures', 'power-ranking.json'), 'utf8')
+		) as PowerRankingFeed
+	) as PowerRankingView;
 
 const ready = (): StandingsPageState => ({ kind: 'ready', view: toStandingsView(feed()) });
 
@@ -57,6 +67,48 @@ const headings = () => screen.getAllByRole('heading', { level: 2 }).map((h) => h
 
 afterEach(() => {
 	vi.restoreAllMocks();
+});
+
+describe('StandingsPage power ranking', () => {
+	const withRanking = (state: StandingsPageState, powerRanking?: PowerRankingView | null) =>
+		render(StandingsPage, {
+			props: {
+				state,
+				allGamesHref: HOME,
+				standingsHref: STANDINGS,
+				layout: 'desktop',
+				teamHref,
+				powerRanking
+			}
+		});
+
+	it('ready with a view: the section comes after the key', () => {
+		const { container } = withRanking(ready(), ranking());
+		const section = screen.getByRole('region', { name: 'Power ranking' });
+		const key = container.querySelector('.standings-key') as Element;
+		expect(key.compareDocumentPosition(section) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+		expect(container.querySelector('.groups')?.lastElementChild).toBe(section);
+	});
+
+	it('ready with a null or absent view: no section, and the tables and key render', () => {
+		for (const powerRanking of [null, undefined]) {
+			const { container, unmount } = withRanking(ready(), powerRanking);
+			expect(screen.queryByRole('region', { name: 'Power ranking' })).toBeNull();
+			expect(headings()).toEqual(['Eastern Conference', 'Western Conference']);
+			expect(container.querySelector('.groups')?.lastElementChild?.classList).toContain(
+				'standings-key'
+			);
+			unmount();
+		}
+	});
+
+	it('loading and unavailable with a view: no section', () => {
+		for (const state of [{ kind: 'loading' }, { kind: 'unavailable' }] as StandingsPageState[]) {
+			const { unmount } = withRanking(state, ranking());
+			expect(screen.queryByRole('region', { name: 'Power ranking' })).toBeNull();
+			unmount();
+		}
+	});
 });
 
 describe('StandingsPage', () => {
