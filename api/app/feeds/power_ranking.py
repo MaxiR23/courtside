@@ -30,7 +30,8 @@ class PowerRankingState(StrEnum):
 
 class PowerRankingIdentity(FeedModel):
     code: TeamCode
-    # From the cached team info; null when the cache has none.
+    # From the stored standings feed, else the cached team info; null with neither
+    # (ADR 0078).
     name: NonEmptyStr | None
     city: NonEmptyStr | None
     # The logo and colors (ADR 0068) and the resolved color (ADR 0072), added when

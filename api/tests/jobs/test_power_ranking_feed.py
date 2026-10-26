@@ -7,10 +7,10 @@
 # - Texts: the rating, offense and defense are signed with + and U+2212 and zero is unsigned, ratingNegative only for a negative rating, the record and the rounded projected record are wins-losses, the chance texts are kept as sent
 # - playoffsLow: true for 9.9% and <0.1%, false for 10.0% and >99.9%
 # - titleShare: 1 for the highest title chance, the ratio for the others, never over 1 when the rank 1 team is not the highest, 0 for all when every chance is 0
-# - Names: the name and city of each team come from its cached team info, null with none
+# - Names: the name and city of each team come together from its stored standings row, else its cached team info, null with neither
 # - Unavailable with no teams: an empty rating, 29 or 31 teams, a repeated code, any other missing value, a rank out of range and a chance text that does not parse
 # - Window: unavailable the day before the regular season starts and the day after it ends, available on its first and last day (US Eastern); the season label
-# - Kind: an id other than league is unknown, not ready before the season is known; one season type read and two page reads per build; outside the regular season unavailable with no index read; a page budget of 1 fails the build; a failed read with nothing stored is unavailable and not retried for 10 minutes; a failed rebuild keeps the stored feed; fresh until the US Eastern day change; logos, colors and accents are added when served and never stored; the cleanup keeps league
+# - Kind: an id other than league is unknown, not ready before the season is known; one season type read and two page reads per build; outside the regular season unavailable with no index read; a page budget of 1 fails the build; a failed read with nothing stored is unavailable and not retried for 10 minutes; a failed rebuild keeps the stored feed; fresh until the US Eastern day change when every name is filled in, and for 1 hour when a name is null; the build names the teams from the stored standings feed, warms it when none of the season is stored (another season, an invalid file) and never awaits it, and not outside the regular season; names fill in on the first request after 1 hour; with or without standings a build reads one season type and two index pages; logos, colors and accents are added when served and never stored; the cleanup keeps league
 #
 # What is covered:
 # - Pure logic happy path, edge and error cases; job success, failure and expiry
@@ -19,24 +19,34 @@
 #
 # Run with: cd api && .venv/bin/python -m pytest tests/jobs/test_power_ranking_feed.py
 #
-# SEE: api/app/jobs/power_ranking_feed.py, docs/api/power-ranking.md
+# SEE: api/app/jobs/power_ranking_feed.py, docs/api/power-ranking.md,
+# docs/adr/0078-power-ranking-names-from-the-stored-standings-feed.md
 
 import asyncio
 import datetime as dt
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 import httpx
 import pytest
 import respx
 from pydantic import HttpUrl
 
+from app.feeds.game_detail import Conference
 from app.feeds.opponent import TeamColors, TeamLogo
 from app.feeds.power_ranking import PowerRankingFeed, PowerRankingState
+from app.feeds.standings import (
+    ConferenceGroup,
+    StandingsColors,
+    StandingsFeed,
+    StandingsRow,
+    StandingsState,
+)
 from app.jobs import power_ranking_feed
 from app.jobs.on_demand import (
     FeedCache,
+    FeedKind,
     FeedUnavailableError,
     IdStatus,
     UnknownFeedError,
@@ -57,7 +67,7 @@ from app.sources.power_index import PowerIndex, PowerIndexTeam
 from app.sources.season_types import SeasonWindow
 from app.sources.team_info import TeamInfo
 from app.sources.teams import team_code_of_id
-from app.storage.feeds import read_by_id
+from app.storage.feeds import publish_by_id, read_by_id
 from app.storage.state import StateStore, TeamIdentity
 
 SOURCE = "https://example.com/source/"
@@ -107,8 +117,68 @@ def varied(position: int, **changes: object) -> PowerIndex:
     return PowerIndex(teams=teams)
 
 
-def build(index: PowerIndex | None, today: dt.date = TODAY) -> PowerRankingFeed:
-    return build_power_ranking_feed(SEASON, today, WINDOW, index, {})
+def build(
+    index: PowerIndex | None,
+    today: dt.date = TODAY,
+    standings: dict[str, StandingsRow] | None = None,
+) -> PowerRankingFeed:
+    return build_power_ranking_feed(SEASON, today, WINDOW, index, {}, standings)
+
+
+def row_of(number: int, code: str) -> StandingsRow:
+    return StandingsRow(
+        code=code,
+        city=f"City {number}",
+        name=f"Club {number}",
+        colors=StandingsColors(primary=None, secondary=None),
+        seed=None,
+        clinch=None,
+        wins=0,
+        losses=0,
+        pct=None,
+        games_behind=None,
+        streak=None,
+        home=None,
+        away=None,
+        last_ten="0-0",
+        division="0-0",
+        conference="0-0",
+        points_for=None,
+        points_against=None,
+        differential=None,
+        total=None,
+    )
+
+
+def standings_of(
+    season: str = "2026-27", named: Iterable[str] = CODES
+) -> StandingsFeed:
+    codes = list(named)
+    rows = [row_of(number, code) for number, code in enumerate(codes, start=1)]
+    return StandingsFeed(
+        season=season,
+        state=StandingsState.REGULAR,
+        games_played=0,
+        conferences=[
+            ConferenceGroup(
+                key=Conference.EAST,
+                name="Eastern Conference",
+                team_count=len(rows[:15]),
+                teams=rows[:15],
+            ),
+            ConferenceGroup(
+                key=Conference.WEST,
+                name="Western Conference",
+                team_count=len(rows[15:]),
+                teams=rows[15:],
+            ),
+        ],
+        divisions=[],
+    )
+
+
+def rows_of(feed: StandingsFeed) -> dict[str, StandingsRow]:
+    return {row.code: row for group in feed.conferences for row in group.teams}
 
 
 def info(name: str, location: str) -> TeamInfo:
@@ -212,6 +282,24 @@ def test_names_each_team_from_its_cached_info_and_gives_null_with_none() -> None
     assert (third.team.name, third.team.city) == (None, None)
 
 
+def test_names_each_team_from_the_stored_standings_rows_first() -> None:
+    rows = {code: row_of(n, code) for n, code in enumerate(CODES[:2], start=1)}
+    infos: dict[str, TeamInfo | None] = {
+        CODES[0]: info("Rivers", "Riverton"),
+        CODES[2]: info("Lakes", "Lakeside"),
+    }
+
+    feed = build_power_ranking_feed(
+        SEASON, D(2027, 1, 20), WINDOW, index_of(), infos, rows
+    )
+
+    first, second, third, fourth = feed.teams[:4]
+    assert (first.team.name, first.team.city) == ("Club 1", "City 1")
+    assert (second.team.name, second.team.city) == ("Club 2", "City 2")
+    assert (third.team.name, third.team.city) == ("Lakes", "Lakeside")
+    assert (fourth.team.name, fourth.team.city) == (None, None)
+
+
 @pytest.mark.parametrize(
     "index",
     [
@@ -304,6 +392,18 @@ def test_wraps_an_invalid_feed_in_the_build_error() -> None:
 # The kind
 
 
+class RecordingCache(FeedCache):
+    """A feed cache that records the warm calls."""
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.warmed: list[tuple[str, str]] = []
+
+    def warm(self, kind: str, feed_id: str) -> None:
+        self.warmed.append((kind, feed_id))
+        super().warm(kind, feed_id)
+
+
 class StubStars:
     def __init__(self) -> None:
         self.season: int | None = SEASON
@@ -336,11 +436,25 @@ class PowerRankingKit:
         self.index = index_of()
         respx.get(url__startswith=SOURCE).mock(side_effect=self.answer)
         self.stars = StubStars()
-        self.cache = FeedCache(
+        self.standings_build = False
+        self.blocking = False
+        self.release = asyncio.Event()
+        self.standings_built: list[str] = []
+        self.cache = RecordingCache(
             path,
             self.store,
             clock=lambda: self.clock[0],
             identities=self.stars.team_identities,
+        )
+        self.cache.register(
+            FeedKind(
+                "standings",
+                StandingsFeed,
+                check=self.check_standings,
+                build=self.build_standings,
+                is_fresh=lambda feed, built_at, now: False,
+                keep=lambda feed_id: True,
+            )
         )
         self.feeds = PowerRankingFeeds(
             self.settings,
@@ -351,6 +465,18 @@ class PowerRankingKit:
             fetch_season_type=self.fetch_season_type,
             fetch_power_index=self.fetch_power_index,
         )
+
+    def check_standings(self, feed_id: str) -> IdStatus:
+        return IdStatus.KNOWN if self.standings_build else IdStatus.UNKNOWN
+
+    async def build_standings(self, feed_id: str) -> StandingsFeed:
+        self.standings_built.append(feed_id)
+        if self.blocking:
+            await self.release.wait()
+        return standings_of()
+
+    def store_standings(self, feed: StandingsFeed) -> None:
+        publish_by_id(self.path, "standings", StandingsFeed, "league", feed)
 
     def answer(self, request: httpx.Request) -> httpx.Response:
         path = request.url.path.removeprefix("/source/")
@@ -535,9 +661,10 @@ async def test_a_failed_rebuild_keeps_and_serves_the_stored_feed(
 async def test_is_fresh_until_the_us_eastern_day_changes(
     kit: PowerRankingKit, built_at: dt.datetime
 ) -> None:
-    feed = build(index_of())
+    feed = build(index_of(), standings=rows_of(standings_of()))
     midnight = dt.datetime(2027, 1, 21, 5, 0, tzinfo=dt.UTC)
 
+    assert kit.feeds.is_fresh(feed, built_at, built_at + 2 * HOUR)
     assert kit.feeds.is_fresh(feed, built_at, midnight - dt.timedelta(seconds=1))
     assert not kit.feeds.is_fresh(feed, built_at, midnight)
     assert kit.feeds.keep(FEED_ID) and not kit.feeds.keep("other")
@@ -576,3 +703,139 @@ async def test_the_cleanup_keeps_league(kit: PowerRankingKit) -> None:
     await kit.settle()
 
     assert kit.stored() is not None
+
+
+@pytest.mark.parametrize(
+    ("named", "after_a_day"), [(CODES, True), (CODES[:29], False)], ids=["all", "29"]
+)
+def test_a_feed_with_a_null_name_is_fresh_before_1_hour_and_not_after(
+    kit: PowerRankingKit, named: list[str], after_a_day: bool
+) -> None:
+    feed = build(index_of(), standings=rows_of(standings_of(named=named)))
+
+    assert kit.feeds.is_fresh(feed, NOW, NOW + HOUR - dt.timedelta(seconds=1))
+    assert kit.feeds.is_fresh(feed, NOW, NOW + HOUR) is after_a_day
+
+
+def test_an_unavailable_feed_stays_fresh_for_the_day(kit: PowerRankingKit) -> None:
+    feed = build(None)
+
+    assert feed.teams == []
+    assert kit.feeds.is_fresh(feed, NOW, NOW + 2 * HOUR)
+
+
+@pytest.mark.anyio
+async def test_a_build_names_the_teams_from_the_stored_standings_feed(
+    kit: PowerRankingKit,
+) -> None:
+    kit.store_standings(standings_of())
+
+    feed = PowerRankingFeed.model_validate_json(await kit.serve())
+
+    assert [(t.team.name, t.team.city) for t in feed.teams] == [
+        (f"Club {n}", f"City {n}") for n in range(1, 31)
+    ]
+    assert ("standings", "league") not in kit.cache.warmed
+
+
+@pytest.mark.anyio
+async def test_a_stored_standings_feed_of_another_season_is_not_used_and_is_warmed(
+    kit: PowerRankingKit,
+) -> None:
+    kit.store_standings(standings_of(season="2025-26"))
+
+    feed = PowerRankingFeed.model_validate_json(await kit.serve())
+
+    assert {team.team.name for team in feed.teams} == {None}
+    assert ("standings", "league") in kit.cache.warmed
+
+
+@pytest.mark.anyio
+async def test_an_invalid_stored_standings_file_gives_null_names_and_a_warm(
+    kit: PowerRankingKit, tmp_path: Path
+) -> None:
+    folder = tmp_path / "feeds" / "standings"
+    folder.mkdir(parents=True)
+    (folder / "league.json").write_bytes(b"{}")
+
+    feed = PowerRankingFeed.model_validate_json(await kit.serve())
+
+    assert feed.state is PowerRankingState.AVAILABLE
+    assert {team.team.name for team in feed.teams} == {None}
+    assert ("standings", "league") in kit.cache.warmed
+
+
+@pytest.mark.anyio
+async def test_the_build_never_awaits_the_standings_build(
+    kit: PowerRankingKit,
+) -> None:
+    kit.standings_build = True
+    kit.blocking = True
+
+    body = await kit.cache.serve(KIND, FEED_ID, wait=1.0)
+
+    feed = PowerRankingFeed.model_validate_json(body)
+    assert feed.state is PowerRankingState.AVAILABLE
+    assert {team.team.name for team in feed.teams} == {None}
+    assert kit.stored() is not None
+    assert ("standings", "league") in kit.cache.in_flight
+    assert not kit.release.is_set()
+    assert kit.standings_built == ["league"]
+    kit.release.set()
+    await kit.settle()
+
+
+@pytest.mark.anyio
+async def test_names_fill_in_on_the_first_request_after_1_hour_once_standings_are_stored(
+    kit: PowerRankingKit,
+) -> None:
+    first = await kit.serve()
+    kit.store_standings(standings_of())
+    sent = len(kit.requests)
+
+    same = await kit.serve(NOW + dt.timedelta(minutes=30))
+    assert same == first and len(kit.requests) == sent
+
+    old = await kit.serve(NOW + HOUR)
+    stored = kit.stored()
+    assert old == first
+    assert stored is not None
+    assert {team.team.name for team in stored.teams} == {
+        f"Club {n}" for n in range(1, 31)
+    }
+
+    later = PowerRankingFeed.model_validate_json(await kit.serve(NOW + 2 * HOUR))
+    assert later.teams[0].team.name is not None
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("stored", [True, False])
+async def test_a_build_reads_one_season_type_and_at_most_two_index_pages_with_or_without_standings(
+    kit: PowerRankingKit, stored: bool
+) -> None:
+    kit.standings_build = True
+    if stored:
+        kit.store_standings(standings_of())
+
+    await kit.serve()
+
+    assert kit.requested("types") == 1
+    assert kit.requested("index/") == 2
+    assert all(name.startswith(("types", "index/")) for name in kit.requests)
+
+
+@pytest.mark.anyio
+async def test_outside_the_regular_season_no_standings_warm(
+    kit: PowerRankingKit,
+) -> None:
+    kit.standings_build = True
+    kit.window = SeasonWindow(
+        season_type=2,
+        start=dt.datetime(2027, 10, 20, 0, 0, tzinfo=dt.UTC),
+        end=dt.datetime(2028, 4, 10, 0, 0, tzinfo=dt.UTC),
+    )
+
+    await kit.serve()
+
+    assert kit.cache.warmed == []
+    assert kit.standings_built == []

@@ -2,8 +2,8 @@
 #
 # Power ranking feed builder and kind: the 30 teams by rank with every value decided
 # here. The builder is a pure function from the date, the regular-season window, the
-# power index and the cached team infos to the feed; it reads no clock and no source.
-# The feed is decided in ADR 0075.
+# power index, the stored standings rows and the cached team infos to the feed; it
+# reads no clock and no source. The feed is decided in ADR 0075 and ADR 0078.
 #
 # The feed is available only between the start and the end of the regular season, both
 # inclusive as US Eastern dates. Outside that window the feed is unavailable with no
@@ -18,15 +18,21 @@
 # wins and losses. The two chances keep the provider's display texts. playoffsLow is
 # read from the playoffs display text (under 10). titleShare is the title chance over the
 # highest title chance of the 30, 0 for all when that is 0. The name and city of a team
-# come from the cached team info (no request) and are null when the cache has none.
+# come together from the stored standings feed of the current season (read from disk,
+# no request), else from the cached team info (no request), else null. When the build
+# has teams and no standings feed of the season is stored, the build warms it and
+# never waits for it.
 #
 # PowerRankingFeeds is the feed kind of the on-demand cache: the only id is "league",
 # the feed is stored at feeds/power-ranking/league.json only when requested, and it
 # answers 503 (not ready) until the stars job knows the season. The feed expires at the
-# first US Eastern day change after the build. The feed is never deleted. A failed
+# first US Eastern day change after the build, and 1 hour after the build when any
+# team has a null name. A stale feed is served at once and rebuilt in the background.
+# The feed is never deleted. A failed
 # season type or index read fails the build: the cache keeps and serves the stored feed.
 #
 # SEE: docs/api/power-ranking.md, docs/adr/0075-power-ranking-feed.md,
+# docs/adr/0078-power-ranking-names-from-the-stored-standings-feed.md,
 # docs/source-rules.md
 
 import datetime as dt
@@ -40,6 +46,8 @@ from app.feeds.power_ranking import (
     PowerRankingState,
     PowerRankingTeam,
 )
+from app.feeds.standings import StandingsFeed, StandingsRow
+from app.jobs import standings_feed
 from app.jobs.on_demand import FeedCache, FeedKind, IdStatus
 from app.jobs.playoffs_feed import FetchSeasonType
 from app.jobs.standings_feed import signed_per_game
@@ -63,6 +71,9 @@ SEASON_TYPE_READS = 1
 PAGE_READS = power_index.MAX_PAGES
 # A chance under this many percent is low.
 LOW_CHANCE = 10.0
+# A feed with a team whose name is null expires this long after its build, so the
+# names fill in once the standings feed is stored (ADR 0078).
+NAMELESS_FRESH_FOR = dt.timedelta(hours=1)
 
 FetchPowerIndex = Callable[[SourceClient, int, Settings], Awaitable[PowerIndex]]
 
@@ -120,7 +131,9 @@ def _usable(index: PowerIndex) -> bool:
     )
 
 
-def _team(team: PowerIndexTeam, info: TeamInfo | None, top: float) -> PowerRankingTeam:
+def _team(
+    team: PowerIndexTeam, row: StandingsRow | None, info: TeamInfo | None, top: float
+) -> PowerRankingTeam:
     # _complete guarantees every value read here.
     assert team.rank is not None and team.rating is not None
     assert team.offense is not None and team.defense is not None
@@ -128,13 +141,21 @@ def _team(team: PowerIndexTeam, info: TeamInfo | None, top: float) -> PowerRanki
     assert team.title is not None
     assert team.playoffs_text is not None and team.title_text is not None
     rating = signed_per_game(team.rating)
+    name: str | None
+    city: str | None
+    if row is not None:
+        name, city = row.name, row.city
+    elif info is not None:
+        name, city = info.name, info.location
+    else:
+        name, city = None, None
     return PowerRankingTeam(
         rank=team.rank,
         tied=team.tied,
         team=PowerRankingIdentity(
             code=team.code,
-            name=None if info is None else info.name,
-            city=None if info is None else info.location,
+            name=name,
+            city=city,
         ),
         record=f"{team.wins}-{team.losses}",
         rating=rating.value,
@@ -155,6 +176,7 @@ def build_power_ranking_feed(
     window: SeasonWindow | None,
     index: PowerIndex | None,
     infos: Mapping[str, TeamInfo | None],
+    standings: Mapping[str, StandingsRow] | None = None,
 ) -> PowerRankingFeed:
     """Build the power ranking feed; raise PowerRankingBuildError when it is not
     valid."""
@@ -167,7 +189,11 @@ def build_power_ranking_feed(
         )
         top = max(team.title or 0.0 for team in index.teams)
         state = PowerRankingState.AVAILABLE
-        teams = [_team(team, infos.get(team.code), top) for _, team in ordered]
+        rows = standings or {}
+        teams = [
+            _team(team, rows.get(team.code), infos.get(team.code), top)
+            for _, team in ordered
+        ]
     try:
         return PowerRankingFeed(season=label, state=state, teams=teams)
     except ValidationError as error:
@@ -192,6 +218,7 @@ class PowerRankingFeeds:
         self._settings = settings
         self._store = store
         self._client = client
+        self._cache = cache
         self._stars = stars
         self._fetch_season_type = fetch_season_type
         self._fetch_power_index = fetch_power_index
@@ -206,6 +233,22 @@ class PowerRankingFeeds:
         ):
             return IdStatus.NOT_READY
         return IdStatus.KNOWN
+
+    def _standings_rows(self, season: int) -> dict[str, StandingsRow] | None:
+        """The rows of the stored standings feed of the season by code, or none when
+        it is missing, invalid or of another season. Reads no source."""
+        body = read_by_id(
+            self._settings.data_dir, standings_feed.KIND, standings_feed.FEED_ID
+        )
+        if body is None:
+            return None
+        try:
+            stored = StandingsFeed.model_validate_json(body)
+        except ValidationError:
+            return None
+        if stored.season != season_label(season):
+            return None
+        return {row.code: row for group in stored.conferences for row in group.teams}
 
     async def build(self, feed_id: str) -> PowerRankingFeed:
         season = self._stars.current_season()
@@ -227,16 +270,23 @@ class PowerRankingFeeds:
                 lambda: self._fetch_power_index(self._client, season, self._settings),
             )
         codes = [] if index is None else [team.code for team in index.teams]
+        rows = self._standings_rows(season) if codes else None
+        if codes and rows is None:
+            self._cache.warm(standings_feed.KIND, standings_feed.FEED_ID)
         infos = {
             code: team_info.cached_team_info(self._client, code, self._settings)
             for code in codes
         }
-        return build_power_ranking_feed(season, today, window, index, infos)
+        return build_power_ranking_feed(season, today, window, index, infos, rows)
 
     def is_fresh(
         self, feed: PowerRankingFeed, built_at: dt.datetime, now: dt.datetime
     ) -> bool:
-        return eastern_date(now) == eastern_date(built_at)
+        if eastern_date(now) != eastern_date(built_at):
+            return False
+        if any(team.team.name is None for team in feed.teams):
+            return now - built_at < NAMELESS_FRESH_FOR
+        return True
 
     def serve_with(self, feed_id: str, feed: PowerRankingFeed) -> PowerRankingFeed:
         identities = self._stars.team_identities()
