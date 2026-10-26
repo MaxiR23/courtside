@@ -7,11 +7,11 @@
 # - Coming up: null with the next event 15 days away and present at 14; an event with no date never appears; the status is upcoming before an event, now during and done after; a done item is listed only while the window is open and within 14 days; the offseason holds the preseason and Opening Night; a Cup feed of another season gives no Cup item
 # - Next game: null with no game day in 14 days; the first tip-off, its broadcast and the count without postponed and canceled games; inGamesWindow follows the games job's shown days; a day inside the window is read from the games job memory with no request
 # - Last games: the title for last night, days ago, the break, the finals preview and the offseason; the day per scenario; games from the games job memory inside the window and from the day feed built first outside it; only final games with no All-Star mark; the label of each kind of game
-# - Dependencies: the Cup, All-Star, playoffs and day feeds are built first only inside their windows, and the calendar always, with the previous one only with no earlier day
+# - Dependencies: the calendar always, with the previous one only with no earlier day, and the day feed outside the games window are built first; the Cup (regular season, none of this season stored or not complete), All-Star (February 1 to March 7) and playoffs (play-in start to postseason end) feeds are warmed only inside their windows and never awaited; a home build finishes while their builds are still running
 # - Leaders: the first leader of points, rebounds, assists and blocks in that order, titled season in an off day and the All-Star break, playoffs from the stored playoffs feed in the Finals preview, and previousSeason with the finished season's label in the offseason; a player with no identity has a dash and no photo; null without leaders
 # - Finals path: only in the Finals preview, East then West, the three series each finalist won, in round order, with the opponent, the en dash result and who won; null when a series is missing
 # - Budget and failures: 4 season type reads, 1 scoreboard read, 1 leaders read (the regular season URL of the right season) and 4 identity reads at most, none of the last two in the Finals preview, identities cached 30 days, 3 season type reads after the postseason, a failed read nulls only what it feeds, a failed or rate-limited identity read gives a dash for that player only, a failed leaders read gives null leaders, and a failed dependency never gives a 503
-# - Kind: stored only when requested, unknown and not ready ids, expiry at the day change and 1 hour after the build while an item is now, identity added when served (games, leaders and Finals path) and never stored, and a failed rebuild keeps the stored feed
+# - Kind: stored only when requested, unknown and not ready ids, expiry at the day change and 1 hour after the build while an item is now, stale after a Cup, All-Star or playoffs build newer than the one it read, fresh otherwise, also after a restart; a stale home is served at once, identity added when served (games, leaders and Finals path) and never stored, and a failed rebuild keeps the stored feed
 #
 # What is covered:
 # - Pure logic happy path, edge and error cases; job success, failure and expiry
@@ -25,7 +25,8 @@
 import asyncio
 import datetime as dt
 import json
-from collections.abc import Iterator
+import sys
+from collections.abc import Awaitable, Callable, Iterator
 from dataclasses import replace
 from pathlib import Path
 from typing import Any, cast
@@ -1189,12 +1190,24 @@ async def no_detail(
     raise SourceError("test", "no detail")
 
 
+class RecordingCache(FeedCache):
+    """A feed cache that records the warm calls."""
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.warmed: list[tuple[str, str]] = []
+
+    def warm(self, kind: str, feed_id: str) -> None:
+        self.warmed.append((kind, feed_id))
+        super().warm(kind, feed_id)
+
+
 class HomeKit:
     """A games job, a feed cache and the home kind over one client and one clock.
 
     Every fake adapter reads one URL through the source cache from a counted respx
     route, so route calls are real source requests. The calendar, day and playoffs
-    kinds are stand-ins that record their builds.
+    kinds are stand-ins that record their builds, and so are the Cup and All-Star kinds.
     """
 
     def __init__(self, path: Path, now: dt.datetime = NOW) -> None:
@@ -1222,7 +1235,12 @@ class HomeKit:
         self.stars = StubStars()
         self.cup = StubStored()
         self.playoffs = StubStored()
-        self.cache = FeedCache(
+        self.blocking = False
+        # False: the Cup and All-Star stand-ins are unknown ids, so a warm starts no
+        # build and the other tests see no dependency row.
+        self.dependencies_build = False
+        self.release = asyncio.Event()
+        self.cache = RecordingCache(
             path,
             self.store,
             clock=lambda: self.clock[0],
@@ -1284,6 +1302,29 @@ class HomeKit:
                 keep=lambda feed_id: True,
             )
         )
+        for name in ("cup", "all-star"):
+            self.cache.register(
+                FeedKind(
+                    name,
+                    Nothing,
+                    check=self.check_dependency,
+                    build=self.builder_of(name),
+                    is_fresh=lambda feed, built_at, now: False,
+                    keep=lambda feed_id: True,
+                )
+            )
+
+    def check_dependency(self, feed_id: str) -> IdStatus:
+        return IdStatus.KNOWN if self.dependencies_build else IdStatus.UNKNOWN
+
+    def builder_of(self, name: str) -> Callable[[str], Awaitable[Nothing]]:
+        async def build(feed_id: str) -> Nothing:
+            self.built.append((name, feed_id))
+            if self.blocking:
+                await self.release.wait()
+            return Nothing(id=feed_id)
+
+        return build
 
     def answer(self, request: httpx.Request) -> httpx.Response:
         path = request.url.path.removeprefix("/source/")
@@ -1364,6 +1405,8 @@ class HomeKit:
 
     async def build_playoffs(self, feed_id: str) -> Nothing:
         self.built.append(("playoffs", feed_id))
+        if self.blocking:
+            await self.release.wait()
         raise SourceError("test", "playoffs is down")
 
     async def settle(self) -> None:
@@ -1406,8 +1449,15 @@ class HomeKit:
     async def prepare_at(self, at: dt.datetime) -> list[tuple[str, str]]:
         self.clock[0] = at
         self.built.clear()
+        self.cache.warmed.clear()
         await self.home.prepare(FEED_ID, cast(Ensure, self.ensure))
-        return list(self.built)
+        ensured = list(self.built)
+        await self.settle()
+        return ensured
+
+    async def warmed_at(self, at: dt.datetime) -> list[tuple[str, str]]:
+        await self.prepare_at(at)
+        return list(self.cache.warmed)
 
 
 def calendar_of(
@@ -1568,31 +1618,34 @@ async def test_last_games_outside_the_window_come_from_the_day_feed_built_first(
 
 
 @pytest.mark.anyio
-async def test_the_cup_feed_is_built_first_only_from_its_first_game_date_to_its_championship(
+async def test_the_cup_feed_is_warmed_in_the_regular_season_when_none_of_this_season_or_an_incomplete_one_is_stored(
     kit: HomeKit,
 ) -> None:
     kit.calendars[SEASON] = [D(2026, 10, 25)]
+
+    async def warmed_cup(day: dt.date) -> bool:
+        return ("cup", "league") in await kit.warmed_at(at_noon(day))
+
+    assert not await warmed_cup(D(2026, 10, 19))
+    assert await warmed_cup(D(2026, 10, 20))
+    assert await warmed_cup(D(2027, 4, 12))
+    assert not await warmed_cup(D(2027, 4, 13))
     kit.cup.feed = cup(cup_stage=CupStage.GROUP, first_game_date=D(2026, 11, 7))
-
-    def built_cup(built: list[tuple[str, str]]) -> bool:
-        return ("cup", "league") in built
-
-    assert not built_cup(await kit.prepare_at(at_noon(D(2026, 11, 6))))
-    assert built_cup(await kit.prepare_at(at_noon(D(2026, 11, 7))))
+    assert await warmed_cup(D(2026, 11, 6))
     kit.cup.feed = cup(cup_stage=CupStage.CHAMPIONSHIP, first_game_date=D(2026, 11, 7))
-    assert built_cup(await kit.prepare_at(at_noon(D(2026, 12, 20))))
+    assert await warmed_cup(D(2026, 12, 20))
     kit.cup.feed = cup(cup_stage=CupStage.COMPLETE, first_game_date=D(2026, 11, 7))
-    assert not built_cup(await kit.prepare_at(at_noon(D(2026, 12, 20))))
+    assert not await warmed_cup(D(2026, 12, 20))
     kit.cup.feed = cup(season="2025-26", first_game_date=D(2025, 11, 7))
-    assert not built_cup(await kit.prepare_at(at_noon(D(2026, 11, 20))))
+    assert await warmed_cup(D(2026, 11, 20))
     kit.cup.feed = cup(first_game_date=None)
-    assert not built_cup(await kit.prepare_at(at_noon(D(2026, 11, 20))))
+    assert await warmed_cup(D(2026, 11, 20))
     kit.cup.feed = None
-    assert not built_cup(await kit.prepare_at(at_noon(D(2026, 11, 20))))
+    assert not await warmed_cup(D(2027, 7, 10))
 
 
 @pytest.mark.anyio
-async def test_the_all_star_feed_is_built_first_only_from_february_1_to_march_7(
+async def test_the_all_star_feed_is_warmed_only_from_february_1_to_march_7(
     kit: HomeKit,
 ) -> None:
     kit.calendars[SEASON] = [D(2027, 1, 10)]
@@ -1604,12 +1657,12 @@ async def test_the_all_star_feed_is_built_first_only_from_february_1_to_march_7(
     }
 
     for day, wanted in expected.items():
-        built = await kit.prepare_at(at_noon(day))
-        assert (("all-star", "league") in built) is wanted, day
+        warmed = await kit.warmed_at(at_noon(day))
+        assert (("all-star", "league") in warmed) is wanted, day
 
 
 @pytest.mark.anyio
-async def test_the_playoffs_feed_is_built_first_only_from_the_play_in_start_to_the_postseason_end(
+async def test_the_playoffs_feed_is_warmed_only_from_the_play_in_start_to_the_postseason_end(
     kit: HomeKit,
 ) -> None:
     kit.calendars[SEASON] = [D(2027, 4, 1)]
@@ -1621,20 +1674,196 @@ async def test_the_playoffs_feed_is_built_first_only_from_the_play_in_start_to_t
     }
 
     for day, wanted in expected.items():
-        built = await kit.prepare_at(at_noon(day))
-        assert (("playoffs", "league") in built) is wanted, day
+        warmed = await kit.warmed_at(at_noon(day))
+        assert (("playoffs", "league") in warmed) is wanted, day
 
 
 @pytest.mark.anyio
-async def test_the_playoffs_feed_is_not_built_first_when_a_season_type_is_unknown(
+async def test_the_playoffs_feed_is_not_warmed_when_a_season_type_is_unknown(
     kit: HomeKit,
 ) -> None:
     kit.calendars[SEASON] = [D(2027, 4, 1)]
     del kit.windows[(2027, 5)]
 
-    built = await kit.prepare_at(at_noon(D(2027, 5, 1)))
+    warmed = await kit.warmed_at(at_noon(D(2027, 5, 1)))
 
-    assert ("playoffs", "league") not in built
+    assert ("playoffs", "league") not in warmed
+
+
+@pytest.mark.anyio
+async def test_prepare_awaits_only_the_calendar_and_day_feeds(kit: HomeKit) -> None:
+    kit.calendars[SEASON] = [D(2026, 10, 25)]
+    cases = [
+        (D(2026, 11, 20), {("cup", "league")}),
+        (D(2027, 2, 10), {("cup", "league"), ("all-star", "league")}),
+        (D(2027, 5, 1), {("playoffs", "league")}),
+    ]
+
+    for day, expected in cases:
+        ensured = await kit.prepare_at(at_noon(day))
+        assert {kind for kind, _ in ensured} <= {"calendars", "days"}, day
+        assert expected <= set(kit.cache.warmed), day
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("at", "expected"),
+    [
+        (at_noon(D(2027, 2, 10)), {"cup", "all-star"}),
+        (at_noon(D(2027, 5, 1)), {"playoffs"}),
+    ],
+)
+async def test_a_home_build_finishes_while_the_cup_all_star_and_playoffs_builds_are_still_running(
+    tmp_path: Path, at: dt.datetime, expected: set[str]
+) -> None:
+    kit = HomeKit(tmp_path, at)
+    kit.calendars[SEASON] = [D(2027, 1, 10)]
+    kit.blocking = True
+    kit.dependencies_build = True
+
+    body = await kit.cache.serve(KIND, FEED_ID, wait=1.0)
+
+    assert HomeFeed.model_validate_json(body)
+    assert kit.stored() is not None
+    for name in expected:
+        assert (name, FEED_ID) in kit.cache.in_flight
+    assert not kit.release.is_set()
+    kit.release.set()
+    await kit.settle()
+
+
+@pytest.mark.anyio
+async def test_with_no_cup_feed_stored_in_the_regular_season_the_cup_is_warmed(
+    kit: HomeKit,
+) -> None:
+    kit.cup.feed = None
+    kit.dependencies_build = True
+
+    await kit.serve()
+
+    assert ("cup", "league") in kit.cache.warmed
+    assert ("cup", "league") in kit.built
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("dependency", ["cup", "all-star", "playoffs"])
+async def test_the_stored_home_is_stale_after_a_dependency_build_newer_than_the_one_it_read_and_fresh_otherwise(
+    kit: HomeKit, dependency: str
+) -> None:
+    await kit.serve()
+    feed = kit.stored()
+    built_at = kit.last_build()
+    assert feed is not None and built_at is not None
+    now = built_at + SECOND
+
+    assert kit.home.is_fresh(feed, built_at, now)
+    kit.store.record_build(dependency, "league", built_at + SECOND)
+    assert not kit.home.is_fresh(feed, built_at, now)
+
+
+@pytest.mark.anyio
+async def test_a_dependency_build_that_ends_after_the_home_read_it_makes_the_home_stale(
+    kit: HomeKit,
+) -> None:
+    kit.blocking = True
+    kit.dependencies_build = True
+    await kit.cache.serve(KIND, FEED_ID, wait=1.0)
+    feed = kit.stored()
+    built_at = kit.last_build()
+    assert feed is not None and built_at is not None
+    assert kit.home.is_fresh(feed, built_at, built_at)
+
+    kit.release.set()
+    await kit.settle()
+
+    assert not kit.home.is_fresh(feed, built_at, built_at)
+
+
+@pytest.mark.anyio
+async def test_after_a_restart_the_home_is_stale_only_after_a_dependency_build_newer_than_it(
+    tmp_path: Path,
+) -> None:
+    first = HomeKit(tmp_path)
+    await first.serve()
+    feed = first.stored()
+    built_at = first.last_build()
+    assert feed is not None and built_at is not None
+
+    restarted = HomeKit(tmp_path)
+    restarted.store.record_build("playoffs", "league", built_at - SECOND)
+    assert restarted.home.is_fresh(feed, built_at, built_at + SECOND)
+    restarted.store.record_build("playoffs", "league", built_at + SECOND)
+    assert not restarted.home.is_fresh(feed, built_at, built_at + SECOND)
+
+
+@pytest.mark.anyio
+async def test_a_stale_home_after_a_dependency_build_is_served_at_once_and_rebuilt_in_the_background(
+    kit: HomeKit,
+) -> None:
+    await kit.serve()
+    stored = kit.stored()
+    first = kit.last_build()
+    assert stored is not None and first is not None
+
+    kit.clock[0] += dt.timedelta(minutes=1)
+    kit.store.record_build("cup", "league", kit.clock[0])
+    body = await kit.cache.serve(KIND, FEED_ID)
+
+    assert HomeFeed.model_validate_json(body) == stored
+    assert kit.last_build() == first
+    await kit.settle()
+    rebuilt = kit.stored()
+    after = kit.last_build()
+    assert rebuilt is not None and after is not None and after > first
+    assert kit.home.is_fresh(rebuilt, after, kit.clock[0])
+
+
+@pytest.mark.anyio
+async def test_a_home_rebuild_that_fails_inside_the_build_keeps_the_stored_home_stale(
+    kit: HomeKit, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    await kit.serve()
+    stored = kit.stored()
+    built_at = kit.last_build()
+    assert stored is not None and built_at is not None
+    kit.clock[0] += dt.timedelta(minutes=1)
+    now = kit.clock[0]
+    kit.store.record_build("cup", "league", built_at + SECOND)
+
+    calendar_days = kit.home._calendar_days
+
+    def broken(season: int) -> list[dt.date]:
+        if sys._getframe(1).f_code.co_name == "build":
+            raise HomeBuildError("calendar broken")
+        return calendar_days(season)
+
+    monkeypatch.setattr(kit.home, "_calendar_days", broken)
+    body = await kit.cache.serve(KIND, FEED_ID)
+    await kit.settle()
+
+    assert HomeFeed.model_validate_json(body) == stored
+    assert kit.stored() == stored
+    state = kit.store.feed_build(KIND, FEED_ID)
+    assert state is not None and state.last_failure_reason == "calendar broken"
+    assert not kit.home.is_fresh(stored, built_at, now)
+
+
+@pytest.mark.anyio
+async def test_a_stored_cup_feed_of_this_season_gives_its_items_in_coming_up(
+    tmp_path: Path,
+) -> None:
+    kit = HomeKit(tmp_path, at_noon(D(2026, 11, 20)))
+    kit.calendars[SEASON] = [D(2026, 11, 10)]
+    kit.cup.feed = cup(
+        stage(CupRound.GROUP, D(2026, 11, 7), D(2026, 12, 2)),
+        cup_stage=CupStage.GROUP,
+    )
+
+    await kit.serve()
+
+    feed = kit.stored()
+    assert feed is not None
+    assert ComingUpKey.CUP_GROUP_STAGE in keys(feed)
 
 
 @pytest.mark.anyio

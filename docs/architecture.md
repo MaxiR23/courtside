@@ -458,7 +458,7 @@ Recorded in [`adr/0073-no-champion-record-or-point-differential-in-the-playoffs-
 
 Recorded in [`adr/0074-home-feed.md`](adr/0074-home-feed.md):
 
-- **Home feed**: `/feeds/home.json` (id `league`) is built on demand and decides the scenario of a day with no games (`offDay`, `allStarBreak`, `finalsPreview`, `offseason`) from the dates, with `comingUp` (the next big event within 14 days or in progress, always in the offseason), `nextGame`, `lastGames` (from the games job memory inside the games feed window, else from the day feed), `leaders` and, in the Finals preview, `finalsPath`. The Cup, All-Star and playoffs feeds are built as dependencies only inside their windows. Rebuilt at the first US Eastern day change, and one hour after the build while an item of `comingUp` is `now`; a build made while the games job memory was not loaded, with the last or next game day inside the games feed window, has those fields null and expires once the memory is loaded or one hour after the build. Budget: season types 4, next game day scoreboard 1, leaders 1, identities 4. A failed read nulls its field.
+- **Home feed**: `/feeds/home.json` (id `league`) is built on demand and decides the scenario of a day with no games (`offDay`, `allStarBreak`, `finalsPreview`, `offseason`) from the dates, with `comingUp` (the next big event within 14 days or in progress, always in the offseason), `nextGame`, `lastGames` (from the games job memory inside the games feed window, else from the day feed), `leaders` and, in the Finals preview, `finalsPath`. The Cup (in the regular season, when none of this season is stored or it is not complete), All-Star and playoffs feeds are warmed only inside their windows and never awaited, and a build of one makes the home stale (since `adr/0077`). Rebuilt at the first US Eastern day change, and one hour after the build while an item of `comingUp` is `now`; a build made while the games job memory was not loaded, with the last or next game day inside the games feed window, has those fields null and expires once the memory is loaded or one hour after the build. Budget: season types 4, next game day scoreboard 1, leaders 1, identities 4. A failed read nulls its field.
 
 Recorded in [`adr/0075-power-ranking-feed.md`](adr/0075-power-ranking-feed.md):
 
@@ -468,6 +468,10 @@ Recorded in [`adr/0075-power-ranking-feed.md`](adr/0075-power-ranking-feed.md):
 Recorded in [`adr/0076-coming-up-links-to-seasonal-pages.md`](adr/0076-coming-up-links-to-seasonal-pages.md):
 
 - **Coming up links**: the home's `ComingUp` component links to the Cup, All-Star and Playoffs pages and resolves those three routes itself in one record, as `NavRow` does; the key-to-link mapping lives in `web/src/lib/feed/home-props.ts`. Removing a section removes its entries there, and its items then show with no link.
+
+Recorded in [`adr/0077-home-warms-its-dependencies.md`](adr/0077-home-warms-its-dependencies.md):
+
+- **Home warms its dependencies**: the home build awaits only the calendar and the day feed of the last-games day; it warms the Cup (regular season, none of this season stored or not complete), All-Star (February 1 to March 7) and playoffs (play-in start to postseason end) feeds, never waits on them and reads them as stored. The home is stale once a build of one of them other than the one it read is recorded (with no memory of it, one after the home's build), and is then served at once and rebuilt in the background.
 
 ## Future
 
