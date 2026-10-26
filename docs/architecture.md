@@ -463,6 +463,7 @@ Recorded in [`adr/0074-home-feed.md`](adr/0074-home-feed.md):
 Recorded in [`adr/0075-power-ranking-feed.md`](adr/0075-power-ranking-feed.md):
 
 - **Power ranking feed**: `/feeds/power-ranking.json` (id `league`) is built on demand and is `available` only between the regular season start and end, with the regular-season run of 30 teams each with a non-empty rating; otherwise `unavailable` with no teams and no read. The provider `rank` is never used, a negative rating rank is a tie. Rebuilt at the first US Eastern day change. Budget: 2 page reads.
+- **Note on ADR 0075** (the ADR is not edited): `titleShare` is taken over the highest title chance of the 30 teams, not over the top team's. One season-type read is sent besides the 2 page reads and is budgeted apart, so the 2 page reads stay true. Both points are written in `docs/api/power-ranking.md` and `docs/source-rules.md`.
 
 Recorded in [`adr/0076-coming-up-links-to-seasonal-pages.md`](adr/0076-coming-up-links-to-seasonal-pages.md):
 

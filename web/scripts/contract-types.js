@@ -17,7 +17,8 @@
 // api/schemas/all-star.schema.json, web/src/lib/contract/all-star.ts,
 // api/schemas/calendar.schema.json, web/src/lib/contract/calendar.ts,
 // api/schemas/days.schema.json, web/src/lib/contract/days.ts,
-// api/schemas/home.schema.json, web/src/lib/contract/home.ts
+// api/schemas/home.schema.json, web/src/lib/contract/home.ts,
+// api/schemas/power-ranking.schema.json, web/src/lib/contract/power-ranking.ts
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -42,7 +43,8 @@ export const feeds = [
 	{ name: 'all-star', rootName: 'AllStarFeed' },
 	{ name: 'calendar', rootName: 'CalendarFeed' },
 	{ name: 'days', rootName: 'DayFeed' },
-	{ name: 'home', rootName: 'HomeFeed' }
+	{ name: 'home', rootName: 'HomeFeed' },
+	{ name: 'power-ranking', rootName: 'PowerRankingFeed' }
 ].map((feed) => ({
 	...feed,
 	schemaPath: join(import.meta.dirname, `../../api/schemas/${feed.name}.schema.json`),

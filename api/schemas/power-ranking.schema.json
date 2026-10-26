@@ -1,0 +1,239 @@
+{
+  "$defs": {
+    "PowerRankingIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "pattern": "^[A-Z]{3}$",
+          "type": "string"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "city": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "logo": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TeamLogo"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "colors": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TeamColors"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "accent": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "code",
+        "name",
+        "city",
+        "logo",
+        "colors",
+        "accent"
+      ],
+      "title": "PowerRankingIdentity",
+      "type": "object"
+    },
+    "PowerRankingState": {
+      "enum": [
+        "available",
+        "unavailable"
+      ],
+      "title": "PowerRankingState",
+      "type": "string"
+    },
+    "PowerRankingTeam": {
+      "additionalProperties": false,
+      "properties": {
+        "rank": {
+          "maximum": 30,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "tied": {
+          "type": "boolean"
+        },
+        "team": {
+          "$ref": "#/$defs/PowerRankingIdentity"
+        },
+        "record": {
+          "pattern": "^\\d+-\\d+$",
+          "type": "string"
+        },
+        "rating": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "ratingNegative": {
+          "type": "boolean"
+        },
+        "offense": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "defense": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "projected": {
+          "pattern": "^\\d+-\\d+$",
+          "type": "string"
+        },
+        "playoffs": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "title": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "playoffsLow": {
+          "type": "boolean"
+        },
+        "titleShare": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "rank",
+        "tied",
+        "team",
+        "record",
+        "rating",
+        "ratingNegative",
+        "offense",
+        "defense",
+        "projected",
+        "playoffs",
+        "title",
+        "playoffsLow",
+        "titleShare"
+      ],
+      "title": "PowerRankingTeam",
+      "type": "object"
+    },
+    "TeamColors": {
+      "additionalProperties": false,
+      "properties": {
+        "primary": {
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "type": "string"
+        },
+        "secondary": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "primary",
+        "secondary"
+      ],
+      "title": "TeamColors",
+      "type": "object"
+    },
+    "TeamLogo": {
+      "additionalProperties": false,
+      "description": "A team's logo: the one for a light background and, when the source has\none, the one for a dark background.",
+      "properties": {
+        "light": {
+          "format": "uri",
+          "maxLength": 2083,
+          "minLength": 1,
+          "type": "string"
+        },
+        "dark": {
+          "anyOf": [
+            {
+              "format": "uri",
+              "maxLength": 2083,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "light",
+        "dark"
+      ],
+      "title": "TeamLogo",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "season": {
+      "pattern": "^\\d{4}-\\d{2}$",
+      "type": "string"
+    },
+    "state": {
+      "$ref": "#/$defs/PowerRankingState"
+    },
+    "teams": {
+      "items": {
+        "$ref": "#/$defs/PowerRankingTeam"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "season",
+    "state",
+    "teams"
+  ],
+  "title": "PowerRankingFeed",
+  "type": "object"
+}

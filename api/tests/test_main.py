@@ -20,7 +20,7 @@
 # - Wires the stars job's team identities into the games job and into the feed cache as its identities provider (ADR 0068)
 # - Wires the games job, the feed cache, stars and highlights into the game detail feeds
 # - Wires presence and the after-run hook into the games job
-# - Wires the team, player, standings, home, search, Cup, Cup matchup, playoffs, playoffs finals, season Cup, season Cup matchup, season playoffs, season playoffs finals and season All-Star feed kinds into the feed cache, the season Cup, season playoffs and season All-Star feeds into app.state, the player feeds into app.state, and the cleanup into the stars job's after-run hook
+# - Wires the team, player, standings, home, power ranking, search, Cup, Cup matchup, playoffs, playoffs finals, season Cup, season Cup matchup, season playoffs, season playoffs finals and season All-Star feed kinds into the feed cache, the season Cup, season playoffs and season All-Star feeds into app.state, the player feeds into app.state, and the cleanup into the stars job's after-run hook
 # - Wires the past game detail kind into the feed cache
 # - Wires the daily cleanup to delete the ten kept kinds not served in 90 days and keep the others, with PRUNED_KINDS the ten names
 # - The daily cleanup keeps the player ids of the past feeds it deletes (ADR 0063)
@@ -471,6 +471,7 @@ def test_wires_the_team_and_player_feed_kinds_and_the_cleanup_into_the_stars_job
             "games",
             "standings",
             "home",
+            "power-ranking",
             "search",
             "cup",
             "cup-matchups",

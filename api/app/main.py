@@ -29,6 +29,7 @@ from app.jobs.player_identities import PlayerIdentities
 from app.jobs.playoffs_feed import PlayoffsFeeds
 from app.jobs.playoffs_finals_feed import PlayoffsFinalsFeeds
 from app.jobs.playoffs_titles import PlayoffsTitles
+from app.jobs.power_ranking_feed import PowerRankingFeeds
 from app.jobs.presence import Presence
 from app.jobs.scheduler import Scheduler
 from app.jobs.search_feed import SearchFeeds
@@ -132,6 +133,7 @@ def create_app(settings: Settings | None = None, *, run_jobs: bool = True) -> Fa
             attempts_over=highlights_job.attempts_over,
         )
         StandingsFeeds(settings, store, client, feed_cache, games_job)
+        PowerRankingFeeds(settings, store, client, feed_cache, stars_job)
         SearchFeeds(settings, store, client, feed_cache, games_job, stars_job)
         team_names = TeamNamesFeeds(settings, store, client, feed_cache, stars_job)
         season_cups = SeasonCupFeeds(

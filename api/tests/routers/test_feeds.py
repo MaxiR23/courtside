@@ -24,6 +24,7 @@
 # - Serves a player feed with Cache-Control and ETag, answers 304 for a matching ETag, 404 for an id in no roster once the rosters are fetched and 503 before, also through the app with no jobs
 # - A team and a player request record presence
 # - Serves the home feed with Cache-Control and ETag, answers 304 for a matching ETag, 503 while the season is not known, keeps serving the stored feed when a rebuild fails and answers 200 with a null next game when the scoreboard read fails
+# - Serves the power ranking feed with Cache-Control and ETag, answers 304 for a matching ETag, 503 while the season is not known and keeps serving the stored feed when a rebuild fails
 # - Serves the standings feed with Cache-Control and ETag, answers 304 for a matching ETag, 503 when the read fails with nothing stored and keeps serving the stored feed when a rebuild fails
 # - Serves the search feed with Cache-Control and ETag, with 30 teams and every roster player, and answers 304 for a matching ETag
 # - Responds 503 with a JSON error for the search feed before the rosters are fetched or when the standings read fails with nothing stored, and keeps serving the stored feed when a rebuild fails
@@ -96,6 +97,7 @@ from app.feeds.home import HomeFeed
 from app.feeds.player import PastPlayerFeed, PlayerFeed
 from app.feeds.playoffs import PlayoffsFeed
 from app.feeds.playoffs_finals import PlayoffsFinalsFeed
+from app.feeds.power_ranking import PowerRankingFeed
 from app.feeds.search import SearchFeed
 from app.feeds.standings import StandingsFeed
 from app.feeds.team import NameRun, PastTeamFeed, TeamFeed
@@ -142,6 +144,7 @@ from tests.jobs.test_playoffs_feed import (
     play_ins,
 )
 from tests.jobs.test_playoffs_finals_feed import FinalsKit, postseason
+from tests.jobs.test_power_ranking_feed import PowerRankingKit
 from tests.jobs.test_search_feed import SearchKit
 from tests.jobs.test_season_all_star_feed import SeasonAllStarKit
 from tests.jobs.test_season_cup_matchup_feed import SeasonMatchupKit
@@ -866,6 +869,79 @@ def test_keeps_serving_the_stored_standings_when_a_rebuild_fails(
         standings.kit.failing.add("standings")
 
         response = client.get("/feeds/standings.json")
+
+    assert response.status_code == 200
+    assert response.content == first.content
+
+
+class PowerRanking:
+    """An app with the feeds router and the power ranking kind over its kit's fakes."""
+
+    def __init__(self, path: Path) -> None:
+        self.kit = PowerRankingKit(path)
+        self.app = FastAPI()
+        self.app.include_router(feeds_router.router)
+        self.app.state.settings = self.kit.settings
+        self.app.state.presence = Presence(clock=lambda: self.kit.clock[0])
+        self.app.state.feed_cache = self.kit.cache
+
+
+@pytest.fixture
+def power_ranking(tmp_path: Path) -> Iterator[PowerRanking]:
+    with respx.mock:
+        yield PowerRanking(tmp_path)
+
+
+def test_serves_the_power_ranking_feed_with_cache_control_and_an_etag(
+    power_ranking: PowerRanking,
+) -> None:
+    with TestClient(power_ranking.app) as client:
+        response = client.get("/feeds/power-ranking.json")
+
+    assert response.status_code == 200
+    feed = PowerRankingFeed.model_validate_json(response.content)
+    assert feed.season == "2026-27" and len(feed.teams) == 30
+    assert response.headers["content-type"] == "application/json"
+    assert response.headers["cache-control"] == CACHE_CONTROL
+    etag = response.headers["etag"]
+    assert etag.startswith('"') and etag.endswith('"')
+
+
+def test_responds_304_when_the_power_ranking_etag_matches(
+    power_ranking: PowerRanking,
+) -> None:
+    with TestClient(power_ranking.app) as client:
+        first = client.get("/feeds/power-ranking.json")
+
+        response = client.get(
+            "/feeds/power-ranking.json",
+            headers={"If-None-Match": first.headers["etag"]},
+        )
+
+    assert response.status_code == 304
+    assert response.content == b""
+
+
+def test_responds_503_for_the_power_ranking_feed_while_the_season_is_not_known(
+    power_ranking: PowerRanking,
+) -> None:
+    power_ranking.kit.stars.season = None
+    with TestClient(power_ranking.app) as client:
+        response = client.get("/feeds/power-ranking.json")
+
+    assert response.status_code == 503
+    assert isinstance(response.json()["detail"], str)
+
+
+def test_keeps_serving_the_stored_power_ranking_feed_when_a_rebuild_fails(
+    power_ranking: PowerRanking,
+) -> None:
+    with TestClient(power_ranking.app) as client:
+        first = client.get("/feeds/power-ranking.json")
+        power_ranking.kit.clock[0] += dt.timedelta(days=1)
+        power_ranking.kit.failing.add("index")
+
+        response = client.get("/feeds/power-ranking.json")
 
     assert response.status_code == 200
     assert response.content == first.content
