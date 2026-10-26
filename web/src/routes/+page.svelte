@@ -4,6 +4,8 @@
 	import { onMount, tick, untrack } from 'svelte';
 	import ComingUp from '#lib/components/ComingUp.svelte';
 	import HomeLastGames from '#lib/components/HomeLastGames.svelte';
+	import HomeLeaders from '#lib/components/HomeLeaders.svelte';
+	import HomeStandings from '#lib/components/HomeStandings.svelte';
 	import Hero from '#lib/components/Hero.svelte';
 	import MessageRow from '#lib/components/MessageRow.svelte';
 	import Schedule from '#lib/components/Schedule.svelte';
@@ -16,17 +18,21 @@
 		calendarFeedUrl,
 		gamesFeedUrl,
 		homeFeedUrl,
+		standingsFeedUrl,
 		videoPlatformName
 	} from '#lib/feed/config.ts';
 	import {
 		calendarFeedUrl as calendarFeedUrlOf,
 		loadCalendarFeed,
 		loadGamesFeed,
-		loadHomeFeed
+		loadHomeFeed,
+		loadStandingsFeed
 	} from '#lib/feed/load.ts';
 	import {
 		hidesSchedule,
 		toEmptyDayView,
+		toHomeLeadersView,
+		toHomeStandingsView,
 		toLastGamesView,
 		toNoGamesView
 	} from '#lib/feed/home-props.ts';
@@ -91,6 +97,23 @@
 	const lastGames = $derived(toLastGamesView(home));
 	const emptyDay = $derived(toEmptyDayView(home));
 	const scheduleHidden = $derived(hidesSchedule(home));
+
+	// The standings feed loads once, like the home feed, the first time today has no games, and is
+	// never polled: a day with no games does not move the table.
+	const standingsUrl = standingsFeedUrl;
+	const standingsFeed = standingsUrl
+		? new FeedOnce(() => loadStandingsFeed(standingsUrl))
+		: undefined;
+	let standingsStarted = false;
+	$effect(() => {
+		if (!noGamesToday || standingsStarted || !standingsFeed) return;
+		standingsStarted = true;
+		untrack(() => standingsFeed.start());
+	});
+	const homeStandings = $derived(
+		view?.noGamesToday ? toHomeStandingsView(home, standingsFeed?.feed ?? null) : null
+	);
+	const homeLeaders = $derived(toHomeLeadersView(home));
 	let selected = $state(TODAY_INDEX);
 	let openId = $state<string | null>(null);
 
@@ -208,6 +231,21 @@
 	<ScheduleSkeleton />
 {/if}
 
+{#if homeStandings || homeLeaders}
+	<div class="standings-leaders" class:columns={wide.current}>
+		{#if homeStandings}
+			<HomeStandings
+				view={homeStandings}
+				layout={wide.current ? 'desktop' : 'mobile'}
+				standingsHref={resolve('/standings')}
+			/>
+		{/if}
+		{#if homeLeaders}
+			<HomeLeaders view={homeLeaders} layout={wide.current ? 'desktop' : 'mobile'} />
+		{/if}
+	</div>
+{/if}
+
 <SiteFooter />
 
 <style>
@@ -215,5 +253,17 @@
 		max-width: var(--content-max-width);
 		margin: 0 auto;
 		padding: var(--side-padding);
+	}
+
+	.standings-leaders {
+		display: grid;
+		gap: var(--panel-section-gap);
+		max-width: var(--content-max-width);
+		margin: 0 auto;
+		padding: var(--side-padding);
+	}
+
+	.columns {
+		grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
 	}
 </style>

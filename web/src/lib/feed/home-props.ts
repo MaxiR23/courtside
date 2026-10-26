@@ -2,13 +2,19 @@ import type {
 	ComingUpItem,
 	ComingUpKey,
 	ComingUpStatus,
+	FinalsPath,
 	HomeFeed,
+	HomeLeaderCategory,
+	HomeLeadersTitle,
 	HomeScenario,
 	LastGame,
 	LastGameLabel,
 	LastGamesTitle,
+	PathRound,
 	Side
 } from '#lib/contract/home.ts';
+import type { Conference, StandingsFeed } from '#lib/contract/standings.ts';
+import { toStandingsView } from '#lib/feed/standings-props.ts';
 import { feedDate } from '#lib/feed/team-props.ts';
 import { tipParts } from '#lib/feed/props.ts';
 import { formatNumber } from '#lib/format/locale.ts';
@@ -18,12 +24,19 @@ import type {
 	EmptyDayView,
 	HomeLastGameSideView,
 	HomeLastGamesView,
+	HomeLeadersView,
+	HomeStandingsView,
 	NoGamesView
 } from '#lib/home/types.ts';
 import { m } from '#lib/paraglide/messages.js';
 import { teamMark } from '#lib/team/mark.ts';
 
 const DATE_SEPARATOR = ' – ';
+const RECORD_SEPARATOR = '–';
+
+// Positions in the feed's seed order (docs/api/standings.md); `/web` does not re-sort.
+const TOP_ROWS = 6;
+const PLAY_IN_ROWS = 10;
 
 const MONTH_DAY: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
 
@@ -101,6 +114,29 @@ const lastGameLabels: Record<LastGameLabel, () => string> = {
 	conferenceSemifinals: m.home_last_games_label_conference_semifinals,
 	conferenceFinals: m.home_last_games_label_conference_finals,
 	finals: m.home_last_games_label_finals
+};
+
+const conferenceLabels: Record<Conference, () => string> = {
+	east: m.home_standings_east,
+	west: m.home_standings_west
+};
+
+const roundLabels: Record<PathRound, () => string> = {
+	firstRound: m.home_finals_path_round_first_round,
+	conferenceSemifinals: m.home_finals_path_round_conference_semifinals,
+	conferenceFinals: m.home_finals_path_round_conference_finals
+};
+
+const leaderCategories: Record<HomeLeaderCategory, () => string> = {
+	points: m.home_leaders_points,
+	rebounds: m.home_leaders_rebounds,
+	assists: m.home_leaders_assists,
+	blocks: m.home_leaders_blocks
+};
+
+const leaderTitles: Record<Exclude<HomeLeadersTitle, 'previousSeason'>, () => string> = {
+	season: m.home_leaders_title_season,
+	playoffs: m.home_leaders_title_playoffs
 };
 
 function itemDate(item: ComingUpItem): string {
@@ -215,4 +251,87 @@ export function toEmptyDayView(feed: HomeFeed | null): EmptyDayView | null {
  */
 export function hidesSchedule(feed: HomeFeed | null): boolean {
 	return feed?.scenario === 'offseason';
+}
+
+function compactStandings(feed: StandingsFeed): HomeStandingsView | null {
+	const groups = toStandingsView(feed).conference; // same order as feed.conferences
+	const tabs = feed.conferences.flatMap((conference, i) => {
+		const rows = (groups[i]?.rows ?? []).map((row) => ({
+			code: row.code,
+			seed: row.seed,
+			team: row.team,
+			record: `${row.wins}${RECORD_SEPARATOR}${row.losses}`,
+			gamesBehind: row.gamesBehind
+		}));
+		if (rows.length === 0) return [];
+		return [
+			{
+				key: conference.key,
+				label: conferenceLabels[conference.key](),
+				rows: rows.slice(0, TOP_ROWS),
+				playIn: rows.slice(TOP_ROWS, PLAY_IN_ROWS)
+			}
+		];
+	});
+	return tabs.length === 0 ? null : { kind: 'standings', title: m.home_standings_title(), tabs };
+}
+
+function finalsPathView(path: FinalsPath): HomeStandingsView {
+	return {
+		kind: 'finalsPath',
+		title: m.home_finals_path_title(),
+		tabs: path.finalists.map((finalist, i) => ({
+			key: finalist.team.code ?? `finalist-${i}`,
+			team: teamMark(finalist.team),
+			series: finalist.series.map((series) => ({
+				key: series.round,
+				round: roundLabels[series.round](),
+				opponent: teamMark(series.opponent),
+				accent: series.accent,
+				result: series.result,
+				won: series.won
+			}))
+		}))
+	};
+}
+
+/**
+ * The Finals preview draws each finalist's path and nothing else; any other scenario, or no home
+ * feed, draws the compact standings (`docs/design.md`, Home with no games, Standings (compact)).
+ */
+export function toHomeStandingsView(
+	home: HomeFeed | null,
+	standings: StandingsFeed | null
+): HomeStandingsView | null {
+	if (home?.scenario === 'finalsPreview') {
+		return home.finalsPath ? finalsPathView(home.finalsPath) : null;
+	}
+	return standings ? compactStandings(standings) : null;
+}
+
+function leadersTitle(title: HomeLeadersTitle, seasonLabel: string | null): string {
+	if (title !== 'previousSeason') return leaderTitles[title]();
+	// The contract gives the label with this key; without it no season is invented.
+	return seasonLabel === null
+		? m.home_leaders_title_last_season()
+		: m.home_leaders_title_previous_season({ season: seasonLabel });
+}
+
+/** Turns the home feed's leaders into the section, one row per category sent; null: nothing to show. */
+export function toHomeLeadersView(home: HomeFeed | null): HomeLeadersView | null {
+	const leaders = home?.leaders;
+	if (!leaders) return null;
+	return {
+		title: leadersTitle(leaders.title, leaders.seasonLabel),
+		leaders: leaders.categories.map((leader) => ({
+			key: leader.category,
+			category: leaderCategories[leader.category](),
+			team: leader.team
+				? teamMark({ code: leader.team.code, name: null, city: null, logo: leader.team.logo })
+				: null,
+			name: leader.name,
+			photo: leader.photoUrl,
+			value: leader.value
+		}))
+	};
 }
