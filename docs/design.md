@@ -173,6 +173,65 @@ Until the first feed loads, the hero and the schedule show skeletons shaped like
 
 "COURTSIDE" on the left. "Unofficial site, not affiliated with the NBA or its teams. Names and logos belong to their owners." on the right, 12px, muted.
 
+## Home with no games
+
+The home shows this layout when the games feed is in and today (US Eastern) has no game in it. A day with games keeps the home described above exactly as it is. If the home feed (ADR 0074, `docs/api/home.md`) fails, the hero still shows "No games today" and the sections that need the feed are hidden; the page never breaks. `/web` computes nothing: every text, date label, status and color comes ready in the feeds. Every new string is in `web/messages/en.json` and `es.json` with the same keys, and styles use the tokens in `web/src/lib/styles/tokens.css`.
+
+**Order:** nav, hero, Coming up, Last games, our schedule, Standings and Leaders, footer. Desktop puts Coming up on the right of the hero and Standings and Leaders in two columns; mobile stacks every section.
+
+### Scenarios
+
+The backend decides one scenario from the schedule dates; the front end only draws it.
+
+| Scenario | When | Tag chip |
+|---|---|---|
+| `offDay` | An ordinary day with no games | Off day |
+| `allStarBreak` | Between the last regular-season game day before the All-Star date and the first after it | All-Star break |
+| `finalsPreview` | The conference finals are complete and Finals Game 1 has not started | Finals preview |
+| `offseason` | Between the end of the postseason and the start of the regular season | Offseason |
+
+### Hero
+
+Same grid background as the current hero. The tag chip with the scenario, the date, the title "No games today" (124px on desktop, 56px on mobile, `text-wrap: balance`), a paragraph for the scenario, and the next tip-off label from `nextGame` (hidden when it is null). The TV network comes from `nextGame.broadcast` and is shown next to the tip-off label only when it is not null. With no Coming up the hero takes the full width. Our nav (`NavRow`) stays as is.
+
+### Coming up
+
+The next big event starting in 14 days or less, or an event in progress; null outside the window, and then the section is hidden. In the offseason it is always present, with the preseason start and Opening Night. Events: Opening Night, the Cup stages, All-Star, Play-In, Playoffs and the Finals (Finals Game 1, only when the bracket has it). An event with no date is left out, never invented. Each item shows its date, a title, a sub line and a status chip `Done`, `Now` or `Upcoming` computed by the backend, with a link to the related page (Cup, All-Star or Playoffs). Desktop: a blueprint card with corner marks on the right of the hero. Mobile: its own section below the hero.
+
+### Last games
+
+The most recent day with games before today. The title comes from a key: "Last night" (yesterday), "N days ago", "Before the break" (All-Star break), "Conference finals" (Finals preview) or "Last games played" (offseason). The game count is on the right. Desktop rows: label (Final or the playoff round and game), away side, score, home side mirrored. Mobile: cards. The losing side drops to 45% opacity (token). Each game links to its game page.
+
+### Schedule
+
+Our 7-day strip and list stay below (`Schedule.svelte`, `DayStrip.svelte`: 3 days back, today, 3 ahead). On the home only, a selected day with no games shows the empty-day box in place of "No games scheduled for this day.": the title, "Next games: {day} · N games", or "No games scheduled in the next two weeks." when `nextGame` is null. The button "Go to {day}" shows only when the next game day is inside the games feed window, and selects that day with `/?day=` as the calendar sheet does. Outside the window there is no button: no page exists for a future day (`/day/` is for past days only, `docs/design-past-dates.md`). `DayPage.svelte` keeps its message. In the offseason the schedule is hidden (seven empty days say nothing); Last games is shown.
+
+### Standings (compact)
+
+From the existing standings feed, no new feed. An East / West segmented control, the top 6 rows (rank, team with logo, W–L, GB), the play-in teams 7 to 10 as a footnote, and "Full standings →" to `/standings`. In the Finals preview the tabs become the two finalists and the table shows each one's path from `finalsPath`: for each finalist its three series (round, opponent with logo and resolved color, result as wins–losses, won).
+
+### Leaders
+
+From the home feed: four rows, one per category (points, rebounds, assists, blocks per game). Each row has a photo thumbnail anchored bottom-left so the head is never cut, the category and team, the name and the value. The title comes from a key: the season, the playoffs (Finals preview) or the previous season with its label (offseason). The section is hidden when `leaders` is null; a player with no photo shows our empty photo box. Percentage categories are excluded: early in the season there is no qualifying minimum.
+
+### Deviations from the design handoff
+
+The handoff ("Home — No games today") is a reference, not a spec. Where it differs from Courtside, Courtside wins.
+
+| Handoff item | Decision | Reason |
+|---|---|---|
+| Nav | Ours (`NavRow`) | One nav for every page |
+| Footer | Ours (`SiteFooter`) | One footer for every page |
+| Logos and photos | From our feeds (team identity, player photos) | The handoff uses its own image URLs; we never hotlink them |
+| 7-days-ahead strip | Not built; we keep our 7-day strip and list. Only the empty-day box is taken | One schedule component; avoids two |
+| All-Star weekend events (Rising Stars, Skills, 3-Point, Dunk) | Removed | No verified data |
+| Offseason events (Draft, free agency, Summer League, training camps) | Removed | No verified data |
+| Countdown | Removed | No verified data to drive it |
+| "Game of the night" | Removed | No verified data |
+| Power ranking on the home | Moved to `/standings`, regular season only | See `docs/design-standings-search.md`, "Power ranking" |
+| Percentage leader categories | Excluded | No qualifying minimum early in the season |
+| TV network | Shown only when `nextGame.broadcast` is not null | An unknown network is omitted, as in the schedule |
+
 ## Interactions and motion
 
 | What | How |
