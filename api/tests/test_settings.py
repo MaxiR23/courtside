@@ -123,6 +123,7 @@ def clear_environment_variable(monkeypatch: pytest.MonkeyPatch) -> None:
             "season_type_url",
             "postseason_leaders_url",
             "season_leaders_url",
+            "power_index_url",
             "team_postseason_record_url",
             "team_postseason_stats_url",
             "season_awards_url",
@@ -903,6 +904,14 @@ POSTSEASON_TEMPLATES = (
             "season_leaders_url",
             "https://example.com/{season}/leaders",
             ("{season}",),
+        )
+    ]
+    + [
+        (
+            "POWER_INDEX_URL",
+            "power_index_url",
+            "https://example.com/{season}/ranking?lang=en&page={page}",
+            ("{season}", "{page}"),
         )
     ]
 )

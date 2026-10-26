@@ -1,0 +1,1454 @@
+{
+  "items": [
+    {
+      "seasonType": 2,
+      "team": {
+        "$ref": "https://example.com/teams/1"
+      },
+      "stats": [
+        {
+          "name": "bpirank",
+          "value": 1,
+          "displayValue": "1"
+        },
+        {
+          "name": "bpi",
+          "value": 7.5,
+          "displayValue": "7.5"
+        },
+        {
+          "name": "bpioffense",
+          "value": 3.8,
+          "displayValue": "3.8"
+        },
+        {
+          "name": "bpidefense",
+          "value": 2.9,
+          "displayValue": "2.9"
+        },
+        {
+          "name": "numwins",
+          "value": 59,
+          "displayValue": "59"
+        },
+        {
+          "name": "numlosses",
+          "value": 21,
+          "displayValue": "21"
+        },
+        {
+          "name": "projectedw",
+          "value": 59.4,
+          "displayValue": "59.4"
+        },
+        {
+          "name": "projectedl",
+          "value": 22.6,
+          "displayValue": "22.6"
+        },
+        {
+          "name": "probmakeplayoffs",
+          "value": 97.0,
+          "displayValue": "97.0%"
+        },
+        {
+          "name": "probwintitle",
+          "value": 30.0,
+          "displayValue": "30.0%"
+        }
+      ]
+    },
+    {
+      "seasonType": 2,
+      "team": {
+        "$ref": "https://example.com/teams/2"
+      },
+      "stats": [
+        {
+          "name": "bpirank",
+          "value": 2,
+          "displayValue": "2"
+        },
+        {
+          "name": "bpi",
+          "value": 7.0,
+          "displayValue": "7.0"
+        },
+        {
+          "name": "bpioffense",
+          "value": 3.6,
+          "displayValue": "3.6"
+        },
+        {
+          "name": "bpidefense",
+          "value": 2.8,
+          "displayValue": "2.8"
+        },
+        {
+          "name": "numwins",
+          "value": 58,
+          "displayValue": "58"
+        },
+        {
+          "name": "numlosses",
+          "value": 22,
+          "displayValue": "22"
+        },
+        {
+          "name": "projectedw",
+          "value": 58.4,
+          "displayValue": "58.4"
+        },
+        {
+          "name": "projectedl",
+          "value": 23.6,
+          "displayValue": "23.6"
+        },
+        {
+          "name": "probmakeplayoffs",
+          "value": 94.0,
+          "displayValue": "94.0%"
+        },
+        {
+          "name": "probwintitle",
+          "value": 15.0,
+          "displayValue": "15.0%"
+        }
+      ]
+    },
+    {
+      "seasonType": 2,
+      "team": {
+        "$ref": "https://example.com/teams/3"
+      },
+      "stats": [
+        {
+          "name": "bpirank",
+          "value": 3,
+          "displayValue": "3"
+        },
+        {
+          "name": "bpi",
+          "value": 6.5,
+          "displayValue": "6.5"
+        },
+        {
+          "name": "bpioffense",
+          "value": 3.4,
+          "displayValue": "3.4"
+        },
+        {
+          "name": "bpidefense",
+          "value": 2.7,
+          "displayValue": "2.7"
+        },
+        {
+          "name": "numwins",
+          "value": 57,
+          "displayValue": "57"
+        },
+        {
+          "name": "numlosses",
+          "value": 23,
+          "displayValue": "23"
+        },
+        {
+          "name": "projectedw",
+          "value": 57.4,
+          "displayValue": "57.4"
+        },
+        {
+          "name": "projectedl",
+          "value": 24.6,
+          "displayValue": "24.6"
+        },
+        {
+          "name": "probmakeplayoffs",
+          "value": 91.0,
+          "displayValue": "91.0%"
+        },
+        {
+          "name": "probwintitle",
+          "value": 10.0,
+          "displayValue": "10.0%"
+        }
+      ]
+    },
+    {
+      "seasonType": 2,
+      "team": {
+        "$ref": "https://example.com/teams/4"
+      },
+      "stats": [
+        {
+          "name": "bpirank",
+          "value": 4,
+          "displayValue": "4"
+        },
+        {
+          "name": "bpi",
+          "value": 6.0,
+          "displayValue": "6.0"
+        },
+        {
+          "name": "bpioffense",
+          "value": 3.2,
+          "displayValue": "3.2"
+        },
+        {
+          "name": "bpidefense",
+          "value": 2.6,
+          "displayValue": "2.6"
+        },
+        {
+          "name": "numwins",
+          "value": 56,
+          "displayValue": "56"
+        },
+        {
+          "name": "numlosses",
+          "value": 24,
+          "displayValue": "24"
+        },
+        {
+          "name": "projectedw",
+          "value": 56.4,
+          "displayValue": "56.4"
+        },
+        {
+          "name": "projectedl",
+          "value": 25.6,
+          "displayValue": "25.6"
+        },
+        {
+          "name": "probmakeplayoffs",
+          "value": 88.0,
+          "displayValue": "88.0%"
+        },
+        {
+          "name": "probwintitle",
+          "value": 7.5,
+          "displayValue": "7.5%"
+        }
+      ]
+    },
+    {
+      "seasonType": 2,
+      "team": {
+        "$ref": "https://example.com/teams/5"
+      },
+      "stats": [
+        {
+          "name": "bpirank",
+          "value": 5,
+          "displayValue": "5"
+        },
+        {
+          "name": "bpi",
+          "value": 5.5,
+          "displayValue": "5.5"
+        },
+        {
+          "name": "bpioffense",
+          "value": 3.0,
+          "displayValue": "3.0"
+        },
+        {
+          "name": "bpidefense",
+          "value": 2.5,
+          "displayValue": "2.5"
+        },
+        {
+          "name": "numwins",
+          "value": 55,
+          "displayValue": "55"
+        },
+        {
+          "name": "numlosses",
+          "value": 25,
+          "displayValue": "25"
+        },
+        {
+          "name": "projectedw",
+          "value": 55.4,
+          "displayValue": "55.4"
+        },
+        {
+          "name": "projectedl",
+          "value": 26.6,
+          "displayValue": "26.6"
+        },
+        {
+          "name": "probmakeplayoffs",
+          "value": 85.0,
+          "displayValue": "85.0%"
+        },
+        {
+          "name": "probwintitle",
+          "value": 6.0,
+          "displayValue": "6.0%"
+        }
+      ]
+    },
+    {
+      "seasonType": 2,
+      "team": {
+        "$ref": "https://example.com/teams/6"
+      },
+      "stats": [
+        {
+          "name": "bpirank",
+          "value": 6,
+          "displayValue": "6"
+        },
+        {
+          "name": "bpi",
+          "value": 5.0,
+          "displayValue": "5.0"
+        },
+        {
+          "name": "bpioffense",
+          "value": 2.8,
+          "displayValue": "2.8"
+        },
+        {
+          "name": "bpidefense",
+          "value": 2.4,
+          "displayValue": "2.4"
+        },
+        {
+          "name": "numwins",
+          "value": 54,
+          "displayValue": "54"
+        },
+        {
+          "name": "numlosses",
+          "value": 26,
+          "displayValue": "26"
+        },
+        {
+          "name": "projectedw",
+          "value": 54.4,
+          "displayValue": "54.4"
+        },
+        {
+          "name": "projectedl",
+          "value": 27.6,
+          "displayValue": "27.6"
+        },
+        {
+          "name": "probmakeplayoffs",
+          "value": 82.0,
+          "displayValue": "82.0%"
+        },
+        {
+          "name": "probwintitle",
+          "value": 5.0,
+          "displayValue": "5.0%"
+        }
+      ]
+    },
+    {
+      "seasonType": 2,
+      "team": {
+        "$ref": "https://example.com/teams/7"
+      },
+      "stats": [
+        {
+          "name": "bpirank",
+          "value": 7,
+          "displayValue": "7"
+        },
+        {
+          "name": "bpi",
+          "value": 4.5,
+          "displayValue": "4.5"
+        },
+        {
+          "name": "bpioffense",
+          "value": 2.6,
+          "displayValue": "2.6"
+        },
+        {
+          "name": "bpidefense",
+          "value": 2.3,
+          "displayValue": "2.3"
+        },
+        {
+          "name": "numwins",
+          "value": 53,
+          "displayValue": "53"
+        },
+        {
+          "name": "numlosses",
+          "value": 27,
+          "displayValue": "27"
+        },
+        {
+          "name": "projectedw",
+          "value": 53.4,
+          "displayValue": "53.4"
+        },
+        {
+          "name": "projectedl",
+          "value": 28.6,
+          "displayValue": "28.6"
+        },
+        {
+          "name": "probmakeplayoffs",
+          "value": 79.0,
+          "displayValue": "79.0%"
+        },
+        {
+          "name": "probwintitle",
+          "value": 4.3,
+          "displayValue": "4.3%"
+        }
+      ]
+    },
+    {
+      "seasonType": 2,
+      "team": {
+        "$ref": "https://example.com/teams/8"
+      },
+      "stats": [
+        {
+          "name": "bpirank",
+          "value": 8,
+          "displayValue": "8"
+        },
+        {
+          "name": "bpi",
+          "value": 4.0,
+          "displayValue": "4.0"
+        },
+        {
+          "name": "bpioffense",
+          "value": 2.4,
+          "displayValue": "2.4"
+        },
+        {
+          "name": "bpidefense",
+          "value": 2.2,
+          "displayValue": "2.2"
+        },
+        {
+          "name": "numwins",
+          "value": 52,
+          "displayValue": "52"
+        },
+        {
+          "name": "numlosses",
+          "value": 28,
+          "displayValue": "28"
+        },
+        {
+          "name": "projectedw",
+          "value": 52.4,
+          "displayValue": "52.4"
+        },
+        {
+          "name": "projectedl",
+          "value": 29.6,
+          "displayValue": "29.6"
+        },
+        {
+          "name": "probmakeplayoffs",
+          "value": 76.0,
+          "displayValue": "76.0%"
+        },
+        {
+          "name": "probwintitle",
+          "value": 3.8,
+          "displayValue": "3.8%"
+        }
+      ]
+    },
+    {
+      "seasonType": 2,
+      "team": {
+        "$ref": "https://example.com/teams/9"
+      },
+      "stats": [
+        {
+          "name": "bpirank",
+          "value": 9,
+          "displayValue": "9"
+        },
+        {
+          "name": "bpi",
+          "value": 3.5,
+          "displayValue": "3.5"
+        },
+        {
+          "name": "bpioffense",
+          "value": 2.2,
+          "displayValue": "2.2"
+        },
+        {
+          "name": "bpidefense",
+          "value": 2.1,
+          "displayValue": "2.1"
+        },
+        {
+          "name": "numwins",
+          "value": 51,
+          "displayValue": "51"
+        },
+        {
+          "name": "numlosses",
+          "value": 29,
+          "displayValue": "29"
+        },
+        {
+          "name": "projectedw",
+          "value": 51.4,
+          "displayValue": "51.4"
+        },
+        {
+          "name": "projectedl",
+          "value": 30.6,
+          "displayValue": "30.6"
+        },
+        {
+          "name": "probmakeplayoffs",
+          "value": 73.0,
+          "displayValue": "73.0%"
+        },
+        {
+          "name": "probwintitle",
+          "value": 3.3,
+          "displayValue": "3.3%"
+        }
+      ]
+    },
+    {
+      "seasonType": 2,
+      "team": {
+        "$ref": "https://example.com/teams/10"
+      },
+      "stats": [
+        {
+          "name": "bpirank",
+          "value": 10,
+          "displayValue": "10"
+        },
+        {
+          "name": "bpi",
+          "value": 3.0,
+          "displayValue": "3.0"
+        },
+        {
+          "name": "bpioffense",
+          "value": 2.0,
+          "displayValue": "2.0"
+        },
+        {
+          "name": "bpidefense",
+          "value": 2.0,
+          "displayValue": "2.0"
+        },
+        {
+          "name": "numwins",
+          "value": 50,
+          "displayValue": "50"
+        },
+        {
+          "name": "numlosses",
+          "value": 30,
+          "displayValue": "30"
+        },
+        {
+          "name": "projectedw",
+          "value": 50.4,
+          "displayValue": "50.4"
+        },
+        {
+          "name": "projectedl",
+          "value": 31.6,
+          "displayValue": "31.6"
+        },
+        {
+          "name": "probmakeplayoffs",
+          "value": 70.0,
+          "displayValue": "70.0%"
+        },
+        {
+          "name": "probwintitle",
+          "value": 3.0,
+          "displayValue": "3.0%"
+        }
+      ]
+    },
+    {
+      "seasonType": 2,
+      "team": {
+        "$ref": "https://example.com/teams/11"
+      },
+      "stats": [
+        {
+          "name": "bpirank",
+          "value": 11,
+          "displayValue": "11"
+        },
+        {
+          "name": "bpi",
+          "value": 2.5,
+          "displayValue": "2.5"
+        },
+        {
+          "name": "bpioffense",
+          "value": 1.8,
+          "displayValue": "1.8"
+        },
+        {
+          "name": "bpidefense",
+          "value": 1.9,
+          "displayValue": "1.9"
+        },
+        {
+          "name": "numwins",
+          "value": 49,
+          "displayValue": "49"
+        },
+        {
+          "name": "numlosses",
+          "value": 31,
+          "displayValue": "31"
+        },
+        {
+          "name": "projectedw",
+          "value": 49.4,
+          "displayValue": "49.4"
+        },
+        {
+          "name": "projectedl",
+          "value": 32.6,
+          "displayValue": "32.6"
+        },
+        {
+          "name": "probmakeplayoffs",
+          "value": 67.0,
+          "displayValue": "67.0%"
+        },
+        {
+          "name": "probwintitle",
+          "value": 2.7,
+          "displayValue": "2.7%"
+        }
+      ]
+    },
+    {
+      "seasonType": 2,
+      "team": {
+        "$ref": "https://example.com/teams/12"
+      },
+      "stats": [
+        {
+          "name": "bpirank",
+          "value": 12,
+          "displayValue": "12"
+        },
+        {
+          "name": "bpi",
+          "value": 2.0,
+          "displayValue": "2.0"
+        },
+        {
+          "name": "bpioffense",
+          "value": 1.6,
+          "displayValue": "1.6"
+        },
+        {
+          "name": "bpidefense",
+          "value": 1.8,
+          "displayValue": "1.8"
+        },
+        {
+          "name": "numwins",
+          "value": 48,
+          "displayValue": "48"
+        },
+        {
+          "name": "numlosses",
+          "value": 32,
+          "displayValue": "32"
+        },
+        {
+          "name": "projectedw",
+          "value": 48.4,
+          "displayValue": "48.4"
+        },
+        {
+          "name": "projectedl",
+          "value": 33.6,
+          "displayValue": "33.6"
+        },
+        {
+          "name": "probmakeplayoffs",
+          "value": 64.0,
+          "displayValue": "64.0%"
+        },
+        {
+          "name": "probwintitle",
+          "value": 2.5,
+          "displayValue": "2.5%"
+        }
+      ]
+    },
+    {
+      "seasonType": 2,
+      "team": {
+        "$ref": "https://example.com/teams/13"
+      },
+      "stats": [
+        {
+          "name": "bpirank",
+          "value": 13,
+          "displayValue": "13"
+        },
+        {
+          "name": "bpi",
+          "value": 1.5,
+          "displayValue": "1.5"
+        },
+        {
+          "name": "bpioffense",
+          "value": 1.4,
+          "displayValue": "1.4"
+        },
+        {
+          "name": "bpidefense",
+          "value": 1.7,
+          "displayValue": "1.7"
+        },
+        {
+          "name": "numwins",
+          "value": 47,
+          "displayValue": "47"
+        },
+        {
+          "name": "numlosses",
+          "value": 33,
+          "displayValue": "33"
+        },
+        {
+          "name": "projectedw",
+          "value": 47.4,
+          "displayValue": "47.4"
+        },
+        {
+          "name": "projectedl",
+          "value": 34.6,
+          "displayValue": "34.6"
+        },
+        {
+          "name": "probmakeplayoffs",
+          "value": 61.0,
+          "displayValue": "61.0%"
+        },
+        {
+          "name": "probwintitle",
+          "value": 2.3,
+          "displayValue": "2.3%"
+        }
+      ]
+    },
+    {
+      "seasonType": 2,
+      "team": {
+        "$ref": "https://example.com/teams/14"
+      },
+      "stats": [
+        {
+          "name": "bpirank",
+          "value": 14,
+          "displayValue": "14"
+        },
+        {
+          "name": "bpi",
+          "value": 1.0,
+          "displayValue": "1.0"
+        },
+        {
+          "name": "bpioffense",
+          "value": 1.2,
+          "displayValue": "1.2"
+        },
+        {
+          "name": "bpidefense",
+          "value": 1.6,
+          "displayValue": "1.6"
+        },
+        {
+          "name": "numwins",
+          "value": 46,
+          "displayValue": "46"
+        },
+        {
+          "name": "numlosses",
+          "value": 34,
+          "displayValue": "34"
+        },
+        {
+          "name": "projectedw",
+          "value": 46.4,
+          "displayValue": "46.4"
+        },
+        {
+          "name": "projectedl",
+          "value": 35.6,
+          "displayValue": "35.6"
+        },
+        {
+          "name": "probmakeplayoffs",
+          "value": 58.0,
+          "displayValue": "58.0%"
+        },
+        {
+          "name": "probwintitle",
+          "value": 2.1,
+          "displayValue": "2.1%"
+        }
+      ]
+    },
+    {
+      "seasonType": 2,
+      "team": {
+        "$ref": "https://example.com/teams/15"
+      },
+      "stats": [
+        {
+          "name": "bpirank",
+          "value": 15,
+          "displayValue": "15"
+        },
+        {
+          "name": "bpi",
+          "value": 0.5,
+          "displayValue": "0.5"
+        },
+        {
+          "name": "bpioffense",
+          "value": 1.0,
+          "displayValue": "1.0"
+        },
+        {
+          "name": "bpidefense",
+          "value": 1.5,
+          "displayValue": "1.5"
+        },
+        {
+          "name": "numwins",
+          "value": 45,
+          "displayValue": "45"
+        },
+        {
+          "name": "numlosses",
+          "value": 35,
+          "displayValue": "35"
+        },
+        {
+          "name": "projectedw",
+          "value": 45.4,
+          "displayValue": "45.4"
+        },
+        {
+          "name": "projectedl",
+          "value": 36.6,
+          "displayValue": "36.6"
+        },
+        {
+          "name": "probmakeplayoffs",
+          "value": 55.0,
+          "displayValue": "55.0%"
+        },
+        {
+          "name": "probwintitle",
+          "value": 2.0,
+          "displayValue": "2.0%"
+        }
+      ]
+    },
+    {
+      "seasonType": 2,
+      "team": {
+        "$ref": "https://example.com/teams/16"
+      },
+      "stats": [
+        {
+          "name": "bpirank",
+          "value": 16,
+          "displayValue": "16"
+        },
+        {
+          "name": "bpi",
+          "value": 0.0,
+          "displayValue": "0.0"
+        },
+        {
+          "name": "bpioffense",
+          "value": 0.8,
+          "displayValue": "0.8"
+        },
+        {
+          "name": "bpidefense",
+          "value": 1.4,
+          "displayValue": "1.4"
+        },
+        {
+          "name": "numwins",
+          "value": 44,
+          "displayValue": "44"
+        },
+        {
+          "name": "numlosses",
+          "value": 36,
+          "displayValue": "36"
+        },
+        {
+          "name": "projectedw",
+          "value": 44.4,
+          "displayValue": "44.4"
+        },
+        {
+          "name": "projectedl",
+          "value": 37.6,
+          "displayValue": "37.6"
+        },
+        {
+          "name": "probmakeplayoffs",
+          "value": 52.0,
+          "displayValue": "52.0%"
+        },
+        {
+          "name": "probwintitle",
+          "value": 1.9,
+          "displayValue": "1.9%"
+        }
+      ]
+    },
+    {
+      "seasonType": 2,
+      "team": {
+        "$ref": "https://example.com/teams/17"
+      },
+      "stats": [
+        {
+          "name": "bpirank",
+          "value": 17,
+          "displayValue": "17"
+        },
+        {
+          "name": "bpi",
+          "value": -0.5,
+          "displayValue": "-0.5"
+        },
+        {
+          "name": "bpioffense",
+          "value": 0.6,
+          "displayValue": "0.6"
+        },
+        {
+          "name": "bpidefense",
+          "value": 1.3,
+          "displayValue": "1.3"
+        },
+        {
+          "name": "numwins",
+          "value": 43,
+          "displayValue": "43"
+        },
+        {
+          "name": "numlosses",
+          "value": 37,
+          "displayValue": "37"
+        },
+        {
+          "name": "projectedw",
+          "value": 43.4,
+          "displayValue": "43.4"
+        },
+        {
+          "name": "projectedl",
+          "value": 38.6,
+          "displayValue": "38.6"
+        },
+        {
+          "name": "probmakeplayoffs",
+          "value": 49.0,
+          "displayValue": "49.0%"
+        },
+        {
+          "name": "probwintitle",
+          "value": 1.8,
+          "displayValue": "1.8%"
+        }
+      ]
+    },
+    {
+      "seasonType": 2,
+      "team": {
+        "$ref": "https://example.com/teams/18"
+      },
+      "stats": [
+        {
+          "name": "bpirank",
+          "value": 18,
+          "displayValue": "18"
+        },
+        {
+          "name": "bpi",
+          "value": -1.0,
+          "displayValue": "-1.0"
+        },
+        {
+          "name": "bpioffense",
+          "value": 0.4,
+          "displayValue": "0.4"
+        },
+        {
+          "name": "bpidefense",
+          "value": 1.2,
+          "displayValue": "1.2"
+        },
+        {
+          "name": "numwins",
+          "value": 42,
+          "displayValue": "42"
+        },
+        {
+          "name": "numlosses",
+          "value": 38,
+          "displayValue": "38"
+        },
+        {
+          "name": "projectedw",
+          "value": 42.4,
+          "displayValue": "42.4"
+        },
+        {
+          "name": "projectedl",
+          "value": 39.6,
+          "displayValue": "39.6"
+        },
+        {
+          "name": "probmakeplayoffs",
+          "value": 46.0,
+          "displayValue": "46.0%"
+        },
+        {
+          "name": "probwintitle",
+          "value": 1.7,
+          "displayValue": "1.7%"
+        }
+      ]
+    },
+    {
+      "seasonType": 2,
+      "team": {
+        "$ref": "https://example.com/teams/19"
+      },
+      "stats": [
+        {
+          "name": "bpirank",
+          "value": 19,
+          "displayValue": "19"
+        },
+        {
+          "name": "bpi",
+          "value": -1.5,
+          "displayValue": "-1.5"
+        },
+        {
+          "name": "bpioffense",
+          "value": 0.2,
+          "displayValue": "0.2"
+        },
+        {
+          "name": "bpidefense",
+          "value": 1.1,
+          "displayValue": "1.1"
+        },
+        {
+          "name": "numwins",
+          "value": 41,
+          "displayValue": "41"
+        },
+        {
+          "name": "numlosses",
+          "value": 39,
+          "displayValue": "39"
+        },
+        {
+          "name": "projectedw",
+          "value": 41.4,
+          "displayValue": "41.4"
+        },
+        {
+          "name": "projectedl",
+          "value": 40.6,
+          "displayValue": "40.6"
+        },
+        {
+          "name": "probmakeplayoffs",
+          "value": 43.0,
+          "displayValue": "43.0%"
+        },
+        {
+          "name": "probwintitle",
+          "value": 1.6,
+          "displayValue": "1.6%"
+        }
+      ]
+    },
+    {
+      "seasonType": 2,
+      "team": {
+        "$ref": "https://example.com/teams/20"
+      },
+      "stats": [
+        {
+          "name": "bpirank",
+          "value": 20,
+          "displayValue": "20"
+        },
+        {
+          "name": "bpi",
+          "value": -2.0,
+          "displayValue": "-2.0"
+        },
+        {
+          "name": "bpioffense",
+          "value": 0.0,
+          "displayValue": "0.0"
+        },
+        {
+          "name": "bpidefense",
+          "value": 1.0,
+          "displayValue": "1.0"
+        },
+        {
+          "name": "numwins",
+          "value": 40,
+          "displayValue": "40"
+        },
+        {
+          "name": "numlosses",
+          "value": 40,
+          "displayValue": "40"
+        },
+        {
+          "name": "projectedw",
+          "value": 40.4,
+          "displayValue": "40.4"
+        },
+        {
+          "name": "projectedl",
+          "value": 41.6,
+          "displayValue": "41.6"
+        },
+        {
+          "name": "probmakeplayoffs",
+          "value": 40.0,
+          "displayValue": "40.0%"
+        },
+        {
+          "name": "probwintitle",
+          "value": 1.5,
+          "displayValue": "1.5%"
+        }
+      ]
+    },
+    {
+      "seasonType": 2,
+      "team": {
+        "$ref": "https://example.com/teams/21"
+      },
+      "stats": [
+        {
+          "name": "bpirank",
+          "value": 21,
+          "displayValue": "21"
+        },
+        {
+          "name": "bpi",
+          "value": -2.5,
+          "displayValue": "-2.5"
+        },
+        {
+          "name": "bpioffense",
+          "value": -0.2,
+          "displayValue": "-0.2"
+        },
+        {
+          "name": "bpidefense",
+          "value": 0.9,
+          "displayValue": "0.9"
+        },
+        {
+          "name": "numwins",
+          "value": 39,
+          "displayValue": "39"
+        },
+        {
+          "name": "numlosses",
+          "value": 41,
+          "displayValue": "41"
+        },
+        {
+          "name": "projectedw",
+          "value": 39.4,
+          "displayValue": "39.4"
+        },
+        {
+          "name": "projectedl",
+          "value": 42.6,
+          "displayValue": "42.6"
+        },
+        {
+          "name": "probmakeplayoffs",
+          "value": 37.0,
+          "displayValue": "37.0%"
+        },
+        {
+          "name": "probwintitle",
+          "value": 1.4,
+          "displayValue": "1.4%"
+        }
+      ]
+    },
+    {
+      "seasonType": 2,
+      "team": {
+        "$ref": "https://example.com/teams/22"
+      },
+      "stats": [
+        {
+          "name": "bpirank",
+          "value": 22,
+          "displayValue": "22"
+        },
+        {
+          "name": "bpi",
+          "value": -3.0,
+          "displayValue": "-3.0"
+        },
+        {
+          "name": "bpioffense",
+          "value": -0.4,
+          "displayValue": "-0.4"
+        },
+        {
+          "name": "bpidefense",
+          "value": 0.8,
+          "displayValue": "0.8"
+        },
+        {
+          "name": "numwins",
+          "value": 38,
+          "displayValue": "38"
+        },
+        {
+          "name": "numlosses",
+          "value": 42,
+          "displayValue": "42"
+        },
+        {
+          "name": "projectedw",
+          "value": 38.4,
+          "displayValue": "38.4"
+        },
+        {
+          "name": "projectedl",
+          "value": 43.6,
+          "displayValue": "43.6"
+        },
+        {
+          "name": "probmakeplayoffs",
+          "value": 34.0,
+          "displayValue": "34.0%"
+        },
+        {
+          "name": "probwintitle",
+          "value": 1.4,
+          "displayValue": "1.4%"
+        }
+      ]
+    },
+    {
+      "seasonType": 2,
+      "team": {
+        "$ref": "https://example.com/teams/23"
+      },
+      "stats": [
+        {
+          "name": "bpirank",
+          "value": 23,
+          "displayValue": "23"
+        },
+        {
+          "name": "bpi",
+          "value": -3.5,
+          "displayValue": "-3.5"
+        },
+        {
+          "name": "bpioffense",
+          "value": -0.6,
+          "displayValue": "-0.6"
+        },
+        {
+          "name": "bpidefense",
+          "value": 0.7,
+          "displayValue": "0.7"
+        },
+        {
+          "name": "numwins",
+          "value": 37,
+          "displayValue": "37"
+        },
+        {
+          "name": "numlosses",
+          "value": 43,
+          "displayValue": "43"
+        },
+        {
+          "name": "projectedw",
+          "value": 37.4,
+          "displayValue": "37.4"
+        },
+        {
+          "name": "projectedl",
+          "value": 44.6,
+          "displayValue": "44.6"
+        },
+        {
+          "name": "probmakeplayoffs",
+          "value": 31.0,
+          "displayValue": "31.0%"
+        },
+        {
+          "name": "probwintitle",
+          "value": 1.3,
+          "displayValue": "1.3%"
+        }
+      ]
+    },
+    {
+      "seasonType": 2,
+      "team": {
+        "$ref": "https://example.com/teams/24"
+      },
+      "stats": [
+        {
+          "name": "bpirank",
+          "value": 24,
+          "displayValue": "24"
+        },
+        {
+          "name": "bpi",
+          "value": -4.0,
+          "displayValue": "-4.0"
+        },
+        {
+          "name": "bpioffense",
+          "value": -0.8,
+          "displayValue": "-0.8"
+        },
+        {
+          "name": "bpidefense",
+          "value": 0.6,
+          "displayValue": "0.6"
+        },
+        {
+          "name": "numwins",
+          "value": 36,
+          "displayValue": "36"
+        },
+        {
+          "name": "numlosses",
+          "value": 44,
+          "displayValue": "44"
+        },
+        {
+          "name": "projectedw",
+          "value": 36.4,
+          "displayValue": "36.4"
+        },
+        {
+          "name": "projectedl",
+          "value": 45.6,
+          "displayValue": "45.6"
+        },
+        {
+          "name": "probmakeplayoffs",
+          "value": 28.0,
+          "displayValue": "28.0%"
+        },
+        {
+          "name": "probwintitle",
+          "value": 1.2,
+          "displayValue": "1.2%"
+        }
+      ]
+    },
+    {
+      "seasonType": 2,
+      "team": {
+        "$ref": "https://example.com/teams/25"
+      },
+      "stats": [
+        {
+          "name": "bpirank",
+          "value": 25,
+          "displayValue": "25"
+        },
+        {
+          "name": "bpi",
+          "value": -4.5,
+          "displayValue": "-4.5"
+        },
+        {
+          "name": "bpioffense",
+          "value": -1.0,
+          "displayValue": "-1.0"
+        },
+        {
+          "name": "bpidefense",
+          "value": 0.5,
+          "displayValue": "0.5"
+        },
+        {
+          "name": "numwins",
+          "value": 35,
+          "displayValue": "35"
+        },
+        {
+          "name": "numlosses",
+          "value": 45,
+          "displayValue": "45"
+        },
+        {
+          "name": "projectedw",
+          "value": 35.4,
+          "displayValue": "35.4"
+        },
+        {
+          "name": "projectedl",
+          "value": 46.6,
+          "displayValue": "46.6"
+        },
+        {
+          "name": "probmakeplayoffs",
+          "value": 25.0,
+          "displayValue": "25.0%"
+        },
+        {
+          "name": "probwintitle",
+          "value": 1.2,
+          "displayValue": "1.2%"
+        }
+      ]
+    }
+  ]
+}

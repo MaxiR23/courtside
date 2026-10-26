@@ -6,6 +6,7 @@
 # docs/api/standings.md, docs/api/search.md, docs/api/cup.md,
 # docs/api/cup-matchup.md, docs/api/playoffs.md, docs/api/all-star.md,
 # docs/api/calendar.md, docs/api/days.md, docs/api/home.md, docs/adr/0074-home-feed.md,
+# docs/api/power-ranking.md, docs/adr/0075-power-ranking-feed.md,
 # docs/adr/0041-past-game-detail.md,
 # docs/adr/0043-season-feeds-and-franchise-names.md,
 # docs/adr/0045-season-competition-feeds.md,
@@ -39,6 +40,8 @@ from app.jobs.playoffs_feed import FEED_ID as PLAYOFFS_ID
 from app.jobs.playoffs_feed import KIND as PLAYOFFS_KIND
 from app.jobs.playoffs_finals_feed import FEED_ID as FINALS_ID
 from app.jobs.playoffs_finals_feed import KIND as FINALS_KIND
+from app.jobs.power_ranking_feed import FEED_ID as POWER_RANKING_ID
+from app.jobs.power_ranking_feed import KIND as POWER_RANKING_KIND
 from app.jobs.search_feed import FEED_ID as SEARCH_ID
 from app.jobs.search_feed import KIND as SEARCH_KIND
 from app.jobs.season_player_feed import KIND as SEASON_PLAYER_KIND
@@ -119,6 +122,13 @@ async def read_standings_feed(request: Request) -> Response:
 async def read_home_feed(request: Request) -> Response:
     return await serve_on_demand(
         request.app.state.feed_cache, HOME_KIND, HOME_ID, request
+    )
+
+
+@router.get("/feeds/power-ranking.json")
+async def read_power_ranking_feed(request: Request) -> Response:
+    return await serve_on_demand(
+        request.app.state.feed_cache, POWER_RANKING_KIND, POWER_RANKING_ID, request
     )
 
 

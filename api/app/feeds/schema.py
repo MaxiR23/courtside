@@ -23,6 +23,7 @@ from app.feeds.home import HomeFeed
 from app.feeds.player import PlayerFeed
 from app.feeds.playoffs import PlayoffsFeed
 from app.feeds.playoffs_finals import PlayoffsFinalsFeed
+from app.feeds.power_ranking import PowerRankingFeed
 from app.feeds.search import SearchFeed
 from app.feeds.standings import StandingsFeed
 from app.feeds.team import TeamFeed
@@ -44,6 +45,7 @@ FEEDS: dict[str, type[BaseModel]] = {
     "calendar": CalendarFeed,
     "days": DayFeed,
     "home": HomeFeed,
+    "power-ranking": PowerRankingFeed,
 }
 
 
