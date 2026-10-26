@@ -36,6 +36,8 @@ A dark-mode, single-page site with two parts:
 | `TeamStats` | Team stat comparison with bars |
 | `Highlights` | The video cards of a final game |
 | `MessageRow` | A single blueprint row holding one muted message |
+| `NoGamesHero` | The hero copy on a day with no games: scenario tag, date, title, paragraph and next tip-off |
+| `ComingUp` | The dated events of the Coming up window, as a card on desktop and a section on mobile |
 | `NameLink` | A player or team name as a link, or as plain text when the href is null |
 
 ## Design tokens
@@ -190,13 +192,38 @@ The backend decides one scenario from the schedule dates; the front end only dra
 | `finalsPreview` | The conference finals are complete and Finals Game 1 has not started | Finals preview |
 | `offseason` | Between the end of the postseason and the start of the regular season | Offseason |
 
+The paragraph of each scenario:
+
+| Scenario | Paragraph |
+|---|---|
+| `offDay` | A rest day across the league. The schedule below shows the next games. |
+| `allStarBreak` | The regular season pauses for the All-Star break. |
+| `finalsPreview` | The conference finals are over. The Finals are next. |
+| `offseason` | The season is over. The next one starts with the preseason and Opening Night. |
+
 ### Hero
 
 Same grid background as the current hero. The tag chip with the scenario, the date, the title "No games today" (124px on desktop, 56px on mobile, `text-wrap: balance`), a paragraph for the scenario, and the next tip-off label from `nextGame` (hidden when it is null). The TV network comes from `nextGame.broadcast` and is shown next to the tip-off label only when it is not null. With no Coming up the hero takes the full width. Our nav (`NavRow`) stays as is.
 
+The title uses `--home-no-games-title-size` (124px) and `--home-no-games-title-size-mobile` (56px), the hero h1 line height and letter spacing, uppercase. The tag row holds the scenario chip and the date of the games feed's today ("Sunday, October 4"). The next tip-off label reads "Next tip-off: {day} · {time}", with " · {network}" added only when `broadcast` is not null. The blocks enter with the hero's entrance delays. While the home feed loads, or when it fails or is not configured, the hero shows the date and "No games today" only: no chip, paragraph, next tip-off or Coming up. The home feed is loaded once, the first time today has no games, and is never polled. A day whose games are all postponed, canceled or guest games still has games and keeps the current home.
+
 ### Coming up
 
 The next big event starting in 14 days or less, or an event in progress; null outside the window, and then the section is hidden. In the offseason it is always present, with the preseason start and Opening Night. Events: Opening Night, the Cup stages, All-Star, Play-In, Playoffs and the Finals (Finals Game 1, only when the bracket has it). An event with no date is left out, never invented. Each item shows its date, a title, a sub line and a status chip `Done`, `Now` or `Upcoming` computed by the backend, with a link to the related page (Cup, All-Star or Playoffs). Desktop: a blueprint card with corner marks on the right of the hero. Mobile: its own section below the hero.
+
+Item layout: the date ("Nov 4", or "Nov 4 – Dec 3" for a range), the title, the sub line, the status chip (`Done`, `Now`, `Upcoming`; `Now` takes the accent border) and a call to action by key: "Cup →" for the three Cup stages, "All-Star →", and "Playoffs →" for Play-In, Playoffs and Finals; Opening Night and the preseason have none. The call to action is a text link with a 44px hit target. On desktop the card is in the hero's right column and wraps under the copy when two columns do not fit; on mobile the section sits between the hero and the schedule. The component resolves the three routes itself (ADR 0076).
+
+| Key | Title | Sub line |
+|---|---|---|
+| `openingNight` | Opening Night | The regular season begins |
+| `preseason` | Preseason | Exhibition games begin |
+| `cupGroupStage` | Cup group play | In-season tournament · Group stage |
+| `cupKnockout` | Cup knockout rounds | In-season tournament · Quarterfinals and semifinals |
+| `cupFinal` | Cup championship | In-season tournament · Title game |
+| `allStar` | All-Star | The midseason showcase |
+| `playIn` | Play-In | Seeds 7 to 10 play for the last playoff spots |
+| `playoffs` | Playoffs | The first round begins |
+| `finals` | Finals | Game 1 |
 
 ### Last games
 

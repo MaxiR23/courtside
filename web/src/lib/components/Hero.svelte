@@ -4,6 +4,7 @@
 	import Button from '#lib/components/Button.svelte';
 	import Kicker from '#lib/components/Kicker.svelte';
 	import NameLink from '#lib/components/NameLink.svelte';
+	import NoGamesHero from '#lib/components/NoGamesHero.svelte';
 	import NavRow from '#lib/components/NavRow.svelte';
 	import HeroBackgroundWord from '#lib/components/HeroBackgroundWord.svelte';
 	import HeroPlayerCard from '#lib/components/HeroPlayerCard.svelte';
@@ -15,6 +16,7 @@
 	import { parallaxAllowed, pointerPosition } from '#lib/hero/parallax.ts';
 	import { Slideshow } from '#lib/hero/slideshow.svelte.ts';
 	import type { HeroGame, HeroPlayer } from '#lib/hero/types.ts';
+	import type { NoGamesView } from '#lib/home/types.ts';
 	import { m } from '#lib/paraglide/messages.js';
 	import type { RowLayout } from '#lib/schedule/types.ts';
 	import { shimmer } from '#lib/skeleton/motion.ts';
@@ -32,6 +34,7 @@
 		teamHref: (code: string) => ResolvedPathname;
 		loading?: boolean; // the first feed has not loaded yet: show the skeleton
 		calendar?: DateCalendar; // the date opens the calendar sheet
+		noGames?: NoGamesView | null; // a loaded day with no games: the no-games hero
 	};
 
 	let {
@@ -46,7 +49,8 @@
 		autoplay = true,
 		teamHref,
 		loading = false,
-		calendar
+		calendar,
+		noGames = null
 	}: Props = $props();
 
 	// Two slides per game: the away star, then the home star. The count is a primitive, so a
@@ -221,6 +225,8 @@
 					</div>
 				</div>
 			</div>
+		{:else if noGames}
+			<NoGamesHero view={noGames} {layout} />
 		{/if}
 	</div>
 </section>

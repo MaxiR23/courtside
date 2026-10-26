@@ -1,0 +1,21 @@
+{
+	"season": "2026-27",
+	"date": "2026-10-04",
+	"scenario": "offDay",
+	"comingUp": [
+		{ "key": "openingNight", "startDate": "2026-10-04", "endDate": null, "status": "done" },
+		{ "key": "cupGroupStage", "startDate": "2026-11-04", "endDate": "2026-12-03", "status": "now" },
+		{ "key": "allStar", "startDate": "2027-02-14", "endDate": null, "status": "upcoming" },
+		{ "key": "playoffs", "startDate": "2027-04-18", "endDate": null, "status": "upcoming" }
+	],
+	"nextGame": {
+		"date": "2026-10-06",
+		"firstTipOff": "2026-10-06T23:00:00Z",
+		"broadcast": "Courtside TV",
+		"gameCount": 5,
+		"inGamesWindow": true
+	},
+	"lastGames": null,
+	"leaders": null,
+	"finalsPath": null
+}

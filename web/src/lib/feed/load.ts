@@ -4,6 +4,7 @@ import type { CalendarFeed } from '#lib/contract/calendar.ts';
 import type { DayFeed } from '#lib/contract/days.ts';
 import type { CupFeed } from '#lib/contract/cup.ts';
 import type { CupMatchupFeed } from '#lib/contract/cup-matchup.ts';
+import type { HomeFeed } from '#lib/contract/home.ts';
 import type { GamesFeed } from '#lib/contract/games.ts';
 import type { PlayerFeed } from '#lib/contract/player.ts';
 import type { PlayoffsFeed } from '#lib/contract/playoffs.ts';
@@ -231,6 +232,24 @@ export async function loadAllStarFeed(
 		throw new FeedLoadError('body', 'The All-Star feed has no state or edition');
 	}
 	return feed;
+}
+
+/**
+ * Fetches the home feed. The body is only checked for its shape: an object with a string
+ * `scenario` and a string `date`.
+ */
+export async function loadHomeFeed(url: string, fetchFn: typeof fetch = fetch): Promise<HomeFeed> {
+	const body = await fetchFeedBody(url, 'The home feed', fetchFn);
+	const feed = body as Partial<HomeFeed> | null;
+	if (
+		typeof body !== 'object' ||
+		feed === null ||
+		typeof feed.scenario !== 'string' ||
+		typeof feed.date !== 'string'
+	) {
+		throw new FeedLoadError('body', 'The home feed has no scenario or date');
+	}
+	return body as HomeFeed;
 }
 
 /** The URL of one Cup matchup feed: the template with the encoded slot id in place of {id}. */

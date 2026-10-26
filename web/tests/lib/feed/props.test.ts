@@ -24,6 +24,7 @@
 // - The feed's seven day.date strings, in order, as dayIds
 // - A scheduled game with a null venue: null details venue and a null hero arena (ADR 0064)
 // - A schedule side carries the feed's logo into its view; a null logo leaves the key out
+// - noGamesToday: false on the recorded feed and when today holds only postponed or canceled games; true when today has no game
 //
 // What is covered:
 // - Pure logic on a recorded feed (tests/lib/feed/fixtures/games.json); no clock, no network
@@ -122,6 +123,18 @@ describe('toHomeView', () => {
 		const v = view(source);
 		expect(v.heroGames).toEqual([]);
 		expect(v.days[3].games).toHaveLength(2);
+	});
+
+	it('marks noGamesToday only when today has no game at all', () => {
+		expect(view().noGamesToday).toBe(false);
+		const onlyOff = feed();
+		onlyOff.days[3].games = onlyOff.days[3].games.filter(
+			(g) => g.id === 'g-postponed' || g.id === 'g-canceled'
+		);
+		expect(view(onlyOff).noGamesToday).toBe(false);
+		const empty = feed();
+		empty.days[3].games = [];
+		expect(view(empty).noGamesToday).toBe(true);
 	});
 
 	it('keeps a delayed game in the hero with its original tip time', () => {
