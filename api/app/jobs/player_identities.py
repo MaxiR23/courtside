@@ -6,7 +6,7 @@
 # than 30 days is used with no read. Misses are read concurrently, at most eight
 # in flight (the wide lane of the read budget). A read that fails is not cached
 # and gives None, so the caller shows a dash; a rate limit is raised, so the
-# build stops. Only the past playoffs build reads it today. A stored identity
+# build stops. The past playoffs build and the home build read it. A stored identity
 # that is used is touched, and one not touched in 90 days is deleted by the
 # games job's daily step (ADR 0063).
 #

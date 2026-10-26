@@ -9,8 +9,8 @@ scenario, the dates, the statuses and the titles are decided by the backend.
 `scripts/contract.sh`. When this page and the models disagree, the models win. The feed
 is decided in [ADR 0074](../adr/0074-home-feed.md) and served at `/feeds/home.json`.
 
-This page holds the planned contract. The implementing issues keep it exact: part 1
-(scenario, `comingUp`, `nextGame`, `lastGames`) and part 2 (`leaders`, `finalsPath`).
+Both parts of the contract are in force: part 1 (scenario, `comingUp`, `nextGame`,
+`lastGames`) and part 2 (`leaders`, `finalsPath`).
 
 Conventions:
 
@@ -29,8 +29,8 @@ Conventions:
 | `comingUp` | `ComingUpItem[]` / null | The events of the window, in date order | null outside the window |
 | `nextGame` | `NextGame` / null | The first game day after today | null when none in 14 days |
 | `lastGames` | `LastGames` / null | The most recent game day before today | null when unread or none |
-| `leaders` | `HomeLeaders` / null | Four per-game leaders | always null in this version; part 2 fills it |
-| `finalsPath` | `FinalsPath` / null | The road of each finalist | always null in this version; part 2 fills it |
+| `leaders` | `HomeLeaders` / null | The first leader of each per-game category | null when unread, failed or empty |
+| `finalsPath` | `FinalsPath` / null | The road of each finalist | only in `finalsPreview`; null otherwise or when a piece of a finalist's path is missing |
 
 ## Nested objects
 
@@ -41,12 +41,12 @@ Conventions:
 | `LastGames` | `date`, `title`: `LastGamesTitle`, `games`: `LastGame[]` (not empty) |
 | `LastGamesTitle` | `key` (`lastNight`, `daysAgo`, `beforeTheBreak`, `conferenceFinals`, `lastGamesPlayed`), `days` (integer of 2 or more for `daysAgo`, else null) |
 | `LastGame` | `id`, `away`, `home` (`Opponent`, the games feed's side: code, name, city, guest, seasonCode, historical, logo, colors, with the logo and colors added when served), `score` (`away`, `home`), `winner` (`away`, `home` or null), `label` (`final`, `finalOvertime`, `playIn`, `firstRound`, `conferenceSemifinals`, `conferenceFinals`, `finals`), `gameNumber` (1 to 7 for a playoff round or the Finals, else null), `accent` (`away`, `home` resolved colors, added when served, null in the stored file) |
-| `HomeLeaders` | `title` (`season`, `playoffs`, `previousSeason`), `seasonLabel` (for `previousSeason`, else null), `categories`: `HomeLeader[]` in order points, rebounds, assists, blocks |
-| `HomeLeader` | `category`, `playerId`, `name` (dash when the identity is not read), `photoUrl` (null), `team`: `HomeLeaderTeam` / null, `value` (ready text) |
-| `HomeLeaderTeam` | `code`, `logo` (null), `accent` (null) |
-| `FinalsPath` | `finalists`: two `FinalistPath` |
-| `FinalistPath` | `code`, `name`, `logo`, `accent`, `series`: three `PathSeries` |
-| `PathSeries` | `round` (key), `opponent`: team (`code`, `name`, `logo`, `accent`), `result` (such as `4–2`), `won` |
+| `HomeLeaders` | `title` (`season`, `playoffs`, `previousSeason`), `seasonLabel` (set exactly for `previousSeason`, else null), `categories`: `HomeLeader[]`, 1 to 4, in order points, rebounds, assists, blocks, with no repeat |
+| `HomeLeader` | `category` (`points`, `rebounds`, `assists`, `blocks`), `playerId`, `name` (a dash when the identity is not read), `photoUrl` (null), `team`: `HomeLeaderTeam` / null, `value` (ready text) |
+| `HomeLeaderTeam` | `code`, `logo`, `colors` (the logo and the colors are added when served, null in the stored file), `accent` (the resolved color, added when served, null in the stored file) |
+| `FinalsPath` | `finalists`: two `FinalistPath`, East first then West |
+| `FinalistPath` | `team` (`Opponent`, with the logo and colors added when served), `accent` (the resolved color, added when served, null in the stored file), `series`: three `PathSeries` in round order |
+| `PathSeries` | `round` (`firstRound`, `conferenceSemifinals`, `conferenceFinals`), `opponent` (`Opponent`, with the logo and colors added when served), `result` (the finalist's wins, an en dash and the opponent's wins, such as `4–2`), `won`, `accent` (the opponent's resolved color, added when served, null in the stored file) |
 
 ## Rules that live in the code
 
@@ -77,8 +77,18 @@ Conventions:
   otherwise. The label is `playIn`, `firstRound`, `conferenceSemifinals`,
   `conferenceFinals` or `finals` from the game's postseason mark, else `finalOvertime`
   past the 4th period, else `final`; `gameNumber` comes with a playoff round.
-- `leaders` for the regular season request the regular season explicitly; names and
-  photos come from the player identities, at most 4 reads per build.
+- `leaders` holds the first leader of each category (points, rebounds, assists and
+  blocks, per game; a category with no leader is left out) and is null when none is
+  left or the read failed. In `finalsPreview` they are the leaders of the stored
+  playoffs feed, titled `playoffs`, with no read. In `offseason` they are the
+  regular-season leaders of the last finished season, titled `previousSeason` with that
+  season's label. In every other scenario they are the regular-season leaders of the
+  current season, titled `season`. The regular season is always requested explicitly.
+  Names and photos come from the shared player identities (30-day cache, at most 4
+  reads per build); a player whose identity is not read keeps a dash and no photo.
+- `finalsPath` exists only in `finalsPreview`. Each finalist, East first, lists the three
+  series it won in rounds 1 to 3, in round order, with the opponent, the result from the
+  finalist's side and `won`. It is null when a winner, a series, a team or a series win count is missing.
 - A failed read nulls only its field; the feed is not a 503.
 
 ## Refresh
@@ -94,7 +104,8 @@ same way, once, until the process builds it again.
 
 Season types 4 (the postseason first, then three more of this season or two of the next)
 and the next game day scoreboard 1, read only for a day outside the games feed window;
-leaders 1 and player identities 4 come with part 2. The calendar feed, and the Cup,
+leaders 1 (none in `finalsPreview`) and at most 4 player identities, read through the
+shared reader with its 30-day cache ([ADR 0061](../adr/0061-past-playoffs-player-identities-and-finals-mvp-averages.md)). The calendar feed, and the Cup,
 All-Star, playoffs and day feeds, are built first as dependencies only inside their
 windows and keep their own budgets. The leaders URL is the Settings template
 `season_leaders_url` (`{season}`).

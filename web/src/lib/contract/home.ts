@@ -26,6 +26,9 @@ export type LastGameLabel =
 	| 'conferenceSemifinals'
 	| 'conferenceFinals'
 	| 'finals';
+export type HomeLeadersTitle = 'season' | 'playoffs' | 'previousSeason';
+export type HomeLeaderCategory = 'points' | 'rebounds' | 'assists' | 'blocks';
+export type PathRound = 'firstRound' | 'conferenceSemifinals' | 'conferenceFinals';
 
 export interface HomeFeed {
 	season: string;
@@ -34,8 +37,8 @@ export interface HomeFeed {
 	comingUp: [ComingUpItem, ...ComingUpItem[]] | null;
 	nextGame: NextGame | null;
 	lastGames: LastGames | null;
-	leaders: null;
-	finalsPath: null;
+	leaders: HomeLeaders | null;
+	finalsPath: FinalsPath | null;
 }
 export interface ComingUpItem {
 	key: ComingUpKey;
@@ -108,4 +111,54 @@ export interface Score {
 export interface GameAccent {
 	away: string | null;
 	home: string | null;
+}
+export interface HomeLeaders {
+	title: HomeLeadersTitle;
+	seasonLabel: string | null;
+	/**
+	 * @minItems 1
+	 * @maxItems 4
+	 */
+	categories:
+		| [HomeLeader]
+		| [HomeLeader, HomeLeader]
+		| [HomeLeader, HomeLeader, HomeLeader]
+		| [HomeLeader, HomeLeader, HomeLeader, HomeLeader];
+}
+export interface HomeLeader {
+	category: HomeLeaderCategory;
+	playerId: string;
+	name: string;
+	photoUrl: string | null;
+	team: HomeLeaderTeam | null;
+	value: string;
+}
+export interface HomeLeaderTeam {
+	code: string;
+	logo: TeamLogo | null;
+	colors: TeamColors | null;
+	accent: string | null;
+}
+export interface FinalsPath {
+	/**
+	 * @minItems 2
+	 * @maxItems 2
+	 */
+	finalists: [FinalistPath, FinalistPath];
+}
+export interface FinalistPath {
+	team: Opponent;
+	accent: string | null;
+	/**
+	 * @minItems 3
+	 * @maxItems 3
+	 */
+	series: [PathSeries, PathSeries, PathSeries];
+}
+export interface PathSeries {
+	round: PathRound;
+	opponent: Opponent;
+	result: string;
+	won: boolean;
+	accent: string | null;
 }

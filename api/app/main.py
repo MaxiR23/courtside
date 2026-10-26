@@ -269,6 +269,7 @@ def create_app(settings: Settings | None = None, *, run_jobs: bool = True) -> Fa
             stars_job,
             cup_feeds,
             playoffs_feeds,
+            player_identities,
         )
         past_details = PastGameDetailFeeds(
             settings, store, client, feed_cache, search=highlights_search

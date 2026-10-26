@@ -8,8 +8,10 @@
 # - Next game: null with no game day in 14 days; the first tip-off, its broadcast and the count without postponed and canceled games; inGamesWindow follows the games job's shown days; a day inside the window is read from the games job memory with no request
 # - Last games: the title for last night, days ago, the break, the finals preview and the offseason; the day per scenario; games from the games job memory inside the window and from the day feed built first outside it; only final games with no All-Star mark; the label of each kind of game
 # - Dependencies: the Cup, All-Star, playoffs and day feeds are built first only inside their windows, and the calendar always, with the previous one only with no earlier day
-# - Budget and failures: 4 season type reads and 1 scoreboard read at most, 3 season type reads after the postseason, a failed read nulls only what it feeds, a failed dependency never gives a 503, and leaders and finalsPath are null
-# - Kind: stored only when requested, unknown and not ready ids, expiry at the day change and 1 hour after the build while an item is now, identity added when served and never stored, and a failed rebuild keeps the stored feed
+# - Leaders: the first leader of points, rebounds, assists and blocks in that order, titled season in an off day and the All-Star break, playoffs from the stored playoffs feed in the Finals preview, and previousSeason with the finished season's label in the offseason; a player with no identity has a dash and no photo; null without leaders
+# - Finals path: only in the Finals preview, East then West, the three series each finalist won, in round order, with the opponent, the en dash result and who won; null when a series is missing
+# - Budget and failures: 4 season type reads, 1 scoreboard read, 1 leaders read (the regular season URL of the right season) and 4 identity reads at most, none of the last two in the Finals preview, identities cached 30 days, 3 season type reads after the postseason, a failed read nulls only what it feeds, a failed or rate-limited identity read gives a dash for that player only, a failed leaders read gives null leaders, and a failed dependency never gives a 503
+# - Kind: stored only when requested, unknown and not ready ids, expiry at the day change and 1 hour after the build while an item is now, identity added when served (games, leaders and Finals path) and never stored, and a failed rebuild keeps the stored feed
 #
 # What is covered:
 # - Pure logic happy path, edge and error cases; job success, failure and expiry
@@ -22,6 +24,7 @@
 
 import asyncio
 import datetime as dt
+import json
 from collections.abc import Iterator
 from dataclasses import replace
 from pathlib import Path
@@ -52,12 +55,25 @@ from app.feeds.home import (
     ComingUpKey,
     ComingUpStatus,
     HomeFeed,
+    HomeLeaderCategory,
+    HomeLeadersTitle,
     HomeScenario,
     LastGameLabel,
     LastGamesTitleKey,
+    PathRound,
 )
-from app.feeds.opponent import TeamColors, TeamLogo
-from app.feeds.playoffs import PlayoffsFeed, Series, SeriesGame, SeriesId, SeriesStatus
+from app.feeds.opponent import Opponent, TeamColors, TeamLogo
+from app.feeds.playoffs import (
+    LeaderCategory,
+    LeaderGroup,
+    PlayoffLeader,
+    PlayoffsFeed,
+    Series,
+    SeriesGame,
+    SeriesId,
+    SeriesSide,
+    SeriesStatus,
+)
 from app.jobs.calendar_feed import build_calendar_feed
 from app.jobs.cup_feed import CupFeeds
 from app.jobs.day_feed import build_day_feed
@@ -65,7 +81,9 @@ from app.jobs.games import GamesJob
 from app.jobs.home_feed import (
     COMING_UP_DAYS,
     FEED_ID,
+    IDENTITY_READS,
     KIND,
+    LEADER_READS,
     MEMORY_FRESH_FOR,
     NOW_FRESH_FOR,
     SCOREBOARD_READS,
@@ -80,6 +98,8 @@ from app.jobs.home_feed import (
     item_status,
     last_games_day,
     last_games_title,
+    leader_ids,
+    leaders_season,
     next_game_day,
 )
 from app.jobs.on_demand import (
@@ -90,6 +110,7 @@ from app.jobs.on_demand import (
     IdStatus,
     UnknownFeedError,
 )
+from app.jobs.player_identities import PlayerIdentities
 from app.jobs.playoffs_feed import PlayoffsFeeds
 from app.jobs.stars import StarsJob
 from app.settings import Settings
@@ -101,8 +122,13 @@ from app.sources.http import (
     create_client,
     get_json,
 )
+from app.sources.player_draft import PlayerAthlete
+from app.sources.postseason_leaders import LeaderEntry
 from app.sources.scoreboard import ScoreboardGame
+from app.sources.season_leaders import SeasonLeaders
 from app.sources.season_types import SeasonWindow
+from app.sources.team_players import RosterEntry
+from app.sources.teams import team_code_of_id
 from app.storage.feeds import publish_by_id, read_by_id
 from app.storage.state import StateStore, TeamIdentity
 
@@ -224,12 +250,32 @@ def series_game(number: int, day: dt.date, status: GameStatus) -> SeriesGame:
     return SeriesGame.model_construct(number=number, date=day, status=status)
 
 
-def series(series_id: SeriesId, status: SeriesStatus, *games: SeriesGame) -> Series:
-    return Series.model_construct(id=series_id, status=status, games=list(games))
+def series(
+    series_id: SeriesId,
+    status: SeriesStatus,
+    *games: SeriesGame,
+    winner: str | None = None,
+    top: SeriesSide | None = None,
+    bottom: SeriesSide | None = None,
+) -> Series:
+    return Series.model_construct(
+        id=series_id,
+        status=status,
+        games=list(games),
+        winner=winner,
+        top=top,
+        bottom=bottom,
+    )
 
 
-def playoffs(*bracket: Series, season: str = "2026-27") -> PlayoffsFeed:
-    return PlayoffsFeed.model_construct(season=season, bracket=list(bracket))
+def playoffs(
+    *bracket: Series,
+    season: str = "2026-27",
+    leaders: list[LeaderGroup] | None = None,
+) -> PlayoffsFeed:
+    return PlayoffsFeed.model_construct(
+        season=season, bracket=list(bracket), leaders=leaders
+    )
 
 
 def conference_finals_done(*finals_games: SeriesGame) -> PlayoffsFeed:
@@ -737,6 +783,379 @@ def test_an_invalid_feed_is_wrapped_in_a_build_error() -> None:
     assert raised.value.reason.startswith("invalid feed: ")
 
 
+# Leaders
+
+EN_DASH = "\u2013"
+CATEGORY_TEAM_IDS = {"points": "2", "rebounds": "4", "assists": "5", "blocks": "6"}
+
+
+def athlete_of(player_id: str, *, headshot: bool = True) -> PlayerAthlete:
+    return PlayerAthlete(
+        active=True,
+        entry=RosterEntry(
+            player_id=player_id,
+            first_name="First",
+            last_name=f"Player{player_id}",
+            display_name=f"First Player{player_id}",
+            headshot_url=f"https://example.com/h/{player_id}.png" if headshot else None,
+        ),
+    )
+
+
+def season_leaders(
+    ids: dict[LeaderCategory, str] | None = None, *, team_code: str | None = "BOS"
+) -> SeasonLeaders:
+    ids = ids or {
+        LeaderCategory.POINTS: "100",
+        LeaderCategory.REBOUNDS: "200",
+        LeaderCategory.ASSISTS: "300",
+        LeaderCategory.BLOCKS: "400",
+    }
+    return SeasonLeaders(
+        categories={
+            category: [
+                LeaderEntry(player_id=player_id, value="30.0", team_code=team_code),
+                LeaderEntry(player_id=f"{player_id}9", value="20.0", team_code="CHI"),
+            ]
+            for category, player_id in ids.items()
+        }
+    )
+
+
+def identities_of(*ids: str) -> dict[str, PlayerAthlete | None]:
+    return {player_id: athlete_of(player_id) for player_id in ids}
+
+
+def test_off_day_leaders_are_the_first_of_each_category_titled_season() -> None:
+    feed = home(
+        season_leaders=season_leaders(),
+        identities=identities_of("100", "200", "300", "400"),
+    )
+
+    assert feed.leaders is not None
+    assert feed.leaders.title is HomeLeadersTitle.SEASON
+    assert feed.leaders.season_label is None
+    assert [leader.category for leader in feed.leaders.categories] == list(
+        HomeLeaderCategory
+    )
+    first = feed.leaders.categories[0]
+    assert (first.player_id, first.name, first.value) == (
+        "100",
+        "First Player100",
+        "30.0",
+    )
+    assert str(first.photo_url) == "https://example.com/h/100.png"
+    assert first.team is not None and first.team.code == "BOS"
+    assert first.team.logo is None and first.team.accent is None
+
+
+def test_a_leader_with_no_team_code_has_no_team() -> None:
+    feed = home(
+        season_leaders=season_leaders(team_code=None),
+        identities=identities_of("100", "200", "300", "400"),
+    )
+
+    assert feed.leaders is not None
+    assert all(leader.team is None for leader in feed.leaders.categories)
+
+
+def test_a_category_with_no_leader_is_left_out_and_the_order_is_kept() -> None:
+    only = {LeaderCategory.BLOCKS: "400", LeaderCategory.POINTS: "100"}
+
+    feed = home(season_leaders=season_leaders(only), identities=identities_of("100"))
+
+    assert feed.leaders is not None
+    assert [leader.category for leader in feed.leaders.categories] == [
+        HomeLeaderCategory.POINTS,
+        HomeLeaderCategory.BLOCKS,
+    ]
+
+
+def test_all_star_break_leaders_are_titled_season() -> None:
+    feed = home(
+        today=D(2027, 2, 14),
+        calendar_days=BREAK_CALENDAR,
+        all_star_date=D(2027, 2, 15),
+        season_leaders=season_leaders(),
+    )
+
+    assert feed.scenario is HomeScenario.ALL_STAR_BREAK
+    assert feed.leaders is not None
+    assert feed.leaders.title is HomeLeadersTitle.SEASON
+
+
+def playoff_leader(player_id: str, rank: int = 1) -> PlayoffLeader:
+    return PlayoffLeader(
+        rank=rank,
+        player_id=player_id,
+        name=f"Name {player_id}",
+        photo_url=HttpUrl(f"https://example.com/p/{player_id}.png"),
+        team_code="PKS",
+        value=f"{rank}.0",
+    )
+
+
+def playoff_groups() -> list[LeaderGroup]:
+    return [
+        LeaderGroup(
+            category=category,
+            leaders=[playoff_leader(f"{category.value}-1"), playoff_leader("x", 2)],
+        )
+        for category in (
+            LeaderCategory.STEALS,
+            LeaderCategory.BLOCKS,
+            LeaderCategory.POINTS,
+            LeaderCategory.REBOUNDS,
+            LeaderCategory.ASSISTS,
+            LeaderCategory.FIELD_GOAL_PCT,
+        )
+    ]
+
+
+def test_finals_preview_leaders_come_from_the_playoffs_feed_titled_playoffs() -> None:
+    feed = home(
+        today=D(2027, 5, 25),
+        playoffs=playoffs(
+            series(SeriesId.EAST_R3, SeriesStatus.COMPLETE),
+            series(SeriesId.WEST_R3, SeriesStatus.COMPLETE),
+            series(SeriesId.FINALS, SeriesStatus.UPCOMING),
+            leaders=playoff_groups(),
+        ),
+    )
+
+    assert feed.scenario is HomeScenario.FINALS_PREVIEW
+    assert feed.leaders is not None
+    assert feed.leaders.title is HomeLeadersTitle.PLAYOFFS
+    assert [(c.category.value, c.player_id) for c in feed.leaders.categories] == [
+        ("points", "points-1"),
+        ("rebounds", "rebounds-1"),
+        ("assists", "assists-1"),
+        ("blocks", "blocks-1"),
+    ]
+    first = feed.leaders.categories[0]
+    assert first.name == "Name points-1" and first.value == "1.0"
+    assert str(first.photo_url) == "https://example.com/p/points-1.png"
+    assert first.team is not None and first.team.code == "PKS"
+
+
+def test_finals_preview_leaders_are_null_without_leaders_in_the_playoffs_feed() -> None:
+    feed = home(
+        today=D(2027, 5, 25),
+        playoffs=conference_finals_done(),
+        season_leaders=season_leaders(),
+    )
+
+    assert feed.scenario is HomeScenario.FINALS_PREVIEW
+    assert feed.leaders is None
+
+
+def test_offseason_leaders_are_titled_previous_season_with_its_label() -> None:
+    after = home(
+        today=D(2027, 7, 10),
+        windows=NEXT_WINDOWS,
+        season_leaders=season_leaders(),
+        identities=identities_of("100"),
+    )
+    before = home(
+        today=D(2026, 10, 10),
+        season_leaders=season_leaders(),
+        identities=identities_of("100"),
+    )
+
+    assert after.scenario is before.scenario is HomeScenario.OFFSEASON
+    assert after.leaders is not None and before.leaders is not None
+    assert after.leaders.title is HomeLeadersTitle.PREVIOUS_SEASON
+    assert after.leaders.season_label == "2026-27"
+    assert before.leaders.season_label == "2025-26"
+    assert leaders_season(SEASON, NEXT_WINDOWS) == 2027
+    assert leaders_season(SEASON, WINDOWS) == 2026
+
+
+def test_a_player_with_no_identity_has_a_dash_and_no_photo_and_the_others_keep_theirs() -> (
+    None
+):
+    feed = home(
+        season_leaders=season_leaders(),
+        identities={
+            "100": None,
+            "200": athlete_of("200"),
+            "300": athlete_of("300", headshot=False),
+        },
+    )
+
+    assert feed.leaders is not None
+    by_id = {leader.player_id: leader for leader in feed.leaders.categories}
+    assert by_id["100"].name == "\u2014" and by_id["100"].photo_url is None
+    assert by_id["200"].name == "First Player200" and by_id["200"].photo_url is not None
+    assert by_id["300"].name == "First Player300" and by_id["300"].photo_url is None
+    assert by_id["400"].name == "\u2014" and by_id["400"].photo_url is None
+
+
+def test_leaders_are_null_without_season_leaders_or_without_any_category() -> None:
+    assert home().leaders is None
+    assert home(season_leaders=SeasonLeaders(categories={})).leaders is None
+
+
+def test_leaders_are_null_when_a_headshot_is_not_a_url() -> None:
+    bad = PlayerAthlete(
+        active=True,
+        entry=athlete_of("100").entry.model_copy(update={"headshot_url": "not a url"}),
+    )
+
+    feed = home(season_leaders=season_leaders(), identities={"100": bad})
+
+    assert feed.leaders is None
+    assert feed.scenario is HomeScenario.OFF_DAY
+
+
+def test_the_leader_ids_are_the_first_of_each_category_without_repeats() -> None:
+    ids = {
+        LeaderCategory.POINTS: "100",
+        LeaderCategory.REBOUNDS: "100",
+        LeaderCategory.ASSISTS: "300",
+    }
+
+    assert leader_ids(season_leaders()) == ["100", "200", "300", "400"]
+    assert leader_ids(season_leaders(ids)) == ["100", "300"]
+    assert leader_ids(SeasonLeaders(categories={})) == []
+
+
+# Finals path
+
+
+def path_side(code: str, wins: int) -> SeriesSide:
+    return SeriesSide.model_construct(
+        team=Opponent(code=code, name="Name", city="City"), wins=wins
+    )
+
+
+def won(series_id: SeriesId, winner: str, loser: str, loser_wins: int) -> Series:
+    sides = {"top": path_side(winner, 4), "bottom": path_side(loser, loser_wins)}
+    return series(
+        series_id,
+        SeriesStatus.COMPLETE,
+        winner=winner,
+        top=sides["top"],
+        bottom=sides["bottom"],
+    )
+
+
+def finals_bracket(*, drop: SeriesId | None = None) -> PlayoffsFeed:
+    items = [
+        won(SeriesId.EAST_R1_1, "PKS", "AAA", 1),
+        won(SeriesId.EAST_R1_2, "BBB", "CCC", 3),
+        won(SeriesId.EAST_R2_1, "PKS", "BBB", 2),
+        won(SeriesId.EAST_R3, "PKS", "DDD", 0),
+        won(SeriesId.WEST_R1_1, "EEE", "RVR", 3),
+        won(SeriesId.WEST_R1_2, "RVR", "FFF", 2),
+        won(SeriesId.WEST_R2_1, "RVR", "GGG", 3),
+        won(SeriesId.WEST_R3, "RVR", "HHH", 1),
+        series(SeriesId.FINALS, SeriesStatus.UPCOMING),
+    ]
+    # West round 1 is the RVR win; the EEE entry is another team's series.
+    return playoffs(*[item for item in items if item.id is not drop])
+
+
+def path_of(
+    feed: HomeFeed,
+) -> list[tuple[str, list[tuple[str, str | None, str, bool]]]]:
+    assert feed.finals_path is not None
+    return [
+        (
+            finalist.team.code or "",
+            [
+                (s.round.value, s.opponent.code, s.result, s.won)
+                for s in finalist.series
+            ],
+        )
+        for finalist in feed.finals_path.finalists
+    ]
+
+
+def test_finals_path_lists_east_then_west_with_three_series_each() -> None:
+    feed = home(today=D(2027, 5, 25), playoffs=finals_bracket())
+
+    assert feed.scenario is HomeScenario.FINALS_PREVIEW
+    assert path_of(feed) == [
+        (
+            "PKS",
+            [
+                ("firstRound", "AAA", f"4{EN_DASH}1", True),
+                ("conferenceSemifinals", "BBB", f"4{EN_DASH}2", True),
+                ("conferenceFinals", "DDD", f"4{EN_DASH}0", True),
+            ],
+        ),
+        (
+            "RVR",
+            [
+                ("firstRound", "FFF", f"4{EN_DASH}2", True),
+                ("conferenceSemifinals", "GGG", f"4{EN_DASH}3", True),
+                ("conferenceFinals", "HHH", f"4{EN_DASH}1", True),
+            ],
+        ),
+    ]
+    assert feed.finals_path is not None
+    assert feed.finals_path.finalists[0].team.logo is None
+    assert feed.finals_path.finalists[0].accent is None
+    assert [r.value for r in PathRound] == [
+        s.round.value for s in feed.finals_path.finalists[0].series
+    ]
+
+
+def test_finals_path_is_null_in_every_other_scenario() -> None:
+    bracket = finals_bracket()
+
+    unfinished = finals_bracket()
+    unfinished.bracket[3] = series(SeriesId.EAST_R3, SeriesStatus.IN_PROGRESS)
+    off_day = home(playoffs=unfinished, today=D(2027, 5, 25))
+    assert off_day.scenario is HomeScenario.OFF_DAY
+    assert off_day.finals_path is None
+    assert home().finals_path is None
+    assert (
+        home(
+            today=D(2027, 2, 14),
+            calendar_days=BREAK_CALENDAR,
+            all_star_date=D(2027, 2, 15),
+        ).finals_path
+        is None
+    )
+    offseason = home(today=D(2027, 7, 10), windows=NEXT_WINDOWS, playoffs=bracket)
+    assert offseason.scenario is HomeScenario.OFFSEASON
+    assert offseason.finals_path is None
+
+
+def test_finals_path_is_null_when_a_series_of_a_finalist_is_missing() -> None:
+    for missing in (SeriesId.EAST_R1_1, SeriesId.EAST_R2_1, SeriesId.WEST_R1_2):
+        feed = home(today=D(2027, 5, 25), playoffs=finals_bracket(drop=missing))
+
+        assert feed.scenario is HomeScenario.FINALS_PREVIEW
+        assert feed.finals_path is None
+
+
+def test_finals_path_is_null_without_a_winner_or_a_side_team() -> None:
+    no_winner = finals_bracket()
+    no_winner.bracket[3] = series(
+        SeriesId.EAST_R3,
+        SeriesStatus.COMPLETE,
+        top=path_side("PKS", 4),
+        bottom=path_side("DDD", 0),
+    )
+    no_wins = finals_bracket()
+    no_wins.bracket[0] = series(
+        SeriesId.EAST_R1_1,
+        SeriesStatus.COMPLETE,
+        winner="PKS",
+        top=SeriesSide.model_construct(team=None, wins=None),
+        bottom=path_side("AAA", 1),
+    )
+
+    for bracket in (no_winner, no_wins):
+        feed = home(today=D(2027, 5, 25), playoffs=bracket)
+
+        assert feed.scenario is HomeScenario.FINALS_PREVIEW
+        assert feed.finals_path is None
+
+
 # The kit
 
 
@@ -783,7 +1202,12 @@ class HomeKit:
         self.clock = [now]
         self.store = StateStore(path)
         self.store.migrate()
-        self.settings = Settings(_env_file=None, data_dir=path)  # type: ignore[call-arg]
+        self.settings = Settings(  # type: ignore[call-arg]
+            _env_file=None,
+            data_dir=path,
+            season_leaders_url=SOURCE + "leaders/{season}/regular",
+            player_draft_url=SOURCE + "athletes/{player_id}",
+        )
         self.client = create_client(self.store, clock=lambda: self.clock[0])
         self.requests: list[str] = []
         self.calls: list[str] = []
@@ -792,6 +1216,8 @@ class HomeKit:
         self.scoreboard: dict[dt.date, list[ScoreboardGame]] = {}
         self.calendars: dict[int, list[dt.date]] = {}
         self.windows = dict(WINDOW_TABLE)
+        self.leaders_body: dict[str, Any] = {"categories": []}
+        self.rate_limited: set[str] = set()
         respx.get(url__startswith=SOURCE).mock(side_effect=self.answer)
         self.stars = StubStars()
         self.cup = StubStored()
@@ -801,6 +1227,12 @@ class HomeKit:
             self.store,
             clock=lambda: self.clock[0],
             identities=self.stars.team_identities,
+        )
+        self.identities = PlayerIdentities(
+            self.settings,
+            self.store,
+            self.client,
+            fetch_player_athlete=self.fetch_player_athlete,
         )
         self.games = GamesJob(
             self.settings,
@@ -818,6 +1250,7 @@ class HomeKit:
             cast(StarsJob, self.stars),
             cast(CupFeeds, self.cup),
             cast(PlayoffsFeeds, self.playoffs),
+            self.identities,
             fetch_season_type=self.fetch_season_type,
             fetch_games=self.fetch_next_day,
         )
@@ -853,7 +1286,12 @@ class HomeKit:
         )
 
     def answer(self, request: httpx.Request) -> httpx.Response:
-        self.requests.append(request.url.path.removeprefix("/source/"))
+        path = request.url.path.removeprefix("/source/")
+        self.requests.append(path)
+        if path.startswith("leaders/"):
+            if "leaders" in self.failing:
+                return httpx.Response(500)
+            return httpx.Response(200, json=self.leaders_body)
         return httpx.Response(200, json={"ok": True})
 
     async def read(self, name: str, fresh: Freshness) -> None:
@@ -869,6 +1307,16 @@ class HomeKit:
         self, client: SourceClient, day: dt.date, settings: Settings
     ) -> list[ScoreboardGame]:
         return list(self.scoreboard.get(day, []))
+
+    async def fetch_player_athlete(
+        self, client: SourceClient, player_id: str, settings: Settings
+    ) -> PlayerAthlete:
+        name = f"athletes/{player_id}"
+        if name in self.rate_limited:
+            self.calls.append(name)
+            raise SourceError("test", f"{name} is limited", status_code=429)
+        await self.read(name, HOUR)
+        return athlete_of(player_id)
 
     async def fetch_season_type(
         self, client: SourceClient, season: int, season_type: int, settings: Settings
@@ -1245,8 +1693,15 @@ async def test_prepare_does_nothing_while_the_season_is_not_known(kit: HomeKit) 
 # Budget and failures
 
 
-def test_the_budgets_are_4_season_types_and_1_scoreboard_day() -> None:
-    assert (SEASON_TYPE_READS, SCOREBOARD_READS) == (4, 1)
+def test_the_budgets_are_4_season_types_1_scoreboard_day_1_leaders_and_4_identities() -> (
+    None
+):
+    assert (SEASON_TYPE_READS, SCOREBOARD_READS, LEADER_READS, IDENTITY_READS) == (
+        4,
+        1,
+        1,
+        4,
+    )
 
 
 @pytest.mark.anyio
@@ -1388,18 +1843,259 @@ async def test_the_scenario_comes_from_the_stored_playoffs_feed_inside_its_windo
     assert feed.scenario is HomeScenario.FINALS_PREVIEW
 
 
-@pytest.mark.anyio
-async def test_leaders_and_finals_path_are_null(kit: HomeKit) -> None:
+LEADERS_FIXTURE = Path(__file__).parent / "fixtures" / "home" / "leaders.json"
+
+
+def four_leaders_body() -> dict[str, Any]:
+    """The provider leaders body: four categories and a fifth that is ignored."""
+    body: dict[str, Any] = json.loads(LEADERS_FIXTURE.read_text())
+    return body
+
+
+def leaders_kit(kit: HomeKit, body: dict[str, Any] | None = None) -> HomeKit:
+    kit.leaders_body = body if body is not None else four_leaders_body()
     kit.calendars[SEASON] = [D(2027, 1, 19)]
+    return kit
+
+
+def served_leaders(feed: HomeFeed) -> dict[str, tuple[str, str | None]]:
+    assert feed.leaders is not None
+    return {
+        leader.category.value: (
+            leader.name,
+            str(leader.photo_url) if leader.photo_url else None,
+        )
+        for leader in feed.leaders.categories
+    }
+
+
+@pytest.mark.anyio
+async def test_an_off_day_build_reads_the_current_season_leaders_url(
+    kit: HomeKit,
+) -> None:
+    leaders_kit(kit)
+
+    feed = HomeFeed.model_validate_json(await kit.serve())
+
+    assert kit.requests.count("leaders/2027/regular") == 1
+    assert feed.scenario is HomeScenario.OFF_DAY
+    assert feed.leaders is not None
+    assert feed.leaders.title is HomeLeadersTitle.SEASON
+    assert [leader.player_id for leader in feed.leaders.categories] == [
+        "100",
+        "200",
+        "300",
+        "400",
+    ]
+    assert served_leaders(feed)["points"] == (
+        "First Player100",
+        "https://example.com/h/100.png",
+    )
+    team = feed.leaders.categories[0].team
+    assert team is not None and team.code == team_code_of_id("2", source="test")
+
+
+@pytest.mark.anyio
+async def test_an_offseason_build_after_the_postseason_reads_the_finished_season_regular_url(
+    tmp_path: Path,
+) -> None:
+    kit = leaders_kit(HomeKit(tmp_path, at_noon(D(2027, 7, 10))))
+
+    feed = HomeFeed.model_validate_json(await kit.serve())
+
+    assert kit.requests.count("leaders/2027/regular") == 1
+    assert kit.requested("leaders/") == 1
+    assert feed.scenario is HomeScenario.OFFSEASON
+    assert feed.leaders is not None
+    assert feed.leaders.title is HomeLeadersTitle.PREVIOUS_SEASON
+    assert feed.leaders.season_label == "2026-27"
+
+
+@pytest.mark.anyio
+async def test_an_offseason_build_before_opening_night_reads_the_previous_season_regular_url(
+    tmp_path: Path,
+) -> None:
+    kit = leaders_kit(HomeKit(tmp_path, at_noon(D(2026, 10, 10))))
+
+    feed = HomeFeed.model_validate_json(await kit.serve())
+
+    assert kit.requests.count("leaders/2026/regular") == 1
+    assert kit.requested("leaders/") == 1
+    assert feed.scenario is HomeScenario.OFFSEASON
+    assert feed.leaders is not None
+    assert feed.leaders.season_label == "2025-26"
+
+
+@pytest.mark.anyio
+async def test_a_finals_preview_build_sends_no_leaders_or_identity_read(
+    tmp_path: Path,
+) -> None:
+    kit = leaders_kit(HomeKit(tmp_path, at_noon(D(2027, 5, 25))))
+    kit.calendars[SEASON] = [D(2027, 5, 24)]
+    kit.playoffs.feed = playoffs(
+        series(SeriesId.EAST_R3, SeriesStatus.COMPLETE),
+        series(SeriesId.WEST_R3, SeriesStatus.COMPLETE),
+        series(SeriesId.FINALS, SeriesStatus.UPCOMING),
+        leaders=playoff_groups(),
+    )
+
+    feed = HomeFeed.model_validate_json(await kit.serve())
+
+    assert feed.scenario is HomeScenario.FINALS_PREVIEW
+    assert kit.requested("leaders/") == 0
+    assert kit.requested("athletes/") == 0
+    assert feed.leaders is not None
+    assert feed.leaders.title is HomeLeadersTitle.PLAYOFFS
+    assert served_leaders(feed)["points"] == (
+        "Name points-1",
+        "https://example.com/p/points-1.png",
+    )
+
+
+@pytest.mark.anyio
+async def test_a_build_sends_at_most_1_leaders_read_and_4_identity_reads(
+    kit: HomeKit,
+) -> None:
+    leaders_kit(kit)
+
+    await kit.serve()
+
+    assert kit.requested("leaders/") == 1
+    assert kit.requested("athletes/") == 4
+    assert sorted(name for name in kit.requests if name.startswith("athletes/")) == [
+        "athletes/100",
+        "athletes/200",
+        "athletes/300",
+        "athletes/400",
+    ]
+
+
+@pytest.mark.anyio
+async def test_a_player_leading_two_categories_is_read_once(kit: HomeKit) -> None:
+    shared = four_leaders_body()
+    rebounds = next(
+        category
+        for category in shared["categories"]
+        if category["name"] == "reboundsPerGame"
+    )
+    rebounds["leaders"][0]["athlete"]["$ref"] = "https://example.com/v2/athletes/100"
+    leaders_kit(kit, shared)
+
+    feed = HomeFeed.model_validate_json(await kit.serve())
+
+    assert kit.requested("athletes/") == 3
+    assert feed.leaders is not None
+    assert [leader.player_id for leader in feed.leaders.categories] == [
+        "100",
+        "100",
+        "300",
+        "400",
+    ]
+
+
+@pytest.mark.anyio
+async def test_identities_are_read_once_in_30_days(kit: HomeKit) -> None:
+    leaders_kit(kit)
+    await kit.serve()
+    assert kit.requested("athletes/") == 4
+
+    kit.clock[0] = NOW + 2 * 24 * HOUR
+    await kit.serve()
+    feed = kit.stored()
+
+    assert feed is not None and feed.date == TODAY + dt.timedelta(days=2)
+    assert kit.requested("leaders/") == 2
+    assert kit.requested("athletes/") == 4
+    assert served_leaders(feed)["blocks"][0] == "First Player400"
+
+
+@pytest.mark.anyio
+async def test_a_failed_identity_read_gives_a_dash_and_the_feed_is_stored(
+    kit: HomeKit,
+) -> None:
+    leaders_kit(kit)
+    kit.failing.add("athletes/100")
+
+    feed = HomeFeed.model_validate_json(await kit.serve())
+
+    stored = kit.stored()
+    assert stored is not None and stored.leaders is not None
+    assert served_leaders(feed)["points"] == ("\u2014", None)
+    assert served_leaders(feed)["rebounds"] == (
+        "First Player200",
+        "https://example.com/h/200.png",
+    )
+    assert served_leaders(stored) == served_leaders(feed)
+
+
+@pytest.mark.anyio
+async def test_a_rate_limited_identity_read_gives_dashes_and_the_feed_is_stored(
+    kit: HomeKit,
+) -> None:
+    leaders_kit(kit)
+    kit.rate_limited |= {"athletes/100", "athletes/200", "athletes/300", "athletes/400"}
+
+    feed = HomeFeed.model_validate_json(await kit.serve())
+
+    assert kit.stored() is not None
+    assert feed.leaders is not None
+    assert set(served_leaders(feed).values()) == {("\u2014", None)}
+    assert feed.last_games is None or feed.last_games.date == D(2027, 1, 19)
+
+
+@pytest.mark.anyio
+async def test_one_rate_limited_identity_read_dashes_only_that_player(
+    kit: HomeKit,
+) -> None:
+    leaders_kit(kit)
+    kit.rate_limited.add("athletes/100")
+
+    feed = HomeFeed.model_validate_json(await kit.serve())
+
+    stored = kit.stored()
+    assert stored is not None and stored.leaders is not None
+    assert served_leaders(feed) == {
+        "points": ("\u2014", None),
+        "rebounds": ("First Player200", "https://example.com/h/200.png"),
+        "assists": ("First Player300", "https://example.com/h/300.png"),
+        "blocks": ("First Player400", "https://example.com/h/400.png"),
+    }
+    assert served_leaders(stored) == served_leaders(feed)
+
+
+@pytest.mark.anyio
+async def test_a_cached_identity_survives_another_rate_limited_read(
+    kit: HomeKit,
+) -> None:
+    leaders_kit(kit)
+    kit.store.set_player_identity("200", athlete_of("200").model_dump_json(), NOW)
+    kit.rate_limited.add("athletes/100")
+
+    feed = HomeFeed.model_validate_json(await kit.serve())
+
+    assert "athletes/200" not in kit.requests
+    assert served_leaders(feed)["points"] == ("\u2014", None)
+    assert served_leaders(feed)["rebounds"] == (
+        "First Player200",
+        "https://example.com/h/200.png",
+    )
+
+
+@pytest.mark.anyio
+async def test_a_failed_leaders_read_gives_null_leaders_and_the_rest_is_served(
+    kit: HomeKit,
+) -> None:
+    leaders_kit(kit)
     kit.scoreboard[D(2027, 1, 19)] = [final("g1", utc(2027, 1, 20, 0))]
+    kit.failing.add("leaders")
     await kit.run_games()
 
     feed = HomeFeed.model_validate_json(await kit.serve())
 
+    assert kit.stored() is not None
     assert feed.leaders is None
-    assert feed.finals_path is None
-    assert b'"leaders":null' in await kit.serve()
-    assert b'"finalsPath":null' in await kit.serve()
+    assert feed.last_games is not None
+    assert kit.requested("athletes/") == 0
 
 
 # The kind
@@ -1516,6 +2212,12 @@ async def test_a_served_feed_carries_logos_colors_and_accents_and_the_stored_fil
     }
     kit.calendars[SEASON] = [D(2027, 1, 19)]
     kit.scoreboard[D(2027, 1, 19)] = [final("g1", utc(2027, 1, 20, 0))]
+    kit.leaders_body = four_leaders_body()
+    kit.stars.identities["BOS"] = TeamIdentity(
+        code="BOS",
+        logo=TeamLogo(light=HttpUrl("https://example.com/bos.svg"), dark=None),
+        colors=TeamColors(primary="#00AA33", secondary=None),
+    )
     await kit.run_games()
 
     served = HomeFeed.model_validate_json(await kit.serve())
@@ -1528,6 +2230,50 @@ async def test_a_served_feed_carries_logos_colors_and_accents_and_the_stored_fil
     assert stored is not None and stored.last_games is not None
     kept = stored.last_games.games[0]
     assert kept.away.logo is None and kept.home.colors is None and kept.accent is None
+    assert served.leaders is not None and stored.leaders is not None
+    leader_team = served.leaders.categories[0].team
+    assert leader_team is not None and leader_team.code == "BOS"
+    assert leader_team.logo is not None and leader_team.colors is not None
+    assert leader_team.accent == "#00AA33"
+    assert served.leaders.categories[1].team is not None
+    assert served.leaders.categories[1].team.logo is None
+    kept_team = stored.leaders.categories[0].team
+    assert kept_team is not None
+    assert (
+        kept_team.logo is None and kept_team.colors is None and kept_team.accent is None
+    )
+
+
+@pytest.mark.anyio
+async def test_a_served_finals_path_carries_logos_and_accents_and_the_stored_file_does_not(
+    tmp_path: Path,
+) -> None:
+    kit = HomeKit(tmp_path, at_noon(D(2027, 5, 25)))
+    kit.calendars[SEASON] = [D(2027, 5, 24)]
+    kit.playoffs.feed = finals_bracket()
+    for code, color in (("PKS", "#AA5500"), ("AAA", "#112233")):
+        kit.stars.identities[code] = TeamIdentity(
+            code=code,
+            logo=TeamLogo(light=HttpUrl(f"https://example.com/{code}.svg"), dark=None),
+            colors=TeamColors(primary=color, secondary=None),
+        )
+
+    served = HomeFeed.model_validate_json(await kit.serve())
+    stored = kit.stored()
+
+    assert served.scenario is HomeScenario.FINALS_PREVIEW
+    assert served.finals_path is not None
+    finalist = served.finals_path.finalists[0]
+    assert finalist.team.code == "PKS"
+    assert finalist.team.logo is not None and finalist.accent == "#AA5500"
+    opponent = finalist.series[0]
+    assert opponent.opponent.code == "AAA"
+    assert opponent.opponent.logo is not None and opponent.accent == "#112233"
+    assert finalist.series[1].accent is None
+    assert stored is not None and stored.finals_path is not None
+    kept = stored.finals_path.finalists[0]
+    assert kept.team.logo is None and kept.accent is None
+    assert kept.series[0].opponent.logo is None and kept.series[0].accent is None
 
 
 @pytest.mark.anyio

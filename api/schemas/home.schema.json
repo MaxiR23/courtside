@@ -58,6 +58,59 @@
       "title": "ComingUpStatus",
       "type": "string"
     },
+    "FinalistPath": {
+      "additionalProperties": false,
+      "properties": {
+        "team": {
+          "$ref": "#/$defs/Opponent"
+        },
+        "accent": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "series": {
+          "items": {
+            "$ref": "#/$defs/PathSeries"
+          },
+          "maxItems": 3,
+          "minItems": 3,
+          "type": "array"
+        }
+      },
+      "required": [
+        "team",
+        "accent",
+        "series"
+      ],
+      "title": "FinalistPath",
+      "type": "object"
+    },
+    "FinalsPath": {
+      "additionalProperties": false,
+      "properties": {
+        "finalists": {
+          "items": {
+            "$ref": "#/$defs/FinalistPath"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        }
+      },
+      "required": [
+        "finalists"
+      ],
+      "title": "FinalsPath",
+      "type": "object"
+    },
     "GameAccent": {
       "additionalProperties": false,
       "description": "The color each side of a game shows in the hero (ADR 0068); null for a\nside with no colors.",
@@ -91,6 +144,163 @@
       ],
       "title": "GameAccent",
       "type": "object"
+    },
+    "HomeLeader": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "$ref": "#/$defs/HomeLeaderCategory"
+        },
+        "playerId": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "photoUrl": {
+          "anyOf": [
+            {
+              "format": "uri",
+              "maxLength": 2083,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "team": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HomeLeaderTeam"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "value": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "category",
+        "playerId",
+        "name",
+        "photoUrl",
+        "team",
+        "value"
+      ],
+      "title": "HomeLeader",
+      "type": "object"
+    },
+    "HomeLeaderCategory": {
+      "enum": [
+        "points",
+        "rebounds",
+        "assists",
+        "blocks"
+      ],
+      "title": "HomeLeaderCategory",
+      "type": "string"
+    },
+    "HomeLeaderTeam": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "pattern": "^[A-Z]{3}$",
+          "type": "string"
+        },
+        "logo": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TeamLogo"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "colors": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TeamColors"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "accent": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "code",
+        "logo",
+        "colors",
+        "accent"
+      ],
+      "title": "HomeLeaderTeam",
+      "type": "object"
+    },
+    "HomeLeaders": {
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "$ref": "#/$defs/HomeLeadersTitle"
+        },
+        "seasonLabel": {
+          "anyOf": [
+            {
+              "pattern": "^\\d{4}-\\d{2}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "categories": {
+          "items": {
+            "$ref": "#/$defs/HomeLeader"
+          },
+          "maxItems": 4,
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "title",
+        "seasonLabel",
+        "categories"
+      ],
+      "title": "HomeLeaders",
+      "type": "object"
+    },
+    "HomeLeadersTitle": {
+      "enum": [
+        "season",
+        "playoffs",
+        "previousSeason"
+      ],
+      "title": "HomeLeadersTitle",
+      "type": "string"
     },
     "HomeScenario": {
       "enum": [
@@ -376,6 +586,54 @@
       "title": "Opponent",
       "type": "object"
     },
+    "PathRound": {
+      "enum": [
+        "firstRound",
+        "conferenceSemifinals",
+        "conferenceFinals"
+      ],
+      "title": "PathRound",
+      "type": "string"
+    },
+    "PathSeries": {
+      "additionalProperties": false,
+      "properties": {
+        "round": {
+          "$ref": "#/$defs/PathRound"
+        },
+        "opponent": {
+          "$ref": "#/$defs/Opponent"
+        },
+        "result": {
+          "pattern": "^[0-4]\u2013[0-4]$",
+          "type": "string"
+        },
+        "won": {
+          "type": "boolean"
+        },
+        "accent": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "round",
+        "opponent",
+        "result",
+        "won",
+        "accent"
+      ],
+      "title": "PathSeries",
+      "type": "object"
+    },
     "Score": {
       "additionalProperties": false,
       "properties": {
@@ -509,10 +767,24 @@
       ]
     },
     "leaders": {
-      "type": "null"
+      "anyOf": [
+        {
+          "$ref": "#/$defs/HomeLeaders"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "finalsPath": {
-      "type": "null"
+      "anyOf": [
+        {
+          "$ref": "#/$defs/FinalsPath"
+        },
+        {
+          "type": "null"
+        }
+      ]
     }
   },
   "required": [

@@ -3,8 +3,12 @@
 # Tests for the home feed models.
 #
 # Tested:
-# - A valid home feed with every part 1 field set is accepted, with leaders and finalsPath null
-# - A non-null leaders or finalsPath is rejected
+# - A valid home feed is accepted, with leaders and finalsPath null or set
+# - A season label on a season or playoffs title, and none on previousSeason, are rejected
+# - Leader categories out of order, repeated, empty or more than four are rejected
+# - A Finals path without two finalists, or without three series in round order, is rejected
+# - A series result that is not wins, an en dash, then losses is rejected
+# - An unknown field in a leader is rejected
 # - daysAgo requires days of 2 or more, and days on another title is rejected
 # - A game number on a final, final overtime or play-in label is rejected, and one on a playoff label is accepted
 # - An end date that is not after the start date is rejected
@@ -24,7 +28,7 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from app.feeds.home import HomeFeed, LastGamesTitle
+from app.feeds.home import FinalsPath, HomeFeed, HomeLeaders, LastGamesTitle, PathSeries
 
 Payload = dict[str, Any]
 
@@ -43,6 +47,48 @@ def last_game(**overrides: object) -> Payload:
         "label": "final",
         "gameNumber": None,
     }
+    payload.update(overrides)
+    return payload
+
+
+def leader(category: str, **overrides: object) -> Payload:
+    payload: Payload = {
+        "category": category,
+        "playerId": f"p-{category}",
+        "name": "Player Name",
+        "photoUrl": "https://example.com/p.png",
+        "team": {"code": "PKS"},
+        "value": "27.1",
+    }
+    payload.update(overrides)
+    return payload
+
+
+def leaders(**overrides: object) -> Payload:
+    payload: Payload = {
+        "title": "season",
+        "seasonLabel": None,
+        "categories": [leader(c) for c in ("points", "rebounds", "assists", "blocks")],
+    }
+    payload.update(overrides)
+    return payload
+
+
+def path_series(round_: str, result: str = "4\u20132") -> Payload:
+    return {"round": round_, "opponent": side("RVR"), "result": result, "won": True}
+
+
+ROUNDS = ("firstRound", "conferenceSemifinals", "conferenceFinals")
+
+
+def finalist(**overrides: object) -> Payload:
+    payload: Payload = {"team": side("PKS"), "series": [path_series(r) for r in ROUNDS]}
+    payload.update(overrides)
+    return payload
+
+
+def finals_path(**overrides: object) -> Payload:
+    payload: Payload = {"finalists": [finalist(), finalist()]}
     payload.update(overrides)
     return payload
 
@@ -94,10 +140,78 @@ def test_accepts_a_feed_with_every_nullable_part_null() -> None:
     assert parsed.coming_up is None
 
 
-@pytest.mark.parametrize("name", ["leaders", "finalsPath"])
-def test_rejects_a_non_null_leaders_or_finals_path(name: str) -> None:
+def test_accepts_a_feed_with_leaders_and_a_finals_path() -> None:
+    parsed = HomeFeed.model_validate(feed(leaders=leaders(), finalsPath=finals_path()))
+
+    assert parsed.leaders is not None
+    assert len(parsed.leaders.categories) == 4
+    assert parsed.leaders.categories[0].team is not None
+    assert parsed.leaders.categories[0].team.accent is None
+    assert parsed.finals_path is not None
+    assert len(parsed.finals_path.finalists) == 2
+    assert parsed.finals_path.finalists[0].accent is None
+    assert parsed.finals_path.finalists[0].series[0].accent is None
+
+
+def test_rejects_a_season_label_on_season_or_playoffs_and_none_on_previous_season() -> (
+    None
+):
+    assert HomeLeaders.model_validate(
+        leaders(title="previousSeason", seasonLabel="2025-26")
+    )
+    for title, label in (
+        ("season", "2026-27"),
+        ("playoffs", "2026-27"),
+        ("previousSeason", None),
+    ):
+        with pytest.raises(ValidationError):
+            HomeLeaders.model_validate(leaders(title=title, seasonLabel=label))
+
+
+def test_rejects_leader_categories_out_of_order_repeated_empty_or_more_than_four() -> (
+    None
+):
+    points, rebounds = leader("points"), leader("rebounds")
+    for categories in (
+        [rebounds, points],
+        [points, points],
+        [],
+        [leader(c) for c in ("points", "rebounds", "assists", "blocks", "blocks")],
+        [leader("steals")],
+    ):
+        with pytest.raises(ValidationError):
+            HomeLeaders.model_validate(leaders(categories=categories))
+    assert HomeLeaders.model_validate(leaders(categories=[rebounds]))
+
+
+def test_rejects_a_finals_path_without_two_finalists_or_three_series_in_round_order() -> (
+    None
+):
+    rounds = [path_series(r) for r in ROUNDS]
+    bad_series = (rounds[:2], list(reversed(rounds)), [*rounds, rounds[0]])
+    for series in bad_series:
+        with pytest.raises(ValidationError):
+            FinalsPath.model_validate(
+                finals_path(finalists=[finalist(series=series), finalist()])
+            )
+    for finalists in ([finalist()], [finalist(), finalist(), finalist()]):
+        with pytest.raises(ValidationError):
+            FinalsPath.model_validate(finals_path(finalists=finalists))
+
+
+def test_rejects_a_series_result_that_is_not_wins_dash_losses() -> None:
+    assert (
+        PathSeries.model_validate(path_series("firstRound", "4\u20132")).result
+        == "4\u20132"
+    )
+    for result in ("4-2", "5\u20132", "4\u2013", "42"):
+        with pytest.raises(ValidationError):
+            PathSeries.model_validate(path_series("firstRound", result))
+
+
+def test_rejects_an_unknown_field_in_a_leader() -> None:
     with pytest.raises(ValidationError):
-        HomeFeed.model_validate(feed(**{name: {}}))
+        HomeLeaders.model_validate(leaders(categories=[leader("points", extra=1)]))
 
 
 def test_rejects_days_ago_without_days_and_days_on_another_title() -> None:
