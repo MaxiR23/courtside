@@ -10,6 +10,7 @@ import {
 	PLAYER_FEED_URL,
 	PLAYOFFS_FEED_URL,
 	PLAYOFFS_FINALS_FEED_URL,
+	POWER_RANKING_FEED_URL,
 	SEARCH_FEED_URL,
 	SEASON_ALL_STAR_FEED_URL,
 	SEASON_CUP_FEED_URL,
@@ -34,6 +35,7 @@ export const playoffsFeedUrl: string | undefined = PLAYOFFS_FEED_URL;
 export const playoffsFinalsFeedUrl: string | undefined = PLAYOFFS_FINALS_FEED_URL;
 export const allStarFeedUrl: string | undefined = ALL_STAR_FEED_URL;
 export const homeFeedUrl: string | undefined = HOME_FEED_URL;
+export const powerRankingFeedUrl: string | undefined = POWER_RANKING_FEED_URL;
 export const gameDetailFeedUrl: string | undefined = GAME_DETAIL_FEED_URL;
 export const teamFeedUrl: string | undefined = TEAM_FEED_URL;
 export const playerFeedUrl: string | undefined = PLAYER_FEED_URL;

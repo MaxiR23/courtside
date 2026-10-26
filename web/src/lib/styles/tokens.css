@@ -289,6 +289,9 @@
 	--standings-monogram-size: 34px;
 	--standings-strip-height: 3px;
 	--standings-team-column-page-min: 178px;
+	--power-ranking-bar-width: 80px;
+	--power-ranking-record-width: 56px;
+	--power-ranking-title-width: 64px;
 	--series-summary-size: clamp(40px, 5vw, 64px);
 
 	/* Team page */

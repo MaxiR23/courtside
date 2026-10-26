@@ -14,6 +14,7 @@
 // - FeedPoller with gamePollInterval polls a detail feed; it exposes the error of the last load
 // - teamPollInterval: 5 min once a feed is loaded, 60 s while none has; pauses while hidden
 // - standingsPollInterval: 5 min once final, 60 s otherwise; pauses while hidden
+// - powerRankingPollInterval: 5 min once a feed is loaded, 60 s while none has
 // - cupPollInterval: 5 min once complete, 60 s otherwise; pauses while hidden
 // - cupMatchupPollInterval: 60 s
 // - playoffsPollInterval: 5 min once complete, 60 s otherwise
@@ -35,6 +36,7 @@ import type { PlayerFeed } from '../../../src/lib/contract/player';
 import type { AllStarFeed } from '../../../src/lib/contract/all-star';
 import type { CupFeed } from '../../../src/lib/contract/cup';
 import type { PlayoffsFeed } from '../../../src/lib/contract/playoffs';
+import type { PowerRankingFeed } from '../../../src/lib/contract/power-ranking';
 import type { StandingsFeed } from '../../../src/lib/contract/standings';
 import type { TeamFeed } from '../../../src/lib/contract/team';
 import { FeedLoadError, loadGameDetailFeed } from '../../../src/lib/feed/load';
@@ -49,6 +51,7 @@ import {
 	LIVE_POLL_MS,
 	playerPollInterval,
 	playoffsPollInterval,
+	powerRankingPollInterval,
 	SLOW_POLL_MS,
 	pollInterval,
 	standingsPollInterval,
@@ -503,6 +506,15 @@ describe('playerPollInterval', () => {
 		page.set('visible');
 		await vi.advanceTimersByTimeAsync(0);
 		expect(load).toHaveBeenCalledTimes(2);
+	});
+});
+
+describe('powerRankingPollInterval', () => {
+	it('is 5 min once a feed is loaded and 60 s with none', () => {
+		expect(powerRankingPollInterval({ state: 'unavailable' } as PowerRankingFeed)).toBe(
+			SLOW_POLL_MS
+		);
+		expect(powerRankingPollInterval(null)).toBe(IDLE_POLL_MS);
 	});
 });
 

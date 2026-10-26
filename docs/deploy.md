@@ -40,6 +40,7 @@ domains below are placeholders.
    `PLAYOFFS_FINALS_FEED_URL=https://api.example.com/feeds/playoffs/finals.json`,
    `ALL_STAR_FEED_URL=https://api.example.com/feeds/all-star.json`,
    `HOME_FEED_URL=https://api.example.com/feeds/home.json`,
+   `POWER_RANKING_FEED_URL=https://api.example.com/feeds/power-ranking.json`,
    `GAME_DETAIL_FEED_URL=https://api.example.com/feeds/games/{id}.json`,
    `TEAM_FEED_URL=https://api.example.com/feeds/teams/{code}.json`,
    `PLAYER_FEED_URL=https://api.example.com/feeds/players/{id}.json`,

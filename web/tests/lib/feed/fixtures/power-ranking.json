@@ -1,0 +1,840 @@
+{
+	"season": "2026-27",
+	"state": "available",
+	"teams": [
+		{
+			"rank": 1,
+			"tied": false,
+			"team": {
+				"code": "OKC",
+				"name": "Thunder",
+				"city": "Oklahoma City",
+				"logo": {
+					"light": "https://example.com/logos/okc.png",
+					"dark": null
+				},
+				"colors": {
+					"primary": "#112233",
+					"secondary": "#aabbcc"
+				},
+				"accent": "#112233"
+			},
+			"record": "4-0",
+			"rating": "+11.2",
+			"ratingNegative": false,
+			"offense": "+8.0",
+			"defense": "−7.0",
+			"projected": "64-18",
+			"playoffs": ">99.9%",
+			"playoffsLow": false,
+			"title": "31.0%",
+			"titleShare": 1
+		},
+		{
+			"rank": 2,
+			"tied": false,
+			"team": {
+				"code": "BOS",
+				"name": "Celtics",
+				"city": "Boston",
+				"logo": {
+					"light": "https://example.com/logos/bos.png",
+					"dark": "https://example.com/logos/bos-dark.png"
+				},
+				"colors": {
+					"primary": "#112233",
+					"secondary": "#aabbcc"
+				},
+				"accent": "#112233"
+			},
+			"record": "4-0",
+			"rating": "+10.7",
+			"ratingNegative": false,
+			"offense": "+7.5",
+			"defense": "−6.5",
+			"projected": "62-20",
+			"playoffs": ">99.9%",
+			"playoffsLow": false,
+			"title": "29.1%",
+			"titleShare": 0.94
+		},
+		{
+			"rank": 3,
+			"tied": true,
+			"team": {
+				"code": "DEN",
+				"name": "Nuggets",
+				"city": "Denver",
+				"logo": {
+					"light": "https://example.com/logos/den.png",
+					"dark": null
+				},
+				"colors": {
+					"primary": "#112233",
+					"secondary": "#aabbcc"
+				},
+				"accent": "#112233"
+			},
+			"record": "4-0",
+			"rating": "+10.2",
+			"ratingNegative": false,
+			"offense": "+7.0",
+			"defense": "−6.0",
+			"projected": "61-21",
+			"playoffs": ">99.9%",
+			"playoffsLow": false,
+			"title": "27.3%",
+			"titleShare": 0.88
+		},
+		{
+			"rank": 3,
+			"tied": true,
+			"team": {
+				"code": "NYK",
+				"name": "Knicks",
+				"city": "New York",
+				"logo": {
+					"light": "https://example.com/logos/nyk.png",
+					"dark": "https://example.com/logos/nyk-dark.png"
+				},
+				"colors": {
+					"primary": "#112233",
+					"secondary": "#aabbcc"
+				},
+				"accent": "#112233"
+			},
+			"record": "4-0",
+			"rating": "+9.7",
+			"ratingNegative": false,
+			"offense": "+6.5",
+			"defense": "−5.5",
+			"projected": "60-22",
+			"playoffs": ">99.9%",
+			"playoffsLow": false,
+			"title": "13.0%",
+			"titleShare": 0.42
+		},
+		{
+			"rank": 5,
+			"tied": false,
+			"team": {
+				"code": "CLE",
+				"name": "Cavaliers",
+				"city": "Cleveland",
+				"logo": {
+					"light": "https://example.com/logos/cle.png",
+					"dark": null
+				},
+				"colors": {
+					"primary": "#112233",
+					"secondary": "#aabbcc"
+				},
+				"accent": "#112233"
+			},
+			"record": "4-0",
+			"rating": "+9.2",
+			"ratingNegative": false,
+			"offense": "+6.0",
+			"defense": "−5.0",
+			"projected": "58-24",
+			"playoffs": "85.4%",
+			"playoffsLow": false,
+			"title": "23.9%",
+			"titleShare": 0.77
+		},
+		{
+			"rank": 6,
+			"tied": false,
+			"team": {
+				"code": "MIN",
+				"name": "Timberwolves",
+				"city": "Minnesota",
+				"logo": {
+					"light": "https://example.com/logos/min.png",
+					"dark": "https://example.com/logos/min-dark.png"
+				},
+				"colors": {
+					"primary": "#112233",
+					"secondary": "#aabbcc"
+				},
+				"accent": "#112233"
+			},
+			"record": "4-0",
+			"rating": "+8.7",
+			"ratingNegative": false,
+			"offense": "+5.5",
+			"defense": "−4.5",
+			"projected": "56-26",
+			"playoffs": "82.0%",
+			"playoffsLow": false,
+			"title": "22.0%",
+			"titleShare": 0.71
+		},
+		{
+			"rank": 7,
+			"tied": false,
+			"team": {
+				"code": "HOU",
+				"name": "Rockets",
+				"city": "Houston",
+				"logo": {
+					"light": "https://example.com/logos/hou.png",
+					"dark": null
+				},
+				"colors": {
+					"primary": "#112233",
+					"secondary": "#aabbcc"
+				},
+				"accent": "#112233"
+			},
+			"record": "4-0",
+			"rating": "+8.2",
+			"ratingNegative": false,
+			"offense": "+5.0",
+			"defense": "−4.0",
+			"projected": "55-27",
+			"playoffs": "78.6%",
+			"playoffsLow": false,
+			"title": "20.2%",
+			"titleShare": 0.65
+		},
+		{
+			"rank": 8,
+			"tied": false,
+			"team": {
+				"code": "LAL",
+				"name": "Lakers",
+				"city": "Los Angeles",
+				"logo": {
+					"light": "https://example.com/logos/lal.png",
+					"dark": "https://example.com/logos/lal-dark.png"
+				},
+				"colors": {
+					"primary": "#112233",
+					"secondary": "#aabbcc"
+				},
+				"accent": "#112233"
+			},
+			"record": "4-0",
+			"rating": "+7.7",
+			"ratingNegative": false,
+			"offense": "+4.5",
+			"defense": "−3.5",
+			"projected": "54-28",
+			"playoffs": "75.2%",
+			"playoffsLow": false,
+			"title": "18.3%",
+			"titleShare": 0.59
+		},
+		{
+			"rank": 9,
+			"tied": false,
+			"team": {
+				"code": "DAL",
+				"name": "Mavericks",
+				"city": "Dallas",
+				"logo": {
+					"light": "https://example.com/logos/dal.png",
+					"dark": null
+				},
+				"colors": {
+					"primary": "#112233",
+					"secondary": "#aabbcc"
+				},
+				"accent": "#112233"
+			},
+			"record": "3-0",
+			"rating": "+7.2",
+			"ratingNegative": false,
+			"offense": "+4.0",
+			"defense": "−3.0",
+			"projected": "52-30",
+			"playoffs": "71.8%",
+			"playoffsLow": false,
+			"title": "16.7%",
+			"titleShare": 0.54
+		},
+		{
+			"rank": 10,
+			"tied": false,
+			"team": {
+				"code": "MIL",
+				"name": "Bucks",
+				"city": "Milwaukee",
+				"logo": {
+					"light": "https://example.com/logos/mil.png",
+					"dark": "https://example.com/logos/mil-dark.png"
+				},
+				"colors": {
+					"primary": "#112233",
+					"secondary": "#aabbcc"
+				},
+				"accent": "#112233"
+			},
+			"record": "3-0",
+			"rating": "+6.7",
+			"ratingNegative": false,
+			"offense": "+3.5",
+			"defense": "−2.5",
+			"projected": "50-32",
+			"playoffs": "68.4%",
+			"playoffsLow": false,
+			"title": "14.9%",
+			"titleShare": 0.48
+		},
+		{
+			"rank": 11,
+			"tied": false,
+			"team": {
+				"code": "PHX",
+				"name": "Suns",
+				"city": "Phoenix",
+				"logo": {
+					"light": "https://example.com/logos/phx.png",
+					"dark": null
+				},
+				"colors": {
+					"primary": "#112233",
+					"secondary": "#aabbcc"
+				},
+				"accent": "#112233"
+			},
+			"record": "3-1",
+			"rating": "+6.2",
+			"ratingNegative": false,
+			"offense": "+3.0",
+			"defense": "−2.0",
+			"projected": "49-33",
+			"playoffs": "65.0%",
+			"playoffsLow": false,
+			"title": "13.0%",
+			"titleShare": 0.42
+		},
+		{
+			"rank": 12,
+			"tied": false,
+			"team": {
+				"code": "IND",
+				"name": "Pacers",
+				"city": "Indiana",
+				"logo": {
+					"light": "https://example.com/logos/ind.png",
+					"dark": "https://example.com/logos/ind-dark.png"
+				},
+				"colors": {
+					"primary": "#112233",
+					"secondary": "#aabbcc"
+				},
+				"accent": "#112233"
+			},
+			"record": "3-1",
+			"rating": "+5.7",
+			"ratingNegative": false,
+			"offense": "+2.5",
+			"defense": "−1.5",
+			"projected": "48-34",
+			"playoffs": "61.6%",
+			"playoffsLow": false,
+			"title": "11.2%",
+			"titleShare": 0.36
+		},
+		{
+			"rank": 13,
+			"tied": false,
+			"team": {
+				"code": "MIA",
+				"name": "Heat",
+				"city": "Miami",
+				"logo": {
+					"light": "https://example.com/logos/mia.png",
+					"dark": null
+				},
+				"colors": {
+					"primary": "#112233",
+					"secondary": "#aabbcc"
+				},
+				"accent": "#112233"
+			},
+			"record": "3-1",
+			"rating": "+5.2",
+			"ratingNegative": false,
+			"offense": "+2.0",
+			"defense": "−1.0",
+			"projected": "46-36",
+			"playoffs": "58.2%",
+			"playoffsLow": false,
+			"title": "9.3%",
+			"titleShare": 0.3
+		},
+		{
+			"rank": 14,
+			"tied": false,
+			"team": {
+				"code": "GSW",
+				"name": "Warriors",
+				"city": "Golden State",
+				"logo": {
+					"light": "https://example.com/logos/gsw.png",
+					"dark": "https://example.com/logos/gsw-dark.png"
+				},
+				"colors": {
+					"primary": "#112233",
+					"secondary": "#aabbcc"
+				},
+				"accent": "#112233"
+			},
+			"record": "3-1",
+			"rating": "+4.7",
+			"ratingNegative": false,
+			"offense": "+1.5",
+			"defense": "−0.5",
+			"projected": "44-38",
+			"playoffs": "54.8%",
+			"playoffsLow": false,
+			"title": "7.8%",
+			"titleShare": 0.25
+		},
+		{
+			"rank": 15,
+			"tied": false,
+			"team": {
+				"code": "ORL",
+				"name": "Magic",
+				"city": "Orlando",
+				"logo": {
+					"light": "https://example.com/logos/orl.png",
+					"dark": null
+				},
+				"colors": {
+					"primary": "#112233",
+					"secondary": "#aabbcc"
+				},
+				"accent": "#112233"
+			},
+			"record": "3-1",
+			"rating": "+4.2",
+			"ratingNegative": false,
+			"offense": "+1.0",
+			"defense": "0.0",
+			"projected": "43-39",
+			"playoffs": "51.4%",
+			"playoffsLow": false,
+			"title": "5.9%",
+			"titleShare": 0.19
+		},
+		{
+			"rank": 16,
+			"tied": false,
+			"team": {
+				"code": "MEM",
+				"name": "Grizzlies",
+				"city": "Memphis",
+				"logo": {
+					"light": "https://example.com/logos/mem.png",
+					"dark": "https://example.com/logos/mem-dark.png"
+				},
+				"colors": {
+					"primary": "#112233",
+					"secondary": "#aabbcc"
+				},
+				"accent": "#112233"
+			},
+			"record": "3-1",
+			"rating": "+3.7",
+			"ratingNegative": false,
+			"offense": "+0.5",
+			"defense": "+0.5",
+			"projected": "42-40",
+			"playoffs": "48.0%",
+			"playoffsLow": false,
+			"title": "4.0%",
+			"titleShare": 0.13
+		},
+		{
+			"rank": 17,
+			"tied": false,
+			"team": {
+				"code": "LAC",
+				"name": "Clippers",
+				"city": "Los Angeles",
+				"logo": {
+					"light": "https://example.com/logos/lac.png",
+					"dark": null
+				},
+				"colors": {
+					"primary": "#112233",
+					"secondary": "#aabbcc"
+				},
+				"accent": "#112233"
+			},
+			"record": "2-1",
+			"rating": "+3.2",
+			"ratingNegative": false,
+			"offense": "0.0",
+			"defense": "+1.0",
+			"projected": "40-42",
+			"playoffs": "44.6%",
+			"playoffsLow": false,
+			"title": "2.2%",
+			"titleShare": 0.07
+		},
+		{
+			"rank": 18,
+			"tied": false,
+			"team": {
+				"code": "SAC",
+				"name": "Kings",
+				"city": "Sacramento",
+				"logo": {
+					"light": "https://example.com/logos/sac.png",
+					"dark": "https://example.com/logos/sac-dark.png"
+				},
+				"colors": {
+					"primary": "#112233",
+					"secondary": "#aabbcc"
+				},
+				"accent": "#112233"
+			},
+			"record": "2-1",
+			"rating": "+2.7",
+			"ratingNegative": false,
+			"offense": "−0.5",
+			"defense": "+1.5",
+			"projected": "38-44",
+			"playoffs": "41.2%",
+			"playoffsLow": false,
+			"title": "0.3%",
+			"titleShare": 0.01
+		},
+		{
+			"rank": 19,
+			"tied": false,
+			"team": {
+				"code": "ATL",
+				"name": "Hawks",
+				"city": "Atlanta",
+				"logo": {
+					"light": "https://example.com/logos/atl.png",
+					"dark": null
+				},
+				"colors": {
+					"primary": "#112233",
+					"secondary": "#aabbcc"
+				},
+				"accent": "#112233"
+			},
+			"record": "2-1",
+			"rating": "+2.2",
+			"ratingNegative": false,
+			"offense": "−1.0",
+			"defense": "+2.0",
+			"projected": "37-45",
+			"playoffs": "37.8%",
+			"playoffsLow": false,
+			"title": "0.0%",
+			"titleShare": 0
+		},
+		{
+			"rank": 20,
+			"tied": false,
+			"team": {
+				"code": "SAS",
+				"name": "Spurs",
+				"city": "San Antonio",
+				"logo": {
+					"light": "https://example.com/logos/sas.png",
+					"dark": "https://example.com/logos/sas-dark.png"
+				},
+				"colors": {
+					"primary": "#112233",
+					"secondary": "#aabbcc"
+				},
+				"accent": "#112233"
+			},
+			"record": "2-1",
+			"rating": "+1.7",
+			"ratingNegative": false,
+			"offense": "−1.5",
+			"defense": "+2.5",
+			"projected": "36-46",
+			"playoffs": "34.4%",
+			"playoffsLow": false,
+			"title": "0.0%",
+			"titleShare": 0
+		},
+		{
+			"rank": 21,
+			"tied": false,
+			"team": {
+				"code": "DET",
+				"name": "Pistons",
+				"city": "Detroit",
+				"logo": {
+					"light": "https://example.com/logos/det.png",
+					"dark": null
+				},
+				"colors": {
+					"primary": "#112233",
+					"secondary": "#aabbcc"
+				},
+				"accent": "#112233"
+			},
+			"record": "2-2",
+			"rating": "+1.2",
+			"ratingNegative": false,
+			"offense": "−2.0",
+			"defense": "+3.0",
+			"projected": "34-48",
+			"playoffs": "31.0%",
+			"playoffsLow": false,
+			"title": "0.0%",
+			"titleShare": 0
+		},
+		{
+			"rank": 22,
+			"tied": false,
+			"team": {
+				"code": "CHI",
+				"name": "Bulls",
+				"city": "Chicago",
+				"logo": {
+					"light": "https://example.com/logos/chi.png",
+					"dark": "https://example.com/logos/chi-dark.png"
+				},
+				"colors": {
+					"primary": "#112233",
+					"secondary": "#aabbcc"
+				},
+				"accent": "#112233"
+			},
+			"record": "2-2",
+			"rating": "+0.7",
+			"ratingNegative": false,
+			"offense": "−2.5",
+			"defense": "+3.5",
+			"projected": "32-50",
+			"playoffs": "27.6%",
+			"playoffsLow": false,
+			"title": "0.0%",
+			"titleShare": 0
+		},
+		{
+			"rank": 23,
+			"tied": false,
+			"team": {
+				"code": "PHI",
+				"name": "76ers",
+				"city": "Philadelphia",
+				"logo": {
+					"light": "https://example.com/logos/phi.png",
+					"dark": null
+				},
+				"colors": {
+					"primary": "#112233",
+					"secondary": "#aabbcc"
+				},
+				"accent": "#112233"
+			},
+			"record": "2-2",
+			"rating": "+0.2",
+			"ratingNegative": false,
+			"offense": "−3.0",
+			"defense": "+4.0",
+			"projected": "31-51",
+			"playoffs": "24.2%",
+			"playoffsLow": false,
+			"title": "0.0%",
+			"titleShare": 0
+		},
+		{
+			"rank": 24,
+			"tied": false,
+			"team": {
+				"code": "TOR",
+				"name": "Raptors",
+				"city": "Toronto",
+				"logo": {
+					"light": "https://example.com/logos/tor.png",
+					"dark": "https://example.com/logos/tor-dark.png"
+				},
+				"colors": {
+					"primary": "#112233",
+					"secondary": "#aabbcc"
+				},
+				"accent": "#112233"
+			},
+			"record": "2-2",
+			"rating": "−0.3",
+			"ratingNegative": true,
+			"offense": "−3.5",
+			"defense": "+4.5",
+			"projected": "30-52",
+			"playoffs": "20.8%",
+			"playoffsLow": false,
+			"title": "0.0%",
+			"titleShare": 0
+		},
+		{
+			"rank": 25,
+			"tied": false,
+			"team": {
+				"code": "NOP",
+				"name": "Pelicans",
+				"city": "New Orleans",
+				"logo": {
+					"light": "https://example.com/logos/nop.png",
+					"dark": null
+				},
+				"colors": {
+					"primary": "#112233",
+					"secondary": "#aabbcc"
+				},
+				"accent": "#112233"
+			},
+			"record": "1-2",
+			"rating": "−0.8",
+			"ratingNegative": true,
+			"offense": "−4.0",
+			"defense": "+5.0",
+			"projected": "28-54",
+			"playoffs": "17.4%",
+			"playoffsLow": false,
+			"title": "0.0%",
+			"titleShare": 0
+		},
+		{
+			"rank": 26,
+			"tied": false,
+			"team": {
+				"code": "POR",
+				"name": "Trail Blazers",
+				"city": "Portland",
+				"logo": {
+					"light": "https://example.com/logos/por.png",
+					"dark": "https://example.com/logos/por-dark.png"
+				},
+				"colors": {
+					"primary": "#112233",
+					"secondary": "#aabbcc"
+				},
+				"accent": "#112233"
+			},
+			"record": "1-2",
+			"rating": "−1.3",
+			"ratingNegative": true,
+			"offense": "−4.5",
+			"defense": "+5.5",
+			"projected": "26-56",
+			"playoffs": "14.0%",
+			"playoffsLow": false,
+			"title": "0.0%",
+			"titleShare": 0
+		},
+		{
+			"rank": 27,
+			"tied": false,
+			"team": {
+				"code": "BKN",
+				"name": "Nets",
+				"city": "Brooklyn",
+				"logo": {
+					"light": "https://example.com/logos/bkn.png",
+					"dark": null
+				},
+				"colors": {
+					"primary": "#112233",
+					"secondary": "#aabbcc"
+				},
+				"accent": "#112233"
+			},
+			"record": "1-2",
+			"rating": "−1.8",
+			"ratingNegative": true,
+			"offense": "−5.0",
+			"defense": "+6.0",
+			"projected": "25-57",
+			"playoffs": "10.6%",
+			"playoffsLow": false,
+			"title": "0.0%",
+			"titleShare": 0
+		},
+		{
+			"rank": 28,
+			"tied": false,
+			"team": {
+				"code": "UTA",
+				"name": "Jazz",
+				"city": "Utah",
+				"logo": {
+					"light": "https://example.com/logos/uta.png",
+					"dark": "https://example.com/logos/uta-dark.png"
+				},
+				"colors": {
+					"primary": "#112233",
+					"secondary": "#aabbcc"
+				},
+				"accent": "#112233"
+			},
+			"record": "1-2",
+			"rating": "−2.1",
+			"ratingNegative": true,
+			"offense": "−5.5",
+			"defense": "+6.5",
+			"projected": "24-58",
+			"playoffs": "10.2%",
+			"playoffsLow": false,
+			"title": "0.0%",
+			"titleShare": 0
+		},
+		{
+			"rank": 29,
+			"tied": false,
+			"team": {
+				"code": "CHA",
+				"name": "Hornets",
+				"city": "Charlotte",
+				"logo": {
+					"light": "https://example.com/logos/cha.png",
+					"dark": null
+				},
+				"colors": {
+					"primary": "#112233",
+					"secondary": "#aabbcc"
+				},
+				"accent": "#112233"
+			},
+			"record": "1-2",
+			"rating": "−2.8",
+			"ratingNegative": true,
+			"offense": "−6.0",
+			"defense": "+7.0",
+			"projected": "22-60",
+			"playoffs": "<0.1%",
+			"playoffsLow": true,
+			"title": "<0.1%",
+			"titleShare": 0
+		},
+		{
+			"rank": 30,
+			"tied": false,
+			"team": {
+				"code": "WAS",
+				"name": null,
+				"city": null,
+				"logo": null,
+				"colors": null,
+				"accent": null
+			},
+			"record": "1-2",
+			"rating": "−3.3",
+			"ratingNegative": true,
+			"offense": "−6.5",
+			"defense": "+7.5",
+			"projected": "20-62",
+			"playoffs": "<0.1%",
+			"playoffsLow": true,
+			"title": "<0.1%",
+			"titleShare": 0
+		}
+	]
+}

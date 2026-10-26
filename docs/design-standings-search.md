@@ -8,6 +8,7 @@ The visual, interaction and data specification for the nav, the `/standings` pag
 |---|---|---|
 | Nav | Every page | None |
 | Standings | `/standings` | `/feeds/standings.json` |
+| Power ranking | `/standings`, below the key | `/feeds/power-ranking.json` |
 | Search overlay | Opens over any page | `/feeds/search.json` |
 
 - Season: unchanged (ADR 0022). The page shows the last regular season, with its label, until the regular season starts.
@@ -36,6 +37,7 @@ Everything under "Implementation rules" in `docs/design.md`, `docs/design-game-d
 | `StandingsTable` | One group block: header, sticky columns, rows, playoff and play-in lines |
 | `ClinchTag` | The one-letter clinch tag |
 | `StandingsKey` | The key section under the tables |
+| `PowerRanking` | The power ranking section: header, desktop table, mobile rows, top 10 toggle |
 | `SearchOverlay` | Backdrop, panel or sheet, input row and results |
 | `SearchResultRow` | The team row and the player row |
 
@@ -131,6 +133,19 @@ A section on `/standings`, below the standings table, for the current season onl
 - **Mobile:** each row shows rank, logo and name, W–L, Title % and a chevron. A row expands to Rating, Proj., Playoffs and Off / Def. One row is open at a time; the chevron rotates.
 - All strings are in `en.json` and `es.json`; styles use tokens.
 
+Built details:
+
+- Placement: under the key, only while the standings are on screen (state `ready`).
+- The kicker reads "Team ratings"; the note is the section head's meta.
+- A tied rank reads `T3` (`E3` in Spanish).
+- Record and W–L show the feed's `3-1` as sent.
+- The title bar is an 80px track (`--power-ranking-bar-width`, `--stat-bar-height`, `--color-bar-neutral`) filled in `--color-accent` to `titleShare`.
+- Muted values use `--color-muted`.
+- The toggle reads "Show all 30 teams" / "Show top 10"; collapsing closes an open row.
+- Mobile rows are buttons with `aria-expanded`; the details are rendered only while open; the chevron is `chevron-down` and turns `--chevron-open-rotation`.
+- A null name shows the code and a null city is left out.
+- No row links to the team page.
+
 ## Search overlay
 
 ### 1. Opening and closing
@@ -210,7 +225,7 @@ A section on `/standings`, below the standings table, for the current season onl
 
 | What | How |
 |---|---|
-| Polling | Standings every 5 minutes once the feed's `state` is `final`, every 60 seconds otherwise; paused while the tab is hidden and refreshed when it is visible again |
+| Polling | Standings every 5 minutes once the feed's `state` is `final`, every 60 seconds otherwise; paused while the tab is hidden and refreshed when it is visible again; the power ranking every 5 minutes once loaded, every 60 seconds while none has loaded, current season only |
 | Conference / Division toggle | Switches the blocks shown; no scroll jump |
 | Row hover | `--box-row-hover` on the standings row |
 | Open overlay | Backdrop fades in and the panel rises `--list-entrance-offset` with `--ease`; instant under reduced motion |
@@ -257,6 +272,9 @@ To add to `web/src/lib/styles/tokens.css` in the implementing issue. Values belo
 | `--standings-monogram-size` | 34px | Table tile |
 | `--standings-strip-height` | 3px | Table tile strip |
 | `--standings-team-column-page-min` | 178px | Team column minimum (the existing `--standings-team-column-min` belongs to the game detail table) |
+| `--power-ranking-bar-width` | 80px | Title bar track |
+| `--power-ranking-record-width` | 56px | Mobile record column (fits `30-52`) |
+| `--power-ranking-title-width` | 64px | Mobile title column (fits `>99.9%`) |
 
 Mapped to existing tokens: active toggle `rgba(116, 157, 196, 0.14)` is `--toggle-active-fill`; row hover `rgba(116, 157, 196, 0.06)` is `--box-row-hover`; label color `#94bce3` is `--color-accent-light`; label size and spacing are `--label-size` and `--label-letter-spacing`; the 19px name is `--player-name-size`; the 680px break is `--game-row-breakpoint`; the divider is `--color-divider`.
 
@@ -313,6 +331,24 @@ Mapped to existing tokens: active toggle `rgba(116, 157, 196, 0.14)` is `--toggl
 | `clinch_e` | Eliminated | Eliminado |
 | `standings_key_note` | GB, Div and Conf are within the group shown. Diff is per game, Tot is the season total. | DP, Div y Conf son dentro del grupo mostrado. Dif es por partido, Tot es el total de la temporada. |
 | `standings_key_lines` | The lines mark seed 6 and seed 10. | Las líneas marcan el puesto 6 y el 10. |
+| `power_ranking_kicker` | Team ratings | Valoración de equipos |
+| `power_ranking_title` | Power ranking | Ranking de poder |
+| `power_ranking_note` | Regular season · Updated daily | Temporada regular · Actualizado a diario |
+| `power_ranking_col_team` | Team | Equipo |
+| `power_ranking_col_record` | Record | Récord |
+| `power_ranking_col_rating` | Rating | Valoración |
+| `power_ranking_col_offense` | Off | Of |
+| `power_ranking_col_defense` | Def | Def |
+| `power_ranking_col_projected` | Proj. | Proy. |
+| `power_ranking_col_playoffs` | Playoffs | Playoffs |
+| `power_ranking_col_title` | Title | Título |
+| `power_ranking_col_wl` | W–L | G–P |
+| `power_ranking_col_title_chance` | Title % | Título % |
+| `power_ranking_off_def` | Off / Def | Of / Def |
+| `power_ranking_show_all` | Show all {count} teams | Ver los {count} equipos |
+| `power_ranking_show_top` | Show top {count} | Ver los {count} primeros |
+| `power_ranking_rank_tied` | T{rank} | E{rank} |
+| `power_ranking_details` | Details of {team} | Detalle de {team} |
 
 `standings_key_lines` follows `standings_key_note` and is hidden on a past season, which draws no seed lines.
 
@@ -337,6 +373,16 @@ Where this table and `docs/api/standings.md` or `web/src/lib/contract/standings.
 | `conferences` | In display order; each `key` (`east` / `west`), `name`, `teamCount` and `teams` sorted by seed |
 | `divisions` | In display order; each `name`, `conference` (the key, `east` / `west`) and `teams` in division order |
 | Team row | `code`, `city`, `name`, `colors` (`primary`, `secondary`; each or null), `seed` (or null), `clinch` (`*`, `z`, `y`, `x`, `xp`, `pb`, `e`; or null), `wins`, `losses`, `pct` (ready string, such as `.659`), `gamesBehind` (ready string, or null; against the group), `streak` (an object with `kind` win / loss and `count`, or null), `home`, `away`, `lastTen`, `division`, `conference` (each a ready `W-L` with a hyphen, such as `34-7`), `pointsFor`, `pointsAgainst` (per game), `differential` (ready signed string, per game, and `nonNegative`), `total` (ready signed string, and `nonNegative`) |
+
+### Power ranking feed
+
+Where this table and `docs/api/power-ranking.md` or `web/src/lib/contract/power-ranking.ts` differ, those two are the authority.
+
+| Field | Content |
+|---|---|
+| `season` | Label, such as `2026-27` |
+| `state` | `available` or `unavailable` |
+| `teams` | In rank order, 30 when available and none otherwise; each `rank`, `tied`, `team` (`code`, `name`, `city`, `logo`, `colors`, `accent`; the name, city, logo, colors and accent each or null), `record` (such as `3-1`), `rating`, `offense`, `defense` (ready signed texts with U+2212), `ratingNegative`, `projected` (such as `54-28`), `playoffs`, `title` (the provider's texts, such as `>99.9%`), `playoffsLow` and `titleShare` (0 to 1) |
 
 ### Search feed
 
