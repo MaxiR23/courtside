@@ -11,6 +11,7 @@
 // - An unknown id, an undecided series and a missing id show the not-available message and the back link
 // - A 503 or no configured URL shows the data unavailable row; the skeleton shows until the first load settles
 // - The current season polls again at 60 s, and a later success replaces a failed state
+// - The document title is the series heading then the site name, in English and Spanish; Playoffs then the site name while loading and for an unknown id; the loading title in English and Spanish
 //
 // What is covered:
 // - The page wired end to end: config, fetch, polling, props layer, component, footer
@@ -28,6 +29,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { PlayoffsFeed, PlayoffsState } from '../../../../src/lib/contract/playoffs';
 import type { PlayoffsFinalsFeed } from '../../../../src/lib/contract/playoffs-finals';
+
+import { preferLanguages } from '../../../prefer-languages';
 
 import Page from '../../../../src/routes/playoffs/series/+page.svelte';
 
@@ -139,6 +142,7 @@ const backHrefs = () =>
 const backHref = () => backHrefs()[0];
 
 beforeEach(() => {
+	document.title = '';
 	vi.useFakeTimers();
 	vi.setSystemTime(new Date('2027-06-20T23:30:00Z'));
 	vi.stubGlobal(
@@ -291,5 +295,41 @@ describe('Series page', () => {
 		expect(countOf(FEED_URL)).toBe(2);
 		expect(screen.queryByText(UNAVAILABLE)).toBeNull();
 		expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('East · Round 1');
+	});
+});
+
+describe('Series document title', () => {
+	it('is the series heading then the site name, in English and Spanish', async () => {
+		stubRoutes({ [FEED_URL]: [answerWith(bracket())] });
+		await renderAt('?id=east-r1-1');
+		const heading = screen.getByRole('heading', { level: 1 }).textContent;
+		expect(heading).toBeTruthy();
+		expect(document.title).toBe(`${heading} · Courtside`);
+		preferLanguages(['es']);
+		stubRoutes({ [FEED_URL]: [answerWith(bracket())] });
+		await renderAt('?id=east-r1-1');
+		const heading_es = screen.getAllByRole('heading', { level: 1 }).at(-1)?.textContent;
+		expect(heading_es).toBeTruthy();
+		expect(document.title).toBe(`${heading_es} · Courtside`);
+	});
+
+	it('is the section name then the site name while loading', async () => {
+		stubRoutes({ [FEED_URL]: [never] });
+		await renderAt('?id=east-r1-1');
+		expect(document.title).toBe('Playoffs · Courtside');
+	});
+
+	it('is the section name then the site name while loading, in Spanish', async () => {
+		preferLanguages(['es']);
+		stubRoutes({ [FEED_URL]: [never] });
+		await renderAt('?id=east-r1-1');
+		expect(document.title).toBe('Playoffs · Courtside');
+	});
+
+	it('is the section name then the site name for an unknown id', async () => {
+		stubRoutes({ [FEED_URL]: [answerWith(bracket())] });
+		await renderAt('?id=nope');
+		expect(screen.getByText(NOT_FOUND)).toBeTruthy();
+		expect(document.title).toBe('Playoffs · Courtside');
 	});
 });

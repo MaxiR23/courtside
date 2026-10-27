@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { pageTitle } from '#lib/format/title.ts';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -126,6 +127,8 @@
 	const gameHref = (id: string) => resolve('/game/[id]', { id });
 	const playerHref = (id: string) => resolve('/player/[id]', { id });
 </script>
+
+<svelte:head><title>{pageTitle(m.cup_title())}</title></svelte:head>
 
 <CupPage
 	state={pageState}

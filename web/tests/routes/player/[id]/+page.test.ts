@@ -21,6 +21,7 @@
 // - Calendar 503 or no calendar URL: the current season and no select
 // - The select lists the right seasons and navigates with goto; Spanish
 // - The unavailable state of a past season keeps the Season tag (ADR 0054)
+// - The document title is the player's full name then the site name, in English and Spanish; Courtside while loading; the loading title in English and Spanish
 //
 // What is covered:
 // - The page wired end to end: config, fetch, polling, props layer, header, tabs, footer
@@ -143,6 +144,7 @@ async function renderPage(id = 'p-2') {
 }
 
 beforeEach(() => {
+	document.title = '';
 	vi.useFakeTimers();
 	vi.setSystemTime(new Date('2026-10-07T23:30:00Z'));
 	config.url = TEMPLATE;
@@ -550,5 +552,32 @@ describe('player page season selector', () => {
 		await renderSeason('?season=2005');
 		expect(screen.getByText('Temporada 2004-05')).toBeTruthy();
 		expect(screen.getByRole('combobox', { name: 'Temporada' })).toBeTruthy();
+	});
+});
+
+describe('player document title', () => {
+	const named = (): PlayerFeed => ({ ...recorded(), firstName: 'Ada', lastName: 'Example' });
+
+	it('is the full name then the site name, in English and Spanish', async () => {
+		stubFetch('p-2', answerWith(named()));
+		await renderPage();
+		expect(document.title).toBe('Ada Example · Courtside');
+		preferLanguages(['es']);
+		stubFetch('p-2', answerWith(named()));
+		await renderPage();
+		expect(document.title).toBe('Ada Example · Courtside');
+	});
+
+	it('is the site name while loading', async () => {
+		stubFetch('p-2', () => new Promise(() => {}));
+		await renderPage();
+		expect(document.title).toBe('Courtside');
+	});
+
+	it('is the site name while loading, in Spanish', async () => {
+		preferLanguages(['es']);
+		stubFetch('p-2', () => new Promise(() => {}));
+		await renderPage();
+		expect(document.title).toBe('Courtside');
 	});
 });

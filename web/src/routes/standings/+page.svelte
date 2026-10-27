@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { pageTitle } from '#lib/format/title.ts';
+	import { m } from '#lib/paraglide/messages.js';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -96,6 +98,8 @@
 	const wide = wideViewport();
 	const teamHref = (code: string) => resolve('/team/[code]', { code: code.toLowerCase() });
 </script>
+
+<svelte:head><title>{pageTitle(m.standings_title())}</title></svelte:head>
 
 <StandingsPage
 	state={pageState}

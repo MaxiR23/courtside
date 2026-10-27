@@ -7,6 +7,7 @@
 // - Header: kicker, selected day, game count, freshness; today selected by default
 // - Selecting a day changes the heading, count and games; a day with no games shows the day, 0 games and the no-games message
 // - Desktop row and full counts on a wide viewport; mobile row and numbers below it
+// - The header takes the mobile class below 680px when it wraps, so its count and freshness label left-align; not when narrow but not wrapped, on a wide viewport or without matchMedia
 // - The staggered list entrance on first view and on a day change, not on the same day
 // - The list is hidden until it first scrolls into view
 // - A card that cannot expand links its team names to the page given by teamHref
@@ -61,6 +62,34 @@ function wideViewport(wide: boolean) {
 	}));
 }
 
+// Stubs ResizeObserver and the offsets jsdom does not lay out: .heading is 60px tall at the top,
+// .meta starts at 68 (below it) or at 20 (beside it).
+function stubHeaderLayout(wrapped: boolean) {
+	vi.stubGlobal(
+		'ResizeObserver',
+		class {
+			observe() {}
+			disconnect() {}
+		}
+	);
+	const offsets = (el: HTMLElement) => ({
+		top: el.classList.contains('meta') ? (wrapped ? 68 : 20) : 0,
+		height: el.classList.contains('heading') ? 60 : 0
+	});
+	Object.defineProperty(HTMLElement.prototype, 'offsetTop', {
+		configurable: true,
+		get(this: HTMLElement) {
+			return offsets(this).top;
+		}
+	});
+	Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
+		configurable: true,
+		get(this: HTMLElement) {
+			return offsets(this).height;
+		}
+	});
+}
+
 const cells = (container: HTMLElement) =>
 	container.querySelectorAll<HTMLButtonElement>('button.day');
 
@@ -81,6 +110,8 @@ afterEach(() => {
 	vi.restoreAllMocks();
 	vi.unstubAllGlobals();
 	Reflect.deleteProperty(HTMLElement.prototype, 'animate');
+	Reflect.deleteProperty(HTMLElement.prototype, 'offsetTop');
+	Reflect.deleteProperty(HTMLElement.prototype, 'offsetHeight');
 });
 
 function stubEntrance() {
@@ -188,6 +219,40 @@ describe('Schedule', () => {
 		const { container } = render(Schedule, { props });
 		expect(container.querySelectorAll('.row.mobile')).toHaveLength(3);
 		expect(container.querySelector('button.day .count')?.textContent?.trim()).toBe('1');
+	});
+
+	it('marks the header mobile below 680px when the block sits below the heading', async () => {
+		wideViewport(false);
+		stubHeaderLayout(true);
+		const { container } = render(Schedule, { props });
+		await tick();
+		expect(container.querySelector('section#schedule > header')?.classList.contains('mobile')).toBe(
+			true
+		);
+	});
+
+	it('does not mark the header mobile below 680px when it does not wrap', async () => {
+		wideViewport(false);
+		stubHeaderLayout(false);
+		const { container } = render(Schedule, { props });
+		await tick();
+		expect(container.querySelector('section#schedule > header')?.classList.contains('mobile')).toBe(
+			false
+		);
+	});
+
+	it('does not mark the header mobile on a wide viewport or without matchMedia', () => {
+		wideViewport(true);
+		const wide = render(Schedule, { props });
+		expect(
+			wide.container.querySelector('section#schedule > header')?.classList.contains('mobile')
+		).toBe(false);
+		wide.unmount();
+		vi.unstubAllGlobals();
+		const bare = render(Schedule, { props });
+		expect(
+			bare.container.querySelector('section#schedule > header')?.classList.contains('mobile')
+		).toBe(false);
 	});
 
 	it('plays the staggered entrance when the list first scrolls into view', async () => {

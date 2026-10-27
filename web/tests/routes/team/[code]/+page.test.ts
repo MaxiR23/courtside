@@ -19,6 +19,7 @@
 // - Calendar 503 or no calendar URL: the current season and no select
 // - The select lists the right seasons and navigates with goto; Spanish
 // - The unavailable state of a past season keeps the Season tag (ADR 0054)
+// - The document title is the team name then the site name, in English and Spanish; Courtside while loading and on a 404; the loading title in English and Spanish
 //
 // What is covered:
 // - The page wired end to end: config, fetch, polling, props layer, header, tabs, footer
@@ -114,6 +115,7 @@ async function renderPage(code = 'okc') {
 }
 
 beforeEach(() => {
+	document.title = '';
 	vi.useFakeTimers();
 	vi.setSystemTime(new Date('2026-10-07T23:30:00Z'));
 	config.url = TEMPLATE;
@@ -555,5 +557,38 @@ describe('team page season selector', () => {
 		await renderSeason('?season=2005');
 		expect(screen.getByText('Temporada 2004-05')).toBeTruthy();
 		expect(screen.getByText('Nombres')).toBeTruthy();
+	});
+});
+
+describe('team document title', () => {
+	const named = (): TeamFeed => ({ ...recorded(), name: 'Comets' });
+
+	it('is the team name then the site name, in English and Spanish', async () => {
+		stubFetch('okc', answerWith(named()));
+		await renderPage();
+		expect(document.title).toBe('Comets · Courtside');
+		preferLanguages(['es']);
+		stubFetch('okc', answerWith(named()));
+		await renderPage();
+		expect(document.title).toBe('Comets · Courtside');
+	});
+
+	it('is the site name while loading', async () => {
+		stubFetch('okc', () => new Promise(() => {}));
+		await renderPage();
+		expect(document.title).toBe('Courtside');
+	});
+
+	it('is the site name while loading, in Spanish', async () => {
+		preferLanguages(['es']);
+		stubFetch('okc', () => new Promise(() => {}));
+		await renderPage();
+		expect(document.title).toBe('Courtside');
+	});
+
+	it('is the site name on a 404', async () => {
+		stubFetch('xyz', answerStatus(404));
+		await renderPage('xyz');
+		expect(document.title).toBe('Courtside');
 	});
 });

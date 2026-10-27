@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { pageTitle } from '#lib/format/title.ts';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -103,7 +104,17 @@
 
 	const wide = wideViewport();
 	const gameHref = (id: string) => resolve('/game/[id]', { id });
+
+	const title = $derived(
+		pageTitle(
+			pageState.kind === 'ready'
+				? `${pageState.view.header.firstName} ${pageState.view.header.lastName}`
+				: null
+		)
+	);
 </script>
+
+<svelte:head><title>{title}</title></svelte:head>
 
 <PlayerPage
 	state={pageState}

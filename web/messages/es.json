@@ -144,6 +144,7 @@
 	"game_scheduled": "Programado",
 	"game_overtime": "PR{number}",
 	"game_not_found": "Partido no encontrado.",
+	"game_page_title": "{away} en {home}",
 	"game_tabs_label": "Secciones",
 	"game_tab_players": "Jugadores",
 	"game_tab_injuries": "Lesiones",

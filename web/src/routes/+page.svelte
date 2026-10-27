@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { pageTitle } from '#lib/format/title.ts';
 	import { afterNavigate, goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { onMount, tick, untrack } from 'svelte';
@@ -166,6 +167,8 @@
 			?.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' });
 	}
 </script>
+
+<svelte:head><title>{pageTitle()}</title></svelte:head>
 
 {#if today}
 	<Hero

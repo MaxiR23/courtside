@@ -18,6 +18,7 @@
 // - Calendar 503 or no calendar URL: the current season and no select
 // - Power ranking: current season only, hidden when unavailable, failed, unconfigured or on a past season; polled
 // - The select lists the right seasons and navigates with goto; Spanish
+// - The document title is the section name then the site name, while loading and loaded, in English and Spanish
 //
 // What is covered:
 // - The page wired end to end: config, fetch, polling, props layer, header, tables, footer
@@ -118,6 +119,7 @@ async function renderPage() {
 }
 
 beforeEach(() => {
+	document.title = '';
 	vi.useFakeTimers();
 	vi.setSystemTime(new Date('2026-10-07T23:30:00Z'));
 	config.url = FEED_URL;
@@ -573,5 +575,26 @@ describe('standings page power ranking', () => {
 		await settleAll();
 		expect(countOf(RANKING_URL)).toBe(2);
 		expect(sectionRows()).toBe(10);
+	});
+});
+
+describe('standings document title', () => {
+	it('is the section name then the site name, while loading and loaded', async () => {
+		stubFetch(() => new Promise(() => {}));
+		await renderPage();
+		expect(document.title).toBe('Standings · Courtside');
+		stubFetch(answerWith(recorded()));
+		await renderPage();
+		expect(document.title).toBe('Standings · Courtside');
+	});
+
+	it('is in Spanish with a Spanish preference', async () => {
+		preferLanguages(['es']);
+		stubFetch(() => new Promise(() => {}));
+		await renderPage();
+		expect(document.title).toBe('Clasificación · Courtside');
+		stubFetch(answerWith(recorded()));
+		await renderPage();
+		expect(document.title).toBe('Clasificación · Courtside');
 	});
 });

@@ -9,7 +9,7 @@
 	import type { EmptyDayView } from '#lib/home/types.ts';
 	import { m } from '#lib/paraglide/messages.js';
 	import { ListEntrance } from '#lib/schedule/entrance.svelte.ts';
-	import { cardAnchor, wideViewport } from '#lib/schedule/layout.ts';
+	import { cardAnchor, headerWraps, wideViewport } from '#lib/schedule/layout.ts';
 	import { cardEntrance } from '#lib/schedule/motion.ts';
 	import type { ScheduleDay } from '#lib/schedule/types.ts';
 
@@ -52,10 +52,29 @@
 	);
 	const strip = $derived(days.map((d) => ({ date: d.date, gameCount: d.games.length })));
 	let list: HTMLElement | undefined = $state();
+	let headerEl: HTMLElement | undefined = $state();
+	let wrapped = $state(false);
 	let playingId = $state<string | null>(null);
 
 	$effect(() => {
 		if (list) return entrance.observe(list);
+	});
+
+	// Whether .meta sits below .heading. No ResizeObserver (server, jsdom) leaves it false.
+	$effect(() => {
+		if (!headerEl || typeof ResizeObserver === 'undefined') return;
+		const headingEl = headerEl.querySelector<HTMLElement>('.heading');
+		const metaEl = headerEl.querySelector<HTMLElement>('.meta');
+		if (!headingEl || !metaEl) return;
+		const measure = () => {
+			wrapped = headerWraps(headingEl, metaEl);
+		};
+		const observer = new ResizeObserver(measure);
+		observer.observe(headerEl);
+		observer.observe(headingEl);
+		observer.observe(metaEl);
+		measure();
+		return () => observer.disconnect();
 	});
 
 	function toggle(id: string) {
@@ -72,7 +91,7 @@
 </script>
 
 <section class="schedule" id="schedule">
-	<header>
+	<header class:mobile={!wide.current && wrapped} bind:this={headerEl}>
 		<div class="heading">
 			<Kicker text={m.schedule_kicker()} />
 			<h2>
@@ -152,6 +171,10 @@
 	.meta {
 		display: grid;
 		justify-items: end;
+	}
+
+	.mobile .meta {
+		justify-items: start;
 	}
 
 	.updated {

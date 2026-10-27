@@ -21,6 +21,7 @@
 // - A season change or an unmount closes the current matchup poller of an open node
 // - The select lists the calendar seasons from 2024 and navigates with goto
 // - A past matchup loads once from the season URL, shows the path and the current-season-only line, and no roster; Spanish
+// - The document title is the section name then the site name, while loading and loaded, in English and Spanish
 //
 // What is covered:
 // - The page wired end to end: config, fetch, polling, props layer, header, tables, footer
@@ -137,6 +138,7 @@ async function renderPage() {
 }
 
 beforeEach(() => {
+	document.title = '';
 	vi.useFakeTimers();
 	vi.setSystemTime(new Date('2026-10-07T23:30:00Z'));
 	config.url = FEED_URL;
@@ -615,5 +617,26 @@ describe('Cup page season selector', () => {
 		expect(screen.getByRole('dialog').textContent).toContain(
 			'Las plantillas solo se muestran de la temporada actual'
 		);
+	});
+});
+
+describe('cup document title', () => {
+	it('is the section name then the site name, while loading and loaded', async () => {
+		stubFetch(() => new Promise(() => {}));
+		await renderPage();
+		expect(document.title).toBe('NBA Cup · Courtside');
+		stubFetch(answerWith(recorded()));
+		await renderPage();
+		expect(document.title).toBe('NBA Cup · Courtside');
+	});
+
+	it('is in Spanish with a Spanish preference', async () => {
+		preferLanguages(['es']);
+		stubFetch(() => new Promise(() => {}));
+		await renderPage();
+		expect(document.title).toBe('Copa NBA · Courtside');
+		stubFetch(answerWith(recorded()));
+		await renderPage();
+		expect(document.title).toBe('Copa NBA · Courtside');
 	});
 });

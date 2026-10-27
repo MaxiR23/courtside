@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { pageTitle } from '#lib/format/title.ts';
+	import { m } from '#lib/paraglide/messages.js';
 	import { resolve } from '$app/paths';
 	import AllStarPage from '#lib/components/AllStarPage.svelte';
 	import { allStarFeedUrl } from '#lib/feed/config.ts';
@@ -28,7 +30,13 @@
 	const wide = wideViewport();
 	const teamHref = (code: string) => resolve('/team/[code]', { code: code.toLowerCase() });
 	const playerHref = (id: string) => resolve('/player/[id]', { id });
+
+	const title = $derived(
+		pageTitle(pageState.kind === 'ready' ? pageState.view.header.title : m.allstar_title())
+	);
 </script>
+
+<svelte:head><title>{title}</title></svelte:head>
 
 <AllStarPage
 	state={pageState}

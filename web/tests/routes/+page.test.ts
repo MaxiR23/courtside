@@ -28,6 +28,7 @@
 // - Standings and Leaders after the schedule on a day with no games: the standings feed requested once, never on a day with games; two columns on a wide screen and stacked on a narrow one
 // - Each of the two sections hidden when its feed fails, is not configured or its data is null, the rest of the page still rendered; the Finals preview shows the finalists, and nothing without finalsPath; one to four leader rows; Spanish
 // - Team logos: a side's feed logo in the game card's large box, the code monogram for a null logo and the initials of a guest side added in memory
+// - The document title is exactly Courtside while the feed loads and after, in English and Spanish
 //
 // What is covered:
 // - The page wired end to end: config, fetch, polling, props layer, hero, schedule, footer
@@ -185,6 +186,7 @@ const card = (container: HTMLElement, id: string) =>
 	container.querySelector(`#game-${id}`) as HTMLElement;
 
 beforeEach(() => {
+	document.title = '';
 	vi.useFakeTimers();
 	// Five minutes after the recorded feed was generated.
 	vi.setSystemTime(new Date('2026-10-04T23:05:00Z'));
@@ -1145,5 +1147,26 @@ describe('home page on a day with no games', () => {
 			);
 			expect(headings).toEqual(['Clasificación', 'Esta temporada']);
 		});
+	});
+});
+
+describe('home document title', () => {
+	it('is exactly the site name while the feed loads and after it loads', async () => {
+		stubFetch(() => new Promise(() => {}));
+		await renderPage();
+		expect(document.title).toBe('Courtside');
+		stubFetch(answerWith(recorded()));
+		await renderPage();
+		expect(document.title).toBe('Courtside');
+	});
+
+	it('is exactly the site name with a Spanish preference', async () => {
+		preferLanguages(['es-ES']);
+		stubFetch(() => new Promise(() => {}));
+		await renderPage();
+		expect(document.title).toBe('Courtside');
+		stubFetch(answerWith(recorded()));
+		await renderPage();
+		expect(document.title).toBe('Courtside');
 	});
 });

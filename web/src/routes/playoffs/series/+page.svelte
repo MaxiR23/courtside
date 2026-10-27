@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { pageTitle } from '#lib/format/title.ts';
+	import { m } from '#lib/paraglide/messages.js';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import SeriesPage from '#lib/components/SeriesPage.svelte';
@@ -98,7 +100,13 @@
 
 	const wide = wideViewport();
 	const gameHref = (gameId: string) => resolve('/game/[id]', { id: gameId });
+
+	const title = $derived(
+		pageTitle(pageState.kind === 'ready' ? pageState.view.round : m.playoffs_title())
+	);
 </script>
+
+<svelte:head><title>{title}</title></svelte:head>
 
 <SeriesPage
 	state={pageState}

@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { pageTitle } from '#lib/format/title.ts';
+	import { m } from '#lib/paraglide/messages.js';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import type { PageProps } from './$types';
@@ -99,7 +101,13 @@
 	const wide = wideViewport();
 	const gameHref = (id: string) => resolve('/game/[id]', { id });
 	const teamHref = (code: string) => resolve('/team/[code]', { code: code.toLowerCase() });
+
+	const title = $derived(
+		pageTitle(m.past_day_title(), pageState.kind === 'ready' ? pageState.view.title : null)
+	);
 </script>
+
+<svelte:head><title>{title}</title></svelte:head>
 
 <DayPage
 	state={pageState}
