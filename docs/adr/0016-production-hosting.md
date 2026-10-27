@@ -1,6 +1,6 @@
 # 0016. Production hosting
 
-- Status: Accepted
+- Status: Superseded by 0079 for the machine, the certificates and the front end host only
 - Date: 2026-10-06
 
 ## Context

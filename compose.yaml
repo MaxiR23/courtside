@@ -15,6 +15,7 @@ services:
     image: caddy:2.11.7-alpine
     environment:
       API_DOMAIN: "${API_DOMAIN:?set API_DOMAIN in .env at the repository root}"
+      ORIGIN_SECRET: "${ORIGIN_SECRET:?set ORIGIN_SECRET in .env at the repository root}"
     ports:
       - "80:80"
       - "443:443"

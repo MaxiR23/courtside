@@ -138,7 +138,7 @@ Sections such as All-Star or the Finals are temporary. Each one is self-containe
 - Recorded in [`adr/0003-api-tooling-and-configuration.md`](adr/0003-api-tooling-and-configuration.md).
 - The front end's build-time settings are declared in `web/src/env.ts` and listed in `web/.env.example`: the games feed URL, the standings feed URL, `STANDINGS_FEED_URL`, the search feed URL, `SEARCH_FEED_URL`, the Cup feed URL, `CUP_FEED_URL`, the Cup matchup feed URL, `CUP_MATCHUP_FEED_URL` (with an `{id}` placeholder), the playoffs feed URL, `PLAYOFFS_FEED_URL`, the playoffs finals feed URL, `PLAYOFFS_FINALS_FEED_URL`, the All-Star feed URL, `ALL_STAR_FEED_URL`, the home feed URL, `HOME_FEED_URL`, the power ranking feed URL, `POWER_RANKING_FEED_URL`, the game detail feed URL (with an `{id}` placeholder), the team feed URL, `TEAM_FEED_URL` (with a `{code}` placeholder), the player feed URL, `PLAYER_FEED_URL` (with an `{id}` placeholder), the calendar feed URL, `CALENDAR_FEED_URL` (with a `{season}` placeholder), the day feed URL, `DAY_FEED_URL` (with a `{date}` placeholder), the season standings feed URL, `SEASON_STANDINGS_FEED_URL` (with a `{season}` placeholder), the season team feed URL, `SEASON_TEAM_FEED_URL` (with `{season}` and `{code}` placeholders), the season player feed URL, `SEASON_PLAYER_FEED_URL` (with `{season}` and `{id}` placeholders), the season Cup feed URL, `SEASON_CUP_FEED_URL` (with a `{season}` placeholder), the season Cup matchup feed URL, `SEASON_CUP_MATCHUP_FEED_URL` (with `{season}` and `{slot}` placeholders), the season playoffs feed URL, `SEASON_PLAYOFFS_FEED_URL` (with a `{season}` placeholder), the season playoffs finals feed URL, `SEASON_PLAYOFFS_FINALS_FEED_URL` (with a `{season}` placeholder), the season All-Star feed URL, `SEASON_ALL_STAR_FEED_URL` (with a `{season}` placeholder), and the video platform's name.
 - `HIGHLIGHTS_SEARCH_API_URL` (the search source's URL, never written in the docs) and `HIGHLIGHTS_SEARCH_DAILY_CAP` (searches per US Eastern day, default 80) are the two settings of the on-demand highlights search; `HIGHLIGHTS_BACKFILL_PAGES` is retired: a `.env` that still sets it starts, and the value is ignored. Recorded in [`adr/0065-background-work-limited-to-games-highlights-and-stars.md`](adr/0065-background-work-limited-to-games-highlights-and-stars.md).
-- The deployment's domain, `API_DOMAIN`, is read by Docker Compose from the root `.env` and listed in the root `.env.example`; it is not a `Settings` variable, because `api/.env` holds only those.
+- The deployment's domain, `API_DOMAIN` (`:80` in production), and the origin secret, `ORIGIN_SECRET`, are read by Docker Compose from the root `.env` and listed in the root `.env.example`; they are not `Settings` variables, because `api/.env` holds only those. Compose refuses to start without either (ADR 0079).
 
 ## Repository layout
 
@@ -218,7 +218,7 @@ document is updated in the same change.
 
 Recorded in [`adr/0007-backend-runtime-and-data-pipeline.md`](adr/0007-backend-runtime-and-data-pipeline.md):
 
-- **Hosting**: one always-free virtual machine running Docker Compose, with a reverse proxy for HTTPS.
+- **Hosting**: one always-free virtual machine running Docker Compose, with a reverse proxy for HTTPS. In production HTTPS is served by the front end host and the proxy serves plain HTTP behind it (ADR 0079).
 - **Storage**: job state in one SQLite file on the data volume; feeds as JSON files.
 - **Refresh cadences**: superseded by ADR 0020.
 - **Star player selection**: the highest points plus rebounds plus assists per game on the current roster.
@@ -254,7 +254,7 @@ Recorded in [`adr/0015-highlights-source.md`](adr/0015-highlights-source.md):
 
 Recorded in [`adr/0016-production-hosting.md`](adr/0016-production-hosting.md):
 
-- **Production hosting**: Docker Compose runs the API image, non-root with one process and a health check, behind Caddy, which serves HTTPS for `API_DOMAIN`; state and feeds live on the named volume `data`; both services restart unless stopped. The front end is uploaded as static files to a CDN. Steps in [`deploy.md`](deploy.md).
+- **Production hosting**: (ADR 0079 replaces the machine, the certificates and the front end host) Docker Compose runs the API image, non-root with one process and a health check, behind Caddy, which serves HTTPS for `API_DOMAIN`; state and feeds live on the named volume `data`; both services restart unless stopped. The front end is uploaded as static files to a CDN. Steps in [`deploy.md`](deploy.md).
 
 Recorded in [`adr/0018-highlight-request-failures.md`](adr/0018-highlight-request-failures.md):
 
@@ -476,6 +476,10 @@ Recorded in [`adr/0077-home-warms-its-dependencies.md`](adr/0077-home-warms-its-
 Recorded in [`adr/0078-power-ranking-names-from-the-stored-standings-feed.md`](adr/0078-power-ranking-names-from-the-stored-standings-feed.md):
 
 - **Power ranking names**: a team's name and city come from the stored standings feed of the current season (no request), else the cached team info, else null. With teams to name and no standings feed of the season stored, the build warms it and never waits. A feed with any null name is fresh for 1 hour after its build and is then served at once and rebuilt in the background; a complete one stays fresh until the US Eastern day change.
+
+Recorded in [`adr/0079-production-behind-vercel-with-origin-secret.md`](adr/0079-production-behind-vercel-with-origin-secret.md):
+
+- **Production behind Vercel**: one EC2 machine with a fixed public IP and no domain runs Docker Compose with `API_DOMAIN=:80`; port 22 only from the owner's IP, port 80 open. The static build is on Vercel, the browser talks only to it over HTTPS, and Vercel forwards `/api/*` to the machine over HTTP and serves `200.html` for the browser-rendered paths. Caddy answers 403 to any request without `X-Origin-Secret` equal to `ORIGIN_SECRET` and compresses responses with zstd or gzip. The domain-with-certificate setup stays as the alternative, still with the secret. Steps in [`deploy.md`](deploy.md).
 
 ## Future
 

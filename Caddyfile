@@ -1,3 +1,9 @@
 {$API_DOMAIN} {
+	@no_origin_secret {
+		not header X-Origin-Secret {$ORIGIN_SECRET}
+	}
+	respond @no_origin_secret 403
+
+	encode zstd gzip
 	reverse_proxy api:8000
 }
