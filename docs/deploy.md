@@ -1,19 +1,31 @@
 # Deploy
 
 Runbook for the production setup recorded in
-[`adr/0016-production-hosting.md`](adr/0016-production-hosting.md). All
-domains below are placeholders.
+[`adr/0079-production-behind-vercel-with-origin-secret.md`](adr/0079-production-behind-vercel-with-origin-secret.md),
+on top of [`adr/0016-production-hosting.md`](adr/0016-production-hosting.md).
+All domains below are placeholders.
 
 ## Requirements
+
+### Production (no domain)
 
 - A virtual machine with Docker Engine and the Compose plugin. Enable the
   Docker service at boot, so `restart: unless-stopped` brings the stack back
   after a reboot.
-- Ports 80 and 443 (TCP) and 443 (UDP) open.
-- A DNS record of the API domain pointing to the machine. It must resolve
-  before the first start, or the certificate request fails.
+- A fixed public IP.
+- Port 80 (TCP) open to everyone, port 22 open only to the owner's IP, and no
+  other inbound port.
 - Git.
 - Node 24 and pnpm 12 where the front end is built.
+
+### Alternative: a domain with a certificate
+
+The same, with ports 80 and 443 (TCP) and 443 (UDP) open, and a DNS record of
+the API domain pointing to the machine. It must resolve before the first
+start, or the certificate request fails. The origin secret is still required,
+so the domain must sit behind a front door that sends the `X-Origin-Secret`
+header: a browser fetching feeds straight from `https://api.example.com` gets
+403.
 
 ## Deploy the backend
 
@@ -22,11 +34,52 @@ domains below are placeholders.
    must list the front end origin, e.g. `["https://example.com"]`; without
    it the page shows "data unavailable" even though the API is up. Compose
    interpolates `$` in this file, so write a literal `$` as `$$`.
-3. `cp .env.example .env` and set `API_DOMAIN`, e.g. `api.example.com`.
+3. `cp .env.example .env`, set `API_DOMAIN=:80` (the alternative: the domain,
+   e.g. `api.example.com`) and set `ORIGIN_SECRET` to the output of
+   `openssl rand -hex 32`, the same value as the Vercel project variable.
+   Without it, `docker compose up` stops with `set ORIGIN_SECRET in .env at
+   the repository root`.
 4. `docker compose up -d --build`
-5. Check: `docker compose ps` shows the api service as `healthy`, and
-   `curl https://api.example.com/health` answers 200. The health check proves
-   the process answers, not that the feeds are fresh.
+5. Check: `docker compose ps` shows the api service as `healthy`, then run
+   "Check the origin" below. The health check proves the process answers, not
+   that the feeds are fresh.
+
+### Vercel project variables
+
+Both are for production:
+
+- `BACKEND_URL`: the machine's address over HTTP, e.g. `http://vm.example.com`
+  (the real value is the machine's public IP, set only in Vercel).
+- `ORIGIN_SECRET`: equal to the value in the root `.env`.
+
+The Vercel config that uses them comes in a later change.
+
+### Check the origin
+
+The gate cannot run Caddy, so this is the check of the proxy behavior.
+`vm.example.com` stands for the machine's public IP. The secret is read from
+`.env` and is never typed or printed. `/health` is too small to be compressed
+(Caddy skips bodies under 512 bytes), so compression is checked on a feed.
+
+```
+# From any other machine: no header, then a wrong one. Both print 403.
+curl -s -o /dev/null -w '%{http_code}\n' http://vm.example.com/health
+curl -s -o /dev/null -w '%{http_code}\n' -H 'X-Origin-Secret: wrong' http://vm.example.com/health
+
+# On the machine, from the repository root: the right header prints 200,
+# and a feed comes back compressed (Content-Encoding: gzip).
+secret="$(grep '^ORIGIN_SECRET=' .env | cut -d= -f2-)"
+curl -s -o /dev/null -w '%{http_code}\n' -H "X-Origin-Secret: $secret" http://127.0.0.1/health
+curl -s -o /dev/null -D - -H "X-Origin-Secret: $secret" -H 'Accept-Encoding: gzip' http://127.0.0.1/feeds/games.json | grep -i '^content-encoding'
+
+# Rule K: the ETag survives compression. The repeat request with the
+# received ETag prints 304.
+etag="$(curl -s -o /dev/null -D - -H "X-Origin-Secret: $secret" -H 'Accept-Encoding: gzip' http://127.0.0.1/feeds/games.json | grep -i '^etag:' | cut -d' ' -f2- | tr -d '\r')"
+curl -s -o /dev/null -w '%{http_code}\n' -H "X-Origin-Secret: $secret" -H 'Accept-Encoding: gzip' -H "If-None-Match: $etag" http://127.0.0.1/feeds/games.json
+```
+
+The same commands work on any machine running the stack with `API_DOMAIN=:80`,
+using `http://127.0.0.1` for both halves.
 
 ## Build and publish the front end
 
@@ -55,8 +108,16 @@ domains below are placeholders.
    `SEASON_PLAYOFFS_FINALS_FEED_URL=https://api.example.com/feeds/seasons/{season}/playoffs/finals.json`,
    `SEASON_ALL_STAR_FEED_URL=https://api.example.com/feeds/seasons/{season}/all-star.json` and
    `VIDEO_PLATFORM_NAME`.
+
+   The URLs above are placeholders. The browser fetches feeds, so they must
+   point at the front door that adds `X-Origin-Secret`, never at the machine
+   or `api.example.com` directly, which answer 403. In production that front
+   door is the Vercel site's forwarded paths, `https://<site>/api/feeds/...`
+   (for example `https://www.example.com/api/feeds/games.json`), which the
+   later Vercel config change defines. Until that change lands, a production
+   front end cannot reach the API.
 3. `cd web && pnpm install --frozen-lockfile && pnpm run build`
-4. Upload the contents of `web/build/` to the static host. Configure the static
+4. Upload the contents of `web/build/` to the static host (Vercel in production). Configure the static
    host to serve `200.html` for `/standings`, `/cup`, `/playoffs`, `/playoffs/series`, `/all-star`, `/all-star/previous` and for every `/day/*`, `/game/*`, `/player/*` and `/team/*` path that is not a file (those pages
    are rendered in the browser from it, ADR 0020 and ADR 0021).
 
@@ -106,8 +167,8 @@ request that changes a feed's shape names which side goes first.
    ```
 
 5. `docker compose up -d --build`
-6. Point the DNS record to the new machine. Certificates are issued again
-   there.
+6. Point the DNS record (alternative) or `BACKEND_URL` in Vercel (production)
+   to the new machine. Certificates are issued again there in the alternative.
 
 ## CDN in front of the API
 
@@ -118,6 +179,11 @@ must honor the origin's Cache-Control, must not add `s-maxage` and must keep
 "Always Online" off. Reference: Cloudflare's Origin Cache Control
 documentation, where `s-maxage` disables `stale-while-revalidate` and "Always
 Online" ignores it.
+
+In production, the layer in front of the API is the Vercel site
+([`adr/0079`](adr/0079-production-behind-vercel-with-origin-secret.md)). Any CDN or front door in
+front of the machine must send `X-Origin-Secret`, or every request gets 403.
+The rule K requirements above apply to whatever layer is in front.
 
 ## Logs
 
