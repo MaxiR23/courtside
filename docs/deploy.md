@@ -142,6 +142,10 @@ The deployed `api/.env` changes with this upgrade (see `api/.env.example`):
 
 Without `HIGHLIGHTS_SEARCH_API_URL` no on-demand highlights search runs.
 
+### Upgrade note: visitor rate limit
+
+`RATE_LIMIT_PER_MINUTE` in `api/.env` is optional. Its default is 120 feed requests per visitor per minute, and 0 turns the limit off. The visitor is read from `x-real-ip`, which Vercel sends; a request without it is keyed on its connection address, which behind Caddy is the proxy's. Every visitor then shares one limit and the polled pages get 429. The front door must forward `x-real-ip` to the API; if it does not (check after the Vercel config lands), set `RATE_LIMIT_PER_MINUTE=0`.
+
 ## Change to a feed's shape
 
 When a change alters the shape of a feed, deploy first the side that accepts

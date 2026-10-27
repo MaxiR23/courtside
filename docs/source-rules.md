@@ -1,6 +1,6 @@
 # Source rules
 
-The rules every job and feed build follows so the data source is asked as little as possible. They are adopted by ADR 0020 and apply to every feed: games, game detail, player and team. Rule L records the season fallbacks of the adapters; it is adopted by ADR 0022. Rule N is adopted by ADR 0056 and retired by ADR 0059, and Rule O is adopted by ADR 0058 and extended by ADR 0059, and rule P is adopted by ADR 0062, which also extends rule H. ADRs 0063, 0064, 0065, 0066 and 0067 extend rules A, C, D, E, F, G, J and O, as each rule says.
+The rules every job and feed build follows so the data source is asked as little as possible. They are adopted by ADR 0020 and apply to every feed: games, game detail, player and team. Rule L records the season fallbacks of the adapters; it is adopted by ADR 0022. Rule N is adopted by ADR 0056 and retired by ADR 0059, and Rule O is adopted by ADR 0058 and extended by ADR 0059, and rule P is adopted by ADR 0062, which also extends rule H. ADR 0080 extends rule H. ADRs 0063, 0064, 0065, 0066 and 0067 extend rules A, C, D, E, F, G, J and O, as each rule says.
 
 References:
 
@@ -125,6 +125,7 @@ One game or team that cannot be read is skipped, or has that block null, with a 
 - At most 16 builds are started (running, waiting for a slot or for a dependency) at once. A missing feed requested at the cap answers 503 and starts nothing; a stale one is served from storage with no build; a refresh, a warm-up and a dependency start nothing (a dependency is used as stored) (ADR 0062).
 - A build runs at most 60 seconds; a build past it is cancelled and recorded as a failure with the reason 'build timed out' (ADR 0062).
 - A failed build keeps the stored feed (`stale-if-error`), is recorded in `/health`, and that feed is not rebuilt for 10 minutes.
+- Each visitor may send `RATE_LIMIT_PER_MINUTE` (default 120; 0 turns it off) feed requests per minute, counted in a window that starts at its first request. Past it the API answers 429 with `Retry-After` in seconds. The visitor is the first address of `x-real-ip`, else the connection's address. It is kept in memory only, at most 10,000 visitors, and never logged. `/health` is never limited (ADR 0080).
 
 ## I. Unknown ids
 
