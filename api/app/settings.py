@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Literal, Self
 
 from pydantic import (
+    NonNegativeInt,
     PositiveInt,
     SecretStr,
     ValidationInfo,
@@ -145,6 +146,9 @@ class Settings(BaseSettings):
     daily_fetch_time: dt.time = dt.time(6, 0)
     data_dir: Path = API_DIR / "data"
     cors_origins: list[str] = []
+    # Feed requests one visitor may send per minute; past it the API answers 429
+    # with Retry-After. 0 turns the limit off. /health is never limited.
+    rate_limit_per_minute: NonNegativeInt = 120
 
     @model_validator(mode="before")
     @classmethod

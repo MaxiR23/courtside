@@ -52,6 +52,9 @@
 # - Defaults the highlights search daily cap to 80
 # - Reads the highlights search daily cap from an environment variable
 # - Rejects a highlights search daily cap that is not a positive integer, without showing it
+# - Defaults the rate limit per minute to 120
+# - Reads the rate limit per minute from an environment variable, 0 included
+# - Rejects a rate limit per minute that is not a non-negative integer, without showing it
 # - Starts with a .env file that still sets the retired highlights backfill pages
 # - Defaults the source build pause to 250 ms
 # - Reads the source build pause from an environment variable
@@ -70,7 +73,7 @@
 # - Rejects an unknown key in a .env file that is not retired
 #
 # What is covered:
-# - Happy path, value from the environment, value from a .env file, .env file location, invalid value, shared instance, optional scoreboard URL, optional game detail URL, required URL placeholders (missing, escaped, malformed, empty), optional player photo URL, optional team roster URL, optional team averages URL, optional standings, team schedule and league injuries URLs, optional player and team source URLs (unset, environment, missing, wrong and extra placeholder, none allowed, own query, empty), optional highlights source URL and key (unset, environment, hidden when printed), video embed URL and highlights search URL, highlights search API URL and daily cap (default, environment, invalid), source build pause (default, environment, invalid), daily fetch time (default, environment, invalid), input hidden from errors, data directory (default, environment, relative, empty), CORS origins (default, JSON list), retired setting (dropped with a warning), unknown key (rejected)
+# - Happy path, value from the environment, value from a .env file, .env file location, invalid value, shared instance, optional scoreboard URL, optional game detail URL, required URL placeholders (missing, escaped, malformed, empty), optional player photo URL, optional team roster URL, optional team averages URL, optional standings, team schedule and league injuries URLs, optional player and team source URLs (unset, environment, missing, wrong and extra placeholder, none allowed, own query, empty), optional highlights source URL and key (unset, environment, hidden when printed), video embed URL and highlights search URL, highlights search API URL and daily cap (default, environment, invalid), rate limit per minute (default, environment, zero, invalid), source build pause (default, environment, invalid), daily fetch time (default, environment, invalid), input hidden from errors, data directory (default, environment, relative, empty), CORS origins (default, JSON list), retired setting (dropped with a warning), unknown key (rejected)
 #
 # Run with: cd api && .venv/bin/python -m pytest tests/test_settings.py
 #
@@ -485,6 +488,31 @@ def test_rejects_a_highlights_search_daily_cap_that_is_not_positive_without_show
     monkeypatch: pytest.MonkeyPatch, value: str
 ) -> None:
     monkeypatch.setenv("HIGHLIGHTS_SEARCH_DAILY_CAP", value)
+
+    with pytest.raises(ValidationError) as error:
+        SettingsWithoutEnvFile()
+
+    assert f"'{value}'" not in str(error.value)
+    assert f"input_value={value}" not in str(error.value)
+
+
+def test_defaults_the_rate_limit_per_minute_to_120() -> None:
+    assert SettingsWithoutEnvFile().rate_limit_per_minute == 120
+
+
+def test_reads_the_rate_limit_per_minute_from_an_environment_variable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("RATE_LIMIT_PER_MINUTE", "0")
+
+    assert SettingsWithoutEnvFile().rate_limit_per_minute == 0
+
+
+@pytest.mark.parametrize("value", ["-1", "many"])
+def test_rejects_a_rate_limit_per_minute_that_is_not_a_non_negative_integer_without_showing_it(
+    monkeypatch: pytest.MonkeyPatch, value: str
+) -> None:
+    monkeypatch.setenv("RATE_LIMIT_PER_MINUTE", value)
 
     with pytest.raises(ValidationError) as error:
         SettingsWithoutEnvFile()

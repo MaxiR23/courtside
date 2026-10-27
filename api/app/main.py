@@ -2,7 +2,7 @@ import datetime as dt
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.jobs.all_star_edition_videos import AllStarEditionVideos
@@ -55,6 +55,7 @@ from app.jobs.stars import StarsJob
 from app.jobs.team_feed import TeamFeeds
 from app.jobs.team_names import TeamNamesFeeds
 from app.log import configure_logging
+from app.rate_limit import RateLimiter, limit_rate
 from app.routers import feeds, health
 from app.settings import Settings, get_settings
 from app.sources.http import create_client
@@ -307,11 +308,12 @@ def create_app(settings: Settings | None = None, *, run_jobs: bool = True) -> Fa
 
     app = FastAPI(lifespan=lifespan)
     app.state.settings = settings
+    app.state.rate_limiter = RateLimiter(settings.rate_limit_per_minute)
     app.add_middleware(
         CORSMiddleware, allow_origins=settings.cors_origins, allow_methods=["GET"]
     )
     app.include_router(health.router)
-    app.include_router(feeds.router)
+    app.include_router(feeds.router, dependencies=[Depends(limit_rate)])
     return app
 
 
