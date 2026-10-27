@@ -17,6 +17,8 @@ All domains below are placeholders.
   other inbound port.
 - Git.
 - Node 24 and pnpm 12 where the front end is built.
+- On the operator's machine, to run `scripts/deploy.sh`: the Vercel CLI (`pnpm add -g vercel`, then
+  `vercel login`), `ssh` and `curl`.
 
 ### Alternative: a domain with a certificate
 
@@ -30,10 +32,13 @@ header: a browser fetching feeds straight from `https://api.example.com` gets
 ## Deploy the backend
 
 1. Clone the repository.
-2. `cp api/.env.example api/.env` and fill in every variable. `CORS_ORIGINS`
-   must list the front end origin, e.g. `["https://example.com"]`; without
-   it the page shows "data unavailable" even though the API is up. Compose
-   interpolates `$` in this file, so write a literal `$` as `$$`.
+2. `cp api/.env.example api/.env` and fill in every variable. In production
+   the browser fetches feeds from the Vercel site's own origin
+   (`https://<site>/api/feeds/...`), so the request is not cross-origin and
+   `CORS_ORIGINS` can stay `[]`. List an origin, e.g. `["https://example.com"]`,
+   only for a front end served from another origin that reads the API through
+   a front door adding the secret. Compose interpolates `$` in this file, so
+   write a literal `$` as `$$`.
 3. `cp .env.example .env`, set `API_DOMAIN=:80` (the alternative: the domain,
    e.g. `api.example.com`) and set `ORIGIN_SECRET` to the output of
    `openssl rand -hex 32`, the same value as the Vercel project variable.
@@ -52,7 +57,8 @@ Both are for production:
   (the real value is the machine's public IP, set only in Vercel).
 - `ORIGIN_SECRET`: equal to the value in the root `.env`.
 
-The Vercel config that uses them comes in a later change.
+`deploy/vercel.json` uses them: it forwards `/api/*` to `BACKEND_URL` and sets
+`x-origin-secret` from `ORIGIN_SECRET`, replacing any value the visitor sent.
 
 ### Check the origin
 
@@ -81,54 +87,107 @@ curl -s -o /dev/null -w '%{http_code}\n' -H "X-Origin-Secret: $secret" -H 'Accep
 The same commands work on any machine running the stack with `API_DOMAIN=:80`,
 using `http://127.0.0.1` for both halves.
 
+## Deploy with the script
+
+`scripts/deploy.sh` deploys the backend over SSH and the front end to Vercel
+from the operator's machine.
+
+### One-time setup
+
+1. An SSH alias in `~/.ssh/config`:
+
+   ```
+   Host courtside-vm
+     HostName vm.example.com
+     User <user>
+     IdentityFile <path to the key>
+   ```
+
+   The alias user needs passwordless `sudo`, because the script runs
+   `sudo docker compose` without a terminal.
+2. `cp .env.deploy.example .env.deploy` and fill in the three keys. The file is
+   ignored by git, and the script never prints its values.
+3. A folder dedicated to the deploy, e.g.
+   `mkdir ~/courtside-vercel && cd ~/courtside-vercel && vercel link`. Its
+   absolute path goes in `DEPLOY_VERCEL_DIR`. It must not be `/`, the home
+   folder, a folder inside the repository or a folder that contains the
+   repository. The script replaces everything in it except `.vercel`.
+4. In the Vercel project, the production variables `BACKEND_URL` and
+   `ORIGIN_SECRET` (see "Vercel project variables").
+5. The machine has the clone at `~/courtside` and was set up per "Deploy the
+   backend".
+
+### Daily use
+
+- `scripts/deploy.sh` deploys both sides, api first. `scripts/deploy.sh api`
+  and `scripts/deploy.sh web` deploy one side.
+- It runs only from `main`, with a clean tree and `main` equal to `origin/main`.
+- api pulls and rebuilds on the machine, then waits up to 180 s for the `api`
+  service to be healthy.
+- web builds with every feed URL set to `DEPLOY_SITE_URL/api/feeds/...`,
+  without touching `web/.env`, which still provides `VIDEO_PLATFORM_NAME`. It
+  then publishes with `vercel deploy --prod`.
+- It ends by checking that `/` and `/api/health` on the site answer 200.
+
 ## Build and publish the front end
 
 1. `cp web/.env.example web/.env`
-2. Set `GAMES_FEED_URL=https://api.example.com/feeds/games.json`,
-   `STANDINGS_FEED_URL=https://api.example.com/feeds/standings.json`,
-   `SEARCH_FEED_URL=https://api.example.com/feeds/search.json`,
-   `CUP_FEED_URL=https://api.example.com/feeds/cup.json`,
-   `CUP_MATCHUP_FEED_URL=https://api.example.com/feeds/cup/matchups/{id}.json`,
-   `PLAYOFFS_FEED_URL=https://api.example.com/feeds/playoffs.json`,
-   `PLAYOFFS_FINALS_FEED_URL=https://api.example.com/feeds/playoffs/finals.json`,
-   `ALL_STAR_FEED_URL=https://api.example.com/feeds/all-star.json`,
-   `HOME_FEED_URL=https://api.example.com/feeds/home.json`,
-   `POWER_RANKING_FEED_URL=https://api.example.com/feeds/power-ranking.json`,
-   `GAME_DETAIL_FEED_URL=https://api.example.com/feeds/games/{id}.json`,
-   `TEAM_FEED_URL=https://api.example.com/feeds/teams/{code}.json`,
-   `PLAYER_FEED_URL=https://api.example.com/feeds/players/{id}.json`,
-   `CALENDAR_FEED_URL=https://api.example.com/feeds/seasons/{season}/calendar.json`,
-   `DAY_FEED_URL=https://api.example.com/feeds/days/{date}.json`,
-   `SEASON_STANDINGS_FEED_URL=https://api.example.com/feeds/seasons/{season}/standings.json`,
-   `SEASON_TEAM_FEED_URL=https://api.example.com/feeds/seasons/{season}/teams/{code}.json`,
-   `SEASON_PLAYER_FEED_URL=https://api.example.com/feeds/seasons/{season}/players/{id}.json`,
-   `SEASON_CUP_FEED_URL=https://api.example.com/feeds/seasons/{season}/cup.json`,
-   `SEASON_CUP_MATCHUP_FEED_URL=https://api.example.com/feeds/seasons/{season}/cup/matchups/{slot}.json`,
-   `SEASON_PLAYOFFS_FEED_URL=https://api.example.com/feeds/seasons/{season}/playoffs.json`,
-   `SEASON_PLAYOFFS_FINALS_FEED_URL=https://api.example.com/feeds/seasons/{season}/playoffs/finals.json`,
-   `SEASON_ALL_STAR_FEED_URL=https://api.example.com/feeds/seasons/{season}/all-star.json` and
+2. Set `GAMES_FEED_URL=https://www.example.com/api/feeds/games.json`,
+   `STANDINGS_FEED_URL=https://www.example.com/api/feeds/standings.json`,
+   `SEARCH_FEED_URL=https://www.example.com/api/feeds/search.json`,
+   `CUP_FEED_URL=https://www.example.com/api/feeds/cup.json`,
+   `CUP_MATCHUP_FEED_URL=https://www.example.com/api/feeds/cup/matchups/{id}.json`,
+   `PLAYOFFS_FEED_URL=https://www.example.com/api/feeds/playoffs.json`,
+   `PLAYOFFS_FINALS_FEED_URL=https://www.example.com/api/feeds/playoffs/finals.json`,
+   `ALL_STAR_FEED_URL=https://www.example.com/api/feeds/all-star.json`,
+   `HOME_FEED_URL=https://www.example.com/api/feeds/home.json`,
+   `POWER_RANKING_FEED_URL=https://www.example.com/api/feeds/power-ranking.json`,
+   `GAME_DETAIL_FEED_URL=https://www.example.com/api/feeds/games/{id}.json`,
+   `TEAM_FEED_URL=https://www.example.com/api/feeds/teams/{code}.json`,
+   `PLAYER_FEED_URL=https://www.example.com/api/feeds/players/{id}.json`,
+   `CALENDAR_FEED_URL=https://www.example.com/api/feeds/seasons/{season}/calendar.json`,
+   `DAY_FEED_URL=https://www.example.com/api/feeds/days/{date}.json`,
+   `SEASON_STANDINGS_FEED_URL=https://www.example.com/api/feeds/seasons/{season}/standings.json`,
+   `SEASON_TEAM_FEED_URL=https://www.example.com/api/feeds/seasons/{season}/teams/{code}.json`,
+   `SEASON_PLAYER_FEED_URL=https://www.example.com/api/feeds/seasons/{season}/players/{id}.json`,
+   `SEASON_CUP_FEED_URL=https://www.example.com/api/feeds/seasons/{season}/cup.json`,
+   `SEASON_CUP_MATCHUP_FEED_URL=https://www.example.com/api/feeds/seasons/{season}/cup/matchups/{slot}.json`,
+   `SEASON_PLAYOFFS_FEED_URL=https://www.example.com/api/feeds/seasons/{season}/playoffs.json`,
+   `SEASON_PLAYOFFS_FINALS_FEED_URL=https://www.example.com/api/feeds/seasons/{season}/playoffs/finals.json`,
+   `SEASON_ALL_STAR_FEED_URL=https://www.example.com/api/feeds/seasons/{season}/all-star.json` and
    `VIDEO_PLATFORM_NAME`.
 
-   The URLs above are placeholders. The browser fetches feeds, so they must
-   point at the front door that adds `X-Origin-Secret`, never at the machine
-   or `api.example.com` directly, which answer 403. In production that front
-   door is the Vercel site's forwarded paths, `https://<site>/api/feeds/...`
-   (for example `https://www.example.com/api/feeds/games.json`), which the
-   later Vercel config change defines. Until that change lands, a production
-   front end cannot reach the API.
+   The URLs must point at the Vercel site's forwarded paths,
+   `https://<site>/api/feeds/...`, never at the machine, which answers 403.
+   `scripts/deploy.sh` sets them for the build.
 3. `cd web && pnpm install --frozen-lockfile && pnpm run build`
-4. Upload the contents of `web/build/` to the static host (Vercel in production). Configure the static
-   host to serve `200.html` for `/standings`, `/cup`, `/playoffs`, `/playoffs/series`, `/all-star`, `/all-star/previous` and for every `/day/*`, `/game/*`, `/player/*` and `/team/*` path that is not a file (those pages
-   are rendered in the browser from it, ADR 0020 and ADR 0021).
+4. Upload the contents of `web/build/` together with `deploy/vercel.json` (the
+   Vercel CLI from the linked folder, as `scripts/deploy.sh` does).
+
+### Browser-rendered paths
+
+`deploy/vercel.json` serves `200.html` for these paths when they are not a file (ADR 0020 and ADR 0021):
+
+- `/standings`
+- `/cup`
+- `/playoffs`
+- `/playoffs/series`
+- `/all-star`
+- `/all-star/previous`
+- `/day/*`
+- `/game/*`
+- `/player/*`
+- `/team/*`
 
 The settings are read at build time: changing them means rebuilding and
 uploading again.
 
 ## Update
 
-- Backend: `git pull`, then `docker compose up -d --build`. The `data` volume
+- Backend: `scripts/deploy.sh api` (or by hand on the machine: `git pull`,
+  then `docker compose up -d --build`). The `data` volume
   is kept. Never use `docker compose down -v`: it deletes the volumes.
-- Front end: rebuild and upload.
+- Front end: `scripts/deploy.sh web`.
 - Images: change the pinned tag in `api/Dockerfile` or `compose.yaml` through
   a pull request.
 
@@ -144,13 +203,15 @@ Without `HIGHLIGHTS_SEARCH_API_URL` no on-demand highlights search runs.
 
 ### Upgrade note: visitor rate limit
 
-`RATE_LIMIT_PER_MINUTE` in `api/.env` is optional. Its default is 120 feed requests per visitor per minute, and 0 turns the limit off. The visitor is read from `x-real-ip`, which Vercel sends; a request without it is keyed on its connection address, which behind Caddy is the proxy's. Every visitor then shares one limit and the polled pages get 429. The front door must forward `x-real-ip` to the API; if it does not (check after the Vercel config lands), set `RATE_LIMIT_PER_MINUTE=0`.
+`RATE_LIMIT_PER_MINUTE` in `api/.env` is optional. Its default is 120 feed requests per visitor per minute, and 0 turns the limit off. The visitor is read from `x-real-ip`, which Vercel sends; a request without it is keyed on its connection address, which behind Caddy is the proxy's. Every visitor then shares one limit and the polled pages get 429. The front door must forward `x-real-ip` to the API; if it does not (check after the first deploy with `deploy/vercel.json`), set `RATE_LIMIT_PER_MINUTE=0`.
 
 ## Change to a feed's shape
 
 When a change alters the shape of a feed, deploy first the side that accepts
 both the old and the new shape, then the other one right after. Each pull
-request that changes a feed's shape names which side goes first.
+request that changes a feed's shape names which side goes first. With the
+script, deploy the side that goes first with `scripts/deploy.sh api` or
+`scripts/deploy.sh web`, then the other.
 
 ## Move to another machine
 

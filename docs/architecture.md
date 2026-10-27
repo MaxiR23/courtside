@@ -140,6 +140,7 @@ Sections such as All-Star or the Finals are temporary. Each one is self-containe
 - `HIGHLIGHTS_SEARCH_API_URL` (the search source's URL, never written in the docs) and `HIGHLIGHTS_SEARCH_DAILY_CAP` (searches per US Eastern day, default 80) are the two settings of the on-demand highlights search; `HIGHLIGHTS_BACKFILL_PAGES` is retired: a `.env` that still sets it starts, and the value is ignored. Recorded in [`adr/0065-background-work-limited-to-games-highlights-and-stars.md`](adr/0065-background-work-limited-to-games-highlights-and-stars.md).
 - `RATE_LIMIT_PER_MINUTE` (feed requests per visitor per minute, default 120; 0 turns it off) limits every `/feeds/*` route with 429 and `Retry-After`; `/health` is never limited. Recorded in [`adr/0080-per-visitor-rate-limit.md`](adr/0080-per-visitor-rate-limit.md).
 - The deployment's domain, `API_DOMAIN` (`:80` in production), and the origin secret, `ORIGIN_SECRET`, are read by Docker Compose from the root `.env` and listed in the root `.env.example`; they are not `Settings` variables, because `api/.env` holds only those. Compose refuses to start without either (ADR 0079).
+- The deploy script's settings, `DEPLOY_SSH_HOST`, `DEPLOY_SITE_URL` and `DEPLOY_VERCEL_DIR`, are read by `scripts/deploy.sh` from `.env.deploy` at the root (never committed) and listed in `.env.deploy.example`. `BACKEND_URL` and `ORIGIN_SECRET` are Vercel project variables read by `deploy/vercel.json` (ADR 0079, ADR 0081).
 
 ## Repository layout
 
@@ -150,6 +151,8 @@ Sections such as All-Star or the Finals are temporary. Each one is self-containe
 compose.yaml   Production services: the API and the reverse proxy
 Caddyfile      Reverse proxy configuration
 .env.example   Every variable compose.yaml reads
+.env.deploy.example   Every variable scripts/deploy.sh reads
+deploy/vercel.json    Vercel config: /api/* forwarding with the origin secret, 200.html paths
 ```
 
 Structure of `/api`:
@@ -485,6 +488,10 @@ Recorded in [`adr/0079-production-behind-vercel-with-origin-secret.md`](adr/0079
 Recorded in [`adr/0080-per-visitor-rate-limit.md`](adr/0080-per-visitor-rate-limit.md):
 
 - **Per-visitor rate limit**: every `/feeds/*` route answers 429 with `Retry-After` (seconds) to request `RATE_LIMIT_PER_MINUTE` + 1 (default 120; 0 turns it off) inside a visitor's 60-second window, which starts at its first request. `/health` is never limited. The visitor is the first address of `x-real-ip` (sent by Vercel), else the connection's address. The limiter is in memory, with at most 10,000 visitors (the oldest window is evicted at the cap), and addresses are never logged, stored or put in a feed. A refused request records no presence.
+
+Recorded in [`adr/0081-operator-run-deploy-script.md`](adr/0081-operator-run-deploy-script.md):
+
+- **Deploy model**: the operator runs `scripts/deploy.sh` from `main` equal to `origin/main` with a clean tree. The api is updated over SSH (`git pull --ff-only`, `sudo docker compose up -d --build`) and waited on for up to 180 seconds; the web is built locally with the feed URLs injected at build time and uploaded with `vercel deploy --prod` from a dedicated linked folder outside the repository; in `all` the api goes first; a smoke check of `/` and `/api/health` closes the run. CI deploys and Vercel's Git integration are ruled out for now.
 
 ## Future
 
