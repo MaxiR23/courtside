@@ -23,6 +23,7 @@
 // - A past feed with no play-in, no head to head values, no leaders and no awards closes the sections with no gap; a null seed draws no number
 // - The current season keeps the head to head of all-null bars and the dash of a null seed
 // - With #bracket the page scrolls to the bracket once after the feed loads; without it nothing scrolls
+// - The document title is the section name then the site name, while loading and loaded, in English and Spanish
 //
 // What is covered:
 // - The page wired end to end: config, fetch, polling, props layer, header, sections, footer
@@ -144,6 +145,7 @@ const ids = (container: HTMLElement) =>
 	[...container.querySelectorAll('.sections > section')].map((s) => s.id);
 
 beforeEach(() => {
+	document.title = '';
 	vi.useFakeTimers();
 	vi.setSystemTime(new Date('2027-06-20T23:30:00Z'));
 	vi.stubGlobal(
@@ -675,5 +677,26 @@ describe('Bracket landing', () => {
 		await renderPage();
 		expect(screen.getAllByText('Bracket').length).toBeGreaterThan(0);
 		expect(scrolled).toEqual([]);
+	});
+});
+
+describe('playoffs document title', () => {
+	it('is the section name then the site name, while loading and loaded', async () => {
+		stubFetch(() => new Promise(() => {}));
+		await renderPage();
+		expect(document.title).toBe('Playoffs · Courtside');
+		stubFetch(answerWith(picture()));
+		await renderPage();
+		expect(document.title).toBe('Playoffs · Courtside');
+	});
+
+	it('is in Spanish with a Spanish preference', async () => {
+		preferLanguages(['es']);
+		stubFetch(() => new Promise(() => {}));
+		await renderPage();
+		expect(document.title).toBe('Playoffs · Courtside');
+		stubFetch(answerWith(picture()));
+		await renderPage();
+		expect(document.title).toBe('Playoffs · Courtside');
 	});
 });

@@ -20,6 +20,7 @@
 // - Shows an injured player's name as plain text for a feed without playerId
 // - Renders no link inside a button or another link
 // - The chart check targets the chart by role and name: absent without win probability points
+// - The document title is "{away} at {home}" then the site name, in English and Spanish, with no score in any game status; Courtside while loading; the loading title in English and Spanish
 //
 // What is covered:
 // - The page wired end to end: config, fetch, polling, props layer, header, tabs, footer
@@ -36,6 +37,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { GameDetailFeed, Injury } from '../../../../src/lib/contract/game-detail';
+import { preferLanguages } from '../../../prefer-languages';
 
 import Page from '../../../../src/routes/game/[id]/+page.svelte';
 
@@ -98,6 +100,7 @@ async function renderPage() {
 }
 
 beforeEach(() => {
+	document.title = '';
 	vi.useFakeTimers();
 	vi.setSystemTime(new Date('2026-10-07T23:30:00Z'));
 	config.url = TEMPLATE;
@@ -323,5 +326,55 @@ describe('game detail page', () => {
 		stubFetch(answerWith(recorded()));
 		const { container } = await renderPage();
 		expect(container.querySelectorAll('button a, a a')).toHaveLength(0);
+	});
+});
+
+describe('game document title', () => {
+	const named = (): GameDetailFeed => {
+		const source = recorded();
+		return {
+			...source,
+			away: { ...source.away, name: 'Comets' },
+			home: { ...source.home, name: 'Harbors' }
+		};
+	};
+
+	it('is the away team at the home team, in English and Spanish', async () => {
+		stubFetch(answerWith(named()));
+		await renderPage();
+		expect(document.title).toBe('Comets at Harbors · Courtside');
+		preferLanguages(['es']);
+		stubFetch(answerWith(named()));
+		await renderPage();
+		expect(document.title).toBe('Comets en Harbors · Courtside');
+	});
+
+	it('is the site name while loading', async () => {
+		stubFetch(() => new Promise(() => {}));
+		await renderPage();
+		expect(document.title).toBe('Courtside');
+	});
+
+	it('is the site name while loading, in Spanish', async () => {
+		preferLanguages(['es']);
+		stubFetch(() => new Promise(() => {}));
+		await renderPage();
+		expect(document.title).toBe('Courtside');
+	});
+
+	it.each([
+		['scheduled', null],
+		['live', null],
+		['final', 'away'],
+		['delayed', null],
+		['postponed', null],
+		['canceled', null]
+	] as const)('never contains the score when the game is %s', async (status, winner) => {
+		const feed = { ...named(), status, winner };
+		stubFetch(answerWith(feed));
+		await renderPage();
+		expect(document.title).toBe('Comets at Harbors · Courtside');
+		expect(document.title).not.toContain(String(feed.score!.away));
+		expect(document.title).not.toContain(String(feed.score!.home));
 	});
 });

@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { pageTitle } from '#lib/format/title.ts';
+	import { m } from '#lib/paraglide/messages.js';
 	import { resolve } from '$app/paths';
 	import type { PageProps } from './$types';
 	import GamePage from '#lib/components/GamePage.svelte';
@@ -38,7 +40,20 @@
 	const playerHref = (id: string) => resolve('/player/[id]', { id });
 
 	const wide = wideViewport();
+
+	const title = $derived(
+		pageTitle(
+			pageState.kind === 'ready'
+				? m.game_page_title({
+						away: pageState.view.header.away.name,
+						home: pageState.view.header.home.name
+					})
+				: null
+		)
+	);
 </script>
+
+<svelte:head><title>{title}</title></svelte:head>
 
 <GamePage
 	state={pageState}

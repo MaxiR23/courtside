@@ -10,6 +10,7 @@
 // - A 503 shows the unavailable row and requests nothing more
 // - It loads the feed once and sends no further request, also after the tab is visible again
 // - The edition frame with its caption when previousEdition carries a video, the placeholder when not; no season selector
+// - The document title is the page heading then the site name, in English and Spanish; All-Star then the site name while loading and with no previousEdition; the loading title in English and Spanish
 //
 // What is covered:
 // - The page wired end to end with the recorded before feed (its previousEdition); the fetch mock fails for any other URL
@@ -25,6 +26,8 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { AllStarFeed } from '../../../../src/lib/contract/all-star';
+
+import { preferLanguages } from '../../../prefer-languages';
 
 import Page from '../../../../src/routes/all-star/previous/+page.svelte';
 
@@ -84,6 +87,7 @@ const ids = (container: HTMLElement) =>
 	[...container.querySelectorAll('.sections > section')].map((s) => s.id);
 
 beforeEach(() => {
+	document.title = '';
 	vi.useFakeTimers();
 	vi.setSystemTime(new Date('2027-01-10T12:00:00Z'));
 	vi.stubGlobal(
@@ -199,5 +203,44 @@ describe('Previous edition video', () => {
 		stubFetch(answerWith(feed));
 		await renderPage();
 		expect(screen.queryByText('Edition highlights')).toBeNull();
+	});
+});
+
+describe('Previous edition document title', () => {
+	const harbor = (): AllStarFeed => {
+		const feed = withPrevious();
+		const champion = feed.previousEdition!.teams.find((t) => t.placement.kind === 'champion');
+		champion!.team.name = 'Team Harbor';
+		return feed;
+	};
+
+	it('is the page heading then the site name, in English and Spanish', async () => {
+		stubFetch(answerWith(harbor()));
+		await renderPage();
+		expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Team Harbor');
+		expect(document.title).toBe('Team Harbor · Courtside');
+		preferLanguages(['es']);
+		stubFetch(answerWith(harbor()));
+		await renderPage();
+		expect(document.title).toBe('Team Harbor · Courtside');
+	});
+
+	it('is the section name while loading', async () => {
+		stubFetch(() => new Promise(() => {}));
+		await renderPage();
+		expect(document.title).toBe('All-Star · Courtside');
+	});
+
+	it('is the section name while loading, in Spanish', async () => {
+		preferLanguages(['es']);
+		stubFetch(() => new Promise(() => {}));
+		await renderPage();
+		expect(document.title).toBe('All-Star · Courtside');
+	});
+
+	it('is the section name with no previousEdition', async () => {
+		stubFetch(answerWith(withoutPrevious()));
+		await renderPage();
+		expect(document.title).toBe('All-Star · Courtside');
 	});
 });

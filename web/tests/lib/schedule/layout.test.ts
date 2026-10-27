@@ -4,6 +4,7 @@
 //
 // Tested:
 // - Desktop row without matchMedia, at 680px and wider; mobile row below
+// - The header wraps when the block sits below the heading, not when it sits beside it
 // - The card anchor id is built from the game id
 // - The breakpoint constant matches the --game-row-breakpoint token
 //
@@ -20,6 +21,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	cardAnchor,
 	GAME_ROW_BREAKPOINT_PX,
+	headerWraps,
 	WIDE_QUERY,
 	wideViewport
 } from '../../../src/lib/schedule/layout';
@@ -65,5 +67,18 @@ describe('wideViewport', () => {
 describe('cardAnchor', () => {
 	it('builds the element id of a game card', () => {
 		expect(cardAnchor('0022500001')).toBe('game-0022500001');
+	});
+});
+
+describe('headerWraps', () => {
+	const heading = { offsetTop: 0, offsetHeight: 60 };
+
+	it('is true when the block starts below the heading', () => {
+		expect(headerWraps(heading, { offsetTop: 68 })).toBe(true);
+		expect(headerWraps(heading, { offsetTop: 60 })).toBe(true);
+	});
+
+	it('is false when the block sits beside the heading', () => {
+		expect(headerWraps(heading, { offsetTop: 20 })).toBe(false);
 	});
 });

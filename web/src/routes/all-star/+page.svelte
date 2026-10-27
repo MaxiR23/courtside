@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { pageTitle } from '#lib/format/title.ts';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -96,6 +97,8 @@
 	const teamHref = (code: string) => resolve('/team/[code]', { code: code.toLowerCase() });
 	const playerHref = (id: string) => resolve('/player/[id]', { id });
 </script>
+
+<svelte:head><title>{pageTitle(m.allstar_title())}</title></svelte:head>
 
 <AllStarPage
 	state={pageState}

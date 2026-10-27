@@ -16,6 +16,7 @@
 // - The arrows link to the previous and next day with games in the calendar, across the gap of the lockout season
 // - The arrows are hidden at the season's first and last day, and when the calendar answers 503
 // - The page is not polled: no further request after 120 s
+// - The document title is "Games", the long date in the active language, then the site name; without the date while loading; the loading title in English and Spanish
 //
 // What is covered:
 // - The page wired end to end: config, fetch, loader, props layer, header, cards, footer
@@ -123,6 +124,7 @@ async function renderPage(date = '1999-02-06') {
 }
 
 beforeEach(() => {
+	document.title = '';
 	vi.useFakeTimers();
 	vi.setSystemTime(new Date('2026-10-15T16:00:00Z'));
 	config.day = DAY_TEMPLATE;
@@ -514,5 +516,30 @@ describe('day page cards read the game detail', () => {
 		const card = container.querySelector('li') as HTMLElement;
 		expect(card.querySelector('button.toggle')).toBeNull();
 		expect(detailCalls()).toHaveLength(0);
+	});
+});
+
+describe('day document title', () => {
+	it('is Games, the long date and the site name, in English and Spanish', async () => {
+		stubFetch({ [dayUrl('1999-02-06')]: answerWith(dayOf('1999-02-06')) });
+		await renderPage();
+		expect(document.title).toBe('Games · February 6, 1999 · Courtside');
+		preferLanguages(['es']);
+		stubFetch({ [dayUrl('1999-02-06')]: answerWith(dayOf('1999-02-06')) });
+		await renderPage();
+		expect(document.title).toBe('Partidos · 6 de febrero de 1999 · Courtside');
+	});
+
+	it('is the section name and the site name while loading', async () => {
+		stubFetch({ [dayUrl('1999-02-06')]: () => new Promise(() => {}) });
+		await renderPage();
+		expect(document.title).toBe('Games · Courtside');
+	});
+
+	it('is the section name and the site name while loading, in Spanish', async () => {
+		preferLanguages(['es']);
+		stubFetch({ [dayUrl('1999-02-06')]: () => new Promise(() => {}) });
+		await renderPage();
+		expect(document.title).toBe('Partidos · Courtside');
 	});
 });

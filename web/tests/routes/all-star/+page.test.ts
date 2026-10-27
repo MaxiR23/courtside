@@ -19,6 +19,7 @@
 // - A malformed, unlisted or current ?season loads the current feed and polls it; the select lists every calendar season and navigates with goto
 // - The edition frame with its caption when the feed carries an edition video (past and current after), the placeholder when not
 // - The Last time champion card linked when the previous edition has a video, not linked otherwise
+// - The document title is the section name then the site name, while loading and loaded, in English and Spanish
 //
 // What is covered:
 // - The page wired end to end: config, fetch, polling, props layer, header, sections, footer
@@ -119,6 +120,7 @@ const ids = (container: HTMLElement) =>
 	[...container.querySelectorAll('.sections > section')].map((s) => s.id);
 
 beforeEach(() => {
+	document.title = '';
 	vi.useFakeTimers();
 	vi.setSystemTime(new Date('2027-02-14T23:30:00Z'));
 	vi.stubGlobal(
@@ -511,5 +513,26 @@ describe('All-Star page season selector', () => {
 		await renderSeason('?season=2005');
 		expect(screen.getByText('Temporada 2004-05')).toBeTruthy();
 		expect(screen.getByText('Resumen de la edición')).toBeTruthy();
+	});
+});
+
+describe('all-star document title', () => {
+	it('is the section name then the site name, while loading and loaded', async () => {
+		stubFetch(() => new Promise(() => {}));
+		await renderPage();
+		expect(document.title).toBe('All-Star · Courtside');
+		stubFetch(answerWith(fixture('before')));
+		await renderPage();
+		expect(document.title).toBe('All-Star · Courtside');
+	});
+
+	it('is in Spanish with a Spanish preference', async () => {
+		preferLanguages(['es']);
+		stubFetch(() => new Promise(() => {}));
+		await renderPage();
+		expect(document.title).toBe('All-Star · Courtside');
+		stubFetch(answerWith(fixture('before')));
+		await renderPage();
+		expect(document.title).toBe('All-Star · Courtside');
 	});
 });

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { pageTitle } from '#lib/format/title.ts';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -144,6 +145,8 @@
 	const seriesHref = (id: SeriesId) => seriesHrefOf(id, typeof shown === 'number' ? shown : null);
 	const openSeries = (id: SeriesId) => void goto(seriesHref(id));
 </script>
+
+<svelte:head><title>{pageTitle(m.playoffs_title())}</title></svelte:head>
 
 <PlayoffsPage
 	state={pageState}

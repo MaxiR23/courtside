@@ -144,6 +144,7 @@
 	"game_scheduled": "Scheduled",
 	"game_overtime": "OT{number}",
 	"game_not_found": "Game not found.",
+	"game_page_title": "{away} at {home}",
 	"game_tabs_label": "Sections",
 	"game_tab_players": "Players",
 	"game_tab_injuries": "Injuries",

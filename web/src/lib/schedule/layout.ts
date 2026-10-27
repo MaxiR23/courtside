@@ -16,3 +16,11 @@ export function wideViewport(): { readonly current: boolean } {
 export function cardAnchor(id: string): string {
 	return `game-${id}`;
 }
+
+/** Whether the block sits below the heading, so a flex-wrap header has wrapped. */
+export function headerWraps(
+	heading: { offsetTop: number; offsetHeight: number },
+	meta: { offsetTop: number }
+): boolean {
+	return meta.offsetTop >= heading.offsetTop + heading.offsetHeight;
+}

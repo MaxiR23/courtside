@@ -143,7 +143,7 @@ Lucide at `stroke-width: 1.5`: `chevron-down` (expand), `play` (filled, highligh
 
 ### 2. Schedule
 
-- **Header:** the kicker "SCHEDULE" in accent-light, with the selected day as the h2 ("Sunday, October 4"). On the right, the game count ("5 games") in ink, and below it a freshness label in muted: "Recently updated" when the feed is under a minute old, and "Updated 3 min ago" from 1 minute on.
+- **Header:** the kicker "SCHEDULE" in accent-light, with the selected day as the h2 ("Sunday, October 4"). On the right, the game count ("5 games") in ink, and below it a freshness label in muted: "Recently updated" when the feed is under a minute old, and "Updated 3 min ago" from 1 minute on. From 680px the game count and the freshness label sit on the right, right-aligned. Under 680px, when the header wraps they sit under the day, left-aligned; when it does not wrap they stay on the right, right-aligned.
 - **Day strip:** 7 equal columns, from today minus 3 days to today plus 3 days. Today is the feed's middle day: the US Eastern date, which the backend changes at midnight once no game of the previous day is live. Each cell shows the weekday (or "Today" in accent-light), the date number in Barlow Condensed `clamp(22px, 3vw, 32px)`, and the game count ("5 games" on desktop, "5" on mobile). The selected cell has an accent border and the selected-day fill. Hover: accent border.
 - **Day with no games:** the header still shows the selected day and "0 games". In place of the game list, a single blueprint row reads "No games scheduled for this day." in muted.
 - **Data unavailable (temporary):** when the games feed cannot be loaded, a single blueprint row in place of the schedule, styled like the day with no games, reads "Data isn't available right now. Check back later.". It stays until the missing data design is decided (see "Open decisions" in `docs/architecture.md`). A day with no data in a loaded feed is still undecided.
@@ -295,9 +295,21 @@ The handoff ("Home — No games today") is a reference, not a spec. Where it dif
 - The playing video: one video of one game, or none.
 - The hero game: an index into the games in the rotation, and the hero slide: 0 or 1 (the star on screen), plus the autoplay timer.
 
+## Document titles
+
+- Every page, except the development-only `/preview` page, which sets none, sets its title through `<svelte:head><title>`, in English and Spanish, ending with " · " and the site name. The home is exactly "Courtside".
+- Standings, NBA Cup, Playoffs and All-Star: the section name, for example "Standings · Courtside".
+- The full series page and the previous All-Star: their page's h1.
+- Team: the team name ("Thunder · Courtside"). Player: the full name.
+- Game: "{Away} at {Home} · Courtside", never the score, in any state (spoiler-free).
+- Past day: "Games · {date} · Courtside", the date as the page's long date in the active language.
+- Every value comes from the page's feed. While the feed is loading, unavailable or not found, the title is the section name, or "Courtside" on the team, player and game pages.
+- The separator and the site name are joined in `pageTitle` (`web/src/lib/format/title.ts`).
+
 ## Responsive
 
 - Under 680px: the mobile game row, day counts as numbers only, and the hero stacked with the text above the image.
+- Under 680px the schedule header's game count and freshness label are left-aligned when the header wraps.
 - Every text container wraps. No fixed heights on text.
 - Hit targets are at least 44px.
 
