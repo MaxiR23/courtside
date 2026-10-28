@@ -248,7 +248,7 @@ Same size, letter spacing and truncation as the other stage tags: 11px, .16em, u
 Under 680px (the 390px design):
 
 - Side padding 18px, section gap 56px. The sticky 56px header with blur and the one-row nav with the menu button.
-- Hero after: the h1 `clamp(58px, 17vw, 84px)`, a 116x156 MVP thumb with corner marks and a solid "MVP" tag linking to `#mvp`, the score at 44px, the stats 2x2, the buttons 48px in two columns.
+- Hero after: the h1 `clamp(58px, 17vw, 84px)`, a 116x156 MVP thumb with corner marks, the photo covering it anchored top center (the head whole, the shoulders cropped at the sides), and a solid "MVP" tag at the bottom left linking to `#mvp`, the score at 44px, the stats 2x2, the buttons 48px in two columns.
 - Hero live: the framed live scoreboard (score 56px, clock 22px); tapping it selects the live game and scrolls to `#games`.
 - Hero before: the h1, the outlined year `clamp(96px, 30vw, 140px)`, the three "To be confirmed" rows, the button.
 - MVP: the photo 250px tall on top, the info below; the Championship card is one tappable block.
