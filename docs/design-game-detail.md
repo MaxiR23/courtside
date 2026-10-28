@@ -52,7 +52,7 @@ Style: Barlow Condensed 600, 14px, letter-spacing .12em, uppercase, accent-light
 
 ## Page structure
 
-Max content width 1320px, side padding `clamp(20px, 4vw, 48px)`. Sections stack with a gap of `clamp(64px, 8vw, 104px)`. Every section uses `scroll-margin-top: 72px`.
+Max content width 1320px, side padding `clamp(20px, 4vw, 48px)`. Sections stack with a gap of `clamp(64px, 8vw, 104px)`. Every section uses `scroll-margin-top: 72px`, and 108px under 680px so the title clears both rows of the tab bar.
 
 ### Section header
 
@@ -80,7 +80,7 @@ The h2 is Barlow Condensed, `clamp(28px, 3.4vw, 40px)`, line-height 1, uppercase
 
 ### 2. Section tabs
 
-Sticky at the top of the viewport. Background `rgba(12,14,16,.9)` with a 12px backdrop blur and a bottom divider. Anchor links in Barlow Condensed 600, 14px, .12em, uppercase, muted, hover ink, 16px vertical padding. On mobile the row scrolls horizontally. Live and final games add the mini score on the right, such as `OKC 78 – 74 GSW` (15px). The bar stacks above the page content at `z-index` 1, through the `--tabs-z-index` token; nothing else on the page sets a `z-index` at or above it, so the tabs stay clickable while scrolling.
+Sticky at the top of the viewport. Background `rgba(12,14,16,.9)` with a 12px backdrop blur and a bottom divider. Anchor links in Barlow Condensed 600, 14px, .12em, uppercase, muted, hover ink, 16px vertical padding. On mobile the row scrolls horizontally. Live and final games add the mini score, such as `OKC 78 – 74 GSW` (15px), once the scoreboard has passed under the bar, through an `IntersectionObserver` with a top root margin of the bar's height and no scroll handler. Scrolling back up hides it, and it stays hidden where the observer is not available. Desktop: one row, the mini score on the right, fading in and out over `--panel-tint-duration`. Under 680px: a 36px row above the tabs (`--mini-score-row-height-mobile`) holds the mini score centered, and the tabs keep the full width. The row opens over the same duration and overlays the content below: the bar's height in the flow never changes. Under reduced motion it shows and hides with no animation. The player and team pages keep their mini text on the right at all times. The bar stacks above the page content at `z-index` 1, through the `--tabs-z-index` token; nothing else on the page sets a `z-index` at or above it, so the tabs stay clickable while scrolling.
 
 | Layout | Tabs, in order |
 |---|---|
@@ -183,6 +183,7 @@ The same footer as the home.
 |---|---|
 | Polling | Every 30 seconds while the game is live and every 60 seconds otherwise; once a load returns a final game (past seasons included) the page stops polling, also when the tab becomes visible again; paused while the tab is hidden and refreshed as soon as it is visible again |
 | Section tabs | Smooth scroll to the section; instant under reduced motion |
+| Mini score | Fades in once the scoreboard passes under the tabs and out when it comes back; on mobile its row opens above the tabs without moving the page. Instant under reduced motion |
 | Highlights | As on the home: the thumbnail is replaced by the autoplaying player on click |
 | Box score toggle | Switches the team shown; away first |
 | New data while live | Values update in place. The win probability line extends without redrawing the whole chart |
@@ -192,6 +193,6 @@ The same footer as the home.
 
 ## Responsive
 
-- Under 680px: the mobile scoreboard, team codes in the box score toggle, and the tabs scrolling horizontally.
+- Under 680px: the mobile scoreboard, team codes in the box score toggle, the tabs scrolling horizontally at full width, and the mini score on its own row above them.
 - Every other section reflows through its auto-fit grid.
 - Hit targets are at least 44px.

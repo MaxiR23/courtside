@@ -1,15 +1,29 @@
 <script lang="ts">
 	import TeamMark from '#lib/components/TeamMark.svelte';
 	import type { MiniScore } from '#lib/game/types.ts';
+	import { miniScoreFade, scoreRowOpen } from '#lib/game/motion.ts';
+	import { ScoreboardWatch } from '#lib/game/scoreboard-watch.svelte.ts';
+	import { crossfade } from '#lib/hero/motion.ts';
 	import { m } from '#lib/paraglide/messages.js';
+	import type { RowLayout } from '#lib/schedule/types.ts';
 
 	type Props = {
 		tabs: readonly { id: string; label: string }[];
 		miniScore?: MiniScore | null;
 		mini?: string | null; // a pre-formatted text, such as "OKC 57–25", when there is no score
+		reveal?: { scoreboard: HTMLElement | null; layout: RowLayout } | null; // game page only: the mini score shows once this scoreboard has passed under the bar
 	};
 
-	let { tabs, miniScore = null, mini = null }: Props = $props();
+	let { tabs, miniScore = null, mini = null, reveal = null }: Props = $props();
+
+	let nav = $state<HTMLElement | null>(null);
+	const watch = new ScoreboardWatch();
+	$effect(() => {
+		const target = reveal?.scoreboard;
+		if (target && nav) return watch.observe(target, nav.offsetHeight);
+	});
+	const revealed = $derived(reveal !== null && watch.passed);
+	const stacked = $derived(reveal?.layout === 'mobile' && (miniScore !== null || mini !== null));
 
 	function scrollToSection(event: MouseEvent, id: string) {
 		event.preventDefault();
@@ -21,7 +35,15 @@
 </script>
 
 {#if tabs.length > 0 || miniScore || mini}
-	<nav class="section-tabs" aria-label={m.game_tabs_label()}>
+	<nav
+		class="section-tabs"
+		class:reveal={reveal !== null}
+		class:open={revealed}
+		class:stacked
+		aria-label={m.game_tabs_label()}
+		bind:this={nav}
+		use:crossfade={scoreRowOpen(stacked && revealed)}
+	>
 		<ul class="tabs">
 			{#each tabs as tab (tab.id)}
 				<li>
@@ -30,13 +52,21 @@
 			{/each}
 		</ul>
 		{#if miniScore}
-			<span class="mini-score">
+			<span
+				class="mini-score"
+				aria-hidden={reveal !== null && !revealed ? 'true' : undefined}
+				use:crossfade={miniScoreFade(reveal === null || revealed)}
+			>
 				<TeamMark part="label" team={miniScore.awayTeam} />
 				{miniScore.away} – {miniScore.home}
 				<TeamMark part="label" team={miniScore.homeTeam} />
 			</span>
 		{:else if mini}
-			<span class="mini-score">{mini}</span>
+			<span
+				class="mini-score"
+				aria-hidden={reveal !== null && !revealed ? 'true' : undefined}
+				use:crossfade={miniScoreFade(reveal === null || revealed)}>{mini}</span
+			>
 		{/if}
 	</nav>
 {/if}
@@ -89,5 +119,28 @@
 		font-size: var(--mini-score-size);
 		font-variant-numeric: tabular-nums;
 		white-space: nowrap;
+	}
+
+	.reveal .mini-score {
+		opacity: 0;
+		pointer-events: none;
+	}
+
+	.reveal.open .mini-score {
+		opacity: 1;
+	}
+
+	.stacked .mini-score {
+		position: absolute;
+		inset-inline: 0;
+		top: 0;
+		height: var(--mini-score-row-height-mobile);
+		line-height: var(--mini-score-row-height-mobile);
+		text-align: center;
+	}
+
+	.stacked.open {
+		padding-top: var(--mini-score-row-height-mobile);
+		margin-bottom: calc(-1 * var(--mini-score-row-height-mobile));
 	}
 </style>

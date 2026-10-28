@@ -7,6 +7,7 @@
 // - It animates from the previous share to the new one when the value changes
 // - It does not animate when the share is unchanged
 // - It does not animate with reduced motion
+// - The mini score fades over the tint duration; the mobile score row opens with padding and a matching negative margin
 //
 // What is covered:
 // - Happy path, edge case and the reduced-motion case
@@ -16,7 +17,7 @@
 // SEE: web/src/lib/game/motion.ts
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { barWidth } from '../../../src/lib/game/motion';
+import { barWidth, miniScoreFade, scoreRowOpen } from '../../../src/lib/game/motion';
 
 function fakeNode() {
 	const root = document.documentElement.style;
@@ -75,5 +76,31 @@ describe('barWidth', () => {
 		action.update(0.8);
 		action.destroy();
 		expect(animate).not.toHaveBeenCalled();
+	});
+});
+
+describe('miniScoreFade', () => {
+	it('fades the mini score over the tint duration', () => {
+		const shown = miniScoreFade(true);
+		const hidden = miniScoreFade(false);
+		expect(shown.active).toBe(true);
+		expect(hidden.active).toBe(false);
+		expect(shown.hidden(() => '')).toEqual({ opacity: 0 });
+		expect(shown.shown).toEqual({ opacity: 1 });
+		expect(shown.durationToken).toBe('--panel-tint-duration');
+	});
+});
+
+describe('scoreRowOpen', () => {
+	it('opens the mobile score row with padding and a matching negative margin', () => {
+		const open = scoreRowOpen(true);
+		expect(open.active).toBe(true);
+		expect(scoreRowOpen(false).active).toBe(false);
+		expect(open.hidden(() => '')).toEqual({ paddingTop: '0px', marginBottom: '0px' });
+		expect(open.shown).toEqual({
+			paddingTop: 'var(--mini-score-row-height-mobile)',
+			marginBottom: 'calc(-1 * var(--mini-score-row-height-mobile))'
+		});
+		expect(open.durationToken).toBe('--panel-tint-duration');
 	});
 });
