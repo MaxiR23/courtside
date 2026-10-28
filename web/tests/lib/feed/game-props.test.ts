@@ -6,6 +6,7 @@
 // - A live game: live layout, "Q3 · 4:12 · {arena}", the score, the mini score
 // - Period and clock pass through as the feed sends them, including 0:00; OT1 and OT2
 // - A final game: "Final · {date} · {arena}", the loser from the feed winner side
+// - The Tip-off cell date follows the viewer zone and the status line date stays on the NBA day (ADR 0082)
 // - A scheduled game: pre-game layout, tip time, broadcast and venue strip; delayed, postponed
 //   and canceled variants
 // - A venue without a city: no city in the strip and no sub-line under the Venue cell
@@ -85,6 +86,7 @@ const league = (code: string) => ({ code, name: null, city: null, guest: false }
 
 afterEach(() => {
 	vi.restoreAllMocks();
+	vi.unstubAllEnvs();
 });
 
 const pastFeed = (): GameDetailFeed =>
@@ -219,7 +221,7 @@ describe('toGameView', () => {
 		expect(v.header.center).toEqual({
 			kind: 'tip-off',
 			tipTime: '7:00',
-			tipSuffix: 'PM ET',
+			tipSuffix: 'PM',
 			broadcast: 'Network One',
 			delayed: false
 		});
@@ -228,12 +230,26 @@ describe('toGameView', () => {
 			city: 'San Francisco',
 			photo: 'https://example.com/venues/chase.jpg',
 			cells: [
-				{ label: 'Tip-off', value: '7:00 PM ET', sub: 'Wednesday, October 7' },
+				{ label: 'Tip-off', value: '7:00 PM', sub: 'Wednesday, October 7' },
 				{ label: 'Venue', value: 'Chase Center', sub: 'San Francisco' },
 				{ label: 'Broadcast', value: 'Network One', sub: null }
 			]
 		});
 		expect(v.miniScore).toBeNull();
+	});
+
+	it('shows the tip-off cell date in the viewer zone and the status line date on the NBA day', () => {
+		vi.stubEnv('TZ', 'Europe/Madrid');
+		const v = view(asStatus('scheduled'));
+		expect(v.header.status).toEqual({
+			state: 'scheduled',
+			text: 'Wednesday, October 7 · Chase Center'
+		});
+		expect(v.header.venue?.cells[0]).toEqual({
+			label: 'Tip-off',
+			value: '1:00 AM',
+			sub: 'Thursday, October 8'
+		});
 	});
 
 	it('marks a delayed game as scheduled before its original time', () => {

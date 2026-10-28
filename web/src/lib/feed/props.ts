@@ -10,7 +10,7 @@ import type {
 import { allStarMark } from '#lib/feed/all-star-mark-props.ts';
 import { cupTag } from '#lib/feed/cup-mark-props.ts';
 import { postseasonMark } from '#lib/feed/postseason-mark-props.ts';
-import { formatDateParts } from '#lib/format/locale.ts';
+import { viewerTime, viewerTimeParts } from '#lib/format/time.ts';
 import type { HeroGame, HeroPlayer, HeroStatus } from '#lib/hero/types.ts';
 import { m } from '#lib/paraglide/messages.js';
 import type {
@@ -28,7 +28,6 @@ import { teamMark } from '#lib/team/mark.ts';
 
 const TODAY_INDEX = 3; // the middle of the seven days, as in DayStrip
 const DAYS = 7;
-const TIME_ZONE = 'America/New_York';
 
 export type HomeView = {
 	today: Date; // days[3], the middle day
@@ -64,21 +63,8 @@ function localDate(isoDate: string): Date {
 }
 
 export function tipParts(startTime: string): { tipTime: string; tipSuffix: string } {
-	const parts = formatDateParts(new Date(startTime), {
-		timeZone: TIME_ZONE,
-		hour: 'numeric',
-		minute: '2-digit'
-	});
-	let tipTime = '';
-	let dayPeriod = '';
-	for (const part of parts) {
-		if (part.type === 'dayPeriod') dayPeriod = part.value;
-		else if (!dayPeriod) tipTime += part.value;
-	}
-	return {
-		tipTime: tipTime.trim(),
-		tipSuffix: [dayPeriod, m.time_eastern()].filter(Boolean).join(' ')
-	};
+	const { time, dayPeriod } = viewerTimeParts(startTime);
+	return { tipTime: time, tipSuffix: dayPeriod };
 }
 
 function periodLabel(period: number): string {
@@ -259,12 +245,11 @@ function scheduleGame(game: Game, options: Options): ScheduleGame {
 
 function heroGame(game: Game): HeroGame {
 	const status: HeroStatus = game.status === 'scheduled' ? 'tonight' : game.status;
-	const { tipTime, tipSuffix } = tipParts(game.startTime);
 	// A feed built before ADR 0068 has no logo or accent key: the monogram and the neutral accent.
 	return {
 		id: game.id,
 		status,
-		tipTime: `${tipTime} ${tipSuffix}`,
+		tipTime: viewerTime(game.startTime),
 		arena: game.venue,
 		away: {
 			...teamMark(game.away),

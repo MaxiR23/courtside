@@ -70,7 +70,7 @@ The h2 is Barlow Condensed, `clamp(28px, 3.4vw, 40px)`, line-height 1, uppercase
 - **Desktop scoreboard,** from 680px: a grid `1fr auto 1fr`, gap `clamp(16px, 4vw, 64px)`.
   - Team block: a `TeamMonogram` box, `clamp(56px, 6vw, 80px)` square; then the city (13px, uppercase, muted), the team name as the h1 (`clamp(32px, 4.4vw, 64px)`, line-height .9, uppercase, never broken inside a word) and the record, such as `12–5` (14px, muted, tabular). The home team block is mirrored and right-aligned.
   - Center, live and final: the score in Barlow Condensed 600, `clamp(56px, 8vw, 120px)`, tabular. The dash between the scores is .4em, muted and vertically centered.
-  - Center, pre-game: the tip-off time, `clamp(44px, 6vw, 88px)`, with its "PM ET" suffix at .4em, muted, and the broadcast under it. A delayed game shows "Scheduled" before the original time. Postponed and canceled games show no time.
+  - Center, pre-game: the tip-off time, `clamp(44px, 6vw, 88px)`, with its day period ("PM") at .4em, muted, absent in a 24-hour language, and the broadcast under it. A delayed game shows "Scheduled" before the original time. Postponed and canceled games show no time.
   - Final: the losing team's block and score drop to opacity .45. The winner comes from the feed.
 - **Mobile scoreboard,** under 680px: two rows, each with a 48px monogram, the name (26px), `city · record` (12px) and the score right-aligned (44px). Pre-game adds a time row (36px, plus the broadcast).
 - **Pre-game venue strip:** a grid `repeat(auto-fit, minmax(min(100%, 340px), 1fr))`.

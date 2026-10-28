@@ -755,7 +755,7 @@ describe('home page on a day with no games', () => {
 		expect(within(hero).getByText('Off day')).toBeTruthy();
 		expect(within(hero).getByText('Sunday, October 4')).toBeTruthy();
 		expect(
-			within(hero).getByText('Next tip-off: Tue, Oct 6 · 7:00 PM ET', { exact: false })
+			within(hero).getByText('Next tip-off: Tue, Oct 6 · 7:00 PM', { exact: false })
 		).toBeTruthy();
 		expect(within(hero).getByText('Courtside TV', { exact: false })).toBeTruthy();
 		expect(hero.querySelector('aside.coming-up')).not.toBeNull();

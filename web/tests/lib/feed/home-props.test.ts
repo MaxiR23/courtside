@@ -5,7 +5,8 @@
 // Tested:
 // - The scenario tag and paragraph of each of the four scenarios, in English and in Spanish
 // - The date of the games feed's today, in both languages, with or without the home feed
-// - The next tip-off with its day and ET time; null with no next game; the network only when set
+// - The next tip-off day and time in the viewer zone (ADR 0082)
+// - The next tip-off with its day and time; null with no next game; the network only when set
 // - Coming up: null when the feed's is null; items in feed order; a single day and a range; the status labels
 // - The link target of each of the nine keys
 // - A null feed gives the date only
@@ -57,6 +58,7 @@ const standings = (): StandingsFeed =>
 
 afterEach(() => {
 	vi.restoreAllMocks();
+	vi.unstubAllEnvs();
 });
 
 describe('toNoGamesView', () => {
@@ -97,10 +99,15 @@ describe('toNoGamesView', () => {
 		expect(toNoGamesView(TODAY, feed()).date).toBe('domingo, 4 de octubre');
 	});
 
-	it('gives the next tip-off with the day and the ET time, and the network', () => {
+	it('gives the next tip-off with the day and the time, and the network', () => {
 		const view = toNoGamesView(TODAY, feed());
-		expect(view.nextTipOff).toBe('Next tip-off: Tue, Oct 6 · 7:00 PM ET');
+		expect(view.nextTipOff).toBe('Next tip-off: Tue, Oct 6 · 7:00 PM');
 		expect(view.broadcast).toBe('Courtside TV');
+	});
+
+	it('gives the next tip-off day and time in the viewer zone', () => {
+		vi.stubEnv('TZ', 'Europe/Madrid');
+		expect(toNoGamesView(TODAY, feed()).nextTipOff).toBe('Next tip-off: Wed, Oct 7 · 1:00 AM');
 	});
 
 	it('gives no network when the next game has none', () => {

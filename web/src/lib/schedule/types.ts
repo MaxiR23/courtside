@@ -11,7 +11,7 @@ export type ScheduleTeam = TeamMarkTeam & {
 };
 
 export type GameStatus =
-	| { state: 'scheduled'; tipTime: string; tipSuffix: string; network: string | null } // "9:00", "PM ET", already formatted; no network when unknown
+	| { state: 'scheduled'; tipTime: string; tipSuffix: string; network: string | null } // "9:00", "PM", already formatted; no network when unknown
 	| { state: 'live'; period: string; clock: string; awayScore: number; homeScore: number } // "Q3", "4:12", already formatted
 	| { state: 'final'; awayScore: number; homeScore: number; winner: Side } // winner: the winning side, from the feed
 	| { state: 'delayed' | 'postponed' | 'canceled' }; // no score, no tip time

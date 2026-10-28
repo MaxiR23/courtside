@@ -1,8 +1,7 @@
 // Pure helpers for the calendar sheet and the day page: the month layout and the lookups of
 // the dates of a season. Dates are 'YYYY-MM-DD' strings and months 'YYYY-MM'; the arithmetic
 // uses UTC dates so no time zone shifts a day.
-
-const TIME_ZONE = 'America/New_York';
+import { NBA_TIME_ZONE } from '#lib/format/time.ts';
 
 /** The 'YYYY-MM' month of a 'YYYY-MM-DD' date. */
 export function monthOf(date: string): string {
@@ -95,7 +94,7 @@ export function isWindowDay(
 /** The US Eastern date of an instant, as 'YYYY-MM-DD'. */
 export function easternToday(now: Date): string {
 	return new Intl.DateTimeFormat('en-CA', {
-		timeZone: TIME_ZONE,
+		timeZone: NBA_TIME_ZONE,
 		year: 'numeric',
 		month: '2-digit',
 		day: '2-digit'

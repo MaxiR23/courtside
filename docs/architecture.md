@@ -113,6 +113,7 @@ that migrates a database at the previous version with rows in it.
 - Motion uses Svelte's built-in transitions, the Web Animations API and, for simple looping opacity effects such as the live win probability marker pulse, scoped CSS animations whose values come from tokens. No animation library.
 - Every user-facing string lives in the translation messages (`web/messages/en.json`, `web/messages/es.json`), compiled by Paraglide JS. English is the base; Spanish is shown when the browser prefers it. The language never appears in the URL. Dates and numbers are formatted with the browser's `Intl` for the active language.
 - On-demand feeds such as the search feed are revalidated through the browser HTTP cache with `fetch(..., { cache: 'no-cache' })`, and the browser sends `If-None-Match` itself. The front end never sets `If-None-Match` or any other non-safelisted header by hand, because the API's CORS setup allows only `GET`, allows no extra request headers and exposes no `ETag`, so a hand-set header would fail its preflight.
+- Times, and a date shown together with its time, are shown in the viewer's time zone with no suffix; the NBA day (day strip, schedule days, `/day/`, the calendar and a game's date without a time) stays US Eastern. Times are formatted only in the browser. Recorded in [`adr/0082-tip-times-in-the-viewers-time-zone.md`](adr/0082-tip-times-in-the-viewers-time-zone.md).
 - State shared across routes lives in a module-level runes class in a `.svelte.ts` file (the first one is `web/src/lib/search/overlay.svelte.ts`). The search overlay and its index store are mounted once in the root layout, so they outlive client navigations, and the overlay closes on every navigation.
 - Recorded in [`adr/0004-web-tooling.md`](adr/0004-web-tooling.md) and [`adr/0006-translations.md`](adr/0006-translations.md).
 
@@ -492,6 +493,10 @@ Recorded in [`adr/0080-per-visitor-rate-limit.md`](adr/0080-per-visitor-rate-lim
 Recorded in [`adr/0081-operator-run-deploy-script.md`](adr/0081-operator-run-deploy-script.md):
 
 - **Deploy model**: the operator runs `scripts/deploy.sh` from `main` equal to `origin/main` with a clean tree. The api is updated over SSH (`git pull --ff-only`, `sudo docker compose up -d --build`) and waited on for up to 180 seconds; the web is built locally with the feed URLs injected at build time and uploaded with `vercel deploy --prod` from a dedicated linked folder outside the repository; in `all` the api goes first; a smoke check of `/` and `/api/health` closes the run. CI deploys and Vercel's Git integration are ruled out for now.
+
+Recorded in [`adr/0082-tip-times-in-the-viewers-time-zone.md`](adr/0082-tip-times-in-the-viewers-time-zone.md):
+
+- **Tip times**: times, and dates shown with their time, are in the viewer's time zone with no suffix, formatted only in the browser, while the NBA day stays US Eastern; `web/src/lib/format/time.ts` holds the helpers and the only `America/New_York` constant.
 
 ## Future
 

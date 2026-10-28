@@ -162,7 +162,7 @@ describe('AllStarGames', () => {
 	it('shows the one centered card and no box score for a scheduled game', async () => {
 		const { container } = show('live');
 		await fireEvent.click(container.querySelectorAll('.game-card')[2]);
-		expect(screen.getByText('Tip-off · 8:20 PM ET')).toBeTruthy();
+		expect(screen.getByText('Tip-off · 8:20 PM')).toBeTruthy();
 		expect(
 			screen.getByText('Box score, leaders and highlights appear once the game starts.')
 		).toBeTruthy();

@@ -8,7 +8,8 @@
 //   Playoffs cell with a null playoff; Play-in and Out
 // - The header's team view carries the feed's logo; a null logo leaves the key out
 // - The tabs in order and the mini text; sections without data leave with their tab
-// - The overview: arena, coach line (singular and plural, and none without seasons), colors, the next game (tag, ET date,
+// - The next game card in the viewer zone and its schedule row on the NBA day (ADR 0082)
+// - The overview: arena, coach line (singular and plural, and none without seasons), colors, the next game (tag, viewer-zone date,
 //   "@ DEN", place and time lines, links) and a null next game
 // - The record rows: the season meta, large cells, detail cells, points and the signed differential;
 //   the Games behind cell shows — for null and 0, with the East or West leader sub line
@@ -56,6 +57,7 @@ const mariners = { code: null, name: 'Mariners', city: 'Harbor City', guest: tru
 
 afterEach(() => {
 	vi.restoreAllMocks();
+	vi.unstubAllEnvs();
 });
 
 describe('toTeamView titles', () => {
@@ -275,8 +277,20 @@ describe('toTeamView overview', () => {
 			date: 'Wednesday, October 7',
 			opponent: { team: league('DEN'), isHome: false },
 			place: 'Ball Arena · Denver, CO',
-			time: '7:30 PM ET · Courtside TV'
+			time: '7:30 PM · Courtside TV'
 		});
+	});
+
+	it('shows the next game in the viewer zone and its schedule row on the NBA day', () => {
+		vi.stubEnv('TZ', 'Europe/Madrid');
+		const v = view();
+		expect(v.sections.overview.nextGame).toMatchObject({
+			date: 'Thursday, October 8',
+			time: '1:30 AM · Courtside TV'
+		});
+		const row = v.sections.schedule?.groups[1]?.rows[1];
+		expect(row).toMatchObject({ weekday: 'Wed', date: 'Oct 7' });
+		expect(row?.outcome).toMatchObject({ kind: 'upcoming', time: '1:30 AM' });
 	});
 
 	it('shows the arena alone, the time alone and a link when the game has detail', () => {
@@ -295,7 +309,7 @@ describe('toTeamView overview', () => {
 			tag: null,
 			opponent: { team: league('DEN'), isHome: true },
 			place: 'Ball Arena',
-			time: '7:30 PM ET'
+			time: '7:30 PM'
 		});
 	});
 
@@ -572,10 +586,10 @@ describe('toTeamView schedule', () => {
 		});
 		expect(rows[1]?.outcome).toEqual({
 			kind: 'upcoming',
-			time: '7:30 PM ET',
+			time: '7:30 PM',
 			broadcast: 'Courtside TV'
 		});
-		expect(rows[2]?.outcome).toEqual({ kind: 'upcoming', time: '8:00 PM ET', broadcast: null });
+		expect(rows[2]?.outcome).toEqual({ kind: 'upcoming', time: '8:00 PM', broadcast: null });
 	});
 
 	it('marks the next row and tags it after the game tag', () => {

@@ -85,7 +85,7 @@ The only color besides the neutrals is the steel accent. No team colors, except 
 | Team name, mobile row | 20px | |
 | Score, desktop | `clamp(32px, 4vw, 46px)` | |
 | Score, mobile | 30px | |
-| Scheduled tip time | `clamp(28px, 3.4vw, 38px)` | The suffix "PM ET" at .45em, muted |
+| Scheduled tip time | `clamp(28px, 3.4vw, 38px)` | The day period ("PM") at .45em, muted; absent in a 24-hour language |
 | Player name, panel | 19px | |
 | Body and blurbs | 17px in the hero, 13 to 14px elsewhere | |
 
@@ -127,7 +127,7 @@ Lucide at `stroke-width: 1.5`: `chevron-down` (expand), `play` (filled, highligh
 - **Layout:** a two-column grid, `repeat(auto-fit, minmax(min(100%, 440px), 1fr))`, that stacks on mobile. Gap `clamp(40px, 6vw, 96px)`, min-height `min(780px, 84vh)`.
 - **Background:** an 88px square grid of faint lines. A huge outlined watermark of the current star's short name sits behind the content on the right.
 - **Left column, top to bottom:**
-  1. A status tag, "Tonight", "Live now", "Final", "Delayed", "Postponed" or "Canceled", 11px in a 1px divider box. Next to it the kicker with the tip time and arena, such as "10:30 PM ET · Chase Center". For a delayed game the kicker reads "Scheduled" and the original tip time and arena, such as "Scheduled 7:30 PM ET · Chase Center".
+  1. A status tag, "Tonight", "Live now", "Final", "Delayed", "Postponed" or "Canceled", 11px in a 1px divider box. Next to it the kicker with the tip time and arena, such as "10:30 PM · Chase Center". For a delayed game the kicker reads "Scheduled" and the original tip time and arena, such as "Scheduled 7:30 PM · Chase Center". Times are in the viewer's time zone (ADR 0082).
   2. The h1: the away logo and name, a line break, then "at", the home logo and name, specified in `docs/design-team-identity.md`, "Home hero", "Left column", item 2. The logos are silent for assistive technology.
   3. A blurb: "{Away star} and {Home star} meet at {Arena}."
   4. Buttons. **Match details** is the primary button (solid accent, dark text, blueprint marks): it selects today, expands the game on screen and smooth-scrolls to it. **All games** is a secondary outlined button linking to the schedule.
@@ -157,7 +157,7 @@ Lucide at `stroke-width: 1.5`: `chevron-down` (expand), `play` (filled, highligh
   - **Mobile row, under 680px:**
     - A status line with the chevron on the right.
     - Two team rows, each with a 38px box (same content), the name and city, and the score right-aligned.
-    - Scheduled games show the tip time and network in the status line, such as "9:00 PM ET · Courtside TV".
+    - Scheduled games show the tip time and network in the status line, such as "9:00 PM · Courtside TV".
   - **Final games:** the losing team's name and score drop to opacity .42.
   - **Live badge:** small and outlined, never a dot. It reads "LIVE" at 9.5px with .16em letter-spacing, a 1px accent border and accent-light text, padding 1px by 5px.
 - **Expanded panel:** a 1px divider, then the content below it.
@@ -182,7 +182,7 @@ Until the first feed loads, the hero and the schedule show skeletons shaped like
 
 ## Home with no games
 
-The home shows this layout when the games feed is in and today (US Eastern) has no game in it. A day with games keeps the home described above exactly as it is. If the home feed (ADR 0074, `docs/api/home.md`) fails, the hero still shows "No games today" and the sections that need the feed are hidden; the page never breaks. `/web` computes nothing: every text, date label, status and color comes ready in the feeds. Every new string is in `web/messages/en.json` and `es.json` with the same keys, and styles use the tokens in `web/src/lib/styles/tokens.css`.
+The home shows this layout when the games feed is in and today (US Eastern) has no game in it. A day with games keeps the home described above exactly as it is. If the home feed (ADR 0074, `docs/api/home.md`) fails, the hero still shows "No games today" and the sections that need the feed are hidden; the page never breaks. `/web` computes nothing: every text, date label, status and color comes ready in the feeds, except that a feed instant (a tip-off time, or the "Next tip-off" day) is formatted in the viewer's time zone (ADR 0082). Every new string is in `web/messages/en.json` and `es.json` with the same keys, and styles use the tokens in `web/src/lib/styles/tokens.css`.
 
 **Order:** nav, hero, Coming up, Last games, our schedule, Standings and Leaders, footer. Desktop puts Coming up on the right of the hero and Standings and Leaders in two columns; mobile stacks every section.
 

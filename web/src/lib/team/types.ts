@@ -30,7 +30,7 @@ export type NextGameView = GameLink & {
 	date: string; // "Wednesday, October 7"
 	opponent: { team: TeamMarkTeam; isHome: boolean }; // drawn "vs DEN" or "@ DEN"
 	place: string; // "Ball Arena · Denver, CO", or the arena alone
-	time: string; // "7:30 PM ET · Courtside TV", or the time alone
+	time: string; // "7:30 PM · Courtside TV", or the time alone
 };
 
 export type OverviewSection = {

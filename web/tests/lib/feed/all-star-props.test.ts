@@ -329,7 +329,7 @@ describe('hero, live', () => {
 		expect(view.header.plate).toEqual({
 			kind: 'tipoff',
 			gameId: 'c1',
-			text: 'Tip-off · 8:20 PM ET'
+			text: 'Tip-off · 8:20 PM'
 		});
 	});
 });
@@ -381,7 +381,7 @@ describe('game cards and statuses', () => {
 	});
 
 	it('shows the tip-off time of a game not started', () => {
-		expect(current(live()).games[2].status).toEqual({ kind: 'tipoff', text: '8:20 PM ET' });
+		expect(current(live()).games[2].status).toEqual({ kind: 'tipoff', text: '8:20 PM' });
 	});
 
 	it('mutes the loser and marks the winner of a final game', () => {
@@ -451,7 +451,7 @@ describe('the detail of a game', () => {
 	it('has the one centered card for a game not started', () => {
 		const detail = current(live()).details.c1;
 		expect(detail.scheduled).toEqual({
-			title: 'Tip-off · 8:20 PM ET',
+			title: 'Tip-off · 8:20 PM',
 			body: 'Box score, leaders and highlights appear once the game starts.'
 		});
 		expect(current(live()).details.s2.scheduled).toBeNull();
@@ -462,7 +462,7 @@ describe('the detail of a game', () => {
 			{ key: 'venue', label: 'Venue', value: 'Example Arena, Exampleton' },
 			{ key: 'attendance', label: 'Attendance', value: '18,500' },
 			{ key: 'broadcast', label: 'Broadcast', value: 'Example Network · Example Stream' },
-			{ key: 'tipoff', label: 'Tip-off', value: '8:50 PM ET' }
+			{ key: 'tipoff', label: 'Tip-off', value: '8:50 PM' }
 		]);
 		const strip = current(live()).details.c1.venueStrip;
 		expect(strip[1].value).toBe('—');

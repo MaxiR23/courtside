@@ -54,13 +54,13 @@ describe('CupGameRow', () => {
 
 	it('shows a scheduled row with its time and broadcast', () => {
 		show(2);
-		expect(screen.getByText('7:00 PM ET')).toBeTruthy();
+		expect(screen.getByText('7:00 PM')).toBeTruthy();
 		expect(screen.getByText('Courtside TV')).toBeTruthy();
 	});
 
 	it('shows a scheduled row without a broadcast', () => {
 		const { container } = show(3);
-		expect(screen.getByText('9:30 PM ET')).toBeTruthy();
+		expect(screen.getByText('9:30 PM')).toBeTruthy();
 		expect(container.querySelector('.broadcast')).toBeNull();
 		expect(container.querySelectorAll('.score')).toHaveLength(0);
 	});

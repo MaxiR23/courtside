@@ -8,6 +8,7 @@
 // - A historical team has no strip and shows its season code; a team that kept its name keeps its colors (ADR 0054)
 // - The state line of each state, the stage strip (TBD, ranges, one date, statuses)
 // - The picture tables: seeds in feed order, the line markers, clinch tags, — in the preseason
+// - A play-in game that is not final has its date and time in the viewer zone
 // - The play-in: To be decided slots, places, the 8th seed labels, seed and out notes, the loser flag, links, the collapsed flag
 // - The champion hero: label, city and name, subline with the opponent and dates, the feed's accent, one score column per final Finals game, its spoken text (won/lost, no score, Spanish)
 // - The finals series: tabs, OT, the champion's wins, video, no chart for a missing or bad curve, the deficit marker
@@ -97,6 +98,7 @@ const inState = (
 
 afterEach(() => {
 	vi.restoreAllMocks();
+	vi.unstubAllEnvs();
 });
 
 describe('toPlayoffsView sections', () => {
@@ -437,6 +439,13 @@ describe('toPlayoffsView play-in', () => {
 		expect(first.linked).toBe(false);
 		const west = view(playin()).playIn[1].games[1];
 		expect(west.top).toMatchObject({ place: '9th', currently: null });
+	});
+
+	it('gives a play-in game that is not final its date and time in the viewer zone', () => {
+		const game = view(playin()).playIn[0].games[2];
+		expect(game.when).toBe('Apr 17 · 7:30 PM');
+		vi.stubEnv('TZ', 'Europe/Madrid');
+		expect(view(playin()).playIn[0].games[2].when).toBe('Apr 18 · 1:30 AM');
 	});
 
 	it('labels the 8th seed game slots Loser of 7th vs 8th and Winner of 9th vs 10th', () => {

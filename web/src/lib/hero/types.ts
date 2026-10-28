@@ -24,7 +24,7 @@ export type HeroStatus = 'tonight' | 'live' | 'final' | 'delayed' | 'postponed' 
 export type HeroGame = {
 	id: string; // the game id, passed back by Match details
 	status: HeroStatus;
-	tipTime: string; // already formatted, e.g. "10:30 PM ET"
+	tipTime: string; // already formatted, e.g. "10:30 PM"
 	arena: string | null; // null: unknown, left out
 	away: HeroSide;
 	home: HeroSide;

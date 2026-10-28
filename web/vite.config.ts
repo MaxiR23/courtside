@@ -32,6 +32,8 @@ export default defineConfig({
 	],
 	test: {
 		environment: 'jsdom',
-		include: ['tests/**/*.test.ts']
+		include: ['tests/**/*.test.ts'],
+		// The tests pin the viewer's time zone so they pass on any machine (ADR 0082).
+		env: { TZ: 'America/New_York' }
 	}
 });

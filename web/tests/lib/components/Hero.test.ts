@@ -77,7 +77,7 @@ const side = (
 const oneGame: HeroGame = {
 	id: 'g1',
 	status: 'tonight',
-	tipTime: '10:30 PM ET',
+	tipTime: '10:30 PM',
 	arena: 'Harbor Arena',
 	away: side(
 		'HBR',
@@ -99,7 +99,7 @@ const oneGame: HeroGame = {
 const numbered = (n: number): HeroGame => ({
 	id: `g${n}`,
 	status: 'tonight',
-	tipTime: '7:00 PM ET',
+	tipTime: '7:00 PM',
 	arena: `Arena ${n}`,
 	away: side('AAA', `Away Team ${n}`, 'City', star('A', `Away${n}`, 'AAA', `City Away ${n}`)),
 	home: side('HHH', `Home Team ${n}`, 'City', star('H', `Home${n}`, 'HHH', `City Home ${n}`))
@@ -157,14 +157,14 @@ describe('Hero', () => {
 
 	it('shows the tip time and arena in the kicker', () => {
 		render(Hero, { props: baseProps });
-		expect(screen.getByText('10:30 PM ET · Harbor Arena')).toBeTruthy();
+		expect(screen.getByText('10:30 PM · Harbor Arena')).toBeTruthy();
 	});
 
 	it('shows the tip time alone in the kicker and no blurb when the arena is unknown', () => {
 		const { container } = render(Hero, {
 			props: { ...baseProps, games: [{ ...oneGame, arena: null }] }
 		});
-		expect(screen.getByText('10:30 PM ET')).toBeTruthy();
+		expect(screen.getByText('10:30 PM')).toBeTruthy();
 		expect(container.textContent).not.toContain('·');
 		expect(container.querySelector('.blurb')).toBeNull();
 		expect(screen.queryByText(/meet at/)).toBeNull();
@@ -437,14 +437,14 @@ describe('Hero with one game or none', () => {
 	it('shows Delayed in the tag and Scheduled with the tip time and arena in the kicker for a delayed game', () => {
 		render(Hero, { props: { ...baseProps, games: [{ ...oneGame, status: 'delayed' }] } });
 		expect(screen.getByText('Delayed')).toBeTruthy();
-		expect(screen.getByText('Scheduled 10:30 PM ET · Harbor Arena')).toBeTruthy();
+		expect(screen.getByText('Scheduled 10:30 PM · Harbor Arena')).toBeTruthy();
 	});
 
 	it('shows the delayed kicker in Spanish with a Spanish preference', () => {
 		preferLanguages(['es-ES']);
 		render(Hero, { props: { ...baseProps, games: [{ ...oneGame, status: 'delayed' }] } });
 		expect(screen.getByText('Retrasado')).toBeTruthy();
-		expect(screen.getByText('Programado 10:30 PM ET · Harbor Arena')).toBeTruthy();
+		expect(screen.getByText('Programado 10:30 PM · Harbor Arena')).toBeTruthy();
 	});
 
 	it('shows only the nav row and no timer with no games', async () => {

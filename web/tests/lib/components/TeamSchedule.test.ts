@@ -43,7 +43,7 @@ const upcoming = (gameId: string, next: boolean, broadcast: string | null): Sche
 	opponent: { team: { code: 'DEN', name: null, city: null, guest: false }, isHome: false },
 	tags: next ? ['NBA Cup', 'Next'] : [],
 	next,
-	outcome: { kind: 'upcoming', time: '7:30 PM ET', broadcast }
+	outcome: { kind: 'upcoming', time: '7:30 PM', broadcast }
 });
 
 const schedule: ScheduleSection = {
@@ -75,7 +75,7 @@ describe('TeamSchedule chips', () => {
 			'false'
 		]);
 		expect(screen.getByRole('group', { name: 'Months' })).toBeTruthy();
-		expect(screen.getAllByText('7:30 PM ET')).toHaveLength(2);
+		expect(screen.getAllByText('7:30 PM')).toHaveLength(2);
 	});
 
 	it('shows another group and moves aria-pressed on a click', async () => {
@@ -84,7 +84,7 @@ describe('TeamSchedule chips', () => {
 		expect(screen.getByRole('button', { name: 'Oct' }).getAttribute('aria-pressed')).toBe('true');
 		expect(screen.getByRole('button', { name: 'Nov' }).getAttribute('aria-pressed')).toBe('false');
 		expect(container.querySelector('.outcome')?.textContent).toContain('118–104');
-		expect(screen.queryByText('7:30 PM ET')).toBeNull();
+		expect(screen.queryByText('7:30 PM')).toBeNull();
 	});
 
 	it('falls back to the default group when the selected one leaves the feed', async () => {
@@ -140,7 +140,7 @@ describe('TeamSchedule rows', () => {
 		const outcomes = [...container.querySelectorAll('.outcome')].map((cell) =>
 			cell.textContent?.replace(/\s+/g, ' ').trim()
 		);
-		expect(outcomes).toEqual(['7:30 PM ET Courtside TV', '7:30 PM ET']);
+		expect(outcomes).toEqual(['7:30 PM Courtside TV', '7:30 PM']);
 	});
 
 	it('shows the weekday over the date and the opponent', () => {

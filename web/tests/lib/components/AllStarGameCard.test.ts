@@ -62,7 +62,7 @@ describe('AllStarGameCard', () => {
 		expect(texts('after', 'g1')).toEqual({ text: 'Final', dot: false });
 		expect(texts('after', 'g2')).toEqual({ text: 'Final · OT', dot: false });
 		expect(texts('live', 's2')).toEqual({ text: 'Live · Q1 · 5:12', dot: true });
-		expect(texts('live', 'c1')).toEqual({ text: '8:20 PM ET', dot: false });
+		expect(texts('live', 'c1')).toEqual({ text: '8:20 PM', dot: false });
 	});
 
 	it('mutes the loser and gives the winner sigla the accent border', () => {
