@@ -2,16 +2,19 @@
 	import type { ResolvedPathname } from '$app/types';
 	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
 	import NameLink from '#lib/components/NameLink.svelte';
+	import PlayerAvatar from '#lib/components/PlayerAvatar.svelte';
 	import PlayerPhoto from '#lib/components/PlayerPhoto.svelte';
 	import type { PlayersSection } from '#lib/game/types.ts';
+	import type { RowLayout } from '#lib/schedule/types.ts';
 
 	type Props = {
 		players: PlayersSection;
+		layout: RowLayout;
 		teamHref: (code: string) => ResolvedPathname;
 		playerHref: (id: string) => ResolvedPathname;
 	};
 
-	let { players, teamHref, playerHref }: Props = $props();
+	let { players, layout, teamHref, playerHref }: Props = $props();
 
 	// A guest team has no star: its card is not shown.
 	const cards = $derived([players.away, players.home].filter((card) => card !== null));
@@ -20,7 +23,16 @@
 <div class="players">
 	{#each cards as card (card.teamCode)}
 		<BlueprintFrame>
-			<div class="card">
+			<div class="card" class:mobile={layout === 'mobile'}>
+				{#if layout === 'mobile'}
+					<span class="cutout">
+						<PlayerAvatar
+							name={`${card.firstName} ${card.lastName}`}
+							photo={card.photo}
+							size="team-leader"
+						/>
+					</span>
+				{/if}
 				<div class="text">
 					<span class="tag"><NameLink href={teamHref(card.teamCode)} text={card.teamCode} /></span>
 					<a class="name" href={playerHref(card.id)}>
@@ -29,7 +41,9 @@
 					</a>
 					<span class="team"><NameLink href={teamHref(card.teamCode)} text={card.teamName} /></span>
 				</div>
-				<div class="photo"><PlayerPhoto star player={card} /></div>
+				{#if layout !== 'mobile'}
+					<div class="photo"><PlayerPhoto star player={card} /></div>
+				{/if}
 			</div>
 		</BlueprintFrame>
 	{/each}
@@ -103,5 +117,24 @@
 	.photo {
 		position: relative;
 		min-width: 0;
+	}
+
+	.card.mobile {
+		position: relative;
+		grid-template-columns: 1fr;
+		min-height: var(--team-leader-min-height-mobile);
+	}
+
+	.cutout {
+		position: absolute;
+		top: 0;
+		right: 0;
+		bottom: 0;
+		width: var(--star-card-cutout-width-mobile);
+		background: var(--star-glow);
+	}
+
+	.card.mobile .text {
+		position: relative;
 	}
 </style>

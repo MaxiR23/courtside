@@ -288,6 +288,7 @@ const expected: Record<string, string> = {
 	'--star-first-name-size': '15px',
 	'--star-last-name-size': 'clamp(24px, 3vw, 38px)',
 	'--star-glow': 'radial-gradient(circle at 50% 45%, rgba(116, 157, 196, 0.26), transparent 62%)',
+	'--star-card-cutout-width-mobile': '60%',
 	'--injury-column-min': '420px',
 	'--injury-monogram-size': '36px',
 	'--injury-name-size': '18px',
