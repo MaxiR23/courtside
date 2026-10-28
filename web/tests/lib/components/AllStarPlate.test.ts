@@ -8,6 +8,7 @@
 // - The live plate: header, format line, two rows with the leader in ink, clock, status and Next
 // - The live clock is re-read from the feed on each tick
 // - The tip-off plate and the year plate, with "—" without a year
+// - Mobile: the MVP thumb photo covers the frame, anchored top center; the tag stays bottom left (source check)
 // - Mobile: the MVP thumb links to #mvp, and the live scoreboard is a button that calls onLive
 //
 // What is covered:
@@ -16,6 +17,9 @@
 // Run with: cd web && pnpm exec vitest run tests/lib/components/AllStarPlate.test.ts
 //
 // SEE: web/src/lib/components/AllStarPlate.svelte
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { tick as flush } from 'svelte';
 import { describe, expect, it, vi } from 'vitest';
@@ -24,6 +28,15 @@ import { LiveTick } from '../../../src/lib/all-star/live-tick.svelte';
 import type { PlateView } from '../../../src/lib/all-star/types';
 import AllStarPlate from '../../../src/lib/components/AllStarPlate.svelte';
 import { viewOf } from '../all-star/views';
+
+const source = readFileSync(
+	join(__dirname, '..', '..', '..', 'src', 'lib', 'components', 'AllStarPlate.svelte'),
+	'utf8'
+);
+
+function rule(selector: RegExp): string {
+	return selector.exec(source)?.[1] ?? '';
+}
 
 const plateOf = (name: 'before' | 'live' | 'after') => viewOf(name).header.plate;
 const show = (
@@ -66,6 +79,31 @@ describe('AllStarPlate, MVP', () => {
 		expect(link?.getAttribute('href')).toBe('#mvp');
 		expect(link?.querySelector('.solid-tag')?.textContent).toBe('MVP');
 		expect(container.querySelector('.plate')).toBeNull();
+		expect(
+			link?.querySelector('.blueprint-frame.marks-allstar .thumb-body .avatar.allstar-plate')
+		).not.toBeNull();
+	});
+
+	it('fills the mobile thumb with the photo, anchored top center so the head stays whole', () => {
+		const box = rule(/\.thumb-body :global\(\.avatar\)\s*\{([^}]*)\}/);
+		expect(box).toMatch(/height:\s*100%;/);
+		expect(box).toContain('position: absolute');
+		expect(box).toContain('bottom: 0');
+		const img = rule(/\.thumb-body :global\(\.avatar img\)\s*\{([^}]*)\}/);
+		expect(img).toMatch(/object-fit:\s*cover;/);
+		expect(img).toMatch(/object-position:\s*top center;/);
+		expect(rule(/\.mvp-thumb\s*\{([^}]*)\}/)).toContain('width: var(--allstar-mvp-thumb-width)');
+		expect(rule(/\.thumb-body\s*\{([^}]*)\}/)).toContain('height: var(--allstar-mvp-thumb-height)');
+		const tag = rule(/\.thumb-body \.solid-tag\s*\{([^}]*)\}/);
+		expect(tag).toContain('bottom: var(--day-strip-gap)');
+		expect(tag).toContain('left: var(--day-strip-gap)');
+	});
+
+	it('leaves the desktop plate photo bottom-anchored', () => {
+		const box = rule(/\.photo :global\(\.avatar\)\s*\{([^}]*)\}/);
+		expect(box).toContain('bottom: 0');
+		expect(box).not.toContain('height');
+		expect(source).not.toContain('.photo :global(.avatar img)');
 	});
 });
 

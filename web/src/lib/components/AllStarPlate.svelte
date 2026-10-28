@@ -242,6 +242,12 @@
 	.thumb-body :global(.avatar) {
 		position: absolute;
 		bottom: 0;
+		height: 100%;
+	}
+
+	.thumb-body :global(.avatar img) {
+		object-fit: cover;
+		object-position: top center;
 	}
 
 	.plate.score {
