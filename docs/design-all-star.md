@@ -128,7 +128,7 @@ Live and after states. `#games`.
 - Header: a kicker, the h2 `clamp(28px, 3.4vw, 40px)`, and the format line on the right (13px, muted).
 - Game cards, in one 1px frame, grid `repeat(auto-fit, minmax(min(100%, 230px), 1fr))` with left dividers. A card shows:
   - The round tag: "Championship" solid accent with ground text, the other rounds outlined muted.
-  - The status: "Final", "Final · OT", "● Live · {status text and clock as the games feed sends them}", or the tip-off time ("6:20 PM ET").
+  - The status: "Final", "Final · OT", "● Live · {status text and clock as the games feed sends them}", or the tip-off time ("6:20 PM").
   - The label.
   - Two team rows: a 34x24 sigla box (accent border on the winner), the name at 18px, the score at 26px; the loser muted.
 - Selected card: background `rgba(116, 157, 196, .1)` and a 2px inset accent-light bottom bar. Hover: `rgba(116, 157, 196, .08)`.

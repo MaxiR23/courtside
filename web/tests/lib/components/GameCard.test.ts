@@ -4,6 +4,7 @@
 //
 // Tested:
 // - Scheduled, live and final games on the desktop and the mobile row
+// - A 24-hour tip time with an empty suffix
 // - The name and score of the team that is not the winner are dimmed, never its monogram, for home and away winners, following the winner field and not the scores; live games dim no one
 // - Monogram sizes per row layout, decorative chevron
 // - Spanish live badge with a Spanish browser preference
@@ -56,7 +57,7 @@ const scheduled: ScheduleGame = {
 	allStarMark: null,
 	away,
 	home,
-	status: { state: 'scheduled', tipTime: '9:00', tipSuffix: 'PM ET', network: 'Courtside TV' }
+	status: { state: 'scheduled', tipTime: '9:00', tipSuffix: 'PM', network: 'Courtside TV' }
 };
 const live: ScheduleGame = {
 	id: 'l',
@@ -159,17 +160,26 @@ describe('GameCard', () => {
 			props: { teamHref, game: scheduled, layout: 'desktop' }
 		});
 		expect(container.querySelector('.status-line')?.textContent?.trim()).toBe('Courtside TV');
-		expect(container.querySelector('.tip-time')?.textContent).toBe('9:00PM ET');
-		expect(container.querySelector('.tip-time .suffix')?.textContent).toBe('PM ET');
+		expect(container.querySelector('.tip-time')?.textContent).toBe('9:00PM');
+		expect(container.querySelector('.tip-time .suffix')?.textContent).toBe('PM');
 		expect(container.querySelector('.score')).toBeNull();
 	});
 
-	it('shows "9:00 PM ET · Courtside TV" on the status line of a scheduled game (mobile)', () => {
+	it('shows a 24-hour tip time with no suffix', () => {
+		const game: ScheduleGame = {
+			...scheduled,
+			status: { state: 'scheduled', tipTime: '21:00', tipSuffix: '', network: null }
+		};
+		const { container } = render(GameCard, { props: { teamHref, game, layout: 'desktop' } });
+		expect(container.querySelector('.tip-time')?.textContent).toBe('21:00');
+	});
+
+	it('shows "9:00 PM · Courtside TV" on the status line of a scheduled game (mobile)', () => {
 		const { container } = render(GameCard, {
 			props: { teamHref, game: scheduled, layout: 'mobile' }
 		});
 		expect(container.querySelector('.status-line')?.textContent?.trim()).toBe(
-			'9:00 PM ET · Courtside TV'
+			'9:00 PM · Courtside TV'
 		);
 		expect(container.querySelector('.score')).toBeNull();
 	});
@@ -360,7 +370,7 @@ describe('GameCard', () => {
 			[...e.children].map((c) => c.textContent)
 		);
 		expect(facts).toEqual([
-			['Tip-off', '9:00 PM ET'],
+			['Tip-off', '9:00 PM'],
 			['Venue', 'Crypto.com Arena'],
 			['Broadcast', 'Courtside TV']
 		]);
@@ -382,7 +392,7 @@ describe('GameCard', () => {
 			[...e.children].map((c) => c.textContent)
 		);
 		expect(facts).toEqual([
-			['Tip-off', '9:00 PM ET'],
+			['Tip-off', '9:00 PM'],
 			['Broadcast', 'Courtside TV']
 		]);
 	});
@@ -414,7 +424,7 @@ describe('GameCard', () => {
 		expect(screen.getByText('Estadio')).toBeTruthy();
 		expect(screen.getByText('Transmisión')).toBeTruthy();
 		expect(screen.getByText('Jugadores a seguir')).toBeTruthy();
-		expect(container.querySelector('.fact dd')?.textContent).toBe('9:00 PM ET');
+		expect(container.querySelector('.fact dd')?.textContent).toBe('9:00 PM');
 	});
 
 	it('shows the highlights after the stats on an open final game with highlights', () => {
@@ -579,7 +589,7 @@ describe('GameCard', () => {
 			const next = render(GameCard, {
 				props: { teamHref, game: scheduledWithDetails, layout: 'desktop', spoilerFree: true }
 			});
-			expect(next.container.querySelector('.tip-time')?.textContent).toBe('9:00PM ET');
+			expect(next.container.querySelector('.tip-time')?.textContent).toBe('9:00PM');
 			expect(next.container.textContent).not.toContain('Tap to reveal');
 		});
 
@@ -710,14 +720,14 @@ describe('GameCard with a delayed, postponed or canceled game', () => {
 describe('GameCard with an unknown network', () => {
 	const noNetwork: ScheduleGame = {
 		...scheduled,
-		status: { state: 'scheduled', tipTime: '9:00', tipSuffix: 'PM ET', network: null }
+		status: { state: 'scheduled', tipTime: '9:00', tipSuffix: 'PM', network: null }
 	};
 
 	it('shows only the tip time on the mobile status line', () => {
 		const { container } = render(GameCard, {
 			props: { teamHref, game: noNetwork, layout: 'mobile' }
 		});
-		expect(container.querySelector('.status-line')?.textContent?.trim()).toBe('9:00 PM ET');
+		expect(container.querySelector('.status-line')?.textContent?.trim()).toBe('9:00 PM');
 	});
 
 	it('hides the Broadcast fact', () => {

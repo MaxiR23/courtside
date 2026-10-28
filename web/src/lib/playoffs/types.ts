@@ -86,7 +86,7 @@ export type PlayInGameView = GameLink & {
 	top: PlayInSlotView;
 	bottom: PlayInSlotView;
 	score: { top: string; bottom: string } | null;
-	when: string | null; // "Apr 14 · 7:30 PM ET" while the game is not final
+	when: string | null; // "Apr 14 · 7:30 PM" while the game is not final
 	notes: { text: string; kind: 'seed' | 'out' }[]; // "QXA → No. 7" (seed), "QXB out" (out)
 };
 

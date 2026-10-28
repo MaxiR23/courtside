@@ -5,7 +5,8 @@
 // Tested:
 // - Seven days with today in the middle; today's games as hero games (with team codes) in feed order, without postponed and canceled games
 // - Postponed and canceled games stay in the schedule; with only those, no hero games; a delayed game stays with its tip time
-// - Tip time as "9:00 PM ET"; scheduled, live (Q3, OT, 2OT), final, delayed, postponed and canceled games
+// - Tip time as "9:00 PM"; scheduled, live (Q3, OT, 2OT), final, delayed, postponed and canceled games
+// - A late game stays in its NBA day for a viewer in another zone; a 24-hour language has an empty suffix
 // - The winner of a final game, passed through
 // - Leaders (display name split), stats, highlights with autoplay, the hero chip's full team name
 // - A final game with pending or unavailable stats keeps its line score and highlights without leaders or stats
@@ -34,17 +35,23 @@
 // SEE: web/src/lib/feed/props.ts
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { GamesFeed } from '../../../src/lib/contract/games';
 import { toHomeView, type HomeView } from '../../../src/lib/feed/props';
 import type { ScheduleGame } from '../../../src/lib/schedule/types';
+import { preferLanguages } from '../../prefer-languages';
 
 const feed = (): GamesFeed =>
 	JSON.parse(readFileSync(join(__dirname, 'fixtures', 'games.json'), 'utf8')) as GamesFeed;
 // 23:05 UTC on the day the feed was generated: 5 minutes after generatedAt.
 const received = new Date('2026-10-04T23:05:00Z');
 const options = { videoPlatformName: 'Video platform' };
+
+afterEach(() => {
+	vi.restoreAllMocks();
+	vi.unstubAllEnvs();
+});
 
 function view(source: GamesFeed = feed(), opts = options): HomeView {
 	const result = toHomeView(source, received, opts);
@@ -141,19 +148,34 @@ describe('toHomeView', () => {
 		const delayed = view().heroGames.find((g) => g.id === 'g-delayed');
 		expect(delayed).toMatchObject({
 			status: 'delayed',
-			tipTime: '8:00 PM ET',
+			tipTime: '8:00 PM',
 			arena: 'Chicago Arena'
 		});
 	});
 
-	it('formats the tip time as 9:00 PM ET', () => {
+	it('formats the tip time in the viewer zone with no ET', () => {
 		const v = view();
 		expect(todayGame(v, 'g-sched').status).toMatchObject({
 			state: 'scheduled',
 			tipTime: '9:00',
-			tipSuffix: 'PM ET'
+			tipSuffix: 'PM'
 		});
-		expect(v.heroGames[0].tipTime).toBe('9:00 PM ET');
+		expect(v.heroGames[0].tipTime).toBe('9:00 PM');
+	});
+
+	it('keeps a game that tips off after midnight for the viewer in its NBA day', () => {
+		vi.stubEnv('TZ', 'Europe/Madrid');
+		const v = view();
+		expect(v.days[3].games.map((g) => g.id)).toContain('g-sched');
+		expect(todayGame(v, 'g-sched').status).toMatchObject({ tipTime: '3:00', tipSuffix: 'AM' });
+	});
+
+	it('gives a 24-hour tip time with an empty suffix in Spanish', () => {
+		vi.stubEnv('TZ', 'Europe/Madrid');
+		preferLanguages(['es']);
+		const v = view();
+		expect(todayGame(v, 'g-sched').status).toMatchObject({ tipTime: '3:00', tipSuffix: '' });
+		expect(v.heroGames[0].tipTime).toBe('3:00');
 	});
 
 	it('maps a scheduled game with its venue and players to watch', () => {

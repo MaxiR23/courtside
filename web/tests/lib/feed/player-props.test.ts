@@ -127,7 +127,7 @@ describe('toPlayerView header', () => {
 		expect(view(source).header.line).toBe('Guard · Oklahoma City Thunder');
 	});
 
-	it('shows the injury status in the tag and the injury card with the Eastern update time', () => {
+	it('shows the injury status in the tag and the injury card with the update time in the viewer zone', () => {
 		const source = feed();
 		source.injury = {
 			status: 'questionable',
@@ -139,7 +139,7 @@ describe('toPlayerView header', () => {
 		expect(header.injury).toEqual({
 			status: 'questionable',
 			comment: 'Left ankle sprain',
-			updated: 'Updated Oct 7 · 3:15 PM ET'
+			updated: 'Updated Oct 7 · 3:15 PM'
 		});
 	});
 
@@ -302,7 +302,7 @@ describe('toPlayerView next game and live', () => {
 			gameId: 'g-6',
 			linked: false,
 			opponent: { team: league('DEN'), isHome: true },
-			time: '7:30 PM ET · Courtside TV'
+			time: '7:30 PM · Courtside TV'
 		});
 	});
 
@@ -631,7 +631,7 @@ describe('toPlayerView in Spanish', () => {
 			'Premios'
 		]);
 		expect(result.header.stats?.cells[1]?.sub).toBe('41.º en la NBA');
-		expect(result.header.injury?.updated).toBe('Actualizado 7 oct · 15:15 ET');
+		expect(result.header.injury?.updated).toBe('Actualizado 7 oct · 15:15');
 		expect(result.sections.profile.cells[5]?.value).toBe('2018 · Ronda 1 · Elección 11');
 		expect(result.sections.profile.live?.clock).toBe('C3 · 4:12');
 	});

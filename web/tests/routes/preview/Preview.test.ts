@@ -66,7 +66,7 @@ describe('component preview', { timeout: 30_000 }, () => {
 		for (const label of ['Tonight', 'Live now', 'Final']) {
 			expect(screen.getAllByText(label).length).toBeGreaterThanOrEqual(1);
 		}
-		expect(screen.getAllByText('10:30 PM ET · Chase Center').length).toBeTruthy();
+		expect(screen.getAllByText('10:30 PM · Chase Center').length).toBeTruthy();
 		const monograms = sectionOf('TeamMonogram');
 		expect(monograms.querySelectorAll('.team-monogram.large')).toHaveLength(1);
 		expect(monograms.querySelectorAll('.team-monogram.small')).toHaveLength(1);

@@ -130,9 +130,9 @@ describe('AllStarPlate, live', () => {
 
 describe('AllStarPlate, tip-off and year', () => {
 	it('shows the tip-off text', () => {
-		const plate = { kind: 'tipoff', gameId: 'c1', text: 'Tip-off · 8:20 PM ET' } as PlateView;
+		const plate = { kind: 'tipoff', gameId: 'c1', text: 'Tip-off · 8:20 PM' } as PlateView;
 		show(plate);
-		expect(screen.getByText('Tip-off · 8:20 PM ET')).toBeTruthy();
+		expect(screen.getByText('Tip-off · 8:20 PM')).toBeTruthy();
 	});
 
 	it('shows the outlined year over the dashed circles', () => {

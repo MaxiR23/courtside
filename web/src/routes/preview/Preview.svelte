@@ -108,7 +108,7 @@
 		city: 'San Francisco',
 		photo: highlight1,
 		cells: [
-			{ label: 'Tip-off', value: '10:30 PM ET', sub: 'Sunday, October 4' },
+			{ label: 'Tip-off', value: '10:30 PM', sub: 'Sunday, October 4' },
 			{ label: 'Venue', value: 'Chase Center', sub: 'San Francisco' },
 			{ label: 'Broadcast', value: 'Network One', sub: null }
 		]
@@ -129,7 +129,7 @@
 				: {
 						kind: 'tip-off',
 						tipTime: '10:30',
-						tipSuffix: 'PM ET',
+						tipSuffix: 'PM',
 						broadcast: 'Network One',
 						delayed: state === 'delayed'
 					},
@@ -246,7 +246,7 @@
 	const heroGame = (id: string, status: HeroGame['status']): HeroGame => ({
 		id,
 		status,
-		tipTime: '10:30 PM ET',
+		tipTime: '10:30 PM',
 		arena: 'Chase Center',
 		away: {
 			code: 'GSW',
@@ -786,7 +786,7 @@
 			allStarMark: null,
 			away: warriors,
 			home: lakers,
-			status: { state: 'scheduled', tipTime: '9:00', tipSuffix: 'PM ET', network: 'Courtside TV' },
+			status: { state: 'scheduled', tipTime: '9:00', tipSuffix: 'PM', network: 'Courtside TV' },
 			details: {
 				kind: 'scheduled',
 				venue: 'Crypto.com Arena',
@@ -1004,7 +1004,7 @@
 					date: 'Wednesday, October 7',
 					opponent: versus('LAL', false),
 					place: 'Crypto.com Arena · Los Angeles',
-					time: '7:30 PM ET · Network One'
+					time: '7:30 PM · Network One'
 				}
 			},
 			record: {
@@ -1090,13 +1090,13 @@
 								date: 'Nov 5',
 								opponent: versus('LAL', false),
 								tags: ['NBA Cup', 'Next'],
-								outcome: { kind: 'upcoming', time: '7:30 PM ET', broadcast: 'Network One' }
+								outcome: { kind: 'upcoming', time: '7:30 PM', broadcast: 'Network One' }
 							}),
 							teamScheduleRow('s4', {
 								linked: false,
 								weekday: 'Sat',
 								date: 'Nov 8',
-								outcome: { kind: 'upcoming', time: '8:00 PM ET', broadcast: null }
+								outcome: { kind: 'upcoming', time: '8:00 PM', broadcast: null }
 							})
 						]
 					},
@@ -1358,7 +1358,7 @@
 					date: 'Wednesday, October 7',
 					opponent: versus('DEN'),
 					place: 'Paycom Center · Oklahoma City, OK',
-					time: '7:30 PM ET · Courtside TV'
+					time: '7:30 PM · Courtside TV'
 				},
 				live: null,
 				recent: [
@@ -1569,7 +1569,7 @@
 
 	<section>
 		<h2>Kicker</h2>
-		<Kicker text="10:30 PM ET · Chase Center" />
+		<Kicker text="10:30 PM · Chase Center" />
 	</section>
 
 	<section>

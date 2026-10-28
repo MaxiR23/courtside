@@ -79,7 +79,7 @@ describe('PlayerHeader', () => {
 				injury: {
 					status: 'questionable',
 					comment: 'Left ankle sprain',
-					updated: 'Updated Oct 7 · 3:15 PM ET'
+					updated: 'Updated Oct 7 · 3:15 PM'
 				}
 			}
 		});
@@ -87,14 +87,14 @@ describe('PlayerHeader', () => {
 		expect(tags).toHaveLength(2);
 		expect(tags[0]?.classList.contains('out')).toBe(true);
 		expect(screen.getByText('Left ankle sprain')).toBeTruthy();
-		expect(screen.getByText('Updated Oct 7 · 3:15 PM ET')).toBeTruthy();
+		expect(screen.getByText('Updated Oct 7 · 3:15 PM')).toBeTruthy();
 	});
 
 	it('shows no comment line for a null comment', () => {
 		const { container } = show({
 			header: {
 				...header,
-				injury: { status: 'out', comment: null, updated: 'Updated Oct 7 · 3:15 PM ET' }
+				injury: { status: 'out', comment: null, updated: 'Updated Oct 7 · 3:15 PM' }
 			}
 		});
 		expect(container.querySelector('.comment')).toBeNull();

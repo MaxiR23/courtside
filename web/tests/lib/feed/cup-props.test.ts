@@ -488,12 +488,12 @@ describe('toCupView games', () => {
 		expect(game.broadcast).toBeNull();
 	});
 
-	it('maps a scheduled game to its Eastern tip time, with and without broadcast', () => {
+	it('maps a scheduled game to its tip time in the viewer zone, with and without broadcast', () => {
 		const games = view().filters[0]!.days[1]!.games;
-		expect(games[0]?.status).toEqual({ kind: 'time', text: '7:00 PM ET' });
+		expect(games[0]?.status).toEqual({ kind: 'time', text: '7:00 PM' });
 		expect(games[0]?.broadcast).toBe('Courtside TV');
 		expect(games[0]?.linked).toBe(false);
-		expect(games[1]?.status).toEqual({ kind: 'time', text: '9:30 PM ET' });
+		expect(games[1]?.status).toEqual({ kind: 'time', text: '9:30 PM' });
 		expect(games[1]?.broadcast).toBeNull();
 	});
 

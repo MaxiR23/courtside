@@ -39,9 +39,9 @@ import type {
 	WildCardView
 } from '#lib/cup/types.ts';
 import { CONFERENCE_SHORT, groupTitle } from '#lib/feed/cup-mark-props.ts';
-import { tipParts } from '#lib/feed/props.ts';
 import { feedDate } from '#lib/feed/team-props.ts';
 import { formatNumber } from '#lib/format/locale.ts';
+import { viewerTime } from '#lib/format/time.ts';
 import { m } from '#lib/paraglide/messages.js';
 import type { ClinchView } from '#lib/standings/types.ts';
 import { teamLabel, teamMark, teamTile } from '#lib/team/mark.ts';
@@ -295,8 +295,7 @@ function sideView(game: CupGame, side: 'away' | 'home'): CupSideView {
 
 function statusView(game: CupGame): CupGameStatusView {
 	if (game.status === 'scheduled') {
-		const { tipTime, tipSuffix } = tipParts(game.startTime);
-		return { kind: 'time', text: `${tipTime} ${tipSuffix}` };
+		return { kind: 'time', text: viewerTime(game.startTime) };
 	}
 	if (game.status === 'live') return { kind: 'live' };
 	return { kind: 'status', status: game.status };

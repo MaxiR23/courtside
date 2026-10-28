@@ -14,8 +14,8 @@ import type {
 } from '#lib/contract/team.ts';
 import { cupTeamLine } from '#lib/feed/cup-mark-props.ts';
 import { teamTitles } from '#lib/feed/postseason-mark-props.ts';
-import { tipParts } from '#lib/feed/props.ts';
 import { formatDate, formatNumber } from '#lib/format/locale.ts';
+import { nbaDate, viewerDate, viewerTime } from '#lib/format/time.ts';
 import { positionName } from '#lib/format/position.ts';
 import type { InfoCell, InjuryTagStatus } from '#lib/game/types.ts';
 import { m } from '#lib/paraglide/messages.js';
@@ -39,7 +39,6 @@ import type {
 } from '#lib/team/types.ts';
 import { teamMark } from '#lib/team/mark.ts';
 
-const TIME_ZONE = 'America/New_York';
 const SEPARATOR = ' · ';
 const NO_VALUE = '—';
 const FINALS_ROUND = 4;
@@ -106,9 +105,6 @@ const record = (r: { wins: number; losses: number }) =>
 export function feedDate(date: string, options: Intl.DateTimeFormatOptions): string {
 	return formatDate(new Date(date), { ...options, timeZone: 'UTC' });
 }
-
-const etDate = (startTime: string, options: Intl.DateTimeFormatOptions) =>
-	formatDate(new Date(startTime), { timeZone: TIME_ZONE, ...options });
 
 const rank = (value: number, name: string) =>
 	m.game_standings_rank({ rank: value, conference: name });
@@ -193,13 +189,12 @@ function header(feed: TeamFeed): TeamHeaderView {
 }
 
 export function nextGameView(game: NextGame): NextGameView {
-	const { tipTime, tipSuffix } = tipParts(game.startTime);
-	const time = `${tipTime} ${tipSuffix}`;
+	const time = viewerTime(game.startTime);
 	return {
 		gameId: game.gameId,
 		linked: game.detailAvailable,
 		tag: game.tag ? gameTagLabel(game.tag) : null,
-		date: etDate(game.startTime, { weekday: 'long', month: 'long', day: 'numeric' }),
+		date: viewerDate(game.startTime, { weekday: 'long', month: 'long', day: 'numeric' }),
 		opponent: { team: teamMark(game.opponent), isHome: game.isHome },
 		place: [game.arena, game.city].filter((part): part is string => part !== null).join(SEPARATOR),
 		time: [time, game.broadcast].filter((part): part is string => part !== null).join(SEPARATOR)
@@ -371,8 +366,8 @@ function scheduleRow(game: ScheduleGame): ScheduleRowView {
 	const base = {
 		gameId: game.gameId,
 		linked: game.detailAvailable,
-		weekday: etDate(game.startTime, { weekday: 'short' }),
-		date: etDate(game.startTime, { month: 'short', day: 'numeric' }),
+		weekday: nbaDate(game.startTime, { weekday: 'short' }),
+		date: nbaDate(game.startTime, { month: 'short', day: 'numeric' }),
 		opponent: { team: teamMark(game.opponent), isHome: game.isHome },
 		tags,
 		next: game.isNext
@@ -392,10 +387,9 @@ function scheduleRow(game: ScheduleGame): ScheduleRowView {
 			}
 		};
 	}
-	const { tipTime, tipSuffix } = tipParts(game.startTime);
 	return {
 		...base,
-		outcome: { kind: 'upcoming', time: `${tipTime} ${tipSuffix}`, broadcast: game.broadcast }
+		outcome: { kind: 'upcoming', time: viewerTime(game.startTime), broadcast: game.broadcast }
 	};
 }
 

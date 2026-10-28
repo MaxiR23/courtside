@@ -11,6 +11,7 @@ import type {
 	Star
 } from '#lib/contract/game-detail.ts';
 import { formatDate, formatNumber } from '#lib/format/locale.ts';
+import { nbaDate, viewerDate, viewerTime } from '#lib/format/time.ts';
 import { allStarMark } from '#lib/feed/all-star-mark-props.ts';
 import { cupTag } from '#lib/feed/cup-mark-props.ts';
 import { postseasonMark } from '#lib/feed/postseason-mark-props.ts';
@@ -52,7 +53,6 @@ import type {
 import { m } from '#lib/paraglide/messages.js';
 import { teamLabel, teamMark } from '#lib/team/mark.ts';
 
-const TIME_ZONE = 'America/New_York';
 const SEPARATOR = ' · ';
 const FIRST_OVERTIME = 5; // periods 1 to 4 are quarters
 const NO_VALUE = '—';
@@ -73,13 +73,11 @@ function layoutOf(status: GameDetailFeed['status']): GameLayout {
 	return 'pre-game';
 }
 
+const LONG_DAY: Intl.DateTimeFormatOptions = { weekday: 'long', month: 'long', day: 'numeric' };
+
+// A date without a time names the game's NBA day (ADR 0082).
 function dateText(startTime: string): string {
-	return formatDate(new Date(startTime), {
-		timeZone: TIME_ZONE,
-		weekday: 'long',
-		month: 'long',
-		day: 'numeric'
-	});
+	return nbaDate(startTime, LONG_DAY);
 }
 
 function periodLabel(period: number): string {
@@ -159,11 +157,10 @@ function venueStrip(feed: GameDetailFeed): VenueStrip | null {
 	if (venue === null) return null;
 	const cells: InfoCell[] = [];
 	if (feed.status !== 'postponed' && feed.status !== 'canceled') {
-		const { tipTime, tipSuffix } = tipParts(feed.startTime);
 		cells.push({
 			label: m.panel_tip_off(),
-			value: `${tipTime} ${tipSuffix}`,
-			sub: dateText(feed.startTime)
+			value: viewerTime(feed.startTime),
+			sub: viewerDate(feed.startTime, LONG_DAY)
 		});
 	}
 	cells.push({ label: m.panel_venue(), value: venue.name, sub: venue.city });

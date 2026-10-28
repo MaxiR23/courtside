@@ -21,11 +21,12 @@ import type {
 	TeamStatKind,
 	Top5Row
 } from '#lib/contract/all-star.ts';
-import { leader, tipParts, video } from '#lib/feed/props.ts';
+import { leader, video } from '#lib/feed/props.ts';
 import { allStarRound } from '#lib/feed/all-star-mark-props.ts';
 import { feedDate } from '#lib/feed/team-props.ts';
 import { formatNumber } from '#lib/format/locale.ts';
 import { positionName } from '#lib/format/position.ts';
+import { viewerTime } from '#lib/format/time.ts';
 import { m } from '#lib/paraglide/messages.js';
 import type {
 	AllStarHeaderView,
@@ -107,10 +108,7 @@ const dateLine = (edition: Pick<AllStarEdition, 'date' | 'venue'>): string | nul
 		.filter(Boolean)
 		.join(SEPARATOR) || null;
 
-function tipText(startTime: string): string {
-	const tip = tipParts(startTime);
-	return `${tip.tipTime} ${tip.tipSuffix}`;
-}
+const tipText = (startTime: string): string => viewerTime(startTime);
 
 function status(game: AllStarGame): GameCardView['status'] {
 	if (game.status === 'final') {

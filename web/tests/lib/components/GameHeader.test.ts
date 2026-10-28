@@ -47,7 +47,7 @@ const venue = {
 	city: 'San Francisco',
 	photo: '/highlight-1.svg',
 	cells: [
-		{ label: 'Tip-off', value: '7:00 PM ET', sub: 'Wednesday, October 7' },
+		{ label: 'Tip-off', value: '7:00 PM', sub: 'Wednesday, October 7' },
 		{ label: 'Venue', value: 'Chase Center', sub: 'San Francisco' },
 		{ label: 'Broadcast', value: 'Network One', sub: null }
 	]
@@ -64,7 +64,7 @@ const scheduled: GameHeaderView = {
 	center: {
 		kind: 'tip-off',
 		tipTime: '7:00',
-		tipSuffix: 'PM ET',
+		tipSuffix: 'PM',
 		broadcast: 'Network One',
 		delayed: false
 	},
@@ -140,7 +140,7 @@ describe('GameHeader', () => {
 	it('shows a scheduled game on the desktop row with its tip time, broadcast and venue strip', () => {
 		const { container } = show(scheduled);
 		expect(screen.getByText('Wednesday, October 7 · Chase Center')).toBeTruthy();
-		expect(container.querySelector('.tip-time')?.textContent).toBe('7:00 PM ET');
+		expect(container.querySelector('.tip-time')?.textContent).toBe('7:00 PM');
 		expect(container.querySelector('.broadcast')?.textContent).toBe('Network One');
 		expect(container.querySelectorAll('.cell')).toHaveLength(3);
 		expect(screen.getByText('Tip-off')).toBeTruthy();
@@ -176,7 +176,7 @@ describe('GameHeader', () => {
 			center: {
 				kind: 'tip-off',
 				tipTime: '7:00',
-				tipSuffix: 'PM ET',
+				tipSuffix: 'PM',
 				broadcast: null,
 				delayed: true
 			}
@@ -240,7 +240,7 @@ describe('GameHeader', () => {
 	it('adds the time row on the mobile pre-game row', () => {
 		const { container } = show(scheduled, 'mobile');
 		expect(container.querySelectorAll('.row')).toHaveLength(2);
-		expect(container.querySelector('.tip-off.mobile .tip-time')?.textContent).toBe('7:00 PM ET');
+		expect(container.querySelector('.tip-off.mobile .tip-time')?.textContent).toBe('7:00 PM');
 		expect(container.querySelector('.broadcast')?.textContent).toBe('Network One');
 		expect(container.querySelector('.points')).toBeNull();
 	});

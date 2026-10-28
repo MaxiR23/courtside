@@ -24,7 +24,7 @@ export type ScoreboardCenter =
 	| {
 			kind: 'tip-off';
 			tipTime: string; // "9:00", already formatted
-			tipSuffix: string; // "PM ET", already formatted
+			tipSuffix: string; // "PM", already formatted
 			broadcast: string | null; // no network when unknown
 			delayed: boolean; // shows "Scheduled" before the original time
 	  }

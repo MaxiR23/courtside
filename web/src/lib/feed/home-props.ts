@@ -16,8 +16,8 @@ import type {
 import type { Conference, StandingsFeed } from '#lib/contract/standings.ts';
 import { toStandingsView } from '#lib/feed/standings-props.ts';
 import { feedDate } from '#lib/feed/team-props.ts';
-import { tipParts } from '#lib/feed/props.ts';
 import { formatNumber } from '#lib/format/locale.ts';
+import { viewerDate, viewerTime } from '#lib/format/time.ts';
 import type {
 	ComingUpItemView,
 	ComingUpTarget,
@@ -170,10 +170,9 @@ export function toNoGamesView(todayId: string, feed: HomeFeed | null): NoGamesVi
 	const { nextGame } = feed;
 	let nextTipOff: string | null = null;
 	if (nextGame !== null) {
-		const { tipTime, tipSuffix } = tipParts(nextGame.firstTipOff);
 		nextTipOff = m.home_next_tip_off({
-			day: feedDate(nextGame.date, SHORT_DAY),
-			time: `${tipTime} ${tipSuffix}`
+			day: viewerDate(nextGame.firstTipOff, SHORT_DAY),
+			time: viewerTime(nextGame.firstTipOff)
 		});
 	}
 	return {

@@ -16,10 +16,10 @@ import type {
 import { allStarPlayerTag } from '#lib/feed/all-star-mark-props.ts';
 import { periodText } from '#lib/feed/game-props.ts';
 import { awardName } from '#lib/feed/playoffs-props.ts';
-import { tipParts } from '#lib/feed/props.ts';
 import { feedDate, gameTagLabel, nextGameView } from '#lib/feed/team-props.ts';
-import { formatDate, formatNumber } from '#lib/format/locale.ts';
+import { formatNumber } from '#lib/format/locale.ts';
 import { positionName } from '#lib/format/position.ts';
+import { viewerDate, viewerTime } from '#lib/format/time.ts';
 import type { InfoCell } from '#lib/game/types.ts';
 import { m } from '#lib/paraglide/messages.js';
 import type {
@@ -44,7 +44,6 @@ import type {
 } from '#lib/player/types.ts';
 import { teamMark } from '#lib/team/mark.ts';
 
-const TIME_ZONE = 'America/New_York';
 const SEPARATOR = ' · ';
 const NO_VALUE = '—';
 
@@ -123,13 +122,10 @@ function header(feed: PlayerFeed, past: boolean): PlayerHeaderView {
 	const injury = feed.injury;
 	let updated = '';
 	if (injury) {
-		const { tipTime, tipSuffix } = tipParts(injury.updatedAt);
-		const day = formatDate(new Date(injury.updatedAt), {
-			timeZone: TIME_ZONE,
-			month: 'short',
-			day: 'numeric'
+		const day = viewerDate(injury.updatedAt, { month: 'short', day: 'numeric' });
+		updated = m.player_injury_updated({
+			date: `${day}${SEPARATOR}${viewerTime(injury.updatedAt)}`
 		});
-		updated = m.player_injury_updated({ date: `${day}${SEPARATOR}${tipTime} ${tipSuffix}` });
 	}
 	const summary = feed.summary;
 	const ranked = (label: string, value: string, rank: number | null): InfoCell => ({

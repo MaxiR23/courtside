@@ -100,20 +100,20 @@ describe('NoGamesHero', () => {
 			date: 'Sunday, October 4',
 			tag: 'Off day',
 			paragraph: 'p',
-			nextTipOff: 'Next tip-off: Tue, Oct 6 · 7:00 PM ET',
+			nextTipOff: 'Next tip-off: Tue, Oct 6 · 7:00 PM',
 			broadcast: 'Courtside TV',
 			comingUp: null
 		};
 		const first = render(NoGamesHero, { props: { view: base, layout: 'desktop' } });
 		expect(first.container.querySelector('.next')?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
-			'Next tip-off: Tue, Oct 6 · 7:00 PM ET · Courtside TV'
+			'Next tip-off: Tue, Oct 6 · 7:00 PM · Courtside TV'
 		);
 		first.unmount();
 		const second = render(NoGamesHero, {
 			props: { view: { ...base, broadcast: null }, layout: 'desktop' }
 		});
 		expect(second.container.querySelector('.next')?.textContent?.trim()).toBe(
-			'Next tip-off: Tue, Oct 6 · 7:00 PM ET'
+			'Next tip-off: Tue, Oct 6 · 7:00 PM'
 		);
 		second.unmount();
 		const third = render(NoGamesHero, {

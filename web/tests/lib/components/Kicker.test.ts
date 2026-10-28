@@ -18,7 +18,7 @@ import Kicker from '../../../src/lib/components/Kicker.svelte';
 
 describe('Kicker', () => {
 	it('shows the given text', () => {
-		render(Kicker, { props: { text: '10:30 PM ET · Chase Center' } });
-		expect(screen.getByText('10:30 PM ET · Chase Center')).toBeTruthy();
+		render(Kicker, { props: { text: '10:30 PM · Chase Center' } });
+		expect(screen.getByText('10:30 PM · Chase Center')).toBeTruthy();
 	});
 });

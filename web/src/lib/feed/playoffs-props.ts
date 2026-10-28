@@ -28,10 +28,11 @@ import type {
 	RoadTeam
 } from '#lib/contract/playoffs-finals.ts';
 import { CONFERENCE_TITLE, PLAY_IN_TITLE, seriesSummary } from '#lib/feed/postseason-mark-props.ts';
-import { leader, tipParts, video } from '#lib/feed/props.ts';
+import { leader, video } from '#lib/feed/props.ts';
 import { clinchView } from '#lib/feed/standings-props.ts';
 import { feedDate } from '#lib/feed/team-props.ts';
 import { formatNumber } from '#lib/format/locale.ts';
+import { viewerDate, viewerTime } from '#lib/format/time.ts';
 import {
 	domain,
 	segments,
@@ -467,7 +468,6 @@ function playInGame(entry: PlayInGame): PlayInGameView {
 	const { game } = entry;
 	const top = slotScore(entry.top, game);
 	const bottom = slotScore(entry.bottom, game);
-	const tip = game ? tipParts(game.startTime) : null;
 	return {
 		gameId: game?.id ?? '',
 		linked: game?.detailAvailable ?? false,
@@ -477,8 +477,8 @@ function playInGame(entry: PlayInGame): PlayInGameView {
 		bottom: slotView(entry.bottom, game),
 		score: top !== null && bottom !== null ? { top, bottom } : null,
 		when:
-			game && tip && game.status !== 'final'
-				? `${feedDate(game.date, monthDay)}${SEPARATOR}${tip.tipTime} ${tip.tipSuffix}`
+			game && game.status !== 'final'
+				? `${viewerDate(game.startTime, monthDay)}${SEPARATOR}${viewerTime(game.startTime)}`
 				: null,
 		notes: notes(entry)
 	};
