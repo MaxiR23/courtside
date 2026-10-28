@@ -48,7 +48,9 @@
 	const updated = $derived(
 		updatedMinutesAgo < 1
 			? m.schedule_updated_recently()
-			: m.schedule_updated({ minutes: formatNumber(updatedMinutesAgo) })
+			: updatedMinutesAgo < 60
+				? m.schedule_updated({ minutes: formatNumber(updatedMinutesAgo) })
+				: m.schedule_updated_hours({ hours: formatNumber(Math.floor(updatedMinutesAgo / 60)) })
 	);
 	const strip = $derived(days.map((d) => ({ date: d.date, gameCount: d.games.length })));
 	let list: HTMLElement | undefined = $state();

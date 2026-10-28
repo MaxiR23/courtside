@@ -3,7 +3,7 @@
 // Tests for the Schedule component.
 //
 // Tested:
-// - Freshness label: "Recently updated" under 1 minute, the minutes from 1 minute on, in English and Spanish
+// - Freshness label: "Recently updated" under 1 minute, the minutes from 1 minute on, whole hours from 60 minutes on, in English and Spanish
 // - Header: kicker, selected day, game count, freshness; today selected by default
 // - Selecting a day changes the heading, count and games; a day with no games shows the day, 0 games and the no-games message
 // - Desktop row and full counts on a wide viewport; mobile row and numbers below it
@@ -133,17 +133,27 @@ describe('Schedule', () => {
 		expect(screen.getByText('Schedule')).toBeTruthy();
 		expect(screen.getByRole('heading', { level: 2 }).textContent?.trim()).toBe('Sunday, October 4');
 		expect(screen.getAllByText('3 games').length).toBeGreaterThanOrEqual(1);
-		expect(screen.getByText('Updated 3 min ago')).toBeTruthy();
+		expect(screen.getByText('Updated 3m ago')).toBeTruthy();
 	});
 
 	describe('freshness label', () => {
 		it.each([
 			[0, 'en', 'Recently updated'],
 			[0, 'es', 'Actualizado recientemente'],
-			[1, 'en', 'Updated 1 min ago'],
-			[1, 'es', 'Actualizado hace 1 min'],
-			[12, 'en', 'Updated 12 min ago'],
-			[12, 'es', 'Actualizado hace 12 min']
+			[1, 'en', 'Updated 1m ago'],
+			[1, 'es', 'Actualizado hace 1m'],
+			[45, 'en', 'Updated 45m ago'],
+			[45, 'es', 'Actualizado hace 45m'],
+			[59, 'en', 'Updated 59m ago'],
+			[59, 'es', 'Actualizado hace 59m'],
+			[60, 'en', 'Updated 1h ago'],
+			[60, 'es', 'Actualizado hace 1h'],
+			[119, 'en', 'Updated 1h ago'],
+			[119, 'es', 'Actualizado hace 1h'],
+			[120, 'en', 'Updated 2h ago'],
+			[120, 'es', 'Actualizado hace 2h'],
+			[650, 'en', 'Updated 10h ago'],
+			[650, 'es', 'Actualizado hace 10h']
 		])('shows the label for %i minutes in %s', (minutes, language, text) => {
 			if (language === 'es') preferLanguages(['es-ES']);
 			const { container } = render(Schedule, { props: { ...props, updatedMinutesAgo: minutes } });
@@ -152,7 +162,7 @@ describe('Schedule', () => {
 
 		it('does not show 0 minutes', () => {
 			render(Schedule, { props: { ...props, updatedMinutesAgo: 0 } });
-			expect(screen.queryByText('Updated 0 min ago')).toBeNull();
+			expect(screen.queryByText('Updated 0m ago')).toBeNull();
 		});
 	});
 
@@ -305,7 +315,7 @@ describe('Schedule', () => {
 			'domingo, 4 de octubre'
 		);
 		expect(screen.getAllByText('3 partidos').length).toBeGreaterThanOrEqual(1);
-		expect(screen.getByText('Actualizado hace 3 min')).toBeTruthy();
+		expect(screen.getByText('Actualizado hace 3m')).toBeTruthy();
 	});
 
 	describe('open cards', () => {
