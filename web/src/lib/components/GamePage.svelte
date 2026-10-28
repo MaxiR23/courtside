@@ -38,13 +38,27 @@
 
 	// The highlight playing in place, as on the home.
 	let playingId = $state<string | null>(null);
+
+	// The scoreboard element, so the tabs can show the mini score once it has scrolled away.
+	let scoreboard = $state<HTMLElement | null>(null);
 </script>
 
 {#if page.kind === 'ready'}
-	<GameHeader header={page.view.header} {layout} {allGamesHref} {standingsHref} {teamHref} />
-	<SectionTabs tabs={page.view.tabs} miniScore={page.view.miniScore} />
+	<GameHeader
+		header={page.view.header}
+		{layout}
+		{allGamesHref}
+		{standingsHref}
+		{teamHref}
+		bind:scoreboard
+	/>
+	<SectionTabs
+		tabs={page.view.tabs}
+		miniScore={page.view.miniScore}
+		reveal={{ scoreboard, layout }}
+	/>
 	{@const sections = page.view.sections}
-	<div class="sections">
+	<div class="sections" class:mobile={layout === 'mobile'}>
 		{#if sections.highlights}
 			<section id="highlights">
 				<SectionHead
@@ -181,6 +195,10 @@
 		gap: var(--game-list-gap);
 		align-content: start;
 		scroll-margin-top: var(--detail-section-scroll-margin);
+	}
+
+	.sections.mobile section {
+		scroll-margin-top: var(--detail-section-scroll-margin-mobile);
 	}
 
 	.highlights-wrap {

@@ -10,6 +10,9 @@
 // - Nothing with no tabs and no mini score
 // - A click scrolls smoothly to the section, instantly under reduced motion
 // - The nav stays above the page content: sticky with z-index from --tabs-z-index
+// - With reveal: the mini score is hidden until the scoreboard passes under the bar, then shown, hidden again on return
+// - With reveal: stacked on its own row on the mobile layout only; animated, not under reduced motion
+// - Without reveal: the mini text is as before and no observer is built
 //
 // What is covered:
 // - Each state the tabs show, plus the click
@@ -24,7 +27,8 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { fireEvent, render, screen } from '@testing-library/svelte';
+import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { tick } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import SectionTabs from '../../../src/lib/components/SectionTabs.svelte';
@@ -137,5 +141,134 @@ describe('SectionTabs', () => {
 		);
 		const level = Number(/--tabs-z-index:\s*(-?\d+);/.exec(tokens)?.[1]);
 		expect(level).toBeGreaterThanOrEqual(1);
+	});
+});
+
+type Entry = { isIntersecting: boolean; boundingClientRect: { top: number } };
+
+function stubObserver() {
+	const state = { callbacks: [] as ((entries: Entry[]) => void)[], created: 0 };
+	class FakeObserver {
+		constructor(callback: (entries: Entry[]) => void) {
+			state.created += 1;
+			state.callbacks.push(callback);
+		}
+		observe = vi.fn();
+		disconnect = vi.fn();
+	}
+	vi.stubGlobal('IntersectionObserver', FakeObserver);
+	return state;
+}
+
+const passed: Entry = { isIntersecting: false, boundingClientRect: { top: -10 } };
+const back: Entry = { isIntersecting: true, boundingClientRect: { top: 100 } };
+
+function revealed(
+	layout: 'desktop' | 'mobile' = 'desktop',
+	score: typeof miniScore | null = miniScore
+) {
+	const scoreboard = document.createElement('div');
+	document.body.append(scoreboard);
+	return render(SectionTabs, {
+		props: { tabs, miniScore: score, reveal: { scoreboard, layout } }
+	});
+}
+
+describe('SectionTabs reveal', () => {
+	it('hides the mini score at load when it reveals on scroll', () => {
+		stubObserver();
+		const { container } = revealed();
+		expect(container.querySelector('.mini-score')?.getAttribute('aria-hidden')).toBe('true');
+		const nav = container.querySelector('nav');
+		expect(nav?.classList.contains('reveal')).toBe(true);
+		expect(nav?.classList.contains('open')).toBe(false);
+	});
+
+	it('shows the mini score once the observer reports the scoreboard out of view', async () => {
+		const observer = stubObserver();
+		const { container } = revealed();
+		await waitFor(() => expect(observer.callbacks).toHaveLength(1));
+		observer.callbacks[0]([passed]);
+		await tick();
+		expect(container.querySelector('.mini-score')?.hasAttribute('aria-hidden')).toBe(false);
+		expect(container.querySelector('nav')?.classList.contains('open')).toBe(true);
+	});
+
+	it('hides the mini score again when the scoreboard comes back', async () => {
+		const observer = stubObserver();
+		const { container } = revealed();
+		await waitFor(() => expect(observer.callbacks).toHaveLength(1));
+		observer.callbacks[0]([passed]);
+		await tick();
+		observer.callbacks[0]([back]);
+		await tick();
+		expect(container.querySelector('.mini-score')?.getAttribute('aria-hidden')).toBe('true');
+		expect(container.querySelector('nav')?.classList.contains('open')).toBe(false);
+	});
+
+	it('keeps the mini score hidden without IntersectionObserver', async () => {
+		vi.stubGlobal('IntersectionObserver', undefined);
+		const { container } = revealed();
+		await tick();
+		expect(container.querySelector('.mini-score')?.getAttribute('aria-hidden')).toBe('true');
+	});
+
+	it('stacks the mini score on its own row only on the mobile layout', () => {
+		stubObserver();
+		const mobile = revealed('mobile');
+		expect(mobile.container.querySelector('nav')?.classList.contains('stacked')).toBe(true);
+		mobile.unmount();
+		const desktop = revealed('desktop');
+		expect(desktop.container.querySelector('nav')?.classList.contains('stacked')).toBe(false);
+		desktop.unmount();
+		const none = revealed('mobile', null);
+		expect(none.container.querySelector('nav')?.classList.contains('stacked')).toBe(false);
+	});
+
+	it('leaves the mini text as today without reveal', () => {
+		const observer = stubObserver();
+		const withScore = render(SectionTabs, { props: { tabs, miniScore } });
+		expect(withScore.container.querySelector('.mini-score')?.hasAttribute('aria-hidden')).toBe(
+			false
+		);
+		withScore.unmount();
+		const withText = render(SectionTabs, { props: { tabs, mini: 'OKC 57–25' } });
+		const nav = withText.container.querySelector('nav');
+		expect(withText.container.querySelector('.mini-score')?.hasAttribute('aria-hidden')).toBe(
+			false
+		);
+		expect(nav?.classList.contains('reveal')).toBe(false);
+		expect(nav?.classList.contains('stacked')).toBe(false);
+		expect(observer.created).toBe(0);
+	});
+
+	it.each([
+		[false, true],
+		[true, false]
+	])('animates the change when reduced motion is %s: %s', async (reduced, animates) => {
+		const observer = stubObserver();
+		const animate = vi.fn(() => ({ cancel: vi.fn() }));
+		Object.assign(HTMLElement.prototype, { animate });
+		vi.stubGlobal('matchMedia', (query: string) => ({
+			matches: reduced && query === '(prefers-reduced-motion: reduce)'
+		}));
+		revealed();
+		await waitFor(() => expect(observer.callbacks).toHaveLength(1));
+		observer.callbacks[0]([passed]);
+		await tick();
+		expect(animate.mock.calls.length > 0).toBe(animates);
+		Reflect.deleteProperty(HTMLElement.prototype, 'animate');
+	});
+
+	it('keeps the bar height in the flow while the mobile row is open', () => {
+		const source = readFileSync(
+			join(import.meta.dirname, '../../../src/lib/components/SectionTabs.svelte'),
+			'utf8'
+		);
+		const open = /\.stacked\.open\s*\{([^}]*)\}/.exec(source)?.[1] ?? '';
+		expect(open).toMatch(/padding-top:\s*var\(--mini-score-row-height-mobile\);/);
+		expect(open).toMatch(/margin-bottom:\s*calc\(-1 \* var\(--mini-score-row-height-mobile\)\);/);
+		const hidden = /\.reveal \.mini-score\s*\{([^}]*)\}/.exec(source)?.[1] ?? '';
+		expect(hidden).toMatch(/pointer-events:\s*none;/);
 	});
 });

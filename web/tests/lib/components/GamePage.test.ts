@@ -16,6 +16,8 @@
 // - The not-found row in Spanish with a Spanish browser preference
 // - A past game (fixtures/game-detail-past.json): the season label next to the date, the side with a code links to its team page, the guest side is not a link, and no hidden section renders a heading or an empty section
 // - The team logos: the feed logo in the header box on both layouts, the code for a null logo
+// - The mini score is hidden at load, observes the scoreboard (grid on desktop, rows on mobile) and shows once it has passed
+// - Mobile sections get the mobile scroll margin
 //
 // What is covered:
 // - Each page state, drawn from props with no fetch
@@ -24,9 +26,10 @@
 //
 // SEE: web/src/lib/components/GamePage.svelte
 import type { ResolvedPathname } from '$app/types';
-import { render, screen } from '@testing-library/svelte';
+import { render, screen, waitFor } from '@testing-library/svelte';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { tick } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import GamePage from '../../../src/lib/components/GamePage.svelte';
@@ -534,5 +537,72 @@ describe('GamePage team logos', () => {
 		}
 		const { container } = show({ kind: 'ready', view });
 		expect(container.querySelector('.team-monogram.header img')).toBeNull();
+	});
+});
+
+describe('GamePage mini score', () => {
+	const showLayout = (layout: 'desktop' | 'mobile') =>
+		render(GamePage, {
+			props: {
+				state: { kind: 'ready', view } as GamePageState,
+				allGamesHref: HOME,
+				standingsHref: STANDINGS,
+				layout,
+				teamHref,
+				playerHref
+			}
+		});
+
+	afterEach(() => {
+		vi.unstubAllGlobals();
+	});
+
+	it.each(['desktop', 'mobile'] as const)(
+		'hides the mini score at the top of a live game on the %s layout',
+		(layout) => {
+			const { container } = showLayout(layout);
+			expect(container.querySelector('.mini-score')?.getAttribute('aria-hidden')).toBe('true');
+		}
+	);
+
+	it.each([
+		['desktop', '.scoreboard'],
+		['mobile', '.rows']
+	] as const)(
+		'observes the scoreboard on the %s layout and shows the mini score once it has passed',
+		async (layout, selector) => {
+			const observed: Element[] = [];
+			const callbacks: ((entries: unknown[]) => void)[] = [];
+			class FakeObserver {
+				constructor(callback: (entries: unknown[]) => void) {
+					callbacks.push(callback);
+				}
+				observe = (node: Element) => observed.push(node);
+				disconnect = vi.fn();
+			}
+			vi.stubGlobal('IntersectionObserver', FakeObserver);
+			const { container } = showLayout(layout);
+			await waitFor(() => expect(observed).toHaveLength(1));
+			expect(observed[0]).toBe(container.querySelector(selector));
+			callbacks[0]([{ isIntersecting: false, boundingClientRect: { top: -10 } }]);
+			await tick();
+			expect(container.querySelector('.mini-score')?.hasAttribute('aria-hidden')).toBe(false);
+		}
+	);
+
+	it('gives mobile sections the mobile scroll margin', () => {
+		expect(showLayout('mobile').container.querySelector('.sections')?.classList).toContain(
+			'mobile'
+		);
+		document.body.innerHTML = '';
+		expect(showLayout('desktop').container.querySelector('.sections')?.classList).not.toContain(
+			'mobile'
+		);
+		const source = readFileSync(
+			join(import.meta.dirname, '../../../src/lib/components/GamePage.svelte'),
+			'utf8'
+		);
+		const block = /\.sections\.mobile section\s*\{([^}]*)\}/.exec(source)?.[1] ?? '';
+		expect(block).toMatch(/scroll-margin-top:\s*var\(--detail-section-scroll-margin-mobile\);/);
 	});
 });
