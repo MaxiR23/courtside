@@ -14,6 +14,7 @@
 // - The decoration inside the title block's text wrapper (desktop and mobile), before the tag row; the champion's city and name
 // - The season tag when the header has one; the select on desktop (after the nav) and mobile (full), its onChange; none without the prop
 // - Spanish copy
+// - Mobile: the tag row, logo, h1 and team row in flow (tag row first), only the outline and glow absolute, no min-height, the tag row at the first-line offset under the nav, the champion name on its own line (stylesheet source)
 //
 // What is covered:
 // - Each state the header shows, drawn from props with no fetch
@@ -372,5 +373,95 @@ describe('CupHeader decoration logo', () => {
 		const second = render(CupHeader, { props: props({ header: complete(club()) }) });
 		expect(second.container.querySelector('.title-text > .decor .logo')).toBeNull();
 		expect(second.container.querySelector('.outline')?.textContent).toBe('QXA');
+	});
+});
+
+describe('CupHeader mobile layout', () => {
+	const source = readFileSync(
+		join(__dirname, '..', '..', '..', 'src', 'lib', 'components', 'CupHeader.svelte'),
+		'utf8'
+	);
+	const style = source.slice(source.indexOf('<style>'));
+	const rule = (selector: string) =>
+		(
+			new RegExp(
+				'\\n\\t' + selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ' \\{([^}]*)\\}'
+			).exec(style)?.[1] ?? ''
+		).replace(/\s+/g, ' ');
+	const mobile = () =>
+		render(CupHeader, {
+			props: props({
+				header: complete(club({ colors: { primary: '#111111', secondary: '#222222' } })),
+				layout: 'mobile'
+			})
+		});
+
+	it('stacks the tag row, the logo, the h1 and the team row in flow', () => {
+		const { container } = mobile();
+		const kids = Array.from(container.querySelector('.title-text')?.children ?? []).map((el) =>
+			el.classList.contains('decor')
+				? 'decor'
+				: el.classList.contains('tag-row')
+					? 'tag-row'
+					: el.tagName
+		);
+		expect(kids).toEqual(['decor', 'tag-row', 'H1', 'DIV']);
+		expect(
+			container.querySelector('.team-row')?.parentElement?.classList.contains('title-text')
+		).toBe(true);
+		const block = container.querySelector('.title-block');
+		const timeline = container.querySelector('.title-area > ol.cup-timeline');
+		expect(block && timeline && block.compareDocumentPosition(timeline)).toBe(
+			Node.DOCUMENT_POSITION_FOLLOWING
+		);
+		expect(rule('.mobile .tag-row')).toContain('order: -1');
+		const decor = rule('.mobile .decor');
+		expect(decor).toContain('position: relative');
+		expect(decor).toContain('align-self: flex-end');
+		expect(decor).toContain('right: var(--cup-header-logo-right-mobile)');
+		expect(decor).toContain('transform: none');
+	});
+
+	it('keeps only the outline and the glow absolute on mobile', () => {
+		expect(style).not.toMatch(/\.mobile[^{]*\{[^}]*position: absolute/);
+		expect(style).not.toContain('.mobile .title-text');
+		expect(rule('.mobile .logo')).toContain('position: relative');
+		expect(rule('.glow')).toContain('position: absolute');
+		expect(rule('.outline')).toContain('position: absolute');
+	});
+
+	it('drops the mobile min-height', () => {
+		expect(rule('.mobile .title-block')).toContain('min-height: 0');
+		expect(source).not.toContain('--cup-header-title-min-height-mobile');
+	});
+
+	it('puts the tag row at the first-line offset under the nav', () => {
+		expect(rule('.mobile .title-area')).toContain(
+			'margin-top: calc(var(--cup-header-first-line-offset-mobile) - var(--cup-header-gap))'
+		);
+		expect(rule('.content')).toContain('gap: var(--cup-header-gap)');
+	});
+
+	it('puts the champion name on its own line', () => {
+		const { container } = mobile();
+		const kids = Array.from(container.querySelector('.team-row')?.children ?? []).map((el) =>
+			['bar', 'team-label', 'team-name'].find((c) => el.classList.contains(c))
+		);
+		expect(kids).toEqual(['bar', 'team-label', 'team-name']);
+		expect(rule('.mobile .team-name')).toContain('flex-basis: 100%');
+	});
+
+	it('keeps the long state line in the tag row', () => {
+		preferLanguages(['es-ES']);
+		const source = feed();
+		source.groupGamesPlayed = 60;
+		const { container } = render(CupHeader, {
+			props: props({ layout: 'mobile', header: view(source).header })
+		});
+		expect(container.querySelector('.tag-row .state-line')?.textContent?.trim()).toBe(
+			'Fase de grupos · 60 de 60 partidos jugados'
+		);
+		expect(rule('.tag-row,\n\t.season-line')).not.toBe('');
+		expect(style).toMatch(/\.tag-row,\s*\.season-line \{[^}]*flex-wrap: wrap/);
 	});
 });

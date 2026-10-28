@@ -165,8 +165,10 @@
 	}
 
 	.mobile .decor {
+		position: relative;
 		right: var(--cup-header-logo-right-mobile);
 		top: 0;
+		align-self: flex-end;
 		width: var(--cup-header-logo-size-mobile);
 		height: var(--cup-header-logo-size-mobile);
 		transform: none;
@@ -216,6 +218,12 @@
 		filter: var(--cup-header-logo-shadow);
 	}
 
+	.mobile .logo {
+		position: relative;
+		display: block;
+		height: 100%;
+	}
+
 	.content {
 		position: relative;
 		display: flex;
@@ -250,18 +258,12 @@
 		max-width: var(--cup-header-title-max-width);
 	}
 
-	.mobile .title-text {
-		position: static;
-	}
-
 	.mobile .title-block {
-		min-height: var(--cup-header-title-min-height-mobile);
+		min-height: 0;
 	}
 
 	.mobile .tag-row {
-		position: absolute;
-		top: 0;
-		left: 0;
+		order: -1;
 	}
 
 	.tag-row,
@@ -337,6 +339,7 @@
 
 	.mobile .team-name {
 		font-size: var(--cup-champion-name-size-mobile);
+		flex-basis: 100%;
 	}
 
 	.title-area {
@@ -344,6 +347,10 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--cup-header-gap);
+	}
+
+	.mobile .title-area {
+		margin-top: calc(var(--cup-header-first-line-offset-mobile) - var(--cup-header-gap));
 	}
 
 	.cup-timeline {
