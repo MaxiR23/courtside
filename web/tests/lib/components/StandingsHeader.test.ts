@@ -10,6 +10,7 @@
 // - Spanish copy
 // - A past header shows the single season tag, without the outlined season box
 // - The season tag when the header has one; the select on desktop and mobile, with no header, and its onChange; none without the prop
+// - On mobile the first block under the nav carries first-line in every state, the blocks after it do not
 //
 // What is covered:
 // - Each state the header shows, drawn from props with no fetch
@@ -181,5 +182,22 @@ describe('StandingsHeader season selector and tag', () => {
 	it('draws no select without the prop', () => {
 		render(StandingsHeader, { props: props() });
 		expect(screen.queryByRole('combobox')).toBeNull();
+	});
+
+	it('puts the first line under the nav on mobile', () => {
+		const first = (c: HTMLElement) => c.querySelector('nav.nav-row')?.nextElementSibling;
+		const a = render(StandingsHeader, { props: props({ layout: 'mobile' }) });
+		expect(a.container.querySelector('header')?.classList.contains('mobile')).toBe(true);
+		expect(first(a.container)?.matches('.columns.first-line')).toBe(true);
+		expect(a.container.querySelector('.intro h1')?.classList.contains('first-line')).toBe(false);
+		a.unmount();
+		const b = render(StandingsHeader, {
+			props: props({ layout: 'mobile', header: null, loading: true })
+		});
+		expect(first(b.container)?.matches('h1.first-line')).toBe(true);
+		expect(b.container.querySelector('.bones')?.classList.contains('first-line')).toBe(false);
+		b.unmount();
+		const c = render(StandingsHeader, { props: props({ layout: 'desktop' }) });
+		expect(c.container.querySelector('header')?.classList.contains('mobile')).toBe(false);
 	});
 });

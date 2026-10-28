@@ -13,6 +13,7 @@
 // - The skeleton while loading, and only the nav and the title without a header
 // - The season tag when the header has one, with no live dot or live stats on an after header; the select on desktop and mobile (full), its onChange
 // - No guest-rule text, headline, story or ticker
+// - On mobile the content starts with the hero, or the title with no header
 //
 // What is covered:
 // - Each state the header shows, drawn from the recorded feeds
@@ -339,5 +340,13 @@ describe('AllStarHeader season selector and tag', () => {
 	it('draws no select without the prop', () => {
 		render_();
 		expect(screen.queryByRole('combobox')).toBeNull();
+	});
+
+	it('starts the content with the first line on mobile', () => {
+		const a = show('live', 'mobile');
+		expect(a.container.querySelector('.content')?.firstElementChild?.matches('.hero')).toBe(true);
+		a.unmount();
+		const b = show(null, 'mobile');
+		expect(b.container.querySelector('.content')?.firstElementChild?.matches('h1')).toBe(true);
 	});
 });

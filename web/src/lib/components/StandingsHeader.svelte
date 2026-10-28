@@ -34,7 +34,11 @@
 	}: Props = $props();
 </script>
 
-<header class="standings-header" aria-busy={loading && !header ? 'true' : undefined}>
+<header
+	class="standings-header"
+	class:mobile={layout === 'mobile'}
+	aria-busy={loading && !header ? 'true' : undefined}
+>
 	<div class="grid-bg" aria-hidden="true"></div>
 	<div class="content">
 		<NavRow page="standings" gamesHref={allGamesHref} {standingsHref} {layout} />
@@ -43,7 +47,7 @@
 		{/if}
 
 		{#if header}
-			<div class="columns">
+			<div class="columns first-line">
 				<div class="intro">
 					<div class="season-line">
 						{#if !header.tag}<StatusTag text={header.season} accent />{/if}
@@ -75,7 +79,7 @@
 				</div>
 			</div>
 		{:else}
-			<h1>{m.standings_title()}</h1>
+			<h1 class="first-line">{m.standings_title()}</h1>
 			{#if loading}
 				<div class="bones" aria-hidden="true" use:play={shimmer}>
 					<span class="bone tag-bone"></span>
@@ -113,6 +117,10 @@
 		max-width: var(--content-max-width);
 		margin: 0 auto;
 		padding: var(--game-list-gap) var(--side-padding) var(--panel-section-gap);
+	}
+
+	.mobile .content:has(> .first-line) > :global(.nav-row) {
+		margin-bottom: calc(var(--header-first-line-offset-mobile) - var(--panel-section-gap));
 	}
 
 	.columns {

@@ -67,7 +67,7 @@ Replaces the content of `CupHeader`. The nav above and everything below stay as 
   - The H1 "NBA Cup" at `clamp(56px, 9vw, 150px)`, line-height .82.
   - The team row: a 44x6 bar split between the team's primary and secondary colors, the label (11px, accent light) and the team's city and name (30px, uppercase, for example "New York Knicks"), the name linking to the team page.
 - **Stage timeline:** an `<ol>` with `repeat(auto-fit, minmax(min(100%, 170px), 1fr))`, column gap 20px. Each step has a top border with 14px top padding, the name (19px, .06em, uppercase), the dates plus a fixed note (12.5px, muted) and the status (11px, .14em, uppercase). The notes: group play "· 4 games per team", quarterfinals "· Higher seed hosts", semifinals and championship "· {city}" from their game when known. Complete: a 1px accent border, the name in ink, "Complete" muted. In progress: a 2px accent border, the name in ink, "In progress" in accent light. Next and upcoming: a 1px ink 18% border, the name and the status muted.
-- **Mobile (under 680px):** the grid is 44px. The title block has no min-height and its contents are in normal flow, top to bottom: the tag row (the year or season tag and the state text, which may wrap) at `--cup-header-first-line-offset-mobile` (0px, the home hero's distance from the nav to its first line) under the nav; the 150px logo at the right (`right: 28px`), with the 130px outline and the 280px glow centered on it and behind it; the H1 84px; the team row on two lines, the bar 32x5 and the label 10px on the first and the name 22px on the second; then the timeline 2x2 with gap `16px 14px`, names 16px, dates 12px, status 10px. The rows of the title block are 18px apart (`--cup-header-title-gap`). Only the outline and the glow are absolutely positioned.
+- **Mobile (under 680px):** the grid is 44px. The title block has no min-height and its contents are in normal flow, top to bottom: the tag row (the year or season tag and the state text, which may wrap) at `--header-first-line-offset-mobile` (0px, `docs/design.md`, "Spacing") under the nav; the 150px logo at the right (`right: 28px`), with the 130px outline and the 280px glow centered on it and behind it; the H1 84px; the team row on two lines, the bar 32x5 and the label 10px on the first and the name 22px on the second; then the timeline 2x2 with gap `16px 14px`, names 16px, dates 12px, status 10px. The rows of the title block are 18px apart (`--cup-header-title-gap`). Only the outline and the glow are absolutely positioned.
 
 ### States
 
@@ -256,7 +256,6 @@ To add to `web/src/lib/styles/tokens.css` in the implementing issue. Values not 
 | `--cup-header-outline-alpha` | .35 | Outline stroke |
 | `--cup-header-logo-size` | 300px | Header logo (150px on mobile) |
 | `--cup-header-title-min-height` | 300px | Title block (none on mobile) |
-| `--cup-header-first-line-offset-mobile` | 0px | Mobile: from the nav row to the tag row, the home hero's nav-to-first-line distance |
 | `--cup-timeline-min` | 170px | Timeline step min width |
 | `--cup-tree-gap` | 6px | Mobile bracket grid gap |
 | `--cup-tree-card-border` | ink at 16% | Mobile bracket card border |

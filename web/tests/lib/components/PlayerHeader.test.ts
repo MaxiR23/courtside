@@ -12,6 +12,7 @@
 // - The season tag when the header has one; the select on desktop and mobile, with no header, and its onChange; none without the prop
 // - A null status draws no status tag
 // - The team mark: the feed logo before the code tag, the monogram for a null logo and the season code of a past team, none without a team
+// - On mobile the first block under the nav carries first-line in the header, loading and season tag states; the blocks after it do not
 //
 // What is covered:
 // - Each state, drawn from props with no fetch
@@ -295,5 +296,32 @@ describe('PlayerHeader team mark', () => {
 	it('draws no mark without a team', () => {
 		const { container } = show({ header });
 		expect(container.querySelector('.tags .team-monogram')).toBeNull();
+	});
+
+	it('puts the first line under the nav on mobile', () => {
+		const first = (c: HTMLElement) => c.querySelector('nav.nav-row')?.nextElementSibling;
+		const base = {
+			allGamesHref: HOME,
+			standingsHref: STANDINGS,
+			layout: 'mobile' as const
+		};
+		const a = render(PlayerHeader, { props: { ...base, header } });
+		expect(a.container.querySelector('header')?.classList.contains('mobile')).toBe(true);
+		expect(first(a.container)?.matches('.top.first-line')).toBe(true);
+		expect(a.container.querySelector('.stats')?.classList.contains('first-line')).toBe(false);
+		a.unmount();
+		const b = render(PlayerHeader, { props: { ...base, header: null, loading: true } });
+		expect(first(b.container)?.matches('.top.skeleton.first-line')).toBe(true);
+		expect(b.container.querySelector('.cells.skeleton')?.classList.contains('first-line')).toBe(
+			false
+		);
+		b.unmount();
+		const c = render(PlayerHeader, {
+			props: { ...base, header: null, seasonTag: 'Season 2022-23' }
+		});
+		expect(first(c.container)?.matches('div.first-line')).toBe(true);
+		c.unmount();
+		const d = render(PlayerHeader, { props: { ...base, header, layout: 'desktop' as const } });
+		expect(d.container.querySelector('header')?.classList.contains('mobile')).toBe(false);
 	});
 });

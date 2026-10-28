@@ -32,13 +32,17 @@
 	}: Props = $props();
 </script>
 
-<header class="day-header" aria-busy={loading && !view ? 'true' : undefined}>
+<header
+	class="day-header"
+	class:mobile={layout === 'mobile'}
+	aria-busy={loading && !view ? 'true' : undefined}
+>
 	<div class="grid-bg" aria-hidden="true"></div>
 	<div class="content">
 		<NavRow page="detail" gamesHref={allGamesHref} {standingsHref} {layout} />
 
 		{#if view}
-			<div class="title-row">
+			<div class="title-row first-line">
 				<div class="arrows">
 					{#if previousHref}
 						<a class="arrow" href={previousHref} rel="prev" aria-label={m.past_day_prev()}>
@@ -60,7 +64,7 @@
 				{/if}
 			</div>
 		{:else if loading}
-			<div class="skeleton" aria-hidden="true" use:play={shimmer}>
+			<div class="skeleton first-line" aria-hidden="true" use:play={shimmer}>
 				<span class="bone title-bone"></span>
 				<span class="bone meta-bone"></span>
 			</div>
@@ -91,6 +95,10 @@
 		max-width: var(--content-max-width);
 		margin: 0 auto;
 		padding: var(--game-list-gap) var(--side-padding) var(--panel-section-gap);
+	}
+
+	.mobile .content:has(> .first-line) > :global(.nav-row) {
+		margin-bottom: calc(var(--header-first-line-offset-mobile) - var(--panel-section-gap));
 	}
 
 	.title-row {

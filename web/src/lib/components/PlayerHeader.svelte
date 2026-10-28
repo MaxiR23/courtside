@@ -42,7 +42,11 @@
 	const photo = $derived(header?.photo && header.photo !== failedPhoto ? header.photo : null);
 </script>
 
-<header class="player-header" aria-busy={loading && !header ? 'true' : undefined}>
+<header
+	class="player-header"
+	class:mobile={layout === 'mobile'}
+	aria-busy={loading && !header ? 'true' : undefined}
+>
 	<div class="grid-bg" aria-hidden="true"></div>
 	<div class="content">
 		<NavRow page="detail" gamesHref={allGamesHref} {standingsHref} {layout} />
@@ -51,7 +55,7 @@
 		{/if}
 
 		{#if header}
-			<div class="top">
+			<div class="top first-line">
 				<div class="text">
 					<div class="tags">
 						{#if header.team}<TeamMark
@@ -101,7 +105,7 @@
 				</div>
 			{/if}
 		{:else if loading}
-			<div class="top skeleton" aria-hidden="true" use:play={shimmer}>
+			<div class="top first-line skeleton" aria-hidden="true" use:play={shimmer}>
 				<div class="text">
 					<span class="bone tag-bone"></span>
 					<span class="bone name-bone"></span>
@@ -114,7 +118,7 @@
 				{/each}
 			</div>
 		{:else if seasonTag}
-			<div><SeasonTag text={seasonTag} /></div>
+			<div class="first-line"><SeasonTag text={seasonTag} /></div>
 		{/if}
 		{#if seasonSelect && layout === 'mobile'}
 			<div class="season-row"><SeasonSelect {...seasonSelect} full /></div>
@@ -145,6 +149,10 @@
 		max-width: var(--content-max-width);
 		margin: 0 auto;
 		padding: var(--game-list-gap) var(--side-padding) var(--panel-section-gap);
+	}
+
+	.mobile .content:has(> .first-line) > :global(.nav-row) {
+		margin-bottom: calc(var(--header-first-line-offset-mobile) - var(--panel-section-gap));
 	}
 
 	.top {

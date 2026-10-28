@@ -204,6 +204,7 @@
 
 	.mobile .content {
 		padding-inline: var(--allstar-side-padding-mobile);
+		padding-top: var(--header-first-line-offset-mobile);
 	}
 
 	.hero {

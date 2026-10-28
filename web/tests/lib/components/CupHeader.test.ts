@@ -14,7 +14,7 @@
 // - The decoration inside the title block's text wrapper (desktop and mobile), before the tag row; the champion's city and name
 // - The season tag when the header has one; the select on desktop (after the nav) and mobile (full), its onChange; none without the prop
 // - Spanish copy
-// - Mobile: the tag row, logo, h1 and team row in flow (tag row first), only the outline and glow absolute, no min-height, the tag row at the first-line offset under the nav, the champion name on its own line (stylesheet source)
+// - Mobile: the tag row, logo, h1 and team row in flow (tag row first), only the outline and glow absolute, no min-height, the tag row at the first-line offset under the nav (the shared token, on the first-line marker, also on the title with no header), the champion name on its own line (stylesheet source)
 //
 // What is covered:
 // - Each state the header shows, drawn from props with no fetch
@@ -436,10 +436,25 @@ describe('CupHeader mobile layout', () => {
 	});
 
 	it('puts the tag row at the first-line offset under the nav', () => {
-		expect(rule('.mobile .title-area')).toContain(
-			'margin-top: calc(var(--cup-header-first-line-offset-mobile) - var(--cup-header-gap))'
+		expect(rule('.mobile .first-line')).toContain(
+			'margin-top: calc(var(--header-first-line-offset-mobile) - var(--cup-header-gap))'
 		);
 		expect(rule('.content')).toContain('gap: var(--cup-header-gap)');
+		const withHeader = render(CupHeader, { props: props({ layout: 'mobile' }) });
+		expect(
+			withHeader.container.querySelector('.title-area')?.classList.contains('first-line')
+		).toBe(true);
+		withHeader.unmount();
+		const bare = render(CupHeader, { props: props({ layout: 'mobile', header: null }) });
+		expect(bare.container.querySelector('h1')?.classList.contains('first-line')).toBe(true);
+		bare.unmount();
+		const tagged = render(CupHeader, {
+			props: props({ layout: 'mobile', header: null, seasonTag: '2025-26' })
+		});
+		expect(tagged.container.querySelector('h1')?.classList.contains('first-line')).toBe(true);
+		const line = tagged.container.querySelector('.season-line');
+		expect(line).not.toBeNull();
+		expect(line?.classList.contains('first-line')).toBe(false);
 	});
 
 	it('puts the champion name on its own line', () => {

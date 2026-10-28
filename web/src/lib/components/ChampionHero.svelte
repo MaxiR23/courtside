@@ -140,6 +140,10 @@
 			var(--playoffs-hero-padding-bottom);
 	}
 
+	.mobile .inner {
+		padding-top: var(--header-first-line-offset-mobile);
+	}
+
 	.main {
 		display: grid;
 		grid-template-columns: repeat(

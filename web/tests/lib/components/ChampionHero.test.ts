@@ -14,6 +14,7 @@
 // - The strip link has no label of its own: it reads "Game {n}, {score}, won/lost" per column; the group keeps its name
 // - The first row on mobile is two lines (title, then tag and state); on desktop one row with the selector last; the rules that do it
 // - The mobile layout keeps the logo, the trophy and the strip
+// - The label row is the first child of the inner block on mobile and the root carries mobile
 //
 // What is covered:
 // - Each state the hero shows, drawn from props with no fetch
@@ -349,5 +350,16 @@ describe('ChampionHero first row lines', () => {
 		expect(declarations('.mobile .line')).toEqual(
 			expect.arrayContaining(['display: flex', 'white-space: nowrap'])
 		);
+	});
+
+	it('puts the label row first in the inner block on mobile', () => {
+		const a = show({ layout: 'mobile' });
+		expect(a.container.querySelector('section')?.classList.contains('mobile')).toBe(true);
+		expect(a.container.querySelector('.inner')?.firstElementChild?.matches('.label-row')).toBe(
+			true
+		);
+		a.unmount();
+		const b = show({ layout: 'desktop' });
+		expect(b.container.querySelector('section')?.classList.contains('mobile')).toBe(false);
 	});
 });

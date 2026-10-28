@@ -103,6 +103,7 @@ The only color besides the neutrals is the steel accent. No team colors, except 
 - Max content width: 1320px.
 - Side padding: `clamp(20px, 4vw, 48px)`.
 - Game list gap: 14px. Day strip gap: `clamp(4px, 1vw, 8px)`. Expanded panel section gap: 36px.
+- Header first line on mobile: `--header-first-line-offset-mobile` (0px). Under 680px every page header puts its first line (tag row, title row or status line, and its loading skeleton) this far below the nav row. It is the home hero's distance from the nav row to its status tag, measured at 390px. Rows below the first line keep their spacing. The home hero sets it by having no gap; the other headers apply the token.
 
 ### Motion
 
@@ -309,6 +310,7 @@ The handoff ("Home — No games today") is a reference, not a spec. Where it dif
 ## Responsive
 
 - Under 680px: the mobile game row, day counts as numbers only, and the hero stacked with the text above the image.
+- Under 680px the first line of every page header sits `--header-first-line-offset-mobile` below the nav row, as on the home.
 - Under 680px the schedule header's game count and freshness label are left-aligned when the header wraps.
 - Every text container wraps. No fixed heights on text.
 - Hit targets are at least 44px.

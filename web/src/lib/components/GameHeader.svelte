@@ -72,13 +72,17 @@
 	</div>
 {/snippet}
 
-<header class="game-header" aria-busy={loading && !header ? 'true' : undefined}>
+<header
+	class="game-header"
+	class:mobile={layout === 'mobile'}
+	aria-busy={loading && !header ? 'true' : undefined}
+>
 	<div class="grid-bg" aria-hidden="true"></div>
 	<div class="content">
 		<NavRow page="detail" gamesHref={allGamesHref} {standingsHref} {layout} />
 
 		{#if header}
-			<p class="status-line">
+			<p class="status-line first-line">
 				{#if header.cupTag}<CupMarkTag text={header.cupTag} />{/if}
 				{#if header.postseasonMark}<PostseasonMark mark={header.postseasonMark} />{/if}
 				{#if header.allStarMark}<AllStarTag
@@ -170,7 +174,7 @@
 				</div>
 			{/if}
 		{:else if loading}
-			<div class="skeleton" aria-hidden="true" use:play={shimmer}>
+			<div class="skeleton first-line" aria-hidden="true" use:play={shimmer}>
 				<span class="bone status-bone"></span>
 				<div class="team-bones">
 					<span class="bone team-bone"></span>
@@ -207,6 +211,10 @@
 		max-width: var(--content-max-width);
 		margin: 0 auto;
 		padding: var(--game-list-gap) var(--side-padding) var(--panel-section-gap);
+	}
+
+	.mobile .content:has(> .first-line) > :global(.nav-row) {
+		margin-bottom: calc(var(--header-first-line-offset-mobile) - var(--panel-section-gap));
 	}
 
 	.status-line {
