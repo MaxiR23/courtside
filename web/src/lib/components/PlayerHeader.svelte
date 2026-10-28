@@ -81,7 +81,7 @@
 					{/if}
 				</div>
 				{#if photo}
-					<div class="photo" use:scrollFade>
+					<div class="photo" use:scrollFade={layout}>
 						<img src={photo} alt="" onerror={() => (failedPhoto = photo)} />
 					</div>
 				{/if}
