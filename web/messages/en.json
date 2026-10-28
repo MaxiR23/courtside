@@ -114,8 +114,9 @@
 			}
 		}
 	],
-	"schedule_updated": "Updated {minutes} min ago",
+	"schedule_updated": "Updated {minutes}m ago",
 	"schedule_updated_recently": "Recently updated",
+	"schedule_updated_hours": "Updated {hours}h ago",
 	"schedule_tap_to_reveal": "Tap to reveal",
 	"schedule_no_games": "No games scheduled for this day.",
 	"feed_unavailable": "Data isn't available right now. Check back later.",

@@ -218,7 +218,7 @@ describe('home page with a feed', () => {
 		).toBeTruthy();
 		expect(screen.getByRole('heading', { level: 2 }).textContent?.trim()).toBe('Sunday, October 4');
 		expect(container.querySelectorAll('ul.games > li')).toHaveLength(6);
-		expect(screen.getByText('Updated 5 min ago')).toBeTruthy();
+		expect(screen.getByText('Updated 5m ago')).toBeTruthy();
 		expect(screen.getByText('Delayed', { selector: '.status-line' })).toBeTruthy();
 		expect(screen.getByText('Postponed', { selector: '.status-line' })).toBeTruthy();
 		expect(screen.getByText('Canceled', { selector: '.status-line' })).toBeTruthy();
