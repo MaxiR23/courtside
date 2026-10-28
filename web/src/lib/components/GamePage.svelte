@@ -79,7 +79,7 @@
 		{#if sections.players}
 			<section id="players">
 				<SectionHead title={m.game_section_players_to_watch()} meta={null} emphasis={false} />
-				<PlayersToWatch players={sections.players} {teamHref} {playerHref} />
+				<PlayersToWatch players={sections.players} {layout} {teamHref} {playerHref} />
 			</section>
 		{/if}
 		{#if sections.score}

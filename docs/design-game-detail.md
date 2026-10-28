@@ -100,6 +100,7 @@ Two cards in a grid `repeat(auto-fit, minmax(min(100%, 380px), 1fr))`. Each card
 
 - Left: the team tag (11px, 1px divider border), the first name (15px, uppercase, muted), the last name (`clamp(24px, 3vw, 38px)`, wrapping only at spaces or hyphens) and the full team name (13px, muted).
 - Right: the player photo, as tall as the card's photo column with its width set by the photo's own proportions and never wider than the column, anchored to the bottom center so the head and shoulders show whole at every width, over a radial glow `rgba(116,157,196,.26)`, with a 1px divider on its left edge. It falls back to the placeholder.
+- Under 680px each card has no columns and no divider, and the team leaders pattern applies: a min height of 180px (`--team-leader-min-height-mobile`), and the photo is a cutout drawn behind the texts through `PlayerAvatar` size `team-leader`. It takes the full card height, is anchored bottom right, is 60% of the card width (`--star-card-cutout-width-mobile`), is never cropped, and sits over the same radial glow. The texts stay bottom left, drawn above the cutout. It falls back to the placeholder.
 
 The stars are the ones the feed carries for the game.
 
@@ -194,5 +195,6 @@ The same footer as the home.
 ## Responsive
 
 - Under 680px: the mobile scoreboard, team codes in the box score toggle, the tabs scrolling horizontally at full width, and the mini score on its own row above them.
+- Under 680px: Players to watch has its own mobile layout, as section 4 describes.
 - Every other section reflows through its auto-fit grid.
 - Hit targets are at least 44px.

@@ -18,6 +18,7 @@
 // - The team logos: the feed logo in the header box on both layouts, the code for a null logo
 // - The mini score is hidden at load, observes the scoreboard (grid on desktop, rows on mobile) and shows once it has passed
 // - Mobile sections get the mobile scroll margin
+// - Players to watch gets the page layout
 //
 // What is covered:
 // - Each page state, drawn from props with no fetch
@@ -589,6 +590,23 @@ describe('GamePage mini score', () => {
 			expect(container.querySelector('.mini-score')?.hasAttribute('aria-hidden')).toBe(false);
 		}
 	);
+
+	it('passes the page layout to players to watch', () => {
+		const showWith = (layout: 'desktop' | 'mobile') =>
+			render(GamePage, {
+				props: {
+					state: { kind: 'ready', view: withSections(full) } as GamePageState,
+					allGamesHref: HOME,
+					standingsHref: STANDINGS,
+					layout,
+					teamHref,
+					playerHref
+				}
+			});
+		expect(showWith('mobile').container.querySelectorAll('#players .card.mobile')).toHaveLength(2);
+		document.body.innerHTML = '';
+		expect(showWith('desktop').container.querySelectorAll('#players .card.mobile')).toHaveLength(0);
+	});
 
 	it('gives mobile sections the mobile scroll margin', () => {
 		expect(showLayout('mobile').container.querySelector('.sections')?.classList).toContain(
