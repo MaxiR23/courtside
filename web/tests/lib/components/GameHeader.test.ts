@@ -18,6 +18,7 @@
 // - The postseason mark first in the status line, before the live badge and the status text, for a scheduled and a live game; none for a regular game; the Cup tag unchanged
 // - The All-Star mark first in the status line of a scheduled game, then the round, the solid tag for the Championship, none without the mark, and no city for a guest side without one
 // - The team logos: the feed logo in the header and header-mobile boxes, a guest drawing its monogram
+// - On mobile the status line and the loading skeleton carry first-line under the nav; the rows after do not
 //
 // What is covered:
 // - Each state the header shows
@@ -498,5 +499,19 @@ describe('GameHeader team logos', () => {
 			expect(boxes[1]!.textContent).toBe('HM');
 			unmount();
 		}
+	});
+
+	it('puts the first line under the nav on mobile', () => {
+		const first = (c: HTMLElement) => c.querySelector('nav.nav-row')?.nextElementSibling;
+		const a = show(scheduled, 'mobile');
+		expect(a.container.querySelector('header')?.classList.contains('mobile')).toBe(true);
+		expect(first(a.container)?.matches('.status-line.first-line')).toBe(true);
+		expect(a.container.querySelector('.rows')?.classList.contains('first-line')).toBe(false);
+		a.unmount();
+		const b = show(null, 'mobile', true);
+		expect(first(b.container)?.matches('.skeleton.first-line')).toBe(true);
+		b.unmount();
+		const c = show(scheduled, 'desktop');
+		expect(c.container.querySelector('header')?.classList.contains('mobile')).toBe(false);
 	});
 });

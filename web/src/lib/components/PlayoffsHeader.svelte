@@ -47,8 +47,12 @@
 	{/if}
 {/snippet}
 
-<header class="playoffs-header" aria-busy={loading && !header ? 'true' : undefined}>
-	<div class="content">
+<header
+	class="playoffs-header"
+	class:mobile={layout === 'mobile'}
+	aria-busy={loading && !header ? 'true' : undefined}
+>
+	<div class="content" class:above-hero={header?.hero != null}>
 		<NavRow page="playoffs" gamesHref={allGamesHref} {standingsHref} {layout} />
 		{#if seasonSelect && layout === 'desktop' && !header?.hero}
 			<div class="season-row"><SeasonSelect {...seasonSelect} /></div>
@@ -56,7 +60,7 @@
 
 		{#if header}
 			{#if !header.hero}
-				<div class="season-line">
+				<div class="season-line first-line">
 					{#if header.tag}<SeasonTag text={header.tag} />{:else}<StatusTag
 							text={header.season}
 							accent
@@ -66,7 +70,7 @@
 				<h1>{m.playoffs_title()}</h1>
 			{/if}
 		{:else}
-			<h1>{m.playoffs_title()}</h1>
+			<h1 class="first-line">{m.playoffs_title()}</h1>
 			{#if loading}
 				<div class="bones" aria-hidden="true" use:play={shimmer}>
 					<span class="bone tag-bone"></span>
@@ -110,6 +114,14 @@
 		max-width: var(--content-max-width);
 		margin: 0 auto;
 		padding: var(--game-list-gap) var(--side-padding) var(--panel-section-gap);
+	}
+
+	.mobile .content:has(> .first-line) > :global(.nav-row) {
+		margin-bottom: calc(var(--header-first-line-offset-mobile) - var(--panel-section-gap));
+	}
+
+	.mobile .above-hero {
+		padding-bottom: 0;
 	}
 
 	.season-line {

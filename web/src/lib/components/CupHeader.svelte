@@ -54,7 +54,7 @@
 		{/if}
 
 		{#if header}
-			<div class="title-area">
+			<div class="title-area first-line">
 				<div class="title-block">
 					<div class="title-text">
 						{#if header.team}
@@ -116,7 +116,7 @@
 				</ol>
 			</div>
 		{:else}
-			<h1>{m.cup_title()}</h1>
+			<h1 class="first-line">{m.cup_title()}</h1>
 			{#if loading}
 				<div class="bones" aria-hidden="true" use:play={shimmer}>
 					<span class="bone tag-bone"></span>
@@ -349,8 +349,8 @@
 		gap: var(--cup-header-gap);
 	}
 
-	.mobile .title-area {
-		margin-top: calc(var(--cup-header-first-line-offset-mobile) - var(--cup-header-gap));
+	.mobile .first-line {
+		margin-top: calc(var(--header-first-line-offset-mobile) - var(--cup-header-gap));
 	}
 
 	.cup-timeline {

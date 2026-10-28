@@ -111,6 +111,7 @@
 	--game-list-gap: 14px;
 	--day-strip-gap: clamp(4px, 1vw, 8px);
 	--panel-section-gap: 36px;
+	--header-first-line-offset-mobile: 0px;
 	--hit-target-size: 44px;
 	--hero-column-min: 440px;
 	--hero-gap: clamp(40px, 6vw, 96px);
@@ -359,7 +360,6 @@
 	--cup-title-size-mobile: 84px;
 	--cup-title-leading: 0.82;
 	--cup-header-gap: 48px;
-	--cup-header-first-line-offset-mobile: 0px;
 	--cup-header-clip-reach: 100vmax;
 	--cup-header-grid-size: 88px;
 	--cup-header-grid-size-mobile: 44px;

@@ -12,6 +12,7 @@
 // - One season tag: the past tag replaces the season, with and without the hero
 // - Four stages draw a four-column strip
 // - Spanish copy
+// - On mobile the first block under the nav carries first-line in every state; the hero mode marks only the nav block above the hero
 //
 // What is covered:
 // - Each state the header shows, drawn from props with no fetch
@@ -209,5 +210,30 @@ describe('PlayoffsHeader season selector and tag', () => {
 	it('draws a five-column strip with five stages', () => {
 		const { container } = show({ header: header('playoffs-picture.json') });
 		expect(container.querySelector('.stage-strip')?.classList.contains('five')).toBe(true);
+	});
+
+	it('puts the first line under the nav on mobile', () => {
+		const first = (c: HTMLElement) => c.querySelector('nav.nav-row')?.nextElementSibling;
+		const a = show({ layout: 'mobile', header: header('playoffs-bracket.json') });
+		expect(a.container.querySelector('header')?.classList.contains('mobile')).toBe(true);
+		expect(first(a.container)?.matches('.season-line.first-line')).toBe(true);
+		expect(a.container.querySelector('h1')?.classList.contains('first-line')).toBe(false);
+		a.unmount();
+		const b = show({ layout: 'mobile', header: null });
+		expect(first(b.container)?.matches('h1.first-line')).toBe(true);
+		b.unmount();
+		const c = show({ layout: 'mobile', header: null, seasonTag: 'Season 2022-23' });
+		expect(first(c.container)?.matches('h1.first-line')).toBe(true);
+		expect(c.container.querySelector('.season-line')?.classList.contains('first-line')).toBe(false);
+		c.unmount();
+		const d = show({ layout: 'mobile', header: header('playoffs-complete.json') });
+		const contents = d.container.querySelectorAll('.content');
+		expect(contents[0]?.classList.contains('above-hero')).toBe(true);
+		expect(contents[0]?.children).toHaveLength(1);
+		expect(contents[0]?.firstElementChild?.matches('nav.nav-row')).toBe(true);
+		expect(contents[1]?.classList.contains('above-hero')).toBe(false);
+		d.unmount();
+		const e = show({ layout: 'desktop', header: header('playoffs-bracket.json') });
+		expect(e.container.querySelector('header')?.classList.contains('mobile')).toBe(false);
 	});
 });

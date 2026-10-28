@@ -11,6 +11,7 @@
 // - The Cup line after the conference line, linking to the Cup page; none without the mark
 // - Every title after the Cup line, one or more, none for null titles, never a link
 // - The season tag when the header has one; the select on desktop and mobile, with no header, and its onChange; none without the prop
+// - On mobile the first block under the nav carries first-line in the header, loading and season tag states
 //
 // What is covered:
 // - Each state the header shows
@@ -362,5 +363,24 @@ describe('TeamHeader logo', () => {
 		const box = container.querySelector('.team-monogram.team');
 		expect(box?.querySelector('img')).toBeNull();
 		expect(box?.textContent).toBe('OKC');
+	});
+
+	it('puts the first line under the nav on mobile', () => {
+		const first = (c: HTMLElement) => c.querySelector('nav.nav-row')?.nextElementSibling;
+		const base = { allGamesHref: HOME, standingsHref: STANDINGS, layout: 'mobile' as const };
+		const a = render(TeamHeader, { props: { ...base, header } });
+		expect(a.container.querySelector('header')?.classList.contains('mobile')).toBe(true);
+		expect(first(a.container)?.matches('.columns.first-line')).toBe(true);
+		a.unmount();
+		const b = render(TeamHeader, { props: { ...base, header: null, loading: true } });
+		expect(first(b.container)?.matches('.columns.skeleton.first-line')).toBe(true);
+		b.unmount();
+		const c = render(TeamHeader, {
+			props: { ...base, header: null, seasonTag: 'Season 2022-23' }
+		});
+		expect(first(c.container)?.matches('div.first-line')).toBe(true);
+		c.unmount();
+		const d = render(TeamHeader, { props: { ...base, header, layout: 'desktop' as const } });
+		expect(d.container.querySelector('header')?.classList.contains('mobile')).toBe(false);
 	});
 });

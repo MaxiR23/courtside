@@ -315,7 +315,7 @@ Same size, letter spacing and truncation as the Cup tag: 11px, .16em, uppercase,
 
 ## Responsive
 
-- Under 680px: the nav is one row with the menu button, the stage strip is 2x2 plus one cell, the hero is compact (logo 230px above the H1, 72px H1), the game tabs and the award cards are snap scrollers (132px and 156px), the leader tabs are chips, the Finals MVP section is one column under 900px and its MVP card stacks the photo above the info panel, and the bracket is the vertical tree with a bottom sheet under 1180px, with no zoom and no sideways scroll. The full series page is the 390px design in a column of at most 720px under 680px, and spans the content width from 680px.
+- Under 680px: the champion hero's label row sits `--header-first-line-offset-mobile` below the nav, the nav is one row with the menu button, the stage strip is 2x2 plus one cell, the hero is compact (logo 230px above the H1, 72px H1), the game tabs and the award cards are snap scrollers (132px and 156px), the leader tabs are chips, the Finals MVP section is one column under 900px and its MVP card stacks the photo above the info panel, and the bracket is the vertical tree with a bottom sheet under 1180px, with no zoom and no sideways scroll. The full series page is the 390px design in a column of at most 720px under 680px, and spans the content width from 680px.
 - Tables scroll horizontally with a sticky first column.
 
 ## New tokens
@@ -329,7 +329,7 @@ To add to `web/src/lib/styles/tokens.css` in the implementing issue. Values not 
 | `--playoffs-hero-grid-size` | 88px | Hero grid background (44px on mobile) |
 | `--playoffs-hero-grid-alpha` | .035 | Hero grid ink opacity |
 | `--playoffs-hero-glow-alpha` | .32 | Hero, MVP photo panel glow of the team color |
-| `--playoffs-hero-padding-top` | `clamp(24px, 3vw, 40px)` | Hero padding top |
+| `--playoffs-hero-padding-top` | `clamp(24px, 3vw, 40px)` | Hero padding top (`--header-first-line-offset-mobile` on mobile, with no padding under the nav) |
 | `--playoffs-hero-logo-size` | 400px | Hero logo, up to (230px on mobile) |
 | `--playoffs-hero-strip-score-size` | `clamp(20px, 2.4vw, 28px)` | Hero game strip score (18px on mobile) |
 | `--playoffs-hero-strip-rule` | ink at 18% | Hero game strip top border |
