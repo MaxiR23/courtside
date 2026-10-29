@@ -65,7 +65,9 @@ describe('WildCardTable', () => {
 
 	it('puts the wild card line right after rank 1 and nowhere else', () => {
 		const { container } = show();
-		const order = [...container.querySelectorAll('.table > div')].map((el) =>
+		const order = [
+			...container.querySelectorAll('.table > div:not(.contents), .table > .contents > div')
+		].map((el) =>
 			el.classList.contains('line') ? 'line' : el.classList.contains('head') ? 'head' : 'row'
 		);
 		expect(order).toEqual(['head', 'row', 'line', 'row', 'row']);

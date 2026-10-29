@@ -32,7 +32,7 @@
 	{#if !detail}
 		<div class="head">
 			<Kicker text={m.panel_highlights_kicker()} />
-			<span class="platform">{platform}</span>
+			<Kicker tone="muted" contents><span class="platform">{platform}</span></Kicker>
 		</div>
 	{/if}
 	{#if videos.length > 0}
@@ -80,14 +80,16 @@
 		<BlueprintFrame>
 			<div class="pending">
 				<p class="pending-text">{m.panel_highlights_pending()}</p>
-				<a class="ghost" href={searchUrl} target="_blank" rel="external noopener noreferrer">
-					{searchLabel}
-					<svg viewBox="0 0 24 24" aria-hidden="true">
-						<path d="M15 3h6v6" />
-						<path d="M10 14 21 3" />
-						<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-					</svg>
-				</a>
+				<Kicker contents
+					><a class="ghost" href={searchUrl} target="_blank" rel="external noopener noreferrer">
+						{searchLabel}
+						<svg viewBox="0 0 24 24" aria-hidden="true">
+							<path d="M15 3h6v6" />
+							<path d="M10 14 21 3" />
+							<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+						</svg>
+					</a></Kicker
+				>
 			</div>
 		</BlueprintFrame>
 	{/if}
@@ -105,13 +107,6 @@
 		justify-content: space-between;
 		align-items: baseline;
 		gap: var(--game-list-gap);
-	}
-
-	.platform {
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-muted);
 	}
 
 	.grid {
@@ -225,9 +220,6 @@
 		align-items: center;
 		gap: var(--day-strip-gap);
 		min-height: var(--hit-target-size);
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
 		text-decoration: none;
 		color: var(--color-accent-light);
 	}

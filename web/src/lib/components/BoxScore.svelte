@@ -5,6 +5,7 @@
 	import TeamMark from '#lib/components/TeamMark.svelte';
 	import { m } from '#lib/paraglide/messages.js';
 	import type { RowLayout } from '#lib/schedule/types.ts';
+	import Kicker from '#lib/components/Kicker.svelte';
 
 	type Props = {
 		box: BoxScoreSection;
@@ -79,17 +80,21 @@
 
 	<div class="scroll">
 		<div class="table" class:no-plus-minus={!box.plusMinus} role="table">
-			<div class="row head" role="row">
-				<span class="cell player" role="columnheader"
-					><span class="hidden">{m.box_player()}</span></span
-				>
-				{#each columns as column (column.key)}
-					<span class="cell" role="columnheader">{column.label()}</span>
-				{/each}
-			</div>
+			<Kicker as="div" tone="muted" contents
+				><div class="row head" role="row">
+					<span class="cell player" role="columnheader"
+						><span class="hidden">{m.box_player()}</span></span
+					>
+					{#each columns as column (column.key)}
+						<span class="cell" role="columnheader">{column.label()}</span>
+					{/each}
+				</div></Kicker
+			>
 			{#each groups as group (group.id)}
 				<div class="row group" role="row">
-					<span class="cell player" role="rowheader">{group.title}</span>
+					<Kicker tone="muted" contents
+						><span class="cell player" role="rowheader">{group.title}</span></Kicker
+					>
 				</div>
 				{#each group.rows as row (row.id)}
 					<div class="row body" role="row">
@@ -110,7 +115,9 @@
 				{/each}
 			{/each}
 			<div class="row group" role="row">
-				<span class="cell player" role="rowheader">{m.box_totals()}</span>
+				<Kicker tone="muted" contents
+					><span class="cell player" role="rowheader">{m.box_totals()}</span></Kicker
+				>
 				{#each columns as column (column.key)}
 					<span class="cell" class:points={column.key === 'points'} role="cell"
 						>{totalOf(team.totals, column.key)}</span
@@ -202,20 +209,6 @@
 		left: 0;
 		background: var(--color-bg);
 		text-align: left;
-	}
-
-	.head {
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-muted);
-	}
-
-	.group .player {
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-muted);
 	}
 
 	.body:hover {

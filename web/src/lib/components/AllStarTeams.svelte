@@ -5,6 +5,7 @@
 	import PlayerAvatar from '#lib/components/PlayerAvatar.svelte';
 	import type { TeamCardView } from '#lib/all-star/types.ts';
 	import type { RowLayout } from '#lib/schedule/types.ts';
+	import Kicker from '#lib/components/Kicker.svelte';
 
 	type Props = {
 		teams: TeamCardView[];
@@ -22,7 +23,9 @@
 				<AllStarSigla team={team.team} size="large" winner={team.champion} />
 				<span class="identity">
 					<span class="name">{team.name}</span>
-					<span class="placement" class:champion={team.champion}>{team.placement}</span>
+					<Kicker tone="muted" contents
+						><span class="placement" class:champion={team.champion}>{team.placement}</span></Kicker
+					>
 				</span>
 				<span class="record">{team.record}</span>
 			</header>
@@ -95,13 +98,6 @@
 		font-size: var(--allstar-team-name-size);
 		text-overflow: ellipsis;
 		white-space: nowrap;
-	}
-
-	.placement {
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-muted);
 	}
 
 	.placement.champion {

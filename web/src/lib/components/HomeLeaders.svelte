@@ -36,11 +36,13 @@
 							<PlayerAvatar name={leader.name} photo={leader.photo} size="leader" />
 						</span>
 						<div class="who">
-							<span class="meta">
-								{leader.category}{#if leader.team}
-									<span aria-hidden="true">·</span>
-									<TeamMark team={leader.team} part="label" />{/if}
-							</span>
+							<Kicker tone="muted" contents
+								><span class="meta">
+									{leader.category}{#if leader.team}
+										<span aria-hidden="true">·</span>
+										<TeamMark team={leader.team} part="label" />{/if}
+								</span></Kicker
+							>
 							<span class="name">{leader.name}</span>
 						</div>
 						<span class="value">{leader.value}</span>
@@ -97,13 +99,6 @@
 	.who {
 		display: grid;
 		min-width: 0;
-	}
-
-	.meta {
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-muted);
 	}
 
 	.name {

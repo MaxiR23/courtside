@@ -3,6 +3,7 @@
 	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
 	import TeamMark from '#lib/components/TeamMark.svelte';
 	import type { RoadCardView } from '#lib/playoffs/types.ts';
+	import Kicker from '#lib/components/Kicker.svelte';
 
 	type Props = {
 		road: RoadCardView[];
@@ -28,7 +29,7 @@
 			<ul class="series">
 				{#each card.series as row (row.key)}
 					<li class="row" class:loss={row.loss}>
-						<span class="round">{row.round}</span>
+						<Kicker tone="muted" contents><span class="round">{row.round}</span></Kicker>
 						<span class="seed">{row.opponentSeed}</span>
 						<span class="opponent">
 							<span class="tile" class:plain={!row.strip}>
@@ -120,10 +121,6 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-muted);
 	}
 
 	.opponent {

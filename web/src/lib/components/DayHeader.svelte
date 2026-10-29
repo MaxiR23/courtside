@@ -9,6 +9,7 @@
 	import type { RowLayout } from '#lib/schedule/types.ts';
 	import { shimmer } from '#lib/skeleton/motion.ts';
 	import SkeletonBone from '#lib/components/SkeletonBone.svelte';
+	import Kicker from '#lib/components/Kicker.svelte';
 
 	type Props = {
 		view: DayView | null; // null: only the nav row, or its skeleton while loading
@@ -58,7 +59,9 @@
 				</div>
 				<div class="titles">
 					<h1 class="title">{view.title}</h1>
-					<p class="meta">{view.seasonLabel} · {view.weekday}</p>
+					<Kicker as="div" tone="muted" contents
+						><p class="meta">{view.seasonLabel} · {view.weekday}</p></Kicker
+					>
 				</div>
 				{#if calendar}
 					<DateButton text={m.past_calendar_title()} datetime={null} {calendar} {layout} />
@@ -126,10 +129,6 @@
 
 	.meta {
 		margin: 0;
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-muted);
 	}
 
 	.arrows {

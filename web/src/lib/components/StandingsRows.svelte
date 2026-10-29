@@ -3,6 +3,7 @@
 	import type { StandingRow, StandingsSection } from '#lib/game/types.ts';
 	import NameLink from '#lib/components/NameLink.svelte';
 	import { m } from '#lib/paraglide/messages.js';
+	import Kicker from '#lib/components/Kicker.svelte';
 
 	type Props = {
 		standings: StandingsSection;
@@ -23,12 +24,14 @@
 
 <div class="scroll">
 	<div class="table" role="table">
-		<div class="row head" role="row">
-			<span class="cell team" role="columnheader">{m.game_standings_team()}</span>
-			{#each columns as column (column.key)}
-				<span class="cell" role="columnheader">{column.label()}</span>
-			{/each}
-		</div>
+		<Kicker as="div" tone="muted" contents
+			><div class="row head" role="row">
+				<span class="cell team" role="columnheader">{m.game_standings_team()}</span>
+				{#each columns as column (column.key)}
+					<span class="cell" role="columnheader">{column.label()}</span>
+				{/each}
+			</div></Kicker
+		>
 		{#each rows as row (row.code)}
 			<div class="row body" role="row">
 				<span class="cell team name" role="rowheader"
@@ -72,13 +75,6 @@
 		left: 0;
 		background: var(--color-bg);
 		text-align: left;
-	}
-
-	.head {
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-muted);
 	}
 
 	.name {

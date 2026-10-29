@@ -52,12 +52,14 @@
 	{#if layout === 'desktop'}
 		<div class="scroll">
 			<div class="table" role="table">
-				<div class="row head" role="row">
-					<span class="cell" role="columnheader">#</span>
-					{#each columns as label, i (i)}
-						<span class="cell" role="columnheader">{label()}</span>
-					{/each}
-				</div>
+				<Kicker as="div" tone="muted" contents
+					><div class="row head" role="row">
+						<span class="cell" role="columnheader">#</span>
+						{#each columns as label, i (i)}
+							<span class="cell" role="columnheader">{label()}</span>
+						{/each}
+					</div></Kicker
+				>
 				{#each rows as row (row.code)}
 					<div class="row body" role="row">
 						<span class="cell rank" class:tied={row.tied} role="cell">{row.rank}</span>
@@ -85,11 +87,13 @@
 			</div>
 		</div>
 	{:else}
-		<div class="labels" aria-hidden="true">
-			<span class="label-team">{m.power_ranking_col_team()}</span>
-			<span class="label-value">{m.power_ranking_col_wl()}</span>
-			<span class="label-value">{m.power_ranking_col_title_chance()}</span>
-		</div>
+		<Kicker as="div" tone="muted" contents
+			><div class="labels" aria-hidden="true">
+				<span class="label-team">{m.power_ranking_col_team()}</span>
+				<span class="label-value">{m.power_ranking_col_wl()}</span>
+				<span class="label-value">{m.power_ranking_col_title_chance()}</span>
+			</div></Kicker
+		>
 		<ul class="list">
 			{#each rows as row (row.code)}
 				{@const open = openCode === row.code}
@@ -180,13 +184,6 @@
 		white-space: nowrap;
 	}
 
-	.head {
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-muted);
-	}
-
 	.body:hover {
 		background: var(--box-row-hover);
 	}
@@ -245,10 +242,6 @@
 			auto minmax(0, 1fr) var(--power-ranking-record-width)
 			var(--power-ranking-title-width) var(--chevron-size);
 		gap: var(--game-list-gap);
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-muted);
 	}
 
 	.label-team {

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { ResolvedPathname } from '$app/types';
+	import Kicker from '#lib/components/Kicker.svelte';
 	import { tick } from 'svelte';
 	import PlayerAvatar from '#lib/components/PlayerAvatar.svelte';
 	import StatusTag from '#lib/components/StatusTag.svelte';
@@ -86,7 +87,7 @@
 		<dl class="stats">
 			{#each stats as stat (stat.label)}
 				<div class="stat">
-					<dt>{stat.label}</dt>
+					<Kicker as="dt" tone="muted" text={stat.label} />
 					<dd>{stat.value}</dd>
 				</div>
 			{/each}
@@ -94,7 +95,7 @@
 		<dl class="facts">
 			{#each facts as fact (fact.label)}
 				<div class="fact">
-					<dt>{fact.label}</dt>
+					<Kicker as="dt" tone="muted" text={fact.label} />
 					<dd>{fact.value ?? NO_VALUE}</dd>
 				</div>
 			{/each}
@@ -193,13 +194,6 @@
 	.fact {
 		grid-template-columns: 1fr 2fr;
 		align-items: baseline;
-	}
-
-	dt {
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-muted);
 	}
 
 	dd {

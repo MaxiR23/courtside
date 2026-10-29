@@ -3,6 +3,7 @@
 </script>
 
 <script lang="ts">
+	import Kicker from '#lib/components/Kicker.svelte';
 	import { formatDate, formatNumber } from '#lib/format/locale.ts';
 	import { m } from '#lib/paraglide/messages.js';
 
@@ -30,13 +31,17 @@
 			aria-current={i === selected ? 'true' : undefined}
 			onclick={() => onSelect(i)}
 		>
-			<span class="weekday" class:today={i === TODAY_INDEX}>
-				{weekday(day.date, i)}
-			</span>
+			<Kicker tone="inherit" contents
+				><span class="weekday" class:today={i === TODAY_INDEX}>
+					{weekday(day.date, i)}
+				</span></Kicker
+			>
 			<span class="number">{dayNumber(day.date)}</span>
-			<span class="count">
-				{count(day.gameCount)}
-			</span>
+			<Kicker tone="muted" contents
+				><span class="count">
+					{count(day.gameCount)}
+				</span></Kicker
+			>
 		</button>
 	{/each}
 </div>
@@ -71,13 +76,6 @@
 		background: var(--color-selected-day);
 	}
 
-	.weekday,
-	.count {
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-	}
-
 	.today {
 		color: var(--color-accent-light);
 	}
@@ -85,9 +83,5 @@
 	.number {
 		font-family: var(--font-heading);
 		font-size: var(--day-number-size);
-	}
-
-	.count {
-		color: var(--color-muted);
 	}
 </style>

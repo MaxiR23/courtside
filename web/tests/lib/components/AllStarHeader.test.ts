@@ -185,7 +185,7 @@ describe('AllStarHeader, after', () => {
 describe('AllStarHeader, live', () => {
 	it('shows the live kicker, All-Star as the title, no score and the live stats', () => {
 		const { container } = show('live');
-		expect(screen.getByText('Live now', { selector: '.kicker' })).toBeTruthy();
+		expect(screen.getByText('Live now', { selector: '.copy > .kicker' })).toBeTruthy();
 		expect(screen.getByRole('heading', { level: 1, name: 'All-Star' })).toBeTruthy();
 		expect(container.querySelector('.score')).toBeNull();
 		expect([...container.querySelectorAll('.stat dt')].map((d) => d.textContent)).toEqual([

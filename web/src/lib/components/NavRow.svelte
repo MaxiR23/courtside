@@ -10,6 +10,7 @@
 	import { formatDate } from '#lib/format/locale.ts';
 	import { m } from '#lib/paraglide/messages.js';
 	import type { RowLayout } from '#lib/schedule/types.ts';
+	import Kicker from '#lib/components/Kicker.svelte';
 
 	type HomeExtras = {
 		today: Date;
@@ -202,7 +203,7 @@
 					aria-pressed={home.spoilerFree}
 					onclick={home.onSpoilerFreeToggle}
 				>
-					{m.nav_spoiler_free()}
+					<Kicker tone="inherit" text={m.nav_spoiler_free()} />
 				</button>
 			{/if}
 		</div>
@@ -382,9 +383,6 @@
 		background: none;
 		border: 0;
 		font: inherit;
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
 		color: var(--color-ink);
 		cursor: pointer;
 	}

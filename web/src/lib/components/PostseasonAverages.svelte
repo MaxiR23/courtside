@@ -2,6 +2,7 @@
 	import PlayerAvatar from '#lib/components/PlayerAvatar.svelte';
 	import { m } from '#lib/paraglide/messages.js';
 	import type { HeadToHeadView } from '#lib/playoffs/types.ts';
+	import Kicker from '#lib/components/Kicker.svelte';
 
 	type Props = { averages: NonNullable<HeadToHeadView['averages']> };
 
@@ -40,12 +41,14 @@
 	</div>
 	<div class="scroll">
 		<div class="table" role="table" aria-label={current?.label}>
-			<div class="row head-row" role="row">
-				<span class="cell player" role="columnheader">{m.playoffs_col_player()}</span>
-				{#each columns as label, i (i)}
-					<span class="cell" role="columnheader">{label()}</span>
-				{/each}
-			</div>
+			<Kicker as="div" tone="muted" contents
+				><div class="row head-row" role="row">
+					<span class="cell player" role="columnheader">{m.playoffs_col_player()}</span>
+					{#each columns as label, i (i)}
+						<span class="cell" role="columnheader">{label()}</span>
+					{/each}
+				</div></Kicker
+			>
 			{#each current?.rows ?? [] as row (row.id)}
 				<div class="row body" role="row">
 					<span class="cell player" role="rowheader">
@@ -144,13 +147,6 @@
 		gap: var(--game-list-gap);
 		min-width: 0;
 		background: var(--color-bg);
-	}
-
-	.head-row {
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-muted);
 	}
 
 	.body:hover {

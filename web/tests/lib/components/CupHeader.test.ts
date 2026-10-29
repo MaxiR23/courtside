@@ -459,9 +459,9 @@ describe('CupHeader mobile layout', () => {
 
 	it('puts the champion name on its own line', () => {
 		const { container } = mobile();
-		const kids = Array.from(container.querySelector('.team-row')?.children ?? []).map((el) =>
-			['bar', 'team-label', 'team-name'].find((c) => el.classList.contains(c))
-		);
+		const kids = Array.from(
+			container.querySelectorAll('.team-row > :not(.contents), .team-row > .contents > *')
+		).map((el) => ['bar', 'team-label', 'team-name'].find((c) => el.classList.contains(c)));
 		expect(kids).toEqual(['bar', 'team-label', 'team-name']);
 		expect(rule('.mobile .team-name')).toContain('flex-basis: 100%');
 	});

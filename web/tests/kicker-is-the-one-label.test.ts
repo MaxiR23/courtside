@@ -1,0 +1,173 @@
+// web/tests/kicker-is-the-one-label.test.ts
+//
+// Cross-cutting test: the small uppercase label (11px, wide letter spacing) lives in Kicker, so no
+// other component or route writes the whole label declaration set on its own rule.
+//
+// Tested:
+// - The components and routes to scan are found, and the scan cannot pass by finding no file
+// - The matcher flags a rule with the whole label set, and passes partial sets and comments
+// - Kicker holds the label set
+// - Every listed exception still holds the label set, so the list never keeps a stale entry
+// - No other component or route holds the label set, except the tags and the info cells
+//
+// What is covered:
+// - Happy path (only Kicker and the listed exceptions hold it), edge cases (a selector list, a
+//   media query, a split set, a comment) and the error case (a rule that holds it is flagged)
+//
+// Run with: cd web && pnpm exec vitest run tests/kicker-is-the-one-label.test.ts
+//
+// SEE: web/src/lib/components/Kicker.svelte
+import { readdirSync, readFileSync } from 'node:fs';
+import { join, relative } from 'node:path';
+import { describe, expect, it } from 'vitest';
+
+const srcDir = join(import.meta.dirname, '../src');
+const routesDir = join(srcDir, 'routes');
+const componentsDir = join(srcDir, 'lib/components');
+
+type Declaration = { property: string; value: string };
+type Rule = { selectors: string[]; declarations: Declaration[] };
+
+function styleOf(source: string): string {
+	const match = source.match(/<style[^>]*>([\s\S]*?)<\/style>/);
+	return (match?.[1] ?? '').replace(/\/\*[\s\S]*?\*\//g, '');
+}
+
+function rulesOf(style: string): Rule[] {
+	const rules: Rule[] = [];
+	for (const match of style.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+		const declarations = (match[2] ?? '')
+			.split(';')
+			.map((part) => part.trim())
+			.filter((part) => part.includes(':'))
+			.map((part) => {
+				const index = part.indexOf(':');
+				return {
+					property: part.slice(0, index).trim().toLowerCase(),
+					value: part.slice(index + 1).trim()
+				};
+			});
+		const selectors = (match[1] ?? '').split(',').map((selector) => selector.trim());
+		rules.push({ selectors, declarations });
+	}
+	return rules;
+}
+
+const LABEL_SET: Declaration[] = [
+	{ property: 'font-size', value: 'var(--label-size)' },
+	{ property: 'letter-spacing', value: 'var(--label-letter-spacing)' },
+	{ property: 'text-transform', value: 'uppercase' }
+];
+
+/** The selectors (joined with ', ') of every rule that holds the whole label set. */
+function labelRules(css: string): string[] {
+	return rulesOf(css)
+		.filter((rule) =>
+			LABEL_SET.every((want) =>
+				rule.declarations.some((d) => d.property === want.property && d.value === want.value)
+			)
+		)
+		.map((rule) => rule.selectors.join(', '));
+}
+
+function svelteFilesUnder(dir: string): string[] {
+	return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+		const path = join(dir, entry.name);
+		if (entry.isDirectory()) return svelteFilesUnder(path);
+		return entry.name.endsWith('.svelte') ? [path] : [];
+	});
+}
+
+const componentFiles = svelteFilesUnder(componentsDir);
+const routeFiles = svelteFilesUnder(routesDir);
+const kickerFile = join(componentsDir, 'Kicker.svelte');
+
+// Until the tag issue and the info cell issue move them into their shared components, these
+// rules hold their own copy of the label set. File name (in lib/components) to selectors.
+const exceptions: Record<string, string[]> = {
+	// Tags
+	'AllStarGameCard.svelte': ['.tag'],
+	'AllStarPlate.svelte': ['.solid-tag'],
+	'AllStarTag.svelte': ['.allstar-tag', '.context'],
+	'AwardCard.svelte': ['.code'],
+	'CupMarkTag.svelte': ['.cup-tag'],
+	'PostseasonMark.svelte': ['.context'],
+	'StakesFlag.svelte': ['.stakes-flag'],
+	'StatusTag.svelte': ['.status-tag'],
+	'TitleBadge.svelte': ['.title-badge'],
+	'TournamentTag.svelte': ['.tournament-tag'],
+	// Info cells
+	'GameHeader.svelte': ['.cell-label'],
+	'PlayerHeader.svelte': ['.cell-label'],
+	'TeamHeader.svelte': ['.cell-label'],
+	'ProfileCells.svelte': ['.label'],
+	'TeamRecord.svelte': ['.label'],
+	'Milestones.svelte': ['.label'],
+	'TeamOverview.svelte': ['.label']
+};
+
+describe('the scan', () => {
+	it('finds the components and routes to check', () => {
+		expect(componentFiles.length).toBeGreaterThanOrEqual(100);
+		expect(routeFiles.some((file) => file.endsWith('+page.svelte'))).toBe(true);
+	});
+});
+
+describe('the matcher', () => {
+	const set =
+		'font-size: var(--label-size); letter-spacing: var(--label-letter-spacing); text-transform: uppercase;';
+
+	it('flags a rule with the whole label set', () => {
+		expect(labelRules(`.a { ${set} }`)).toEqual(['.a']);
+		expect(labelRules(`.a { ${set} color: var(--color-muted); }`)).toEqual(['.a']);
+		expect(labelRules(`.a, .b { ${set} }`)).toEqual(['.a, .b']);
+		expect(labelRules(`@media (min-width: 40rem) { .a { ${set} } }`)).toEqual(['.a']);
+	});
+
+	it('passes a partial set, a split set and a comment', () => {
+		expect(
+			labelRules(
+				'.a { font-size: var(--label-size); letter-spacing: var(--label-letter-spacing); }'
+			)
+		).toEqual([]);
+		expect(
+			labelRules(
+				`.a { font-size: var(--label-size); letter-spacing: var(--label-letter-spacing); } .a { text-transform: uppercase; }`
+			)
+		).toEqual([]);
+		expect(labelRules(styleOf(`<style>/* ${set} */ .a { x: y; }</style>`))).toEqual([]);
+	});
+});
+
+describe('the kicker', () => {
+	it('holds the label set in Kicker', () => {
+		expect(labelRules(styleOf(readFileSync(kickerFile, 'utf8')))).toEqual(['.kicker']);
+	});
+
+	it('every listed exception still holds the label set', () => {
+		const stale: string[] = [];
+		for (const [name, selectors] of Object.entries(exceptions)) {
+			const found = labelRules(styleOf(readFileSync(join(componentsDir, name), 'utf8')));
+			for (const selector of selectors) {
+				if (!found.includes(selector)) stale.push(`${name} ${selector}`);
+			}
+		}
+		expect(stale, `no longer hold the label set, drop from the list: ${stale.join(', ')}`).toEqual(
+			[]
+		);
+	});
+
+	it('is the only place besides the listed tags and info cells that holds the label set', () => {
+		const offenders: string[] = [];
+		for (const file of [...componentFiles, ...routeFiles]) {
+			if (file === kickerFile) continue;
+			const allowed = file.startsWith(componentsDir)
+				? (exceptions[relative(componentsDir, file)] ?? [])
+				: [];
+			for (const selector of labelRules(styleOf(readFileSync(file, 'utf8')))) {
+				if (!allowed.includes(selector)) offenders.push(`${relative(srcDir, file)} ${selector}`);
+			}
+		}
+		expect(offenders, `hold the label set outside Kicker:\n${offenders.join('\n')}`).toEqual([]);
+	});
+});

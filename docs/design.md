@@ -26,6 +26,7 @@ A dark-mode, single-page site with two parts:
 | Component | What it is |
 |---|---|
 | `BlueprintFrame` | The framed box with corner registration marks, used across the site |
+| `Kicker` | The one small label: 11px, .16em, uppercase. Tones: `accent` (accent-light, the default), `muted`, and `inherit` (the surrounding color, for a label in a control or a state-colored cell). It renders as a span, or as a `dt`, an `h3` or a table's `thead` where one is needed; with `contents` it is a span or a div that draws no box and wraps an element that keeps its own layout. A wrapped element that sets its own font size must also set `letter-spacing: var(--label-letter-spacing)`, because otherwise it inherits the spacing computed at 11px. Tags and info cells keep their own label until their shared components exist |
 | `PageContainer` | The one page container: the centered content width and the side padding of every page body and home section |
 | `Hero` | The top section, rotating through the games of the day |
 | `HeroPlayerCard` | The hero player card: the player's cutout over the logo, tricode and glow layers, with the player strip, specified in `docs/design-team-identity.md`, "Right column: player card" |
@@ -75,7 +76,7 @@ The only color besides the neutrals is the steel accent. No team colors, except 
 
 - **Headings:** Barlow Condensed 600, with 400 and 600 loaded from Google Fonts. Usually uppercase.
 - **Body:** Barlow 400 and 500.
-- **Small labels and kickers:** 11px, `letter-spacing: .16em`, uppercase.
+- **Small labels and kickers:** 11px, `letter-spacing: .16em`, uppercase, always drawn by `Kicker`.
 - Scores and stats use `font-variant-numeric: tabular-nums`.
 
 | Element | Size | Notes |

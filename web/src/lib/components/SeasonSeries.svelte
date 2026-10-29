@@ -1,6 +1,7 @@
 <script lang="ts">
 	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
 	import type { SeasonSeriesSection } from '#lib/game/types.ts';
+	import Kicker from '#lib/components/Kicker.svelte';
 
 	type Props = { series: SeasonSeriesSection };
 
@@ -13,7 +14,9 @@
 		<ul>
 			{#each series.games as game, i (i)}
 				<li class="game">
-					<span class="date" class:current={game.current}>{game.date}</span>
+					<Kicker tone="muted" contents
+						><span class="date" class:current={game.current}>{game.date}</span></Kicker
+					>
 					<span class="result"
 						>{#if game.awayPoints === null}{game.awayCode} – {game.homeCode}{:else}<span
 								class="side"
@@ -59,13 +62,6 @@
 		gap: var(--day-strip-gap);
 		padding: var(--game-list-gap) 0;
 		border-bottom: var(--hairline) solid var(--color-row-rule);
-	}
-
-	.date {
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-muted);
 	}
 
 	.current {

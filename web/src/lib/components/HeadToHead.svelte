@@ -2,6 +2,7 @@
 	import MirroredBar from '#lib/components/MirroredBar.svelte';
 	import PostseasonAverages from '#lib/components/PostseasonAverages.svelte';
 	import type { HeadToHeadView } from '#lib/playoffs/types.ts';
+	import Kicker from '#lib/components/Kicker.svelte';
 
 	type Props = { headToHead: HeadToHeadView };
 
@@ -12,7 +13,7 @@
 	<ul class="records">
 		{#each headToHead.records as record (record.team)}
 			<li class="record">
-				<span class="team">{record.team}</span>
+				<Kicker tone="muted" contents><span class="team">{record.team}</span></Kicker>
 				<span class="value">{record.record}</span>
 			</li>
 		{/each}
@@ -46,13 +47,6 @@
 		display: flex;
 		align-items: baseline;
 		gap: var(--game-list-gap);
-	}
-
-	.team {
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-muted);
 	}
 
 	.value {

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { BarView } from '#lib/playoffs/types.ts';
+	import Kicker from '#lib/components/Kicker.svelte';
 
 	// Each half is drawn at its value over the larger of the two; the better side is the feed's.
 	type Props = { bar: BarView };
@@ -9,7 +10,7 @@
 
 <div class="mirrored-bar">
 	<span class="value left">{bar.sides[0].value}</span>
-	<span class="label">{bar.label}</span>
+	<Kicker tone="muted" contents><span class="label">{bar.label}</span></Kicker>
 	<span class="value right">{bar.sides[1].value}</span>
 	{#each bar.sides as side, i (i)}
 		<span class="half {i === 0 ? 'left' : 'right'}">
@@ -32,13 +33,6 @@
 		align-items: baseline;
 		gap: var(--day-strip-gap) var(--game-list-gap);
 		font-variant-numeric: tabular-nums;
-	}
-
-	.label {
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-muted);
 	}
 
 	.value {

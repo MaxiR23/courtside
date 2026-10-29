@@ -8,6 +8,7 @@
 	import { sheetSlide } from '#lib/playoffs/motion.ts';
 	import type { SeriesCardView } from '#lib/playoffs/types.ts';
 	import { keepFocusInside, lockBodyScroll } from '#lib/search/dialog.ts';
+	import Kicker from '#lib/components/Kicker.svelte';
 
 	type Props = {
 		series: SeriesCardView;
@@ -54,7 +55,7 @@
 			</span>
 		{/if}
 		<div class="titles">
-			<span class="round">{series.roundTitle}</span>
+			<Kicker tone="muted" contents><span class="round">{series.roundTitle}</span></Kicker>
 			<h2 class="headline">{series.headline}</h2>
 		</div>
 		<button type="button" class="close" bind:this={closeButton} onclick={onClose}>
@@ -123,13 +124,6 @@
 		flex: 1;
 		gap: var(--hairline);
 		min-width: 0;
-	}
-
-	.round {
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-muted);
 	}
 
 	.headline {

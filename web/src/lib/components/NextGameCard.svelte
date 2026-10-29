@@ -37,7 +37,7 @@
 				<dl class="line">
 					{#each live.line as cell (cell.label)}
 						<div class="stat">
-							<dt>{cell.label}</dt>
+							<Kicker as="dt" text={cell.label} />
 							<dd>{cell.value}</dd>
 						</div>
 					{/each}
@@ -132,13 +132,6 @@
 		gap: var(--day-strip-gap);
 		padding-top: var(--game-list-gap);
 		border-top: var(--hairline) solid var(--color-divider);
-	}
-
-	dt {
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-accent-light);
 	}
 
 	dd {

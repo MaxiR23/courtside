@@ -4,6 +4,7 @@
 	import TeamMark from '#lib/components/TeamMark.svelte';
 	import type { GameCardView } from '#lib/all-star/types.ts';
 	import type { RowLayout } from '#lib/schedule/types.ts';
+	import Kicker from '#lib/components/Kicker.svelte';
 
 	type Props = {
 		card: GameCardView;
@@ -27,10 +28,12 @@
 		{#if card.round}
 			<span class="tag" class:championship={card.round.championship}>{card.round.text}</span>
 		{/if}
-		<span class="status {card.status.kind}">
-			{#if card.status.kind === 'live'}<AllStarLiveDot />{/if}
-			<span class="status-text">{card.status.text}</span>
-		</span>
+		<Kicker tone="muted" contents
+			><span class="status {card.status.kind}">
+				{#if card.status.kind === 'live'}<AllStarLiveDot />{/if}
+				<span class="status-text">{card.status.text}</span>
+			</span></Kicker
+		>
 	</span>
 	<span class="label">{card.label}</span>
 	<span class="rows">
@@ -109,10 +112,6 @@
 		display: inline-flex;
 		align-items: center;
 		gap: var(--day-strip-gap);
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-muted);
 	}
 
 	.status.live {

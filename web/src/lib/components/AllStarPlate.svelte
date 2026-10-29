@@ -8,6 +8,7 @@
 	import type { PlateView } from '#lib/all-star/types.ts';
 	import { m } from '#lib/paraglide/messages.js';
 	import type { RowLayout } from '#lib/schedule/types.ts';
+	import Kicker from '#lib/components/Kicker.svelte';
 
 	type Props = {
 		plate: PlateView;
@@ -29,11 +30,13 @@
 </script>
 
 {#snippet liveBoard(view: LivePlate)}
-	<span class="live-head">
-		<AllStarLiveDot />
-		<span class="live-title">{view.header}</span>
-		{#if view.formatLine}<span class="format">{view.formatLine}</span>{/if}
-	</span>
+	<Kicker contents
+		><span class="live-head">
+			<AllStarLiveDot />
+			<span class="live-title">{view.header}</span>
+			{#if view.formatLine}<span class="format">{view.formatLine}</span>{/if}
+		</span></Kicker
+	>
 	<span class="live-rows">
 		{#each view.rows as row, i (i)}
 			<span class="live-row" class:loser={row.loser}>
@@ -47,8 +50,9 @@
 	</span>
 	<span class="live-foot">
 		<span class="clock">{clock}</span>
-		{#if view.status}<span class="status">{view.status}</span>{/if}
-		{#if view.next}<span class="next">{view.next}</span>{/if}
+		{#if view.status}<Kicker tone="muted" contents><span class="status">{view.status}</span></Kicker
+			>{/if}
+		{#if view.next}<Kicker tone="muted" contents><span class="next">{view.next}</span></Kicker>{/if}
 	</span>
 {/snippet}
 
@@ -70,8 +74,8 @@
 					<span class="photo"
 						><PlayerAvatar name={plate.name} photo={plate.photo} size="allstar-plate" /></span
 					>
-					<span class="label top-left">{m.allstar_mvp_label()}</span>
-					<span class="label top-right">{plate.labels}</span>
+					<Kicker contents><span class="label top-left">{m.allstar_mvp_label()}</span></Kicker>
+					<Kicker contents><span class="label top-right">{plate.labels}</span></Kicker>
 					<span class="bottom">
 						<span class="plate-name">{plate.name}</span>
 						<span class="solid-tag">{m.allstar_mvp_tag()}</span>
@@ -176,10 +180,6 @@
 	.label {
 		position: absolute;
 		top: var(--game-list-gap);
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-accent-light);
 	}
 
 	.top-left {
@@ -314,10 +314,6 @@
 		flex-wrap: wrap;
 		align-items: center;
 		gap: var(--day-strip-gap);
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-accent-light);
 	}
 
 	.format {
@@ -377,14 +373,6 @@
 
 	.mobile .clock {
 		font-size: var(--allstar-live-clock-size-mobile);
-	}
-
-	.status,
-	.next {
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-muted);
 	}
 
 	.next {

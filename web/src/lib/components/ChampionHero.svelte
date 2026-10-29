@@ -9,6 +9,7 @@
 	import type { ChampionHeroView } from '#lib/playoffs/types.ts';
 	import type { RowLayout } from '#lib/schedule/types.ts';
 	import type { SeasonControl } from '#lib/season/types.ts';
+	import Kicker from '#lib/components/Kicker.svelte';
 
 	type Props = {
 		hero: ChampionHeroView;
@@ -47,7 +48,7 @@
 {#snippet columns()}
 	{#each hero.games as game (game.key)}
 		<span class="game" class:loss={!game.win}>
-			<span class="n" aria-hidden="true">{game.label}</span>
+			<Kicker tone="muted" contents><span class="n" aria-hidden="true">{game.label}</span></Kicker>
 			<span class="score" aria-hidden="true">{game.score}</span>
 			<span class="hidden">{game.spoken}</span>
 		</span>
@@ -308,13 +309,6 @@
 		overflow: hidden;
 		clip-path: inset(50%);
 		white-space: nowrap;
-	}
-
-	.n {
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-muted);
 	}
 
 	.score {

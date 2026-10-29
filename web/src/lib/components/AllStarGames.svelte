@@ -110,26 +110,30 @@
 										<span class="play outlined" aria-hidden="true">
 											<svg viewBox="0 0 24 24"><polygon points="6 3 20 12 6 21 6 3" /></svg>
 										</span>
-										<p class="placeholder-text">{detail.placeholder}</p>
+										<Kicker as="div" tone="muted" contents
+											><p class="placeholder-text">{detail.placeholder}</p></Kicker
+										>
 									</div>
 								{/if}
 							</div>
 						</BlueprintFrame>
 						{#if view.editionVideo}
-							<p class="caption">{m.seasons_edition_highlights()}</p>
+							<Kicker as="div" tone="muted" contents
+								><p class="caption">{m.seasons_edition_highlights()}</p></Kicker
+							>
 						{/if}
 					</div>
 					<dl class="venue-strip">
 						{#each detail.venueStrip as item (item.key)}
 							<div class="venue-item">
-								<dt>{item.label}</dt>
+								<Kicker as="dt" tone="muted" text={item.label} />
 								<dd>{item.value}</dd>
 							</div>
 						{/each}
 					</dl>
 					{#if detail.top5.length > 0}
 						<div class="top5">
-							<h3>{m.allstar_top5()}</h3>
+							<Kicker as="h3" text={m.allstar_top5()} />
 							<AllStarTop5 rows={detail.top5} {layout} {playerHref} />
 						</div>
 					{/if}
@@ -144,7 +148,7 @@
 								<span class="score-value">{row.score}</span>
 							</div>
 						{/each}
-						<p class="score-status">{status}</p>
+						<Kicker as="div" tone="muted" contents><p class="score-status">{status}</p></Kicker>
 					</div>
 					{#if detail.leaders && layout === 'desktop'}
 						<Leaders
@@ -259,10 +263,6 @@
 
 	.caption {
 		margin: 0;
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-muted);
 	}
 
 	.mobile .venue-strip {
@@ -361,10 +361,6 @@
 
 	.placeholder-text {
 		margin: 0;
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-muted);
 	}
 
 	.venue-strip {
@@ -384,13 +380,6 @@
 		min-width: 0;
 	}
 
-	dt {
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-muted);
-	}
-
 	dd {
 		margin: 0;
 		font-size: var(--body-size-small);
@@ -399,14 +388,6 @@
 	.top5 {
 		display: grid;
 		gap: var(--day-strip-gap);
-	}
-
-	h3 {
-		margin: 0;
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-accent-light);
 	}
 
 	.scoreboard {
@@ -443,9 +424,5 @@
 
 	.score-status {
 		margin: 0;
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-muted);
 	}
 </style>

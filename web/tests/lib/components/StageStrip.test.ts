@@ -41,7 +41,7 @@ describe('StageStrip', () => {
 	it('shows the four stages in order with label, dates and status', () => {
 		const { container } = render(StageStrip, { props: { stages: stages(), layout: 'desktop' } });
 		const items = [...container.querySelectorAll('li')].map((li) =>
-			[...li.querySelectorAll('span')].map((s) => s.textContent)
+			[...li.querySelectorAll('.label, .dates, .status')].map((s) => s.textContent)
 		);
 		expect(items).toEqual([
 			['Group play', 'Nov 4 – Dec 2', 'In progress'],

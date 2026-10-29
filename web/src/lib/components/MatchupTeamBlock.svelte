@@ -5,6 +5,7 @@
 	import TeamMark from '#lib/components/TeamMark.svelte';
 	import type { MatchupSideView, PathRowView } from '#lib/cup/types.ts';
 	import { m } from '#lib/paraglide/messages.js';
+	import Kicker from '#lib/components/Kicker.svelte';
 
 	type Props = {
 		side: MatchupSideView;
@@ -31,7 +32,7 @@
 	{#if side.team === null}
 		{#if side.label !== null}<p class="label">{side.label}</p>{/if}
 	{:else}
-		<h4 class="heading">{m.cup_path()}</h4>
+		<Kicker as="div" tone="muted" contents><h4 class="heading">{m.cup_path()}</h4></Kicker>
 		<ul class="path">
 			{#each side.path as row (row.gameId)}
 				<li>
@@ -48,7 +49,7 @@
 		{:else}
 			<TeamInjuries injuries={side.injuries} />
 			<div class="roster-head">
-				<h4 class="heading">{m.cup_roster()}</h4>
+				<Kicker as="div" tone="muted" contents><h4 class="heading">{m.cup_roster()}</h4></Kicker>
 				{#if hasStarter}
 					<span class="legend"
 						><span class="starter-mark" aria-hidden="true"></span>{m.cup_starting_five()}</span
@@ -56,7 +57,7 @@
 				{/if}
 			</div>
 			<table class="roster">
-				<thead>
+				<Kicker as="thead" tone="muted">
 					<tr>
 						<th class="number">{m.team_roster_number()}</th>
 						<th class="player"></th>
@@ -65,7 +66,7 @@
 						<th class="stat">{m.box_rebounds()}</th>
 						<th class="stat">{m.box_assists()}</th>
 					</tr>
-				</thead>
+				</Kicker>
 				<tbody>
 					{#each side.roster as player, i (player.id)}
 						<tr>
@@ -119,11 +120,7 @@
 
 	.heading {
 		margin: 0;
-		font-size: var(--label-size);
 		font-weight: var(--font-weight-regular);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-muted);
 	}
 
 	.label {
@@ -198,12 +195,8 @@
 
 	th {
 		padding: var(--hairline) var(--day-strip-gap);
-		font-size: var(--label-size);
 		font-weight: var(--font-weight-regular);
-		letter-spacing: var(--label-letter-spacing);
 		text-align: left;
-		text-transform: uppercase;
-		color: var(--color-muted);
 	}
 
 	td {

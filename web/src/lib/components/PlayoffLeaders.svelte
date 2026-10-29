@@ -2,6 +2,7 @@
 	import PlayerAvatar from '#lib/components/PlayerAvatar.svelte';
 	import { m } from '#lib/paraglide/messages.js';
 	import type { LeaderTabView } from '#lib/playoffs/types.ts';
+	import Kicker from '#lib/components/Kicker.svelte';
 
 	type Props = { tabs: LeaderTabView[] };
 
@@ -36,8 +37,10 @@
 			/>
 			<div class="who">
 				<span class="name">{current.first?.name ?? NO_VALUE}</span>
-				<span class="team">{current.first?.team ?? NO_VALUE}</span>
-				<span class="category">{current.label}</span>
+				<Kicker tone="muted" contents
+					><span class="team">{current.first?.team ?? NO_VALUE}</span></Kicker
+				>
+				<Kicker tone="muted" contents><span class="category">{current.label}</span></Kicker>
 			</div>
 			<span class="value">{current.first?.value ?? NO_VALUE}</span>
 		</div>
@@ -105,14 +108,6 @@
 	.name {
 		font-family: var(--font-heading);
 		font-size: var(--team-name-size);
-	}
-
-	.team,
-	.category {
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-muted);
 	}
 
 	.value {

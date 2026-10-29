@@ -6,6 +6,7 @@
 	import { m } from '#lib/paraglide/messages.js';
 	import type { SeriesGameView } from '#lib/playoffs/types.ts';
 	import type { RowLayout } from '#lib/schedule/types.ts';
+	import Kicker from '#lib/components/Kicker.svelte';
 
 	type Props = {
 		games: SeriesGameView[];
@@ -32,7 +33,7 @@
 				aria-pressed={i === selected}
 				onclick={() => (selected = i)}
 			>
-				<span class="number">{game.tab}</span>
+				<Kicker tone="inherit" contents><span class="number">{game.tab}</span></Kicker>
 				<span class="winner" class:champion={game.championWon}>{game.winner}</span>
 				<span class="tab-score">{game.score}</span>
 				{#if game.overtime}<span class="overtime">{m.playoffs_ot()}</span>{/if}
@@ -65,7 +66,9 @@
 							</button>
 						{/if}
 					{:else}
-						<p class="no-highlights">{m.playoffs_no_highlights()}</p>
+						<Kicker as="div" tone="muted" contents
+							><p class="no-highlights">{m.playoffs_no_highlights()}</p></Kicker
+						>
 					{/if}
 				</div>
 			</BlueprintFrame>
@@ -126,12 +129,6 @@
 	.tab.active {
 		border-bottom: var(--playoffs-tab-rule) solid var(--color-accent);
 		color: var(--color-ink);
-	}
-
-	.number {
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
 	}
 
 	.winner {
@@ -220,10 +217,6 @@
 		display: grid;
 		place-items: center;
 		margin: 0;
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-muted);
 	}
 
 	.details {
