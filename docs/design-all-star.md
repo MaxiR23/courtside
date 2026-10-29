@@ -81,9 +81,9 @@ The hero, drawn by `PageHeader`. On desktop the season selector is on the first 
   - Hero stats: four cells between dividers, value 600 `clamp(26px, 3.4vw, 44px)`, tabular. Cells: Games · Teams · Championship (accent) · Attendance. The values count up over 1400ms ease-out cubic (`--playoffs-count-duration`); a timeout forces the final values after 1600ms (`--playoffs-count-timeout`). The Championship cell shows the score and does not count.
   - Buttons: primary "Every game" (44px, accent fill, ground text), secondary "All-Star MVP" (1px `rgba(235, 232, 227, .25)` border). "Every game" scrolls to `#games`; "All-Star MVP" scrolls to `#mvp`.
 - Right column: the plate, max 520px, aspect `--playoffs-plate-ratio` (26 / 30), 1px divider, 14px accent-light corner marks.
-  - The MVP headshot anchored at the bottom center at 92% of the height, over `radial-gradient(ellipse at 50% 100%, rgba(116, 157, 196, .3), transparent 70%)`. Behind it the jersey number as a watermark in `rgba(235, 232, 227, .06)`; the initials as the fallback when there is no photo.
+  - The MVP headshot in a box 82% of the plate height (`--allstar-plate-cover-height`), the photo covering it anchored at the bottom center (only the shoulder tips cropped at the sides), over `radial-gradient(ellipse at 50% 100%, rgba(116, 157, 196, .3), transparent 70%)`. A gradient from `--color-bg` to transparent over the bottom 34% of the plate (`--allstar-plate-scrim`, `--allstar-plate-scrim-height`) keeps the name readable. Behind it the jersey number as a watermark in `rgba(235, 232, 227, .06)`; the initials as the fallback when there is no photo.
   - Top labels: "All-Star MVP" and "{pts} PTS · {n} games".
-  - Bottom: the MVP's name, 600 `clamp(28px, 3.4vw, 40px)`, and a solid "MVP" tag.
+  - Bottom: the MVP's name, 600 `clamp(36px, 4.4vw, 56px)` (`--allstar-mvp-name-size`), and a solid "MVP" tag.
 
 ### Hero, live
 
@@ -248,7 +248,7 @@ Same size, letter spacing and truncation as the other stage tags: 11px, .16em, u
 Under 680px (the 390px design):
 
 - Side padding 18px, section gap 56px. The sticky 56px header with blur and the one-row nav with the menu button.
-- Hero after: the h1 `clamp(58px, 17vw, 84px)`, a 116x156 MVP thumb with corner marks, the photo covering it anchored top center (the head whole, the shoulders cropped at the sides), and a solid "MVP" tag at the bottom left linking to `#mvp`, the score at 44px, the stats 2x2, the buttons 48px in two columns.
+- Hero after: the h1 `clamp(58px, 17vw, 84px)`, a 116x156 MVP thumb with corner marks at the right edge of the title row (the title at the left), the photo covering it anchored top center (the head whole, the shoulders cropped at the sides), and a solid "MVP" tag at the bottom left linking to `#mvp`, the score at 44px, the stats 2x2, the buttons 48px in two columns.
 - Hero live: the framed live scoreboard (score 56px, clock 22px); tapping it selects the live game and scrolls to `#games`.
 - Hero before: the h1, the outlined year `clamp(96px, 30vw, 140px)`, the three "To be confirmed" rows, the button.
 - MVP: the photo 250px tall on top, the info below; the Championship card is one tappable block.
@@ -271,7 +271,10 @@ To add to `web/src/lib/styles/tokens.css` in the implementing issue. Values not 
 | `--allstar-score-size` | `clamp(34px, 4.4vw, 56px)` | Championship score in the hero |
 | `--allstar-hero-stat-size` | `clamp(26px, 3.4vw, 44px)` | Hero stat value |
 | `--allstar-plate-max-width` | 520px | Hero plate |
-| `--allstar-plate-photo-height` | 92% | MVP headshot in the plate |
+| `--allstar-plate-photo-height` | 92% | MVP headshot in Last time |
+| `--allstar-plate-cover-height` | 82% | MVP headshot box in the hero plate |
+| `--allstar-plate-scrim-height` | 34% | Hero plate name gradient height |
+| `--allstar-plate-scrim` | `linear-gradient(to top, var(--color-bg), transparent)` | Hero plate name gradient |
 | `--allstar-plate-glow` | `rgba(116, 157, 196, .3)` | Plate radial glow |
 | `--allstar-watermark-ink` | `rgba(235, 232, 227, .06)` | Jersey number watermark |
 | `--allstar-plate-grid-size` | 32px | Live and placeholder grid |

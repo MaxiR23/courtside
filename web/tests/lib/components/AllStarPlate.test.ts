@@ -9,6 +9,8 @@
 // - The live clock is re-read from the feed on each tick
 // - The tip-off plate and the year plate, with "—" without a year
 // - Mobile: the MVP thumb photo covers the frame, anchored top center; the tag stays bottom left (source check)
+// - Desktop: the headshot sits in the cover box under a scrim, behind the name
+// - Mobile: the MVP thumb wrapper keeps the thumb's own width (source check)
 // - Mobile: the MVP thumb links to #mvp, and the live scoreboard is a button that calls onLive
 //
 // What is covered:
@@ -104,6 +106,31 @@ describe('AllStarPlate, MVP', () => {
 		expect(box).toContain('bottom: 0');
 		expect(box).not.toContain('height');
 		expect(source).not.toContain('.photo :global(.avatar img)');
+	});
+});
+
+describe('AllStarPlate, MVP hero cover', () => {
+	it('draws the desktop headshot in the cover box under a scrim, behind the name', () => {
+		const { container } = show(plateOf('after'));
+		expect(container.querySelector('.plate.mvp .photo .avatar.allstar-plate-cover')).not.toBeNull();
+		const scrim = container.querySelector('.plate.mvp > .scrim');
+		expect(scrim?.getAttribute('aria-hidden')).toBe('true');
+		const bottom = container.querySelector('.plate.mvp > .bottom');
+		expect(scrim!.compareDocumentPosition(bottom!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+		const css = rule(/\.scrim\s*\{([^}]*)\}/);
+		expect(css).toContain('height: var(--allstar-plate-scrim-height)');
+		expect(css).toContain('background: var(--allstar-plate-scrim)');
+	});
+
+	it("the mobile MVP thumb wrapper keeps the thumb's own width, at the end of its row", () => {
+		expect(
+			show(plateOf('after'), 'mobile').container.querySelector('.plate-wrap.thumb')
+		).not.toBeNull();
+		expect(show(plateOf('after')).container.querySelector('.plate-wrap.thumb')).toBeNull();
+		expect(show(plateOf('live'), 'mobile').container.querySelector('.plate-wrap.thumb')).toBeNull();
+		const css = rule(/\.plate-wrap\.thumb\s*\{([^}]*)\}/);
+		expect(css).toContain('flex: none');
+		expect(css).toContain('width: auto');
 	});
 });
 

@@ -19,6 +19,7 @@
 			| 'allstar-roster-mobile'
 			| 'allstar-mvp'
 			| 'allstar-plate'
+			| 'allstar-plate-cover'
 			| 'playoffs-mvp'
 			| 'playoffs-conference-mvp';
 		clip?: 'all' | 'bottom'; // bottom: out of flow, so the image never sets the cell height; a taller one loses only its bottom
@@ -181,6 +182,17 @@
 	.allstar-plate img {
 		object-fit: contain;
 		object-position: bottom;
+	}
+
+	.allstar-plate-cover {
+		width: 100%;
+		height: var(--allstar-plate-cover-height);
+		background: none;
+	}
+
+	.allstar-plate-cover img {
+		object-fit: cover;
+		object-position: bottom center;
 	}
 
 	img {

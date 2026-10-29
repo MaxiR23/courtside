@@ -8,7 +8,8 @@
 // - A new photo URL tries again after a failure
 // - A first and last name as the name: initials, alt text and aria label from the joined name
 // - The roster, leader, team-leader, search, cup-card, playoffs-avatar, playoffs-card, playoffs-mvp and playoffs-conference-mvp size classes
-// - The seven All-Star size classes
+// - The eight All-Star size classes
+// - The hero plate size covers its 82% box anchored bottom center, and allstar-plate stays as it is
 // - The clip prop: clip-bottom only with clip bottom, and the safe end alignment rules
 //
 // What is covered:
@@ -23,6 +24,22 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import PlayerAvatar from '../../../src/lib/components/PlayerAvatar.svelte';
+
+const style = (
+	readFileSync(
+		join(__dirname, '..', '..', '..', 'src/lib/components/PlayerAvatar.svelte'),
+		'utf8'
+	).match(/<style[^>]*>([\s\S]*?)<\/style>/)?.[1] ?? ''
+).replace(/\/\*[\s\S]*?\*\//g, '');
+const declarations = (selector: string): string[] =>
+	[...style.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+		.filter((m) => m[1]!.split(',').some((s) => s.trim() === selector))
+		.flatMap((m) =>
+			m[2]!
+				.split(';')
+				.map((d) => d.trim().replace(/\s+/g, ' '))
+				.filter(Boolean)
+		);
 
 describe('PlayerAvatar', () => {
 	it('shows a lazy image with the name as alt text', () => {
@@ -158,7 +175,8 @@ describe('PlayerAvatar', () => {
 			'allstar-roster',
 			'allstar-roster-mobile',
 			'allstar-mvp',
-			'allstar-plate'
+			'allstar-plate',
+			'allstar-plate-cover'
 		] as const) {
 			const { container, unmount } = render(PlayerAvatar, {
 				props: { name: 'A B', photo: null, size }
@@ -167,25 +185,22 @@ describe('PlayerAvatar', () => {
 			unmount();
 		}
 	});
+
+	it('covers the hero plate box anchored at the bottom center, and leaves allstar-plate as it is', () => {
+		expect(declarations('.allstar-plate-cover')).toContain(
+			'height: var(--allstar-plate-cover-height)'
+		);
+		expect(declarations('.allstar-plate-cover img')).toEqual(
+			expect.arrayContaining(['object-fit: cover', 'object-position: bottom center'])
+		);
+		expect(declarations('.allstar-plate')).toContain('height: var(--allstar-plate-photo-height)');
+		expect(declarations('.allstar-plate img')).toEqual(
+			expect.arrayContaining(['object-fit: contain', 'object-position: bottom'])
+		);
+	});
 });
 
 describe('PlayerAvatar clip prop', () => {
-	const style = (
-		readFileSync(
-			join(__dirname, '..', '..', '..', 'src/lib/components/PlayerAvatar.svelte'),
-			'utf8'
-		).match(/<style[^>]*>([\s\S]*?)<\/style>/)?.[1] ?? ''
-	).replace(/\/\*[\s\S]*?\*\//g, '');
-	const declarations = (selector: string): string[] =>
-		[...style.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
-			.filter((m) => m[1]!.split(',').some((s) => s.trim() === selector))
-			.flatMap((m) =>
-				m[2]!
-					.split(';')
-					.map((d) => d.trim().replace(/\s+/g, ' '))
-					.filter(Boolean)
-			);
-
 	it('clips only at the bottom with clip bottom', () => {
 		const { container } = render(PlayerAvatar, {
 			props: {

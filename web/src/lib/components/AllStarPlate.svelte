@@ -57,7 +57,7 @@
 	</span>
 {/snippet}
 
-<div class="plate-wrap" class:mobile>
+<div class="plate-wrap" class:mobile class:thumb={mobile && plate.kind === 'mvp'}>
 	{#if plate.kind === 'mvp'}
 		{#if mobile}
 			<a class="mvp-thumb" href="#mvp">
@@ -75,8 +75,9 @@
 				<div class="plate mvp">
 					{#if plate.jersey}<span class="watermark" aria-hidden="true">{plate.jersey}</span>{/if}
 					<span class="photo"
-						><PlayerAvatar name={plate.name} photo={plate.photo} size="allstar-plate" /></span
+						><PlayerAvatar name={plate.name} photo={plate.photo} size="allstar-plate-cover" /></span
 					>
+					<span class="scrim" aria-hidden="true"></span>
 					<Kicker contents><span class="label top-left">{m.allstar_mvp_label()}</span></Kicker>
 					<Kicker contents><span class="label top-right">{plate.labels}</span></Kicker>
 					<span class="bottom">
@@ -141,6 +142,11 @@
 		max-width: none;
 	}
 
+	.plate-wrap.thumb {
+		flex: none;
+		width: auto;
+	}
+
 	.plate {
 		position: relative;
 		overflow: hidden;
@@ -178,6 +184,14 @@
 	.photo :global(.avatar) {
 		position: absolute;
 		bottom: 0;
+	}
+
+	.scrim {
+		position: absolute;
+		inset: auto 0 0;
+		height: var(--allstar-plate-scrim-height);
+		background: var(--allstar-plate-scrim);
+		pointer-events: none;
 	}
 
 	.label {
