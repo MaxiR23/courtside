@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { initials as initialsOf } from '#lib/format/initials.ts';
 	import type { PanelPlayer } from '#lib/schedule/types.ts';
 
 	type Props = { player: Pick<PanelPlayer, 'firstName' | 'lastName' | 'photo'>; star?: boolean };
@@ -10,7 +11,7 @@
 	// No photo (a guest player without a headshot) shows the initials, as a failed photo does.
 	const failed = $derived(player.photo === null || failedPhoto === player.photo);
 	const fullName = $derived(`${player.firstName} ${player.lastName}`);
-	const initials = $derived(`${player.firstName.charAt(0)}${player.lastName.charAt(0)}`);
+	const initials = $derived(initialsOf(player));
 </script>
 
 <span class="photo-frame" class:star>

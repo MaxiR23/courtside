@@ -9,9 +9,11 @@
 // - Extra spaces are ignored
 // - Lowercase input is uppercased
 // - An empty string gives an empty string
+// - A first and last name give the first initial of each, a suffix in the last name is ignored
+// - A first and last name with one part, lowercase or empty
 //
 // What is covered:
-// - Happy path, edge cases (one word, extra spaces) and the empty case
+// - Happy path, edge cases (one word, extra spaces, a suffix) and the empty case, for both forms
 //
 // Run with: cd web && pnpm exec vitest run tests/lib/format/initials.test.ts
 //
@@ -20,7 +22,7 @@ import { describe, expect, it } from 'vitest';
 
 import { initials } from '../../../src/lib/format/initials';
 
-describe('initials', () => {
+describe('initials from a display name', () => {
 	it('gives the initial of each of two words', () => {
 		expect(initials('Chet Holmgren')).toBe('CH');
 	});
@@ -44,5 +46,31 @@ describe('initials', () => {
 	it('gives an empty string for an empty string', () => {
 		expect(initials('')).toBe('');
 		expect(initials('   ')).toBe('');
+	});
+
+	it('reads a suffix as the last word of a display name', () => {
+		expect(initials('Jimmy Butler III')).toBe('JI');
+	});
+});
+
+describe('initials from a first and last name', () => {
+	it('gives the initial of each part', () => {
+		expect(initials({ firstName: 'Chet', lastName: 'Holmgren' })).toBe('CH');
+	});
+
+	it('ignores a suffix in the last name', () => {
+		expect(initials({ firstName: 'Jimmy', lastName: 'Butler III' })).toBe('JB');
+	});
+
+	it('gives the first initial alone when the last name is empty', () => {
+		expect(initials({ firstName: 'Nene', lastName: '' })).toBe('N');
+	});
+
+	it('uppercases lowercase parts', () => {
+		expect(initials({ firstName: 'shai', lastName: 'gilgeous-alexander' })).toBe('SG');
+	});
+
+	it('gives an empty string for empty parts', () => {
+		expect(initials({ firstName: '', lastName: '' })).toBe('');
 	});
 });

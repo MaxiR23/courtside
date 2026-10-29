@@ -2,7 +2,7 @@
 	import { initials as initialsOf } from '#lib/format/initials.ts';
 
 	type Props = {
-		name: string;
+		name: string | { firstName: string; lastName: string }; // the object form where the feed carries both names
 		photo: string | null;
 		size:
 			| 'roster'
@@ -29,14 +29,15 @@
 	// Keyed by photo URL, so a new URL tries again after a failure.
 	let failedPhoto = $state<string | null>(null);
 	const showPhoto = $derived(photo !== null && photo !== failedPhoto);
+	const label = $derived(typeof name === 'string' ? name : `${name.firstName} ${name.lastName}`);
 	const initials = $derived(initialsOf(name));
 </script>
 
 <span class="avatar {size}" class:clip-bottom={clip === 'bottom'}>
 	{#if photo && showPhoto}
-		<img src={photo} alt={name} loading="lazy" onerror={() => (failedPhoto = photo)} />
+		<img src={photo} alt={label} loading="lazy" onerror={() => (failedPhoto = photo)} />
 	{:else}
-		<span class="photo-placeholder" role="img" aria-label={name}>{initials}</span>
+		<span class="photo-placeholder" role="img" aria-label={label}>{initials}</span>
 	{/if}
 </span>
 
