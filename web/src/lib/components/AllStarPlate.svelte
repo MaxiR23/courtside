@@ -9,6 +9,7 @@
 	import { m } from '#lib/paraglide/messages.js';
 	import type { RowLayout } from '#lib/schedule/types.ts';
 	import Kicker from '#lib/components/Kicker.svelte';
+	import Tag from '#lib/components/Tag.svelte';
 
 	type Props = {
 		plate: PlateView;
@@ -63,7 +64,9 @@
 				<BlueprintFrame marks="allstar">
 					<span class="thumb-body">
 						<PlayerAvatar name={plate.name} photo={plate.photo} size="allstar-plate" />
-						<span class="solid-tag">{m.allstar_mvp_tag()}</span>
+						<span class="mvp-tag"
+							><Tag text={m.allstar_mvp_tag()} variant="solid" borderless /></span
+						>
 					</span>
 				</BlueprintFrame>
 			</a>
@@ -78,7 +81,7 @@
 					<Kicker contents><span class="label top-right">{plate.labels}</span></Kicker>
 					<span class="bottom">
 						<span class="plate-name">{plate.name}</span>
-						<span class="solid-tag">{m.allstar_mvp_tag()}</span>
+						<Tag text={m.allstar_mvp_tag()} variant="solid" borderless />
 					</span>
 				</div>
 			</BlueprintFrame>
@@ -208,16 +211,6 @@
 		text-transform: uppercase;
 	}
 
-	.solid-tag {
-		display: inline-block;
-		padding: var(--tag-padding);
-		background: var(--color-accent);
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-bg);
-	}
-
 	.mvp-thumb {
 		display: block;
 		width: var(--allstar-mvp-thumb-width);
@@ -233,10 +226,11 @@
 		background: var(--color-frame-fill);
 	}
 
-	.thumb-body .solid-tag {
+	.thumb-body .mvp-tag {
 		position: absolute;
 		bottom: var(--day-strip-gap);
 		left: var(--day-strip-gap);
+		display: flex;
 	}
 
 	.thumb-body :global(.avatar) {

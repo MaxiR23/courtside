@@ -132,7 +132,7 @@ describe('StandingsTable', () => {
 
 	it('draws a ClinchTag only for rows with a clinch', () => {
 		const { container } = show(east());
-		const counts = bodyRows(container).map((r) => r.querySelectorAll('.clinch-tag').length);
+		const counts = bodyRows(container).map((r) => r.querySelectorAll('.tag').length);
 		expect(counts).toEqual([1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0]);
 	});
 

@@ -422,7 +422,7 @@ describe('Cup page season selector', () => {
 		const { container } = await renderSeason('?season=2025');
 		expect(calls).toEqual([CAL_URL, pastUrl(2025)]);
 		expect(screen.getByText('Season 2026-27')).toBeTruthy();
-		expect(container.querySelector('.live-badge')).toBeNull();
+		expect(container.querySelector('.tag.live')).toBeNull();
 		expect(container.querySelector('.cup-timeline .in-progress')).toBeNull();
 	});
 

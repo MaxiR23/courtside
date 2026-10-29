@@ -26,12 +26,12 @@ afterEach(() => {
 describe('LiveBadge', () => {
 	it('reads LIVE as text, not as a dot', () => {
 		const { container } = render(LiveBadge);
-		expect(container.querySelector('.live-badge')?.textContent).toBe('LIVE');
+		expect(container.querySelector('.tag.live')?.textContent).toBe('LIVE');
 	});
 
 	it('reads EN VIVO as text with a Spanish browser preference', () => {
 		preferLanguages(['es-ES']);
 		const { container } = render(LiveBadge);
-		expect(container.querySelector('.live-badge')?.textContent).toBe('EN VIVO');
+		expect(container.querySelector('.tag.live')?.textContent).toBe('EN VIVO');
 	});
 });

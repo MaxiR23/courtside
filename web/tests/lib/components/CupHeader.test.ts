@@ -93,7 +93,7 @@ const seasonSelectProp = () => ({
 describe('CupHeader', () => {
 	it('renders the year tag, the state line, the h1 and the timeline', () => {
 		const { container } = render(CupHeader, { props: props() });
-		expect(container.querySelector('.year-tag')?.textContent).toBe('2026-27');
+		expect(container.querySelector('.tag:not(.heading)')?.textContent).toBe('2026-27');
 		expect(screen.getByText('Group play · 16 of 60 games played')).toBeTruthy();
 		expect(screen.getByRole('heading', { level: 1, name: 'NBA Cup' })).toBeTruthy();
 		expect(container.querySelectorAll('ol.cup-timeline li')).toHaveLength(4);
@@ -215,7 +215,7 @@ describe('CupHeader', () => {
 		expect(container.querySelector('.title-area ol.cup-timeline')).not.toBeNull();
 		expect(container.querySelector('.team-row')).toBeNull();
 		expect(container.querySelector('header')?.style.getPropertyValue('--side-accent')).toBe('');
-		expect(container.querySelector('.year-tag')?.textContent).toBe('2026-27');
+		expect(container.querySelector('.tag:not(.heading)')?.textContent).toBe('2026-27');
 		expect(screen.getByText('Group play · 16 of 60 games played')).toBeTruthy();
 		expect(screen.getByRole('heading', { level: 1, name: 'NBA Cup' })).toBeTruthy();
 		expect(container.querySelectorAll('ol.cup-timeline li')).toHaveLength(4);
@@ -320,19 +320,19 @@ describe('CupHeader season selector and tag', () => {
 		const tagged = { ...view().header, tag: 'Season 2024-25' };
 		const { container, unmount } = render(CupHeader, { props: props({ header: tagged }) });
 		expect(screen.getByText('Season 2024-25')).toBeTruthy();
-		expect(container.querySelector('.year-tag')).toBeNull();
+		expect(container.querySelector('.tag:not(.heading)')).toBeNull();
 		expect(screen.getByText('Group play · 16 of 60 games played')).toBeTruthy();
 		unmount();
 		const plain = render(CupHeader, { props: props() });
 		expect(screen.queryByText('Season 2024-25')).toBeNull();
-		expect(plain.container.querySelector('.year-tag')?.textContent).toBe('2026-27');
+		expect(plain.container.querySelector('.tag:not(.heading)')?.textContent).toBe('2026-27');
 	});
 
 	it('draws only the past season tag from a past feed', () => {
 		const header = toCupView(feed(), { past: true }).header;
 		const { container } = render(CupHeader, { props: props({ header }) });
 		expect(screen.getAllByText('Season 2026-27')).toHaveLength(1);
-		expect(container.querySelector('.year-tag')).toBeNull();
+		expect(container.querySelector('.tag:not(.heading)')).toBeNull();
 	});
 
 	it('draws the select on desktop and calls onChange with the end year', () => {

@@ -26,13 +26,14 @@ A dark-mode, single-page site with two parts:
 | Component | What it is |
 |---|---|
 | `BlueprintFrame` | The framed box with corner registration marks, used across the site |
-| `Kicker` | The one small label: 11px, .16em, uppercase. Tones: `accent` (accent-light, the default), `muted`, and `inherit` (the surrounding color, for a label in a control or a state-colored cell). It renders as a span, or as a `dt`, an `h3` or a table's `thead` where one is needed; with `contents` it is a span or a div that draws no box and wraps an element that keeps its own layout. A wrapped element that sets its own font size must also set `letter-spacing: var(--label-letter-spacing)`, because otherwise it inherits the spacing computed at 11px. Tags and info cells keep their own label until their shared components exist |
+| `Kicker` | The one small label: 11px, .16em, uppercase. Tones: `accent` (accent-light, the default), `muted`, and `inherit` (the surrounding color, for a label in a control or a state-colored cell). It renders as a span, or as a `dt`, an `h3` or a table's `thead` where one is needed; with `contents` it is a span or a div that draws no box and wraps an element that keeps its own layout. A wrapped element that sets its own font size must also set `letter-spacing: var(--label-letter-spacing)`, because otherwise it inherits the spacing computed at 11px. Info cells keep their own label until their shared component exists |
 | `PageContainer` | The one page container: the centered content width and the side padding of every page body and home section |
 | `Hero` | The top section, rotating through the games of the day |
 | `HeroPlayerCard` | The hero player card: the player's cutout over the logo, tricode and glow layers, with the player strip, specified in `docs/design-team-identity.md`, "Right column: player card" |
 | `DayStrip` | The 7-day selector |
 | `ScheduleSkeleton` | The schedule's placeholder while the first feed loads: the day strip and game cards |
 | `SkeletonBone` | The one loading skeleton bone: a block in `surface` with square corners; each skeleton gives it its width, height or aspect ratio |
+| `Tag` | The one tag: a hairline box with 1px by 5px padding and square corners. Variants: `outline` (divider border, surrounding color, the default), `accent` (accent border, accent-light text), `solid` (accent fill, `bg` text), `muted` (divider border, muted text) and `live` (the live badge: accent border, accent-light, 9.5px). Its type is the label type through `Kicker`, or the surrounding type. A parent sets its size, tracking, padding, border and text color with token references, and can truncate it, keep it on one line or drop its border. Every tag on the site is drawn by `Tag` |
 | `GameCard` | One game, with its desktop and mobile rows and its expanded panel |
 | `LineScore` | Points per quarter |
 | `Leaders` | Top performer per team |

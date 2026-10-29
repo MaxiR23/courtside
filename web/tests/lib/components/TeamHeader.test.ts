@@ -234,7 +234,7 @@ describe('TeamHeader with titles', () => {
 				header: { ...header, cupLine: { group: 'West Group B', record: '2-2' }, titles }
 			}
 		});
-		const badges = [...container.querySelectorAll('.team-titles .title-badge')];
+		const badges = [...container.querySelectorAll('.team-titles .tag')];
 		expect(badges.map((badge) => badge.textContent)).toEqual([
 			'2027 NBA Champions',
 			'West Champions'
@@ -250,7 +250,7 @@ describe('TeamHeader with titles', () => {
 		const { container } = render(TeamHeader, {
 			props: { ...props, header: { ...header, titles: [titles[1]] } }
 		});
-		expect(container.querySelectorAll('.title-badge').length).toBe(1);
+		expect(container.querySelectorAll('.tag').length).toBe(1);
 	});
 
 	it('shows no title for null titles and keeps the Cup line in place', () => {

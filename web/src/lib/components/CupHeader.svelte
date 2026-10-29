@@ -4,6 +4,7 @@
 	import NavRow from '#lib/components/NavRow.svelte';
 	import SeasonSelect from '#lib/components/SeasonSelect.svelte';
 	import SeasonTag from '#lib/components/SeasonTag.svelte';
+	import Tag from '#lib/components/Tag.svelte';
 	import TeamMark from '#lib/components/TeamMark.svelte';
 	import type { CupHeaderView, StageView } from '#lib/cup/types.ts';
 	import { play } from '#lib/hero/motion.ts';
@@ -76,9 +77,13 @@
 							</div>
 						{/if}
 						<div class="tag-row">
-							{#if header.tag}<SeasonTag text={header.tag} />{:else}<span class="year-tag"
-									>{header.season}</span
-								>{/if}
+							{#if header.tag}<SeasonTag text={header.tag} />{:else}<Tag
+									text={header.season}
+									variant="accent"
+									label={false}
+									size="var(--body-size)"
+									padding="var(--cup-year-tag-padding)"
+								/>{/if}
 							<span class="state-line">{header.stateLine}</span>
 						</div>
 						<h1>{m.cup_title()}</h1>
@@ -274,13 +279,6 @@
 		flex-wrap: wrap;
 		align-items: center;
 		gap: var(--game-list-gap);
-	}
-
-	.year-tag {
-		font-size: var(--body-size);
-		padding: var(--cup-year-tag-padding);
-		border: var(--hairline) solid var(--color-accent);
-		color: var(--color-accent-light);
 	}
 
 	.state-line {

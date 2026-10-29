@@ -92,12 +92,24 @@ describe('StatusTag injury variant', () => {
 		['day-to-day', 'Day-to-day', 'Día a día']
 	] as const;
 
+	const looks = {
+		out: 'accent',
+		doubtful: 'outline',
+		questionable: 'outline',
+		probable: 'muted',
+		'day-to-day': 'muted'
+	} as const;
+
 	it.each(statuses)('shows %s as %s with its tone class', (injury, label) => {
 		const { container } = render(StatusTag, { props: { injury } });
-		const tag = container.querySelector('.status-tag');
+		const tag = container.querySelector<HTMLElement>('.tag');
 		expect(tag?.textContent).toBe(label);
-		expect(tag?.classList.contains('injury')).toBe(true);
-		expect(tag?.classList.contains(injury)).toBe(true);
+		expect(tag?.classList.contains(looks[injury])).toBe(true);
+		expect(tag?.classList.contains('nowrap')).toBe(true);
+		expect(tag?.style.getPropertyValue('--tag-size')).toBe('var(--injury-tag-size)');
+		expect(tag?.style.getPropertyValue('--tag-tracking')).toBe('var(--injury-tag-letter-spacing)');
+		const ink = injury === 'doubtful' || injury === 'questionable';
+		expect(tag?.style.getPropertyValue('--tag-color')).toBe(ink ? 'var(--color-ink)' : '');
 	});
 
 	it.each(statuses)('shows %s in Spanish as %s', (injury, _label, spanish) => {
@@ -110,13 +122,13 @@ describe('StatusTag injury variant', () => {
 describe('StatusTag text variant', () => {
 	it('shows the given text without a tone', () => {
 		const { container } = render(StatusTag, { props: { text: 'NBA Cup' } });
-		const tag = container.querySelector('.status-tag');
+		const tag = container.querySelector('.tag');
 		expect(tag?.textContent).toBe('NBA Cup');
-		expect(tag?.classList.contains('out')).toBe(false);
+		expect(tag?.classList.contains('accent')).toBe(false);
 	});
 
 	it('takes the accent look with the accent option', () => {
 		const { container } = render(StatusTag, { props: { text: 'Next', accent: true } });
-		expect(container.querySelector('.status-tag')?.classList.contains('out')).toBe(true);
+		expect(container.querySelector('.tag')?.classList.contains('accent')).toBe(true);
 	});
 });

@@ -146,8 +146,8 @@ describe('GameHeader', () => {
 		expect(screen.getByText('Tip-off')).toBeTruthy();
 		expect(screen.getByText('Los Angeles')).toBeTruthy();
 		expect(screen.getByText('12–5')).toBeTruthy();
-		expect(container.querySelector('.status-tag')).toBeNull();
-		expect(container.querySelector('.live-badge')).toBeNull();
+		expect(container.querySelector('span.tag')).toBeNull();
+		expect(container.querySelector('.tag.live')).toBeNull();
 	});
 
 	it('shows the arena name alone in the caption and no sub-line under the Venue cell when the city is null', () => {
@@ -181,7 +181,7 @@ describe('GameHeader', () => {
 				delayed: true
 			}
 		});
-		expect(container.querySelector('.status-tag')?.textContent).toBe('Delayed');
+		expect(container.querySelector('.tag')?.textContent).toBe('Delayed');
 		expect(screen.getByText('Scheduled')).toBeTruthy();
 		expect(container.querySelector('.broadcast')).toBeNull();
 	});
@@ -196,7 +196,7 @@ describe('GameHeader', () => {
 				status: { state, text: 'Wednesday, October 7 · Chase Center' },
 				center: { kind: 'none' }
 			});
-			expect(container.querySelector('.status-tag')?.textContent).toBe(label);
+			expect(container.querySelector('.tag')?.textContent).toBe(label);
 			expect(container.querySelector('.tip-time')).toBeNull();
 			expect(container.querySelector('.score')).toBeNull();
 			unmount();
@@ -205,7 +205,7 @@ describe('GameHeader', () => {
 
 	it('shows a live game with the badge, the period text and the score', () => {
 		const { container } = show(live);
-		expect(container.querySelector('.live-badge')).not.toBeNull();
+		expect(container.querySelector('.tag.live')).not.toBeNull();
 		expect(screen.getByText('Q3 · 4:12 · Chase Center')).toBeTruthy();
 		const points = [...container.querySelectorAll('.points')].map((el) => el.textContent);
 		expect(points).toEqual(['63', '62']);
@@ -382,7 +382,7 @@ describe('GameHeader with the Cup mark', () => {
 	it('shows the Cup tag first in the status line, before the date and venue', () => {
 		const { container } = show({ ...scheduled, cupTag: 'NBA Cup · Group play' });
 		const line = container.querySelector('.status-line');
-		expect(line?.firstElementChild?.classList.contains('cup-tag')).toBe(true);
+		expect(line?.firstElementChild?.querySelector(':scope > .tag.accent')).not.toBeNull();
 		expect(line?.firstElementChild?.textContent).toBe('NBA Cup · Group play');
 		expect(line?.lastElementChild?.textContent).toBe('Wednesday, October 7 · Chase Center');
 	});
@@ -396,7 +396,7 @@ describe('GameHeader with the Cup mark', () => {
 
 	it('shows no Cup tag on a game that is not a Cup game', () => {
 		const { container } = show(scheduled);
-		expect(container.querySelector('.cup-tag')).toBeNull();
+		expect(container.querySelector('.tag.accent')).toBeNull();
 	});
 });
 
@@ -412,8 +412,8 @@ describe('GameHeader with the postseason mark', () => {
 		const { container } = show({ ...scheduled, postseasonMark: mark });
 		const line = container.querySelector('.status-line');
 		expect(line?.firstElementChild?.classList.contains('postseason-mark')).toBe(true);
-		expect(line?.querySelector('.tournament-tag')?.textContent).toBe('NBA Finals');
-		expect(line?.querySelector('.stakes-flag')?.textContent).toBe('Can clinch');
+		expect(line?.querySelector('.tag:not(.accent)')?.textContent).toBe('NBA Finals');
+		expect(line?.querySelector('.tag.accent')?.textContent).toBe('Can clinch');
 		expect(line?.lastElementChild?.textContent).toBe('Wednesday, October 7 · Chase Center');
 	});
 
@@ -432,8 +432,10 @@ describe('GameHeader with the postseason mark', () => {
 	it('keeps the Cup tag unchanged first for a Cup game', () => {
 		const { container } = show({ ...scheduled, cupTag: 'NBA Cup · Group play' });
 		expect(
-			container.querySelector('.status-line')?.firstElementChild?.classList.contains('cup-tag')
-		).toBe(true);
+			container
+				.querySelector('.status-line')
+				?.firstElementChild?.querySelector(':scope > .tag.accent')
+		).not.toBeNull();
 	});
 });
 
@@ -446,14 +448,14 @@ describe('GameHeader with the All-Star mark', () => {
 		const { container } = show({ ...scheduled, allStarMark: mark });
 		const line = container.querySelector('.status-line');
 		expect(line?.firstElementChild?.classList.contains('allstar-mark')).toBe(true);
-		expect(line?.querySelector('.allstar-tag')?.textContent).toBe('All-Star');
+		expect(line?.querySelector('.allstar-mark .tag')?.textContent).toBe('All-Star');
 		expect(line?.querySelector('.context')?.textContent).toBe('Semifinals');
 	});
 
 	it('shows the solid tag for the Championship', () => {
 		const championship = { tag: 'All-Star', context: 'Championship', championship: true };
 		const { container } = show({ ...scheduled, allStarMark: championship });
-		expect(container.querySelector('.allstar-tag')?.classList.contains('solid')).toBe(true);
+		expect(container.querySelector('.allstar-mark .tag')?.classList.contains('solid')).toBe(true);
 	});
 
 	it('shows nothing without the mark', () => {

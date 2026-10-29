@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Tag from '#lib/components/Tag.svelte';
 	import TeamMark from '#lib/components/TeamMark.svelte';
 	import type { BracketNodeView, BracketSideView } from '#lib/cup/types.ts';
 	import type { SlotId } from '#lib/contract/cup.ts';
@@ -70,7 +71,14 @@
 		<span class="footer">
 			{#if node.date}<span class="meta">{node.date}</span>{/if}
 			{#if node.venue}<span class="meta">{node.venue}</span>{/if}
-			{#if node.neutral}<span class="tag">{m.cup_neutral()}</span>{/if}
+			<!-- A tag at the page's 11px would be unreadable in the scaled world, so it takes the bracket's sizes. -->
+			{#if node.neutral}<Tag
+					text={m.cup_neutral()}
+					size="var(--bracket-meta-size)"
+					tracking="var(--label-letter-spacing)"
+					padding="var(--hairline) var(--bracket-tick-size)"
+					wrap="nowrap"
+				/>{/if}
 			{#if node.broadcast}<span class="meta">{node.broadcast}</span>{/if}
 		</span>
 	{/if}
@@ -185,16 +193,6 @@
 		align-items: center;
 		gap: var(--bracket-node-padding);
 		min-width: 0;
-	}
-
-	/* A tag at the page's 11px would be unreadable in the scaled world, so it takes the bracket's sizes. */
-	.tag {
-		padding: var(--hairline) var(--bracket-tick-size);
-		border: var(--hairline) solid var(--color-divider);
-		font-size: var(--bracket-meta-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		white-space: nowrap;
 	}
 
 	.mirrored .footer {

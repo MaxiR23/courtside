@@ -26,8 +26,10 @@ describe('TitleBadge', () => {
 	it('shows an outline badge for any other title', () => {
 		render(TitleBadge, { props: { title: { text: 'West Champions', solid: false } } });
 		const badge = screen.getByText('West Champions');
-		expect(badge.classList.contains('title-badge')).toBe(true);
+		expect(badge.classList.contains('tag')).toBe(true);
+		expect(badge.classList.contains('accent')).toBe(true);
 		expect(badge.classList.contains('solid')).toBe(false);
+		expect(badge.classList.contains('normal')).toBe(true);
 	});
 
 	it('is plain text with no link or button', () => {

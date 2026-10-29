@@ -62,7 +62,7 @@ describe('AllStarPlate, MVP', () => {
 		expect(container.querySelector('.watermark')?.textContent).toBe('7');
 		expect(screen.getByText('All-Star MVP')).toBeTruthy();
 		expect(screen.getByText('41 PTS · 3 games')).toBeTruthy();
-		expect(container.querySelector('.solid-tag')?.textContent).toBe('MVP');
+		expect(container.querySelector('.tag.solid')?.textContent).toBe('MVP');
 		expect(container.querySelector('.plate-name')?.textContent).toBe('Ada Example');
 	});
 
@@ -77,7 +77,7 @@ describe('AllStarPlate, MVP', () => {
 		const { container } = show(plateOf('after'), 'mobile');
 		const link = container.querySelector('a.mvp-thumb');
 		expect(link?.getAttribute('href')).toBe('#mvp');
-		expect(link?.querySelector('.solid-tag')?.textContent).toBe('MVP');
+		expect(link?.querySelector('.tag.solid')?.textContent).toBe('MVP');
 		expect(container.querySelector('.plate')).toBeNull();
 		expect(
 			link?.querySelector('.blueprint-frame.marks-allstar .thumb-body .avatar.allstar-plate')
@@ -94,7 +94,7 @@ describe('AllStarPlate, MVP', () => {
 		expect(img).toMatch(/object-position:\s*top center;/);
 		expect(rule(/\.mvp-thumb\s*\{([^}]*)\}/)).toContain('width: var(--allstar-mvp-thumb-width)');
 		expect(rule(/\.thumb-body\s*\{([^}]*)\}/)).toContain('height: var(--allstar-mvp-thumb-height)');
-		const tag = rule(/\.thumb-body \.solid-tag\s*\{([^}]*)\}/);
+		const tag = rule(/\.thumb-body \.mvp-tag\s*\{([^}]*)\}/);
 		expect(tag).toContain('bottom: var(--day-strip-gap)');
 		expect(tag).toContain('left: var(--day-strip-gap)');
 	});

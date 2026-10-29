@@ -68,15 +68,22 @@ describe('Injuries', () => {
 
 	it('shows each of the five statuses with its English label and tone class', () => {
 		const { container } = render(Injuries, { props });
-		const tags = [...container.querySelectorAll('.status-tag')];
+		const tags = [...container.querySelectorAll('.tag')];
 		expect(tags.map((t) => t.textContent)).toEqual(statuses.map(([, en]) => en));
-		tags.forEach((tag, i) => expect(tag.classList.contains(statuses[i][0])).toBe(true));
+		const looks = {
+			out: 'accent',
+			doubtful: 'outline',
+			questionable: 'outline',
+			probable: 'muted',
+			'day-to-day': 'muted'
+		};
+		tags.forEach((tag, i) => expect(tag.classList.contains(looks[statuses[i][0]])).toBe(true));
 	});
 
 	it('shows the five statuses in Spanish with a Spanish preference', () => {
 		preferLanguages(['es-ES']);
 		const { container } = render(Injuries, { props });
-		expect([...container.querySelectorAll('.status-tag')].map((t) => t.textContent)).toEqual(
+		expect([...container.querySelectorAll('.tag')].map((t) => t.textContent)).toEqual(
 			statuses.map(([, , es]) => es)
 		);
 	});

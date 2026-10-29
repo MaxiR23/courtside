@@ -31,12 +31,12 @@ describe('AllStarGameCard', () => {
 		const final = render(AllStarGameCard, {
 			props: { card: card('after', 'g4'), selected: false, layout: 'desktop', onSelect: () => {} }
 		});
-		expect(final.container.querySelector('.tag')?.classList.contains('championship')).toBe(true);
+		expect(final.container.querySelector('.tag')?.classList.contains('solid')).toBe(true);
 		const robin = render(AllStarGameCard, {
 			props: { card: card('after', 'g1'), selected: false, layout: 'desktop', onSelect: () => {} }
 		});
 		expect(robin.container.querySelector('.tag')?.textContent).toBe('Round Robin');
-		expect(robin.container.querySelector('.tag')?.classList.contains('championship')).toBe(false);
+		expect(robin.container.querySelector('.tag')?.classList.contains('solid')).toBe(false);
 	});
 
 	it('draws no tag for a game with no round', () => {

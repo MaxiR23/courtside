@@ -39,7 +39,7 @@ describe('StandingsKey', () => {
 	it('renders the Key label, seven tags with their meanings and the note', () => {
 		const { container } = render(StandingsKey, { props: { entries: entries(), lines: true } });
 		expect(screen.getByText('Key')).toBeTruthy();
-		expect([...container.querySelectorAll('.clinch-tag')].map((t) => t.textContent)).toEqual([
+		expect([...container.querySelectorAll('.tag')].map((t) => t.textContent)).toEqual([
 			'*',
 			'z',
 			'y',

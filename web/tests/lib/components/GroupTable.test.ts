@@ -71,7 +71,7 @@ describe('GroupTable', () => {
 	it('shows the tags y, x and e and none for a row without one', () => {
 		const { container } = show();
 		const tags = [...container.querySelectorAll('.row.body')].map(
-			(row) => row.querySelector('.clinch-tag')?.textContent ?? null
+			(row) => row.querySelector('.tag')?.textContent ?? null
 		);
 		expect(tags).toEqual(['y', 'x', null, 'e', null]);
 	});

@@ -20,7 +20,10 @@ import CupMarkTag from '../../../src/lib/components/CupMarkTag.svelte';
 describe('CupMarkTag', () => {
 	it('shows the tag text', () => {
 		render(CupMarkTag, { props: { text: 'NBA Cup · Semifinal' } });
-		expect(screen.getByText('NBA Cup · Semifinal').classList.contains('cup-tag')).toBe(true);
+		const tag = screen.getByText('NBA Cup · Semifinal');
+		expect(tag.classList.contains('tag')).toBe(true);
+		expect(tag.classList.contains('accent')).toBe(true);
+		expect(tag.classList.contains('truncate')).toBe(true);
 	});
 
 	it('is plain text with no link or button', () => {

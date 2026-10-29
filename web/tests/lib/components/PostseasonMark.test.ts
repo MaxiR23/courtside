@@ -31,10 +31,15 @@ describe('PostseasonMark', () => {
 	it('draws the tag, the context line and the flag in that order', () => {
 		const { container } = render(PostseasonMark, { props: { mark } });
 		const parts = [...(container.querySelector('.postseason-mark')?.children ?? [])];
-		expect(parts.map((part) => part.className.split(' ')[0])).toEqual([
-			'tournament-tag',
+		expect(parts.map((part) => (part.firstElementChild ?? part).className.split(' ')[0])).toEqual([
+			'tag',
 			'context',
-			'stakes-flag'
+			'tag'
+		]);
+		expect(parts.map((part) => part.firstElementChild?.classList.contains('accent'))).toEqual([
+			false,
+			false,
+			true
 		]);
 		expect(parts.map((part) => part.textContent)).toEqual([
 			'Playoffs',
@@ -45,7 +50,7 @@ describe('PostseasonMark', () => {
 
 	it('draws no flag without stakes', () => {
 		const { container } = render(PostseasonMark, { props: { mark: { ...mark, stakes: null } } });
-		expect(container.querySelector('.stakes-flag')).toBeNull();
+		expect(container.querySelector('.tag.accent')).toBeNull();
 		expect(container.querySelector('.postseason-mark')?.children.length).toBe(2);
 	});
 
@@ -54,7 +59,7 @@ describe('PostseasonMark', () => {
 			props: { mark: { ...mark, context: null, stakes: null } }
 		});
 		expect(container.querySelector('.context')).toBeNull();
-		expect(container.querySelector('.tournament-tag')?.textContent).toBe('Playoffs');
+		expect(container.querySelector('.tag:not(.accent)')?.textContent).toBe('Playoffs');
 		expect(container.querySelector('.postseason-mark')?.children.length).toBe(1);
 	});
 
@@ -62,6 +67,6 @@ describe('PostseasonMark', () => {
 		const { container } = render(PostseasonMark, {
 			props: { mark: { ...mark, tag: 'NBA Finals', finals: true } }
 		});
-		expect(container.querySelector('.tournament-tag')?.classList.contains('finals')).toBe(true);
+		expect(container.querySelector('.tag:not(.accent)')?.classList.contains('solid')).toBe(true);
 	});
 });

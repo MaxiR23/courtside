@@ -136,7 +136,11 @@ describe('SearchResultRow, player', () => {
 				props: { ...playerBase, row: playerRow({ injury }) }
 			});
 			const tag = screen.getByText(label);
-			expect(tag.classList.contains(injury)).toBe(true);
+			expect(
+				tag.classList.contains(
+					injury === 'out' ? 'accent' : injury === 'day-to-day' ? 'muted' : 'outline'
+				)
+			).toBe(true);
 			unmount();
 		}
 	});
@@ -145,7 +149,7 @@ describe('SearchResultRow, player', () => {
 		const { container } = render(SearchResultRow, {
 			props: { ...playerBase, row: playerRow() }
 		});
-		expect(container.querySelector('.status-tag')).toBeNull();
+		expect(container.querySelector('span.tag')).toBeNull();
 	});
 
 	it('draws the team bar in the primary color, plain when null', () => {

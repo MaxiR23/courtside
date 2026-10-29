@@ -28,7 +28,7 @@ describe('TeamTitles', () => {
 				]
 			}
 		});
-		const badges = [...container.querySelectorAll('ul > li > .title-badge')];
+		const badges = [...container.querySelectorAll('ul > li > .kicker > .tag')];
 		expect(badges.map((badge) => badge.textContent)).toEqual([
 			'2027 NBA Champions',
 			'2026 NBA Cup Champions',

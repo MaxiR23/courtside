@@ -88,9 +88,9 @@ describe('ComingUp on desktop', () => {
 
 	it('marks only the Now status with the accent', () => {
 		render(ComingUp, { props: { items, layout: 'desktop' } });
-		expect(screen.getByText('Now').classList.contains('out')).toBe(true);
-		expect(screen.getByText('Done').classList.contains('out')).toBe(false);
-		expect(screen.getAllByText('Upcoming')[0].classList.contains('out')).toBe(false);
+		expect(screen.getByText('Now').classList.contains('accent')).toBe(true);
+		expect(screen.getByText('Done').classList.contains('accent')).toBe(false);
+		expect(screen.getAllByText('Upcoming')[0].classList.contains('accent')).toBe(false);
 	});
 
 	it('links each item with a target to its page and leaves the others without a link', () => {
