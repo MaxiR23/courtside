@@ -146,6 +146,7 @@ Cross-cutting tests at the root of `web/tests/` keep a shared piece the only own
 | `info-cell-is-the-one-cell.test.ts` | The info cell: only `InfoCell` holds its divider and value declarations, besides the listed lookalikes. |
 | `section-head-is-the-one-section-title.test.ts` | The section title: only `SectionHead` styles an `h2` or reads a section title size. |
 | `initials-is-the-one-rule.test.ts` | The initials rule: only `format/initials.ts` declares an initials function. Scans `web/src/lib` only. |
+| `feed-source-follows-its-url.test.ts` | The feed source of a route: no `new FeedPoller`, `FeedOnce`, `GamesFeedPoller` or `DayLoader` in `web/src/routes` takes a closure that reads `params`. Scans `web/src/routes` only. |
 
 ## TDD workflow
 

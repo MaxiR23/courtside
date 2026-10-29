@@ -18,6 +18,7 @@
 		videoPlatformName
 	} from '#lib/feed/config.ts';
 	import { toDayView } from '#lib/feed/day-props.ts';
+	import { feedSource } from '#lib/feed/source.ts';
 	import {
 		calendarFeedUrl as calendarFeedUrlOf,
 		dayFeedUrl as dayFeedUrlOf,
@@ -43,15 +44,18 @@
 		? async () => (await loadGamesFeed(gamesUrl)).days.map((day) => day.date)
 		: undefined;
 
+	const dayUrl = $derived(dayTemplate ? dayFeedUrlOf(dayTemplate, params.date) : undefined);
 	const loader = $derived(
-		dayTemplate
-			? new DayLoader(
-					() => loadDayFeed(dayFeedUrlOf(dayTemplate, params.date)),
+		feedSource(
+			dayUrl,
+			(url) =>
+				new DayLoader(
+					() => loadDayFeed(url),
 					loadWindow,
 					loadCalendar,
-					() => void goto(resolve(`/?day=${params.date}`), { replaceState: true })
+					(date) => void goto(resolve(`/?day=${date}`), { replaceState: true })
 				)
-			: undefined
+		)
 	);
 
 	$effect(() => loader?.start(params.date));

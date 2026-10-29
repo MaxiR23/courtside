@@ -165,7 +165,7 @@ Meta: "Official injury report". Two columns, min 420px. The name with `#num · P
 
 | State | What shows |
 |---|---|
-| Loading | Skeletons shaped like the header and the first section, with the home's shimmer, stopped under reduced motion |
+| Loading | Skeletons shaped like the header and the first section, with the home's shimmer, stopped under reduced motion; also right after navigating to another player or team (or another season), until that feed arrives: the previous one is never shown under the new URL |
 | Feed unavailable | The nav row, then the home's "Data isn't available right now. Check back later." row (a 503 or a failed request; polling continues, and the page fills in when a later request succeeds) |
 | Unknown player or team | The nav row, then a blueprint row reading "Player not found." or "Team not found." with a link back to all games (the feed answers 404: an unknown id, or a team code that is not lowercase) |
 | Partial data | A null field hides its cell, and a section without data hides with its tab |

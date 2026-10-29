@@ -17,6 +17,7 @@
 	import { FeedOnce } from '#lib/feed/once.svelte.ts';
 	import { toPlayerView } from '#lib/feed/player-props.ts';
 	import { FeedPoller, playerPollInterval } from '#lib/feed/poller.svelte.ts';
+	import { feedSource } from '#lib/feed/source.ts';
 	import type { PlayerPageState } from '#lib/player/types.ts';
 	import { wideViewport } from '#lib/schedule/layout.ts';
 	import {
@@ -52,20 +53,21 @@
 
 	const template = playerFeedUrl;
 	const pastTemplate = seasonPlayerFeedUrl;
-	const source = $derived.by(() => {
+	// The feed URL follows the id and the season; a new URL is a new, empty source (docs/design.md, "Shared components").
+	const feedUrl = $derived.by(() => {
 		if (shown === 'pending') return null;
 		if (typeof shown === 'number') {
-			return pastTemplate
-				? new FeedOnce(() => loadPlayerFeed(seasonPlayerFeedUrlOf(pastTemplate, shown, params.id)))
-				: undefined;
+			return pastTemplate ? seasonPlayerFeedUrlOf(pastTemplate, shown, params.id) : undefined;
 		}
-		return template
-			? new FeedPoller(
-					() => loadPlayerFeed(playerFeedUrlOf(template, params.id)),
-					playerPollInterval
-				)
-			: undefined;
+		return template ? playerFeedUrlOf(template, params.id) : undefined;
 	});
+	const source = $derived(
+		feedSource(feedUrl, (url) =>
+			past
+				? new FeedOnce(() => loadPlayerFeed(url))
+				: new FeedPoller(() => loadPlayerFeed(url), playerPollInterval)
+		)
+	);
 
 	$effect(() => source?.start());
 

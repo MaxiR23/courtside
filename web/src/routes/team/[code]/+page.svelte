@@ -16,6 +16,7 @@
 	} from '#lib/feed/load.ts';
 	import { FeedOnce } from '#lib/feed/once.svelte.ts';
 	import { FeedPoller, teamPollInterval } from '#lib/feed/poller.svelte.ts';
+	import { feedSource } from '#lib/feed/source.ts';
 	import { toTeamView } from '#lib/feed/team-props.ts';
 	import { wideViewport } from '#lib/schedule/layout.ts';
 	import {
@@ -52,17 +53,21 @@
 
 	const template = teamFeedUrl;
 	const pastTemplate = seasonTeamFeedUrl;
-	const source = $derived.by(() => {
+	// The feed URL follows the code and the season; a new URL is a new, empty source (docs/design.md, "Shared components").
+	const feedUrl = $derived.by(() => {
 		if (shown === 'pending') return null;
 		if (typeof shown === 'number') {
-			return pastTemplate
-				? new FeedOnce(() => loadTeamFeed(seasonTeamFeedUrlOf(pastTemplate, shown, params.code)))
-				: undefined;
+			return pastTemplate ? seasonTeamFeedUrlOf(pastTemplate, shown, params.code) : undefined;
 		}
-		return template
-			? new FeedPoller(() => loadTeamFeed(teamFeedUrlOf(template, params.code)), teamPollInterval)
-			: undefined;
+		return template ? teamFeedUrlOf(template, params.code) : undefined;
 	});
+	const source = $derived(
+		feedSource(feedUrl, (url) =>
+			past
+				? new FeedOnce(() => loadTeamFeed(url))
+				: new FeedPoller(() => loadTeamFeed(url), teamPollInterval)
+		)
+	);
 
 	$effect(() => source?.start());
 
