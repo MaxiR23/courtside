@@ -5,6 +5,7 @@
 	import type { WildCardView } from '#lib/cup/types.ts';
 	import { m } from '#lib/paraglide/messages.js';
 	import type { RowLayout } from '#lib/schedule/types.ts';
+	import Kicker from '#lib/components/Kicker.svelte';
 
 	type Props = {
 		table: WildCardView;
@@ -22,15 +23,17 @@
 	<h3>{table.title}</h3>
 	<div class="scroll">
 		<div class="table" class:mobile={layout === 'mobile'} role="table">
-			<div class="row head" role="row">
-				<span class="cell team" role="columnheader">
-					<span class="rank">{m.cup_col_rank()}</span>
-					<span>{m.cup_col_team()}</span>
-				</span>
-				{#each columns as label, i (i)}
-					<span class="cell" role="columnheader">{label()}</span>
-				{/each}
-			</div>
+			<Kicker as="div" tone="muted" contents
+				><div class="row head" role="row">
+					<span class="cell team" role="columnheader">
+						<span class="rank">{m.cup_col_rank()}</span>
+						<span>{m.cup_col_team()}</span>
+					</span>
+					{#each columns as label, i (i)}
+						<span class="cell" role="columnheader">{label()}</span>
+					{/each}
+				</div></Kicker
+			>
 			{#each table.rows as row, i (i)}
 				<div class="row body" role="row">
 					<span class="cell team" role="rowheader">
@@ -103,13 +106,6 @@
 		gap: var(--game-list-gap);
 		min-width: 0;
 		background: var(--color-bg);
-	}
-
-	.head {
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-muted);
 	}
 
 	.body:hover {

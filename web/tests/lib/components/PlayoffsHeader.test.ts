@@ -68,7 +68,7 @@ describe('PlayoffsHeader', () => {
 		expect(screen.getByText('Playoff picture')).toBeTruthy();
 		expect(screen.getByRole('heading', { level: 1, name: 'Playoffs' })).toBeTruthy();
 		const items = [...container.querySelectorAll('.stage-strip li')].map((li) =>
-			[...li.querySelectorAll('span')].map((s) => s.textContent)
+			[...li.querySelectorAll('.label, .dates, .status')].map((s) => s.textContent)
 		);
 		expect(items).toEqual([
 			['Play-In', 'TBD', 'Next'],

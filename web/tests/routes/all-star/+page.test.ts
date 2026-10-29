@@ -175,7 +175,7 @@ describe('All-Star page', () => {
 	it('renders the live state', async () => {
 		stubFetch(answerWith(fixture('live')));
 		const { container } = await renderPage();
-		expect(screen.getByText('Live now', { selector: '.kicker' })).toBeTruthy();
+		expect(screen.getByText('Live now', { selector: '.copy > .kicker' })).toBeTruthy();
 		expect(ids(container)).toEqual(['games', 'teams']);
 		expect(container.querySelector('.clock')?.textContent).toBe('5:12');
 	});

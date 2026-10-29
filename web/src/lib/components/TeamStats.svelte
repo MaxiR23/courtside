@@ -7,6 +7,7 @@
 	import { statBar } from '#lib/schedule/motion.ts';
 	import { barShares, leadingSide } from '#lib/schedule/stats.ts';
 	import type { TeamStatLine } from '#lib/schedule/types.ts';
+	import Kicker from '#lib/components/Kicker.svelte';
 
 	// With `leads` (the game detail page) the feed names the leading side and eight stats show.
 	type Props =
@@ -123,7 +124,7 @@
 		<div class="stat">
 			<div class="stat-head">
 				<span class="stat-value away" class:lead={row.lead === 'away'}>{row.away}</span>
-				<span class="stat-label">{row.label}</span>
+				<Kicker tone="muted" contents><span class="stat-label">{row.label}</span></Kicker>
 				<span class="stat-value home" class:lead={row.lead === 'home'}>{row.home}</span>
 			</div>
 			<div class="bars">
@@ -202,13 +203,6 @@
 
 	.stat-value.lead {
 		color: var(--color-ink);
-	}
-
-	.stat-label {
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-muted);
 	}
 
 	.bars {

@@ -54,7 +54,10 @@
 					<ul class="lines">
 						{#each mvp.lines as line (line.key)}
 							<li class="line">
-								<span class="round" class:championship={line.championship}>{line.round}</span>
+								<Kicker tone="muted" contents
+									><span class="round" class:championship={line.championship}>{line.round}</span
+									></Kicker
+								>
 								<span class="result">{line.result}</span>
 								<span class="stat">{line.stat}</span>
 							</li>
@@ -180,13 +183,6 @@
 		align-items: baseline;
 		padding-top: var(--day-strip-gap);
 		border-top: var(--hairline) solid var(--color-row-rule);
-	}
-
-	.round {
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-muted);
 	}
 
 	.round.championship {

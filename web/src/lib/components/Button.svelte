@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { ResolvedPathname } from '$app/types';
 	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
+	import Kicker from '#lib/components/Kicker.svelte';
 
 	type Props = { variant: 'primary' | 'secondary'; label: string } & (
 		{ href: ResolvedPathname; onclick?: never } | { onclick: () => void; href?: never }
@@ -11,9 +12,11 @@
 
 {#snippet control()}
 	{#if href}
-		<a class="button {variant}" {href}>{label}</a>
+		<a class="button {variant}" {href}><Kicker tone="inherit" text={label} /></a>
 	{:else}
-		<button class="button {variant}" type="button" {onclick}>{label}</button>
+		<button class="button {variant}" type="button" {onclick}
+			><Kicker tone="inherit" text={label} /></button
+		>
 	{/if}
 {/snippet}
 
@@ -32,9 +35,6 @@
 		padding-inline: calc(var(--hit-target-size) / 2);
 		font-family: var(--font-body);
 		font-weight: var(--font-weight-medium);
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
 		border-radius: var(--radius);
 		text-decoration: none;
 		cursor: pointer;

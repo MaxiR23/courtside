@@ -4,6 +4,7 @@
 	import { m } from '#lib/paraglide/messages.js';
 	import type { PlayInSlotView, PlayInView } from '#lib/playoffs/types.ts';
 	import type { RowLayout } from '#lib/schedule/types.ts';
+	import Kicker from '#lib/components/Kicker.svelte';
 
 	type Props = {
 		playIn: PlayInView[];
@@ -43,7 +44,7 @@
 				<ul class="games">
 					{#each card.games as game (game.key)}
 						<li class="game" class:collapsed>
-							<span class="game-title">{game.title}</span>
+							<Kicker tone="muted" contents><span class="game-title">{game.title}</span></Kicker>
 							{#if !collapsed}
 								{@render slotRow(game.top, game.score?.top ?? null)}
 								{@render slotRow(game.bottom, game.score?.bottom ?? null)}
@@ -115,13 +116,6 @@
 		padding: var(--playoffs-card-padding);
 		border: var(--hairline) solid var(--playoffs-card-border);
 		background: var(--playoffs-card-bg);
-	}
-
-	.game-title {
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-muted);
 	}
 
 	.slot {

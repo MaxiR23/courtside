@@ -5,6 +5,7 @@
 	import type { GroupRowView } from '#lib/cup/types.ts';
 	import { m } from '#lib/paraglide/messages.js';
 	import type { RowLayout } from '#lib/schedule/types.ts';
+	import Kicker from '#lib/components/Kicker.svelte';
 
 	type Props = {
 		rows: GroupRowView[];
@@ -34,15 +35,17 @@
 
 <div class="scroll">
 	<div class="table" class:mobile={layout === 'mobile'} class:wide role="table">
-		<div class="row head" role="row">
-			<span class="cell team" role="columnheader">
-				<span class="position">{m.cup_col_pos()}</span>
-				<span>{m.cup_col_team()}</span>
-			</span>
-			{#each columns as label, i (i)}
-				<span class="cell" role="columnheader">{label()}</span>
-			{/each}
-		</div>
+		<Kicker as="div" tone="muted" contents
+			><div class="row head" role="row">
+				<span class="cell team" role="columnheader">
+					<span class="position">{m.cup_col_pos()}</span>
+					<span>{m.cup_col_team()}</span>
+				</span>
+				{#each columns as label, i (i)}
+					<span class="cell" role="columnheader">{label()}</span>
+				{/each}
+			</div></Kicker
+		>
 		{#each rows as row, i (i)}
 			<div class="row body" class:eliminated={row.eliminated} role="row">
 				<span class="cell team" role="rowheader">
@@ -107,13 +110,6 @@
 		gap: var(--game-list-gap);
 		min-width: 0;
 		background: var(--color-bg);
-	}
-
-	.head {
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-muted);
 	}
 
 	.body:hover {

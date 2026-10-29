@@ -13,6 +13,7 @@
 	import { keepFocusInside, lockBodyScroll } from '#lib/search/dialog.ts';
 	import { shimmer } from '#lib/skeleton/motion.ts';
 	import SkeletonBone from '#lib/components/SkeletonBone.svelte';
+	import Kicker from '#lib/components/Kicker.svelte';
 
 	type Props = {
 		state: MatchupPanelState;
@@ -130,15 +131,17 @@
 						{#if side.score !== null}<span class="score">{side.score}</span>{/if}
 					</div>
 					{#if i === 0}
-						<div class="status">
-							{#if view.status.kind === 'final'}
-								{view.status.text}
-							{:else if view.status.kind === 'vs'}
-								{m.cup_vs()}
-							{:else}
-								<StatusTag status={view.status.status} />
-							{/if}
-						</div>
+						<Kicker as="div" tone="muted" contents
+							><div class="status">
+								{#if view.status.kind === 'final'}
+									{view.status.text}
+								{:else if view.status.kind === 'vs'}
+									{m.cup_vs()}
+								{:else}
+									<StatusTag status={view.status.status} />
+								{/if}
+							</div></Kicker
+						>
 					{/if}
 				{/each}
 			</div>
@@ -260,13 +263,6 @@
 		font-family: var(--font-heading);
 		font-size: var(--score-size-mobile);
 		font-variant-numeric: tabular-nums;
-	}
-
-	.status {
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-muted);
 	}
 
 	.note {

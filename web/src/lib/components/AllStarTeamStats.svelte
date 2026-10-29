@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { TeamStatView } from '#lib/all-star/types.ts';
+	import Kicker from '#lib/components/Kicker.svelte';
 
 	type Props = { stats: TeamStatView[] };
 
@@ -10,7 +11,7 @@
 	{#each stats as stat (stat.key)}
 		<li class="stat">
 			<span class="value away" class:better={stat.better === 'away'}>{stat.away}</span>
-			<span class="label">{stat.label}</span>
+			<Kicker tone="muted" contents><span class="label">{stat.label}</span></Kicker>
 			<span class="value home" class:better={stat.better === 'home'}>{stat.home}</span>
 			<span class="bar" aria-hidden="true">
 				<span class="half away-half">
@@ -46,13 +47,6 @@
 		grid-template-columns: 1fr auto 1fr;
 		align-items: baseline;
 		gap: var(--day-strip-gap) var(--game-list-gap);
-	}
-
-	.label {
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-muted);
 	}
 
 	.value {

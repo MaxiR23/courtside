@@ -2,6 +2,7 @@
 	import type { ResolvedPathname } from '$app/types';
 	import TeamMark from '#lib/components/TeamMark.svelte';
 	import type { StatRowView, StatTableView } from '#lib/player/types.ts';
+	import Kicker from '#lib/components/Kicker.svelte';
 
 	type Props = {
 		table: StatTableView;
@@ -36,12 +37,14 @@
 
 <div class="scroll">
 	<div class="table" role="table">
-		<div class="row head" role="row" style:grid-template-columns={template}>
-			<span class="cell first" role="columnheader">{labelHeader}</span>
-			{#each table.columns as column (column.key)}
-				<span class="cell" class:muted={column.muted} role="columnheader">{column.label}</span>
-			{/each}
-		</div>
+		<Kicker as="div" tone="muted" contents
+			><div class="row head" role="row" style:grid-template-columns={template}>
+				<span class="cell first" role="columnheader">{labelHeader}</span>
+				{#each table.columns as column (column.key)}
+					<span class="cell" class:muted={column.muted} role="columnheader">{column.label}</span>
+				{/each}
+			</div></Kicker
+		>
 		{#each table.rows as row (row.key)}
 			{@const linked = row.link?.linked === true}
 			<div class="row body" class:linked role="row" style:grid-template-columns={template}>
@@ -110,13 +113,6 @@
 		flex-direction: column;
 		background: var(--color-bg);
 		text-align: left;
-	}
-
-	.head {
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-muted);
 	}
 
 	.linked:hover {

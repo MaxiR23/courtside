@@ -4,6 +4,7 @@
 	import { m } from '#lib/paraglide/messages.js';
 	import { periodCells, periodColumns, type PeriodColumn } from '#lib/schedule/line-score.ts';
 	import type { TeamMarkTeam } from '#lib/team/mark.ts';
+	import Kicker from '#lib/components/Kicker.svelte';
 
 	type Team = { team: TeamMarkTeam; periods: number[]; total: number };
 	type Props = {
@@ -31,13 +32,15 @@
 </script>
 
 <div class="line-score" class:detail style:--periods={columns.length}>
-	<div class="line head">
-		<span class="team-cell">{m.panel_line_score_team()}</span>
-		{#each columns as column, i (i)}
-			<span class="cell">{label(column)}</span>
-		{/each}
-		<span class="cell total-cell">{m.panel_line_score_total()}</span>
-	</div>
+	<Kicker as="div" tone="muted" contents
+		><div class="line head">
+			<span class="team-cell">{m.panel_line_score_team()}</span>
+			{#each columns as column, i (i)}
+				<span class="cell">{label(column)}</span>
+			{/each}
+			<span class="cell total-cell">{m.panel_line_score_total()}</span>
+		</div></Kicker
+	>
 	{#each teams as entry (entry.side)}
 		{@const team = entry.team}
 		<div class="line">
@@ -80,13 +83,6 @@
 				minmax(var(--detail-line-score-period-min), var(--detail-line-score-period-max))
 			)
 			minmax(var(--detail-line-score-total-min), var(--detail-line-score-total-max));
-	}
-
-	.head {
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-muted);
 	}
 
 	.cell {

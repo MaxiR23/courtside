@@ -15,6 +15,7 @@
 	import { m } from '#lib/paraglide/messages.js';
 	import { panelContent, panelExpand, panelTint } from '#lib/schedule/motion.ts';
 	import type { RowLayout, ScheduleGame } from '#lib/schedule/types.ts';
+	import Kicker from '#lib/components/Kicker.svelte';
 
 	type Props = {
 		game: ScheduleGame;
@@ -65,25 +66,27 @@
 
 {#snippet statusLine()}
 	{@const status = game.status}
-	<span class="status-line">
-		{#if status.state === 'final'}
-			{m.status_final()}
-		{:else if status.state === 'live'}
-			<LiveBadge /> {status.period} · {status.clock}
-		{:else if status.state === 'scheduled'}
-			{#if layout === 'desktop'}
-				{status.network ?? ''}
+	<Kicker tone="muted" contents
+		><span class="status-line">
+			{#if status.state === 'final'}
+				{m.status_final()}
+			{:else if status.state === 'live'}
+				<LiveBadge /> {status.period} · {status.clock}
+			{:else if status.state === 'scheduled'}
+				{#if layout === 'desktop'}
+					{status.network ?? ''}
+				{:else}
+					{status.tipTime + ' ' + status.tipSuffix + (status.network ? ' · ' + status.network : '')}
+				{/if}
+			{:else if status.state === 'delayed'}
+				{m.status_delayed()}
+			{:else if status.state === 'postponed'}
+				{m.status_postponed()}
 			{:else}
-				{status.tipTime + ' ' + status.tipSuffix + (status.network ? ' · ' + status.network : '')}
+				{m.status_canceled()}
 			{/if}
-		{:else if status.state === 'delayed'}
-			{m.status_delayed()}
-		{:else if status.state === 'postponed'}
-			{m.status_postponed()}
-		{:else}
-			{m.status_canceled()}
-		{/if}
-	</span>
+		</span></Kicker
+	>
 {/snippet}
 
 {#snippet chevron()}
@@ -127,7 +130,7 @@
 						{game.status.tipTime}<span class="suffix">{game.status.tipSuffix}</span>
 					</span>
 				{:else if hidden}
-					<span class="reveal">{m.schedule_tap_to_reveal()}</span>
+					<Kicker contents><span class="reveal">{m.schedule_tap_to_reveal()}</span></Kicker>
 				{/if}
 			</span>
 			<span class="team home">
@@ -157,7 +160,9 @@
 							solid={game.allStarMark.championship}
 						/>{/if}
 					{@render statusLine()}
-					{#if hidden}<span class="reveal">{m.schedule_tap_to_reveal()}</span>{/if}
+					{#if hidden}<Kicker contents
+							><span class="reveal">{m.schedule_tap_to_reveal()}</span></Kicker
+						>{/if}
 				</span>
 				{@render chevron()}
 			</span>
@@ -254,23 +259,25 @@
 	{:else if details?.kind === 'scheduled' && status.state === 'scheduled'}
 		<dl class="facts">
 			<div class="fact">
-				<dt>{m.panel_tip_off()}</dt>
+				<Kicker as="dt" tone="muted" text={m.panel_tip_off()} />
 				<dd>{status.tipTime} {status.tipSuffix}</dd>
 			</div>
 			{#if details.venue}
 				<div class="fact">
-					<dt>{m.panel_venue()}</dt>
+					<Kicker as="dt" tone="muted" text={m.panel_venue()} />
 					<dd>{details.venue}</dd>
 				</div>
 			{/if}
 			{#if status.network}
 				<div class="fact">
-					<dt>{m.panel_broadcast()}</dt>
+					<Kicker as="dt" tone="muted" text={m.panel_broadcast()} />
 					<dd>{status.network}</dd>
 				</div>
 			{/if}
 		</dl>
-		<p class="watch-title">{m.panel_players_to_watch()}</p>
+		<Kicker as="div" tone="muted" contents
+			><p class="watch-title">{m.panel_players_to_watch()}</p></Kicker
+		>
 		<div class="watch">
 			{#each entries as entry (entry.side)}
 				{@const player = details.playersToWatch[entry.side]}
@@ -373,13 +380,6 @@
 		gap: var(--day-strip-gap);
 	}
 
-	.status-line {
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-muted);
-	}
-
 	.scores {
 		display: flex;
 		gap: var(--game-list-gap);
@@ -403,13 +403,6 @@
 
 	.dimmed {
 		opacity: var(--dimmed-opacity);
-	}
-
-	.reveal {
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-accent-light);
 	}
 
 	.mobile-status {
@@ -529,13 +522,6 @@
 		margin: 0;
 	}
 
-	.fact dt {
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-muted);
-	}
-
 	.fact dd {
 		margin: 0;
 		font-size: var(--body-size);
@@ -543,10 +529,6 @@
 
 	.watch-title {
 		margin: var(--panel-section-gap) 0 var(--game-list-gap);
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-muted);
 	}
 
 	.watch {

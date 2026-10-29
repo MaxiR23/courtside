@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { RowLayout } from '#lib/schedule/types.ts';
+	import Kicker from '#lib/components/Kicker.svelte';
 
 	type Stage = {
 		key: string;
@@ -23,7 +24,7 @@
 		>
 			<span class="label">{stage.label}</span>
 			<span class="dates">{stage.dates}</span>
-			<span class="status">{stage.statusLabel}</span>
+			<Kicker tone="muted" contents><span class="status">{stage.statusLabel}</span></Kicker>
 		</li>
 	{/each}
 </ol>
@@ -78,13 +79,6 @@
 
 	.dates {
 		font-size: var(--body-size-small);
-		color: var(--color-muted);
-	}
-
-	.status {
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
 		color: var(--color-muted);
 	}
 

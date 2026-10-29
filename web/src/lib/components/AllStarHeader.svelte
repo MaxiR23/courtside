@@ -103,7 +103,7 @@
 						<dl class="stats">
 							{#each header.stats as stat (stat.key)}
 								<div class="stat" class:accent={stat.accent}>
-									<dt>{stat.label}</dt>
+									<Kicker as="dt" tone="muted" text={stat.label} />
 									<dd>{statText(stat)}</dd>
 								</div>
 							{/each}
@@ -113,7 +113,7 @@
 						<dl class="rows">
 							{#each header.rows as row (row.key)}
 								<div class="info-row">
-									<dt>{row.label}</dt>
+									<Kicker as="dt" tone="muted" text={row.label} />
 									<dd>{row.value}</dd>
 								</div>
 							{/each}
@@ -128,7 +128,7 @@
 									class:primary={button.primary}
 									onclick={() => scrollTo(button.key)}
 								>
-									{button.label}
+									<Kicker tone="inherit" text={button.label} />
 								</button>
 							{/each}
 						</div>
@@ -288,13 +288,6 @@
 		min-width: 0;
 	}
 
-	dt {
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-muted);
-	}
-
 	dd {
 		margin: 0;
 	}
@@ -351,9 +344,6 @@
 		background: transparent;
 		font-family: var(--font-body);
 		font-weight: var(--font-weight-medium);
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
 		color: var(--color-ink);
 		cursor: pointer;
 	}

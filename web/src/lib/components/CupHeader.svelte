@@ -12,6 +12,7 @@
 	import type { SeasonControl } from '#lib/season/types.ts';
 	import { shimmer } from '#lib/skeleton/motion.ts';
 	import SkeletonBone from '#lib/components/SkeletonBone.svelte';
+	import Kicker from '#lib/components/Kicker.svelte';
 
 	type Props = {
 		header: CupHeaderView | null; // null: only the nav row and the title, or the bones while loading
@@ -90,7 +91,7 @@
 										></span></span
 									>
 								{/if}
-								<span class="team-label">{header.team.label}</span>
+								<Kicker contents><span class="team-label">{header.team.label}</span></Kicker>
 								<span class="team-name"
 									>{#if header.team.team.city}{header.team.team.city + ' '}{/if}<TeamMark
 										team={header.team.team}
@@ -321,15 +322,10 @@
 		height: var(--cup-champion-bar-height-mobile);
 	}
 
-	.team-label {
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-accent-light);
-	}
-
 	.mobile .team-label {
 		font-size: var(--cup-champion-label-size-mobile);
+		/* The Kicker contents wrapper passes down spacing computed at 11px; resolve it against this size. */
+		letter-spacing: var(--label-letter-spacing);
 	}
 
 	.team-name {

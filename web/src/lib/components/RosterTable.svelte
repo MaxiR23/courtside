@@ -4,6 +4,7 @@
 	import { m } from '#lib/paraglide/messages.js';
 	import type { RowLayout } from '#lib/schedule/types.ts';
 	import type { RosterRow } from '#lib/team/types.ts';
+	import Kicker from '#lib/components/Kicker.svelte';
 
 	type Props = {
 		roster: RosterRow[];
@@ -32,15 +33,17 @@
 
 <div class="scroll">
 	<div class="table" class:mobile={layout === 'mobile'} class:no-status={!status} role="table">
-		<div class="row head" role="row">
-			<span class="cell player" role="columnheader">{m.team_roster_player()}</span>
-			{#each columns as column (column.key)}
-				<span class="cell" role="columnheader">{column.label()}</span>
-			{/each}
-			{#if status}
-				<span class="cell" role="columnheader">{m.team_roster_status()}</span>
-			{/if}
-		</div>
+		<Kicker as="div" tone="muted" contents
+			><div class="row head" role="row">
+				<span class="cell player" role="columnheader">{m.team_roster_player()}</span>
+				{#each columns as column (column.key)}
+					<span class="cell" role="columnheader">{column.label()}</span>
+				{/each}
+				{#if status}
+					<span class="cell" role="columnheader">{m.team_roster_status()}</span>
+				{/if}
+			</div></Kicker
+		>
 		{#each roster as row (row.id)}
 			<div class="row body" role="row">
 				<span class="cell player" role="rowheader">
@@ -120,13 +123,6 @@
 		align-items: center;
 		gap: var(--game-list-gap);
 		background: var(--color-bg);
-	}
-
-	.head {
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-muted);
 	}
 
 	.body:hover {

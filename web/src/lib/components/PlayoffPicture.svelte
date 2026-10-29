@@ -5,6 +5,7 @@
 	import { m } from '#lib/paraglide/messages.js';
 	import type { PictureTableView } from '#lib/playoffs/types.ts';
 	import type { RowLayout } from '#lib/schedule/types.ts';
+	import Kicker from '#lib/components/Kicker.svelte';
 
 	type Props = {
 		table: PictureTableView;
@@ -20,14 +21,16 @@
 <section class="playoff-picture">
 	<div class="scroll">
 		<div class="table" class:mobile={layout === 'mobile'} role="table" aria-label={table.title}>
-			<div class="row head" role="row">
-				<span class="cell team" role="columnheader">
-					<span class="seed">{m.playoffs_col_seed()}</span>
-					<span>{m.playoffs_col_team()}</span>
-				</span>
-				<span class="cell" role="columnheader">{m.playoffs_col_record()}</span>
-				<span class="cell" role="columnheader">{m.playoffs_col_gb()}</span>
-			</div>
+			<Kicker as="div" tone="muted" contents
+				><div class="row head" role="row">
+					<span class="cell team" role="columnheader">
+						<span class="seed">{m.playoffs_col_seed()}</span>
+						<span>{m.playoffs_col_team()}</span>
+					</span>
+					<span class="cell" role="columnheader">{m.playoffs_col_record()}</span>
+					<span class="cell" role="columnheader">{m.playoffs_col_gb()}</span>
+				</div></Kicker
+			>
 			{#each table.rows as row, i (i)}
 				<div class="row body" role="row">
 					<span class="cell team" role="rowheader">
@@ -97,13 +100,6 @@
 		gap: var(--game-list-gap);
 		min-width: 0;
 		background: var(--color-bg);
-	}
-
-	.head {
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-muted);
 	}
 
 	.body:hover {

@@ -4,6 +4,7 @@
 	// and the table their path. Not the standings page's StandingsTable.
 	// SEE: docs/design.md, Home with no games
 	import type { ResolvedPathname } from '$app/types';
+	import Kicker from '#lib/components/Kicker.svelte';
 	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
 	import TeamMark from '#lib/components/TeamMark.svelte';
 	import type { HomeStandingsView } from '#lib/home/types.ts';
@@ -68,14 +69,14 @@
 		{@const current = view.tabs[selected] ?? view.tabs[0]}
 		<BlueprintFrame>
 			<table class="table">
-				<thead>
+				<Kicker as="thead" tone="muted">
 					<tr>
 						<th class="rank" scope="col">#</th>
 						<th class="team" scope="col">{m.home_standings_col_team()}</th>
 						<th class="num" scope="col">{m.home_standings_col_record()}</th>
 						<th class="num" scope="col">{m.home_standings_col_gb()}</th>
 					</tr>
-				</thead>
+				</Kicker>
 				<tbody>
 					{#each current.rows as row (row.code)}
 						<tr>
@@ -106,14 +107,14 @@
 		{@const current = view.tabs[selected] ?? view.tabs[0]}
 		<BlueprintFrame>
 			<table class="table">
-				<thead>
+				<Kicker as="thead" tone="muted">
 					<tr>
 						<th class="team" scope="col">{m.home_finals_path_col_round()}</th>
 						<th class="team" scope="col">{m.home_finals_path_col_opponent()}</th>
 						<th class="num" scope="col">{m.home_finals_path_col_result()}</th>
 						<th class="num" scope="col"></th>
 					</tr>
-				</thead>
+				</Kicker>
 				<tbody>
 					{#each current.series as series (series.key)}
 						<tr>
@@ -224,12 +225,8 @@
 
 	th {
 		padding: var(--day-strip-gap) var(--game-list-gap);
-		font-size: var(--label-size);
 		font-weight: var(--font-weight-regular);
-		letter-spacing: var(--label-letter-spacing);
 		text-align: left;
-		text-transform: uppercase;
-		color: var(--color-muted);
 	}
 
 	td {

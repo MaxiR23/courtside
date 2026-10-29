@@ -8,6 +8,7 @@
 	import type { BoxTab } from '#lib/all-star/selection.svelte.ts';
 	import { m } from '#lib/paraglide/messages.js';
 	import type { RowLayout } from '#lib/schedule/types.ts';
+	import Kicker from '#lib/components/Kicker.svelte';
 
 	type Props = {
 		box: GameBoxView;
@@ -125,17 +126,19 @@
 	{#if layout === 'mobile'}<p class="hint">{m.allstar_box_hint()}</p>{/if}
 	<div class="scroll">
 		<div class="table" role="table" aria-label={team.tab}>
-			<div class="row head" role="row">
-				{#each columns as column (column)}
-					<span
-						class="cell {column}"
-						class:sticky={layout === 'mobile' && column === 'player'}
-						role="columnheader"
-					>
-						{LABEL[column]()}
-					</span>
-				{/each}
-			</div>
+			<Kicker as="div" tone="muted" contents
+				><div class="row head" role="row">
+					{#each columns as column (column)}
+						<span
+							class="cell {column}"
+							class:sticky={layout === 'mobile' && column === 'player'}
+							role="columnheader"
+						>
+							{LABEL[column]()}
+						</span>
+					{/each}
+				</div></Kicker
+			>
 			{#each team.rows as row (row.id)}
 				<div class="row" role="row">
 					{#each columns as column (column)}
@@ -278,10 +281,6 @@
 
 	.head {
 		border-top: 0;
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-muted);
 	}
 
 	.totals {

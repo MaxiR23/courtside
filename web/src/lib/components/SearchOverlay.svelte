@@ -12,6 +12,7 @@
 	import { moveActive } from '#lib/search/keys.ts';
 	import { capPlayers, PLAYER_CAP, searchIndex } from '#lib/search/match.ts';
 	import { backdropFade, panelRise, playReverse } from '#lib/search/motion.ts';
+	import Kicker from '#lib/components/Kicker.svelte';
 
 	type Props = {
 		feed: SearchFeedStore;
@@ -136,7 +137,7 @@
 				</button>
 			{/if}
 			<button type="button" class="esc" onclick={requestClose}>
-				{layout === 'mobile' ? m.search_cancel() : m.search_esc()}
+				<Kicker tone="inherit" text={layout === 'mobile' ? m.search_cancel() : m.search_esc()} />
 			</button>
 		</div>
 
@@ -148,7 +149,7 @@
 					<p class="message">{noResults}</p>
 				{/if}
 				{#if teams.length > 0}
-					<h2 class="label">{teamsLabel}</h2>
+					<h2 class="label"><Kicker text={teamsLabel} /></h2>
 					{#each teams as team, i (team.code)}
 						<SearchResultRow
 							row={{ kind: 'team', team }}
@@ -162,7 +163,7 @@
 					{/each}
 				{/if}
 				{#if found.players.length > 0}
-					<h2 class="label">{playersLabel}</h2>
+					<h2 class="label"><Kicker text={playersLabel} /></h2>
 					{#each players as player, j (player.id)}
 						{@const i = teams.length + j}
 						<SearchResultRow
@@ -296,9 +297,6 @@
 		padding: var(--tag-padding);
 		border: var(--hairline) solid var(--color-divider);
 		border-radius: var(--search-esc-radius);
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
 	}
 
 	.sheet .esc {
@@ -326,13 +324,10 @@
 	}
 
 	.label {
+		display: flex;
 		margin: 0;
 		padding: var(--game-list-gap) var(--game-list-gap) var(--search-row-inset);
-		font-size: var(--label-size);
 		font-weight: var(--font-weight-regular);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-accent-light);
 	}
 
 	.show-all {

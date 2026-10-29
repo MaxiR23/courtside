@@ -4,6 +4,7 @@
 	import PlayerAvatar from '#lib/components/PlayerAvatar.svelte';
 	import type { RowLayout } from '#lib/schedule/types.ts';
 	import type { LeadersSection } from '#lib/team/types.ts';
+	import Kicker from '#lib/components/Kicker.svelte';
 
 	type Props = {
 		leaders: LeadersSection;
@@ -24,7 +25,7 @@
 							<PlayerAvatar name={card.name} photo={card.photo} size="team-leader" />
 						</span>
 						<div class="text">
-							<span class="label">{card.label}</span>
+							<Kicker contents><span class="label">{card.label}</span></Kicker>
 							<span class="value">{card.value}</span>
 							<span class="name">{card.name}</span>
 							<span class="line">{card.line}</span>
@@ -82,13 +83,6 @@
 		gap: var(--day-strip-gap);
 		min-width: 0;
 		padding: var(--game-list-gap);
-	}
-
-	.label {
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-accent-light);
 	}
 
 	.value {
