@@ -131,6 +131,22 @@ Python:
 # SEE: api/<package>/sources/<adapter>.py
 ```
 
+## Guard tests
+
+Cross-cutting tests at the root of `web/tests/` keep a shared piece the only owner of what it draws (see `docs/design.md`, "Shared components"). Each scans source files and fails when another file re-implements what the piece owns. The scan scope is in each row.
+
+| Test file | Protects |
+|---|---|
+| `page-header-is-the-one-header.test.ts` | The page header: only `PageHeader` imports the nav row and draws the header grid, and only it and the calendar sheet import the season selector. |
+| `headers-first-line-offset.test.ts` | The distance between the nav row and the first line: only `PageHeader` applies the offset tokens, and no component reaches into the nav row. Scans `web/src/lib/components` only. |
+| `page-container-is-the-one-content-width.test.ts` | The content width and side padding: only `PageContainer` (and `PageHeader`) set them. |
+| `skeleton-bone-is-the-one-bone.test.ts` | The skeleton bone: only `SkeletonBone` defines a `.bone` rule or uses a bone class. |
+| `kicker-is-the-one-label.test.ts` | The small uppercase label: only `Kicker` holds its declaration set. |
+| `tag-is-the-one-tag.test.ts` | The tag box and the solid tag fill: only `Tag` holds them, besides the listed non-tags. |
+| `info-cell-is-the-one-cell.test.ts` | The info cell: only `InfoCell` holds its divider and value declarations, besides the listed lookalikes. |
+| `section-head-is-the-one-section-title.test.ts` | The section title: only `SectionHead` styles an `h2` or reads a section title size. |
+| `initials-is-the-one-rule.test.ts` | The initials rule: only `format/initials.ts` declares an initials function. Scans `web/src/lib` only. |
+
 ## TDD workflow
 
 Red, green, refactor:

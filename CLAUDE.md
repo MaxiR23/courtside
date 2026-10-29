@@ -29,6 +29,8 @@ decisions in force and the open ones.
 - Every user interface change in `/web` follows `docs/design.md`: its
   tokens, components, motion and copy. Styles use the tokens in
   `web/src/lib/styles/tokens.css` and never repeat raw values.
+- UI is built from the shared components listed in `docs/design.md`; a
+  repeated style, markup or helper becomes a shared piece, never a copy.
 - The Pydantic models in `/api` are the single source of truth for every
   feed. Generated TypeScript types are never edited by hand. A change to a
   feed model regenerates them in the same change.

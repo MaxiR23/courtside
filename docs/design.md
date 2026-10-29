@@ -16,7 +16,7 @@ A dark-mode, single-page site with two parts:
 - **Tokens live in one place.** Every color, font, size, spacing value, shadow and easing in this document is a design token, defined once as a CSS custom property in a single tokens file. Components use tokens and never repeat raw values.
 - **Scoped styles.** Each component styles itself with its own scoped styles, built from tokens. No global styles beyond the tokens and the base page styles.
 - **Components receive data through props**, with their own types. No component reads a feed directly. A separate layer turns feed data into props.
-- **Reusable primitives first.** Shared pieces, such as the blueprint frame, are built once and reused everywhere they appear.
+- **Reusable primitives first.** Shared pieces, such as the blueprint frame, are built once and reused everywhere they appear (see "Shared components").
 - **Every user-facing string is translatable**, in English and Spanish. The copy in this document is the English text.
 - **Reduced motion.** When the system asks for reduced motion, entrance animations, the idle float, the parallax, the skeleton shimmer and the live win probability marker pulse are disabled, and transitions become instant or simple fades.
 - **Feed requests time out.** Every feed request that has no answer within 15 seconds counts as a failed request: the page keeps the last feed it showed and tries again at its next poll.
@@ -128,6 +128,22 @@ Lucide at `stroke-width: 1.5`: `chevron-down` (expand), `play` (filled, highligh
 - The nav row sits `--identity-hero-pad-top` below the top of the page (40px on desktop, 16px at 390px) on every page, and spans the content width with the page's side padding.
 - The first line sits `--header-first-line-offset` (24px) below the nav row on desktop and `--header-first-line-offset-mobile` under 680px.
 - On desktop the season selector sits on the first line, at the right edge of the content and top-aligned with it. A right column (the team record, the player photo, the Cup logo, the All-Star plate, the champion logo) starts `--past-select-height` plus `--game-list-gap` below the selector's top and never overlaps it. The selector stays on the first line at every desktop width: when the lead and right columns do not fit side by side the right column drops under the lead, and a page that wraps passes `columnsMin` (the sum of the column bases) so the selector leaves the column and the column loses the selector's offset. On mobile the selector is full width under the header.
+
+## Shared components
+
+A piece that owns a repeated style, markup or rule is the only place that style, markup or rule lives. A page or component uses the piece and never re-implements what it owns. A style, markup or helper that repeats becomes a shared piece, never a copy. What each component owns is stated in the "Implementation rules", Components table, in its row. The table below names the guard test in `web/tests/` that protects each piece (see `docs/testing.md`, "Guard tests").
+
+| Piece | Guard test |
+|---|---|
+| `PageHeader` | `page-header-is-the-one-header.test.ts`, and `headers-first-line-offset.test.ts` for the first line offset |
+| `PageContainer` | `page-container-is-the-one-content-width.test.ts` |
+| `SkeletonBone` | `skeleton-bone-is-the-one-bone.test.ts` |
+| `Kicker` | `kicker-is-the-one-label.test.ts` |
+| `Tag` | `tag-is-the-one-tag.test.ts` |
+| `InfoCell` | `info-cell-is-the-one-cell.test.ts` |
+| `ProfileCells` | None of its own: the info cell guard covers the cells it lays out |
+| `SectionHead` | `section-head-is-the-one-section-title.test.ts` |
+| `initials` (`web/src/lib/format/initials.ts`) | `initials-is-the-one-rule.test.ts` |
 
 ## Screens
 
