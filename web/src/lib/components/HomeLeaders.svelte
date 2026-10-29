@@ -5,6 +5,7 @@
 	// SEE: docs/design.md, Home with no games
 	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
 	import Kicker from '#lib/components/Kicker.svelte';
+	import SectionHead from '#lib/components/SectionHead.svelte';
 	import PlayerAvatar from '#lib/components/PlayerAvatar.svelte';
 	import TeamMark from '#lib/components/TeamMark.svelte';
 	import type { HomeLeadersView } from '#lib/home/types.ts';
@@ -24,8 +25,7 @@
 
 <section class="home-leaders" class:mobile aria-labelledby={headingId}>
 	<header class="heading">
-		<Kicker text={m.home_leaders_kicker()} />
-		<h2 id={headingId}>{view.title}</h2>
+		<SectionHead kicker={m.home_leaders_kicker()} title={view.title} size="home" id={headingId} />
 	</header>
 	<ul class="leaders">
 		{#each view.leaders as leader (leader.key)}
@@ -63,14 +63,6 @@
 
 	.heading {
 		display: grid;
-	}
-
-	h2 {
-		margin: 0;
-		font-family: var(--font-heading);
-		font-size: var(--section-h2-size);
-		line-height: var(--section-h2-line-height);
-		text-transform: uppercase;
 	}
 
 	.leaders {

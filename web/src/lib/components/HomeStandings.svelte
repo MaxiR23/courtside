@@ -6,6 +6,7 @@
 	import type { ResolvedPathname } from '$app/types';
 	import Kicker from '#lib/components/Kicker.svelte';
 	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
+	import SectionHead from '#lib/components/SectionHead.svelte';
 	import TeamMark from '#lib/components/TeamMark.svelte';
 	import type { HomeStandingsView } from '#lib/home/types.ts';
 	import { m } from '#lib/paraglide/messages.js';
@@ -30,7 +31,7 @@
 
 <section class="home-standings" class:mobile aria-labelledby={headingId}>
 	<header>
-		<h2 id={headingId}>{view.title}</h2>
+		<SectionHead title={view.title} size="home" id={headingId} />
 		{#if view.kind === 'standings'}
 			<a class="full" href={standingsHref}>{m.home_standings_full()}</a>
 		{/if}
@@ -160,14 +161,6 @@
 		justify-content: space-between;
 		align-items: flex-end;
 		gap: var(--game-list-gap);
-	}
-
-	h2 {
-		margin: 0;
-		font-family: var(--font-heading);
-		font-size: var(--section-h2-size);
-		line-height: var(--section-h2-line-height);
-		text-transform: uppercase;
 	}
 
 	.full {

@@ -5,8 +5,8 @@
 	// SEE: docs/design.md, Home with no games
 	import type { ResolvedPathname } from '$app/types';
 	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
-	import Kicker from '#lib/components/Kicker.svelte';
 	import PageContainer from '#lib/components/PageContainer.svelte';
+	import SectionHead from '#lib/components/SectionHead.svelte';
 	import TeamMark from '#lib/components/TeamMark.svelte';
 	import type { HomeLastGameSideView, HomeLastGamesView } from '#lib/home/types.ts';
 	import { m } from '#lib/paraglide/messages.js';
@@ -55,8 +55,12 @@
 	<section class="last-games" class:mobile aria-labelledby={headingId}>
 		<header>
 			<div class="heading">
-				<Kicker text={m.home_last_games_kicker()} />
-				<h2 id={headingId}>{view.title}</h2>
+				<SectionHead
+					kicker={m.home_last_games_kicker()}
+					title={view.title}
+					size="home"
+					id={headingId}
+				/>
 			</div>
 			<span class="count">{view.count}</span>
 		</header>
@@ -108,14 +112,6 @@
 
 	.heading {
 		display: grid;
-	}
-
-	h2 {
-		margin: 0;
-		font-family: var(--font-heading);
-		font-size: var(--section-h2-size);
-		line-height: var(--section-h2-line-height);
-		text-transform: uppercase;
 	}
 
 	.count {

@@ -73,7 +73,7 @@ Everything under "Implementation rules" in `docs/design.md`, `docs/design-game-d
 
 One block per group. In the Conference view: Eastern Conference, Western Conference. In the Division view: Atlantic, Central, Southeast, Northeast, Northwest, Pacific, Southwest, in the order the feed sends.
 
-- h2 with the group name (`--detail-section-h2-size`, uppercase) and a meta on the right, 12px (`--caption-size`), muted:
+- h2 with the group name, drawn by `SectionHead` size `detail` (`--detail-section-h2-size`, uppercase) and a meta on the right, 12px (`--caption-size`), muted:
   - Conference view: "15 teams · GB vs conference leader"
   - Division view: "Eastern Conference · GB vs division leader"
 - The count is the number of teams in the group.

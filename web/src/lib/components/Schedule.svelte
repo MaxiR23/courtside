@@ -2,10 +2,10 @@
 	import type { ResolvedPathname } from '$app/types';
 	import DayStrip from '#lib/components/DayStrip.svelte';
 	import GameCard from '#lib/components/GameCard.svelte';
-	import Kicker from '#lib/components/Kicker.svelte';
 	import MessageRow from '#lib/components/MessageRow.svelte';
 	import PageContainer from '#lib/components/PageContainer.svelte';
 	import ScheduleEmptyDay from '#lib/components/ScheduleEmptyDay.svelte';
+	import SectionHead from '#lib/components/SectionHead.svelte';
 	import { formatDate, formatNumber } from '#lib/format/locale.ts';
 	import type { EmptyDayView } from '#lib/home/types.ts';
 	import { m } from '#lib/paraglide/messages.js';
@@ -97,10 +97,7 @@
 	<section class="schedule" id="schedule">
 		<header class:mobile={!wide.current && wrapped} bind:this={headerEl}>
 			<div class="heading">
-				<Kicker text={m.schedule_kicker()} />
-				<h2>
-					{heading}
-				</h2>
+				<SectionHead kicker={m.schedule_kicker()} title={heading} size="home" />
 			</div>
 			<div class="meta">
 				<span class="count">{countLabel}</span>
@@ -162,14 +159,6 @@
 
 	.heading {
 		display: grid;
-	}
-
-	h2 {
-		margin: 0;
-		font-family: var(--font-heading);
-		font-size: var(--section-h2-size);
-		line-height: var(--section-h2-line-height);
-		text-transform: uppercase;
 	}
 
 	.meta {

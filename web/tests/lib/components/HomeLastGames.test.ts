@@ -13,6 +13,7 @@
 // - A logo draws an img and a null logo the code monogram
 // - Spoiler-free: Tap to reveal, no score, no loser class, in both layouts
 // - Spanish copy of the reveal line
+// - The title is drawn by SectionHead at the home size and names the section
 //
 // What is covered:
 // - Each state of both layouts; jsdom does not lay out, so classes and the source are asserted
@@ -68,6 +69,14 @@ afterEach(() => {
 });
 
 describe('HomeLastGames', () => {
+	it('draws the title through SectionHead at the home size and names the section by it', () => {
+		const { container } = render(HomeLastGames, { props: { view, layout: 'desktop', gameHref } });
+		const h2 = container.querySelector('.section-head h2');
+		expect(h2?.classList.contains('home')).toBe(true);
+		expect(container.querySelector('.titled .kicker')?.textContent).toBe('Last games');
+		expect(container.querySelector('section')?.getAttribute('aria-labelledby')).toBe(h2?.id);
+	});
+
 	it('draws the header', () => {
 		render(HomeLastGames, { props: { view, layout: 'desktop', gameHref } });
 		expect(screen.getByText('Last games')).toBeTruthy();

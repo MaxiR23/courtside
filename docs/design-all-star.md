@@ -53,7 +53,7 @@ Everything under "Implementation rules" in `docs/design.md`, `docs/design-cup.md
 ## Shared patterns
 
 - Ground, ink, muted, accent, accent text, divider and row rules are the existing tokens. Headings Barlow Condensed 600, body Barlow, numbers `font-variant-numeric: tabular-nums`.
-- Content max width `--content-max-width` and side padding `--side-padding` through `PageContainer`, section gap `clamp(64px, 8vw, 104px)`, `scroll-margin-top: 72px`. Section header: h2 `clamp(28px, 3.4vw, 40px)`, uppercase, optional meta right.
+- Content max width `--content-max-width` and side padding `--side-padding` through `PageContainer`, section gap `clamp(64px, 8vw, 104px)`, `scroll-margin-top: 72px`. Section header (`SectionHead`, size `detail`): h2 `clamp(28px, 3.4vw, 40px)`, uppercase, optional meta right.
 - Tags: accent outline, 11px, .16em, uppercase, accent text (`StatusTag`).
 - Corner marks: 14px accent-light ticks at the four corners, as on the blueprint frames.
 - An All-Star team is drawn as its code in an outlined box (the sigla). It has no colors and no link. The box is 56px in heroes and team cards, 34x24px in game cards, and `--team-code-box-size` where the standard scoreboard is reused.
@@ -125,7 +125,7 @@ After state only. `#mvp`.
 
 Live and after states. `#games`.
 
-- Header: a kicker, the h2 `clamp(28px, 3.4vw, 40px)`, and the format line on the right (13px, muted).
+- Header: a kicker and the h2 drawn by `SectionHead` (size `detail`), `clamp(28px, 3.4vw, 40px)`, and the format line on the right (13px, muted).
 - Game cards, in one 1px frame, grid `repeat(auto-fit, minmax(min(100%, 230px), 1fr))` with left dividers. A card shows:
   - The round tag: "Championship" solid accent with ground text, the other rounds outlined muted.
   - The status: "Final", "Final · OT", "● Live · {status text and clock as the games feed sends them}", or the tip-off time ("6:20 PM").
