@@ -20,7 +20,10 @@ import StakesFlag from '../../../src/lib/components/StakesFlag.svelte';
 describe('StakesFlag', () => {
 	it('shows the text', () => {
 		render(StakesFlag, { props: { text: 'Can clinch' } });
-		expect(screen.getByText('Can clinch').classList.contains('stakes-flag')).toBe(true);
+		const tag = screen.getByText('Can clinch');
+		expect(tag.classList.contains('tag')).toBe(true);
+		expect(tag.classList.contains('accent')).toBe(true);
+		expect(tag.classList.contains('truncate')).toBe(true);
 	});
 
 	it('is plain text with no link or button', () => {

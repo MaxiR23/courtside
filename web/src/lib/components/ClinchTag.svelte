@@ -1,35 +1,27 @@
 <script lang="ts">
+	import Tag from '#lib/components/Tag.svelte';
 	import type { ClinchView } from '#lib/standings/types.ts';
 
 	type Props = { clinch: ClinchView };
 
 	let { clinch }: Props = $props();
+
+	// accent: accent border and text; ink: divider border, ink text; muted: divider border, muted text
+	const variant = $derived(
+		clinch.tone === 'accent'
+			? ('accent' as const)
+			: clinch.tone === 'muted'
+				? ('muted' as const)
+				: ('outline' as const)
+	);
+	const color = $derived(clinch.tone === 'ink' ? 'var(--color-ink)' : undefined);
 </script>
 
-<span class="clinch-tag {clinch.tone}">{clinch.code}</span>
-
-<style>
-	.clinch-tag {
-		display: inline-block;
-		font-size: var(--injury-tag-size);
-		padding: var(--tag-padding);
-		border: var(--hairline) solid;
-		border-radius: var(--radius);
-		white-space: nowrap;
-	}
-
-	.accent {
-		border-color: var(--color-accent);
-		color: var(--color-accent-light);
-	}
-
-	.ink {
-		border-color: var(--color-divider);
-		color: var(--color-ink);
-	}
-
-	.muted {
-		border-color: var(--color-divider);
-		color: var(--color-muted);
-	}
-</style>
+<Tag
+	text={clinch.code}
+	label={false}
+	size="var(--injury-tag-size)"
+	wrap="nowrap"
+	{variant}
+	{color}
+/>

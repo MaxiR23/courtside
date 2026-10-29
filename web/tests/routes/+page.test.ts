@@ -792,7 +792,7 @@ describe('home page on a day with no games', () => {
 		const hero = container.querySelector('.hero') as HTMLElement;
 		expect(within(hero).getByRole('heading', { level: 1 }).textContent).toBe('No games today');
 		expect(within(hero).getByText('Sunday, October 4')).toBeTruthy();
-		expect(hero.querySelector('.status-tag')).toBeNull();
+		expect(hero.querySelector('span.tag')).toBeNull();
 		expect(hero.querySelector('.paragraph')).toBeNull();
 		expect(container.querySelector('.coming-up')).toBeNull();
 		expect(container.querySelector('#schedule')).not.toBeNull();

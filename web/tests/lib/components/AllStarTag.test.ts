@@ -22,7 +22,7 @@ import AllStarTag from '../../../src/lib/components/AllStarTag.svelte';
 describe('AllStarTag', () => {
 	it('shows the tag text with the context line', () => {
 		render(AllStarTag, { props: { text: 'All-Star', context: 'Round Robin' } });
-		expect(screen.getByText('All-Star').classList.contains('allstar-tag')).toBe(true);
+		expect(screen.getByText('All-Star').classList.contains('tag')).toBe(true);
 		expect(screen.getByText('Round Robin').classList.contains('context')).toBe(true);
 	});
 

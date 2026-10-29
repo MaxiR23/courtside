@@ -13,8 +13,6 @@
 //
 // SEE: web/src/lib/components/SeasonTag.svelte
 import { render, screen } from '@testing-library/svelte';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import SeasonTag from '../../../src/lib/components/SeasonTag.svelte';
@@ -25,14 +23,13 @@ describe('SeasonTag', () => {
 		expect(screen.getByText('Season 2004-05')).toBeTruthy();
 	});
 
-	it('takes its size, letter spacing, border and color from tokens', () => {
-		const source = readFileSync(
-			join(__dirname, '..', '..', '..', 'src', 'lib', 'components', 'SeasonTag.svelte'),
-			'utf8'
-		);
-		expect(source).toContain('font-size: var(--past-tag-size)');
-		expect(source).toContain('letter-spacing: var(--past-tag-letter-spacing)');
-		expect(source).toContain('border: var(--hairline) solid var(--color-accent)');
-		expect(source).toContain('color: var(--color-accent-light)');
+	it('takes its size and letter spacing from tokens, in the accent look on one line', () => {
+		render(SeasonTag, { props: { text: 'Season 2004-05' } });
+		const tag = screen.getByText('Season 2004-05');
+		expect(tag.classList.contains('accent')).toBe(true);
+		expect(tag.classList.contains('heading')).toBe(true);
+		expect(tag.classList.contains('nowrap')).toBe(true);
+		expect(tag.style.getPropertyValue('--tag-size')).toBe('var(--past-tag-size)');
+		expect(tag.style.getPropertyValue('--tag-tracking')).toBe('var(--past-tag-letter-spacing)');
 	});
 });

@@ -75,7 +75,7 @@ describe('PlayoffPicture', () => {
 
 	it('draws clinch tags where the feed sends them and the team strip', () => {
 		const { container } = show();
-		expect([...container.querySelectorAll('.clinch-tag')].map((t) => t.textContent)).toEqual([
+		expect([...container.querySelectorAll('.tag')].map((t) => t.textContent)).toEqual([
 			'z',
 			'y',
 			'x',
@@ -95,7 +95,7 @@ describe('PlayoffPicture', () => {
 			row.clinch = null;
 		}
 		const { container } = show(source);
-		expect(container.querySelectorAll('.clinch-tag')).toHaveLength(0);
+		expect(container.querySelectorAll('.tag')).toHaveLength(0);
 		const first = [...container.querySelectorAll('.row.body')[0]!.querySelectorAll('.cell')].map(
 			(c) => c.textContent?.trim()
 		);

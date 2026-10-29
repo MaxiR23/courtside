@@ -263,7 +263,7 @@ describe('component preview', { timeout: 30_000 }, () => {
 		).toBeTruthy();
 		expect(within(sectionOf('GamePage: unknown game')).getByText('Game not found.')).toBeTruthy();
 		const postponed = sectionOf('GamePage: postponed');
-		expect(postponed.querySelector('.status-tag')?.textContent).toBe('Postponed');
+		expect(postponed.querySelector('.tag')?.textContent).toBe('Postponed');
 		expect(postponed.querySelector('.tip-time')).toBeNull();
 	});
 

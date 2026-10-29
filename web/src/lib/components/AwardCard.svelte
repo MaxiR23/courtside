@@ -1,6 +1,7 @@
 <script lang="ts">
 	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
 	import PlayerAvatar from '#lib/components/PlayerAvatar.svelte';
+	import Tag from '#lib/components/Tag.svelte';
 	import type { AwardView } from '#lib/playoffs/types.ts';
 
 	type Props = { award: AwardView };
@@ -11,7 +12,7 @@
 <BlueprintFrame>
 	<article class="award-card {award.kind}">
 		{#if award.kind === 'player'}
-			{#if award.code}<span class="code">{award.code}</span>{/if}
+			{#if award.code}<Tag text={award.code} variant="accent" />{/if}
 			{#each award.winners as winner (winner.id)}
 				<PlayerAvatar name={winner.name} photo={winner.photo} size="playoffs-card" />
 				<h3 class="award-name">{award.name}</h3>
@@ -43,15 +44,6 @@
 
 	.award-card.player {
 		justify-items: start;
-	}
-
-	.code {
-		padding: var(--tag-padding);
-		border: var(--hairline) solid var(--color-accent);
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-accent-light);
 	}
 
 	.award-name {

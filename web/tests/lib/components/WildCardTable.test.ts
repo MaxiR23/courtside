@@ -77,7 +77,7 @@ describe('WildCardTable', () => {
 	it('shows the x tag only on the tagged row', () => {
 		const { container } = show();
 		const tags = [...container.querySelectorAll('.row.body')].map(
-			(r) => r.querySelector('.clinch-tag')?.textContent ?? null
+			(r) => r.querySelector('.tag')?.textContent ?? null
 		);
 		expect(tags).toEqual(['x', null, null]);
 	});

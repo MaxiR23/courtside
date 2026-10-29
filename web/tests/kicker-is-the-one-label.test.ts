@@ -8,7 +8,7 @@
 // - The matcher flags a rule with the whole label set, and passes partial sets and comments
 // - Kicker holds the label set
 // - Every listed exception still holds the label set, so the list never keeps a stale entry
-// - No other component or route holds the label set, except the tags and the info cells
+// - No other component or route holds the label set, except the info cells
 //
 // What is covered:
 // - Happy path (only Kicker and the listed exceptions hold it), edge cases (a selector list, a
@@ -82,20 +82,9 @@ const componentFiles = svelteFilesUnder(componentsDir);
 const routeFiles = svelteFilesUnder(routesDir);
 const kickerFile = join(componentsDir, 'Kicker.svelte');
 
-// Until the tag issue and the info cell issue move them into their shared components, these
-// rules hold their own copy of the label set. File name (in lib/components) to selectors.
+// Until the info cell issue moves them into its shared component, these rules hold their own
+// copy of the label set. File name (in lib/components) to selectors.
 const exceptions: Record<string, string[]> = {
-	// Tags
-	'AllStarGameCard.svelte': ['.tag'],
-	'AllStarPlate.svelte': ['.solid-tag'],
-	'AllStarTag.svelte': ['.allstar-tag', '.context'],
-	'AwardCard.svelte': ['.code'],
-	'CupMarkTag.svelte': ['.cup-tag'],
-	'PostseasonMark.svelte': ['.context'],
-	'StakesFlag.svelte': ['.stakes-flag'],
-	'StatusTag.svelte': ['.status-tag'],
-	'TitleBadge.svelte': ['.title-badge'],
-	'TournamentTag.svelte': ['.tournament-tag'],
 	// Info cells
 	'GameHeader.svelte': ['.cell-label'],
 	'PlayerHeader.svelte': ['.cell-label'],
@@ -157,7 +146,7 @@ describe('the kicker', () => {
 		);
 	});
 
-	it('is the only place besides the listed tags and info cells that holds the label set', () => {
+	it('is the only place besides the listed info cells that holds the label set', () => {
 		const offenders: string[] = [];
 		for (const file of [...componentFiles, ...routeFiles]) {
 			if (file === kickerFile) continue;

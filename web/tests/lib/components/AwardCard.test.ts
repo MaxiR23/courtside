@@ -37,7 +37,7 @@ afterEach(() => {
 describe('AwardCard', () => {
 	it('draws a player award with its code, initials, name, winner and team', () => {
 		const { container } = render(AwardCard, { props: { award: awards()[0]! } });
-		expect(container.querySelector('.code')?.textContent).toBe('MVP');
+		expect(container.querySelector('.tag')?.textContent).toBe('MVP');
 		expect(screen.getByRole('img', { name: 'Ada Byrne' }).textContent).toBe('AB');
 		expect(screen.getByRole('heading', { name: 'Most Valuable Player' })).toBeTruthy();
 		expect(screen.getByText('Ada Byrne', { selector: '.winner-name' })).toBeTruthy();
@@ -46,7 +46,7 @@ describe('AwardCard', () => {
 
 	it('draws the photo when the winner has one', () => {
 		const { container } = render(AwardCard, { props: { award: awards()[1]! } });
-		expect(container.querySelector('.code')?.textContent).toBe('FMVP');
+		expect(container.querySelector('.tag')?.textContent).toBe('FMVP');
 		expect(container.querySelector('img')?.getAttribute('src')).toBe(
 			'https://cdn.example.com/p/a6.png'
 		);
@@ -55,7 +55,7 @@ describe('AwardCard', () => {
 	it('draws no code chip for the Twyman-Stokes award', () => {
 		const { container } = render(AwardCard, { props: { award: awards()[4]! } });
 		expect(screen.getByRole('heading', { name: 'Twyman-Stokes Teammate Award' })).toBeTruthy();
-		expect(container.querySelector('.code')).toBeNull();
+		expect(container.querySelector('.tag')).toBeNull();
 	});
 
 	it('draws a team award as a list of rows', () => {

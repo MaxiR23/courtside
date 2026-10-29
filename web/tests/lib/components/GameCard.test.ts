@@ -919,14 +919,14 @@ describe('GameCard with the Cup mark', () => {
 			props: { teamHref, game: tagged, layout: 'desktop' }
 		});
 		const center = container.querySelector('.center');
-		expect(center?.firstElementChild?.classList.contains('cup-tag')).toBe(true);
+		expect(center?.firstElementChild?.querySelector(':scope > .tag.accent')).not.toBeNull();
 		expect(center?.firstElementChild?.textContent).toBe('NBA Cup · Semifinal');
 	});
 
 	it('shows the Cup tag first in the mobile status line', () => {
 		const { container } = render(GameCard, { props: { teamHref, game: tagged, layout: 'mobile' } });
 		const status = container.querySelector('.mobile-status');
-		expect(status?.firstElementChild?.classList.contains('cup-tag')).toBe(true);
+		expect(status?.firstElementChild?.querySelector(':scope > .tag.accent')).not.toBeNull();
 		expect(status?.firstElementChild?.textContent).toBe('NBA Cup · Semifinal');
 	});
 
@@ -935,7 +935,7 @@ describe('GameCard with the Cup mark', () => {
 			const { container, unmount } = render(GameCard, {
 				props: { teamHref, game: scheduled, layout }
 			});
-			expect(container.querySelector('.cup-tag')).toBeNull();
+			expect(container.querySelector('.tag.accent')).toBeNull();
 			unmount();
 		}
 	});
@@ -943,7 +943,7 @@ describe('GameCard with the Cup mark', () => {
 	it('keeps the Cup tag plain text inside the toggle of a card with details', () => {
 		const game: ScheduleGame = { ...finalWithDetails, cupTag: 'NBA Cup · Group play' };
 		const { container } = render(GameCard, { props: { teamHref, game, layout: 'desktop' } });
-		const tag = container.querySelector('.cup-tag');
+		const tag = container.querySelector('.tag.accent');
 		expect(tag?.closest('button')).not.toBeNull();
 		expect(tag?.closest('a')).toBeNull();
 		expect(tag?.querySelector('a')).toBeNull();
@@ -953,7 +953,7 @@ describe('GameCard with the Cup mark', () => {
 		const guestAway = { code: null, name: 'Mariners', city: 'Harbor City', guest: true };
 		const game: ScheduleGame = { ...tagged, away: guestAway };
 		const { container } = render(GameCard, { props: { teamHref, game, layout: 'desktop' } });
-		expect(container.querySelector('.cup-tag')?.textContent).toBe('NBA Cup · Semifinal');
+		expect(container.querySelector('.tag.accent')?.textContent).toBe('NBA Cup · Semifinal');
 	});
 });
 
@@ -976,9 +976,9 @@ describe('GameCard with the postseason mark', () => {
 		});
 		const center = container.querySelector('.center');
 		expect(center?.firstElementChild?.classList.contains('postseason-mark')).toBe(true);
-		expect(center?.querySelector('.tournament-tag')?.textContent).toBe('Playoffs');
+		expect(center?.querySelector('.tag:not(.accent)')?.textContent).toBe('Playoffs');
 		expect(center?.querySelector('.context')?.textContent).toBe('West finals · Game 7');
-		expect(center?.querySelector('.stakes-flag')?.textContent).toBe('Game 7');
+		expect(center?.querySelector('.tag.accent')?.textContent).toBe('Game 7');
 	});
 
 	it.each(states)('draws the mark of a %s game first in the mobile status row', (_, game) => {
@@ -987,14 +987,14 @@ describe('GameCard with the postseason mark', () => {
 		});
 		const status = container.querySelector('.mobile-status');
 		expect(status?.firstElementChild?.classList.contains('postseason-mark')).toBe(true);
-		expect(status?.querySelector('.stakes-flag')?.textContent).toBe('Game 7');
+		expect(status?.querySelector('.tag.accent')?.textContent).toBe('Game 7');
 	});
 
 	it('draws no flag when the stakes are null', () => {
 		const game = { ...scheduled, postseasonMark: { ...mark, stakes: null } };
 		const { container } = render(GameCard, { props: { teamHref, game, layout: 'desktop' } });
 		expect(container.querySelector('.postseason-mark')).not.toBeNull();
-		expect(container.querySelector('.stakes-flag')).toBeNull();
+		expect(container.querySelector('.tag.accent')).toBeNull();
 	});
 
 	it('draws nothing for a regular season game', () => {
@@ -1011,8 +1011,8 @@ describe('GameCard with the postseason mark', () => {
 		const game: ScheduleGame = { ...scheduled, cupTag: 'NBA Cup · Semifinal' };
 		const { container } = render(GameCard, { props: { teamHref, game, layout: 'desktop' } });
 		expect(
-			container.querySelector('.center')?.firstElementChild?.classList.contains('cup-tag')
-		).toBe(true);
+			container.querySelector('.center')?.firstElementChild?.querySelector(':scope > .tag.accent')
+		).not.toBeNull();
 		expect(container.querySelector('.postseason-mark')).toBeNull();
 	});
 });
@@ -1034,7 +1034,7 @@ describe('GameCard with the All-Star mark', () => {
 		});
 		const center = container.querySelector('.center');
 		expect(center?.firstElementChild?.classList.contains('allstar-mark')).toBe(true);
-		expect(center?.querySelector('.allstar-tag')?.textContent).toBe('All-Star');
+		expect(center?.querySelector('.allstar-mark .tag')?.textContent).toBe('All-Star');
 		expect(center?.querySelector('.context')?.textContent).toBe('Round Robin');
 		const line = center?.querySelector('.status-line');
 		const order = center?.firstElementChild?.compareDocumentPosition(line as Element) ?? 0;
@@ -1056,14 +1056,14 @@ describe('GameCard with the All-Star mark', () => {
 			allStarMark: { tag: 'All-Star', context: 'Championship', championship: true }
 		};
 		const { container } = render(GameCard, { props: { teamHref, game, layout: 'desktop' } });
-		expect(container.querySelector('.allstar-tag')?.classList.contains('solid')).toBe(true);
+		expect(container.querySelector('.allstar-mark .tag')?.classList.contains('solid')).toBe(true);
 	});
 
 	it('draws a tag that is not solid for another round', () => {
 		const { container } = render(GameCard, {
 			props: { teamHref, game: allStar, layout: 'desktop' }
 		});
-		expect(container.querySelector('.allstar-tag')?.classList.contains('solid')).toBe(false);
+		expect(container.querySelector('.allstar-mark .tag')?.classList.contains('solid')).toBe(false);
 	});
 
 	it('draws no All-Star tag on a game without the mark', () => {

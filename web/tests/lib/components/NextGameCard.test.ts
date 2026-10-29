@@ -79,7 +79,7 @@ describe('NextGameCard', () => {
 		const { container } = render(NextGameCard, {
 			props: { game: { ...game, tag: null }, gameHref }
 		});
-		expect(container.querySelector('.status-tag')).toBeNull();
+		expect(container.querySelector('span.tag')).toBeNull();
 	});
 
 	it('links Game center to the game when it is linked', () => {

@@ -4,6 +4,7 @@
 	import NameLink from '#lib/components/NameLink.svelte';
 	import PlayerAvatar from '#lib/components/PlayerAvatar.svelte';
 	import PlayerPhoto from '#lib/components/PlayerPhoto.svelte';
+	import Tag from '#lib/components/Tag.svelte';
 	import type { PlayersSection } from '#lib/game/types.ts';
 	import type { RowLayout } from '#lib/schedule/types.ts';
 
@@ -34,7 +35,7 @@
 					</span>
 				{/if}
 				<div class="text">
-					<span class="tag"><NameLink href={teamHref(card.teamCode)} text={card.teamCode} /></span>
+					<Tag><NameLink href={teamHref(card.teamCode)} text={card.teamCode} /></Tag>
 					<a class="name" href={playerHref(card.id)}>
 						<span class="first">{card.firstName}</span>
 						<span class="last">{card.lastName}</span>
@@ -71,14 +72,6 @@
 		gap: var(--day-strip-gap);
 		min-width: 0;
 		padding: var(--game-list-gap);
-	}
-
-	.tag {
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		border: var(--hairline) solid var(--color-divider);
-		padding: var(--tag-padding);
-		border-radius: var(--radius);
 	}
 
 	.name {

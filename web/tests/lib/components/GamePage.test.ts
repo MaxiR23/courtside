@@ -428,7 +428,7 @@ describe('GamePage', () => {
 
 	it('shows a postponed game in the pre-game layout with its status tag', () => {
 		const { container } = show({ kind: 'ready', view: postponed });
-		expect(container.querySelector('.status-tag')?.textContent).toBe('Postponed');
+		expect(container.querySelector('.tag')?.textContent).toBe('Postponed');
 		expect(container.querySelector('.tip-time')).toBeNull();
 		expect(container.querySelector('.venue')).not.toBeNull();
 		expect(screen.queryByRole('navigation', { name: 'Sections' })).toBeNull();

@@ -68,7 +68,7 @@ describe('PlayerHeader', () => {
 		expect(screen.getByRole('heading', { level: 1, name: 'Gilgeous-Alexander' })).toBeTruthy();
 		expect(screen.getByText('#2 · Guard · Oklahoma City Thunder')).toBeTruthy();
 		expect(screen.getByText('OKC')).toBeTruthy();
-		expect(screen.getByText('Active').classList.contains('out')).toBe(false);
+		expect(screen.getByText('Active').classList.contains('accent')).toBe(false);
 	});
 
 	it('shows the injury status in accent and the injury card', () => {
@@ -85,7 +85,7 @@ describe('PlayerHeader', () => {
 		});
 		const tags = screen.getAllByText('Questionable');
 		expect(tags).toHaveLength(2);
-		expect(tags[0]?.classList.contains('out')).toBe(true);
+		expect(tags[0]?.classList.contains('accent')).toBe(true);
 		expect(screen.getByText('Left ankle sprain')).toBeTruthy();
 		expect(screen.getByText('Updated Oct 7 · 3:15 PM')).toBeTruthy();
 	});
@@ -172,7 +172,7 @@ describe('PlayerHeader with the All-Star tag', () => {
 	it('shows the tag in the tags row', () => {
 		const { container } = show({ header: { ...header, allStarTag: 'All-Star 2027' } });
 		expect(container.querySelector('.tags')?.textContent).toContain('All-Star 2027');
-		expect(container.querySelector('.allstar-tag')?.textContent).toBe('All-Star 2027');
+		expect(container.querySelector('.allstar-mark .tag')?.textContent).toBe('All-Star 2027');
 	});
 
 	it('shows no tag without it', () => {

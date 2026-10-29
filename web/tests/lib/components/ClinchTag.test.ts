@@ -37,7 +37,9 @@ describe('ClinchTag', () => {
 	it('draws the code with the ink look for xp and pb', () => {
 		for (const code of ['xp', 'pb']) {
 			const { unmount } = render(ClinchTag, { props: { clinch: { code, tone: 'ink' } } });
-			expect(screen.getByText(code).classList.contains('ink')).toBe(true);
+			const tag = screen.getByText(code);
+			expect(tag.classList.contains('outline')).toBe(true);
+			expect(tag.style.getPropertyValue('--tag-color')).toBe('var(--color-ink)');
 			unmount();
 		}
 	});

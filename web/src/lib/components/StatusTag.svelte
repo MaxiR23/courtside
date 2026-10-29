@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { InjuryTagStatus } from '#lib/game/types.ts';
 	import type { HeroStatus } from '#lib/hero/types.ts';
+	import Tag from '#lib/components/Tag.svelte';
 	import { m } from '#lib/paraglide/messages.js';
 
 	type Props =
@@ -24,45 +25,28 @@
 		probable: m.injury_status_probable,
 		'day-to-day': m.injury_status_day_to_day
 	};
+
+	// out: accent; doubtful and questionable: the ink text; probable and day-to-day: muted
+	const injuryLook = $derived.by(() => {
+		if (!('injury' in props)) return null;
+		if (props.injury === 'out') return { variant: 'accent' as const, color: undefined };
+		if (props.injury === 'doubtful' || props.injury === 'questionable')
+			return { variant: 'outline' as const, color: 'var(--color-ink)' };
+		return { variant: 'muted' as const, color: undefined };
+	});
 </script>
 
-{#if 'injury' in props}
-	<span class="status-tag injury {props.injury}">{injuryLabels[props.injury]()}</span>
+{#if 'injury' in props && injuryLook}
+	<Tag
+		text={injuryLabels[props.injury]()}
+		variant={injuryLook.variant}
+		size="var(--injury-tag-size)"
+		tracking="var(--injury-tag-letter-spacing)"
+		wrap="nowrap"
+		color={injuryLook.color}
+	/>
 {:else if 'text' in props}
-	<span class="status-tag" class:out={props.accent}>{props.text}</span>
-{:else}
-	<span class="status-tag">{labels[props.status]()}</span>
+	<Tag text={props.text} variant={props.accent ? 'accent' : 'outline'} />
+{:else if 'status' in props}
+	<Tag text={labels[props.status]()} />
 {/if}
-
-<style>
-	.status-tag {
-		display: inline-block;
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		border: var(--hairline) solid var(--color-divider);
-		padding: var(--tag-padding);
-		border-radius: var(--radius);
-	}
-
-	.injury {
-		font-size: var(--injury-tag-size);
-		letter-spacing: var(--injury-tag-letter-spacing);
-		white-space: nowrap;
-	}
-
-	.out {
-		border-color: var(--color-accent);
-		color: var(--color-accent-light);
-	}
-
-	.doubtful,
-	.questionable {
-		color: var(--color-ink);
-	}
-
-	.probable,
-	.day-to-day {
-		color: var(--color-muted);
-	}
-</style>

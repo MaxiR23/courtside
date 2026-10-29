@@ -5,6 +5,7 @@
 	import type { GameCardView } from '#lib/all-star/types.ts';
 	import type { RowLayout } from '#lib/schedule/types.ts';
 	import Kicker from '#lib/components/Kicker.svelte';
+	import Tag from '#lib/components/Tag.svelte';
 
 	type Props = {
 		card: GameCardView;
@@ -26,7 +27,7 @@
 >
 	<span class="top">
 		{#if card.round}
-			<span class="tag" class:championship={card.round.championship}>{card.round.text}</span>
+			<Tag text={card.round.text} variant={card.round.championship ? 'solid' : 'muted'} />
 		{/if}
 		<Kicker tone="muted" contents
 			><span class="status {card.status.kind}">
@@ -89,23 +90,6 @@
 		align-items: center;
 		justify-content: space-between;
 		gap: var(--day-strip-gap);
-	}
-
-	.tag {
-		display: inline-block;
-		padding: var(--tag-padding);
-		border: var(--hairline) solid var(--color-divider);
-		border-radius: var(--radius);
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-muted);
-	}
-
-	.tag.championship {
-		border-color: var(--color-accent);
-		background: var(--color-accent);
-		color: var(--color-bg);
 	}
 
 	.status {

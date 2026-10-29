@@ -134,7 +134,7 @@ describe('NoGamesHero', () => {
 		const { container } = render(NoGamesHero, { props: { view, layout: 'desktop' } });
 		expect(screen.getByText('Sunday, October 4')).toBeTruthy();
 		expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('No games today');
-		expect(container.querySelector('.status-tag')).toBeNull();
+		expect(container.querySelector('span.tag')).toBeNull();
 		expect(container.querySelector('.paragraph')).toBeNull();
 		expect(container.querySelector('.next')).toBeNull();
 		expect(container.querySelector('.coming-up')).toBeNull();
