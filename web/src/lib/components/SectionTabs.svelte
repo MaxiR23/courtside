@@ -11,16 +11,15 @@
 		tabs: readonly { id: string; label: string }[];
 		miniScore?: MiniScore | null;
 		mini?: string | null; // a pre-formatted text, such as "OKC 57–25", when there is no score
-		reveal?: { scoreboard: HTMLElement | null; layout: RowLayout } | null; // game page only: the mini score shows once this scoreboard has passed under the bar
+		reveal?: { scoreboard: HTMLElement | null; layout: RowLayout } | null; // game page only: the mini score shows once this scoreboard's bottom has left the top of the viewport
 	};
 
 	let { tabs, miniScore = null, mini = null, reveal = null }: Props = $props();
 
-	let nav = $state<HTMLElement | null>(null);
 	const watch = new ScoreboardWatch();
 	$effect(() => {
 		const target = reveal?.scoreboard;
-		if (target && nav) return watch.observe(target, nav.offsetHeight);
+		if (target) return watch.observe(target);
 	});
 	const revealed = $derived(reveal !== null && watch.passed);
 	const stacked = $derived(reveal?.layout === 'mobile' && (miniScore !== null || mini !== null));
@@ -41,7 +40,6 @@
 		class:open={revealed}
 		class:stacked
 		aria-label={m.game_tabs_label()}
-		bind:this={nav}
 		use:crossfade={scoreRowOpen(stacked && revealed)}
 	>
 		<ul class="tabs">

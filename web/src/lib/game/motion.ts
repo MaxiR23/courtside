@@ -21,7 +21,7 @@ export function barWidth(node: HTMLElement, share: number) {
 	};
 }
 
-/** Fades the game page's mini score in once the scoreboard has passed under the tabs. */
+/** Fades the game page's mini score in once the scoreboard has left the top of the viewport. */
 export const miniScoreFade = (shown: boolean): CrossfadeParams => ({
 	active: shown,
 	hidden: () => ({ opacity: 0 }),

@@ -3,8 +3,8 @@
 // Tests for the scoreboard watch state.
 //
 // Tested:
-// - Starts not passed; observes with a top root margin of the bar height
-// - Passed once the scoreboard is above the bar; not passed again when it comes back
+// - Starts not passed; observes the plain viewport, no root margin
+// - Passed once the scoreboard is above the viewport; not passed again when it comes back
 // - A scoreboard below the viewport is not passed; the latest entry of a batch wins
 // - Does nothing without IntersectionObserver; disconnects on cleanup
 //
@@ -24,12 +24,12 @@ type Callback = (entries: Entry[]) => void;
 function stubObserver() {
 	const state = {
 		callbacks: [] as Callback[],
-		options: [] as IntersectionObserverInit[],
+		options: [] as (IntersectionObserverInit | undefined)[],
 		disconnect: vi.fn(),
 		observe: vi.fn()
 	};
 	class FakeObserver {
-		constructor(callback: Callback, options: IntersectionObserverInit) {
+		constructor(callback: Callback, options?: IntersectionObserverInit) {
 			state.callbacks.push(callback);
 			state.options.push(options);
 		}
@@ -53,26 +53,34 @@ describe('ScoreboardWatch', () => {
 		expect(new ScoreboardWatch().passed).toBe(false);
 	});
 
-	it('observes with a top root margin of the bar height', () => {
+	it('observes against the plain viewport, with no root margin', () => {
 		const observer = stubObserver();
 		const node = document.createElement('div');
-		new ScoreboardWatch().observe(node, 52);
-		expect(observer.options[0].rootMargin).toBe('-52px 0px 0px 0px');
+		new ScoreboardWatch().observe(node);
+		expect(observer.options[0]).toBeUndefined();
 		expect(observer.observe).toHaveBeenCalledWith(node);
 	});
 
-	it('reports passed once the scoreboard is above the bar', () => {
+	it('reports passed once the scoreboard is above the viewport', () => {
 		const observer = stubObserver();
 		const watch = new ScoreboardWatch();
-		watch.observe(document.createElement('div'), 52);
+		watch.observe(document.createElement('div'));
 		observer.callbacks[0]([above]);
+		expect(watch.passed).toBe(true);
+	});
+
+	it('reports passed once the bottom edge has left the top of the viewport', () => {
+		const observer = stubObserver();
+		const watch = new ScoreboardWatch();
+		watch.observe(document.createElement('div'));
+		observer.callbacks[0]([{ isIntersecting: false, boundingClientRect: { top: -1 } }]);
 		expect(watch.passed).toBe(true);
 	});
 
 	it('reports not passed again when the scoreboard comes back into view', () => {
 		const observer = stubObserver();
 		const watch = new ScoreboardWatch();
-		watch.observe(document.createElement('div'), 52);
+		watch.observe(document.createElement('div'));
 		observer.callbacks[0]([above]);
 		observer.callbacks[0]([visible]);
 		expect(watch.passed).toBe(false);
@@ -81,7 +89,7 @@ describe('ScoreboardWatch', () => {
 	it('does not count a scoreboard below the viewport as passed', () => {
 		const observer = stubObserver();
 		const watch = new ScoreboardWatch();
-		watch.observe(document.createElement('div'), 52);
+		watch.observe(document.createElement('div'));
 		observer.callbacks[0]([below]);
 		expect(watch.passed).toBe(false);
 	});
@@ -89,7 +97,7 @@ describe('ScoreboardWatch', () => {
 	it('uses the latest entry of a batch', () => {
 		const observer = stubObserver();
 		const watch = new ScoreboardWatch();
-		watch.observe(document.createElement('div'), 52);
+		watch.observe(document.createElement('div'));
 		observer.callbacks[0]([above, visible]);
 		expect(watch.passed).toBe(false);
 	});
@@ -97,14 +105,14 @@ describe('ScoreboardWatch', () => {
 	it('stays not passed without IntersectionObserver', () => {
 		vi.stubGlobal('IntersectionObserver', undefined);
 		const watch = new ScoreboardWatch();
-		const stop = watch.observe(document.createElement('div'), 52);
+		const stop = watch.observe(document.createElement('div'));
 		expect(watch.passed).toBe(false);
 		expect(() => stop()).not.toThrow();
 	});
 
 	it('disconnects on cleanup', () => {
 		const observer = stubObserver();
-		const stop = new ScoreboardWatch().observe(document.createElement('div'), 52);
+		const stop = new ScoreboardWatch().observe(document.createElement('div'));
 		stop();
 		expect(observer.disconnect).toHaveBeenCalled();
 	});
