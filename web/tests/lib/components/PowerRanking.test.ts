@@ -10,6 +10,7 @@
 // - Mobile: a row shows rank, name, record and title; it opens to the details and closes again
 // - Mobile: one open row at a time; the top 10 and the toggle; collapsing closes an open row
 // - Spanish copy
+// - The kicker is drawn inside SectionHead, before the title and the note
 //
 // What is covered:
 // - Drawn from props with no fetch; the view comes from the recorded feed. jsdom does not lay
@@ -53,6 +54,16 @@ afterEach(() => {
 });
 
 describe('PowerRanking desktop', () => {
+	it('draws the kicker inside SectionHead, before the title and the note', () => {
+		const { container } = show('desktop');
+		const titled = container.querySelector('.titled');
+		expect(titled?.children[0]?.textContent).toBe('Team ratings');
+		expect(titled?.querySelector('.section-head h2')?.textContent?.trim()).toBe('Power ranking');
+		expect(titled?.querySelector('.section-head .meta')?.textContent).toBe(
+			'Regular season · Updated daily'
+		);
+	});
+
 	it('shows the kicker, the title, the note and the column headers', () => {
 		show('desktop');
 		expect(screen.getByText('Team ratings')).toBeTruthy();

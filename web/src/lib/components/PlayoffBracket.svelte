@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { ResolvedPathname } from '$app/types';
 	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
+	import SectionHead from '#lib/components/SectionHead.svelte';
 	import SeriesGameLine from '#lib/components/SeriesGameLine.svelte';
 	import SeriesNode from '#lib/components/SeriesNode.svelte';
 	import SeriesSheet from '#lib/components/SeriesSheet.svelte';
@@ -55,10 +56,13 @@
 
 <div class="bracket">
 	<header class="head">
-		<div class="titles">
-			<span class="kicker">{bracket.kicker}</span>
-			<h2>{m.playoffs_bracket()}</h2>
-		</div>
+		<SectionHead
+			kicker={bracket.kicker}
+			title={m.playoffs_bracket()}
+			titleSize="var(--playoffs-bracket-title-size)"
+			kickerSize="var(--playoffs-bracket-kicker-size)"
+			kickerGap="var(--day-strip-gap)"
+		/>
 		<p class="help">{m.playoffs_bracket_help()}</p>
 	</header>
 
@@ -153,26 +157,6 @@
 		align-items: flex-end;
 		justify-content: space-between;
 		gap: var(--game-list-gap);
-	}
-
-	.titles {
-		display: grid;
-		gap: var(--day-strip-gap);
-	}
-
-	.kicker {
-		font-size: var(--playoffs-bracket-kicker-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-accent-light);
-	}
-
-	h2 {
-		margin: 0;
-		font-family: var(--font-heading);
-		font-size: var(--playoffs-bracket-title-size);
-		line-height: 1;
-		text-transform: uppercase;
 	}
 
 	.help {

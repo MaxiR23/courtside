@@ -66,7 +66,7 @@ Everything under "Implementation rules" in `docs/design.md` and `docs/design-cup
 ## Shared patterns
 
 - Ground, ink, muted, accent, accent text, divider and row rules are the existing tokens. Headings Barlow Condensed 600, body Barlow, numbers `font-variant-numeric: tabular-nums`.
-- Content max width 1320px and side padding `clamp(20px, 4vw, 48px)` through `PageContainer`, section gap `clamp(64px, 8vw, 104px)`, `scroll-margin-top: 72px`. Section header: h2 `clamp(28px, 3.4vw, 40px)`, uppercase, optional meta right.
+- Content max width 1320px and side padding `clamp(20px, 4vw, 48px)` through `PageContainer`, section gap `clamp(64px, 8vw, 104px)`, `scroll-margin-top: 72px`. Section header (`SectionHead`, size `detail`): h2 `clamp(28px, 3.4vw, 40px)`, uppercase, optional meta right.
 - Tags: accent outline, 11px, .16em, uppercase, accent text (`StatusTag`).
 - Team color: the team's color from the feed, used only for bars and strips next to the code, as in the standings tables. A winner is shown in ink, a loser muted.
 - Photos: a tile with the player's photo; when it is missing, the player's initials. A photo never links by itself.
@@ -173,7 +173,7 @@ A plain grid at 1:1: no translate, no scale and no camera, so it renders sharp a
 
 ### Header
 
-"{year} NBA Playoffs" (12px, accent light) and the H2 "Bracket" at `clamp(44px, 5vw, 72px)`. On the right, the helper text "Tap a series for the result. Tap it again to open the full series." (14px, muted).
+"{year} NBA Playoffs" (12px, accent light) and the H2 "Bracket" at `clamp(44px, 5vw, 72px)`, drawn by `SectionHead` with the bracket sizes. On the right, the helper text "Tap a series for the result. Tap it again to open the full series." (14px, muted).
 
 ### Desktop map (1180px and wider)
 

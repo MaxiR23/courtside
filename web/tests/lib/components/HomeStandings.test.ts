@@ -14,6 +14,7 @@
 // - A lost series shows Lost with the lost class
 // - No link inside a button
 // - Spanish copy; the mobile class
+// - The title is drawn by SectionHead at the home size and names the section
 //
 // What is covered:
 // - Both view kinds and both layouts; jsdom does not lay out, so classes are asserted
@@ -51,6 +52,14 @@ afterEach(() => {
 });
 
 describe('HomeStandings with the compact standings', () => {
+	it('draws the title through SectionHead at the home size and names the section by it', () => {
+		const { container } = mount();
+		const h2 = container.querySelector('.section-head h2');
+		expect(h2?.classList.contains('home')).toBe(true);
+		expect(container.querySelector('.titled')).toBeNull();
+		expect(container.querySelector('section')?.getAttribute('aria-labelledby')).toBe(h2?.id);
+	});
+
 	it('shows the h2, East pressed and six rows', () => {
 		const { container } = mount();
 		expect(screen.getByRole('heading', { level: 2 }).textContent).toBe('Standings');

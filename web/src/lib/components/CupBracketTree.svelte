@@ -1,6 +1,7 @@
 <script lang="ts">
 	// SEE: docs/design-cup.md ("Bracket > Mobile (under 680px)")
 	import type { ResolvedPathname } from '$app/types';
+	import SectionHead from '#lib/components/SectionHead.svelte';
 	import TeamMark from '#lib/components/TeamMark.svelte';
 	import type { SlotId } from '#lib/contract/cup.ts';
 	import { TREE_ROWS } from '#lib/cup/bracket-layout.ts';
@@ -51,10 +52,13 @@
 {/snippet}
 
 <div class="tree" role="group" aria-label={m.cup_bracket()}>
-	<div class="head">
-		<span class="kicker">{bracket.kicker}</span>
-		<h2>{m.cup_knockout_rounds()}</h2>
-	</div>
+	<SectionHead
+		kicker={bracket.kicker}
+		title={m.cup_knockout_rounds()}
+		titleSize="var(--cup-tree-title-size)"
+		kickerSize="var(--cup-tree-kicker-size)"
+		kickerGap="var(--cup-tree-gap)"
+	/>
 	<div class="conferences">
 		<span>{m.game_conference_east()}</span><span>{m.game_conference_west()}</span>
 	</div>
@@ -100,25 +104,9 @@
 		min-width: 0;
 	}
 
-	.head,
 	.row {
 		display: grid;
 		gap: var(--cup-tree-gap);
-	}
-
-	.kicker {
-		font-size: var(--cup-tree-kicker-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-accent-light);
-	}
-
-	h2 {
-		margin: 0;
-		font-family: var(--font-heading);
-		font-size: var(--cup-tree-title-size);
-		line-height: var(--detail-section-h2-line-height);
-		text-transform: uppercase;
 	}
 
 	.conferences {

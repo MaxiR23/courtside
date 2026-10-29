@@ -53,7 +53,7 @@ Everything under "Implementation rules" in `docs/design.md` and `docs/design-gam
 - Ground `#0c0e10`, ink `#ebe8e3`, muted `#a19d96`, accent `#749dc4`, accent text `#94bce3`, hover link `#b5d9fd`. Divider `color-mix(in srgb, #ebe8e3 13%, transparent)`; table row rules `rgba(235,232,227,.07)`. All through the existing tokens.
 - Headings Barlow Condensed 600, body Barlow. Numbers use `font-variant-numeric: tabular-nums`.
 - Content max width 1320px and side padding `clamp(20px, 4vw, 48px)` through `PageContainer`, section gap `clamp(64px, 8vw, 104px)`, `scroll-margin-top: 72px`.
-- Section header: h2 `clamp(28px, 3.4vw, 40px)`, line-height 1, uppercase; optional meta on the right, 12px, muted.
+- Section header (`SectionHead`, size `detail`): h2 `clamp(28px, 3.4vw, 40px)`, line-height 1, uppercase; optional meta on the right, 12px, muted.
 - **Stat cell:** drawn by `InfoCell`; 1px divider top border; label 11px, .16em, uppercase, accent text; value in Barlow Condensed; sub-line 13px, muted. Cells sit in `ProfileCells`, which lays them out in an auto-fit grid by default, `repeat(auto-fit, minmax(min(100%, Npx), 1fr))`, or in a fixed column count (two for milestones on mobile, five for the live line). An empty cell list draws nothing, except where the page always drew its grid (milestones, the team record, the player header stats and the live line), which keep the empty grid element.
 - **Tables:** the first column is `position: sticky; left: 0` with the ground background. A table scrolls horizontally inside `overflow-x: auto` once the viewport is narrower than its min width. No cell wraps.
 - The nav row and the sticky section tabs are the game detail page's.

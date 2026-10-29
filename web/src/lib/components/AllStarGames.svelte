@@ -72,8 +72,12 @@
 
 <div class="all-star-games" class:mobile={layout === 'mobile'}>
 	<div class="head">
-		<Kicker text={kicker} />
-		<SectionHead title={m.allstar_games_title()} meta={view.formatLine} />
+		<SectionHead
+			{kicker}
+			title={m.allstar_games_title()}
+			meta={view.formatLine}
+			kickerGap="var(--day-strip-gap)"
+		/>
 	</div>
 	<BlueprintFrame marks="allstar">
 		<div class="cards" role="group" aria-label={m.allstar_select_game()}>
@@ -191,7 +195,6 @@
 	.head {
 		display: grid;
 		grid-template-columns: minmax(0, 1fr);
-		gap: var(--day-strip-gap);
 	}
 
 	.cards {

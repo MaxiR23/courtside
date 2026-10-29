@@ -18,6 +18,7 @@
 // - The empty-day box replaces the no-games row when emptyDay and windowHref are given; a day with games shows no box; without either the old row shows
 // - Spoiler-free mode hides final scores until a card opens
 // - Spanish copy, including the no-games message, with a Spanish browser preference
+// - The kicker and the day title are drawn by SectionHead at the home size
 //
 // What is covered:
 // - Each state, including a day with no games, plus interaction
@@ -128,6 +129,14 @@ function stubEntrance() {
 }
 
 describe('Schedule', () => {
+	it('draws the kicker and the day title through SectionHead at the home size', () => {
+		const { container } = render(Schedule, { props });
+		expect(container.querySelector('.heading .titled > .kicker')?.textContent).toBe('Schedule');
+		expect(container.querySelector('.heading .section-head h2')?.classList.contains('home')).toBe(
+			true
+		);
+	});
+
 	it('shows the SCHEDULE kicker, the selected day, the game count and the freshness label', () => {
 		render(Schedule, { props });
 		expect(screen.getByText('Schedule')).toBeTruthy();

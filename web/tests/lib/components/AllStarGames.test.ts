@@ -14,6 +14,7 @@
 // - The status is re-read on each tick
 // - The edition video replaces the game's media, plays on a click, is kept across a game change and has a caption; without it the placeholder shows
 // - No game card holds a video, a thumbnail or a highlight label
+// - The kicker is drawn inside SectionHead, before the title and the format line
 //
 // What is covered:
 // - Each state the section shows, drawn from the recorded feeds with a real selection and tick
@@ -90,6 +91,14 @@ describe('AllStarGames', () => {
 		const frames = container.querySelectorAll('.blueprint-frame');
 		expect(frames.length).toBeGreaterThan(0);
 		for (const frame of frames) expect(frame.classList.contains('marks-allstar')).toBe(true);
+	});
+
+	it('draws the kicker inside SectionHead, before the title and its format line', () => {
+		const { container } = show();
+		const titled = container.querySelector('.titled');
+		expect(titled?.children[0]?.textContent).toBe('All-Star 2027');
+		expect(titled?.querySelector('.section-head h2')?.textContent?.trim()).toBe('Games');
+		expect(titled?.querySelector('.section-head .meta')?.textContent).toBe('1 period · 12 min');
 	});
 
 	it('has the kicker, the heading, the format line and a card per game', () => {

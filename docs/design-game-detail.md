@@ -56,7 +56,7 @@ Max content width 1320px and side padding `clamp(20px, 4vw, 48px)` through `Page
 
 ### Section header
 
-The h2 is Barlow Condensed, `clamp(28px, 3.4vw, 40px)`, line-height 1, uppercase. An optional meta text sits on the right, 12px, muted.
+The h2 is drawn by `SectionHead` (size `detail`), Barlow Condensed, `clamp(28px, 3.4vw, 40px)`, line-height 1, uppercase. An optional meta text sits on the right, 12px, muted.
 
 ### 1. Header
 

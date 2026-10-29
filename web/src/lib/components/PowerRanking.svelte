@@ -46,8 +46,12 @@
 </script>
 
 <section class="power-ranking" aria-label={m.power_ranking_title()}>
-	<Kicker text={m.power_ranking_kicker()} />
-	<SectionHead title={m.power_ranking_title()} meta={m.power_ranking_note()} />
+	<SectionHead
+		kicker={m.power_ranking_kicker()}
+		title={m.power_ranking_title()}
+		meta={m.power_ranking_note()}
+		kickerGap="var(--game-list-gap)"
+	/>
 
 	{#if layout === 'desktop'}
 		<div class="scroll">

@@ -12,6 +12,7 @@
 // - An undecided series is not a button and a click on it changes nothing
 // - The result panel: the headline, one cell per game, a game link only when the game is linked, and the Full series link
 // - Mobile: a first tap opens the sheet, Close and Esc return the focus to the card, a second tap on a complete series opens its page
+// - The title and kicker are drawn by SectionHead with the bracket sizes
 //
 // What is covered:
 // - The component with its real selection, no network and no layout (jsdom measures nothing)
@@ -78,6 +79,19 @@ afterEach(() => {
 });
 
 describe('PlayoffBracket header', () => {
+	it('draws the title through SectionHead with the bracket sizes', () => {
+		const { container } = show();
+		const h2 = container.querySelector('.section-head h2') as HTMLElement;
+		expect(h2.style.getPropertyValue('--section-head-size')).toBe(
+			'var(--playoffs-bracket-title-size)'
+		);
+		expect(
+			(container.querySelector('.kicker-text') as HTMLElement).style.getPropertyValue(
+				'--section-head-kicker-size'
+			)
+		).toBe('var(--playoffs-bracket-kicker-size)');
+	});
+
 	it('shows the kicker, the H2 and the helper text', () => {
 		const { container } = show();
 		expect(container.querySelector('.kicker')?.textContent).toBe('2027 NBA Playoffs');

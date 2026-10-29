@@ -11,6 +11,7 @@
 // - Partial states: a scheduled game and a final game without a detail page are buttons
 // - A tap on a button calls onOpen with the id and the button; a linked card does not
 // - Spanish copy
+// - The heading and kicker are drawn by SectionHead with the tree sizes
 //
 // What is covered:
 // - The component from props built with toCupView on the invented Cup feeds, no network
@@ -46,6 +47,18 @@ afterEach(() => {
 });
 
 describe('CupBracketTree complete knockout', () => {
+	it('draws the heading through SectionHead with the tree sizes', () => {
+		const { container } = show(feed('cup-complete.json'));
+		const h2 = container.querySelector('.section-head h2') as HTMLElement;
+		expect(h2.style.getPropertyValue('--section-head-size')).toBe('var(--cup-tree-title-size)');
+		expect(
+			(container.querySelector('.kicker-text') as HTMLElement).style.getPropertyValue(
+				'--section-head-kicker-size'
+			)
+		).toBe('var(--cup-tree-kicker-size)');
+		expect(container.querySelector('.kicker')?.textContent).toBe('2026 NBA Cup');
+	});
+
 	it('draws the kicker, the heading and the conference labels', () => {
 		const { container } = show(feed('cup-complete.json'));
 		expect(container.querySelector('.kicker')?.textContent).toBe('2026 NBA Cup');

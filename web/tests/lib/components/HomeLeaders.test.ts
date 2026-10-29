@@ -10,6 +10,7 @@
 // - A leader with no team shows the category and no separator
 // - Each title key in English and Spanish
 // - The mobile class
+// - The title is drawn by SectionHead at the home size and names the section
 //
 // What is covered:
 // - Each state of the rows; jsdom does not lay out, so classes are asserted
@@ -44,6 +45,14 @@ afterEach(() => {
 });
 
 describe('HomeLeaders', () => {
+	it('draws the title through SectionHead at the home size and names the section by it', () => {
+		const { container } = render(HomeLeaders, { props: { view: view(), layout: 'desktop' } });
+		const h2 = container.querySelector('.section-head h2');
+		expect(h2?.classList.contains('home')).toBe(true);
+		expect(container.querySelector('.titled > .kicker')?.textContent).toBe('Leaders');
+		expect(container.querySelector('section')?.getAttribute('aria-labelledby')).toBe(h2?.id);
+	});
+
 	it('shows the kicker and the title as the h2', () => {
 		const { container } = render(HomeLeaders, { props: { view: view(), layout: 'desktop' } });
 		expect(screen.getByRole('heading', { level: 2 }).textContent).toBe('This season');

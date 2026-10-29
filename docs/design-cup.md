@@ -47,7 +47,7 @@ Everything under "Implementation rules" in `docs/design.md`, `docs/design-standi
 ## Shared patterns
 
 - Ground, ink, muted, accent, accent text, divider and row rules are the existing tokens. Headings Barlow Condensed 600, body Barlow, numbers `font-variant-numeric: tabular-nums`.
-- Content max width 1320px and side padding `clamp(20px, 4vw, 48px)` through `PageContainer`, section gap `clamp(64px, 8vw, 104px)`, `scroll-margin-top: 72px`. Section header: h2 `clamp(28px, 3.4vw, 40px)`, uppercase, optional meta right.
+- Content max width 1320px and side padding `clamp(20px, 4vw, 48px)` through `PageContainer`, section gap `clamp(64px, 8vw, 104px)`, `scroll-margin-top: 72px`. Section header (`SectionHead`, size `detail`): h2 `clamp(28px, 3.4vw, 40px)`, uppercase, optional meta right.
 - Tags: accent outline, 11px, .16em, uppercase, accent text (`StatusTag`).
 - The 680px break is `--game-row-breakpoint`.
 
@@ -120,7 +120,7 @@ Levels 1 and 2 only.
 
 Under 680px only, a grid tree replaces the camera world of `CupBracket`. The desktop bracket and its camera stay as they are.
 
-- **Heading:** "{year} NBA Cup" (10px, accent light) and the H2 "Knockout rounds" (40px).
+- **Heading:** "{year} NBA Cup" (10px, accent light) and the H2 "Knockout rounds" (40px), drawn by `SectionHead` with the tree sizes.
 - **Labels:** a two-column row "East" | "West" (10px, uppercase, muted, bottom divider).
 - **Rows**, each with a 9.5px centered label and an 8-column grid with a 6px gap: Quarterfinals, 4 cards at `1/3`, `3/5`, `5/7`, `7/9`; "Semifinals · {city}", cards at `2/4` and `6/8`; "Championship · {city}" (label in accent light), one card at `3/7`. The city comes from the games; without it the label is the round name alone.
 - **Card:** a border at ink 16% (the championship accent light at 45%), background ground at 88%, padding 7px (championship `10px 12px`); the date (9px, uppercase, muted); two rows with the logo 15px (22px), the code and the score 13px (18px), the loser at 50%; a 2px line in the winner's resolved color once final.
