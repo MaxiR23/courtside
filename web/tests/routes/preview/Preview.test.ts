@@ -20,6 +20,7 @@
 //   score totals, the win probability meta and the end of its curve, and the current game arena
 // - Shows the team page in each state: full, partial data, mobile, loading, feed unavailable and unknown team
 // - Shows the player page in each state and both live card cases
+// - Shows the page catalog inside the preview
 // - Uses no external URL for images, players or links
 //
 // What is covered:
@@ -45,6 +46,9 @@ function sectionOf(name: string): HTMLElement {
 	if (!section) throw new Error(`No section for ${name}`);
 	return section;
 }
+
+// The four hero samples whose toggle is wired to the schedule.
+const heroSections = ['Hero: Tonight', 'Hero: Live now', 'Hero: Final', 'Hero: three games'];
 
 // Each test renders the whole Preview, which grew with the team and player page samples.
 describe('component preview', { timeout: 30_000 }, () => {
@@ -136,11 +140,13 @@ describe('component preview', { timeout: 30_000 }, () => {
 	});
 
 	it('shows the hero in its Tonight, Live now and Final states', () => {
-		const { container } = render(Preview);
+		render(Preview);
 		for (const name of ['Hero: Tonight', 'Hero: Live now', 'Hero: Final']) {
 			expect(screen.getByRole('heading', { level: 2, name })).toBeTruthy();
 		}
-		expect(container.querySelectorAll('.hero')).toHaveLength(4);
+		for (const name of heroSections) {
+			expect(sectionOf(name).querySelectorAll('.hero')).toHaveLength(1);
+		}
 	});
 
 	it('shows the hero with several games and its position', () => {
@@ -491,12 +497,26 @@ describe('component preview', { timeout: 30_000 }, () => {
 
 	it('turns spoiler-free mode on for the schedule from the hero toggle', async () => {
 		render(Preview);
-		const toggles = screen.getAllByRole('button', { name: 'Spoiler-free' });
+		// The page catalog has heroes of its own, which keep the mode off.
+		const toggles = heroSections.flatMap((name) =>
+			within(sectionOf(name)).getAllByRole('button', { name: 'Spoiler-free' })
+		);
 		expect(toggles).toHaveLength(4);
 		await fireEvent.click(toggles[0]);
-		for (const t of screen.getAllByRole('button', { name: 'Spoiler-free' })) {
+		for (const t of heroSections.flatMap((name) =>
+			within(sectionOf(name)).getAllByRole('button', { name: 'Spoiler-free' })
+		)) {
 			expect(t.getAttribute('aria-pressed')).toBe('true');
 		}
 		expect(within(sectionOf('Schedule')).getAllByText('Tap to reveal').length).toBeGreaterThan(0);
+	});
+
+	it('shows the page catalog inside the preview', () => {
+		const { container } = render(Preview);
+		for (const id of ['standings-desktop', 'all-star-live-mobile']) {
+			const entry = container.querySelector(`#${id}`);
+			expect(entry).toBeTruthy();
+			expect(entry?.parentElement?.matches('main')).toBe(true);
+		}
 	});
 });

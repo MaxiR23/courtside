@@ -18,6 +18,7 @@
 	import TeamMonogram from '#lib/components/TeamMonogram.svelte';
 	import TeamPage from '#lib/components/TeamPage.svelte';
 	import PlayerPage from '#lib/components/PlayerPage.svelte';
+	import PagesPreview from './PagesPreview.svelte';
 	import type {
 		BoxRow,
 		BoxScoreSection,
@@ -1848,6 +1849,8 @@
 			<PlayerPage {state} {allGamesHref} {standingsHref} {layout} gameHref={playerGameHref} />
 		</section>
 	{/each}
+
+	<PagesPreview />
 
 	<section>
 		<h2>SiteFooter</h2>
