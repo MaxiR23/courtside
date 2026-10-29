@@ -7,6 +7,7 @@
 	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
 	import NameLink from '#lib/components/NameLink.svelte';
 	import TeamMark from '#lib/components/TeamMark.svelte';
+	import { initials } from '#lib/format/initials.ts';
 	import { crossfade, type CrossfadeParams, float, floorShadow, play } from '#lib/hero/motion.ts';
 	import type { HeroPlayer, HeroSide } from '#lib/hero/types.ts';
 
@@ -67,10 +68,6 @@
 
 	function fullName(p: HeroPlayer): string {
 		return `${p.firstName} ${p.lastName}`;
-	}
-
-	function initials(p: HeroPlayer): string {
-		return `${p.firstName.charAt(0)}${p.lastName.charAt(0)}`;
 	}
 </script>
 

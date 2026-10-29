@@ -27,11 +27,7 @@
 			<div class="card" class:mobile={layout === 'mobile'}>
 				{#if layout === 'mobile'}
 					<span class="cutout">
-						<PlayerAvatar
-							name={`${card.firstName} ${card.lastName}`}
-							photo={card.photo}
-							size="team-leader"
-						/>
+						<PlayerAvatar name={card} photo={card.photo} size="team-leader" />
 					</span>
 				{/if}
 				<div class="text">

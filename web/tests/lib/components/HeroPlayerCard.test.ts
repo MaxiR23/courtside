@@ -105,6 +105,20 @@ describe('HeroPlayerCard', () => {
 		expect(container.querySelector('.strip')).not.toBeNull();
 	});
 
+	it("shows the first and last name's initials in the placeholder", async () => {
+		const suffixed: HeroSide = {
+			...home,
+			star: player('Jimmy', 'Butler III', 'PVO', 'Pine Valley Owls', '/butler.svg')
+		};
+		render(HeroPlayerCard, { props: { ...props, sides: [away, suffixed] } });
+		await fireEvent.error(screen.getByAltText('Ines Varga'));
+		expect(screen.getByRole('img', { name: 'Ines Varga' }).textContent?.trim()).toBe('IV');
+		await fireEvent.error(screen.getByAltText('Jimmy Butler III'));
+		expect(
+			screen.getByRole('img', { name: 'Jimmy Butler III', hidden: true }).textContent?.trim()
+		).toBe('JB');
+	});
+
 	it('renders only the active and the next photo, and the next one after advancing', async () => {
 		const six = Array.from({ length: 6 }, (_, i) => ({
 			...away,

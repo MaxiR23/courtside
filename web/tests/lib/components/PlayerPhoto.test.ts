@@ -12,6 +12,7 @@
 //   column, bottom-centered
 // - The leader photo keeps its width and height tokens
 // - A player without a photo shows the initials and no image
+// - A last name with a suffix gives the first and last name's initials
 //
 // What is covered:
 // - Each state and the error interaction
@@ -133,5 +134,12 @@ describe('PlayerPhoto without a photo', () => {
 		expect(container.querySelector('img')).toBeNull();
 		const placeholder = screen.getByRole('img', { name: 'Stephen Curry' });
 		expect(placeholder.textContent).toBe('SC');
+	});
+
+	it("shows the first and last name's initials for a last name with a suffix", () => {
+		render(PlayerPhoto, {
+			props: { player: { ...player, firstName: 'Jimmy', lastName: 'Butler III', photo: null } }
+		});
+		expect(screen.getByRole('img', { name: 'Jimmy Butler III' }).textContent).toBe('JB');
 	});
 });

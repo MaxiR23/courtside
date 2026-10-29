@@ -6,6 +6,7 @@
 // - Both cards, away first, with the team tag, first name, last name, team name and photo
 // - The star's name links to the player page; the team tag and name link to the team page
 // - The initials placeholder when a photo fails to load
+// - The same initials on mobile and desktop for a last name with a suffix
 // - One card is rendered when a side is null (a guest team has no star)
 // - Mobile: no columns, the photo is a cutout behind the texts through PlayerAvatar, from tokens
 //
@@ -74,6 +75,20 @@ describe('PlayersToWatch', () => {
 		await fireEvent.error(screen.getByAltText('Stephen Curry'));
 		expect(screen.getByRole('img', { name: 'Stephen Curry' }).textContent).toBe('SC');
 		expect(screen.getByAltText('LeBron James')).toBeTruthy();
+	});
+
+	it('shows the same initials on mobile and desktop', () => {
+		const suffixed: PlayersSection = {
+			...players,
+			away: { ...players.away!, firstName: 'Jimmy', lastName: 'Butler III', photo: null }
+		};
+		const desktop = render(PlayersToWatch, { props: { ...props, players: suffixed } });
+		expect(screen.getByRole('img', { name: 'Jimmy Butler III' }).textContent).toBe('JB');
+		desktop.unmount();
+		const mobile = render(PlayersToWatch, { props: { ...mobileProps, players: suffixed } });
+		const placeholder = mobile.container.querySelector('.cutout [role="img"]');
+		expect(placeholder?.textContent).toBe('JB');
+		expect(placeholder?.getAttribute('aria-label')).toBe('Jimmy Butler III');
 	});
 
 	it("links each star's name to the player page", () => {

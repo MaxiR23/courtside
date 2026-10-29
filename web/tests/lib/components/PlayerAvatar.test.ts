@@ -6,6 +6,7 @@
 // - A lazy image with the name as its alt text
 // - Initials with no photo, and after the image fails to load
 // - A new photo URL tries again after a failure
+// - A first and last name as the name: initials, alt text and aria label from the joined name
 // - The roster, leader, team-leader, search, cup-card, playoffs-avatar, playoffs-card, playoffs-mvp and playoffs-conference-mvp size classes
 // - The seven All-Star size classes
 // - The clip prop: clip-bottom only with clip bottom, and the safe end alignment rules
@@ -64,6 +65,26 @@ describe('PlayerAvatar', () => {
 		await rerender({ name: 'Chet Holmgren', photo: 'https://example.com/b.png', size: 'roster' });
 		expect(screen.getByRole('img', { name: 'Chet Holmgren' }).getAttribute('src')).toBe(
 			'https://example.com/b.png'
+		);
+	});
+
+	it('takes a first and last name', () => {
+		render(PlayerAvatar, {
+			props: { name: { firstName: 'Jimmy', lastName: 'Butler III' }, photo: null, size: 'roster' }
+		});
+		expect(screen.getByRole('img', { name: 'Jimmy Butler III' }).textContent).toBe('JB');
+	});
+
+	it('uses the joined first and last name as alt text', () => {
+		render(PlayerAvatar, {
+			props: {
+				name: { firstName: 'Jimmy', lastName: 'Butler III' },
+				photo: 'https://example.com/a.png',
+				size: 'roster'
+			}
+		});
+		expect(screen.getByAltText('Jimmy Butler III').getAttribute('src')).toBe(
+			'https://example.com/a.png'
 		);
 	});
 
