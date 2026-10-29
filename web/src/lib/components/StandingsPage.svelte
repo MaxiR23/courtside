@@ -2,6 +2,7 @@
 	import type { ResolvedPathname } from '$app/types';
 	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
 	import MessageRow from '#lib/components/MessageRow.svelte';
+	import PageContainer from '#lib/components/PageContainer.svelte';
 	import PowerRanking from '#lib/components/PowerRanking.svelte';
 	import SiteFooter from '#lib/components/SiteFooter.svelte';
 	import StandingsHeader from '#lib/components/StandingsHeader.svelte';
@@ -56,13 +57,15 @@
 		{seasonSelect}
 		onGroupingChange={(next) => (grouping = next)}
 	/>
-	<div class="groups">
-		{#each grouping === 'conference' ? page.view.conference : page.view.division as group (group.key)}
-			<StandingsTable {group} {layout} {teamHref} />
-		{/each}
-		<StandingsKey entries={page.view.key} lines={page.view.lines} />
-		{#if powerRanking}<PowerRanking view={powerRanking} {layout} />{/if}
-	</div>
+	<PageContainer>
+		<div class="groups">
+			{#each grouping === 'conference' ? page.view.conference : page.view.division as group (group.key)}
+				<StandingsTable {group} {layout} {teamHref} />
+			{/each}
+			<StandingsKey entries={page.view.key} lines={page.view.lines} />
+			{#if powerRanking}<PowerRanking view={powerRanking} {layout} />{/if}
+		</div>
+	</PageContainer>
 {:else if page.kind === 'loading'}
 	<StandingsHeader
 		header={null}
@@ -74,18 +77,20 @@
 		{seasonSelect}
 		onGroupingChange={noop}
 	/>
-	<section class="page-section table-skeleton" aria-busy="true">
-		<div class="bones" aria-hidden="true" use:play={shimmer}>
-			<span class="bone heading-bone"></span>
-			<BlueprintFrame>
-				<div class="bones">
-					{#each ROW_BONES as i (i)}
-						<span class="bone row-bone"></span>
-					{/each}
-				</div>
-			</BlueprintFrame>
-		</div>
-	</section>
+	<PageContainer>
+		<section class="page-section table-skeleton" aria-busy="true">
+			<div class="bones" aria-hidden="true" use:play={shimmer}>
+				<span class="bone heading-bone"></span>
+				<BlueprintFrame>
+					<div class="bones">
+						{#each ROW_BONES as i (i)}
+							<span class="bone row-bone"></span>
+						{/each}
+					</div>
+				</BlueprintFrame>
+			</div>
+		</section>
+	</PageContainer>
 {:else}
 	<StandingsHeader
 		header={null}
@@ -96,26 +101,19 @@
 		{seasonSelect}
 		onGroupingChange={noop}
 	/>
-	<section class="page-section">
-		<MessageRow text={m.feed_unavailable()} />
-	</section>
+	<PageContainer>
+		<section class="page-section">
+			<MessageRow text={m.feed_unavailable()} />
+		</section>
+	</PageContainer>
 {/if}
 
 <SiteFooter />
 
 <style>
-	.page-section {
-		max-width: var(--content-max-width);
-		margin: 0 auto;
-		padding: var(--side-padding);
-	}
-
 	.groups {
 		display: grid;
 		gap: var(--detail-section-gap);
-		max-width: var(--content-max-width);
-		margin: 0 auto;
-		padding: var(--side-padding);
 	}
 
 	.bones {

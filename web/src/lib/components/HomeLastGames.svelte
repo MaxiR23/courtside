@@ -6,6 +6,7 @@
 	import type { ResolvedPathname } from '$app/types';
 	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
 	import Kicker from '#lib/components/Kicker.svelte';
+	import PageContainer from '#lib/components/PageContainer.svelte';
 	import TeamMark from '#lib/components/TeamMark.svelte';
 	import type { HomeLastGameSideView, HomeLastGamesView } from '#lib/home/types.ts';
 	import { m } from '#lib/paraglide/messages.js';
@@ -50,52 +51,51 @@
 	</span>
 {/snippet}
 
-<section class="last-games" class:mobile aria-labelledby={headingId}>
-	<header>
-		<div class="heading">
-			<Kicker text={m.home_last_games_kicker()} />
-			<h2 id={headingId}>{view.title}</h2>
-		</div>
-		<span class="count">{view.count}</span>
-	</header>
-	<ul class="games">
-		{#each view.games as game (game.id)}
-			<li>
-				<BlueprintFrame>
-					<a class="game" href={gameHref(game.id)}>
-						{#if mobile}
-							<span class="label">{game.label}</span>
-							{#if spoilerFree}<span class="reveal">{m.schedule_tap_to_reveal()}</span>{/if}
-							{@render mobileRow(game.away)}
-							{@render mobileRow(game.home)}
-						{:else}
-							<span class="label">{game.label}</span>
-							{@render side(game.away, false)}
-							<span class="result">
-								{#if spoilerFree}
-									<span class="reveal">{m.schedule_tap_to_reveal()}</span>
-								{:else}
-									<span class="score" class:loser={game.away.loser}>{game.away.score}</span>
-									<span class="dash">–</span>
-									<span class="score" class:loser={game.home.loser}>{game.home.score}</span>
-								{/if}
-							</span>
-							{@render side(game.home, true)}
-						{/if}
-					</a>
-				</BlueprintFrame>
-			</li>
-		{/each}
-	</ul>
-</section>
+<PageContainer>
+	<section class="last-games" class:mobile aria-labelledby={headingId}>
+		<header>
+			<div class="heading">
+				<Kicker text={m.home_last_games_kicker()} />
+				<h2 id={headingId}>{view.title}</h2>
+			</div>
+			<span class="count">{view.count}</span>
+		</header>
+		<ul class="games">
+			{#each view.games as game (game.id)}
+				<li>
+					<BlueprintFrame>
+						<a class="game" href={gameHref(game.id)}>
+							{#if mobile}
+								<span class="label">{game.label}</span>
+								{#if spoilerFree}<span class="reveal">{m.schedule_tap_to_reveal()}</span>{/if}
+								{@render mobileRow(game.away)}
+								{@render mobileRow(game.home)}
+							{:else}
+								<span class="label">{game.label}</span>
+								{@render side(game.away, false)}
+								<span class="result">
+									{#if spoilerFree}
+										<span class="reveal">{m.schedule_tap_to_reveal()}</span>
+									{:else}
+										<span class="score" class:loser={game.away.loser}>{game.away.score}</span>
+										<span class="dash">–</span>
+										<span class="score" class:loser={game.home.loser}>{game.home.score}</span>
+									{/if}
+								</span>
+								{@render side(game.home, true)}
+							{/if}
+						</a>
+					</BlueprintFrame>
+				</li>
+			{/each}
+		</ul>
+	</section>
+</PageContainer>
 
 <style>
 	.last-games {
 		display: grid;
 		gap: var(--game-list-gap);
-		max-width: var(--content-max-width);
-		margin: 0 auto;
-		padding: var(--side-padding);
 	}
 
 	header {

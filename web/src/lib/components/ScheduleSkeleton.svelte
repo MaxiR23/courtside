@@ -1,5 +1,6 @@
 <script lang="ts">
 	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
+	import PageContainer from '#lib/components/PageContainer.svelte';
 	import { play } from '#lib/hero/motion.ts';
 	import { shimmer } from '#lib/skeleton/motion.ts';
 
@@ -7,36 +8,37 @@
 	const CARDS = Array.from({ length: 3 }, (_, i) => i); // placeholder game cards
 </script>
 
-<section class="schedule-skeleton" id="schedule" aria-busy="true">
-	<div class="bones" aria-hidden="true" use:play={shimmer}>
-		<div class="strip">
-			{#each DAYS as i (i)}
-				<div class="day-bone">
-					<span class="bone weekday-bone"></span>
-					<span class="bone number-bone"></span>
-					<span class="bone count-bone"></span>
-				</div>
-			{/each}
+<PageContainer>
+	<section class="schedule-skeleton" id="schedule" aria-busy="true">
+		<div class="bones" aria-hidden="true" use:play={shimmer}>
+			<div class="strip">
+				{#each DAYS as i (i)}
+					<div class="day-bone">
+						<span class="bone weekday-bone"></span>
+						<span class="bone number-bone"></span>
+						<span class="bone count-bone"></span>
+					</div>
+				{/each}
+			</div>
+			<ul class="cards">
+				{#each CARDS as i (i)}
+					<li>
+						<BlueprintFrame>
+							<div class="card-bone"><span class="bone"></span></div>
+						</BlueprintFrame>
+					</li>
+				{/each}
+			</ul>
 		</div>
-		<ul class="cards">
-			{#each CARDS as i (i)}
-				<li>
-					<BlueprintFrame>
-						<div class="card-bone"><span class="bone"></span></div>
-					</BlueprintFrame>
-				</li>
-			{/each}
-		</ul>
-	</div>
-</section>
+	</section>
+</PageContainer>
 
 <style>
 	.schedule-skeleton {
 		display: grid;
 		gap: var(--game-list-gap);
-		max-width: var(--content-max-width);
-		margin: 0 auto;
-		padding: var(--side-padding);
+		/* The container's top padding sits outside the anchor, so the scroll lands where it did. */
+		scroll-margin-top: var(--side-padding);
 	}
 
 	.bones {

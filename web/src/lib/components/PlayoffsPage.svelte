@@ -7,6 +7,7 @@
 	import FinalsSeries from '#lib/components/FinalsSeries.svelte';
 	import HeadToHead from '#lib/components/HeadToHead.svelte';
 	import MessageRow from '#lib/components/MessageRow.svelte';
+	import PageContainer from '#lib/components/PageContainer.svelte';
 	import PlayInStrip from '#lib/components/PlayInStrip.svelte';
 	import PlayoffBracket from '#lib/components/PlayoffBracket.svelte';
 	import PlayoffLeaders from '#lib/components/PlayoffLeaders.svelte';
@@ -71,75 +72,77 @@
 		linkSeries={view.sections.includes('series')}
 		{seasonSelect}
 	/>
-	<div class="sections">
-		{#each view.sections as id (id)}
-			<section {id} class="playoffs-section">
-				{#if id === 'picture'}
-					<div class="tables">
-						{#each view.picture as table (table.key)}
-							<div class="table-block">
-								<SectionHead title={table.title} />
-								<PlayoffPicture {table} {layout} {teamHref} />
-							</div>
-						{/each}
-					</div>
-				{:else if id === 'bracket'}
-					<PlayoffBracket
-						bracket={view.bracket}
-						layout={bracketLayout}
-						{gameHref}
-						{seriesHref}
-						{openSeries}
-					/>
-				{:else if id === 'play-in'}
-					<PlayInStrip
-						playIn={view.playIn}
-						collapsed={view.playInCollapsed}
-						{layout}
-						{teamHref}
-						{gameHref}
-					/>
-				{:else if id === 'finals-mvp'}
-					<div class="mvp-section">
-						<SectionHead title={m.playoffs_finals_mvp()} size="mvp" />
-						<div class="mvps" class:mobile={mvpLayout === 'mobile'}>
-							{#if view.finalsMvp}<FinalsMvpCard mvp={view.finalsMvp} {layout} />{/if}
-							{#if view.conferenceMvps.length > 0}
-								<div class="conference-mvps">
-									{#each view.conferenceMvps as mvp (mvp.key)}
-										<div class="conference-slot"><ConferenceMvpCard {mvp} /></div>
-									{/each}
+	<PageContainer>
+		<div class="sections">
+			{#each view.sections as id (id)}
+				<section {id} class="playoffs-section">
+					{#if id === 'picture'}
+						<div class="tables">
+							{#each view.picture as table (table.key)}
+								<div class="table-block">
+									<SectionHead title={table.title} />
+									<PlayoffPicture {table} {layout} {teamHref} />
 								</div>
-							{/if}
+							{/each}
 						</div>
-					</div>
-				{:else if id === 'series'}
-					<SectionHead title={m.playoffs_series()} />
-					<FinalsSeries
-						bind:selected={finalsGame}
-						games={view.series}
-						{layout}
-						{teamHref}
-						{gameHref}
-					/>
-				{:else if id === 'road'}
-					<SectionHead title={m.playoffs_road()} />
-					<RoadToTitle road={view.road} {teamHref} />
-				{:else if id === 'head-to-head'}
-					{#if view.headToHead}
-						<SectionHead title={m.playoffs_h2h()} />
-						<HeadToHead headToHead={view.headToHead} />
+					{:else if id === 'bracket'}
+						<PlayoffBracket
+							bracket={view.bracket}
+							layout={bracketLayout}
+							{gameHref}
+							{seriesHref}
+							{openSeries}
+						/>
+					{:else if id === 'play-in'}
+						<PlayInStrip
+							playIn={view.playIn}
+							collapsed={view.playInCollapsed}
+							{layout}
+							{teamHref}
+							{gameHref}
+						/>
+					{:else if id === 'finals-mvp'}
+						<div class="mvp-section">
+							<SectionHead title={m.playoffs_finals_mvp()} size="mvp" />
+							<div class="mvps" class:mobile={mvpLayout === 'mobile'}>
+								{#if view.finalsMvp}<FinalsMvpCard mvp={view.finalsMvp} {layout} />{/if}
+								{#if view.conferenceMvps.length > 0}
+									<div class="conference-mvps">
+										{#each view.conferenceMvps as mvp (mvp.key)}
+											<div class="conference-slot"><ConferenceMvpCard {mvp} /></div>
+										{/each}
+									</div>
+								{/if}
+							</div>
+						</div>
+					{:else if id === 'series'}
+						<SectionHead title={m.playoffs_series()} />
+						<FinalsSeries
+							bind:selected={finalsGame}
+							games={view.series}
+							{layout}
+							{teamHref}
+							{gameHref}
+						/>
+					{:else if id === 'road'}
+						<SectionHead title={m.playoffs_road()} />
+						<RoadToTitle road={view.road} {teamHref} />
+					{:else if id === 'head-to-head'}
+						{#if view.headToHead}
+							<SectionHead title={m.playoffs_h2h()} />
+							<HeadToHead headToHead={view.headToHead} />
+						{/if}
+					{:else if id === 'leaders'}
+						<SectionHead title={m.playoffs_leaders()} />
+						<PlayoffLeaders tabs={view.leaders} />
+					{:else}
+						<SectionHead title={m.playoffs_awards()} />
+						<AwardsGrid awards={view.awards} {layout} />
 					{/if}
-				{:else if id === 'leaders'}
-					<SectionHead title={m.playoffs_leaders()} />
-					<PlayoffLeaders tabs={view.leaders} />
-				{:else}
-					<SectionHead title={m.playoffs_awards()} />
-					<AwardsGrid awards={view.awards} {layout} />
-				{/if}
-			</section>
-		{/each}
-	</div>
+				</section>
+			{/each}
+		</div>
+	</PageContainer>
 {:else if page.kind === 'loading'}
 	<PlayoffsHeader
 		header={null}
@@ -150,18 +153,20 @@
 		{teamHref}
 		{seasonSelect}
 	/>
-	<section class="page-section table-skeleton" aria-busy="true">
-		<div class="bones" aria-hidden="true" use:play={shimmer}>
-			<span class="bone heading-bone"></span>
-			<BlueprintFrame>
-				<div class="bones">
-					{#each ROW_BONES as i (i)}
-						<span class="bone row-bone"></span>
-					{/each}
-				</div>
-			</BlueprintFrame>
-		</div>
-	</section>
+	<PageContainer>
+		<section class="page-section table-skeleton" aria-busy="true">
+			<div class="bones" aria-hidden="true" use:play={shimmer}>
+				<span class="bone heading-bone"></span>
+				<BlueprintFrame>
+					<div class="bones">
+						{#each ROW_BONES as i (i)}
+							<span class="bone row-bone"></span>
+						{/each}
+					</div>
+				</BlueprintFrame>
+			</div>
+		</section>
+	</PageContainer>
 {:else}
 	<PlayoffsHeader
 		header={null}
@@ -172,26 +177,19 @@
 		{seasonSelect}
 		{seasonTag}
 	/>
-	<section class="page-section">
-		<MessageRow text={m.feed_unavailable()} />
-	</section>
+	<PageContainer>
+		<section class="page-section">
+			<MessageRow text={m.feed_unavailable()} />
+		</section>
+	</PageContainer>
 {/if}
 
 <SiteFooter />
 
 <style>
-	.page-section {
-		max-width: var(--content-max-width);
-		margin: 0 auto;
-		padding: var(--side-padding);
-	}
-
 	.sections {
 		display: grid;
 		gap: var(--detail-section-gap);
-		max-width: var(--content-max-width);
-		margin: 0 auto;
-		padding: var(--side-padding);
 	}
 
 	.playoffs-section {

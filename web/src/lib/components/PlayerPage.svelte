@@ -8,6 +8,7 @@
 	import MessageRow from '#lib/components/MessageRow.svelte';
 	import Milestones from '#lib/components/Milestones.svelte';
 	import NextGameCard from '#lib/components/NextGameCard.svelte';
+	import PageContainer from '#lib/components/PageContainer.svelte';
 	import PlayerHeader from '#lib/components/PlayerHeader.svelte';
 	import ProfileCells from '#lib/components/ProfileCells.svelte';
 	import RecentGames from '#lib/components/RecentGames.svelte';
@@ -49,93 +50,92 @@
 	<SectionTabs tabs={page.view.tabs} mini={page.view.mini} />
 	{@const sections = page.view.sections}
 	{@const profile = sections.profile}
-	<div class="sections">
-		<section id="profile">
-			<SectionHead title={m.player_tab_profile()} />
-			<div class="profile">
-				<ProfileCells cells={profile.cells} />
-				<div class="game-column">
-					{#if !profile.hideNext}
-						<NextGameCard game={profile.nextGame} live={profile.live} {gameHref} />
-					{/if}
-					{#if profile.recent.length > 0}
-						<div class="recent">
-							<h3 class="recent-title"><Kicker text={m.game_section_last_games()} /></h3>
-							<RecentGames rows={profile.recent} {gameHref} />
-						</div>
-					{/if}
+	<PageContainer>
+		<div class="sections">
+			<section id="profile">
+				<SectionHead title={m.player_tab_profile()} />
+				<div class="profile">
+					<ProfileCells cells={profile.cells} />
+					<div class="game-column">
+						{#if !profile.hideNext}
+							<NextGameCard game={profile.nextGame} live={profile.live} {gameHref} />
+						{/if}
+						{#if profile.recent.length > 0}
+							<div class="recent">
+								<h3 class="recent-title"><Kicker text={m.game_section_last_games()} /></h3>
+								<RecentGames rows={profile.recent} {gameHref} />
+							</div>
+						{/if}
+					</div>
 				</div>
-			</div>
-		</section>
-		{#if sections.averages}
-			<section id="averages">
-				<SectionHead title={m.player_section_averages()} meta={m.player_averages_meta()} />
-				<AveragesTable averages={sections.averages} {gameHref} />
 			</section>
-		{/if}
-		{#if sections.seasons}
-			<section id="seasons">
-				<SectionHead title={m.player_section_seasons()} />
-				<SeasonsTable seasons={sections.seasons} {gameHref} />
-			</section>
-		{/if}
-		{#if sections.milestones}
-			<section id="milestones">
-				<SectionHead title={m.player_tab_milestones()} meta={sections.milestones.meta} />
-				<Milestones milestones={sections.milestones} {layout} />
-			</section>
-		{/if}
-		{#if sections.gameLog}
-			<section id="game-log">
-				<SectionHead title={m.player_tab_game_log()} meta={sections.gameLog.meta} />
-				<GameLog log={sections.gameLog} {gameHref} />
-			</section>
-		{/if}
-		{#if sections.awards}
-			<section id="awards">
-				<SectionHead title={m.player_tab_awards()} />
-				<Awards awards={sections.awards} />
-			</section>
-		{/if}
-	</div>
+			{#if sections.averages}
+				<section id="averages">
+					<SectionHead title={m.player_section_averages()} meta={m.player_averages_meta()} />
+					<AveragesTable averages={sections.averages} {gameHref} />
+				</section>
+			{/if}
+			{#if sections.seasons}
+				<section id="seasons">
+					<SectionHead title={m.player_section_seasons()} />
+					<SeasonsTable seasons={sections.seasons} {gameHref} />
+				</section>
+			{/if}
+			{#if sections.milestones}
+				<section id="milestones">
+					<SectionHead title={m.player_tab_milestones()} meta={sections.milestones.meta} />
+					<Milestones milestones={sections.milestones} {layout} />
+				</section>
+			{/if}
+			{#if sections.gameLog}
+				<section id="game-log">
+					<SectionHead title={m.player_tab_game_log()} meta={sections.gameLog.meta} />
+					<GameLog log={sections.gameLog} {gameHref} />
+				</section>
+			{/if}
+			{#if sections.awards}
+				<section id="awards">
+					<SectionHead title={m.player_tab_awards()} />
+					<Awards awards={sections.awards} />
+				</section>
+			{/if}
+		</div>
+	</PageContainer>
 {:else if page.kind === 'loading'}
 	<PlayerHeader header={null} loading {allGamesHref} {standingsHref} {layout} {seasonSelect} />
-	<section class="page-section section-skeleton" aria-busy="true">
-		<div class="bones" aria-hidden="true" use:play={shimmer}>
-			<span class="bone heading-bone"></span>
-			<BlueprintFrame><span class="bone block-bone"></span></BlueprintFrame>
-		</div>
-	</section>
+	<PageContainer>
+		<section class="page-section section-skeleton" aria-busy="true">
+			<div class="bones" aria-hidden="true" use:play={shimmer}>
+				<span class="bone heading-bone"></span>
+				<BlueprintFrame><span class="bone block-bone"></span></BlueprintFrame>
+			</div>
+		</section>
+	</PageContainer>
 {:else if page.kind === 'unavailable'}
 	<PlayerHeader header={null} {allGamesHref} {standingsHref} {layout} {seasonSelect} {seasonTag} />
-	<section class="page-section">
-		<MessageRow text={m.feed_unavailable()} />
-	</section>
+	<PageContainer>
+		<section class="page-section">
+			<MessageRow text={m.feed_unavailable()} />
+		</section>
+	</PageContainer>
 {:else}
 	<PlayerHeader header={null} {allGamesHref} {standingsHref} {layout} {seasonSelect} />
-	<section class="page-section">
-		<MessageRow
-			text={m.player_not_found()}
-			link={{ href: allGamesHref, label: m.hero_all_games() }}
-		/>
-	</section>
+	<PageContainer>
+		<section class="page-section">
+			<MessageRow
+				text={m.player_not_found()}
+				link={{ href: allGamesHref, label: m.hero_all_games() }}
+			/>
+		</section>
+	</PageContainer>
 {/if}
 
 <SiteFooter />
 
 <style>
-	.page-section {
-		max-width: var(--content-max-width);
-		margin: 0 auto;
-		padding: var(--side-padding);
-	}
-
 	.sections {
 		display: grid;
 		gap: var(--detail-section-gap);
-		max-width: var(--content-max-width);
-		margin: 0 auto;
-		padding: var(--side-padding);
 	}
 
 	.sections section {

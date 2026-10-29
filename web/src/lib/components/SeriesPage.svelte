@@ -3,6 +3,7 @@
 	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
 	import MessageRow from '#lib/components/MessageRow.svelte';
 	import NavRow from '#lib/components/NavRow.svelte';
+	import PageContainer from '#lib/components/PageContainer.svelte';
 	import SiteFooter from '#lib/components/SiteFooter.svelte';
 	import TeamMark from '#lib/components/TeamMark.svelte';
 	import { play } from '#lib/hero/motion.ts';
@@ -31,78 +32,80 @@
 </script>
 
 <NavRow page="playoffs" gamesHref={allGamesHref} {standingsHref} {layout} />
-<div class="content" class:mobile={layout === 'mobile'}>
-	<div class="top-bar">
-		<a class="back" href={bracketHref}>{m.playoffs_series_back()}</a>
+<PageContainer>
+	<div class="content" class:mobile={layout === 'mobile'}>
+		<div class="top-bar">
+			<a class="back" href={bracketHref}>{m.playoffs_series_back()}</a>
+			{#if page.kind === 'ready'}
+				<span class="kicker">{page.view.kicker}</span>
+			{/if}
+		</div>
+
 		{#if page.kind === 'ready'}
-			<span class="kicker">{page.view.kicker}</span>
-		{/if}
-	</div>
-
-	{#if page.kind === 'ready'}
-		{@const view = page.view}
-		<section class="hero">
-			<span class="glow left" aria-hidden="true" style:--side-accent={accentOf(view.top)}></span>
-			<span class="glow right" aria-hidden="true" style:--side-accent={accentOf(view.bottom)}
-			></span>
-			<h1 class="round">{view.round}</h1>
-			<div class="score-row">
-				{#each [view.top, view.bottom] as side, index (index)}
-					<div class="side" class:loser={side.loser} style:--side-accent={accentOf(side)}>
-						<span class="logo">
-							<TeamMark team={side.team} part="tile" size="fill" logo={side.team.logo} />
-						</span>
-						<span class="code">{side.code}</span>
-						{#if side.seed}<span class="seed">{side.seed}</span>{/if}
-						<span class="bar"></span>
-					</div>
-					{#if index === 0}
-						<div class="scores">
-							<span class="wins" class:muted={!view.top.lead}>{view.top.wins}</span>
-							<span class="dash">–</span>
-							<span class="wins" class:muted={!view.bottom.lead}>{view.bottom.wins}</span>
+			{@const view = page.view}
+			<section class="hero">
+				<span class="glow left" aria-hidden="true" style:--side-accent={accentOf(view.top)}></span>
+				<span class="glow right" aria-hidden="true" style:--side-accent={accentOf(view.bottom)}
+				></span>
+				<h1 class="round">{view.round}</h1>
+				<div class="score-row">
+					{#each [view.top, view.bottom] as side, index (index)}
+						<div class="side" class:loser={side.loser} style:--side-accent={accentOf(side)}>
+							<span class="logo">
+								<TeamMark team={side.team} part="tile" size="fill" logo={side.team.logo} />
+							</span>
+							<span class="code">{side.code}</span>
+							{#if side.seed}<span class="seed">{side.seed}</span>{/if}
+							<span class="bar"></span>
 						</div>
-					{/if}
-				{/each}
-			</div>
-			{#if view.status}<p class="status">{view.status}</p>{/if}
-			{#if view.dates}<p class="dates">{view.dates}</p>{/if}
-		</section>
-
-		<section class="games">
-			<h3 class="games-title">{m.playoffs_series_by_game()}</h3>
-			<ol class="cards">
-				{#each view.games as game (game.key)}
-					<li>
-						{#if game.linked}
-							<a class="card" href={gameHref(game.gameId)}>
-								{@render card(game)}
-							</a>
-						{:else}
-							<div class="card">
-								{@render card(game)}
+						{#if index === 0}
+							<div class="scores">
+								<span class="wins" class:muted={!view.top.lead}>{view.top.wins}</span>
+								<span class="dash">–</span>
+								<span class="wins" class:muted={!view.bottom.lead}>{view.bottom.wins}</span>
 							</div>
 						{/if}
-					</li>
-				{/each}
-			</ol>
-		</section>
-	{:else if page.kind === 'loading'}
-		<section class="skeleton" aria-busy="true">
-			<div class="bones" aria-hidden="true" use:play={shimmer}>
-				<span class="bone heading-bone"></span>
-				<BlueprintFrame><span class="bone block-bone"></span></BlueprintFrame>
-			</div>
-		</section>
-	{:else if page.kind === 'unavailable'}
-		<MessageRow text={m.feed_unavailable()} />
-	{:else}
-		<MessageRow
-			text={m.playoffs_series_unavailable()}
-			link={{ href: bracketHref, label: m.playoffs_series_back() }}
-		/>
-	{/if}
-</div>
+					{/each}
+				</div>
+				{#if view.status}<p class="status">{view.status}</p>{/if}
+				{#if view.dates}<p class="dates">{view.dates}</p>{/if}
+			</section>
+
+			<section class="games">
+				<h3 class="games-title">{m.playoffs_series_by_game()}</h3>
+				<ol class="cards">
+					{#each view.games as game (game.key)}
+						<li>
+							{#if game.linked}
+								<a class="card" href={gameHref(game.gameId)}>
+									{@render card(game)}
+								</a>
+							{:else}
+								<div class="card">
+									{@render card(game)}
+								</div>
+							{/if}
+						</li>
+					{/each}
+				</ol>
+			</section>
+		{:else if page.kind === 'loading'}
+			<section class="skeleton" aria-busy="true">
+				<div class="bones" aria-hidden="true" use:play={shimmer}>
+					<span class="bone heading-bone"></span>
+					<BlueprintFrame><span class="bone block-bone"></span></BlueprintFrame>
+				</div>
+			</section>
+		{:else if page.kind === 'unavailable'}
+			<MessageRow text={m.feed_unavailable()} />
+		{:else}
+			<MessageRow
+				text={m.playoffs_series_unavailable()}
+				link={{ href: bracketHref, label: m.playoffs_series_back() }}
+			/>
+		{/if}
+	</div>
+</PageContainer>
 
 {#snippet card(game: SeriesPageGameView)}
 	<span class="head">
@@ -155,12 +158,6 @@
 <SiteFooter />
 
 <style>
-	.content {
-		max-width: var(--content-max-width);
-		margin: 0 auto;
-		padding: var(--side-padding);
-	}
-
 	.top-bar {
 		display: flex;
 		align-items: center;
@@ -456,6 +453,7 @@
 
 	.content.mobile {
 		max-width: var(--playoffs-series-max-width);
+		margin-inline: auto;
 	}
 
 	.mobile .hero {

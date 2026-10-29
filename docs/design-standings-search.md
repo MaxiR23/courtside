@@ -45,7 +45,7 @@ Everything under "Implementation rules" in `docs/design.md`, `docs/design-game-d
 
 - Ground, ink, muted, accent, accent text, divider and row rule through the existing tokens (`--color-bg`, `--color-ink`, `--color-muted`, `--color-accent`, `--color-accent-light`, `--color-divider`, `--color-row-rule`).
 - Headings Barlow Condensed 600, body Barlow. Numbers use `font-variant-numeric: tabular-nums`.
-- Content max width `--content-max-width`, side padding `--side-padding`.
+- Content max width `--content-max-width` and side padding `--side-padding` through `PageContainer`.
 - Labels: `--label-size`, `--label-letter-spacing`, uppercase, `--color-accent-light`.
 - Mobile breakpoint: 680px (`--game-row-breakpoint`).
 - Focus: `:focus-visible` with `--focus-ring-width` and `--focus-ring-offset`.

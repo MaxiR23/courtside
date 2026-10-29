@@ -52,7 +52,7 @@ Style: Barlow Condensed 600, 14px, letter-spacing .12em, uppercase, accent-light
 
 ## Page structure
 
-Max content width 1320px, side padding `clamp(20px, 4vw, 48px)`. Sections stack with a gap of `clamp(64px, 8vw, 104px)`. Every section uses `scroll-margin-top: 72px`, and 108px under 680px so the title clears both rows of the tab bar.
+Max content width 1320px and side padding `clamp(20px, 4vw, 48px)` through `PageContainer`. Sections stack with a gap of `clamp(64px, 8vw, 104px)`. Every section uses `scroll-margin-top: 72px`, and 108px under 680px so the title clears both rows of the tab bar.
 
 ### Section header
 

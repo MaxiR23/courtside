@@ -5,6 +5,7 @@
 	import GameCard from '#lib/components/GameCard.svelte';
 	import Kicker from '#lib/components/Kicker.svelte';
 	import MessageRow from '#lib/components/MessageRow.svelte';
+	import PageContainer from '#lib/components/PageContainer.svelte';
 	import SiteFooter from '#lib/components/SiteFooter.svelte';
 	import type { DateCalendar } from '#lib/calendar/types.ts';
 	import type { DayCardStats } from '#lib/day/card-stats.svelte.ts';
@@ -76,30 +77,32 @@
 		{calendar}
 		{layout}
 	/>
-	<section class="page-section">
-		{#if page.view.games.length > 0}
-			<div class="head"><Kicker text={m.past_day_title()} /></div>
-			<ul class="games" aria-label={m.past_day_games({ date: page.view.title })}>
-				{#each page.view.games as game (game.id)}
-					<li>
-						<GameCard
-							game={withCardDetails(game, cardDetailsOf(game.id))}
-							{layout}
-							spoilerFree={false}
-							open={openId === game.id}
-							onToggle={() => toggle(game.id, game)}
-							playingVideoId={openId === game.id ? playingId : null}
-							onPlay={(videoId) => (playingId = videoId)}
-							detailHref={gameHref(game.id)}
-							{teamHref}
-						/>
-					</li>
-				{/each}
-			</ul>
-		{:else}
-			<MessageRow text={m.schedule_no_games()} />
-		{/if}
-	</section>
+	<PageContainer>
+		<section class="page-section">
+			{#if page.view.games.length > 0}
+				<div class="head"><Kicker text={m.past_day_title()} /></div>
+				<ul class="games" aria-label={m.past_day_games({ date: page.view.title })}>
+					{#each page.view.games as game (game.id)}
+						<li>
+							<GameCard
+								game={withCardDetails(game, cardDetailsOf(game.id))}
+								{layout}
+								spoilerFree={false}
+								open={openId === game.id}
+								onToggle={() => toggle(game.id, game)}
+								playingVideoId={openId === game.id ? playingId : null}
+								onPlay={(videoId) => (playingId = videoId)}
+								detailHref={gameHref(game.id)}
+								{teamHref}
+							/>
+						</li>
+					{/each}
+				</ul>
+			{:else}
+				<MessageRow text={m.schedule_no_games()} />
+			{/if}
+		</section>
+	</PageContainer>
 {:else if page.kind === 'loading'}
 	<DayHeader
 		view={null}
@@ -111,17 +114,19 @@
 		calendar={null}
 		{layout}
 	/>
-	<section class="page-section" aria-busy="true">
-		<ul class="games bones" aria-hidden="true" use:play={shimmer}>
-			{#each CARDS as i (i)}
-				<li>
-					<BlueprintFrame>
-						<div class="card-bone"><span class="bone"></span></div>
-					</BlueprintFrame>
-				</li>
-			{/each}
-		</ul>
-	</section>
+	<PageContainer>
+		<section class="page-section" aria-busy="true">
+			<ul class="games bones" aria-hidden="true" use:play={shimmer}>
+				{#each CARDS as i (i)}
+					<li>
+						<BlueprintFrame>
+							<div class="card-bone"><span class="bone"></span></div>
+						</BlueprintFrame>
+					</li>
+				{/each}
+			</ul>
+		</section>
+	</PageContainer>
 {:else}
 	<DayHeader
 		view={null}
@@ -132,20 +137,16 @@
 		calendar={null}
 		{layout}
 	/>
-	<section class="page-section">
-		<MessageRow text={m.feed_unavailable()} />
-	</section>
+	<PageContainer>
+		<section class="page-section">
+			<MessageRow text={m.feed_unavailable()} />
+		</section>
+	</PageContainer>
 {/if}
 
 <SiteFooter />
 
 <style>
-	.page-section {
-		max-width: var(--content-max-width);
-		margin: 0 auto;
-		padding: var(--side-padding);
-	}
-
 	.head {
 		margin-bottom: var(--game-list-gap);
 	}

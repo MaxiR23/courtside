@@ -4,6 +4,7 @@
 	import GameCard from '#lib/components/GameCard.svelte';
 	import Kicker from '#lib/components/Kicker.svelte';
 	import MessageRow from '#lib/components/MessageRow.svelte';
+	import PageContainer from '#lib/components/PageContainer.svelte';
 	import ScheduleEmptyDay from '#lib/components/ScheduleEmptyDay.svelte';
 	import { formatDate, formatNumber } from '#lib/format/locale.ts';
 	import type { EmptyDayView } from '#lib/home/types.ts';
@@ -92,58 +93,59 @@
 	}
 </script>
 
-<section class="schedule" id="schedule">
-	<header class:mobile={!wide.current && wrapped} bind:this={headerEl}>
-		<div class="heading">
-			<Kicker text={m.schedule_kicker()} />
-			<h2>
-				{heading}
-			</h2>
+<PageContainer>
+	<section class="schedule" id="schedule">
+		<header class:mobile={!wide.current && wrapped} bind:this={headerEl}>
+			<div class="heading">
+				<Kicker text={m.schedule_kicker()} />
+				<h2>
+					{heading}
+				</h2>
+			</div>
+			<div class="meta">
+				<span class="count">{countLabel}</span>
+				<span class="updated">
+					{updated}
+				</span>
+			</div>
+		</header>
+		<DayStrip days={strip} {selected} compact={!wide.current} onSelect={select} />
+		<div class="list" class:waiting={entrance.waiting} bind:this={list}>
+			{#key entrance.run}
+				{#if games.length > 0}
+					<ul class="games">
+						{#each games as game, i (game.id)}
+							<li id={cardAnchor(game.id)} use:cardEntrance={{ index: i, run: entrance.run }}>
+								<GameCard
+									{game}
+									{spoilerFree}
+									layout={wide.current ? 'desktop' : 'mobile'}
+									open={openId === game.id}
+									onToggle={() => toggle(game.id)}
+									playingVideoId={openId === game.id ? playingId : null}
+									onPlay={(videoId) => (playingId = videoId)}
+									detailHref={gameHref(game.id)}
+									{teamHref}
+								/>
+							</li>
+						{/each}
+					</ul>
+				{:else if emptyDay && windowHref}
+					<ScheduleEmptyDay view={emptyDay} {windowHref} />
+				{:else}
+					<MessageRow text={m.schedule_no_games()} />
+				{/if}
+			{/key}
 		</div>
-		<div class="meta">
-			<span class="count">{countLabel}</span>
-			<span class="updated">
-				{updated}
-			</span>
-		</div>
-	</header>
-	<DayStrip days={strip} {selected} compact={!wide.current} onSelect={select} />
-	<div class="list" class:waiting={entrance.waiting} bind:this={list}>
-		{#key entrance.run}
-			{#if games.length > 0}
-				<ul class="games">
-					{#each games as game, i (game.id)}
-						<li id={cardAnchor(game.id)} use:cardEntrance={{ index: i, run: entrance.run }}>
-							<GameCard
-								{game}
-								{spoilerFree}
-								layout={wide.current ? 'desktop' : 'mobile'}
-								open={openId === game.id}
-								onToggle={() => toggle(game.id)}
-								playingVideoId={openId === game.id ? playingId : null}
-								onPlay={(videoId) => (playingId = videoId)}
-								detailHref={gameHref(game.id)}
-								{teamHref}
-							/>
-						</li>
-					{/each}
-				</ul>
-			{:else if emptyDay && windowHref}
-				<ScheduleEmptyDay view={emptyDay} {windowHref} />
-			{:else}
-				<MessageRow text={m.schedule_no_games()} />
-			{/if}
-		{/key}
-	</div>
-</section>
+	</section>
+</PageContainer>
 
 <style>
 	.schedule {
 		display: grid;
 		gap: var(--game-list-gap);
-		max-width: var(--content-max-width);
-		margin: 0 auto;
-		padding: var(--side-padding);
+		/* The container's top padding sits outside the anchor, so the scroll lands where it did. */
+		scroll-margin-top: var(--side-padding);
 	}
 
 	.waiting {

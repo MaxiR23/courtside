@@ -7,6 +7,7 @@
 	import AllStarTeams from '#lib/components/AllStarTeams.svelte';
 	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
 	import MessageRow from '#lib/components/MessageRow.svelte';
+	import PageContainer from '#lib/components/PageContainer.svelte';
 	import SectionHead from '#lib/components/SectionHead.svelte';
 	import SiteFooter from '#lib/components/SiteFooter.svelte';
 	import { LiveTick } from '#lib/all-star/live-tick.svelte.ts';
@@ -78,43 +79,45 @@
 		onLive={showGame}
 		{seasonSelect}
 	/>
-	<div class="sections" class:mobile>
-		{#each view.sections as id (id)}
-			<section
-				{id}
-				class="all-star-section"
-				class:mobile
-				aria-label={id === 'mvp' ? m.allstar_mvp_label() : undefined}
-			>
-				{#if id === 'last-time' && view.lastTime}
-					<SectionHead title={m.allstar_last_time()} />
-					<AllStarLastTime lastTime={view.lastTime} {layout} {playerHref} />
-				{:else if id === 'mvp'}
-					<AllStarMvp
-						mvp={view.mvp}
-						scoreline={view.scoreline}
-						{layout}
-						{teamHref}
-						{playerHref}
-						onChampionship={() => view.scoreline && showGame(view.scoreline.gameId)}
-					/>
-				{:else if id === 'games'}
-					<AllStarGames
-						{view}
-						kicker={view.header.tag}
-						{selection}
-						{tick}
-						{layout}
-						{teamHref}
-						{playerHref}
-					/>
-				{:else if id === 'teams'}
-					<SectionHead title={m.allstar_teams_title()} />
-					<AllStarTeams teams={view.teams} {layout} {playerHref} />
-				{/if}
-			</section>
-		{/each}
-	</div>
+	<PageContainer sidePadding={mobile ? 'var(--allstar-side-padding-mobile)' : undefined}>
+		<div class="sections" class:mobile>
+			{#each view.sections as id (id)}
+				<section
+					{id}
+					class="all-star-section"
+					class:mobile
+					aria-label={id === 'mvp' ? m.allstar_mvp_label() : undefined}
+				>
+					{#if id === 'last-time' && view.lastTime}
+						<SectionHead title={m.allstar_last_time()} />
+						<AllStarLastTime lastTime={view.lastTime} {layout} {playerHref} />
+					{:else if id === 'mvp'}
+						<AllStarMvp
+							mvp={view.mvp}
+							scoreline={view.scoreline}
+							{layout}
+							{teamHref}
+							{playerHref}
+							onChampionship={() => view.scoreline && showGame(view.scoreline.gameId)}
+						/>
+					{:else if id === 'games'}
+						<AllStarGames
+							{view}
+							kicker={view.header.tag}
+							{selection}
+							{tick}
+							{layout}
+							{teamHref}
+							{playerHref}
+						/>
+					{:else if id === 'teams'}
+						<SectionHead title={m.allstar_teams_title()} />
+						<AllStarTeams teams={view.teams} {layout} {playerHref} />
+					{/if}
+				</section>
+			{/each}
+		</div>
+	</PageContainer>
 {:else if page.kind === 'loading'}
 	<AllStarHeader
 		header={null}
@@ -126,18 +129,20 @@
 		onLive={showGame}
 		{seasonSelect}
 	/>
-	<section class="page-section" class:mobile aria-busy="true">
-		<div class="bones" aria-hidden="true" use:play={shimmer}>
-			<span class="bone heading-bone"></span>
-			<BlueprintFrame marks="allstar">
-				<div class="card-bones">
-					{#each CARD_BONES as i (i)}
-						<span class="bone card-bone"></span>
-					{/each}
-				</div>
-			</BlueprintFrame>
-		</div>
-	</section>
+	<PageContainer sidePadding={mobile ? 'var(--allstar-side-padding-mobile)' : undefined}>
+		<section class="page-section" class:mobile aria-busy="true">
+			<div class="bones" aria-hidden="true" use:play={shimmer}>
+				<span class="bone heading-bone"></span>
+				<BlueprintFrame marks="allstar">
+					<div class="card-bones">
+						{#each CARD_BONES as i (i)}
+							<span class="bone card-bone"></span>
+						{/each}
+					</div>
+				</BlueprintFrame>
+			</div>
+		</section>
+	</PageContainer>
 {:else}
 	<AllStarHeader
 		header={null}
@@ -149,33 +154,24 @@
 		{seasonSelect}
 		{seasonTag}
 	/>
-	<section class="page-section" class:mobile>
-		<MessageRow text={m.feed_unavailable()} />
-	</section>
+	<PageContainer sidePadding={mobile ? 'var(--allstar-side-padding-mobile)' : undefined}>
+		<section class="page-section" class:mobile>
+			<MessageRow text={m.feed_unavailable()} />
+		</section>
+	</PageContainer>
 {/if}
 
 <SiteFooter />
 
 <style>
-	.page-section {
-		max-width: var(--content-max-width);
-		margin: 0 auto;
-		padding: var(--side-padding);
-	}
-
 	.sections {
 		display: grid;
 		grid-template-columns: minmax(0, 1fr);
 		gap: var(--detail-section-gap);
-		max-width: var(--content-max-width);
-		margin: 0 auto;
-		padding: var(--side-padding);
 	}
 
-	.sections.mobile,
-	.page-section.mobile {
+	.sections.mobile {
 		gap: var(--allstar-section-gap-mobile);
-		padding-inline: var(--allstar-side-padding-mobile);
 	}
 
 	.all-star-section {

@@ -7,6 +7,7 @@
 	import CupHeader from '#lib/components/CupHeader.svelte';
 	import GroupCard from '#lib/components/GroupCard.svelte';
 	import MessageRow from '#lib/components/MessageRow.svelte';
+	import PageContainer from '#lib/components/PageContainer.svelte';
 	import SectionHead from '#lib/components/SectionHead.svelte';
 	import SiteFooter from '#lib/components/SiteFooter.svelte';
 	import WildCardTable from '#lib/components/WildCardTable.svelte';
@@ -61,51 +62,53 @@
 		{teamHref}
 		{seasonSelect}
 	/>
-	<div class="sections">
-		{#each view.sections as id (id)}
-			<section {id} class="cup-section">
-				{#if id === 'groups'}
-					<SectionHead title={m.cup_groups()} />
-					{#if !view.drawn}
-						<MessageRow text={m.cup_not_drawn()} />
-					{:else}
-						<div class="groups" class:wide>
-							{#each view.groups as group (group.key)}
-								<GroupCard
-									{group}
-									{wide}
-									onToggleColumns={() => (wide = !wide)}
-									{layout}
-									{teamHref}
-								/>
+	<PageContainer>
+		<div class="sections">
+			{#each view.sections as id (id)}
+				<section {id} class="cup-section">
+					{#if id === 'groups'}
+						<SectionHead title={m.cup_groups()} />
+						{#if !view.drawn}
+							<MessageRow text={m.cup_not_drawn()} />
+						{:else}
+							<div class="groups" class:wide>
+								{#each view.groups as group (group.key)}
+									<GroupCard
+										{group}
+										{wide}
+										onToggleColumns={() => (wide = !wide)}
+										{layout}
+										{teamHref}
+									/>
+								{/each}
+							</div>
+							<ul class="legend">
+								{#each view.legend as entry (entry.clinch.code)}
+									<li class="entry">
+										<ClinchTag clinch={entry.clinch} />
+										<span class="label">{entry.label}</span>
+									</li>
+								{/each}
+							</ul>
+						{/if}
+					{:else if id === 'wild-card'}
+						<SectionHead title={m.cup_wild_card()} />
+						<div class="wild-cards">
+							{#each view.wildCard as table (table.key)}
+								<WildCardTable {table} {layout} {teamHref} />
 							{/each}
 						</div>
-						<ul class="legend">
-							{#each view.legend as entry (entry.clinch.code)}
-								<li class="entry">
-									<ClinchTag clinch={entry.clinch} />
-									<span class="label">{entry.label}</span>
-								</li>
-							{/each}
-						</ul>
+					{:else if id === 'bracket'}
+						{#if layout === 'desktop'}<SectionHead title={m.cup_bracket()} />{/if}
+						<CupBracket bracket={view.bracket} {layout} {matchup} {gameHref} {playerHref} />
+					{:else}
+						<SectionHead title={m.cup_games()} />
+						<CupGames filters={view.filters} {layout} {gameHref} />
 					{/if}
-				{:else if id === 'wild-card'}
-					<SectionHead title={m.cup_wild_card()} />
-					<div class="wild-cards">
-						{#each view.wildCard as table (table.key)}
-							<WildCardTable {table} {layout} {teamHref} />
-						{/each}
-					</div>
-				{:else if id === 'bracket'}
-					{#if layout === 'desktop'}<SectionHead title={m.cup_bracket()} />{/if}
-					<CupBracket bracket={view.bracket} {layout} {matchup} {gameHref} {playerHref} />
-				{:else}
-					<SectionHead title={m.cup_games()} />
-					<CupGames filters={view.filters} {layout} {gameHref} />
-				{/if}
-			</section>
-		{/each}
-	</div>
+				</section>
+			{/each}
+		</div>
+	</PageContainer>
 {:else if page.kind === 'loading'}
 	<CupHeader
 		header={null}
@@ -116,18 +119,20 @@
 		{teamHref}
 		{seasonSelect}
 	/>
-	<section class="page-section table-skeleton" aria-busy="true">
-		<div class="bones" aria-hidden="true" use:play={shimmer}>
-			<span class="bone heading-bone"></span>
-			<BlueprintFrame>
-				<div class="bones">
-					{#each ROW_BONES as i (i)}
-						<span class="bone row-bone"></span>
-					{/each}
-				</div>
-			</BlueprintFrame>
-		</div>
-	</section>
+	<PageContainer>
+		<section class="page-section table-skeleton" aria-busy="true">
+			<div class="bones" aria-hidden="true" use:play={shimmer}>
+				<span class="bone heading-bone"></span>
+				<BlueprintFrame>
+					<div class="bones">
+						{#each ROW_BONES as i (i)}
+							<span class="bone row-bone"></span>
+						{/each}
+					</div>
+				</BlueprintFrame>
+			</div>
+		</section>
+	</PageContainer>
 {:else}
 	<CupHeader
 		header={null}
@@ -138,26 +143,19 @@
 		{seasonSelect}
 		{seasonTag}
 	/>
-	<section class="page-section">
-		<MessageRow text={m.feed_unavailable()} />
-	</section>
+	<PageContainer>
+		<section class="page-section">
+			<MessageRow text={m.feed_unavailable()} />
+		</section>
+	</PageContainer>
 {/if}
 
 <SiteFooter />
 
 <style>
-	.page-section {
-		max-width: var(--content-max-width);
-		margin: 0 auto;
-		padding: var(--side-padding);
-	}
-
 	.sections {
 		display: grid;
 		gap: var(--detail-section-gap);
-		max-width: var(--content-max-width);
-		margin: 0 auto;
-		padding: var(--side-padding);
 	}
 
 	.cup-section {

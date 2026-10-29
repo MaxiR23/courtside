@@ -66,7 +66,7 @@ Everything under "Implementation rules" in `docs/design.md` and `docs/design-cup
 ## Shared patterns
 
 - Ground, ink, muted, accent, accent text, divider and row rules are the existing tokens. Headings Barlow Condensed 600, body Barlow, numbers `font-variant-numeric: tabular-nums`.
-- Content max width 1320px, side padding `clamp(20px, 4vw, 48px)`, section gap `clamp(64px, 8vw, 104px)`, `scroll-margin-top: 72px`. Section header: h2 `clamp(28px, 3.4vw, 40px)`, uppercase, optional meta right.
+- Content max width 1320px and side padding `clamp(20px, 4vw, 48px)` through `PageContainer`, section gap `clamp(64px, 8vw, 104px)`, `scroll-margin-top: 72px`. Section header: h2 `clamp(28px, 3.4vw, 40px)`, uppercase, optional meta right.
 - Tags: accent outline, 11px, .16em, uppercase, accent text (`StatusTag`).
 - Team color: the team's color from the feed, used only for bars and strips next to the code, as in the standings tables. A winner is shown in ink, a loser muted.
 - Photos: a tile with the player's photo; when it is missing, the player's initials. A photo never links by itself.
@@ -219,7 +219,7 @@ Zoom levels, pinch and rosters inside the bracket.
 
 ## Full series
 
-A new page at `/playoffs/series?id={SeriesId}`, browser-rendered like `/playoffs` (`ssr = false`, the fallback page of `docs/deploy.md`). It keeps the `season` query parameter as `/playoffs` does and reads the same playoffs feed (for the Finals also the Finals feed, for the leaders). Under 680px the page is the 390px design in a column of at most 720px; at 680px and wider the content spans the page content width (`--content-max-width`). Component: `SeriesPage`.
+A new page at `/playoffs/series?id={SeriesId}`, browser-rendered like `/playoffs` (`ssr = false`, the fallback page of `docs/deploy.md`). It keeps the `season` query parameter as `/playoffs` does and reads the same playoffs feed (for the Finals also the Finals feed, for the leaders). Under 680px the page is the 390px design in a column of at most 720px; at 680px and wider the content spans the page content width (`--content-max-width`, through `PageContainer`). Component: `SeriesPage`.
 
 - **Top bar:** "← Bracket" (links to `/playoffs#bracket`, same season; `/playoffs` scrolls to the bracket section once its feed has loaded, smooth and at once under reduced motion, and nothing scrolls without the hash) and "{year} NBA Playoffs" (10px, uppercase, muted).
 - **Hero:** two glows in each team's resolved color at 22%, left and right; the round label (10px, accent light); at 680px and wider the hero has no clip: each glow is a square as tall as the hero, inside the section, fading to transparent inside it; on mobile the glows sit half outside a clipped hero. A three-column row: the team (logo 140px, code 28px; on mobile 72px and 20px, "No. {seed} seed" 10px muted, a 32x3 bar in its color), the score in the middle (`clamp(88px, 9vw, 128px)`; 72px on mobile, the leader in ink, the other muted), and the other team. The losing team is at 60% when the series is complete. The status line "{CODE} wins the series 4–1" or "{CODE} leads 3–2" (14px) and the dates of the first and last game (12px, muted).
