@@ -295,7 +295,7 @@ describe('GamePage', () => {
 		const sections = container.querySelector('.section-skeleton');
 		expect(sections?.getAttribute('aria-busy')).toBe('true');
 		expect(sections?.querySelector('.bones')?.getAttribute('aria-hidden')).toBe('true');
-		expect(sections?.querySelectorAll('.heading-bone')).toHaveLength(2);
+		expect(sections?.querySelectorAll('.bones > .bone')).toHaveLength(2);
 		expect(sections?.querySelectorAll('.blueprint-frame')).toHaveLength(2);
 		expect(screen.getByRole('link', { name: 'All games' })).toBeTruthy();
 		expect(container.querySelector('footer')).not.toBeNull();

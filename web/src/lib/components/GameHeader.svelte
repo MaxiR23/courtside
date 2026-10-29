@@ -13,6 +13,7 @@
 	import { m } from '#lib/paraglide/messages.js';
 	import type { RowLayout } from '#lib/schedule/types.ts';
 	import { shimmer } from '#lib/skeleton/motion.ts';
+	import SkeletonBone from '#lib/components/SkeletonBone.svelte';
 
 	type Props = {
 		header: GameHeaderView | null; // null: only the nav row, or its skeleton while loading
@@ -184,13 +185,15 @@
 			{/if}
 		{:else if loading}
 			<div class="skeleton first-line" aria-hidden="true" use:play={shimmer}>
-				<span class="bone status-bone"></span>
-				<div class="team-bones">
-					<span class="bone team-bone"></span>
-					<span class="bone center-bone"></span>
-					<span class="bone team-bone"></span>
+				<div class="status-bone-wrap">
+					<SkeletonBone width="var(--skeleton-button-width)" height="var(--body-size-small)" />
 				</div>
-				<BlueprintFrame><span class="bone venue-bone"></span></BlueprintFrame>
+				<div class="team-bones">
+					<SkeletonBone height="var(--detail-h1-size)" />
+					<SkeletonBone width="var(--detail-score-size)" height="var(--detail-score-size)" />
+					<SkeletonBone height="var(--detail-h1-size)" />
+				</div>
+				<BlueprintFrame><SkeletonBone aspect="var(--video-aspect)" /></BlueprintFrame>
 			</div>
 		{/if}
 	</div>
@@ -465,16 +468,8 @@
 		gap: var(--panel-section-gap);
 	}
 
-	.bone {
-		display: block;
-		background: var(--color-surface);
-		border-radius: var(--radius);
-	}
-
-	.status-bone {
+	.status-bone-wrap {
 		justify-self: center;
-		width: var(--skeleton-button-width);
-		height: var(--body-size-small);
 	}
 
 	.team-bones {
@@ -482,18 +477,5 @@
 		grid-template-columns: 1fr auto 1fr;
 		align-items: center;
 		gap: var(--detail-scoreboard-gap);
-	}
-
-	.team-bone {
-		height: var(--detail-h1-size);
-	}
-
-	.center-bone {
-		width: var(--detail-score-size);
-		height: var(--detail-score-size);
-	}
-
-	.venue-bone {
-		aspect-ratio: var(--video-aspect);
 	}
 </style>

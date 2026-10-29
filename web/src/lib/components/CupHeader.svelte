@@ -11,6 +11,7 @@
 	import type { RowLayout } from '#lib/schedule/types.ts';
 	import type { SeasonControl } from '#lib/season/types.ts';
 	import { shimmer } from '#lib/skeleton/motion.ts';
+	import SkeletonBone from '#lib/components/SkeletonBone.svelte';
 
 	type Props = {
 		header: CupHeaderView | null; // null: only the nav row and the title, or the bones while loading
@@ -119,8 +120,8 @@
 			<h1 class="first-line">{m.cup_title()}</h1>
 			{#if loading}
 				<div class="bones" aria-hidden="true" use:play={shimmer}>
-					<span class="bone tag-bone"></span>
-					<span class="bone state-bone"></span>
+					<SkeletonBone width="var(--skeleton-short-width)" height="var(--body-size)" />
+					<SkeletonBone width="var(--skeleton-button-width)" height="var(--body-size-small)" />
 				</div>
 			{:else if seasonTag}
 				<div class="season-line"><SeasonTag text={seasonTag} /></div>
@@ -429,22 +430,6 @@
 		flex-wrap: wrap;
 		align-items: center;
 		gap: var(--game-list-gap);
-	}
-
-	.bone {
-		display: block;
-		background: var(--color-surface);
-		border-radius: var(--radius);
-	}
-
-	.tag-bone {
-		width: var(--skeleton-short-width);
-		height: var(--body-size);
-	}
-
-	.state-bone {
-		width: var(--skeleton-button-width);
-		height: var(--body-size-small);
 	}
 
 	.season-row {

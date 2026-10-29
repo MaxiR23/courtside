@@ -96,7 +96,7 @@ describe('AllStarPage', () => {
 	it('shows the header skeleton and the bones strip while loading', () => {
 		const { container } = show({ kind: 'loading' });
 		expect(container.querySelector('header')?.getAttribute('aria-busy')).toBe('true');
-		expect(container.querySelectorAll('.card-bone')).toHaveLength(4);
+		expect(container.querySelectorAll('.card-bones .bone')).toHaveLength(4);
 		expect(container.querySelector('section[aria-busy=true]')).not.toBeNull();
 		expect(screen.queryByText(UNAVAILABLE)).toBeNull();
 	});

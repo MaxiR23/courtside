@@ -11,6 +11,7 @@
 	import { shimmer } from '#lib/skeleton/motion.ts';
 	import type { RowLayout } from '#lib/schedule/types.ts';
 	import type { TeamHeaderView } from '#lib/team/types.ts';
+	import SkeletonBone from '#lib/components/SkeletonBone.svelte';
 
 	type Props = {
 		header: TeamHeaderView | null; // null: only the nav row, or its skeleton while loading
@@ -84,15 +85,15 @@
 		{:else if loading}
 			<div class="columns first-line skeleton" aria-hidden="true" use:play={shimmer}>
 				<div class="identity">
-					<span class="bone code-bone"></span>
-					<span class="bone city-bone"></span>
-					<span class="bone name-bone"></span>
+					<SkeletonBone width="var(--team-code-box-size)" height="var(--team-code-box-size)" />
+					<SkeletonBone width="var(--skeleton-button-width)" height="var(--body-size-small)" />
+					<SkeletonBone width="100%" height="var(--team-h1-size)" />
 				</div>
 				<div class="standing">
-					<span class="bone record-bone"></span>
+					<SkeletonBone width="var(--skeleton-short-width)" height="var(--team-record-size)" />
 					<div class="cells">
 						{#each CELL_BONES as i (i)}
-							<span class="bone cell-bone"></span>
+							<SkeletonBone height="var(--hit-target-size)" />
 						{/each}
 					</div>
 				</div>
@@ -238,36 +239,6 @@
 	.cell-sub {
 		font-size: var(--body-size-small);
 		color: var(--color-muted);
-	}
-
-	.bone {
-		display: block;
-		background: var(--color-surface);
-		border-radius: var(--radius);
-	}
-
-	.code-bone {
-		width: var(--team-code-box-size);
-		height: var(--team-code-box-size);
-	}
-
-	.city-bone {
-		width: var(--skeleton-button-width);
-		height: var(--body-size-small);
-	}
-
-	.name-bone {
-		width: 100%;
-		height: var(--team-h1-size);
-	}
-
-	.record-bone {
-		width: var(--skeleton-short-width);
-		height: var(--team-record-size);
-	}
-
-	.cell-bone {
-		height: var(--hit-target-size);
 	}
 
 	.season-row {

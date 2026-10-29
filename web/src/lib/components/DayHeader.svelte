@@ -8,6 +8,7 @@
 	import { m } from '#lib/paraglide/messages.js';
 	import type { RowLayout } from '#lib/schedule/types.ts';
 	import { shimmer } from '#lib/skeleton/motion.ts';
+	import SkeletonBone from '#lib/components/SkeletonBone.svelte';
 
 	type Props = {
 		view: DayView | null; // null: only the nav row, or its skeleton while loading
@@ -65,8 +66,8 @@
 			</div>
 		{:else if loading}
 			<div class="skeleton first-line" aria-hidden="true" use:play={shimmer}>
-				<span class="bone title-bone"></span>
-				<span class="bone meta-bone"></span>
+				<SkeletonBone width="var(--skeleton-long-width)" height="var(--past-day-title-size)" />
+				<SkeletonBone width="var(--skeleton-short-width)" height="var(--label-size)" />
 			</div>
 		{/if}
 	</div>
@@ -165,21 +166,5 @@
 	.skeleton {
 		display: grid;
 		gap: var(--day-strip-gap);
-	}
-
-	.bone {
-		display: block;
-		background: var(--color-surface);
-		border-radius: var(--radius);
-	}
-
-	.title-bone {
-		width: var(--skeleton-long-width);
-		height: var(--past-day-title-size);
-	}
-
-	.meta-bone {
-		width: var(--skeleton-short-width);
-		height: var(--label-size);
 	}
 </style>

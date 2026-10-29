@@ -22,6 +22,7 @@
 	import { m } from '#lib/paraglide/messages.js';
 	import type { RowLayout } from '#lib/schedule/types.ts';
 	import { shimmer } from '#lib/skeleton/motion.ts';
+	import SkeletonBone from '#lib/components/SkeletonBone.svelte';
 
 	type Props = {
 		state: GamePageState;
@@ -164,8 +165,8 @@
 		<section class="page-section section-skeleton" aria-busy="true">
 			<div class="bones" aria-hidden="true" use:play={shimmer}>
 				{#each SECTION_BONES as i (i)}
-					<span class="bone heading-bone"></span>
-					<BlueprintFrame><span class="bone block-bone"></span></BlueprintFrame>
+					<SkeletonBone width="var(--skeleton-short-width)" height="var(--section-h2-size)" />
+					<BlueprintFrame><SkeletonBone height="var(--hero-column-min)" /></BlueprintFrame>
 				{/each}
 			</div>
 		</section>
@@ -222,20 +223,5 @@
 	.bones {
 		display: grid;
 		gap: var(--game-list-gap);
-	}
-
-	.bone {
-		display: block;
-		background: var(--color-surface);
-		border-radius: var(--radius);
-	}
-
-	.heading-bone {
-		width: var(--skeleton-short-width);
-		height: var(--section-h2-size);
-	}
-
-	.block-bone {
-		height: var(--hero-column-min);
 	}
 </style>

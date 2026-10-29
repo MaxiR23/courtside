@@ -31,6 +31,7 @@ A dark-mode, single-page site with two parts:
 | `HeroPlayerCard` | The hero player card: the player's cutout over the logo, tricode and glow layers, with the player strip, specified in `docs/design-team-identity.md`, "Right column: player card" |
 | `DayStrip` | The 7-day selector |
 | `ScheduleSkeleton` | The schedule's placeholder while the first feed loads: the day strip and game cards |
+| `SkeletonBone` | The one loading skeleton bone: a block in `surface` with square corners; each skeleton gives it its width, height or aspect ratio |
 | `GameCard` | One game, with its desktop and mobile rows and its expanded panel |
 | `LineScore` | Points per quarter |
 | `Leaders` | Top performer per team |
@@ -175,7 +176,7 @@ Lucide at `stroke-width: 1.5`: `chevron-down` (expand), `play` (filled, highligh
 
 ### Before the first feed loads
 
-Until the first feed loads, the hero and the schedule show skeletons shaped like their content: blocks in `surface`, square corners, with no text. The hero keeps its nav row and shows its two columns, in order: a tag block and a kicker block, two h1 lines (the second shorter), a blurb line, two button blocks, two indicator blocks, and, in the right column, a blueprint image frame at 4:5, max-width 500px. The schedule shows a 7-cell day strip (each cell with weekday, number and count blocks) and three blueprint game cards, each holding one block the height of a monogram (46px). The skeletons shimmer (see Motion). When the feed loads, the content replaces them. If the first load fails, the hero shows no game and the schedule shows the "Data isn't available right now. Check back later." row.
+Until the first feed loads, the hero and the schedule show skeletons shaped like their content: `SkeletonBone` blocks in `surface`, square corners, with no text. Every skeleton on the site draws its blocks with `SkeletonBone`. The hero keeps its nav row and shows its two columns, in order: a tag block and a kicker block, two h1 lines (the second shorter), a blurb line, two button blocks, two indicator blocks, and, in the right column, a blueprint image frame at 4:5, max-width 500px. The schedule shows a 7-cell day strip (each cell with weekday, number and count blocks) and three blueprint game cards, each holding one block the height of a monogram (46px). The skeletons shimmer (see Motion). When the feed loads, the content replaces them. If the first load fails, the hero shows no game and the schedule shows the "Data isn't available right now. Check back later." row.
 
 ### 3. Footer
 

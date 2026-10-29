@@ -500,13 +500,12 @@ describe('Hero while the first feed loads', () => {
 	it('shows the skeleton of both columns while loading', () => {
 		const { container } = render(Hero, { props: loadingProps });
 		expect(container.querySelector('.hero-skeleton')).not.toBeNull();
-		expect(count(container, '.tag-bone')).toBe(1);
-		expect(count(container, '.kicker-bone')).toBe(1);
-		expect(count(container, '.headline-bone')).toBe(2);
-		expect(count(container, '.blurb-bone')).toBe(1);
-		expect(count(container, '.button-bone')).toBe(2);
-		expect(count(container, '.indicator-bone')).toBe(2);
-		expect(count(container, '.frame-bone')).toBe(1);
+		expect(count(container, '.hero-skeleton .bone')).toBe(10);
+		expect(count(container, '.tag .bone')).toBe(2);
+		expect(count(container, '.copy > .bone')).toBe(3);
+		expect(count(container, '.buttons .bone')).toBe(2);
+		expect(count(container, '.indicator .bone')).toBe(2);
+		expect(count(container, '.frame-bone-wrap .bone')).toBe(1);
 		expect(screen.queryByRole('heading', { level: 1 })).toBeNull();
 		expect(screen.queryByRole('button', { name: 'Match details' })).toBeNull();
 		expect(screen.getByRole('button', { name: 'Spoiler-free' })).toBeTruthy();

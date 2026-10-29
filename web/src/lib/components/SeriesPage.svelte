@@ -15,6 +15,7 @@
 	} from '#lib/playoffs/types.ts';
 	import type { RowLayout } from '#lib/schedule/types.ts';
 	import { shimmer } from '#lib/skeleton/motion.ts';
+	import SkeletonBone from '#lib/components/SkeletonBone.svelte';
 
 	type Props = {
 		state: SeriesPageState;
@@ -92,8 +93,11 @@
 		{:else if page.kind === 'loading'}
 			<section class="skeleton" aria-busy="true">
 				<div class="bones" aria-hidden="true" use:play={shimmer}>
-					<span class="bone heading-bone"></span>
-					<BlueprintFrame><span class="bone block-bone"></span></BlueprintFrame>
+					<SkeletonBone
+						width="var(--skeleton-short-width)"
+						height="var(--playoffs-series-heading-size)"
+					/>
+					<BlueprintFrame><SkeletonBone aspect="2" /></BlueprintFrame>
 				</div>
 			</section>
 		{:else if page.kind === 'unavailable'}
@@ -408,21 +412,6 @@
 	.bones {
 		display: grid;
 		gap: var(--game-list-gap);
-	}
-
-	.bone {
-		display: block;
-		background: var(--color-surface);
-		border-radius: var(--radius);
-	}
-
-	.heading-bone {
-		width: var(--skeleton-short-width);
-		height: var(--playoffs-series-heading-size);
-	}
-
-	.block-bone {
-		aspect-ratio: 2;
 	}
 
 	.games {
