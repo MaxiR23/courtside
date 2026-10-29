@@ -144,6 +144,9 @@ A piece that owns a repeated style, markup or rule is the only place that style,
 | `ProfileCells` | None of its own: the info cell guard covers the cells it lays out |
 | `SectionHead` | `section-head-is-the-one-section-title.test.ts` |
 | `initials` (`web/src/lib/format/initials.ts`) | `initials-is-the-one-rule.test.ts` |
+| `feedSource` (`web/src/lib/feed/source.ts`) | `feed-source-follows-its-url.test.ts` |
+
+A page whose feed URL depends on its URL params builds the URL as a `$derived` from the params, the query and the templates, and its feed source with `feedSource` in a `$derived` from that URL: a new URL is a new, empty source, so the page shows its loading state until the new feed arrives and never shows the previous URL's feed; the effect that started the old source stops it. No route builds a feed source from a closure that reads `params`.
 
 ## Screens
 

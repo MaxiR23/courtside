@@ -10,6 +10,7 @@
 // - Shows the loading skeleton until the first load settles
 // - Shows "Team not found." on a 404, for an unknown code and for an uppercase one
 // - Shows the data unavailable row on a network failure, a 503, or with no URL configured
+// - When the code changes: the loading skeleton at once, then the new team, never the previous one; a failed load shows not found; the previous code is no longer polled
 // - After a 503 (no feed yet) it polls again at 60 s and renders the team when that load succeeds
 // - Polls every 5 minutes once a feed is loaded; pauses while the tab is hidden and loads at once when visible again
 // - Keeps the last feed on screen when a later poll fails
@@ -590,5 +591,62 @@ describe('team document title', () => {
 		stubFetch('xyz', answerStatus(404));
 		await renderPage('xyz');
 		expect(document.title).toBe('Courtside');
+	});
+});
+
+describe('team page, when the code changes', () => {
+	function stubFetchByUrl(map: Record<string, Answer>) {
+		fetchMock = vi.fn((url: string) => {
+			const answer = map[url];
+			if (!answer) throw new Error(`Unexpected URL ${url}`);
+			return answer();
+		});
+		vi.stubGlobal('fetch', fetchMock);
+	}
+	const other = (): TeamFeed => ({ ...recorded(), code: 'DEN', name: 'Nuggets' });
+
+	it('shows the loading skeleton at once, then the new team, and never the previous one', async () => {
+		let resolveB: (answer: unknown) => void = () => {};
+		stubFetchByUrl({
+			[feedUrl('okc')]: answerWith(recorded()),
+			[feedUrl('den')]: () => new Promise((resolve) => (resolveB = resolve))
+		});
+		const { container, rerender } = await renderPage('okc');
+		expect(screen.getByRole('heading', { level: 1, name: 'Thunder' })).toBeTruthy();
+		await rerender({ params: { code: 'den' }, data: {} });
+		expect(container.querySelector('header')?.getAttribute('aria-busy')).toBe('true');
+		expect(container.querySelector('.section-skeleton')).not.toBeNull();
+		expect(screen.queryByRole('heading', { level: 1, name: 'Thunder' })).toBeNull();
+		resolveB({ ok: true, status: 200, json: () => Promise.resolve(other()) });
+		await settle();
+		expect(screen.getByRole('heading', { level: 1, name: 'Nuggets' })).toBeTruthy();
+		expect(fetchMock.mock.calls.at(-1)?.[0]).toBe(feedUrl('den'));
+	});
+
+	it('shows not found for a failed load of the new code, never the previous team', async () => {
+		stubFetchByUrl({
+			[feedUrl('okc')]: answerWith(recorded()),
+			[feedUrl('den')]: answerStatus(404)
+		});
+		const { rerender } = await renderPage('okc');
+		await rerender({ params: { code: 'den' }, data: {} });
+		await settle();
+		expect(screen.getByText('Team not found.')).toBeTruthy();
+		expect(screen.queryByRole('heading', { level: 1, name: 'Thunder' })).toBeNull();
+	});
+
+	it('does not poll the previous code after the code changes', async () => {
+		stubFetchByUrl({
+			[feedUrl('okc')]: answerWith(recorded()),
+			[feedUrl('den')]: answerWith(other())
+		});
+		const { rerender } = await renderPage('okc');
+		await rerender({ params: { code: 'den' }, data: {} });
+		await settle();
+		fetchMock.mockClear();
+		await vi.advanceTimersByTimeAsync(5 * 60_000);
+		const urls = fetchMock.mock.calls.map((call) => call[0]);
+		expect(urls).not.toContain(feedUrl('okc'));
+		expect(urls).toContain(feedUrl('den'));
 	});
 });

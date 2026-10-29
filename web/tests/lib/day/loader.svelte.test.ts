@@ -10,6 +10,9 @@
 // - A 404 with no window loader gives unavailable
 // - A calendar failure, or no calendar loader, keeps ready and sets calendarFailed
 // - A cleanup before the answer leaves the state unchanged
+// - onWindowDay receives the date
+// - A second start goes back to loading and drops the old day and its calendar
+// - An answer of the first start that arrives after a second start is dropped
 //
 // What is covered:
 // - The reactive module without mounting; fake timers
@@ -78,6 +81,7 @@ describe('DayLoader', () => {
 		loader.start('1999-02-06');
 		await vi.advanceTimersByTimeAsync(0);
 		expect(onWindowDay).toHaveBeenCalledTimes(1);
+		expect(onWindowDay).toHaveBeenCalledWith('1999-02-06');
 		expect(loader.kind).toBe('loading');
 	});
 
@@ -142,5 +146,48 @@ describe('DayLoader', () => {
 		expect(loader.kind).toBe('loading');
 		expect(loader.feed).toBeNull();
 		expect(loader.calendar).toBeNull();
+	});
+
+	it('goes back to loading and drops the old day and its calendar on a second start', async () => {
+		const other = { season: 1999, day: { date: '1999-02-07', games: [] } } as unknown as DayFeed;
+		let resolveB: (feed: DayFeed) => void = () => {};
+		const loadDay = vi
+			.fn<() => Promise<DayFeed>>()
+			.mockResolvedValueOnce(DAY)
+			.mockImplementationOnce(() => new Promise<DayFeed>((resolve) => (resolveB = resolve)));
+		const loader = new DayLoader(loadDay, undefined, () => Promise.resolve(CALENDAR), vi.fn());
+		loader.start('1999-02-06');
+		await vi.advanceTimersByTimeAsync(0);
+		expect(loader.kind).toBe('ready');
+		expect(loader.calendar).toBe(CALENDAR);
+		loader.start('1999-02-07');
+		expect(loader.kind).toBe('loading');
+		expect(loader.feed).toBeNull();
+		expect(loader.calendar).toBeNull();
+		expect(loader.calendarFailed).toBe(false);
+		resolveB(other);
+		await vi.advanceTimersByTimeAsync(0);
+		expect(loader.kind).toBe('ready');
+		expect(loader.feed).toBe(other);
+	});
+
+	it('drops an answer of the first start that arrives after a second start', async () => {
+		const other = { season: 1999, day: { date: '1999-02-07', games: [] } } as unknown as DayFeed;
+		let resolveA: (feed: DayFeed) => void = () => {};
+		let resolveB: (feed: DayFeed) => void = () => {};
+		const loadDay = vi
+			.fn<() => Promise<DayFeed>>()
+			.mockImplementationOnce(() => new Promise<DayFeed>((resolve) => (resolveA = resolve)))
+			.mockImplementationOnce(() => new Promise<DayFeed>((resolve) => (resolveB = resolve)));
+		const loader = new DayLoader(loadDay, undefined, undefined, vi.fn());
+		loader.start('1999-02-06');
+		loader.start('1999-02-07');
+		resolveA(DAY);
+		await vi.advanceTimersByTimeAsync(0);
+		expect(loader.kind).toBe('loading');
+		expect(loader.feed).toBeNull();
+		resolveB(other);
+		await vi.advanceTimersByTimeAsync(0);
+		expect(loader.feed).toBe(other);
 	});
 });

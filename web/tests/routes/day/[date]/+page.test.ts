@@ -15,6 +15,7 @@
 // - A 404 for a date in the games feed's days goes to /?day=YYYY-MM-DD with replaceState; a 404 for 1993-09-30 shows the unavailable row
 // - The arrows link to the previous and next day with games in the calendar, across the gap of the lockout season
 // - The arrows are hidden at the season's first and last day, and when the calendar answers 503
+// - When the date changes: the loading skeleton at once, then the new day, never the previous one; a 503 for the new date shows the unavailable row
 // - The page is not polled: no further request after 120 s
 // - The document title is "Games", the long date in the active language, then the site name; without the date while loading; the loading title in English and Spanish
 //
@@ -541,5 +542,38 @@ describe('day document title', () => {
 		stubFetch({ [dayUrl('1999-02-06')]: () => new Promise(() => {}) });
 		await renderPage();
 		expect(document.title).toBe('Partidos · Courtside');
+	});
+});
+
+describe('day page, when the date changes', () => {
+	it('shows the loading skeleton at once, then the new day, and never the previous one', async () => {
+		let resolveB: (answer: unknown) => void = () => {};
+		stubFetch({
+			[dayUrl('1999-02-06')]: answerWith(dayOf('1999-02-06')),
+			[dayUrl('1999-02-07')]: () => new Promise((resolve) => (resolveB = resolve)),
+			[CALENDAR_URL]: answerWith(fixture('calendar.json'))
+		});
+		const { container, rerender } = await renderPage('1999-02-06');
+		expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('February 6, 1999');
+		await rerender({ params: { date: '1999-02-07' }, data: {} });
+		expect(container.querySelector('[aria-busy="true"]')).not.toBeNull();
+		expect(screen.queryByRole('heading', { level: 1 })).toBeNull();
+		resolveB({ ok: true, status: 200, json: () => Promise.resolve(dayOf('1999-02-07')) });
+		await settle();
+		expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('February 7, 1999');
+		expect(fetchMock.mock.calls.some((call) => call[0] === dayUrl('1999-02-07'))).toBe(true);
+	});
+
+	it('shows the unavailable row for a 503 on the new date, never the previous day', async () => {
+		stubFetch({
+			[dayUrl('1999-02-06')]: answerWith(dayOf('1999-02-06')),
+			[dayUrl('1999-02-07')]: answerStatus(503),
+			[CALENDAR_URL]: answerWith(fixture('calendar.json'))
+		});
+		const { rerender } = await renderPage('1999-02-06');
+		await rerender({ params: { date: '1999-02-07' }, data: {} });
+		await settle();
+		expect(screen.getByText(UNAVAILABLE)).toBeTruthy();
+		expect(screen.queryByRole('heading', { level: 1 })).toBeNull();
 	});
 });

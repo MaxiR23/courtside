@@ -173,7 +173,7 @@ The same footer as the home.
 
 | State | What shows |
 |---|---|
-| Loading | Skeletons shaped like the header and the first two sections, with the same shimmer as the home, which stops under reduced motion |
+| Loading | Skeletons shaped like the header and the first two sections, with the same shimmer as the home, which stops under reduced motion; also right after navigating to another game, until its feed arrives: the previous game is never shown under the new URL |
 | Feed unavailable | The header's nav row, then the home's "Data isn't available right now. Check back later." row |
 | Unknown game | The nav row, then a blueprint row reading "Game not found." with a link back to all games |
 | Postponed or canceled | The pre-game layout with its status tag; sections with no data are hidden |

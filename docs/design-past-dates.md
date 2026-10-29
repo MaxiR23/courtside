@@ -154,7 +154,7 @@ Everything under "Implementation rules" in `docs/design.md`, `docs/design-cup.md
 
 | State | What shows |
 |---|---|
-| Loading | Skeletons shaped like the day header and the first section (the game card list, or the first block of the page), with the home's shimmer, stopped under reduced motion |
+| Loading | Skeletons shaped like the day header and the first section (the game card list, or the first block of the page), with the home's shimmer, stopped under reduced motion; also right after moving to another date (the arrows or the calendar), until that day's feed arrives: the previous day is never shown under the new URL |
 | Feed unavailable | See Edge cases |
 | Calendar feed unavailable | The calendar button stays; the sheet opens with the unavailable message; the day page shows its games without the previous and next arrows |
 | Calendar feed unavailable (season pages) | The selector is hidden and the page shows the current season |

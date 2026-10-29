@@ -9,6 +9,7 @@
 // - Draws the shared nav with a Standings link to /standings and no current link
 // - Shows the loading skeleton until the first load settles
 // - Shows "Game not found." when the feed answers 404
+// - When the id changes: the loading skeleton at once, then the new game, never the previous one; a failed load shows not found; the previous id is no longer polled
 // - Shows the data unavailable row on a network failure, a 503, a feed it cannot show, or with no URL configured
 // - Polls again after 30 s while the game is live and after 60 s once it is not final but not live
 // - Loads a final game once and sends no second request, also after the tab is visible again
@@ -376,5 +377,72 @@ describe('game document title', () => {
 		expect(document.title).toBe('Comets at Harbors · Courtside');
 		expect(document.title).not.toContain(String(feed.score!.away));
 		expect(document.title).not.toContain(String(feed.score!.home));
+	});
+});
+
+describe('game detail page, when the id changes', () => {
+	const urlOf = (id: string) => `https://feeds.example.com/games/${id}.json`;
+	function stubFetchByUrl(map: Record<string, Answer>) {
+		fetchMock = vi.fn((url: string) => {
+			const answer = map[url];
+			if (!answer) throw new Error(`Unexpected URL ${url}`);
+			return answer();
+		});
+		vi.stubGlobal('fetch', fetchMock);
+	}
+	const other = (): GameDetailFeed => {
+		const feed = recorded();
+		return { ...feed, away: { ...feed.away, name: 'Celtics' } };
+	};
+	const renderGame = async (id: string) => {
+		const result = render(Page, { props: { params: { id }, data: {} } });
+		await settle();
+		return result;
+	};
+	const away = () => screen.getAllByRole('heading', { level: 1 }).map((h) => h.textContent)[0];
+
+	it('shows the loading skeleton at once, then the new game, and never the previous one', async () => {
+		let resolveB: (answer: unknown) => void = () => {};
+		stubFetchByUrl({
+			[urlOf('401')]: answerWith(recorded()),
+			[urlOf('402')]: () => new Promise((resolve) => (resolveB = resolve))
+		});
+		const { container, rerender } = await renderGame('401');
+		expect(away()).toBe('Lakers');
+		await rerender({ params: { id: '402' }, data: {} });
+		expect(container.querySelector('header')?.getAttribute('aria-busy')).toBe('true');
+		expect(container.querySelector('.section-skeleton')).not.toBeNull();
+		expect(screen.queryByText('Lakers')).toBeNull();
+		resolveB({ ok: true, status: 200, json: () => Promise.resolve(other()) });
+		await settle();
+		expect(away()).toBe('Celtics');
+		expect(fetchMock.mock.calls.at(-1)?.[0]).toBe(urlOf('402'));
+	});
+
+	it('shows not found for a failed load of the new id, never the previous game', async () => {
+		stubFetchByUrl({
+			[urlOf('401')]: answerWith(recorded()),
+			[urlOf('402')]: answerStatus(404)
+		});
+		const { rerender } = await renderGame('401');
+		await rerender({ params: { id: '402' }, data: {} });
+		await settle();
+		expect(screen.getByText('Game not found.')).toBeTruthy();
+		expect(screen.queryByText('Lakers')).toBeNull();
+	});
+
+	it('does not poll the previous id after the id changes', async () => {
+		stubFetchByUrl({
+			[urlOf('401')]: answerWith(recorded()),
+			[urlOf('402')]: answerWith(other())
+		});
+		const { rerender } = await renderGame('401');
+		await rerender({ params: { id: '402' }, data: {} });
+		await settle();
+		fetchMock.mockClear();
+		await vi.advanceTimersByTimeAsync(60_000);
+		const urls = fetchMock.mock.calls.map((call) => call[0]);
+		expect(urls).not.toContain(urlOf('401'));
+		expect(urls).toContain(urlOf('402'));
 	});
 });

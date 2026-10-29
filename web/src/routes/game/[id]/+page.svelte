@@ -8,16 +8,16 @@
 	import { toGameView } from '#lib/feed/game-props.ts';
 	import { FeedLoadError, gameFeedUrl, loadGameDetailFeed } from '#lib/feed/load.ts';
 	import { FeedPoller, gamePollInterval } from '#lib/feed/poller.svelte.ts';
+	import { feedSource } from '#lib/feed/source.ts';
 	import type { GamePageState } from '#lib/game/types.ts';
 	import { wideViewport } from '#lib/schedule/layout.ts';
 
 	let { params }: PageProps = $props();
 
 	const template = gameDetailFeedUrl;
+	const feedUrl = $derived(template ? gameFeedUrl(template, params.id) : undefined);
 	const poller = $derived(
-		template
-			? new FeedPoller(() => loadGameDetailFeed(gameFeedUrl(template, params.id)), gamePollInterval)
-			: undefined
+		feedSource(feedUrl, (url) => new FeedPoller(() => loadGameDetailFeed(url), gamePollInterval))
 	);
 
 	$effect(() => poller?.start());

@@ -21,6 +21,7 @@
 // - Calendar 503 or no calendar URL: the current season and no select
 // - The select lists the right seasons and navigates with goto; Spanish
 // - The unavailable state of a past season keeps the Season tag (ADR 0054)
+// - When the id changes: the loading skeleton at once, then the new player, never the previous one; a failed load shows not found; the previous id is no longer polled
 // - The document title is the player's full name then the site name, in English and Spanish; Courtside while loading; the loading title in English and Spanish
 //
 // What is covered:
@@ -579,5 +580,62 @@ describe('player document title', () => {
 		stubFetch('p-2', () => new Promise(() => {}));
 		await renderPage();
 		expect(document.title).toBe('Courtside');
+	});
+});
+
+describe('player page, when the id changes', () => {
+	type Answers = Record<string, Answer>;
+	function stubFetchByUrl(map: Answers) {
+		fetchMock = vi.fn((url: string) => {
+			const answer = map[url];
+			if (!answer) throw new Error(`Unexpected URL ${url}`);
+			return answer();
+		});
+		vi.stubGlobal('fetch', fetchMock);
+	}
+	const other = (): PlayerFeed => ({ ...recorded(), id: 'p-9', lastName: 'Brunson' });
+
+	it('shows the loading skeleton at once, then the new player, and never the previous one', async () => {
+		let resolveB: (answer: unknown) => void = () => {};
+		stubFetchByUrl({
+			[feedUrl('p-2')]: answerWith(recorded()),
+			[feedUrl('p-9')]: () => new Promise((resolve) => (resolveB = resolve))
+		});
+		const { container, rerender } = await renderPage('p-2');
+		expect(screen.getByRole('heading', { level: 1, name: 'Gilgeous-Alexander' })).toBeTruthy();
+		await rerender({ params: { id: 'p-9' }, data: {} });
+		expect(container.querySelector('header')?.getAttribute('aria-busy')).toBe('true');
+		expect(screen.queryByRole('heading', { level: 1, name: 'Gilgeous-Alexander' })).toBeNull();
+		resolveB({ ok: true, status: 200, json: () => Promise.resolve(other()) });
+		await settle();
+		expect(screen.getByRole('heading', { level: 1, name: 'Brunson' })).toBeTruthy();
+		expect(fetchMock.mock.calls.at(-1)?.[0]).toBe(feedUrl('p-9'));
+	});
+
+	it('shows not found for a failed load of the new id, never the previous player', async () => {
+		stubFetchByUrl({
+			[feedUrl('p-2')]: answerWith(recorded()),
+			[feedUrl('p-9')]: answerStatus(404)
+		});
+		const { rerender } = await renderPage('p-2');
+		await rerender({ params: { id: 'p-9' }, data: {} });
+		await settle();
+		expect(screen.getByText('Player not found.')).toBeTruthy();
+		expect(screen.queryByRole('heading', { level: 1, name: 'Gilgeous-Alexander' })).toBeNull();
+	});
+
+	it('does not poll the previous id after the id changes', async () => {
+		stubFetchByUrl({
+			[feedUrl('p-2')]: answerWith(recorded()),
+			[feedUrl('p-9')]: answerWith(other())
+		});
+		const { rerender } = await renderPage('p-2');
+		await rerender({ params: { id: 'p-9' }, data: {} });
+		await settle();
+		fetchMock.mockClear();
+		await vi.advanceTimersByTimeAsync(60_000);
+		const urls = fetchMock.mock.calls.map((call) => call[0]);
+		expect(urls).not.toContain(feedUrl('p-2'));
+		expect(urls).toContain(feedUrl('p-9'));
 	});
 });
