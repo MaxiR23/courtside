@@ -5,7 +5,7 @@
 	import CupMarkTag from '#lib/components/CupMarkTag.svelte';
 	import Kicker from '#lib/components/Kicker.svelte';
 	import LiveBadge from '#lib/components/LiveBadge.svelte';
-	import NavRow from '#lib/components/NavRow.svelte';
+	import PageHeader from '#lib/components/PageHeader.svelte';
 	import PostseasonMark from '#lib/components/PostseasonMark.svelte';
 	import StatusTag from '#lib/components/StatusTag.svelte';
 	import TeamMark from '#lib/components/TeamMark.svelte';
@@ -83,153 +83,127 @@
 	</div>
 {/snippet}
 
-<header
-	class="game-header"
-	class:mobile={layout === 'mobile'}
-	aria-busy={loading && !header ? 'true' : undefined}
->
-	<div class="grid-bg" aria-hidden="true"></div>
-	<div class="content">
-		<NavRow page="detail" gamesHref={allGamesHref} {standingsHref} {layout} />
+{#snippet firstLine()}
+	{#if header}
+		<p class="status-line">
+			{#if header.cupTag}<CupMarkTag text={header.cupTag} />{/if}
+			{#if header.postseasonMark}<PostseasonMark mark={header.postseasonMark} />{/if}
+			{#if header.allStarMark}<AllStarTag
+					text={header.allStarMark.tag}
+					context={header.allStarMark.context}
+					solid={header.allStarMark.championship}
+				/>{/if}
+			{#if header.status.state === 'live'}
+				<LiveBadge />
+			{:else if header.status.state === 'delayed' || header.status.state === 'postponed' || header.status.state === 'canceled'}
+				<StatusTag status={header.status.state} />
+			{/if}
+			<span>{header.status.text}</span>
+		</p>
+	{:else}
+		<div class="skeleton" aria-hidden="true" use:play={shimmer}>
+			<div class="status-bone-wrap">
+				<SkeletonBone width="var(--skeleton-button-width)" height="var(--body-size-small)" />
+			</div>
+			<div class="team-bones">
+				<SkeletonBone height="var(--detail-h1-size)" />
+				<SkeletonBone width="var(--detail-score-size)" height="var(--detail-score-size)" />
+				<SkeletonBone height="var(--detail-h1-size)" />
+			</div>
+			<BlueprintFrame><SkeletonBone aspect="var(--video-aspect)" /></BlueprintFrame>
+		</div>
+	{/if}
+{/snippet}
 
-		{#if header}
-			<p class="status-line first-line">
-				{#if header.cupTag}<CupMarkTag text={header.cupTag} />{/if}
-				{#if header.postseasonMark}<PostseasonMark mark={header.postseasonMark} />{/if}
-				{#if header.allStarMark}<AllStarTag
-						text={header.allStarMark.tag}
-						context={header.allStarMark.context}
-						solid={header.allStarMark.championship}
-					/>{/if}
-				{#if header.status.state === 'live'}
-					<LiveBadge />
-				{:else if header.status.state === 'delayed' || header.status.state === 'postponed' || header.status.state === 'canceled'}
-					<StatusTag status={header.status.state} />
-				{/if}
-				<span>{header.status.text}</span>
-			</p>
-
-			{#if layout === 'desktop'}
-				<div class="scoreboard" bind:this={scoreboard}>
-					{@render teamBlock(header.away, 'away')}
-					<div class="center">
+{#snippet bodyRows()}
+	{#if header}
+		{#if layout === 'desktop'}
+			<div class="scoreboard" bind:this={scoreboard}>
+				{@render teamBlock(header.away, 'away')}
+				<div class="center">
+					{#if header.center.kind === 'score'}
+						<div class="score">
+							<span class="points" class:dimmed={isLoser('away')}>{header.center.away}</span>
+							<span class="dash" aria-hidden="true">–</span>
+							<span class="points" class:dimmed={isLoser('home')}>{header.center.home}</span>
+						</div>
+					{:else if header.center.kind === 'tip-off'}
+						{@render tipOff(header.center, false)}
+					{/if}
+				</div>
+				{@render teamBlock(header.home, 'home')}
+			</div>
+		{:else}
+			<div class="rows" bind:this={scoreboard}>
+				{#each sides as entry (entry.side)}
+					{@const side = entry.side}
+					{@const team = entry.team}
+					<div class="row" class:dimmed={isLoser(side)}>
+						<TeamMark part="tile" {team} size="header-mobile" logo={team.logo} {teamHref} />
+						<div class="who">
+							<h1 class="name">
+								<TeamMark part="name" {team} {teamHref} />
+							</h1>
+							<span class="meta">{metaOf(team)}</span>
+						</div>
 						{#if header.center.kind === 'score'}
-							<div class="score">
-								<span class="points" class:dimmed={isLoser('away')}>{header.center.away}</span>
-								<span class="dash" aria-hidden="true">–</span>
-								<span class="points" class:dimmed={isLoser('home')}>{header.center.home}</span>
-							</div>
-						{:else if header.center.kind === 'tip-off'}
-							{@render tipOff(header.center, false)}
+							<span class="points">{header.center[side]}</span>
 						{/if}
 					</div>
-					{@render teamBlock(header.home, 'home')}
-				</div>
-			{:else}
-				<div class="rows" bind:this={scoreboard}>
-					{#each sides as entry (entry.side)}
-						{@const side = entry.side}
-						{@const team = entry.team}
-						<div class="row" class:dimmed={isLoser(side)}>
-							<TeamMark part="tile" {team} size="header-mobile" logo={team.logo} {teamHref} />
-							<div class="who">
-								<h1 class="name">
-									<TeamMark part="name" {team} {teamHref} />
-								</h1>
-								<span class="meta">{metaOf(team)}</span>
-							</div>
-							{#if header.center.kind === 'score'}
-								<span class="points">{header.center[side]}</span>
-							{/if}
-						</div>
-					{/each}
-				</div>
-				{#if header.center.kind === 'tip-off'}
-					{@render tipOff(header.center, true)}
-				{/if}
+				{/each}
+			</div>
+			{#if header.center.kind === 'tip-off'}
+				{@render tipOff(header.center, true)}
 			{/if}
+		{/if}
 
-			{#if header.venue}
-				{@const venue = header.venue}
-				<div class="venue">
-					<BlueprintFrame>
-						<div class="photo-box">
-							{#if venue.photo && venue.photo !== failedPhoto}
-								<img
-									src={venue.photo}
-									alt=""
-									loading="lazy"
-									onerror={() => (failedPhoto = venue.photo)}
-								/>
-								<div class="fade" aria-hidden="true"></div>
-							{:else}
-								<div class="bare-grid" aria-hidden="true"></div>
-							{/if}
-							<div class="caption">
-								<span class="arena">{venue.arena}</span>
-								{#if venue.city}
-									<span class="arena-city">{venue.city}</span>
-								{/if}
-							</div>
-						</div>
-					</BlueprintFrame>
-					{#each venue.cells as cell (cell.label)}
-						<div class="cell">
-							<Kicker text={cell.label} />
-							<span class="cell-value">{cell.value}</span>
-							{#if cell.sub}
-								<span class="cell-sub">{cell.sub}</span>
+		{#if header.venue}
+			{@const venue = header.venue}
+			<div class="venue">
+				<BlueprintFrame>
+					<div class="photo-box">
+						{#if venue.photo && venue.photo !== failedPhoto}
+							<img
+								src={venue.photo}
+								alt=""
+								loading="lazy"
+								onerror={() => (failedPhoto = venue.photo)}
+							/>
+							<div class="fade" aria-hidden="true"></div>
+						{:else}
+							<div class="bare-grid" aria-hidden="true"></div>
+						{/if}
+						<div class="caption">
+							<span class="arena">{venue.arena}</span>
+							{#if venue.city}
+								<span class="arena-city">{venue.city}</span>
 							{/if}
 						</div>
-					{/each}
-				</div>
-			{/if}
-		{:else if loading}
-			<div class="skeleton first-line" aria-hidden="true" use:play={shimmer}>
-				<div class="status-bone-wrap">
-					<SkeletonBone width="var(--skeleton-button-width)" height="var(--body-size-small)" />
-				</div>
-				<div class="team-bones">
-					<SkeletonBone height="var(--detail-h1-size)" />
-					<SkeletonBone width="var(--detail-score-size)" height="var(--detail-score-size)" />
-					<SkeletonBone height="var(--detail-h1-size)" />
-				</div>
-				<BlueprintFrame><SkeletonBone aspect="var(--video-aspect)" /></BlueprintFrame>
+					</div>
+				</BlueprintFrame>
+				{#each venue.cells as cell (cell.label)}
+					<div class="cell">
+						<Kicker text={cell.label} />
+						<span class="cell-value">{cell.value}</span>
+						{#if cell.sub}
+							<span class="cell-sub">{cell.sub}</span>
+						{/if}
+					</div>
+				{/each}
 			</div>
 		{/if}
-	</div>
-</header>
+	{/if}
+{/snippet}
+
+<PageHeader
+	nav={{ page: 'detail', gamesHref: allGamesHref, standingsHref }}
+	{layout}
+	busy={loading && !header}
+	first={header || loading ? firstLine : undefined}
+	body={header ? bodyRows : undefined}
+/>
 
 <style>
-	.game-header {
-		position: relative;
-		border-bottom: var(--hairline) solid var(--color-divider);
-	}
-
-	.grid-bg {
-		position: absolute;
-		inset: 0;
-		background-image:
-			linear-gradient(var(--color-grid-line) var(--hairline), transparent var(--hairline)),
-			linear-gradient(90deg, var(--color-grid-line) var(--hairline), transparent var(--hairline));
-		background-size: var(--hero-grid-size) var(--hero-grid-size);
-		pointer-events: none;
-	}
-
-	.content {
-		position: relative;
-		display: grid;
-		grid-template-columns: minmax(0, 1fr);
-		gap: var(--panel-section-gap);
-		max-width: var(--content-max-width);
-		margin: 0 auto;
-		padding: var(--game-list-gap) var(--side-padding) var(--panel-section-gap);
-	}
-
-	.mobile .content:has(> .first-line) > :global(.nav-row) {
-		margin-bottom: calc(var(--header-first-line-offset-mobile) - var(--panel-section-gap));
-	}
-
 	.status-line {
 		display: flex;
 		flex-wrap: wrap;

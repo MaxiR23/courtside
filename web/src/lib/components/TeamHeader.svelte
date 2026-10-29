@@ -2,9 +2,8 @@
 	import type { ResolvedPathname } from '$app/types';
 	import CupTeamLine from '#lib/components/CupTeamLine.svelte';
 	import TeamMark from '#lib/components/TeamMark.svelte';
-	import NavRow from '#lib/components/NavRow.svelte';
+	import PageHeader from '#lib/components/PageHeader.svelte';
 	import ProfileCells from '#lib/components/ProfileCells.svelte';
-	import SeasonSelect from '#lib/components/SeasonSelect.svelte';
 	import SeasonTag from '#lib/components/SeasonTag.svelte';
 	import TeamTitles from '#lib/components/TeamTitles.svelte';
 	import { play } from '#lib/hero/motion.ts';
@@ -37,107 +36,71 @@
 	const CELL_BONES = [0, 1, 2, 3];
 </script>
 
-<header
-	class="team-header"
-	class:mobile={layout === 'mobile'}
-	aria-busy={loading && !header ? 'true' : undefined}
->
-	<div class="grid-bg" aria-hidden="true"></div>
-	<div class="content">
-		<NavRow page="detail" gamesHref={allGamesHref} {standingsHref} {layout} />
-		{#if seasonSelect && layout === 'desktop'}
-			<div class="season-row"><SeasonSelect {...seasonSelect} /></div>
-		{/if}
+{#snippet firstLine()}
+	{#if header}
+		<div class="identity">
+			<div class="code-box">
+				<TeamMark team={header.team} part="tile" size="team" logo={header.team.logo} />
+				{#if header.colors}
+					<span class="strip" aria-hidden="true">
+						<span class="half" style:background-color={header.colors.primary}></span>
+						<span class="half" style:background-color={header.colors.secondary}></span>
+					</span>
+				{/if}
+			</div>
+			{#if header.tag}<SeasonTag text={header.tag} />{/if}
+			<span class="city">{header.city}</span>
+			<h1 class="name">{header.name}</h1>
+			<span class="conference-line">{header.conferenceLine}</span>
+			{#if header.cupLine}<CupTeamLine line={header.cupLine} />{/if}
+			{#if header.titles}<TeamTitles titles={header.titles} />{/if}
+		</div>
+	{:else if loading}
+		<div class="identity skeleton" aria-hidden="true" use:play={shimmer}>
+			<SkeletonBone width="var(--team-code-box-size)" height="var(--team-code-box-size)" />
+			<SkeletonBone width="var(--skeleton-button-width)" height="var(--body-size-small)" />
+			<SkeletonBone width="100%" height="var(--team-h1-size)" />
+		</div>
+	{:else if seasonTag}
+		<SeasonTag text={seasonTag} />
+	{/if}
+{/snippet}
 
-		{#if header}
-			<div class="columns first-line">
-				<div class="identity">
-					<div class="code-box">
-						<TeamMark team={header.team} part="tile" size="team" logo={header.team.logo} />
-						{#if header.colors}
-							<span class="strip" aria-hidden="true">
-								<span class="half" style:background-color={header.colors.primary}></span>
-								<span class="half" style:background-color={header.colors.secondary}></span>
-							</span>
-						{/if}
-					</div>
-					{#if header.tag}<SeasonTag text={header.tag} />{/if}
-					<span class="city">{header.city}</span>
-					<h1 class="name">{header.name}</h1>
-					<span class="conference-line">{header.conferenceLine}</span>
-					{#if header.cupLine}<CupTeamLine line={header.cupLine} />{/if}
-					{#if header.titles}<TeamTitles titles={header.titles} />{/if}
-				</div>
-				<div class="standing">
-					<span class="record">{header.record}</span>
-					<span class="win-pct">{header.winPct}</span>
-					<span class="record-season">{header.recordSeason}</span>
-					<div class="cell-row">
-						<ProfileCells cells={header.cells} min="var(--team-header-cell-min)" />
-					</div>
-				</div>
+{#snippet standingColumn()}
+	{#if header}
+		<div class="standing">
+			<span class="record">{header.record}</span>
+			<span class="win-pct">{header.winPct}</span>
+			<span class="record-season">{header.recordSeason}</span>
+			<div class="cell-row">
+				<ProfileCells cells={header.cells} min="var(--team-header-cell-min)" />
 			</div>
-		{:else if loading}
-			<div class="columns first-line skeleton" aria-hidden="true" use:play={shimmer}>
-				<div class="identity">
-					<SkeletonBone width="var(--team-code-box-size)" height="var(--team-code-box-size)" />
-					<SkeletonBone width="var(--skeleton-button-width)" height="var(--body-size-small)" />
-					<SkeletonBone width="100%" height="var(--team-h1-size)" />
-				</div>
-				<div class="standing">
-					<SkeletonBone width="var(--skeleton-short-width)" height="var(--team-record-size)" />
-					<div class="cells">
-						{#each CELL_BONES as i (i)}
-							<SkeletonBone height="var(--hit-target-size)" />
-						{/each}
-					</div>
-				</div>
+		</div>
+	{:else}
+		<div class="standing skeleton" aria-hidden="true" use:play={shimmer}>
+			<SkeletonBone width="var(--skeleton-short-width)" height="var(--team-record-size)" />
+			<div class="cells">
+				{#each CELL_BONES as i (i)}
+					<SkeletonBone height="var(--hit-target-size)" />
+				{/each}
 			</div>
-		{:else if seasonTag}
-			<div class="first-line"><SeasonTag text={seasonTag} /></div>
-		{/if}
-		{#if seasonSelect && layout === 'mobile'}
-			<div class="season-row"><SeasonSelect {...seasonSelect} full /></div>
-		{/if}
-	</div>
-</header>
+		</div>
+	{/if}
+{/snippet}
+
+<PageHeader
+	nav={{ page: 'detail', gamesHref: allGamesHref, standingsHref }}
+	{layout}
+	{seasonSelect}
+	busy={loading && !header}
+	leadFlex="1 1 var(--detail-column-min)"
+	sideFlex="1 1 var(--detail-column-min)"
+	columnsMin="calc(var(--detail-column-min) * 2)"
+	first={header || loading || seasonTag ? firstLine : undefined}
+	aside={header || loading ? standingColumn : undefined}
+/>
 
 <style>
-	.team-header {
-		position: relative;
-		border-bottom: var(--hairline) solid var(--color-divider);
-	}
-
-	.grid-bg {
-		position: absolute;
-		inset: 0;
-		background-image:
-			linear-gradient(var(--color-grid-line) var(--hairline), transparent var(--hairline)),
-			linear-gradient(90deg, var(--color-grid-line) var(--hairline), transparent var(--hairline));
-		background-size: var(--hero-grid-size) var(--hero-grid-size);
-		pointer-events: none;
-	}
-
-	.content {
-		position: relative;
-		display: grid;
-		gap: var(--panel-section-gap);
-		max-width: var(--content-max-width);
-		margin: 0 auto;
-		padding: var(--game-list-gap) var(--side-padding) var(--panel-section-gap);
-	}
-
-	.mobile .content:has(> .first-line) > :global(.nav-row) {
-		margin-bottom: calc(var(--header-first-line-offset-mobile) - var(--panel-section-gap));
-	}
-
-	.columns {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--detail-column-min)), 1fr));
-		gap: var(--panel-section-gap);
-		align-items: start;
-	}
-
 	.identity {
 		display: flex;
 		flex-direction: column;
@@ -213,10 +176,5 @@
 
 	.cell-row {
 		margin-top: var(--game-list-gap);
-	}
-
-	.season-row {
-		display: flex;
-		justify-content: flex-end;
 	}
 </style>

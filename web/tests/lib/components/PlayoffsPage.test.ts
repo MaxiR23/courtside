@@ -250,11 +250,9 @@ describe('PlayoffsPage team logos', () => {
 		if (state.kind !== 'ready') throw new Error('not ready');
 		state.view.header.hero!.team.logo = logo;
 		const { container } = show(state);
-		const box = container.querySelector('.champion-hero .logo .team-monogram');
+		const box = container.querySelector('.band .logo .team-monogram');
 		expect(box?.querySelector('img')?.getAttribute('src')).toBe('https://example.com/a-dark.svg');
-		const plain = show(ready('complete')).container.querySelectorAll(
-			'.champion-hero .logo .team-monogram'
-		);
+		const plain = show(ready('complete')).container.querySelectorAll('.band .logo .team-monogram');
 		expect(plain[plain.length - 1]!.querySelector('img')).toBeNull();
 	});
 

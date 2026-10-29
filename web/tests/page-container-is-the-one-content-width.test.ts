@@ -7,12 +7,12 @@
 // - The components and routes to scan are found, and the scan cannot pass by finding no file
 // - The matcher flags a rule that sets the content width, and passes other widths and comments
 // - PageContainer sets the content width
-// - Every listed page header still sets it, so the exception list never keeps a stale entry
-// - No other component or route sets it, except the page headers until the one page header issue
+// - PageHeader sets it too, so the exception never keeps a stale entry
+// - No other component or route sets it
 // - The anchored sections keep a scroll margin above the container padding
 //
 // What is covered:
-// - Happy path (only PageContainer and the listed headers set it), edge cases (a selector list,
+// - Happy path (only PageContainer and PageHeader set it), edge cases (a selector list,
 //   a comment) and the error case (a rule that sets it is flagged)
 // - The preview route is left out: it is a component catalog, not a page
 //
@@ -75,19 +75,10 @@ function svelteFilesUnder(dir: string): string[] {
 const componentFiles = svelteFilesUnder(componentsDir);
 const routeFiles = svelteFilesUnder(routesDir);
 
-// Until the one page header issue removes them, the page headers set their own content width.
-const headers = [
-	'AllStarHeader',
-	'CupHeader',
-	'DayHeader',
-	'GameHeader',
-	'Hero',
-	'PlayerHeader',
-	'PlayoffsHeader',
-	'StandingsHeader',
-	'TeamHeader'
-].map((name) => join(componentsDir, `${name}.svelte`));
-const allowed = new Set([join(componentsDir, 'PageContainer.svelte'), ...headers]);
+const allowed = new Set([
+	join(componentsDir, 'PageContainer.svelte'),
+	join(componentsDir, 'PageHeader.svelte')
+]);
 
 describe('the scan', () => {
 	it('finds the components and routes to check', () => {
@@ -117,17 +108,12 @@ describe('the page container', () => {
 		expect(setsContentWidth(styleOf(source))).toBe(true);
 	});
 
-	it('every listed header still sets the content width', () => {
-		const stale = headers
-			.filter((file) => !setsContentWidth(styleOf(readFileSync(file, 'utf8'))))
-			.map((file) => relative(srcDir, file));
-		expect(
-			stale,
-			`no longer set the content width, drop from the list: ${stale.join(', ')}`
-		).toEqual([]);
+	it('sets the content width in PageHeader', () => {
+		const source = readFileSync(join(componentsDir, 'PageHeader.svelte'), 'utf8');
+		expect(setsContentWidth(styleOf(source))).toBe(true);
 	});
 
-	it('is the only place besides the listed page headers that sets the content width', () => {
+	it('is the only place besides PageHeader that sets the content width', () => {
 		const offenders = [...componentFiles, ...routeFiles]
 			.filter((file) => !allowed.has(file))
 			.filter((file) => setsContentWidth(styleOf(readFileSync(file, 'utf8'))))

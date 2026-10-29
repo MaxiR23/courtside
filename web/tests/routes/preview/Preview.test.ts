@@ -39,9 +39,11 @@ afterEach(() => localStorage.clear());
 
 function sectionOf(name: string): HTMLElement {
 	// Only the sample titles: a page sample holds h2 headings of its own, such as "Schedule".
-	const heading = screen
-		.getAllByRole('heading', { level: 2, name })
-		.find((h) => h.parentElement?.matches('main > section'));
+	// Not a role query: the accessible name of every h2 in the catalog takes more memory than the
+	// test process has.
+	const heading = [...document.querySelectorAll('main > section > h2')].find(
+		(h) => h.textContent?.trim() === name
+	);
 	const section = heading?.closest('section');
 	if (!section) throw new Error(`No section for ${name}`);
 	return section;

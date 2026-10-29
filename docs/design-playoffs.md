@@ -79,7 +79,7 @@ Everything under "Implementation rules" in `docs/design.md` and `docs/design-cup
 
 ## Header
 
-- Season tag (accent outline) and a state line. The tag reads `{season}` on the current season and "Season {season}" (`SeasonTag`) on a past one, never both. In the `complete` state the header draws no season line and no desktop season row: they move into the hero's first row (see "Champion hero"). The state line, by state:
+- Season tag (accent outline) and a state line. The tag reads `{season}` on the current season and "Season {season}" (`SeasonTag`) on a past one, never both. In the `complete` state the header draws no season line: it moves into the hero's first row (see "Champion hero"). The season selector sits on the first row at the right edge, as on every page header (`docs/design.md`, "Page header"). The state line, by state:
   - `picture`: "Playoff picture"
   - `playin`: "Play-In"
   - `playoffs`: "First round" / "Conference semifinals" / "Conference finals"
@@ -102,10 +102,10 @@ Everything under "Implementation rules" in `docs/design.md` and `docs/design-cup
 
 The complete state opens with the hero (`ChampionHero`, used by `PlayoffsHeader`). It has no background photo, no stats row, no buttons and no plate.
 
-- **Section:** full width, a 1px bottom divider, the ground background plus an 88px grid of 1px lines at ink 3.5%. Content max-width 1440px, centered. Padding top `clamp(24px, 3vw, 40px)`, sides `clamp(20px, 3vw, 40px)`, bottom `clamp(32px, 4vw, 48px)`.
+- **Section:** the band of `PageHeader`: full width, a 1px bottom divider, the ground background plus an 88px grid of 1px lines at ink 3.5% (44px on mobile). Content width and side padding of every page, first row at `--header-first-line-offset` below the nav row, bottom padding `clamp(32px, 4vw, 48px)`.
 - **Glow:** a radial circle of the champion's resolved team color (ADR 0068) at 32%, `min(900px, 80vw)` wide, anchored right behind the logo.
-- **First row:** the first row of the hero, above the main row. On desktop it is one line: the trophy and the label "{year} NBA Champions" on the left, then the single season tag (the season, or "Season {season}" on a past one) and the state line ("Complete"), then the season selector at the right end; that row wraps when it does not fit. Under 680px the row is two lines that never wrap mid-item: line 1 the trophy and "{year} NBA Champions", line 2 the single season tag and the state line. On mobile the selector stays below the stage strip and the row sits above the logo.
-- **Main row:** a grid of `repeat(auto-fit, minmax(min(100%, 460px), 1fr))`.
+- **First row:** on desktop the label row is the first line of the lead column, beside the right column (selector, then logo), not a row above both columns. It is one line: the trophy and the label "{year} NBA Champions" on the left, then the single season tag (the season, or "Season {season}" on a past one) and the state line ("Complete"), then, in the right column, the season selector at the right edge (the page header's rule); the selector stays on the first line whatever the width. The logo column starts below the selector. Under 680px the row is two lines that never wrap mid-item: line 1 the trophy and "{year} NBA Champions", line 2 the single season tag and the state line. On mobile the selector stays below the stage strip and the row sits above the logo.
+- **Main row:** two flex columns, each `1 1 var(--playoffs-hero-column-min)` (460px); when they do not fit side by side the right column drops under the lead, and the selector stays on the first line.
   - **Left:** the trophy line drawing (26x54, 1.5px stroke, accent light) and the label (13px, .16em tracking, uppercase, accent light) are in the first row. The H1 "{city}<br>{team}" at `clamp(72px, 10.5vw, 156px)`, line-height .82, uppercase. A subline (18px): "Won the series {W}–{L} over {opponent city} · {dates}"; the result, the opponent and the dates come from the feed.
   - **Right:** the champion's logo from the feed's `logo` object, up to 400px square, `object-fit: contain`, `filter: drop-shadow(0 30px 40px rgba(0, 0, 0, .6))`.
 - **Game strip:** one equal column per Finals game played (4 to 7), under a 1px top border at ink 18%. Each column shows "G{n}" (11px, uppercase, muted) above the score from the champion's side (such as `105–95`) at `clamp(20px, 2.4vw, 28px)`; a win in ink, a loss muted. Each column is read as "Game {n}, {score}, won" or "lost" (the visible "G{n}" and score are hidden from assistive technology) and the link has no label of its own. The whole strip is one link to the Finals series section on the page (the scroll the old "Relive the series" button did).
@@ -329,7 +329,6 @@ To add to `web/src/lib/styles/tokens.css` in the implementing issue. Values not 
 | `--playoffs-hero-grid-size` | 88px | Hero grid background (44px on mobile) |
 | `--playoffs-hero-grid-alpha` | .035 | Hero grid ink opacity |
 | `--playoffs-hero-glow-alpha` | .32 | Hero, MVP photo panel glow of the team color |
-| `--playoffs-hero-padding-top` | `clamp(24px, 3vw, 40px)` | Hero padding top (`--header-first-line-offset-mobile` on mobile, with no padding under the nav) |
 | `--playoffs-hero-logo-size` | 400px | Hero logo, up to (230px on mobile) |
 | `--playoffs-hero-strip-score-size` | `clamp(20px, 2.4vw, 28px)` | Hero game strip score (18px on mobile) |
 | `--playoffs-hero-strip-rule` | ink at 18% | Hero game strip top border |

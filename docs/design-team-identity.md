@@ -200,7 +200,7 @@ Added to `web/src/lib/styles/tokens.css` by the implementing issue. Values not l
 | Token | Value | Use |
 |---|---|---|
 | `--identity-neutral-accent` | `var(--color-accent)` (`#749dc4`) | Accent of a side with no colors |
-| `--identity-hero-pad-top` | `clamp(16px, 4vw, 40px)` | Hero padding |
+| `--identity-hero-pad-top` | `clamp(16px, 4vw, 40px)` | Hero padding; the nav row's top on every page |
 | `--identity-inline-mark` | `20px` | Logo or monogram before a team's code or name where no monogram was drawn |
 | `--identity-inline-mark-gap` | `6px` | Gap between the inline mark and its text |
 | `--identity-hero-pad-bottom` | `clamp(56px, 6vw, 80px)` | Hero padding |

@@ -1,8 +1,7 @@
 <script lang="ts">
 	// SEE: docs/design-cup.md ("Header")
 	import type { ResolvedPathname } from '$app/types';
-	import NavRow from '#lib/components/NavRow.svelte';
-	import SeasonSelect from '#lib/components/SeasonSelect.svelte';
+	import PageHeader from '#lib/components/PageHeader.svelte';
 	import SeasonTag from '#lib/components/SeasonTag.svelte';
 	import Tag from '#lib/components/Tag.svelte';
 	import TeamMark from '#lib/components/TeamMark.svelte';
@@ -37,148 +36,156 @@
 		seasonTag = null
 	}: Props = $props();
 
+	const mobile = $derived(layout === 'mobile');
+
 	const datesLine = (stage: StageView): string =>
 		stage.note ? `${stage.dates} · ${stage.note}` : stage.dates;
 </script>
 
-<header
-	class="cup-header"
-	class:mobile={layout === 'mobile'}
-	aria-busy={loading && !header ? 'true' : undefined}
-	style:--side-accent={header?.team
-		? (header.team.accent ?? 'var(--identity-neutral-accent)')
-		: undefined}
->
-	<div class="grid-bg" aria-hidden="true"></div>
-	<div class="content">
-		<NavRow page="cup" gamesHref={allGamesHref} {standingsHref} {layout} />
-		{#if seasonSelect && layout === 'desktop'}
-			<div class="season-row"><SeasonSelect {...seasonSelect} /></div>
-		{/if}
-
-		{#if header}
-			<div class="title-area first-line">
-				<div class="title-block">
-					<div class="title-text">
-						{#if header.team}
-							<div class="decor" aria-hidden="true">
-								<div class="glow"></div>
-								<span class="outline">{header.team.outline}</span>
-								{#if header.team.team.logo}
-									<span class="logo"
-										><TeamMark
-											team={header.team.team}
-											part="tile"
-											size="fill"
-											logo={header.team.team.logo}
-										/></span
-									>
-								{/if}
-							</div>
-						{/if}
-						<div class="tag-row">
-							{#if header.tag}<SeasonTag text={header.tag} />{:else}<Tag
-									text={header.season}
-									variant="accent"
-									label={false}
-									size="var(--body-size)"
-									padding="var(--cup-year-tag-padding)"
-								/>{/if}
-							<span class="state-line">{header.stateLine}</span>
-						</div>
-						<h1>{m.cup_title()}</h1>
-						{#if header.team}
-							<div class="team-row">
-								{#if header.team.strip}
-									<span class="bar" aria-hidden="true"
-										><span class="half" style:background-color={header.team.strip.primary}
-										></span><span class="half" style:background-color={header.team.strip.secondary}
-										></span></span
-									>
-								{/if}
-								<Kicker contents><span class="team-label">{header.team.label}</span></Kicker>
-								<span class="team-name"
-									>{#if header.team.team.city}{header.team.team.city + ' '}{/if}<TeamMark
-										team={header.team.team}
-										part="name"
-										{teamHref}
-									/></span
-								>
-							</div>
-						{/if}
-					</div>
-				</div>
-				<ol class="cup-timeline">
-					{#each header.stages as stage (stage.key)}
-						<li
-							class="step"
-							class:complete={stage.status === 'complete'}
-							class:in-progress={stage.status === 'in_progress'}
-						>
-							<span class="name">{stage.label}</span>
-							<span class="dates">{datesLine(stage)}</span>
-							<span class="status">{stage.statusLabel}</span>
-						</li>
-					{/each}
-				</ol>
-			</div>
-		{:else}
-			<h1 class="first-line">{m.cup_title()}</h1>
-			{#if loading}
-				<div class="bones" aria-hidden="true" use:play={shimmer}>
-					<SkeletonBone width="var(--skeleton-short-width)" height="var(--body-size)" />
-					<SkeletonBone width="var(--skeleton-button-width)" height="var(--body-size-small)" />
-				</div>
-			{:else if seasonTag}
-				<div class="season-line"><SeasonTag text={seasonTag} /></div>
-			{/if}
-		{/if}
-		{#if seasonSelect && layout === 'mobile'}
-			<div class="season-row"><SeasonSelect {...seasonSelect} full /></div>
+{#snippet decor(team: NonNullable<CupHeaderView['team']>)}
+	<div
+		class="decor"
+		class:mobile
+		aria-hidden="true"
+		style:--side-accent={team.accent ?? 'var(--identity-neutral-accent)'}
+	>
+		<div class="glow"></div>
+		<span class="outline">{team.outline}</span>
+		{#if team.team.logo}
+			<span class="logo"
+				><TeamMark team={team.team} part="tile" size="fill" logo={team.team.logo} /></span
+			>
 		{/if}
 	</div>
-</header>
+{/snippet}
+
+{#snippet firstLine()}
+	{#if header}
+		<div class="title-block">
+			<div class="title-text">
+				{#if header.team && mobile}{@render decor(header.team)}{/if}
+				<div class="tag-row" class:mobile>
+					{#if header.tag}<SeasonTag text={header.tag} />{:else}<Tag
+							text={header.season}
+							variant="accent"
+							label={false}
+							size="var(--body-size)"
+							padding="var(--cup-year-tag-padding)"
+						/>{/if}
+					<span class="state-line">{header.stateLine}</span>
+				</div>
+				<h1 class:mobile>{m.cup_title()}</h1>
+				{#if header.team}
+					<div class="team-row">
+						{#if header.team.strip}
+							<span class="bar" class:mobile aria-hidden="true"
+								><span class="half" style:background-color={header.team.strip.primary}></span><span
+									class="half"
+									style:background-color={header.team.strip.secondary}
+								></span></span
+							>
+						{/if}
+						<Kicker contents
+							><span class="team-label" class:mobile>{header.team.label}</span></Kicker
+						>
+						<span class="team-name" class:mobile
+							>{#if header.team.team.city}{header.team.team.city + ' '}{/if}<TeamMark
+								team={header.team.team}
+								part="name"
+								{teamHref}
+							/></span
+						>
+					</div>
+				{/if}
+			</div>
+		</div>
+	{:else}
+		<h1 class:mobile>{m.cup_title()}</h1>
+	{/if}
+{/snippet}
+
+{#snippet decorColumn()}
+	{#if header?.team}
+		<div
+			class="decor-column"
+			style:--cup-decor-reach={seasonSelect
+				? 'calc(var(--past-select-height) + var(--game-list-gap) + var(--header-first-line-offset))'
+				: 'var(--header-first-line-offset)'}
+		>
+			{@render decor(header.team)}
+		</div>
+	{/if}
+{/snippet}
+
+{#snippet timeline()}
+	{#if header}
+		<ol class="cup-timeline" class:mobile>
+			{#each header.stages as stage (stage.key)}
+				<li
+					class="step"
+					class:complete={stage.status === 'complete'}
+					class:in-progress={stage.status === 'in_progress'}
+				>
+					<span class="name">{stage.label}</span>
+					<span class="dates">{datesLine(stage)}</span>
+					<span class="status">{stage.statusLabel}</span>
+				</li>
+			{/each}
+		</ol>
+	{/if}
+{/snippet}
+
+{#snippet bodyRows()}
+	{#if loading}
+		<div class="bones" aria-hidden="true" use:play={shimmer}>
+			<SkeletonBone width="var(--skeleton-short-width)" height="var(--body-size)" />
+			<SkeletonBone width="var(--skeleton-button-width)" height="var(--body-size-small)" />
+		</div>
+	{:else if seasonTag}
+		<div class="season-line"><SeasonTag text={seasonTag} /></div>
+	{/if}
+{/snippet}
+
+<PageHeader
+	nav={{ page: 'cup', gamesHref: allGamesHref, standingsHref }}
+	{layout}
+	{seasonSelect}
+	busy={loading && !header}
+	grid={mobile ? 'var(--cup-header-grid-size-mobile)' : 'var(--cup-header-grid-size)'}
+	gap="var(--cup-header-gap)"
+	clip
+	first={firstLine}
+	body={header ? undefined : bodyRows}
+	aside={header?.team && !mobile ? decorColumn : undefined}
+	wide={header ? timeline : undefined}
+/>
 
 <style>
-	.cup-header {
-		position: relative;
-		overflow: hidden;
-		border-bottom: var(--hairline) solid var(--color-divider);
-	}
-
-	.grid-bg {
-		position: absolute;
-		inset: 0;
-		background-image:
-			linear-gradient(var(--color-grid-line) var(--hairline), transparent var(--hairline)),
-			linear-gradient(90deg, var(--color-grid-line) var(--hairline), transparent var(--hairline));
-		background-size: var(--cup-header-grid-size) var(--cup-header-grid-size);
-		pointer-events: none;
-	}
-
-	.mobile .grid-bg {
-		background-size: var(--cup-header-grid-size-mobile) var(--cup-header-grid-size-mobile);
+	.decor-column {
+		display: flex;
+		flex-direction: column;
+		isolation: isolate;
+		clip-path: inset(
+			calc(-1 * var(--cup-decor-reach)) calc(-1 * var(--cup-header-clip-reach))
+				calc(-1 * var(--cup-header-clip-reach))
+		);
 	}
 
 	.decor {
-		position: absolute;
-		right: var(--cup-header-logo-right);
-		top: 50%;
+		position: relative;
 		z-index: -1;
 		width: var(--cup-header-logo-size);
 		height: var(--cup-header-logo-size);
-		transform: translateY(-50%);
+		margin-inline-end: var(--cup-header-logo-right);
+		align-self: flex-end;
 		pointer-events: none;
 	}
 
-	.mobile .decor {
-		position: relative;
+	.decor.mobile {
 		right: var(--cup-header-logo-right-mobile);
-		top: 0;
-		align-self: flex-end;
+		margin-inline-end: 0;
 		width: var(--cup-header-logo-size-mobile);
 		height: var(--cup-header-logo-size-mobile);
-		transform: none;
 	}
 
 	.glow {
@@ -196,7 +203,7 @@
 		opacity: var(--cup-header-glow-alpha);
 	}
 
-	.mobile .glow {
+	.decor.mobile .glow {
 		width: var(--cup-header-glow-size-mobile);
 		height: var(--cup-header-glow-size-mobile);
 	}
@@ -215,7 +222,7 @@
 		opacity: var(--cup-header-outline-alpha);
 	}
 
-	.mobile .outline {
+	.decor.mobile .outline {
 		font-size: var(--cup-header-outline-size-mobile);
 	}
 
@@ -225,20 +232,10 @@
 		filter: var(--cup-header-logo-shadow);
 	}
 
-	.mobile .logo {
+	.decor.mobile .logo {
 		position: relative;
 		display: block;
 		height: 100%;
-	}
-
-	.content {
-		position: relative;
-		display: flex;
-		flex-direction: column;
-		gap: var(--cup-header-gap);
-		max-width: var(--content-max-width);
-		margin: 0 auto;
-		padding: var(--game-list-gap) var(--side-padding) var(--panel-section-gap);
 	}
 
 	.title-block {
@@ -246,8 +243,6 @@
 		isolation: isolate;
 		display: flex;
 		flex-direction: column;
-		justify-content: flex-end;
-		min-height: var(--cup-header-title-min-height);
 		clip-path: inset(
 			calc(-1 * var(--cup-header-gap)) calc(-1 * var(--cup-header-clip-reach))
 				calc(-1 * var(--cup-header-clip-reach))
@@ -265,11 +260,7 @@
 		max-width: var(--cup-header-title-max-width);
 	}
 
-	.mobile .title-block {
-		min-height: 0;
-	}
-
-	.mobile .tag-row {
+	.tag-row.mobile {
 		order: -1;
 	}
 
@@ -294,7 +285,7 @@
 		line-height: var(--cup-title-leading);
 	}
 
-	.mobile h1 {
+	h1.mobile {
 		font-size: var(--cup-title-size-mobile);
 	}
 
@@ -315,12 +306,12 @@
 		flex: 1;
 	}
 
-	.mobile .bar {
+	.bar.mobile {
 		width: var(--cup-champion-bar-width-mobile);
 		height: var(--cup-champion-bar-height-mobile);
 	}
 
-	.mobile .team-label {
+	.team-label.mobile {
 		font-size: var(--cup-champion-label-size-mobile);
 		/* The Kicker contents wrapper passes down spacing computed at 11px; resolve it against this size. */
 		letter-spacing: var(--label-letter-spacing);
@@ -332,20 +323,9 @@
 		text-transform: uppercase;
 	}
 
-	.mobile .team-name {
+	.team-name.mobile {
 		font-size: var(--cup-champion-name-size-mobile);
 		flex-basis: 100%;
-	}
-
-	.title-area {
-		position: relative;
-		display: flex;
-		flex-direction: column;
-		gap: var(--cup-header-gap);
-	}
-
-	.mobile .first-line {
-		margin-top: calc(var(--header-first-line-offset-mobile) - var(--cup-header-gap));
 	}
 
 	.cup-timeline {
@@ -358,7 +338,7 @@
 		list-style: none;
 	}
 
-	.mobile .cup-timeline {
+	.cup-timeline.mobile {
 		grid-template-columns: repeat(2, minmax(0, 1fr));
 		gap: var(--cup-timeline-gap-mobile);
 	}
@@ -391,7 +371,7 @@
 		color: var(--color-ink);
 	}
 
-	.mobile .name {
+	.cup-timeline.mobile .name {
 		font-size: var(--cup-timeline-name-size-mobile);
 	}
 
@@ -400,7 +380,7 @@
 		color: var(--color-muted);
 	}
 
-	.mobile .dates {
+	.cup-timeline.mobile .dates {
 		font-size: var(--cup-timeline-dates-size-mobile);
 	}
 
@@ -415,7 +395,7 @@
 		color: var(--color-accent-light);
 	}
 
-	.mobile .status {
+	.cup-timeline.mobile .status {
 		font-size: var(--cup-timeline-status-size-mobile);
 	}
 
@@ -424,10 +404,5 @@
 		flex-wrap: wrap;
 		align-items: center;
 		gap: var(--game-list-gap);
-	}
-
-	.season-row {
-		display: flex;
-		justify-content: flex-end;
 	}
 </style>

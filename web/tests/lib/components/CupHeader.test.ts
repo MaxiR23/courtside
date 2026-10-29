@@ -8,13 +8,13 @@
 // - No decoration and no team row without a team; the rest of the header stays
 // - The timeline: complete and in-progress classes, status texts, dates with their notes
 // - The mobile layout class
-// - The decoration clipped at the 48px gap above the title block (stylesheet source)
+// - The title block clipped at the 48px gap above it; the decoration column clipped below the nav row (stylesheet source)
 // - The nav with Cup current
 // - Only the nav and the h1 without a header; bones and aria-busy while loading
-// - The decoration inside the title block's text wrapper (desktop and mobile), before the tag row; the champion's city and name
-// - The season tag when the header has one; the select on desktop (after the nav) and mobile (full), its onChange; none without the prop
+// - The decoration in the right column below the select on desktop, inside the title text before the tag row on mobile; the champion's city and name
+// - The season tag when the header has one; the select on desktop (beside the first line) and mobile (full), its onChange; none without the prop
 // - Spanish copy
-// - Mobile: the tag row, logo, h1 and team row in flow (tag row first), only the outline and glow absolute, no min-height, the tag row at the first-line offset under the nav (the shared token, on the first-line marker, also on the title with no header), the champion name on its own line (stylesheet source)
+// - Mobile: the tag row, logo, h1 and team row in flow (tag row first), only the outline and glow absolute, the header clips the glow at the sides, no min-height on either layout, the title block on the first line (also the title with no header), the champion name on its own line (stylesheet source)
 //
 // What is covered:
 // - Each state the header shows, drawn from props with no fetch
@@ -120,17 +120,17 @@ describe('CupHeader', () => {
 			'rgb(17, 17, 17)',
 			'rgb(34, 34, 34)'
 		]);
-		expect(container.querySelector('header')?.style.getPropertyValue('--side-accent')).toBe(
-			'#abcdef'
-		);
+		expect(
+			container.querySelector<HTMLElement>('.decor')?.style.getPropertyValue('--side-accent')
+		).toBe('#abcdef');
 		expect(container.querySelectorAll('.decor a')).toHaveLength(0);
 	});
 
 	it('uses the neutral accent and no bar when the feed has no color', () => {
 		const { container } = render(CupHeader, { props: props({ header: complete(club()) }) });
-		expect(container.querySelector('header')?.style.getPropertyValue('--side-accent')).toBe(
-			'var(--identity-neutral-accent)'
-		);
+		expect(
+			container.querySelector<HTMLElement>('.decor')?.style.getPropertyValue('--side-accent')
+		).toBe('var(--identity-neutral-accent)');
 		expect(container.querySelector('.bar')).toBeNull();
 	});
 
@@ -146,48 +146,71 @@ describe('CupHeader', () => {
 		expect(container.querySelector('.team-name')?.textContent?.trim()).toBe('Herons');
 	});
 
-	it('places the decoration inside the title block, before the title text', () => {
+	it('places the decoration in the right column below the select on desktop, not in the title text', () => {
 		const { container } = render(CupHeader, {
 			props: props({ header: complete(club()), seasonSelect: seasonSelectProp() })
 		});
-		const area = container.querySelector('.title-area');
-		expect(container.querySelector('.title-block > .title-text > .decor')).not.toBeNull();
-		expect(container.querySelector('.title-block > .decor')).toBeNull();
+		expect(container.querySelector('.side > .aside > .decor-column > .decor')).not.toBeNull();
+		expect(container.querySelector('.title-text .decor')).toBeNull();
+		expect(container.querySelector('.first-line .decor')).toBeNull();
 		expect(container.querySelector('.title-block > .title-text > .tag-row')).not.toBeNull();
 		expect(container.querySelector('.title-block > .title-text > h1')).not.toBeNull();
 		expect(container.querySelector('.title-block > .title-text > .team-row')).not.toBeNull();
-		expect(container.querySelector('.title-area > .decor')).toBeNull();
-		expect(container.querySelector('header > .decor')).toBeNull();
-		expect(container.querySelector('.content > .decor')).toBeNull();
-		expect(
-			container.querySelector('.title-text')?.firstElementChild?.classList.contains('decor')
-		).toBe(true);
 		expect(container.querySelector('.decor .glow')).not.toBeNull();
 		expect(container.querySelector('.decor .outline')).not.toBeNull();
 		expect(container.querySelector('.title-block ol.cup-timeline')).toBeNull();
-		expect(container.querySelector('.title-area > ol.cup-timeline')).not.toBeNull();
-		expect(area?.querySelector('nav')).toBeNull();
-		expect(area?.querySelector('.season-row')).toBeNull();
-		expect(container.querySelector('.season-row')).not.toBeNull();
+		expect(container.querySelector('.main-inner > ol.cup-timeline')).not.toBeNull();
+		const side = container.querySelector('.side')!;
+		expect(
+			side
+				.querySelector('.season-select')!
+				.compareDocumentPosition(side.querySelector('.decor-column')!)
+		).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+		expect(container.querySelector('.season-row')).toBeNull();
 	});
 
-	it('clips the decoration at the gap above the title block', () => {
+	it('clips the decoration below the nav row, with the select height in the reach', () => {
 		const source = readFileSync(
 			join(__dirname, '..', '..', '..', 'src', 'lib', 'components', 'CupHeader.svelte'),
 			'utf8'
 		);
-		const rule = /\n\t\.title-block \{([^}]*)\}/.exec(source)?.[1] ?? '';
-		expect(rule.replace(/\s+/g, ' ')).toContain(
+		const ruleOfSource = (selector: string) =>
+			(
+				new RegExp('\\n\\t' + selector.replace('.', '\\.') + ' \\{([^}]*)\\}').exec(source)?.[1] ??
+				''
+			).replace(/\s+/g, ' ');
+		expect(ruleOfSource('.decor-column')).toContain(
+			'clip-path: inset( calc(-1 * var(--cup-decor-reach))'
+		);
+		expect(ruleOfSource('.title-block')).toContain(
 			'clip-path: inset( calc(-1 * var(--cup-header-gap))'
 		);
+		const withSelect = render(CupHeader, {
+			props: props({ header: complete(club()), seasonSelect: seasonSelectProp() })
+		});
+		expect(
+			withSelect.container
+				.querySelector<HTMLElement>('.decor-column')
+				?.style.getPropertyValue('--cup-decor-reach')
+		).toBe(
+			'calc(var(--past-select-height) + var(--game-list-gap) + var(--header-first-line-offset))'
+		);
+		withSelect.unmount();
+		const plain = render(CupHeader, { props: props({ header: complete(club()) }) });
+		expect(
+			plain.container
+				.querySelector<HTMLElement>('.decor-column')
+				?.style.getPropertyValue('--cup-decor-reach')
+		).toBe('var(--header-first-line-offset)');
 	});
 
-	it('places the decoration inside the title block on mobile', () => {
+	it('places the decoration inside the title text, before the tag row, on mobile', () => {
 		const { container } = render(CupHeader, {
 			props: props({ header: complete(club()), layout: 'mobile' })
 		});
 		expect(container.querySelector('.title-block > .title-text > .decor')).not.toBeNull();
-		expect(container.querySelector('.title-area > .decor')).toBeNull();
+		expect(container.querySelector('.decor-column')).toBeNull();
+		expect(container.querySelector('.aside')).toBeNull();
 	});
 
 	it('does not link a guest champion', () => {
@@ -203,18 +226,19 @@ describe('CupHeader', () => {
 		expect(container.querySelector('.team-label')?.textContent).toBe('Defending champion');
 		expect(screen.getByText('Group play · 16 of 60 games played')).toBeTruthy();
 		expect(container.querySelector('.decor')).not.toBeNull();
-		expect(container.querySelector('header')?.style.getPropertyValue('--side-accent')).toBe(
-			'#123456'
-		);
+		expect(
+			container.querySelector<HTMLElement>('.decor')?.style.getPropertyValue('--side-accent')
+		).toBe('#123456');
 	});
 
 	it('draws no decoration and no team row without a defending champion', () => {
 		const { container } = render(CupHeader, { props: props() });
 		expect(container.querySelector('.decor')).toBeNull();
-		expect(container.querySelector('.title-area .title-block')).not.toBeNull();
-		expect(container.querySelector('.title-area ol.cup-timeline')).not.toBeNull();
+		expect(container.querySelector('.first-line .title-block')).not.toBeNull();
+		expect(container.querySelector('.main-box > .main-inner > ol.cup-timeline')).not.toBeNull();
 		expect(container.querySelector('.team-row')).toBeNull();
-		expect(container.querySelector('header')?.style.getPropertyValue('--side-accent')).toBe('');
+		expect(container.querySelector('.decor-column')).toBeNull();
+		expect(container.querySelector('[style*="--side-accent"]')).toBeNull();
 		expect(container.querySelector('.tag:not(.heading)')?.textContent).toBe('2026-27');
 		expect(screen.getByText('Group play · 16 of 60 games played')).toBeTruthy();
 		expect(screen.getByRole('heading', { level: 1, name: 'NBA Cup' })).toBeTruthy();
@@ -365,13 +389,13 @@ describe('CupHeader decoration logo', () => {
 			})
 		);
 		const first = render(CupHeader, { props: props({ header: withLogo }) });
-		expect(
-			first.container.querySelector('.title-text > .decor .logo img')?.getAttribute('src')
-		).toBe('https://example.com/x-dark.svg');
+		expect(first.container.querySelector('.decor .logo img')?.getAttribute('src')).toBe(
+			'https://example.com/x-dark.svg'
+		);
 		expect(first.container.querySelectorAll('.decor a')).toHaveLength(0);
 		first.unmount();
 		const second = render(CupHeader, { props: props({ header: complete(club()) }) });
-		expect(second.container.querySelector('.title-text > .decor .logo')).toBeNull();
+		expect(second.container.querySelector('.decor .logo')).toBeNull();
 		expect(second.container.querySelector('.outline')?.textContent).toBe('QXA');
 	});
 });
@@ -410,51 +434,51 @@ describe('CupHeader mobile layout', () => {
 			container.querySelector('.team-row')?.parentElement?.classList.contains('title-text')
 		).toBe(true);
 		const block = container.querySelector('.title-block');
-		const timeline = container.querySelector('.title-area > ol.cup-timeline');
+		const timeline = container.querySelector('.main-inner > ol.cup-timeline');
 		expect(block && timeline && block.compareDocumentPosition(timeline)).toBe(
 			Node.DOCUMENT_POSITION_FOLLOWING
 		);
-		expect(rule('.mobile .tag-row')).toContain('order: -1');
-		const decor = rule('.mobile .decor');
-		expect(decor).toContain('position: relative');
-		expect(decor).toContain('align-self: flex-end');
-		expect(decor).toContain('right: var(--cup-header-logo-right-mobile)');
-		expect(decor).toContain('transform: none');
+		expect(rule('.tag-row.mobile')).toContain('order: -1');
+		const base = rule('.decor');
+		expect(base).toContain('position: relative');
+		expect(base).toContain('align-self: flex-end');
+		expect(base).not.toContain('transform');
+		expect(rule('.decor.mobile')).toContain('right: var(--cup-header-logo-right-mobile)');
 	});
 
 	it('keeps only the outline and the glow absolute on mobile', () => {
 		expect(style).not.toMatch(/\.mobile[^{]*\{[^}]*position: absolute/);
 		expect(style).not.toContain('.mobile .title-text');
-		expect(rule('.mobile .logo')).toContain('position: relative');
+		expect(rule('.decor.mobile .logo')).toContain('position: relative');
 		expect(rule('.glow')).toContain('position: absolute');
 		expect(rule('.outline')).toContain('position: absolute');
 	});
 
-	it('drops the mobile min-height', () => {
-		expect(rule('.mobile .title-block')).toContain('min-height: 0');
-		expect(source).not.toContain('--cup-header-title-min-height-mobile');
+	it('clips the glow at the sides so it never widens the page', () => {
+		const { container } = mobile();
+		expect(container.querySelector('header')?.classList.contains('clip')).toBe(true);
 	});
 
-	it('puts the tag row at the first-line offset under the nav', () => {
-		expect(rule('.mobile .first-line')).toContain(
-			'margin-top: calc(var(--header-first-line-offset-mobile) - var(--cup-header-gap))'
-		);
-		expect(rule('.content')).toContain('gap: var(--cup-header-gap)');
+	it('has no min-height on either layout', () => {
+		expect(rule('.title-block')).not.toContain('min-height');
+		expect(style).not.toContain('.mobile .title-block');
+		expect(source).not.toContain('--cup-header-title-min-height');
+	});
+
+	it('puts the title block on the first line, at the first-line offset under the nav', () => {
 		const withHeader = render(CupHeader, { props: props({ layout: 'mobile' }) });
-		expect(
-			withHeader.container.querySelector('.title-area')?.classList.contains('first-line')
-		).toBe(true);
+		expect(withHeader.container.querySelector('header .first-line .title-block')).not.toBeNull();
 		withHeader.unmount();
 		const bare = render(CupHeader, { props: props({ layout: 'mobile', header: null }) });
-		expect(bare.container.querySelector('h1')?.classList.contains('first-line')).toBe(true);
+		expect(bare.container.querySelector('.first-line h1')).not.toBeNull();
 		bare.unmount();
 		const tagged = render(CupHeader, {
 			props: props({ layout: 'mobile', header: null, seasonTag: '2025-26' })
 		});
-		expect(tagged.container.querySelector('h1')?.classList.contains('first-line')).toBe(true);
+		expect(tagged.container.querySelector('.first-line h1')).not.toBeNull();
 		const line = tagged.container.querySelector('.season-line');
 		expect(line).not.toBeNull();
-		expect(line?.classList.contains('first-line')).toBe(false);
+		expect(line?.closest('.first-line')).toBeNull();
 	});
 
 	it('puts the champion name on its own line', () => {
@@ -463,7 +487,7 @@ describe('CupHeader mobile layout', () => {
 			container.querySelectorAll('.team-row > :not(.contents), .team-row > .contents > *')
 		).map((el) => ['bar', 'team-label', 'team-name'].find((c) => el.classList.contains(c)));
 		expect(kids).toEqual(['bar', 'team-label', 'team-name']);
-		expect(rule('.mobile .team-name')).toContain('flex-basis: 100%');
+		expect(rule('.team-name.mobile')).toContain('flex-basis: 100%');
 	});
 
 	it('keeps the long state line in the tag row', () => {

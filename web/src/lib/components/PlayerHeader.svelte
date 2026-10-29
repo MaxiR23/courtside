@@ -3,9 +3,8 @@
 	import type { ResolvedPathname } from '$app/types';
 	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
 	import Kicker from '#lib/components/Kicker.svelte';
-	import NavRow from '#lib/components/NavRow.svelte';
+	import PageHeader from '#lib/components/PageHeader.svelte';
 	import ProfileCells from '#lib/components/ProfileCells.svelte';
-	import SeasonSelect from '#lib/components/SeasonSelect.svelte';
 	import SeasonTag from '#lib/components/SeasonTag.svelte';
 	import StatusTag from '#lib/components/StatusTag.svelte';
 	import TeamMark from '#lib/components/TeamMark.svelte';
@@ -44,128 +43,93 @@
 	const photo = $derived(header?.photo && header.photo !== failedPhoto ? header.photo : null);
 </script>
 
-<header
-	class="player-header"
-	class:mobile={layout === 'mobile'}
-	aria-busy={loading && !header ? 'true' : undefined}
->
-	<div class="grid-bg" aria-hidden="true"></div>
-	<div class="content">
-		<NavRow page="detail" gamesHref={allGamesHref} {standingsHref} {layout} />
-		{#if seasonSelect && layout === 'desktop'}
-			<div class="season-row"><SeasonSelect {...seasonSelect} /></div>
-		{/if}
-
-		{#if header}
-			<div class="top first-line">
-				<div class="text">
-					<div class="tags">
-						{#if header.team}<TeamMark
-								part="tile"
-								team={header.team}
-								size="inline"
-								logo={header.team.logo}
-							/>{/if}
-						{#if header.teamCode !== null}<StatusTag text={header.teamCode} />{/if}
-						{#if header.status}
-							<StatusTag text={header.status.label} accent={header.status.injured} />
-						{/if}
-						{#if header.tag}<SeasonTag text={header.tag} />{/if}
-						{#if header.allStarTag}<AllStarTag text={header.allStarTag} />{/if}
-					</div>
-					<span class="first-name">{header.firstName}</span>
-					<h1 class="last-name">{header.lastName}</h1>
-					<span class="line">{header.line}</span>
-					{#if header.injury}
-						<BlueprintFrame>
-							<div class="injury">
-								<StatusTag injury={header.injury.status} />
-								{#if header.injury.comment}<p class="comment">{header.injury.comment}</p>{/if}
-								<span class="updated">{header.injury.updated}</span>
-							</div>
-						</BlueprintFrame>
-					{/if}
-				</div>
-				{#if photo}
-					<div class="photo" use:scrollFade={layout}>
-						<img src={photo} alt="" onerror={() => (failedPhoto = photo)} />
-					</div>
+{#snippet firstLine()}
+	{#if header}
+		<div class="text">
+			<div class="tags">
+				{#if header.team}<TeamMark
+						part="tile"
+						team={header.team}
+						size="inline"
+						logo={header.team.logo}
+					/>{/if}
+				{#if header.teamCode !== null}<StatusTag text={header.teamCode} />{/if}
+				{#if header.status}
+					<StatusTag text={header.status.label} accent={header.status.injured} />
 				{/if}
+				{#if header.tag}<SeasonTag text={header.tag} />{/if}
+				{#if header.allStarTag}<AllStarTag text={header.allStarTag} />{/if}
 			</div>
-			{#if header.stats}
-				<div class="stats">
-					<Kicker text={header.stats.label} />
-					<ProfileCells
-						cells={header.stats.cells}
-						min="var(--player-hero-cell-min)"
-						size="hero"
-						strong
-						numeric
-						keepEmpty
-					/>
-				</div>
+			<span class="first-name">{header.firstName}</span>
+			<h1 class="last-name">{header.lastName}</h1>
+			<span class="line">{header.line}</span>
+			{#if header.injury}
+				<BlueprintFrame>
+					<div class="injury">
+						<StatusTag injury={header.injury.status} />
+						{#if header.injury.comment}<p class="comment">{header.injury.comment}</p>{/if}
+						<span class="updated">{header.injury.updated}</span>
+					</div>
+				</BlueprintFrame>
 			{/if}
-		{:else if loading}
-			<div class="top first-line skeleton" aria-hidden="true" use:play={shimmer}>
-				<div class="text">
-					<SkeletonBone width="var(--skeleton-button-width)" height="var(--body-size-small)" />
-					<SkeletonBone width="100%" height="var(--player-h1-size)" />
-					<SkeletonBone width="var(--skeleton-short-width)" height="var(--body-size)" />
-				</div>
-			</div>
-			<div class="cells skeleton" aria-hidden="true" use:play={shimmer}>
-				{#each CELL_BONES as i (i)}
-					<SkeletonBone height="var(--hit-target-size)" />
-				{/each}
-			</div>
-		{:else if seasonTag}
-			<div class="first-line"><SeasonTag text={seasonTag} /></div>
-		{/if}
-		{#if seasonSelect && layout === 'mobile'}
-			<div class="season-row"><SeasonSelect {...seasonSelect} full /></div>
-		{/if}
+		</div>
+	{:else if loading}
+		<div class="text skeleton" aria-hidden="true" use:play={shimmer}>
+			<SkeletonBone width="var(--skeleton-button-width)" height="var(--body-size-small)" />
+			<SkeletonBone width="100%" height="var(--player-h1-size)" />
+			<SkeletonBone width="var(--skeleton-short-width)" height="var(--body-size)" />
+		</div>
+	{:else if seasonTag}
+		<SeasonTag text={seasonTag} />
+	{/if}
+{/snippet}
+
+{#snippet photoColumn()}
+	<div class="photo" use:scrollFade={layout}>
+		<img src={photo} alt="" onerror={() => (failedPhoto = photo)} />
 	</div>
-</header>
+{/snippet}
+
+{#snippet statsRows()}
+	{#if header}
+		{#if header.stats}
+			<div class="stats">
+				<Kicker text={header.stats.label} />
+				<ProfileCells
+					cells={header.stats.cells}
+					min="var(--player-hero-cell-min)"
+					size="hero"
+					strong
+					numeric
+					keepEmpty
+				/>
+			</div>
+		{/if}
+	{:else}
+		<div class="cells skeleton" aria-hidden="true" use:play={shimmer}>
+			{#each CELL_BONES as i (i)}
+				<SkeletonBone height="var(--hit-target-size)" />
+			{/each}
+		</div>
+	{/if}
+{/snippet}
+
+<PageHeader
+	nav={{ page: 'detail', gamesHref: allGamesHref, standingsHref }}
+	{layout}
+	{seasonSelect}
+	busy={loading && !header}
+	leadFlex="var(--player-text-flex)"
+	sideFlex={photo ? 'var(--player-photo-flex)' : undefined}
+	columnsMin="calc(var(--player-text-min) + var(--player-photo-min))"
+	first={header || loading || seasonTag ? firstLine : undefined}
+	aside={photo ? photoColumn : undefined}
+	wide={header?.stats || loading ? statsRows : undefined}
+/>
 
 <style>
-	.player-header {
-		position: relative;
-		border-bottom: var(--hairline) solid var(--color-divider);
-	}
-
-	.grid-bg {
-		position: absolute;
-		inset: 0;
-		background-image:
-			linear-gradient(var(--color-grid-line) var(--hairline), transparent var(--hairline)),
-			linear-gradient(90deg, var(--color-grid-line) var(--hairline), transparent var(--hairline));
-		background-size: var(--hero-grid-size) var(--hero-grid-size);
-		pointer-events: none;
-	}
-
-	.content {
-		position: relative;
-		display: grid;
-		gap: var(--panel-section-gap);
-		max-width: var(--content-max-width);
-		margin: 0 auto;
-		padding: var(--game-list-gap) var(--side-padding) var(--panel-section-gap);
-	}
-
-	.mobile .content:has(> .first-line) > :global(.nav-row) {
-		margin-bottom: calc(var(--header-first-line-offset-mobile) - var(--panel-section-gap));
-	}
-
-	.top {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: flex-end;
-		gap: var(--panel-section-gap);
-	}
-
 	.text {
 		display: flex;
-		flex: var(--player-text-flex);
 		flex-direction: column;
 		align-items: flex-start;
 		gap: var(--day-strip-gap);
@@ -218,7 +182,7 @@
 	}
 
 	.photo {
-		flex: var(--player-photo-flex);
+		min-height: 0;
 		aspect-ratio: var(--player-photo-aspect);
 		margin-right: calc(-1 * var(--side-padding));
 		margin-bottom: calc(-1 * var(--player-photo-overlap));
@@ -244,10 +208,5 @@
 		display: grid;
 		grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--player-hero-cell-min)), 1fr));
 		gap: var(--game-list-gap);
-	}
-
-	.season-row {
-		display: flex;
-		justify-content: flex-end;
 	}
 </style>

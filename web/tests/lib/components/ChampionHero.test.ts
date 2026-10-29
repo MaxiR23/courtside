@@ -10,11 +10,14 @@
 // - The glow color: the accent of the feed, the neutral accent for null
 // - No buttons, stats or plate, and no timers
 // - The strip links to #series and scrolls (smooth, or at once under reduced motion) only when the series section exists
-// - The first row: trophy, label, one season tag (the past tag replaces the season), the state line, the desktop selector
+// - The first row: trophy, label, one season tag (the past tag replaces the season), the state line
+// - The desktop selector is the page header's, beside the first line at the right edge; on mobile it is full width after the band
 // - The strip link has no label of its own: it reads "Game {n}, {score}, won/lost" per column; the group keeps its name
-// - The first row on mobile is two lines (title, then tag and state); on desktop one row with the selector last; the rules that do it
+// - The first row on mobile is two lines (title, then tag and state); the rules that do it
 // - The mobile layout keeps the logo, the trophy and the strip
-// - The label row is the first child of the inner block on mobile and the root carries mobile
+// - The label row is the first line on both layouts and the header carries mobile
+// - The band holds the label row and the strip, and the after rows come after the band
+// - The art is before the copy on mobile and in the right column on desktop
 //
 // What is covered:
 // - Each state the hero shows, drawn from props with no fetch
@@ -26,6 +29,7 @@ import type { ResolvedPathname } from '$app/types';
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { createRawSnippet } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { PlayoffsFeed } from '../../../src/lib/contract/playoffs';
@@ -34,6 +38,8 @@ import ChampionHero from '../../../src/lib/components/ChampionHero.svelte';
 import type { SeasonControl } from '../../../src/lib/season/types';
 import type { ChampionHeroView } from '../../../src/lib/playoffs/types';
 
+const HOME = '/' as ResolvedPathname;
+const STANDINGS = '/standings' as ResolvedPathname;
 const teamHref = (code: string) => `/team/${code.toLowerCase()}` as ResolvedPathname;
 
 // The complete fixture with scores: the champion QXA wins G1, G2, G4, G5 and loses G3.
@@ -83,7 +89,10 @@ const show = (
 			season: '2026-27',
 			tag: options.tag ?? null,
 			stateLine: 'Complete',
-			seasonSelect: options.seasonSelect ?? null
+			seasonSelect: options.seasonSelect ?? null,
+			allGamesHref: HOME,
+			standingsHref: STANDINGS,
+			after: createRawSnippet(() => ({ render: () => '<p class="stages">Stages</p>' }))
 		}
 	});
 
@@ -149,22 +158,18 @@ describe('ChampionHero', () => {
 	it('sets the glow color from the accent, and the neutral accent for null', () => {
 		const first = show();
 		expect(
-			first.container
-				.querySelector<HTMLElement>('.champion-hero')
-				?.style.getPropertyValue('--side-accent')
+			first.container.querySelector<HTMLElement>('.art')?.style.getPropertyValue('--side-accent')
 		).toBe('#1d4e89');
 		first.unmount();
 		const plain = show({ view: hero(5, null) });
 		expect(
-			plain.container
-				.querySelector<HTMLElement>('.champion-hero')
-				?.style.getPropertyValue('--side-accent')
+			plain.container.querySelector<HTMLElement>('.art')?.style.getPropertyValue('--side-accent')
 		).toBe('var(--identity-neutral-accent)');
 	});
 
 	it('has no buttons, stats or plate and starts no timer', () => {
 		const { container } = show();
-		expect(screen.queryAllByRole('button')).toHaveLength(0);
+		expect(container.querySelectorAll('.band button')).toHaveLength(0);
 		expect(container.querySelector('.stats')).toBeNull();
 		expect(container.querySelector('dl')).toBeNull();
 		expect(container.querySelector('.plate')).toBeNull();
@@ -173,10 +178,31 @@ describe('ChampionHero', () => {
 
 	it('keeps the logo, the trophy and the strip on mobile', () => {
 		const { container } = show({ layout: 'mobile' });
-		expect(container.querySelector('.champion-hero')?.classList.contains('mobile')).toBe(true);
+		expect(container.querySelector('header')?.classList.contains('mobile')).toBe(true);
 		expect(container.querySelector('.logo .team-monogram')).not.toBeNull();
 		expect(container.querySelector('.trophy svg')).not.toBeNull();
 		expect(container.querySelectorAll('.strip .game')).toHaveLength(5);
+		const art = container.querySelector('.art') as Node;
+		expect(container.querySelector('.aside')).toBeNull();
+		expect(art.compareDocumentPosition(container.querySelector('.copy') as Node)).toBe(
+			Node.DOCUMENT_POSITION_FOLLOWING
+		);
+	});
+
+	it('puts the art in the right column on desktop', () => {
+		const { container } = show();
+		expect(container.querySelector('.aside > .art')).not.toBeNull();
+		expect(container.querySelector('.copy')?.closest('.lead')).not.toBeNull();
+	});
+
+	it('draws the band with the label row and the strip, and the after rows below it', () => {
+		const { container } = show();
+		const band = container.querySelector('.band')!;
+		expect(band.querySelector('.first-line > .label-row')).not.toBeNull();
+		expect(band.querySelector('.strip')).not.toBeNull();
+		const after = screen.getByText('Stages');
+		expect(band.contains(after)).toBe(false);
+		expect(band.compareDocumentPosition(after)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
 	});
 });
 
@@ -235,10 +261,10 @@ describe('ChampionHero first row and strip name', () => {
 		onChange
 	});
 
-	it('puts the label, one season tag and the state text in the first row of the inner box', () => {
+	it('puts the label, one season tag and the state text in the first line', () => {
 		const { container } = show();
 		const row = container.querySelector('.label-row')!;
-		expect(container.querySelector('.inner')?.firstElementChild).toBe(row);
+		expect(container.querySelector('.first-line > .label-row')).toBe(row);
 		expect(row.querySelector('.label')?.textContent).toBe('2027 NBA Champions');
 		expect(row.textContent).toContain('2026-27');
 		expect(row.textContent).toContain('Complete');
@@ -251,17 +277,20 @@ describe('ChampionHero first row and strip name', () => {
 		expect(container.querySelector('.label-row')?.textContent).toContain('Season 2025-26');
 	});
 
-	it('draws the selector at the end of the row on desktop and none on mobile', () => {
+	it('draws the selector on the first-line row on desktop and none on mobile', () => {
 		const onChange = vi.fn();
 		const { container, unmount } = show({ seasonSelect: select(onChange) });
 		const box = screen.getByRole('combobox', { name: 'Season' }) as HTMLSelectElement;
-		expect(container.querySelector('.label-row')?.contains(box)).toBe(true);
+		expect(container.querySelector('.season-select')?.contains(box)).toBe(true);
+		expect(container.querySelector('.label-row')?.contains(box)).toBe(false);
+		expect(container.querySelector('.first-line')?.contains(box)).toBe(false);
 		box.value = '2025';
 		box.dispatchEvent(new Event('change', { bubbles: true }));
 		expect(onChange).toHaveBeenCalledWith(2025);
 		unmount();
-		show({ layout: 'mobile', seasonSelect: select() });
-		expect(screen.queryByRole('combobox')).toBeNull();
+		const phone = show({ layout: 'mobile', seasonSelect: select() });
+		expect(phone.container.querySelector('.season-select')).toBeNull();
+		expect(phone.container.querySelector('.after-inner select.full')).not.toBeNull();
 	});
 
 	it('names the strip link from its columns and hides the visible text', () => {
@@ -314,18 +343,16 @@ describe('ChampionHero first row lines', () => {
 		expect(lines[1]!.textContent).toContain(tagText);
 		expect(lines[1]!.querySelector('.state-line')?.textContent).toBe('Complete');
 		expect(lines[1]!.querySelector('.label')).toBeNull();
-		expect(container.querySelector('.champion-hero')?.classList.contains('mobile')).toBe(true);
+		expect(container.querySelector('header')?.classList.contains('mobile')).toBe(true);
 	});
 
-	it('keeps one row with the selector at its end on desktop', () => {
+	it('keeps one row beside the selector column on desktop', () => {
 		const { container } = show({ seasonSelect: select() });
 		const row = container.querySelector('.label-row')!;
-		expect(row.lastElementChild?.classList.contains('season-select')).toBe(true);
-		const children = [...row.children];
-		const lines = row.querySelectorAll(':scope > .line');
-		expect(lines).toHaveLength(2);
-		for (const line of lines) expect(children.indexOf(line)).toBeLessThan(children.length - 1);
-		expect(container.querySelector('.champion-hero')?.classList.contains('mobile')).toBe(false);
+		expect(row.querySelectorAll(':scope > .line')).toHaveLength(2);
+		expect(row.querySelector('select')).toBeNull();
+		expect(container.querySelector('.main > .season-select.floating select')).not.toBeNull();
+		expect(container.querySelector('header')?.classList.contains('mobile')).toBe(false);
 	});
 
 	it('lays the lines out only on mobile', () => {
@@ -346,20 +373,20 @@ describe('ChampionHero first row lines', () => {
 				);
 		expect(style.length).toBeGreaterThan(0);
 		expect(declarations('.line')).toEqual(['display: contents']);
-		expect(declarations('.mobile .label-row')).toContain('flex-direction: column');
-		expect(declarations('.mobile .line')).toEqual(
+		expect(declarations('.label-row.mobile')).toContain('flex-direction: column');
+		expect(declarations('.label-row.mobile .line')).toEqual(
 			expect.arrayContaining(['display: flex', 'white-space: nowrap'])
 		);
 	});
 
-	it('puts the label row first in the inner block on mobile', () => {
+	it('puts the label row first in the lead column and the header carries mobile', () => {
 		const a = show({ layout: 'mobile' });
-		expect(a.container.querySelector('section')?.classList.contains('mobile')).toBe(true);
-		expect(a.container.querySelector('.inner')?.firstElementChild?.matches('.label-row')).toBe(
+		expect(a.container.querySelector('header')?.classList.contains('mobile')).toBe(true);
+		expect(a.container.querySelector('.lead')?.firstElementChild?.matches('.first-line')).toBe(
 			true
 		);
 		a.unmount();
 		const b = show({ layout: 'desktop' });
-		expect(b.container.querySelector('section')?.classList.contains('mobile')).toBe(false);
+		expect(b.container.querySelector('header')?.classList.contains('mobile')).toBe(false);
 	});
 });

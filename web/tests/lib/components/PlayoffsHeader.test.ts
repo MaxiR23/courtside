@@ -8,11 +8,11 @@
 // - The Playoffs title in every state but complete; the champion hero instead of it in complete
 // - Loading: bones and aria-busy; a null header shows only the nav and the title
 // - The season tag when the header has one; the select on desktop and mobile (full), its onChange; none without the prop
-// - With the hero: no season line or desktop season row above it; the hero's first row holds the season, the state text and the selector
+// - With the hero: no season line above it; the hero's first line holds the season and the state text, and the selector is beside it
 // - One season tag: the past tag replaces the season, with and without the hero
 // - Four stages draw a four-column strip
 // - Spanish copy
-// - On mobile the first block under the nav carries first-line in every state; the hero mode marks only the nav block above the hero
+// - The first line is inside the page header's .first-line in every state; with the hero the stage strip comes after the band
 //
 // What is covered:
 // - Each state the header shows, drawn from props with no fetch
@@ -89,17 +89,17 @@ describe('PlayoffsHeader', () => {
 
 	it('draws the champion hero instead of the title in the complete state', () => {
 		const { container } = show({ header: header('playoffs-complete.json'), linkSeries: true });
-		const hero = container.querySelector('.champion-hero')!;
+		const hero = container.querySelector('.band')!;
 		expect(screen.getByRole('heading', { level: 1 }).textContent).toContain('Harbor');
 		expect(screen.queryByRole('heading', { level: 1, name: 'Playoffs' })).toBeNull();
 		expect(container.querySelector('a.strip')).not.toBeNull();
 		expect(screen.getAllByText('Complete').length).toBeGreaterThan(0);
-		expect(hero.closest('.content')).toBeNull();
+		expect(container.querySelectorAll('header')).toHaveLength(1);
 		const before = (a: Element, b: Element) =>
 			Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
 		expect(container.querySelector('.season-line')).toBeNull();
 		expect(container.querySelector('.season-row')).toBeNull();
-		expect(hero.querySelector('.label-row')?.textContent).toContain('Complete');
+		expect(hero.querySelector('.first-line .label-row')?.textContent).toContain('Complete');
 		expect(before(hero, container.querySelector('.stage-strip')!)).toBe(true);
 	});
 
@@ -157,18 +157,23 @@ describe('PlayoffsHeader season selector and tag', () => {
 		expect(screen.queryByText(done.season)).toBeNull();
 	});
 
-	it('with the hero draws one select: in the hero on desktop, below the stage strip on mobile', () => {
+	it('with the hero draws one select: on the first-line row on desktop, below the stage strip on mobile', () => {
 		const complete = header('playoffs-complete.json');
 		const desktop = show({ header: complete, seasonSelect: seasonSelect() });
 		expect(screen.getAllByRole('combobox')).toHaveLength(1);
+		const place = screen.getByRole('combobox').closest('.season-select');
+		expect(place?.classList.contains('floating')).toBe(true);
+		expect(place?.parentElement?.classList.contains('main')).toBe(true);
+		expect(place?.parentElement?.querySelector('.lead .first-line .label-row')).not.toBeNull();
 		expect(
-			desktop.container.querySelector('.champion-hero')?.contains(screen.getByRole('combobox'))
-		).toBe(true);
+			desktop.container.querySelector('.label-row')?.contains(screen.getByRole('combobox'))
+		).toBe(false);
 		desktop.unmount();
 		const mobile = show({ header: complete, layout: 'mobile', seasonSelect: seasonSelect() });
 		const box = screen.getByRole('combobox');
 		expect(screen.getAllByRole('combobox')).toHaveLength(1);
-		expect(mobile.container.querySelector('.champion-hero')?.contains(box)).toBe(false);
+		expect(mobile.container.querySelector('.band')?.contains(box)).toBe(false);
+		expect(box.closest('.season-row')).not.toBeNull();
 		expect(
 			Boolean(
 				mobile.container.querySelector('.stage-strip')!.compareDocumentPosition(box) &
@@ -213,25 +218,24 @@ describe('PlayoffsHeader season selector and tag', () => {
 	});
 
 	it('puts the first line under the nav on mobile', () => {
-		const first = (c: HTMLElement) => c.querySelector('nav.nav-row')?.nextElementSibling;
+		const first = (c: HTMLElement) => c.querySelector('header .first-line');
 		const a = show({ layout: 'mobile', header: header('playoffs-bracket.json') });
 		expect(a.container.querySelector('header')?.classList.contains('mobile')).toBe(true);
-		expect(first(a.container)?.matches('.season-line.first-line')).toBe(true);
-		expect(a.container.querySelector('h1')?.classList.contains('first-line')).toBe(false);
+		expect(first(a.container)?.querySelector('.season-line')).not.toBeNull();
+		expect(first(a.container)?.querySelector('h1')).toBeNull();
 		a.unmount();
 		const b = show({ layout: 'mobile', header: null });
-		expect(first(b.container)?.matches('h1.first-line')).toBe(true);
+		expect(first(b.container)?.querySelector('h1')).not.toBeNull();
 		b.unmount();
 		const c = show({ layout: 'mobile', header: null, seasonTag: 'Season 2022-23' });
-		expect(first(c.container)?.matches('h1.first-line')).toBe(true);
-		expect(c.container.querySelector('.season-line')?.classList.contains('first-line')).toBe(false);
+		expect(first(c.container)?.querySelector('h1')).not.toBeNull();
+		expect(first(c.container)?.querySelector('.season-line')).toBeNull();
+		expect(c.container.querySelector('.lead .season-line')).not.toBeNull();
 		c.unmount();
 		const d = show({ layout: 'mobile', header: header('playoffs-complete.json') });
-		const contents = d.container.querySelectorAll('.content');
-		expect(contents[0]?.classList.contains('above-hero')).toBe(true);
-		expect(contents[0]?.children).toHaveLength(1);
-		expect(contents[0]?.firstElementChild?.matches('nav.nav-row')).toBe(true);
-		expect(contents[1]?.classList.contains('above-hero')).toBe(false);
+		expect(first(d.container)?.querySelector('.label-row')).not.toBeNull();
+		expect(d.container.querySelector('.band .stage-strip')).toBeNull();
+		expect(d.container.querySelector('.after-inner .stage-strip')).not.toBeNull();
 		d.unmount();
 		const e = show({ layout: 'desktop', header: header('playoffs-bracket.json') });
 		expect(e.container.querySelector('header')?.classList.contains('mobile')).toBe(false);

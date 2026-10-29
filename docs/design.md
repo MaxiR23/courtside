@@ -30,6 +30,7 @@ A dark-mode, single-page site with two parts:
 | `SectionHead` | The one section title: the h2 in Barlow Condensed, uppercase, with an optional meta on the right (12px, muted, or emphasized). Sizes: `detail` (the default, `clamp(28px, 3.4vw, 40px)`, line-height 1, the detail pages), `home` (the Section h2 below, the home sections) and `mvp` (the Finals MVP title). An optional kicker above it is drawn by `Kicker`. A parent sets the title size, the kicker size and the gap between them with token references. Every section title at the home or detail size (and the Cup and playoffs bracket titles) is drawn by `SectionHead`; label-sized headings, such as ComingUp's (a `Kicker` inside an `h2`), and the sheet, overlay, calendar and MVP-name headings are not section titles and keep their own markup. |
 | `InfoCell` | The one info cell: a 1px divider top border, the label through `Kicker`, the value in Barlow Condensed and an optional 13px muted sub-line. Its value size (`detail`, `hero` or `record`), weight and tabular figures come from its props, and content such as the team color swatches can take the place of the value. `ProfileCells` lays a list of them out in a grid |
 | `PageContainer` | The one page container: the centered content width and the side padding of every page body and home section |
+| `PageHeader` | The one page header: the grid background, the content width and side padding, the nav row, the season selector and the vertical spacing of every page; pages pass the first line, the body, a right column and full-width rows; a parent sets the grid size, gaps, side padding and the sticky nav with token references |
 | `Hero` | The top section, rotating through the games of the day |
 | `HeroPlayerCard` | The hero player card: the player's cutout over the logo, tricode and glow layers, with the player strip, specified in `docs/design-team-identity.md`, "Right column: player card" |
 | `DayStrip` | The 7-day selector |
@@ -109,7 +110,8 @@ The only color besides the neutrals is the steel accent. No team colors, except 
 - Max content width: 1320px. `PageContainer` sets it, with the side padding, for every page body and home section.
 - Side padding: `clamp(20px, 4vw, 48px)`.
 - Game list gap: 14px. Day strip gap: `clamp(4px, 1vw, 8px)`. Expanded panel section gap: 36px.
-- Header first line on mobile: `--header-first-line-offset-mobile` (0px). Under 680px every page header puts its first line (tag row, title row or status line, and its loading skeleton) this far below the nav row. It is the home hero's distance from the nav row to its status tag, measured at 390px. Rows below the first line keep their spacing. The home hero sets it by having no gap; the other headers apply the token.
+- Header first line on mobile: `--header-first-line-offset-mobile` (0px). Under 680px every page header puts its first line (tag row, title row or status line, and its loading skeleton) this far below the nav row. It is the home hero's distance from the nav row to its status tag, measured at 390px. Rows below the first line keep their spacing. `PageHeader` applies it; the home hero has no first line.
+- Header first line on desktop: `--header-first-line-offset` (24px) between the nav row and the first line of every page header except the home hero, whose copy stays centered.
 
 ### Motion
 
@@ -120,6 +122,12 @@ The only color besides the neutrals is the steel accent. No team colors, except 
 ### Icons
 
 Lucide at `stroke-width: 1.5`: `chevron-down` (expand), `play` (filled, highlight play button), `external-link`.
+
+## Page header
+
+- The nav row sits `--identity-hero-pad-top` below the top of the page (40px on desktop, 16px at 390px) on every page, and spans the content width with the page's side padding.
+- The first line sits `--header-first-line-offset` (24px) below the nav row on desktop and `--header-first-line-offset-mobile` under 680px.
+- On desktop the season selector sits on the first line, at the right edge of the content and top-aligned with it. A right column (the team record, the player photo, the Cup logo, the All-Star plate, the champion logo) starts `--past-select-height` plus `--game-list-gap` below the selector's top and never overlaps it. The selector stays on the first line at every desktop width: when the lead and right columns do not fit side by side the right column drops under the lead, and a page that wraps passes `columnsMin` (the sum of the column bases) so the selector leaves the column and the column loses the selector's offset. On mobile the selector is full width under the header.
 
 ## Screens
 

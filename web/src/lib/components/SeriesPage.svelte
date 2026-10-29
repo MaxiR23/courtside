@@ -2,8 +2,8 @@
 	import type { ResolvedPathname } from '$app/types';
 	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
 	import MessageRow from '#lib/components/MessageRow.svelte';
-	import NavRow from '#lib/components/NavRow.svelte';
 	import PageContainer from '#lib/components/PageContainer.svelte';
+	import PageHeader from '#lib/components/PageHeader.svelte';
 	import SiteFooter from '#lib/components/SiteFooter.svelte';
 	import TeamMark from '#lib/components/TeamMark.svelte';
 	import { play } from '#lib/hero/motion.ts';
@@ -32,16 +32,24 @@
 	const accentOf = (side: SeriesHeroSideView) => side.accent ?? 'var(--identity-neutral-accent)';
 </script>
 
-<NavRow page="playoffs" gamesHref={allGamesHref} {standingsHref} {layout} />
+{#snippet topBar()}
+	<div class="top-bar">
+		<a class="back" href={bracketHref}>{m.playoffs_series_back()}</a>
+		{#if page.kind === 'ready'}
+			<span class="kicker">{page.view.kicker}</span>
+		{/if}
+	</div>
+{/snippet}
+
+<PageHeader
+	nav={{ page: 'playoffs', gamesHref: allGamesHref, standingsHref }}
+	{layout}
+	grid={null}
+	divider={false}
+	first={topBar}
+/>
 <PageContainer>
 	<div class="content" class:mobile={layout === 'mobile'}>
-		<div class="top-bar">
-			<a class="back" href={bracketHref}>{m.playoffs_series_back()}</a>
-			{#if page.kind === 'ready'}
-				<span class="kicker">{page.view.kicker}</span>
-			{/if}
-		</div>
-
 		{#if page.kind === 'ready'}
 			{@const view = page.view}
 			<section class="hero">

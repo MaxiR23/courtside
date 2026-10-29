@@ -42,7 +42,7 @@ Everything under "Implementation rules" in `docs/design.md`, `docs/design-cup.md
 ## Season selector and routes
 
 - **Routes:** `/cup`, `/playoffs` and `/all-star` accept `?season=YYYY`. Without it, the current season as today. A season outside the range of the page, or a malformed value, is the current season, as without `?season`.
-- **Selector:** the same select as `docs/design-past-dates.md` (`SeasonSelect`), at the right of the Cup, playoffs and All-Star headers. The Cup lists the calendar's seasons from 2023-24 and the season on show (ADR 0054); the playoffs and the All-Star list 1993-94 to the current one, newest first. Changing it navigates to `?season=YYYY`; the current season has no parameter.
+- **Selector:** the same select as `docs/design-past-dates.md` (`SeasonSelect`), on the first line of the Cup, playoffs and All-Star headers, at the right edge and top-aligned with it (`docs/design.md`, "Page header"). The Cup lists the calendar's seasons from 2023-24 and the season on show (ADR 0054); the playoffs and the All-Star list 1993-94 to the current one, newest first. Changing it navigates to `?season=YYYY`; the current season has no parameter.
 - **Season tag:** a past season shows the "Season YYYY-YY" tag (`SeasonTag`) in the header and no live element.
 - **Mobile:** the selector is full width under the header with a 44px hit target, as on the other pages.
 
@@ -176,7 +176,7 @@ No new UI. A past game whose highlight has been found shows it in the game page 
 ## Responsive
 
 - Under 680px: the selectors are full width under the header, as the other pages, and every hit target is at least 44px.
-- Desktop: the selector sits at the right of the header.
+- Desktop: the selector sits on the header's first line, at the right edge and top-aligned with it; a right column starts below it (`docs/design.md`, "Page header").
 
 ## New tokens
 

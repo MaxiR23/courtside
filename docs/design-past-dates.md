@@ -95,7 +95,7 @@ Everything under "Implementation rules" in `docs/design.md`, `docs/design-cup.md
 
 ## Seasons on standings, team and player
 
-- **Season selector:** the same select styling, at the right of the page header on `/standings`, `/team/[code]` and `/player/[id]`. Changing it navigates to `?season=YYYY`; the current season has no parameter. The seasons and labels are the `seasons` of the current calendar feed, whose first entry is the current season (ADR 0044): `/standings` lists every season, `/team/[code]` the seasons inside one of the feed's `names` runs, `/player/[id]` the seasons whose label matches a regular-season row plus the current season. When the calendar feed is unavailable the selector is hidden. On mobile it is full width under the header with a 44px hit target.
+- **Season selector:** the same select styling, on the first line of the page header on `/standings`, `/team/[code]` and `/player/[id]`. Changing it navigates to `?season=YYYY`; the current season has no parameter. The seasons and labels are the `seasons` of the current calendar feed, whose first entry is the current season (ADR 0044): `/standings` lists every season, `/team/[code]` the seasons inside one of the feed's `names` runs, `/player/[id]` the seasons whose label matches a regular-season row plus the current season. When the calendar feed is unavailable the selector is hidden. On mobile it is full width under the header with a 44px hit target.
 - **Season tag:** a past season shows "Season 2004-05" in the header: outlined, accent border, accent-light text, Barlow Condensed 600, 12.5px, .12em, uppercase. A past season shows no live element.
 
 ### Standings of a past season
@@ -179,7 +179,7 @@ Everything under "Implementation rules" in `docs/design.md`, `docs/design-cup.md
 ## Responsive
 
 - Under 680px: the calendar is a bottom sheet, the day cells are 36px, the season selectors are full width under the header, the timeline scrolls horizontally with scroll-snap, and every hit target is at least 44px.
-- Desktop: the calendar is a 360px panel; the selector sits at the right of the page header.
+- Desktop: the calendar is a 360px panel; the selector sits on the header's first line, at the right edge and top-aligned with it; a right column starts below it (`docs/design.md`, "Page header").
 
 ## New tokens
 

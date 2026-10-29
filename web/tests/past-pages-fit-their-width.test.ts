@@ -9,7 +9,7 @@
 // - The standings team cell has an end padding, the city and name truncate with an ellipsis, and the clinch tag keeps its size
 // - The playoffs bracket undecided row has one shrinkable column, so a long slot label truncates
 // - The All-Star games and sections grids have one shrinkable column, so the mobile cards row scrolls inside itself
-// - The game header content has one shrinkable column, so a long postseason mark shrinks instead of widening the page
+// - The page header gives its content one shrinkable column, so a long postseason mark shrinks instead of widening the page
 // - The champion hero title takes its mobile size token next to the trophy
 // - The standings team column takes 5fr of the desktop row, so a long full name with a clinch tag is not cut
 // - The rule reader flags a missing rule
@@ -145,9 +145,10 @@ describe('the All-Star page', () => {
 
 describe('the game header', () => {
 	it('gives its content one shrinkable column, so a long postseason mark shrinks', () => {
-		expect(
-			sets(styleFile('GameHeader.svelte'), '.content', 'grid-template-columns', 'minmax(0, 1fr)')
-		).toBe(true);
+		const css = styleFile('PageHeader.svelte');
+		expect(sets(css, '.main-inner', 'grid-template-columns', 'minmax(0, 1fr)')).toBe(true);
+		expect(sets(css, '.lead', 'grid-template-columns', 'minmax(0, 1fr)')).toBe(true);
+		expect(sets(css, '.lead', 'min-width', '0')).toBe(true);
 	});
 });
 
@@ -156,7 +157,7 @@ describe('the champion hero', () => {
 		expect(
 			sets(
 				styleFile('ChampionHero.svelte'),
-				'.champion-hero.mobile h1',
+				'h1.mobile',
 				'font-size',
 				'var(--playoffs-hero-title-size-mobile)'
 			)
