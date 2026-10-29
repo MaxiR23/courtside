@@ -4,6 +4,7 @@
 //
 // Tested:
 // - Ready: the nav row, the back link, the kicker, the h1 round label, both codes, seeds and scores
+// - The nav row, back link and kicker are in the page header, with no grid and no divider
 // - The losing side of a complete series is dimmed; the trailing score is muted
 // - The glows, bars and rules carry the feed's accent, or the neutral accent for a null one
 // - The status and dates lines, absent when the view has none
@@ -83,6 +84,19 @@ describe('SeriesPage ready', () => {
 		expect(screen.getByRole('link', { name: '← Bracket' }).getAttribute('href')).toBe(BRACKET);
 		expect(screen.getByText('2027 NBA Playoffs')).toBeTruthy();
 		expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('East · Round 1');
+	});
+
+	it('draws the nav row, the back link and the kicker in the page header, without a grid or divider', () => {
+		const { container } = show(ready());
+		const header = container.querySelector('header')!;
+		expect(header.querySelector('nav.nav-row')).not.toBeNull();
+		expect(header.querySelector('.first-line .top-bar .back')).not.toBeNull();
+		expect(header.querySelector('.first-line .top-bar .kicker')?.textContent).toBe(
+			'2027 NBA Playoffs'
+		);
+		expect(header.querySelector('.grid-bg')).toBeNull();
+		expect(header.classList.contains('divider')).toBe(false);
+		expect(container.querySelector('.content .top-bar')).toBeNull();
 	});
 
 	it('draws both codes, the seed lines and the scores', () => {

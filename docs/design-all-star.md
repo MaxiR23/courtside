@@ -65,11 +65,11 @@ Everything under "Implementation rules" in `docs/design.md`, `docs/design-cup.md
 ## Nav
 
 - Links: the desktop row reads Games · Standings · Tournaments ▾, with Cup, All-Star and Playoffs inside the dropdown, in that order, then the search trigger. Same rules as the other pages (`docs/design.md`, "Nav row (every page)"). All-Star is active on `/all-star`.
-- Mobile: sticky 56px header with blur (`rgba(12, 14, 16, .92)`, `backdrop-filter: blur(12px)`). Below 680px the links live in the menu sheet, as `docs/design.md`, "Nav row (every page)", describes.
+- Mobile: sticky 56px header with blur (`rgba(12, 14, 16, .92)`, `backdrop-filter: blur(12px)`), a `PageHeader` option (`stickyNav`) that `AllStarHeader` fills with these values. Below 680px the links live in the menu sheet, as `docs/design.md`, "Nav row (every page)", describes.
 
 ## Header
 
-The hero. Ground `--color-bg` with a 56px grid of 1px lines in `--color-grid-line` (`--playoffs-hero-grid-size`), a 1px divider below. Two columns `repeat(auto-fit, minmax(min(100%, 440px), 1fr))`, gap `clamp(32px, 5vw, 72px)`.
+The hero, drawn by `PageHeader`. On desktop the season selector is on the first line at the right edge and the plate column starts below it (`docs/design.md`, "Page header"). Ground `--color-bg` with a 56px grid of 1px lines in `--color-grid-line` (`--playoffs-hero-grid-size`), a 1px divider below. Two flex columns, each `1 1 var(--detail-column-min)` (440px): the copy in the lead and the plate column below the selector, gap `--hero-gap` (`clamp(32px, 5vw, 72px)`). When they do not fit side by side the plate column drops under the copy and the selector stays on the first line.
 
 ### Hero, after
 

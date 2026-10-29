@@ -8,7 +8,7 @@
 // - The calendar button renders when a calendar is given and not otherwise
 // - The loading skeleton is busy and hidden from assistive technology; with no view and no loading only the nav row stays
 // - Spanish arrow labels and calendar button with a Spanish browser preference
-// - On mobile the title row and the loading skeleton carry first-line under the nav
+// - The title row and the loading skeleton are inside the page header's .first-line
 //
 // What is covered:
 // - The header drawn from props with no fetch
@@ -124,13 +124,13 @@ describe('DayHeader', () => {
 	});
 
 	it('puts the first line under the nav on mobile', () => {
-		const first = (c: HTMLElement) => c.querySelector('nav.nav-row')?.nextElementSibling;
+		const first = (c: HTMLElement) => c.querySelector('header .first-line');
 		const a = render(DayHeader, { props: props({ layout: 'mobile' }) });
 		expect(a.container.querySelector('header')?.classList.contains('mobile')).toBe(true);
-		expect(first(a.container)?.matches('.title-row.first-line')).toBe(true);
+		expect(first(a.container)?.querySelector('.title-row')).toBeTruthy();
 		a.unmount();
 		const b = render(DayHeader, { props: props({ layout: 'mobile', view: null, loading: true }) });
-		expect(first(b.container)?.matches('.skeleton.first-line')).toBe(true);
+		expect(first(b.container)?.querySelector('.skeleton')).toBeTruthy();
 		b.unmount();
 		const c = render(DayHeader, { props: props() });
 		expect(c.container.querySelector('header')?.classList.contains('mobile')).toBe(false);

@@ -1,25 +1,24 @@
 // web/tests/headers-first-line-offset.test.ts
 //
-// Cross-cutting test: the distance between the nav row and the first line of every page header on
-// mobile is set by styles jsdom cannot measure, so the rules that set it are asserted in the source.
+// Cross-cutting test: the distance between the nav row and the first line of every page header is
+// set by styles jsdom cannot measure, so the rules that set it are asserted in the source.
 //
 // Tested:
-// - Every listed header applies --header-first-line-offset-mobile on mobile
-// - The Playoffs hero drops the padding under the nav on mobile
-// - The six headers that gain the mobile class bind it to the mobile layout
-// - The token is used only under the mobile class, and the home hero does not use it
+// - PageHeader applies --header-first-line-offset to the main box and the mobile token under .mobile
+// - The home rule sets 0, so its copy stays centered
+// - No component other than PageHeader uses either token
+// - No component style reaches into the nav row with :global
 // - The rule reader flags a missing rule
 //
 // What is covered:
-// - Happy path (every header applies the token), edge case (the token is used only under .mobile)
-//   and error case (a missing rule)
-// - Pixels are not measured here: they were measured once in Chromium at 390px, as in
-//   schedule-header-aligns.test.ts
+// - Happy path (PageHeader applies both tokens), edge case (the home) and error case (a missing rule)
+// - Pixels are not measured here: they were measured in Chromium on /preview at 1280px and 390px
+//   (the header positions of every page, on main and on the branch), as in schedule-header-aligns.test.ts
 //
 // Run with: cd web && pnpm exec vitest run tests/headers-first-line-offset.test.ts
 //
-// SEE: web/src/lib/styles/tokens.css, docs/design.md
-import { readFileSync } from 'node:fs';
+// SEE: web/src/lib/styles/tokens.css, web/src/lib/components/PageHeader.svelte, docs/design.md
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -63,74 +62,45 @@ function sets(css: string, selector: string, property: string, value: string): b
 	);
 }
 
-const read = (name: string) => readFileSync(join(srcDir, 'lib/components', name), 'utf8');
+const componentsDir = join(srcDir, 'lib/components');
+const read = (name: string) => readFileSync(join(componentsDir, name), 'utf8');
 
-const TOKEN = '--header-first-line-offset-mobile';
-const GRID_GAP = `calc(var(${TOKEN}) - var(--panel-section-gap))`;
-const GRID_SELECTOR = '.mobile .content:has(> .first-line) > :global(.nav-row)';
-const CUP_GAP = `calc(var(${TOKEN}) - var(--cup-header-gap))`;
-
-const GRID_HEADERS = [
-	'StandingsHeader.svelte',
-	'TeamHeader.svelte',
-	'PlayerHeader.svelte',
-	'DayHeader.svelte',
-	'GameHeader.svelte',
-	'PlayoffsHeader.svelte'
-];
-const ALL_HEADERS = [
-	...GRID_HEADERS,
-	'CupHeader.svelte',
-	'ChampionHero.svelte',
-	'AllStarHeader.svelte'
-];
+const TOKEN = '--header-first-line-offset';
+const MOBILE_TOKEN = '--header-first-line-offset-mobile';
 
 describe('header first-line offset', () => {
-	it('applies the header first-line offset on mobile in every listed header', () => {
-		const cases: [string, string, string, string][] = [
-			...GRID_HEADERS.map((file): [string, string, string, string] => [
-				file,
-				GRID_SELECTOR,
-				'margin-bottom',
-				GRID_GAP
-			]),
-			['CupHeader.svelte', '.mobile .first-line', 'margin-top', CUP_GAP],
-			['ChampionHero.svelte', '.mobile .inner', 'padding-top', `var(${TOKEN})`],
-			['AllStarHeader.svelte', '.mobile .content', 'padding-top', `var(${TOKEN})`],
-			['PlayoffsHeader.svelte', '.mobile .above-hero', 'padding-bottom', '0']
-		];
-		for (const [file, selector, property, value] of cases) {
-			expect(sets(styleOf(read(file)), selector, property, value), `${file} ${selector}`).toBe(
-				true
-			);
-		}
+	it('applies the first-line offset in PageHeader, and the mobile offset under .mobile', () => {
+		const css = styleOf(read('PageHeader.svelte'));
+		expect(sets(css, '.main-inner', 'padding-top', `var(${TOKEN})`)).toBe(true);
+		expect(sets(css, '.mobile .main-inner', 'padding-top', `var(${MOBILE_TOKEN})`)).toBe(true);
 	});
 
-	it('binds the mobile class to the mobile layout on every header', () => {
-		for (const file of GRID_HEADERS) {
-			expect(read(file), file).toContain("class:mobile={layout === 'mobile'}");
-		}
+	it('keeps the home copy centered: no first-line offset', () => {
+		const css = styleOf(read('PageHeader.svelte'));
+		expect(sets(css, '.home .main-inner', 'padding-top', '0')).toBe(true);
 	});
 
-	it('uses the token only under the mobile class', () => {
-		for (const file of ALL_HEADERS) {
-			const used = rulesOf(styleOf(read(file))).filter((rule) =>
-				rule.declarations.some((d) => d.value.includes(TOKEN))
-			);
-			expect(used.length, file).toBeGreaterThan(0);
-			for (const rule of used) {
-				for (const selector of rule.selectors) {
-					expect(selector.startsWith('.mobile'), `${file} ${selector}`).toBe(true);
-				}
-			}
-		}
+	it('uses neither token in any other component', () => {
+		const files = readdirSync(componentsDir).filter(
+			(file) => file.endsWith('.svelte') && file !== 'PageHeader.svelte'
+		);
+		const offenders = files.filter((file) => {
+			const css = styleOf(read(file));
+			return css.includes(`var(${TOKEN}`);
+		});
+		expect(
+			offenders,
+			`use the first-line offset outside PageHeader: ${offenders.join(', ')}`
+		).toEqual([]);
 	});
 
-	it('keeps the home hero without the token', () => {
-		expect(read('Hero.svelte')).not.toContain(TOKEN);
+	it('reaches into the nav row from no component style', () => {
+		const files = readdirSync(componentsDir).filter((file) => file.endsWith('.svelte'));
+		const offenders = files.filter((file) => styleOf(read(file)).includes(':global(.nav-row)'));
+		expect(offenders, `reach into the nav row: ${offenders.join(', ')}`).toEqual([]);
 	});
 
 	it('flags a missing rule', () => {
-		expect(sets('.content { gap: 0; }', GRID_SELECTOR, 'margin-bottom', GRID_GAP)).toBe(false);
+		expect(sets('.content { gap: 0; }', '.main-inner', 'padding-top', `var(${TOKEN})`)).toBe(false);
 	});
 });

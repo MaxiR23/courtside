@@ -1,8 +1,7 @@
 <script lang="ts">
 	import type { ResolvedPathname } from '$app/types';
 	import ChampionHero from '#lib/components/ChampionHero.svelte';
-	import NavRow from '#lib/components/NavRow.svelte';
-	import SeasonSelect from '#lib/components/SeasonSelect.svelte';
+	import PageHeader from '#lib/components/PageHeader.svelte';
 	import SeasonTag from '#lib/components/SeasonTag.svelte';
 	import StageStrip from '#lib/components/StageStrip.svelte';
 	import StatusTag from '#lib/components/StatusTag.svelte';
@@ -39,92 +38,67 @@
 	}: Props = $props();
 </script>
 
-{#snippet rest()}
+{#snippet stages()}
 	{#if header}
 		<StageStrip stages={header.stages} {layout} columns={header.stages.length === 5 ? 5 : 4} />
 	{/if}
-	{#if seasonSelect && layout === 'mobile'}
-		<div class="season-row"><SeasonSelect {...seasonSelect} full /></div>
+{/snippet}
+
+{#snippet firstLine()}
+	{#if header}
+		<div class="season-line">
+			{#if header.tag}<SeasonTag text={header.tag} />{:else}<StatusTag
+					text={header.season}
+					accent
+				/>{/if}
+			<span class="state-line">{header.stateLine}</span>
+		</div>
+	{:else}
+		<h1>{m.playoffs_title()}</h1>
 	{/if}
 {/snippet}
 
-<header
-	class="playoffs-header"
-	class:mobile={layout === 'mobile'}
-	aria-busy={loading && !header ? 'true' : undefined}
->
-	<div class="content" class:above-hero={header?.hero != null}>
-		<NavRow page="playoffs" gamesHref={allGamesHref} {standingsHref} {layout} />
-		{#if seasonSelect && layout === 'desktop' && !header?.hero}
-			<div class="season-row"><SeasonSelect {...seasonSelect} /></div>
-		{/if}
-
-		{#if header}
-			{#if !header.hero}
-				<div class="season-line first-line">
-					{#if header.tag}<SeasonTag text={header.tag} />{:else}<StatusTag
-							text={header.season}
-							accent
-						/>{/if}
-					<span class="state-line">{header.stateLine}</span>
-				</div>
-				<h1>{m.playoffs_title()}</h1>
-			{/if}
-		{:else}
-			<h1 class="first-line">{m.playoffs_title()}</h1>
-			{#if loading}
-				<div class="bones" aria-hidden="true" use:play={shimmer}>
-					<SkeletonBone width="var(--skeleton-short-width)" height="var(--body-size)" />
-					<SkeletonBone width="var(--skeleton-button-width)" height="var(--body-size-small)" />
-				</div>
-			{:else if seasonTag}
-				<div class="season-line"><SeasonTag text={seasonTag} /></div>
-			{/if}
-		{/if}
-		{#if !header?.hero}
-			{@render rest()}
-		{/if}
-	</div>
-	{#if header?.hero}
-		<ChampionHero
-			hero={header.hero}
-			{layout}
-			{teamHref}
-			{linkSeries}
-			season={header.season}
-			tag={header.tag}
-			stateLine={header.stateLine}
-			{seasonSelect}
-		/>
-		<div class="content">
-			{@render rest()}
+{#snippet bodyRows()}
+	{#if header}
+		<h1>{m.playoffs_title()}</h1>
+	{:else if loading}
+		<div class="bones" aria-hidden="true" use:play={shimmer}>
+			<SkeletonBone width="var(--skeleton-short-width)" height="var(--body-size)" />
+			<SkeletonBone width="var(--skeleton-button-width)" height="var(--body-size-small)" />
 		</div>
+	{:else if seasonTag}
+		<div class="season-line"><SeasonTag text={seasonTag} /></div>
 	{/if}
-</header>
+{/snippet}
+
+{#if header?.hero}
+	<ChampionHero
+		hero={header.hero}
+		{layout}
+		{teamHref}
+		{linkSeries}
+		season={header.season}
+		tag={header.tag}
+		stateLine={header.stateLine}
+		{seasonSelect}
+		{allGamesHref}
+		{standingsHref}
+		after={stages}
+	/>
+{:else}
+	<PageHeader
+		nav={{ page: 'playoffs', gamesHref: allGamesHref, standingsHref }}
+		{layout}
+		{seasonSelect}
+		grid={null}
+		busy={loading && !header}
+		first={firstLine}
+		body={bodyRows}
+		wide={header ? stages : undefined}
+	/>
+{/if}
 
 <style>
-	.playoffs-header {
-		position: relative;
-		border-bottom: var(--hairline) solid var(--color-divider);
-	}
-
-	.content {
-		position: relative;
-		display: grid;
-		gap: var(--panel-section-gap);
-		max-width: var(--content-max-width);
-		margin: 0 auto;
-		padding: var(--game-list-gap) var(--side-padding) var(--panel-section-gap);
-	}
-
-	.mobile .content:has(> .first-line) > :global(.nav-row) {
-		margin-bottom: calc(var(--header-first-line-offset-mobile) - var(--panel-section-gap));
-	}
-
-	.mobile .above-hero {
-		padding-bottom: 0;
-	}
-
 	.season-line {
 		display: flex;
 		flex-wrap: wrap;
@@ -147,10 +121,5 @@
 		flex-wrap: wrap;
 		align-items: center;
 		gap: var(--game-list-gap);
-	}
-
-	.season-row {
-		display: flex;
-		justify-content: flex-end;
 	}
 </style>

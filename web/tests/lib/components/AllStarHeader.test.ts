@@ -5,7 +5,7 @@
 // Tested:
 // - Per state: the tag, the meta line, the kicker, the h1, the score, the stats, the buttons and the plate
 // - The before rows with their values and with "To be confirmed"
-// - The nav row marks All-Star current; the sticky wrapper class only on mobile
+// - The nav row marks All-Star current; the nav bar is raised with the All-Star background on both layouts
 // - The buttons scroll to #games, #mvp and #last-time
 // - The stats count up from zero and show the final values when the timeout ends; the Championship cell is not counted
 // - Under reduced motion the final values show at once
@@ -13,7 +13,7 @@
 // - The skeleton while loading, and only the nav and the title without a header
 // - The season tag when the header has one, with no live dot or live stats on an after header; the select on desktop and mobile (full), its onChange
 // - No guest-rule text, headline, story or ticker
-// - On mobile the content starts with the hero, or the title with no header
+// - The first line is the hero copy, or the title with no header; the mobile side padding only on mobile
 //
 // What is covered:
 // - Each state the header shows, drawn from the recorded feeds
@@ -236,9 +236,17 @@ describe('AllStarHeader, nav and states', () => {
 		expect(screen.getByRole('button', { name: 'Search' })).toBeTruthy();
 	});
 
-	it('wraps the nav in a sticky header only on mobile', () => {
-		expect(show('after', 'desktop').container.querySelector('.nav.sticky')).toBeNull();
-		expect(show('after', 'mobile').container.querySelector('.nav.sticky')).not.toBeNull();
+	it('raises the nav bar on both layouts and gives it the All-Star background', () => {
+		for (const layout of ['desktop', 'mobile'] as const) {
+			const { container, unmount } = show('after', layout);
+			expect(container.querySelector('.nav-bar.raised')).not.toBeNull();
+			expect(
+				container
+					.querySelector<HTMLElement>('header')
+					?.style.getPropertyValue('--page-header-nav-bg')
+			).toBe('var(--allstar-header-bg)');
+			unmount();
+		}
 	});
 
 	it('shows only the nav and the title without a header', () => {
@@ -342,11 +350,17 @@ describe('AllStarHeader season selector and tag', () => {
 		expect(screen.queryByRole('combobox')).toBeNull();
 	});
 
-	it('starts the content with the first line on mobile', () => {
+	it('starts the content with the first line, and the mobile side padding only on mobile', () => {
+		const side = (c: HTMLElement) =>
+			c.querySelector<HTMLElement>('header')?.style.getPropertyValue('--page-header-side-padding');
 		const a = show('live', 'mobile');
-		expect(a.container.querySelector('.content')?.firstElementChild?.matches('.hero')).toBe(true);
+		expect(a.container.querySelector('.first-line > .copy')).not.toBeNull();
+		expect(side(a.container)).toBe('var(--allstar-side-padding-mobile)');
 		a.unmount();
 		const b = show(null, 'mobile');
-		expect(b.container.querySelector('.content')?.firstElementChild?.matches('h1')).toBe(true);
+		expect(b.container.querySelector('.first-line > h1')).not.toBeNull();
+		b.unmount();
+		const c = show('live', 'desktop');
+		expect(side(c.container)).toBe('');
 	});
 });

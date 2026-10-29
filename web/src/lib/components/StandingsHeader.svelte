@@ -1,7 +1,6 @@
 <script lang="ts">
 	import type { ResolvedPathname } from '$app/types';
-	import NavRow from '#lib/components/NavRow.svelte';
-	import SeasonSelect from '#lib/components/SeasonSelect.svelte';
+	import PageHeader from '#lib/components/PageHeader.svelte';
 	import SeasonTag from '#lib/components/SeasonTag.svelte';
 	import StatusTag from '#lib/components/StatusTag.svelte';
 	import { play } from '#lib/hero/motion.ts';
@@ -33,103 +32,80 @@
 		onGroupingChange,
 		seasonSelect = null
 	}: Props = $props();
+
+	const mobile = $derived(layout === 'mobile');
 </script>
 
-<header
-	class="standings-header"
-	class:mobile={layout === 'mobile'}
-	aria-busy={loading && !header ? 'true' : undefined}
->
-	<div class="grid-bg" aria-hidden="true"></div>
-	<div class="content">
-		<NavRow page="standings" gamesHref={allGamesHref} {standingsHref} {layout} />
-		{#if seasonSelect && layout === 'desktop'}
-			<div class="season-row"><SeasonSelect {...seasonSelect} /></div>
-		{/if}
-
-		{#if header}
-			<div class="columns first-line">
-				<div class="intro">
-					<div class="season-line">
-						{#if !header.tag}<StatusTag text={header.season} accent />{/if}
-						{#if header.tag}<SeasonTag text={header.tag} />{/if}
-						<span class="state-line">{header.stateLine}</span>
-					</div>
-					<h1>{m.standings_title()}</h1>
-					<p class="note">{m.standings_note()}</p>
-				</div>
-				<div class="toggle" role="group" aria-label={m.standings_view_toggle()}>
-					<button
-						type="button"
-						class="option"
-						class:active={grouping === 'conference'}
-						aria-pressed={grouping === 'conference'}
-						onclick={() => onGroupingChange('conference')}
-					>
-						{m.standings_conference()}
-					</button>
-					<button
-						type="button"
-						class="option"
-						class:active={grouping === 'division'}
-						aria-pressed={grouping === 'division'}
-						onclick={() => onGroupingChange('division')}
-					>
-						{m.standings_division()}
-					</button>
-				</div>
+{#snippet firstLine()}
+	{#if header}
+		<div class="intro">
+			<div class="season-line">
+				{#if !header.tag}<StatusTag text={header.season} accent />{/if}
+				{#if header.tag}<SeasonTag text={header.tag} />{/if}
+				<span class="state-line">{header.stateLine}</span>
 			</div>
-		{:else}
-			<h1 class="first-line">{m.standings_title()}</h1>
-			{#if loading}
-				<div class="bones" aria-hidden="true" use:play={shimmer}>
-					<SkeletonBone width="var(--skeleton-short-width)" height="var(--body-size)" />
-					<SkeletonBone width="var(--skeleton-button-width)" height="var(--body-size-small)" />
-					<SkeletonBone width="var(--skeleton-button-width)" height="var(--hit-target-size)" />
-				</div>
-			{/if}
-		{/if}
-		{#if seasonSelect && layout === 'mobile'}
-			<div class="season-row"><SeasonSelect {...seasonSelect} full /></div>
-		{/if}
+			<h1>{m.standings_title()}</h1>
+			<p class="note">{m.standings_note()}</p>
+		</div>
+	{:else}
+		<h1>{m.standings_title()}</h1>
+	{/if}
+{/snippet}
+
+{#snippet bodyRows()}
+	{#if loading}
+		<div class="bones" aria-hidden="true" use:play={shimmer}>
+			<SkeletonBone width="var(--skeleton-short-width)" height="var(--body-size)" />
+			<SkeletonBone width="var(--skeleton-button-width)" height="var(--body-size-small)" />
+			<SkeletonBone width="var(--skeleton-button-width)" height="var(--hit-target-size)" />
+		</div>
+	{/if}
+{/snippet}
+
+{#snippet viewToggle()}
+	<div class="toggle" class:mobile role="group" aria-label={m.standings_view_toggle()}>
+		<button
+			type="button"
+			class="option"
+			class:active={grouping === 'conference'}
+			aria-pressed={grouping === 'conference'}
+			onclick={() => onGroupingChange('conference')}
+		>
+			{m.standings_conference()}
+		</button>
+		<button
+			type="button"
+			class="option"
+			class:active={grouping === 'division'}
+			aria-pressed={grouping === 'division'}
+			onclick={() => onGroupingChange('division')}
+		>
+			{m.standings_division()}
+		</button>
 	</div>
-</header>
+{/snippet}
+
+<PageHeader
+	nav={{ page: 'standings', gamesHref: allGamesHref, standingsHref }}
+	{layout}
+	{seasonSelect}
+	busy={loading && !header}
+	first={firstLine}
+	body={header ? undefined : bodyRows}
+	aside={header ? viewToggle : undefined}
+/>
 
 <style>
-	.standings-header {
-		position: relative;
-		border-bottom: var(--hairline) solid var(--color-divider);
+	.toggle {
+		display: inline-flex;
+		align-self: flex-end;
+		margin-top: auto;
+		border: var(--hairline) solid var(--color-divider);
 	}
 
-	.grid-bg {
-		position: absolute;
-		inset: 0;
-		background-image:
-			linear-gradient(var(--color-grid-line) var(--hairline), transparent var(--hairline)),
-			linear-gradient(90deg, var(--color-grid-line) var(--hairline), transparent var(--hairline));
-		background-size: var(--hero-grid-size) var(--hero-grid-size);
-		pointer-events: none;
-	}
-
-	.content {
-		position: relative;
-		display: grid;
-		gap: var(--panel-section-gap);
-		max-width: var(--content-max-width);
-		margin: 0 auto;
-		padding: var(--game-list-gap) var(--side-padding) var(--panel-section-gap);
-	}
-
-	.mobile .content:has(> .first-line) > :global(.nav-row) {
-		margin-bottom: calc(var(--header-first-line-offset-mobile) - var(--panel-section-gap));
-	}
-
-	.columns {
-		display: flex;
-		flex-wrap: wrap;
-		justify-content: space-between;
-		align-items: flex-end;
-		gap: var(--panel-section-gap);
+	.toggle.mobile {
+		align-self: flex-start;
+		margin-top: 0;
 	}
 
 	.intro {
@@ -160,11 +136,6 @@
 		color: var(--color-muted);
 	}
 
-	.toggle {
-		display: inline-flex;
-		border: var(--hairline) solid var(--color-divider);
-	}
-
 	.option {
 		min-height: var(--hit-target-size);
 		padding: 0 var(--game-list-gap);
@@ -193,10 +164,5 @@
 		flex-wrap: wrap;
 		align-items: center;
 		gap: var(--game-list-gap);
-	}
-
-	.season-row {
-		display: flex;
-		justify-content: flex-end;
 	}
 </style>

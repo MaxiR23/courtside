@@ -2,8 +2,7 @@
 	import type { ResolvedPathname } from '$app/types';
 	import AllStarPlate from '#lib/components/AllStarPlate.svelte';
 	import Kicker from '#lib/components/Kicker.svelte';
-	import NavRow from '#lib/components/NavRow.svelte';
-	import SeasonSelect from '#lib/components/SeasonSelect.svelte';
+	import PageHeader from '#lib/components/PageHeader.svelte';
 	import SeasonTag from '#lib/components/SeasonTag.svelte';
 	import StatusTag from '#lib/components/StatusTag.svelte';
 	import type { LiveTick } from '#lib/all-star/live-tick.svelte.ts';
@@ -74,147 +73,96 @@
 	<AllStarPlate plate={view.plate} {layout} {tick} {onLive} />
 {/snippet}
 
-<header class="all-star-header" class:mobile aria-busy={loading && !header ? 'true' : undefined}>
-	<div class="nav" class:sticky={mobile}>
-		<div class="nav-inner">
-			<NavRow page="all-star" gamesHref={allGamesHref} {standingsHref} {layout} />
-			{#if seasonSelect && !mobile}
-				<div class="season-row"><SeasonSelect {...seasonSelect} /></div>
+{#snippet firstLine()}
+	{#if header}
+		<div class="copy">
+			<div class="tag-line">
+				<StatusTag text={header.tag} accent />
+				{#if header.seasonTag}<SeasonTag text={header.seasonTag} />{/if}
+				{#if header.meta}<span class="meta">{header.meta}</span>{/if}
+			</div>
+			<Kicker text={header.kicker} />
+			<div class="headline">
+				<h1 class:mobile>{header.title}</h1>
+				{#if mobile && header.plate.kind === 'mvp'}{@render plate(header)}{/if}
+			</div>
+			{#if header.score}<p class="score" class:mobile>{header.score}</p>{/if}
+			{#if header.stats.length > 0}
+				<dl class="stats" class:mobile>
+					{#each header.stats as stat (stat.key)}
+						<div class="stat" class:accent={stat.accent}>
+							<Kicker as="dt" tone="muted" text={stat.label} />
+							<dd>{statText(stat)}</dd>
+						</div>
+					{/each}
+				</dl>
+			{/if}
+			{#if header.rows.length > 0}
+				<dl class="rows">
+					{#each header.rows as row (row.key)}
+						<div class="info-row">
+							<Kicker as="dt" tone="muted" text={row.label} />
+							<dd>{row.value}</dd>
+						</div>
+					{/each}
+				</dl>
+			{/if}
+			{#if header.buttons.length > 0}
+				<div class="buttons" class:mobile>
+					{#each header.buttons as button (button.key)}
+						<button
+							type="button"
+							class="button"
+							class:mobile
+							class:primary={button.primary}
+							onclick={() => scrollTo(button.key)}
+						>
+							<Kicker tone="inherit" text={button.label} />
+						</button>
+					{/each}
+				</div>
 			{/if}
 		</div>
-	</div>
-	<div class="grid-bg" aria-hidden="true"></div>
-	<div class="content">
-		{#if header}
-			<div class="hero">
-				<div class="copy">
-					<div class="tag-line">
-						<StatusTag text={header.tag} accent />
-						{#if header.seasonTag}<SeasonTag text={header.seasonTag} />{/if}
-						{#if header.meta}<span class="meta">{header.meta}</span>{/if}
-					</div>
-					<Kicker text={header.kicker} />
-					<div class="headline">
-						<h1>{header.title}</h1>
-						{#if mobile && header.plate.kind === 'mvp'}{@render plate(header)}{/if}
-					</div>
-					{#if header.score}<p class="score">{header.score}</p>{/if}
-					{#if header.stats.length > 0}
-						<dl class="stats">
-							{#each header.stats as stat (stat.key)}
-								<div class="stat" class:accent={stat.accent}>
-									<Kicker as="dt" tone="muted" text={stat.label} />
-									<dd>{statText(stat)}</dd>
-								</div>
-							{/each}
-						</dl>
-					{/if}
-					{#if header.rows.length > 0}
-						<dl class="rows">
-							{#each header.rows as row (row.key)}
-								<div class="info-row">
-									<Kicker as="dt" tone="muted" text={row.label} />
-									<dd>{row.value}</dd>
-								</div>
-							{/each}
-						</dl>
-					{/if}
-					{#if header.buttons.length > 0}
-						<div class="buttons">
-							{#each header.buttons as button (button.key)}
-								<button
-									type="button"
-									class="button"
-									class:primary={button.primary}
-									onclick={() => scrollTo(button.key)}
-								>
-									<Kicker tone="inherit" text={button.label} />
-								</button>
-							{/each}
-						</div>
-					{/if}
-				</div>
-				{#if !(mobile && header.plate.kind === 'mvp')}
-					<div class="plate-column">{@render plate(header)}</div>
-				{/if}
-			</div>
-		{:else}
-			<h1>{m.allstar_title()}</h1>
-			{#if loading}
-				<div class="bones" aria-hidden="true" use:play={shimmer}>
-					<SkeletonBone width="var(--skeleton-short-width)" height="var(--body-size)" />
-					<SkeletonBone width="var(--skeleton-button-width)" height="var(--body-size-small)" />
-				</div>
-			{:else if seasonTag}
-				<div class="season-line"><SeasonTag text={seasonTag} /></div>
-			{/if}
-		{/if}
-		{#if seasonSelect && mobile}
-			<div class="season-row"><SeasonSelect {...seasonSelect} full /></div>
-		{/if}
-	</div>
-</header>
+	{:else}
+		<h1 class:mobile>{m.allstar_title()}</h1>
+	{/if}
+{/snippet}
+
+{#snippet bodyRows()}
+	{#if loading}
+		<div class="bones" aria-hidden="true" use:play={shimmer}>
+			<SkeletonBone width="var(--skeleton-short-width)" height="var(--body-size)" />
+			<SkeletonBone width="var(--skeleton-button-width)" height="var(--body-size-small)" />
+		</div>
+	{:else if seasonTag}
+		<div class="season-line"><SeasonTag text={seasonTag} /></div>
+	{/if}
+{/snippet}
+
+{#snippet plateColumn()}
+	{#if header}
+		<div class="plate-column">{@render plate(header)}</div>
+	{/if}
+{/snippet}
+
+<PageHeader
+	nav={{ page: 'all-star', gamesHref: allGamesHref, standingsHref }}
+	{layout}
+	{seasonSelect}
+	busy={loading && !header}
+	grid="var(--playoffs-hero-grid-size)"
+	stickyNav={{ height: 'var(--allstar-header-height)', background: 'var(--allstar-header-bg)' }}
+	sidePadding={mobile ? 'var(--allstar-side-padding-mobile)' : undefined}
+	mainGap="var(--hero-gap)"
+	leadFlex="1 1 var(--detail-column-min)"
+	sideFlex="1 1 var(--detail-column-min)"
+	columnsMin="calc(var(--detail-column-min) * 2)"
+	first={firstLine}
+	body={header ? undefined : bodyRows}
+	aside={header && !(mobile && header.plate.kind === 'mvp') ? plateColumn : undefined}
+/>
 
 <style>
-	.all-star-header {
-		position: relative;
-		border-bottom: var(--hairline) solid var(--color-divider);
-	}
-
-	.nav {
-		position: relative;
-		z-index: var(--tabs-z-index);
-	}
-
-	.nav.sticky {
-		position: sticky;
-		top: 0;
-		min-height: var(--allstar-header-height);
-		background: var(--allstar-header-bg);
-		backdrop-filter: blur(var(--tabs-blur));
-	}
-
-	.nav-inner {
-		max-width: var(--content-max-width);
-		margin: 0 auto;
-		padding: var(--game-list-gap) var(--side-padding) 0;
-	}
-
-	.mobile .nav-inner {
-		padding-inline: var(--allstar-side-padding-mobile);
-	}
-
-	.grid-bg {
-		position: absolute;
-		inset: 0;
-		background-image:
-			linear-gradient(var(--color-grid-line) var(--hairline), transparent var(--hairline)),
-			linear-gradient(90deg, var(--color-grid-line) var(--hairline), transparent var(--hairline));
-		background-size: var(--playoffs-hero-grid-size) var(--playoffs-hero-grid-size);
-		pointer-events: none;
-	}
-
-	.content {
-		position: relative;
-		display: grid;
-		gap: var(--panel-section-gap);
-		max-width: var(--content-max-width);
-		margin: 0 auto;
-		padding: var(--panel-section-gap) var(--side-padding);
-	}
-
-	.mobile .content {
-		padding-inline: var(--allstar-side-padding-mobile);
-		padding-top: var(--header-first-line-offset-mobile);
-	}
-
-	.hero {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--detail-column-min)), 1fr));
-		align-items: center;
-		gap: var(--hero-gap);
-	}
-
 	.copy {
 		display: grid;
 		justify-items: start;
@@ -251,7 +199,7 @@
 		text-transform: uppercase;
 	}
 
-	.mobile h1 {
+	h1.mobile {
 		font-size: var(--allstar-hero-title-size-mobile);
 	}
 
@@ -263,7 +211,7 @@
 		color: var(--color-accent-light);
 	}
 
-	.mobile .score {
+	.score.mobile {
 		font-size: var(--allstar-score-size-mobile);
 	}
 
@@ -278,7 +226,7 @@
 		border-bottom: var(--hairline) solid var(--color-divider);
 	}
 
-	.mobile .stats {
+	.stats.mobile {
 		grid-template-columns: repeat(2, minmax(0, 1fr));
 	}
 
@@ -328,7 +276,7 @@
 		width: 100%;
 	}
 
-	.mobile .buttons {
+	.buttons.mobile {
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
 	}
@@ -348,7 +296,7 @@
 		cursor: pointer;
 	}
 
-	.mobile .button {
+	.button.mobile {
 		min-height: var(--allstar-button-height-mobile);
 	}
 
@@ -360,6 +308,7 @@
 
 	.plate-column {
 		display: grid;
+		margin-block: auto;
 		justify-items: center;
 		min-width: 0;
 	}
@@ -376,10 +325,5 @@
 		flex-wrap: wrap;
 		align-items: center;
 		gap: var(--game-list-gap);
-	}
-
-	.season-row {
-		display: flex;
-		justify-content: flex-end;
 	}
 </style>

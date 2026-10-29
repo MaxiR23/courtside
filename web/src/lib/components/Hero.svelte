@@ -5,7 +5,7 @@
 	import Kicker from '#lib/components/Kicker.svelte';
 	import NameLink from '#lib/components/NameLink.svelte';
 	import NoGamesHero from '#lib/components/NoGamesHero.svelte';
-	import NavRow from '#lib/components/NavRow.svelte';
+	import PageHeader from '#lib/components/PageHeader.svelte';
 	import HeroBackgroundWord from '#lib/components/HeroBackgroundWord.svelte';
 	import HeroPlayerCard from '#lib/components/HeroPlayerCard.svelte';
 	import HeroSlideSelector from '#lib/components/HeroSlideSelector.svelte';
@@ -115,6 +115,110 @@
 	);
 </script>
 
+{#snippet watermark()}
+	<div class="watermark-layer" aria-hidden="true" bind:this={watermarks}>
+		{#each slides as slide, i (i)}
+			<HeroBackgroundWord
+				text={slide.star.shortName}
+				accent={slide.accent}
+				active={i === slideshow.current}
+			/>
+		{/each}
+	</div>
+{/snippet}
+
+{#snippet copyAndVisual()}
+	{#if game}
+		<div class="columns">
+			<div class="copy">
+				<div class="entrance tag" use:play={entrance('--hero-delay-tag')}>
+					<StatusTag status={game.status} />
+					<Kicker text={kicker} />
+				</div>
+				<h1 class="entrance headline" use:play={entrance('--hero-delay-h1')}>
+					<span class="title-logo" aria-hidden="true"
+						><TeamMark team={game.away} part="tile" size="fill" logo={game.away.logo} /></span
+					><NameLink href={teamHref(game.away.code)} text={game.away.name} /><br /><span class="at"
+						>{m.hero_at()}</span
+					>
+					<span class="title-logo" aria-hidden="true"
+						><TeamMark team={game.home} part="tile" size="fill" logo={game.home.logo} /></span
+					><NameLink href={teamHref(game.home.code)} text={game.home.name} />
+				</h1>
+				{#if blurb}
+					<p class="entrance blurb" use:play={entrance('--hero-delay-blurb')}>
+						{blurb}
+					</p>
+				{/if}
+				<div class="entrance buttons" use:play={entrance('--hero-delay-buttons')}>
+					<Button
+						variant="primary"
+						label={m.hero_match_details()}
+						onclick={() => onMatchDetails(game.id)}
+					/>
+					<Button variant="secondary" label={m.hero_all_games()} href={scheduleHref} />
+				</div>
+				<div class="entrance indicator" use:play={entrance('--hero-delay-indicator')}>
+					{#each [gameIndex * 2, gameIndex * 2 + 1] as i (i)}
+						<HeroSlideSelector
+							side={slides[i]}
+							place={i % 2 === 0 ? 'away' : 'home'}
+							active={i === slideshow.current}
+							{running}
+							cycle={slideshow.cycle}
+							onselect={() => slideshow.goTo(i)}
+						/>
+					{/each}
+					{#if games.length > 1}
+						<span class="position">{pad(gameIndex + 1)} / {pad(games.length)}</span>
+					{/if}
+				</div>
+			</div>
+
+			<div class="visual">
+				<div class="parallax" bind:this={parallax}>
+					<div class="frame-entrance" use:play={frameEntrance}>
+						<HeroPlayerCard sides={slides} active={slideshow.current} {teamHref} />
+					</div>
+				</div>
+			</div>
+		</div>
+	{:else if loading}
+		<div class="columns hero-skeleton" aria-hidden="true" use:play={shimmer}>
+			<div class="copy">
+				<div class="tag">
+					<SkeletonBone width="var(--skeleton-tag-width)" height="var(--label-size)" />
+					<SkeletonBone width="var(--skeleton-button-width)" height="var(--label-size)" />
+				</div>
+				<SkeletonBone
+					width="var(--skeleton-long-width)"
+					height="calc(var(--hero-h1-size) * var(--hero-h1-line-height))"
+				/>
+				<SkeletonBone
+					width="var(--skeleton-short-width)"
+					height="calc(var(--hero-h1-size) * var(--hero-h1-line-height))"
+				/>
+				<SkeletonBone width="var(--skeleton-long-width)" height="var(--body-size-hero)" />
+				<div class="buttons">
+					<SkeletonBone width="var(--skeleton-button-width)" height="var(--hit-target-size)" />
+					<SkeletonBone width="var(--skeleton-button-width)" height="var(--hit-target-size)" />
+				</div>
+				<div class="indicator">
+					<SkeletonBone width="var(--skeleton-tag-width)" height="var(--hit-target-size)" />
+					<SkeletonBone width="var(--skeleton-tag-width)" height="var(--hit-target-size)" />
+				</div>
+			</div>
+			<div class="visual">
+				<div class="frame-bone-wrap">
+					<BlueprintFrame><SkeletonBone aspect="var(--hero-frame-aspect)" /></BlueprintFrame>
+				</div>
+			</div>
+		</div>
+	{:else if noGames}
+		<NoGamesHero view={noGames} {layout} />
+	{/if}
+{/snippet}
+
 <!-- The pointer only drives a decorative parallax. -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <section
@@ -126,116 +230,18 @@
 	style:--pointer-x={pointer.x}
 	style:--pointer-y={pointer.y}
 >
-	<div class="grid-bg" aria-hidden="true"></div>
-	<div class="watermark-layer" aria-hidden="true" bind:this={watermarks}>
-		{#each slides as slide, i (i)}
-			<HeroBackgroundWord
-				text={slide.star.shortName}
-				accent={slide.accent}
-				active={i === slideshow.current}
-			/>
-		{/each}
-	</div>
-
-	<div class="content">
-		<NavRow
-			page="home"
-			gamesHref={scheduleHref}
-			{standingsHref}
-			{layout}
-			home={{ today, spoilerFree, onSpoilerFreeToggle, calendar }}
-		/>
-
-		{#if game}
-			<div class="columns">
-				<div class="copy">
-					<div class="entrance tag" use:play={entrance('--hero-delay-tag')}>
-						<StatusTag status={game.status} />
-						<Kicker text={kicker} />
-					</div>
-					<h1 class="entrance headline" use:play={entrance('--hero-delay-h1')}>
-						<span class="title-logo" aria-hidden="true"
-							><TeamMark team={game.away} part="tile" size="fill" logo={game.away.logo} /></span
-						><NameLink href={teamHref(game.away.code)} text={game.away.name} /><br /><span
-							class="at">{m.hero_at()}</span
-						>
-						<span class="title-logo" aria-hidden="true"
-							><TeamMark team={game.home} part="tile" size="fill" logo={game.home.logo} /></span
-						><NameLink href={teamHref(game.home.code)} text={game.home.name} />
-					</h1>
-					{#if blurb}
-						<p class="entrance blurb" use:play={entrance('--hero-delay-blurb')}>
-							{blurb}
-						</p>
-					{/if}
-					<div class="entrance buttons" use:play={entrance('--hero-delay-buttons')}>
-						<Button
-							variant="primary"
-							label={m.hero_match_details()}
-							onclick={() => onMatchDetails(game.id)}
-						/>
-						<Button variant="secondary" label={m.hero_all_games()} href={scheduleHref} />
-					</div>
-					<div class="entrance indicator" use:play={entrance('--hero-delay-indicator')}>
-						{#each [gameIndex * 2, gameIndex * 2 + 1] as i (i)}
-							<HeroSlideSelector
-								side={slides[i]}
-								place={i % 2 === 0 ? 'away' : 'home'}
-								active={i === slideshow.current}
-								{running}
-								cycle={slideshow.cycle}
-								onselect={() => slideshow.goTo(i)}
-							/>
-						{/each}
-						{#if games.length > 1}
-							<span class="position">{pad(gameIndex + 1)} / {pad(games.length)}</span>
-						{/if}
-					</div>
-				</div>
-
-				<div class="visual">
-					<div class="parallax" bind:this={parallax}>
-						<div class="frame-entrance" use:play={frameEntrance}>
-							<HeroPlayerCard sides={slides} active={slideshow.current} {teamHref} />
-						</div>
-					</div>
-				</div>
-			</div>
-		{:else if loading}
-			<div class="columns hero-skeleton" aria-hidden="true" use:play={shimmer}>
-				<div class="copy">
-					<div class="tag">
-						<SkeletonBone width="var(--skeleton-tag-width)" height="var(--label-size)" />
-						<SkeletonBone width="var(--skeleton-button-width)" height="var(--label-size)" />
-					</div>
-					<SkeletonBone
-						width="var(--skeleton-long-width)"
-						height="calc(var(--hero-h1-size) * var(--hero-h1-line-height))"
-					/>
-					<SkeletonBone
-						width="var(--skeleton-short-width)"
-						height="calc(var(--hero-h1-size) * var(--hero-h1-line-height))"
-					/>
-					<SkeletonBone width="var(--skeleton-long-width)" height="var(--body-size-hero)" />
-					<div class="buttons">
-						<SkeletonBone width="var(--skeleton-button-width)" height="var(--hit-target-size)" />
-						<SkeletonBone width="var(--skeleton-button-width)" height="var(--hit-target-size)" />
-					</div>
-					<div class="indicator">
-						<SkeletonBone width="var(--skeleton-tag-width)" height="var(--hit-target-size)" />
-						<SkeletonBone width="var(--skeleton-tag-width)" height="var(--hit-target-size)" />
-					</div>
-				</div>
-				<div class="visual">
-					<div class="frame-bone-wrap">
-						<BlueprintFrame><SkeletonBone aspect="var(--hero-frame-aspect)" /></BlueprintFrame>
-					</div>
-				</div>
-			</div>
-		{:else if noGames}
-			<NoGamesHero view={noGames} {layout} />
-		{/if}
-	</div>
+	<PageHeader
+		nav={{
+			page: 'home',
+			gamesHref: scheduleHref,
+			standingsHref,
+			home: { today, spoilerFree, onSpoilerFreeToggle, calendar }
+		}}
+		{layout}
+		divider={false}
+		backdrop={watermark}
+		body={copyAndVisual}
+	/>
 </section>
 
 <style>
@@ -244,18 +250,7 @@
 		--pointer-y: 0;
 		position: relative;
 		overflow: hidden;
-		padding: var(--identity-hero-pad-top) var(--side-padding) var(--identity-hero-pad-bottom);
 		border-bottom: var(--hairline) solid var(--color-divider);
-	}
-
-	.grid-bg {
-		position: absolute;
-		inset: 0;
-		background-image:
-			linear-gradient(var(--color-grid-line) var(--hairline), transparent var(--hairline)),
-			linear-gradient(90deg, var(--color-grid-line) var(--hairline), transparent var(--hairline));
-		background-size: var(--hero-grid-size) var(--hero-grid-size);
-		pointer-events: none;
 	}
 
 	.watermark-layer {
@@ -270,12 +265,6 @@
 		);
 		opacity: var(--identity-word-stroke-alpha);
 		pointer-events: none;
-	}
-
-	.content {
-		position: relative;
-		max-width: var(--content-max-width);
-		margin: 0 auto;
 	}
 
 	.columns {

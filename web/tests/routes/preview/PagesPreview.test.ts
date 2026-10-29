@@ -9,6 +9,7 @@
 // - Shows the page bodies of each page
 // - Shows the playoffs with and without the champion hero
 // - Shows the All-Star header before, live and after
+// - Shows the season select on the pages that have one, in the header on desktop and full width on mobile
 // - Uses no external URL and names no real source
 //
 // What is covered:
@@ -163,6 +164,24 @@ describe('page catalog', { timeout: 30_000 }, () => {
 		const after = text(entryIn(container, 'all-star-after-desktop'));
 		expect(after).toContain('All-Star recap');
 		expect(after).toContain('25–23');
+	});
+
+	it('shows the season select on the pages that have one, in the header on desktop and full width on mobile', () => {
+		const { container } = render(PagesPreview);
+		const withSelect = IDS.filter((id) =>
+			/^(standings|team|player|playoffs-(picture|champion|loading)|cup|all-star-(before|live|after|loading))-/.test(
+				id
+			)
+		);
+		expect(withSelect.length).toBeGreaterThan(0);
+		for (const id of withSelect) {
+			const select = entryIn(container, id).querySelector('header select[aria-label="Season"]');
+			expect(select, id).toBeTruthy();
+			expect(select?.classList.contains('full'), id).toBe(id.endsWith('-mobile'));
+		}
+		for (const id of IDS.filter((id) => !withSelect.includes(id))) {
+			expect(entryIn(container, id).querySelector('select'), id).toBeNull();
+		}
 	});
 
 	it('uses no external URL and names no real source', () => {

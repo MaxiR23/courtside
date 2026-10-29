@@ -11,7 +11,7 @@
 // - The Cup line after the conference line, linking to the Cup page; none without the mark
 // - Every title after the Cup line, one or more, none for null titles, never a link
 // - The season tag when the header has one; the select on desktop and mobile, with no header, and its onChange; none without the prop
-// - On mobile the first block under the nav carries first-line in the header, loading and season tag states
+// - The first line is inside the page header's .first-line in the header, loading and season tag states; the standing is in the right column
 //
 // What is covered:
 // - Each state the header shows
@@ -275,6 +275,24 @@ describe('TeamHeader season selector and tag', () => {
 		onChange
 	});
 
+	it('puts the standing in the right column, the select out of it', () => {
+		const { container } = render(TeamHeader, {
+			props: {
+				header,
+				allGamesHref: HOME,
+				standingsHref: STANDINGS,
+				layout: 'desktop' as const,
+				seasonSelect: seasonSelect()
+			}
+		});
+		const side = container.querySelector('.side');
+		const select = container.querySelector('.main > .season-select.floating select');
+		const standing = side?.querySelector('.aside .standing') as Node;
+		expect(standing).toBeTruthy();
+		expect(select).toBeTruthy();
+		expect(side?.querySelector('select')).toBeNull();
+	});
+
 	it('draws the season tag only when the header has one', () => {
 		const { unmount } = render(TeamHeader, {
 			props: {
@@ -366,19 +384,22 @@ describe('TeamHeader logo', () => {
 	});
 
 	it('puts the first line under the nav on mobile', () => {
-		const first = (c: HTMLElement) => c.querySelector('nav.nav-row')?.nextElementSibling;
+		const first = (c: HTMLElement) => c.querySelector('header .first-line');
 		const base = { allGamesHref: HOME, standingsHref: STANDINGS, layout: 'mobile' as const };
 		const a = render(TeamHeader, { props: { ...base, header } });
 		expect(a.container.querySelector('header')?.classList.contains('mobile')).toBe(true);
-		expect(first(a.container)?.matches('.columns.first-line')).toBe(true);
+		expect(first(a.container)?.querySelector('.identity')).toBeTruthy();
+		expect(first(a.container)?.querySelector('.standing')).toBeNull();
+		expect(a.container.querySelector('.aside .standing')).toBeTruthy();
 		a.unmount();
 		const b = render(TeamHeader, { props: { ...base, header: null, loading: true } });
-		expect(first(b.container)?.matches('.columns.skeleton.first-line')).toBe(true);
+		expect(first(b.container)?.querySelector('.identity.skeleton')).toBeTruthy();
+		expect(b.container.querySelector('.aside .standing.skeleton')).toBeTruthy();
 		b.unmount();
 		const c = render(TeamHeader, {
 			props: { ...base, header: null, seasonTag: 'Season 2022-23' }
 		});
-		expect(first(c.container)?.matches('div.first-line')).toBe(true);
+		expect(first(c.container)?.textContent).toContain('Season 2022-23');
 		c.unmount();
 		const d = render(TeamHeader, { props: { ...base, header, layout: 'desktop' as const } });
 		expect(d.container.querySelector('header')?.classList.contains('mobile')).toBe(false);

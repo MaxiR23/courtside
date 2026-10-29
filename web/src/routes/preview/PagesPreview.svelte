@@ -69,6 +69,7 @@
 		StandingsRowView,
 		StandingsView
 	} from '#lib/standings/types.ts';
+	import type { SeasonControl } from '#lib/season/types.ts';
 	import type { RosterRow, TeamPageState, TeamView } from '#lib/team/types.ts';
 	import awayPhoto from './player-away.svg';
 	import homePhoto from './player-home.svg';
@@ -1206,6 +1207,16 @@
 			state: loadingState
 		}))
 	];
+
+	// One selector for every page that has one, so the header layout can be seen and measured.
+	const seasonSelect: SeasonControl = {
+		seasons: [
+			{ season: 2027, seasonLabel: '2026-27' },
+			{ season: 2026, seasonLabel: '2025-26' }
+		],
+		value: 2027,
+		onChange: () => {}
+	};
 </script>
 
 {#each entries as entry (entry.id)}
@@ -1233,6 +1244,7 @@
 			{:else if entry.kind === 'standings'}
 				<StandingsPage
 					state={entry.state}
+					{seasonSelect}
 					{allGamesHref}
 					{standingsHref}
 					layout={entry.layout}
@@ -1241,6 +1253,7 @@
 			{:else if entry.kind === 'team'}
 				<TeamPage
 					state={entry.state}
+					{seasonSelect}
 					{allGamesHref}
 					{standingsHref}
 					layout={entry.layout}
@@ -1250,6 +1263,7 @@
 			{:else if entry.kind === 'player'}
 				<PlayerPage
 					state={entry.state}
+					{seasonSelect}
 					{allGamesHref}
 					{standingsHref}
 					layout={entry.layout}
@@ -1280,6 +1294,7 @@
 			{:else if entry.kind === 'playoffs'}
 				<PlayoffsPage
 					state={entry.state}
+					{seasonSelect}
 					{allGamesHref}
 					{standingsHref}
 					layout={entry.layout}
@@ -1302,6 +1317,7 @@
 			{:else if entry.kind === 'cup'}
 				<CupPage
 					state={entry.state}
+					{seasonSelect}
 					{allGamesHref}
 					{standingsHref}
 					layout={entry.layout}
@@ -1313,6 +1329,7 @@
 			{:else}
 				<AllStarPage
 					state={entry.state}
+					{seasonSelect}
 					{allGamesHref}
 					{standingsHref}
 					layout={entry.layout}
