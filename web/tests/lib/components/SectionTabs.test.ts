@@ -10,7 +10,7 @@
 // - Nothing with no tabs and no mini score
 // - A click scrolls smoothly to the section, instantly under reduced motion
 // - The nav stays above the page content: sticky with z-index from --tabs-z-index
-// - With reveal: the mini score is hidden until the scoreboard passes under the bar, then shown, hidden again on return
+// - With reveal: the mini score is hidden until the scoreboard has left the top of the viewport, then shown, hidden again on return
 // - With reveal: stacked on its own row on the mobile layout only; animated, not under reduced motion
 // - Without reveal: the mini text is as before and no observer is built
 //
