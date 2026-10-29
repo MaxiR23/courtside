@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Kicker from '#lib/components/Kicker.svelte';
+	import PageContainer from '#lib/components/PageContainer.svelte';
 	import TeamMonogram from '#lib/components/TeamMonogram.svelte';
 	import { m } from '#lib/paraglide/messages.js';
 	import type { RowLayout } from '#lib/schedule/types.ts';
@@ -14,36 +15,35 @@
 	let { runs, layout, seasonHref }: Props = $props();
 </script>
 
-<section class="names">
-	<Kicker text={m.past_names_title()} />
-	<ol class="runs" class:scroll={layout === 'mobile'}>
-		{#each runs as run (run.key)}
-			<li class="item">
-				{#if run.season !== null}
-					<a class="run" href={seasonHref(run.season)}>
-						<span class="years">{run.years}</span>
-						<span class="name">{run.name}</span>
-						<TeamMonogram code={run.code} size="names" />
-					</a>
-				{:else}
-					<div class="run current" aria-current="true">
-						<span class="years">{run.years}</span>
-						<span class="name">{run.name}</span>
-						<TeamMonogram code={run.code} size="names" />
-					</div>
-				{/if}
-			</li>
-		{/each}
-	</ol>
-</section>
+<PageContainer flushBottom>
+	<section class="names">
+		<Kicker text={m.past_names_title()} />
+		<ol class="runs" class:scroll={layout === 'mobile'}>
+			{#each runs as run (run.key)}
+				<li class="item">
+					{#if run.season !== null}
+						<a class="run" href={seasonHref(run.season)}>
+							<span class="years">{run.years}</span>
+							<span class="name">{run.name}</span>
+							<TeamMonogram code={run.code} size="names" />
+						</a>
+					{:else}
+						<div class="run current" aria-current="true">
+							<span class="years">{run.years}</span>
+							<span class="name">{run.name}</span>
+							<TeamMonogram code={run.code} size="names" />
+						</div>
+					{/if}
+				</li>
+			{/each}
+		</ol>
+	</section>
+</PageContainer>
 
 <style>
 	.names {
 		display: grid;
 		gap: var(--game-list-gap);
-		max-width: var(--content-max-width);
-		margin: 0 auto;
-		padding: var(--side-padding) var(--side-padding) 0;
 	}
 
 	.runs {

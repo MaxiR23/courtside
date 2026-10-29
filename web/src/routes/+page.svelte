@@ -9,6 +9,7 @@
 	import HomeStandings from '#lib/components/HomeStandings.svelte';
 	import Hero from '#lib/components/Hero.svelte';
 	import MessageRow from '#lib/components/MessageRow.svelte';
+	import PageContainer from '#lib/components/PageContainer.svelte';
 	import Schedule from '#lib/components/Schedule.svelte';
 	import ScheduleSkeleton from '#lib/components/ScheduleSkeleton.svelte';
 	import SiteFooter from '#lib/components/SiteFooter.svelte';
@@ -227,43 +228,43 @@
 		/>
 	{/if}
 {:else if unavailable}
-	<section class="unavailable" id="schedule">
-		<MessageRow text={m.feed_unavailable()} />
-	</section>
+	<PageContainer>
+		<section class="unavailable" id="schedule">
+			<MessageRow text={m.feed_unavailable()} />
+		</section>
+	</PageContainer>
 {:else if loading}
 	<ScheduleSkeleton />
 {/if}
 
 {#if homeStandings || homeLeaders}
-	<div class="standings-leaders" class:columns={wide.current}>
-		{#if homeStandings}
-			<HomeStandings
-				view={homeStandings}
-				layout={wide.current ? 'desktop' : 'mobile'}
-				standingsHref={resolve('/standings')}
-			/>
-		{/if}
-		{#if homeLeaders}
-			<HomeLeaders view={homeLeaders} layout={wide.current ? 'desktop' : 'mobile'} />
-		{/if}
-	</div>
+	<PageContainer>
+		<div class="standings-leaders" class:columns={wide.current}>
+			{#if homeStandings}
+				<HomeStandings
+					view={homeStandings}
+					layout={wide.current ? 'desktop' : 'mobile'}
+					standingsHref={resolve('/standings')}
+				/>
+			{/if}
+			{#if homeLeaders}
+				<HomeLeaders view={homeLeaders} layout={wide.current ? 'desktop' : 'mobile'} />
+			{/if}
+		</div>
+	</PageContainer>
 {/if}
 
 <SiteFooter />
 
 <style>
 	.unavailable {
-		max-width: var(--content-max-width);
-		margin: 0 auto;
-		padding: var(--side-padding);
+		/* The container's top padding sits outside the anchor, so the scroll lands where it did. */
+		scroll-margin-top: var(--side-padding);
 	}
 
 	.standings-leaders {
 		display: grid;
 		gap: var(--panel-section-gap);
-		max-width: var(--content-max-width);
-		margin: 0 auto;
-		padding: var(--side-padding);
 	}
 
 	.columns {

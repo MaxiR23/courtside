@@ -8,6 +8,7 @@
 	import LastGames from '#lib/components/LastGames.svelte';
 	import LineScore from '#lib/components/LineScore.svelte';
 	import MessageRow from '#lib/components/MessageRow.svelte';
+	import PageContainer from '#lib/components/PageContainer.svelte';
 	import PlayersToWatch from '#lib/components/PlayersToWatch.svelte';
 	import SeasonSeries from '#lib/components/SeasonSeries.svelte';
 	import SectionHead from '#lib/components/SectionHead.svelte';
@@ -58,136 +59,142 @@
 		reveal={{ scoreboard, layout }}
 	/>
 	{@const sections = page.view.sections}
-	<div class="sections" class:mobile={layout === 'mobile'}>
-		{#if sections.highlights}
-			<section id="highlights">
-				<SectionHead
-					title={m.game_tab_highlights()}
-					meta={sections.highlights.platform}
-					emphasis={false}
-				/>
-				<div class="highlights-wrap">
-					<Highlights
-						detail
-						{...sections.highlights}
-						{playingId}
-						onPlay={(id) => (playingId = id)}
+	<PageContainer>
+		<div class="sections" class:mobile={layout === 'mobile'}>
+			{#if sections.highlights}
+				<section id="highlights">
+					<SectionHead
+						title={m.game_tab_highlights()}
+						meta={sections.highlights.platform}
+						emphasis={false}
 					/>
-				</div>
-			</section>
-		{/if}
-		{#if sections.players}
-			<section id="players">
-				<SectionHead title={m.game_section_players_to_watch()} meta={null} emphasis={false} />
-				<PlayersToWatch players={sections.players} {layout} {teamHref} {playerHref} />
-			</section>
-		{/if}
-		{#if sections.score}
-			<section id="score">
-				<SectionHead title={m.game_tab_score()} meta={null} emphasis={false} />
-				<div class="score-grid">
-					<LineScore
-						detail
-						{teamHref}
-						away={sections.score.lineScore.away}
-						home={sections.score.lineScore.home}
-					/>
-					{#if sections.score.stats}
-						<TeamStats
-							open={true}
-							away={sections.score.stats.away}
-							home={sections.score.stats.home}
-							leads={sections.score.stats.leads}
+					<div class="highlights-wrap">
+						<Highlights
+							detail
+							{...sections.highlights}
+							{playingId}
+							onPlay={(id) => (playingId = id)}
 						/>
-					{/if}
-				</div>
-			</section>
-		{/if}
-		{#if sections.winProbability}
-			<section id="win-probability">
-				<SectionHead
-					title={m.game_section_win_probability()}
-					meta={sections.winProbability.meta}
-					emphasis={true}
-				/>
-				<WinProbability chart={sections.winProbability} live={page.view.header.layout === 'live'} />
-			</section>
-		{/if}
-		{#if sections.boxScore}
-			<section id="box-score">
-				<SectionHead title={m.game_tab_box_score()} meta={null} emphasis={false} />
-				<BoxScore box={sections.boxScore} {layout} {playerHref} />
-			</section>
-		{/if}
-		{#if sections.injuries}
-			<section id="injuries">
-				<SectionHead title={m.game_tab_injuries()} meta={m.game_injuries_meta()} emphasis={false} />
-				<Injuries injuries={sections.injuries} {teamHref} {playerHref} />
-			</section>
-		{/if}
-		{#if sections.lastGames}
-			<section id="last-games">
-				<SectionHead title={m.game_section_last_games()} meta={null} emphasis={false} />
-				<LastGames lastGames={sections.lastGames} {teamHref} />
-			</section>
-		{/if}
-		{#if sections.standings}
-			<section id="standings">
-				<SectionHead title={m.game_tab_standings()} meta={null} emphasis={false} />
-				<StandingsRows standings={sections.standings} {teamHref} />
-			</section>
-		{/if}
-		{#if sections.seasonSeries}
-			<section id="season-series">
-				<SectionHead
-					title={m.game_tab_season_series()}
-					meta={sections.seasonSeries.meta}
-					emphasis={false}
-				/>
-				<SeasonSeries series={sections.seasonSeries} />
-			</section>
-		{/if}
-	</div>
+					</div>
+				</section>
+			{/if}
+			{#if sections.players}
+				<section id="players">
+					<SectionHead title={m.game_section_players_to_watch()} meta={null} emphasis={false} />
+					<PlayersToWatch players={sections.players} {layout} {teamHref} {playerHref} />
+				</section>
+			{/if}
+			{#if sections.score}
+				<section id="score">
+					<SectionHead title={m.game_tab_score()} meta={null} emphasis={false} />
+					<div class="score-grid">
+						<LineScore
+							detail
+							{teamHref}
+							away={sections.score.lineScore.away}
+							home={sections.score.lineScore.home}
+						/>
+						{#if sections.score.stats}
+							<TeamStats
+								open={true}
+								away={sections.score.stats.away}
+								home={sections.score.stats.home}
+								leads={sections.score.stats.leads}
+							/>
+						{/if}
+					</div>
+				</section>
+			{/if}
+			{#if sections.winProbability}
+				<section id="win-probability">
+					<SectionHead
+						title={m.game_section_win_probability()}
+						meta={sections.winProbability.meta}
+						emphasis={true}
+					/>
+					<WinProbability
+						chart={sections.winProbability}
+						live={page.view.header.layout === 'live'}
+					/>
+				</section>
+			{/if}
+			{#if sections.boxScore}
+				<section id="box-score">
+					<SectionHead title={m.game_tab_box_score()} meta={null} emphasis={false} />
+					<BoxScore box={sections.boxScore} {layout} {playerHref} />
+				</section>
+			{/if}
+			{#if sections.injuries}
+				<section id="injuries">
+					<SectionHead
+						title={m.game_tab_injuries()}
+						meta={m.game_injuries_meta()}
+						emphasis={false}
+					/>
+					<Injuries injuries={sections.injuries} {teamHref} {playerHref} />
+				</section>
+			{/if}
+			{#if sections.lastGames}
+				<section id="last-games">
+					<SectionHead title={m.game_section_last_games()} meta={null} emphasis={false} />
+					<LastGames lastGames={sections.lastGames} {teamHref} />
+				</section>
+			{/if}
+			{#if sections.standings}
+				<section id="standings">
+					<SectionHead title={m.game_tab_standings()} meta={null} emphasis={false} />
+					<StandingsRows standings={sections.standings} {teamHref} />
+				</section>
+			{/if}
+			{#if sections.seasonSeries}
+				<section id="season-series">
+					<SectionHead
+						title={m.game_tab_season_series()}
+						meta={sections.seasonSeries.meta}
+						emphasis={false}
+					/>
+					<SeasonSeries series={sections.seasonSeries} />
+				</section>
+			{/if}
+		</div>
+	</PageContainer>
 {:else if page.kind === 'loading'}
 	<GameHeader header={null} loading {layout} {allGamesHref} {standingsHref} {teamHref} />
-	<section class="page-section section-skeleton" aria-busy="true">
-		<div class="bones" aria-hidden="true" use:play={shimmer}>
-			{#each SECTION_BONES as i (i)}
-				<span class="bone heading-bone"></span>
-				<BlueprintFrame><span class="bone block-bone"></span></BlueprintFrame>
-			{/each}
-		</div>
-	</section>
+	<PageContainer>
+		<section class="page-section section-skeleton" aria-busy="true">
+			<div class="bones" aria-hidden="true" use:play={shimmer}>
+				{#each SECTION_BONES as i (i)}
+					<span class="bone heading-bone"></span>
+					<BlueprintFrame><span class="bone block-bone"></span></BlueprintFrame>
+				{/each}
+			</div>
+		</section>
+	</PageContainer>
 {:else if page.kind === 'unavailable'}
 	<GameHeader header={null} {layout} {allGamesHref} {standingsHref} {teamHref} />
-	<section class="page-section">
-		<MessageRow text={m.feed_unavailable()} />
-	</section>
+	<PageContainer>
+		<section class="page-section">
+			<MessageRow text={m.feed_unavailable()} />
+		</section>
+	</PageContainer>
 {:else}
 	<GameHeader header={null} {layout} {allGamesHref} {standingsHref} {teamHref} />
-	<section class="page-section">
-		<MessageRow
-			text={m.game_not_found()}
-			link={{ href: allGamesHref, label: m.hero_all_games() }}
-		/>
-	</section>
+	<PageContainer>
+		<section class="page-section">
+			<MessageRow
+				text={m.game_not_found()}
+				link={{ href: allGamesHref, label: m.hero_all_games() }}
+			/>
+		</section>
+	</PageContainer>
 {/if}
 
 <SiteFooter />
 
 <style>
-	.page-section {
-		max-width: var(--content-max-width);
-		margin: 0 auto;
-		padding: var(--side-padding);
-	}
-
 	.sections {
 		display: grid;
 		gap: var(--detail-section-gap);
-		max-width: var(--content-max-width);
-		margin: 0 auto;
-		padding: var(--side-padding);
 	}
 
 	.sections section {

@@ -772,10 +772,11 @@ describe('home page on a day with no games', () => {
 		const section = container.querySelector('section.coming-up.mobile') as HTMLElement;
 		expect(section).not.toBeNull();
 		expect(hero.contains(section)).toBe(false);
-		expect(hero.nextElementSibling).toBe(section);
-		const last = section.nextElementSibling as HTMLElement;
+		// each section sits in its own page container
+		expect(hero.nextElementSibling).toBe(section.parentElement);
+		const last = section.parentElement?.nextElementSibling?.firstElementChild as HTMLElement;
 		expect(last.classList.contains('last-games')).toBe(true);
-		expect(last.nextElementSibling?.id).toBe('schedule');
+		expect(last.parentElement?.nextElementSibling?.firstElementChild?.id).toBe('schedule');
 		expect(hero.querySelector('.coming-up')).toBeNull();
 	});
 
@@ -839,8 +840,9 @@ describe('home page on a day with no games', () => {
 			const { container } = await setup();
 			const hero = container.querySelector('.hero') as HTMLElement;
 			const last = container.querySelector('section.last-games') as HTMLElement;
-			expect(hero.nextElementSibling).toBe(last);
-			expect(last.nextElementSibling?.id).toBe('schedule');
+			// each section sits in its own page container
+			expect(hero.nextElementSibling).toBe(last.parentElement);
+			expect(last.parentElement?.nextElementSibling?.firstElementChild?.id).toBe('schedule');
 		});
 
 		it('hides Last games when the feed carries none', async () => {
@@ -1013,8 +1015,11 @@ describe('home page on a day with no games', () => {
 			const { container } = await setup();
 			const wrapper = container.querySelector('.standings-leaders') as HTMLElement;
 			expect(wrapper).not.toBeNull();
-			expect(container.querySelector('#schedule')?.nextElementSibling).toBe(wrapper);
-			expect(wrapper.nextElementSibling?.tagName).toBe('FOOTER');
+			// each section sits in its own page container
+			expect(container.querySelector('#schedule')?.parentElement?.nextElementSibling).toBe(
+				wrapper.parentElement
+			);
+			expect(wrapper.parentElement?.nextElementSibling?.firstElementChild?.tagName).toBe('FOOTER');
 			const standings = wrapper.querySelector('.home-standings') as HTMLElement;
 			expect(within(standings).getByRole('heading', { level: 2 }).textContent).toBe('Standings');
 			expect(standings.querySelectorAll('tbody tr')).toHaveLength(6);

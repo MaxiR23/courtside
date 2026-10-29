@@ -3,6 +3,7 @@
 	import type { ResolvedPathname } from '$app/types';
 	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
 	import Kicker from '#lib/components/Kicker.svelte';
+	import PageContainer from '#lib/components/PageContainer.svelte';
 	import StatusTag from '#lib/components/StatusTag.svelte';
 	import type { ComingUpItemView, ComingUpTarget } from '#lib/home/types.ts';
 	import { m } from '#lib/paraglide/messages.js';
@@ -52,9 +53,11 @@
 {/snippet}
 
 {#if layout === 'mobile'}
-	<section class="coming-up mobile" aria-labelledby={headingId}>
-		{@render card()}
-	</section>
+	<PageContainer>
+		<section class="coming-up mobile" aria-labelledby={headingId}>
+			{@render card()}
+		</section>
+	</PageContainer>
 {:else}
 	<aside class="coming-up" aria-labelledby={headingId}>
 		{@render card()}
@@ -62,12 +65,6 @@
 {/if}
 
 <style>
-	.mobile {
-		max-width: var(--content-max-width);
-		margin: 0 auto;
-		padding: var(--side-padding);
-	}
-
 	.panel {
 		display: flex;
 		flex-direction: column;

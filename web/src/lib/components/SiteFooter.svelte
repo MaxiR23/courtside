@@ -1,11 +1,14 @@
 <script lang="ts">
+	import PageContainer from '#lib/components/PageContainer.svelte';
 	import { m } from '#lib/paraglide/messages.js';
 </script>
 
-<footer class="site-footer">
-	<span class="name">{m.site_name()}</span>
-	<span class="disclaimer">{m.identity_footer_disclaimer()}</span>
-</footer>
+<PageContainer divider>
+	<footer class="site-footer">
+		<span class="name">{m.site_name()}</span>
+		<span class="disclaimer">{m.identity_footer_disclaimer()}</span>
+	</footer>
+</PageContainer>
 
 <style>
 	.site-footer {
@@ -14,10 +17,6 @@
 		align-items: center;
 		justify-content: space-between;
 		gap: var(--game-list-gap);
-		max-width: var(--content-max-width);
-		margin: 0 auto;
-		padding: var(--side-padding);
-		border-top: var(--hairline) solid var(--color-divider);
 	}
 
 	.name {

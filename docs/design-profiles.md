@@ -52,7 +52,7 @@ Everything under "Implementation rules" in `docs/design.md` and `docs/design-gam
 
 - Ground `#0c0e10`, ink `#ebe8e3`, muted `#a19d96`, accent `#749dc4`, accent text `#94bce3`, hover link `#b5d9fd`. Divider `color-mix(in srgb, #ebe8e3 13%, transparent)`; table row rules `rgba(235,232,227,.07)`. All through the existing tokens.
 - Headings Barlow Condensed 600, body Barlow. Numbers use `font-variant-numeric: tabular-nums`.
-- Content max width 1320px, side padding `clamp(20px, 4vw, 48px)`, section gap `clamp(64px, 8vw, 104px)`, `scroll-margin-top: 72px`.
+- Content max width 1320px and side padding `clamp(20px, 4vw, 48px)` through `PageContainer`, section gap `clamp(64px, 8vw, 104px)`, `scroll-margin-top: 72px`.
 - Section header: h2 `clamp(28px, 3.4vw, 40px)`, line-height 1, uppercase; optional meta on the right, 12px, muted.
 - **Stat cell:** 1px divider top border; label 11px, .16em, uppercase, accent text; value in Barlow Condensed; sub-line 13px, muted. Cells sit in `repeat(auto-fit, minmax(min(100%, Npx), 1fr))`.
 - **Tables:** the first column is `position: sticky; left: 0` with the ground background. A table scrolls horizontally inside `overflow-x: auto` once the viewport is narrower than its min width. No cell wraps.

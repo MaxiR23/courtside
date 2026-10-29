@@ -3,6 +3,7 @@
 	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
 	import MessageRow from '#lib/components/MessageRow.svelte';
 	import NamesTimeline from '#lib/components/NamesTimeline.svelte';
+	import PageContainer from '#lib/components/PageContainer.svelte';
 	import RosterTable from '#lib/components/RosterTable.svelte';
 	import SectionHead from '#lib/components/SectionHead.svelte';
 	import SectionTabs from '#lib/components/SectionTabs.svelte';
@@ -53,85 +54,86 @@
 	{/if}
 	<SectionTabs tabs={page.view.tabs} mini={page.view.mini} />
 	{@const sections = page.view.sections}
-	<div class="sections">
-		{#if !page.view.past}
-			<section id="overview">
-				<SectionHead title={m.team_tab_overview()} />
-				<TeamOverview overview={sections.overview} {gameHref} />
+	<PageContainer>
+		<div class="sections">
+			{#if !page.view.past}
+				<section id="overview">
+					<SectionHead title={m.team_tab_overview()} />
+					<TeamOverview overview={sections.overview} {gameHref} />
+				</section>
+			{/if}
+			<section id="record">
+				<SectionHead title={m.team_tab_record()} meta={sections.record.meta} />
+				<TeamRecord record={sections.record} />
 			</section>
-		{/if}
-		<section id="record">
-			<SectionHead title={m.team_tab_record()} meta={sections.record.meta} />
-			<TeamRecord record={sections.record} />
-		</section>
-		{#if sections.leaders}
-			<section id="leaders">
-				<SectionHead title={m.team_section_leaders()} meta={sections.leaders.meta} />
-				<TeamLeaders leaders={sections.leaders} {layout} {playerHref} />
-			</section>
-		{/if}
-		{#if sections.roster}
-			<section id="roster">
-				<SectionHead title={m.team_tab_roster()} />
-				<RosterTable roster={sections.roster} {layout} {playerHref} status={!page.view.past} />
-			</section>
-		{/if}
-		{#if !page.view.past}
-			<section id="injuries">
-				<SectionHead title={m.game_tab_injuries()} meta={m.team_injuries_meta()} />
-				<TeamInjuries injuries={sections.injuries} />
-			</section>
-		{/if}
-		{#if sections.schedule}
-			<section id="schedule">
-				<SectionHead title={m.team_tab_schedule()} />
-				<TeamSchedule schedule={sections.schedule} {layout} {gameHref} />
-			</section>
-		{/if}
-	</div>
+			{#if sections.leaders}
+				<section id="leaders">
+					<SectionHead title={m.team_section_leaders()} meta={sections.leaders.meta} />
+					<TeamLeaders leaders={sections.leaders} {layout} {playerHref} />
+				</section>
+			{/if}
+			{#if sections.roster}
+				<section id="roster">
+					<SectionHead title={m.team_tab_roster()} />
+					<RosterTable roster={sections.roster} {layout} {playerHref} status={!page.view.past} />
+				</section>
+			{/if}
+			{#if !page.view.past}
+				<section id="injuries">
+					<SectionHead title={m.game_tab_injuries()} meta={m.team_injuries_meta()} />
+					<TeamInjuries injuries={sections.injuries} />
+				</section>
+			{/if}
+			{#if sections.schedule}
+				<section id="schedule">
+					<SectionHead title={m.team_tab_schedule()} />
+					<TeamSchedule schedule={sections.schedule} {layout} {gameHref} />
+				</section>
+			{/if}
+		</div>
+	</PageContainer>
 {:else if page.kind === 'loading'}
 	<TeamHeader header={null} loading {allGamesHref} {standingsHref} {layout} {seasonSelect} />
-	<section class="page-section section-skeleton" aria-busy="true">
-		<div class="bones" aria-hidden="true" use:play={shimmer}>
-			<span class="bone heading-bone"></span>
-			<BlueprintFrame><span class="bone block-bone"></span></BlueprintFrame>
-		</div>
-	</section>
+	<PageContainer>
+		<section class="page-section section-skeleton" aria-busy="true">
+			<div class="bones" aria-hidden="true" use:play={shimmer}>
+				<span class="bone heading-bone"></span>
+				<BlueprintFrame><span class="bone block-bone"></span></BlueprintFrame>
+			</div>
+		</section>
+	</PageContainer>
 {:else if page.kind === 'unavailable'}
 	<TeamHeader header={null} {allGamesHref} {standingsHref} {layout} {seasonSelect} {seasonTag} />
-	<section class="page-section">
-		<MessageRow text={m.feed_unavailable()} />
-	</section>
+	<PageContainer>
+		<section class="page-section">
+			<MessageRow text={m.feed_unavailable()} />
+		</section>
+	</PageContainer>
 {:else if page.kind === 'no-team'}
 	<TeamHeader header={null} {allGamesHref} {standingsHref} {layout} {seasonSelect} />
-	<section class="page-section">
-		<MessageRow text={m.past_team_no_season()} />
-	</section>
+	<PageContainer>
+		<section class="page-section">
+			<MessageRow text={m.past_team_no_season()} />
+		</section>
+	</PageContainer>
 {:else}
 	<TeamHeader header={null} {allGamesHref} {standingsHref} {layout} {seasonSelect} />
-	<section class="page-section">
-		<MessageRow
-			text={m.team_not_found()}
-			link={{ href: allGamesHref, label: m.hero_all_games() }}
-		/>
-	</section>
+	<PageContainer>
+		<section class="page-section">
+			<MessageRow
+				text={m.team_not_found()}
+				link={{ href: allGamesHref, label: m.hero_all_games() }}
+			/>
+		</section>
+	</PageContainer>
 {/if}
 
 <SiteFooter />
 
 <style>
-	.page-section {
-		max-width: var(--content-max-width);
-		margin: 0 auto;
-		padding: var(--side-padding);
-	}
-
 	.sections {
 		display: grid;
 		gap: var(--detail-section-gap);
-		max-width: var(--content-max-width);
-		margin: 0 auto;
-		padding: var(--side-padding);
 	}
 
 	.sections section {

@@ -26,6 +26,7 @@ A dark-mode, single-page site with two parts:
 | Component | What it is |
 |---|---|
 | `BlueprintFrame` | The framed box with corner registration marks, used across the site |
+| `PageContainer` | The one page container: the centered content width and the side padding of every page body and home section |
 | `Hero` | The top section, rotating through the games of the day |
 | `HeroPlayerCard` | The hero player card: the player's cutout over the logo, tricode and glow layers, with the player strip, specified in `docs/design-team-identity.md`, "Right column: player card" |
 | `DayStrip` | The 7-day selector |
@@ -100,7 +101,7 @@ The only color besides the neutrals is the steel accent. No team colors, except 
 
 ### Spacing
 
-- Max content width: 1320px.
+- Max content width: 1320px. `PageContainer` sets it, with the side padding, for every page body and home section.
 - Side padding: `clamp(20px, 4vw, 48px)`.
 - Game list gap: 14px. Day strip gap: `clamp(4px, 1vw, 8px)`. Expanded panel section gap: 36px.
 - Header first line on mobile: `--header-first-line-offset-mobile` (0px). Under 680px every page header puts its first line (tag row, title row or status line, and its loading skeleton) this far below the nav row. It is the home hero's distance from the nav row to its status tag, measured at 390px. Rows below the first line keep their spacing. The home hero sets it by having no gap; the other headers apply the token.
