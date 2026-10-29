@@ -4,7 +4,8 @@
 //
 // Tested:
 // - Eight cells with value and Career sub-line
-// - The mobile class with the mobile layout and none with the desktop one
+// - Two fixed columns with the mobile layout and none with the desktop one
+// - Values in tabular figures
 //
 // What is covered:
 // - Each case, from the recorded player feed through the props layer
@@ -36,11 +37,30 @@ describe('Milestones', () => {
 		expect(cells[6]?.textContent?.replace(/\s+/g, ' ').trim()).toBe('AST/TO 2.67 Career 1.92');
 	});
 
-	it('uses the mobile class only with the mobile layout', () => {
+	it('still renders the grid element for an empty list', () => {
+		const { container } = render(Milestones, {
+			props: { milestones: { ...milestones, cells: [] }, layout: 'desktop' }
+		});
+		expect(container.querySelector('.cells')).not.toBeNull();
+		expect(container.querySelectorAll('.cell')).toHaveLength(0);
+	});
+
+	it('uses two columns only with the mobile layout', () => {
 		const desktop = render(Milestones, { props: { milestones, layout: 'desktop' } });
-		expect(desktop.container.querySelector('.cells')?.classList.contains('mobile')).toBe(false);
+		const desktopGrid = desktop.container.querySelector<HTMLElement>('.cells')!;
+		expect(desktopGrid.classList.contains('fixed')).toBe(false);
+		expect(desktopGrid.style.getPropertyValue('--cells-columns')).toBe('');
 		desktop.unmount();
 		const mobile = render(Milestones, { props: { milestones, layout: 'mobile' } });
-		expect(mobile.container.querySelector('.cells')?.classList.contains('mobile')).toBe(true);
+		const mobileGrid = mobile.container.querySelector<HTMLElement>('.cells')!;
+		expect(mobileGrid.classList.contains('fixed')).toBe(true);
+		expect(mobileGrid.style.getPropertyValue('--cells-columns')).toBe('2');
+	});
+
+	it('shows the values in tabular figures', () => {
+		const { container } = render(Milestones, { props: { milestones, layout: 'desktop' } });
+		const values = [...container.querySelectorAll('.value')];
+		expect(values).toHaveLength(8);
+		expect(values.every((v) => v.classList.contains('numeric'))).toBe(true);
 	});
 });

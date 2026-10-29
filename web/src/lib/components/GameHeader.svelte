@@ -3,6 +3,7 @@
 	import AllStarTag from '#lib/components/AllStarTag.svelte';
 	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
 	import CupMarkTag from '#lib/components/CupMarkTag.svelte';
+	import Kicker from '#lib/components/Kicker.svelte';
 	import LiveBadge from '#lib/components/LiveBadge.svelte';
 	import NavRow from '#lib/components/NavRow.svelte';
 	import PostseasonMark from '#lib/components/PostseasonMark.svelte';
@@ -174,7 +175,7 @@
 					</BlueprintFrame>
 					{#each venue.cells as cell (cell.label)}
 						<div class="cell">
-							<span class="cell-label">{cell.label}</span>
+							<Kicker text={cell.label} />
 							<span class="cell-value">{cell.value}</span>
 							{#if cell.sub}
 								<span class="cell-sub">{cell.sub}</span>
@@ -444,13 +445,6 @@
 		flex-direction: column;
 		justify-content: center;
 		gap: var(--day-strip-gap);
-	}
-
-	.cell-label {
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-accent-light);
 	}
 
 	.cell-value {

@@ -162,7 +162,7 @@ describe('GameHeader', () => {
 		expect(container.querySelector('.caption .arena')?.textContent).toBe('Chase Center');
 		expect(container.querySelector('.caption .arena-city')).toBeNull();
 		const cell = [...container.querySelectorAll('.cell')].find(
-			(c) => c.querySelector('.cell-label')?.textContent === 'Venue'
+			(c) => c.querySelector('.kicker')?.textContent === 'Venue'
 		);
 		expect(cell?.querySelector('.cell-value')?.textContent).toBe('Chase Center');
 		expect(cell?.querySelector('.cell-sub')).toBeNull();

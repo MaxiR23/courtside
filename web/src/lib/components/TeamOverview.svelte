@@ -1,6 +1,8 @@
 <script lang="ts">
 	import type { ResolvedPathname } from '$app/types';
 	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
+	import InfoCell from '#lib/components/InfoCell.svelte';
+	import Kicker from '#lib/components/Kicker.svelte';
 	import NextGameCard from '#lib/components/NextGameCard.svelte';
 	import { m } from '#lib/paraglide/messages.js';
 	import type { OverviewSection } from '#lib/team/types.ts';
@@ -23,30 +25,25 @@
 					<img src={photo} alt="" loading="lazy" onerror={() => (failedPhoto = photo)} />
 					<div class="fade" aria-hidden="true"></div>
 					<div class="caption">
-						<span class="label">{m.team_arena_label()}</span>
+						<Kicker text={m.team_arena_label()} />
 						<span class="arena">{arena.name}</span>
 						{#if arena.city}<span class="arena-city">{arena.city}</span>{/if}
 					</div>
 				</div>
 			</BlueprintFrame>
 		{:else}
-			<div class="cell arena-cell">
-				<span class="label">{m.team_arena_label()}</span>
-				<span class="cell-value">{arena.name}</span>
-				{#if arena.city}<span class="cell-sub">{arena.city}</span>{/if}
-			</div>
+			<InfoCell label={m.team_arena_label()} value={arena.name} sub={arena.city} />
 		{/if}
 	</div>
 	<div class="right">
 		{#if overview.coach}
-			<div class="cell coach-cell">
-				<span class="label">{overview.coach.label}</span>
-				<span class="cell-value">{overview.coach.value}</span>
-				{#if overview.coach.sub}<span class="cell-sub">{overview.coach.sub}</span>{/if}
-			</div>
+			<InfoCell
+				label={overview.coach.label}
+				value={overview.coach.value}
+				sub={overview.coach.sub}
+			/>
 		{/if}
-		<div class="cell colors-cell">
-			<span class="label">{m.team_colors_label()}</span>
+		<InfoCell label={m.team_colors_label()}>
 			<ul class="swatches">
 				{#each overview.colors as color, i (i)}
 					<li class="swatch">
@@ -55,7 +52,7 @@
 					</li>
 				{/each}
 			</ul>
-		</div>
+		</InfoCell>
 		<NextGameCard game={overview.nextGame} {gameHref} />
 	</div>
 </div>
@@ -109,31 +106,6 @@
 	}
 
 	.arena-city {
-		font-size: var(--body-size-small);
-		color: var(--color-muted);
-	}
-
-	.cell {
-		display: flex;
-		flex-direction: column;
-		gap: var(--day-strip-gap);
-		padding-top: var(--game-list-gap);
-		border-top: var(--hairline) solid var(--color-divider);
-	}
-
-	.label {
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-accent-light);
-	}
-
-	.cell-value {
-		font-family: var(--font-heading);
-		font-size: var(--detail-info-value-size);
-	}
-
-	.cell-sub {
 		font-size: var(--body-size-small);
 		color: var(--color-muted);
 	}

@@ -76,7 +76,7 @@ The h2 is Barlow Condensed, `clamp(28px, 3.4vw, 40px)`, line-height 1, uppercase
 - **Pre-game venue strip:** a grid `repeat(auto-fit, minmax(min(100%, 340px), 1fr))`.
   - Without a venue there is no arena block.
   - Arena photo: a 16:9 `BlueprintFrame` holding the photo in its original colors, with a bottom gradient to `rgba(12,14,16,.85)`. The arena name (22px, uppercase) and city sit over it. Without a city, the arena name sits alone, with no empty line. Without a photo, or when the photo fails to load, the frame shows the 44px grid with the arena name and city over it in the same type, and no gradient. The frame is never empty.
-  - Info cells: Tip-off, Venue and Broadcast. Label 11px, .16em, uppercase, accent-light; value 22px Barlow Condensed; sub-line 13px, muted. The Venue cell shows the arena as its value and the city as its sub-line; without a city it has no sub-line.
+  - Header cells: Tip-off, Venue and Broadcast. Label 11px, .16em, uppercase, accent-light; value 22px Barlow Condensed; sub-line 13px, muted. The Venue cell shows the arena as its value and the city as its sub-line; without a city it has no sub-line.
 
 ### 2. Section tabs
 
