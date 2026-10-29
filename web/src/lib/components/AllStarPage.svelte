@@ -18,6 +18,7 @@
 	import type { RowLayout } from '#lib/schedule/types.ts';
 	import type { SeasonControl } from '#lib/season/types.ts';
 	import { shimmer } from '#lib/skeleton/motion.ts';
+	import SkeletonBone from '#lib/components/SkeletonBone.svelte';
 
 	type Props = {
 		state: AllStarPageState;
@@ -132,11 +133,11 @@
 	<PageContainer sidePadding={mobile ? 'var(--allstar-side-padding-mobile)' : undefined}>
 		<section class="page-section" class:mobile aria-busy="true">
 			<div class="bones" aria-hidden="true" use:play={shimmer}>
-				<span class="bone heading-bone"></span>
+				<SkeletonBone width="var(--skeleton-short-width)" height="var(--section-h2-size)" />
 				<BlueprintFrame marks="allstar">
 					<div class="card-bones">
 						{#each CARD_BONES as i (i)}
-							<span class="bone card-bone"></span>
+							<SkeletonBone height="var(--allstar-mvp-photo-height-mobile)" />
 						{/each}
 					</div>
 				</BlueprintFrame>
@@ -191,25 +192,10 @@
 		gap: var(--game-list-gap);
 	}
 
-	.bone {
-		display: block;
-		background: var(--color-surface);
-		border-radius: var(--radius);
-	}
-
-	.heading-bone {
-		width: var(--skeleton-short-width);
-		height: var(--section-h2-size);
-	}
-
 	.card-bones {
 		display: grid;
 		grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--allstar-card-min)), 1fr));
 		gap: var(--game-list-gap);
 		padding: var(--game-list-gap);
-	}
-
-	.card-bone {
-		height: var(--allstar-mvp-photo-height-mobile);
 	}
 </style>

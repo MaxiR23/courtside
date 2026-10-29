@@ -14,6 +14,7 @@
 	import { scrollFade } from '#lib/player/scroll-fade.ts';
 	import type { SeasonControl } from '#lib/season/types.ts';
 	import { shimmer } from '#lib/skeleton/motion.ts';
+	import SkeletonBone from '#lib/components/SkeletonBone.svelte';
 
 	type Props = {
 		header: PlayerHeaderView | null; // null: only the nav row, or its skeleton while loading
@@ -107,14 +108,14 @@
 		{:else if loading}
 			<div class="top first-line skeleton" aria-hidden="true" use:play={shimmer}>
 				<div class="text">
-					<span class="bone tag-bone"></span>
-					<span class="bone name-bone"></span>
-					<span class="bone line-bone"></span>
+					<SkeletonBone width="var(--skeleton-button-width)" height="var(--body-size-small)" />
+					<SkeletonBone width="100%" height="var(--player-h1-size)" />
+					<SkeletonBone width="var(--skeleton-short-width)" height="var(--body-size)" />
 				</div>
 			</div>
 			<div class="cells skeleton" aria-hidden="true" use:play={shimmer}>
 				{#each CELL_BONES as i (i)}
-					<span class="bone cell-bone"></span>
+					<SkeletonBone height="var(--hit-target-size)" />
 				{/each}
 			</div>
 		{:else if seasonTag}
@@ -271,31 +272,6 @@
 	.cell-sub {
 		font-size: var(--body-size-small);
 		color: var(--color-muted);
-	}
-
-	.bone {
-		display: block;
-		background: var(--color-surface);
-		border-radius: var(--radius);
-	}
-
-	.tag-bone {
-		width: var(--skeleton-button-width);
-		height: var(--body-size-small);
-	}
-
-	.name-bone {
-		width: 100%;
-		height: var(--player-h1-size);
-	}
-
-	.line-bone {
-		width: var(--skeleton-short-width);
-		height: var(--body-size);
-	}
-
-	.cell-bone {
-		height: var(--hit-target-size);
 	}
 
 	.season-row {

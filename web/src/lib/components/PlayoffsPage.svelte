@@ -23,6 +23,7 @@
 	import type { RowLayout } from '#lib/schedule/types.ts';
 	import type { SeasonControl } from '#lib/season/types.ts';
 	import { shimmer } from '#lib/skeleton/motion.ts';
+	import SkeletonBone from '#lib/components/SkeletonBone.svelte';
 
 	type Props = {
 		state: PlayoffsPageState;
@@ -156,11 +157,11 @@
 	<PageContainer>
 		<section class="page-section table-skeleton" aria-busy="true">
 			<div class="bones" aria-hidden="true" use:play={shimmer}>
-				<span class="bone heading-bone"></span>
+				<SkeletonBone width="var(--skeleton-short-width)" height="var(--section-h2-size)" />
 				<BlueprintFrame>
 					<div class="bones">
 						{#each ROW_BONES as i (i)}
-							<span class="bone row-bone"></span>
+							<SkeletonBone height="var(--hit-target-size)" />
 						{/each}
 					</div>
 				</BlueprintFrame>
@@ -243,20 +244,5 @@
 	.bones {
 		display: grid;
 		gap: var(--game-list-gap);
-	}
-
-	.bone {
-		display: block;
-		background: var(--color-surface);
-		border-radius: var(--radius);
-	}
-
-	.heading-bone {
-		width: var(--skeleton-short-width);
-		height: var(--section-h2-size);
-	}
-
-	.row-bone {
-		height: var(--hit-target-size);
 	}
 </style>

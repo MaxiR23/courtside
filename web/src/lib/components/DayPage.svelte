@@ -15,6 +15,7 @@
 	import { m } from '#lib/paraglide/messages.js';
 	import type { RowLayout, ScheduleGame } from '#lib/schedule/types.ts';
 	import { shimmer } from '#lib/skeleton/motion.ts';
+	import SkeletonBone from '#lib/components/SkeletonBone.svelte';
 
 	type Props = {
 		state: DayPageState;
@@ -120,7 +121,9 @@
 				{#each CARDS as i (i)}
 					<li>
 						<BlueprintFrame>
-							<div class="card-bone"><span class="bone"></span></div>
+							<div class="card-bone">
+								<SkeletonBone width="100%" height="var(--monogram-size)" />
+							</div>
 						</BlueprintFrame>
 					</li>
 				{/each}
@@ -161,13 +164,5 @@
 
 	.card-bone {
 		padding: var(--game-list-gap);
-	}
-
-	.bone {
-		display: block;
-		width: 100%;
-		height: var(--monogram-size);
-		background: var(--color-surface);
-		border-radius: var(--radius);
 	}
 </style>

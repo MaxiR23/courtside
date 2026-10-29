@@ -3,6 +3,7 @@
 	import PageContainer from '#lib/components/PageContainer.svelte';
 	import { play } from '#lib/hero/motion.ts';
 	import { shimmer } from '#lib/skeleton/motion.ts';
+	import SkeletonBone from '#lib/components/SkeletonBone.svelte';
 
 	const DAYS = Array.from({ length: 7 }, (_, i) => i); // the day strip's cells, as in DayStrip
 	const CARDS = Array.from({ length: 3 }, (_, i) => i); // placeholder game cards
@@ -14,9 +15,9 @@
 			<div class="strip">
 				{#each DAYS as i (i)}
 					<div class="day-bone">
-						<span class="bone weekday-bone"></span>
-						<span class="bone number-bone"></span>
-						<span class="bone count-bone"></span>
+						<SkeletonBone width="var(--skeleton-long-width)" height="var(--label-size)" />
+						<SkeletonBone width="var(--skeleton-long-width)" height="var(--day-number-size)" />
+						<SkeletonBone width="var(--skeleton-long-width)" height="var(--label-size)" />
 					</div>
 				{/each}
 			</div>
@@ -24,7 +25,9 @@
 				{#each CARDS as i (i)}
 					<li>
 						<BlueprintFrame>
-							<div class="card-bone"><span class="bone"></span></div>
+							<div class="card-bone">
+								<SkeletonBone width="100%" height="var(--monogram-size)" />
+							</div>
 						</BlueprintFrame>
 					</li>
 				{/each}
@@ -72,27 +75,5 @@
 
 	.card-bone {
 		padding: var(--game-list-gap);
-	}
-
-	.bone {
-		display: block;
-		width: 100%;
-		background: var(--color-surface);
-		border-radius: var(--radius);
-	}
-
-	.weekday-bone,
-	.count-bone {
-		width: var(--skeleton-long-width);
-		height: var(--label-size);
-	}
-
-	.number-bone {
-		width: var(--skeleton-long-width);
-		height: var(--day-number-size);
-	}
-
-	.card-bone .bone {
-		height: var(--monogram-size);
 	}
 </style>

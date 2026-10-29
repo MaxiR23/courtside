@@ -10,6 +10,7 @@
 	import type { SeasonControl } from '#lib/season/types.ts';
 	import { shimmer } from '#lib/skeleton/motion.ts';
 	import type { StandingsGrouping, StandingsHeaderView } from '#lib/standings/types.ts';
+	import SkeletonBone from '#lib/components/SkeletonBone.svelte';
 
 	type Props = {
 		header: StandingsHeaderView | null; // null: only the nav row and the title, or the bones while loading
@@ -82,9 +83,9 @@
 			<h1 class="first-line">{m.standings_title()}</h1>
 			{#if loading}
 				<div class="bones" aria-hidden="true" use:play={shimmer}>
-					<span class="bone tag-bone"></span>
-					<span class="bone state-bone"></span>
-					<span class="bone toggle-bone"></span>
+					<SkeletonBone width="var(--skeleton-short-width)" height="var(--body-size)" />
+					<SkeletonBone width="var(--skeleton-button-width)" height="var(--body-size-small)" />
+					<SkeletonBone width="var(--skeleton-button-width)" height="var(--hit-target-size)" />
 				</div>
 			{/if}
 		{/if}
@@ -192,27 +193,6 @@
 		flex-wrap: wrap;
 		align-items: center;
 		gap: var(--game-list-gap);
-	}
-
-	.bone {
-		display: block;
-		background: var(--color-surface);
-		border-radius: var(--radius);
-	}
-
-	.tag-bone {
-		width: var(--skeleton-short-width);
-		height: var(--body-size);
-	}
-
-	.state-bone {
-		width: var(--skeleton-button-width);
-		height: var(--body-size-small);
-	}
-
-	.toggle-bone {
-		width: var(--skeleton-button-width);
-		height: var(--hit-target-size);
 	}
 
 	.season-row {

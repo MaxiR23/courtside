@@ -12,6 +12,7 @@
 	import type { RowLayout } from '#lib/schedule/types.ts';
 	import { keepFocusInside, lockBodyScroll } from '#lib/search/dialog.ts';
 	import { shimmer } from '#lib/skeleton/motion.ts';
+	import SkeletonBone from '#lib/components/SkeletonBone.svelte';
 
 	type Props = {
 		state: MatchupPanelState;
@@ -99,7 +100,7 @@
 	{#if page.kind === 'loading'}
 		<div class="bones" aria-hidden="true" use:play={shimmer}>
 			{#each BONES as i (i)}
-				<span class="bone"></span>
+				<SkeletonBone height="var(--hit-target-size)" />
 			{/each}
 		</div>
 	{:else if page.kind === 'unavailable'}
@@ -277,12 +278,5 @@
 	.bones {
 		display: grid;
 		gap: var(--game-list-gap);
-	}
-
-	.bone {
-		display: block;
-		height: var(--hit-target-size);
-		background: var(--color-surface);
-		border-radius: var(--radius);
 	}
 </style>

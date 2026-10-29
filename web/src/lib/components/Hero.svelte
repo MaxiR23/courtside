@@ -20,6 +20,7 @@
 	import { m } from '#lib/paraglide/messages.js';
 	import type { RowLayout } from '#lib/schedule/types.ts';
 	import { shimmer } from '#lib/skeleton/motion.ts';
+	import SkeletonBone from '#lib/components/SkeletonBone.svelte';
 
 	type Props = {
 		games: HeroGame[]; // the games in the rotation; two stars each rotate on the slideshow
@@ -204,24 +205,30 @@
 			<div class="columns hero-skeleton" aria-hidden="true" use:play={shimmer}>
 				<div class="copy">
 					<div class="tag">
-						<span class="bone tag-bone"></span>
-						<span class="bone kicker-bone"></span>
+						<SkeletonBone width="var(--skeleton-tag-width)" height="var(--label-size)" />
+						<SkeletonBone width="var(--skeleton-button-width)" height="var(--label-size)" />
 					</div>
-					<span class="bone headline-bone"></span>
-					<span class="bone headline-bone short"></span>
-					<span class="bone blurb-bone"></span>
+					<SkeletonBone
+						width="var(--skeleton-long-width)"
+						height="calc(var(--hero-h1-size) * var(--hero-h1-line-height))"
+					/>
+					<SkeletonBone
+						width="var(--skeleton-short-width)"
+						height="calc(var(--hero-h1-size) * var(--hero-h1-line-height))"
+					/>
+					<SkeletonBone width="var(--skeleton-long-width)" height="var(--body-size-hero)" />
 					<div class="buttons">
-						<span class="bone button-bone"></span>
-						<span class="bone button-bone"></span>
+						<SkeletonBone width="var(--skeleton-button-width)" height="var(--hit-target-size)" />
+						<SkeletonBone width="var(--skeleton-button-width)" height="var(--hit-target-size)" />
 					</div>
 					<div class="indicator">
-						<span class="bone indicator-bone"></span>
-						<span class="bone indicator-bone"></span>
+						<SkeletonBone width="var(--skeleton-tag-width)" height="var(--hit-target-size)" />
+						<SkeletonBone width="var(--skeleton-tag-width)" height="var(--hit-target-size)" />
 					</div>
 				</div>
 				<div class="visual">
 					<div class="frame-bone-wrap">
-						<BlueprintFrame><span class="bone frame-bone"></span></BlueprintFrame>
+						<BlueprintFrame><SkeletonBone aspect="var(--hero-frame-aspect)" /></BlueprintFrame>
 					</div>
 				</div>
 			</div>
@@ -347,55 +354,9 @@
 		justify-content: center;
 	}
 
-	.bone {
-		display: block;
-		background: var(--color-surface);
-		border-radius: var(--radius);
-	}
-
-	.tag-bone {
-		width: var(--skeleton-tag-width);
-		height: var(--label-size);
-	}
-
-	.kicker-bone {
-		width: var(--skeleton-button-width);
-		height: var(--label-size);
-	}
-
-	.headline-bone {
-		align-self: stretch;
-		max-width: var(--skeleton-long-width);
-		height: calc(var(--hero-h1-size) * var(--hero-h1-line-height));
-	}
-
-	.headline-bone.short {
-		max-width: var(--skeleton-short-width);
-	}
-
-	.blurb-bone {
-		align-self: stretch;
-		max-width: var(--skeleton-long-width);
-		height: var(--body-size-hero);
-	}
-
-	.button-bone {
-		width: var(--skeleton-button-width);
-		height: var(--hit-target-size);
-	}
-
-	.indicator-bone {
-		width: var(--skeleton-tag-width);
-		height: var(--hit-target-size);
-	}
-
 	.frame-bone-wrap {
 		width: 100%;
 		max-width: var(--hero-frame-max-width);
-	}
-
-	.frame-bone {
-		aspect-ratio: var(--hero-frame-aspect);
 	}
 
 	.parallax {
