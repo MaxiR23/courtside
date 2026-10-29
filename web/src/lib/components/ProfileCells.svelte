@@ -1,53 +1,64 @@
 <script lang="ts">
-	import type { InfoCell } from '#lib/game/types.ts';
+	import InfoCell from '#lib/components/InfoCell.svelte';
+	import type { InfoCell as InfoCellData } from '#lib/game/types.ts';
 
-	type Props = { cells: InfoCell[] };
+	type Props = {
+		cells: InfoCellData[];
+		min?: string; // a token reference for the narrowest column
+		columns?: number | null; // a fixed column count in place of auto-fit; null: auto-fit
+		list?: boolean; // a dl: each label a dt, each value a dd
+		size?: 'detail' | 'hero' | 'record'; // forwarded to every cell
+		strong?: boolean; // forwarded to every cell
+		numeric?: boolean; // forwarded to every cell
+		keepEmpty?: boolean; // render the empty grid element for an empty list
+	};
 
-	let { cells }: Props = $props();
+	let {
+		cells,
+		min = 'var(--player-profile-cell-min)',
+		columns = null,
+		list = false,
+		size = 'detail',
+		strong = false,
+		numeric = false,
+		keepEmpty = false
+	}: Props = $props();
+
+	const columnCount = $derived(columns === null ? undefined : String(columns));
 </script>
 
-{#if cells.length > 0}
-	<div class="cells">
+{#if cells.length > 0 || keepEmpty}
+	<svelte:element
+		this={list ? 'dl' : 'div'}
+		class="cells"
+		class:fixed={columns !== null}
+		style:--cells-min={min}
+		style:--cells-columns={columnCount}
+	>
 		{#each cells as cell (cell.label)}
-			<div class="cell">
-				<span class="label">{cell.label}</span>
-				<span class="value">{cell.value}</span>
-				{#if cell.sub}<span class="sub">{cell.sub}</span>{/if}
-			</div>
+			<InfoCell
+				label={cell.label}
+				value={cell.value}
+				sub={cell.sub}
+				{size}
+				{strong}
+				{numeric}
+				term={list}
+			/>
 		{/each}
-	</div>
+	</svelte:element>
 {/if}
 
 <style>
 	.cells {
 		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--player-profile-cell-min)), 1fr));
+		grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--cells-min)), 1fr));
 		gap: var(--game-list-gap);
 		align-content: start;
+		margin: 0;
 	}
 
-	.cell {
-		display: flex;
-		flex-direction: column;
-		gap: var(--day-strip-gap);
-		padding-top: var(--game-list-gap);
-		border-top: var(--hairline) solid var(--color-divider);
-	}
-
-	.label {
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-accent-light);
-	}
-
-	.value {
-		font-family: var(--font-heading);
-		font-size: var(--detail-info-value-size);
-	}
-
-	.sub {
-		font-size: var(--body-size-small);
-		color: var(--color-muted);
+	.fixed {
+		grid-template-columns: repeat(var(--cells-columns), 1fr);
 	}
 </style>

@@ -3,6 +3,7 @@
 	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
 	import Kicker from '#lib/components/Kicker.svelte';
 	import LiveBadge from '#lib/components/LiveBadge.svelte';
+	import ProfileCells from '#lib/components/ProfileCells.svelte';
 	import StatusTag from '#lib/components/StatusTag.svelte';
 	import TeamMark from '#lib/components/TeamMark.svelte';
 	import { m } from '#lib/paraglide/messages.js';
@@ -34,14 +35,7 @@
 			>
 			<span class="opponent score">{live.score}</span>
 			{#if live.line}
-				<dl class="line">
-					{#each live.line as cell (cell.label)}
-						<div class="stat">
-							<Kicker as="dt" text={cell.label} />
-							<dd>{cell.value}</dd>
-						</div>
-					{/each}
-				</dl>
+				<ProfileCells cells={live.line} columns={5} list numeric keepEmpty />
 			{:else}
 				<p class="not-in-game">{m.player_live_not_in_game()}</p>
 			{/if}
@@ -116,28 +110,6 @@
 	}
 
 	.score {
-		font-variant-numeric: tabular-nums;
-	}
-
-	.line {
-		display: grid;
-		grid-template-columns: repeat(5, 1fr);
-		gap: var(--game-list-gap);
-		margin: 0;
-	}
-
-	.stat {
-		display: flex;
-		flex-direction: column;
-		gap: var(--day-strip-gap);
-		padding-top: var(--game-list-gap);
-		border-top: var(--hairline) solid var(--color-divider);
-	}
-
-	dd {
-		margin: 0;
-		font-family: var(--font-heading);
-		font-size: var(--detail-info-value-size);
 		font-variant-numeric: tabular-nums;
 	}
 

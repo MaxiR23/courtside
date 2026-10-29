@@ -38,6 +38,11 @@ const overview: OverviewSection = {
 
 const gameHref = (id: string) => `/game/${id}` as never;
 
+const cellOf = (container: HTMLElement, label: string) =>
+	[...container.querySelectorAll('.cell')].find(
+		(c) => c.querySelector('.kicker')?.textContent === label
+	);
+
 const show = (value: OverviewSection = overview) =>
 	render(TeamOverview, { props: { overview: value, gameHref } });
 
@@ -57,7 +62,7 @@ describe('TeamOverview arena', () => {
 	it('shows a stat cell and no frame without a photo', () => {
 		const { container } = show({ ...overview, arena: { ...overview.arena, photo: null } });
 		expect(container.querySelector('.photo-box')).toBeNull();
-		const cell = container.querySelector('.arena-cell');
+		const cell = cellOf(container, 'Home arena');
 		expect(cell?.textContent).toContain('Home arena');
 		expect(cell?.textContent).toContain('Paycom Center');
 		expect(cell?.textContent).toContain('Oklahoma City, OK');
@@ -68,14 +73,14 @@ describe('TeamOverview arena', () => {
 			...overview,
 			arena: { name: 'Paycom Center', city: null, photo: null }
 		});
-		expect(container.querySelector('.arena-cell .cell-sub')).toBeNull();
+		expect(cellOf(container, 'Home arena')?.querySelector('.sub')).toBeNull();
 	});
 
 	it('replaces the frame with the stat cell after the image fails', async () => {
 		const { container } = show();
 		await fireEvent.error(container.querySelector('img')!);
 		expect(container.querySelector('.photo-box')).toBeNull();
-		expect(container.querySelector('.arena-cell')).toBeTruthy();
+		expect(cellOf(container, 'Home arena')).toBeTruthy();
 	});
 });
 
@@ -86,8 +91,8 @@ describe('TeamOverview cells', () => {
 		expect(screen.getByText('Mark Daigneault')).toBeTruthy();
 		expect(screen.getByText('6 seasons as NBA head coach')).toBeTruthy();
 		unmount();
-		const { container } = show({ ...overview, coach: null });
-		expect(container.querySelector('.coach-cell')).toBeNull();
+		show({ ...overview, coach: null });
+		expect(screen.queryByText('Head coach')).toBeNull();
 	});
 
 	it('shows the coach name alone without seasons', () => {
@@ -97,7 +102,7 @@ describe('TeamOverview cells', () => {
 		});
 		expect(screen.getByText('Head coach')).toBeTruthy();
 		expect(screen.getByText('Jordan Sample')).toBeTruthy();
-		expect(container.querySelector('.coach-cell .cell-sub')).toBeNull();
+		expect(cellOf(container, 'Head coach')?.querySelector('.sub')).toBeNull();
 		expect(screen.queryByText(/seasons as NBA head coach/)).toBeNull();
 	});
 
@@ -111,6 +116,9 @@ describe('TeamOverview cells', () => {
 		]);
 		expect(screen.getByText('#007AC1')).toBeTruthy();
 		expect(screen.getByText('#EF3B24')).toBeTruthy();
+		const cell = cellOf(container, 'Team colors');
+		expect(cell?.querySelector('.swatches')).not.toBeNull();
+		expect(cell?.querySelector('.value')).toBeNull();
 	});
 
 	it('shows one swatch when the secondary color is unknown', () => {

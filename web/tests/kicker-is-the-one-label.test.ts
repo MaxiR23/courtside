@@ -7,11 +7,10 @@
 // - The components and routes to scan are found, and the scan cannot pass by finding no file
 // - The matcher flags a rule with the whole label set, and passes partial sets and comments
 // - Kicker holds the label set
-// - Every listed exception still holds the label set, so the list never keeps a stale entry
-// - No other component or route holds the label set, except the info cells
+// - No other component or route holds the label set
 //
 // What is covered:
-// - Happy path (only Kicker and the listed exceptions hold it), edge cases (a selector list, a
+// - Happy path (only Kicker holds it), edge cases (a selector list, a
 //   media query, a split set, a comment) and the error case (a rule that holds it is flagged)
 //
 // Run with: cd web && pnpm exec vitest run tests/kicker-is-the-one-label.test.ts
@@ -82,19 +81,6 @@ const componentFiles = svelteFilesUnder(componentsDir);
 const routeFiles = svelteFilesUnder(routesDir);
 const kickerFile = join(componentsDir, 'Kicker.svelte');
 
-// Until the info cell issue moves them into its shared component, these rules hold their own
-// copy of the label set. File name (in lib/components) to selectors.
-const exceptions: Record<string, string[]> = {
-	// Info cells
-	'GameHeader.svelte': ['.cell-label'],
-	'PlayerHeader.svelte': ['.cell-label'],
-	'TeamHeader.svelte': ['.cell-label'],
-	'ProfileCells.svelte': ['.label'],
-	'TeamRecord.svelte': ['.label'],
-	'Milestones.svelte': ['.label'],
-	'TeamOverview.svelte': ['.label']
-};
-
 describe('the scan', () => {
 	it('finds the components and routes to check', () => {
 		expect(componentFiles.length).toBeGreaterThanOrEqual(100);
@@ -133,28 +119,12 @@ describe('the kicker', () => {
 		expect(labelRules(styleOf(readFileSync(kickerFile, 'utf8')))).toEqual(['.kicker']);
 	});
 
-	it('every listed exception still holds the label set', () => {
-		const stale: string[] = [];
-		for (const [name, selectors] of Object.entries(exceptions)) {
-			const found = labelRules(styleOf(readFileSync(join(componentsDir, name), 'utf8')));
-			for (const selector of selectors) {
-				if (!found.includes(selector)) stale.push(`${name} ${selector}`);
-			}
-		}
-		expect(stale, `no longer hold the label set, drop from the list: ${stale.join(', ')}`).toEqual(
-			[]
-		);
-	});
-
-	it('is the only place besides the listed info cells that holds the label set', () => {
+	it('is the only component or route that holds the label set', () => {
 		const offenders: string[] = [];
 		for (const file of [...componentFiles, ...routeFiles]) {
 			if (file === kickerFile) continue;
-			const allowed = file.startsWith(componentsDir)
-				? (exceptions[relative(componentsDir, file)] ?? [])
-				: [];
 			for (const selector of labelRules(styleOf(readFileSync(file, 'utf8')))) {
-				if (!allowed.includes(selector)) offenders.push(`${relative(srcDir, file)} ${selector}`);
+				offenders.push(`${relative(srcDir, file)} ${selector}`);
 			}
 		}
 		expect(offenders, `hold the label set outside Kicker:\n${offenders.join('\n')}`).toEqual([]);

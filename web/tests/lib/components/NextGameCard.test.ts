@@ -107,6 +107,9 @@ describe('NextGameCard live', () => {
 		for (const text of ['LIVE', 'Q3 · 4:12', '@ DEN', '78–74', '24:10', '14', '4', '5', '7–15']) {
 			expect(screen.getByText(text)).toBeTruthy();
 		}
+		expect(screen.getAllByRole('definition').every((d) => d.classList.contains('numeric'))).toBe(
+			true
+		);
 		expect(screen.getAllByRole('term').map((t) => t.textContent)).toEqual([
 			'MIN',
 			'PTS',
@@ -122,6 +125,14 @@ describe('NextGameCard live', () => {
 		expect(screen.getByRole('link', { name: 'Game center' }).getAttribute('href')).toBe(
 			'/game/g-live'
 		);
+	});
+
+	it('still renders the line grid element for an empty line', () => {
+		const { container } = render(NextGameCard, {
+			props: { game, gameHref, live: { ...live, line: [] } }
+		});
+		expect(container.querySelector('.cells')).not.toBeNull();
+		expect(screen.queryByText('Not in the game yet.')).toBeNull();
 	});
 
 	it('shows the muted line when the player has no line yet', () => {

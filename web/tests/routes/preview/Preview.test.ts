@@ -445,8 +445,8 @@ describe('component preview', { timeout: 30_000 }, () => {
 		expect(partial.querySelector('.photo')).toBeNull();
 		expect(tabs('PlayerPage: partial data').length).toBeLessThan(6);
 
-		expect(sectionOf('PlayerPage: mobile').querySelector('.cells.mobile')).not.toBeNull();
-		expect(sectionOf('PlayerPage: full').querySelector('.cells.mobile')).toBeNull();
+		expect(sectionOf('PlayerPage: mobile').querySelector('.cells.fixed')).not.toBeNull();
+		expect(sectionOf('PlayerPage: full').querySelector('.cells.fixed')).toBeNull();
 
 		const loading = sectionOf('PlayerPage: loading');
 		expect(loading.querySelector('header')?.getAttribute('aria-busy')).toBe('true');

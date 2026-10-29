@@ -130,6 +130,17 @@ describe('PlayerHeader', () => {
 		]);
 	});
 
+	it('draws the stat values at the hero size, strong and numeric', () => {
+		const { container } = show({ header });
+		const values = [...container.querySelectorAll('.stats .value')];
+		expect(values).toHaveLength(4);
+		for (const value of values) {
+			for (const name of ['hero', 'strong', 'numeric']) {
+				expect(value.classList.contains(name)).toBe(true);
+			}
+		}
+	});
+
 	it('shows no stats block with null stats', () => {
 		const { container } = show({ header: { ...header, stats: null } });
 		expect(container.querySelector('.stats')).toBeNull();
@@ -153,6 +164,14 @@ describe('PlayerHeader', () => {
 		expect(cup.getAttribute('href')).toBe('/cup');
 		expect(cup.getAttribute('aria-current')).toBeNull();
 		expect(document.querySelector('[aria-current]')).toBeNull();
+	});
+
+	it('still renders the stats grid element for an empty cell list', () => {
+		const { container } = show({
+			header: { ...header, stats: { label: header.stats!.label, cells: [] } }
+		});
+		expect(container.querySelector('.stats .cells')).not.toBeNull();
+		expect(container.querySelectorAll('.stats .cell')).toHaveLength(0);
 	});
 
 	it('puts the nav links on their own row on a phone', () => {

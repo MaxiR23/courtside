@@ -3,6 +3,7 @@
 	import CupTeamLine from '#lib/components/CupTeamLine.svelte';
 	import TeamMark from '#lib/components/TeamMark.svelte';
 	import NavRow from '#lib/components/NavRow.svelte';
+	import ProfileCells from '#lib/components/ProfileCells.svelte';
 	import SeasonSelect from '#lib/components/SeasonSelect.svelte';
 	import SeasonTag from '#lib/components/SeasonTag.svelte';
 	import TeamTitles from '#lib/components/TeamTitles.svelte';
@@ -71,14 +72,8 @@
 					<span class="record">{header.record}</span>
 					<span class="win-pct">{header.winPct}</span>
 					<span class="record-season">{header.recordSeason}</span>
-					<div class="cells">
-						{#each header.cells as cell (cell.label)}
-							<div class="cell">
-								<span class="cell-label">{cell.label}</span>
-								<span class="cell-value">{cell.value}</span>
-								{#if cell.sub}<span class="cell-sub">{cell.sub}</span>{/if}
-							</div>
-						{/each}
+					<div class="cell-row">
+						<ProfileCells cells={header.cells} min="var(--team-header-cell-min)" />
 					</div>
 				</div>
 			</div>
@@ -216,29 +211,8 @@
 		margin-top: var(--game-list-gap);
 	}
 
-	.cell {
-		display: flex;
-		flex-direction: column;
-		gap: var(--day-strip-gap);
-		padding-top: var(--game-list-gap);
-		border-top: var(--hairline) solid var(--color-divider);
-	}
-
-	.cell-label {
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-accent-light);
-	}
-
-	.cell-value {
-		font-family: var(--font-heading);
-		font-size: var(--detail-info-value-size);
-	}
-
-	.cell-sub {
-		font-size: var(--body-size-small);
-		color: var(--color-muted);
+	.cell-row {
+		margin-top: var(--game-list-gap);
 	}
 
 	.season-row {

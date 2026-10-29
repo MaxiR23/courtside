@@ -31,7 +31,7 @@ Everything under "Implementation rules" in `docs/design.md` and `docs/design-gam
 | Component | What it is |
 |---|---|
 | `PlayerHeader` | Name block, status, injury card, photo with its fade and the four hero stats |
-| `ProfileCells` | The player profile cells |
+| `ProfileCells` | The grid of `InfoCell`s: the player profile cells, and the cells of the player header, milestones, team header, team record and the live line |
 | `NextGameCard` | The next game card, shared by both pages; on the player page it becomes the live card while the player's team is live |
 | `StatTable` | The stat table of the averages, season by season and game log: sticky first column, horizontal scroll, optional game link per row |
 | `RecentGames` | The player's last 5 games |
@@ -54,7 +54,7 @@ Everything under "Implementation rules" in `docs/design.md` and `docs/design-gam
 - Headings Barlow Condensed 600, body Barlow. Numbers use `font-variant-numeric: tabular-nums`.
 - Content max width 1320px and side padding `clamp(20px, 4vw, 48px)` through `PageContainer`, section gap `clamp(64px, 8vw, 104px)`, `scroll-margin-top: 72px`.
 - Section header: h2 `clamp(28px, 3.4vw, 40px)`, line-height 1, uppercase; optional meta on the right, 12px, muted.
-- **Stat cell:** 1px divider top border; label 11px, .16em, uppercase, accent text; value in Barlow Condensed; sub-line 13px, muted. Cells sit in `repeat(auto-fit, minmax(min(100%, Npx), 1fr))`.
+- **Stat cell:** drawn by `InfoCell`; 1px divider top border; label 11px, .16em, uppercase, accent text; value in Barlow Condensed; sub-line 13px, muted. Cells sit in `ProfileCells`, which lays them out in an auto-fit grid by default, `repeat(auto-fit, minmax(min(100%, Npx), 1fr))`, or in a fixed column count (two for milestones on mobile, five for the live line). An empty cell list draws nothing, except where the page always drew its grid (milestones, the team record, the player header stats and the live line), which keep the empty grid element.
 - **Tables:** the first column is `position: sticky; left: 0` with the ground background. A table scrolls horizontally inside `overflow-x: auto` once the viewport is narrower than its min width. No cell wraps.
 - The nav row and the sticky section tabs are the game detail page's.
 - **Position names** are translated through `position_*` (table in `docs/design-all-star.md`, Strings): a known English name, or a hyphenated name of known parts ("Forward-Center"), is translated; anything else, abbreviations such as "G" or "F-C" included, stays as the feed sends it. Guard and Shooting Guard are both "Escolta" in Spanish; Forward and Small Forward are both "Alero".
@@ -125,7 +125,7 @@ Overview · Record · Leaders · Roster · Injuries · Schedule. Mini `OKC 57–
 
 ### 3. Overview
 
-- **Arena:** a 16:10 blueprint frame with the arena photo **in its original colors** and a bottom gradient, the label "Home arena", the arena name and the city over it. **Without a photo the frame is not shown:** the label, the arena name and the city are shown as a stat cell, in the same position and order.
+- **Arena:** a 16:10 blueprint frame with the arena photo **in its original colors** and a bottom gradient, the label "Home arena", the arena name and the city over it. **Without a photo the frame is not shown:** the label, the arena name and the city are shown as an `InfoCell`, in the same position and order.
 - **Head coach:** the name and `N seasons as NBA head coach`; with no seasons in the feed (a first-year head coach), the name alone, with no seasons line.
 - **Team colors:** two 26px swatches with their hex values.
 - **Next game:** the next game card, as on the player page.

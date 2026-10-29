@@ -4,6 +4,7 @@
 	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
 	import Kicker from '#lib/components/Kicker.svelte';
 	import NavRow from '#lib/components/NavRow.svelte';
+	import ProfileCells from '#lib/components/ProfileCells.svelte';
 	import SeasonSelect from '#lib/components/SeasonSelect.svelte';
 	import SeasonTag from '#lib/components/SeasonTag.svelte';
 	import StatusTag from '#lib/components/StatusTag.svelte';
@@ -94,15 +95,14 @@
 			{#if header.stats}
 				<div class="stats">
 					<Kicker text={header.stats.label} />
-					<div class="cells">
-						{#each header.stats.cells as cell (cell.label)}
-							<div class="cell">
-								<span class="cell-label">{cell.label}</span>
-								<span class="cell-value">{cell.value}</span>
-								{#if cell.sub}<span class="cell-sub">{cell.sub}</span>{/if}
-							</div>
-						{/each}
-					</div>
+					<ProfileCells
+						cells={header.stats.cells}
+						min="var(--player-hero-cell-min)"
+						size="hero"
+						strong
+						numeric
+						keepEmpty
+					/>
 				</div>
 			{/if}
 		{:else if loading}
@@ -244,34 +244,6 @@
 		display: grid;
 		grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--player-hero-cell-min)), 1fr));
 		gap: var(--game-list-gap);
-	}
-
-	.cell {
-		display: flex;
-		flex-direction: column;
-		gap: var(--day-strip-gap);
-		padding-top: var(--game-list-gap);
-		border-top: var(--hairline) solid var(--color-divider);
-	}
-
-	.cell-label {
-		font-size: var(--label-size);
-		letter-spacing: var(--label-letter-spacing);
-		text-transform: uppercase;
-		color: var(--color-accent-light);
-	}
-
-	.cell-value {
-		font-family: var(--font-heading);
-		font-weight: var(--font-weight-semibold);
-		font-size: var(--player-hero-value-size);
-		line-height: 1;
-		font-variant-numeric: tabular-nums;
-	}
-
-	.cell-sub {
-		font-size: var(--body-size-small);
-		color: var(--color-muted);
 	}
 
 	.season-row {
