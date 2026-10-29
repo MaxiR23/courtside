@@ -145,6 +145,9 @@ describe('AllStarHeader, after', () => {
 		const mobile = show('after', 'mobile').container;
 		expect(mobile.querySelector('.headline a.mvp-thumb')?.getAttribute('href')).toBe('#mvp');
 		expect(mobile.querySelector('.plate-column')).toBeNull();
+		const headline = mobile.querySelector('.headline');
+		expect(headline?.lastElementChild?.classList.contains('thumb')).toBe(true);
+		expect(headline?.firstElementChild?.tagName).toBe('H1');
 	});
 
 	it('scrolls to the games and to the MVP from the buttons', async () => {

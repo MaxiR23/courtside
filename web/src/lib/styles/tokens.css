@@ -627,6 +627,9 @@
 	--allstar-plate-max-width: 520px;
 	--allstar-mark-gap: 6px;
 	--allstar-plate-photo-height: 92%;
+	--allstar-plate-cover-height: 82%;
+	--allstar-plate-scrim-height: 34%;
+	--allstar-plate-scrim: linear-gradient(to top, var(--color-bg), transparent);
 	--allstar-plate-glow: rgba(116, 157, 196, 0.3);
 	--allstar-watermark-ink: rgba(235, 232, 227, 0.06);
 	--allstar-plate-grid-size: 32px;
