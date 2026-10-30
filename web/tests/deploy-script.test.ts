@@ -11,6 +11,8 @@
 //   the rebuild and waits for the healthy service
 // - The script refuses a missing key, a dirty tree, another branch, a main behind or ahead of
 //   origin, an unlinked Vercel folder and an unknown mode, and no output holds a .env.deploy value
+// - DEPLOY_SSH_HOST accepts only letters, digits, dots, hyphens and underscores, not a
+//   leading -, and a refused value stops the run before any ssh call without being printed
 // - The Vercel folder guards refuse /, the home folder, the repository, a folder containing it,
 //   their symlinks and a relative path, before any delete
 // - The api side fails when the remote update fails, when the machine is not on the checked
@@ -19,9 +21,9 @@
 // - A variable in the build's environment wins over web/.env (the loadEnv call SvelteKit makes)
 //
 // What is covered:
-// - Happy paths (all, web and api modes)
+// - Happy paths (all, web and api modes, a host alias with digits and an underscore)
 // - Edge cases (empty value versus missing line, untracked file, api-only mode, the precedence control)
-// - Error cases (every refusal above and a HEAD mismatch, a failed HEAD read, a failed rebuild and a failing health check)
+// - Error cases (a host starting with -, holding a space or an =, every refusal above and a HEAD mismatch, a failed HEAD read, a failed rebuild and a failing health check)
 //
 // Run with: cd web && pnpm exec vitest run tests/deploy-script.test.ts
 //
@@ -370,6 +372,38 @@ describe('scripts/deploy.sh', () => {
 			}
 		}
 	);
+
+	it('api: accepts a host alias of letters, digits, dots, hyphens and underscores and reaches ssh', () => {
+		const host = 'courtside_vm-2.example';
+		writeDeployEnv([
+			`DEPLOY_SSH_HOST=${host}`,
+			`DEPLOY_SITE_URL=${siteUrl}`,
+			`DEPLOY_VERCEL_DIR=${vercelDir}`
+		]);
+		const result = run(['api']);
+		expect(result.status).toBe(0);
+		const sshLines = stubLog().filter((line) => line.startsWith('ssh\t'));
+		expect(sshLines).toHaveLength(4);
+		for (const line of sshLines) expect(line).toContain(`\t${host} `);
+		expect(`${result.stdout}${result.stderr}`).not.toContain(host);
+	});
+
+	it.each([
+		['starting with -', '-oProxyCommand=false'],
+		['holding a space', 'courtside vm'],
+		['holding an =', 'courtside=vm']
+	])('refuses DEPLOY_SSH_HOST %s before any ssh call, without printing it', (_label, host) => {
+		writeDeployEnv([
+			`DEPLOY_SSH_HOST=${host}`,
+			`DEPLOY_SITE_URL=${siteUrl}`,
+			`DEPLOY_VERCEL_DIR=${vercelDir}`
+		]);
+		const result = run(['api']);
+		expect(result.status).not.toBe(0);
+		expect(result.stderr).toContain('DEPLOY_SSH_HOST');
+		expect(`${result.stdout}${result.stderr}`).not.toContain(host);
+		expect(stubLog()).toEqual([]);
+	});
 
 	it('fails when .env.deploy does not exist', () => {
 		rmSync(join(repo, '.env.deploy'));

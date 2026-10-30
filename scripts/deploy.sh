@@ -5,7 +5,9 @@
 #           so it must not use bash 4 features or GNU-only flags.
 # STEPS:
 #   [api|web|all]   no argument means all
-#     1. Read the three keys of .env.deploy and stop naming the missing one.
+#     1. Read the three keys of .env.deploy and stop naming the missing one, or naming
+#        DEPLOY_SSH_HOST when it is not letters, digits, dots, hyphens and underscores or
+#        starts with -.
 #     2. Require branch main, a clean tree and main equal to origin/main, and record that
 #        commit.
 #     3. web, all: require pnpm, vercel, web/.env and a dedicated Vercel folder linked with
@@ -182,6 +184,11 @@ main() {
   require_key DEPLOY_SSH_HOST "$ssh_host"
   require_key DEPLOY_SITE_URL "$site"
   require_key DEPLOY_VERCEL_DIR "$vercel_dir"
+  case "$ssh_host" in
+    -* | *[!abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-]*)
+      die "DEPLOY_SSH_HOST must be a host alias or hostname of letters, digits, dots, hyphens and underscores, not starting with -"
+      ;;
+  esac
   case "$site" in
     https://*) ;;
     *) die "DEPLOY_SITE_URL must start with https://" ;;
