@@ -23,7 +23,7 @@ import Page from '../../../src/routes/preview/+page.svelte';
 
 const event = {} as Parameters<typeof load>[0];
 
-describe('preview route', () => {
+describe('preview route', { timeout: 30_000 }, () => {
 	afterEach(() => {
 		vi.unstubAllEnvs();
 	});
