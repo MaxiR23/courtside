@@ -18,12 +18,17 @@
 // - The api side fails when the remote update fails, when the machine is not on the checked
 //   commit, when its commit cannot be read, when the rebuild fails and when the service is not
 //   healthy in 180 s
+// - In web and all modes DEPLOY_VERCEL_PROJECT_ID must be set and equal the projectId of the
+//   linked folder's .vercel/project.json, read by plain text; api mode does not need it
 // - A variable in the build's environment wins over web/.env (the loadEnv call SvelteKit makes)
 //
 // What is covered:
-// - Happy paths (all, web and api modes, a host alias with digits and an underscore)
-// - Edge cases (empty value versus missing line, untracked file, api-only mode, the precedence control)
-// - Error cases (a host starting with -, holding a space or an =, every refusal above and a HEAD mismatch, a failed HEAD read, a failed rebuild and a failing health check)
+// - Happy paths (all, web and api modes, a host alias with digits and an underscore, a project.json
+//   whose projectId matches, one line or pretty-printed)
+// - Edge cases (empty value versus missing line, untracked file, api-only mode, the precedence control,
+//   api mode without DEPLOY_VERCEL_PROJECT_ID, an empty projectId, the value under orgId)
+// - Error cases (a host starting with -, holding a space or an =, every refusal above and a HEAD mismatch, a failed HEAD read, a failed rebuild and a failing health check,
+//   a projectId that differs, a project.json without projectId)
 //
 // Run with: cd web && pnpm exec vitest run tests/deploy-script.test.ts
 //
@@ -55,7 +60,8 @@ const realDoc = readFileSync(join(root, 'docs', 'deploy.md'), 'utf8');
 
 const sshHost = 'courtside-test.example';
 const siteUrl = 'https://www.example.com';
-const secretValues = [sshHost, siteUrl];
+const projectId = 'prj_example_courtside';
+const secretValues = [sshHost, siteUrl, projectId];
 
 const stubs: Record<string, string> = {
 	ssh: `#!/usr/bin/env bash
@@ -133,7 +139,8 @@ function defaultDeployEnv(): string[] {
 	return [
 		`DEPLOY_SSH_HOST=${sshHost}`,
 		`DEPLOY_SITE_URL=${siteUrl}`,
-		`DEPLOY_VERCEL_DIR=${vercelDir}`
+		`DEPLOY_VERCEL_DIR=${vercelDir}`,
+		`DEPLOY_VERCEL_PROJECT_ID=${projectId}`
 	];
 }
 
@@ -207,7 +214,10 @@ beforeEach(() => {
 		[...webEnv, 'VIDEO_PLATFORM_NAME=Example Video', ''].join('\n')
 	);
 	mkdirSync(join(vercelDir, '.vercel'), { recursive: true });
-	writeFileSync(join(vercelDir, '.vercel', 'project.json'), '{}');
+	writeFileSync(
+		join(vercelDir, '.vercel', 'project.json'),
+		`{"projectId":"${projectId}","orgId":"team_example"}`
+	);
 	writeFileSync(join(vercelDir, 'old.txt'), 'stale');
 	writeDeployEnv(defaultDeployEnv());
 });
@@ -359,7 +369,7 @@ describe('scripts/deploy.sh', () => {
 		expect(lines.some((line) => /^(sleep|curl)\t/.test(line))).toBe(false);
 	});
 
-	it.each(['DEPLOY_SSH_HOST', 'DEPLOY_SITE_URL', 'DEPLOY_VERCEL_DIR'])(
+	it.each(['DEPLOY_SSH_HOST', 'DEPLOY_SITE_URL', 'DEPLOY_VERCEL_DIR', 'DEPLOY_VERCEL_PROJECT_ID'])(
 		'fails naming the missing key %s, without printing any value',
 		(key) => {
 			for (const empty of [false, true]) {
@@ -372,6 +382,81 @@ describe('scripts/deploy.sh', () => {
 			}
 		}
 	);
+
+	function writeProjectJson(content: string): void {
+		writeFileSync(join(vercelDir, '.vercel', 'project.json'), content);
+	}
+
+	it('web: stops naming DEPLOY_VERCEL_PROJECT_ID when it is missing, before the build', () => {
+		for (const empty of [false, true]) {
+			const lines = defaultDeployEnv().filter(
+				(line) => !line.startsWith('DEPLOY_VERCEL_PROJECT_ID=')
+			);
+			writeDeployEnv(empty ? [...lines, 'DEPLOY_VERCEL_PROJECT_ID='] : lines);
+			const result = run(['web']);
+			expect(result.status).not.toBe(0);
+			expect(result.stderr).toContain('set DEPLOY_VERCEL_PROJECT_ID in .env.deploy');
+			expect(stubLog()).toEqual([]);
+			expect(existsSync(join(vercelDir, 'old.txt'))).toBe(true);
+		}
+	});
+
+	it('api: runs without DEPLOY_VERCEL_PROJECT_ID', () => {
+		writeDeployEnv(
+			defaultDeployEnv().filter((line) => !line.startsWith('DEPLOY_VERCEL_PROJECT_ID='))
+		);
+		const result = run(['api']);
+		expect(result.status).toBe(0);
+		expect(stubLog().filter((line) => line.startsWith('ssh\t'))).toHaveLength(4);
+	});
+
+	it.each(['all', 'web'])(
+		'%s: stops before the build when the linked projectId differs, naming both keys and printing neither value',
+		(mode) => {
+			writeProjectJson('{"projectId":"prj_example_other","orgId":"team_example"}');
+			const result = run([mode]);
+			expect(result.status).not.toBe(0);
+			expect(result.stderr).toContain('DEPLOY_VERCEL_PROJECT_ID');
+			expect(result.stderr).toContain('projectId');
+			expect(`${result.stdout}${result.stderr}`).not.toContain('prj_example_other');
+			expect(stubLog()).toEqual([]);
+			expect(existsSync(join(vercelDir, 'old.txt'))).toBe(true);
+		}
+	);
+
+	it.each(['all', 'web'])(
+		'%s: stops before the build when .vercel/project.json has no projectId, naming the key',
+		(mode) => {
+			writeProjectJson('{"orgId":"team_example"}');
+			const result = run([mode]);
+			expect(result.status).not.toBe(0);
+			expect(result.stderr).toContain('projectId');
+			expect(stubLog()).toEqual([]);
+			expect(existsSync(join(vercelDir, 'old.txt'))).toBe(true);
+		}
+	);
+
+	it('stops when projectId is empty in .vercel/project.json', () => {
+		writeProjectJson('{"projectId":"","orgId":"team_example"}');
+		const result = run(['web']);
+		expect(result.status).not.toBe(0);
+		expect(result.stderr).toContain('projectId not found in .vercel/project.json');
+		expect(stubLog()).toEqual([]);
+	});
+
+	it('web: accepts a pretty-printed project.json whose projectId matches', () => {
+		writeProjectJson(`{\n  "orgId": "team_example",\n  "projectId": "${projectId}"\n}\n`);
+		const result = run(['web']);
+		expect(result.status).toBe(0);
+		expect(stubLog()).toContain(`vercel\t${vercelDir}\tdeploy --prod`);
+	});
+
+	it('does not take orgId as projectId', () => {
+		writeProjectJson(`{"orgId":"${projectId}"}`);
+		const result = run(['web']);
+		expect(result.status).not.toBe(0);
+		expect(result.stderr).toContain('projectId not found in .vercel/project.json');
+	});
 
 	it('api: accepts a host alias of letters, digits, dots, hyphens and underscores and reaches ssh', () => {
 		const host = 'courtside_vm-2.example';
