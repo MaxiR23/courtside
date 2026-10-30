@@ -49,6 +49,7 @@ A dark-mode, single-page site with two parts:
 | `HomeStandings` | The home's compact standings: East / West, the top 6 and the play-in footnote; in the Finals preview each finalist's path |
 | `HomeLeaders` | The home's per-game leaders, one row per category the feed sends (one to four), with photo, category and team, name and value |
 | `ScheduleEmptyDay` | The home's box for a selected day with no games: the next game day or the two-weeks message, and the Go to button |
+| `SectionTabs` | The one sticky section tab bar of the game, player and team pages: anchor links, and the mini score or text, which shows only once the page's watched header block has left the top of the viewport |
 | `NameLink` | A player or team name as a link, or as plain text when the href is null |
 
 ## Design tokens
@@ -145,6 +146,7 @@ A piece that owns a repeated style, markup or rule is the only place that style,
 | `SectionHead` | `section-head-is-the-one-section-title.test.ts` |
 | `initials` (`web/src/lib/format/initials.ts`) | `initials-is-the-one-rule.test.ts` |
 | `feedSource` (`web/src/lib/feed/source.ts`) | `feed-source-follows-its-url.test.ts` |
+| `SectionTabs` | `section-tabs-mini-waits-for-its-block.test.ts` |
 
 A page whose feed URL depends on its URL params builds the URL as a `$derived` from the params, the query and the templates, and its feed source with `feedSource` in a `$derived` from that URL: a new URL is a new, empty source, so the page shows its loading state until the new feed arrives and never shows the previous URL's feed; the effect that started the old source stops it. No route builds a feed source from a closure that reads `params`.
 

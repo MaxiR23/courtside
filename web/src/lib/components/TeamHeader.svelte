@@ -21,6 +21,7 @@
 		loading?: boolean; // the first feed has not loaded yet: show the skeleton
 		seasonSelect?: SeasonControl | null; // null: no selector
 		seasonTag?: string | null; // "Season 2022-23": kept on the unavailable state of a past season
+		nameBlock?: HTMLElement | null; // $bindable: the name and record block (the page header's columns row), for the tab bar's mini text
 	};
 
 	let {
@@ -30,7 +31,8 @@
 		layout,
 		loading = false,
 		seasonSelect = null,
-		seasonTag = null
+		seasonTag = null,
+		nameBlock = $bindable(null)
 	}: Props = $props();
 
 	const CELL_BONES = [0, 1, 2, 3];
@@ -98,6 +100,7 @@
 	columnsMin="calc(var(--detail-column-min) * 2)"
 	first={header || loading || seasonTag ? firstLine : undefined}
 	aside={header || loading ? standingColumn : undefined}
+	bind:columns={nameBlock}
 />
 
 <style>

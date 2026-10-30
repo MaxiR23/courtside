@@ -15,6 +15,7 @@
 // - The season select reaches the header in every state, and is absent without the prop
 // - hideNext renders no next game card and no "Season over."
 // - The team logo before the team tag on both layouts, the code for a null logo
+// - The mini name stays hidden until the watched block has passed, on both layouts; the tabs take the full width on mobile at the top
 //
 // What is covered:
 // - Each page state, drawn from props with no fetch; the view comes from the recorded player feed
@@ -26,7 +27,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import type { ResolvedPathname } from '$app/types';
-import { render, screen } from '@testing-library/svelte';
+import { render, screen, waitFor } from '@testing-library/svelte';
+import { tick } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import PlayerPage from '../../../src/lib/components/PlayerPage.svelte';
@@ -305,5 +307,85 @@ describe('PlayerPage team logo', () => {
 		expect(container.querySelector('.tags .team-monogram.inline')?.textContent).toBe(
 			source.team!.code
 		);
+	});
+});
+
+const showAt = (layout: 'desktop' | 'mobile') => show(ready(), layout);
+
+describe('PlayerPage mini name', () => {
+	afterEach(() => {
+		vi.unstubAllGlobals();
+	});
+
+	function stubObserver() {
+		const observed: Element[] = [];
+		const callbacks: ((entries: unknown[]) => void)[] = [];
+		class FakeObserver {
+			constructor(callback: (entries: unknown[]) => void) {
+				callbacks.push(callback);
+			}
+			observe = (node: Element) => observed.push(node);
+			disconnect = vi.fn();
+		}
+		vi.stubGlobal('IntersectionObserver', FakeObserver);
+		return { observed, callbacks };
+	}
+
+	it.each(['desktop', 'mobile'] as const)(
+		'hides the mini text at the top of the page on the %s layout',
+		(layout) => {
+			const { container } = showAt(layout);
+			expect(container.querySelector('.mini-score')?.getAttribute('aria-hidden')).toBe('true');
+			expect(container.querySelector('nav.section-tabs')?.classList.contains('open')).toBe(false);
+		}
+	);
+
+	it.each(['desktop', 'mobile'] as const)(
+		'observes the watched block on the %s layout and shows the mini text once it has passed',
+		async (layout) => {
+			const { observed, callbacks } = stubObserver();
+			const { container } = showAt(layout);
+			await waitFor(() => expect(observed).toHaveLength(1));
+			expect(observed[0]).toBe(container.querySelector('.line'));
+
+			callbacks[0]([{ isIntersecting: false, boundingClientRect: { top: -10 } }]);
+			await tick();
+			const nav = container.querySelector('nav.section-tabs');
+			expect(container.querySelector('.mini-score')?.hasAttribute('aria-hidden')).toBe(false);
+			expect(nav?.classList.contains('open')).toBe(true);
+			callbacks[0]([{ isIntersecting: true, boundingClientRect: { top: 100 } }]);
+			await tick();
+			expect(container.querySelector('.mini-score')?.getAttribute('aria-hidden')).toBe('true');
+			expect(nav?.classList.contains('open')).toBe(false);
+		}
+	);
+
+	it('gives the tabs the full width on mobile at the top of the page', () => {
+		const mobile = showAt('mobile');
+		const nav = mobile.container.querySelector('nav.section-tabs');
+		expect(nav?.classList.contains('stacked')).toBe(true);
+		expect(nav?.classList.contains('open')).toBe(false);
+		mobile.unmount();
+		const desktop = showAt('desktop');
+		expect(desktop.container.querySelector('nav.section-tabs')?.classList.contains('stacked')).toBe(
+			false
+		);
+	});
+});
+
+describe('Player section scroll margin', () => {
+	it('gives mobile sections the mobile scroll margin', () => {
+		const { container, unmount } = showAt('mobile');
+		expect(container.querySelector('.sections')?.classList).toContain('mobile');
+		unmount();
+		expect(showAt('desktop').container.querySelector('.sections')?.classList).not.toContain(
+			'mobile'
+		);
+		const source = readFileSync(
+			join(import.meta.dirname, '../../../src/lib/styles/base.css'),
+			'utf8'
+		);
+		const block = /\.detail-sections\.mobile section\s*\{([^}]*)\}/.exec(source)?.[1] ?? '';
+		expect(block).toMatch(/scroll-margin-top:\s*var\(--detail-section-scroll-margin-mobile\);/);
 	});
 });

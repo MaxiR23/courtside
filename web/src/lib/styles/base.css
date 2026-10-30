@@ -35,3 +35,13 @@ h6 {
 		scroll-behavior: auto !important;
 	}
 }
+
+/* Scroll landing of a detail page section, shared by the game, player and team pages.
+   On mobile the tab bar has a second row, so the title needs the taller margin. */
+.detail-sections section {
+	scroll-margin-top: var(--detail-section-scroll-margin);
+}
+
+.detail-sections.mobile section {
+	scroll-margin-top: var(--detail-section-scroll-margin-mobile);
+}

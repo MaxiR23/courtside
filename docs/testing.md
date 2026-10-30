@@ -147,6 +147,7 @@ Cross-cutting tests at the root of `web/tests/` keep a shared piece the only own
 | `section-head-is-the-one-section-title.test.ts` | The section title: only `SectionHead` styles an `h2` or reads a section title size. |
 | `initials-is-the-one-rule.test.ts` | The initials rule: only `format/initials.ts` declares an initials function. Scans `web/src/lib` only. |
 | `feed-source-follows-its-url.test.ts` | The feed source of a route: no `new FeedPoller`, `FeedOnce`, `GamesFeedPoller` or `DayLoader` in `web/src/routes` takes a closure that reads `params`. Scans `web/src/routes` only. |
+| `section-tabs-mini-waits-for-its-block.test.ts` | The mini text: `SectionTabs` has no prop or branch that shows the mini score or text before the watched block has passed, and every `<SectionTabs>` in `web/src/lib/components` and `web/src/routes` passes the element to watch. |
 
 ## TDD workflow
 
