@@ -106,7 +106,11 @@ from the operator's machine.
    The alias user needs passwordless `sudo`, because the script runs
    `sudo docker compose` without a terminal.
 2. `cp .env.deploy.example .env.deploy` and fill in the three keys. The file is
-   ignored by git, and the script never prints its values.
+   ignored by git, and the script never prints its values. `DEPLOY_SSH_HOST`
+   takes the alias from step 1 (or a hostname): only letters, digits, dots,
+   hyphens and underscores, not starting with `-`. Any other value, such as
+   `user@host`, a value with a space or `=`, or an ssh option, stops the deploy
+   before any ssh call with a message that names the key and not the value.
 3. A folder dedicated to the deploy, e.g.
    `mkdir ~/courtside-vercel && cd ~/courtside-vercel && vercel link`. Its
    absolute path goes in `DEPLOY_VERCEL_DIR`. It must not be `/`, the home
