@@ -22,6 +22,7 @@
 // - A delayed game reads "Scheduled" with the tip time and arena in the kicker, in English and Spanish
 // - While the first feed loads: the skeleton of both columns, busy and hidden from assistive tech, gone once there is a game, shimmering unless motion is reduced
 // - Shows the copy in Spanish with a Spanish browser preference
+// - Photo change: the outgoing cutout fades out over the shorter token, its outline drops at once, the incoming outline returns after the settle; logo and tricode keep their timing
 // - A day with no games and a noGames view: the nav row and the no-games title, with no slide selector, position or timer; the skeleton still comes first while loading
 //
 // What is covered:
@@ -34,7 +35,7 @@
 import type { ResolvedPathname } from '$app/types';
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { tick } from 'svelte';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { HeroGame, HeroPlayer, HeroSide } from '../../../src/lib/hero/types';
 import { preferLanguages } from '../../prefer-languages';
@@ -715,5 +716,90 @@ describe('Hero slide timing', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Show Owls, home' }));
 		expect(current(container)).toBe('Show Owls, home');
 		expect(animate).not.toHaveBeenCalled();
+	});
+});
+
+describe('Hero photo change', () => {
+	const tokens = {
+		'--hero-crossfade-duration': '1s',
+		'--hero-crossfade-out-duration': '0.15s',
+		'--identity-settle-duration': '1.2s',
+		'--ease': 'linear',
+		'--hero-cutout-outline': 'drop-shadow(0 0 1px red)',
+		'--hero-cutout-outline-off': 'drop-shadow(0 0 0 transparent)',
+		'--hero-cutout-shade': 'drop-shadow(0 30px 30px black) contrast(1.05)'
+	};
+
+	beforeEach(() => {
+		for (const [name, value] of Object.entries(tokens)) {
+			document.documentElement.style.setProperty(name, value);
+		}
+	});
+
+	afterEach(() => {
+		for (const name of Object.keys(tokens)) document.documentElement.style.removeProperty(name);
+	});
+
+	type Call = { target: Element; keyframes: Keyframe[]; options: KeyframeAnimationOptions };
+
+	async function changePhoto() {
+		const animate = vi.fn((keyframes: Keyframe[], options: KeyframeAnimationOptions) => ({
+			cancel: vi.fn(),
+			keyframes,
+			options
+		}));
+		Object.assign(HTMLElement.prototype, { animate });
+		mediaWith([]);
+		const { container } = render(Hero, { props: baseProps });
+		await tick();
+		animate.mockClear();
+		await fireEvent.click(screen.getByRole('button', { name: 'Show Owls, home' }));
+		const calls: Call[] = animate.mock.calls.map(([keyframes, options], i) => ({
+			target: animate.mock.contexts[i] as Element,
+			keyframes,
+			options
+		}));
+		const cutouts = container.querySelectorAll('.cutout');
+		const on = (el: Element | null | undefined) => calls.filter((c) => c.target === el);
+		return { container, calls, cutouts, on };
+	}
+
+	it('fades the outgoing photo out faster than the incoming one rises', async () => {
+		const { cutouts, on } = await changePhoto();
+		expect(on(cutouts[0])[0].options.duration).toBe(150);
+		const incoming = on(cutouts[1])[0];
+		expect(incoming.options.duration).toBe(1000);
+		expect(incoming.keyframes[0].opacity).toBe(0);
+		expect(String(incoming.keyframes[0].transform)).toContain('translateY');
+	});
+
+	it('drops the outline of the outgoing photo at once', async () => {
+		const { cutouts, on } = await changePhoto();
+		expect(on(cutouts[0].querySelector('img'))).toHaveLength(0);
+		expect(cutouts[0].classList.contains('active')).toBe(false);
+	});
+
+	it('brings the outline back on the incoming photo only after it settles', async () => {
+		const { cutouts, on } = await changePhoto();
+		const [call] = on(cutouts[1].querySelector('img'));
+		expect(call.options.delay).toBe(1000);
+		expect(call.options.fill).toBe('backwards');
+		expect(call.options.duration).toBe(1000);
+		expect(call.keyframes).toEqual([
+			{ filter: 'drop-shadow(0 0 0 transparent) drop-shadow(0 30px 30px black) contrast(1.05)' },
+			{ filter: 'var(--hero-cutout-filter)' }
+		]);
+	});
+
+	it('keeps the logo and the tricode on the identity settle duration', async () => {
+		const { container, calls } = await changePhoto();
+		const settled = calls.filter(
+			(c) => c.target.matches('.logo-layer, .tricode') && container.contains(c.target)
+		);
+		expect(settled.length).toBeGreaterThan(0);
+		for (const c of settled) expect(c.options.duration).toBe(1200);
+		const slides = calls.filter((c) => c.target.matches('.slide'));
+		expect(slides.length).toBeGreaterThan(0);
+		for (const c of slides) expect(c.options.duration).toBe(1000);
 	});
 });
