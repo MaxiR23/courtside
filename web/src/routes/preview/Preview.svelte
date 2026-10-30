@@ -186,6 +186,8 @@
 	const miniScore = { awayTeam: league('GSW'), away: 63, home: 62, homeTeam: league('LAL') };
 	const finalMiniScore = { ...miniScore, away: 112, home: 104 };
 	const overtimeMiniScore = { ...miniScore, away: 132, home: 130 };
+	// the h2 of each SectionTabs section: its mini score shows once the title has scrolled away
+	let tabTitles = $state<(HTMLElement | null)[]>([]);
 	const tabStates = [
 		{
 			title: 'SectionTabs: pre-game',
@@ -1755,10 +1757,14 @@
 		<GameHeader {teamHref} header={noPhotoHeader} {allGamesHref} {standingsHref} layout="desktop" />
 	</section>
 
-	{#each tabStates as { title, tabs, miniScore } (title)}
+	{#each tabStates as { title, tabs, miniScore }, i (title)}
 		<section>
-			<h2>{title}</h2>
-			<SectionTabs {tabs} {miniScore} />
+			<h2 bind:this={tabTitles[i]}>{title}</h2>
+			<SectionTabs
+				{tabs}
+				{miniScore}
+				reveal={{ element: tabTitles[i] ?? null, layout: 'desktop' }}
+			/>
 		</section>
 	{/each}
 

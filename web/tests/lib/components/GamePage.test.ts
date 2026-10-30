@@ -617,10 +617,10 @@ describe('GamePage mini score', () => {
 			'mobile'
 		);
 		const source = readFileSync(
-			join(import.meta.dirname, '../../../src/lib/components/GamePage.svelte'),
+			join(import.meta.dirname, '../../../src/lib/styles/base.css'),
 			'utf8'
 		);
-		const block = /\.sections\.mobile section\s*\{([^}]*)\}/.exec(source)?.[1] ?? '';
+		const block = /\.detail-sections\.mobile section\s*\{([^}]*)\}/.exec(source)?.[1] ?? '';
 		expect(block).toMatch(/scroll-margin-top:\s*var\(--detail-section-scroll-margin-mobile\);/);
 	});
 });

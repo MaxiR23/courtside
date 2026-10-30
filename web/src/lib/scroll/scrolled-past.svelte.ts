@@ -1,5 +1,5 @@
-export class ScoreboardWatch {
-	passed = $state(false); // true once the scoreboard's bottom edge has left the top of the viewport
+export class ScrolledPastWatch {
+	passed = $state(false); // true once the element's bottom edge has left the top of the viewport
 
 	/** Follows `node` against the viewport. Returns the cleanup. */
 	observe(node: Element): () => void {

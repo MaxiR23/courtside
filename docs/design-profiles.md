@@ -52,11 +52,11 @@ Everything under "Implementation rules" in `docs/design.md` and `docs/design-gam
 
 - Ground `#0c0e10`, ink `#ebe8e3`, muted `#a19d96`, accent `#749dc4`, accent text `#94bce3`, hover link `#b5d9fd`. Divider `color-mix(in srgb, #ebe8e3 13%, transparent)`; table row rules `rgba(235,232,227,.07)`. All through the existing tokens.
 - Headings Barlow Condensed 600, body Barlow. Numbers use `font-variant-numeric: tabular-nums`.
-- Content max width 1320px and side padding `clamp(20px, 4vw, 48px)` through `PageContainer`, section gap `clamp(64px, 8vw, 104px)`, `scroll-margin-top: 72px`.
+- Content max width 1320px and side padding `clamp(20px, 4vw, 48px)` through `PageContainer`, section gap `clamp(64px, 8vw, 104px)`, `scroll-margin-top: 72px`, and 108px under 680px so the title clears both rows of the tab bar.
 - Section header (`SectionHead`, size `detail`): h2 `clamp(28px, 3.4vw, 40px)`, line-height 1, uppercase; optional meta on the right, 12px, muted.
 - **Stat cell:** drawn by `InfoCell`; 1px divider top border; label 11px, .16em, uppercase, accent text; value in Barlow Condensed; sub-line 13px, muted. Cells sit in `ProfileCells`, which lays them out in an auto-fit grid by default, `repeat(auto-fit, minmax(min(100%, Npx), 1fr))`, or in a fixed column count (two for milestones on mobile, five for the live line). An empty cell list draws nothing, except where the page always drew its grid (milestones, the team record, the player header stats and the live line), which keep the empty grid element.
 - **Tables:** the first column is `position: sticky; left: 0` with the ground background. A table scrolls horizontally inside `overflow-x: auto` once the viewport is narrower than its min width. No cell wraps.
-- The nav row and the sticky section tabs are the game detail page's.
+- The nav row and the sticky section tabs are the game detail page's. The mini text follows the game page's reveal (`docs/design-game-detail.md`, "2. Section tabs").
 - **Position names** are translated through `position_*` (table in `docs/design-all-star.md`, Strings): a known English name, or a hyphenated name of known parts ("Forward-Center"), is translated; anything else, abbreviations such as "G" or "F-C" included, stays as the feed sends it. Guard and Shooting Guard are both "Escolta" in Spanish; Forward and Small Forward are both "Alero".
 
 ## Player page
@@ -74,7 +74,7 @@ Everything under "Implementation rules" in `docs/design.md` and `docs/design-gam
 
 ### 2. Tabs
 
-Profile · Averages · Seasons · Milestones · Game log · Awards. Mini name on the right, such as `#4 S. Barnes`.
+Profile · Averages · Seasons · Milestones · Game log · Awards. The mini name, such as `#4 S. Barnes`, shows once the name block (first name to team line) has left the top of the viewport: on desktop on the right of the tabs with a fade; under 680px on its own 36px row above the tabs that overlays the content; at the top of the page the tabs take the full width. Instant under reduced motion; hidden without `IntersectionObserver`.
 
 ### 3. Profile, next game and last 5
 
@@ -121,7 +121,7 @@ Two columns, min 440px:
 
 ### 2. Tabs
 
-Overview · Record · Leaders · Roster · Injuries · Schedule. Mini `OKC 57–25` on the right.
+Overview · Record · Leaders · Roster · Injuries · Schedule. The mini `OKC 57–25` follows the same reveal, with the name and record block (the header's two columns) as the watched block.
 
 ### 3. Overview
 
@@ -177,6 +177,7 @@ Meta: "Official injury report". Two columns, min 420px. The name with `#num · P
 |---|---|
 | Polling | Team page every 5 minutes once its feed has loaded (the team feed has no live part) and every 60 seconds while no feed has loaded yet; player page every 30 seconds while `live` is not null and every 60 seconds otherwise; paused while the tab is hidden and refreshed when it is visible again |
 | Section tabs | Smooth scroll; instant under reduced motion |
+| Mini text | Fades in once the watched block has left the top of the viewport and out when it comes back; on mobile its row opens above the tabs without moving the page. Instant under reduced motion |
 | Segmented controls and chips | Switch the rows shown; the selection is not kept between visits |
 | Player photo | The scroll fade described in the header (fade and drift on desktop, fade only on mobile); none under reduced motion |
 | Focus | `:focus-visible` as on the home |

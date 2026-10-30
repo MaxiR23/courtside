@@ -2,27 +2,27 @@
 	import TeamMark from '#lib/components/TeamMark.svelte';
 	import type { MiniScore } from '#lib/game/types.ts';
 	import { miniScoreFade, scoreRowOpen } from '#lib/game/motion.ts';
-	import { ScoreboardWatch } from '#lib/game/scoreboard-watch.svelte.ts';
 	import { crossfade } from '#lib/hero/motion.ts';
 	import { m } from '#lib/paraglide/messages.js';
+	import { ScrolledPastWatch } from '#lib/scroll/scrolled-past.svelte.ts';
 	import type { RowLayout } from '#lib/schedule/types.ts';
 
 	type Props = {
 		tabs: readonly { id: string; label: string }[];
 		miniScore?: MiniScore | null;
 		mini?: string | null; // a pre-formatted text, such as "OKC 57–25", when there is no score
-		reveal?: { scoreboard: HTMLElement | null; layout: RowLayout } | null; // game page only: the mini score shows once this scoreboard's bottom has left the top of the viewport
+		reveal: { element: HTMLElement | null; layout: RowLayout }; // the mini score or text shows once this element's bottom has left the top of the viewport; hidden while it is null
 	};
 
-	let { tabs, miniScore = null, mini = null, reveal = null }: Props = $props();
+	let { tabs, miniScore = null, mini = null, reveal }: Props = $props();
 
-	const watch = new ScoreboardWatch();
+	const watch = new ScrolledPastWatch();
 	$effect(() => {
-		const target = reveal?.scoreboard;
+		const target = reveal.element;
 		if (target) return watch.observe(target);
 	});
-	const revealed = $derived(reveal !== null && watch.passed);
-	const stacked = $derived(reveal?.layout === 'mobile' && (miniScore !== null || mini !== null));
+	const revealed = $derived(watch.passed);
+	const stacked = $derived(reveal.layout === 'mobile' && (miniScore !== null || mini !== null));
 
 	function scrollToSection(event: MouseEvent, id: string) {
 		event.preventDefault();
@@ -36,7 +36,6 @@
 {#if tabs.length > 0 || miniScore || mini}
 	<nav
 		class="section-tabs"
-		class:reveal={reveal !== null}
 		class:open={revealed}
 		class:stacked
 		aria-label={m.game_tabs_label()}
@@ -52,8 +51,8 @@
 		{#if miniScore}
 			<span
 				class="mini-score"
-				aria-hidden={reveal !== null && !revealed ? 'true' : undefined}
-				use:crossfade={miniScoreFade(reveal === null || revealed)}
+				aria-hidden={revealed ? undefined : 'true'}
+				use:crossfade={miniScoreFade(revealed)}
 			>
 				<TeamMark part="label" team={miniScore.awayTeam} />
 				{miniScore.away} – {miniScore.home}
@@ -62,8 +61,8 @@
 		{:else if mini}
 			<span
 				class="mini-score"
-				aria-hidden={reveal !== null && !revealed ? 'true' : undefined}
-				use:crossfade={miniScoreFade(reveal === null || revealed)}>{mini}</span
+				aria-hidden={revealed ? undefined : 'true'}
+				use:crossfade={miniScoreFade(revealed)}>{mini}</span
 			>
 		{/if}
 	</nav>
@@ -117,14 +116,11 @@
 		font-size: var(--mini-score-size);
 		font-variant-numeric: tabular-nums;
 		white-space: nowrap;
-	}
-
-	.reveal .mini-score {
 		opacity: 0;
 		pointer-events: none;
 	}
 
-	.reveal.open .mini-score {
+	.open .mini-score {
 		opacity: 1;
 	}
 

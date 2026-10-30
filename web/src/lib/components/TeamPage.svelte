@@ -46,17 +46,31 @@
 		seasonTag = null,
 		seasonHref
 	}: Props = $props();
+
+	// The name and record block, so the tabs can show the mini text once it has scrolled away.
+	let nameBlock = $state<HTMLElement | null>(null);
 </script>
 
 {#if page.kind === 'ready'}
-	<TeamHeader header={page.view.header} {allGamesHref} {standingsHref} {layout} {seasonSelect} />
+	<TeamHeader
+		header={page.view.header}
+		{allGamesHref}
+		{standingsHref}
+		{layout}
+		{seasonSelect}
+		bind:nameBlock
+	/>
 	{#if page.view.names && seasonHref}
 		<NamesTimeline runs={page.view.names} {layout} {seasonHref} />
 	{/if}
-	<SectionTabs tabs={page.view.tabs} mini={page.view.mini} />
+	<SectionTabs
+		tabs={page.view.tabs}
+		mini={page.view.mini}
+		reveal={{ element: nameBlock, layout }}
+	/>
 	{@const sections = page.view.sections}
 	<PageContainer>
-		<div class="sections">
+		<div class="sections detail-sections" class:mobile={layout === 'mobile'}>
 			{#if !page.view.past}
 				<section id="overview">
 					<SectionHead title={m.team_tab_overview()} />
@@ -141,7 +155,6 @@
 		display: grid;
 		gap: var(--game-list-gap);
 		align-content: start;
-		scroll-margin-top: var(--detail-section-scroll-margin);
 	}
 
 	.bones {

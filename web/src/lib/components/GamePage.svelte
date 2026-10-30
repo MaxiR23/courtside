@@ -57,11 +57,11 @@
 	<SectionTabs
 		tabs={page.view.tabs}
 		miniScore={page.view.miniScore}
-		reveal={{ scoreboard, layout }}
+		reveal={{ element: scoreboard, layout }}
 	/>
 	{@const sections = page.view.sections}
 	<PageContainer>
-		<div class="sections" class:mobile={layout === 'mobile'}>
+		<div class="sections detail-sections" class:mobile={layout === 'mobile'}>
 			{#if sections.highlights}
 				<section id="highlights">
 					<SectionHead
@@ -202,11 +202,6 @@
 		display: grid;
 		gap: var(--game-list-gap);
 		align-content: start;
-		scroll-margin-top: var(--detail-section-scroll-margin);
-	}
-
-	.sections.mobile section {
-		scroll-margin-top: var(--detail-section-scroll-margin-mobile);
 	}
 
 	.highlights-wrap {

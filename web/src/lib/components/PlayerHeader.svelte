@@ -24,6 +24,7 @@
 		loading?: boolean; // the first feed has not loaded yet: show the skeleton
 		seasonSelect?: SeasonControl | null; // null: no selector
 		seasonTag?: string | null; // "Season 2022-23": kept on the unavailable state of a past season
+		nameBlockEnd?: HTMLElement | null; // $bindable: the team line, the last line of the name block (first name to team line), for the tab bar's mini text
 	};
 
 	let {
@@ -33,7 +34,8 @@
 		layout,
 		loading = false,
 		seasonSelect = null,
-		seasonTag = null
+		seasonTag = null,
+		nameBlockEnd = $bindable(null)
 	}: Props = $props();
 
 	const CELL_BONES = [0, 1, 2, 3];
@@ -62,7 +64,7 @@
 			</div>
 			<span class="first-name">{header.firstName}</span>
 			<h1 class="last-name">{header.lastName}</h1>
-			<span class="line">{header.line}</span>
+			<span class="line" bind:this={nameBlockEnd}>{header.line}</span>
 			{#if header.injury}
 				<BlueprintFrame>
 					<div class="injury">
