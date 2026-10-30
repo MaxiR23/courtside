@@ -493,7 +493,7 @@ Recorded in [`adr/0080-per-visitor-rate-limit.md`](adr/0080-per-visitor-rate-lim
 
 Recorded in [`adr/0081-operator-run-deploy-script.md`](adr/0081-operator-run-deploy-script.md):
 
-- **Deploy model**: the operator runs `scripts/deploy.sh` from `main` equal to `origin/main` with a clean tree. The api is updated over SSH (`git pull --ff-only`, `sudo docker compose up -d --build`) and waited on for up to 180 seconds; the web is built locally with the feed URLs injected at build time and uploaded with `vercel deploy --prod` from a dedicated linked folder outside the repository; in `all` the api goes first; a smoke check of `/` and `/api/health` closes the run. CI deploys and Vercel's Git integration are ruled out for now.
+- **Deploy model**: the operator runs `scripts/deploy.sh` from `main` equal to `origin/main` with a clean tree. The api is updated over SSH to exactly the checked commit and rebuilt with `sudo docker compose up -d --build` ([ADR 0084](adr/0084-deploy-moves-the-machine-to-the-checked-commit.md)) and waited on for up to 180 seconds; the web is built locally with the feed URLs injected at build time and uploaded with `vercel deploy --prod` from a dedicated linked folder outside the repository; in `all` the api goes first; a smoke check of `/` and `/api/health` closes the run. CI deploys and Vercel's Git integration are ruled out for now.
 
 Recorded in [`adr/0082-tip-times-in-the-viewers-time-zone.md`](adr/0082-tip-times-in-the-viewers-time-zone.md):
 
@@ -502,6 +502,10 @@ Recorded in [`adr/0082-tip-times-in-the-viewers-time-zone.md`](adr/0082-tip-time
 Recorded in [`adr/0083-one-page-header-for-every-page.md`](adr/0083-one-page-header-for-every-page.md):
 
 - **Page header**: `PageHeader` draws every page header (the grid background, the content width, the nav row, the season selector and the vertical spacing); the nav row sits at `--identity-hero-pad-top`, the first line at `--header-first-line-offset` below it, and the desktop selector on the first line at the right edge, with right columns below it.
+
+Recorded in [`adr/0084-deploy-moves-the-machine-to-the-checked-commit.md`](adr/0084-deploy-moves-the-machine-to-the-checked-commit.md):
+
+- **Deploy to the checked commit**: `scripts/deploy.sh` records the commit it checked (`git rev-parse HEAD`); on the machine it fetches `origin` and runs `git merge --ff-only` to that commit, never `git pull`, then reads the machine's HEAD and stops before the rebuild, naming both hashes, when it differs. ADR 0081 is not edited.
 
 ## Future
 

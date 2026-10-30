@@ -6,12 +6,14 @@
 # STEPS:
 #   [api|web|all]   no argument means all
 #     1. Read the three keys of .env.deploy and stop naming the missing one.
-#     2. Require branch main, a clean tree and main equal to origin/main.
+#     2. Require branch main, a clean tree and main equal to origin/main, and record that
+#        commit.
 #     3. web, all: require pnpm, vercel, web/.env and a dedicated Vercel folder linked with
 #        vercel link: not /, not the home folder, not inside the repository and not a folder
 #        that contains it.
-#     4. api, all: pull and rebuild on the machine over SSH, then wait up to 180 s for the
-#        api service to be healthy.
+#     4. api, all: fetch and fast-forward the machine to exactly that commit over SSH, stop
+#        when its HEAD differs, rebuild, then wait up to 180 s for the api service to be
+#        healthy.
 #     5. web, all: build with every feed URL set to the site's /api/feeds path, replace the
 #        Vercel folder except .vercel, add deploy/vercel.json and run vercel deploy --prod.
 #     6. Check that / and /api/health on the site answer 200.
@@ -88,6 +90,7 @@ check_git() {
   git fetch --quiet origin main || die "cannot fetch origin"
   [ "$(git rev-parse main)" = "$(git rev-parse origin/main)" ] \
     || die "main is not equal to origin/main"
+  commit="$(git rev-parse HEAD)" || die "cannot read the checked commit"
 }
 
 check_web() {
@@ -117,9 +120,16 @@ check_web() {
 }
 
 deploy_api() {
-  info "api: pulling and rebuilding on the machine"
-  ssh "$ssh_host" 'cd ~/courtside && git pull --ff-only && sudo docker compose up -d --build' \
+  info "api: moving the machine to $commit"
+  ssh "$ssh_host" "cd ~/courtside && git fetch --quiet origin && git merge --ff-only $commit" \
     || die "api: the remote update failed"
+  remote_head="$(ssh "$ssh_host" 'cd ~/courtside && git rev-parse HEAD')" \
+    || die "api: cannot read the machine's commit"
+  [ "$remote_head" = "$commit" ] \
+    || die "api: the machine is on $remote_head, not on the checked commit $commit"
+  info "api: rebuilding on the machine"
+  ssh "$ssh_host" 'cd ~/courtside && sudo docker compose up -d --build' \
+    || die "api: the rebuild failed"
   tries=0
   health=""
   while [ "$tries" -lt 36 ]; do
