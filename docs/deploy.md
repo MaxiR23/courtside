@@ -105,7 +105,8 @@ from the operator's machine.
 
    The alias user needs passwordless `sudo`, because the script runs
    `sudo docker compose` without a terminal.
-2. `cp .env.deploy.example .env.deploy` and fill in the three keys. The file is
+2. `cp .env.deploy.example .env.deploy` and fill in the four keys
+   (`DEPLOY_VERCEL_PROJECT_ID` after step 3). The file is
    ignored by git, and the script never prints its values. `DEPLOY_SSH_HOST`
    takes the alias from step 1 (or a hostname): only letters, digits, dots,
    hyphens and underscores, not starting with `-`. Any other value, such as
@@ -115,7 +116,13 @@ from the operator's machine.
    `mkdir ~/courtside-vercel && cd ~/courtside-vercel && vercel link`. Its
    absolute path goes in `DEPLOY_VERCEL_DIR`. It must not be `/`, the home
    folder, a folder inside the repository or a folder that contains the
-   repository. The script replaces everything in it except `.vercel`.
+   repository. The script replaces everything in it except `.vercel`. Then copy
+   the `projectId` value of `.vercel/project.json` in that folder into
+   `DEPLOY_VERCEL_PROJECT_ID`. In `web` and `all` modes the script reads that
+   `projectId` and stops before the build, naming the keys and not the values,
+   when `DEPLOY_VERCEL_PROJECT_ID` is missing, when the file has no `projectId`
+   or when the two differ, so a folder linked to another Vercel project is
+   never deployed. `api` mode does not need the key.
 4. In the Vercel project, the production variables `BACKEND_URL` and
    `ORIGIN_SECRET` (see "Vercel project variables").
 5. The machine has the clone at `~/courtside` and was set up per "Deploy the
@@ -132,7 +139,8 @@ from the operator's machine.
   the machine's HEAD is not that commit, naming both hashes. Then it rebuilds
   and waits up to 180 s for the `api` service to be healthy. A merge to `main`
   that lands during a deploy is not picked up: run the script again to ship it.
-- web builds with every feed URL set to `DEPLOY_SITE_URL/api/feeds/...`,
+- web checks that the linked folder's `projectId` equals
+  `DEPLOY_VERCEL_PROJECT_ID`, then builds with every feed URL set to `DEPLOY_SITE_URL/api/feeds/...`,
   without touching `web/.env`, which still provides `VIDEO_PLATFORM_NAME`. It
   then publishes with `vercel deploy --prod`.
 - It ends by checking that `/` and `/api/health` on the site answer 200.

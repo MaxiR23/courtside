@@ -5,14 +5,15 @@
 #           so it must not use bash 4 features or GNU-only flags.
 # STEPS:
 #   [api|web|all]   no argument means all
-#     1. Read the three keys of .env.deploy and stop naming the missing one, or naming
-#        DEPLOY_SSH_HOST when it is not letters, digits, dots, hyphens and underscores or
-#        starts with -.
+#     1. Read the keys of .env.deploy and stop naming a missing DEPLOY_SSH_HOST,
+#        DEPLOY_SITE_URL or DEPLOY_VERCEL_DIR, or naming DEPLOY_SSH_HOST when it is not
+#        letters, digits, dots, hyphens and underscores or starts with -.
 #     2. Require branch main, a clean tree and main equal to origin/main, and record that
 #        commit.
 #     3. web, all: require pnpm, vercel, web/.env and a dedicated Vercel folder linked with
 #        vercel link: not /, not the home folder, not inside the repository and not a folder
-#        that contains it.
+#        that contains it, and DEPLOY_VERCEL_PROJECT_ID set and equal to the projectId in its
+#        .vercel/project.json.
 #     4. api, all: fetch and fast-forward the machine to exactly that commit over SSH, stop
 #        when its HEAD differs, rebuild, then wait up to 180 s for the api service to be
 #        healthy.
@@ -39,6 +40,12 @@ usage() {
 # Prints the last value of a key in .env.deploy, empty when the line is missing.
 read_key() {
   grep -E "^$1=" .env.deploy | tail -n 1 | cut -d= -f2- || true
+}
+
+# Prints the projectId of a .vercel/project.json, empty when it has none. Plain text
+# matching of "projectId": "<value>", no JSON parser.
+read_project_id() {
+  sed -n 's/.*"projectId"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$1" | head -n 1 || true
 }
 
 require_key() {
@@ -119,6 +126,12 @@ check_web() {
   esac
   [ -f "$vercel_real/.vercel/project.json" ] \
     || die "DEPLOY_VERCEL_DIR is not a folder linked with vercel link"
+  require_key DEPLOY_VERCEL_PROJECT_ID "$vercel_project_id"
+  linked_project_id="$(read_project_id "$vercel_real/.vercel/project.json")"
+  [ -n "$linked_project_id" ] \
+    || die "projectId not found in .vercel/project.json of DEPLOY_VERCEL_DIR; run vercel link there"
+  [ "$linked_project_id" = "$vercel_project_id" ] \
+    || die "DEPLOY_VERCEL_PROJECT_ID does not match the projectId in .vercel/project.json of DEPLOY_VERCEL_DIR"
 }
 
 deploy_api() {
@@ -181,6 +194,7 @@ main() {
   ssh_host="$(read_key DEPLOY_SSH_HOST)"
   site="$(read_key DEPLOY_SITE_URL)"
   vercel_dir="$(read_key DEPLOY_VERCEL_DIR)"
+  vercel_project_id="$(read_key DEPLOY_VERCEL_PROJECT_ID)"
   require_key DEPLOY_SSH_HOST "$ssh_host"
   require_key DEPLOY_SITE_URL "$site"
   require_key DEPLOY_VERCEL_DIR "$vercel_dir"
