@@ -7,18 +7,21 @@
 // - The build gets every feed URL of web/.env.example at the site's /api/feeds path
 // - web/.env is left byte-identical and VIDEO_PLATFORM_NAME is not set by the script
 // - The Vercel folder is replaced except .vercel and deployed to production
-// - The api side updates over SSH and waits for the healthy service
+// - The api side moves the machine to the exact checked commit over SSH, checks its HEAD before
+//   the rebuild and waits for the healthy service
 // - The script refuses a missing key, a dirty tree, another branch, a main behind or ahead of
 //   origin, an unlinked Vercel folder and an unknown mode, and no output holds a .env.deploy value
 // - The Vercel folder guards refuse /, the home folder, the repository, a folder containing it,
 //   their symlinks and a relative path, before any delete
-// - The api side fails when the remote update fails and when the service is not healthy in 180 s
+// - The api side fails when the remote update fails, when the machine is not on the checked
+//   commit, when its commit cannot be read, when the rebuild fails and when the service is not
+//   healthy in 180 s
 // - A variable in the build's environment wins over web/.env (the loadEnv call SvelteKit makes)
 //
 // What is covered:
 // - Happy paths (all, web and api modes)
 // - Edge cases (empty value versus missing line, untracked file, api-only mode, the precedence control)
-// - Error cases (every refusal above and a failing health check)
+// - Error cases (every refusal above and a HEAD mismatch, a failed HEAD read, a failed rebuild and a failing health check)
 //
 // Run with: cd web && pnpm exec vitest run tests/deploy-script.test.ts
 //
@@ -58,7 +61,9 @@ printf 'ssh\\t%s\\t%s\\n' "$PWD" "$*" >> "$STUB_LOG"
 last="\${@: -1}"
 case "$last" in
   *"ps --format"*) printf '%s\\n' "\${STUB_SSH_HEALTH:-healthy}" ;;
-  *"git pull"*) [ -z "\${STUB_SSH_UPDATE_FAIL:-}" ] || exit 1 ;;
+  *"rev-parse HEAD"*) [ -z "\${STUB_SSH_HEAD_FAIL:-}" ] || exit 1; printf '%s\\n' "\${STUB_SSH_HEAD:-$(git rev-parse HEAD)}" ;;
+  *"git merge --ff-only"*) [ -z "\${STUB_SSH_UPDATE_FAIL:-}" ] || exit 1 ;;
+  *"compose up"*) [ -z "\${STUB_SSH_REBUILD_FAIL:-}" ] || exit 1 ;;
 esac
 `,
 	sleep: `#!/usr/bin/env bash
@@ -90,7 +95,7 @@ let repo: string;
 let vercelDir: string;
 let log: string;
 
-function git(args: string[], cwd = repo): void {
+function git(args: string[], cwd = repo): string {
 	const result = spawnSync(
 		'git',
 		['-c', 'user.name=Test', '-c', 'user.email=test@example.com', ...args],
@@ -101,6 +106,7 @@ function git(args: string[], cwd = repo): void {
 		}
 	);
 	if (result.status !== 0) throw new Error(`git ${args.join(' ')}: ${result.stderr}`);
+	return result.stdout.trim();
 }
 
 function feedNames(): string[] {
@@ -273,17 +279,23 @@ describe('scripts/deploy.sh', () => {
 	});
 
 	it('api: updates the machine over SSH and waits until the api service is healthy', () => {
+		const commit = git(['rev-parse', 'HEAD']);
 		const result = run(['api']);
 		expect(result.status).toBe(0);
 		const lines = stubLog();
 		const ssh = lines.filter((line) => line.startsWith('ssh\t'));
-		expect(ssh).toHaveLength(2);
+		expect(ssh).toHaveLength(4);
 		expect(
 			ssh[0].endsWith(
-				`\t${sshHost} cd ~/courtside && git pull --ff-only && sudo docker compose up -d --build`
+				`\t${sshHost} cd ~/courtside && git fetch --quiet origin && git merge --ff-only ${commit}`
 			)
 		).toBe(true);
-		expect(ssh[1]).toContain('ps --format');
+		expect(ssh[1].endsWith(`\t${sshHost} cd ~/courtside && git rev-parse HEAD`)).toBe(true);
+		expect(
+			ssh[2].endsWith(`\t${sshHost} cd ~/courtside && sudo docker compose up -d --build`)
+		).toBe(true);
+		expect(ssh[3]).toContain('ps --format');
+		expect(ssh.some((line) => line.includes('git pull'))).toBe(false);
 		expect(lines.some((line) => /^(pnpm|vercel)\t/.test(line))).toBe(false);
 	});
 
@@ -294,8 +306,8 @@ describe('scripts/deploy.sh', () => {
 		const lines = stubLog();
 		const ssh = lines.filter((line) => line.startsWith('ssh\t'));
 		expect(ssh.filter((line) => line.includes('ps --format'))).toHaveLength(36);
-		expect(ssh.filter((line) => line.includes('git pull'))).toHaveLength(1);
-		expect(ssh).toHaveLength(37);
+		expect(ssh.filter((line) => line.includes('git merge --ff-only'))).toHaveLength(1);
+		expect(ssh).toHaveLength(39);
 		expect(lines.filter((line) => line.endsWith('\t5') && line.startsWith('sleep\t'))).toHaveLength(
 			35
 		);
@@ -309,6 +321,38 @@ describe('scripts/deploy.sh', () => {
 		expect(result.stderr).toContain('api: the remote update failed');
 		const lines = stubLog();
 		expect(lines.filter((line) => line.startsWith('ssh\t'))).toHaveLength(1);
+		expect(lines.some((line) => line.includes('rev-parse HEAD'))).toBe(false);
+		expect(lines.some((line) => line.includes('compose up'))).toBe(false);
+		expect(lines.some((line) => line.includes('ps --format'))).toBe(false);
+		expect(lines.some((line) => /^(sleep|curl)\t/.test(line))).toBe(false);
+	});
+
+	it('api: stops before the rebuild when the machine is not on the checked commit', () => {
+		const commit = git(['rev-parse', 'HEAD']);
+		const other = 'f'.repeat(40);
+		const result = run([], { STUB_SSH_HEAD: other });
+		expect(result.status).not.toBe(0);
+		expect(result.stderr).toContain(other);
+		expect(result.stderr).toContain(commit);
+		expect(result.stderr).toContain('not on the checked commit');
+		const lines = stubLog();
+		expect(lines.some((line) => line.includes('compose up'))).toBe(false);
+		expect(lines.some((line) => line.includes('ps --format'))).toBe(false);
+		expect(lines.some((line) => /^(pnpm|vercel|sleep|curl)\t/.test(line))).toBe(false);
+	});
+
+	it('api: stops before the rebuild when the machine commit cannot be read', () => {
+		const result = run(['api'], { STUB_SSH_HEAD_FAIL: '1' });
+		expect(result.status).not.toBe(0);
+		expect(result.stderr).toContain("api: cannot read the machine's commit");
+		expect(stubLog().some((line) => line.includes('compose up'))).toBe(false);
+	});
+
+	it('api: fails when the rebuild fails, without checking health', () => {
+		const result = run(['api'], { STUB_SSH_REBUILD_FAIL: '1' });
+		expect(result.status).not.toBe(0);
+		expect(result.stderr).toContain('api: the rebuild failed');
+		const lines = stubLog();
 		expect(lines.some((line) => line.includes('ps --format'))).toBe(false);
 		expect(lines.some((line) => /^(sleep|curl)\t/.test(line))).toBe(false);
 	});

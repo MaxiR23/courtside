@@ -121,9 +121,13 @@ from the operator's machine.
 
 - `scripts/deploy.sh` deploys both sides, api first. `scripts/deploy.sh api`
   and `scripts/deploy.sh web` deploy one side.
-- It runs only from `main`, with a clean tree and `main` equal to `origin/main`.
-- api pulls and rebuilds on the machine, then waits up to 180 s for the `api`
-  service to be healthy.
+- It runs only from `main`, with a clean tree and `main` equal to
+  `origin/main`, and records that commit.
+- api fetches on the machine and fast-forwards its clone to exactly that
+  commit. It stops before the rebuild when the move is not a fast-forward or
+  the machine's HEAD is not that commit, naming both hashes. Then it rebuilds
+  and waits up to 180 s for the `api` service to be healthy. A merge to `main`
+  that lands during a deploy is not picked up: run the script again to ship it.
 - web builds with every feed URL set to `DEPLOY_SITE_URL/api/feeds/...`,
   without touching `web/.env`, which still provides `VIDEO_PLATFORM_NAME`. It
   then publishes with `vercel deploy --prod`.
