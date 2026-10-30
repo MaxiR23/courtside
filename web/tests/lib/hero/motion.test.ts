@@ -7,6 +7,8 @@
 // - play animates with token values, and does nothing with reduced motion
 // - crossfade animates only when the active state changes
 // - crossfade delays by its delay token and holds the hidden look during the delay
+// - crossfade fades out over its out duration token when given
+// - crossfade with instantOut skips the fade out and cancels a running fade in
 //
 // What is covered:
 // - Happy path, reduced motion, missing animation support
@@ -24,6 +26,7 @@ function fakeNode() {
 	document.documentElement.style.setProperty('--hero-delay-tag', '100ms');
 	document.documentElement.style.setProperty('--hero-entrance-offset', '28px');
 	document.documentElement.style.setProperty('--hero-crossfade-duration', '0.5s');
+	document.documentElement.style.setProperty('--hero-crossfade-out-duration', '0.1s');
 	document.documentElement.style.setProperty('--ease', 'linear');
 	const animate = vi.fn(() => ({ cancel: vi.fn() }));
 	Object.assign(node, { animate });
@@ -138,6 +141,51 @@ describe('crossfade', () => {
 		action.update(params(false));
 		const [, options] = animate.mock.calls[0] as unknown as [Keyframe[], KeyframeAnimationOptions];
 		expect(options).toEqual({ duration: 500, easing: 'linear' });
+	});
+
+	it('fades out over its out duration token and in over its duration token', () => {
+		reducedMotion(false);
+		const { node, animate } = fakeNode();
+		const split = (active: boolean) => ({
+			...params(active),
+			outDurationToken: '--hero-crossfade-out-duration'
+		});
+		const action = crossfade(node, split(true));
+		action.update(split(false));
+		action.update(split(true));
+		const durations = animate.mock.calls.map(
+			(call) => (call as unknown as [Keyframe[], KeyframeAnimationOptions])[1].duration
+		);
+		expect(durations).toEqual([100, 500]);
+	});
+
+	it('does not animate a fade out with instantOut, and cancels the running fade in', () => {
+		reducedMotion(false);
+		const { node, animate } = fakeNode();
+		const cancel = vi.fn();
+		animate.mockImplementation(() => ({ cancel }));
+		const instant = (active: boolean) => ({ ...params(active), instantOut: true });
+		const action = crossfade(node, instant(false));
+		action.update(instant(true));
+		expect(animate).toHaveBeenCalledTimes(1);
+		action.update(instant(false));
+		expect(animate).toHaveBeenCalledTimes(1);
+		expect(cancel).toHaveBeenCalledTimes(1);
+	});
+
+	it('still animates a fade in with instantOut and holds the hidden look during its delay', () => {
+		reducedMotion(false);
+		const { node, animate } = fakeNode();
+		const instant = (active: boolean) => ({
+			...params(active),
+			instantOut: true,
+			delayToken: '--hero-delay-tag'
+		});
+		const action = crossfade(node, instant(false));
+		action.update(instant(true));
+		const [, options] = animate.mock.calls[0] as unknown as [Keyframe[], KeyframeAnimationOptions];
+		expect(options.delay).toBe(100);
+		expect(options.fill).toBe('backwards');
 	});
 
 	it('does not animate with reduced motion', () => {

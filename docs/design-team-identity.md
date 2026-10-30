@@ -98,7 +98,7 @@ Gap 28px between its blocks, in order:
 - Max-width 500px, aspect ratio 4:5, margin-top 40px.
 - The existing blueprint frame with the 4 corner marks. Background `#11161b` with a 44px grid at `rgba(235,232,227,.045)`. Shadow `0 50px 100px -24px rgba(0,0,0,.9)`. The inner layer has `overflow: hidden`.
 - Outer radial glow at inset `-18%`, in the active side's accent at 22% alpha.
-- Layers per slide, back to front, 1s crossfade:
+- Layers per slide, back to front, 1s crossfade (the cutout and its outline follow the Card layers row under Motion):
 
 | Layer | Spec |
 |---|---|
@@ -179,7 +179,7 @@ Behavior of `TeamMark`:
 | Selector click | Goes to that slide and restarts the 5s timer |
 | Selector track | 2px, fills in the side's accent over 5s linear |
 | Background word | 1.1s crossfade between slides |
-| Card layers | 1s crossfade between slides |
+| Card layers | 1s crossfade between slides; the outgoing cutout fades out over .15s and its outline waits for the settle (see `docs/design.md`, Hero slide change) |
 | Inactive slide | `translateY(24px) scale(.97)`; logo and tricode return over 1.2s `cubic-bezier(.2, .7, .1, 1)` |
 | Parallax | The existing parallax may stay |
 | Focus | `:focus-visible` as on the home; the selector buttons are keyboard operable |
@@ -255,7 +255,8 @@ Rows of the specification that map to existing tokens, or that change an existin
 | Card shadow | `--shadow-hero-frame` (value changed) |
 | Outer glow inset -18% | `calc(-1 * var(--accent-glow-extent))` |
 | Layers crossfade 1s | `--hero-crossfade-duration` |
-| Cutout width and filter | `--hero-cutout-width`, `--hero-cutout-filter` |
+| Outgoing cutout fade .15s | `--hero-crossfade-out-duration` |
+| Cutout width and filter | `--hero-cutout-width`, `--hero-cutout-filter` (`--hero-cutout-outline`, `--hero-cutout-outline-off`, `--hero-cutout-shade`) |
 | Inactive slide `translateY(24px) scale(.97)` | `--hero-slide-offset`, `--hero-slide-scale` (values changed) |
 | Settle easing | `--ease` |
 | City and team size 12px | `--caption-size` |

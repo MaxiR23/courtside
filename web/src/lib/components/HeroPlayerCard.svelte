@@ -38,7 +38,8 @@
 			transform: `translateX(-50%) translateY(${read('--hero-slide-offset')}) scale(${read('--hero-slide-scale')})`
 		}),
 		shown: { opacity: 1, transform: 'translateX(-50%)' },
-		durationToken: '--hero-crossfade-duration'
+		durationToken: '--hero-crossfade-duration',
+		outDurationToken: '--hero-crossfade-out-duration'
 	});
 
 	// The logo and the tricode settle the same way, over the identity duration.
@@ -50,6 +51,19 @@
 		}),
 		shown: { opacity: 1, transform: 'translateX(-50%)' },
 		durationToken: '--identity-settle-duration'
+	});
+
+	// The light outline shows only on the settled photo: it drops when the change starts
+	// and fades back once the incoming photo has settled.
+	const outlineFade = (isActive: boolean): CrossfadeParams => ({
+		active: isActive,
+		hidden: (read) => ({
+			filter: `${read('--hero-cutout-outline-off')} ${read('--hero-cutout-shade')}`
+		}),
+		shown: { filter: 'var(--hero-cutout-filter)' },
+		durationToken: '--hero-crossfade-duration',
+		delayToken: '--hero-crossfade-duration',
+		instantOut: true
 	});
 
 	const side = $derived(sides[active]);
@@ -107,6 +121,7 @@
 									src={s.star.photo}
 									alt={fullName(s.star)}
 									loading="lazy"
+									use:crossfade={outlineFade(index === active)}
 									onerror={() => (failed[s.star.photo] = true)}
 								/>
 							{/if}
@@ -251,6 +266,10 @@
 		display: block;
 		width: 100%;
 		clip-path: var(--hero-cutout-clip);
+		filter: var(--hero-cutout-outline-off) var(--hero-cutout-shade);
+	}
+
+	.cutout.active img {
 		filter: var(--hero-cutout-filter);
 	}
 
