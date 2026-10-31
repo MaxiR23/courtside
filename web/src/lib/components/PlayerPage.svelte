@@ -44,25 +44,11 @@
 		seasonSelect = null,
 		seasonTag = null
 	}: Props = $props();
-
-	// The end of the name block, so the tabs can show the mini text once it has scrolled away.
-	let nameBlockEnd = $state<HTMLElement | null>(null);
 </script>
 
 {#if page.kind === 'ready'}
-	<PlayerHeader
-		header={page.view.header}
-		{allGamesHref}
-		{standingsHref}
-		{layout}
-		{seasonSelect}
-		bind:nameBlockEnd
-	/>
-	<SectionTabs
-		tabs={page.view.tabs}
-		mini={page.view.mini}
-		reveal={{ element: nameBlockEnd, layout }}
-	/>
+	<PlayerHeader header={page.view.header} {allGamesHref} {standingsHref} {layout} {seasonSelect} />
+	<SectionTabs tabs={page.view.tabs} mini={page.view.mini} {layout} />
 	{@const sections = page.view.sections}
 	{@const profile = sections.profile}
 	<PageContainer>

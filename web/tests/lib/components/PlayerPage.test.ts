@@ -15,7 +15,7 @@
 // - The season select reaches the header in every state, and is absent without the prop
 // - hideNext renders no next game card and no "Season over."
 // - The team logo before the team tag on both layouts, the code for a null logo
-// - The mini name stays hidden until the watched block has passed, on both layouts; the tabs take the full width on mobile at the top
+// - The mini name stays hidden until the bar is stuck, on both layouts; the tabs take the full width on mobile at the top
 //
 // What is covered:
 // - Each page state, drawn from props with no fetch; the view comes from the recorded player feed
@@ -341,12 +341,12 @@ describe('PlayerPage mini name', () => {
 	);
 
 	it.each(['desktop', 'mobile'] as const)(
-		'observes the watched block on the %s layout and shows the mini text once it has passed',
+		'shows the mini text only while the tab bar is stuck on the %s layout',
 		async (layout) => {
 			const { observed, callbacks } = stubObserver();
 			const { container } = showAt(layout);
 			await waitFor(() => expect(observed).toHaveLength(1));
-			expect(observed[0]).toBe(container.querySelector('.line'));
+			expect(observed[0]).toBe(container.querySelector('nav.section-tabs')?.previousElementSibling);
 
 			callbacks[0]([{ isIntersecting: false, boundingClientRect: { top: -10 } }]);
 			await tick();

@@ -4,25 +4,25 @@
 	import { miniScoreFade, scoreRowOpen } from '#lib/game/motion.ts';
 	import { crossfade } from '#lib/hero/motion.ts';
 	import { m } from '#lib/paraglide/messages.js';
-	import { ScrolledPastWatch } from '#lib/scroll/scrolled-past.svelte.ts';
+	import { stickyBar } from '#lib/scroll/scrolled-past.svelte.ts';
 	import type { RowLayout } from '#lib/schedule/types.ts';
 
 	type Props = {
 		tabs: readonly { id: string; label: string }[];
 		miniScore?: MiniScore | null;
 		mini?: string | null; // a pre-formatted text, such as "OKC 57–25", when there is no score
-		reveal: { element: HTMLElement | null; layout: RowLayout }; // the mini score or text shows once this element's bottom has left the top of the viewport; hidden while it is null
+		layout: RowLayout; // 'mobile' stacks the mini score or text on its own row above the tabs
 	};
 
-	let { tabs, miniScore = null, mini = null, reveal }: Props = $props();
+	let { tabs, miniScore = null, mini = null, layout }: Props = $props();
 
-	const watch = new ScrolledPastWatch();
+	let sentinel = $state<HTMLElement | null>(null);
+	let bar = $state<HTMLElement | null>(null);
 	$effect(() => {
-		const target = reveal.element;
-		if (target) return watch.observe(target);
+		if (sentinel && bar) return stickyBar.observe(sentinel, bar);
 	});
-	const revealed = $derived(watch.passed);
-	const stacked = $derived(reveal.layout === 'mobile' && (miniScore !== null || mini !== null));
+	const revealed = $derived(stickyBar.stuckOf(bar));
+	const stacked = $derived(layout === 'mobile' && (miniScore !== null || mini !== null));
 
 	function scrollToSection(event: MouseEvent, id: string) {
 		event.preventDefault();
@@ -34,7 +34,9 @@
 </script>
 
 {#if tabs.length > 0 || miniScore || mini}
+	<div bind:this={sentinel}></div>
 	<nav
+		bind:this={bar}
 		class="section-tabs"
 		class:open={revealed}
 		class:stacked

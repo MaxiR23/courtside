@@ -16,7 +16,7 @@
 // - The not-found row in Spanish with a Spanish browser preference
 // - A past game (fixtures/game-detail-past.json): the season label next to the date, the side with a code links to its team page, the guest side is not a link, and no hidden section renders a heading or an empty section
 // - The team logos: the feed logo in the header box on both layouts, the code for a null logo
-// - The mini score is hidden at load, observes the scoreboard (grid on desktop, rows on mobile) and shows once it has passed
+// - The mini score is hidden at load, shows only while the tab bar is stuck, on both layouts
 // - Mobile sections get the mobile scroll margin
 // - Players to watch gets the page layout
 //
@@ -566,12 +566,9 @@ describe('GamePage mini score', () => {
 		}
 	);
 
-	it.each([
-		['desktop', '.scoreboard'],
-		['mobile', '.rows']
-	] as const)(
-		'observes the scoreboard on the %s layout and shows the mini score once it has passed',
-		async (layout, selector) => {
+	it.each(['desktop', 'mobile'] as const)(
+		'shows the mini score only while the tab bar is stuck on the %s layout',
+		async (layout) => {
 			const observed: Element[] = [];
 			const callbacks: ((entries: unknown[]) => void)[] = [];
 			class FakeObserver {
@@ -584,10 +581,19 @@ describe('GamePage mini score', () => {
 			vi.stubGlobal('IntersectionObserver', FakeObserver);
 			const { container } = showLayout(layout);
 			await waitFor(() => expect(observed).toHaveLength(1));
-			expect(observed[0]).toBe(container.querySelector(selector));
+			expect(observed[0]).toBe(container.querySelector('nav.section-tabs')?.previousElementSibling);
+			const nav = container.querySelector('nav.section-tabs');
+			callbacks[0]([{ isIntersecting: true, boundingClientRect: { top: 100 } }]);
+			await tick();
+			expect(container.querySelector('.mini-score')?.getAttribute('aria-hidden')).toBe('true');
+			expect(nav?.classList.contains('open')).toBe(false);
 			callbacks[0]([{ isIntersecting: false, boundingClientRect: { top: -10 } }]);
 			await tick();
 			expect(container.querySelector('.mini-score')?.hasAttribute('aria-hidden')).toBe(false);
+			expect(nav?.classList.contains('open')).toBe(true);
+			callbacks[0]([{ isIntersecting: true, boundingClientRect: { top: 100 } }]);
+			await tick();
+			expect(container.querySelector('.mini-score')?.getAttribute('aria-hidden')).toBe('true');
 		}
 	);
 

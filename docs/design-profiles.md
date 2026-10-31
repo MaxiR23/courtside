@@ -74,7 +74,7 @@ Everything under "Implementation rules" in `docs/design.md` and `docs/design-gam
 
 ### 2. Tabs
 
-Profile · Averages · Seasons · Milestones · Game log · Awards. The mini name, such as `#4 S. Barnes`, shows once the name block (first name to team line) has left the top of the viewport: on desktop on the right of the tabs with a fade; under 680px on its own 36px row above the tabs that overlays the content; at the top of the page the tabs take the full width. Instant under reduced motion; hidden without `IntersectionObserver`.
+Profile · Averages · Seasons · Milestones · Game log · Awards. The mini name, such as `#4 S. Barnes`, shows while the bar is stuck to the top of the viewport (`docs/design-game-detail.md`, "2. Section tabs"): on desktop on the right of the tabs with a fade; under 680px on its own 36px row above the tabs that overlays the content; at the top of the page the tabs take the full width. Instant under reduced motion; hidden without `IntersectionObserver`.
 
 ### 3. Profile, next game and last 5
 
@@ -121,7 +121,7 @@ Two columns, min 440px:
 
 ### 2. Tabs
 
-Overview · Record · Leaders · Roster · Injuries · Schedule. The mini `OKC 57–25` follows the same reveal, with the name and record block (the header's two columns) as the watched block.
+Overview · Record · Leaders · Roster · Injuries · Schedule. The mini `OKC 57–25` follows the same reveal.
 
 ### 3. Overview
 
@@ -177,7 +177,7 @@ Meta: "Official injury report". Two columns, min 420px. The name with `#num · P
 |---|---|
 | Polling | Team page every 5 minutes once its feed has loaded (the team feed has no live part) and every 60 seconds while no feed has loaded yet; player page every 30 seconds while `live` is not null and every 60 seconds otherwise; paused while the tab is hidden and refreshed when it is visible again |
 | Section tabs | Smooth scroll; instant under reduced motion |
-| Mini text | Fades in once the watched block has left the top of the viewport and out when it comes back; on mobile its row opens above the tabs without moving the page. Instant under reduced motion |
+| Mini text | Fades in once the bar is stuck to the top of the viewport and out when it is not; on mobile its row opens above the tabs without moving the page. Instant under reduced motion |
 | Segmented controls and chips | Switch the rows shown; the selection is not kept between visits |
 | Player photo | The scroll fade described in the header (fade and drift on desktop, fade only on mobile); none under reduced motion |
 | Focus | `:focus-visible` as on the home |

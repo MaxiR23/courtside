@@ -23,18 +23,9 @@
 		layout: RowLayout;
 		teamHref: (code: string) => ResolvedPathname;
 		loading?: boolean; // the first feed has not loaded yet: show the skeleton
-		scoreboard?: HTMLElement | null; // $bindable: the scoreboard (desktop grid or mobile rows), for the game page's mini score
 	};
 
-	let {
-		header,
-		allGamesHref,
-		standingsHref,
-		layout,
-		teamHref,
-		loading = false,
-		scoreboard = $bindable(null)
-	}: Props = $props();
+	let { header, allGamesHref, standingsHref, layout, teamHref, loading = false }: Props = $props();
 
 	type TipOff = Extract<ScoreboardCenter, { kind: 'tip-off' }>;
 
@@ -118,7 +109,7 @@
 {#snippet bodyRows()}
 	{#if header}
 		{#if layout === 'desktop'}
-			<div class="scoreboard" bind:this={scoreboard}>
+			<div class="scoreboard">
 				{@render teamBlock(header.away, 'away')}
 				<div class="center">
 					{#if header.center.kind === 'score'}
@@ -134,7 +125,7 @@
 				{@render teamBlock(header.home, 'home')}
 			</div>
 		{:else}
-			<div class="rows" bind:this={scoreboard}>
+			<div class="rows">
 				{#each sides as entry (entry.side)}
 					{@const side = entry.side}
 					{@const team = entry.team}

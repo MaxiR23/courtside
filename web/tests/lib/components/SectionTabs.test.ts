@@ -10,9 +10,9 @@
 // - Nothing with no tabs and no mini score
 // - A click scrolls smoothly to the section, instantly under reduced motion
 // - The nav stays above the page content: sticky with z-index from --tabs-z-index
-// - The mini score or text is hidden until the watched element has left the top of the viewport, then shown, hidden again on return
+// - The mini score or text is hidden until the bar is stuck (the empty element right above it has left the top of the viewport), then shown, hidden again when it is not
 // - Stacked on its own row on the mobile layout only; animated, not under reduced motion
-// - No watched element yet: the mini stays hidden and no observer is built
+// - The shared sticky bar state resets when the bar unmounts; no sentinel and no observer without tabs or mini
 //
 // What is covered:
 // - Each state the tabs show, plus the click
@@ -33,6 +33,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import SectionTabs from '../../../src/lib/components/SectionTabs.svelte';
 import type { SectionTab } from '../../../src/lib/game/types';
+import { stickyBar } from '../../../src/lib/scroll/scrolled-past.svelte';
 
 const tabs: SectionTab[] = [
 	{ id: 'score', label: 'Score' },
@@ -52,12 +53,6 @@ function stubSection(id: string) {
 	return scrollIntoView;
 }
 
-function watched(layout: 'desktop' | 'mobile' = 'desktop') {
-	const element = document.createElement('div');
-	document.body.append(element);
-	return { element, layout };
-}
-
 afterEach(() => {
 	vi.unstubAllGlobals();
 	document.body.innerHTML = '';
@@ -65,7 +60,7 @@ afterEach(() => {
 
 describe('SectionTabs', () => {
 	it('renders one link per tab in the given order, pointing at its section', () => {
-		render(SectionTabs, { props: { tabs, miniScore: null, reveal: watched() } });
+		render(SectionTabs, { props: { tabs, miniScore: null, layout: 'desktop' } });
 		const links = screen.getAllByRole('link');
 		expect(links.map((a) => a.textContent)).toEqual(['Score', 'Box score', 'Injuries']);
 		expect(links.map((a) => a.getAttribute('href'))).toEqual(['#score', '#box-score', '#injuries']);
@@ -73,7 +68,7 @@ describe('SectionTabs', () => {
 	});
 
 	it('shows the mini score when given', () => {
-		const { container } = render(SectionTabs, { props: { tabs, miniScore, reveal: watched() } });
+		const { container } = render(SectionTabs, { props: { tabs, miniScore, layout: 'desktop' } });
 		expect(container.querySelector('.mini-score')?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
 			'LAL 63 – 62 GSW'
 		);
@@ -82,7 +77,7 @@ describe('SectionTabs', () => {
 	it('names a guest without a code by its name in the mini score', () => {
 		const guest = { code: null, name: 'Mariners', city: 'Harbor City', guest: true };
 		const { container } = render(SectionTabs, {
-			props: { tabs, miniScore: { ...miniScore, awayTeam: guest }, reveal: watched() }
+			props: { tabs, miniScore: { ...miniScore, awayTeam: guest }, layout: 'desktop' }
 		});
 		expect(container.querySelector('.mini-score')?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
 			'Mariners 63 – 62 GSW'
@@ -91,25 +86,25 @@ describe('SectionTabs', () => {
 
 	it('shows no mini score without it', () => {
 		const { container } = render(SectionTabs, {
-			props: { tabs, miniScore: null, reveal: watched() }
+			props: { tabs, miniScore: null, layout: 'desktop' }
 		});
 		expect(container.querySelector('.mini-score')).toBeNull();
 	});
 
 	it('shows a mini text, and renders with only a mini text', () => {
 		const { container, unmount } = render(SectionTabs, {
-			props: { tabs, mini: 'OKC 57–25', reveal: watched() }
+			props: { tabs, mini: 'OKC 57–25', layout: 'desktop' }
 		});
 		expect(container.querySelector('.mini-score')?.textContent).toBe('OKC 57–25');
 		unmount();
-		const only = render(SectionTabs, { props: { tabs: [], mini: 'OKC 57–25', reveal: watched() } });
+		const only = render(SectionTabs, { props: { tabs: [], mini: 'OKC 57–25', layout: 'desktop' } });
 		expect(only.container.querySelector('nav')).toBeTruthy();
 		expect(only.container.querySelector('.mini-score')?.textContent).toBe('OKC 57–25');
 	});
 
 	it('renders nothing with no tabs and no mini score', () => {
 		const { container } = render(SectionTabs, {
-			props: { tabs: [], miniScore: null, reveal: watched() }
+			props: { tabs: [], miniScore: null, layout: 'desktop' }
 		});
 		expect(container.querySelector('nav')).toBeNull();
 	});
@@ -117,7 +112,7 @@ describe('SectionTabs', () => {
 	it('scrolls smoothly to the section on click', async () => {
 		vi.stubGlobal('matchMedia', () => ({ matches: false }));
 		const scrollIntoView = stubSection('box-score');
-		render(SectionTabs, { props: { tabs, miniScore: null, reveal: watched() } });
+		render(SectionTabs, { props: { tabs, miniScore: null, layout: 'desktop' } });
 		const notPrevented = await fireEvent.click(screen.getByRole('link', { name: 'Box score' }));
 		expect(notPrevented).toBe(false);
 		expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
@@ -128,13 +123,13 @@ describe('SectionTabs', () => {
 			matches: query === '(prefers-reduced-motion: reduce)'
 		}));
 		const scrollIntoView = stubSection('injuries');
-		render(SectionTabs, { props: { tabs, miniScore: null, reveal: watched() } });
+		render(SectionTabs, { props: { tabs, miniScore: null, layout: 'desktop' } });
 		await fireEvent.click(screen.getByRole('link', { name: 'Injuries' }));
 		expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'auto', block: 'start' });
 	});
 
 	it('does nothing when the section is not on the page yet', async () => {
-		render(SectionTabs, { props: { tabs, miniScore: null, reveal: watched() } });
+		render(SectionTabs, { props: { tabs, miniScore: null, layout: 'desktop' } });
 		await expect(fireEvent.click(screen.getByRole('link', { name: 'Score' }))).resolves.toBe(false);
 	});
 
@@ -159,13 +154,19 @@ describe('SectionTabs', () => {
 type Entry = { isIntersecting: boolean; boundingClientRect: { top: number } };
 
 function stubObserver() {
-	const state = { callbacks: [] as ((entries: Entry[]) => void)[], created: 0 };
+	const state = {
+		callbacks: [] as ((entries: Entry[]) => void)[],
+		observed: [] as Element[],
+		created: 0
+	};
 	class FakeObserver {
 		constructor(callback: (entries: Entry[]) => void) {
 			state.created += 1;
 			state.callbacks.push(callback);
 		}
-		observe = vi.fn();
+		observe = (node: Element) => {
+			state.observed.push(node);
+		};
 		disconnect = vi.fn();
 	}
 	vi.stubGlobal('IntersectionObserver', FakeObserver);
@@ -180,12 +181,12 @@ function revealed(
 	score: typeof miniScore | null = miniScore
 ) {
 	return render(SectionTabs, {
-		props: { tabs, miniScore: score, reveal: watched(layout) }
+		props: { tabs, miniScore: score, layout }
 	});
 }
 
-describe('SectionTabs reveal', () => {
-	it('hides the mini score at load when it reveals on scroll', () => {
+describe('SectionTabs stuck bar', () => {
+	it('hides the mini score at load, before the bar is stuck', () => {
 		stubObserver();
 		const { container } = revealed();
 		expect(container.querySelector('.mini-score')?.getAttribute('aria-hidden')).toBe('true');
@@ -193,17 +194,21 @@ describe('SectionTabs reveal', () => {
 		expect(nav?.classList.contains('open')).toBe(false);
 	});
 
-	it('shows the mini score once the observer reports the watched element out of view', async () => {
+	it('observes the empty element right above the nav and shows the mini score once it reports the bar stuck', async () => {
 		const observer = stubObserver();
 		const { container } = revealed();
 		await waitFor(() => expect(observer.callbacks).toHaveLength(1));
+		const sentinel = container.querySelector('nav')?.previousElementSibling;
+		expect(sentinel?.tagName).toBe('DIV');
+		expect(sentinel?.children).toHaveLength(0);
+		expect(observer.observed[0]).toBe(sentinel);
 		observer.callbacks[0]([passed]);
 		await tick();
 		expect(container.querySelector('.mini-score')?.hasAttribute('aria-hidden')).toBe(false);
 		expect(container.querySelector('nav')?.classList.contains('open')).toBe(true);
 	});
 
-	it('hides the mini score again when the watched element comes back', async () => {
+	it('hides the mini score again when the bar is no longer stuck', async () => {
 		const observer = stubObserver();
 		const { container } = revealed();
 		await waitFor(() => expect(observer.callbacks).toHaveLength(1));
@@ -213,6 +218,31 @@ describe('SectionTabs reveal', () => {
 		await tick();
 		expect(container.querySelector('.mini-score')?.getAttribute('aria-hidden')).toBe('true');
 		expect(container.querySelector('nav')?.classList.contains('open')).toBe(false);
+	});
+
+	it('opens only the mini of the bar whose own sentinel is above the viewport', async () => {
+		const observer = stubObserver();
+		const { container } = render(SectionTabs, {
+			props: { tabs, miniScore, layout: 'desktop' }
+		});
+		const other = render(SectionTabs, { props: { tabs, miniScore, layout: 'desktop' } });
+		await waitFor(() => expect(observer.callbacks).toHaveLength(2));
+		const minis = () => [
+			container.querySelector('.mini-score'),
+			other.container.querySelector('.mini-score')
+		];
+		observer.callbacks[0]([passed]);
+		await tick();
+		expect(minis()[0]?.hasAttribute('aria-hidden')).toBe(false);
+		expect(container.querySelector('nav')?.classList.contains('open')).toBe(true);
+		expect(minis()[1]?.getAttribute('aria-hidden')).toBe('true');
+		expect(other.container.querySelector('nav')?.classList.contains('open')).toBe(false);
+		observer.callbacks[0]([back]);
+		observer.callbacks[1]([passed]);
+		await tick();
+		expect(minis()[0]?.getAttribute('aria-hidden')).toBe('true');
+		expect(minis()[1]?.hasAttribute('aria-hidden')).toBe(false);
+		expect(other.container.querySelector('nav')?.classList.contains('open')).toBe(true);
 	});
 
 	it('keeps the mini score hidden without IntersectionObserver', async () => {
@@ -234,10 +264,10 @@ describe('SectionTabs reveal', () => {
 		expect(none.container.querySelector('nav')?.classList.contains('stacked')).toBe(false);
 	});
 
-	it('hides the mini text at load and shows it once the watched element has passed', async () => {
+	it('hides the mini text at load and shows it while the bar is stuck', async () => {
 		const observer = stubObserver();
 		const { container } = render(SectionTabs, {
-			props: { tabs, mini: 'OKC 57–25', reveal: watched() }
+			props: { tabs, mini: 'OKC 57–25', layout: 'desktop' }
 		});
 		expect(container.querySelector('.mini-score')?.getAttribute('aria-hidden')).toBe('true');
 		expect(container.querySelector('nav')?.classList.contains('open')).toBe(false);
@@ -254,20 +284,33 @@ describe('SectionTabs reveal', () => {
 	it('stacks the mini text on its own row on the mobile layout', () => {
 		stubObserver();
 		const { container } = render(SectionTabs, {
-			props: { tabs, mini: 'OKC 57–25', reveal: watched('mobile') }
+			props: { tabs, mini: 'OKC 57–25', layout: 'mobile' }
 		});
 		const nav = container.querySelector('nav');
 		expect(nav?.classList.contains('stacked')).toBe(true);
 		expect(nav?.classList.contains('open')).toBe(false);
 	});
 
-	it('keeps the mini hidden and builds no observer while the watched element is null', () => {
+	it('renders no sentinel and observes nothing with no tabs and no mini', () => {
 		const observer = stubObserver();
 		const { container } = render(SectionTabs, {
-			props: { tabs, mini: 'OKC 57–25', reveal: { element: null, layout: 'desktop' } }
+			props: { tabs: [], miniScore: null, mini: null, layout: 'desktop' }
 		});
+		expect(container.querySelector('nav')).toBeNull();
+		expect(container.querySelector('div')).toBeNull();
 		expect(observer.created).toBe(0);
-		expect(container.querySelector('.mini-score')?.getAttribute('aria-hidden')).toBe('true');
+	});
+
+	it('resets the shared state when the bar unmounts', async () => {
+		const observer = stubObserver();
+		const { unmount } = revealed();
+		await waitFor(() => expect(observer.callbacks).toHaveLength(1));
+		observer.callbacks[0]([passed]);
+		await tick();
+		expect(stickyBar.stuck).toBe(true);
+		unmount();
+		expect(stickyBar.stuck).toBe(false);
+		expect(stickyBar.bottom).toBe(0);
 	});
 
 	it.each([

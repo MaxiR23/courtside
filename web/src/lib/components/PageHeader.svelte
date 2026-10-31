@@ -27,7 +27,6 @@
 		columnsMin?: string; // calc of tokens: the lead and side bases added, the gap excluded; with a side column it keeps the desktop select on the first line when the columns wrap
 		stickyNav?: { height: string; background: string } | null; // raised nav; sticky with this background on mobile
 		clip?: boolean; // clip what overflows the sides (a glow), without a scroll container: the sticky nav keeps working
-		columns?: HTMLElement | null; // $bindable: the lead and side columns' row (.main), for a page whose watched block spans both columns
 	};
 
 	let {
@@ -51,8 +50,7 @@
 		sideFlex,
 		columnsMin,
 		stickyNav = null,
-		clip = false,
-		columns = $bindable(null)
+		clip = false
 	}: Props = $props();
 
 	const mobile = $derived(layout === 'mobile');
@@ -97,7 +95,7 @@
 	<div class="main-box" class:band={band != null}>
 		{#if grid && band}<div class="grid-bg" aria-hidden="true"></div>{/if}
 		<div class="main-inner">
-			<div class="main" class:float-select={floatSelect} bind:this={columns}>
+			<div class="main" class:float-select={floatSelect}>
 				<div class="lead">
 					{#if first}<div class="first-line">{@render first()}</div>{/if}
 					{@render body?.()}
