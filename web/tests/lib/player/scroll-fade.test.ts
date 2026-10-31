@@ -9,9 +9,12 @@
 //   removes the listener and cancels the pending frame
 // - parseCubicBezier: valid strings, null for anything else or an x outside [0, 1]
 // - cubicBezierAt: edges, linear curve, ease-out above the diagonal, clamping
-// - mobileFadeProgress: start, end, eased midpoint, linear without a curve, zero height or span
-// - scrollFade on mobile: opacity only, starts at the bottom of the stuck tabs, reaches 0 within
-//   the span, 0 start without a tab bar, reduced motion, switching layout at runtime
+// - mobileFadeProgress: 0 while the top is at or below the viewport top, 1 once the bottom reaches
+//   the bar's bottom, eased midpoint, linear without a curve, the 390px half-on-screen bound,
+//   no bar, a photo no taller than the bar, zero height
+// - scrollFade on mobile: opacity only, 1 until the top leaves the viewport, 0 at the shared bar's
+//   bottom, follows a re-registered bar, full height without a bar, no lookup by class name,
+//   reduced motion, switching layout at runtime
 //
 // What is covered:
 // - Pure logic and the action's wiring with stubbed frame, media and rect; no layout, no clock
@@ -24,13 +27,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	FADE_SPAN,
 	FADE_START_PX,
-	TABS_SELECTOR,
 	cubicBezierAt,
 	fadeProgress,
 	mobileFadeProgress,
 	parseCubicBezier,
 	scrollFade
 } from '../../../src/lib/player/scroll-fade';
+import { stickyBar } from '../../../src/lib/scroll/scrolled-past.svelte';
 
 describe('fadeProgress', () => {
 	it('is 0 at or below the start', () => {
@@ -215,29 +218,48 @@ describe('cubicBezierAt', () => {
 describe('mobileFadeProgress', () => {
 	const ease: [number, number, number, number] = [0, 0, 0.58, 1];
 
-	it('is 0 at or below the start', () => {
-		expect(mobileFadeProgress(48, 400, 48, 0.45, ease)).toBe(0);
-		expect(mobileFadeProgress(300, 400, 48, 0.45, ease)).toBe(0);
+	it('is 0 at the viewport top and below it', () => {
+		expect(mobileFadeProgress(0, 400, 77, ease)).toBe(0);
+		expect(mobileFadeProgress(250, 400, 77, ease)).toBe(0);
 	});
 
-	it('is 1 at the end of the span and past it', () => {
-		expect(mobileFadeProgress(48 - 0.45 * 400, 400, 48, 0.45, ease)).toBe(1);
-		expect(mobileFadeProgress(-5000, 400, 48, 0.45, ease)).toBe(1);
+	it('is above 0 just past the viewport top', () => {
+		expect(mobileFadeProgress(-1, 400, 77, ease)).toBeGreaterThan(0);
+	});
+
+	it("is 1 when the bottom reaches the bar's bottom and past it", () => {
+		expect(mobileFadeProgress(77 - 400, 400, 77, ease)).toBe(1);
+		expect(mobileFadeProgress(-5000, 400, 77, ease)).toBe(1);
 	});
 
 	it('eases the midpoint above the linear value', () => {
-		const p = mobileFadeProgress(48 - 0.5 * 0.45 * 400, 400, 48, 0.45, ease);
+		const p = mobileFadeProgress(-(400 - 77) / 2, 400, 77, ease);
 		expect(p).toBeCloseTo(cubicBezierAt(ease, 0.5), 6);
 		expect(p).toBeGreaterThan(0.5);
 	});
 
 	it('is linear without a curve', () => {
-		expect(mobileFadeProgress(48 - 0.5 * 0.45 * 400, 400, 48, 0.45, null)).toBeCloseTo(0.5);
+		expect(mobileFadeProgress(-(400 - 77) / 2, 400, 77, null)).toBeCloseTo(0.5);
 	});
 
-	it('is 0 for a zero height or a zero span', () => {
-		expect(mobileFadeProgress(-100, 0, 48, 0.45, ease)).toBe(0);
-		expect(mobileFadeProgress(-100, 400, 48, 0, ease)).toBe(0);
+	it('keeps the opacity at 0.5 or more with half the photo on screen at 390px', () => {
+		const p = mobileFadeProgress(77 - 135, 270, 77, ease);
+		expect(1 - p).toBeGreaterThanOrEqual(0.5);
+	});
+
+	it('runs over the full height without a bar', () => {
+		expect(mobileFadeProgress(-400, 400, 0, ease)).toBe(1);
+		expect(mobileFadeProgress(-200, 400, 0, null)).toBeCloseTo(0.5);
+	});
+
+	it('is 0 for a zero or negative height', () => {
+		expect(mobileFadeProgress(-100, 0, 77, ease)).toBe(0);
+		expect(mobileFadeProgress(-100, -5, 77, ease)).toBe(0);
+	});
+
+	it('is gone as soon as the top leaves a photo no taller than the bar', () => {
+		expect(mobileFadeProgress(0, 60, 77, ease)).toBe(0);
+		expect(mobileFadeProgress(-1, 60, 77, ease)).toBe(1);
 	});
 });
 
@@ -248,15 +270,26 @@ describe('scrollFade on mobile', () => {
 	let reduced: boolean;
 	let node: HTMLElement;
 	let top: number;
-	let tabs: HTMLElement | null;
-	let tabsHeight: number;
+	let cleanups: (() => void)[];
+	let decoy: HTMLElement | null;
+
+	// jsdom has no IntersectionObserver or ResizeObserver, so the bar is measured once on register.
+	const registerBar = (height: number) => {
+		const bar = document.createElement('nav');
+		bar.style.top = '0px';
+		bar.getBoundingClientRect = () => ({ height }) as DOMRect;
+		cleanups.push(stickyBar.observe(document.createElement('div'), bar));
+	};
 
 	beforeEach(() => {
 		frames = new Map();
 		nextId = 1;
 		reduced = false;
 		top = 100;
-		tabsHeight = 48;
+		cleanups = [];
+		decoy = null;
+		vi.stubGlobal('ResizeObserver', undefined);
+		vi.stubGlobal('IntersectionObserver', undefined);
 		vi.stubGlobal(
 			'requestAnimationFrame',
 			vi.fn((callback: FrameRequestCallback) => {
@@ -275,20 +308,17 @@ describe('scrollFade on mobile', () => {
 		);
 		node = document.createElement('div');
 		node.style.setProperty('--player-photo-drift', '60px');
-		node.style.setProperty('--player-photo-fade-span-mobile', '0.45');
 		node.style.setProperty('--player-photo-fade-ease-mobile', 'cubic-bezier(0, 0, 0.58, 1)');
 		document.body.appendChild(node);
 		node.getBoundingClientRect = () => ({ top: top + shift(), height: 400 }) as DOMRect;
-		tabs = document.createElement('nav');
-		tabs.className = TABS_SELECTOR.slice(1);
-		tabs.style.top = '0px';
-		tabs.getBoundingClientRect = () => ({ height: tabsHeight }) as DOMRect;
-		document.body.appendChild(tabs);
+		registerBar(77);
 	});
 
 	afterEach(() => {
+		vi.restoreAllMocks();
 		vi.unstubAllGlobals();
-		tabs?.remove();
+		for (const cleanup of cleanups) cleanup();
+		decoy?.remove();
 		node.remove();
 	});
 
@@ -310,38 +340,64 @@ describe('scrollFade on mobile', () => {
 	it('writes opacity and never a transform', () => {
 		const action = scrollFade(node, 'mobile');
 		runFrames();
-		scrollTo(0);
-		expect(Number(node.style.opacity)).toBeCloseTo(1 - mobileFadeProgress(0, 400, 48, 0.45, ease));
+		scrollTo(-100);
+		expect(Number(node.style.opacity)).toBeCloseTo(1 - mobileFadeProgress(-100, 400, 77, ease));
 		expect(node.style.transform).toBe('');
 		action?.destroy();
 	});
 
-	it('starts at the bottom of the stuck tabs', () => {
+	it("stays at 1 while the photo's top is at or below the viewport top", () => {
 		const action = scrollFade(node, 'mobile');
-		scrollTo(48);
+		scrollTo(0);
 		expect(Number(node.style.opacity)).toBe(1);
-		scrollTo(47);
-		expect(Number(node.style.opacity)).toBeLessThan(1);
-		tabsHeight = 100;
-		scrollTo(90);
+		scrollTo(-1);
 		expect(Number(node.style.opacity)).toBeLessThan(1);
 		action?.destroy();
 	});
 
-	it('reaches 0 within the span', () => {
+	it("reaches 0 when the photo's bottom reaches the bar's bottom", () => {
 		const action = scrollFade(node, 'mobile');
-		scrollTo(48 - 0.45 * 400);
+		scrollTo(77 - 400);
 		expect(Number(node.style.opacity)).toBe(0);
 		action?.destroy();
 	});
 
-	it('starts at 0 without a tab bar', () => {
-		tabs?.remove();
+	it("follows the shared bar's bottom edge", () => {
+		for (const cleanup of cleanups.splice(0)) cleanup();
+		registerBar(120);
 		const action = scrollFade(node, 'mobile');
-		scrollTo(10);
-		expect(Number(node.style.opacity)).toBe(1);
-		scrollTo(-10);
-		expect(Number(node.style.opacity)).toBeLessThan(1);
+		scrollTo(120 - 400);
+		expect(Number(node.style.opacity)).toBe(0);
+		scrollTo(121 - 400);
+		expect(Number(node.style.opacity)).toBeGreaterThan(0);
+		action?.destroy();
+	});
+
+	it('runs over the full height without a registered bar', () => {
+		for (const cleanup of cleanups.splice(0)) cleanup();
+		const action = scrollFade(node, 'mobile');
+		scrollTo(-399);
+		expect(Number(node.style.opacity)).toBeGreaterThan(0);
+		scrollTo(-400);
+		expect(Number(node.style.opacity)).toBe(0);
+		action?.destroy();
+	});
+
+	it('does no lookup by class name', () => {
+		decoy = document.createElement('nav');
+		decoy.className = 'section-tabs';
+		decoy.getBoundingClientRect = () => ({ height: 300 }) as DOMRect;
+		document.body.appendChild(decoy);
+		const one = vi.spyOn(document, 'querySelector');
+		const all = vi.spyOn(document, 'querySelectorAll');
+		const action = scrollFade(node, 'mobile');
+		runFrames();
+		scrollTo(-50);
+		scrollTo(-200);
+		scrollTo(77 - 400);
+		expect(Number(node.style.opacity)).toBe(0);
+		expect(one).not.toHaveBeenCalled();
+		expect(all).not.toHaveBeenCalled();
 		action?.destroy();
 	});
 

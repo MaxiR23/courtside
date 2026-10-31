@@ -349,7 +349,6 @@ const expected: Record<string, string> = {
 	'--player-photo-mask': 'linear-gradient(to bottom, #000 58%, transparent 96%)',
 	'--player-photo-shadow': 'drop-shadow(0 24px 28px rgba(0, 0, 0, 0.6))',
 	'--player-photo-drift': '60px',
-	'--player-photo-fade-span-mobile': '0.45',
 	'--player-photo-fade-ease-mobile': 'cubic-bezier(0, 0, 0.58, 1)',
 	'--player-hero-cell-min': '140px',
 	'--player-hero-value-size': 'clamp(44px, 5vw, 68px)',
