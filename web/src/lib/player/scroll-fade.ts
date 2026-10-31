@@ -1,8 +1,10 @@
 // The photo of the player header fades out and drifts down as it scrolls under the top of the
 // viewport on desktop. The drift comes from the design tokens; the 90 and the 1.1 are the spec's
-// formula. On mobile the photo only fades, from the bottom edge of the stuck section tabs, with
-// the span and the curve from the design tokens.
+// formula. On mobile the photo only fades: from when its top leaves the viewport top until its
+// bottom reaches the bottom edge of the stuck section tabs, read from the shared sticky bar state,
+// with the curve from the design tokens.
 import type { RowLayout } from '#lib/schedule/types.ts';
+import { stickyBar } from '#lib/scroll/scrolled-past.svelte.ts';
 
 // docs/design-profiles.md, Player page, Scroll behavior:
 // p = clamp((90 − photoTop) / (photoHeight × 1.1), 0, 1)
@@ -10,9 +12,7 @@ export const FADE_START_PX = 90;
 export const FADE_SPAN = 1.1;
 
 const DRIFT_TOKEN = '--player-photo-drift';
-const SPAN_TOKEN_MOBILE = '--player-photo-fade-span-mobile';
 const EASE_TOKEN_MOBILE = '--player-photo-fade-ease-mobile';
-export const TABS_SELECTOR = '.section-tabs';
 
 type Bezier = [number, number, number, number];
 
@@ -46,16 +46,21 @@ export function cubicBezierAt(points: Bezier, x: number): number {
 	return at((low + high) / 2, y1, y2);
 }
 
-/** How far the photo has faded on mobile, from 0 to 1: eased, from the tabs' bottom edge. */
+/**
+ * How far the photo has faded on mobile, from 0 to 1, eased: 0 while its top is at or below the
+ * viewport top, 1 once its bottom reaches the bar's bottom edge.
+ */
 export function mobileFadeProgress(
 	top: number,
 	height: number,
-	start: number,
-	span: number,
+	barBottom: number,
 	ease: Bezier | null
 ): number {
-	if (height <= 0 || span <= 0) return 0;
-	const linear = Math.min(1, Math.max(0, (start - top) / (height * span)));
+	if (height <= 0) return 0;
+	const distance = height - barBottom;
+	// A photo no taller than the bar has its bottom above the bar's bottom as soon as it leaves the top.
+	if (distance <= 0) return top < 0 ? 1 : 0;
+	const linear = Math.min(1, Math.max(0, -top / distance));
 	return ease ? cubicBezierAt(ease, linear) : linear;
 }
 
@@ -78,7 +83,6 @@ export function scrollFade(
 	const style = getComputedStyle(node);
 	const read = (name: string) => style.getPropertyValue(name);
 	const drift = parseFloat(read(DRIFT_TOKEN)) || 0;
-	const span = parseFloat(read(SPAN_TOKEN_MOBILE)) || 0;
 	const ease = parseCubicBezier(read(EASE_TOKEN_MOBILE));
 	let current = layout;
 	let pending: number | null = null;
@@ -88,13 +92,11 @@ export function scrollFade(
 	const apply = () => {
 		pending = null;
 		if (current === 'mobile') {
-			// The tab bar mounts after the header, so it is looked up on every frame.
-			const tabs = document.querySelector<HTMLElement>(TABS_SELECTOR);
-			const start = tabs
-				? (parseFloat(getComputedStyle(tabs).top) || 0) + tabs.getBoundingClientRect().height
-				: 0;
+			// The bar's bottom edge comes from the shared sticky bar state, read on every frame.
 			const rect = node.getBoundingClientRect();
-			node.style.opacity = String(1 - mobileFadeProgress(rect.top, rect.height, start, span, ease));
+			node.style.opacity = String(
+				1 - mobileFadeProgress(rect.top, rect.height, stickyBar.bottom, ease)
+			);
 			return;
 		}
 		const rect = node.getBoundingClientRect();

@@ -3,7 +3,9 @@
 // Cross-cutting test: the tab bar's mini score or text shows only while the bar is stuck to the top
 // of the viewport, and that state has one owner. SectionTabs reads it from the shared sticky bar
 // state, nothing else builds that state or draws the mini, and every page that renders SectionTabs
-// passes only its layout, never an element to watch.
+// passes only its layout, never an element to watch. Nothing outside the scroll module measures the
+// tab bar: no file but the shared module and SectionTabs names its class, and scroll-fade.ts reads
+// `stickyBar.bottom` and does no lookup.
 //
 // Tested:
 // - The files to scan are found, and the scan cannot pass by matching nothing
@@ -12,6 +14,9 @@
 //   per-bar or page-level state, a fade or an aria-hidden that does not follow `revealed`, a render
 //   site without a layout or with a reveal, and a second owner of the state or of the mini
 // - The matcher passes the real forms (the multi-line page tag, the preview tag)
+// - The matcher flags a lookup of the tab bar by class or TABS_SELECTOR outside the module and
+//   SectionTabs, and a scroll-fade that looks up an element, measures another one or does not read
+//   `stickyBar.bottom`
 // - SectionTabs passes its rules, every render site passes, and the state has one owner
 //
 // What is covered:
@@ -32,6 +37,7 @@ const componentsDir = join(libDir, 'components');
 const routesDir = join(webDir, 'src/routes');
 const sectionTabsPath = join(componentsDir, 'SectionTabs.svelte');
 const modulePath = join(libDir, 'scroll/scrolled-past.svelte.ts');
+const scrollFadePath = join(libDir, 'player/scroll-fade.ts');
 
 function filesUnder(dir: string, extensions: string[]): string[] {
 	return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
@@ -120,7 +126,24 @@ function ownerProblems(files: Record<string, string>): string[] {
 			problems.push(`${file}: assigns the state`);
 		if (!isTabs && /miniScoreFade\(/.test(source)) problems.push(`${file}: fades the mini`);
 		if (!isTabs && /class="mini-score"/.test(source)) problems.push(`${file}: draws the mini`);
+		if (!isModule && !isTabs && /section-tabs/.test(source))
+			problems.push(`${file}: looks up the tab bar`);
+		if (/TABS_SELECTOR/.test(source)) problems.push(`${file}: looks up the tab bar`);
 	}
+	return problems;
+}
+
+// The rules on the photo fade: it reads the bar's bottom edge from the shared state.
+function fadeProblems(source: string): string[] {
+	const problems: string[] = [];
+	if (/querySelector/.test(source)) problems.push('scroll-fade looks up an element');
+	if (!/import \{ stickyBar \} from '#lib\/scroll\/scrolled-past\.svelte\.ts';/.test(source)) {
+		problems.push('stickyBar is not imported from the shared module');
+	}
+	if (!/stickyBar\.bottom\b/.test(source))
+		problems.push('scroll-fade does not read stickyBar.bottom');
+	if (/getComputedStyle\((?!node\))/.test(source))
+		problems.push('scroll-fade measures another element');
 	return problems;
 }
 
@@ -158,6 +181,10 @@ describe('the scan', () => {
 			'export const stickyBar = new StickyBarState();'
 		);
 		expect(Object.keys(owned)).toContain('src/lib/components/SectionTabs.svelte');
+	});
+
+	it('finds the photo fade', () => {
+		expect(readFileSync(scrollFadePath, 'utf8')).toContain('scrollFade');
 	});
 });
 
@@ -229,6 +256,38 @@ describe('the matcher', () => {
 		expect(ownerProblems(second)).toHaveLength(6);
 	});
 
+	it('flags a lookup of the tab bar outside the module and SectionTabs', () => {
+		const lookups = {
+			'src/lib/x.ts': "document.querySelector('.section-tabs')",
+			'src/lib/y.ts': 'const s = TABS_SELECTOR;'
+		};
+		expect(ownerProblems(lookups)).toHaveLength(2);
+		expect(
+			ownerProblems({ 'src/lib/components/SectionTabs.svelte': 'class="section-tabs"' })
+		).toEqual([]);
+	});
+
+	it('flags a photo fade that looks up, measures another element or skips the shared state', () => {
+		const good = [
+			"import { stickyBar } from '#lib/scroll/scrolled-past.svelte.ts';",
+			'const s = getComputedStyle(node);',
+			'const b = stickyBar.bottom;'
+		].join('\n');
+		expect(fadeProblems(good)).toEqual([]);
+		expect(fadeProblems(`${good}\ndocument.querySelector(TABS_SELECTOR)`)).toContain(
+			'scroll-fade looks up an element'
+		);
+		expect(fadeProblems('const b = stickyBar.bottom;')).toContain(
+			'stickyBar is not imported from the shared module'
+		);
+		expect(fadeProblems(`${good}\ngetComputedStyle(tabs)`)).toContain(
+			'scroll-fade measures another element'
+		);
+		expect(fadeProblems(good.replace('stickyBar.bottom', '0'))).toContain(
+			'scroll-fade does not read stickyBar.bottom'
+		);
+	});
+
 	it('passes the real render forms', () => {
 		const multiLine = `<SectionTabs
 	tabs={view.tabs}
@@ -255,5 +314,9 @@ describe('the rule', () => {
 
 	it('only the shared module builds the state, only SectionTabs registers the bar and draws the mini', () => {
 		expect(ownerProblems(owned)).toEqual([]);
+	});
+
+	it('the photo fade reads the bar from the shared state and does no lookup', () => {
+		expect(fadeProblems(readFileSync(scrollFadePath, 'utf8'))).toEqual([]);
 	});
 });
