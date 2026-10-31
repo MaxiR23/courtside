@@ -16,7 +16,7 @@
 // - A past view hides Overview, Injuries and the roster status column; no-team shows "No team this season."
 // - The names timeline renders under the header with four runs and not with none
 // - The hero logo on both layouts with the strip kept, the code for a null logo
-// - The mini record stays hidden until the watched block has passed, on both layouts; the tabs take the full width on mobile at the top
+// - The mini record stays hidden until the bar is stuck, on both layouts; the tabs take the full width on mobile at the top
 //
 // What is covered:
 // - Each page state, drawn from props with no fetch; the view comes from the recorded team feed
@@ -325,14 +325,12 @@ describe('TeamPage mini record', () => {
 	);
 
 	it.each(['desktop', 'mobile'] as const)(
-		'observes the watched block on the %s layout and shows the mini text once it has passed',
+		'shows the mini text only while the tab bar is stuck on the %s layout',
 		async (layout) => {
 			const { observed, callbacks } = stubObserver();
 			const { container } = showAt(layout);
 			await waitFor(() => expect(observed).toHaveLength(1));
-			expect(observed[0]).toBe(container.querySelector('.page-header .main'));
-			expect(observed[0].querySelector('h1.name')).toBeTruthy();
-			expect(observed[0].querySelector('.record')).toBeTruthy();
+			expect(observed[0]).toBe(container.querySelector('nav.section-tabs')?.previousElementSibling);
 			callbacks[0]([{ isIntersecting: false, boundingClientRect: { top: -10 } }]);
 			await tick();
 			const nav = container.querySelector('nav.section-tabs');
