@@ -1,0 +1,204 @@
+{
+  "articles": [
+    {
+      "id": 9001,
+      "type": "HeadlineNews",
+      "headline": "  Tigers top Bears in overtime  ",
+      "description": "— Ana Lee scored 32 as Boston won.",
+      "published": "2026-11-03T03:30:00Z",
+      "premium": false,
+      "images": [
+        {
+          "url": "https://example.com/a-wide.jpg",
+          "width": 1296,
+          "height": 729,
+          "alt": "x",
+          "type": "header",
+          "credit": "Example Press"
+        },
+        {
+          "url": "https://example.com/a-small.jpg",
+          "width": 300,
+          "height": 200,
+          "alt": "x"
+        }
+      ],
+      "categories": [
+        {
+          "type": "team",
+          "teamId": 2,
+          "description": "Team"
+        },
+        {
+          "type": "team",
+          "teamId": 18,
+          "description": "Team"
+        },
+        {
+          "type": "athlete",
+          "athleteId": 111,
+          "description": "Ana Lee"
+        },
+        {
+          "type": "athlete",
+          "athleteId": 111,
+          "description": "Ana Lee"
+        },
+        {
+          "type": "athlete",
+          "athleteId": 222,
+          "description": "Bo Chen"
+        },
+        {
+          "type": "event",
+          "eventId": 401
+        }
+      ],
+      "links": {
+        "web": {
+          "href": "https://example.com/story/9001"
+        }
+      },
+      "extra": "ignored"
+    },
+    {
+      "id": 9002,
+      "type": "Story",
+      "headline": "Rookie class takes shape",
+      "description": "A look at the first month.",
+      "published": "2026-11-02T20:00:00-05:00",
+      "premium": false,
+      "images": [
+        {
+          "url": "https://example.com/b-small.jpg",
+          "width": 300,
+          "height": 200,
+          "alt": "x",
+          "type": "inline",
+          "credit": ""
+        }
+      ],
+      "categories": [
+        {
+          "type": "team",
+          "teamId": 2,
+          "description": "Team"
+        },
+        {
+          "type": "team",
+          "teamId": 999,
+          "description": "Team"
+        }
+      ],
+      "links": {
+        "web": {
+          "href": "https://example.com/story/9002"
+        }
+      },
+      "extra": "ignored"
+    },
+    {
+      "id": 9003,
+      "type": "Recap",
+      "headline": "Bears fall to Tigers",
+      "description": "Recap text.",
+      "published": "2026-11-02T04:00:00Z",
+      "premium": false,
+      "images": [],
+      "categories": [
+        {
+          "type": "team",
+          "teamId": 18,
+          "description": "Team"
+        },
+        {
+          "type": "team",
+          "teamId": 2,
+          "description": "Team"
+        },
+        {
+          "type": "event",
+          "eventId": 400
+        }
+      ],
+      "links": {
+        "web": {
+          "href": "https://example.com/story/9003"
+        }
+      },
+      "extra": "ignored"
+    },
+    {
+      "id": "9004",
+      "type": "Preview",
+      "headline": "Tonight: Tigers vs Bears",
+      "description": "Preview.",
+      "published": "2026-11-02T15:00:00Z",
+      "premium": false,
+      "images": [],
+      "categories": [],
+      "links": {
+        "web": {
+          "href": "https://example.com/story/9004"
+        }
+      },
+      "extra": "ignored"
+    },
+    {
+      "id": 9005,
+      "type": "Media",
+      "headline": "Watch the best plays",
+      "description": "Video.",
+      "published": "2026-11-02T14:00:00Z",
+      "premium": false,
+      "images": [],
+      "categories": [],
+      "links": {
+        "web": {
+          "href": "https://example.com/story/9005"
+        }
+      },
+      "extra": "ignored"
+    },
+    {
+      "id": 9006,
+      "type": "Story",
+      "headline": "Paid analysis",
+      "description": "Premium.",
+      "published": "2026-11-02T13:00:00Z",
+      "premium": true,
+      "images": [],
+      "categories": [],
+      "links": {
+        "web": {
+          "href": "https://example.com/story/9006"
+        }
+      },
+      "extra": "ignored"
+    },
+    {
+      "id": 9007,
+      "type": "HeadlineNews",
+      "headline": "League news without a game",
+      "description": "Notes.",
+      "published": "2026-11-01T12:00:00Z",
+      "premium": false,
+      "images": [
+        {
+          "url": "https://example.com/c.jpg",
+          "width": 640,
+          "height": 360,
+          "alt": "x",
+          "type": "header"
+        }
+      ],
+      "categories": [],
+      "links": {
+        "web": {
+          "href": "https://example.com/story/9007"
+        }
+      },
+      "extra": "ignored"
+    }
+  ]
+}

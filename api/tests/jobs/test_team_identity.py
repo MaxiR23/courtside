@@ -8,6 +8,7 @@
 # - identified gives a logo to a StandingsRow, a SearchTeam, a LeagueTeam and a TeamFeed and keeps their colors; it gives a logo and colors to a SearchPlayerTeam and to a current Team; it nulls both on a Team with a season code and the logo of a historical StandingsRow and TeamFeed; it keeps the logo of a non-historical past StandingsRow
 # - with_identities reaches sides in nested models, lists and optional fields, in every Opponent subclass (GameTeam, DetailTeam, PlayoffTeam), and the root of a model that is a league team object, and returns a validated model
 # - with_identities gives each season row of a player feed the logo of each team whose season code is its code, in per game, totals and playoffs rows; null for a historical, unknown or unidentified team; a list of nulls with no season codes; it reads a stored feed without logos and a past player feed, and leaves the career rows alone (ADR 0070)
+# - without_identity drops the logo and colors of a side and keeps the rest (ADR 0085)
 # - game_accent for NYK at ORL, MIL at BOS, LAL at PHX and OKC at DEN; a team with no secondary keeps its primary; a guest side gets null and the other side keeps its rule; two sides with no colors give null and null
 # - team_colors gives the identity colors of a league side and null for no team, a guest, a historical side, a code with no identity and a PlayoffTeam with no identity, ignoring the colors a PlayoffTeam was built with
 # - code_colors gives the identity colors of a code with no season code or the same season code, and null for no code, a different season code and an unknown code
@@ -47,6 +48,7 @@ from app.jobs.team_identity import (
     resolved_color,
     team_colors,
     with_identities,
+    without_identity,
 )
 from app.sources.team_info import TeamInfo
 from app.storage.state import TeamIdentity
@@ -86,6 +88,19 @@ def test_identity_of_adds_the_hash_and_keeps_a_null_secondary_and_the_logo() -> 
     assert full.logo is None
     assert bare.colors.secondary is None
     assert bare.logo == LOGO
+
+
+def test_without_identity_drops_the_logo_and_colors_of_a_side_and_keeps_the_rest() -> (
+    None
+):
+    full = side("OKC", logo=LOGO, colors=TeamColors(primary="#007AC1", secondary=None))
+
+    bare = without_identity(full)
+
+    assert bare.logo is None
+    assert bare.colors is None
+    assert bare.code == "OKC"
+    assert full.logo == LOGO
 
 
 def test_identified_sets_the_logo_and_colors_of_a_league_side() -> None:

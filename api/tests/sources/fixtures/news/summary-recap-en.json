@@ -1,0 +1,29 @@
+{
+  "header": {
+    "id": "401"
+  },
+  "article": {
+    "type": "Recap",
+    "headline": "Tigers outlast Bears",
+    "description": "\u2014 Boston closed on a run.",
+    "images": [
+      {
+        "url": "https://example.com/r.jpg",
+        "width": 1296,
+        "height": 729,
+        "alt": "x",
+        "type": "header",
+        "credit": "Example Press"
+      }
+    ],
+    "premium": false,
+    "links": {
+      "web": {
+        "href": "https://example.com/story/r"
+      }
+    }
+  },
+  "boxscore": {
+    "teams": []
+  }
+}

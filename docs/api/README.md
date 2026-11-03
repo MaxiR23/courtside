@@ -25,3 +25,4 @@ regenerated, with the TypeScript types, by `scripts/contract.sh`.
 - [`days.md`](days.md): the day feed of a past day.
 - [`home.md`](home.md): the home feed of a day with no games.
 - [`power-ranking.md`](power-ranking.md): the power ranking feed.
+- [`news.md`](news.md): the news feeds (pages, game recap and article).

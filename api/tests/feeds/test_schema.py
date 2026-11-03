@@ -6,6 +6,7 @@
 # - The committed schema of each feed matches its models
 # - One schema file is written per feed
 # - The schema forbids unknown fields and lists nullable fields as required, the home and power ranking schemas included
+# - The news and news article schemas list nullable fields as required and have no link field
 # - Fields carry no title
 # - Every team object of every feed carries a logo, and one with a code and a logo carries colors (ADR 0068)
 #
@@ -21,7 +22,8 @@
 # api/schemas/cup-matchup.schema.json, api/schemas/playoffs.schema.json,
 # api/schemas/playoffs-finals.schema.json, api/schemas/all-star.schema.json,
 # api/schemas/calendar.schema.json, api/schemas/days.schema.json,
-# api/schemas/home.schema.json, api/schemas/power-ranking.schema.json
+# api/schemas/home.schema.json, api/schemas/power-ranking.schema.json,
+# api/schemas/news.schema.json, api/schemas/news-article.schema.json
 
 import json
 from pathlib import Path
@@ -38,6 +40,8 @@ from app.feeds.days import DayFeed
 from app.feeds.game_detail import GameDetailFeed
 from app.feeds.games import GamesFeed
 from app.feeds.home import HomeFeed
+from app.feeds.news import NewsFeed
+from app.feeds.news_article import NewsArticleFeed
 from app.feeds.player import PlayerFeed
 from app.feeds.playoffs import PlayoffsFeed
 from app.feeds.playoffs_finals import PlayoffsFinalsFeed
@@ -81,6 +85,8 @@ def test_writes_one_schema_file_per_feed(tmp_path: Path) -> None:
         tmp_path / "days.schema.json",
         tmp_path / "home.schema.json",
         tmp_path / "power-ranking.schema.json",
+        tmp_path / "news.schema.json",
+        tmp_path / "news-article.schema.json",
     ]
     assert written[0].read_text(encoding="utf-8") == render_schema(GamesFeed)
     assert written[1].read_text(encoding="utf-8") == render_schema(GameDetailFeed)
@@ -97,6 +103,8 @@ def test_writes_one_schema_file_per_feed(tmp_path: Path) -> None:
     assert written[12].read_text(encoding="utf-8") == render_schema(DayFeed)
     assert written[13].read_text(encoding="utf-8") == render_schema(HomeFeed)
     assert written[14].read_text(encoding="utf-8") == render_schema(PowerRankingFeed)
+    assert written[15].read_text(encoding="utf-8") == render_schema(NewsFeed)
+    assert written[16].read_text(encoding="utf-8") == render_schema(NewsArticleFeed)
 
 
 def test_schema_forbids_unknown_fields() -> None:
@@ -156,6 +164,20 @@ def test_power_ranking_schema_lists_nullable_fields_as_required() -> None:
     required = schema["$defs"]["PowerRankingIdentity"]["required"]
     assert "name" in required
     assert "city" in required
+
+
+def test_news_article_schema_lists_nullable_fields_as_required() -> None:
+    schema: dict[str, Any] = json.loads(render_schema(NewsArticleFeed))
+
+    assert {"note", "game"} <= set(schema["required"])
+
+
+@pytest.mark.parametrize("model", [NewsFeed, NewsArticleFeed])
+def test_news_schemas_have_no_link_field(model: type[BaseModel]) -> None:
+    schema: dict[str, Any] = json.loads(render_schema(model))
+
+    for definition in [schema, *schema.get("$defs", {}).values()]:
+        assert not {"link", "links", "href"} & set(definition.get("properties", {}))
 
 
 def test_cup_matchup_schema_lists_nullable_fields_as_required() -> None:

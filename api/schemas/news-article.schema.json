@@ -1,0 +1,390 @@
+{
+  "$defs": {
+    "NewsGame": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "away": {
+          "$ref": "#/$defs/Opponent"
+        },
+        "home": {
+          "$ref": "#/$defs/Opponent"
+        },
+        "score": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Score"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "away",
+        "home",
+        "score"
+      ],
+      "title": "NewsGame",
+      "type": "object"
+    },
+    "NewsKind": {
+      "enum": [
+        "news",
+        "recap"
+      ],
+      "title": "NewsKind",
+      "type": "string"
+    },
+    "NewsLanguage": {
+      "enum": [
+        "en",
+        "es"
+      ],
+      "title": "NewsLanguage",
+      "type": "string"
+    },
+    "NewsNote": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[A-Za-z0-9-]+$",
+          "type": "string"
+        },
+        "language": {
+          "$ref": "#/$defs/NewsLanguage"
+        },
+        "kind": {
+          "$ref": "#/$defs/NewsKind"
+        },
+        "headline": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "published": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "photo": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NewsPhoto"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "teams": {
+          "items": {
+            "pattern": "^[A-Z]{3}$",
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "players": {
+          "items": {
+            "$ref": "#/$defs/NewsPlayer"
+          },
+          "type": "array"
+        },
+        "gameId": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "language",
+        "kind",
+        "headline",
+        "description",
+        "published",
+        "photo",
+        "teams",
+        "players",
+        "gameId"
+      ],
+      "title": "NewsNote",
+      "type": "object"
+    },
+    "NewsPhoto": {
+      "additionalProperties": false,
+      "properties": {
+        "url": {
+          "format": "uri",
+          "maxLength": 2083,
+          "minLength": 1,
+          "type": "string"
+        },
+        "width": {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        "height": {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        "credit": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "url",
+        "width",
+        "height",
+        "credit"
+      ],
+      "title": "NewsPhoto",
+      "type": "object"
+    },
+    "NewsPlayer": {
+      "additionalProperties": false,
+      "properties": {
+        "playerId": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "playerId",
+        "name"
+      ],
+      "title": "NewsPlayer",
+      "type": "object"
+    },
+    "Opponent": {
+      "additionalProperties": false,
+      "description": "A team a game is played against: a league team or a guest.",
+      "properties": {
+        "code": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "city": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "guest": {
+          "default": false,
+          "type": "boolean"
+        },
+        "seasonCode": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "historical": {
+          "default": false,
+          "type": "boolean"
+        },
+        "logo": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TeamLogo"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "colors": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TeamColors"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "code",
+        "name",
+        "city",
+        "guest",
+        "seasonCode",
+        "historical",
+        "logo",
+        "colors"
+      ],
+      "title": "Opponent",
+      "type": "object"
+    },
+    "Score": {
+      "additionalProperties": false,
+      "properties": {
+        "away": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "home": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "away",
+        "home"
+      ],
+      "title": "Score",
+      "type": "object"
+    },
+    "TeamColors": {
+      "additionalProperties": false,
+      "properties": {
+        "primary": {
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "type": "string"
+        },
+        "secondary": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "primary",
+        "secondary"
+      ],
+      "title": "TeamColors",
+      "type": "object"
+    },
+    "TeamLogo": {
+      "additionalProperties": false,
+      "description": "A team's logo: the one for a light background and, when the source has\none, the one for a dark background.",
+      "properties": {
+        "light": {
+          "format": "uri",
+          "maxLength": 2083,
+          "minLength": 1,
+          "type": "string"
+        },
+        "dark": {
+          "anyOf": [
+            {
+              "format": "uri",
+              "maxLength": 2083,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "light",
+        "dark"
+      ],
+      "title": "TeamLogo",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "note": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/NewsNote"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "game": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/NewsGame"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "note",
+    "game"
+  ],
+  "title": "NewsArticleFeed",
+  "type": "object"
+}

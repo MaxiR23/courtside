@@ -100,7 +100,6 @@ from app.feeds.home import (
     PathRound,
     PathSeries,
 )
-from app.feeds.opponent import Opponent
 from app.feeds.playoffs import (
     LeaderCategory,
     PlayoffsFeed,
@@ -131,6 +130,7 @@ from app.jobs.team_identity import (
     identified,
     resolved_color,
     team_colors,
+    without_identity,
 )
 from app.settings import Settings
 from app.sources import scoreboard, season_leaders, season_types
@@ -483,13 +483,6 @@ def game_label(game: GameOfDay) -> tuple[LastGameLabel, int | None]:
     return (LastGameLabel.FINAL_OVERTIME if overtime else LastGameLabel.FINAL), None
 
 
-def _side(team: Opponent) -> Opponent:
-    """The side without identity: the logo and colors are added when served."""
-    return Opponent.model_validate(
-        team.model_dump(by_alias=False) | {"logo": None, "colors": None}
-    )
-
-
 def last_game(game: GameOfDay) -> LastGame | None:
     """The last game of a final game with a score and no All-Star mark, else none."""
     if (
@@ -503,8 +496,8 @@ def last_game(game: GameOfDay) -> LastGame | None:
     try:
         return LastGame(
             id=game.id,
-            away=_side(game.away),
-            home=_side(game.home),
+            away=without_identity(game.away),
+            home=without_identity(game.home),
             score=game.score,
             winner=winner,
             label=label,
@@ -636,7 +629,7 @@ def _path_series(series: Series, code: str, round_: PathRound) -> PathSeries | N
         return None
     return PathSeries(
         round=round_,
-        opponent=_side(other.team),
+        opponent=without_identity(other.team),
         result=f"{own.wins}\u2013{other.wins}",
         won=series.winner == code,
     )
@@ -665,7 +658,9 @@ def _finalist_path(
                 team = side.team
     if team is None or list(path) != rounds:
         return None
-    return FinalistPath(team=_side(team), series=[path[round_] for round_ in rounds])
+    return FinalistPath(
+        team=without_identity(team), series=[path[round_] for round_ in rounds]
+    )
 
 
 def finals_path(playoffs: PlayoffsFeed | None) -> FinalsPath | None:

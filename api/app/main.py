@@ -20,6 +20,12 @@ from app.jobs.games import GamesJob
 from app.jobs.highlights import HighlightsJob
 from app.jobs.highlights_search import HighlightsSearch
 from app.jobs.home_feed import HomeFeeds
+from app.jobs.news_article_feed import KIND as NEWS_ARTICLES_KIND
+from app.jobs.news_article_feed import NewsArticleFeeds
+from app.jobs.news_feed import KIND as NEWS_KIND
+from app.jobs.news_feed import NewsFeeds
+from app.jobs.news_recap_feed import KIND as NEWS_RECAPS_KIND
+from app.jobs.news_recap_feed import NewsRecapFeeds
 from app.jobs.on_demand import FeedCache
 from app.jobs.past_game_detail_feed import KIND as PAST_GAMES_KIND
 from app.jobs.past_game_detail_feed import PastGameDetailFeeds
@@ -73,6 +79,9 @@ PRUNED_KINDS = (
     SEASON_CUP_MATCHUPS_KIND,
     SEASON_ALL_STAR_KIND,
     CALENDARS_KIND,
+    NEWS_KIND,
+    NEWS_RECAPS_KIND,
+    NEWS_ARTICLES_KIND,
 )
 
 
@@ -277,6 +286,9 @@ def create_app(settings: Settings | None = None, *, run_jobs: bool = True) -> Fa
         past_details = PastGameDetailFeeds(
             settings, store, client, feed_cache, search=highlights_search
         )
+        NewsFeeds(settings, store, client, feed_cache, stars_job)
+        NewsRecapFeeds(settings, store, client, feed_cache, games_job, past_details)
+        NewsArticleFeeds(settings, store, feed_cache, games_job, past_details)
         # The stars job runs in its own task so its fetches never delay the live refresh.
         stars_scheduler = Scheduler([stars_job], store)
         scheduler = Scheduler([games_job, highlights_job], store)
