@@ -1,6 +1,6 @@
 # Source rules
 
-The rules every job and feed build follows so the data source is asked as little as possible. They are adopted by ADR 0020 and apply to every feed: games, game detail, player and team. Rule L records the season fallbacks of the adapters; it is adopted by ADR 0022. Rule N is adopted by ADR 0056 and retired by ADR 0059, and Rule O is adopted by ADR 0058 and extended by ADR 0059, and rule P is adopted by ADR 0062, which also extends rule H. ADR 0080 extends rule H. ADRs 0063, 0064, 0065, 0066 and 0067 extend rules A, C, D, E, F, G, J and O, as each rule says.
+The rules every job and feed build follows so the data source is asked as little as possible. They are adopted by ADR 0020 and apply to every feed: games, game detail, player and team. Rule L records the season fallbacks of the adapters; it is adopted by ADR 0022. Rule N is adopted by ADR 0056 and retired by ADR 0059, and Rule O is adopted by ADR 0058 and extended by ADR 0059, and rule P is adopted by ADR 0062, which also extends rule H. ADR 0080 extends rule H. ADRs 0063, 0064, 0065, 0066 and 0067 extend rules A, C, D, E, F, G, J and O, as each rule says. ADR 0085 extends rules A, G and I, the storage bounds and the read budgets.
 
 References:
 
@@ -23,6 +23,7 @@ Every source response is stored once, by URL, with its fetch time, and reused by
 | Playoffs scoreboard day before today | 7 days, and read again after a postseason final of that day (ADR 0066) |
 | Cup team schedules | 24 hours, 1 hour for a team with a game today (ADR 0066) |
 | A player's individual averages | Until the player's team has a final game after the fetch |
+| News lists, game summary read for a recap | 15 minutes (ADR 0085) |
 | Everything else | 1 hour |
 
 ## B. Presence
@@ -53,7 +54,7 @@ The roster and leaders are fetched once a day per team. A player's individual av
 
 ## G. On demand
 
-Everything else is built on request only (the pages of past seasons included): pre-game game detail, team feeds, player feeds, the standings feed, the search feed, the Cup feed, the Cup matchup feeds, the playoffs feed, the playoffs finals feed, the All-Star feed, the calendar feed, the day feed, the home feed, the power ranking feed, the past game detail, and the standings, team and player feeds of a past season, and the Cup and Cup matchup feeds of a past season, and the playoffs and playoffs finals feeds of a past season, and the All-Star feed of a past season. A feed nobody requests is never built, stored or fetched. A stored feed expires:
+Everything else is built on request only (the pages of past seasons included): pre-game game detail, team feeds, player feeds, the standings feed, the search feed, the Cup feed, the Cup matchup feeds, the playoffs feed, the playoffs finals feed, the All-Star feed, the calendar feed, the day feed, the home feed, the power ranking feed, the news feeds, the past game detail, and the standings, team and player feeds of a past season, and the Cup and Cup matchup feeds of a past season, and the playoffs and playoffs finals feeds of a past season, and the All-Star feed of a past season. A feed nobody requests is never built, stored or fetched. A stored feed expires:
 
 | Feed | Expires |
 |---|---|
@@ -78,6 +79,9 @@ Everything else is built on request only (the pages of past seasons included): p
 | Cup and Cup matchup feed of a past season | Built once and kept until not served in 90 days (ADR 0063). The current season's path serves the current Cup and Cup matchup feeds, with their expiry |
 | Playoffs and playoffs finals feed of a past season | Built once and kept until not served in 90 days (ADR 0063). The current season's path serves the current playoffs and playoffs finals feeds, with their expiry |
 | All-Star feed of a past season | Built once and kept until not served in 90 days (ADR 0063). The current season's path serves the current All-Star feed, with its expiry |
+| News page feeds (league, team, player) | 15 minutes after the build (ADR 0085) |
+| News game feed | Kept once its recap cannot change: a Spanish recap, or an English one with the Spanish side settled (recap archived or game marked) (until not served in 90 days, ADR 0063); otherwise 15 minutes after the build |
+| News article feed | 15 minutes after the build |
 
 ### On-demand highlights search
 
@@ -85,6 +89,13 @@ Everything else is built on request only (the pages of past seasons included): p
 - At most `HIGHLIGHTS_SEARCH_DAILY_CAP` (default 80) searches are sent per US Eastern day, counted in the state database. A query the source cache still holds sends no request and is not counted. Past the cap nothing is searched or marked.
 - A search that finds none stores a mark and the target is never searched again; a failed request leaves no mark. One search per target is in flight at a time.
 - Without `HIGHLIGHTS_SEARCH_API_URL`, its key or `VIDEO_EMBED_URL`, no search runs. There is no backfill job and no All-Star discovery job: the edition is found by the All-Star build from the season calendar.
+
+### On-demand news reads
+
+- With `NEWS_ENABLED` off nothing is built and no news request is sent (rule I).
+- A list (the league's, or a team's) is read at most once in 15 minutes per language and scope, through the shared source cache, so every page and concurrent build shares the read. A player page reads his current team's list.
+- The recap of a final game is read once per game and language, from the game summary: it is stored, or the game is marked as having none for that language, for good. A failed read leaves no mark.
+- A failed read is logged and the feed is built from the archive ([ADR 0085](adr/0085-news-archive-and-feeds.md)). There is no scheduled news job.
 
 ### Read budgets of the on-demand builds
 
@@ -94,6 +105,7 @@ Everything else is built on request only (the pages of past seasons included): p
 - Season playoffs: 140 reads, which hold 61 reads, 27 leader identities and at most 52 award winner identities ([ADR 0066](adr/0066-cut-read-amplification-of-on-demand-builds.md), [ADR 0073](adr/0073-no-champion-record-or-point-differential-in-the-playoffs-feed.md)).
 - Cup: 44 (6 group teams, 6 group tables, 2 conference tables and 30 schedules). Standings: 32. Search: 33.
 - Home: 4 season type reads (the postseason, then the preseason, regular season and play-in, or in the offseason after the postseason the next season's preseason and regular season), then 1 scoreboard day for the next game day outside the games feed window, then 1 leaders read (the current season, or in the offseason the last finished season, always the regular season; none in the Finals preview) and at most 4 player identities through their 30-day cache. The calendar feed of the season (and of the previous one in the offseason before Opening Night), and the day feed are built first; the Cup (regular season), All-Star and playoffs feeds are warmed only inside their windows, never awaited; all keep their own budgets ([ADR 0074](adr/0074-home-feed.md), [ADR 0077](adr/0077-home-warms-its-dependencies.md)).
+- News: list 1, recap 2 (the Spanish summary, then the English one), article 0 ([ADR 0085](adr/0085-news-archive-and-feeds.md)).
 - Power ranking: 1 season type read (the regular season), then at most 2 index pages, read only between the regular season start and end ([ADR 0075](adr/0075-power-ranking-feed.md)). The names are read from the stored standings feed, with no read; when none of the season is stored it is warmed, never awaited, with its own budget ([ADR 0078](adr/0078-power-ranking-names-from-the-stored-standings-feed.md)).
 - Every current-season build (the current playoffs, Cup, standings, search, game detail, team, player, Cup matchup, playoffs finals, All-Star, home, power ranking and current calendar builds) counts its reads only: a rate-limited read fails as an ordinary one and nulls its part (`stop_on_rate_limit` false). The past builds, the past calendar included, stop on a rate limit (rule O).
 - Finals: 48 (7 games, 2 records, 2 team statistics, 18 roster players per finalist and the Finals MVP); a further roster player is listed with no values ([ADR 0067](adr/0067-read-budgets-of-every-on-demand-build.md)). All-Star: 122 (per edition 1 calendar, 6 days, 8 games and 31 awards, then 30 team infos). A dependency built first keeps its own budget.
@@ -109,6 +121,7 @@ With the games job's daily fetch ([ADR 0063](adr/0063-bounded-state-and-kept-fee
 - `past_games` and `player_identities` rows not touched in 90 days are deleted.
 - The kept past feeds not served in 90 days are deleted (rule J).
 - Highlights, edition highlights and the highlights search marks are never deleted.
+- The news archive and the no-recap marks are never deleted; the news feed files not served in 90 days are deleted and built again on request ([ADR 0085](adr/0085-news-archive-and-feeds.md)).
 - The state database runs in WAL mode and every connection waits up to 5 seconds on a lock. `/health` lists at most 50 failed builds.
 
 ### Degrade rule
@@ -129,7 +142,7 @@ One game or team that cannot be read is skipped, or has that block null, with a 
 
 ## I. Unknown ids
 
-Unknown ids answer 404 with no source request: game ids outside the days shown that are not a final game of a stored day feed, player ids neither in the rosters the stars job fetches, nor in the roster of a stored past team season feed, nor in the box score of a stored past game detail, codes outside the 30 standard codes, slot ids outside the 7 of the Cup bracket, on the current and the season matchup paths, calendar seasons that are neither `current` nor a four-digit end year from 1994 to the current season, days that are not a `YYYY-MM-DD` date, are before 1993-10-01, are after today (US Eastern), or are a day of the stored games feed (with none stored, a day the games job would show), season paths of the standings, team and player feeds that are not a four-digit end year from 1994 to the season before the current one, season paths of the Cup and Cup matchup feeds that are not a four-digit end year from 2024 to the current season (the current season serves the current Cup feeds), season paths of the playoffs and playoffs finals feeds that are not a four-digit end year from 1994 to the current season (the current season serves the current playoffs feeds), season paths of the All-Star feed that are not a four-digit end year from 1994 to the current season (the current season serves the current All-Star feed), a past All-Star season whose edition was not found (after one scan of the February days of its calendar, until a restart), and a team code whose franchise has no team that season (after one read of its season team object). While the rosters are not fetched yet, player requests answer 503. On the season player path, a player named by a stored past playoffs or Finals feed (its leaders, award winners, Finals MVP and averages) is also known, and an id known from stored past data never waits for the rosters (ADR 0059). While the current season is not known, calendar requests, `current` included, and season feed requests answer 503.
+Unknown ids answer 404 with no source request: game ids outside the days shown that are not a final game of a stored day feed, player ids neither in the rosters the stars job fetches, nor in the roster of a stored past team season feed, nor in the box score of a stored past game detail, codes outside the 30 standard codes, slot ids outside the 7 of the Cup bracket, on the current and the season matchup paths, calendar seasons that are neither `current` nor a four-digit end year from 1994 to the current season, days that are not a `YYYY-MM-DD` date, are before 1993-10-01, are after today (US Eastern), or are a day of the stored games feed (with none stored, a day the games job would show), season paths of the standings, team and player feeds that are not a four-digit end year from 1994 to the season before the current one, season paths of the Cup and Cup matchup feeds that are not a four-digit end year from 2024 to the current season (the current season serves the current Cup feeds), season paths of the playoffs and playoffs finals feeds that are not a four-digit end year from 1994 to the current season (the current season serves the current playoffs feeds), season paths of the All-Star feed that are not a four-digit end year from 1994 to the current season (the current season serves the current All-Star feed), a past All-Star season whose edition was not found (after one scan of the February days of its calendar, until a restart), and a team code whose franchise has no team that season (after one read of its season team object). The news feeds answer 404 with no source request when News is off, for a language other than `en` or `es`, a page that is not a positive integer or is past the archive's pages, a team code outside the 30, a player on no roster and named by no archived note, a game neither held by the games job, nor of a stored day, nor with an archived recap, and an article not archived in that language (or, for `es`, not an English recap) (ADR 0085). While the rosters are not fetched yet, player requests answer 503. On the season player path, a player named by a stored past playoffs or Finals feed (its leaders, award winners, Finals MVP and averages) is also known, and an id known from stored past data never waits for the rosters (ADR 0059). While the current season is not known, calendar requests, `current` included, and season feed requests answer 503.
 
 ## J. Restart and cleanup
 

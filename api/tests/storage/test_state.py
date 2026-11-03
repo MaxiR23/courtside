@@ -77,6 +77,13 @@
 # - A registered date never overwrites stored players, storing players keeps the registered date, and a game with a date and no players has no players
 # - Migrates a database at version 12 to the team identities, keeping the rows; stores, replaces and reads a team identity (logo and colors); a new database has none (ADR 0068)
 # - Migrates a database at version 13 to the build fallback column keeping the rows; records whether a build used the rule L fallback and replaces it, a later record_build keeps it, a feed with no build row gets none (ADR 0069)
+# - Migrates a database at version 14 with rows in it to the news archive, keeping the rows (ADR 0085)
+# - The news archive dedupes by id and language, keeps one recap per game and language with the first stored winning, keeps the English and Spanish rows of one id, and returns how many notes it stored
+# - The news archive is never deleted by any prune method
+# - Stores and reads the no-recap mark per game and language
+# - Pages the notes newest first by offset and limit, counts them per scope, returns only the tagged notes of a team and of a player and says whether a note names a player
+# - The language rule: English shows English only; Spanish shows Spanish notes plus the English recaps of games with no Spanish recap, and no English news
+# - Reads a note and a recap by id and by game, and skips a stored note that no longer validates, logging it
 #
 # What is covered:
 # - Happy path, edge cases (unknown game, repeat migration, restart, no jobs, no stars, pre-migration database), error case (naive time, failed migration)
@@ -96,6 +103,7 @@ import pytest
 from pydantic import HttpUrl
 
 from app.feeds.games import Highlight, Star
+from app.feeds.news import NewsKind, NewsLanguage, NewsNote
 from app.feeds.opponent import TeamColors, TeamLogo
 from app.storage import state
 from app.storage.state import (
@@ -946,7 +954,7 @@ def test_migrating_a_database_at_the_previous_version_adds_the_all_star_editions
 
     store.migrate()
 
-    assert user_version(tmp_path) == len(real) == 14
+    assert user_version(tmp_path) == len(real) == 15
     assert [job.name for job in store.job_states()] == ["games"]
     assert store.feed_build("players", "a") is not None
     assert query(tmp_path, "SELECT COUNT(*) FROM all_star_editions") == [(0,)]
@@ -1000,7 +1008,7 @@ def test_migrating_a_database_at_the_all_star_editions_version_adds_the_all_star
 
     store.migrate()
 
-    assert user_version(tmp_path) == len(real) == 14
+    assert user_version(tmp_path) == len(real) == 15
     assert store.all_star_edition(2027) is not None
     assert query(tmp_path, "SELECT COUNT(*) FROM all_star_finals") == [(0,)]
 
@@ -1063,7 +1071,7 @@ def test_migrating_a_database_at_version_11_drops_the_backfill_tables_and_the_re
 
     store.migrate()
 
-    assert user_version(tmp_path) == len(real) == 14
+    assert user_version(tmp_path) == len(real) == 15
     assert "g1" in store.highlights()
     assert store.all_star_edition_highlight(2027) is not None
     assert [job.name for job in store.job_states()] == ["games", "stars"]
@@ -1157,7 +1165,7 @@ def test_migrating_a_database_at_version_7_adds_the_past_games_and_keeps_the_row
 
     store.migrate()
 
-    assert user_version(tmp_path) == len(real) == 14
+    assert user_version(tmp_path) == len(real) == 15
     assert store.all_star_edition(2027) is not None
     assert "g1" in store.highlights()
     assert query(tmp_path, "SELECT COUNT(*) FROM past_games") == [(0,)]
@@ -1213,7 +1221,7 @@ def test_migrating_a_database_at_version_8_adds_the_player_identities_and_keeps_
 
     store.migrate()
 
-    assert user_version(tmp_path) == len(real) == 14
+    assert user_version(tmp_path) == len(real) == 15
     assert store.past_game_players("g1", at=NOON) == '{"teams": {}}'
     assert query(tmp_path, "SELECT COUNT(*) FROM player_identities") == [(0,)]
 
@@ -1287,7 +1295,7 @@ def test_migrating_a_database_at_version_9_adds_the_served_and_touched_times_and
 
     store.migrate()
 
-    assert user_version(tmp_path) == len(real) == 14
+    assert user_version(tmp_path) == len(real) == 15
     assert store.feed_build("players", "a") is not None
     assert store.player_identity("p1") is not None
     served = store.last_served("players", "a")
@@ -1478,7 +1486,7 @@ def test_migrating_a_database_at_version_10_adds_the_season_team_absences_and_ke
 
     store.migrate()
 
-    assert user_version(tmp_path) == len(real) == 14
+    assert user_version(tmp_path) == len(real) == 15
     assert store.feed_build("players", "a") is not None
     assert "season_team_absences" in table_names(tmp_path)
     assert query(tmp_path, "SELECT COUNT(*) FROM season_team_absences") == [(0,)]
@@ -1554,7 +1562,7 @@ def test_migrating_a_database_at_version_12_adds_the_team_identities_and_keeps_t
 
     store.migrate()
 
-    assert user_version(tmp_path) == len(real) == 14
+    assert user_version(tmp_path) == len(real) == 15
     assert query(tmp_path, "SELECT team_code FROM stars") == [("OKC",)]
     assert query(tmp_path, "SELECT COUNT(*) FROM team_identities") == [(0,)]
 
@@ -1593,7 +1601,7 @@ def test_migrating_a_database_at_version_13_adds_the_build_fallback_and_keeps_th
 
     store.migrate()
 
-    assert user_version(tmp_path) == len(real) == 14
+    assert user_version(tmp_path) == len(real) == 15
     assert query(tmp_path, "SELECT kind, feed_id FROM feed_builds") == [("team", "okc")]
     assert store.build_fallback("team", "okc") is None
 
@@ -1624,3 +1632,253 @@ def test_a_build_fallback_of_a_feed_with_no_build_row_creates_none(
 
     assert store.build_fallback("team", "okc") is None
     assert query(tmp_path, "SELECT COUNT(*) FROM feed_builds") == [(0,)]
+
+
+EN = NewsLanguage.EN
+ES = NewsLanguage.ES
+
+
+def make_note(
+    note_id: str,
+    hour: int,
+    *,
+    language: NewsLanguage = EN,
+    kind: NewsKind = NewsKind.NEWS,
+    game_id: str | None = None,
+    teams: tuple[str, ...] = (),
+    players: tuple[str, ...] = (),
+) -> NewsNote:
+    return NewsNote.model_validate(
+        {
+            "id": note_id,
+            "language": language,
+            "kind": kind,
+            "headline": f"Headline {note_id}",
+            "description": None,
+            "published": dt.datetime(2026, 11, 3, hour, 0, tzinfo=dt.UTC),
+            "photo": None,
+            "teams": list(teams),
+            "players": [{"player_id": p, "name": f"Player {p}"} for p in players],
+            "game_id": game_id,
+        }
+    )
+
+
+def ids(notes: list[NewsNote]) -> list[str]:
+    return [f"{note.language.value}:{note.id}" for note in notes]
+
+
+def test_migrating_a_database_at_version_14_adds_the_news_archive_and_keeps_the_rows(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    real = state.MIGRATIONS
+    monkeypatch.setattr(state, "MIGRATIONS", real[:14])
+    store = make_store(tmp_path)
+    execute(
+        tmp_path,
+        "INSERT INTO feed_builds (kind, feed_id, last_build) "
+        "VALUES ('team', 'okc', '2026-10-08T15:00:00+00:00')",
+    )
+    assert user_version(tmp_path) == 14
+    monkeypatch.setattr(state, "MIGRATIONS", real)
+
+    store.migrate()
+
+    assert user_version(tmp_path) == len(real) == 15
+    assert query(tmp_path, "SELECT kind, feed_id FROM feed_builds") == [("team", "okc")]
+    assert {
+        "news_articles",
+        "news_article_teams",
+        "news_article_players",
+        "news_recap_marks",
+    } <= table_names(tmp_path)
+    assert store.count_news_notes(EN) == 0
+
+
+def test_the_news_archive_dedupes_by_id_and_language(tmp_path: Path) -> None:
+    store = make_store(tmp_path)
+    note = make_note("a1", 10, teams=("BOS",), players=("7",))
+
+    first = store.add_news_notes([note], NOON)
+    second = store.add_news_notes([note], LATER)
+
+    assert (first, second) == (1, 0)
+    assert query(tmp_path, "SELECT COUNT(*) FROM news_articles") == [(1,)]
+    assert query(tmp_path, "SELECT COUNT(*) FROM news_article_teams") == [(1,)]
+    assert query(tmp_path, "SELECT COUNT(*) FROM news_article_players") == [(1,)]
+    assert query(tmp_path, "SELECT stored_at FROM news_articles") == [
+        ("2026-01-10T12:00:00+00:00",)
+    ]
+
+
+def test_the_news_archive_keeps_the_english_and_spanish_rows_of_one_id(
+    tmp_path: Path,
+) -> None:
+    store = make_store(tmp_path)
+
+    stored = store.add_news_notes(
+        [make_note("a1", 10), make_note("a1", 10, language=ES)], NOON
+    )
+
+    assert stored == 2
+    assert store.news_note("a1", EN) is not None
+    assert store.news_note("a1", ES) is not None
+    assert store.news_note("a2", EN) is None
+
+
+def test_the_news_archive_keeps_the_first_recap_of_a_game_and_language(
+    tmp_path: Path,
+) -> None:
+    store = make_store(tmp_path)
+    first = make_note("12", 10, kind=NewsKind.RECAP, game_id="g1", teams=("BOS",))
+    second = make_note(
+        "recap-g1", 11, kind=NewsKind.RECAP, game_id="g1", teams=("NYK",)
+    )
+
+    stored = store.add_news_notes([first, second], NOON)
+
+    assert stored == 1
+    recap = store.news_recap("g1", EN)
+    assert recap is not None and recap.id == "12"
+    assert store.news_recap("g1", ES) is None
+    assert query(tmp_path, "SELECT team_code FROM news_article_teams") == [("BOS",)]
+    # A news note about the same game is not a recap and is kept.
+    assert store.add_news_notes([make_note("n1", 12, game_id="g1")], NOON) == 1
+
+
+def test_no_prune_method_deletes_the_news_archive(tmp_path: Path) -> None:
+    store = make_store(tmp_path)
+    far = dt.datetime(2100, 1, 1, tzinfo=dt.UTC)
+    store.add_news_notes([make_note("a1", 10, teams=("BOS",), players=("7",))], NOON)
+    store.mark_news_recap_missing("g1", EN, NOON)
+
+    store.prune_games(far.date())
+    store.prune_source_cache(far)
+    store.prune_past_games(far)
+    store.prune_season_team_absences(far)
+    store.prune_player_identities(far)
+
+    assert query(tmp_path, "SELECT COUNT(*) FROM news_articles") == [(1,)]
+    assert query(tmp_path, "SELECT COUNT(*) FROM news_article_teams") == [(1,)]
+    assert query(tmp_path, "SELECT COUNT(*) FROM news_article_players") == [(1,)]
+    assert query(tmp_path, "SELECT COUNT(*) FROM news_recap_marks") == [(1,)]
+
+
+def test_stores_the_no_recap_mark_per_game_and_language(tmp_path: Path) -> None:
+    store = make_store(tmp_path)
+
+    assert store.news_recap_missing("g1", EN) is False
+    store.mark_news_recap_missing("g1", EN, NOON)
+    store.mark_news_recap_missing("g1", EN, LATER)
+
+    assert store.news_recap_missing("g1", EN) is True
+    assert store.news_recap_missing("g1", ES) is False
+    assert store.news_recap_missing("g2", EN) is False
+    assert query(tmp_path, "SELECT marked_at FROM news_recap_marks") == [
+        ("2026-01-10T12:00:00+00:00",)
+    ]
+
+
+def test_rejects_a_naive_news_time(tmp_path: Path) -> None:
+    store = make_store(tmp_path)
+    naive = NOON.replace(tzinfo=None)
+
+    with pytest.raises(ValueError):
+        store.add_news_notes([make_note("a1", 10)], naive)
+    with pytest.raises(ValueError):
+        store.mark_news_recap_missing("g1", EN, naive)
+
+
+def test_pages_the_notes_newest_first_and_counts_them(tmp_path: Path) -> None:
+    store = make_store(tmp_path)
+    store.add_news_notes([make_note(f"a{h}", h) for h in range(1, 6)], NOON)
+
+    first = store.news_notes(EN, offset=0, limit=2)
+    second = store.news_notes(EN, offset=2, limit=2)
+    last = store.news_notes(EN, offset=4, limit=2)
+
+    assert ids(first) == ["en:a5", "en:a4"]
+    assert ids(second) == ["en:a3", "en:a2"]
+    assert ids(last) == ["en:a1"]
+    assert store.count_news_notes(EN) == 5
+    assert store.count_news_notes(ES) == 0
+    assert store.news_notes(EN, offset=10, limit=2) == []
+
+
+def test_the_team_and_player_scopes_return_only_the_tagged_notes(
+    tmp_path: Path,
+) -> None:
+    store = make_store(tmp_path)
+    store.add_news_notes(
+        [
+            make_note("a1", 1, teams=("BOS",), players=("7",)),
+            make_note("a2", 2, teams=("BOS", "NYK")),
+            make_note("a3", 3, teams=("NYK",), players=("7", "8")),
+            make_note("a4", 4),
+        ],
+        NOON,
+    )
+
+    assert ids(store.news_notes(EN, team="BOS", offset=0, limit=10)) == [
+        "en:a2",
+        "en:a1",
+    ]
+    assert store.count_news_notes(EN, team="NYK") == 2
+    assert ids(store.news_notes(EN, player_id="7", offset=0, limit=10)) == [
+        "en:a3",
+        "en:a1",
+    ]
+    assert store.count_news_notes(EN, player_id="8") == 1
+    assert store.count_news_notes(EN, team="NYK", player_id="7") == 1
+    assert store.count_news_notes(EN, team="LAL") == 0
+    assert store.news_names_player("7") is True
+    assert store.news_names_player("9") is False
+
+
+def test_the_language_rule_shows_the_english_recaps_without_a_spanish_one_in_spanish(
+    tmp_path: Path,
+) -> None:
+    store = make_store(tmp_path)
+    store.add_news_notes(
+        [
+            make_note("en-news", 1),
+            make_note("en-recap-g1", 2, kind=NewsKind.RECAP, game_id="g1"),
+            make_note("en-recap-g2", 3, kind=NewsKind.RECAP, game_id="g2"),
+            make_note("es-news", 4, language=ES),
+            make_note("es-recap-g2", 5, language=ES, kind=NewsKind.RECAP, game_id="g2"),
+            make_note("en-recap-free", 6, kind=NewsKind.RECAP, teams=("BOS",)),
+        ],
+        NOON,
+    )
+
+    assert ids(store.news_notes(EN, offset=0, limit=20)) == [
+        "en:en-recap-free",
+        "en:en-recap-g2",
+        "en:en-recap-g1",
+        "en:en-news",
+    ]
+    assert ids(store.news_notes(ES, offset=0, limit=20)) == [
+        "en:en-recap-free",
+        "es:es-recap-g2",
+        "es:es-news",
+        "en:en-recap-g1",
+    ]
+    assert store.count_news_notes(ES) == 4
+    assert ids(store.news_notes(ES, team="BOS", offset=0, limit=20)) == [
+        "en:en-recap-free"
+    ]
+
+
+def test_skips_a_stored_note_that_no_longer_validates_and_logs_it(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    store = make_store(tmp_path)
+    store.add_news_notes([make_note("a1", 1), make_note("a2", 2)], NOON)
+    execute(tmp_path, "UPDATE news_articles SET note = '{}' WHERE article_id = 'a2'")
+
+    with caplog.at_level(logging.ERROR):
+        notes = store.news_notes(EN, offset=0, limit=10)
+
+    assert ids(notes) == ["en:a1"]
+    assert store.news_note("a2", EN) is None
+    assert "Skipping a stored news note" in caplog.text

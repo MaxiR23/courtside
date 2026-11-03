@@ -1,10 +1,10 @@
 # api/app/storage/state.py
 #
-# Job state in SQLite: game dates, final times and whether they were first seen, highlight attempts, failed stats attempts, matched highlights, team stars, team identities (logo and colors), discovered All-Star editions, the video of each edition and the time each All-Star game was first seen final, the date and box-score players of past games, the player identity cache, the seasons a team did not exist, the targets the highlights search found no video for and its searches per day, source cache entries, feed build times and failures, whether a standings or team build used the rule L fallback and per-job outcomes.
+# Job state in SQLite: game dates, final times and whether they were first seen, highlight attempts, failed stats attempts, matched highlights, team stars, team identities (logo and colors), discovered All-Star editions, the video of each edition and the time each All-Star game was first seen final, the date and box-score players of past games, the player identity cache, the seasons a team did not exist, the targets the highlights search found no video for and its searches per day, source cache entries, feed build times and failures, whether a standings or team build used the rule L fallback, the news archive and the games with no recap, and per-job outcomes.
 # Schema versioned with PRAGMA user_version; MIGRATIONS run once each on startup.
 # One connection per operation, so sync endpoints can use it from the threadpool.
 #
-# SEE: docs/adr/0007-backend-runtime-and-data-pipeline.md, docs/adr/0063-bounded-state-and-kept-feeds.md, docs/adr/0069-daily-expiry-of-fallback-standings-and-team-feeds.md, docs/source-rules.md
+# SEE: docs/adr/0007-backend-runtime-and-data-pipeline.md, docs/adr/0063-bounded-state-and-kept-feeds.md, docs/adr/0069-daily-expiry-of-fallback-standings-and-team-feeds.md, docs/adr/0085-news-archive-and-feeds.md, docs/source-rules.md
 
 import datetime as dt
 import json
@@ -15,7 +15,7 @@ from contextlib import closing
 from pathlib import Path
 from typing import Annotated, Literal
 
-from pydantic import Field
+from pydantic import Field, ValidationError
 
 from app.feeds.games import (
     FeedModel,
@@ -25,6 +25,7 @@ from app.feeds.games import (
     TeamCode,
     UtcDatetime,
 )
+from app.feeds.news import NewsLanguage, NewsNote
 from app.feeds.opponent import TeamColors, TeamLogo
 
 logger = logging.getLogger(__name__)
@@ -187,7 +188,48 @@ MIGRATIONS: tuple[Migration, ...] = (
     ),
     # Whether a standings or team build used the rule L fallback (ADR 0069).
     ("ALTER TABLE feed_builds ADD COLUMN fallback INTEGER",),
+    # The news archive and the games with no recap, kept forever (ADR 0085).
+    (
+        (
+            "CREATE TABLE news_articles (article_id TEXT NOT NULL, "
+            "language TEXT NOT NULL, kind TEXT NOT NULL, published TEXT NOT NULL, "
+            "game_id TEXT, note TEXT NOT NULL, stored_at TEXT NOT NULL, "
+            "PRIMARY KEY (article_id, language))"
+        ),
+        (
+            "CREATE UNIQUE INDEX news_one_recap_per_game "
+            "ON news_articles (game_id, language) "
+            "WHERE kind = 'recap' AND game_id IS NOT NULL"
+        ),
+        "CREATE INDEX news_articles_by_time ON news_articles (language, published)",
+        (
+            "CREATE TABLE news_article_teams (article_id TEXT NOT NULL, "
+            "language TEXT NOT NULL, team_code TEXT NOT NULL, "
+            "PRIMARY KEY (article_id, language, team_code))"
+        ),
+        (
+            "CREATE TABLE news_article_players (article_id TEXT NOT NULL, "
+            "language TEXT NOT NULL, player_id TEXT NOT NULL, "
+            "PRIMARY KEY (article_id, language, player_id))"
+        ),
+        (
+            "CREATE TABLE news_recap_marks (game_id TEXT NOT NULL, "
+            "language TEXT NOT NULL, marked_at TEXT NOT NULL, "
+            "PRIMARY KEY (game_id, language))"
+        ),
+    ),
 )
+
+# The notes a language shows. Spanish also shows the English recap of a game
+# that has no Spanish recap (ADR 0085).
+NEWS_LANGUAGE_RULES = {
+    NewsLanguage.EN: "a.language = 'en'",
+    NewsLanguage.ES: (
+        "(a.language = 'es' OR (a.language = 'en' AND a.kind = 'recap' "
+        "AND NOT EXISTS (SELECT 1 FROM news_articles s WHERE s.language = 'es' "
+        "AND s.kind = 'recap' AND s.game_id = a.game_id)))"
+    ),
+}
 
 
 class StateMigrationError(Exception):
@@ -242,6 +284,18 @@ def _to_text(value: dt.datetime) -> str:
     if value.utcoffset() is None:
         raise ValueError("time must be timezone aware")
     return value.astimezone(dt.UTC).isoformat()
+
+
+def _to_news_note(text: str) -> NewsNote | None:
+    try:
+        return NewsNote.model_validate_json(text)
+    except ValidationError as error:
+        logger.error(
+            "Skipping a stored news note: %d errors, first at %s.",
+            error.error_count(),
+            ".".join(str(part) for part in error.errors()[0]["loc"]),
+        )
+        return None
 
 
 def _require_job(job: str) -> None:
@@ -452,6 +506,151 @@ class StateStore:
                 "DELETE FROM player_identities WHERE touched_at < ?",
                 (_to_text(before),),
             )
+
+    def add_news_notes(self, notes: Iterable[NewsNote], at: dt.datetime) -> int:
+        """Stores the notes the archive does not hold and returns how many it
+        stored. A note is one row per id and language, and a game keeps at most
+        one recap per language: the first stored wins. Nothing is deleted."""
+        stored = 0
+        stored_at = _to_text(at)
+        with self._connect() as connection, connection:
+            for note in notes:
+                language = note.language.value
+                before = connection.total_changes
+                connection.execute(
+                    "INSERT OR IGNORE INTO news_articles (article_id, language, "
+                    "kind, published, game_id, note, stored_at) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    (
+                        note.id,
+                        language,
+                        note.kind.value,
+                        _to_text(note.published),
+                        note.game_id,
+                        note.model_dump_json(),
+                        stored_at,
+                    ),
+                )
+                if connection.total_changes - before == 0:
+                    continue
+                stored += 1
+                connection.executemany(
+                    "INSERT OR IGNORE INTO news_article_teams "
+                    "(article_id, language, team_code) VALUES (?, ?, ?)",
+                    [(note.id, language, code) for code in note.teams],
+                )
+                connection.executemany(
+                    "INSERT OR IGNORE INTO news_article_players "
+                    "(article_id, language, player_id) VALUES (?, ?, ?)",
+                    [(note.id, language, p.player_id) for p in note.players],
+                )
+        return stored
+
+    @staticmethod
+    def _news_scope(
+        language: NewsLanguage, team: str | None, player_id: str | None
+    ) -> tuple[str, list[str]]:
+        where = [NEWS_LANGUAGE_RULES[language]]
+        values: list[str] = []
+        if team is not None:
+            where.append(
+                "EXISTS (SELECT 1 FROM news_article_teams t "
+                "WHERE t.article_id = a.article_id AND t.language = a.language "
+                "AND t.team_code = ?)"
+            )
+            values.append(team)
+        if player_id is not None:
+            where.append(
+                "EXISTS (SELECT 1 FROM news_article_players p "
+                "WHERE p.article_id = a.article_id AND p.language = a.language "
+                "AND p.player_id = ?)"
+            )
+            values.append(player_id)
+        return " AND ".join(where), values
+
+    def news_notes(
+        self,
+        language: NewsLanguage,
+        *,
+        team: str | None = None,
+        player_id: str | None = None,
+        offset: int,
+        limit: int,
+    ) -> list[NewsNote]:
+        """One page of the notes a language shows, newest first, of the league,
+        of a team (standard code) or of a player. A stored note that no longer
+        validates is skipped and logged."""
+        where, values = self._news_scope(language, team, player_id)
+        with self._connect() as connection:
+            rows = connection.execute(
+                f"SELECT a.note FROM news_articles a WHERE {where} "
+                "ORDER BY a.published DESC, a.article_id DESC LIMIT ? OFFSET ?",
+                (*values, limit, offset),
+            ).fetchall()
+        return [note for (text,) in rows if (note := _to_news_note(text)) is not None]
+
+    def count_news_notes(
+        self,
+        language: NewsLanguage,
+        *,
+        team: str | None = None,
+        player_id: str | None = None,
+    ) -> int:
+        """How many notes a language shows in a scope."""
+        where, values = self._news_scope(language, team, player_id)
+        with self._connect() as connection:
+            row = connection.execute(
+                f"SELECT COUNT(*) FROM news_articles a WHERE {where}", values
+            ).fetchone()
+        return int(row[0])
+
+    def news_note(self, article_id: str, language: NewsLanguage) -> NewsNote | None:
+        """The note of an id stored in a language, or None."""
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT note FROM news_articles WHERE article_id = ? AND language = ?",
+                (article_id, language.value),
+            ).fetchone()
+        return None if row is None else _to_news_note(row[0])
+
+    def news_recap(self, game_id: str, language: NewsLanguage) -> NewsNote | None:
+        """The recap stored for a game in a language, or None."""
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT note FROM news_articles WHERE game_id = ? AND language = ? "
+                "AND kind = 'recap'",
+                (game_id, language.value),
+            ).fetchone()
+        return None if row is None else _to_news_note(row[0])
+
+    def news_names_player(self, player_id: str) -> bool:
+        """Whether any stored note names the player."""
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT 1 FROM news_article_players WHERE player_id = ? LIMIT 1",
+                (player_id,),
+            ).fetchone()
+        return row is not None
+
+    def mark_news_recap_missing(
+        self, game_id: str, language: NewsLanguage, at: dt.datetime
+    ) -> None:
+        """Marks a game as having no recap in a language, for good."""
+        with self._connect() as connection, connection:
+            connection.execute(
+                "INSERT OR IGNORE INTO news_recap_marks (game_id, language, marked_at) "
+                "VALUES (?, ?, ?)",
+                (game_id, language.value, _to_text(at)),
+            )
+
+    def news_recap_missing(self, game_id: str, language: NewsLanguage) -> bool:
+        """Whether a game is marked as having no recap in a language."""
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT 1 FROM news_recap_marks WHERE game_id = ? AND language = ?",
+                (game_id, language.value),
+            ).fetchone()
+        return row is not None
 
     def first_seen_final(self, game_id: str) -> bool:
         with self._connect() as connection:
