@@ -3,19 +3,30 @@
 	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
 	import Kicker from '#lib/components/Kicker.svelte';
 
-	type Props = { variant: 'primary' | 'secondary'; label: string } & (
-		{ href: ResolvedPathname; onclick?: never } | { onclick: () => void; href?: never }
-	);
+	type Props = {
+		variant: 'primary' | 'secondary';
+		label: string;
+		ariaLabel?: string; // the accessible name, when the label alone does not say it (a carousel arrow)
+		disabled?: boolean; // a button only; a link is never disabled
+		borderColor?: string; // a token reference that replaces the secondary border color
+	} & ({ href: ResolvedPathname; onclick?: never } | { onclick: () => void; href?: never });
 
-	let { variant, label, href, onclick }: Props = $props();
+	let { variant, label, href, onclick, ariaLabel, disabled = false, borderColor }: Props = $props();
 </script>
 
 {#snippet control()}
 	{#if href}
-		<a class="button {variant}" {href}><Kicker tone="inherit" text={label} /></a>
+		<a class="button {variant}" {href} aria-label={ariaLabel} style:--button-border={borderColor}
+			><Kicker tone="inherit" text={label} /></a
+		>
 	{:else}
-		<button class="button {variant}" type="button" {onclick}
-			><Kicker tone="inherit" text={label} /></button
+		<button
+			class="button {variant}"
+			type="button"
+			{onclick}
+			{disabled}
+			aria-label={ariaLabel}
+			style:--button-border={borderColor}><Kicker tone="inherit" text={label} /></button
 		>
 	{/if}
 {/snippet}
@@ -49,6 +60,11 @@
 	.secondary {
 		background: transparent;
 		color: var(--color-ink);
-		border: var(--hairline) solid var(--color-divider);
+		border: var(--hairline) solid var(--button-border, var(--color-divider));
+	}
+
+	.button:disabled {
+		opacity: var(--dimmed-opacity);
+		cursor: default;
 	}
 </style>

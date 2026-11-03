@@ -8,6 +8,7 @@
 	import MessageRow from '#lib/components/MessageRow.svelte';
 	import Milestones from '#lib/components/Milestones.svelte';
 	import NextGameCard from '#lib/components/NextGameCard.svelte';
+	import NewsSection from '#lib/components/NewsSection.svelte';
 	import PageContainer from '#lib/components/PageContainer.svelte';
 	import PlayerHeader from '#lib/components/PlayerHeader.svelte';
 	import ProfileCells from '#lib/components/ProfileCells.svelte';
@@ -18,6 +19,7 @@
 	import SiteFooter from '#lib/components/SiteFooter.svelte';
 	import { play } from '#lib/hero/motion.ts';
 	import { m } from '#lib/paraglide/messages.js';
+	import type { NewsBlock } from '#lib/news/types.ts';
 	import type { PlayerPageState } from '#lib/player/types.ts';
 	import type { RowLayout } from '#lib/schedule/types.ts';
 	import type { SeasonControl } from '#lib/season/types.ts';
@@ -32,6 +34,8 @@
 		gameHref: (id: string) => ResolvedPathname;
 		seasonSelect?: SeasonControl | null; // null: no selector
 		seasonTag?: string | null; // "Season 2022-23": the unavailable state of a past season keeps it
+		news?: NewsBlock; // null: no News tab and no section
+		noteHref?: (id: string) => ResolvedPathname;
 	};
 
 	// `state` is renamed so the `$state` rune is not read as a store of the prop.
@@ -42,13 +46,21 @@
 		layout,
 		gameHref,
 		seasonSelect = null,
-		seasonTag = null
+		seasonTag = null,
+		news = null,
+		noteHref
 	}: Props = $props();
 </script>
 
 {#if page.kind === 'ready'}
 	<PlayerHeader header={page.view.header} {allGamesHref} {standingsHref} {layout} {seasonSelect} />
-	<SectionTabs tabs={page.view.tabs} mini={page.view.mini} {layout} />
+	<SectionTabs
+		tabs={news?.kind === 'ready'
+			? [...page.view.tabs, { id: 'news', label: m.player_tab_news() }]
+			: page.view.tabs}
+		mini={page.view.mini}
+		{layout}
+	/>
 	{@const sections = page.view.sections}
 	{@const profile = sections.profile}
 	<PageContainer>
@@ -99,6 +111,17 @@
 					<SectionHead title={m.player_tab_awards()} />
 					<Awards awards={sections.awards} />
 				</section>
+			{/if}
+			{#if news && noteHref}
+				<NewsSection
+					id="news"
+					title={m.player_tab_news()}
+					block={news}
+					shape="rows"
+					columns={layout === 'desktop' ? 2 : 1}
+					{layout}
+					{noteHref}
+				/>
 			{/if}
 		</div>
 	</PageContainer>

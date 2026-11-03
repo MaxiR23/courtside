@@ -8,6 +8,7 @@
 	import HomeLeaders from '#lib/components/HomeLeaders.svelte';
 	import HomeStandings from '#lib/components/HomeStandings.svelte';
 	import Hero from '#lib/components/Hero.svelte';
+	import HomeNews from '#lib/components/HomeNews.svelte';
 	import MessageRow from '#lib/components/MessageRow.svelte';
 	import PageContainer from '#lib/components/PageContainer.svelte';
 	import Schedule from '#lib/components/Schedule.svelte';
@@ -20,6 +21,7 @@
 		calendarFeedUrl,
 		gamesFeedUrl,
 		homeFeedUrl,
+		newsFeedUrl,
 		standingsFeedUrl,
 		videoPlatformName
 	} from '#lib/feed/config.ts';
@@ -28,7 +30,10 @@
 		loadCalendarFeed,
 		loadGamesFeed,
 		loadHomeFeed,
-		loadStandingsFeed
+		loadNewsFeed,
+		loadStandingsFeed,
+		newsFeedUrl as newsFeedUrlOf,
+		newsPageUrl
 	} from '#lib/feed/load.ts';
 	import {
 		hidesSchedule,
@@ -38,10 +43,12 @@
 		toLastGamesView,
 		toNoGamesView
 	} from '#lib/feed/home-props.ts';
+	import { homeNews, newsBlock, newsContext } from '#lib/feed/news-props.ts';
 	import { FeedOnce } from '#lib/feed/once.svelte.ts';
 	import { GamesFeedPoller } from '#lib/feed/poller.svelte.ts';
 	import { toHomeView } from '#lib/feed/props.ts';
 	import { m } from '#lib/paraglide/messages.js';
+	import { getLocale } from '#lib/paraglide/runtime.js';
 	import { cardAnchor, wideViewport } from '#lib/schedule/layout.ts';
 	import { SpoilerFree } from '#lib/schedule/spoiler-free.svelte.ts';
 
@@ -116,6 +123,19 @@
 		view?.noGamesToday ? toHomeStandingsView(home, standingsFeed?.feed ?? null) : null
 	);
 	const homeLeaders = $derived(toHomeLeadersView(home));
+
+	// The news is read once, in parallel with the games feed, and never polled. It draws only once
+	// the games feed is in, so the prerendered page holds no news placeholder.
+	const newsTemplate = newsFeedUrl;
+	const language = getLocale();
+	const newsFeed = newsTemplate
+		? new FeedOnce(() => loadNewsFeed(newsPageUrl(newsFeedUrlOf(newsTemplate, language), 1)))
+		: undefined;
+	$effect(() => newsFeed?.start());
+	const news = $derived(
+		view ? newsBlock(newsFeed, (feed) => homeNews(feed.notes, newsContext(language))) : null
+	);
+	const noteHref = (id: string) => resolve('/news/[id]', { id });
 	let selected = $state(TODAY_INDEX);
 	let openId = $state<string | null>(null);
 
@@ -253,6 +273,13 @@
 		</div>
 	</PageContainer>
 {/if}
+
+<HomeNews
+	block={news}
+	layout={wide.current ? 'desktop' : 'mobile'}
+	seeAllHref={resolve('/news')}
+	{noteHref}
+/>
 
 <SiteFooter />
 

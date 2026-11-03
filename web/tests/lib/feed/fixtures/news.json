@@ -1,0 +1,235 @@
+{
+	"page": 1,
+	"hasMore": true,
+	"notes": [
+		{
+			"id": "note-01",
+			"language": "es",
+			"kind": "recap",
+			"headline": "Headline 1",
+			"description": "Description of note 1.",
+			"published": "2026-11-02T19:00:00Z",
+			"photo": {
+				"url": "https://images.example.com/n1.jpg",
+				"width": 1280,
+				"height": 720,
+				"credit": "Credit 1"
+			},
+			"teams": ["gsw"],
+			"players": [
+				{
+					"playerId": "1001",
+					"name": "Ana Lopez"
+				}
+			],
+			"gameId": "0022600001"
+		},
+		{
+			"id": "note-02",
+			"language": "es",
+			"kind": "news",
+			"headline": "Headline 2",
+			"description": "Description of note 2.",
+			"published": "2026-11-02T18:00:00Z",
+			"photo": null,
+			"teams": ["gsw", "min"],
+			"players": [],
+			"gameId": null
+		},
+		{
+			"id": "note-03",
+			"language": "es",
+			"kind": "news",
+			"headline": "Headline 3",
+			"description": "Description of note 3.",
+			"published": "2026-11-02T17:00:00Z",
+			"photo": {
+				"url": "https://images.example.com/n3.jpg",
+				"width": 1280,
+				"height": 720,
+				"credit": "Credit 3"
+			},
+			"teams": [],
+			"players": [
+				{
+					"playerId": "1001",
+					"name": "Ana Lopez"
+				}
+			],
+			"gameId": null
+		},
+		{
+			"id": "note-04",
+			"language": "en",
+			"kind": "recap",
+			"headline": "Headline 4",
+			"description": "Description of note 4.",
+			"published": "2026-11-02T16:00:00Z",
+			"photo": {
+				"url": "https://images.example.com/n4.jpg",
+				"width": 1280,
+				"height": 720,
+				"credit": "Credit 4"
+			},
+			"teams": ["gsw"],
+			"players": [],
+			"gameId": "0022600004"
+		},
+		{
+			"id": "note-05",
+			"language": "es",
+			"kind": "news",
+			"headline": "Headline 5",
+			"description": null,
+			"published": "2026-11-02T15:00:00Z",
+			"photo": {
+				"url": "https://images.example.com/n5.jpg",
+				"width": 1280,
+				"height": 720,
+				"credit": "Credit 5"
+			},
+			"teams": ["gsw", "min"],
+			"players": [
+				{
+					"playerId": "1001",
+					"name": "Ana Lopez"
+				}
+			],
+			"gameId": null
+		},
+		{
+			"id": "note-06",
+			"language": "es",
+			"kind": "news",
+			"headline": "Headline 6",
+			"description": "Description of note 6.",
+			"published": "2026-11-02T14:00:00Z",
+			"photo": {
+				"url": "https://images.example.com/n6.jpg",
+				"width": 1280,
+				"height": 720,
+				"credit": "Credit 6"
+			},
+			"teams": [],
+			"players": [],
+			"gameId": null
+		},
+		{
+			"id": "note-07",
+			"language": "es",
+			"kind": "recap",
+			"headline": "Headline 7",
+			"description": "Description of note 7.",
+			"published": "2026-11-02T13:00:00Z",
+			"photo": {
+				"url": "https://images.example.com/n7.jpg",
+				"width": 1280,
+				"height": 720,
+				"credit": "Credit 7"
+			},
+			"teams": ["gsw"],
+			"players": [
+				{
+					"playerId": "1001",
+					"name": "Ana Lopez"
+				}
+			],
+			"gameId": "0022600007"
+		},
+		{
+			"id": "note-08",
+			"language": "es",
+			"kind": "news",
+			"headline": "Headline 8",
+			"description": "Description of note 8.",
+			"published": "2026-11-02T12:00:00Z",
+			"photo": {
+				"url": "https://images.example.com/n8.jpg",
+				"width": 1280,
+				"height": 720,
+				"credit": "Credit 8"
+			},
+			"teams": ["gsw", "min"],
+			"players": [],
+			"gameId": null
+		},
+		{
+			"id": "note-09",
+			"language": "es",
+			"kind": "news",
+			"headline": "Headline 9",
+			"description": "Description of note 9.",
+			"published": "2026-11-02T11:00:00Z",
+			"photo": {
+				"url": "https://images.example.com/n9.jpg",
+				"width": 1280,
+				"height": 720,
+				"credit": "Credit 9"
+			},
+			"teams": [],
+			"players": [
+				{
+					"playerId": "1001",
+					"name": "Ana Lopez"
+				}
+			],
+			"gameId": null
+		},
+		{
+			"id": "note-10",
+			"language": "es",
+			"kind": "recap",
+			"headline": "Headline 10",
+			"description": "Description of note 10.",
+			"published": "2026-11-02T10:00:00Z",
+			"photo": {
+				"url": "https://images.example.com/n10.jpg",
+				"width": 1280,
+				"height": 720,
+				"credit": "Credit 10"
+			},
+			"teams": ["gsw"],
+			"players": [],
+			"gameId": "0022600010"
+		},
+		{
+			"id": "note-11",
+			"language": "es",
+			"kind": "news",
+			"headline": "Headline 11",
+			"description": "Description of note 11.",
+			"published": "2026-11-02T09:00:00Z",
+			"photo": {
+				"url": "https://images.example.com/n11.jpg",
+				"width": 1280,
+				"height": 720,
+				"credit": "Credit 11"
+			},
+			"teams": ["gsw", "min"],
+			"players": [
+				{
+					"playerId": "1001",
+					"name": "Ana Lopez"
+				}
+			],
+			"gameId": null
+		},
+		{
+			"id": "note-12",
+			"language": "es",
+			"kind": "news",
+			"headline": "Headline 12",
+			"description": "Description of note 12.",
+			"published": "2026-11-02T08:00:00Z",
+			"photo": {
+				"url": "https://images.example.com/n12.jpg",
+				"width": 1280,
+				"height": 720,
+				"credit": "Credit 12"
+			},
+			"teams": [],
+			"players": [],
+			"gameId": null
+		}
+	]
+}

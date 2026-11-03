@@ -26,6 +26,10 @@
 //   SEASON_ALL_STAR_FEED_URL: accept an absolute URL with
 //   their placeholders; empty or missing is undefined; reject a relative URL and a missing placeholder
 //
+// - NEWS_FEED_URL, NEWS_TEAM_FEED_URL, NEWS_PLAYER_FEED_URL, NEWS_GAME_FEED_URL,
+//   NEWS_ARTICLE_FEED_URL: accept an absolute URL with their placeholders; empty or missing is
+//   undefined; reject a relative URL and each missing placeholder
+//
 // What is covered:
 // - Happy path, edge cases (empty, missing) and error cases, on the schema alone
 //
@@ -61,7 +65,12 @@ const validate = (
 		| 'HOME_FEED_URL'
 		| 'POWER_RANKING_FEED_URL'
 		| 'CALENDAR_FEED_URL'
-		| 'DAY_FEED_URL',
+		| 'DAY_FEED_URL'
+		| 'NEWS_FEED_URL'
+		| 'NEWS_TEAM_FEED_URL'
+		| 'NEWS_PLAYER_FEED_URL'
+		| 'NEWS_GAME_FEED_URL'
+		| 'NEWS_ARTICLE_FEED_URL',
 	value: string | undefined
 ): Outcome => (variables[name].schema as unknown as Validator)['~standard'].validate(value);
 
@@ -397,6 +406,56 @@ describe.each([
 	it.runIf(extra !== null)('rejects an absolute URL without its second placeholder', () => {
 		expect(validate(name, 'https://feeds.example.com/seasons/{season}/x.json')).toEqual({
 			issues: [{ message: `${name} must contain ${extra}` }]
+		});
+	});
+});
+
+describe.each([
+	{
+		name: 'NEWS_FEED_URL' as const,
+		url: 'https://feeds.example.com/news/{lang}/pages/{page}.json',
+		placeholders: ['{lang}', '{page}']
+	},
+	{
+		name: 'NEWS_TEAM_FEED_URL' as const,
+		url: 'https://feeds.example.com/news/{lang}/teams/{code}/pages/{page}.json',
+		placeholders: ['{lang}', '{code}', '{page}']
+	},
+	{
+		name: 'NEWS_PLAYER_FEED_URL' as const,
+		url: 'https://feeds.example.com/news/{lang}/players/{id}/pages/{page}.json',
+		placeholders: ['{lang}', '{id}', '{page}']
+	},
+	{
+		name: 'NEWS_GAME_FEED_URL' as const,
+		url: 'https://feeds.example.com/news/{lang}/games/{id}.json',
+		placeholders: ['{lang}', '{id}']
+	},
+	{
+		name: 'NEWS_ARTICLE_FEED_URL' as const,
+		url: 'https://feeds.example.com/news/{lang}/articles/{id}.json',
+		placeholders: ['{lang}', '{id}']
+	}
+])('$name', ({ name, url, placeholders }) => {
+	it('accepts an absolute URL with its placeholders and returns it', () => {
+		expect(validate(name, url)).toEqual({ value: url });
+	});
+
+	it('returns undefined for an empty or missing value', () => {
+		expect(validate(name, '')).toEqual({ value: undefined });
+		expect(validate(name, undefined)).toEqual({ value: undefined });
+	});
+
+	it('rejects a relative URL', () => {
+		expect(validate(name, '/news/{lang}.json')).toEqual({
+			issues: [{ message: `${name} must be an absolute URL` }]
+		});
+	});
+
+	it.each(placeholders)('rejects an absolute URL without %s', (missing) => {
+		const without = url.replace(missing, 'x');
+		expect(validate(name, without)).toEqual({
+			issues: [{ message: `${name} must contain ${missing}` }]
 		});
 	});
 });

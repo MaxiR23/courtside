@@ -61,7 +61,10 @@ vi.mock('$app/navigation', async (importOriginal) => ({
 	goto: seasonMocks.goto
 }));
 
-const config = vi.hoisted(() => ({ url: undefined as string | undefined }));
+const config = vi.hoisted(() => ({
+	url: undefined as string | undefined,
+	newsUrl: undefined as string | undefined
+}));
 vi.mock('../../../../src/lib/feed/config', () => ({
 	get calendarFeedUrl() {
 		return seasonMocks.calendar;
@@ -71,6 +74,9 @@ vi.mock('../../../../src/lib/feed/config', () => ({
 	},
 	get playerFeedUrl() {
 		return config.url;
+	},
+	get newsPlayerFeedUrl() {
+		return config.newsUrl;
 	}
 }));
 
@@ -149,6 +155,7 @@ beforeEach(() => {
 	vi.useFakeTimers();
 	vi.setSystemTime(new Date('2026-10-07T23:30:00Z'));
 	config.url = TEMPLATE;
+	config.newsUrl = undefined;
 });
 
 afterEach(() => {
@@ -637,5 +644,73 @@ describe('player page, when the id changes', () => {
 		const urls = fetchMock.mock.calls.map((call) => call[0]);
 		expect(urls).not.toContain(feedUrl('p-2'));
 		expect(urls).toContain(feedUrl('p-9'));
+	});
+});
+
+const NEWS_TEMPLATE = 'https://feeds.example.com/news/{lang}/players/{id}/pages/{page}.json';
+const newsUrl = (lang = 'en') => `https://feeds.example.com/news/${lang}/players/p-2/pages/1.json`;
+const newsFeed = () => JSON.parse(readFileSync(join(fixtures, 'news.json'), 'utf8'));
+
+// The player's news: the News tab and section last when notes load, in two columns on a wide screen;
+// none on a 404, an empty page or a failure; none and no request on a past season; the Spanish path.
+describe('player news', () => {
+	beforeEach(() => {
+		config.newsUrl = NEWS_TEMPLATE;
+	});
+
+	const tabs = () =>
+		[...screen.getByRole('navigation', { name: 'Sections' }).querySelectorAll('a')].map(
+			(a) => a.textContent
+		);
+
+	it('adds the News tab and a last News section of rows in two columns', async () => {
+		stubRoutes({
+			[feedUrl('p-2')]: [answerWith(recorded())],
+			[newsUrl()]: [answerJson(newsFeed())]
+		});
+		const { container } = await renderPage();
+		expect(tabs().at(-1)).toBe('News');
+		const sections = [...container.querySelectorAll('.sections > section')];
+		expect(sections.at(-1)?.id).toBe('news');
+		expect(sections.at(-1)?.querySelector('.rows.two')).not.toBeNull();
+		expect(sections.at(-1)?.querySelectorAll('a')).toHaveLength(12);
+	});
+
+	it.each([
+		['a 404', [answerStatus(404)]],
+		['a 503', [answerStatus(503)]],
+		['a network failure', [answerFailing]],
+		['an empty page', [answerJson({ page: 1, hasMore: false, notes: [] })]]
+	])('draws no News tab, section or link on %s', async (_name, news) => {
+		stubRoutes({ [feedUrl('p-2')]: [answerWith(recorded())], [newsUrl()]: news as Answer[] });
+		const { container } = await renderPage();
+		expect(tabs()).not.toContain('News');
+		expect(container.querySelector('#news')).toBeNull();
+		expect(container.querySelector('a[href^="/news"]')).toBeNull();
+	});
+
+	it('sends no news request for a past season', async () => {
+		seasonMocks.calendar = CAL_TEMPLATE;
+		seasonMocks.past = PAST_TEMPLATE;
+		stubRoutes({
+			[CAL_URL]: [answerJson(calendarFeed())],
+			[pastUrl(2005)]: [answerJson(pastRecorded())]
+		});
+		const { container } = await renderSeason('?season=2005');
+		expect(calls).toEqual([CAL_URL, pastUrl(2005)]);
+		expect(container.querySelector('#news')).toBeNull();
+		seasonMocks.calendar = undefined;
+		seasonMocks.past = undefined;
+		seasonMocks.url = new URL('http://localhost/');
+	});
+
+	it('requests the Spanish path in Spanish', async () => {
+		preferLanguages(['es']);
+		stubRoutes({
+			[feedUrl('p-2')]: [answerWith(recorded())],
+			[newsUrl('es')]: [answerJson(newsFeed())]
+		});
+		await renderPage();
+		expect(calls).toContain(newsUrl('es'));
 	});
 });

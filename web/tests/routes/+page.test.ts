@@ -21,6 +21,7 @@
 // - Before the games feed loads, the sheet links no day after the client's US Eastern today and sends the calendar's window days to the home (ADR 0054)
 // - A day with games never requests the home feed; a day with only postponed and canceled games keeps the hero with no game and requests nothing
 // - A day with no games requests the home feed once, across several games polls, and the hero shows the chip, the title and the Coming up card (a section after the hero on mobile)
+// - The News block: a carousel after the home sections when notes load, 10 notes with See all; nothing on a 404, an empty page or a failure; the Spanish path; a next call scrolls the track
 // - A failed or unconfigured home feed leaves the date and the title only, with no Coming up, and the schedule still renders; Spanish title
 // - Last games after the home feed loads, in the documented order, with links to the game pages; absent when null, failed, not configured or on a day with games
 // - The empty-day box on a selected day with no games: next day and count, Go to link to /?day= inside the window, none outside it, the two-weeks message, the old row without the home feed
@@ -68,6 +69,7 @@ const config = vi.hoisted(() => ({
 	calendarUrl: undefined as string | undefined,
 	homeUrl: undefined as string | undefined,
 	standingsUrl: undefined as string | undefined,
+	newsUrl: undefined as string | undefined,
 	platform: undefined as string | undefined
 }));
 vi.mock('../../src/lib/feed/config', () => ({
@@ -82,6 +84,9 @@ vi.mock('../../src/lib/feed/config', () => ({
 	},
 	get standingsFeedUrl() {
 		return config.standingsUrl;
+	},
+	get newsFeedUrl() {
+		return config.newsUrl;
 	},
 	get videoPlatformName() {
 		return config.platform;
@@ -113,6 +118,9 @@ const recorded = (): GamesFeed =>
 type Answer = () => Promise<unknown>;
 let homeAnswers: Answer[] = [];
 let standingsAnswers: Answer[] = [];
+let newsAnswer: Answer | undefined;
+const NEWS_URL = 'https://feeds.example.com/news/en/pages/1.json';
+const NEWS_URL_ES = 'https://feeds.example.com/news/es/pages/1.json';
 let answers: Answer[];
 let fetchMock: ReturnType<typeof vi.fn>;
 const answerWith =
@@ -154,6 +162,10 @@ function stubFetch(...next: Answer[]) {
 		if (url === CALENDAR_URL) {
 			return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(calendar()) });
 		}
+		if (url === NEWS_URL || url === NEWS_URL_ES) {
+			if (!newsAnswer) throw new Error(`Unexpected URL ${url}`);
+			return newsAnswer();
+		}
 		if (url === HOME_URL) {
 			const answer = homeAnswers.length > 1 ? homeAnswers.shift() : homeAnswers[0];
 			if (!answer) throw new Error(`Unexpected URL ${url}`);
@@ -194,6 +206,8 @@ beforeEach(() => {
 	config.calendarUrl = undefined;
 	config.homeUrl = undefined;
 	config.standingsUrl = undefined;
+	config.newsUrl = undefined;
+	newsAnswer = undefined;
 	homeAnswers = [];
 	standingsAnswers = [];
 	navigation.callbacks = [];
@@ -1173,5 +1187,71 @@ describe('home document title', () => {
 		stubFetch(answerWith(recorded()));
 		await renderPage();
 		expect(document.title).toBe('Courtside');
+	});
+});
+
+const newsFeed = () =>
+	JSON.parse(readFileSync(join(__dirname, '..', 'lib', 'feed', 'fixtures', 'news.json'), 'utf8'));
+const newsJson =
+	(body: unknown, status = 200): Answer =>
+	() =>
+		Promise.resolve({ ok: status < 400, status, json: () => Promise.resolve(body) });
+const newsCalls = () => fetchMock.mock.calls.filter(([url]) => String(url).includes('/news/'));
+
+describe('home news', () => {
+	beforeEach(() => {
+		config.newsUrl = 'https://feeds.example.com/news/{lang}/pages/{page}.json';
+	});
+
+	it('draws the News block with 10 notes and a link to all of them', async () => {
+		stubFetch(answerWith(recorded()));
+		newsAnswer = newsJson(newsFeed());
+		const { container } = await renderPage();
+		expect(newsCalls()).toHaveLength(1);
+		expect(newsCalls()[0]?.[0]).toBe(NEWS_URL);
+		expect(screen.getByRole('heading', { level: 2, name: 'News' })).toBeTruthy();
+		expect(container.querySelectorAll('.home-news .track li')).toHaveLength(10);
+		expect(screen.getByRole('link', { name: 'See all →' }).getAttribute('href')).toBe('/news');
+		expect(container.querySelector('.home-news a[href="/news/note-01"]')).not.toBeNull();
+	});
+
+	it('scrolls the track on Next', async () => {
+		stubFetch(answerWith(recorded()));
+		newsAnswer = newsJson(newsFeed());
+		await renderPage();
+		const scrollBy = vi.fn();
+		HTMLElement.prototype.scrollBy = scrollBy;
+		await fireEvent.click(screen.getByRole('button', { name: 'Next notes' }));
+		expect(scrollBy).toHaveBeenCalledTimes(1);
+		expect(scrollBy.mock.calls[0]?.[0].behavior).toBe('smooth');
+	});
+
+	it.each([
+		['a 404', newsJson({}, 404)],
+		['a 503', newsJson({}, 503)],
+		['a network failure', answerFailing],
+		['an empty page', newsJson({ page: 1, hasMore: false, notes: [] })]
+	])('draws nothing on %s', async (_name, answer) => {
+		stubFetch(answerWith(recorded()));
+		newsAnswer = answer;
+		const { container } = await renderPage();
+		expect(container.querySelector('.home-news')).toBeNull();
+		expect(container.querySelector('a[href^="/news"]')).toBeNull();
+	});
+
+	it('requests nothing with no news URL', async () => {
+		config.newsUrl = undefined;
+		stubFetch(answerWith(recorded()));
+		const { container } = await renderPage();
+		expect(newsCalls()).toHaveLength(0);
+		expect(container.querySelector('.home-news')).toBeNull();
+	});
+
+	it('requests the Spanish path in Spanish', async () => {
+		preferLanguages(['es']);
+		stubFetch(answerWith(recorded()));
+		newsAnswer = newsJson(newsFeed());
+		await renderPage();
+		expect(newsCalls()[0]?.[0]).toBe(NEWS_URL_ES);
 	});
 });
