@@ -11,7 +11,7 @@
 //
 // What is covered:
 // - Happy path (the committed file)
-// - Edge case (exactly 10 paths and no extra top-level keys)
+// - Edge case (exactly 12 paths and no extra top-level keys)
 // - Error case (the guard flags an IP, a URL and a literal secret)
 //
 // Run with: cd web && pnpm exec vitest run tests/vercel-config.test.ts
@@ -85,12 +85,12 @@ describe('deploy/vercel.json', () => {
 		const next = rest.search(/^#{1,3} /m);
 		const section = next === -1 ? rest : rest.slice(0, next);
 		const documented = [...section.matchAll(/^- `(\/[^`]+)`/gm)].map((m) => m[1]);
-		expect(documented).toHaveLength(10);
+		expect(documented).toHaveLength(12);
 
 		const sources = config.rewrites.map((r: { source: string }) =>
 			r.source.replace(/\/:path\*$/, '/*')
 		);
-		expect(sources).toHaveLength(10);
+		expect(sources).toHaveLength(12);
 		expect([...sources].sort()).toEqual([...documented].sort());
 		for (const rewrite of config.rewrites) {
 			expect(rewrite.destination).toBe('/200.html');

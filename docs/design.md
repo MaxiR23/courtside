@@ -4,6 +4,8 @@ The visual and interaction specification for the Courtside site. It is the refer
 
 The game detail page is specified in [`design-game-detail.md`](design-game-detail.md).
 
+The News page, the note page and the news cards are specified in [`design-news.md`](design-news.md).
+
 ## Overview
 
 A dark-mode, single-page site with two parts:
@@ -50,6 +52,15 @@ A dark-mode, single-page site with two parts:
 | `HomeLeaders` | The home's per-game leaders, one row per category the feed sends (one to four), with photo, category and team, name and value |
 | `ScheduleEmptyDay` | The home's box for a selected day with no games: the next game day or the two-weeks message, and the Go to button |
 | `SectionTabs` | The one sticky section tab bar of the game, player and team pages: anchor links, and the mini score or text, which shows only while the bar is stuck to the top of the viewport, read from the shared sticky bar state, per bar (`stickyBar.stuckOf(bar)` in `web/src/lib/scroll/scrolled-past.svelte.ts`) |
+| `NewsPhoto` | A note's photo, 16:9, lazy; no photo or a failed one draws nothing |
+| `NewsTags` | The tags of a note: its kind (accent for a recap, muted for news), its team, EN for an English note in Spanish, then the date |
+| `NewsCard` | The one note: three layouts (`card`, `row`, `feature`), the whole card one link to the note |
+| `NewsRows` | A list of notes as rows, in one column or two |
+| `NewsSection` | The News section of a team or player page and the Recap section of a game page |
+| `HomeNews` | The home's news carousel: scroll snap, previous and next buttons and a bar indicator |
+| `SegmentedControl` | A hairline control with one option pressed: the News page filter |
+| `NewsPage` | The News page: the type filter, the team select, the grid and Load more |
+| `NewsArticlePage` | The note page |
 | `NameLink` | A player or team name as a link, or as plain text when the href is null |
 
 ## Design tokens
@@ -147,6 +158,7 @@ A piece that owns a repeated style, markup or rule is the only place that style,
 | `initials` (`web/src/lib/format/initials.ts`) | `initials-is-the-one-rule.test.ts` |
 | `feedSource` (`web/src/lib/feed/source.ts`) | `feed-source-follows-its-url.test.ts` |
 | `SectionTabs` | `sticky-bar-is-the-one-stuck-state.test.ts` |
+| `NewsCard` | `news-card-is-the-one-note.test.ts` (only `NewsCard` and `NewsArticlePage` use `NewsPhoto` and `NewsTags`), and `news-links-stay-in-the-site.test.ts` for the news links |
 
 A page whose feed URL depends on its URL params builds the URL as a `$derived` from the params, the query and the templates, and its feed source with `feedSource` in a `$derived` from that URL: a new URL is a new, empty source, so the page shows its loading state until the new feed arrives and never shows the previous URL's feed; the effect that started the old source stops it. No route builds a feed source from a closure that reads `params`.
 
@@ -214,6 +226,10 @@ Until the first feed loads, the hero and the schedule show skeletons shaped like
 ### 3. Footer
 
 "COURTSIDE" on the left. "Unofficial site, not affiliated with the NBA or its teams. Names and logos belong to their owners." on the right, 12px, muted.
+
+### News (home)
+
+A section after Standings and Leaders, drawn only when the news feed holds notes (`docs/design-news.md`, "Home carousel").
 
 ## Home with no games
 
@@ -337,6 +353,7 @@ The handoff ("Home — No games today") is a reference, not a spec. Where it dif
 - Standings, NBA Cup, Playoffs and All-Star: the section name, for example "Standings · Courtside".
 - The full series page and the previous All-Star: their page's h1.
 - Team: the team name ("Thunder · Courtside"). Player: the full name.
+- News: "News · Courtside". A note: its headline, and "News · Courtside" while it loads or on a failure.
 - Game: "{Away} at {Home} · Courtside", never the score, in any state (spoiler-free).
 - Past day: "Games · {date} · Courtside", the date as the page's long date in the active language.
 - Every value comes from the page's feed. While the feed is loading, unavailable or not found, the title is the section name, or "Courtside" on the team, player and game pages.

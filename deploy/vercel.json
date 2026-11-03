@@ -22,6 +22,8 @@
     { "source": "/playoffs/series", "destination": "/200.html" },
     { "source": "/all-star", "destination": "/200.html" },
     { "source": "/all-star/previous", "destination": "/200.html" },
+    { "source": "/news", "destination": "/200.html" },
+    { "source": "/news/:path*", "destination": "/200.html" },
     { "source": "/day/:path*", "destination": "/200.html" },
     { "source": "/game/:path*", "destination": "/200.html" },
     { "source": "/player/:path*", "destination": "/200.html" },

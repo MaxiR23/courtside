@@ -5,18 +5,27 @@
 	import { page } from '$app/state';
 	import type { PageProps } from './$types';
 	import TeamPage from '#lib/components/TeamPage.svelte';
-	import { calendarFeedUrl, seasonTeamFeedUrl, teamFeedUrl } from '#lib/feed/config.ts';
+	import {
+		calendarFeedUrl,
+		newsTeamFeedUrl,
+		seasonTeamFeedUrl,
+		teamFeedUrl
+	} from '#lib/feed/config.ts';
 	import {
 		calendarFeedUrl as calendarFeedUrlOf,
 		FeedLoadError,
 		loadCalendarFeed,
+		loadNewsFeed,
 		loadTeamFeed,
+		newsPageUrl,
+		newsTeamFeedUrl as newsTeamFeedUrlOf,
 		seasonTeamFeedUrl as seasonTeamFeedUrlOf,
 		teamFeedUrl as teamFeedUrlOf
 	} from '#lib/feed/load.ts';
 	import { FeedOnce } from '#lib/feed/once.svelte.ts';
 	import { FeedPoller, teamPollInterval } from '#lib/feed/poller.svelte.ts';
 	import { feedSource } from '#lib/feed/source.ts';
+	import { newsCards, newsBlock, newsContext } from '#lib/feed/news-props.ts';
 	import { toTeamView } from '#lib/feed/team-props.ts';
 	import { wideViewport } from '#lib/schedule/layout.ts';
 	import {
@@ -27,6 +36,7 @@
 		teamSeasons
 	} from '#lib/season/seasons.ts';
 	import { m } from '#lib/paraglide/messages.js';
+	import { getLocale } from '#lib/paraglide/runtime.js';
 	import type { SeasonControl } from '#lib/season/types.ts';
 	import type { TeamPageState } from '#lib/team/types.ts';
 
@@ -102,7 +112,23 @@
 		};
 	});
 
+	// The team's news: the current season only, read once, in parallel with the page. News is not
+	// season-scoped, so a past season (or one not yet settled) sends no request.
+	const language = getLocale();
+	const newsTemplate = newsTeamFeedUrl;
+	const newsUrl = $derived(
+		newsTemplate && shown !== 'pending' && !past
+			? newsPageUrl(newsTeamFeedUrlOf(newsTemplate, language, params.code.toLowerCase()), 1)
+			: undefined
+	);
+	const newsSource = $derived(feedSource(newsUrl, (url) => new FeedOnce(() => loadNewsFeed(url))));
+	$effect(() => newsSource?.start());
+	const news = $derived(
+		newsBlock(newsSource, (feed) => newsCards(feed.notes, newsContext(language)))
+	);
+
 	const wide = wideViewport();
+	const noteHref = (id: string) => resolve('/news/[id]', { id });
 	const gameHref = (id: string) => resolve('/game/[id]', { id });
 	const playerHref = (id: string) => resolve('/player/[id]', { id });
 
@@ -121,4 +147,6 @@
 	{seasonSelect}
 	{seasonTag}
 	{seasonHref}
+	{news}
+	{noteHref}
 />

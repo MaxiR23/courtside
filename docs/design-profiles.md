@@ -74,7 +74,7 @@ Everything under "Implementation rules" in `docs/design.md` and `docs/design-gam
 
 ### 2. Tabs
 
-Profile · Averages · Seasons · Milestones · Game log · Awards. The mini name, such as `#4 S. Barnes`, shows while the bar is stuck to the top of the viewport (`docs/design-game-detail.md`, "2. Section tabs"): on desktop on the right of the tabs with a fade; under 680px on its own 36px row above the tabs that overlays the content; at the top of the page the tabs take the full width. Instant under reduced motion; hidden without `IntersectionObserver`.
+Profile · Averages · Seasons · Milestones · Game log · Awards · News. The News tab shows only on the current season and when the player has notes. The mini name, such as `#4 S. Barnes`, shows while the bar is stuck to the top of the viewport (`docs/design-game-detail.md`, "2. Section tabs"): on desktop on the right of the tabs with a fade; under 680px on its own 36px row above the tabs that overlays the content; at the top of the page the tabs take the full width. Instant under reduced motion; hidden without `IntersectionObserver`.
 
 ### 3. Profile, next game and last 5
 
@@ -121,7 +121,7 @@ Two columns, min 440px:
 
 ### 2. Tabs
 
-Overview · Record · Leaders · Roster · Injuries · Schedule. The mini `OKC 57–25` follows the same reveal.
+Overview · Record · Leaders · Roster · Injuries · Schedule · News. The News tab shows only on the current season and when the team has notes. The mini `OKC 57–25` follows the same reveal.
 
 ### 3. Overview
 
@@ -155,10 +155,15 @@ Meta: "Official injury report". Two columns, min 420px. The name with `#num · P
 - Rows on `84px 1fr auto` (`52px 1fr auto` under 680px): the date with the weekday above; `vs` / `@` and the opponent code with a tag (`NBA Cup`, `West R1 · G3`, `Next`); on the right, a played game shows `W 118–104` (W in accent text) and Home / Away, an upcoming game shows the time and the broadcaster.
 - The next game row is tinted `rgba(116,157,196,.08)` and tagged `Next`. Rows link per the game link rule.
 
+### 9. News (player and team)
+
+The last section, `#news`, titled "News" ("Noticias"). Rows are drawn by `NewsCard` (`docs/design-news.md`). Player: rows in two columns on desktop and one on mobile. Team: the newest note as a feature, then the rest as rows in one column. The section reads the first page of the news feed once, in the active language. A past season has no News section and sends no news request. A missing feed, a 404 or no notes draws neither the tab nor the section; while the notes load the section shows bones and the tab is not drawn.
+
 ## Links into these pages
 
 - Player names in the game detail page's box score, players to watch and injuries link to `/player/{id}`.
 - Team names and codes on the home page and the game detail page link to `/team/{code}`.
+- A note's related buttons on the note page (`/news/{id}`) link to `/player/{id}`, `/team/{code}` and `/game/{id}`.
 - A link is never nested inside a button or another link. Where a name sits inside one (such as the collapsed schedule row, which is the expand control), it stays plain text.
 
 ## States
