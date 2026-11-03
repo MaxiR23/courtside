@@ -186,7 +186,7 @@ A page whose feed URL depends on its URL params builds the URL as a `$derived` f
 - **Right column:** the image frame, max-width 500px, aspect ratio 4:5. A blueprint frame filled with frame-fill and a 44px grid; the glows are specified in `docs/design-team-identity.md`, "Right column: player card".
   - The star's cutout is a transparent player photo in full color, anchored to the bottom center at **172% of the frame width**, so the head pops out above the frame's top edge. The bottom is clipped with `clip-path: inset(-30% 0 0 0)`.
   - Image filter: `drop-shadow(0 0 1px rgba(148,188,227,.35)) drop-shadow(0 30px 30px rgba(0,0,0,.7)) contrast(1.05)`.
-  - The bottom scrim and the layers behind the cutout (the glows, the team logo, the tricode) are specified in `docs/design-team-identity.md`, "Right column: player card".
+  - The bottom fade (a mask on the cutout image, no separate element) and the layers behind the cutout (the glows, the team logo, the tricode) are specified in `docs/design-team-identity.md`, "Right column: player card".
   - **Player strip:** the hero has no player chip; the strip with the team mark, the player and the team is specified in `docs/design-team-identity.md`, "Home hero", "Right column: player card".
 
 ### 2. Schedule

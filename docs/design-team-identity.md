@@ -106,7 +106,7 @@ Gap 28px between its blocks, in order:
 | Team logo | Centered, top 6%, width 84%, `object-fit: contain`, opacity .22 |
 | Tricode | Barlow Condensed 700, `clamp(130px, 19vw, 232px)`, line-height .8, centered, bottom 17%, solid accent fill |
 | Player cutout | Bottom-anchored, centered, width 172%, `filter: drop-shadow(0 0 1px rgba(148,188,227,.35)) drop-shadow(0 30px 30px rgba(0,0,0,.7)) contrast(1.05)` |
-| Bottom scrim | 34% high, `linear-gradient(to top, rgba(17,22,27,.95), transparent)` |
+| Bottom fade | No separate element above the slides: the cutout image alone is masked toward the bottom with `linear-gradient(to top, rgba(0,0,0,.05) 0%, #000 34%)` (`-webkit-mask-image` and `mask-image`), so the frame fill shows through. The 34% stop is on the image box, which for 1040x760 photos is about as tall as the card (387 vs 385 at 390px, 626 vs 622.5 at 1280px), so the fade starts where the old scrim did; a photo of another aspect moves the band. The inner glow, the tricode and the logo layer carry no mask. When a photo fails and the placeholder replaces it, no dark band is drawn behind the strip: the mask is on the image only. A separate scrim layer draws a light line at the bottom edge in Safari during the photo change |
 | Player strip | 20px from the sides, 18px from the bottom: a 36px `TeamMark`, the player name (Barlow Condensed 600, 26px, `letter-spacing: .04em`, uppercase) over "{City} {Team}" (12px, `letter-spacing: .12em`, uppercase, muted) |
 
 - The inactive slide sits at `translateY(24px) scale(.97)`. The logo and the tricode transition back over 1.2s `cubic-bezier(.2, .7, .1, 1)`.
@@ -228,8 +228,7 @@ Added to `web/src/lib/styles/tokens.css` by the implementing issue. Values not l
 | `--identity-tricode-size` | `clamp(130px, 19vw, 232px)` | Tricode |
 | `--identity-tricode-leading` | .8 | Tricode |
 | `--identity-tricode-bottom` | 17% | Tricode |
-| `--identity-scrim-height` | 34% | Bottom scrim |
-| `--identity-scrim` | `linear-gradient(to top, rgba(17, 22, 27, 0.95), transparent)` | Bottom scrim |
+| `--hero-cutout-mask` | `linear-gradient(to top, rgba(0, 0, 0, 0.05) 0%, #000 34%)` | Bottom fade of the cutout image |
 | `--identity-strip-inset` | 20px | Player strip sides |
 | `--identity-strip-bottom` | 18px | Player strip |
 | `--identity-strip-mark` | 36px | Logo in the strip |
