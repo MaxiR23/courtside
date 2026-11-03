@@ -128,7 +128,6 @@
 						</div>
 					</div>
 				{/each}
-				<div class="scrim"></div>
 				{#if side}
 					<div class="strip">
 						<span class="strip-mark" aria-hidden="true"
@@ -267,6 +266,8 @@
 		width: 100%;
 		clip-path: var(--hero-cutout-clip);
 		filter: var(--hero-cutout-outline-off) var(--hero-cutout-shade);
+		-webkit-mask-image: var(--hero-cutout-mask);
+		mask-image: var(--hero-cutout-mask);
 	}
 
 	.cutout.active img {
@@ -282,14 +283,6 @@
 		font-family: var(--font-heading);
 		font-size: var(--hero-watermark-size);
 		color: var(--color-muted);
-	}
-
-	.scrim {
-		position: absolute;
-		inset: auto 0 0;
-		height: var(--identity-scrim-height);
-		background: var(--identity-scrim);
-		pointer-events: none;
 	}
 
 	.strip {

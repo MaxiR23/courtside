@@ -11,6 +11,9 @@
 // - Draws the faded team logo and the tricode of each slide, and the strip mark
 // - Draws the monogram in the logo layer and the strip for a side without a logo
 // - Sets --side-accent on the card and on each slide from the accent, and the neutral accent when null
+// - Draws nothing above the slides but the strip: no scrim element, no scrim rule, no scrim token
+// - Darkens the photo toward the bottom with the cutout mask token, prefixed and unprefixed (source check)
+// - Leaves the inner glow, the tricode and the logo layer unmasked (source check)
 //
 // What is covered:
 // - Each state of the card and the photo error interaction
@@ -19,6 +22,8 @@
 //
 // SEE: web/src/lib/components/HeroPlayerCard.svelte
 import type { ResolvedPathname } from '$app/types';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
 
@@ -55,6 +60,14 @@ const home: HeroSide = {
 const sides = [away, home];
 const teamHref = (code: string) => `/team/${code.toLowerCase()}` as ResolvedPathname;
 const props = { teamHref, sides, active: 0 };
+
+const source = readFileSync(
+	join(__dirname, '..', '..', '..', 'src', 'lib', 'components', 'HeroPlayerCard.svelte'),
+	'utf8'
+);
+function rule(selector: RegExp): string {
+	return selector.exec(source)?.[1] ?? '';
+}
 
 describe('HeroPlayerCard', () => {
 	it("shows the active player's photo with the player's name as alt text", () => {
@@ -191,5 +204,33 @@ describe('HeroPlayerCard', () => {
 				'--side-accent'
 			)
 		).toBe('var(--identity-neutral-accent)');
+	});
+
+	it('draws nothing above the slides but the strip', () => {
+		const { container } = render(HeroPlayerCard, { props });
+		expect(container.querySelector('.scrim')).toBeNull();
+		const children = [...(container.querySelector('.frame')?.children ?? [])];
+		expect(children.length).toBeGreaterThan(0);
+		for (const child of children) expect(child.matches('.slide, .strip')).toBe(true);
+		expect(source).not.toMatch(/\.scrim\s*\{/);
+		expect(source).not.toContain('--identity-scrim');
+	});
+
+	it('darkens the photo toward the bottom with the cutout mask token', () => {
+		const img = rule(/\.cutout img\s*\{([^}]*)\}/);
+		expect(img).toContain('-webkit-mask-image: var(--hero-cutout-mask)');
+		expect(img).toMatch(/(^|[\s;])mask-image: var\(--hero-cutout-mask\)/);
+	});
+
+	it('leaves the inner glow, the tricode and the logo layer unmasked', () => {
+		for (const layer of [
+			rule(/\.inner-glow\s*\{([^}]*)\}/),
+			rule(/\}\n\n\t\.tricode \{([^}]*)\}/),
+			rule(/\.logo-layer,\s*\.tricode\s*\{([^}]*)\}/),
+			rule(/\n\t\.logo-layer \{([^}]*)\}/)
+		]) {
+			expect(layer).not.toBe('');
+			expect(layer).not.toContain('mask-image');
+		}
 	});
 });
