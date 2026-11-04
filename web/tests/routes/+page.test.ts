@@ -29,6 +29,7 @@
 // - Each of the two sections hidden when its feed fails, is not configured or its data is null, the rest of the page still rendered; the Finals preview shows the finalists, and nothing without finalsPath; one to four leader rows; Spanish
 // - Team logos: a side's feed logo in the game card's large box, the code monogram for a null logo and the initials of a guest side added in memory
 // - The document title is exactly Courtside while the feed loads and after, in English and Spanish
+// - The description meta is the page type's message, named from the feed for a team, player or game when loaded
 //
 // What is covered:
 // - The page wired end to end: config, fetch, polling, props layer, hero, schedule, footer
@@ -38,6 +39,7 @@
 // Run with: cd web && pnpm exec vitest run tests/routes/+page.test.ts
 //
 // SEE: web/src/routes/+page.svelte
+import { m } from '../../src/lib/paraglide/messages.js';
 import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { readFileSync } from 'node:fs';
@@ -71,6 +73,7 @@ const config = vi.hoisted(() => ({
 	platform: undefined as string | undefined
 }));
 vi.mock('../../src/lib/feed/config', () => ({
+	siteUrl: undefined,
 	get gamesFeedUrl() {
 		return config.url;
 	},
@@ -1155,14 +1158,20 @@ describe('home page on a day with no games', () => {
 	});
 });
 
+// A second render in one test leaves the first mounted; its tags come first, so read the last.
+const descriptionMeta = () =>
+	[...document.head.querySelectorAll('meta[name="description"]')].at(-1)?.getAttribute('content');
+
 describe('home document title', () => {
 	it('is exactly the site name while the feed loads and after it loads', async () => {
 		stubFetch(() => new Promise(() => {}));
 		await renderPage();
 		expect(document.title).toBe('Courtside');
+		expect(descriptionMeta()).toBe(m.meta_description_home());
 		stubFetch(answerWith(recorded()));
 		await renderPage();
 		expect(document.title).toBe('Courtside');
+		expect(descriptionMeta()).toBe(m.meta_description_home());
 	});
 
 	it('is exactly the site name with a Spanish preference', async () => {
@@ -1170,8 +1179,10 @@ describe('home document title', () => {
 		stubFetch(() => new Promise(() => {}));
 		await renderPage();
 		expect(document.title).toBe('Courtside');
+		expect(descriptionMeta()).toBe(m.meta_description_home());
 		stubFetch(answerWith(recorded()));
 		await renderPage();
 		expect(document.title).toBe('Courtside');
+		expect(descriptionMeta()).toBe(m.meta_description_home());
 	});
 });

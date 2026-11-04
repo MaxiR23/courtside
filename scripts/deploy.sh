@@ -17,8 +17,8 @@
 #     4. api, all: fetch and fast-forward the machine to exactly that commit over SSH, stop
 #        when its HEAD differs, rebuild, then wait up to 180 s for the api service to be
 #        healthy.
-#     5. web, all: build with every feed URL set to the site's /api/feeds path, replace the
-#        Vercel folder except .vercel, add deploy/vercel.json and run vercel deploy --prod.
+#     5. web, all: build with every feed URL set to the site's /api/feeds path and SITE_URL
+#        set to the site URL, replace the Vercel folder except .vercel, add deploy/vercel.json and run vercel deploy --prod.
 #     6. Check that / and /api/health on the site answer 200.
 #   No message prints a value of .env.deploy.
 
@@ -88,6 +88,7 @@ build_web() {
     while read -r name path; do
       export "$name=$site/api/feeds/$path"
     done
+    export SITE_URL="$site"
     cd web && pnpm install --frozen-lockfile && pnpm run build
   }
 }

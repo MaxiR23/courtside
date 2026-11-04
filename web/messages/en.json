@@ -881,5 +881,19 @@
 	"power_ranking_show_all": "Show all {count} teams",
 	"power_ranking_show_top": "Show top {count}",
 	"power_ranking_rank_tied": "T{rank}",
-	"power_ranking_details": "Details of {team}"
+	"power_ranking_details": "Details of {team}",
+	"meta_description_home": "Live NBA scores, today's games, standings and league leaders.",
+	"meta_description_standings": "NBA standings for the East and the West, season by season.",
+	"meta_description_cup": "The NBA Cup: group standings, the knockout bracket and every Cup game.",
+	"meta_description_playoffs": "The NBA playoffs: the bracket, every series and the road to the Finals.",
+	"meta_description_series": "An NBA playoff series, game by game.",
+	"meta_description_all_star": "NBA All-Star: the teams, the rosters and every game of the weekend.",
+	"meta_description_day": "Every NBA game of the day, with results and links to each game.",
+	"meta_description_team": "An NBA team's roster, schedule, results and season stats.",
+	"meta_description_team_named": "{name}: roster, schedule, results and season stats.",
+	"meta_description_player": "An NBA player's season averages, game log and career stats.",
+	"meta_description_player_named": "{name}: season averages, game log and career stats.",
+	"meta_description_game": "An NBA game: box score, leaders, team stats and highlights.",
+	"meta_description_game_named": "{away} at {home}: box score, leaders, team stats and highlights.",
+	"meta_image_alt": "The Courtside logo and name"
 }

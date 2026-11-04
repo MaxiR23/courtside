@@ -11,6 +11,7 @@
 // - It loads the feed once and sends no further request, also after the tab is visible again
 // - The edition frame with its caption when previousEdition carries a video, the placeholder when not; no season selector
 // - The document title is the page heading then the site name, in English and Spanish; All-Star then the site name while loading and with no previousEdition; the loading title in English and Spanish
+// - The description meta is the page type's message, named from the feed for a team, player or game when loaded
 //
 // What is covered:
 // - The page wired end to end with the recorded before feed (its previousEdition); the fetch mock fails for any other URL
@@ -19,6 +20,7 @@
 // Run with: cd web && pnpm exec vitest run tests/routes/all-star/previous/+page.test.ts
 //
 // SEE: web/src/routes/all-star/previous/+page.svelte
+import { m } from '../../../../src/lib/paraglide/messages.js';
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { readFileSync } from 'node:fs';
@@ -33,6 +35,7 @@ import Page from '../../../../src/routes/all-star/previous/+page.svelte';
 
 const config = vi.hoisted(() => ({ url: undefined as string | undefined }));
 vi.mock('../../../../src/lib/feed/config', () => ({
+	siteUrl: undefined,
 	get allStarFeedUrl() {
 		return config.url;
 	}
@@ -206,6 +209,10 @@ describe('Previous edition video', () => {
 	});
 });
 
+// A second render in one test leaves the first mounted; its tags come first, so read the last.
+const descriptionMeta = () =>
+	[...document.head.querySelectorAll('meta[name="description"]')].at(-1)?.getAttribute('content');
+
 describe('Previous edition document title', () => {
 	const harbor = (): AllStarFeed => {
 		const feed = withPrevious();
@@ -219,16 +226,19 @@ describe('Previous edition document title', () => {
 		await renderPage();
 		expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Team Harbor');
 		expect(document.title).toBe('Team Harbor · Courtside');
+		expect(descriptionMeta()).toBe(m.meta_description_all_star());
 		preferLanguages(['es']);
 		stubFetch(answerWith(harbor()));
 		await renderPage();
 		expect(document.title).toBe('Team Harbor · Courtside');
+		expect(descriptionMeta()).toBe(m.meta_description_all_star());
 	});
 
 	it('is the section name while loading', async () => {
 		stubFetch(() => new Promise(() => {}));
 		await renderPage();
 		expect(document.title).toBe('All-Star · Courtside');
+		expect(descriptionMeta()).toBe(m.meta_description_all_star());
 	});
 
 	it('is the section name while loading, in Spanish', async () => {
@@ -236,11 +246,13 @@ describe('Previous edition document title', () => {
 		stubFetch(() => new Promise(() => {}));
 		await renderPage();
 		expect(document.title).toBe('All-Star · Courtside');
+		expect(descriptionMeta()).toBe(m.meta_description_all_star());
 	});
 
 	it('is the section name with no previousEdition', async () => {
 		stubFetch(answerWith(withoutPrevious()));
 		await renderPage();
 		expect(document.title).toBe('All-Star · Courtside');
+		expect(descriptionMeta()).toBe(m.meta_description_all_star());
 	});
 });

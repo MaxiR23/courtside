@@ -1,4 +1,5 @@
 <script lang="ts">
+	import PageMeta from '#lib/components/PageMeta.svelte';
 	import { pageTitle } from '#lib/format/title.ts';
 	import { m } from '#lib/paraglide/messages.js';
 	import { resolve } from '$app/paths';
@@ -41,19 +42,18 @@
 
 	const wide = wideViewport();
 
-	const title = $derived(
-		pageTitle(
-			pageState.kind === 'ready'
-				? m.game_page_title({
-						away: pageState.view.header.away.name,
-						home: pageState.view.header.home.name
-					})
-				: null
-		)
+	const teams = $derived(
+		pageState.kind === 'ready'
+			? { away: pageState.view.header.away.name, home: pageState.view.header.home.name }
+			: null
+	);
+	const title = $derived(pageTitle(teams ? m.game_page_title(teams) : null));
+	const description = $derived(
+		teams ? m.meta_description_game_named(teams) : m.meta_description_game()
 	);
 </script>
 
-<svelte:head><title>{title}</title></svelte:head>
+<PageMeta {title} {description} path={resolve('/game/[id]', { id: params.id })} />
 
 <GamePage
 	state={pageState}

@@ -22,6 +22,7 @@
 // - Renders no link inside a button or another link
 // - The chart check targets the chart by role and name: absent without win probability points
 // - The document title is "{away} at {home}" then the site name, in English and Spanish, with no score in any game status; Courtside while loading; the loading title in English and Spanish
+// - The description meta is the page type's message, named from the feed for a team, player or game when loaded
 //
 // What is covered:
 // - The page wired end to end: config, fetch, polling, props layer, header, tabs, footer
@@ -31,6 +32,7 @@
 // Run with: cd web && pnpm exec vitest run "tests/routes/game/[id]/+page.test.ts"
 //
 // SEE: web/src/routes/game/[id]/+page.svelte
+import { m } from '../../../../src/lib/paraglide/messages.js';
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { readFileSync } from 'node:fs';
@@ -47,6 +49,7 @@ const config = vi.hoisted(() => ({
 	platform: undefined as string | undefined
 }));
 vi.mock('../../../../src/lib/feed/config', () => ({
+	siteUrl: undefined,
 	get gameDetailFeedUrl() {
 		return config.url;
 	},
@@ -330,6 +333,10 @@ describe('game detail page', () => {
 	});
 });
 
+// A second render in one test leaves the first mounted; its tags come first, so read the last.
+const descriptionMeta = () =>
+	[...document.head.querySelectorAll('meta[name="description"]')].at(-1)?.getAttribute('content');
+
 describe('game document title', () => {
 	const named = (): GameDetailFeed => {
 		const source = recorded();
@@ -344,16 +351,23 @@ describe('game document title', () => {
 		stubFetch(answerWith(named()));
 		await renderPage();
 		expect(document.title).toBe('Comets at Harbors · Courtside');
+		expect(descriptionMeta()).toBe(
+			'Comets at Harbors: box score, leaders, team stats and highlights.'
+		);
 		preferLanguages(['es']);
 		stubFetch(answerWith(named()));
 		await renderPage();
 		expect(document.title).toBe('Comets en Harbors · Courtside');
+		expect(descriptionMeta()).toBe(
+			'Comets en Harbors: estadísticas, líderes, comparación de equipos y resúmenes.'
+		);
 	});
 
 	it('is the site name while loading', async () => {
 		stubFetch(() => new Promise(() => {}));
 		await renderPage();
 		expect(document.title).toBe('Courtside');
+		expect(descriptionMeta()).toBe(m.meta_description_game());
 	});
 
 	it('is the site name while loading, in Spanish', async () => {
@@ -377,6 +391,10 @@ describe('game document title', () => {
 		expect(document.title).toBe('Comets at Harbors · Courtside');
 		expect(document.title).not.toContain(String(feed.score!.away));
 		expect(document.title).not.toContain(String(feed.score!.home));
+		expect(descriptionMeta()).toBe(
+			'Comets at Harbors: box score, leaders, team stats and highlights.'
+		);
+		expect(descriptionMeta()).not.toContain(String(feed.score!.away));
 	});
 });
 

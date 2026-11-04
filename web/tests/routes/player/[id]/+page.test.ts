@@ -23,6 +23,7 @@
 // - The unavailable state of a past season keeps the Season tag (ADR 0054)
 // - When the id changes: the loading skeleton at once, then the new player, never the previous one; a failed load shows not found; the previous id is no longer polled
 // - The document title is the player's full name then the site name, in English and Spanish; Courtside while loading; the loading title in English and Spanish
+// - The description meta is the page type's message, named from the feed for a team, player or game when loaded
 //
 // What is covered:
 // - The page wired end to end: config, fetch, polling, props layer, header, tabs, footer
@@ -32,6 +33,7 @@
 // Run with: cd web && pnpm exec vitest run "tests/routes/player/[id]/+page.test.ts"
 //
 // SEE: web/src/routes/player/[id]/+page.svelte
+import { m } from '../../../../src/lib/paraglide/messages.js';
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { readFileSync } from 'node:fs';
@@ -63,6 +65,7 @@ vi.mock('$app/navigation', async (importOriginal) => ({
 
 const config = vi.hoisted(() => ({ url: undefined as string | undefined }));
 vi.mock('../../../../src/lib/feed/config', () => ({
+	siteUrl: undefined,
 	get calendarFeedUrl() {
 		return seasonMocks.calendar;
 	},
@@ -556,6 +559,10 @@ describe('player page season selector', () => {
 	});
 });
 
+// A second render in one test leaves the first mounted; its tags come first, so read the last.
+const descriptionMeta = () =>
+	[...document.head.querySelectorAll('meta[name="description"]')].at(-1)?.getAttribute('content');
+
 describe('player document title', () => {
 	const named = (): PlayerFeed => ({ ...recorded(), firstName: 'Ada', lastName: 'Example' });
 
@@ -563,16 +570,19 @@ describe('player document title', () => {
 		stubFetch('p-2', answerWith(named()));
 		await renderPage();
 		expect(document.title).toBe('Ada Example · Courtside');
+		expect(descriptionMeta()).toBe('Ada Example: season averages, game log and career stats.');
 		preferLanguages(['es']);
 		stubFetch('p-2', answerWith(named()));
 		await renderPage();
 		expect(document.title).toBe('Ada Example · Courtside');
+		expect(descriptionMeta()).toBe('Ada Example: promedios de la temporada, partidos y carrera.');
 	});
 
 	it('is the site name while loading', async () => {
 		stubFetch('p-2', () => new Promise(() => {}));
 		await renderPage();
 		expect(document.title).toBe('Courtside');
+		expect(descriptionMeta()).toBe(m.meta_description_player());
 	});
 
 	it('is the site name while loading, in Spanish', async () => {

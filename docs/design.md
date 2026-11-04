@@ -30,6 +30,7 @@ A dark-mode, single-page site with two parts:
 | `SectionHead` | The one section title: the h2 in Barlow Condensed, uppercase, with an optional meta on the right (12px, muted, or emphasized). Sizes: `detail` (the default, `clamp(28px, 3.4vw, 40px)`, line-height 1, the detail pages), `home` (the Section h2 below, the home sections) and `mvp` (the Finals MVP title). An optional kicker above it is drawn by `Kicker`. A parent sets the title size, the kicker size and the gap between them with token references. Every section title at the home or detail size (and the Cup and playoffs bracket titles) is drawn by `SectionHead`; label-sized headings, such as ComingUp's (a `Kicker` inside an `h2`), and the sheet, overlay, calendar and MVP-name headings are not section titles and keep their own markup. |
 | `InfoCell` | The one info cell: a 1px divider top border, the label through `Kicker`, the value in Barlow Condensed and an optional 13px muted sub-line. Its value size (`detail`, `hero` or `record`), weight and tabular figures come from its props, and content such as the team color swatches can take the place of the value. `ProfileCells` lays a list of them out in a grid |
 | `PageContainer` | The one page container: the centered content width and the side padding of every page body and home section |
+| `PageMeta` | The one per-page head: title, description, canonical, Open Graph and Twitter card from `web/src/lib/meta/head.ts`, or `noindex` alone on `/preview`. It draws nothing visible |
 | `PageHeader` | The one page header: the grid background, the content width and side padding, the nav row, the season selector and the vertical spacing of every page; pages pass the first line, the body, a right column and full-width rows; a parent sets the grid size, gaps, side padding and the sticky nav with token references |
 | `Hero` | The top section, rotating through the games of the day |
 | `HeroPlayerCard` | The hero player card: the player's cutout over the logo, tricode and glow layers, with the player strip, specified in `docs/design-team-identity.md`, "Right column: player card" |
@@ -147,6 +148,7 @@ A piece that owns a repeated style, markup or rule is the only place that style,
 | `initials` (`web/src/lib/format/initials.ts`) | `initials-is-the-one-rule.test.ts` |
 | `feedSource` (`web/src/lib/feed/source.ts`) | `feed-source-follows-its-url.test.ts` |
 | `SectionTabs` | `sticky-bar-is-the-one-stuck-state.test.ts` |
+| `PageMeta` | `page-meta-is-the-one-head.test.ts` |
 | Text selection rule (`button`, `select` and `.unselectable` in `web/src/lib/styles/base.css`) | `text-selection-is-the-one-rule.test.ts` |
 
 A page whose feed URL depends on its URL params builds the URL as a `$derived` from the params, the query and the templates, and its feed source with `feedSource` in a `$derived` from that URL: a new URL is a new, empty source, so the page shows its loading state until the new feed arrives and never shows the previous URL's feed; the effect that started the old source stops it. No route builds a feed source from a closure that reads `params`.
@@ -338,13 +340,14 @@ The handoff ("Home — No games today") is a reference, not a spec. Where it dif
 
 ## Document titles
 
-- Every page, except the development-only `/preview` page, which sets none, sets its title through `<svelte:head><title>`, in English and Spanish, ending with " · " and the site name. The home is exactly "Courtside".
+- Every page, except the development-only `/preview` page, which sets none, sets its title through `PageMeta`, in English and Spanish, ending with " · " and the site name. The home is exactly "Courtside".
 - Standings, NBA Cup, Playoffs and All-Star: the section name, for example "Standings · Courtside".
 - The full series page and the previous All-Star: their page's h1.
 - Team: the team name ("Thunder · Courtside"). Player: the full name.
 - Game: "{Away} at {Home} · Courtside", never the score, in any state (spoiler-free).
 - Past day: "Games · {date} · Courtside", the date as the page's long date in the active language.
 - Every value comes from the page's feed. While the feed is loading, unavailable or not found, the title is the section name, or "Courtside" on the team, player and game pages.
+- Every page also sets a description through `PageMeta`: one sentence per page type, in English and Spanish, under 160 characters. Team, player and game descriptions name the team, the player or the two teams from the feed, and are generic while the feed loads; a game description never carries the score. No description names a data source or the video platform.
 - The separator and the site name are joined in `pageTitle` (`web/src/lib/format/title.ts`).
 
 ## Responsive
@@ -361,4 +364,5 @@ The handoff ("Home — No games today") is a reference, not a spec. Where it dif
 - **Video thumbnails:** provided with each highlight.
 - **Fonts:** Barlow and Barlow Condensed from Google Fonts.
 - **Logo mark and site icons:** the files in `web/static/` (`logo-mark.svg` drawn in the nav row, the favicons, the touch and app icons and `site.webmanifest`), shipped as they are.
+- **Open Graph image:** `og-image.png` in `web/static/`, 1200 by 630: the logo mark and the name on the page background, for link previews.
 - No other images. Team logos come from the feeds and are drawn by `TeamMark`, per `docs/design-team-identity.md`; a team without one shows its monogram (the team code, or the initials of a guest's name).

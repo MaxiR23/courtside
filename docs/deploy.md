@@ -140,7 +140,8 @@ from the operator's machine.
   and waits up to 180 s for the `api` service to be healthy. A merge to `main`
   that lands during a deploy is not picked up: run the script again to ship it.
 - web checks that the linked folder's `projectId` equals
-  `DEPLOY_VERCEL_PROJECT_ID`, then builds with every feed URL set to `DEPLOY_SITE_URL/api/feeds/...`,
+  `DEPLOY_VERCEL_PROJECT_ID`, then builds with every feed URL set to `DEPLOY_SITE_URL/api/feeds/...` and
+  `SITE_URL` set to the site's origin (`DEPLOY_SITE_URL` without a trailing slash),
   without touching `web/.env`, which still provides `VIDEO_PLATFORM_NAME`. It
   then publishes with `vercel deploy --prod`.
 - It ends by checking that `/` and `/api/health` on the site answer 200.
@@ -176,6 +177,9 @@ from the operator's machine.
    The URLs must point at the Vercel site's forwarded paths,
    `https://<site>/api/feeds/...`, never at the machine, which answers 403.
    `scripts/deploy.sh` sets them for the build.
+   Set `SITE_URL` to the site's origin, with no trailing slash: it feeds the canonical
+   and Open Graph addresses and `sitemap.xml`. `scripts/deploy.sh` sets it from
+   `DEPLOY_SITE_URL`.
 3. `cd web && pnpm install --frozen-lockfile && pnpm run build`
 4. Upload the contents of `web/build/` together with `deploy/vercel.json` (the
    Vercel CLI from the linked folder, as `scripts/deploy.sh` does).

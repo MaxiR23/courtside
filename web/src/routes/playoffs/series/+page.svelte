@@ -1,4 +1,7 @@
 <script lang="ts">
+	import PageMeta from '#lib/components/PageMeta.svelte';
+	import { canonicalPath } from '#lib/meta/head.ts';
+	import { prerenderedPages } from '#lib/meta/pages.ts';
 	import { pageTitle } from '#lib/format/title.ts';
 	import { m } from '#lib/paraglide/messages.js';
 	import { resolve } from '$app/paths';
@@ -106,7 +109,11 @@
 	);
 </script>
 
-<svelte:head><title>{title}</title></svelte:head>
+<PageMeta
+	{title}
+	description={prerenderedPages['/playoffs/series'].description()}
+	path={canonicalPath(page.url, ['id', 'season'])}
+/>
 
 <SeriesPage
 	state={pageState}

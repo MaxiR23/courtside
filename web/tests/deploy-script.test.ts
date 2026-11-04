@@ -5,6 +5,7 @@
 //
 // Tested:
 // - The build gets every feed URL of web/.env.example at the site's /api/feeds path
+// - The build gets SITE_URL set to the site URL, without a trailing slash
 // - web/.env is left byte-identical and VIDEO_PLATFORM_NAME is not set by the script
 // - The Vercel folder is replaced except .vercel and deployed to production
 // - The api side moves the machine to the exact checked commit over SSH, checks its HEAD before
@@ -93,7 +94,7 @@ printf 'pnpm\\t%s\\t%s\\n' "$PWD" "$*" >> "$STUB_LOG"
 if [ "$*" = "run build" ]; then
   mkdir -p build/_app
   printf 'page\\n' > build/200.html
-  env | grep -E '^([A-Z_]+_FEED_URL|VIDEO_PLATFORM_NAME)=' > build/_app/env.txt || true
+  env | grep -E '^([A-Z_]+_FEED_URL|VIDEO_PLATFORM_NAME|SITE_URL)=' > build/_app/env.txt || true
 fi
 `
 };
@@ -246,6 +247,28 @@ describe('scripts/deploy.sh', () => {
 		for (const name of names) {
 			expect(built[name]).toBe(`${siteUrl}/api/feeds/${paths[name]}`);
 		}
+	});
+
+	it('builds web with SITE_URL set to the site URL, without a trailing slash', () => {
+		expect(run().status).toBe(0);
+		expect(readFileSync(join(vercelDir, '_app', 'env.txt'), 'utf8')).toContain(
+			`SITE_URL=${siteUrl}\n`
+		);
+		rmSync(vercelDir, { recursive: true, force: true });
+		mkdirSync(join(vercelDir, '.vercel'), { recursive: true });
+		writeFileSync(
+			join(vercelDir, '.vercel', 'project.json'),
+			`{"projectId":"${projectId}","orgId":"team_example"}`
+		);
+		writeDeployEnv([
+			`DEPLOY_SSH_HOST=${sshHost}`,
+			`DEPLOY_SITE_URL=${siteUrl}/`,
+			`DEPLOY_VERCEL_DIR=${vercelDir}`,
+			`DEPLOY_VERCEL_PROJECT_ID=${projectId}`
+		]);
+		expect(run().status).toBe(0);
+		const lines = readFileSync(join(vercelDir, '_app', 'env.txt'), 'utf8').split('\n');
+		expect(lines).toContain(`SITE_URL=${siteUrl}`);
 	});
 
 	it('leaves no 127.0.0.1 in the build output and does not set VIDEO_PLATFORM_NAME', () => {

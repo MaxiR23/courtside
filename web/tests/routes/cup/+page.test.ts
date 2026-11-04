@@ -22,6 +22,7 @@
 // - The select lists the calendar seasons from 2024 and navigates with goto
 // - A past matchup loads once from the season URL, shows the path and the current-season-only line, and no roster; Spanish
 // - The document title is the section name then the site name, while loading and loaded, in English and Spanish
+// - The description meta is the page type's message, named from the feed for a team, player or game when loaded
 //
 // What is covered:
 // - The page wired end to end: config, fetch, polling, props layer, header, tables, footer
@@ -31,6 +32,7 @@
 // Run with: cd web && pnpm exec vitest run tests/routes/cup/+page.test.ts
 //
 // SEE: web/src/routes/cup/+page.svelte
+import { m } from '../../../src/lib/paraglide/messages.js';
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { SvelteURL } from 'svelte/reactivity';
@@ -67,6 +69,7 @@ const config = vi.hoisted(() => ({
 	matchup: undefined as string | undefined
 }));
 vi.mock('../../../src/lib/feed/config', () => ({
+	siteUrl: undefined,
 	get calendarFeedUrl() {
 		return seasonMocks.calendar;
 	},
@@ -620,14 +623,20 @@ describe('Cup page season selector', () => {
 	});
 });
 
+// A second render in one test leaves the first mounted; its tags come first, so read the last.
+const descriptionMeta = () =>
+	[...document.head.querySelectorAll('meta[name="description"]')].at(-1)?.getAttribute('content');
+
 describe('cup document title', () => {
 	it('is the section name then the site name, while loading and loaded', async () => {
 		stubFetch(() => new Promise(() => {}));
 		await renderPage();
 		expect(document.title).toBe('NBA Cup · Courtside');
+		expect(descriptionMeta()).toBe(m.meta_description_cup());
 		stubFetch(answerWith(recorded()));
 		await renderPage();
 		expect(document.title).toBe('NBA Cup · Courtside');
+		expect(descriptionMeta()).toBe(m.meta_description_cup());
 	});
 
 	it('is in Spanish with a Spanish preference', async () => {
@@ -635,8 +644,10 @@ describe('cup document title', () => {
 		stubFetch(() => new Promise(() => {}));
 		await renderPage();
 		expect(document.title).toBe('Copa NBA · Courtside');
+		expect(descriptionMeta()).toBe(m.meta_description_cup());
 		stubFetch(answerWith(recorded()));
 		await renderPage();
 		expect(document.title).toBe('Copa NBA · Courtside');
+		expect(descriptionMeta()).toBe(m.meta_description_cup());
 	});
 });
