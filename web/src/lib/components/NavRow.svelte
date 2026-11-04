@@ -133,11 +133,18 @@
 
 <svelte:window onclick={onWindowClick} onkeydowncapture={onWindowKeydown} />
 
+{#snippet brand()}
+	<img class="brand-logo" src="/logo-mark.svg" alt="" aria-hidden="true" />
+	<span class="brand-name">{m.site_name()}</span>
+{/snippet}
+
 <nav class="nav-row" class:mobile={layout === 'mobile'}>
-	<span class="brand">
-		<img class="brand-logo" src="/logo-mark.svg" alt="" aria-hidden="true" />
-		<span class="brand-name">{m.site_name()}</span>
-	</span>
+	<!-- On Home the brand is not a link: no link to the current page, no navigation. -->
+	{#if page === 'home'}
+		<span class="brand">{@render brand()}</span>
+	{:else}
+		<a class="brand" href={resolve('/')}>{@render brand()}</a>
+	{/if}
 	{#if layout === 'desktop'}
 		<div class="links">
 			<a
@@ -243,6 +250,16 @@
 		align-items: center;
 		gap: var(--game-list-gap);
 		margin-inline-end: auto;
+	}
+
+	a.brand {
+		min-height: var(--hit-target-size);
+		color: inherit;
+		text-decoration: none;
+	}
+
+	a.brand:hover {
+		color: var(--color-ink);
 	}
 
 	.brand-logo {
