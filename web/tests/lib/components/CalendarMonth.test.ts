@@ -11,6 +11,7 @@
 // - Today has the today class; the selected day has the selected class and aria-current="date"
 // - The mobile layout adds the mobile class that picks the smaller cell
 // - The day cell and the mark come from tokens in its source
+// - The week rows are out of a text selection and the month name stays selectable
 //
 // What is covered:
 // - The month drawn from props with no fetch; jsdom does no layout, so sizes are asserted in the source
@@ -147,5 +148,15 @@ describe('CalendarMonth', () => {
 		expect(source).toContain('width: var(--past-day-cell-mobile)');
 		expect(source).toContain('width: var(--past-day-mark)');
 		expect(source).toContain('color: var(--past-day-off-ink)');
+	});
+});
+
+describe('CalendarMonth text selection', () => {
+	it('keeps the week rows out of a text selection and leaves the month name selectable', () => {
+		const { container } = render(CalendarMonth, { props: props() });
+		const weeks = container.querySelectorAll('.week');
+		expect(weeks.length).toBeGreaterThan(1);
+		for (const week of weeks) expect(week.classList.contains('unselectable')).toBe(true);
+		expect(container.querySelector('.month-name')?.classList.contains('unselectable')).toBe(false);
 	});
 });

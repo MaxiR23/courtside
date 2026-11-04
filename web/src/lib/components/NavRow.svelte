@@ -141,14 +141,14 @@
 <nav class="nav-row" class:mobile={layout === 'mobile'}>
 	<!-- On Home the brand is not a link: no link to the current page, no navigation. -->
 	{#if page === 'home'}
-		<span class="brand">{@render brand()}</span>
+		<span class="brand unselectable">{@render brand()}</span>
 	{:else}
-		<a class="brand" href={resolve('/')}>{@render brand()}</a>
+		<a class="brand unselectable" href={resolve('/')}>{@render brand()}</a>
 	{/if}
 	{#if layout === 'desktop'}
 		<div class="links">
 			<a
-				class="link"
+				class="link unselectable"
 				class:current={page === 'home'}
 				aria-current={page === 'home' ? 'page' : undefined}
 				href={gamesHref}
@@ -156,7 +156,7 @@
 				{page === 'home' ? m.nav_games() : m.hero_all_games()}
 			</a>
 			<a
-				class="link"
+				class="link unselectable"
 				class:current={page === 'standings'}
 				aria-current={page === 'standings' ? 'page' : undefined}
 				href={standingsHref}
@@ -180,7 +180,7 @@
 						{#each tournaments as t (t.page)}
 							<li>
 								<a
-									class="item"
+									class="item unselectable"
 									class:current={page === t.page}
 									aria-current={page === t.page ? 'page' : undefined}
 									href={t.href}
@@ -202,7 +202,8 @@
 						{layout}
 					/>
 				{:else}
-					<time class="date" datetime={iso}>{formatDate(home.today, dateOptions)}</time>
+					<time class="date unselectable" datetime={iso}>{formatDate(home.today, dateOptions)}</time
+					>
 				{/if}
 				<button
 					type="button"

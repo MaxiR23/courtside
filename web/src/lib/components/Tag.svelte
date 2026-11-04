@@ -38,7 +38,7 @@
 
 {#snippet box()}
 	<span
-		class="tag {variant}"
+		class="tag {variant} unselectable"
 		class:heading
 		class:truncate
 		class:nowrap={wrap === 'nowrap'}

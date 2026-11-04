@@ -36,7 +36,7 @@ A dark-mode, single-page site with two parts:
 | `DayStrip` | The 7-day selector |
 | `ScheduleSkeleton` | The schedule's placeholder while the first feed loads: the day strip and game cards |
 | `SkeletonBone` | The one loading skeleton bone: a block in `surface` with square corners; each skeleton gives it its width, height or aspect ratio |
-| `Tag` | The one tag: a hairline box with 1px by 5px padding and square corners. Variants: `outline` (divider border, surrounding color, the default), `accent` (accent border, accent-light text), `solid` (accent fill, `bg` text), `muted` (divider border, muted text) and `live` (the live badge: accent border, accent-light, 9.5px). Its type is the label type through `Kicker`, or the surrounding type. A parent sets its size, tracking, padding, border and text color with token references, and can truncate it, keep it on one line or drop its border. Every tag on the site is drawn by `Tag` |
+| `Tag` | The one tag: a hairline box with 1px by 5px padding and square corners. Variants: `outline` (divider border, surrounding color, the default), `accent` (accent border, accent-light text), `solid` (accent fill, `bg` text), `muted` (divider border, muted text) and `live` (the live badge: accent border, accent-light, 9.5px). Its type is the label type through `Kicker`, or the surrounding type. A parent sets its size, tracking, padding, border and text color with token references, and can truncate it, keep it on one line or drop its border. Its text is not selectable (see Text selection). Every tag on the site is drawn by `Tag` |
 | `GameCard` | One game, with its desktop and mobile rows and its expanded panel |
 | `LineScore` | Points per quarter |
 | `Leaders` | Top performer per team |
@@ -147,8 +147,13 @@ A piece that owns a repeated style, markup or rule is the only place that style,
 | `initials` (`web/src/lib/format/initials.ts`) | `initials-is-the-one-rule.test.ts` |
 | `feedSource` (`web/src/lib/feed/source.ts`) | `feed-source-follows-its-url.test.ts` |
 | `SectionTabs` | `sticky-bar-is-the-one-stuck-state.test.ts` |
+| Text selection rule (`button`, `select` and `.unselectable` in `web/src/lib/styles/base.css`) | `text-selection-is-the-one-rule.test.ts` |
 
 A page whose feed URL depends on its URL params builds the URL as a `$derived` from the params, the query and the templates, and its feed source with `feedSource` in a `$derived` from that URL: a new URL is a new, empty source, so the page shows its loading state until the new feed arrives and never shows the previous URL's feed; the effect that started the old source stops it. No route builds a feed source from a closure that reads `params`.
+
+### Text selection
+
+Controls are not selectable; content is. One rule in `web/src/lib/styles/base.css` sets `user-select: none` on every `button`, every `select` and every element with the `unselectable` class, and it is the only place in `web/src` that sets `user-select`. A control that is not a button or a select carries the class: the nav row's brand, links, Tournaments items and date, the nav sheet's rows, the calendar's week rows, the section tab list, the hero's slide indicator, the link variant of `Button`, every `Tag`, and the Cup bracket's pan and zoom surface. A name or a score inside a button is that control's label and is not selectable. Headings, team and player names, scores, stats, tables, paragraphs, captions, dates in content and the search field stay selectable.
 
 ## Screens
 

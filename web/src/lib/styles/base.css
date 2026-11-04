@@ -45,3 +45,12 @@ h6 {
 .detail-sections.mobile section {
 	scroll-margin-top: var(--detail-section-scroll-margin-mobile);
 }
+
+/* Text selection (docs/design.md, "Text selection"): controls are not selectable, content is.
+   The only place in web/src that sets user-select. */
+button,
+select,
+.unselectable {
+	-webkit-user-select: none;
+	user-select: none;
+}

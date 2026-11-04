@@ -12,7 +12,7 @@
 
 {#snippet control()}
 	{#if href}
-		<a class="button {variant}" {href}><Kicker tone="inherit" text={label} /></a>
+		<a class="button {variant} unselectable" {href}><Kicker tone="inherit" text={label} /></a>
 	{:else}
 		<button class="button {variant}" type="button" {onclick}
 			><Kicker tone="inherit" text={label} /></button

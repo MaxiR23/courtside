@@ -133,7 +133,7 @@
 {#if interactive}
 	<div class="bracket">
 		<div
-			class="viewport"
+			class="viewport unselectable"
 			role="group"
 			aria-label={m.cup_bracket()}
 			class:interactive
@@ -280,7 +280,6 @@
 		overflow: hidden;
 		border: var(--hairline) solid var(--color-divider);
 		background: var(--color-bg);
-		user-select: none;
 	}
 
 	.viewport.interactive {
