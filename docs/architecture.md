@@ -487,7 +487,7 @@ Recorded in [`adr/0078-power-ranking-names-from-the-stored-standings-feed.md`](a
 
 Recorded in [`adr/0079-production-behind-vercel-with-origin-secret.md`](adr/0079-production-behind-vercel-with-origin-secret.md):
 
-- **Production behind Vercel**: one EC2 machine with a fixed public IP and no domain runs Docker Compose with `API_DOMAIN=:80`; port 22 only from the owner's IP, port 80 open. The static build is on Vercel, the browser talks only to it over HTTPS, and Vercel forwards `/api/*` to the machine over HTTP and serves `200.html` for the browser-rendered paths. Caddy answers 403 to any request without `X-Origin-Secret` equal to `ORIGIN_SECRET` and compresses responses with zstd or gzip. The domain-with-certificate setup stays as the alternative, still with the secret. Steps in [`deploy.md`](deploy.md).
+- **Production behind Vercel**: one EC2 machine with a fixed public IP and no domain runs Docker Compose with `API_DOMAIN=:80`; no admin port open, port 80 open; admin access and deploys go through Session Manager with SSH tunneled inside it ([ADR 0086](adr/0086-admin-access-through-session-manager.md)). The static build is on Vercel, the browser talks only to it over HTTPS, and Vercel forwards `/api/*` to the machine over HTTP and serves `200.html` for the browser-rendered paths. Caddy answers 403 to any request without `X-Origin-Secret` equal to `ORIGIN_SECRET` and compresses responses with zstd or gzip. The domain-with-certificate setup stays as the alternative, still with the secret. Steps in [`deploy.md`](deploy.md).
 
 Recorded in [`adr/0080-per-visitor-rate-limit.md`](adr/0080-per-visitor-rate-limit.md):
 
@@ -512,6 +512,10 @@ Recorded in [`adr/0084-deploy-moves-the-machine-to-the-checked-commit.md`](adr/0
 Recorded in [`adr/0085-search-engines-welcome-ai-crawlers-asked-out.md`](adr/0085-search-engines-welcome-ai-crawlers-asked-out.md):
 
 - **Crawlers and the head**: search engines are welcome, 16 AI user agents are asked to stay out in `robots.txt` (a request; the rate limit of ADR 0080 stays the enforcement), `/preview` is disallowed and `noindex`; one builder writes every page's head, drawn by `PageMeta` and written into browser-rendered files by the server hook; canonical is self-referential and present only with `SITE_URL`; team, player, game and day pages stay browser-rendered.
+
+Recorded in [`adr/0086-admin-access-through-session-manager.md`](adr/0086-admin-access-through-session-manager.md):
+
+- **Admin access**: the production machine has no inbound port for administration. Admin access and `scripts/deploy.sh` go through AWS Systems Manager Session Manager with SSH tunneled inside it (`AWS-StartSSHSession`); the operator signs in with `aws login` first, and the machine has an instance role with only `AmazonSSMManagedInstanceCore` and a running SSM Agent. Port 80 stays open. ADR 0079 is not edited beyond its status line.
 
 ## Future
 

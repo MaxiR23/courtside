@@ -1,6 +1,6 @@
 # 0079. Production behind Vercel with an origin secret
 
-- Status: Accepted
+- Status: Superseded by 0086 for the port 22 rule only
 - Date: 2026-10-27
 
 ## Context
