@@ -27,7 +27,8 @@
 // - Spanish: Partidos, Clasificación, Torneos, Copa, All-Star, Playoffs, Sin spoilers, Todos los partidos, the mobile menu
 // - With home.calendar the date is a button with aria-haspopup="dialog" in the same place; without it the date stays a plain time
 // - With no selected day the sheet opens on the month of the date shown
-// - Sources: the 48px sheet rows, the 44px dropdown items and menu button, the nav type tokens, the 22px logo mark through --brand-mark-size
+// - The brand: off Home one link to / named Courtside holding the logo and the name, first in the row, on both layouts; on Home a span, not a link
+// - Sources: the 48px sheet rows, the 44px dropdown items and menu button, the nav type tokens, the 22px logo mark through --brand-mark-size; the brand link: 44px min-height on a.brand only (not on the Home span), color inherit, no underline, ink on hover, no outline override
 //
 // What is covered:
 // - Every page state (home, standings, cup, all-star, playoffs, detail), both layouts, dropdown closed and open, sheet closed and open, with and without a calendar
@@ -580,6 +581,59 @@ describe('NavRow on mobile', () => {
 	});
 });
 
+describe('the brand', () => {
+	const offHome = [detailProps, standingsProps, cupProps, allStarProps, playoffsProps];
+
+	it('is one link to / named Courtside on every page except Home, on desktop and mobile', () => {
+		for (const props of offHome) {
+			for (const layout of ['desktop', 'mobile'] as const) {
+				const { container, unmount } = render(NavRow, { ...props, layout });
+				const links = screen.getAllByRole('link', { name: 'Courtside' });
+				expect(links).toHaveLength(1);
+				const link = links[0]!;
+				expect(link.getAttribute('href')).toBe('/');
+				expect(link.classList.contains('brand')).toBe(true);
+				expect(link.querySelector('img.brand-logo')).not.toBeNull();
+				expect(link.querySelector('.brand-name')).not.toBeNull();
+				expect(container.querySelectorAll('.brand')).toHaveLength(1);
+				unmount();
+			}
+		}
+	});
+
+	it('keeps the logo decorative inside the link', () => {
+		render(NavRow, detailProps);
+		const link = screen.getByRole('link', { name: 'Courtside' });
+		const img = link.querySelector('img');
+		expect(img?.getAttribute('alt')).toBe('');
+		expect(img?.getAttribute('aria-hidden')).toBe('true');
+		expect(link.hasAttribute('aria-label')).toBe(false);
+	});
+
+	it('is not a link on Home, on desktop and mobile', async () => {
+		for (const props of [homeProps, mobileHome]) {
+			const { container, unmount } = render(NavRow, props);
+			expect(screen.queryByRole('link', { name: 'Courtside' })).toBeNull();
+			const brand = container.querySelector('.brand');
+			expect(brand?.tagName).toBe('SPAN');
+			expect(brand?.closest('a')).toBeNull();
+			await fireEvent.click(brand!);
+			expect(screen.queryByRole('link', { name: 'Courtside' })).toBeNull();
+			unmount();
+		}
+	});
+
+	it('is the first child of the nav row off Home, on both layouts', () => {
+		for (const layout of ['desktop', 'mobile'] as const) {
+			const { container, unmount } = render(NavRow, { ...detailProps, layout });
+			const nav = container.querySelector('nav')!;
+			expect(nav.children[0]).toBe(screen.getByRole('link', { name: 'Courtside' }));
+			if (layout === 'mobile') expect(nav.children).toHaveLength(3);
+			unmount();
+		}
+	});
+});
+
 describe('the nav sources', () => {
 	const sheet = styleOf(source('components/NavMenuSheet.svelte'));
 	const row = styleOf(source('components/NavRow.svelte'));
@@ -600,6 +654,27 @@ describe('the nav sources', () => {
 		);
 		expect(tokens).toContain('--brand-mark-size: 22px;');
 		expect(tokens).not.toContain('--brand-mark-inner-size');
+	});
+
+	it('styles the brand link like the brand at rest and leaves the focus ring to the global rule', () => {
+		expect(sets(row, 'a.brand', 'min-height', 'var(--hit-target-size)')).toBe(true);
+		// The Home span keeps today's box, so the wrapped desktop row does not grow.
+		expect(sets(row, '.brand', 'min-height', 'var(--hit-target-size)')).toBe(false);
+		expect(
+			rulesOf(row).some(
+				(r) =>
+					r.selectors.includes('.brand') && r.declarations.some((d) => d.property === 'min-height')
+			)
+		).toBe(false);
+		expect(sets(row, 'a.brand', 'color', 'inherit')).toBe(true);
+		expect(sets(row, 'a.brand', 'text-decoration', 'none')).toBe(true);
+		expect(sets(row, 'a.brand:hover', 'color', 'var(--color-ink)')).toBe(true);
+		const brandRules = rulesOf(row).filter((r) =>
+			r.selectors.some((s) => s.startsWith('.brand') || s.startsWith('a.brand'))
+		);
+		expect(brandRules.some((r) => r.declarations.some((d) => d.property === 'outline'))).toBe(
+			false
+		);
 	});
 
 	it('sets the sizes through tokens', () => {
