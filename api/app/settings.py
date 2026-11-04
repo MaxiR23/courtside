@@ -142,11 +142,6 @@ class Settings(BaseSettings):
     highlights_search_api_url: str | None = None
     # Searches the on-demand highlights search sends per US Eastern day.
     highlights_search_daily_cap: PositiveInt = 80
-    # Turns News on: off, every news feed answers 404 and no news request is sent.
-    news_enabled: bool = False
-    # The league news list, without parameters. The adapter adds the count,
-    # the team and the language to its query.
-    news_url: str | None = None
     # US Eastern time of the daily schedule fetch.
     daily_fetch_time: dt.time = dt.time(6, 0)
     data_dir: Path = API_DIR / "data"
@@ -177,14 +172,6 @@ class Settings(BaseSettings):
     def _reject_empty_data_dir(cls, value: Any) -> Any:
         if isinstance(value, str) and not value.strip():
             raise ValueError("must not be empty")
-        return value
-
-    @field_validator("news_enabled", mode="before")
-    @classmethod
-    def _read_empty_news_switch_as_off(cls, value: Any) -> Any:
-        # An empty value, as listed in .env.example, counts as off here.
-        if isinstance(value, str) and not value.strip():
-            return False
         return value
 
     @field_validator("scoreboard_url", "game_detail_url")

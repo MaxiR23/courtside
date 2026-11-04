@@ -52,10 +52,6 @@
 # - Defaults the highlights search daily cap to 80
 # - Reads the highlights search daily cap from an environment variable
 # - Rejects a highlights search daily cap that is not a positive integer, without showing it
-# - Leaves news off and its URL unset by default
-# - Reads the news switch and URL from environment variables
-# - Reads an empty news switch as off
-# - Rejects a news switch that is not a boolean, without showing it
 # - Defaults the rate limit per minute to 120
 # - Reads the rate limit per minute from an environment variable, 0 included
 # - Rejects a rate limit per minute that is not a non-negative integer, without showing it
@@ -138,8 +134,6 @@ def clear_environment_variable(monkeypatch: pytest.MonkeyPatch) -> None:
             "highlights_source_key",
             "video_embed_url",
             "highlights_search_url",
-            "news_enabled",
-            "news_url",
             "daily_fetch_time",
             "data_dir",
             "cors_origins",
@@ -500,46 +494,6 @@ def test_rejects_a_highlights_search_daily_cap_that_is_not_positive_without_show
 
     assert f"'{value}'" not in str(error.value)
     assert f"input_value={value}" not in str(error.value)
-
-
-def test_leaves_news_off_and_its_url_unset_by_default() -> None:
-    settings = SettingsWithoutEnvFile()
-
-    assert settings.news_enabled is False
-    assert settings.news_url is None
-
-
-def test_reads_the_news_switch_and_url_from_environment_variables(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setenv("NEWS_ENABLED", "true")
-    monkeypatch.setenv("NEWS_URL", "https://example.com/news")
-
-    settings = SettingsWithoutEnvFile()
-
-    assert settings.news_enabled is True
-    assert settings.news_url == "https://example.com/news"
-
-
-@pytest.mark.parametrize("value", ["", "  "])
-def test_reads_an_empty_news_switch_as_off(
-    monkeypatch: pytest.MonkeyPatch, value: str
-) -> None:
-    monkeypatch.setenv("NEWS_ENABLED", value)
-
-    assert SettingsWithoutEnvFile().news_enabled is False
-
-
-def test_rejects_a_news_switch_that_is_not_a_boolean_without_showing_it(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setenv("NEWS_ENABLED", "maybe")
-
-    with pytest.raises(ValidationError) as error:
-        SettingsWithoutEnvFile()
-
-    assert "'maybe'" not in str(error.value)
-    assert "input_value=maybe" not in str(error.value)
 
 
 def test_defaults_the_rate_limit_per_minute_to_120() -> None:

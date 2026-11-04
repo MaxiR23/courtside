@@ -22,8 +22,7 @@
 # - Wires presence and the after-run hook into the games job
 # - Wires the team, player, standings, home, power ranking, search, Cup, Cup matchup, playoffs, playoffs finals, season Cup, season Cup matchup, season playoffs, season playoffs finals and season All-Star feed kinds into the feed cache, the season Cup, season playoffs and season All-Star feeds into app.state, the player feeds into app.state, and the cleanup into the stars job's after-run hook
 # - Wires the past game detail kind into the feed cache
-# - Wires the three news kinds into the feed cache
-# - Wires the daily cleanup to delete the thirteen kept kinds not served in 90 days and keep the others, with PRUNED_KINDS the thirteen names
+# - Wires the daily cleanup to delete the ten kept kinds not served in 90 days and keep the others, with PRUNED_KINDS the ten names
 # - The daily cleanup keeps the player ids of the past feeds it deletes (ADR 0063)
 # - Startup with the jobs on builds, stores and starts nothing of the season playoffs, playoffs finals, Cup, Cup matchup and All-Star kinds (ADR 0058)
 # - Closes the HTTP client when the scheduler fails to stop
@@ -437,18 +436,6 @@ def test_wires_the_past_game_detail_kind_into_the_feed_cache(tmp_path: Path) -> 
         assert "past-games" in app.state.feed_cache._kinds
 
 
-def test_wires_the_three_news_kinds_into_the_feed_cache(tmp_path: Path) -> None:
-    app = create_app(
-        Settings(_env_file=None, data_dir=tmp_path),  # type: ignore[call-arg]
-        run_jobs=False,
-    )
-
-    with TestClient(app):
-        assert {"news", "news-recaps", "news-articles"} <= set(
-            app.state.feed_cache._kinds
-        )
-
-
 def test_wires_the_team_and_player_feed_kinds_and_the_cleanup_into_the_stars_job(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -566,7 +553,7 @@ class Marker(FeedModel):
     id: str
 
 
-KEPT_KINDS = {
+TEN_KINDS = {
     "days",
     "past-games",
     "season-players",
@@ -577,9 +564,6 @@ KEPT_KINDS = {
     "season-cup-matchups",
     "season-all-star",
     "calendars",
-    "news",
-    "news-recaps",
-    "news-articles",
 }
 CLEANUP_TIME = dt.datetime(2026, 10, 19, 12, 0, tzinfo=dt.UTC)
 
@@ -596,7 +580,7 @@ def capture_games_kwargs(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     return built
 
 
-def test_wires_the_daily_cleanup_to_prune_the_thirteen_kept_kinds(
+def test_wires_the_daily_cleanup_to_prune_the_ten_kept_kinds(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     built = capture_games_kwargs(monkeypatch)
@@ -604,12 +588,12 @@ def test_wires_the_daily_cleanup_to_prune_the_thirteen_kept_kinds(
         Settings(_env_file=None, data_dir=tmp_path),  # type: ignore[call-arg]
         run_jobs=False,
     )
-    assert set(main.PRUNED_KINDS) == KEPT_KINDS
-    assert len(main.PRUNED_KINDS) == 13
+    assert set(main.PRUNED_KINDS) == TEN_KINDS
+    assert len(main.PRUNED_KINDS) == 10
 
     with TestClient(app):
         store = StateStore(tmp_path)
-        for kind in sorted(KEPT_KINDS | {"season-standings", "teams"}):
+        for kind in sorted(TEN_KINDS | {"season-standings", "teams"}):
             for feed_id, age in [("old", 91), ("new", 89)]:
                 publish_by_id(tmp_path, kind, Marker, feed_id, Marker(id=feed_id))
                 store.record_build(kind, feed_id, CLEANUP_TIME - dt.timedelta(days=200))
@@ -619,7 +603,7 @@ def test_wires_the_daily_cleanup_to_prune_the_thirteen_kept_kinds(
 
         built["games_kwargs"]["daily_cleanup"](CLEANUP_TIME)
 
-        for kind in sorted(KEPT_KINDS):
+        for kind in sorted(TEN_KINDS):
             assert published_ids(tmp_path, kind) == {"new"}, kind
             assert store.feed_build_ids(kind) == {"new"}, kind
         for kind in ("season-standings", "teams"):

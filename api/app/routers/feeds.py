@@ -7,7 +7,6 @@
 # docs/api/cup-matchup.md, docs/api/playoffs.md, docs/api/all-star.md,
 # docs/api/calendar.md, docs/api/days.md, docs/api/home.md, docs/adr/0074-home-feed.md,
 # docs/api/power-ranking.md, docs/adr/0075-power-ranking-feed.md,
-# docs/api/news.md, docs/adr/0085-news-archive-and-feeds.md,
 # docs/adr/0041-past-game-detail.md,
 # docs/adr/0043-season-feeds-and-franchise-names.md,
 # docs/adr/0045-season-competition-feeds.md,
@@ -29,9 +28,6 @@ from app.jobs.day_feed import KIND as DAY_KIND
 from app.jobs.game_detail_feed import KIND
 from app.jobs.home_feed import FEED_ID as HOME_ID
 from app.jobs.home_feed import KIND as HOME_KIND
-from app.jobs.news_article_feed import KIND as NEWS_ARTICLES_KIND
-from app.jobs.news_feed import KIND as NEWS_KIND
-from app.jobs.news_recap_feed import KIND as NEWS_RECAPS_KIND
 from app.jobs.on_demand import (
     FeedCache,
     FeedUnavailableError,
@@ -289,56 +285,6 @@ async def read_season_playoffs_finals_feed(season: str, request: Request) -> Res
 async def read_season_all_star_feed(season: str, request: Request) -> Response:
     kind, feed_id = request.app.state.season_all_star_feeds.target(season)
     return await serve_on_demand(request.app.state.feed_cache, kind, feed_id, request)
-
-
-@router.get("/feeds/news/{lang}/pages/{page}.json")
-async def read_news_feed(lang: str, page: str, request: Request) -> Response:
-    return await serve_on_demand(
-        request.app.state.feed_cache, NEWS_KIND, f"{lang}-league-{page}", request
-    )
-
-
-@router.get("/feeds/news/{lang}/teams/{code}/pages/{page}.json")
-async def read_news_team_feed(
-    lang: str, code: str, page: str, request: Request
-) -> Response:
-    return await serve_on_demand(
-        request.app.state.feed_cache,
-        NEWS_KIND,
-        f"{lang}-team-{code}-{page}",
-        request,
-    )
-
-
-@router.get("/feeds/news/{lang}/players/{player_id}/pages/{page}.json")
-async def read_news_player_feed(
-    lang: str, player_id: str, page: str, request: Request
-) -> Response:
-    return await serve_on_demand(
-        request.app.state.feed_cache,
-        NEWS_KIND,
-        f"{lang}-player-{player_id}-{page}",
-        request,
-    )
-
-
-@router.get("/feeds/news/{lang}/games/{game_id}.json")
-async def read_news_game_feed(lang: str, game_id: str, request: Request) -> Response:
-    return await serve_on_demand(
-        request.app.state.feed_cache, NEWS_RECAPS_KIND, f"{lang}-{game_id}", request
-    )
-
-
-@router.get("/feeds/news/{lang}/articles/{article_id}.json")
-async def read_news_article_feed(
-    lang: str, article_id: str, request: Request
-) -> Response:
-    return await serve_on_demand(
-        request.app.state.feed_cache,
-        NEWS_ARTICLES_KIND,
-        f"{lang}-{article_id}",
-        request,
-    )
 
 
 @router.get("/feeds/days/{day}.json")
