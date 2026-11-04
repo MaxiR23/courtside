@@ -17,7 +17,6 @@
 // - The names timeline renders under the header with four runs and not with none
 // - The hero logo on both layouts with the strip kept, the code for a null logo
 // - The mini record stays hidden until the bar is stuck, on both layouts; the tabs take the full width on mobile at the top
-// - News: with no block the tabs and sections are the current ones; ready adds a last News tab and section (the newest as feature, the rest as rows); loading adds the section and no tab
 //
 // What is covered:
 // - Each page state, drawn from props with no fetch; the view comes from the recorded team feed
@@ -36,7 +35,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import TeamPage from '../../../src/lib/components/TeamPage.svelte';
 import type { TeamFeed } from '../../../src/lib/contract/team';
 import { toTeamView } from '../../../src/lib/feed/team-props';
-import type { NewsCardView } from '../../../src/lib/news/types';
 import type { TeamPageState } from '../../../src/lib/team/types';
 
 const HOME = '/' as ResolvedPathname;
@@ -372,85 +370,5 @@ describe('Team section scroll margin', () => {
 		);
 		const block = /\.detail-sections\.mobile section\s*\{([^}]*)\}/.exec(source)?.[1] ?? '';
 		expect(block).toMatch(/scroll-margin-top:\s*var\(--detail-section-scroll-margin-mobile\);/);
-	});
-});
-const noteCards = (): NewsCardView[] =>
-	['a', 'b', 'c'].map((id) => ({
-		id,
-		kind: 'news' as const,
-		kindLabel: 'News',
-		teamTag: null,
-		english: false,
-		date: '2 nov',
-		headline: `Headline ${id}`,
-		description: null,
-		photo: null
-	}));
-const noteHref = (id: string) => `/news/${id}` as ResolvedPathname;
-
-describe('TeamPage news', () => {
-	const tabLabels = () =>
-		[...screen.getByRole('navigation', { name: 'Sections' }).querySelectorAll('a')].map(
-			(a) => a.textContent
-		);
-
-	it('draws the current tabs and sections with no news block', () => {
-		const base = show(ready());
-		const tabs = tabLabels();
-		const sections = [...base.container.querySelectorAll('.sections > section')].map((s) => s.id);
-		base.unmount();
-		const withNull = render(TeamPage, {
-			props: {
-				state: ready(),
-				allGamesHref: HOME,
-				standingsHref: STANDINGS,
-				layout: 'desktop',
-				gameHref,
-				playerHref,
-				news: null,
-				noteHref
-			}
-		});
-		expect(tabLabels()).toEqual(tabs);
-		expect(
-			[...withNull.container.querySelectorAll('.sections > section')].map((s) => s.id)
-		).toEqual(sections);
-	});
-
-	it('adds a last News tab and section when the block is ready', () => {
-		const { container } = render(TeamPage, {
-			props: {
-				state: ready(),
-				allGamesHref: HOME,
-				standingsHref: STANDINGS,
-				layout: 'desktop',
-				gameHref,
-				playerHref,
-				news: { kind: 'ready', notes: noteCards() },
-				noteHref
-			}
-		});
-		expect(tabLabels().at(-1)).toBe('News');
-		const sections = [...container.querySelectorAll('.sections > section')];
-		expect(sections.at(-1)?.id).toBe('news');
-		expect(sections.at(-1)?.querySelectorAll('.feature')).toHaveLength(1);
-		expect(sections.at(-1)?.querySelectorAll('.row')).toHaveLength(2);
-	});
-
-	it('draws the section with bones and no tab while loading', () => {
-		const { container } = render(TeamPage, {
-			props: {
-				state: ready(),
-				allGamesHref: HOME,
-				standingsHref: STANDINGS,
-				layout: 'desktop',
-				gameHref,
-				playerHref,
-				news: { kind: 'loading' },
-				noteHref
-			}
-		});
-		expect(tabLabels()).not.toContain('News');
-		expect(container.querySelector('#news .bones')).not.toBeNull();
 	});
 });

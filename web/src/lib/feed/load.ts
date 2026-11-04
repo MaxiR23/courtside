@@ -6,8 +6,6 @@ import type { CupFeed } from '#lib/contract/cup.ts';
 import type { CupMatchupFeed } from '#lib/contract/cup-matchup.ts';
 import type { HomeFeed } from '#lib/contract/home.ts';
 import type { GamesFeed } from '#lib/contract/games.ts';
-import type { NewsFeed } from '#lib/contract/news.ts';
-import type { NewsArticleFeed } from '#lib/contract/news-article.ts';
 import type { PlayerFeed } from '#lib/contract/player.ts';
 import type { PowerRankingFeed } from '#lib/contract/power-ranking.ts';
 import type { PlayoffsFeed } from '#lib/contract/playoffs.ts';
@@ -392,71 +390,4 @@ export function seasonPlayerFeedUrl(template: string, season: number, id: string
 /** The URL of a Cup matchup feed of a past season: the end year and the encoded slot id in place of the placeholders. */
 export function seasonCupMatchupFeedUrl(template: string, season: number, slot: string): string {
 	return seasonStandingsFeedUrl(template, season).replaceAll('{slot}', encodeURIComponent(slot));
-}
-
-/** The league news template with the encoded language in place of {lang}; {page} stays for `newsPageUrl`. */
-export function newsFeedUrl(template: string, lang: string): string {
-	return template.replaceAll('{lang}', encodeURIComponent(lang));
-}
-
-/** A team's news template: the language and the encoded code filled in; {page} stays. */
-export function newsTeamFeedUrl(template: string, lang: string, code: string): string {
-	return newsFeedUrl(template, lang).replaceAll('{code}', encodeURIComponent(code));
-}
-
-/** A player's news template: the language and the encoded id filled in; {page} stays. */
-export function newsPlayerFeedUrl(template: string, lang: string, id: string): string {
-	return newsFeedUrl(template, lang).replaceAll('{id}', encodeURIComponent(id));
-}
-
-/** The URL of a game's news: the language and the encoded game id in place of the placeholders. */
-export function newsGameFeedUrl(template: string, lang: string, id: string): string {
-	return newsFeedUrl(template, lang).replaceAll('{id}', encodeURIComponent(id));
-}
-
-/** The URL of one note's feed: the language and the encoded note id in place of the placeholders. */
-export function newsArticleFeedUrl(template: string, lang: string, id: string): string {
-	return newsFeedUrl(template, lang).replaceAll('{id}', encodeURIComponent(id));
-}
-
-/** One page of a news list: the page number in place of {page}. */
-export function newsPageUrl(url: string, page: number): string {
-	return url.replaceAll('{page}', String(page));
-}
-
-/**
- * Fetches one page of news. A 404 is its own reason: the news is off or the page does not exist.
- * The body is only checked for its shape: an object with a `notes` array and a boolean `hasMore`.
- */
-export async function loadNewsFeed(url: string, fetchFn: typeof fetch = fetch): Promise<NewsFeed> {
-	const body = await fetchFeedBody(url, 'The news feed', fetchFn, true);
-	const feed = body as Partial<NewsFeed> | null;
-	if (typeof body !== 'object' || feed === null || !Array.isArray(feed.notes)) {
-		throw new FeedLoadError('body', 'The news feed has no notes');
-	}
-	if (typeof feed.hasMore !== 'boolean') {
-		throw new FeedLoadError('body', 'The news feed has no notes');
-	}
-	return body as NewsFeed;
-}
-
-/**
- * Fetches one note. A 404 is its own reason. The body is only checked for its shape: an object
- * whose `note` is an object or null.
- */
-export async function loadNewsArticleFeed(
-	url: string,
-	fetchFn: typeof fetch = fetch
-): Promise<NewsArticleFeed> {
-	const body = await fetchFeedBody(url, 'The news article feed', fetchFn, true);
-	const feed = body as Partial<NewsArticleFeed> | null;
-	if (
-		typeof body !== 'object' ||
-		feed === null ||
-		!('note' in feed) ||
-		(feed.note !== null && typeof feed.note !== 'object')
-	) {
-		throw new FeedLoadError('body', 'The news article feed has no note');
-	}
-	return body as NewsArticleFeed;
 }

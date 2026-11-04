@@ -16,7 +16,6 @@
 // - hideNext renders no next game card and no "Season over."
 // - The team logo before the team tag on both layouts, the code for a null logo
 // - The mini name stays hidden until the bar is stuck, on both layouts; the tabs take the full width on mobile at the top
-// - News: with no block the tabs and sections are the current ones; ready adds a last News tab and section of rows, two columns on desktop and one on mobile; loading adds the section and no tab
 //
 // What is covered:
 // - Each page state, drawn from props with no fetch; the view comes from the recorded player feed
@@ -35,7 +34,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import PlayerPage from '../../../src/lib/components/PlayerPage.svelte';
 import type { PlayerFeed } from '../../../src/lib/contract/player';
 import { toPlayerView } from '../../../src/lib/feed/player-props';
-import type { NewsBlock, NewsCardView } from '../../../src/lib/news/types';
 import type { PlayerPageState } from '../../../src/lib/player/types';
 import { preferLanguages } from '../../prefer-languages';
 
@@ -389,64 +387,5 @@ describe('Player section scroll margin', () => {
 		);
 		const block = /\.detail-sections\.mobile section\s*\{([^}]*)\}/.exec(source)?.[1] ?? '';
 		expect(block).toMatch(/scroll-margin-top:\s*var\(--detail-section-scroll-margin-mobile\);/);
-	});
-});
-const noteCards = (): NewsCardView[] =>
-	['a', 'b', 'c'].map((id) => ({
-		id,
-		kind: 'news' as const,
-		kindLabel: 'News',
-		teamTag: null,
-		english: false,
-		date: '2 nov',
-		headline: `Headline ${id}`,
-		description: null,
-		photo: null
-	}));
-const noteHref = (id: string) => `/news/${id}` as ResolvedPathname;
-
-describe('PlayerPage news', () => {
-	const props = (layout: 'desktop' | 'mobile', news: NewsBlock) => ({
-		state: ready(),
-		allGamesHref: HOME,
-		standingsHref: STANDINGS,
-		layout,
-		gameHref,
-		news,
-		noteHref
-	});
-	const tabLabels = () =>
-		[...screen.getByRole('navigation', { name: 'Sections' }).querySelectorAll('a')].map(
-			(a) => a.textContent
-		);
-
-	it('draws the current tabs and sections with no news block', () => {
-		const { container } = render(PlayerPage, { props: props('desktop', null) });
-		expect(tabLabels()).not.toContain('News');
-		expect(container.querySelector('#news')).toBeNull();
-	});
-
-	it('adds a last News tab and section of rows, in two columns on desktop', () => {
-		const { container } = render(PlayerPage, {
-			props: props('desktop', { kind: 'ready', notes: noteCards() })
-		});
-		expect(tabLabels().at(-1)).toBe('News');
-		const sections = [...container.querySelectorAll('.sections > section')];
-		expect(sections.at(-1)?.id).toBe('news');
-		expect(sections.at(-1)?.querySelector('.rows.two')).not.toBeNull();
-		expect(sections.at(-1)?.querySelectorAll('.row')).toHaveLength(3);
-	});
-
-	it('draws one column on mobile', () => {
-		const { container } = render(PlayerPage, {
-			props: props('mobile', { kind: 'ready', notes: noteCards() })
-		});
-		expect(container.querySelector('#news .rows')?.classList.contains('two')).toBe(false);
-	});
-
-	it('draws the section with bones and no tab while loading', () => {
-		const { container } = render(PlayerPage, { props: props('desktop', { kind: 'loading' }) });
-		expect(tabLabels()).not.toContain('News');
-		expect(container.querySelector('#news .bones')).not.toBeNull();
 	});
 });

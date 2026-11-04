@@ -44,15 +44,11 @@ import Page from '../../../../src/routes/game/[id]/+page.svelte';
 
 const config = vi.hoisted(() => ({
 	url: undefined as string | undefined,
-	newsUrl: undefined as string | undefined,
 	platform: undefined as string | undefined
 }));
 vi.mock('../../../../src/lib/feed/config', () => ({
 	get gameDetailFeedUrl() {
 		return config.url;
-	},
-	get newsGameFeedUrl() {
-		return config.newsUrl;
 	},
 	get videoPlatformName() {
 		return config.platform;
@@ -109,7 +105,6 @@ beforeEach(() => {
 	vi.useFakeTimers();
 	vi.setSystemTime(new Date('2026-10-07T23:30:00Z'));
 	config.url = TEMPLATE;
-	config.newsUrl = undefined;
 	config.platform = 'Video platform';
 });
 
@@ -449,83 +444,5 @@ describe('game detail page, when the id changes', () => {
 		const urls = fetchMock.mock.calls.map((call) => call[0]);
 		expect(urls).not.toContain(urlOf('401'));
 		expect(urls).toContain(urlOf('402'));
-	});
-});
-
-const NEWS_TEMPLATE = 'https://feeds.example.com/news/{lang}/games/{id}.json';
-const recapUrl = (lang = 'en') => `https://feeds.example.com/news/${lang}/games/401.json`;
-const recapFeed = () =>
-	JSON.parse(
-		readFileSync(
-			join(__dirname, '..', '..', '..', 'lib', 'feed', 'fixtures', 'news-article.json'),
-			'utf8'
-		)
-	);
-const json =
-	(body: unknown, status = 200): Answer =>
-	() =>
-		Promise.resolve({ ok: status < 400, status, json: () => Promise.resolve(body) });
-
-let calls: string[];
-function stubRoutes(routes: Record<string, Answer>) {
-	calls = [];
-	vi.stubGlobal(
-		'fetch',
-		vi.fn((url: string) => {
-			const answer = routes[url];
-			if (!answer) throw new Error(`Unexpected URL ${url}`);
-			calls.push(url);
-			return answer();
-		})
-	);
-}
-
-// The recap: requested once the game is final; the Recap tab and a last section with one feature
-// link to the note; nothing on a 404, an empty recap or a game that is not final.
-describe('game recap', () => {
-	beforeEach(() => {
-		config.newsUrl = NEWS_TEMPLATE;
-	});
-
-	const tabs = () =>
-		[...screen.getByRole('navigation', { name: 'Sections' }).querySelectorAll('a')].map(
-			(a) => a.textContent
-		);
-
-	it('adds the Recap tab and a last section with a link to the note once the game is final', async () => {
-		stubRoutes({ [FEED_URL]: json(finalGame()), [recapUrl()]: json(recapFeed()) });
-		const { container } = await renderPage();
-		expect(tabs().at(-1)).toBe('Recap');
-		const sections = [...container.querySelectorAll('.sections > section')];
-		expect(sections.at(-1)?.id).toBe('recap');
-		const links = [...(sections.at(-1) as Element).querySelectorAll('a')];
-		expect(links).toHaveLength(1);
-		expect(links[0]?.getAttribute('href')).toBe('/news/note-01');
-	});
-
-	it('requests no recap while the game is not final', async () => {
-		stubRoutes({ [FEED_URL]: json({ ...recorded(), status: 'scheduled' }) });
-		const { container } = await renderPage();
-		expect(calls).toEqual([FEED_URL]);
-		expect(container.querySelector('#recap')).toBeNull();
-	});
-
-	it.each([
-		['a 404', json({}, 404)],
-		['a 503', json({}, 503)],
-		['no note', json({ note: null, game: null })]
-	])('draws no Recap tab, section or link on %s', async (_name, answer) => {
-		stubRoutes({ [FEED_URL]: json(finalGame()), [recapUrl()]: answer });
-		const { container } = await renderPage();
-		expect(tabs()).not.toContain('Recap');
-		expect(container.querySelector('#recap')).toBeNull();
-		expect(container.querySelector('a[href^="/news"]')).toBeNull();
-	});
-
-	it('requests the Spanish path in Spanish', async () => {
-		preferLanguages(['es']);
-		stubRoutes({ [FEED_URL]: json(finalGame()), [recapUrl('es')]: json(recapFeed()) });
-		await renderPage();
-		expect(calls).toContain(recapUrl('es'));
 	});
 });

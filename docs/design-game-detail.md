@@ -86,7 +86,7 @@ Sticky at the top of the viewport. Background `rgba(12,14,16,.9)` with a 12px ba
 |---|---|
 | Pre-game | Players · Injuries · Last 5 · Standings · Season series |
 | Live | Score · Win prob. · Box score · Injuries |
-| Final | Highlights · Score · Win prob. · Box score · Injuries · Series · Recap |
+| Final | Highlights · Score · Win prob. · Box score · Injuries · Series |
 
 A tab is shown only when its section has data. Tab links scroll smoothly, and instantly under reduced motion.
 
@@ -164,10 +164,6 @@ A grid `minmax(150px, 2fr) repeat(5, minmax(76px, 1fr))`, min width 560px, scrol
 - Before tip-off, the current game's row shows the team codes with no points.
 - The feed also marks the current game on a live page, where this section is not shown.
 - On a final game, the current game is part of the series the feed sends.
-
-### 12. Recap (final)
-
-The last section, `#recap`, titled "Recap" ("Crónica"): the game's recap note as one feature card (`docs/design-news.md`) linking to `/news/{id}`. The recap is requested once the game is final, in the active language. A 404, a failed request or no recap draws neither the tab nor the section; while it loads the section shows bones and the tab is not drawn.
 
 ### Footer
 

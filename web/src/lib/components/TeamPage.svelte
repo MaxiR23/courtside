@@ -3,7 +3,6 @@
 	import BlueprintFrame from '#lib/components/BlueprintFrame.svelte';
 	import MessageRow from '#lib/components/MessageRow.svelte';
 	import NamesTimeline from '#lib/components/NamesTimeline.svelte';
-	import NewsSection from '#lib/components/NewsSection.svelte';
 	import PageContainer from '#lib/components/PageContainer.svelte';
 	import RosterTable from '#lib/components/RosterTable.svelte';
 	import SectionHead from '#lib/components/SectionHead.svelte';
@@ -17,7 +16,6 @@
 	import TeamSchedule from '#lib/components/TeamSchedule.svelte';
 	import { play } from '#lib/hero/motion.ts';
 	import { m } from '#lib/paraglide/messages.js';
-	import type { NewsBlock } from '#lib/news/types.ts';
 	import type { RowLayout } from '#lib/schedule/types.ts';
 	import type { SeasonControl } from '#lib/season/types.ts';
 	import { shimmer } from '#lib/skeleton/motion.ts';
@@ -34,8 +32,6 @@
 		seasonSelect?: SeasonControl | null; // null: no selector
 		seasonTag?: string | null; // "Season 2022-23": the unavailable state of a past season keeps it
 		seasonHref?: (season: number) => string; // the names timeline's links
-		news?: NewsBlock; // null: no News tab and no section
-		noteHref?: (id: string) => ResolvedPathname;
 	};
 
 	// `state` is renamed so the `$state` rune is not read as a store of the prop.
@@ -48,9 +44,7 @@
 		playerHref,
 		seasonSelect = null,
 		seasonTag = null,
-		seasonHref,
-		news = null,
-		noteHref
+		seasonHref
 	}: Props = $props();
 </script>
 
@@ -59,13 +53,7 @@
 	{#if page.view.names && seasonHref}
 		<NamesTimeline runs={page.view.names} {layout} {seasonHref} />
 	{/if}
-	<SectionTabs
-		tabs={news?.kind === 'ready'
-			? [...page.view.tabs, { id: 'news', label: m.team_tab_news() }]
-			: page.view.tabs}
-		mini={page.view.mini}
-		{layout}
-	/>
+	<SectionTabs tabs={page.view.tabs} mini={page.view.mini} {layout} />
 	{@const sections = page.view.sections}
 	<PageContainer>
 		<div class="sections detail-sections" class:mobile={layout === 'mobile'}>
@@ -102,16 +90,6 @@
 					<SectionHead title={m.team_tab_schedule()} />
 					<TeamSchedule schedule={sections.schedule} {layout} {gameHref} />
 				</section>
-			{/if}
-			{#if news && noteHref}
-				<NewsSection
-					id="news"
-					title={m.team_tab_news()}
-					block={news}
-					shape="feature-rows"
-					{layout}
-					{noteHref}
-				/>
 			{/if}
 		</div>
 	</PageContainer>

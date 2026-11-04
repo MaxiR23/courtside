@@ -1,21 +1,12 @@
 <script lang="ts">
 	import { pageTitle } from '#lib/format/title.ts';
 	import { m } from '#lib/paraglide/messages.js';
-	import { getLocale } from '#lib/paraglide/runtime.js';
 	import { resolve } from '$app/paths';
 	import type { PageProps } from './$types';
 	import GamePage from '#lib/components/GamePage.svelte';
-	import { gameDetailFeedUrl, newsGameFeedUrl, videoPlatformName } from '#lib/feed/config.ts';
+	import { gameDetailFeedUrl, videoPlatformName } from '#lib/feed/config.ts';
 	import { toGameView } from '#lib/feed/game-props.ts';
-	import {
-		FeedLoadError,
-		gameFeedUrl,
-		loadGameDetailFeed,
-		loadNewsArticleFeed,
-		newsGameFeedUrl as newsGameFeedUrlOf
-	} from '#lib/feed/load.ts';
-	import { newsBlock, newsContext, recapBlock } from '#lib/feed/news-props.ts';
-	import { FeedOnce } from '#lib/feed/once.svelte.ts';
+	import { FeedLoadError, gameFeedUrl, loadGameDetailFeed } from '#lib/feed/load.ts';
 	import { FeedPoller, gamePollInterval } from '#lib/feed/poller.svelte.ts';
 	import { feedSource } from '#lib/feed/source.ts';
 	import type { GamePageState } from '#lib/game/types.ts';
@@ -45,26 +36,6 @@
 		return { kind: 'loading' };
 	});
 
-	// The recap is requested once the game is final, and stays requested: a later poll never
-	// restarts it. A game that is not final has no recap.
-	const language = getLocale();
-	const newsTemplate = newsGameFeedUrl;
-	let finalId = $state<string | null>(null); // the game id seen final; another game starts over
-	$effect(() => {
-		if (view?.header.layout === 'final') finalId = params.id;
-	});
-	const recapUrl = $derived(
-		newsTemplate && finalId === params.id
-			? newsGameFeedUrlOf(newsTemplate, language, params.id)
-			: undefined
-	);
-	const recapSource = $derived(
-		feedSource(recapUrl, (url) => new FeedOnce(() => loadNewsArticleFeed(url)))
-	);
-	$effect(() => recapSource?.start());
-	const recap = $derived(newsBlock(recapSource, (feed) => recapBlock(feed, newsContext(language))));
-
-	const noteHref = (id: string) => resolve('/news/[id]', { id });
 	const teamHref = (code: string) => resolve('/team/[code]', { code: code.toLowerCase() });
 	const playerHref = (id: string) => resolve('/player/[id]', { id });
 
@@ -91,6 +62,4 @@
 	layout={wide.current ? 'desktop' : 'mobile'}
 	{teamHref}
 	{playerHref}
-	{recap}
-	{noteHref}
 />

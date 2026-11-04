@@ -78,11 +78,6 @@ SEASON_CUP_MATCHUP_FEED_URL seasons/{season}/cup/matchups/{slot}.json
 SEASON_PLAYOFFS_FEED_URL seasons/{season}/playoffs.json
 SEASON_PLAYOFFS_FINALS_FEED_URL seasons/{season}/playoffs/finals.json
 SEASON_ALL_STAR_FEED_URL seasons/{season}/all-star.json
-NEWS_FEED_URL news/{lang}/pages/{page}.json
-NEWS_TEAM_FEED_URL news/{lang}/teams/{code}/pages/{page}.json
-NEWS_PLAYER_FEED_URL news/{lang}/players/{id}/pages/{page}.json
-NEWS_GAME_FEED_URL news/{lang}/games/{id}.json
-NEWS_ARTICLE_FEED_URL news/{lang}/articles/{id}.json
 LIST
 }
 

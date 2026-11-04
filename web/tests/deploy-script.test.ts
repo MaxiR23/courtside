@@ -239,7 +239,7 @@ describe('scripts/deploy.sh', () => {
 				.filter(([name]) => name.endsWith('_FEED_URL'))
 		);
 		const names = feedNames();
-		expect(names).toHaveLength(28);
+		expect(names).toHaveLength(23);
 		expect(Object.keys(built).sort()).toEqual([...names].sort());
 		const paths = documentedPaths();
 		expect(Object.keys(paths).sort()).toEqual([...names].sort());

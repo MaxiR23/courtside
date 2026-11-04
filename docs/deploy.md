@@ -170,12 +170,7 @@ from the operator's machine.
    `SEASON_CUP_MATCHUP_FEED_URL=https://www.example.com/api/feeds/seasons/{season}/cup/matchups/{slot}.json`,
    `SEASON_PLAYOFFS_FEED_URL=https://www.example.com/api/feeds/seasons/{season}/playoffs.json`,
    `SEASON_PLAYOFFS_FINALS_FEED_URL=https://www.example.com/api/feeds/seasons/{season}/playoffs/finals.json`,
-   `SEASON_ALL_STAR_FEED_URL=https://www.example.com/api/feeds/seasons/{season}/all-star.json`,
-   `NEWS_FEED_URL=https://www.example.com/api/feeds/news/{lang}/pages/{page}.json`,
-   `NEWS_TEAM_FEED_URL=https://www.example.com/api/feeds/news/{lang}/teams/{code}/pages/{page}.json`,
-   `NEWS_PLAYER_FEED_URL=https://www.example.com/api/feeds/news/{lang}/players/{id}/pages/{page}.json`,
-   `NEWS_GAME_FEED_URL=https://www.example.com/api/feeds/news/{lang}/games/{id}.json`,
-   `NEWS_ARTICLE_FEED_URL=https://www.example.com/api/feeds/news/{lang}/articles/{id}.json` and
+   `SEASON_ALL_STAR_FEED_URL=https://www.example.com/api/feeds/seasons/{season}/all-star.json` and
    `VIDEO_PLATFORM_NAME`.
 
    The URLs must point at the Vercel site's forwarded paths,
@@ -195,8 +190,6 @@ from the operator's machine.
 - `/playoffs/series`
 - `/all-star`
 - `/all-star/previous`
-- `/news`
-- `/news/*`
 - `/day/*`
 - `/game/*`
 - `/player/*`

@@ -8,7 +8,6 @@
 	import LastGames from '#lib/components/LastGames.svelte';
 	import LineScore from '#lib/components/LineScore.svelte';
 	import MessageRow from '#lib/components/MessageRow.svelte';
-	import NewsSection from '#lib/components/NewsSection.svelte';
 	import PageContainer from '#lib/components/PageContainer.svelte';
 	import PlayersToWatch from '#lib/components/PlayersToWatch.svelte';
 	import SeasonSeries from '#lib/components/SeasonSeries.svelte';
@@ -21,7 +20,6 @@
 	import type { GamePageState } from '#lib/game/types.ts';
 	import { play } from '#lib/hero/motion.ts';
 	import { m } from '#lib/paraglide/messages.js';
-	import type { NewsBlock } from '#lib/news/types.ts';
 	import type { RowLayout } from '#lib/schedule/types.ts';
 	import { shimmer } from '#lib/skeleton/motion.ts';
 	import SkeletonBone from '#lib/components/SkeletonBone.svelte';
@@ -33,21 +31,10 @@
 		layout: RowLayout;
 		teamHref: (code: string) => ResolvedPathname;
 		playerHref: (id: string) => ResolvedPathname;
-		recap?: NewsBlock; // null: no Recap tab and no section
-		noteHref?: (id: string) => ResolvedPathname;
 	};
 
 	// `state` is renamed so the `$state` rune is not read as a store of the prop.
-	let {
-		state: page,
-		allGamesHref,
-		standingsHref,
-		layout,
-		teamHref,
-		playerHref,
-		recap = null,
-		noteHref
-	}: Props = $props();
+	let { state: page, allGamesHref, standingsHref, layout, teamHref, playerHref }: Props = $props();
 
 	const SECTION_BONES = [0, 1]; // the first two sections
 
@@ -57,13 +44,7 @@
 
 {#if page.kind === 'ready'}
 	<GameHeader header={page.view.header} {layout} {allGamesHref} {standingsHref} {teamHref} />
-	<SectionTabs
-		tabs={recap?.kind === 'ready'
-			? [...page.view.tabs, { id: 'recap', label: m.game_tab_recap() }]
-			: page.view.tabs}
-		miniScore={page.view.miniScore}
-		{layout}
-	/>
+	<SectionTabs tabs={page.view.tabs} miniScore={page.view.miniScore} {layout} />
 	{@const sections = page.view.sections}
 	<PageContainer>
 		<div class="sections detail-sections" class:mobile={layout === 'mobile'}>
@@ -161,16 +142,6 @@
 					/>
 					<SeasonSeries series={sections.seasonSeries} />
 				</section>
-			{/if}
-			{#if recap && noteHref}
-				<NewsSection
-					id="recap"
-					title={m.game_tab_recap()}
-					block={recap}
-					shape="feature"
-					{layout}
-					{noteHref}
-				/>
 			{/if}
 		</div>
 	</PageContainer>

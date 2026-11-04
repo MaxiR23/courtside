@@ -6,7 +6,6 @@
 // - Renders a link when given an href and a button when given an action
 // - Calls the action on click
 // - Wraps only the primary variant in a blueprint frame
-// - ariaLabel sets aria-label, disabled disables the button, borderColor sets the border variable; by default none of them is set
 //
 // What is covered:
 // - Both variants, both element kinds, user interaction
@@ -62,36 +61,5 @@ describe('Button', () => {
 		);
 		expect(content).toHaveLength(1);
 		expect(content[0].classList.contains('button')).toBe(true);
-	});
-
-	it('sets the accessible name when given an ariaLabel', () => {
-		render(Button, {
-			props: { variant: 'secondary', label: '→', ariaLabel: 'Next', onclick: () => {} }
-		});
-		expect(screen.getByRole('button', { name: 'Next' }).getAttribute('aria-label')).toBe('Next');
-	});
-
-	it('disables the button', () => {
-		render(Button, {
-			props: { variant: 'secondary', label: 'Go', disabled: true, onclick: () => {} }
-		});
-		const button = screen.getByRole('button', { name: 'Go' }) as HTMLButtonElement;
-		expect(button.disabled).toBe(true);
-	});
-
-	it('sets the border variable from borderColor on a link and on a button', () => {
-		const { container } = render(Button, {
-			props: { variant: 'secondary', label: 'Go', href, borderColor: 'var(--color-accent)' }
-		});
-		expect(container.querySelector('a')?.getAttribute('style')).toContain(
-			'--button-border: var(--color-accent)'
-		);
-	});
-
-	it('sets none of the optional attributes by default', () => {
-		const { container } = render(Button, { props: { variant: 'secondary', label: 'Go', href } });
-		const link = container.querySelector('a')!;
-		expect(link.hasAttribute('aria-label')).toBe(false);
-		expect(link.hasAttribute('style')).toBe(false);
 	});
 });

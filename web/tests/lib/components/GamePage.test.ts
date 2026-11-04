@@ -19,7 +19,6 @@
 // - The mini score is hidden at load, shows only while the tab bar is stuck, on both layouts
 // - Mobile sections get the mobile scroll margin
 // - Players to watch gets the page layout
-// - Recap: with no block the tabs and sections are the current ones; ready adds a last Recap tab and a section with one feature link to the note; loading adds the section and no tab
 //
 // What is covered:
 // - Each page state, drawn from props with no fetch
@@ -37,7 +36,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import GamePage from '../../../src/lib/components/GamePage.svelte';
 import type { GameDetailFeed } from '../../../src/lib/contract/game-detail';
 import { toGameView } from '../../../src/lib/feed/game-props';
-import type { NewsBlock, NewsCardView } from '../../../src/lib/news/types';
 import type { BoxRow, GamePageState, GameSections, GameView } from '../../../src/lib/game/types';
 import { preferLanguages } from '../../prefer-languages';
 
@@ -630,59 +628,5 @@ describe('GamePage mini score', () => {
 		);
 		const block = /\.detail-sections\.mobile section\s*\{([^}]*)\}/.exec(source)?.[1] ?? '';
 		expect(block).toMatch(/scroll-margin-top:\s*var\(--detail-section-scroll-margin-mobile\);/);
-	});
-});
-const noteCards = (): NewsCardView[] =>
-	['a', 'b', 'c'].map((id) => ({
-		id,
-		kind: 'news' as const,
-		kindLabel: 'News',
-		teamTag: null,
-		english: false,
-		date: '2 nov',
-		headline: `Headline ${id}`,
-		description: null,
-		photo: null
-	}));
-const noteHref = (id: string) => `/news/${id}` as ResolvedPathname;
-
-describe('GamePage recap', () => {
-	const props = (recap: NewsBlock) => ({
-		state: { kind: 'ready', view } as GamePageState,
-		allGamesHref: HOME,
-		standingsHref: STANDINGS,
-		layout: 'desktop' as const,
-		teamHref,
-		playerHref,
-		recap,
-		noteHref
-	});
-	const tabLabels = () =>
-		[...screen.getByRole('navigation', { name: 'Sections' }).querySelectorAll('a')].map(
-			(a) => a.textContent
-		);
-
-	it('draws the current tabs and sections with no recap block', () => {
-		const { container } = render(GamePage, { props: props(null) });
-		expect(tabLabels()).toEqual(['Score', 'Injuries']);
-		expect(container.querySelector('#recap')).toBeNull();
-	});
-
-	it('adds a last Recap tab and a section with one feature link to the note', () => {
-		const { container } = render(GamePage, {
-			props: props({ kind: 'ready', notes: noteCards().slice(0, 1) })
-		});
-		expect(tabLabels().at(-1)).toBe('Recap');
-		const sections = [...container.querySelectorAll('.sections > section')];
-		expect(sections.at(-1)?.id).toBe('recap');
-		const links = sections.at(-1)?.querySelectorAll('a') ?? [];
-		expect(links).toHaveLength(1);
-		expect(links[0]?.getAttribute('href')).toBe('/news/a');
-	});
-
-	it('draws the section with bones and no tab while loading', () => {
-		const { container } = render(GamePage, { props: props({ kind: 'loading' }) });
-		expect(tabLabels()).not.toContain('Recap');
-		expect(container.querySelector('#recap .bones')).not.toBeNull();
 	});
 });
