@@ -3,6 +3,8 @@
 Runbook for the production setup recorded in
 [`adr/0079-production-behind-vercel-with-origin-secret.md`](adr/0079-production-behind-vercel-with-origin-secret.md),
 on top of [`adr/0016-production-hosting.md`](adr/0016-production-hosting.md).
+Admin access and deploys go through AWS Systems Manager Session Manager
+([`adr/0086-admin-access-through-session-manager.md`](adr/0086-admin-access-through-session-manager.md)).
 All domains below are placeholders.
 
 ## Requirements
@@ -13,12 +15,28 @@ All domains below are placeholders.
   Docker service at boot, so `restart: unless-stopped` brings the stack back
   after a reboot.
 - A fixed public IP.
-- Port 80 (TCP) open to everyone, port 22 open only to the owner's IP, and no
-  other inbound port.
+- Port 80 (TCP) open to everyone and no other inbound port: no port is open
+  for administration.
+- The SSM Agent running. It is preinstalled on the provider's Ubuntu images.
+  On a snap install, check it with `sudo systemctl status snap.amazon-ssm-agent.amazon-ssm-agent.service` and
+  start it with `sudo snap start amazon-ssm-agent`
+  ([agent status and start](https://docs.aws.amazon.com/systems-manager/latest/userguide/ssm-agent-status-and-restart.html)).
+- An instance IAM role with only the managed policy
+  `AmazonSSMManagedInstanceCore`
+  ([instance permissions](https://docs.aws.amazon.com/systems-manager/latest/userguide/setup-instance-permissions.html)).
 - Git.
 - Node 24 and pnpm 12 where the front end is built.
 - On the operator's machine, to run `scripts/deploy.sh`: the Vercel CLI (`pnpm add -g vercel`, then
-  `vercel login`), `ssh` and `curl`.
+  `vercel login`), `ssh` and `curl`, the AWS CLI v2
+  ([install](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html))
+  and the Session Manager plugin
+  ([install](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html)).
+  On macOS, install the plugin with AWS's signed installer from that page, not
+  with Homebrew.
+- The signed-in AWS identity needs `ssm:StartSession` on the instance
+  (`arn:aws:ec2:<region>:<account-id>:instance/i-0123456789abcdef0`) and on the
+  `AWS-StartSSHSession` document (`arn:aws:ssm:*:*:document/AWS-StartSSHSession`)
+  ([SSH through Session Manager](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-getting-started-enable-ssh-connections.html)).
 
 ### Alternative: a domain with a certificate
 
@@ -98,11 +116,16 @@ from the operator's machine.
 
    ```
    Host courtside-vm
-     HostName vm.example.com
+     HostName i-0123456789abcdef0
      User <user>
      IdentityFile <path to the key>
+     IdentitiesOnly yes
+     ProxyCommand sh -c "aws ssm start-session --target %h --document-name AWS-StartSSHSession --parameters 'portNumber=%p' --region <region>"
    ```
 
+   `HostName` is the machine's instance ID, and SSH runs inside a Session
+   Manager tunnel
+   ([SSH through Session Manager](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-getting-started-enable-ssh-connections.html)).
    The alias user needs passwordless `sudo`, because the script runs
    `sudo docker compose` without a terminal.
 2. `cp .env.deploy.example .env.deploy` and fill in the four keys
@@ -130,6 +153,12 @@ from the operator's machine.
 
 ### Daily use
 
+- Before each deploy, sign in to AWS with `aws login`
+  ([sign in with the AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-sign-in.html);
+  the session lasts up to 12 hours and no long-term access key is stored),
+  and check the account with `aws sts get-caller-identity`
+  ([reference](https://docs.aws.amazon.com/cli/latest/reference/sts/get-caller-identity.html)).
+  Then run the script.
 - `scripts/deploy.sh` deploys both sides, api first. `scripts/deploy.sh api`
   and `scripts/deploy.sh web` deploy one side.
 - It runs only from `main`, with a clean tree and `main` equal to
@@ -145,6 +174,30 @@ from the operator's machine.
   without touching `web/.env`, which still provides `VIDEO_PLATFORM_NAME`. It
   then publishes with `vercel deploy --prod`.
 - It ends by checking that `/` and `/api/health` on the site answer 200.
+
+## Admin access
+
+No port is open for administration
+([`adr/0086-admin-access-through-session-manager.md`](adr/0086-admin-access-through-session-manager.md)).
+Sign in first with `aws login`
+([sign in with the AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-sign-in.html)).
+
+- A shell on the machine: `aws ssm start-session --target <instance-id> --region <region>`
+  ([start a session](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-sessions-start.html)).
+  Over SSH, use the alias: `ssh courtside-vm`.
+- The first SSH connection through the alias asks to accept the host key under
+  the new name (the instance ID). Before the first connection, open a shell
+  with `aws ssm start-session --target <instance-id> --region <region>` and run
+  `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub` on the machine. The
+  fingerprint SSH shows through the alias must match that output. Someone who
+  already knows the machine can also compare with the fingerprint in their own
+  `known_hosts` (`ssh-keygen -lF <old host name>`).
+- If a session does not start, check that the machine is registered:
+  `aws ssm describe-instance-information --filters "Key=InstanceIds,Values=<instance-id>" --region <region>`
+  ([reference](https://docs.aws.amazon.com/cli/latest/reference/ssm/describe-instance-information.html))
+  lists it. If not, check the SSM Agent and the instance role in
+  "Requirements". An AccessDenied error means the `ssm:StartSession`
+  permission in "Requirements" is missing.
 
 ## Build and publish the front end
 
