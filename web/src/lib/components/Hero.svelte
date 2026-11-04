@@ -158,7 +158,7 @@
 					/>
 					<Button variant="secondary" label={m.hero_all_games()} href={scheduleHref} />
 				</div>
-				<div class="entrance indicator" use:play={entrance('--hero-delay-indicator')}>
+				<div class="entrance indicator unselectable" use:play={entrance('--hero-delay-indicator')}>
 					{#each [gameIndex * 2, gameIndex * 2 + 1] as i (i)}
 						<HeroSlideSelector
 							side={slides[i]}

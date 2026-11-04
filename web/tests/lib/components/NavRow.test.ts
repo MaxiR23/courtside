@@ -29,6 +29,7 @@
 // - With no selected day the sheet opens on the month of the date shown
 // - The brand: off Home one link to / named Courtside holding the logo and the name, first in the row, on both layouts; on Home a span, not a link
 // - Sources: the 48px sheet rows, the 44px dropdown items and menu button, the nav type tokens, the 22px logo mark through --brand-mark-size; the brand link: 44px min-height on a.brand only (not on the Home span), color inherit, no underline, ink on hover, no outline override
+// - The desktop nav controls, the brand link off Home and the sheet rows are out of a text selection
 //
 // What is covered:
 // - Every page state (home, standings, cup, all-star, playoffs, detail), both layouts, dropdown closed and open, sheet closed and open, with and without a calendar
@@ -687,5 +688,35 @@ describe('the nav sources', () => {
 		]) {
 			expect(tokens).toContain(declaration);
 		}
+	});
+});
+
+describe('text selection', () => {
+	it('keeps the desktop nav controls out of a text selection', async () => {
+		const { container } = render(NavRow, { props: homeProps });
+		expect(container.querySelector('.brand')?.classList.contains('unselectable')).toBe(true);
+		const links = container.querySelectorAll('a.link');
+		expect(links).toHaveLength(2);
+		for (const link of links) expect(link.classList.contains('unselectable')).toBe(true);
+		expect(container.querySelector('time.date')?.classList.contains('unselectable')).toBe(true);
+		await fireEvent.click(container.querySelector('.tournaments-button') as HTMLElement);
+		const items = container.querySelectorAll('a.item');
+		expect(items.length).toBeGreaterThan(0);
+		for (const item of items) expect(item.classList.contains('unselectable')).toBe(true);
+	});
+
+	it('keeps the brand link off Home out of a text selection', () => {
+		const { container } = render(NavRow, { props: detailProps });
+		expect(container.querySelector('a.brand')?.classList.contains('unselectable')).toBe(true);
+	});
+
+	it('keeps the nav sheet rows out of a text selection', async () => {
+		render(NavRow, { props: mobileHome });
+		await openMenu();
+		const dialog = screen.getByRole('dialog', { name: 'Menu' });
+		const rows = dialog.querySelectorAll('a.row');
+		expect(rows.length).toBeGreaterThan(0);
+		for (const row of rows) expect(row.classList.contains('unselectable')).toBe(true);
+		expect(dialog.querySelector('time.row.date')?.classList.contains('unselectable')).toBe(true);
 	});
 });

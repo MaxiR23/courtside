@@ -9,6 +9,7 @@
 // - Sets the size, tracking, padding, border color and text color as custom properties, and none when not given
 // - Truncates, keeps one line, wraps, takes the heading font and drops the border when asked
 // - Holds the box rule, the solid rule and the live rule once, in its own source, and no rule holds the label set
+// - The tag text is out of a text selection (unselectable hook)
 // - Is plain text: no link or button unless a child brings one
 //
 // What is covered:
@@ -171,5 +172,15 @@ describe('Tag', () => {
 	it('is plain text: no link or button unless a child brings one', () => {
 		const { container } = render(Tag, { props: { text: 'x' } });
 		expect(container.querySelector('a, button')).toBeNull();
+	});
+});
+
+describe('Tag text selection', () => {
+	it('keeps the tag text out of a text selection', () => {
+		for (const label of [true, false]) {
+			const { container, unmount } = render(Tag, { props: { text: 'Out', label } });
+			expect(container.querySelector('.tag')?.classList.contains('unselectable')).toBe(true);
+			unmount();
+		}
 	});
 });

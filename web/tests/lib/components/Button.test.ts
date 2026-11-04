@@ -6,6 +6,7 @@
 // - Renders a link when given an href and a button when given an action
 // - Calls the action on click
 // - Wraps only the primary variant in a blueprint frame
+// - The link variant is out of a text selection (unselectable hook)
 //
 // What is covered:
 // - Both variants, both element kinds, user interaction
@@ -61,5 +62,17 @@ describe('Button', () => {
 		);
 		expect(content).toHaveLength(1);
 		expect(content[0].classList.contains('button')).toBe(true);
+	});
+});
+
+describe('Button text selection', () => {
+	it('keeps the link variant out of a text selection', () => {
+		render(Button, { props: { variant: 'secondary', label: 'Go', href } });
+		expect(screen.getByRole('link', { name: 'Go' }).classList.contains('unselectable')).toBe(true);
+	});
+
+	it('renders the action variant as a button element', () => {
+		render(Button, { props: { variant: 'primary', label: 'Go', onclick: () => {} } });
+		expect(screen.getByRole('button', { name: 'Go' }).tagName).toBe('BUTTON');
 	});
 });

@@ -24,6 +24,7 @@
 // - Shows the copy in Spanish with a Spanish browser preference
 // - Photo change: the outgoing cutout fades out over the shorter token, its outline drops at once, the incoming outline returns after the settle; logo and tricode keep their timing
 // - A day with no games and a noGames view: the nav row and the no-games title, with no slide selector, position or timer; the skeleton still comes first while loading
+// - The slide indicator is out of a text selection and the title stays selectable
 //
 // What is covered:
 // - Each state the hero shows, plus interaction
@@ -801,5 +802,13 @@ describe('Hero photo change', () => {
 		const slides = calls.filter((c) => c.target.matches('.slide'));
 		expect(slides.length).toBeGreaterThan(0);
 		for (const c of slides) expect(c.options.duration).toBe(1000);
+	});
+});
+
+describe('Hero text selection', () => {
+	it('keeps the slide indicator out of a text selection and leaves the title selectable', () => {
+		const { container } = render(Hero, { props: { ...baseProps, games: games(3) } });
+		expect(container.querySelector('.indicator')?.classList.contains('unselectable')).toBe(true);
+		expect(container.querySelector('h1')?.classList.contains('unselectable')).toBe(false);
 	});
 });

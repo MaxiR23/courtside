@@ -58,7 +58,7 @@
 			{#each links as link (link.href)}
 				<li>
 					<a
-						class="row"
+						class="row unselectable"
 						class:current={link.current}
 						aria-current={link.current ? 'page' : undefined}
 						href={link.href}
@@ -81,7 +81,7 @@
 							<time datetime={home.datetime}>{home.dateText}</time>
 						</button>
 					{:else}
-						<time class="row date" datetime={home.datetime}>{home.dateText}</time>
+						<time class="row date unselectable" datetime={home.datetime}>{home.dateText}</time>
 					{/if}
 				</li>
 				<li>

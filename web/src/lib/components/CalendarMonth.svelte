@@ -68,13 +68,13 @@
 			<svg viewBox="0 0 12 12" aria-hidden="true"><path d="m4 2 4 4-4 4" /></svg>
 		</button>
 	</div>
-	<div class="week weekdays" aria-hidden="true">
+	<div class="week weekdays unselectable" aria-hidden="true">
 		{#each weekdays as weekday, i (i)}
 			<span class="weekday">{weekday}</span>
 		{/each}
 	</div>
 	{#each grid as week, w (w)}
-		<div class="week">
+		<div class="week unselectable">
 			{#each week as date, d (d)}
 				{#if date === null}
 					<span class="day blank"></span>

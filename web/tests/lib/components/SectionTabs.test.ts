@@ -12,6 +12,7 @@
 // - The nav stays above the page content: sticky with z-index from --tabs-z-index
 // - The mini score or text is hidden until the bar is stuck (the empty element right above it has left the top of the viewport), then shown, hidden again when it is not
 // - Stacked on its own row on the mobile layout only; animated, not under reduced motion
+// - The tabs are out of a text selection and the mini score stays selectable
 // - The shared sticky bar state resets when the bar unmounts; no sentinel and no observer without tabs or mini
 //
 // What is covered:
@@ -342,5 +343,15 @@ describe('SectionTabs stuck bar', () => {
 		const hidden = /\.mini-score\s*\{([^}]*)\}/.exec(source)?.[1] ?? '';
 		expect(hidden).toMatch(/opacity:\s*0;/);
 		expect(hidden).toMatch(/pointer-events:\s*none;/);
+	});
+});
+
+describe('SectionTabs text selection', () => {
+	it('keeps the tabs out of a text selection and leaves the mini score selectable', () => {
+		const { container } = render(SectionTabs, { props: { tabs, miniScore, layout: 'desktop' } });
+		expect(container.querySelector('ul.tabs')?.classList.contains('unselectable')).toBe(true);
+		const score = container.querySelector('.mini-score');
+		expect(score).not.toBeNull();
+		expect(score?.classList.contains('unselectable')).toBe(false);
 	});
 });

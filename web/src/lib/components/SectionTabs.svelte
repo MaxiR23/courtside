@@ -43,7 +43,7 @@
 		aria-label={m.game_tabs_label()}
 		use:crossfade={scoreRowOpen(stacked && revealed)}
 	>
-		<ul class="tabs">
+		<ul class="tabs unselectable">
 			{#each tabs as tab (tab.id)}
 				<li>
 					<a href={`#${tab.id}`} onclick={(event) => scrollToSection(event, tab.id)}>{tab.label}</a>

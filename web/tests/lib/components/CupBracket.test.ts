@@ -15,6 +15,7 @@
 // - A native scroll of the viewport (focus scrolling it) is absorbed: scrollLeft goes back to 0 and the layer moves by the same amount
 // - Closing the panel returns the focus without scrolling
 // - Keyboard: Tab to a node, Esc closes the player card only, Esc again closes the panel and returns the focus to the node
+// - The pan and zoom surface is out of a text selection
 //
 // What is covered:
 // - The component with a real camera and matchup store, element sizes stubbed, no network (the loader is a mock)
@@ -411,5 +412,12 @@ describe('CupBracket keyboard', () => {
 		await settle();
 		expect(screen.getByRole('dialog').textContent).toContain("Data isn't available right now.");
 		expect(container.querySelectorAll('.node')).toHaveLength(7);
+	});
+});
+
+describe('CupBracket text selection', () => {
+	it('keeps the pan and zoom surface out of a text selection', () => {
+		const { container } = show();
+		expect(viewportOf(container).classList.contains('unselectable')).toBe(true);
 	});
 });
