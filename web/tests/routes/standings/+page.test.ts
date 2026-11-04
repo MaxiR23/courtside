@@ -19,6 +19,7 @@
 // - Power ranking: current season only, hidden when unavailable, failed, unconfigured or on a past season; polled
 // - The select lists the right seasons and navigates with goto; Spanish
 // - The document title is the section name then the site name, while loading and loaded, in English and Spanish
+// - The description meta is the page type's message, named from the feed for a team, player or game when loaded
 //
 // What is covered:
 // - The page wired end to end: config, fetch, polling, props layer, header, tables, footer
@@ -28,6 +29,7 @@
 // Run with: cd web && pnpm exec vitest run tests/routes/standings/+page.test.ts
 //
 // SEE: web/src/routes/standings/+page.svelte
+import { m } from '../../../src/lib/paraglide/messages.js';
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { readFileSync } from 'node:fs';
@@ -62,6 +64,7 @@ const config = vi.hoisted(() => ({
 	powerRanking: undefined as string | undefined
 }));
 vi.mock('../../../src/lib/feed/config', () => ({
+	siteUrl: undefined,
 	get calendarFeedUrl() {
 		return seasonMocks.calendar;
 	},
@@ -578,14 +581,20 @@ describe('standings page power ranking', () => {
 	});
 });
 
+// A second render in one test leaves the first mounted; its tags come first, so read the last.
+const descriptionMeta = () =>
+	[...document.head.querySelectorAll('meta[name="description"]')].at(-1)?.getAttribute('content');
+
 describe('standings document title', () => {
 	it('is the section name then the site name, while loading and loaded', async () => {
 		stubFetch(() => new Promise(() => {}));
 		await renderPage();
 		expect(document.title).toBe('Standings · Courtside');
+		expect(descriptionMeta()).toBe(m.meta_description_standings());
 		stubFetch(answerWith(recorded()));
 		await renderPage();
 		expect(document.title).toBe('Standings · Courtside');
+		expect(descriptionMeta()).toBe(m.meta_description_standings());
 	});
 
 	it('is in Spanish with a Spanish preference', async () => {
@@ -593,8 +602,10 @@ describe('standings document title', () => {
 		stubFetch(() => new Promise(() => {}));
 		await renderPage();
 		expect(document.title).toBe('Clasificación · Courtside');
+		expect(descriptionMeta()).toBe(m.meta_description_standings());
 		stubFetch(answerWith(recorded()));
 		await renderPage();
 		expect(document.title).toBe('Clasificación · Courtside');
+		expect(descriptionMeta()).toBe(m.meta_description_standings());
 	});
 });

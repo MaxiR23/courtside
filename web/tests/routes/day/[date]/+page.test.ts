@@ -18,6 +18,7 @@
 // - When the date changes: the loading skeleton at once, then the new day, never the previous one; a 503 for the new date shows the unavailable row
 // - The page is not polled: no further request after 120 s
 // - The document title is "Games", the long date in the active language, then the site name; without the date while loading; the loading title in English and Spanish
+// - The description meta is the page type's message, named from the feed for a team, player or game when loaded
 //
 // What is covered:
 // - The page wired end to end: config, fetch, loader, props layer, header, cards, footer
@@ -27,6 +28,7 @@
 // Run with: cd web && pnpm exec vitest run "tests/routes/day/[date]/+page.test.ts"
 //
 // SEE: web/src/routes/day/[date]/+page.svelte
+import { m } from '../../../../src/lib/paraglide/messages.js';
 import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { readFileSync } from 'node:fs';
@@ -53,6 +55,7 @@ const config = vi.hoisted(() => ({
 	platform: 'Video platform' as string | undefined
 }));
 vi.mock('../../../../src/lib/feed/config', () => ({
+	siteUrl: undefined,
 	get dayFeedUrl() {
 		return config.day;
 	},
@@ -520,21 +523,28 @@ describe('day page cards read the game detail', () => {
 	});
 });
 
+// A second render in one test leaves the first mounted; its tags come first, so read the last.
+const descriptionMeta = () =>
+	[...document.head.querySelectorAll('meta[name="description"]')].at(-1)?.getAttribute('content');
+
 describe('day document title', () => {
 	it('is Games, the long date and the site name, in English and Spanish', async () => {
 		stubFetch({ [dayUrl('1999-02-06')]: answerWith(dayOf('1999-02-06')) });
 		await renderPage();
 		expect(document.title).toBe('Games · February 6, 1999 · Courtside');
+		expect(descriptionMeta()).toBe(m.meta_description_day());
 		preferLanguages(['es']);
 		stubFetch({ [dayUrl('1999-02-06')]: answerWith(dayOf('1999-02-06')) });
 		await renderPage();
 		expect(document.title).toBe('Partidos · 6 de febrero de 1999 · Courtside');
+		expect(descriptionMeta()).toBe(m.meta_description_day());
 	});
 
 	it('is the section name and the site name while loading', async () => {
 		stubFetch({ [dayUrl('1999-02-06')]: () => new Promise(() => {}) });
 		await renderPage();
 		expect(document.title).toBe('Games · Courtside');
+		expect(descriptionMeta()).toBe(m.meta_description_day());
 	});
 
 	it('is the section name and the site name while loading, in Spanish', async () => {
@@ -542,6 +552,7 @@ describe('day document title', () => {
 		stubFetch({ [dayUrl('1999-02-06')]: () => new Promise(() => {}) });
 		await renderPage();
 		expect(document.title).toBe('Partidos · Courtside');
+		expect(descriptionMeta()).toBe(m.meta_description_day());
 	});
 });
 

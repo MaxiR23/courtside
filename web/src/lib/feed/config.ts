@@ -20,6 +20,7 @@ import {
 	SEASON_PLAYOFFS_FINALS_FEED_URL,
 	SEASON_STANDINGS_FEED_URL,
 	SEASON_TEAM_FEED_URL,
+	SITE_URL,
 	STANDINGS_FEED_URL,
 	TEAM_FEED_URL,
 	VIDEO_PLATFORM_NAME
@@ -50,3 +51,4 @@ export const seasonPlayoffsFeedUrl: string | undefined = SEASON_PLAYOFFS_FEED_UR
 export const seasonPlayoffsFinalsFeedUrl: string | undefined = SEASON_PLAYOFFS_FINALS_FEED_URL;
 export const seasonAllStarFeedUrl: string | undefined = SEASON_ALL_STAR_FEED_URL;
 export const videoPlatformName: string | undefined = VIDEO_PLATFORM_NAME;
+export const siteUrl: string | undefined = SITE_URL;

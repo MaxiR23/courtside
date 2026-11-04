@@ -21,6 +21,7 @@
 // - The select lists the right seasons and navigates with goto; Spanish
 // - The unavailable state of a past season keeps the Season tag (ADR 0054)
 // - The document title is the team name then the site name, in English and Spanish; Courtside while loading and on a 404; the loading title in English and Spanish
+// - The description meta is the page type's message, named from the feed for a team, player or game when loaded
 //
 // What is covered:
 // - The page wired end to end: config, fetch, polling, props layer, header, tabs, footer
@@ -30,6 +31,7 @@
 // Run with: cd web && pnpm exec vitest run "tests/routes/team/[code]/+page.test.ts"
 //
 // SEE: web/src/routes/team/[code]/+page.svelte
+import { m } from '../../../../src/lib/paraglide/messages.js';
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { readFileSync } from 'node:fs';
@@ -61,6 +63,7 @@ vi.mock('$app/navigation', async (importOriginal) => ({
 
 const config = vi.hoisted(() => ({ url: undefined as string | undefined }));
 vi.mock('../../../../src/lib/feed/config', () => ({
+	siteUrl: undefined,
 	get calendarFeedUrl() {
 		return seasonMocks.calendar;
 	},
@@ -561,6 +564,10 @@ describe('team page season selector', () => {
 	});
 });
 
+// A second render in one test leaves the first mounted; its tags come first, so read the last.
+const descriptionMeta = () =>
+	[...document.head.querySelectorAll('meta[name="description"]')].at(-1)?.getAttribute('content');
+
 describe('team document title', () => {
 	const named = (): TeamFeed => ({ ...recorded(), name: 'Comets' });
 
@@ -568,16 +575,21 @@ describe('team document title', () => {
 		stubFetch('okc', answerWith(named()));
 		await renderPage();
 		expect(document.title).toBe('Comets · Courtside');
+		expect(descriptionMeta()).toBe('Comets: roster, schedule, results and season stats.');
 		preferLanguages(['es']);
 		stubFetch('okc', answerWith(named()));
 		await renderPage();
 		expect(document.title).toBe('Comets · Courtside');
+		expect(descriptionMeta()).toBe(
+			'Comets: plantilla, calendario, resultados y estadísticas de la temporada.'
+		);
 	});
 
 	it('is the site name while loading', async () => {
 		stubFetch('okc', () => new Promise(() => {}));
 		await renderPage();
 		expect(document.title).toBe('Courtside');
+		expect(descriptionMeta()).toBe(m.meta_description_team());
 	});
 
 	it('is the site name while loading, in Spanish', async () => {

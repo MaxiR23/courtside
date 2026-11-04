@@ -1,4 +1,6 @@
 <script lang="ts">
+	import PageMeta from '#lib/components/PageMeta.svelte';
+	import { canonicalPath } from '#lib/meta/head.ts';
 	import { pageTitle } from '#lib/format/title.ts';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -107,16 +109,18 @@
 	const wide = wideViewport();
 	const gameHref = (id: string) => resolve('/game/[id]', { id });
 
-	const title = $derived(
-		pageTitle(
-			pageState.kind === 'ready'
-				? `${pageState.view.header.firstName} ${pageState.view.header.lastName}`
-				: null
-		)
+	const name = $derived(
+		pageState.kind === 'ready'
+			? `${pageState.view.header.firstName} ${pageState.view.header.lastName}`
+			: null
+	);
+	const title = $derived(pageTitle(name));
+	const description = $derived(
+		name ? m.meta_description_player_named({ name }) : m.meta_description_player()
 	);
 </script>
 
-<svelte:head><title>{title}</title></svelte:head>
+<PageMeta {title} {description} path={canonicalPath(page.url, ['season'])} />
 
 <PlayerPage
 	state={pageState}

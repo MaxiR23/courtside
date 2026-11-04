@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { pageTitle } from '#lib/format/title.ts';
+	import PageMeta from '#lib/components/PageMeta.svelte';
+	import { prerenderedPages } from '#lib/meta/pages.ts';
 	import { afterNavigate, goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { onMount, tick, untrack } from 'svelte';
@@ -169,7 +170,11 @@
 	}
 </script>
 
-<svelte:head><title>{pageTitle()}</title></svelte:head>
+<PageMeta
+	title={prerenderedPages['/'].title()}
+	description={prerenderedPages['/'].description()}
+	path="/"
+/>
 
 {#if today}
 	<Hero

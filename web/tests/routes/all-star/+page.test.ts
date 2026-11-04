@@ -20,6 +20,7 @@
 // - The edition frame with its caption when the feed carries an edition video (past and current after), the placeholder when not
 // - The Last time champion card linked when the previous edition has a video, not linked otherwise
 // - The document title is the section name then the site name, while loading and loaded, in English and Spanish
+// - The description meta is the page type's message, named from the feed for a team, player or game when loaded
 //
 // What is covered:
 // - The page wired end to end: config, fetch, polling, props layer, header, sections, footer
@@ -29,6 +30,7 @@
 // Run with: cd web && pnpm exec vitest run tests/routes/all-star/+page.test.ts
 //
 // SEE: web/src/routes/all-star/+page.svelte
+import { m } from '../../../src/lib/paraglide/messages.js';
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { readFileSync } from 'node:fs';
@@ -60,6 +62,7 @@ vi.mock('$app/navigation', async (importOriginal) => ({
 
 const config = vi.hoisted(() => ({ url: undefined as string | undefined }));
 vi.mock('../../../src/lib/feed/config', () => ({
+	siteUrl: undefined,
 	get calendarFeedUrl() {
 		return seasonMocks.calendar;
 	},
@@ -516,14 +519,20 @@ describe('All-Star page season selector', () => {
 	});
 });
 
+// A second render in one test leaves the first mounted; its tags come first, so read the last.
+const descriptionMeta = () =>
+	[...document.head.querySelectorAll('meta[name="description"]')].at(-1)?.getAttribute('content');
+
 describe('all-star document title', () => {
 	it('is the section name then the site name, while loading and loaded', async () => {
 		stubFetch(() => new Promise(() => {}));
 		await renderPage();
 		expect(document.title).toBe('All-Star · Courtside');
+		expect(descriptionMeta()).toBe(m.meta_description_all_star());
 		stubFetch(answerWith(fixture('before')));
 		await renderPage();
 		expect(document.title).toBe('All-Star · Courtside');
+		expect(descriptionMeta()).toBe(m.meta_description_all_star());
 	});
 
 	it('is in Spanish with a Spanish preference', async () => {
@@ -531,8 +540,10 @@ describe('all-star document title', () => {
 		stubFetch(() => new Promise(() => {}));
 		await renderPage();
 		expect(document.title).toBe('All-Star · Courtside');
+		expect(descriptionMeta()).toBe(m.meta_description_all_star());
 		stubFetch(answerWith(fixture('before')));
 		await renderPage();
 		expect(document.title).toBe('All-Star · Courtside');
+		expect(descriptionMeta()).toBe(m.meta_description_all_star());
 	});
 });

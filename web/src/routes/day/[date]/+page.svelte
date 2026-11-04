@@ -1,4 +1,5 @@
 <script lang="ts">
+	import PageMeta from '#lib/components/PageMeta.svelte';
 	import { pageTitle } from '#lib/format/title.ts';
 	import { m } from '#lib/paraglide/messages.js';
 	import { goto } from '$app/navigation';
@@ -111,7 +112,11 @@
 	);
 </script>
 
-<svelte:head><title>{title}</title></svelte:head>
+<PageMeta
+	{title}
+	description={m.meta_description_day()}
+	path={resolve('/day/[date]', { date: params.date })}
+/>
 
 <DayPage
 	state={pageState}

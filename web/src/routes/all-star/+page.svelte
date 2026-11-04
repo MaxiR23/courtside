@@ -1,5 +1,7 @@
 <script lang="ts">
-	import { pageTitle } from '#lib/format/title.ts';
+	import PageMeta from '#lib/components/PageMeta.svelte';
+	import { prerenderedPages } from '#lib/meta/pages.ts';
+	import { canonicalPath } from '#lib/meta/head.ts';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -98,7 +100,11 @@
 	const playerHref = (id: string) => resolve('/player/[id]', { id });
 </script>
 
-<svelte:head><title>{pageTitle(m.allstar_title())}</title></svelte:head>
+<PageMeta
+	title={prerenderedPages['/all-star'].title()}
+	description={prerenderedPages['/all-star'].description()}
+	path={canonicalPath(page.url, ['season'])}
+/>
 
 <AllStarPage
 	state={pageState}

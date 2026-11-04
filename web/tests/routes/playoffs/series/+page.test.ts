@@ -12,6 +12,7 @@
 // - A 503 or no configured URL shows the data unavailable row; the skeleton shows until the first load settles
 // - The current season polls again at 60 s, and a later success replaces a failed state
 // - The document title is the series heading then the site name, in English and Spanish; Playoffs then the site name while loading and for an unknown id; the loading title in English and Spanish
+// - The description meta is the page type's message, named from the feed for a team, player or game when loaded
 //
 // What is covered:
 // - The page wired end to end: config, fetch, polling, props layer, component, footer
@@ -21,6 +22,7 @@
 // Run with: cd web && pnpm exec vitest run tests/routes/playoffs/series/+page.test.ts
 //
 // SEE: web/src/routes/playoffs/series/+page.svelte
+import { m } from '../../../../src/lib/paraglide/messages.js';
 import { render, screen } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { readFileSync } from 'node:fs';
@@ -50,6 +52,7 @@ vi.mock('$app/state', () => ({
 	}
 }));
 vi.mock('../../../../src/lib/feed/config', () => ({
+	siteUrl: undefined,
 	get calendarFeedUrl() {
 		return mocks.calendar;
 	},
@@ -298,6 +301,10 @@ describe('Series page', () => {
 	});
 });
 
+// A second render in one test leaves the first mounted; its tags come first, so read the last.
+const descriptionMeta = () =>
+	[...document.head.querySelectorAll('meta[name="description"]')].at(-1)?.getAttribute('content');
+
 describe('Series document title', () => {
 	it('is the series heading then the site name, in English and Spanish', async () => {
 		stubRoutes({ [FEED_URL]: [answerWith(bracket())] });
@@ -305,18 +312,21 @@ describe('Series document title', () => {
 		const heading = screen.getByRole('heading', { level: 1 }).textContent;
 		expect(heading).toBeTruthy();
 		expect(document.title).toBe(`${heading} · Courtside`);
+		expect(descriptionMeta()).toBe(m.meta_description_series());
 		preferLanguages(['es']);
 		stubRoutes({ [FEED_URL]: [answerWith(bracket())] });
 		await renderAt('?id=east-r1-1');
 		const heading_es = screen.getAllByRole('heading', { level: 1 }).at(-1)?.textContent;
 		expect(heading_es).toBeTruthy();
 		expect(document.title).toBe(`${heading_es} · Courtside`);
+		expect(descriptionMeta()).toBe(m.meta_description_series());
 	});
 
 	it('is the section name then the site name while loading', async () => {
 		stubRoutes({ [FEED_URL]: [never] });
 		await renderAt('?id=east-r1-1');
 		expect(document.title).toBe('Playoffs · Courtside');
+		expect(descriptionMeta()).toBe(m.meta_description_series());
 	});
 
 	it('is the section name then the site name while loading, in Spanish', async () => {
@@ -324,6 +334,7 @@ describe('Series document title', () => {
 		stubRoutes({ [FEED_URL]: [never] });
 		await renderAt('?id=east-r1-1');
 		expect(document.title).toBe('Playoffs · Courtside');
+		expect(descriptionMeta()).toBe(m.meta_description_series());
 	});
 
 	it('is the section name then the site name for an unknown id', async () => {
@@ -331,5 +342,6 @@ describe('Series document title', () => {
 		await renderAt('?id=nope');
 		expect(screen.getByText(NOT_FOUND)).toBeTruthy();
 		expect(document.title).toBe('Playoffs · Courtside');
+		expect(descriptionMeta()).toBe(m.meta_description_series());
 	});
 });

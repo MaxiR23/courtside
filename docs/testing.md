@@ -149,6 +149,7 @@ Cross-cutting tests at the root of `web/tests/` keep a shared piece the only own
 | `feed-source-follows-its-url.test.ts` | The feed source of a route: no `new FeedPoller`, `FeedOnce`, `GamesFeedPoller` or `DayLoader` in `web/src/routes` takes a closure that reads `params`. Scans `web/src/routes` only. |
 | `sticky-bar-is-the-one-stuck-state.test.ts` | The mini text and the stuck bar: `SectionTabs` shows the mini score or text only from `stickyBar.stuck` and has no prop or branch that shows it otherwise; only `web/src/lib/scroll/scrolled-past.svelte.ts` builds the sticky bar state, only `SectionTabs` registers the bar and draws the mini; every `<SectionTabs>` in `web/src/lib/components` and `web/src/routes` passes `layout` and no element to watch; nothing outside the shared module and `SectionTabs` names the tab bar's class, and `web/src/lib/player/scroll-fade.ts` reads the bar's bottom edge from `stickyBar.bottom` with no element lookup. |
 | `text-selection-is-the-one-rule.test.ts` | Text selection: only `web/src/lib/styles/base.css` sets `user-select`, in one rule whose selectors are `button`, `select` and `.unselectable`. Scans `web/src`, without the generated `lib/paraglide`. |
+| `page-meta-is-the-one-head.test.ts` | The page head: only `PageMeta` and the root layout write `<svelte:head>`, the root layout's holds no per-page tag, every route page renders `PageMeta`, and only `web/src/lib/meta/head.ts` names Open Graph or Twitter tags. Scans `web/src`, without the generated `lib/paraglide`. |
 
 ## TDD workflow
 

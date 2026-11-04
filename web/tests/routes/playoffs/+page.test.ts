@@ -24,6 +24,7 @@
 // - The current season keeps the head to head of all-null bars and the dash of a null seed
 // - With #bracket the page scrolls to the bracket once after the feed loads; without it nothing scrolls
 // - The document title is the section name then the site name, while loading and loaded, in English and Spanish
+// - The description meta is the page type's message, named from the feed for a team, player or game when loaded
 //
 // What is covered:
 // - The page wired end to end: config, fetch, polling, props layer, header, sections, footer
@@ -33,6 +34,7 @@
 // Run with: cd web && pnpm exec vitest run tests/routes/playoffs/+page.test.ts
 //
 // SEE: web/src/routes/playoffs/+page.svelte
+import { m } from '../../../src/lib/paraglide/messages.js';
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { readFileSync } from 'node:fs';
@@ -69,6 +71,7 @@ const config = vi.hoisted(() => ({
 	finals: undefined as string | undefined
 }));
 vi.mock('../../../src/lib/feed/config', () => ({
+	siteUrl: undefined,
 	get calendarFeedUrl() {
 		return seasonMocks.calendar;
 	},
@@ -680,14 +683,20 @@ describe('Bracket landing', () => {
 	});
 });
 
+// A second render in one test leaves the first mounted; its tags come first, so read the last.
+const descriptionMeta = () =>
+	[...document.head.querySelectorAll('meta[name="description"]')].at(-1)?.getAttribute('content');
+
 describe('playoffs document title', () => {
 	it('is the section name then the site name, while loading and loaded', async () => {
 		stubFetch(() => new Promise(() => {}));
 		await renderPage();
 		expect(document.title).toBe('Playoffs · Courtside');
+		expect(descriptionMeta()).toBe(m.meta_description_playoffs());
 		stubFetch(answerWith(picture()));
 		await renderPage();
 		expect(document.title).toBe('Playoffs · Courtside');
+		expect(descriptionMeta()).toBe(m.meta_description_playoffs());
 	});
 
 	it('is in Spanish with a Spanish preference', async () => {
@@ -695,8 +704,10 @@ describe('playoffs document title', () => {
 		stubFetch(() => new Promise(() => {}));
 		await renderPage();
 		expect(document.title).toBe('Playoffs · Courtside');
+		expect(descriptionMeta()).toBe(m.meta_description_playoffs());
 		stubFetch(answerWith(picture()));
 		await renderPage();
 		expect(document.title).toBe('Playoffs · Courtside');
+		expect(descriptionMeta()).toBe(m.meta_description_playoffs());
 	});
 });

@@ -21,6 +21,8 @@
 // - CALENDAR_FEED_URL: rejects a relative URL and an absolute URL without {season}
 // - DAY_FEED_URL: accepts an absolute URL with {date}; empty or missing is undefined
 // - DAY_FEED_URL: rejects a relative URL and an absolute URL without {date}
+// - SITE_URL: accepts an https origin; empty or missing is undefined
+// - SITE_URL: rejects a relative URL, an http URL, a trailing slash, a path and a query
 // - SEASON_STANDINGS_FEED_URL, SEASON_TEAM_FEED_URL, SEASON_PLAYER_FEED_URL, SEASON_CUP_FEED_URL,
 //   SEASON_CUP_MATCHUP_FEED_URL, SEASON_PLAYOFFS_FEED_URL, SEASON_PLAYOFFS_FINALS_FEED_URL,
 //   SEASON_ALL_STAR_FEED_URL: accept an absolute URL with
@@ -61,7 +63,8 @@ const validate = (
 		| 'HOME_FEED_URL'
 		| 'POWER_RANKING_FEED_URL'
 		| 'CALENDAR_FEED_URL'
-		| 'DAY_FEED_URL',
+		| 'DAY_FEED_URL'
+		| 'SITE_URL',
 	value: string | undefined
 ): Outcome => (variables[name].schema as unknown as Validator)['~standard'].validate(value);
 
@@ -305,6 +308,40 @@ describe('CALENDAR_FEED_URL', () => {
 			issues: [{ message: 'CALENDAR_FEED_URL must contain {season}' }]
 		});
 	});
+});
+
+describe('SITE_URL', () => {
+	it('accepts an https origin and returns it', () => {
+		expect(validate('SITE_URL', 'https://www.example.com')).toEqual({
+			value: 'https://www.example.com'
+		});
+	});
+
+	it('returns undefined for an empty or missing value', () => {
+		expect(validate('SITE_URL', '')).toEqual({ value: undefined });
+		expect(validate('SITE_URL', undefined)).toEqual({ value: undefined });
+	});
+
+	it('rejects a relative URL', () => {
+		expect(validate('SITE_URL', '/home')).toEqual({
+			issues: [{ message: 'SITE_URL must be an absolute URL' }]
+		});
+	});
+
+	it('rejects an http URL', () => {
+		expect(validate('SITE_URL', 'http://www.example.com')).toEqual({
+			issues: [{ message: 'SITE_URL must start with https://' }]
+		});
+	});
+
+	it.each(['https://www.example.com/', 'https://www.example.com/a', 'https://www.example.com?x=1'])(
+		'rejects %s: not an origin',
+		(value) => {
+			expect(validate('SITE_URL', value)).toEqual({
+				issues: [{ message: 'SITE_URL must be an origin, with no path, query or trailing slash' }]
+			});
+		}
+	);
 });
 
 describe('DAY_FEED_URL', () => {

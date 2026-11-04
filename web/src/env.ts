@@ -275,6 +275,19 @@ export const variables = defineEnvVars({
 			return value;
 		}
 	},
+	SITE_URL: {
+		public: true,
+		static: true,
+		description: "The site's absolute https origin, with no trailing slash, read at build time",
+		schema: (value) => {
+			if (!value) return undefined;
+			if (!URL.canParse(value)) throw new Error('SITE_URL must be an absolute URL');
+			if (!value.startsWith('https://')) throw new Error('SITE_URL must start with https://');
+			if (new URL(value).origin !== value)
+				throw new Error('SITE_URL must be an origin, with no path, query or trailing slash');
+			return value;
+		}
+	},
 	VIDEO_PLATFORM_NAME: {
 		public: true,
 		static: true,

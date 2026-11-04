@@ -828,5 +828,19 @@
 	"power_ranking_show_all": "Ver los {count} equipos",
 	"power_ranking_show_top": "Ver los {count} primeros",
 	"power_ranking_rank_tied": "E{rank}",
-	"power_ranking_details": "Detalle de {team}"
+	"power_ranking_details": "Detalle de {team}",
+	"meta_description_home": "Resultados de la NBA en directo, partidos de hoy, clasificación y líderes de la liga.",
+	"meta_description_standings": "Clasificación de la NBA del Este y del Oeste, temporada a temporada.",
+	"meta_description_cup": "La Copa NBA: clasificación de los grupos, el cuadro eliminatorio y todos los partidos.",
+	"meta_description_playoffs": "Los playoffs de la NBA: el cuadro, todas las series y el camino a las Finales.",
+	"meta_description_series": "Una serie de playoffs de la NBA, partido a partido.",
+	"meta_description_all_star": "All-Star de la NBA: los equipos, las plantillas y todos los partidos del fin de semana.",
+	"meta_description_day": "Todos los partidos de la NBA del día, con resultados y enlaces a cada partido.",
+	"meta_description_team": "La plantilla, el calendario, los resultados y las estadísticas de un equipo de la NBA.",
+	"meta_description_team_named": "{name}: plantilla, calendario, resultados y estadísticas de la temporada.",
+	"meta_description_player": "Promedios de la temporada, partidos y carrera de un jugador de la NBA.",
+	"meta_description_player_named": "{name}: promedios de la temporada, partidos y carrera.",
+	"meta_description_game": "Un partido de la NBA: estadísticas, líderes, comparación de equipos y resúmenes.",
+	"meta_description_game_named": "{away} en {home}: estadísticas, líderes, comparación de equipos y resúmenes.",
+	"meta_image_alt": "El logo y el nombre de Courtside"
 }

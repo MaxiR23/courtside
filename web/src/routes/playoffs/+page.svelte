@@ -1,5 +1,7 @@
 <script lang="ts">
-	import { pageTitle } from '#lib/format/title.ts';
+	import PageMeta from '#lib/components/PageMeta.svelte';
+	import { prerenderedPages } from '#lib/meta/pages.ts';
+	import { canonicalPath } from '#lib/meta/head.ts';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -146,7 +148,11 @@
 	const openSeries = (id: SeriesId) => void goto(seriesHref(id));
 </script>
 
-<svelte:head><title>{pageTitle(m.playoffs_title())}</title></svelte:head>
+<PageMeta
+	title={prerenderedPages['/playoffs'].title()}
+	description={prerenderedPages['/playoffs'].description()}
+	path={canonicalPath(page.url, ['season'])}
+/>
 
 <PlayoffsPage
 	state={pageState}
