@@ -27,8 +27,6 @@
 # code; resolved_color gives one side's color; pair_colors is the pair rule above, which
 # game_accent calls (ADR 0072 reuses them for the playoffs, Finals and Cup feeds).
 #
-# without_identity drops the logo and colors of a side, to store it without them (ADR 0085).
-#
 # with_identities also gives each season row of a player feed one logo per team: the
 # identity's logo of a team only when the row's season code for it equals the team's
 # code (today's code); null for a historical, unknown or unidentified team (ADR 0070).
@@ -125,13 +123,6 @@ def identified[T: BaseModel](team: T, identities: Mapping[str, TeamIdentity]) ->
     if "colors" in fields and not fields["colors"].is_required():
         update["colors"] = None if identity is None else identity.colors
     return team.model_copy(update=update)
-
-
-def without_identity(team: Opponent) -> Opponent:
-    """The side without identity: the logo and colors are added when served."""
-    return Opponent.model_validate(
-        team.model_dump(by_alias=False) | {"logo": None, "colors": None}
-    )
 
 
 def season_logos(

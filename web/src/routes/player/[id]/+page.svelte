@@ -5,25 +5,16 @@
 	import { page } from '$app/state';
 	import type { PageProps } from './$types';
 	import PlayerPage from '#lib/components/PlayerPage.svelte';
-	import {
-		calendarFeedUrl,
-		newsPlayerFeedUrl,
-		playerFeedUrl,
-		seasonPlayerFeedUrl
-	} from '#lib/feed/config.ts';
+	import { calendarFeedUrl, playerFeedUrl, seasonPlayerFeedUrl } from '#lib/feed/config.ts';
 	import {
 		calendarFeedUrl as calendarFeedUrlOf,
 		FeedLoadError,
 		loadCalendarFeed,
-		loadNewsFeed,
 		loadPlayerFeed,
-		newsPageUrl,
-		newsPlayerFeedUrl as newsPlayerFeedUrlOf,
 		playerFeedUrl as playerFeedUrlOf,
 		seasonPlayerFeedUrl as seasonPlayerFeedUrlOf
 	} from '#lib/feed/load.ts';
 	import { FeedOnce } from '#lib/feed/once.svelte.ts';
-	import { newsBlock, newsCards, newsContext } from '#lib/feed/news-props.ts';
 	import { toPlayerView } from '#lib/feed/player-props.ts';
 	import { FeedPoller, playerPollInterval } from '#lib/feed/poller.svelte.ts';
 	import { feedSource } from '#lib/feed/source.ts';
@@ -37,7 +28,6 @@
 		seasonOnShow
 	} from '#lib/season/seasons.ts';
 	import { m } from '#lib/paraglide/messages.js';
-	import { getLocale } from '#lib/paraglide/runtime.js';
 	import type { SeasonControl } from '#lib/season/types.ts';
 
 	let { params }: PageProps = $props();
@@ -114,23 +104,7 @@
 		};
 	});
 
-	// The player's news: the current season only, read once, in parallel with the page. News is not
-	// season-scoped, so a past season (or one not yet settled) sends no request.
-	const language = getLocale();
-	const newsTemplate = newsPlayerFeedUrl;
-	const newsUrl = $derived(
-		newsTemplate && shown !== 'pending' && !past
-			? newsPageUrl(newsPlayerFeedUrlOf(newsTemplate, language, params.id), 1)
-			: undefined
-	);
-	const newsSource = $derived(feedSource(newsUrl, (url) => new FeedOnce(() => loadNewsFeed(url))));
-	$effect(() => newsSource?.start());
-	const news = $derived(
-		newsBlock(newsSource, (feed) => newsCards(feed.notes, newsContext(language)))
-	);
-
 	const wide = wideViewport();
-	const noteHref = (id: string) => resolve('/news/[id]', { id });
 	const gameHref = (id: string) => resolve('/game/[id]', { id });
 
 	const title = $derived(
@@ -152,6 +126,4 @@
 	{gameHref}
 	{seasonSelect}
 	{seasonTag}
-	{news}
-	{noteHref}
 />

@@ -25,8 +25,6 @@
 // - calendarFeedUrl and dayFeedUrl put the encoded season or date in place of every placeholder
 // - loadCalendarFeed and loadDayFeed return the feed, report a 404 as not-found, a 503 as status, a network failure and a bad shape as body
 // - seasonStandingsFeedUrl, seasonTeamFeedUrl, seasonPlayerFeedUrl and seasonCupMatchupFeedUrl put the season and the encoded code or id in place of every placeholder
-// - the news URL helpers fill and encode their placeholders and keep {page} for newsPageUrl
-// - loadNewsFeed and loadNewsArticleFeed return the feed, report a 404 as not-found, a 503 as status, a network failure and a bad shape as body
 //
 // What is covered:
 // - Happy path and every failure the page treats as "data unavailable"
@@ -60,15 +58,7 @@ import {
 	calendarFeedUrl,
 	dayFeedUrl,
 	loadCalendarFeed,
-	loadDayFeed,
-	loadNewsFeed,
-	loadNewsArticleFeed,
-	newsFeedUrl,
-	newsTeamFeedUrl,
-	newsPlayerFeedUrl,
-	newsGameFeedUrl,
-	newsArticleFeedUrl,
-	newsPageUrl
+	loadDayFeed
 } from '../../../src/lib/feed/load';
 
 import {
@@ -1010,103 +1000,5 @@ describe('feed request timeout', () => {
 		});
 		await vi.advanceTimersByTimeAsync(15_000);
 		await expectation;
-	});
-});
-
-describe('news URL helpers', () => {
-	it('fill the language and keep {page} for newsPageUrl', () => {
-		const league = newsFeedUrl('https://feeds.example.com/news/{lang}/pages/{page}.json', 'es');
-		expect(league).toBe('https://feeds.example.com/news/es/pages/{page}.json');
-		expect(newsPageUrl(league, 3)).toBe('https://feeds.example.com/news/es/pages/3.json');
-	});
-
-	it('fill and encode the code, the id and the language', () => {
-		expect(
-			newsTeamFeedUrl('https://x.example.com/{lang}/teams/{code}/{page}.json', 'en', 'a/b')
-		).toBe('https://x.example.com/en/teams/a%2Fb/{page}.json');
-		expect(
-			newsPlayerFeedUrl('https://x.example.com/{lang}/players/{id}/{page}.json', 'en', '1 2')
-		).toBe('https://x.example.com/en/players/1%202/{page}.json');
-		expect(newsGameFeedUrl('https://x.example.com/{lang}/games/{id}.json', 'es', '0022?')).toBe(
-			'https://x.example.com/es/games/0022%3F.json'
-		);
-		expect(newsArticleFeedUrl('https://x.example.com/{lang}/articles/{id}.json', 'es', 'a#b')).toBe(
-			'https://x.example.com/es/articles/a%23b.json'
-		);
-	});
-});
-
-describe.each([
-	{
-		name: 'loadNewsFeed',
-		load: loadNewsFeed,
-		ok: { page: 1, hasMore: false, notes: [] },
-		bad: { page: 1, hasMore: false }
-	},
-	{
-		name: 'loadNewsArticleFeed',
-		load: loadNewsArticleFeed,
-		ok: { note: null, game: null },
-		bad: { game: null }
-	}
-])('$name', ({ load, ok, bad }) => {
-	const URL_NEWS = 'https://feeds.example.com/news.json';
-	const at = (answer: () => Promise<Response>) => fetchAt(URL_NEWS, answer);
-
-	it('returns the parsed feed', async () => {
-		await expect(
-			load(
-				URL_NEWS,
-				at(() => json(ok))
-			)
-		).resolves.toEqual(ok);
-	});
-
-	it('reports a 404 as not-found and a 503 as status', async () => {
-		await expect(
-			load(
-				URL_NEWS,
-				at(() => json({}, 404))
-			)
-		).rejects.toMatchObject({
-			reason: 'not-found'
-		});
-		await expect(
-			load(
-				URL_NEWS,
-				at(() => json({}, 503))
-			)
-		).rejects.toMatchObject({
-			reason: 'status'
-		});
-	});
-
-	it('reports a network failure', async () => {
-		const fetchFn = at(() => Promise.reject(new TypeError('Failed to fetch')));
-		await expect(load(URL_NEWS, fetchFn)).rejects.toMatchObject({ reason: 'network' });
-	});
-
-	it('reports a body of the wrong shape', async () => {
-		await expect(
-			load(
-				URL_NEWS,
-				at(() => json(bad))
-			)
-		).rejects.toMatchObject({ reason: 'body' });
-		await expect(
-			load(
-				URL_NEWS,
-				at(() => json(null))
-			)
-		).rejects.toMatchObject({ reason: 'body' });
-	});
-});
-
-describe('loadNewsFeed shape', () => {
-	it('needs a boolean hasMore', async () => {
-		const fetchFn = fetchAt('https://feeds.example.com/n.json', () => json({ notes: [] }));
-		await expect(loadNewsFeed('https://feeds.example.com/n.json', fetchFn)).rejects.toMatchObject({
-			reason: 'body'
-		});
 	});
 });

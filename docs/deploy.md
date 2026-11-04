@@ -170,12 +170,7 @@ from the operator's machine.
    `SEASON_CUP_MATCHUP_FEED_URL=https://www.example.com/api/feeds/seasons/{season}/cup/matchups/{slot}.json`,
    `SEASON_PLAYOFFS_FEED_URL=https://www.example.com/api/feeds/seasons/{season}/playoffs.json`,
    `SEASON_PLAYOFFS_FINALS_FEED_URL=https://www.example.com/api/feeds/seasons/{season}/playoffs/finals.json`,
-   `SEASON_ALL_STAR_FEED_URL=https://www.example.com/api/feeds/seasons/{season}/all-star.json`,
-   `NEWS_FEED_URL=https://www.example.com/api/feeds/news/{lang}/pages/{page}.json`,
-   `NEWS_TEAM_FEED_URL=https://www.example.com/api/feeds/news/{lang}/teams/{code}/pages/{page}.json`,
-   `NEWS_PLAYER_FEED_URL=https://www.example.com/api/feeds/news/{lang}/players/{id}/pages/{page}.json`,
-   `NEWS_GAME_FEED_URL=https://www.example.com/api/feeds/news/{lang}/games/{id}.json`,
-   `NEWS_ARTICLE_FEED_URL=https://www.example.com/api/feeds/news/{lang}/articles/{id}.json` and
+   `SEASON_ALL_STAR_FEED_URL=https://www.example.com/api/feeds/seasons/{season}/all-star.json` and
    `VIDEO_PLATFORM_NAME`.
 
    The URLs must point at the Vercel site's forwarded paths,
@@ -195,8 +190,6 @@ from the operator's machine.
 - `/playoffs/series`
 - `/all-star`
 - `/all-star/previous`
-- `/news`
-- `/news/*`
 - `/day/*`
 - `/game/*`
 - `/player/*`
@@ -227,15 +220,6 @@ Without `HIGHLIGHTS_SEARCH_API_URL` no on-demand highlights search runs.
 ### Upgrade note: visitor rate limit
 
 `RATE_LIMIT_PER_MINUTE` in `api/.env` is optional. Its default is 120 feed requests per visitor per minute, and 0 turns the limit off. The visitor is read from `x-real-ip`, which Vercel sends; a request without it is keyed on its connection address, which behind Caddy is the proxy's. Every visitor then shares one limit and the polled pages get 429. The front door must forward `x-real-ip` to the API; if it does not (check after the first deploy with `deploy/vercel.json`), set `RATE_LIMIT_PER_MINUTE=0`.
-
-### Upgrade note: news
-
-The deployed `api/.env` changes with this upgrade (see `api/.env.example`):
-
-- Add `NEWS_URL`, the league news list. Set its value on the server only.
-- Add `NEWS_ENABLED`. `true` turns News on; empty or `false` keeps it off, and while it is off every news feed answers 404 and no news request is sent.
-
-Turning News off is `NEWS_ENABLED=false` and a restart of the API, with no code change and no web deploy. The upgrade adds four tables to the state database (migration 15), additive and with no data change.
 
 ## Change to a feed's shape
 

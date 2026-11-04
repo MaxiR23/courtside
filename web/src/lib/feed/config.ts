@@ -7,11 +7,6 @@ import {
 	GAME_DETAIL_FEED_URL,
 	GAMES_FEED_URL,
 	HOME_FEED_URL,
-	NEWS_ARTICLE_FEED_URL,
-	NEWS_FEED_URL,
-	NEWS_GAME_FEED_URL,
-	NEWS_PLAYER_FEED_URL,
-	NEWS_TEAM_FEED_URL,
 	PLAYER_FEED_URL,
 	PLAYOFFS_FEED_URL,
 	PLAYOFFS_FINALS_FEED_URL,
@@ -54,9 +49,4 @@ export const seasonCupMatchupFeedUrl: string | undefined = SEASON_CUP_MATCHUP_FE
 export const seasonPlayoffsFeedUrl: string | undefined = SEASON_PLAYOFFS_FEED_URL;
 export const seasonPlayoffsFinalsFeedUrl: string | undefined = SEASON_PLAYOFFS_FINALS_FEED_URL;
 export const seasonAllStarFeedUrl: string | undefined = SEASON_ALL_STAR_FEED_URL;
-export const newsFeedUrl: string | undefined = NEWS_FEED_URL;
-export const newsTeamFeedUrl: string | undefined = NEWS_TEAM_FEED_URL;
-export const newsPlayerFeedUrl: string | undefined = NEWS_PLAYER_FEED_URL;
-export const newsGameFeedUrl: string | undefined = NEWS_GAME_FEED_URL;
-export const newsArticleFeedUrl: string | undefined = NEWS_ARTICLE_FEED_URL;
 export const videoPlatformName: string | undefined = VIDEO_PLATFORM_NAME;

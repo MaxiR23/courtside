@@ -11,7 +11,6 @@
 # - The builder leaves the box score, team stats and win probability null when the sections lack them
 # - A side by a known id keeps its standard code and the event's name and city, and an unknown id is a guest
 # - The builder fails for a game that is not final and for sections without a season, and wraps an invalid feed
-# - The kind: past_game returns the final game of a stored day and None for a game that is not final or not stored, reading no source
 # - The kind: a final game of a stored day is known; an id in no day, a postponed game of a stored day and an unsafe id are unknown with no source request
 # - The kind: a newly published day feed's final games are found, a day stored before startup is indexed at startup, and an unknown id is answered without reading any day feed file (ADR 0066)
 # - The kind: a registered game with no stored day is known and builds its day first, one the day does not list as final fails the build, and an id neither stored nor registered stays unknown (ADR 0053)
@@ -394,20 +393,6 @@ async def test_a_final_game_of_a_stored_day_is_known_and_any_other_id_is_unknown
         assert kit.past_kind.check(unknown) is IdStatus.UNKNOWN
         with pytest.raises(UnknownFeedError):
             await kit.cache.serve(KIND, unknown)
-    assert kit.section_calls == []
-
-
-@pytest.mark.anyio
-async def test_past_game_returns_the_final_game_of_a_stored_day_and_none_otherwise(
-    kit: PastKit,
-) -> None:
-    await kit.store_day(game("1", GameStatus.FINAL), game("2", GameStatus.POSTPONED))
-
-    found = kit.past_kind.past_game("1")
-
-    assert found is not None and found.id == "1"
-    assert kit.past_kind.past_game("2") is None
-    assert kit.past_kind.past_game("nowhere") is None
     assert kit.section_calls == []
 
 

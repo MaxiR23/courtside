@@ -20,7 +20,6 @@
 // - Calendar 503 or no calendar URL: the current season and no select
 // - The select lists the right seasons and navigates with goto; Spanish
 // - The unavailable state of a past season keeps the Season tag (ADR 0054)
-// - The team's news: the News tab and section last when notes load; none on a 404, an empty page or a failure; none and no request on a past season; the Spanish path
 // - The document title is the team name then the site name, in English and Spanish; Courtside while loading and on a 404; the loading title in English and Spanish
 //
 // What is covered:
@@ -60,10 +59,7 @@ vi.mock('$app/navigation', async (importOriginal) => ({
 	goto: seasonMocks.goto
 }));
 
-const config = vi.hoisted(() => ({
-	url: undefined as string | undefined,
-	newsUrl: undefined as string | undefined
-}));
+const config = vi.hoisted(() => ({ url: undefined as string | undefined }));
 vi.mock('../../../../src/lib/feed/config', () => ({
 	get calendarFeedUrl() {
 		return seasonMocks.calendar;
@@ -73,9 +69,6 @@ vi.mock('../../../../src/lib/feed/config', () => ({
 	},
 	get teamFeedUrl() {
 		return config.url;
-	},
-	get newsTeamFeedUrl() {
-		return config.newsUrl;
 	}
 }));
 
@@ -127,7 +120,6 @@ beforeEach(() => {
 	vi.useFakeTimers();
 	vi.setSystemTime(new Date('2026-10-07T23:30:00Z'));
 	config.url = TEMPLATE;
-	config.newsUrl = undefined;
 });
 
 afterEach(() => {
@@ -656,86 +648,5 @@ describe('team page, when the code changes', () => {
 		const urls = fetchMock.mock.calls.map((call) => call[0]);
 		expect(urls).not.toContain(feedUrl('okc'));
 		expect(urls).toContain(feedUrl('den'));
-	});
-});
-
-const NEWS_TEMPLATE = 'https://feeds.example.com/news/{lang}/teams/{code}/pages/{page}.json';
-const newsUrl = (lang = 'en') => `https://feeds.example.com/news/${lang}/teams/okc/pages/1.json`;
-const newsFeed = () => JSON.parse(readFileSync(join(fixtures, 'news.json'), 'utf8'));
-
-describe('team news', () => {
-	beforeEach(() => {
-		config.newsUrl = NEWS_TEMPLATE;
-	});
-
-	const tabs = () =>
-		[...screen.getByRole('navigation', { name: 'Sections' }).querySelectorAll('a')].map(
-			(a) => a.textContent
-		);
-
-	it('adds the News tab and a last News section with the newest note as the feature', async () => {
-		stubRoutes({ [CURRENT_URL]: [answerWith(recorded())], [newsUrl()]: [answerJson(newsFeed())] });
-		const { container } = await renderPage();
-		expect(tabs().at(-1)).toBe('News');
-		const sections = [...container.querySelectorAll('.sections > section')];
-		expect(sections.at(-1)?.id).toBe('news');
-		const links = [...(sections.at(-1) as Element).querySelectorAll('a')].map((a) =>
-			a.getAttribute('href')
-		);
-		expect(links).toHaveLength(12);
-		expect(links[0]).toBe('/news/note-01');
-	});
-
-	it.each([
-		['a 404', [answerStatus(404)]],
-		['a 503', [answerStatus(503)]],
-		['a network failure', [answerFailing]],
-		['an empty page', [answerJson({ page: 1, hasMore: false, notes: [] })]]
-	])('draws no News tab, section or link on %s', async (_name, news) => {
-		stubRoutes({ [CURRENT_URL]: [answerWith(recorded())], [newsUrl()]: news as Answer[] });
-		const { container } = await renderPage();
-		expect(tabs()).not.toContain('News');
-		expect(container.querySelector('#news')).toBeNull();
-		expect(container.querySelector('a[href^="/news"]')).toBeNull();
-	});
-
-	it('draws a news section with no tab while the notes load', async () => {
-		stubRoutes({ [CURRENT_URL]: [answerWith(recorded())], [newsUrl()]: [never] });
-		const { container } = await renderPage();
-		expect(tabs()).not.toContain('News');
-		expect(container.querySelector('#news')?.getAttribute('aria-busy')).toBe('true');
-	});
-
-	it('sends no news request for a past season', async () => {
-		seasonMocks.calendar = CAL_TEMPLATE;
-		seasonMocks.past = PAST_TEMPLATE;
-		stubRoutes({
-			[CAL_URL]: [answerJson(calendarFeed())],
-			[pastUrl(2005)]: [answerJson(pastRecorded())]
-		});
-		const { container } = await renderSeason('?season=2005');
-		expect(calls).toEqual([CAL_URL, pastUrl(2005)]);
-		expect(container.querySelector('#news')).toBeNull();
-		seasonMocks.calendar = undefined;
-		seasonMocks.past = undefined;
-		seasonMocks.url = new URL('http://localhost/');
-	});
-
-	it('requests the Spanish path in Spanish', async () => {
-		preferLanguages(['es']);
-		stubRoutes({
-			[CURRENT_URL]: [answerWith(recorded())],
-			[newsUrl('es')]: [answerJson(newsFeed())]
-		});
-		await renderPage();
-		expect(calls).toContain(newsUrl('es'));
-	});
-
-	it('requests no news with no news URL', async () => {
-		config.newsUrl = undefined;
-		stubRoutes({ [CURRENT_URL]: [answerWith(recorded())] });
-		const { container } = await renderPage();
-		expect(calls).toEqual([CURRENT_URL]);
-		expect(container.querySelector('#news')).toBeNull();
 	});
 });

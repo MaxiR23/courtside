@@ -25,9 +25,6 @@
 # - A team and a player request record presence
 # - Serves the home feed with Cache-Control and ETag, answers 304 for a matching ETag, 503 while the season is not known, keeps serving the stored feed when a rebuild fails and answers 200 with a null next game when the scoreboard read fails
 # - Serves the power ranking feed with Cache-Control and ETag, answers 304 for a matching ETag, 503 while the season is not known and keeps serving the stored feed when a rebuild fails
-# - Serves each of the five news routes (league, team and player pages, game recap and article) with Cache-Control and ETag and answers 304 for a matching ETag
-# - Responds 404 on all five news routes with News off and no source request
-# - Responds 404 for a news language other than en or es, page 0, page 01, an uppercase team code and an unknown article, and 503 for a player page before the rosters
 # - Serves the standings feed with Cache-Control and ETag, answers 304 for a matching ETag, 503 when the read fails with nothing stored and keeps serving the stored feed when a rebuild fails
 # - Serves the search feed with Cache-Control and ETag, with 30 teams and every roster player, and answers 304 for a matching ETag
 # - Responds 503 with a JSON error for the search feed before the rosters are fetched or when the standings read fails with nothing stored, and keeps serving the stored feed when a rebuild fails
@@ -82,7 +79,6 @@ import datetime as dt
 import hashlib
 from collections.abc import Iterator
 from pathlib import Path
-from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
@@ -109,8 +105,6 @@ from app.jobs.day_feed import KIND as DAY_KIND
 from app.jobs.day_feed import build_day_feed
 from app.jobs.game_detail_feed import GameDetailFeeds
 from app.jobs.games import GamesJob
-from app.jobs.news_article_feed import NewsArticleFeeds
-from app.jobs.news_recap_feed import NewsRecapFeeds
 from app.jobs.on_demand import MISSING_WAIT_SECONDS, FeedCache, FeedKind, IdStatus
 from app.jobs.past_game_detail_feed import KIND as PAST_KIND
 from app.jobs.past_game_detail_feed import PastGameDetailFeeds
@@ -141,10 +135,6 @@ from tests.jobs.test_day_feed import NOW as DAY_NOW
 from tests.jobs.test_day_feed import PAST, DayKit, search_url
 from tests.jobs.test_day_feed import game as day_game
 from tests.jobs.test_home_feed import HomeKit
-from tests.jobs.test_news_feed import NewsKit
-from tests.jobs.test_news_feed import load as news_load
-from tests.jobs.test_news_feed import note as news_note
-from tests.jobs.test_news_recap_feed import game as news_game_of
 from tests.jobs.test_past_game_detail_feed import PastKit
 from tests.jobs.test_player_feed import PlayerKit, player
 from tests.jobs.test_playoffs_feed import (
@@ -2456,134 +2446,3 @@ def test_responds_503_when_a_past_all_star_build_fails_with_nothing_stored(
     assert response.status_code == 503
     assert isinstance(response.json()["detail"], str)
     assert season_all_star.kit.stored_feed() is None
-
-
-NEWS_URLS = [
-    "/feeds/news/en/pages/1.json",
-    "/feeds/news/es/pages/1.json",
-    "/feeds/news/en/teams/bos/pages/1.json",
-    "/feeds/news/en/players/111/pages/1.json",
-    "/feeds/news/en/games/401.json",
-    "/feeds/news/en/articles/9001.json",
-]
-
-
-class News:
-    """An app with the feeds router and the three news kinds over the news kit."""
-
-    def __init__(self, path: Path, *, enabled: bool = True) -> None:
-        self.kit = NewsKit(path, enabled=enabled)
-        self.summary = respx.get(
-            url__startswith="https://example.com/summary/"
-        ).respond(json=news_load("summary-recap-en.json"))
-        self.games = SimpleNamespace(
-            loaded_game=lambda game_id: (
-                news_game_of("401") if game_id == "401" else None
-            ),
-            shown_games=list,
-        )
-        self.past = SimpleNamespace(past_game=lambda game_id: None)
-        NewsRecapFeeds(
-            self.kit.settings,
-            self.kit.store,
-            self.kit.client,
-            self.kit.cache,
-            cast(GamesJob, self.games),
-            cast(PastGameDetailFeeds, self.past),
-        )
-        NewsArticleFeeds(
-            self.kit.settings,
-            self.kit.store,
-            self.kit.cache,
-            cast(GamesJob, self.games),
-            cast(PastGameDetailFeeds, self.past),
-        )
-        self.kit.store.add_news_notes([news_note("9001", 4)], self.kit.clock[0])
-        self.app = FastAPI()
-        self.app.include_router(feeds_router.router)
-        self.app.state.settings = self.kit.settings
-        self.app.state.presence = Presence(clock=lambda: self.kit.clock[0])
-        self.app.state.feed_cache = self.kit.cache
-
-    def source_requests(self) -> int:
-        return len(self.kit.requests) + self.summary.call_count
-
-
-@pytest.fixture
-def news(tmp_path: Path) -> Iterator[News]:
-    with respx.mock:
-        yield News(tmp_path)
-
-
-@pytest.mark.parametrize("url", NEWS_URLS)
-def test_serves_each_news_route_with_cache_control_and_an_etag(
-    news: News, url: str
-) -> None:
-    with TestClient(news.app) as client:
-        response = client.get(url)
-
-    assert response.status_code == 200
-    assert response.headers["content-type"] == "application/json"
-    assert response.headers["cache-control"] == CACHE_CONTROL
-    etag = response.headers["etag"]
-    assert etag.startswith('"') and etag.endswith('"')
-
-
-@pytest.mark.parametrize("url", NEWS_URLS)
-def test_responds_304_when_a_news_etag_matches(news: News, url: str) -> None:
-    with TestClient(news.app) as client:
-        first = client.get(url)
-
-        response = client.get(url, headers={"If-None-Match": first.headers["etag"]})
-
-    assert response.status_code == 304
-    assert response.content == b""
-
-
-@pytest.mark.parametrize("url", NEWS_URLS)
-def test_responds_404_on_every_news_route_with_news_off_and_sends_no_request(
-    tmp_path: Path, url: str
-) -> None:
-    with respx.mock:
-        off = News(tmp_path, enabled=False)
-        with TestClient(off.app) as client:
-            response = client.get(url)
-
-        assert response.status_code == 404
-        assert isinstance(response.json()["detail"], str)
-        assert off.source_requests() == 0
-
-
-@pytest.mark.parametrize(
-    "url",
-    [
-        "/feeds/news/fr/pages/1.json",
-        "/feeds/news/en/pages/0.json",
-        "/feeds/news/en/pages/01.json",
-        "/feeds/news/en/pages/2.json",
-        "/feeds/news/en/teams/BOS/pages/1.json",
-        "/feeds/news/en/teams/zzz/pages/1.json",
-        "/feeds/news/en/players/999/pages/1.json",
-        "/feeds/news/en/games/999.json",
-        "/feeds/news/en/articles/1234.json",
-        "/feeds/news/es/articles/9001.json",
-    ],
-)
-def test_responds_404_for_a_news_id_that_does_not_exist_with_no_source_request(
-    news: News, url: str
-) -> None:
-    with TestClient(news.app) as client:
-        response = client.get(url)
-
-    assert response.status_code == 404
-    assert news.source_requests() == 0
-
-
-def test_responds_503_for_a_news_player_page_before_the_rosters(news: News) -> None:
-    news.kit.stars.ready = False
-    with TestClient(news.app) as client:
-        response = client.get("/feeds/news/en/players/999/pages/1.json")
-
-    assert response.status_code == 503
-    assert isinstance(response.json()["detail"], str)
-    assert news.source_requests() == 0

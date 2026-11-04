@@ -197,11 +197,6 @@ class PastGameDetailFeeds:
             None,
         )
 
-    def past_game(self, game_id: str) -> PastGame | None:
-        """The final game of a stored day feed of the current rules, or None.
-        Reads no source."""
-        return self._past_game(game_id)
-
     def check(self, game_id: str) -> IdStatus:
         if GAME_ID.fullmatch(game_id) is None:
             return IdStatus.UNKNOWN

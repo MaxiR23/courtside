@@ -147,8 +147,6 @@ Cross-cutting tests at the root of `web/tests/` keep a shared piece the only own
 | `section-head-is-the-one-section-title.test.ts` | The section title: only `SectionHead` styles an `h2` or reads a section title size. |
 | `initials-is-the-one-rule.test.ts` | The initials rule: only `format/initials.ts` declares an initials function. Scans `web/src/lib` only. |
 | `feed-source-follows-its-url.test.ts` | The feed source of a route: no `new FeedPoller`, `FeedOnce`, `GamesFeedPoller` or `DayLoader` in `web/src/routes` takes a closure that reads `params`. Scans `web/src/routes` only. |
-| `news-links-stay-in-the-site.test.ts` | The news links: every `href` in the news components and the two news routes is built from a prop or `resolve`, and none has `target` or `rel="external"`. |
-| `news-card-is-the-one-note.test.ts` | The note: only `NewsCard` and `NewsArticlePage` import `NewsPhoto` and `NewsTags`, and no other file that handles a note card draws an image or its headline. |
 | `sticky-bar-is-the-one-stuck-state.test.ts` | The mini text and the stuck bar: `SectionTabs` shows the mini score or text only from `stickyBar.stuck` and has no prop or branch that shows it otherwise; only `web/src/lib/scroll/scrolled-past.svelte.ts` builds the sticky bar state, only `SectionTabs` registers the bar and draws the mini; every `<SectionTabs>` in `web/src/lib/components` and `web/src/routes` passes `layout` and no element to watch; nothing outside the shared module and `SectionTabs` names the tab bar's class, and `web/src/lib/player/scroll-fade.ts` reads the bar's bottom edge from `stickyBar.bottom` with no element lookup. |
 
 ## TDD workflow
