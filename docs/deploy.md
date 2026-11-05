@@ -38,6 +38,35 @@ All domains below are placeholders.
   `AWS-StartSSHSession` document (`arn:aws:ssm:*:*:document/AWS-StartSSHSession`)
   ([SSH through Session Manager](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-getting-started-enable-ssh-connections.html)).
 
+#### Least-privilege operator
+
+This policy is needed only when the operator's identity lacks these
+permissions. An operator signed in with full account access needs nothing
+extra. It is the allow policy from the official AWS page
+[Allow and control permissions for SSH connections through Session Manager](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-getting-started-enable-ssh-connections.html),
+with placeholders:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "ssm:StartSession",
+      "Resource": [
+        "arn:aws:ec2:<region>:<account-id>:instance/i-0123456789abcdef0",
+        "arn:aws:ssm:*:*:document/AWS-StartSSHSession"
+      ]
+    },
+    {
+      "Effect": "Allow",
+      "Action": "ssmmessages:OpenDataChannel",
+      "Resource": "arn:aws:ssm:*:*:session/${aws:userid}-*"
+    }
+  ]
+}
+```
+
 ### Alternative: a domain with a certificate
 
 The same, with ports 80 and 443 (TCP) and 443 (UDP) open, and a DNS record of
