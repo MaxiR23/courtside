@@ -1,6 +1,6 @@
 <script lang="ts">
-	// The hero's right column: one card for the slide on screen, with the side's glows, its faded logo,
-	// its tricode and its star's cutout, and a strip with the team mark, the player and the team.
+	// The hero's right column: one card for the slide on screen, with the side's glows, its faded logo
+	// and its star's cutout, and a strip with the team mark, the player and the team.
 	// A side with no accent uses the neutral one; a side with no logo shows its monogram.
 	// SEE: docs/design-team-identity.md
 	import type { ResolvedPathname } from '$app/types';
@@ -42,7 +42,7 @@
 		outDurationToken: '--hero-crossfade-out-duration'
 	});
 
-	// The logo and the tricode settle the same way, over the identity duration.
+	// The logo settles the same way, over the identity duration.
 	const settleFade = (isActive: boolean): CrossfadeParams => ({
 		active: isActive,
 		hidden: (read) => ({
@@ -51,19 +51,6 @@
 		}),
 		shown: { opacity: 1, transform: 'translateX(-50%)' },
 		durationToken: '--identity-settle-duration'
-	});
-
-	// The light outline shows only on the settled photo: it drops when the change starts
-	// and fades back once the incoming photo has settled.
-	const outlineFade = (isActive: boolean): CrossfadeParams => ({
-		active: isActive,
-		hidden: (read) => ({
-			filter: `${read('--hero-cutout-outline-off')} ${read('--hero-cutout-shade')}`
-		}),
-		shown: { filter: 'var(--hero-cutout-filter)' },
-		durationToken: '--hero-crossfade-duration',
-		delayToken: '--hero-crossfade-duration',
-		instantOut: true
 	});
 
 	const side = $derived(sides[active]);
@@ -104,9 +91,6 @@
 								<TeamMark team={s} part="tile" size="fill" logo={s.logo} />
 							</div>
 						</div>
-						<div class="tricode" aria-hidden="true" use:crossfade={settleFade(index === active)}>
-							{s.code}
-						</div>
 						<div
 							class="cutout"
 							class:active={index === active}
@@ -120,8 +104,6 @@
 								<img
 									src={s.star.photo}
 									alt={fullName(s.star)}
-									loading="lazy"
-									use:crossfade={outlineFade(index === active)}
 									onerror={() => (failed[s.star.photo] = true)}
 								/>
 							{/if}
@@ -190,6 +172,8 @@
 		position: absolute;
 		inset: 0;
 		opacity: 0;
+		-webkit-mask-image: var(--hero-slide-mask);
+		mask-image: var(--hero-slide-mask);
 	}
 
 	.slide.active {
@@ -208,42 +192,27 @@
 		pointer-events: none;
 	}
 
-	.logo-layer,
-	.tricode {
+	.logo-layer {
 		position: absolute;
 		left: 50%;
 		transform: translateX(-50%) translateY(var(--hero-slide-offset)) scale(var(--hero-slide-scale));
 		transform-origin: bottom center;
 		opacity: 0;
 		pointer-events: none;
-	}
-
-	.slide.active .logo-layer,
-	.slide.active .tricode {
-		transform: translateX(-50%);
-		opacity: 1;
-	}
-
-	.logo-layer {
 		top: var(--identity-card-logo-top);
 		width: var(--identity-card-logo-width);
 		aspect-ratio: 1;
+	}
+
+	.slide.active .logo-layer {
+		transform: translateX(-50%);
+		opacity: 1;
 	}
 
 	.logo-fade {
 		width: 100%;
 		height: 100%;
 		opacity: var(--identity-card-logo-opacity);
-	}
-
-	.tricode {
-		bottom: var(--identity-tricode-bottom);
-		font-family: var(--font-heading);
-		font-weight: var(--font-weight-bold);
-		font-size: var(--identity-tricode-size);
-		line-height: var(--identity-tricode-leading);
-		white-space: nowrap;
-		color: var(--side-accent);
 	}
 
 	.cutout {
@@ -265,13 +234,7 @@
 		display: block;
 		width: 100%;
 		clip-path: var(--hero-cutout-clip);
-		filter: var(--hero-cutout-outline-off) var(--hero-cutout-shade);
-		-webkit-mask-image: var(--hero-cutout-mask);
-		mask-image: var(--hero-cutout-mask);
-	}
-
-	.cutout.active img {
-		filter: var(--hero-cutout-filter);
+		filter: var(--hero-cutout-shade);
 	}
 
 	.cutout-placeholder {

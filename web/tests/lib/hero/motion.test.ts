@@ -8,7 +8,6 @@
 // - crossfade animates only when the active state changes
 // - crossfade delays by its delay token and holds the hidden look during the delay
 // - crossfade fades out over its out duration token when given
-// - crossfade with instantOut skips the fade out and cancels a running fade in
 //
 // What is covered:
 // - Happy path, reduced motion, missing animation support
@@ -157,35 +156,6 @@ describe('crossfade', () => {
 			(call) => (call as unknown as [Keyframe[], KeyframeAnimationOptions])[1].duration
 		);
 		expect(durations).toEqual([100, 500]);
-	});
-
-	it('does not animate a fade out with instantOut, and cancels the running fade in', () => {
-		reducedMotion(false);
-		const { node, animate } = fakeNode();
-		const cancel = vi.fn();
-		animate.mockImplementation(() => ({ cancel }));
-		const instant = (active: boolean) => ({ ...params(active), instantOut: true });
-		const action = crossfade(node, instant(false));
-		action.update(instant(true));
-		expect(animate).toHaveBeenCalledTimes(1);
-		action.update(instant(false));
-		expect(animate).toHaveBeenCalledTimes(1);
-		expect(cancel).toHaveBeenCalledTimes(1);
-	});
-
-	it('still animates a fade in with instantOut and holds the hidden look during its delay', () => {
-		reducedMotion(false);
-		const { node, animate } = fakeNode();
-		const instant = (active: boolean) => ({
-			...params(active),
-			instantOut: true,
-			delayToken: '--hero-delay-tag'
-		});
-		const action = crossfade(node, instant(false));
-		action.update(instant(true));
-		const [, options] = animate.mock.calls[0] as unknown as [Keyframe[], KeyframeAnimationOptions];
-		expect(options.delay).toBe(100);
-		expect(options.fill).toBe('backwards');
 	});
 
 	it('does not animate with reduced motion', () => {

@@ -10,7 +10,7 @@
 // - Both headline team names link to the team page
 // - Delayed status in the status tag; Match details receives the game on screen
 // - Slide selectors: start on the away star, jump on click, advance after 5 seconds with autoplay and restart the wait on a click
-// - The away and home logos in the title and the selectors; the tricode, the background word and the card layers of the active side
+// - The away and home logos in the title and the selectors; the background word and the card layers of the active side (no tricode)
 // - A side with no logo and no accent shows the monogram and the neutral accent
 // - A new featured game starts at its away slide; a games prop of another length resets to the first game
 // - Reduced motion: no animated track fill, and a click still changes the slide
@@ -22,7 +22,7 @@
 // - A delayed game reads "Scheduled" with the tip time and arena in the kicker, in English and Spanish
 // - While the first feed loads: the skeleton of both columns, busy and hidden from assistive tech, gone once there is a game, shimmering unless motion is reduced
 // - Shows the copy in Spanish with a Spanish browser preference
-// - Photo change: the outgoing cutout fades out over the shorter token, its outline drops at once, the incoming outline returns after the settle; logo and tricode keep their timing
+// - Photo change: the outgoing cutout fades out over the shorter token, the incoming one rises; no filter animates on the photos; the logo keeps its timing
 // - A day with no games and a noGames view: the nav row and the no-games title, with no slide selector, position or timer; the skeleton still comes first while loading
 // - The slide indicator is out of a text selection and the title stays selectable
 //
@@ -600,12 +600,9 @@ describe('Hero team identity', () => {
 		]);
 	});
 
-	it('renders the tricode, the background word and the card layers of the active side', () => {
+	it('renders the background word and the card layers of the active side, with no tricode', () => {
 		const { container } = render(Hero, { props: baseProps });
-		expect([...container.querySelectorAll('.tricode')].map((t) => t.textContent?.trim())).toEqual([
-			'HBR',
-			'PVO'
-		]);
+		expect(container.querySelectorAll('.tricode')).toHaveLength(0);
 		expect(container.querySelector('.word.active')?.textContent).toBe('Varga');
 		expect(accentOf(container.querySelector('.word.active'))).toBe('#1f6f8b');
 		expect(container.querySelector('.slide:not([aria-hidden]) .logo-layer img')).not.toBeNull();
@@ -725,10 +722,7 @@ describe('Hero photo change', () => {
 		'--hero-crossfade-duration': '1s',
 		'--hero-crossfade-out-duration': '0.15s',
 		'--identity-settle-duration': '1.2s',
-		'--ease': 'linear',
-		'--hero-cutout-outline': 'drop-shadow(0 0 1px red)',
-		'--hero-cutout-outline-off': 'drop-shadow(0 0 0 transparent)',
-		'--hero-cutout-shade': 'drop-shadow(0 30px 30px black) contrast(1.05)'
+		'--ease': 'linear'
 	};
 
 	beforeEach(() => {
@@ -774,28 +768,16 @@ describe('Hero photo change', () => {
 		expect(String(incoming.keyframes[0].transform)).toContain('translateY');
 	});
 
-	it('drops the outline of the outgoing photo at once', async () => {
+	it('animates no filter on either photo during a change', async () => {
 		const { cutouts, on } = await changePhoto();
 		expect(on(cutouts[0].querySelector('img'))).toHaveLength(0);
-		expect(cutouts[0].classList.contains('active')).toBe(false);
+		expect(on(cutouts[1].querySelector('img'))).toHaveLength(0);
 	});
 
-	it('brings the outline back on the incoming photo only after it settles', async () => {
-		const { cutouts, on } = await changePhoto();
-		const [call] = on(cutouts[1].querySelector('img'));
-		expect(call.options.delay).toBe(1000);
-		expect(call.options.fill).toBe('backwards');
-		expect(call.options.duration).toBe(1000);
-		expect(call.keyframes).toEqual([
-			{ filter: 'drop-shadow(0 0 0 transparent) drop-shadow(0 30px 30px black) contrast(1.05)' },
-			{ filter: 'var(--hero-cutout-filter)' }
-		]);
-	});
-
-	it('keeps the logo and the tricode on the identity settle duration', async () => {
+	it('keeps the logo on the identity settle duration', async () => {
 		const { container, calls } = await changePhoto();
 		const settled = calls.filter(
-			(c) => c.target.matches('.logo-layer, .tricode') && container.contains(c.target)
+			(c) => c.target.matches('.logo-layer') && container.contains(c.target)
 		);
 		expect(settled.length).toBeGreaterThan(0);
 		for (const c of settled) expect(c.options.duration).toBe(1200);

@@ -33,7 +33,7 @@ A dark-mode, single-page site with two parts:
 | `PageMeta` | The one per-page head: title, description, canonical, Open Graph and Twitter card from `web/src/lib/meta/head.ts`, or `noindex` alone on `/preview`. It draws nothing visible |
 | `PageHeader` | The one page header: the grid background, the content width and side padding, the nav row, the season selector and the vertical spacing of every page; pages pass the first line, the body, a right column and full-width rows; a parent sets the grid size, gaps, side padding and the sticky nav with token references |
 | `Hero` | The top section, rotating through the games of the day |
-| `HeroPlayerCard` | The hero player card: the player's cutout over the logo, tricode and glow layers, with the player strip, specified in `docs/design-team-identity.md`, "Right column: player card" |
+| `HeroPlayerCard` | The hero player card: the player's cutout over the logo and glow layers, with the player strip, specified in `docs/design-team-identity.md`, "Right column: player card" |
 | `DayStrip` | The 7-day selector |
 | `ScheduleSkeleton` | The schedule's placeholder while the first feed loads: the day strip and game cards |
 | `SkeletonBone` | The one loading skeleton bone: a block in `surface` with square corners; each skeleton gives it its width, height or aspect ratio |
@@ -180,8 +180,8 @@ Controls are not selectable; content is. One rule in `web/src/lib/styles/base.cs
   **Rotation.** The hero goes through the games of the day in feed order, leaving out postponed and canceled games, which stay in the schedule list. Delayed games stay in the rotation. Each game shows its two stars, 5 seconds each, then the next game starts. After the last game it returns to the first. With one game, the hero behaves as a single game: its two stars alternate and the position is not shown. With no games, or when every game of the day is postponed or canceled, the hero shows no game.
 - **Right column:** the image frame, max-width 500px, aspect ratio 4:5. A blueprint frame filled with frame-fill and a 44px grid; the glows are specified in `docs/design-team-identity.md`, "Right column: player card".
   - The star's cutout is a transparent player photo in full color, anchored to the bottom center at **172% of the frame width**, so the head pops out above the frame's top edge. The bottom is clipped with `clip-path: inset(-30% 0 0 0)`.
-  - Image filter: `drop-shadow(0 0 1px rgba(148,188,227,.35)) drop-shadow(0 30px 30px rgba(0,0,0,.7)) contrast(1.05)`.
-  - The bottom fade (a mask on the cutout image, no separate element) and the layers behind the cutout (the glows, the team logo, the tricode) are specified in `docs/design-team-identity.md`, "Right column: player card".
+  - Image filter: `drop-shadow(0 30px 30px rgba(0,0,0,.7)) contrast(1.05)`; the hero draws no light outline on the cutout.
+  - The bottom fade (a mask on each slide, no separate element) and the layers behind the cutout (the glows, the team logo) are specified in `docs/design-team-identity.md`, "Right column: player card".
   - **Player strip:** the hero has no player chip; the strip with the team mark, the player and the team is specified in `docs/design-team-identity.md`, "Home hero", "Right column: player card".
 
 ### 2. Schedule
@@ -321,7 +321,7 @@ The handoff ("Home — No games today") is a reference, not a spec. Where it dif
 | What | How |
 |---|---|
 | Hero entrance | Each block fades in from opacity 0 and translateY(28px). Delays: tag .1s, h1 .2s, blurb .32s, buttons .44s, indicator .6s, each lasting .9 to 1s. The image frame comes in from translateY(60px) scale(.94) over 1.4s, starting at .25s |
-| Hero slide change | Every 5s, and it can be turned off. The card layers cross-fade over 1s; the incoming cutout rises from translateY(24px) scale(.97) over 1s while the outgoing cutout fades out over .15s (`--hero-crossfade-out-duration`), so the two photos are never both visible: their overlap stays below 0.1 effective opacity. The cutout's 1px light outline is only on the settled photo: it drops when the change starts and fades back over 1s once the incoming cutout has settled. The watermark cross-fades over 1.1s. None of this animates under reduced motion |
+| Hero slide change | Every 5s, and it can be turned off. The card layers cross-fade over 1s; the incoming cutout rises from translateY(24px) scale(.97) over 1s while the outgoing cutout fades out over .15s (`--hero-crossfade-out-duration`), so the two photos are never both visible: their overlap stays below 0.1 effective opacity. The watermark cross-fades over 1.1s. None of this animates under reduced motion |
 | Idle float | The image frame bobs translateY 0 to -16px and back over 6s, ease-in-out, looping. The floor shadow scales X from 1 to .82 and opacity from 1 to .6 in sync |
 | Mouse parallax | With the pointer position x and y in [-1, 1] over the hero, the frame tilts `rotateY(x·7deg) rotateX(-y·6deg)` (perspective 1200px, .5s) and the watermark moves `translate(-x·30px, -y·18px)` (.6s). Resets on mouse leave. Skipped on touch devices |
 | Expand and collapse | Grid rows 0fr to 1fr over .55s. The content fades in over .45s with a .12s delay and rises from -10px. The border turns accent and the open tint fades in over .35s. Stat bars grow from 0 to their value over .9s with a .2s delay. Only one card is open at a time |

@@ -8,12 +8,12 @@
 // - Shows the player strip (name, "{City} {Team}" linked to the team page) and switches it with active
 // - Shows a placeholder on a photo error and keeps the other photo; a replaced player shows its photo
 // - Renders photos only for the active and the next slide, and keeps shown ones
-// - Draws the faded team logo and the tricode of each slide, and the strip mark
+// - Draws the faded team logo of each slide and the strip mark; no tricode
 // - Draws the monogram in the logo layer and the strip for a side without a logo
 // - Sets --side-accent on the card and on each slide from the accent, and the neutral accent when null
 // - Draws nothing above the slides but the strip: no scrim element, no scrim rule, no scrim token
-// - Darkens the photo toward the bottom with the cutout mask token, prefixed and unprefixed (source check)
-// - Leaves the inner glow, the tricode and the logo layer unmasked (source check)
+// - Fades the bottom of each slide with the slide mask token, prefixed and unprefixed; no other layer is masked (source check)
+// - Draws the cutout image with the shade filter only, no mask and no active-state filter (source check)
 //
 // What is covered:
 // - Each state of the card and the photo error interaction
@@ -148,6 +148,16 @@ describe('HeroPlayerCard', () => {
 		expect(container.querySelectorAll('.cutout')).toHaveLength(6);
 	});
 
+	it('does not lazy-load the cutout photo', () => {
+		// A lazy image under the slide mask is never loaded by the browser.
+		const { container } = render(HeroPlayerCard, {
+			props: { teamHref, sides: [away], active: 0 }
+		});
+		const img = container.querySelector('.cutout img');
+		expect(img).not.toBeNull();
+		expect(img?.hasAttribute('loading')).toBe(false);
+	});
+
 	it("shows the new player's photo after a failed photo is replaced", async () => {
 		const { rerender } = render(HeroPlayerCard, { props });
 		await fireEvent.error(screen.getByAltText('Ines Varga'));
@@ -159,16 +169,14 @@ describe('HeroPlayerCard', () => {
 		expect(screen.getByAltText('Mira Holt').getAttribute('src')).toBe('/replacement.svg');
 	});
 
-	it('draws the faded team logo and the tricode of each slide', () => {
+	it('draws the faded team logo of each slide and no tricode', () => {
 		const { container } = render(HeroPlayerCard, { props });
 		const slides = container.querySelectorAll('.slide');
 		expect(slides[0].querySelector('.logo-layer img')?.getAttribute('src')).toBe(
 			'https://example.com/hbr-dark.svg'
 		);
-		expect([...container.querySelectorAll('.tricode')].map((t) => t.textContent?.trim())).toEqual([
-			'HBR',
-			'PVO'
-		]);
+		expect(container.querySelectorAll('.tricode')).toHaveLength(0);
+		expect(source).not.toContain('tricode');
 	});
 
 	it('draws the team logo in the strip mark', () => {
@@ -216,21 +224,23 @@ describe('HeroPlayerCard', () => {
 		expect(source).not.toContain('--identity-scrim');
 	});
 
-	it('darkens the photo toward the bottom with the cutout mask token', () => {
-		const img = rule(/\.cutout img\s*\{([^}]*)\}/);
-		expect(img).toContain('-webkit-mask-image: var(--hero-cutout-mask)');
-		expect(img).toMatch(/(^|[\s;])mask-image: var\(--hero-cutout-mask\)/);
+	it('fades the bottom of each slide with the slide mask token', () => {
+		const slide = rule(/\n\t\.slide \{([^}]*)\}/);
+		expect(slide).toContain('-webkit-mask-image: var(--hero-slide-mask)');
+		expect(slide).toMatch(/(^|[\s;])mask-image: var\(--hero-slide-mask\)/);
+		expect(source.match(/mask-image:/g)).toHaveLength(2);
+		expect(source).not.toContain('--hero-cutout-mask');
 	});
 
-	it('leaves the inner glow, the tricode and the logo layer unmasked', () => {
-		for (const layer of [
-			rule(/\.inner-glow\s*\{([^}]*)\}/),
-			rule(/\}\n\n\t\.tricode \{([^}]*)\}/),
-			rule(/\.logo-layer,\s*\.tricode\s*\{([^}]*)\}/),
-			rule(/\n\t\.logo-layer \{([^}]*)\}/)
-		]) {
-			expect(layer).not.toBe('');
-			expect(layer).not.toContain('mask-image');
-		}
+	it('draws the cutout image with the shade filter only and no mask', () => {
+		const img = rule(/\.cutout img\s*\{([^}]*)\}/);
+		expect(img).not.toBe('');
+		expect(img).not.toContain('mask-image');
+		expect([...img.matchAll(/filter:\s*([^;]+);/g)].map((m) => m[1].trim())).toEqual([
+			'var(--hero-cutout-shade)'
+		]);
+		expect(source).not.toMatch(/\.cutout\.active img/);
+		expect(source).not.toContain('--hero-cutout-filter');
+		expect(source).not.toContain('--hero-cutout-outline');
 	});
 });
