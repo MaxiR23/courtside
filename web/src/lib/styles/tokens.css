@@ -79,10 +79,9 @@
 	--hero-cutout-width: 172%;
 	--hero-cutout-clip: inset(-30% 0 0 0);
 	--hero-cutout-outline: drop-shadow(0 0 1px rgba(148, 188, 227, 0.35));
-	--hero-cutout-outline-off: drop-shadow(0 0 0 transparent);
 	--hero-cutout-shade: drop-shadow(0 30px 30px rgba(0, 0, 0, 0.7)) contrast(1.05);
 	--hero-cutout-filter: var(--hero-cutout-outline) var(--hero-cutout-shade);
-	--hero-cutout-mask: linear-gradient(to top, rgba(0, 0, 0, 0.05) 0%, #000 34%);
+	--hero-slide-mask: linear-gradient(to top, rgba(0, 0, 0, 0.05) 0%, #000 34%);
 	--hero-fade: linear-gradient(to top, rgba(12, 14, 16, 0.85), transparent);
 	--chip-bg: rgba(12, 14, 16, 0.82);
 	--progress-track-height: 2px;
@@ -180,9 +179,6 @@
 	--identity-card-logo-top: 6%;
 	--identity-card-logo-width: 84%;
 	--identity-card-logo-opacity: 0.22;
-	--identity-tricode-size: clamp(130px, 19vw, 232px);
-	--identity-tricode-leading: 0.8;
-	--identity-tricode-bottom: 17%;
 	--identity-strip-inset: 20px;
 	--identity-strip-bottom: 18px;
 	--identity-strip-mark: 36px;

@@ -98,18 +98,17 @@ Gap 28px between its blocks, in order:
 - Max-width 500px, aspect ratio 4:5, margin-top 40px.
 - The existing blueprint frame with the 4 corner marks. Background `#11161b` with a 44px grid at `rgba(235,232,227,.045)`. Shadow `0 50px 100px -24px rgba(0,0,0,.9)`. The inner layer has `overflow: hidden`.
 - Outer radial glow at inset `-18%`, in the active side's accent at 22% alpha.
-- Layers per slide, back to front, 1s crossfade (the cutout and its outline follow the Card layers row under Motion):
+- Layers per slide, back to front, 1s crossfade (the cutout follows the Card layers row under Motion):
 
 | Layer | Spec |
 |---|---|
 | Inner radial glow | Centered at 50% 60%, the accent at 30% alpha |
 | Team logo | Centered, top 6%, width 84%, `object-fit: contain`, opacity .22 |
-| Tricode | Barlow Condensed 700, `clamp(130px, 19vw, 232px)`, line-height .8, centered, bottom 17%, solid accent fill |
-| Player cutout | Bottom-anchored, centered, width 172%, `filter: drop-shadow(0 0 1px rgba(148,188,227,.35)) drop-shadow(0 30px 30px rgba(0,0,0,.7)) contrast(1.05)` |
-| Bottom fade | No separate element above the slides: the cutout image alone is masked toward the bottom with `linear-gradient(to top, rgba(0,0,0,.05) 0%, #000 34%)` (`-webkit-mask-image` and `mask-image`), so the frame fill shows through. The 34% stop is on the image box, which for 1040x760 photos is about as tall as the card (387 vs 385 at 390px, 626 vs 622.5 at 1280px), so the fade starts where the old scrim did; a photo of another aspect moves the band. The inner glow, the tricode and the logo layer carry no mask. When a photo fails and the placeholder replaces it, no dark band is drawn behind the strip: the mask is on the image only. A separate scrim layer draws a light line at the bottom edge in Safari during the photo change |
+| Player cutout | Bottom-anchored, centered, width 172%, `filter: drop-shadow(0 30px 30px rgba(0,0,0,.7)) contrast(1.05)` (no light outline in the hero) |
+| Bottom fade | No separate element above the slides: each slide (full card height, `inset: 0`) is masked toward the bottom with `linear-gradient(to top, rgba(0,0,0,.05) 0%, #000 34%)` (`-webkit-mask-image` and `mask-image`), so the frame fill shows through. The 34% stop is on the slide, where the old scrim started (33.8% of the card). A fade on the image alone lets the layers behind show through the photo, so the mask is on the whole slide. The cutout image, the inner glow and the logo layer carry no mask of their own. The strip is outside the slides and is not faded. When a photo fails, the placeholder is under the same slide mask. A separate scrim layer draws a light line at the bottom edge in Safari during the photo change |
 | Player strip | 20px from the sides, 18px from the bottom: a 36px `TeamMark`, the player name (Barlow Condensed 600, 26px, `letter-spacing: .04em`, uppercase) over "{City} {Team}" (12px, `letter-spacing: .12em`, uppercase, muted) |
 
-- The inactive slide sits at `translateY(24px) scale(.97)`. The logo and the tricode transition back over 1.2s `cubic-bezier(.2, .7, .1, 1)`.
+- The inactive slide sits at `translateY(24px) scale(.97)`. The logo transitions back over 1.2s `cubic-bezier(.2, .7, .1, 1)`.
 - Slides auto-advance every 5s, away then home. A new featured game starts at the away slide. The existing parallax may stay.
 - No review controls are built.
 
@@ -179,8 +178,8 @@ Behavior of `TeamMark`:
 | Selector click | Goes to that slide and restarts the 5s timer |
 | Selector track | 2px, fills in the side's accent over 5s linear |
 | Background word | 1.1s crossfade between slides |
-| Card layers | 1s crossfade between slides; the outgoing cutout fades out over .15s and its outline waits for the settle (see `docs/design.md`, Hero slide change) |
-| Inactive slide | `translateY(24px) scale(.97)`; logo and tricode return over 1.2s `cubic-bezier(.2, .7, .1, 1)` |
+| Card layers | 1s crossfade between slides; the outgoing cutout fades out over .15s (see `docs/design.md`, Hero slide change) |
+| Inactive slide | `translateY(24px) scale(.97)`; the logo returns over 1.2s `cubic-bezier(.2, .7, .1, 1)` |
 | Parallax | The existing parallax may stay |
 | Focus | `:focus-visible` as on the home; the selector buttons are keyboard operable |
 | Reduced motion | See Edge cases |
@@ -225,18 +224,15 @@ Added to `web/src/lib/styles/tokens.css` by the implementing issue. Values not l
 | `--identity-card-logo-top` | 6% | Card logo layer |
 | `--identity-card-logo-width` | 84% | Card logo layer |
 | `--identity-card-logo-opacity` | .22 | Card logo layer |
-| `--identity-tricode-size` | `clamp(130px, 19vw, 232px)` | Tricode |
-| `--identity-tricode-leading` | .8 | Tricode |
-| `--identity-tricode-bottom` | 17% | Tricode |
-| `--hero-cutout-mask` | `linear-gradient(to top, rgba(0, 0, 0, 0.05) 0%, #000 34%)` | Bottom fade of the cutout image |
+| `--hero-slide-mask` | `linear-gradient(to top, rgba(0, 0, 0, 0.05) 0%, #000 34%)` | Bottom fade of each slide |
 | `--identity-strip-inset` | 20px | Player strip sides |
 | `--identity-strip-bottom` | 18px | Player strip |
 | `--identity-strip-mark` | 36px | Logo in the strip |
 | `--identity-strip-name-size` | 26px | Player name |
 | `--identity-strip-name-tracking` | .04em | Player name |
 | `--identity-strip-team-tracking` | .12em | City and team |
-| `--identity-settle-duration` | 1.2s | Logo and tricode return |
-| `--font-weight-bold` | 700 | Tricode |
+| `--identity-settle-duration` | 1.2s | Logo return |
+| `--font-weight-bold` | 700 | Bold weight, a shared type token (the hero no longer uses it) |
 
 Rows of the specification that map to existing tokens, or that change an existing token that only the hero uses:
 
@@ -255,7 +251,7 @@ Rows of the specification that map to existing tokens, or that change an existin
 | Outer glow inset -18% | `calc(-1 * var(--accent-glow-extent))` |
 | Layers crossfade 1s | `--hero-crossfade-duration` |
 | Outgoing cutout fade .15s | `--hero-crossfade-out-duration` |
-| Cutout width and filter | `--hero-cutout-width`, `--hero-cutout-filter` (`--hero-cutout-outline`, `--hero-cutout-outline-off`, `--hero-cutout-shade`) |
+| Cutout width and shade | `--hero-cutout-width`, `--hero-cutout-shade` |
 | Inactive slide `translateY(24px) scale(.97)` | `--hero-slide-offset`, `--hero-slide-scale` (values changed) |
 | Settle easing | `--ease` |
 | City and team size 12px | `--caption-size` |

@@ -20,7 +20,6 @@ export type CrossfadeParams = {
 	durationToken: string;
 	delayToken?: string; // when set, the hidden look also holds during the delay
 	outDurationToken?: string; // when set, the fade out runs over this token instead of durationToken
-	instantOut?: boolean; // when set, going inactive does not animate: the CSS hidden look applies at once
 };
 
 /** Converts a CSS time such as "1s", "0.5s" or "500ms" to milliseconds. */
@@ -70,10 +69,6 @@ export function crossfade(node: HTMLElement, initial: CrossfadeParams) {
 			const read = reader(node);
 			const hidden = next.hidden(read);
 			running?.cancel();
-			if (!active && next.instantOut) {
-				running = undefined;
-				return;
-			}
 			running = node.animate(active ? [hidden, next.shown] : [next.shown, hidden], {
 				duration: parseMs(
 					read(!active && next.outDurationToken ? next.outDurationToken : next.durationToken)
